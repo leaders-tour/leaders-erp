@@ -1,0 +1,27 @@
+type Activity {
+  id: ID!
+  timeBlockId: String!
+  description: String!
+  orderIndex: Int!
+  isOptional: Boolean!
+  conditionNote: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  timeBlock: TimeBlock!
+}
+
+input ActivityCreateInput {
+  timeBlockId: String!
+  description: String!
+  orderIndex: Int!
+  isOptional: Boolean
+  conditionNote: String
+}
+
+input ActivityUpdateInput {
+  timeBlockId: String
+  description: String
+  orderIndex: Int
+  isOptional: Boolean
+  conditionNote: String
+}

@@ -1,0 +1,15 @@
+mutation CreateTimeBlock($input: TimeBlockCreateInput!) {
+  createTimeBlock(input: $input) {
+    id
+  }
+}
+
+mutation UpdateTimeBlock($id: ID!, $input: TimeBlockUpdateInput!) {
+  updateTimeBlock(id: $id, input: $input) {
+    id
+  }
+}
+
+mutation DeleteTimeBlock($id: ID!) {
+  deleteTimeBlock(id: $id)
+}

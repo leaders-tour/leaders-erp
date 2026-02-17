@@ -1,0 +1,27 @@
+type Location {
+  id: ID!
+  regionId: String!
+  name: String!
+  defaultLodgingType: String!
+  latitude: Float
+  longitude: Float
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  region: Region!
+}
+
+input LocationCreateInput {
+  regionId: String!
+  name: String!
+  defaultLodgingType: String!
+  latitude: Float
+  longitude: Float
+}
+
+input LocationUpdateInput {
+  regionId: String
+  name: String
+  defaultLodgingType: String
+  latitude: Float
+  longitude: Float
+}

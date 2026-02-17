@@ -1,0 +1,10 @@
+query Activities {
+  activities {
+    id
+    timeBlockId
+    description
+    orderIndex
+    isOptional
+    conditionNote
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "@tour/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "lint": "eslint 'src/**/*.ts'",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@apollo/server": "^4.11.0",
+    "@as-integrations/express5": "^1.1.2",
+    "@prisma/client": "^5.19.1",
+    "@tour/domain": "workspace:*",
+    "@tour/validation": "workspace:*",
+    "cors": "^2.8.5",
+    "express": "^5.0.0",
+    "graphql": "^16.9.0",
+    "graphql-tag": "^2.12.6",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.7.5",
+    "eslint": "^9.11.1",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.2"
+  }
+}

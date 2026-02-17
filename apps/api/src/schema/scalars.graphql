@@ -1,0 +1,12 @@
+enum VariantType {
+  basic
+  early
+  afternoon
+  extend
+}
+
+enum OverrideTargetType {
+  DayPlan
+  TimeBlock
+  Activity
+}

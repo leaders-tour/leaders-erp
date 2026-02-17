@@ -1,0 +1,20 @@
+type Region {
+  id: ID!
+  name: String!
+  description: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  locations: [Location!]!
+  segments: [Segment!]!
+  plans: [Plan!]!
+}
+
+input RegionCreateInput {
+  name: String!
+  description: String
+}
+
+input RegionUpdateInput {
+  name: String
+  description: String
+}

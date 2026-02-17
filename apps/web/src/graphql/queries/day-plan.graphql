@@ -1,0 +1,12 @@
+query DayPlans {
+  dayPlans {
+    id
+    planId
+    dayIndex
+    fromLocationId
+    toLocationId
+    distanceText
+    lodgingText
+    mealsText
+  }
+}

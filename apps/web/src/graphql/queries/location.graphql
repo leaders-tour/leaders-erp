@@ -1,0 +1,10 @@
+query Locations {
+  locations {
+    id
+    regionId
+    name
+    defaultLodgingType
+    latitude
+    longitude
+  }
+}

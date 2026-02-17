@@ -1,0 +1,25 @@
+type TimeBlock {
+  id: ID!
+  dayPlanId: String!
+  startTime: String!
+  label: String!
+  orderIndex: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  dayPlan: DayPlan!
+  activities: [Activity!]!
+}
+
+input TimeBlockCreateInput {
+  dayPlanId: String!
+  startTime: String!
+  label: String!
+  orderIndex: Int!
+}
+
+input TimeBlockUpdateInput {
+  dayPlanId: String
+  startTime: String
+  label: String
+  orderIndex: Int
+}

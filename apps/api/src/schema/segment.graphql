@@ -1,0 +1,29 @@
+type Segment {
+  id: ID!
+  regionId: String!
+  fromLocationId: String!
+  toLocationId: String!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  region: Region!
+  fromLocation: Location!
+  toLocation: Location!
+}
+
+input SegmentCreateInput {
+  regionId: String!
+  fromLocationId: String!
+  toLocationId: String!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+}
+
+input SegmentUpdateInput {
+  regionId: String
+  fromLocationId: String
+  toLocationId: String
+  averageDistanceKm: Float
+  averageTravelHours: Float
+}

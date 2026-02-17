@@ -1,0 +1,5 @@
+fragment RegionFields on Region {
+  id
+  name
+  description
+}

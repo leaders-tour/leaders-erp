@@ -1,0 +1,10 @@
+query Segments {
+  segments {
+    id
+    regionId
+    fromLocationId
+    toLocationId
+    averageDistanceKm
+    averageTravelHours
+  }
+}

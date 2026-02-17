@@ -1,0 +1,10 @@
+query Overrides {
+  overrides {
+    id
+    planId
+    targetType
+    targetId
+    fieldName
+    value
+  }
+}

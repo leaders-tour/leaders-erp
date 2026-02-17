@@ -1,0 +1,15 @@
+mutation CreatePlan($input: PlanCreateInput!) {
+  createPlan(input: $input) {
+    id
+  }
+}
+
+mutation UpdatePlan($id: ID!, $input: PlanUpdateInput!) {
+  updatePlan(id: $id, input: $input) {
+    id
+  }
+}
+
+mutation DeletePlan($id: ID!) {
+  deletePlan(id: $id)
+}

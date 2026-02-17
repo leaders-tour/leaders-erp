@@ -1,0 +1,55 @@
+scalar DateTime
+
+type Query {
+  health: String!
+  regions: [Region!]!
+  region(id: ID!): Region
+  locations: [Location!]!
+  location(id: ID!): Location
+  segments: [Segment!]!
+  segment(id: ID!): Segment
+  plans: [Plan!]!
+  plan(id: ID!): Plan
+  dayPlans: [DayPlan!]!
+  dayPlan(id: ID!): DayPlan
+  timeBlocks: [TimeBlock!]!
+  timeBlock(id: ID!): TimeBlock
+  activities: [Activity!]!
+  activity(id: ID!): Activity
+  overrides: [Override!]!
+  override(id: ID!): Override
+}
+
+type Mutation {
+  createRegion(input: RegionCreateInput!): Region!
+  updateRegion(id: ID!, input: RegionUpdateInput!): Region!
+  deleteRegion(id: ID!): Boolean!
+
+  createLocation(input: LocationCreateInput!): Location!
+  updateLocation(id: ID!, input: LocationUpdateInput!): Location!
+  deleteLocation(id: ID!): Boolean!
+
+  createSegment(input: SegmentCreateInput!): Segment!
+  updateSegment(id: ID!, input: SegmentUpdateInput!): Segment!
+  deleteSegment(id: ID!): Boolean!
+
+  createPlan(input: PlanCreateInput!): Plan!
+  updatePlan(id: ID!, input: PlanUpdateInput!): Plan!
+  deletePlan(id: ID!): Boolean!
+
+  createDayPlan(input: DayPlanCreateInput!): DayPlan!
+  updateDayPlan(id: ID!, input: DayPlanUpdateInput!): DayPlan!
+  deleteDayPlan(id: ID!): Boolean!
+
+  createTimeBlock(input: TimeBlockCreateInput!): TimeBlock!
+  updateTimeBlock(id: ID!, input: TimeBlockUpdateInput!): TimeBlock!
+  deleteTimeBlock(id: ID!): Boolean!
+
+  createActivity(input: ActivityCreateInput!): Activity!
+  updateActivity(id: ID!, input: ActivityUpdateInput!): Activity!
+  deleteActivity(id: ID!): Boolean!
+
+  createOverride(input: OverrideCreateInput!): Override!
+  updateOverride(id: ID!, input: OverrideUpdateInput!): Override!
+  deleteOverride(id: ID!): Boolean!
+}

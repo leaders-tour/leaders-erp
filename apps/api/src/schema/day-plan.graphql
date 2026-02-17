@@ -1,0 +1,34 @@
+type DayPlan {
+  id: ID!
+  planId: String!
+  dayIndex: Int!
+  fromLocationId: String!
+  toLocationId: String!
+  distanceText: String!
+  lodgingText: String!
+  mealsText: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  plan: Plan!
+  timeBlocks: [TimeBlock!]!
+}
+
+input DayPlanCreateInput {
+  planId: String!
+  dayIndex: Int!
+  fromLocationId: String!
+  toLocationId: String!
+  distanceText: String!
+  lodgingText: String!
+  mealsText: String!
+}
+
+input DayPlanUpdateInput {
+  planId: String
+  dayIndex: Int
+  fromLocationId: String
+  toLocationId: String
+  distanceText: String
+  lodgingText: String
+  mealsText: String
+}

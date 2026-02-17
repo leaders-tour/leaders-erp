@@ -1,0 +1,15 @@
+mutation CreateActivity($input: ActivityCreateInput!) {
+  createActivity(input: $input) {
+    id
+  }
+}
+
+mutation UpdateActivity($id: ID!, $input: ActivityUpdateInput!) {
+  updateActivity(id: $id, input: $input) {
+    id
+  }
+}
+
+mutation DeleteActivity($id: ID!) {
+  deleteActivity(id: $id)
+}

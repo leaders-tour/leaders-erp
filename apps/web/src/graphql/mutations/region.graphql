@@ -1,0 +1,15 @@
+mutation CreateRegion($input: RegionCreateInput!) {
+  createRegion(input: $input) {
+    id
+  }
+}
+
+mutation UpdateRegion($id: ID!, $input: RegionUpdateInput!) {
+  updateRegion(id: $id, input: $input) {
+    id
+  }
+}
+
+mutation DeleteRegion($id: ID!) {
+  deleteRegion(id: $id)
+}

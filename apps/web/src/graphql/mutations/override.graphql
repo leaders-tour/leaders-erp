@@ -1,0 +1,15 @@
+mutation CreateOverride($input: OverrideCreateInput!) {
+  createOverride(input: $input) {
+    id
+  }
+}
+
+mutation UpdateOverride($id: ID!, $input: OverrideUpdateInput!) {
+  updateOverride(id: $id, input: $input) {
+    id
+  }
+}
+
+mutation DeleteOverride($id: ID!) {
+  deleteOverride(id: $id)
+}

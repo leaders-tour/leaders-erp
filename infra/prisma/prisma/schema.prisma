@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum VariantType {
+  basic
+  early
+  afternoon
+  extend
+}
+
+enum OverrideTargetType {
+  DayPlan
+  TimeBlock
+  Activity
+}
+
+model Region {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+
+  locations Location[]
+  segments  Segment[]
+  plans     Plan[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Location {
+  id                 String  @id @default(cuid())
+  regionId           String
+  name               String
+  defaultLodgingType String
+  latitude           Float?
+  longitude          Float?
+
+  region       Region    @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  fromSegments Segment[] @relation("FromLocation")
+  toSegments   Segment[] @relation("ToLocation")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([regionId])
+}
+
+model Segment {
+  id                 String @id @default(cuid())
+  regionId           String
+  fromLocationId     String
+  toLocationId       String
+  averageDistanceKm  Float
+  averageTravelHours Float
+
+  region       Region   @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  fromLocation Location @relation("FromLocation", fields: [fromLocationId], references: [id])
+  toLocation   Location @relation("ToLocation", fields: [toLocationId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([regionId])
+  @@unique([fromLocationId, toLocationId])
+}
+
+model Plan {
+  id          String      @id @default(cuid())
+  regionId    String
+  variantType VariantType
+  totalDays   Int
+
+  region    Region     @relation(fields: [regionId], references: [id])
+  dayPlans  DayPlan[]
+  overrides Override[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([regionId])
+}
+
+model DayPlan {
+  id             String @id @default(cuid())
+  planId         String
+  dayIndex       Int
+  fromLocationId String
+  toLocationId   String
+  distanceText   String
+  lodgingText    String
+  mealsText      String
+
+  plan       Plan        @relation(fields: [planId], references: [id], onDelete: Cascade)
+  timeBlocks TimeBlock[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([planId])
+  @@unique([planId, dayIndex])
+}
+
+model TimeBlock {
+  id         String @id @default(cuid())
+  dayPlanId  String
+  startTime  String
+  label      String
+  orderIndex Int
+
+  dayPlan    DayPlan     @relation(fields: [dayPlanId], references: [id], onDelete: Cascade)
+  activities Activity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dayPlanId])
+  @@unique([dayPlanId, orderIndex])
+}
+
+model Activity {
+  id            String  @id @default(cuid())
+  timeBlockId   String
+  description   String
+  orderIndex    Int
+  isOptional    Boolean @default(false)
+  conditionNote String?
+
+  timeBlock TimeBlock @relation(fields: [timeBlockId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([timeBlockId])
+  @@unique([timeBlockId, orderIndex])
+}
+
+model Override {
+  id         String             @id @default(cuid())
+  planId     String
+  targetType OverrideTargetType
+  targetId   String
+  fieldName  String
+  value      String
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([planId])
+}

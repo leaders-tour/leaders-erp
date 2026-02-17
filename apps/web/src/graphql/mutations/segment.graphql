@@ -1,0 +1,15 @@
+mutation CreateSegment($input: SegmentCreateInput!) {
+  createSegment(input: $input) {
+    id
+  }
+}
+
+mutation UpdateSegment($id: ID!, $input: SegmentUpdateInput!) {
+  updateSegment(id: $id, input: $input) {
+    id
+  }
+}
+
+mutation DeleteSegment($id: ID!) {
+  deleteSegment(id: $id)
+}

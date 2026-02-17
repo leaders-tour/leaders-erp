@@ -1,0 +1,15 @@
+mutation CreateLocation($input: LocationCreateInput!) {
+  createLocation(input: $input) {
+    id
+  }
+}
+
+mutation UpdateLocation($id: ID!, $input: LocationUpdateInput!) {
+  updateLocation(id: $id, input: $input) {
+    id
+  }
+}
+
+mutation DeleteLocation($id: ID!) {
+  deleteLocation(id: $id)
+}

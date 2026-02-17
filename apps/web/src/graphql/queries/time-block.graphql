@@ -1,0 +1,9 @@
+query TimeBlocks {
+  timeBlocks {
+    id
+    dayPlanId
+    startTime
+    label
+    orderIndex
+  }
+}

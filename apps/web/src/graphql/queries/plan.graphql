@@ -1,0 +1,8 @@
+query Plans {
+  plans {
+    id
+    regionId
+    variantType
+    totalDays
+  }
+}
