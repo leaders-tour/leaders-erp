@@ -8,8 +8,8 @@ import { regionResolver } from '../modules/region/region.resolver';
 import { segmentResolver } from '../modules/segment/segment.resolver';
 import { timeBlockResolver } from '../modules/time-block/time-block.resolver';
 
-function mergeSection<T extends Record<string, unknown>>(...items: T[]): T {
-  return items.reduce((acc, current) => ({ ...acc, ...current }), {} as T);
+function mergeSection(...items: Array<Record<string, unknown>>): Record<string, unknown> {
+  return items.reduce<Record<string, unknown>>((acc, current) => ({ ...acc, ...current }), {});
 }
 
 const dateTimeScalar = new GraphQLScalarType({

@@ -14,7 +14,11 @@ export async function createApp(): Promise<express.Express> {
     typeDefs,
     resolvers,
     formatError: (formattedError, error) => {
-      const extensions = toGraphQLErrorExtensions(error.originalError);
+      const originalError =
+        typeof error === 'object' && error !== null && 'originalError' in error
+          ? (error as { originalError?: unknown }).originalError
+          : undefined;
+      const extensions = toGraphQLErrorExtensions(originalError);
       return {
         ...formattedError,
         extensions: {

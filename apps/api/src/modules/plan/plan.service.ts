@@ -28,6 +28,9 @@ export class PlanService {
     for (let index = 1; index < input.dayPlans.length; index += 1) {
       const previous = input.dayPlans[index - 1];
       const current = input.dayPlans[index];
+      if (!previous || !current) {
+        continue;
+      }
       if (previous.toLocationId !== current.fromLocationId) {
         throw new DomainError('ROUTE_INVALID', 'DayPlan chain is not continuous');
       }

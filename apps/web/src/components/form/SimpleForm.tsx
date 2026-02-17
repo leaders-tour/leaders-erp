@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Card, FormField, Input } from '@tour/ui';
-import { useForm } from 'react-hook-form';
+import { useForm, type Path } from 'react-hook-form';
 import type { z } from 'zod';
 
 export interface FormFieldConfig<TSchema extends z.ZodTypeAny> {
@@ -45,7 +45,7 @@ export function SimpleForm<TSchema extends z.ZodTypeAny>({
           <FormField key={field.name} label={field.label}>
             <Input
               type={field.type ?? 'text'}
-              {...form.register(field.name, {
+              {...form.register(field.name as Path<z.infer<TSchema>>, {
                 setValueAs:
                   field.type === 'number'
                     ? (input: string) => {
