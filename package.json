@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "packageManager": "pnpm@9.12.2",
   "scripts": {
+    "start": "pnpm --parallel --filter @tour/api --filter @tour/web dev",
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",
     "lint": "pnpm -r lint",
