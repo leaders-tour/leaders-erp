@@ -21,7 +21,7 @@ enum OverrideTargetType {
 }
 
 model Region {
-  id          String     @id @default(cuid())
+  id          String     @id @default(uuid(7))
   name        String
   description String?
 
@@ -34,7 +34,7 @@ model Region {
 }
 
 model Location {
-  id                 String  @id @default(cuid())
+  id                 String  @id @default(uuid(7))
   regionId           String
   name               String
   defaultLodgingType String
@@ -52,7 +52,7 @@ model Location {
 }
 
 model Segment {
-  id                 String @id @default(cuid())
+  id                 String @id @default(uuid(7))
   regionId           String
   fromLocationId     String
   toLocationId       String
@@ -71,7 +71,7 @@ model Segment {
 }
 
 model Plan {
-  id          String      @id @default(cuid())
+  id          String      @id @default(uuid(7))
   regionId    String
   variantType VariantType
   totalDays   Int
@@ -87,7 +87,7 @@ model Plan {
 }
 
 model DayPlan {
-  id             String @id @default(cuid())
+  id             String @id @default(uuid(7))
   planId         String
   dayIndex       Int
   fromLocationId String
@@ -107,7 +107,7 @@ model DayPlan {
 }
 
 model TimeBlock {
-  id         String @id @default(cuid())
+  id         String @id @default(uuid(7))
   dayPlanId  String
   startTime  String
   label      String
@@ -124,7 +124,7 @@ model TimeBlock {
 }
 
 model Activity {
-  id            String  @id @default(cuid())
+  id            String  @id @default(uuid(7))
   timeBlockId   String
   description   String
   orderIndex    Int
@@ -141,7 +141,7 @@ model Activity {
 }
 
 model Override {
-  id         String             @id @default(cuid())
+  id         String             @id @default(uuid(7))
   planId     String
   targetType OverrideTargetType
   targetId   String
