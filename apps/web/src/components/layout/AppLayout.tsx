@@ -2,6 +2,7 @@ import { PageShell } from '@tour/ui';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
 const navItems = [
+  { path: '/itinerary-builder', label: 'Builder' },
   { path: '/regions', label: 'Regions' },
   { path: '/locations', label: 'Locations' },
   { path: '/segments', label: 'Segments' },

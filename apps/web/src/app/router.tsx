@@ -2,6 +2,7 @@ import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
 import { ActivityPage } from '../pages/ActivityPage';
 import { DayPlanPage } from '../pages/DayPlanPage';
+import { ItineraryBuilderPage } from '../pages/ItineraryBuilderPage';
 import { LocationPage } from '../pages/LocationPage';
 import { OverridePage } from '../pages/OverridePage';
 import { PlanPage } from '../pages/PlanPage';
@@ -14,7 +15,8 @@ export const router = createBrowserRouter([
     path: '/',
     element: <AppLayout />,
     children: [
-      { index: true, element: <Navigate to="/regions" replace /> },
+      { index: true, element: <Navigate to="/itinerary-builder" replace /> },
+      { path: 'itinerary-builder', element: <ItineraryBuilderPage /> },
       { path: 'regions', element: <RegionPage /> },
       { path: 'locations', element: <LocationPage /> },
       { path: 'segments', element: <SegmentPage /> },
