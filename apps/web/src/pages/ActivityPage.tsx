@@ -16,21 +16,21 @@ export function ActivityPage(): JSX.Element {
 
   return (
     <CrudScreen<Activity, typeof schema>
-      title="Activity"
+      title="활동"
       rows={crud.rows}
       loading={crud.loading}
       schema={schema}
       fields={[
-        { name: 'timeBlockId', label: 'TimeBlock ID' },
-        { name: 'description', label: 'Description' },
-        { name: 'orderIndex', label: 'Order Index', type: 'number' },
-        { name: 'isOptional', label: 'Is Optional (true/false)' },
-        { name: 'conditionNote', label: 'Condition Note' },
+        { name: 'timeBlockId', label: '시간 블록 ID' },
+        { name: 'description', label: '설명' },
+        { name: 'orderIndex', label: '순서', type: 'number' },
+        { name: 'isOptional', label: '선택 활동 여부 (true/false)' },
+        { name: 'conditionNote', label: '조건 메모' },
       ]}
       columns={[
         { key: 'id', label: 'ID' },
-        { key: 'timeBlockId', label: 'TimeBlock ID' },
-        { key: 'description', label: 'Description' },
+        { key: 'timeBlockId', label: '시간 블록 ID' },
+        { key: 'description', label: '설명' },
       ]}
       createDefaultValues={{ timeBlockId: '', description: '', orderIndex: 0, isOptional: 'false', conditionNote: '' }}
       toUpdateValues={(row) => ({

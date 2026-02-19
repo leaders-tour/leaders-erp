@@ -7,6 +7,7 @@ const LIST = gql`
     locations {
       id
       regionId
+      regionName
       name
       defaultLodgingType
       latitude

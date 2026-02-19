@@ -16,22 +16,22 @@ export function SegmentPage(): JSX.Element {
 
   return (
     <CrudScreen<Segment, typeof schema>
-      title="Segment"
+      title="이동경로"
       rows={crud.rows}
       loading={crud.loading}
       schema={schema}
       fields={[
-        { name: 'regionId', label: 'Region ID' },
-        { name: 'fromLocationId', label: 'From Location ID' },
-        { name: 'toLocationId', label: 'To Location ID' },
-        { name: 'averageDistanceKm', label: 'Average Distance Km', type: 'number' },
-        { name: 'averageTravelHours', label: 'Average Travel Hours', type: 'number' },
+        { name: 'regionId', label: '지역 ID' },
+        { name: 'fromLocationId', label: '출발 목적지 ID' },
+        { name: 'toLocationId', label: '도착 목적지 ID' },
+        { name: 'averageDistanceKm', label: '평균 거리(km)', type: 'number' },
+        { name: 'averageTravelHours', label: '평균 이동 시간(시간)', type: 'number' },
       ]}
       columns={[
         { key: 'id', label: 'ID' },
-        { key: 'regionId', label: 'Region ID' },
-        { key: 'fromLocationId', label: 'From' },
-        { key: 'toLocationId', label: 'To' },
+        { key: 'regionName', label: '지역' },
+        { key: 'fromLocationId', label: '출발지' },
+        { key: 'toLocationId', label: '도착지' },
       ]}
       createDefaultValues={{
         regionId: '',

@@ -2,6 +2,7 @@ query Locations {
   locations {
     id
     regionId
+    regionName
     name
     defaultLodgingType
     latitude

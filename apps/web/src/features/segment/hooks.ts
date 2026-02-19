@@ -7,6 +7,7 @@ const LIST = gql`
     segments {
       id
       regionId
+      regionName
       fromLocationId
       toLocationId
       averageDistanceKm

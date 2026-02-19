@@ -7,7 +7,7 @@ import type { SegmentCreateDto, SegmentUpdateDto } from './segment.types';
 export class SegmentService {
   private readonly repository: SegmentRepository;
 
-  constructor(prisma: PrismaClient) {
+  constructor(private readonly prisma: PrismaClient) {
     this.repository = new SegmentRepository(prisma);
   }
 
@@ -19,22 +19,42 @@ export class SegmentService {
     return this.repository.findById(id);
   }
 
-  create(input: SegmentCreateDto) {
+  async create(input: SegmentCreateDto) {
     const parsed = segmentCreateSchema.safeParse(input);
     if (!parsed.success) {
       throw new DomainError('VALIDATION_FAILED', 'Invalid segment input');
     }
 
-    return this.repository.create(parsed.data);
+    const region = await this.prisma.region.findUnique({
+      where: { id: parsed.data.regionId },
+      select: { name: true },
+    });
+    if (!region) {
+      throw new DomainError('VALIDATION_FAILED', 'Region not found for segment');
+    }
+
+    return this.repository.create({ ...parsed.data, regionName: region.name });
   }
 
-  update(id: string, input: SegmentUpdateDto) {
+  async update(id: string, input: SegmentUpdateDto) {
     const parsed = segmentUpdateSchema.safeParse(input);
     if (!parsed.success) {
       throw new DomainError('VALIDATION_FAILED', 'Invalid segment update input');
     }
 
-    return this.repository.update(id, parsed.data);
+    if (!parsed.data.regionId) {
+      return this.repository.update(id, parsed.data);
+    }
+
+    const region = await this.prisma.region.findUnique({
+      where: { id: parsed.data.regionId },
+      select: { name: true },
+    });
+    if (!region) {
+      throw new DomainError('VALIDATION_FAILED', 'Region not found for segment update');
+    }
+
+    return this.repository.update(id, { ...parsed.data, regionName: region.name });
   }
 
   delete(id: string) {

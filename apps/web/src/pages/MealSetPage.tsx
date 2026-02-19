@@ -21,7 +21,7 @@ export function MealSetPage(): JSX.Element {
       loading={crud.loading}
       schema={schema}
       fields={[
-        { name: 'locationId', label: 'Location ID' },
+        { name: 'locationId', label: '목적지 ID' },
         { name: 'setName', label: '세트명' },
         { name: 'breakfast', label: '아침' },
         { name: 'lunch', label: '점심' },

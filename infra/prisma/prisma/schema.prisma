@@ -36,6 +36,7 @@ model Region {
 model Location {
   id                 String  @id @default(uuid(7))
   regionId           String
+  regionName         String
   name               String
   defaultLodgingType String
   latitude           Float?
@@ -56,6 +57,7 @@ model Location {
 model Segment {
   id                 String @id @default(uuid(7))
   regionId           String
+  regionName         String
   fromLocationId     String
   toLocationId       String
   averageDistanceKm  Float

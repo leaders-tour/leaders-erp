@@ -13,18 +13,18 @@ export function RegionPage(): JSX.Element {
 
   return (
     <CrudScreen<Region, typeof schema>
-      title="Region"
+      title="지역"
       rows={crud.rows}
       loading={crud.loading}
       schema={schema}
       fields={[
-        { name: 'name', label: 'Name' },
-        { name: 'description', label: 'Description' },
+        { name: 'name', label: '지역명' },
+        { name: 'description', label: '설명' },
       ]}
       columns={[
         { key: 'id', label: 'ID' },
-        { key: 'name', label: 'Name' },
-        { key: 'description', label: 'Description' },
+        { key: 'name', label: '지역명' },
+        { key: 'description', label: '설명' },
       ]}
       createDefaultValues={{ name: '', description: '' }}
       toUpdateValues={(row) => ({ name: row.name, description: row.description ?? '' })}

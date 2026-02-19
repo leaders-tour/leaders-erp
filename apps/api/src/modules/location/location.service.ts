@@ -26,7 +26,23 @@ export class LocationService {
       throw new DomainError('VALIDATION_FAILED', 'Invalid location input');
     }
 
-    return this.repository.create(parsed.data);
+    return this.prisma.$transaction(async (tx) => {
+      const region = await tx.region.findUnique({
+        where: { id: parsed.data.regionId },
+        select: { name: true },
+      });
+      if (!region) {
+        throw new DomainError('VALIDATION_FAILED', 'Region not found for location');
+      }
+
+      return tx.location.create({
+        data: {
+          ...parsed.data,
+          regionName: region.name,
+        },
+        include: locationInclude,
+      });
+    });
   }
 
   async update(id: string, input: LocationUpdateDto) {
@@ -35,25 +51,40 @@ export class LocationService {
       throw new DomainError('VALIDATION_FAILED', 'Invalid location update input');
     }
 
-    if (!parsed.data.name) {
-      return this.repository.update(id, parsed.data);
-    }
-
     return this.prisma.$transaction(async (tx) => {
+      const nextRegionId = parsed.data.regionId;
+      let nextRegionName: string | undefined;
+
+      if (nextRegionId) {
+        const nextRegion = await tx.region.findUnique({
+          where: { id: nextRegionId },
+          select: { name: true },
+        });
+        if (!nextRegion) {
+          throw new DomainError('VALIDATION_FAILED', 'Region not found for location update');
+        }
+        nextRegionName = nextRegion.name;
+      }
+
       const updated = await tx.location.update({
         where: { id },
-        data: parsed.data,
+        data: {
+          ...parsed.data,
+          ...(nextRegionName ? { regionName: nextRegionName } : {}),
+        },
         include: locationInclude,
       });
 
-      await tx.lodging.updateMany({
-        where: { locationId: id },
-        data: { locationNameSnapshot: updated.name },
-      });
-      await tx.mealSet.updateMany({
-        where: { locationId: id },
-        data: { locationNameSnapshot: updated.name },
-      });
+      if (parsed.data.name) {
+        await tx.lodging.updateMany({
+          where: { locationId: id },
+          data: { locationNameSnapshot: updated.name },
+        });
+        await tx.mealSet.updateMany({
+          where: { locationId: id },
+          data: { locationNameSnapshot: updated.name },
+        });
+      }
 
       return updated;
     });

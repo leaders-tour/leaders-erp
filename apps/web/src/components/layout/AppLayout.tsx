@@ -2,13 +2,13 @@ import { PageShell } from '@tour/ui';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
 const navItems = [
-  { path: '/itinerary-builder', label: 'Builder' },
+  { path: '/itinerary-builder', label: '일정 빌더' },
   { path: '/regions', label: '지역' },
   { path: '/locations', label: '목적지' },
   { path: '/lodgings', label: '숙소' },
   { path: '/meal-sets', label: '식사세트' },
   { path: '/segments', label: '이동경로' },
-  { path: '/time-blocks', label: 'TimeBlocks' },
+  { path: '/time-blocks', label: '시간 블록' },
   { path: '/activities', label: '활동' },
 ];
 

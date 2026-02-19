@@ -13,11 +13,11 @@ export class LocationRepository {
     return this.prisma.location.findUnique({ where: { id }, include: locationInclude });
   }
 
-  create(data: LocationCreateDto) {
+  create(data: LocationCreateDto & { regionName: string }) {
     return this.prisma.location.create({ data, include: locationInclude });
   }
 
-  update(id: string, data: LocationUpdateDto) {
+  update(id: string, data: LocationUpdateDto & { regionName?: string }) {
     return this.prisma.location.update({ where: { id }, data, include: locationInclude });
   }
 

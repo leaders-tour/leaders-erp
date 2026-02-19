@@ -16,21 +16,21 @@ export function LocationPage(): JSX.Element {
 
   return (
     <CrudScreen<Location, typeof schema>
-      title="Location"
+      title="목적지"
       rows={crud.rows}
       loading={crud.loading}
       schema={schema}
       fields={[
-        { name: 'regionId', label: 'Region ID' },
-        { name: 'name', label: 'Name' },
-        { name: 'defaultLodgingType', label: 'Default Lodging Type' },
-        { name: 'latitude', label: 'Latitude', type: 'number' },
-        { name: 'longitude', label: 'Longitude', type: 'number' },
+        { name: 'regionId', label: '지역 ID' },
+        { name: 'name', label: '목적지명' },
+        { name: 'defaultLodgingType', label: '기본 숙소 유형' },
+        { name: 'latitude', label: '위도', type: 'number' },
+        { name: 'longitude', label: '경도', type: 'number' },
       ]}
       columns={[
         { key: 'id', label: 'ID' },
-        { key: 'regionId', label: 'Region ID' },
-        { key: 'name', label: 'Name' },
+        { key: 'regionName', label: '지역' },
+        { key: 'name', label: '목적지명' },
       ]}
       createDefaultValues={{ regionId: '', name: '', defaultLodgingType: '', latitude: 0, longitude: 0 }}
       toUpdateValues={(row) => ({

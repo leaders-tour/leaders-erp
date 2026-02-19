@@ -1,6 +1,7 @@
 type Location {
   id: ID!
   regionId: String!
+  regionName: String!
   name: String!
   defaultLodgingType: String!
   latitude: Float

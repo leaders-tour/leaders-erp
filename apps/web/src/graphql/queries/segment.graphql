@@ -2,6 +2,7 @@ query Segments {
   segments {
     id
     regionId
+    regionName
     fromLocationId
     toLocationId
     averageDistanceKm

@@ -19,7 +19,7 @@ export function LodgingPage(): JSX.Element {
       loading={crud.loading}
       schema={schema}
       fields={[
-        { name: 'locationId', label: 'Location ID' },
+        { name: 'locationId', label: '목적지 ID' },
         { name: 'name', label: '숙소명' },
         { name: 'specialNotes', label: '특이사항' },
       ]}

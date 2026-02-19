@@ -1,6 +1,7 @@
 type Segment {
   id: ID!
   regionId: String!
+  regionName: String!
   fromLocationId: String!
   toLocationId: String!
   averageDistanceKm: Float!

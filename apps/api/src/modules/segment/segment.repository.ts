@@ -13,11 +13,11 @@ export class SegmentRepository {
     return this.prisma.segment.findUnique({ where: { id }, include: segmentInclude });
   }
 
-  create(data: SegmentCreateDto) {
+  create(data: SegmentCreateDto & { regionName: string }) {
     return this.prisma.segment.create({ data, include: segmentInclude });
   }
 
-  update(id: string, data: SegmentUpdateDto) {
+  update(id: string, data: SegmentUpdateDto & { regionName?: string }) {
     return this.prisma.segment.update({ where: { id }, data, include: segmentInclude });
   }
 

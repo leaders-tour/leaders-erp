@@ -15,20 +15,20 @@ export function TimeBlockPage(): JSX.Element {
 
   return (
     <CrudScreen<TimeBlock, typeof schema>
-      title="TimeBlock"
+      title="시간 블록"
       rows={crud.rows}
       loading={crud.loading}
       schema={schema}
       fields={[
-        { name: 'dayPlanId', label: 'DayPlan ID' },
-        { name: 'startTime', label: 'Start Time' },
-        { name: 'label', label: 'Label' },
-        { name: 'orderIndex', label: 'Order Index', type: 'number' },
+        { name: 'dayPlanId', label: '일정 ID' },
+        { name: 'startTime', label: '시작 시간' },
+        { name: 'label', label: '라벨' },
+        { name: 'orderIndex', label: '순서', type: 'number' },
       ]}
       columns={[
         { key: 'id', label: 'ID' },
-        { key: 'dayPlanId', label: 'DayPlan ID' },
-        { key: 'startTime', label: 'Start Time' },
+        { key: 'dayPlanId', label: '일정 ID' },
+        { key: 'startTime', label: '시작 시간' },
       ]}
       createDefaultValues={{ dayPlanId: '', startTime: '08:00', label: '', orderIndex: 0 }}
       toUpdateValues={(row) => ({

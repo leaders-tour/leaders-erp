@@ -19,6 +19,7 @@ async function main(): Promise<void> {
     create: {
       id: 'seed_loc_ub',
       regionId: gobi.id,
+      regionName: gobi.name,
       name: '울란바토르',
       defaultLodgingType: '도시 호텔',
       latitude: 47.8864,
@@ -32,6 +33,7 @@ async function main(): Promise<void> {
     create: {
       id: 'seed_loc_dalanzadgad',
       regionId: gobi.id,
+      regionName: gobi.name,
       name: '달란자드가드',
       defaultLodgingType: '사막 캠프',
       latitude: 43.5708,
@@ -49,6 +51,7 @@ async function main(): Promise<void> {
     update: {},
     create: {
       regionId: gobi.id,
+      regionName: gobi.name,
       fromLocationId: ub.id,
       toLocationId: dalanzadgad.id,
       averageDistanceKm: 540,
