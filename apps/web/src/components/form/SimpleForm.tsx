@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Card, FormField, Input } from '@tour/ui';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm, type Path } from 'react-hook-form';
 import type { z } from 'zod';
 
@@ -32,9 +32,11 @@ export function SimpleForm<TSchema extends z.ZodTypeAny>({
     defaultValues,
   });
 
+  const defaultValuesKey = useMemo(() => JSON.stringify(defaultValues), [defaultValues]);
+
   useEffect(() => {
     form.reset(defaultValues);
-  }, [defaultValues, form]);
+  }, [defaultValuesKey, form]);
 
   return (
     <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
