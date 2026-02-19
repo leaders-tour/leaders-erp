@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Card, FormField, Input } from '@tour/ui';
+import { useEffect } from 'react';
 import { useForm, type Path } from 'react-hook-form';
 import type { z } from 'zod';
 
@@ -31,6 +32,10 @@ export function SimpleForm<TSchema extends z.ZodTypeAny>({
     defaultValues,
   });
 
+  useEffect(() => {
+    form.reset(defaultValues);
+  }, [defaultValues, form]);
+
   return (
     <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
       <h2 className="mb-4 text-lg font-semibold tracking-tight">{title}</h2>
@@ -42,20 +47,25 @@ export function SimpleForm<TSchema extends z.ZodTypeAny>({
         })}
       >
         {fields.map((field) => (
-          <FormField key={field.name} label={field.label}>
-            <Input
-              type={field.type ?? 'text'}
-              {...form.register(field.name as Path<z.infer<TSchema>>, {
-                setValueAs:
-                  field.type === 'number'
-                    ? (input: string) => {
-                        const parsed = Number(input);
-                        return Number.isNaN(parsed) ? undefined : parsed;
-                      }
-                    : undefined,
-              })}
-            />
-          </FormField>
+          <div key={field.name}>
+            <FormField label={field.label}>
+              <Input
+                type={field.type ?? 'text'}
+                {...form.register(field.name as Path<z.infer<TSchema>>, {
+                  setValueAs:
+                    field.type === 'number'
+                      ? (input: string) => {
+                          const parsed = Number(input);
+                          return Number.isNaN(parsed) ? undefined : parsed;
+                        }
+                      : undefined,
+                })}
+              />
+            </FormField>
+            {form.formState.errors[field.name as Path<z.infer<TSchema>>] ? (
+              <p className="mt-1 text-xs text-rose-600">입력값을 확인해 주세요.</p>
+            ) : null}
+          </div>
         ))}
         <div className="md:col-span-2">
           <Button type="submit">{submitLabel}</Button>
