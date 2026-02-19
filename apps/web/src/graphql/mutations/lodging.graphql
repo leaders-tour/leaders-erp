@@ -1,0 +1,15 @@
+mutation CreateLodging($input: LodgingCreateInput!) {
+  createLodging(input: $input) {
+    id
+  }
+}
+
+mutation UpdateLodging($id: ID!, $input: LodgingUpdateInput!) {
+  updateLodging(id: $id, input: $input) {
+    id
+  }
+}
+
+mutation DeleteLodging($id: ID!) {
+  deleteLodging(id: $id)
+}

@@ -44,6 +44,8 @@ model Location {
   region       Region    @relation(fields: [regionId], references: [id], onDelete: Cascade)
   fromSegments Segment[] @relation("FromLocation")
   toSegments   Segment[] @relation("ToLocation")
+  lodgings     Lodging[]
+  mealSets     MealSet[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -92,18 +94,59 @@ model DayPlan {
   dayIndex       Int
   fromLocationId String
   toLocationId   String
+  lodgingId      String?
+  mealSetId      String?
   distanceText   String
   lodgingText    String
   mealsText      String
 
   plan       Plan        @relation(fields: [planId], references: [id], onDelete: Cascade)
+  lodging    Lodging?    @relation(fields: [lodgingId], references: [id], onDelete: SetNull)
+  mealSet    MealSet?    @relation(fields: [mealSetId], references: [id], onDelete: SetNull)
   timeBlocks TimeBlock[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([planId])
+  @@index([lodgingId])
+  @@index([mealSetId])
   @@unique([planId, dayIndex])
+}
+
+model Lodging {
+  id                   String @id @default(uuid(7))
+  locationId           String
+  locationNameSnapshot String
+  name                 String
+  specialNotes         String?
+
+  location Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  dayPlans  DayPlan[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([locationId])
+}
+
+model MealSet {
+  id                   String  @id @default(uuid(7))
+  locationId           String
+  locationNameSnapshot String
+  setName              String
+  breakfast            String?
+  lunch                String?
+  dinner               String?
+
+  location Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  dayPlans  DayPlan[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([locationId])
+  @@unique([locationId, setName])
 }
 
 model TimeBlock {

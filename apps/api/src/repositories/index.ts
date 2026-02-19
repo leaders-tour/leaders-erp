@@ -1,6 +1,8 @@
 export { ActivityRepository } from '../modules/activity/activity.repository';
 export { DayPlanRepository } from '../modules/day-plan/day-plan.repository';
+export { LodgingRepository } from '../modules/lodging/lodging.repository';
 export { LocationRepository } from '../modules/location/location.repository';
+export { MealSetRepository } from '../modules/meal-set/meal-set.repository';
 export { OverrideRepository } from '../modules/override/override.repository';
 export { PlanRepository } from '../modules/plan/plan.repository';
 export { RegionRepository } from '../modules/region/region.repository';

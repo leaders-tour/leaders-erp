@@ -1,7 +1,9 @@
 import { GraphQLScalarType, Kind } from 'graphql';
 import { activityResolver } from '../modules/activity/activity.resolver';
 import { dayPlanResolver } from '../modules/day-plan/day-plan.resolver';
+import { lodgingResolver } from '../modules/lodging/lodging.resolver';
 import { locationResolver } from '../modules/location/location.resolver';
+import { mealSetResolver } from '../modules/meal-set/meal-set.resolver';
 import { overrideResolver } from '../modules/override/override.resolver';
 import { planResolver } from '../modules/plan/plan.resolver';
 import { regionResolver } from '../modules/region/region.resolver';
@@ -36,6 +38,8 @@ export const resolvers = {
   Query: mergeSection(
     regionResolver.Query,
     locationResolver.Query,
+    lodgingResolver.Query,
+    mealSetResolver.Query,
     segmentResolver.Query,
     planResolver.Query,
     dayPlanResolver.Query,
@@ -49,6 +53,8 @@ export const resolvers = {
   Mutation: mergeSection(
     regionResolver.Mutation,
     locationResolver.Mutation,
+    lodgingResolver.Mutation,
+    mealSetResolver.Mutation,
     segmentResolver.Mutation,
     planResolver.Mutation,
     dayPlanResolver.Mutation,

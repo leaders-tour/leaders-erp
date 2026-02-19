@@ -5,6 +5,8 @@ export const dayPlanCreateSchema = z.object({
   dayIndex: z.number().int().min(1),
   fromLocationId: z.string().min(1),
   toLocationId: z.string().min(1),
+  lodgingId: z.string().min(1).nullable().optional(),
+  mealSetId: z.string().min(1).nullable().optional(),
   distanceText: z.string().min(1).max(100),
   lodgingText: z.string().min(1).max(100),
   mealsText: z.string().min(1).max(100),

@@ -3,14 +3,13 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 
 const navItems = [
   { path: '/itinerary-builder', label: 'Builder' },
-  { path: '/regions', label: 'Regions' },
-  { path: '/locations', label: 'Locations' },
-  { path: '/segments', label: 'Segments' },
-  { path: '/plans', label: 'Plans' },
-  { path: '/day-plans', label: 'DayPlans' },
+  { path: '/regions', label: '지역' },
+  { path: '/locations', label: '목적지' },
+  { path: '/lodgings', label: '숙소' },
+  { path: '/meal-sets', label: '식사세트' },
+  { path: '/segments', label: '이동경로' },
   { path: '/time-blocks', label: 'TimeBlocks' },
-  { path: '/activities', label: 'Activities' },
-  { path: '/overrides', label: 'Overrides' },
+  { path: '/activities', label: '활동' },
 ];
 
 export function AppLayout(): JSX.Element {

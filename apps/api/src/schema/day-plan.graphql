@@ -4,12 +4,16 @@ type DayPlan {
   dayIndex: Int!
   fromLocationId: String!
   toLocationId: String!
+  lodgingId: String
+  mealSetId: String
   distanceText: String!
   lodgingText: String!
   mealsText: String!
   createdAt: DateTime!
   updatedAt: DateTime!
   plan: Plan!
+  lodging: Lodging
+  mealSet: MealSet
   timeBlocks: [TimeBlock!]!
 }
 
@@ -18,6 +22,8 @@ input DayPlanCreateInput {
   dayIndex: Int!
   fromLocationId: String!
   toLocationId: String!
+  lodgingId: String
+  mealSetId: String
   distanceText: String!
   lodgingText: String!
   mealsText: String!
@@ -28,6 +34,8 @@ input DayPlanUpdateInput {
   dayIndex: Int
   fromLocationId: String
   toLocationId: String
+  lodgingId: String
+  mealSetId: String
   distanceText: String
   lodgingText: String
   mealsText: String

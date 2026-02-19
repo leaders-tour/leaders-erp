@@ -1,0 +1,29 @@
+type MealSet {
+  id: ID!
+  locationId: String!
+  locationNameSnapshot: String!
+  setName: String!
+  breakfast: String
+  lunch: String
+  dinner: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  location: Location!
+  dayPlans: [DayPlan!]!
+}
+
+input MealSetCreateInput {
+  locationId: String!
+  setName: String!
+  breakfast: String
+  lunch: String
+  dinner: String
+}
+
+input MealSetUpdateInput {
+  locationId: String
+  setName: String
+  breakfast: String
+  lunch: String
+  dinner: String
+}

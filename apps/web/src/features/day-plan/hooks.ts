@@ -10,6 +10,8 @@ const LIST = gql`
       dayIndex
       fromLocationId
       toLocationId
+      lodgingId
+      mealSetId
       distanceText
       lodgingText
       mealsText
@@ -44,6 +46,8 @@ export interface DayPlanFormInput {
   dayIndex: number;
   fromLocationId: string;
   toLocationId: string;
+  lodgingId?: string | null;
+  mealSetId?: string | null;
   distanceText: string;
   lodgingText: string;
   mealsText: string;
@@ -53,7 +57,20 @@ export function useDayPlanCrud() {
   return useCrudResource<DayPlan, DayPlanFormInput, DayPlanFormInput>({
     docs: { list: LIST, create: CREATE, update: UPDATE, remove: REMOVE },
     keys: { listKey: 'dayPlans', createKey: 'createDayPlan', updateKey: 'updateDayPlan', removeKey: 'deleteDayPlan' },
-    toCreateVariables: (input) => ({ input }),
-    toUpdateVariables: (id, input) => ({ id, input }),
+    toCreateVariables: (input) => ({
+      input: {
+        ...input,
+        lodgingId: input.lodgingId && input.lodgingId.trim() ? input.lodgingId : null,
+        mealSetId: input.mealSetId && input.mealSetId.trim() ? input.mealSetId : null,
+      },
+    }),
+    toUpdateVariables: (id, input) => ({
+      id,
+      input: {
+        ...input,
+        lodgingId: input.lodgingId && input.lodgingId.trim() ? input.lodgingId : null,
+        mealSetId: input.mealSetId && input.mealSetId.trim() ? input.mealSetId : null,
+      },
+    }),
   });
 }

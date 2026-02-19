@@ -10,6 +10,8 @@ const files = [
   'scalars.graphql',
   'region.graphql',
   'location.graphql',
+  'lodging.graphql',
+  'meal-set.graphql',
   'segment.graphql',
   'plan.graphql',
   'day-plan.graphql',

@@ -1,0 +1,9 @@
+query Lodgings {
+  lodgings {
+    id
+    locationId
+    locationNameSnapshot
+    name
+    specialNotes
+  }
+}

@@ -1,0 +1,15 @@
+mutation CreateMealSet($input: MealSetCreateInput!) {
+  createMealSet(input: $input) {
+    id
+  }
+}
+
+mutation UpdateMealSet($id: ID!, $input: MealSetUpdateInput!) {
+  updateMealSet(id: $id, input: $input) {
+    id
+  }
+}
+
+mutation DeleteMealSet($id: ID!) {
+  deleteMealSet(id: $id)
+}

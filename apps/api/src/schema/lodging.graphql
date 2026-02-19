@@ -1,0 +1,23 @@
+type Lodging {
+  id: ID!
+  locationId: String!
+  locationNameSnapshot: String!
+  name: String!
+  specialNotes: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  location: Location!
+  dayPlans: [DayPlan!]!
+}
+
+input LodgingCreateInput {
+  locationId: String!
+  name: String!
+  specialNotes: String
+}
+
+input LodgingUpdateInput {
+  locationId: String
+  name: String
+  specialNotes: String
+}

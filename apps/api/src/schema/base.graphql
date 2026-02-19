@@ -6,6 +6,10 @@ type Query {
   region(id: ID!): Region
   locations: [Location!]!
   location(id: ID!): Location
+  lodgings: [Lodging!]!
+  lodging(id: ID!): Lodging
+  mealSets: [MealSet!]!
+  mealSet(id: ID!): MealSet
   segments: [Segment!]!
   segment(id: ID!): Segment
   plans: [Plan!]!
@@ -28,6 +32,14 @@ type Mutation {
   createLocation(input: LocationCreateInput!): Location!
   updateLocation(id: ID!, input: LocationUpdateInput!): Location!
   deleteLocation(id: ID!): Boolean!
+
+  createLodging(input: LodgingCreateInput!): Lodging!
+  updateLodging(id: ID!, input: LodgingUpdateInput!): Lodging!
+  deleteLodging(id: ID!): Boolean!
+
+  createMealSet(input: MealSetCreateInput!): MealSet!
+  updateMealSet(id: ID!, input: MealSetUpdateInput!): MealSet!
+  deleteMealSet(id: ID!): Boolean!
 
   createSegment(input: SegmentCreateInput!): Segment!
   updateSegment(id: ID!, input: SegmentUpdateInput!): Segment!

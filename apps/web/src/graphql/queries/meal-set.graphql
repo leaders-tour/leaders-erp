@@ -1,0 +1,11 @@
+query MealSets {
+  mealSets {
+    id
+    locationId
+    locationNameSnapshot
+    setName
+    breakfast
+    lunch
+    dinner
+  }
+}

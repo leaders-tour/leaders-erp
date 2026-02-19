@@ -5,6 +5,8 @@ query DayPlans {
     dayIndex
     fromLocationId
     toLocationId
+    lodgingId
+    mealSetId
     distanceText
     lodgingText
     mealsText
