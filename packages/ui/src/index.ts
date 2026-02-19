@@ -3,4 +3,6 @@ export * from './base/card';
 export * from './base/input';
 export * from './base/table';
 export * from './composite/form-field';
+export * from './composite/section-header';
+export * from './composite/status-badge';
 export * from './layout/page-shell';

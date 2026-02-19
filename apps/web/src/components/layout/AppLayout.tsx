@@ -18,15 +18,17 @@ export function AppLayout(): JSX.Element {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white no-print">
+      <header className="border-b border-slate-200 bg-white/95 backdrop-blur no-print">
         <PageShell>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
             {navItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`rounded px-3 py-1 text-sm ${
-                  location.pathname.startsWith(item.path) ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
+                className={`rounded-xl px-3 py-1.5 text-sm transition-colors ${
+                  location.pathname.startsWith(item.path)
+                    ? 'border border-slate-900 bg-slate-900 text-white'
+                    : 'border border-transparent text-slate-700 hover:border-slate-200 hover:bg-white'
                 }`}
               >
                 {item.label}

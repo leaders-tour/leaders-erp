@@ -4,9 +4,9 @@ import { cn } from './cn';
 type ButtonVariant = 'default' | 'outline' | 'destructive';
 
 const variantMap: Record<ButtonVariant, string> = {
-  default: 'bg-slate-900 text-white hover:bg-slate-700',
-  outline: 'border border-slate-300 bg-white text-slate-900 hover:bg-slate-100',
-  destructive: 'bg-red-600 text-white hover:bg-red-500',
+  default: 'border border-slate-900 bg-slate-900 text-white hover:bg-slate-700',
+  outline: 'border border-slate-200 bg-white text-slate-900 hover:bg-slate-100',
+  destructive: 'border border-red-600 bg-red-600 text-white hover:bg-red-500',
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -17,7 +17,7 @@ export function Button({ className, variant = 'default', ...props }: ButtonProps
   return (
     <button
       className={cn(
-        'inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium transition-colors',
+        'inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-medium shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60',
         variantMap[variant],
         className,
       )}

@@ -1,5 +1,5 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
-import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
+import { Button, Card, Input, StatusBadge, Table, Td, Th } from '@tour/ui';
 import { useMemo, useState } from 'react';
 import { VariantType } from '../generated/graphql';
 
@@ -174,15 +174,6 @@ function toTimeBlocks(timeTable: TimeTableItem[]) {
 
 function overrideKey(dayIndex: number, field: EditableField): string {
   return `${dayIndex}.${field}`;
-}
-
-function Badge({ source }: { source: CellSource }): JSX.Element {
-  const tone =
-    source === 'AUTO'
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-      : 'border-amber-200 bg-amber-50 text-amber-800';
-
-  return <span className={`rounded-full border px-2 py-0.5 text-[11px] ${tone}`}>{source}</span>;
 }
 
 export function ItineraryBuilderPage(): JSX.Element {
@@ -512,7 +503,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       </Td>
                       <Td>
                         <div className="flex items-center justify-between">
-                          <Badge source={distance.source} />
+                          <StatusBadge tone={distance.source === 'AUTO' ? 'auto' : 'override'} label={distance.source} />
                         </div>
                         <div className="mt-2">
                           <Input value={distance.value} onChange={(event) => setCell(draft.dayIndex, 'distanceText', event.target.value)} />
@@ -520,7 +511,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       </Td>
                       <Td>
                         <div className="flex items-center justify-between">
-                          <Badge source={lodging.source} />
+                          <StatusBadge tone={lodging.source === 'AUTO' ? 'auto' : 'override'} label={lodging.source} />
                         </div>
                         <div className="mt-2">
                           <Input value={lodging.value} onChange={(event) => setCell(draft.dayIndex, 'lodgingText', event.target.value)} />
@@ -528,7 +519,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       </Td>
                       <Td>
                         <div className="flex items-center justify-between">
-                          <Badge source={meals.source} />
+                          <StatusBadge tone={meals.source === 'AUTO' ? 'auto' : 'override'} label={meals.source} />
                         </div>
                         <div className="mt-2">
                           <textarea

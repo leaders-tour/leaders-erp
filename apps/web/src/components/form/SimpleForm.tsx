@@ -32,10 +32,10 @@ export function SimpleForm<TSchema extends z.ZodTypeAny>({
   });
 
   return (
-    <Card>
-      <h2 className="mb-4 text-lg font-semibold">{title}</h2>
+    <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <h2 className="mb-4 text-lg font-semibold tracking-tight">{title}</h2>
       <form
-        className="grid gap-3"
+        className="grid gap-3 md:grid-cols-2"
         onSubmit={form.handleSubmit(async (value) => {
           await onSubmit(value);
           form.reset(defaultValues);
@@ -57,7 +57,9 @@ export function SimpleForm<TSchema extends z.ZodTypeAny>({
             />
           </FormField>
         ))}
-        <Button type="submit">{submitLabel}</Button>
+        <div className="md:col-span-2">
+          <Button type="submit">{submitLabel}</Button>
+        </div>
       </form>
     </Card>
   );

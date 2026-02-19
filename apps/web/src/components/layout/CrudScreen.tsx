@@ -1,4 +1,4 @@
-import { Card } from '@tour/ui';
+import { Card, SectionHeader } from '@tour/ui';
 import { useMemo, useState } from 'react';
 import type { z } from 'zod';
 import { SimpleTable, type TableColumn } from '../data-table/SimpleTable';
@@ -42,7 +42,7 @@ export function CrudScreen<TItem extends { id: string }, TSchema extends z.ZodTy
 
   return (
     <section className="grid gap-6">
-      <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+      <SectionHeader title={title} description="생성/수정/삭제를 한 화면에서 처리합니다." />
       <SimpleForm
         title={editing ? `${title} 수정` : `${title} 생성`}
         schema={schema}
@@ -58,7 +58,9 @@ export function CrudScreen<TItem extends { id: string }, TSchema extends z.ZodTy
           await onCreate(value);
         }}
       />
-      <Card>{loading ? <p>로딩 중...</p> : null}</Card>
+      {loading ? (
+        <Card className="rounded-2xl border border-slate-200 bg-slate-50 py-3 text-sm text-slate-600">데이터 로딩 중...</Card>
+      ) : null}
       <SimpleTable title={`${title} 목록`} columns={columns} rows={rows} onEdit={setEditing} onDelete={onDelete} />
     </section>
   );
