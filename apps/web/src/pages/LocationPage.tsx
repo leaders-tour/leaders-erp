@@ -171,7 +171,7 @@ export function LocationPage(): JSX.Element {
     <section className="grid gap-6">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">목적지</h1>
-        <p className="mt-1 text-sm text-slate-600">이름, 타임테이블, 숙소, 식사를 한 번에 생성합니다.</p>
+        <p className="mt-1 text-sm text-slate-600">이름, 시간표, 숙소, 식사를 한 번에 생성합니다.</p>
       </header>
 
       <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -346,6 +346,7 @@ export function LocationPage(): JSX.Element {
                   </label>
                 ))}
               </div>
+
             </div>
 
             <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 self-start">
@@ -367,7 +368,7 @@ export function LocationPage(): JSX.Element {
                       </div>
                       <div className="grid gap-2 min-w-0">
                         <div className="flex h-10 items-center justify-between gap-2">
-                          <h4 className="text-sm font-semibold text-slate-800">활동</h4>
+                          <h4 className="text-sm font-semibold text-slate-800">일정</h4>
                           <Button
                             type="button"
                             variant="outline"
