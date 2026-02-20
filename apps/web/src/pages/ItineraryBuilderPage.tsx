@@ -191,6 +191,11 @@ function toMealCell(location: LocationRow | undefined): string {
   ].join('\n');
 }
 
+function autoResizeTextarea(element: HTMLTextAreaElement): void {
+  element.style.height = 'auto';
+  element.style.height = `${element.scrollHeight}px`;
+}
+
 export function ItineraryBuilderPage(): JSX.Element {
   const [variantType, setVariantType] = useState<VariantType>(VariantType.Basic);
   const [totalDays, setTotalDays] = useState<number>(6);
@@ -271,6 +276,11 @@ export function ItineraryBuilderPage(): JSX.Element {
   useEffect(() => {
     setPlanRows(autoRows);
   }, [autoRows]);
+
+  useEffect(() => {
+    const elements = document.querySelectorAll<HTMLTextAreaElement>('[data-plan-cell="true"]');
+    elements.forEach((element) => autoResizeTextarea(element));
+  }, [planRows]);
 
   const hasMissingSegment = useMemo(() => {
     return selectedRoute.some((toId, index) => {
@@ -416,29 +426,40 @@ export function ItineraryBuilderPage(): JSX.Element {
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                 <div className="text-sm font-medium">1일차 출발지</div>
                 {startLocationId ? (
-                  <div className="mt-1 text-slate-700">{locationById.get(startLocationId)?.name ?? startLocationId}</div>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <div className="text-slate-700">{locationById.get(startLocationId)?.name ?? startLocationId}</div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStartLocationId('');
+                        setSelectedRoute([]);
+                        setPlanRows([]);
+                      }}
+                      className="text-xs text-slate-500 underline"
+                    >
+                      변경
+                    </button>
+                  </div>
                 ) : (
                   <div className="mt-1 text-xs text-slate-500">출발지를 선택해주세요.</div>
                 )}
-                <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
-                  {filteredLocations.map((location) => (
-                    <button
-                      key={`start-${location.id}`}
-                      type="button"
-                      onClick={() => {
-                        setStartLocationId(location.id);
-                        setSelectedRoute([]);
-                      }}
-                      className={`rounded-xl border px-3 py-2 text-sm ${
-                        startLocationId === location.id
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-white hover:bg-slate-100'
-                      }`}
-                    >
-                      {location.name}
-                    </button>
-                  ))}
-                </div>
+                {!startLocationId ? (
+                  <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
+                    {filteredLocations.map((location) => (
+                      <button
+                        key={`start-${location.id}`}
+                        type="button"
+                        onClick={() => {
+                          setStartLocationId(location.id);
+                          setSelectedRoute([]);
+                        }}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
+                      >
+                        {location.name}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
 
               {selectedRoute.map((locationId, index) => (
@@ -507,43 +528,79 @@ export function ItineraryBuilderPage(): JSX.Element {
                     <Td>
                       <textarea
                         value={row.dateCellText}
-                        onChange={(event) => updateCell(rowIndex, 'dateCellText', event.target.value)}
-                        className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                        onChange={(event) => {
+                          updateCell(rowIndex, 'dateCellText', event.target.value);
+                          autoResizeTextarea(event.currentTarget);
+                        }}
+                        onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                        rows={1}
+                        data-plan-cell="true"
+                        className="w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
                       />
                     </Td>
                     <Td>
                       <textarea
                         value={row.destinationCellText}
-                        onChange={(event) => updateCell(rowIndex, 'destinationCellText', event.target.value)}
-                        className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                        onChange={(event) => {
+                          updateCell(rowIndex, 'destinationCellText', event.target.value);
+                          autoResizeTextarea(event.currentTarget);
+                        }}
+                        onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                        rows={1}
+                        data-plan-cell="true"
+                        className="w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
                       />
                     </Td>
                     <Td>
                       <textarea
                         value={row.timeCellText}
-                        onChange={(event) => updateCell(rowIndex, 'timeCellText', event.target.value)}
-                        className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                        onChange={(event) => {
+                          updateCell(rowIndex, 'timeCellText', event.target.value);
+                          autoResizeTextarea(event.currentTarget);
+                        }}
+                        onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                        rows={1}
+                        data-plan-cell="true"
+                        className="w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
                       />
                     </Td>
                     <Td>
                       <textarea
                         value={row.scheduleCellText}
-                        onChange={(event) => updateCell(rowIndex, 'scheduleCellText', event.target.value)}
-                        className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                        onChange={(event) => {
+                          updateCell(rowIndex, 'scheduleCellText', event.target.value);
+                          autoResizeTextarea(event.currentTarget);
+                        }}
+                        onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                        rows={1}
+                        data-plan-cell="true"
+                        className="w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
                       />
                     </Td>
                     <Td>
                       <textarea
                         value={row.lodgingCellText}
-                        onChange={(event) => updateCell(rowIndex, 'lodgingCellText', event.target.value)}
-                        className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                        onChange={(event) => {
+                          updateCell(rowIndex, 'lodgingCellText', event.target.value);
+                          autoResizeTextarea(event.currentTarget);
+                        }}
+                        onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                        rows={1}
+                        data-plan-cell="true"
+                        className="w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
                       />
                     </Td>
                     <Td>
                       <textarea
                         value={row.mealCellText}
-                        onChange={(event) => updateCell(rowIndex, 'mealCellText', event.target.value)}
-                        className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                        onChange={(event) => {
+                          updateCell(rowIndex, 'mealCellText', event.target.value);
+                          autoResizeTextarea(event.currentTarget);
+                        }}
+                        onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                        rows={1}
+                        data-plan-cell="true"
+                        className="w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
                       />
                     </Td>
                   </tr>
