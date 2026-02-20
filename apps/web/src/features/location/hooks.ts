@@ -181,7 +181,7 @@ export interface LocationDetailData {
 
 function toProfileVariables(input: LocationProfileFormInput) {
   return {
-    ...input,
+    regionId: input.regionId,
     name: input.name.trim(),
     internalMovementDistance:
       typeof input.internalMovementDistance === 'number' && Number.isFinite(input.internalMovementDistance)
@@ -190,6 +190,11 @@ function toProfileVariables(input: LocationProfileFormInput) {
     lodging: {
       ...input.lodging,
       name: input.lodging.name.trim(),
+    },
+    meals: {
+      breakfast: input.meals.breakfast ?? null,
+      lunch: input.meals.lunch ?? null,
+      dinner: input.meals.dinner ?? null,
     },
     timeSlots: input.timeSlots.map((slot) => ({
       startTime: slot.startTime.trim(),

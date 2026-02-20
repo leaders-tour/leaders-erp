@@ -86,9 +86,10 @@ export function LocationEditPage(): JSX.Element {
         onSubmit={async (next) => {
           setSubmitting(true);
           try {
+            const { tag, ...rest } = next;
             await crud.updateProfile(id, {
-              ...next,
-              name: mergeLocationNameAndTag(next.name, next.tag),
+              ...rest,
+              name: mergeLocationNameAndTag(next.name, tag),
             });
             navigate(`/locations/${id}`);
           } finally {

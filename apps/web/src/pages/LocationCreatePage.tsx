@@ -27,9 +27,10 @@ export function LocationCreatePage(): JSX.Element {
         onSubmit={async (next) => {
           setSubmitting(true);
           try {
+            const { tag, ...rest } = next;
             await crud.createProfile({
-              ...next,
-              name: mergeLocationNameAndTag(next.name, next.tag),
+              ...rest,
+              name: mergeLocationNameAndTag(next.name, tag),
             });
             setValue(createDefaultLocationProfileFormValue(next.regionId));
           } finally {
