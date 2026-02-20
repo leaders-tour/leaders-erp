@@ -37,6 +37,7 @@ export interface LocationProfileTimeSlotFormInput {
 export interface LocationProfileFormInput {
   regionId: string;
   name: string;
+  internalMovementDistance: number | null;
   timeSlots: LocationProfileTimeSlotFormInput[];
   lodging: {
     isUnspecified: boolean;
@@ -66,6 +67,10 @@ export function useLocationCrud() {
           input: {
             ...input,
             name: input.name.trim(),
+            internalMovementDistance:
+              typeof input.internalMovementDistance === 'number' && Number.isFinite(input.internalMovementDistance)
+                ? input.internalMovementDistance
+                : null,
             lodging: {
               ...input.lodging,
               name: input.lodging.name.trim(),

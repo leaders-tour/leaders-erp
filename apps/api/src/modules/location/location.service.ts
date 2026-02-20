@@ -73,6 +73,7 @@ export class LocationService {
           regionName: region.name,
           name: parsed.data.name,
           defaultLodgingType: lodgingName,
+          internalMovementDistance: parsed.data.internalMovementDistance ?? null,
           latitude: null,
           longitude: null,
         },

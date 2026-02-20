@@ -48,6 +48,7 @@ model Location {
   regionName         String
   name               String
   defaultLodgingType String
+  internalMovementDistance Int?
   latitude           Float?
   longitude          Float?
 

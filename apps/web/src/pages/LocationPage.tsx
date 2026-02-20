@@ -47,6 +47,7 @@ function createDefaultForm(regionId = ''): LocationProfileFormInput {
   return {
     regionId,
     name: '',
+    internalMovementDistance: null,
     timeSlots: DEFAULT_SLOT_TIMES.map((slot) => createSlot(slot)),
     lodging: {
       isUnspecified: false,
@@ -193,6 +194,10 @@ export function LocationPage(): JSX.Element {
               <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
                 <div className="grid gap-3 md:grid-cols-2 md:items-start">
                   <label className="grid gap-1 text-sm min-w-0">
+                    <span className="text-slate-700">이름</span>
+                    <Input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} required />
+                  </label>
+                  <label className="grid gap-1 text-sm min-w-0">
                     <span className="text-slate-700">지역</span>
                     <div className="flex flex-wrap gap-2">
                       {regions.map((region) => (
@@ -211,9 +216,22 @@ export function LocationPage(): JSX.Element {
                       ))}
                     </div>
                   </label>
-                  <label className="grid gap-1 text-sm min-w-0">
-                    <span className="text-slate-700">이름</span>
-                    <Input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} required />
+                  <label className="grid gap-1 text-sm min-w-0 md:col-span-2">
+                    <span className="text-slate-700">내부 이동 거리 (선택)</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={1000}
+                      step={1}
+                      value={form.internalMovementDistance ?? ''}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          internalMovementDistance: event.target.value === '' ? null : Number(event.target.value),
+                        }))
+                      }
+                      placeholder="1 ~ 1000"
+                    />
                   </label>
                 </div>
               </div>

@@ -4,6 +4,7 @@ type Location {
   regionName: String!
   name: String!
   defaultLodgingType: String!
+  internalMovementDistance: Int
   latitude: Float
   longitude: Float
   createdAt: DateTime!
@@ -18,6 +19,7 @@ input LocationCreateInput {
   regionId: String!
   name: String!
   defaultLodgingType: String!
+  internalMovementDistance: Int
   latitude: Float
   longitude: Float
 }
@@ -26,6 +28,7 @@ input LocationUpdateInput {
   regionId: String
   name: String
   defaultLodgingType: String
+  internalMovementDistance: Int
   latitude: Float
   longitude: Float
 }
@@ -52,6 +55,7 @@ input LocationProfileMealsInput {
 input LocationProfileCreateInput {
   regionId: String!
   name: String!
+  internalMovementDistance: Int
   timeSlots: [LocationProfileTimeSlotInput!]!
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
