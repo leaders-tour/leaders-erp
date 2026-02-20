@@ -1,4 +1,4 @@
-import { MealOption, PrismaClient, VariantType } from '@prisma/client';
+import { FacilityAvailability, MealOption, PrismaClient, VariantType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -67,9 +67,9 @@ async function main(): Promise<void> {
       name: '여행자 캠프',
       specialNotes: '전기/샤워/인터넷 가능',
       isUnspecified: false,
-      hasElectricity: true,
-      hasShower: true,
-      hasInternet: true,
+      hasElectricity: FacilityAvailability.YES,
+      hasShower: FacilityAvailability.YES,
+      hasInternet: FacilityAvailability.YES,
     },
     create: {
       id: 'seed_lodging_dalan_camp',
@@ -78,9 +78,9 @@ async function main(): Promise<void> {
       name: '여행자 캠프',
       specialNotes: '전기/샤워/인터넷 가능',
       isUnspecified: false,
-      hasElectricity: true,
-      hasShower: true,
-      hasInternet: true,
+      hasElectricity: FacilityAvailability.YES,
+      hasShower: FacilityAvailability.YES,
+      hasInternet: FacilityAvailability.YES,
     },
   });
 

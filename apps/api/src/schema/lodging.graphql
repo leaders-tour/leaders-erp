@@ -5,9 +5,9 @@ type Lodging {
   name: String!
   specialNotes: String
   isUnspecified: Boolean!
-  hasElectricity: Boolean!
-  hasShower: Boolean!
-  hasInternet: Boolean!
+  hasElectricity: FacilityAvailability!
+  hasShower: FacilityAvailability!
+  hasInternet: FacilityAvailability!
   createdAt: DateTime!
   updatedAt: DateTime!
   location: Location!
@@ -19,9 +19,9 @@ input LodgingCreateInput {
   name: String!
   specialNotes: String
   isUnspecified: Boolean
-  hasElectricity: Boolean
-  hasShower: Boolean
-  hasInternet: Boolean
+  hasElectricity: FacilityAvailability
+  hasShower: FacilityAvailability
+  hasInternet: FacilityAvailability
 }
 
 input LodgingUpdateInput {
@@ -29,7 +29,7 @@ input LodgingUpdateInput {
   name: String
   specialNotes: String
   isUnspecified: Boolean
-  hasElectricity: Boolean
-  hasShower: Boolean
-  hasInternet: Boolean
+  hasElectricity: FacilityAvailability
+  hasShower: FacilityAvailability
+  hasInternet: FacilityAvailability
 }

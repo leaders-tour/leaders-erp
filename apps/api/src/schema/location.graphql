@@ -41,9 +41,9 @@ input LocationProfileTimeSlotInput {
 input LocationProfileLodgingInput {
   isUnspecified: Boolean
   name: String
-  hasElectricity: Boolean
-  hasShower: Boolean
-  hasInternet: Boolean
+  hasElectricity: FacilityAvailability
+  hasShower: FacilityAvailability
+  hasInternet: FacilityAvailability
 }
 
 input LocationProfileMealsInput {

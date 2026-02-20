@@ -1,6 +1,8 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import type { MealOption } from '../../generated/graphql';
 
+export type FacilityAvailability = 'YES' | 'LIMITED' | 'NO';
+
 const LIST = gql`
   query Locations {
     locations {
@@ -120,9 +122,9 @@ export interface LocationProfileFormInput {
   lodging: {
     isUnspecified: boolean;
     name: string;
-    hasElectricity: boolean;
-    hasShower: boolean;
-    hasInternet: boolean;
+    hasElectricity: FacilityAvailability;
+    hasShower: FacilityAvailability;
+    hasInternet: FacilityAvailability;
   };
   meals: {
     breakfast: MealOption | null;
@@ -148,9 +150,9 @@ export interface LocationListRow {
   lodgings: Array<{
     id: string;
     name: string;
-    hasElectricity: boolean;
-    hasShower: boolean;
-    hasInternet: boolean;
+    hasElectricity: FacilityAvailability;
+    hasShower: FacilityAvailability;
+    hasInternet: FacilityAvailability;
   }>;
   mealSets: Array<{
     id: string;

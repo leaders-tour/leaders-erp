@@ -1,5 +1,6 @@
 import { MealOption } from '@tour/domain';
 import { z } from 'zod';
+import { facilityAvailabilitySchema } from './lodging.schema';
 
 export const locationCreateSchema = z.object({
   regionId: z.string().min(1),
@@ -20,9 +21,9 @@ const locationProfileTimeSlotSchema = z.object({
 const locationProfileLodgingSchema = z.object({
   isUnspecified: z.boolean().default(false),
   name: z.string().max(100).nullable().optional(),
-  hasElectricity: z.boolean().default(false),
-  hasShower: z.boolean().default(false),
-  hasInternet: z.boolean().default(false),
+  hasElectricity: facilityAvailabilitySchema.default('NO'),
+  hasShower: facilityAvailabilitySchema.default('NO'),
+  hasInternet: facilityAvailabilitySchema.default('NO'),
 });
 
 const locationProfileMealsSchema = z.object({

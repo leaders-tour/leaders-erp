@@ -1,7 +1,7 @@
 import { Card } from '@tour/ui';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { LocationSubNav } from '../features/location/sub-nav';
-import { splitLocationNameAndTag, toMealLabel } from '../features/location/display';
+import { splitLocationNameAndTag, toFacilityLabel, toMealLabel } from '../features/location/display';
 import { useLocationDetail } from '../features/location/hooks';
 
 function formatDate(value: string): string {
@@ -111,9 +111,9 @@ export function LocationDetailPage(): JSX.Element {
           <h2 className="mb-3 text-lg font-semibold">숙소</h2>
           <div className="grid gap-1 text-sm">
             <div>{location.lodgings[0]?.name ?? '-'}</div>
-            <div>{location.lodgings[0]?.hasElectricity ? '전기' : '전기 X'}</div>
-            <div>{location.lodgings[0]?.hasShower ? '샤워' : '샤워 X'}</div>
-            <div>{location.lodgings[0]?.hasInternet ? '인터넷' : '인터넷 X'}</div>
+            <div>전기({toFacilityLabel(location.lodgings[0]?.hasElectricity)})</div>
+            <div>샤워({toFacilityLabel(location.lodgings[0]?.hasShower)})</div>
+            <div>인터넷({toFacilityLabel(location.lodgings[0]?.hasInternet)})</div>
           </div>
         </Card>
 

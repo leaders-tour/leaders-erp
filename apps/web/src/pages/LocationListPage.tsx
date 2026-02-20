@@ -1,7 +1,7 @@
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { splitLocationNameAndTag, toMealLabel } from '../features/location/display';
+import { splitLocationNameAndTag, toFacilityLabel, toMealLabel } from '../features/location/display';
 import { useLocationCrud } from '../features/location/hooks';
 import { LocationSubNav } from '../features/location/sub-nav';
 
@@ -150,9 +150,9 @@ export function LocationListPage(): JSX.Element {
                   <Td>
                     <div className="grid gap-1 text-sm">
                       <div>{row.lodgings[0]?.name ?? '-'}</div>
-                      <div>전기 {row.lodgings[0]?.hasElectricity ? 'O' : 'X'}</div>
-                      <div>샤워 {row.lodgings[0]?.hasShower ? 'O' : 'X'}</div>
-                      <div>인터넷 {row.lodgings[0]?.hasInternet ? 'O' : 'X'}</div>
+                      <div>전기({toFacilityLabel(row.lodgings[0]?.hasElectricity)})</div>
+                      <div>샤워({toFacilityLabel(row.lodgings[0]?.hasShower)})</div>
+                      <div>인터넷({toFacilityLabel(row.lodgings[0]?.hasInternet)})</div>
                     </div>
                   </Td>
                   <Td>

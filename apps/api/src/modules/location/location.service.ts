@@ -5,6 +5,8 @@ import { locationInclude } from './location.mapper';
 import { LocationRepository } from './location.repository';
 import type { LocationCreateDto, LocationProfileCreateDto, LocationProfileUpdateDto, LocationUpdateDto } from './location.types';
 
+type FacilityAvailability = 'YES' | 'LIMITED' | 'NO';
+
 export class LocationService {
   private readonly repository: LocationRepository;
 
@@ -113,9 +115,9 @@ export class LocationService {
           name: lodgingName,
           specialNotes: null,
           isUnspecified,
-          hasElectricity: isUnspecified ? false : (parsed.data.lodging.hasElectricity ?? false),
-          hasShower: isUnspecified ? false : (parsed.data.lodging.hasShower ?? false),
-          hasInternet: isUnspecified ? false : (parsed.data.lodging.hasInternet ?? false),
+          hasElectricity: isUnspecified ? 'NO' : ((parsed.data.lodging.hasElectricity ?? 'NO') as FacilityAvailability),
+          hasShower: isUnspecified ? 'NO' : ((parsed.data.lodging.hasShower ?? 'NO') as FacilityAvailability),
+          hasInternet: isUnspecified ? 'NO' : ((parsed.data.lodging.hasInternet ?? 'NO') as FacilityAvailability),
         },
       });
 
@@ -264,9 +266,9 @@ export class LocationService {
           name: lodgingName,
           specialNotes: null,
           isUnspecified,
-          hasElectricity: isUnspecified ? false : (parsed.data.lodging.hasElectricity ?? false),
-          hasShower: isUnspecified ? false : (parsed.data.lodging.hasShower ?? false),
-          hasInternet: isUnspecified ? false : (parsed.data.lodging.hasInternet ?? false),
+          hasElectricity: isUnspecified ? 'NO' : ((parsed.data.lodging.hasElectricity ?? 'NO') as FacilityAvailability),
+          hasShower: isUnspecified ? 'NO' : ((parsed.data.lodging.hasShower ?? 'NO') as FacilityAvailability),
+          hasInternet: isUnspecified ? 'NO' : ((parsed.data.lodging.hasInternet ?? 'NO') as FacilityAvailability),
         },
       });
 

@@ -10,3 +10,9 @@ enum OverrideTargetType {
   TimeBlock
   Activity
 }
+
+enum FacilityAvailability {
+  YES
+  LIMITED
+  NO
+}

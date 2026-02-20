@@ -4,16 +4,20 @@ import { DomainError } from '../../lib/errors';
 import { LodgingRepository } from './lodging.repository';
 import type { LodgingCreateDto, LodgingUpdateDto } from './lodging.types';
 
-function normalizeLodgingInput<T extends { isUnspecified?: boolean; hasElectricity?: boolean; hasShower?: boolean; hasInternet?: boolean }>(
+type FacilityAvailability = 'YES' | 'LIMITED' | 'NO';
+
+function normalizeLodgingInput<
+  T extends { isUnspecified?: boolean; hasElectricity?: FacilityAvailability; hasShower?: FacilityAvailability; hasInternet?: FacilityAvailability },
+>(
   input: T,
 ) {
   const isUnspecified = input.isUnspecified ?? false;
   return {
     ...input,
     isUnspecified,
-    hasElectricity: isUnspecified ? false : (input.hasElectricity ?? false),
-    hasShower: isUnspecified ? false : (input.hasShower ?? false),
-    hasInternet: isUnspecified ? false : (input.hasInternet ?? false),
+    hasElectricity: isUnspecified ? 'NO' : (input.hasElectricity ?? 'NO'),
+    hasShower: isUnspecified ? 'NO' : (input.hasShower ?? 'NO'),
+    hasInternet: isUnspecified ? 'NO' : (input.hasInternet ?? 'NO'),
   };
 }
 

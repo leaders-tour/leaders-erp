@@ -1,4 +1,5 @@
 import { MealOption } from '../../generated/graphql';
+import type { FacilityAvailability } from './hooks';
 
 export function toMealLabel(value: MealOption | null | undefined): string {
   if (!value) {
@@ -27,4 +28,17 @@ export function mergeLocationNameAndTag(name: string, tag: string): string {
   const trimmedName = name.trim();
   const trimmedTag = tag.trim();
   return trimmedTag ? `${trimmedName} (${trimmedTag})` : trimmedName;
+}
+
+export function toFacilityLabel(value: FacilityAvailability | null | undefined): string {
+  if (!value) {
+    return '아니오';
+  }
+  if (value === 'YES') {
+    return 'O';
+  }
+  if (value === 'LIMITED') {
+    return '제한';
+  }
+  return 'X';
 }

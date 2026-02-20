@@ -34,9 +34,9 @@ export function LocationEditPage(): JSX.Element {
       lodging: {
         isUnspecified: (location.lodgings[0]?.name ?? '') === '숙소 미지정',
         name: location.lodgings[0]?.name ?? '여행자 캠프',
-        hasElectricity: location.lodgings[0]?.hasElectricity ?? false,
-        hasShower: location.lodgings[0]?.hasShower ?? false,
-        hasInternet: location.lodgings[0]?.hasInternet ?? false,
+        hasElectricity: location.lodgings[0]?.hasElectricity ?? 'NO',
+        hasShower: location.lodgings[0]?.hasShower ?? 'NO',
+        hasInternet: location.lodgings[0]?.hasInternet ?? 'NO',
       },
       meals: {
         breakfast: location.mealSets[0]?.breakfast ?? null,

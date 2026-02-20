@@ -29,6 +29,12 @@ enum MealOption {
   SHABU_SHABU
 }
 
+enum FacilityAvailability {
+  YES
+  LIMITED
+  NO
+}
+
 model Region {
   id          String     @id @default(uuid(7))
   name        String
@@ -139,9 +145,9 @@ model Lodging {
   name                 String
   specialNotes         String?
   isUnspecified        Boolean @default(false)
-  hasElectricity       Boolean @default(false)
-  hasShower            Boolean @default(false)
-  hasInternet          Boolean @default(false)
+  hasElectricity       FacilityAvailability @default(NO)
+  hasShower            FacilityAvailability @default(NO)
+  hasInternet          FacilityAvailability @default(NO)
 
   location Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
   planStops PlanStop[]

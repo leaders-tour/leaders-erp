@@ -2,7 +2,7 @@ import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Input } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { MealOption, type Region } from '../../generated/graphql';
-import type { LocationProfileFormInput } from './hooks';
+import type { FacilityAvailability, LocationProfileFormInput } from './hooks';
 
 const REGIONS_QUERY = gql`
   query LocationRegions {
@@ -57,9 +57,9 @@ export function createDefaultLocationProfileFormValue(regionId = ''): LocationPr
     lodging: {
       isUnspecified: false,
       name: '여행자 캠프',
-      hasElectricity: true,
-      hasShower: true,
-      hasInternet: true,
+      hasElectricity: 'YES',
+      hasShower: 'YES',
+      hasInternet: 'YES',
     },
     meals: {
       breakfast: null,
@@ -283,32 +283,26 @@ export function LocationProfileForm({ title, submitLabel, value, submitting, onS
                   <div key={field} className="flex items-center gap-3">
                     <span className="w-16 shrink-0">{label}</span>
                     <div className="flex gap-2">
+                      {([
+                        ['YES', '예'],
+                        ['LIMITED', '제한'],
+                        ['NO', '아니오'],
+                      ] as const).map(([state, stateLabel]) => (
                       <Button
+                        key={state}
                         type="button"
-                        variant={form.lodging[field] ? 'default' : 'outline'}
+                        variant={form.lodging[field] === state ? 'default' : 'outline'}
                         disabled={form.lodging.isUnspecified}
                         onClick={() =>
                           setForm((prev) => ({
                             ...prev,
-                            lodging: { ...prev.lodging, [field]: true },
+                            lodging: { ...prev.lodging, [field]: state as FacilityAvailability },
                           }))
                         }
                       >
-                        예
+                        {stateLabel}
                       </Button>
-                      <Button
-                        type="button"
-                        variant={!form.lodging[field] ? 'default' : 'outline'}
-                        disabled={form.lodging.isUnspecified}
-                        onClick={() =>
-                          setForm((prev) => ({
-                            ...prev,
-                            lodging: { ...prev.lodging, [field]: false },
-                          }))
-                        }
-                      >
-                        아니오
-                      </Button>
+                      ))}
                     </div>
                   </div>
                 ))}
