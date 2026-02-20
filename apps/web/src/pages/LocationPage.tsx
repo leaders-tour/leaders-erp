@@ -188,251 +188,251 @@ export function LocationPage(): JSX.Element {
             }
           }}
         >
-          <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-800">지역/이름</h3>
-            <div className="grid gap-3 md:grid-cols-2 md:items-start">
-              <label className="grid gap-1 text-sm min-w-0">
-                <span className="text-slate-700">지역</span>
-                <div className="flex flex-wrap gap-2">
-                  {regions.map((region) => (
-                    <button
-                      key={region.id}
-                      type="button"
-                      onClick={() => setForm((prev) => ({ ...prev, regionId: region.id }))}
-                      className={`rounded-xl border px-3 py-1.5 text-sm ${
-                        form.regionId === region.id
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {region.name}
-                    </button>
-                  ))}
-                </div>
-              </label>
-
-              <label className="grid gap-1 text-sm min-w-0">
-                <span className="text-slate-700">이름</span>
-                <Input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} required />
-              </label>
-            </div>
-          </div>
-
-          <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-800">시간/일정</h3>
-            <div className="grid gap-3">
-              {form.timeSlots.map((slot, slotIndex) => (
-                <div key={`slot-${slotIndex}`} className="grid gap-2">
-                  <div className="grid gap-3 rounded-xl border border-slate-200 p-3 md:grid-cols-[max-content_minmax(0,1fr)]">
-                    <div className="grid gap-2 md:content-start">
-                      <div className="flex h-10 items-center">
-                        <h4 className="text-sm font-semibold text-slate-800">시간</h4>
-                      </div>
-                      <Input
-                        className="w-[110px] border-slate-500 text-lg font-semibold"
-                        value={slot.startTime}
-                        onChange={(event) => updateSlotTime(slotIndex, event.target.value)}
-                        placeholder="HH:mm"
-                      />
-                    </div>
-                    <div className="grid gap-2 min-w-0">
-                      <div className="flex h-10 items-center justify-between gap-2">
-                        <h4 className="text-sm font-semibold text-slate-800">활동</h4>
-                        <Button
+          <div className="grid items-start gap-6 lg:grid-cols-2">
+            <div className="grid gap-6">
+              <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+                <div className="grid gap-3 md:grid-cols-2 md:items-start">
+                  <label className="grid gap-1 text-sm min-w-0">
+                    <span className="text-slate-700">지역</span>
+                    <div className="flex flex-wrap gap-2">
+                      {regions.map((region) => (
+                        <button
+                          key={region.id}
                           type="button"
-                          variant="outline"
-                          onClick={() => removeTimeSlot(slotIndex)}
-                          disabled={form.timeSlots.length <= 1}
-                          className="whitespace-nowrap"
+                          onClick={() => setForm((prev) => ({ ...prev, regionId: region.id }))}
+                          className={`rounded-xl border px-3 py-1.5 text-sm ${
+                            form.regionId === region.id
+                              ? 'border-slate-900 bg-slate-900 text-white'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          }`}
                         >
-                          삭제
-                        </Button>
-                      </div>
-                      <div className="grid gap-2">
-                        {slot.activities.map((activity, activityIndex) => (
-                          <div key={`slot-${slotIndex}-activity-${activityIndex}`} className="flex items-center gap-2 min-w-0">
-                            <Input
-                              value={activity}
-                              onChange={(event) => updateActivity(slotIndex, activityIndex, event.target.value)}
-                              placeholder="활동 입력"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => removeActivity(slotIndex, activityIndex)}
-                              disabled={slot.activities.length <= 1}
-                              className="whitespace-nowrap"
-                            >
-                              X
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="overflow-x-auto">
-                        <Button type="button" variant="outline" onClick={() => addActivity(slotIndex)} className="whitespace-nowrap">
-                          활동 추가
-                        </Button>
-                      </div>
+                          {region.name}
+                        </button>
+                      ))}
                     </div>
-                  </div>
-
-                  {slot.startTime === '08:00' ? (
-                    <div className="overflow-x-auto">
-                      <Button type="button" variant="outline" onClick={() => addPresetBetween('12:00', '10:00')} className="whitespace-nowrap">
-                        <span aria-hidden="true" className="mr-1">
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="9" />
-                            <path d="M12 7v5l3 2" />
-                          </svg>
-                        </span>
-                        시간 추가
-                      </Button>
-                    </div>
-                  ) : null}
-
-                  {slot.startTime === '12:00' ? (
-                    <div className="overflow-x-auto">
-                      <Button type="button" variant="outline" onClick={() => addPresetBetween('18:00', '15:00')} className="whitespace-nowrap">
-                        <span aria-hidden="true" className="mr-1">
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="9" />
-                            <path d="M12 7v5l3 2" />
-                          </svg>
-                        </span>
-                        시간 추가
-                      </Button>
-                    </div>
-                  ) : null}
+                  </label>
+                  <label className="grid gap-1 text-sm min-w-0">
+                    <span className="text-slate-700">이름</span>
+                    <Input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} required />
+                  </label>
                 </div>
-              ))}
-            </div>
-            <div>
-              <Button type="button" variant="outline" onClick={addTimeSlot} className="whitespace-nowrap">
-                <span aria-hidden="true" className="mr-1">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="M12 7v5l3 2" />
-                  </svg>
-                </span>
-                시간 추가
-              </Button>
-            </div>
-          </div>
+              </div>
 
-          <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-800">숙소</h3>
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={form.lodging.isUnspecified}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    lodging: { ...prev.lodging, isUnspecified: event.target.checked },
-                  }))
-                }
-              />
-              숙소 미지정
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="text-slate-700">숙소명</span>
-              <Input
-                value={form.lodging.name}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    lodging: { ...prev.lodging, name: event.target.value },
-                  }))
-                }
-                disabled={form.lodging.isUnspecified}
-              />
-            </label>
-            <div className="grid gap-3 text-sm text-slate-700">
-              {([
-                ['hasElectricity', '전기'],
-                ['hasShower', '샤워'],
-                ['hasInternet', '인터넷'],
-              ] as const).map(([field, label]) => (
-                <div key={field} className="flex items-center gap-3">
-                  <span className="w-16 shrink-0">{label}</span>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={form.lodging[field] ? 'default' : 'outline'}
-                      disabled={form.lodging.isUnspecified}
-                      onClick={() =>
-                        setForm((prev) => ({
-                          ...prev,
-                          lodging: { ...prev.lodging, [field]: true },
-                        }))
-                      }
-                    >
-                      예
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={!form.lodging[field] ? 'default' : 'outline'}
-                      disabled={form.lodging.isUnspecified}
-                      onClick={() =>
-                        setForm((prev) => ({
-                          ...prev,
-                          lodging: { ...prev.lodging, [field]: false },
-                        }))
-                      }
-                    >
-                      아니오
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-800">식사</h3>
-            {(['breakfast', 'lunch', 'dinner'] as const).map((field) => (
-              <label key={field} className="grid gap-1 text-sm">
-                <span className="text-slate-700">{field === 'breakfast' ? '아침' : field === 'lunch' ? '점심' : '저녁'}</span>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant={form.meals[field] === null ? 'default' : 'outline'}
-                    onClick={() =>
+              <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={form.lodging.isUnspecified}
+                    onChange={(event) =>
                       setForm((prev) => ({
                         ...prev,
-                        meals: {
-                          ...prev.meals,
-                          [field]: null,
-                        },
+                        lodging: { ...prev.lodging, isUnspecified: event.target.checked },
                       }))
                     }
-                  >
-                    선택 안 함
-                  </Button>
-                  {MEAL_OPTIONS.map((option) => (
-                    <Button
-                      key={option.value}
-                      type="button"
-                      variant={form.meals[field] === option.value ? 'default' : 'outline'}
-                      onClick={() =>
-                        setForm((prev) => ({
-                          ...prev,
-                          meals: {
-                            ...prev.meals,
-                            [field]: option.value,
-                          },
-                        }))
-                      }
-                    >
-                      {option.label}
-                    </Button>
+                  />
+                  숙소 미지정
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="text-slate-700">숙소명</span>
+                  <Input
+                    value={form.lodging.name}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        lodging: { ...prev.lodging, name: event.target.value },
+                      }))
+                    }
+                    disabled={form.lodging.isUnspecified}
+                  />
+                </label>
+                <div className="grid gap-3 text-sm text-slate-700">
+                  {([
+                    ['hasElectricity', '전기'],
+                    ['hasShower', '샤워'],
+                    ['hasInternet', '인터넷'],
+                  ] as const).map(([field, label]) => (
+                    <div key={field} className="flex items-center gap-3">
+                      <span className="w-16 shrink-0">{label}</span>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant={form.lodging[field] ? 'default' : 'outline'}
+                          disabled={form.lodging.isUnspecified}
+                          onClick={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              lodging: { ...prev.lodging, [field]: true },
+                            }))
+                          }
+                        >
+                          예
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={!form.lodging[field] ? 'default' : 'outline'}
+                          disabled={form.lodging.isUnspecified}
+                          onClick={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              lodging: { ...prev.lodging, [field]: false },
+                            }))
+                          }
+                        >
+                          아니오
+                        </Button>
+                      </div>
+                    </div>
                   ))}
                 </div>
-              </label>
-            ))}
+              </div>
+
+              <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+                {(['breakfast', 'lunch', 'dinner'] as const).map((field) => (
+                  <label key={field} className="grid gap-1 text-sm">
+                    <span className="text-slate-700">{field === 'breakfast' ? '아침' : field === 'lunch' ? '점심' : '저녁'}</span>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant={form.meals[field] === null ? 'default' : 'outline'}
+                        onClick={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            meals: {
+                              ...prev.meals,
+                              [field]: null,
+                            },
+                          }))
+                        }
+                      >
+                        선택 안 함
+                      </Button>
+                      {MEAL_OPTIONS.map((option) => (
+                        <Button
+                          key={option.value}
+                          type="button"
+                          variant={form.meals[field] === option.value ? 'default' : 'outline'}
+                          onClick={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              meals: {
+                                ...prev.meals,
+                                [field]: option.value,
+                              },
+                            }))
+                          }
+                        >
+                          {option.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 self-start">
+              <h3 className="text-sm font-semibold text-slate-800">시간/일정</h3>
+              <div className="grid gap-3">
+                {form.timeSlots.map((slot, slotIndex) => (
+                  <div key={`slot-${slotIndex}`} className="grid gap-2">
+                    <div className="grid gap-3 rounded-xl border border-slate-200 p-3 md:grid-cols-[max-content_minmax(0,1fr)]">
+                      <div className="grid gap-2 md:content-start">
+                        <div className="flex h-10 items-center">
+                          <h4 className="text-sm font-semibold text-slate-800">시간</h4>
+                        </div>
+                        <Input
+                          className="w-[110px] border-slate-500 text-lg font-semibold"
+                          value={slot.startTime}
+                          onChange={(event) => updateSlotTime(slotIndex, event.target.value)}
+                          placeholder="HH:mm"
+                        />
+                      </div>
+                      <div className="grid gap-2 min-w-0">
+                        <div className="flex h-10 items-center justify-between gap-2">
+                          <h4 className="text-sm font-semibold text-slate-800">활동</h4>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => removeTimeSlot(slotIndex)}
+                            disabled={form.timeSlots.length <= 1}
+                            className="whitespace-nowrap"
+                          >
+                            삭제
+                          </Button>
+                        </div>
+                        <div className="grid gap-2">
+                          {slot.activities.map((activity, activityIndex) => (
+                            <div key={`slot-${slotIndex}-activity-${activityIndex}`} className="flex items-center gap-2 min-w-0">
+                              <Input
+                                value={activity}
+                                onChange={(event) => updateActivity(slotIndex, activityIndex, event.target.value)}
+                                placeholder="활동 입력"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => removeActivity(slotIndex, activityIndex)}
+                                disabled={slot.activities.length <= 1}
+                                className="whitespace-nowrap"
+                              >
+                                X
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="overflow-x-auto">
+                          <Button type="button" variant="outline" onClick={() => addActivity(slotIndex)} className="whitespace-nowrap">
+                            활동 추가
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {slot.startTime === '08:00' ? (
+                      <div className="overflow-x-auto">
+                        <Button type="button" variant="outline" onClick={() => addPresetBetween('12:00', '10:00')} className="whitespace-nowrap">
+                          <span aria-hidden="true" className="mr-1">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="9" />
+                              <path d="M12 7v5l3 2" />
+                            </svg>
+                          </span>
+                          시간 추가
+                        </Button>
+                      </div>
+                    ) : null}
+
+                    {slot.startTime === '12:00' ? (
+                      <div className="overflow-x-auto">
+                        <Button type="button" variant="outline" onClick={() => addPresetBetween('18:00', '15:00')} className="whitespace-nowrap">
+                          <span aria-hidden="true" className="mr-1">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="9" />
+                              <path d="M12 7v5l3 2" />
+                            </svg>
+                          </span>
+                          시간 추가
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+              <div>
+                <Button type="button" variant="outline" onClick={addTimeSlot} className="whitespace-nowrap">
+                  <span aria-hidden="true" className="mr-1">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 7v5l3 2" />
+                    </svg>
+                  </span>
+                  시간 추가
+                </Button>
+              </div>
+            </div>
           </div>
 
-          <div>
+          <div className="lg:col-span-2">
             <Button type="submit" disabled={submitting || !form.regionId || !form.name.trim()}>
               {submitting ? '생성 중...' : '목적지 생성'}
             </Button>
