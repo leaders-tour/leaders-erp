@@ -5,20 +5,20 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 const navItems = [
   { path: '/itinerary-builder', label: '일정 빌더' },
   {
-    path: '/regions',
-    label: '지역',
-    children: [
-      { path: '/regions/list', label: '지역 목록' },
-      { path: '/regions/create', label: '지역 생성' },
-    ],
-  },
-  {
     path: '/locations',
     label: '목적지',
     children: [
       { path: '/locations/list', label: '목적지 목록' },
       { path: '/locations/create', label: '목적지 생성' },
       { path: '/locations/connections', label: '목적지 간 연결' },
+    ],
+  },
+  {
+    path: '/regions',
+    label: '지역',
+    children: [
+      { path: '/regions/list', label: '지역 목록' },
+      { path: '/regions/create', label: '지역 생성' },
     ],
   },
 ];
