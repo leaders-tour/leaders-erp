@@ -29,21 +29,15 @@ const REMOVE = gql`
   }
 `;
 
-export type FixedSlotTime = '08:00' | '12:00' | '18:00';
-
 export interface LocationProfileTimeSlotFormInput {
-  startTime: FixedSlotTime;
-  activities: [string, string, string, string];
+  startTime: string;
+  activities: string[];
 }
 
 export interface LocationProfileFormInput {
   regionId: string;
   name: string;
-  timeSlots: [
-    LocationProfileTimeSlotFormInput,
-    LocationProfileTimeSlotFormInput,
-    LocationProfileTimeSlotFormInput,
-  ];
+  timeSlots: LocationProfileTimeSlotFormInput[];
   lodging: {
     isUnspecified: boolean;
     name: string;
@@ -77,7 +71,7 @@ export function useLocationCrud() {
               name: input.lodging.name.trim(),
             },
             timeSlots: input.timeSlots.map((slot) => ({
-              startTime: slot.startTime,
+              startTime: slot.startTime.trim(),
               activities: slot.activities
                 .map((activity) => activity.trim())
                 .filter((activity) => activity.length > 0),

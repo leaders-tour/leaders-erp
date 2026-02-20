@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
-import { LOCATION_TIMETABLE_SLOTS, locationCreateSchema, locationProfileCreateSchema, locationUpdateSchema } from '@tour/validation';
+import { locationCreateSchema, locationProfileCreateSchema, locationUpdateSchema } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
 import { locationInclude } from './location.mapper';
 import { LocationRepository } from './location.repository';
@@ -51,13 +51,6 @@ export class LocationService {
       throw new DomainError('VALIDATION_FAILED', 'Invalid location profile input');
     }
 
-    const slotMap = new Map(parsed.data.timeSlots.map((slot) => [slot.startTime, slot]));
-    for (const fixed of LOCATION_TIMETABLE_SLOTS) {
-      if (!slotMap.has(fixed)) {
-        throw new DomainError('VALIDATION_FAILED', 'All fixed timetable slots (08:00/12:00/18:00) are required');
-      }
-    }
-
     return this.prisma.$transaction(async (tx) => {
       const region = await tx.region.findUnique({
         where: { id: parsed.data.regionId },
@@ -85,25 +78,19 @@ export class LocationService {
         },
       });
 
-      for (const [index, startTime] of LOCATION_TIMETABLE_SLOTS.entries()) {
-        const slot = slotMap.get(startTime);
-        if (!slot) {
-          continue;
-        }
-
+      for (const [index, slot] of parsed.data.timeSlots.entries()) {
         const timeBlock = await tx.timeBlock.create({
           data: {
             locationId: location.id,
-            startTime,
-            label: startTime,
+            startTime: slot.startTime,
+            label: slot.startTime,
             orderIndex: index,
           },
         });
 
         const activities = slot.activities
           .map((activity) => activity.trim())
-          .filter((activity) => activity.length > 0)
-          .slice(0, 4);
+          .filter((activity) => activity.length > 0);
 
         if (activities.length > 0) {
           await tx.activity.createMany({

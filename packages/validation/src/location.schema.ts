@@ -11,11 +11,9 @@ export const locationCreateSchema = z.object({
 
 export const locationUpdateSchema = locationCreateSchema.partial();
 
-export const LOCATION_TIMETABLE_SLOTS = ['08:00', '12:00', '18:00'] as const;
-
 const locationProfileTimeSlotSchema = z.object({
-  startTime: z.enum(LOCATION_TIMETABLE_SLOTS),
-  activities: z.array(z.string().max(500)).max(4),
+  startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
+  activities: z.array(z.string().max(500)).max(20),
 });
 
 const locationProfileLodgingSchema = z.object({
@@ -35,7 +33,7 @@ const locationProfileMealsSchema = z.object({
 export const locationProfileCreateSchema = z.object({
   regionId: z.string().min(1),
   name: z.string().min(1).max(100),
-  timeSlots: z.array(locationProfileTimeSlotSchema).length(3),
+  timeSlots: z.array(locationProfileTimeSlotSchema).min(1).max(24),
   lodging: locationProfileLodgingSchema,
   meals: locationProfileMealsSchema,
 });

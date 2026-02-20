@@ -22,15 +22,32 @@ const MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
   { value: MealOption.ShabuShabu, label: '샤브샤브' },
 ];
 
+const DEFAULT_SLOT_TIMES = ['08:00', '12:00', '18:00'] as const;
+
+function createSlot(startTime: string): LocationProfileFormInput['timeSlots'][number] {
+  return {
+    startTime,
+    activities: ['', '', '', ''],
+  };
+}
+
+function getNextSlotTime(currentSlots: LocationProfileFormInput['timeSlots']): string {
+  const last = currentSlots[currentSlots.length - 1];
+  if (!last || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(last.startTime)) {
+    return '';
+  }
+  const [hours = 0, minutes = 0] = last.startTime.split(':').map(Number);
+  const total = (hours * 60 + minutes + 60) % (24 * 60);
+  const nextHours = String(Math.floor(total / 60)).padStart(2, '0');
+  const nextMinutes = String(total % 60).padStart(2, '0');
+  return `${nextHours}:${nextMinutes}`;
+}
+
 function createDefaultForm(regionId = ''): LocationProfileFormInput {
   return {
     regionId,
     name: '',
-    timeSlots: [
-      { startTime: '08:00', activities: ['', '', '', ''] },
-      { startTime: '12:00', activities: ['', '', '', ''] },
-      { startTime: '18:00', activities: ['', '', '', ''] },
-    ],
+    timeSlots: DEFAULT_SLOT_TIMES.map((slot) => createSlot(slot)),
     lodging: {
       isUnspecified: false,
       name: '여행자 캠프',
@@ -54,6 +71,54 @@ export function LocationPage(): JSX.Element {
 
   const regions = useMemo(() => regionData?.regions ?? [], [regionData]);
 
+  const updateSlotTime = (slotIndex: number, value: string) => {
+    setForm((prev) => {
+      const nextSlots = [...prev.timeSlots];
+      const target = nextSlots[slotIndex];
+      if (!target) {
+        return prev;
+      }
+      nextSlots[slotIndex] = { ...target, startTime: value };
+      return { ...prev, timeSlots: nextSlots };
+    });
+  };
+
+  const addTimeSlot = () => {
+    setForm((prev) => ({
+      ...prev,
+      timeSlots: [...prev.timeSlots, createSlot(getNextSlotTime(prev.timeSlots))],
+    }));
+  };
+
+  const addPresetBetween = (beforeTime: string, presetTime: string) => {
+    setForm((prev) => {
+      const insertIndex = prev.timeSlots.findIndex((slot) => slot.startTime === beforeTime);
+      if (insertIndex < 0) {
+        return { ...prev, timeSlots: [...prev.timeSlots, createSlot(presetTime)] };
+      }
+      return {
+        ...prev,
+        timeSlots: [
+          ...prev.timeSlots.slice(0, insertIndex),
+          createSlot(presetTime),
+          ...prev.timeSlots.slice(insertIndex),
+        ],
+      };
+    });
+  };
+
+  const removeTimeSlot = (slotIndex: number) => {
+    setForm((prev) => {
+      if (prev.timeSlots.length <= 1) {
+        return prev;
+      }
+      return {
+        ...prev,
+        timeSlots: prev.timeSlots.filter((_, index) => index !== slotIndex),
+      };
+    });
+  };
+
   const updateActivity = (slotIndex: number, activityIndex: number, value: string) => {
     setForm((prev) => {
       const nextSlots = [...prev.timeSlots];
@@ -61,10 +126,43 @@ export function LocationPage(): JSX.Element {
       if (!target) {
         return prev;
       }
-      const nextActivities = [...target.activities] as [string, string, string, string];
+      const nextActivities = [...target.activities];
+      if (activityIndex < 0 || activityIndex >= nextActivities.length) {
+        return prev;
+      }
       nextActivities[activityIndex] = value;
       nextSlots[slotIndex] = { ...target, activities: nextActivities };
-      return { ...prev, timeSlots: nextSlots as LocationProfileFormInput['timeSlots'] };
+      return { ...prev, timeSlots: nextSlots };
+    });
+  };
+
+  const addActivity = (slotIndex: number) => {
+    setForm((prev) => {
+      const nextSlots = [...prev.timeSlots];
+      const target = nextSlots[slotIndex];
+      if (!target) {
+        return prev;
+      }
+      nextSlots[slotIndex] = {
+        ...target,
+        activities: [...target.activities, ''],
+      };
+      return { ...prev, timeSlots: nextSlots };
+    });
+  };
+
+  const removeActivity = (slotIndex: number, activityIndex: number) => {
+    setForm((prev) => {
+      const nextSlots = [...prev.timeSlots];
+      const target = nextSlots[slotIndex];
+      if (!target || target.activities.length <= 1) {
+        return prev;
+      }
+      nextSlots[slotIndex] = {
+        ...target,
+        activities: target.activities.filter((_, index) => index !== activityIndex),
+      };
+      return { ...prev, timeSlots: nextSlots };
     });
   };
 
@@ -90,22 +188,25 @@ export function LocationPage(): JSX.Element {
             }
           }}
         >
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3">
             <label className="grid gap-1 text-sm">
               <span className="text-slate-700">지역</span>
-              <select
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                value={form.regionId}
-                onChange={(event) => setForm((prev) => ({ ...prev, regionId: event.target.value }))}
-                required
-              >
-                <option value="">선택하세요</option>
+              <div className="flex flex-wrap gap-2">
                 {regions.map((region) => (
-                  <option key={region.id} value={region.id}>
+                  <button
+                    key={region.id}
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, regionId: region.id }))}
+                    className={`rounded-xl border px-3 py-1.5 text-sm ${
+                      form.regionId === region.id
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
                     {region.name}
-                  </option>
+                  </button>
                 ))}
-              </select>
+              </div>
             </label>
 
             <label className="grid gap-1 text-sm">
@@ -117,18 +218,70 @@ export function LocationPage(): JSX.Element {
           <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
             <h3 className="text-sm font-semibold text-slate-800">시간/일정</h3>
             {form.timeSlots.map((slot, slotIndex) => (
-              <div key={slot.startTime} className="grid gap-2">
-                <div className="text-sm font-medium text-slate-700">{slot.startTime}</div>
-                {slot.activities.map((activity, activityIndex) => (
-                  <Input
-                    key={`${slot.startTime}-${activityIndex}`}
-                    value={activity}
-                    onChange={(event) => updateActivity(slotIndex, activityIndex, event.target.value)}
-                    placeholder="활동 입력"
-                  />
-                ))}
+              <div key={`slot-${slotIndex}`} className="grid gap-2">
+                <div className="grid gap-2 rounded-xl border border-slate-200 p-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-slate-700">시간</span>
+                    <Input
+                      value={slot.startTime}
+                      onChange={(event) => updateSlotTime(slotIndex, event.target.value)}
+                      placeholder="HH:mm"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => removeTimeSlot(slotIndex)}
+                      disabled={form.timeSlots.length <= 1}
+                    >
+                      시간 삭제
+                    </Button>
+                  </div>
+                  {slot.activities.map((activity, activityIndex) => (
+                    <div key={`slot-${slotIndex}-activity-${activityIndex}`} className="flex items-center gap-2">
+                      <Input
+                        value={activity}
+                        onChange={(event) => updateActivity(slotIndex, activityIndex, event.target.value)}
+                        placeholder="활동 입력"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => removeActivity(slotIndex, activityIndex)}
+                        disabled={slot.activities.length <= 1}
+                      >
+                        삭제
+                      </Button>
+                    </div>
+                  ))}
+                  <div>
+                    <Button type="button" variant="outline" onClick={() => addActivity(slotIndex)}>
+                      활동 추가
+                    </Button>
+                  </div>
+                </div>
+
+                {slot.startTime === '08:00' ? (
+                  <div>
+                    <Button type="button" variant="outline" onClick={() => addPresetBetween('12:00', '10:00')}>
+                      시간 추가
+                    </Button>
+                  </div>
+                ) : null}
+
+                {slot.startTime === '12:00' ? (
+                  <div>
+                    <Button type="button" variant="outline" onClick={() => addPresetBetween('18:00', '15:00')}>
+                      시간 추가
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             ))}
+            <div>
+              <Button type="button" variant="outline" onClick={addTimeSlot}>
+                시간 추가
+              </Button>
+            </div>
           </div>
 
           <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
@@ -235,7 +388,7 @@ export function LocationPage(): JSX.Element {
           </div>
 
           <div>
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" disabled={submitting || !form.regionId || !form.name.trim()}>
               {submitting ? '생성 중...' : '목적지 생성'}
             </Button>
           </div>
