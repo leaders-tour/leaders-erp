@@ -5,6 +5,8 @@ const LIST = gql`
   query Locations {
     locations {
       id
+      regionId
+      regionName
       name
       timeBlocks {
         id

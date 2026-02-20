@@ -1,4 +1,5 @@
 import { Button, Card, Table, Td, Th } from '@tour/ui';
+import { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useLocationCrud } from '../features/location/hooks';
 import { MealOption } from '../generated/graphql';
@@ -29,6 +30,18 @@ function splitLocationNameAndTag(name: string): { name: string; tag: string | nu
 export function LocationListPage(): JSX.Element {
   const crud = useLocationCrud();
   const location = useLocation();
+  const [selectedRegion, setSelectedRegion] = useState<string>('ALL');
+
+  const regions = useMemo(() => {
+    return Array.from(new Set(crud.rows.map((row) => row.regionName))).sort((a, b) => a.localeCompare(b, 'ko'));
+  }, [crud.rows]);
+
+  const filteredRows = useMemo(() => {
+    if (selectedRegion === 'ALL') {
+      return crud.rows;
+    }
+    return crud.rows.filter((row) => row.regionName === selectedRegion);
+  }, [crud.rows, selectedRegion]);
 
   return (
     <section className="grid gap-6">
@@ -80,6 +93,23 @@ export function LocationListPage(): JSX.Element {
       </header>
 
       <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant={selectedRegion === 'ALL' ? 'default' : 'outline'} onClick={() => setSelectedRegion('ALL')}>
+              전체
+            </Button>
+            {regions.map((regionName) => (
+              <Button
+                key={regionName}
+                type="button"
+                variant={selectedRegion === regionName ? 'default' : 'outline'}
+                onClick={() => setSelectedRegion(regionName)}
+              >
+                {regionName}
+              </Button>
+            ))}
+          </div>
+        </div>
         <Table>
           <thead>
             <tr>
@@ -91,7 +121,7 @@ export function LocationListPage(): JSX.Element {
             </tr>
           </thead>
           <tbody>
-            {crud.rows.map((row) => {
+            {filteredRows.map((row) => {
               const parsedName = splitLocationNameAndTag(row.name);
               return (
               <tr key={row.id}>
