@@ -312,82 +312,72 @@ export function ItineraryBuilderPage(): JSX.Element {
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
             <h2 className="font-medium">설정</h2>
             <div className="mt-3 grid gap-3">
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">권역</span>
-                <select
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  value={regionId}
-                  onChange={(event) => {
-                    const nextRegion = event.target.value;
-                    setRegionId(nextRegion);
-                    setStartLocationId('');
-                    setSelectedRoute([]);
-                    setOverrides({});
-                  }}
-                >
-                  <option value="">선택하세요</option>
+              <div className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">지역</span>
+                <div className="flex flex-wrap gap-2">
                   {regions.map((region) => (
-                    <option key={region.id} value={region.id}>
+                    <button
+                      key={region.id}
+                      type="button"
+                      onClick={() => {
+                        setRegionId(region.id);
+                        setStartLocationId('');
+                        setSelectedRoute([]);
+                        setOverrides({});
+                      }}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        regionId === region.id
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
                       {region.name}
-                    </option>
+                    </button>
                   ))}
-                </select>
-              </label>
+                </div>
+              </div>
 
-              <label className="grid gap-1 text-sm">
+              <div className="grid gap-1 text-sm">
                 <span className="text-xs text-slate-600">Variant</span>
-                <select
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  value={variantType}
-                  onChange={(event) => setVariantType(event.target.value as VariantType)}
-                >
+                <div className="flex flex-wrap gap-2">
                   {VARIANTS.map((variant) => (
-                    <option key={variant.id} value={variant.id}>
+                    <button
+                      key={variant.id}
+                      type="button"
+                      onClick={() => setVariantType(variant.id)}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        variantType === variant.id
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
                       {variant.label}
-                    </option>
+                    </button>
                   ))}
-                </select>
-              </label>
+                </div>
+              </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <label className="grid gap-1 text-sm">
-                  <span className="text-xs text-slate-600">일수</span>
-                  <select
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                    value={String(totalDays)}
-                    onChange={(event) => {
-                      const next = Number(event.target.value);
-                      setTotalDays(next);
-                      setSelectedRoute((prev) => prev.slice(0, next));
-                    }}
-                  >
-                    {Array.from({ length: 9 }, (_, idx) => idx + 2).map((day) => (
-                      <option key={day} value={day}>
-                        {day}일
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="grid gap-1 text-sm">
-                  <span className="text-xs text-slate-600">1일차 출발지</span>
-                  <select
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                    value={startLocationId}
-                    onChange={(event) => {
-                      setStartLocationId(event.target.value);
-                      setSelectedRoute([]);
-                      setOverrides({});
-                    }}
-                  >
-                    <option value="">선택하세요</option>
-                    {filteredLocations.map((location) => (
-                      <option key={location.id} value={location.id}>
-                        {location.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              <div className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">일수</span>
+                <div className="flex flex-wrap gap-2">
+                  {Array.from({ length: 9 }, (_, idx) => idx + 2).map((day) => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => {
+                        setTotalDays(day);
+                        setSelectedRoute((prev) => prev.slice(0, day));
+                      }}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        totalDays === day
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {day}일
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </Card>
@@ -397,6 +387,35 @@ export function ItineraryBuilderPage(): JSX.Element {
             <p className="mt-1 text-xs text-slate-600">이전 일차와 연결 가능한 목적지만 버튼으로 노출됩니다.</p>
 
             <div className="mt-4 space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <div className="text-sm font-medium">1일차 출발지</div>
+                {startLocationId ? (
+                  <div className="mt-1 text-slate-700">{locationById.get(startLocationId)?.name ?? startLocationId}</div>
+                ) : (
+                  <div className="mt-1 text-xs text-slate-500">출발지를 선택해주세요.</div>
+                )}
+                <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
+                  {filteredLocations.map((location) => (
+                    <button
+                      key={`start-${location.id}`}
+                      type="button"
+                      onClick={() => {
+                        setStartLocationId(location.id);
+                        setSelectedRoute([]);
+                        setOverrides({});
+                      }}
+                      className={`rounded-xl border px-3 py-2 text-sm ${
+                        startLocationId === location.id
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white hover:bg-slate-100'
+                      }`}
+                    >
+                      {location.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {selectedRoute.map((locationId, index) => (
                 <div key={`selected-${index + 1}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                   <div className="text-sm font-medium">{index + 1}일차</div>
@@ -404,7 +423,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </div>
               ))}
 
-              {selectedRoute.length < totalDays ? (
+              {startLocationId && selectedRoute.length < totalDays ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 p-4">
                   <div className="mb-3 text-sm font-medium">{selectedRoute.length + 1}일차 선택</div>
                   <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
