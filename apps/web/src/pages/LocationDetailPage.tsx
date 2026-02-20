@@ -36,12 +36,23 @@ export function LocationDetailPage(): JSX.Element {
   }
 
   const parsedName = splitLocationNameAndTag(location.name);
-  const adjacent = segments
-    .filter((segment) => segment.fromLocationId === location.id || segment.toLocationId === location.id)
+  const fromSegments = segments
+    .filter((segment) => segment.toLocationId === location.id)
     .map((segment) => ({
       segmentId: segment.id,
-      locationId: segment.fromLocationId === location.id ? segment.toLocation.id : segment.fromLocation.id,
-      locationName: segment.fromLocationId === location.id ? segment.toLocation.name : segment.fromLocation.name,
+      targetLocationId: segment.fromLocation.id,
+      targetLocationName: segment.fromLocation.name,
+      distanceKm: segment.averageDistanceKm,
+      travelHours: segment.averageTravelHours,
+    }))
+    .slice(0, 5);
+
+  const toSegments = segments
+    .filter((segment) => segment.fromLocationId === location.id)
+    .map((segment) => ({
+      segmentId: segment.id,
+      targetLocationId: segment.toLocation.id,
+      targetLocationName: segment.toLocation.name,
       distanceKm: segment.averageDistanceKm,
       travelHours: segment.averageTravelHours,
     }))
@@ -134,20 +145,39 @@ export function LocationDetailPage(): JSX.Element {
             더보기
           </Link>
         </div>
-        {adjacent.length === 0 ? (
-          <div className="text-sm text-slate-500">연결 정보 없음</div>
-        ) : (
-          <div className="grid gap-2 text-sm">
-            {adjacent.map((item) => (
-              <div key={item.segmentId} className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2">
-                <Link to={`/locations/${item.locationId}`} className="text-slate-800 hover:underline">
-                  {item.locationName}
-                </Link>
-                <div className="text-slate-600">{item.distanceKm}km / {item.travelHours}시간</div>
-              </div>
-            ))}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-2">
+            <h3 className="text-sm font-semibold text-slate-800">출발 (From)</h3>
+            {fromSegments.length === 0 ? (
+              <div className="text-sm text-slate-500">출발 연결 정보 없음</div>
+            ) : (
+              fromSegments.map((item) => (
+                <div key={item.segmentId} className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                  <Link to={`/locations/${item.targetLocationId}`} className="text-slate-800 hover:underline">
+                    {item.targetLocationName}
+                  </Link>
+                  <div className="text-slate-600">{item.distanceKm}km / {item.travelHours}시간</div>
+                </div>
+              ))
+            )}
           </div>
-        )}
+
+          <div className="grid gap-2">
+            <h3 className="text-sm font-semibold text-slate-800">도착 (To)</h3>
+            {toSegments.length === 0 ? (
+              <div className="text-sm text-slate-500">도착 연결 정보 없음</div>
+            ) : (
+              toSegments.map((item) => (
+                <div key={item.segmentId} className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                  <Link to={`/locations/${item.targetLocationId}`} className="text-slate-800 hover:underline">
+                    {item.targetLocationName}
+                  </Link>
+                  <div className="text-slate-600">{item.distanceKm}km / {item.travelHours}시간</div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </Card>
     </section>
   );
