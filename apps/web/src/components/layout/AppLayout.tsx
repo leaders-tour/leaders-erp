@@ -5,7 +5,6 @@ const navItems = [
   { path: '/itinerary-builder', label: '일정 빌더' },
   { path: '/regions', label: '지역' },
   { path: '/locations', label: '목적지' },
-  { path: '/lodgings', label: '숙소' },
   { path: '/segments', label: '이동경로' },
 ];
 

@@ -1,7 +1,6 @@
 import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
 import { ItineraryBuilderPage } from '../pages/ItineraryBuilderPage';
-import { LodgingPage } from '../pages/LodgingPage';
 import { LocationPage } from '../pages/LocationPage';
 import { RegionPage } from '../pages/RegionPage';
 import { SegmentPage } from '../pages/SegmentPage';
@@ -15,7 +14,6 @@ export const router = createBrowserRouter([
       { path: 'itinerary-builder', element: <ItineraryBuilderPage /> },
       { path: 'regions', element: <RegionPage /> },
       { path: 'locations', element: <LocationPage /> },
-      { path: 'lodgings', element: <LodgingPage /> },
       { path: 'segments', element: <SegmentPage /> },
     ],
   },
