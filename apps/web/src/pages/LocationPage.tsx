@@ -70,6 +70,7 @@ export function LocationPage(): JSX.Element {
   const location = useLocation();
   const { data: regionData } = useQuery<{ regions: Region[] }>(REGIONS_QUERY);
   const [form, setForm] = useState<LocationProfileFormInput>(() => createDefaultForm());
+  const [tag, setTag] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const regions = useMemo(() => regionData?.regions ?? [], [regionData]);
@@ -216,8 +217,14 @@ export function LocationPage(): JSX.Element {
             event.preventDefault();
             setSubmitting(true);
             try {
-              await crud.createProfile(form);
+              const nextTag = tag.trim();
+              const nameWithTag = nextTag ? `${form.name.trim()} (${nextTag})` : form.name.trim();
+              await crud.createProfile({
+                ...form,
+                name: nameWithTag,
+              });
               setForm(createDefaultForm(form.regionId));
+              setTag('');
             } finally {
               setSubmitting(false);
             }
@@ -265,6 +272,14 @@ export function LocationPage(): JSX.Element {
                         }))
                       }
                       placeholder="1 ~ 1000"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm min-w-0 md:col-span-2">
+                    <span className="text-slate-700">태그 (선택)</span>
+                    <Input
+                      value={tag}
+                      onChange={(event) => setTag(event.target.value)}
+                      placeholder="ex a버전, b버전, 샤슬릭포함 버전 ..."
                     />
                   </label>
                 </div>

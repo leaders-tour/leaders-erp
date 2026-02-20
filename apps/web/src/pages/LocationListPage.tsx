@@ -18,6 +18,14 @@ function toMealLabel(value: MealOption | null | undefined): string {
   return labels[value];
 }
 
+function splitLocationNameAndTag(name: string): { name: string; tag: string | null } {
+  const matched = name.match(/^(.*)\s+\(([^()]+)\)$/);
+  if (!matched) {
+    return { name, tag: null };
+  }
+  return { name: matched[1] ?? name, tag: matched[2] ?? null };
+}
+
 export function LocationListPage(): JSX.Element {
   const crud = useLocationCrud();
   const location = useLocation();
@@ -83,9 +91,16 @@ export function LocationListPage(): JSX.Element {
             </tr>
           </thead>
           <tbody>
-            {crud.rows.map((row) => (
+            {crud.rows.map((row) => {
+              const parsedName = splitLocationNameAndTag(row.name);
+              return (
               <tr key={row.id}>
-                <Td>{row.name}</Td>
+                <Td>
+                  <div className="whitespace-pre-line">
+                    {parsedName.name}
+                    {parsedName.tag ? `\n(${parsedName.tag})` : ''}
+                  </div>
+                </Td>
                 <Td>
                   <div className="grid gap-1 text-sm">
                     {row.timeBlocks.map((timeBlock) => {
@@ -141,7 +156,8 @@ export function LocationListPage(): JSX.Element {
                   </div>
                 </Td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </Table>
       </Card>
