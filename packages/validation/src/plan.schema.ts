@@ -2,14 +2,12 @@ import { VariantType } from '@tour/domain';
 import { z } from 'zod';
 
 const planStopNestedSchema = z.object({
-  dayIndex: z.number().int().min(1),
-  fromLocationId: z.string().min(1),
-  toLocationId: z.string().min(1),
-  lodgingId: z.string().min(1).nullable().optional(),
-  mealSetId: z.string().min(1).nullable().optional(),
-  distanceText: z.string().min(1).max(100),
-  lodgingText: z.string().min(1).max(100),
-  mealsText: z.string().min(1).max(100),
+  dateCellText: z.string(),
+  destinationCellText: z.string(),
+  timeCellText: z.string(),
+  scheduleCellText: z.string(),
+  lodgingCellText: z.string(),
+  mealCellText: z.string(),
 });
 
 export const planCreateSchema = z.object({

@@ -61,8 +61,6 @@ model Location {
   region       Region    @relation(fields: [regionId], references: [id], onDelete: Cascade)
   fromSegments Segment[] @relation("FromLocation")
   toSegments   Segment[] @relation("ToLocation")
-  fromPlanStops PlanStop[] @relation("PlanStopFromLocation")
-  toPlanStops   PlanStop[] @relation("PlanStopToLocation")
   lodgings     Lodging[]
   mealSets     MealSet[]
   timeBlocks   TimeBlock[]
@@ -110,32 +108,21 @@ model Plan {
 }
 
 model PlanStop {
-  id             String @id @default(uuid(7))
-  planId         String
-  dayIndex       Int
-  fromLocationId String
-  toLocationId   String
-  lodgingId      String?
-  mealSetId      String?
-  distanceText   String
-  lodgingText    String
-  mealsText      String
+  id                  String @id @default(uuid(7))
+  planId              String
+  dateCellText        String @db.Text
+  destinationCellText String @db.Text
+  timeCellText        String @db.Text
+  scheduleCellText    String @db.Text
+  lodgingCellText     String @db.Text
+  mealCellText        String @db.Text
 
-  plan         Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
-  fromLocation Location @relation("PlanStopFromLocation", fields: [fromLocationId], references: [id])
-  toLocation   Location @relation("PlanStopToLocation", fields: [toLocationId], references: [id])
-  lodging      Lodging? @relation(fields: [lodgingId], references: [id], onDelete: SetNull)
-  mealSet      MealSet? @relation(fields: [mealSetId], references: [id], onDelete: SetNull)
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([planId])
-  @@index([fromLocationId])
-  @@index([toLocationId])
-  @@index([lodgingId])
-  @@index([mealSetId])
-  @@unique([planId, dayIndex])
 }
 
 model Lodging {
@@ -150,7 +137,6 @@ model Lodging {
   hasInternet          FacilityAvailability @default(NO)
 
   location Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  planStops PlanStop[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -168,7 +154,6 @@ model MealSet {
   dinner               MealOption?
 
   location Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  planStops PlanStop[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

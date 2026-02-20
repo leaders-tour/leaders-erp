@@ -26,29 +26,21 @@ input PlanUpdateInput {
 type PlanStop {
   id: ID!
   planId: String!
-  dayIndex: Int!
-  fromLocationId: String!
-  toLocationId: String!
-  lodgingId: String
-  mealSetId: String
-  distanceText: String!
-  lodgingText: String!
-  mealsText: String!
+  dateCellText: String!
+  destinationCellText: String!
+  timeCellText: String!
+  scheduleCellText: String!
+  lodgingCellText: String!
+  mealCellText: String!
   createdAt: DateTime!
   updatedAt: DateTime!
-  lodging: Lodging
-  mealSet: MealSet
-  fromLocation: Location!
-  toLocation: Location!
 }
 
 input PlanStopNestedInput {
-  dayIndex: Int!
-  fromLocationId: String!
-  toLocationId: String!
-  lodgingId: String
-  mealSetId: String
-  distanceText: String!
-  lodgingText: String!
-  mealsText: String!
+  dateCellText: String!
+  destinationCellText: String!
+  timeCellText: String!
+  scheduleCellText: String!
+  lodgingCellText: String!
+  mealCellText: String!
 }

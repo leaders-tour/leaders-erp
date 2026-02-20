@@ -18,7 +18,6 @@ type MealSet {
   createdAt: DateTime!
   updatedAt: DateTime!
   location: Location!
-  planStops: [PlanStop!]!
 }
 
 input MealSetCreateInput {

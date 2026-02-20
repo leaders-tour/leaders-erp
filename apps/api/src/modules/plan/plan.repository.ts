@@ -21,14 +21,12 @@ export class PlanRepository {
         ...planData,
         planStops: {
           create: planStops.map((planStop) => ({
-            dayIndex: planStop.dayIndex,
-            fromLocationId: planStop.fromLocationId,
-            toLocationId: planStop.toLocationId,
-            lodgingId: planStop.lodgingId ?? null,
-            mealSetId: planStop.mealSetId ?? null,
-            distanceText: planStop.distanceText,
-            lodgingText: planStop.lodgingText,
-            mealsText: planStop.mealsText,
+            dateCellText: planStop.dateCellText,
+            destinationCellText: planStop.destinationCellText,
+            timeCellText: planStop.timeCellText,
+            scheduleCellText: planStop.scheduleCellText,
+            lodgingCellText: planStop.lodgingCellText,
+            mealCellText: planStop.mealCellText,
           })),
         },
       },
@@ -50,14 +48,12 @@ export class PlanRepository {
       await this.prisma.planStop.createMany({
         data: planStops.map((planStop) => ({
           planId: id,
-          dayIndex: planStop.dayIndex,
-          fromLocationId: planStop.fromLocationId,
-          toLocationId: planStop.toLocationId,
-          lodgingId: planStop.lodgingId ?? null,
-          mealSetId: planStop.mealSetId ?? null,
-          distanceText: planStop.distanceText,
-          lodgingText: planStop.lodgingText,
-          mealsText: planStop.mealsText,
+          dateCellText: planStop.dateCellText,
+          destinationCellText: planStop.destinationCellText,
+          timeCellText: planStop.timeCellText,
+          scheduleCellText: planStop.scheduleCellText,
+          lodgingCellText: planStop.lodgingCellText,
+          mealCellText: planStop.mealCellText,
         })),
       });
     }

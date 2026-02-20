@@ -1,10 +1,8 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
-import { Button, Card, Input, StatusBadge, Table, Td, Th } from '@tour/ui';
-import { useMemo, useState } from 'react';
-import { VariantType } from '../generated/graphql';
-
-type CellSource = 'AUTO' | 'OVERRIDE';
-type EditableField = 'distanceText' | 'lodgingText' | 'mealsText';
+import { Button, Card, Table, Td, Th } from '@tour/ui';
+import { useEffect, useMemo, useState } from 'react';
+import { toFacilityLabel, toMealLabel } from '../features/location/display';
+import { MealOption, VariantType } from '../generated/graphql';
 
 interface RegionRow {
   id: string;
@@ -15,11 +13,23 @@ interface LocationRow {
   id: string;
   regionId: string;
   name: string;
-  defaultLodgingType: string;
+  internalMovementDistance: number | null;
+  lodgings: Array<{
+    id: string;
+    name: string;
+    hasElectricity: 'YES' | 'LIMITED' | 'NO';
+    hasShower: 'YES' | 'LIMITED' | 'NO';
+    hasInternet: 'YES' | 'LIMITED' | 'NO';
+  }>;
+  mealSets: Array<{
+    id: string;
+    breakfast: MealOption | null;
+    lunch: MealOption | null;
+    dinner: MealOption | null;
+  }>;
   timeBlocks: Array<{
     id: string;
     startTime: string;
-    label: string;
     orderIndex: number;
     activities: Array<{
       id: string;
@@ -38,30 +48,13 @@ interface SegmentRow {
   averageTravelHours: number;
 }
 
-interface TimeTableItem {
-  time: string;
-  text: string;
-}
-
-interface PlanStopDraft {
-  dayIndex: number;
-  fromLocationId: string;
-  toLocationId: string;
-  distanceText: string;
-  lodgingText: string;
-  mealsText: string;
-  timeTable: TimeTableItem[];
-}
-
-interface PlanStopPayload {
-  dayIndex: number;
-  fromLocationId: string;
-  toLocationId: string;
-  lodgingId: null;
-  mealSetId: null;
-  distanceText: string;
-  lodgingText: string;
-  mealsText: string;
+interface PlanRow {
+  dateCellText: string;
+  destinationCellText: string;
+  timeCellText: string;
+  scheduleCellText: string;
+  lodgingCellText: string;
+  mealCellText: string;
 }
 
 const REGIONS_QUERY = gql`
@@ -79,11 +72,23 @@ const LOCATIONS_QUERY = gql`
       id
       regionId
       name
-      defaultLodgingType
+      internalMovementDistance
+      lodgings {
+        id
+        name
+        hasElectricity
+        hasShower
+        hasInternet
+      }
+      mealSets {
+        id
+        breakfast
+        lunch
+        dinner
+      }
       timeBlocks {
         id
         startTime
-        label
         orderIndex
         activities {
           id
@@ -123,30 +128,67 @@ const VARIANTS = [
   { id: VariantType.Extend, label: '연장' },
 ];
 
-function inferMeals(params: { lodging: string; variant: VariantType; day: number; isLastDay: boolean }): string {
-  const { lodging, variant, day, isLastDay } = params;
-
-  let breakfast = '캠프식';
-  let lunch = '현지식당';
-  let dinner = '캠프식';
-
-  if (lodging.includes('온천')) {
-    dinner = '삼겹살파티';
-  }
-
-  if (variant === VariantType.Afternoon && day === 1) {
-    breakfast = 'X';
-  }
-
-  if (isLastDay) {
-    dinner = '샤브샤브';
-  }
-
-  return `${breakfast}\n${lunch}\n${dinner}`;
+function formatHours(value: number): string {
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(1)));
 }
 
-function overrideKey(dayIndex: number, field: EditableField): string {
-  return `${dayIndex}.${field}`;
+function toTimeCell(location: LocationRow | undefined): string {
+  if (!location || location.timeBlocks.length === 0) {
+    return '';
+  }
+
+  return location.timeBlocks
+    .slice()
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .flatMap((timeBlock) => {
+      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
+      if (orderedActivities.length <= 1) {
+        return [timeBlock.startTime];
+      }
+      return [timeBlock.startTime, ...orderedActivities.slice(1).map(() => '-')];
+    })
+    .join('\n');
+}
+
+function toScheduleCell(location: LocationRow | undefined): string {
+  if (!location || location.timeBlocks.length === 0) {
+    return '';
+  }
+
+  return location.timeBlocks
+    .slice()
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .flatMap((timeBlock) => {
+      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
+      if (orderedActivities.length === 0) {
+        return ['(일정 없음)'];
+      }
+      return orderedActivities.map((activity) => activity.description);
+    })
+    .join('\n');
+}
+
+function toLodgingCell(location: LocationRow | undefined): string {
+  const lodging = location?.lodgings[0];
+  if (!lodging) {
+    return '';
+  }
+
+  return [
+    lodging.name,
+    `전기 ${toFacilityLabel(lodging.hasElectricity)}`,
+    `샤워 ${toFacilityLabel(lodging.hasShower)}`,
+    `인터넷 ${toFacilityLabel(lodging.hasInternet)}`,
+  ].join('\n');
+}
+
+function toMealCell(location: LocationRow | undefined): string {
+  const mealSet = location?.mealSets[0];
+  return [
+    `아침 ${toMealLabel(mealSet?.breakfast)}`,
+    `점심 ${toMealLabel(mealSet?.lunch)}`,
+    `저녁 ${toMealLabel(mealSet?.dinner)}`,
+  ].join('\n');
 }
 
 export function ItineraryBuilderPage(): JSX.Element {
@@ -155,7 +197,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [regionId, setRegionId] = useState<string>('');
   const [startLocationId, setStartLocationId] = useState<string>('');
   const [selectedRoute, setSelectedRoute] = useState<string[]>([]);
-  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [planRows, setPlanRows] = useState<PlanRow[]>([]);
   const [createdPlanId, setCreatedPlanId] = useState<string>('');
 
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
@@ -193,68 +235,49 @@ export function ItineraryBuilderPage(): JSX.Element {
     return filteredLocations.filter((location) => toIds.includes(location.id));
   }, [filteredLocations, filteredSegments, selectedRoute, startLocationId, totalDays]);
 
-  const dayDrafts = useMemo((): PlanStopDraft[] => {
+  const autoRows = useMemo((): PlanRow[] => {
     return selectedRoute.map((toId, index) => {
       const dayIndex = index + 1;
       const fromId = index === 0 ? startLocationId : selectedRoute[index - 1] ?? '';
       const segment = filteredSegments.find((item) => item.fromLocationId === fromId && item.toLocationId === toId);
       const toLocation = locationById.get(toId);
-      const distanceText = segment ? `이동 ${segment.averageTravelHours}시간 (${segment.averageDistanceKm}km)` : '구간 미정';
-      const lodgingText = toLocation?.defaultLodgingType ?? '숙소 미정';
-      const mealsText = inferMeals({ lodging: lodgingText, variant: variantType, day: dayIndex, isLastDay: dayIndex === totalDays });
-      const timeTable =
-        toLocation?.timeBlocks
-          .slice()
-          .sort((a, b) => a.orderIndex - b.orderIndex)
-          .flatMap((timeBlock) => {
-            if (timeBlock.activities.length === 0) {
-              return [{ time: timeBlock.startTime, text: '(활동 미지정)' }];
-            }
-            return [...timeBlock.activities]
-              .sort((a, b) => a.orderIndex - b.orderIndex)
-              .map((activity) => ({ time: timeBlock.startTime, text: activity.description }));
-          }) ?? [];
+      const segmentHours = segment?.averageTravelHours ?? 0;
+      const internalHours = toLocation?.internalMovementDistance ?? 0;
+      const totalTravelHours = segment ? segmentHours + internalHours : 0;
+      const destinationCellText = [
+        toLocation?.name ?? toId,
+        segment
+          ? `(이동시간: ${formatHours(totalTravelHours)}시간)`
+          : '(이동시간: 미정)',
+      ].join('\n');
 
       return {
-        dayIndex,
-        fromLocationId: fromId,
-        toLocationId: toId,
-        distanceText,
-        lodgingText,
-        mealsText,
-        timeTable,
+        dateCellText: `${dayIndex}일차`,
+        destinationCellText,
+        timeCellText: toTimeCell(toLocation),
+        scheduleCellText: toScheduleCell(toLocation),
+        lodgingCellText: toLodgingCell(toLocation),
+        mealCellText: toMealCell(toLocation),
       };
     });
-  }, [filteredSegments, locationById, selectedRoute, startLocationId, totalDays, variantType]);
+  }, [filteredSegments, locationById, selectedRoute, startLocationId]);
 
-  const getCell = (draft: PlanStopDraft, field: EditableField): { value: string; source: CellSource } => {
-    const key = overrideKey(draft.dayIndex, field);
-    if (overrides[key] !== undefined) {
-      return { value: overrides[key], source: 'OVERRIDE' };
-    }
-    return { value: draft[field], source: 'AUTO' };
+  useEffect(() => {
+    setPlanRows(autoRows);
+  }, [autoRows]);
+
+  const hasMissingSegment = useMemo(() => {
+    return selectedRoute.some((toId, index) => {
+      const fromId = index === 0 ? startLocationId : selectedRoute[index - 1] ?? '';
+      return !filteredSegments.some((segment) => segment.fromLocationId === fromId && segment.toLocationId === toId);
+    });
+  }, [filteredSegments, selectedRoute, startLocationId]);
+
+  const updateCell = (rowIndex: number, field: keyof PlanRow, value: string): void => {
+    setPlanRows((prev) => prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
   };
 
-  const setCell = (dayIndex: number, field: EditableField, value: string): void => {
-    setOverrides((prev) => ({ ...prev, [overrideKey(dayIndex, field)]: value }));
-  };
-
-  const hasMissingSegment = dayDrafts.some((draft) => draft.distanceText.includes('구간 미정'));
-
-  const payloadPlanStops = useMemo((): PlanStopPayload[] => {
-    return dayDrafts.map((draft) => ({
-      dayIndex: draft.dayIndex,
-      fromLocationId: draft.fromLocationId,
-      toLocationId: draft.toLocationId,
-      lodgingId: null,
-      mealSetId: null,
-      distanceText: getCell(draft, 'distanceText').value,
-      lodgingText: getCell(draft, 'lodgingText').value,
-      mealsText: getCell(draft, 'mealsText').value,
-    }));
-  }, [dayDrafts, overrides]);
-
-  const canCreate = Boolean(regionId && startLocationId && selectedRoute.length === totalDays && !hasMissingSegment);
+  const canCreate = Boolean(regionId && startLocationId && selectedRoute.length === totalDays && planRows.length === totalDays);
 
   return (
     <div className="min-h-screen text-slate-900">
@@ -262,19 +285,14 @@ export function ItineraryBuilderPage(): JSX.Element {
         <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">여행 일정 생성기</h1>
-            <p className="mt-1 text-sm text-slate-600">목적지 순차 선택 → 자동 채움 → 오버라이드 → 저장/인쇄</p>
+            <p className="mt-1 text-sm text-slate-600">목적지 순차 선택 → 자동 채움 → 자유 편집 → 저장/PDF</p>
           </div>
           <div className="flex gap-2 no-print">
             <Button variant="outline" onClick={() => window.print()}>
               인쇄/PDF
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setOverrides({});
-              }}
-            >
-              오버라이드 초기화
+            <Button variant="outline" onClick={() => setPlanRows(autoRows)}>
+              자동값 다시 채우기
             </Button>
             <Button
               disabled={!canCreate || creating}
@@ -289,7 +307,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       regionId,
                       variantType,
                       totalDays,
-                      planStops: payloadPlanStops,
+                      planStops: planRows,
                     },
                   },
                 });
@@ -323,7 +341,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                         setRegionId(region.id);
                         setStartLocationId('');
                         setSelectedRoute([]);
-                        setOverrides({});
+                        setPlanRows([]);
                       }}
                       className={`rounded-xl border px-3 py-1.5 text-sm ${
                         regionId === region.id
@@ -402,7 +420,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                       onClick={() => {
                         setStartLocationId(location.id);
                         setSelectedRoute([]);
-                        setOverrides({});
                       }}
                       className={`rounded-xl border px-3 py-2 text-sm ${
                         startLocationId === location.id
@@ -430,6 +447,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                     {nextOptions.map((location) => (
                       <button
                         key={location.id}
+                        type="button"
                         onClick={() => setSelectedRoute((prev) => [...prev, location.id])}
                         className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
                       >
@@ -443,9 +461,10 @@ export function ItineraryBuilderPage(): JSX.Element {
 
               {selectedRoute.length > 0 ? (
                 <button
+                  type="button"
                   onClick={() => {
                     setSelectedRoute([]);
-                    setOverrides({});
+                    setPlanRows([]);
                   }}
                   className="text-xs text-red-500 underline"
                 >
@@ -459,82 +478,68 @@ export function ItineraryBuilderPage(): JSX.Element {
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 p-4">
             <h2 className="font-medium">일정표 편집기</h2>
-            <p className="mt-1 text-xs text-slate-600">이동/숙소/식사를 수정하면 OVERRIDE로 표시됩니다.</p>
+            <p className="mt-1 text-xs text-slate-600">모든 셀은 줄바꿈 포함 자유 편집됩니다.</p>
           </div>
 
           <div className="overflow-auto">
-            <Table className="min-w-[1100px] w-full text-sm">
+            <Table className="min-w-[1280px] w-full text-sm">
               <thead className="bg-slate-50 text-slate-700">
                 <tr>
-                  <Th className="w-[70px]">날짜</Th>
-                  <Th className="w-[200px]">구간</Th>
-                  <Th className="w-[270px]">이동/타임테이블</Th>
-                  <Th className="w-[190px]">이동 문구</Th>
-                  <Th className="w-[170px]">숙소</Th>
-                  <Th className="w-[180px]">식사</Th>
+                  <Th className="w-[110px]">날짜</Th>
+                  <Th className="w-[240px]">목적지</Th>
+                  <Th className="w-[180px]">시간</Th>
+                  <Th className="w-[280px]">일정</Th>
+                  <Th className="w-[220px]">숙소</Th>
+                  <Th className="w-[220px]">식사</Th>
                 </tr>
               </thead>
               <tbody>
-                {dayDrafts.map((draft) => {
-                  const fromName = locationById.get(draft.fromLocationId)?.name ?? draft.fromLocationId;
-                  const toName = locationById.get(draft.toLocationId)?.name ?? draft.toLocationId;
-
-                  const distance = getCell(draft, 'distanceText');
-                  const lodging = getCell(draft, 'lodgingText');
-                  const meals = getCell(draft, 'mealsText');
-
-                  return (
-                    <tr key={`day-row-${draft.dayIndex}`} className="border-t border-slate-200 align-top">
-                      <Td>
-                        <div className="font-medium">{draft.dayIndex}일차</div>
-                      </Td>
-                      <Td>
-                        <div className="text-slate-900">
-                          {fromName} → {toName}
-                        </div>
-                        <div className="mt-2 text-xs text-slate-500">A→B 구간 기반 자동 생성</div>
-                      </Td>
-                      <Td>
-                        <div className="space-y-2">
-                          {draft.timeTable.map((item, index) => (
-                            <div key={`tb-${draft.dayIndex}-${index}`} className="flex gap-3 text-sm">
-                              <div className="w-[58px] font-medium text-slate-700">{item.time}</div>
-                              <div className="flex-1 text-slate-900">{item.text}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </Td>
-                      <Td>
-                        <div className="flex items-center justify-between">
-                          <StatusBadge tone={distance.source === 'AUTO' ? 'auto' : 'override'} label={distance.source} />
-                        </div>
-                        <div className="mt-2">
-                          <Input value={distance.value} onChange={(event) => setCell(draft.dayIndex, 'distanceText', event.target.value)} />
-                        </div>
-                      </Td>
-                      <Td>
-                        <div className="flex items-center justify-between">
-                          <StatusBadge tone={lodging.source === 'AUTO' ? 'auto' : 'override'} label={lodging.source} />
-                        </div>
-                        <div className="mt-2">
-                          <Input value={lodging.value} onChange={(event) => setCell(draft.dayIndex, 'lodgingText', event.target.value)} />
-                        </div>
-                      </Td>
-                      <Td>
-                        <div className="flex items-center justify-between">
-                          <StatusBadge tone={meals.source === 'AUTO' ? 'auto' : 'override'} label={meals.source} />
-                        </div>
-                        <div className="mt-2">
-                          <textarea
-                            value={meals.value}
-                            onChange={(event) => setCell(draft.dayIndex, 'mealsText', event.target.value)}
-                            className="min-h-[88px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5"
-                          />
-                        </div>
-                      </Td>
-                    </tr>
-                  );
-                })}
+                {planRows.map((row, rowIndex) => (
+                  <tr key={`day-row-${rowIndex + 1}`} className="border-t border-slate-200 align-top">
+                    <Td>
+                      <textarea
+                        value={row.dateCellText}
+                        onChange={(event) => updateCell(rowIndex, 'dateCellText', event.target.value)}
+                        className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                      />
+                    </Td>
+                    <Td>
+                      <textarea
+                        value={row.destinationCellText}
+                        onChange={(event) => updateCell(rowIndex, 'destinationCellText', event.target.value)}
+                        className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                      />
+                    </Td>
+                    <Td>
+                      <textarea
+                        value={row.timeCellText}
+                        onChange={(event) => updateCell(rowIndex, 'timeCellText', event.target.value)}
+                        className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                      />
+                    </Td>
+                    <Td>
+                      <textarea
+                        value={row.scheduleCellText}
+                        onChange={(event) => updateCell(rowIndex, 'scheduleCellText', event.target.value)}
+                        className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                      />
+                    </Td>
+                    <Td>
+                      <textarea
+                        value={row.lodgingCellText}
+                        onChange={(event) => updateCell(rowIndex, 'lodgingCellText', event.target.value)}
+                        className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                      />
+                    </Td>
+                    <Td>
+                      <textarea
+                        value={row.mealCellText}
+                        onChange={(event) => updateCell(rowIndex, 'mealCellText', event.target.value)}
+                        className="min-h-[96px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                      />
+                    </Td>
+                  </tr>
+                ))}
               </tbody>
             </Table>
           </div>
@@ -552,11 +557,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">현재 구간 커버리지 정상</div>
               )}
 
-              {Object.keys(overrides).length > 0 ? (
-                <div className="rounded-2xl border border-slate-200 bg-white p-3">오버라이드 {Object.keys(overrides).length}개 적용됨</div>
-              ) : (
-                <div className="rounded-2xl border border-slate-200 bg-white p-3">오버라이드 없음</div>
-              )}
+              <div className="rounded-2xl border border-slate-200 bg-white p-3">편집 행 수: {planRows.length}</div>
             </div>
           </Card>
 
@@ -570,7 +571,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     variantType,
     totalDays,
     selectedRoute,
-    overridesCount: Object.keys(overrides).length,
+    planStops: planRows,
   },
   null,
   2,

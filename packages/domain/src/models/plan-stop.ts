@@ -1,14 +1,12 @@
 export interface PlanStop {
   id: string;
   planId: string;
-  dayIndex: number;
-  fromLocationId: string;
-  toLocationId: string;
-  lodgingId: string | null;
-  mealSetId: string | null;
-  distanceText: string;
-  lodgingText: string;
-  mealsText: string;
+  dateCellText: string;
+  destinationCellText: string;
+  timeCellText: string;
+  scheduleCellText: string;
+  lodgingCellText: string;
+  mealCellText: string;
   createdAt: Date;
   updatedAt: Date;
 }

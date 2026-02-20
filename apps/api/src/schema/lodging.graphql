@@ -11,7 +11,6 @@ type Lodging {
   createdAt: DateTime!
   updatedAt: DateTime!
   location: Location!
-  planStops: [PlanStop!]!
 }
 
 input LodgingCreateInput {

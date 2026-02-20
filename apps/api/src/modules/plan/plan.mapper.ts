@@ -4,12 +4,6 @@ export const planInclude = {
   region: true,
   overrides: true,
   planStops: {
-    include: {
-      fromLocation: true,
-      toLocation: true,
-      lodging: true,
-      mealSet: true,
-    },
-    orderBy: { dayIndex: 'asc' },
+    orderBy: { createdAt: 'asc' },
   },
 } satisfies Prisma.PlanInclude;
