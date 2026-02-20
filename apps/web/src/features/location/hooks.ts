@@ -5,12 +5,29 @@ const LIST = gql`
   query Locations {
     locations {
       id
-      regionId
-      regionName
       name
-      defaultLodgingType
-      latitude
-      longitude
+      timeBlocks {
+        id
+        startTime
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
+      lodgings {
+        id
+        name
+        hasElectricity
+        hasShower
+        hasInternet
+      }
+      mealSets {
+        id
+        breakfast
+        lunch
+        dinner
+      }
     }
   }
 `;

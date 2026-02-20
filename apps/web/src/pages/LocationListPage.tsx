@@ -1,6 +1,22 @@
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { Link, useLocation } from 'react-router-dom';
 import { useLocationCrud } from '../features/location/hooks';
+import { MealOption } from '../generated/graphql';
+
+function toMealLabel(value: MealOption | null | undefined): string {
+  if (!value) {
+    return 'X';
+  }
+  const labels: Record<MealOption, string> = {
+    [MealOption.CampMeal]: '캠프식',
+    [MealOption.LocalRestaurant]: '현지식당',
+    [MealOption.PorkParty]: '삼겹살파티',
+    [MealOption.Horhog]: '허르헉',
+    [MealOption.Shashlik]: '샤슬릭',
+    [MealOption.ShabuShabu]: '샤브샤브',
+  };
+  return labels[value];
+}
 
 export function LocationListPage(): JSX.Element {
   const crud = useLocationCrud();
@@ -59,24 +75,70 @@ export function LocationListPage(): JSX.Element {
         <Table>
           <thead>
             <tr>
-              <Th>ID</Th>
-              <Th>지역</Th>
-              <Th>목적지명</Th>
-              <Th>기본 숙소</Th>
-              <Th>관리</Th>
+              <Th>목적지</Th>
+              <Th>시간</Th>
+              <Th>일정</Th>
+              <Th>숙소</Th>
+              <Th>식사</Th>
             </tr>
           </thead>
           <tbody>
             {crud.rows.map((row) => (
               <tr key={row.id}>
-                <Td>{row.id}</Td>
-                <Td>{row.regionName}</Td>
                 <Td>{row.name}</Td>
-                <Td>{row.defaultLodgingType}</Td>
                 <Td>
-                  <Button variant="destructive" onClick={() => void crud.deleteRow(row.id)} disabled={crud.loading}>
-                    삭제
-                  </Button>
+                  <div className="grid gap-1 text-sm">
+                    {row.timeBlocks.map((timeBlock) => {
+                      const hasActivities = timeBlock.activities.length > 0;
+                      return (
+                        <div key={timeBlock.id} className="leading-5">
+                          <div>{timeBlock.startTime}</div>
+                          {hasActivities
+                            ? timeBlock.activities.slice(1).map((activity) => (
+                                <div key={activity.id} className="text-slate-500">
+                                  -
+                                </div>
+                              ))
+                            : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Td>
+                <Td>
+                  <div className="grid gap-1 text-sm">
+                    {row.timeBlocks.map((timeBlock) => {
+                      if (timeBlock.activities.length === 0) {
+                        return (
+                          <div key={timeBlock.id} className="leading-5 text-slate-500">
+                            (일정 없음)
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={timeBlock.id} className="leading-5">
+                          {timeBlock.activities.map((activity) => (
+                            <div key={activity.id}>{activity.description}</div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Td>
+                <Td>
+                  <div className="grid gap-1 text-sm">
+                    <div>{row.lodgings[0]?.name ?? '-'}</div>
+                    <div>{row.lodgings[0]?.hasElectricity ? '전기' : '전기 X'}</div>
+                    <div>{row.lodgings[0]?.hasShower ? '샤워' : '샤워 X'}</div>
+                    <div>{row.lodgings[0]?.hasInternet ? '인터넷' : '인터넷 X'}</div>
+                  </div>
+                </Td>
+                <Td>
+                  <div className="grid gap-1 text-sm">
+                    <div>{toMealLabel(row.mealSets[0]?.breakfast)}</div>
+                    <div>{toMealLabel(row.mealSets[0]?.lunch)}</div>
+                    <div>{toMealLabel(row.mealSets[0]?.dinner)}</div>
+                  </div>
                 </Td>
               </tr>
             ))}
