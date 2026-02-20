@@ -1,4 +1,4 @@
-import { Button, Card, Table, Td, Th } from '@tour/ui';
+import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
 import { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useLocationCrud } from '../features/location/hooks';
@@ -31,17 +31,20 @@ export function LocationListPage(): JSX.Element {
   const crud = useLocationCrud();
   const location = useLocation();
   const [selectedRegion, setSelectedRegion] = useState<string>('ALL');
+  const [searchKeyword, setSearchKeyword] = useState('');
 
   const regions = useMemo(() => {
     return Array.from(new Set(crud.rows.map((row) => row.regionName))).sort((a, b) => a.localeCompare(b, 'ko'));
   }, [crud.rows]);
 
   const filteredRows = useMemo(() => {
-    if (selectedRegion === 'ALL') {
-      return crud.rows;
+    const byRegion = selectedRegion === 'ALL' ? crud.rows : crud.rows.filter((row) => row.regionName === selectedRegion);
+    const keyword = searchKeyword.trim().toLowerCase();
+    if (!keyword) {
+      return byRegion;
     }
-    return crud.rows.filter((row) => row.regionName === selectedRegion);
-  }, [crud.rows, selectedRegion]);
+    return byRegion.filter((row) => row.name.toLowerCase().includes(keyword));
+  }, [crud.rows, searchKeyword, selectedRegion]);
 
   return (
     <section className="grid gap-6">
@@ -94,20 +97,25 @@ export function LocationListPage(): JSX.Element {
 
       <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" variant={selectedRegion === 'ALL' ? 'default' : 'outline'} onClick={() => setSelectedRegion('ALL')}>
-              전체
-            </Button>
-            {regions.map((regionName) => (
-              <Button
-                key={regionName}
-                type="button"
-                variant={selectedRegion === regionName ? 'default' : 'outline'}
-                onClick={() => setSelectedRegion(regionName)}
-              >
-                {regionName}
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant={selectedRegion === 'ALL' ? 'default' : 'outline'} onClick={() => setSelectedRegion('ALL')}>
+                전체
               </Button>
-            ))}
+              {regions.map((regionName) => (
+                <Button
+                  key={regionName}
+                  type="button"
+                  variant={selectedRegion === regionName ? 'default' : 'outline'}
+                  onClick={() => setSelectedRegion(regionName)}
+                >
+                  {regionName}
+                </Button>
+              ))}
+            </div>
+            <div className="w-full md:w-[280px]">
+              <Input value={searchKeyword} onChange={(event) => setSearchKeyword(event.target.value)} placeholder="목적지 검색" />
+            </div>
           </div>
         </div>
         <Table>
