@@ -188,31 +188,34 @@ export function LocationPage(): JSX.Element {
             }
           }}
         >
-          <div className="grid gap-3 md:grid-cols-2 md:items-start">
-            <label className="grid gap-1 text-sm min-w-0">
-              <span className="text-slate-700">지역</span>
-              <div className="flex flex-wrap gap-2">
-                {regions.map((region) => (
-                  <button
-                    key={region.id}
-                    type="button"
-                    onClick={() => setForm((prev) => ({ ...prev, regionId: region.id }))}
-                    className={`rounded-xl border px-3 py-1.5 text-sm ${
-                      form.regionId === region.id
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    {region.name}
-                  </button>
-                ))}
-              </div>
-            </label>
+          <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+            <h3 className="text-sm font-semibold text-slate-800">지역/이름</h3>
+            <div className="grid gap-3 md:grid-cols-2 md:items-start">
+              <label className="grid gap-1 text-sm min-w-0">
+                <span className="text-slate-700">지역</span>
+                <div className="flex flex-wrap gap-2">
+                  {regions.map((region) => (
+                    <button
+                      key={region.id}
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, regionId: region.id }))}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        form.regionId === region.id
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {region.name}
+                    </button>
+                  ))}
+                </div>
+              </label>
 
-            <label className="grid gap-1 text-sm min-w-0">
-              <span className="text-slate-700">이름</span>
-              <Input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} required />
-            </label>
+              <label className="grid gap-1 text-sm min-w-0">
+                <span className="text-slate-700">이름</span>
+                <Input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} required />
+              </label>
+            </div>
           </div>
 
           <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
@@ -220,26 +223,31 @@ export function LocationPage(): JSX.Element {
             <div className="grid gap-3">
               {form.timeSlots.map((slot, slotIndex) => (
                 <div key={`slot-${slotIndex}`} className="grid gap-2">
-                  <div className="grid gap-3 rounded-xl border border-slate-200 p-3 md:grid-cols-[220px_minmax(0,1fr)]">
-                    <div className="grid gap-2">
-                      <h4 className="text-sm font-semibold text-slate-800"># 시간</h4>
+                  <div className="grid gap-3 rounded-xl border border-slate-200 p-3 md:grid-cols-[max-content_minmax(0,1fr)]">
+                    <div className="grid gap-2 md:content-start">
+                      <div className="flex h-10 items-center">
+                        <h4 className="text-sm font-semibold text-slate-800">시간</h4>
+                      </div>
                       <Input
+                        className="w-[110px] border-slate-500 text-lg font-semibold"
                         value={slot.startTime}
                         onChange={(event) => updateSlotTime(slotIndex, event.target.value)}
                         placeholder="HH:mm"
                       />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => removeTimeSlot(slotIndex)}
-                        disabled={form.timeSlots.length <= 1}
-                        className="whitespace-nowrap"
-                      >
-                        X
-                      </Button>
                     </div>
                     <div className="grid gap-2 min-w-0">
-                      <h4 className="text-sm font-semibold text-slate-800"># 활동</h4>
+                      <div className="flex h-10 items-center justify-between gap-2">
+                        <h4 className="text-sm font-semibold text-slate-800">활동</h4>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => removeTimeSlot(slotIndex)}
+                          disabled={form.timeSlots.length <= 1}
+                          className="whitespace-nowrap"
+                        >
+                          삭제
+                        </Button>
+                      </div>
                       <div className="grid gap-2">
                         {slot.activities.map((activity, activityIndex) => (
                           <div key={`slot-${slotIndex}-activity-${activityIndex}`} className="flex items-center gap-2 min-w-0">
