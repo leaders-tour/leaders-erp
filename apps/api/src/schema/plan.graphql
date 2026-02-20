@@ -6,7 +6,7 @@ type Plan {
   createdAt: DateTime!
   updatedAt: DateTime!
   region: Region!
-  dayPlans: [DayPlan!]!
+  planStops: [PlanStop!]!
   overrides: [Override!]!
 }
 
@@ -14,35 +14,41 @@ input PlanCreateInput {
   regionId: String!
   variantType: VariantType!
   totalDays: Int!
-  dayPlans: [PlanDayPlanNestedInput!]!
+  planStops: [PlanStopNestedInput!]!
 }
 
 input PlanUpdateInput {
   variantType: VariantType
   totalDays: Int
-  dayPlans: [PlanDayPlanNestedInput!]
+  planStops: [PlanStopNestedInput!]
 }
 
-input PlanDayPlanNestedInput {
+type PlanStop {
+  id: ID!
+  planId: String!
   dayIndex: Int!
   fromLocationId: String!
   toLocationId: String!
+  lodgingId: String
+  mealSetId: String
   distanceText: String!
   lodgingText: String!
   mealsText: String!
-  timeBlocks: [PlanTimeBlockNestedInput!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  lodging: Lodging
+  mealSet: MealSet
+  fromLocation: Location!
+  toLocation: Location!
 }
 
-input PlanTimeBlockNestedInput {
-  startTime: String!
-  label: String!
-  orderIndex: Int!
-  activities: [PlanActivityNestedInput!]!
-}
-
-input PlanActivityNestedInput {
-  description: String!
-  orderIndex: Int!
-  isOptional: Boolean
-  conditionNote: String
+input PlanStopNestedInput {
+  dayIndex: Int!
+  fromLocationId: String!
+  toLocationId: String!
+  lodgingId: String
+  mealSetId: String
+  distanceText: String!
+  lodgingText: String!
+  mealsText: String!
 }

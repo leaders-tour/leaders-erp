@@ -1,13 +1,13 @@
 import type { VariantType } from '../enums/variant-type';
-import type { DayPlan } from './day-plan';
 import type { Override } from './override';
+import type { PlanStop } from './plan-stop';
 
 export interface Plan {
   id: string;
   regionId: string;
   variantType: VariantType;
   totalDays: number;
-  dayPlans: DayPlan[];
+  planStops: PlanStop[];
   overrides: Override[];
   createdAt: Date;
   updatedAt: Date;

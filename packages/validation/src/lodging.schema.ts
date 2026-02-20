@@ -4,6 +4,10 @@ export const lodgingCreateSchema = z.object({
   locationId: z.string().min(1),
   name: z.string().min(1).max(100),
   specialNotes: z.string().max(5000).nullable().optional(),
+  isUnspecified: z.boolean().optional(),
+  hasElectricity: z.boolean().optional(),
+  hasShower: z.boolean().optional(),
+  hasInternet: z.boolean().optional(),
 });
 
 export const lodgingUpdateSchema = lodgingCreateSchema.partial();

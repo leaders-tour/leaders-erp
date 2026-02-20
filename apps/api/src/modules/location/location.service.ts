@@ -1,9 +1,9 @@
 import type { PrismaClient } from '@prisma/client';
-import { locationCreateSchema, locationUpdateSchema } from '@tour/validation';
+import { LOCATION_TIMETABLE_SLOTS, locationCreateSchema, locationProfileCreateSchema, locationUpdateSchema } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
 import { locationInclude } from './location.mapper';
 import { LocationRepository } from './location.repository';
-import type { LocationCreateDto, LocationUpdateDto } from './location.types';
+import type { LocationCreateDto, LocationProfileCreateDto, LocationUpdateDto } from './location.types';
 
 export class LocationService {
   private readonly repository: LocationRepository;
@@ -40,6 +40,110 @@ export class LocationService {
           ...parsed.data,
           regionName: region.name,
         },
+        include: locationInclude,
+      });
+    });
+  }
+
+  async createProfile(input: LocationProfileCreateDto) {
+    const parsed = locationProfileCreateSchema.safeParse(input);
+    if (!parsed.success) {
+      throw new DomainError('VALIDATION_FAILED', 'Invalid location profile input');
+    }
+
+    const slotMap = new Map(parsed.data.timeSlots.map((slot) => [slot.startTime, slot]));
+    for (const fixed of LOCATION_TIMETABLE_SLOTS) {
+      if (!slotMap.has(fixed)) {
+        throw new DomainError('VALIDATION_FAILED', 'All fixed timetable slots (08:00/12:00/18:00) are required');
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const region = await tx.region.findUnique({
+        where: { id: parsed.data.regionId },
+        select: { name: true },
+      });
+      if (!region) {
+        throw new DomainError('VALIDATION_FAILED', 'Region not found for location profile');
+      }
+
+      const isUnspecified = parsed.data.lodging.isUnspecified ?? false;
+      const lodgingName = isUnspecified
+        ? '숙소 미지정'
+        : parsed.data.lodging.name?.trim()
+          ? parsed.data.lodging.name.trim()
+          : '여행자 캠프';
+
+      const location = await tx.location.create({
+        data: {
+          regionId: parsed.data.regionId,
+          regionName: region.name,
+          name: parsed.data.name,
+          defaultLodgingType: lodgingName,
+          latitude: null,
+          longitude: null,
+        },
+      });
+
+      for (const [index, startTime] of LOCATION_TIMETABLE_SLOTS.entries()) {
+        const slot = slotMap.get(startTime);
+        if (!slot) {
+          continue;
+        }
+
+        const timeBlock = await tx.timeBlock.create({
+          data: {
+            locationId: location.id,
+            startTime,
+            label: startTime,
+            orderIndex: index,
+          },
+        });
+
+        const activities = slot.activities
+          .map((activity) => activity.trim())
+          .filter((activity) => activity.length > 0)
+          .slice(0, 4);
+
+        if (activities.length > 0) {
+          await tx.activity.createMany({
+            data: activities.map((description, activityIndex) => ({
+              timeBlockId: timeBlock.id,
+              description,
+              orderIndex: activityIndex,
+              isOptional: false,
+              conditionNote: null,
+            })),
+          });
+        }
+      }
+
+      await tx.lodging.create({
+        data: {
+          locationId: location.id,
+          locationNameSnapshot: location.name,
+          name: lodgingName,
+          specialNotes: null,
+          isUnspecified,
+          hasElectricity: isUnspecified ? false : (parsed.data.lodging.hasElectricity ?? false),
+          hasShower: isUnspecified ? false : (parsed.data.lodging.hasShower ?? false),
+          hasInternet: isUnspecified ? false : (parsed.data.lodging.hasInternet ?? false),
+        },
+      });
+
+      await tx.mealSet.create({
+        data: {
+          locationId: location.id,
+          locationNameSnapshot: location.name,
+          setName: '기본 세트',
+          breakfast: parsed.data.meals.breakfast ?? null,
+          lunch: parsed.data.meals.lunch ?? null,
+          dinner: parsed.data.meals.dinner ?? null,
+        },
+      });
+
+      return tx.location.findUnique({
+        where: { id: location.id },
         include: locationInclude,
       });
     });

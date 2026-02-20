@@ -6,7 +6,7 @@ const LIST = gql`
   query TimeBlocks {
     timeBlocks {
       id
-      dayPlanId
+      locationId
       startTime
       label
       orderIndex
@@ -37,7 +37,7 @@ const REMOVE = gql`
 `;
 
 export interface TimeBlockFormInput {
-  dayPlanId: string;
+  locationId: string;
   startTime: string;
   label: string;
   orderIndex: number;

@@ -21,42 +21,39 @@ export class PlanService {
   }
 
   private async validateRouteConsistency(input: PlanCreateDto | PlanUpdateDto, regionId?: string): Promise<void> {
-    if (!input.dayPlans || input.dayPlans.length === 0) {
+    if (!input.planStops || input.planStops.length === 0) {
       return;
     }
 
-    for (let index = 1; index < input.dayPlans.length; index += 1) {
-      const previous = input.dayPlans[index - 1];
-      const current = input.dayPlans[index];
+    if (!ensureUniqueIndexes(input.planStops.map((planStop) => planStop.dayIndex))) {
+      throw new DomainError('ORDER_INDEX_CONFLICT', 'Duplicate dayIndex in a plan');
+    }
+
+    const orderedStops = [...input.planStops].sort((a, b) => a.dayIndex - b.dayIndex);
+
+    for (let index = 1; index < orderedStops.length; index += 1) {
+      const previous = orderedStops[index - 1];
+      const current = orderedStops[index];
       if (!previous || !current) {
         continue;
       }
       if (previous.toLocationId !== current.fromLocationId) {
-        throw new DomainError('ROUTE_INVALID', 'DayPlan chain is not continuous');
+        throw new DomainError('ROUTE_INVALID', 'PlanStop chain is not continuous');
       }
     }
 
-    for (const dayPlan of input.dayPlans) {
-      if (!ensureUniqueIndexes(dayPlan.timeBlocks.map((timeBlock) => timeBlock.orderIndex))) {
-        throw new DomainError('ORDER_INDEX_CONFLICT', 'Duplicate TimeBlock orderIndex in a day');
-      }
-      for (const timeBlock of dayPlan.timeBlocks) {
-        if (!ensureUniqueIndexes(timeBlock.activities.map((activity) => activity.orderIndex))) {
-          throw new DomainError('ORDER_INDEX_CONFLICT', 'Duplicate Activity orderIndex in a time block');
-        }
-      }
-
+    for (const planStop of orderedStops) {
       if (regionId) {
         const segment = await this.prisma.segment.findFirst({
           where: {
             regionId,
-            fromLocationId: dayPlan.fromLocationId,
-            toLocationId: dayPlan.toLocationId,
+            fromLocationId: planStop.fromLocationId,
+            toLocationId: planStop.toLocationId,
           },
         });
 
         if (!segment) {
-          throw new DomainError('ROUTE_INVALID', 'Segment not found for day plan route in selected region');
+          throw new DomainError('ROUTE_INVALID', 'Segment not found for plan stop route in selected region');
         }
       }
     }
@@ -68,8 +65,8 @@ export class PlanService {
       throw new DomainError('VALIDATION_FAILED', 'Invalid plan input');
     }
 
-    if (parsed.data.dayPlans.length !== parsed.data.totalDays) {
-      throw new DomainError('VALIDATION_FAILED', 'totalDays must match dayPlans length');
+    if (parsed.data.planStops.length !== parsed.data.totalDays) {
+      throw new DomainError('VALIDATION_FAILED', 'totalDays must match planStops length');
     }
 
     await this.validateRouteConsistency(parsed.data, parsed.data.regionId);
@@ -90,8 +87,8 @@ export class PlanService {
       throw new DomainError('NOT_FOUND', 'Plan not found');
     }
 
-    if (parsed.data.totalDays && parsed.data.dayPlans && parsed.data.totalDays !== parsed.data.dayPlans.length) {
-      throw new DomainError('VALIDATION_FAILED', 'totalDays must match dayPlans length');
+    if (parsed.data.totalDays && parsed.data.planStops && parsed.data.totalDays !== parsed.data.planStops.length) {
+      throw new DomainError('VALIDATION_FAILED', 'totalDays must match planStops length');
     }
 
     await this.validateRouteConsistency(parsed.data, existing.regionId);

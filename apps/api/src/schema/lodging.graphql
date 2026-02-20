@@ -4,20 +4,32 @@ type Lodging {
   locationNameSnapshot: String!
   name: String!
   specialNotes: String
+  isUnspecified: Boolean!
+  hasElectricity: Boolean!
+  hasShower: Boolean!
+  hasInternet: Boolean!
   createdAt: DateTime!
   updatedAt: DateTime!
   location: Location!
-  dayPlans: [DayPlan!]!
+  planStops: [PlanStop!]!
 }
 
 input LodgingCreateInput {
   locationId: String!
   name: String!
   specialNotes: String
+  isUnspecified: Boolean
+  hasElectricity: Boolean
+  hasShower: Boolean
+  hasInternet: Boolean
 }
 
 input LodgingUpdateInput {
   locationId: String
   name: String
   specialNotes: String
+  isUnspecified: Boolean
+  hasElectricity: Boolean
+  hasShower: Boolean
+  hasInternet: Boolean
 }

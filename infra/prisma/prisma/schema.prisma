@@ -20,6 +20,15 @@ enum OverrideTargetType {
   Activity
 }
 
+enum MealOption {
+  CAMP_MEAL
+  LOCAL_RESTAURANT
+  PORK_PARTY
+  HORHOG
+  SHASHLIK
+  SHABU_SHABU
+}
+
 model Region {
   id          String     @id @default(uuid(7))
   name        String
@@ -45,8 +54,11 @@ model Location {
   region       Region    @relation(fields: [regionId], references: [id], onDelete: Cascade)
   fromSegments Segment[] @relation("FromLocation")
   toSegments   Segment[] @relation("ToLocation")
+  fromPlanStops PlanStop[] @relation("PlanStopFromLocation")
+  toPlanStops   PlanStop[] @relation("PlanStopToLocation")
   lodgings     Lodging[]
   mealSets     MealSet[]
+  timeBlocks   TimeBlock[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -81,7 +93,7 @@ model Plan {
   totalDays   Int
 
   region    Region     @relation(fields: [regionId], references: [id])
-  dayPlans  DayPlan[]
+  planStops PlanStop[]
   overrides Override[]
 
   createdAt DateTime @default(now())
@@ -90,7 +102,7 @@ model Plan {
   @@index([regionId])
 }
 
-model DayPlan {
+model PlanStop {
   id             String @id @default(uuid(7))
   planId         String
   dayIndex       Int
@@ -102,15 +114,18 @@ model DayPlan {
   lodgingText    String
   mealsText      String
 
-  plan       Plan        @relation(fields: [planId], references: [id], onDelete: Cascade)
-  lodging    Lodging?    @relation(fields: [lodgingId], references: [id], onDelete: SetNull)
-  mealSet    MealSet?    @relation(fields: [mealSetId], references: [id], onDelete: SetNull)
-  timeBlocks TimeBlock[]
+  plan         Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  fromLocation Location @relation("PlanStopFromLocation", fields: [fromLocationId], references: [id])
+  toLocation   Location @relation("PlanStopToLocation", fields: [toLocationId], references: [id])
+  lodging      Lodging? @relation(fields: [lodgingId], references: [id], onDelete: SetNull)
+  mealSet      MealSet? @relation(fields: [mealSetId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([planId])
+  @@index([fromLocationId])
+  @@index([toLocationId])
   @@index([lodgingId])
   @@index([mealSetId])
   @@unique([planId, dayIndex])
@@ -122,9 +137,13 @@ model Lodging {
   locationNameSnapshot String
   name                 String
   specialNotes         String?
+  isUnspecified        Boolean @default(false)
+  hasElectricity       Boolean @default(false)
+  hasShower            Boolean @default(false)
+  hasInternet          Boolean @default(false)
 
   location Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  dayPlans  DayPlan[]
+  planStops PlanStop[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -133,16 +152,16 @@ model Lodging {
 }
 
 model MealSet {
-  id                   String  @id @default(uuid(7))
+  id                   String     @id @default(uuid(7))
   locationId           String
   locationNameSnapshot String
   setName              String
-  breakfast            String?
-  lunch                String?
-  dinner               String?
+  breakfast            MealOption?
+  lunch                MealOption?
+  dinner               MealOption?
 
   location Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  dayPlans  DayPlan[]
+  planStops PlanStop[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -153,19 +172,19 @@ model MealSet {
 
 model TimeBlock {
   id         String @id @default(uuid(7))
-  dayPlanId  String
+  locationId String
   startTime  String
   label      String
   orderIndex Int
 
-  dayPlan    DayPlan     @relation(fields: [dayPlanId], references: [id], onDelete: Cascade)
+  location   Location    @relation(fields: [locationId], references: [id], onDelete: Cascade)
   activities Activity[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([dayPlanId])
-  @@unique([dayPlanId, orderIndex])
+  @@index([locationId])
+  @@unique([locationId, orderIndex])
 }
 
 model Activity {

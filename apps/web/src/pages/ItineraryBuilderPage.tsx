@@ -16,6 +16,17 @@ interface LocationRow {
   regionId: string;
   name: string;
   defaultLodgingType: string;
+  timeBlocks: Array<{
+    id: string;
+    startTime: string;
+    label: string;
+    orderIndex: number;
+    activities: Array<{
+      id: string;
+      description: string;
+      orderIndex: number;
+    }>;
+  }>;
 }
 
 interface SegmentRow {
@@ -32,7 +43,7 @@ interface TimeTableItem {
   text: string;
 }
 
-interface DayPlanDraft {
+interface PlanStopDraft {
   dayIndex: number;
   fromLocationId: string;
   toLocationId: string;
@@ -42,24 +53,15 @@ interface DayPlanDraft {
   timeTable: TimeTableItem[];
 }
 
-interface DayPlanPayload {
+interface PlanStopPayload {
   dayIndex: number;
   fromLocationId: string;
   toLocationId: string;
+  lodgingId: null;
+  mealSetId: null;
   distanceText: string;
   lodgingText: string;
   mealsText: string;
-  timeBlocks: Array<{
-    startTime: string;
-    label: string;
-    orderIndex: number;
-    activities: Array<{
-      description: string;
-      orderIndex: number;
-      isOptional: boolean;
-      conditionNote: string | null;
-    }>;
-  }>;
 }
 
 const REGIONS_QUERY = gql`
@@ -78,6 +80,17 @@ const LOCATIONS_QUERY = gql`
       regionId
       name
       defaultLodgingType
+      timeBlocks {
+        id
+        startTime
+        label
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
     }
   }
 `;
@@ -110,13 +123,6 @@ const VARIANTS = [
   { id: VariantType.Extend, label: '연장' },
 ];
 
-const TIME_PRESETS: Record<VariantType, { start: string; mid: string; end: string; extra: string[] }> = {
-  [VariantType.Basic]: { start: '08:00', mid: '12:00', end: '18:00', extra: [] },
-  [VariantType.Early]: { start: '04:00', mid: '08:00', end: '19:00', extra: [] },
-  [VariantType.Afternoon]: { start: '12:00', mid: '', end: '18:00', extra: [] },
-  [VariantType.Extend]: { start: '08:00', mid: '12:00', end: '21:00', extra: ['23:00'] },
-};
-
 function inferMeals(params: { lodging: string; variant: VariantType; day: number; isLastDay: boolean }): string {
   const { lodging, variant, day, isLastDay } = params;
 
@@ -137,39 +143,6 @@ function inferMeals(params: { lodging: string; variant: VariantType; day: number
   }
 
   return `${breakfast}\n${lunch}\n${dinner}`;
-}
-
-function buildTimeTable(variant: VariantType, fromName: string, toName: string): TimeTableItem[] {
-  const preset = TIME_PRESETS[variant];
-  const items: TimeTableItem[] = [{ time: preset.start, text: `${fromName} 출발, ${toName} 이동` }];
-
-  if (preset.mid) {
-    items.push({ time: preset.mid, text: '이동 중 점심식사' });
-  }
-
-  items.push({ time: preset.end, text: `${toName} 도착 후 체크인/투어 진행` });
-
-  for (const extra of preset.extra) {
-    items.push({ time: extra, text: '야간 프로그램(옵션)' });
-  }
-
-  return items;
-}
-
-function toTimeBlocks(timeTable: TimeTableItem[]) {
-  return timeTable.map((item, index) => ({
-    startTime: item.time,
-    label: index === 0 ? '출발' : index === 1 ? '중간' : '도착',
-    orderIndex: index,
-    activities: [
-      {
-        description: item.text,
-        orderIndex: 0,
-        isOptional: false,
-        conditionNote: null,
-      },
-    ],
-  }));
 }
 
 function overrideKey(dayIndex: number, field: EditableField): string {
@@ -220,17 +193,27 @@ export function ItineraryBuilderPage(): JSX.Element {
     return filteredLocations.filter((location) => toIds.includes(location.id));
   }, [filteredLocations, filteredSegments, selectedRoute, startLocationId, totalDays]);
 
-  const dayDrafts = useMemo((): DayPlanDraft[] => {
+  const dayDrafts = useMemo((): PlanStopDraft[] => {
     return selectedRoute.map((toId, index) => {
       const dayIndex = index + 1;
       const fromId = index === 0 ? startLocationId : selectedRoute[index - 1] ?? '';
       const segment = filteredSegments.find((item) => item.fromLocationId === fromId && item.toLocationId === toId);
-      const fromName = locationById.get(fromId)?.name ?? '출발지';
       const toLocation = locationById.get(toId);
-      const toName = toLocation?.name ?? '도착지';
       const distanceText = segment ? `이동 ${segment.averageTravelHours}시간 (${segment.averageDistanceKm}km)` : '구간 미정';
       const lodgingText = toLocation?.defaultLodgingType ?? '숙소 미정';
       const mealsText = inferMeals({ lodging: lodgingText, variant: variantType, day: dayIndex, isLastDay: dayIndex === totalDays });
+      const timeTable =
+        toLocation?.timeBlocks
+          .slice()
+          .sort((a, b) => a.orderIndex - b.orderIndex)
+          .flatMap((timeBlock) => {
+            if (timeBlock.activities.length === 0) {
+              return [{ time: timeBlock.startTime, text: '(활동 미지정)' }];
+            }
+            return [...timeBlock.activities]
+              .sort((a, b) => a.orderIndex - b.orderIndex)
+              .map((activity) => ({ time: timeBlock.startTime, text: activity.description }));
+          }) ?? [];
 
       return {
         dayIndex,
@@ -239,12 +222,12 @@ export function ItineraryBuilderPage(): JSX.Element {
         distanceText,
         lodgingText,
         mealsText,
-        timeTable: buildTimeTable(variantType, fromName, toName),
+        timeTable,
       };
     });
   }, [filteredSegments, locationById, selectedRoute, startLocationId, totalDays, variantType]);
 
-  const getCell = (draft: DayPlanDraft, field: EditableField): { value: string; source: CellSource } => {
+  const getCell = (draft: PlanStopDraft, field: EditableField): { value: string; source: CellSource } => {
     const key = overrideKey(draft.dayIndex, field);
     if (overrides[key] !== undefined) {
       return { value: overrides[key], source: 'OVERRIDE' };
@@ -258,15 +241,16 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   const hasMissingSegment = dayDrafts.some((draft) => draft.distanceText.includes('구간 미정'));
 
-  const payloadDayPlans = useMemo((): DayPlanPayload[] => {
+  const payloadPlanStops = useMemo((): PlanStopPayload[] => {
     return dayDrafts.map((draft) => ({
       dayIndex: draft.dayIndex,
       fromLocationId: draft.fromLocationId,
       toLocationId: draft.toLocationId,
+      lodgingId: null,
+      mealSetId: null,
       distanceText: getCell(draft, 'distanceText').value,
       lodgingText: getCell(draft, 'lodgingText').value,
       mealsText: getCell(draft, 'mealsText').value,
-      timeBlocks: toTimeBlocks(draft.timeTable),
     }));
   }, [dayDrafts, overrides]);
 
@@ -305,7 +289,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       regionId,
                       variantType,
                       totalDays,
-                      dayPlans: payloadDayPlans,
+                      planStops: payloadPlanStops,
                     },
                   },
                 });

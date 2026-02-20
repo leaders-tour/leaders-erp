@@ -1,5 +1,4 @@
 export * from './activity.schema';
-export * from './day-plan.schema';
 export * from './lodging.schema';
 export * from './location.schema';
 export * from './meal-set.schema';

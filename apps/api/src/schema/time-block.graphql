@@ -1,24 +1,24 @@
 type TimeBlock {
   id: ID!
-  dayPlanId: String!
+  locationId: String!
   startTime: String!
   label: String!
   orderIndex: Int!
   createdAt: DateTime!
   updatedAt: DateTime!
-  dayPlan: DayPlan!
+  location: Location!
   activities: [Activity!]!
 }
 
 input TimeBlockCreateInput {
-  dayPlanId: String!
+  locationId: String!
   startTime: String!
   label: String!
   orderIndex: Int!
 }
 
 input TimeBlockUpdateInput {
-  dayPlanId: String
+  locationId: String
   startTime: String
   label: String
   orderIndex: Int

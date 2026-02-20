@@ -1,5 +1,4 @@
 export { ActivityService } from '../modules/activity/activity.service';
-export { DayPlanService } from '../modules/day-plan/day-plan.service';
 export { LodgingService } from '../modules/lodging/lodging.service';
 export { LocationService } from '../modules/location/location.service';
 export { MealSetService } from '../modules/meal-set/meal-set.service';

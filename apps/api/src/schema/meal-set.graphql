@@ -1,29 +1,38 @@
+enum MealOption {
+  CAMP_MEAL
+  LOCAL_RESTAURANT
+  PORK_PARTY
+  HORHOG
+  SHASHLIK
+  SHABU_SHABU
+}
+
 type MealSet {
   id: ID!
   locationId: String!
   locationNameSnapshot: String!
   setName: String!
-  breakfast: String
-  lunch: String
-  dinner: String
+  breakfast: MealOption
+  lunch: MealOption
+  dinner: MealOption
   createdAt: DateTime!
   updatedAt: DateTime!
   location: Location!
-  dayPlans: [DayPlan!]!
+  planStops: [PlanStop!]!
 }
 
 input MealSetCreateInput {
   locationId: String!
   setName: String!
-  breakfast: String
-  lunch: String
-  dinner: String
+  breakfast: MealOption
+  lunch: MealOption
+  dinner: MealOption
 }
 
 input MealSetUpdateInput {
   locationId: String
   setName: String
-  breakfast: String
-  lunch: String
-  dinner: String
+  breakfast: MealOption
+  lunch: MealOption
+  dinner: MealOption
 }

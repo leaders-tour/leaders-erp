@@ -4,6 +4,19 @@ import { DomainError } from '../../lib/errors';
 import { LodgingRepository } from './lodging.repository';
 import type { LodgingCreateDto, LodgingUpdateDto } from './lodging.types';
 
+function normalizeLodgingInput<T extends { isUnspecified?: boolean; hasElectricity?: boolean; hasShower?: boolean; hasInternet?: boolean }>(
+  input: T,
+) {
+  const isUnspecified = input.isUnspecified ?? false;
+  return {
+    ...input,
+    isUnspecified,
+    hasElectricity: isUnspecified ? false : (input.hasElectricity ?? false),
+    hasShower: isUnspecified ? false : (input.hasShower ?? false),
+    hasInternet: isUnspecified ? false : (input.hasInternet ?? false),
+  };
+}
+
 export class LodgingService {
   private readonly repository: LodgingRepository;
 
@@ -34,7 +47,7 @@ export class LodgingService {
     }
 
     return this.repository.create({
-      ...parsed.data,
+      ...normalizeLodgingInput(parsed.data),
       locationNameSnapshot: location.name,
     });
   }
@@ -46,7 +59,7 @@ export class LodgingService {
     }
 
     if (!parsed.data.locationId) {
-      return this.repository.update(id, parsed.data);
+      return this.repository.update(id, normalizeLodgingInput(parsed.data));
     }
 
     const location = await this.prisma.location.findUnique({
@@ -58,7 +71,7 @@ export class LodgingService {
     }
 
     return this.repository.update(id, {
-      ...parsed.data,
+      ...normalizeLodgingInput(parsed.data),
       locationNameSnapshot: location.name,
     });
   }

@@ -43,29 +43,16 @@ export interface PlanFormInput {
   toLocationId: string;
 }
 
-function buildDayPlans(totalDays: number, fromLocationId: string, toLocationId: string) {
+function buildPlanStops(totalDays: number, fromLocationId: string, toLocationId: string) {
   return Array.from({ length: totalDays }).map((_, index) => ({
     dayIndex: index + 1,
     fromLocationId,
     toLocationId,
+    lodgingId: null,
+    mealSetId: null,
     distanceText: 'auto',
     lodgingText: 'auto',
     mealsText: 'auto',
-    timeBlocks: [
-      {
-        startTime: '08:00',
-        label: '출발',
-        orderIndex: 0,
-        activities: [
-          {
-            description: '자동 생성 기본 활동',
-            orderIndex: 0,
-            isOptional: false,
-            conditionNote: null,
-          },
-        ],
-      },
-    ],
   }));
 }
 
@@ -78,7 +65,7 @@ export function usePlanCrud() {
         regionId: input.regionId,
         variantType: input.variantType,
         totalDays: input.totalDays,
-        dayPlans: buildDayPlans(input.totalDays, input.fromLocationId, input.toLocationId),
+        planStops: buildPlanStops(input.totalDays, input.fromLocationId, input.toLocationId),
       },
     }),
     toUpdateVariables: (id, input) => ({
@@ -86,7 +73,7 @@ export function usePlanCrud() {
       input: {
         variantType: input.variantType,
         totalDays: input.totalDays,
-        dayPlans: buildDayPlans(input.totalDays, input.fromLocationId, input.toLocationId),
+        planStops: buildPlanStops(input.totalDays, input.fromLocationId, input.toLocationId),
       },
     }),
   });

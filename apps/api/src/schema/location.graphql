@@ -9,6 +9,9 @@ type Location {
   createdAt: DateTime!
   updatedAt: DateTime!
   region: Region!
+  timeBlocks: [TimeBlock!]!
+  lodgings: [Lodging!]!
+  mealSets: [MealSet!]!
 }
 
 input LocationCreateInput {
@@ -25,4 +28,31 @@ input LocationUpdateInput {
   defaultLodgingType: String
   latitude: Float
   longitude: Float
+}
+
+input LocationProfileTimeSlotInput {
+  startTime: String!
+  activities: [String!]!
+}
+
+input LocationProfileLodgingInput {
+  isUnspecified: Boolean
+  name: String
+  hasElectricity: Boolean
+  hasShower: Boolean
+  hasInternet: Boolean
+}
+
+input LocationProfileMealsInput {
+  breakfast: MealOption
+  lunch: MealOption
+  dinner: MealOption
+}
+
+input LocationProfileCreateInput {
+  regionId: String!
+  name: String!
+  timeSlots: [LocationProfileTimeSlotInput!]!
+  lodging: LocationProfileLodgingInput!
+  meals: LocationProfileMealsInput!
 }

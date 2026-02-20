@@ -1,6 +1,5 @@
 import { GraphQLScalarType, Kind } from 'graphql';
 import { activityResolver } from '../modules/activity/activity.resolver';
-import { dayPlanResolver } from '../modules/day-plan/day-plan.resolver';
 import { lodgingResolver } from '../modules/lodging/lodging.resolver';
 import { locationResolver } from '../modules/location/location.resolver';
 import { mealSetResolver } from '../modules/meal-set/meal-set.resolver';
@@ -42,7 +41,6 @@ export const resolvers = {
     mealSetResolver.Query,
     segmentResolver.Query,
     planResolver.Query,
-    dayPlanResolver.Query,
     timeBlockResolver.Query,
     activityResolver.Query,
     overrideResolver.Query,
@@ -57,7 +55,6 @@ export const resolvers = {
     mealSetResolver.Mutation,
     segmentResolver.Mutation,
     planResolver.Mutation,
-    dayPlanResolver.Mutation,
     timeBlockResolver.Mutation,
     activityResolver.Mutation,
     overrideResolver.Mutation,

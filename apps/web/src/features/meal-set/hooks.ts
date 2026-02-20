@@ -1,5 +1,5 @@
 import { gql } from '@apollo/client';
-import type { MealSet } from '../../generated/graphql';
+import { MealOption, type MealSet } from '../../generated/graphql';
 import { useCrudResource } from '../../lib/crud';
 
 const LIST = gql`
@@ -46,12 +46,17 @@ export interface MealSetFormInput {
   dinner?: string | null;
 }
 
-function normalizeNullableText(value: string | null | undefined): string | null {
+function normalizeMealOption(value: string | null | undefined): MealOption | null {
   if (!value) {
     return null;
   }
   const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  if (!trimmed) {
+    return null;
+  }
+
+  const entries = Object.values(MealOption);
+  return entries.includes(trimmed as MealOption) ? (trimmed as MealOption) : null;
 }
 
 export function useMealSetCrud() {
@@ -61,18 +66,18 @@ export function useMealSetCrud() {
     toCreateVariables: (input) => ({
       input: {
         ...input,
-        breakfast: normalizeNullableText(input.breakfast),
-        lunch: normalizeNullableText(input.lunch),
-        dinner: normalizeNullableText(input.dinner),
+        breakfast: normalizeMealOption(input.breakfast),
+        lunch: normalizeMealOption(input.lunch),
+        dinner: normalizeMealOption(input.dinner),
       },
     }),
     toUpdateVariables: (id, input) => ({
       id,
       input: {
         ...input,
-        breakfast: normalizeNullableText(input.breakfast),
-        lunch: normalizeNullableText(input.lunch),
-        dinner: normalizeNullableText(input.dinner),
+        breakfast: normalizeMealOption(input.breakfast),
+        lunch: normalizeMealOption(input.lunch),
+        dinner: normalizeMealOption(input.dinner),
       },
     }),
   });

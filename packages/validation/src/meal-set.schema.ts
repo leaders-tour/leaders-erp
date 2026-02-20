@@ -1,6 +1,7 @@
+import { MealOption } from '@tour/domain';
 import { z } from 'zod';
 
-const nullableMeal = z.string().min(1).max(200).nullable().optional();
+const nullableMeal = z.nativeEnum(MealOption).nullable().optional();
 
 export const mealSetCreateSchema = z.object({
   locationId: z.string().min(1),

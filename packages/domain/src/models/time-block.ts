@@ -2,7 +2,7 @@ import type { Activity } from './activity';
 
 export interface TimeBlock {
   id: string;
-  dayPlanId: string;
+  locationId: string;
   startTime: string;
   label: string;
   orderIndex: number;

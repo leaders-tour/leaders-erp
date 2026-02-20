@@ -3,14 +3,12 @@ import type { Prisma } from '@prisma/client';
 export const planInclude = {
   region: true,
   overrides: true,
-  dayPlans: {
+  planStops: {
     include: {
-      timeBlocks: {
-        include: {
-          activities: true,
-        },
-        orderBy: { orderIndex: 'asc' },
-      },
+      fromLocation: true,
+      toLocation: true,
+      lodging: true,
+      mealSet: true,
     },
     orderBy: { dayIndex: 'asc' },
   },

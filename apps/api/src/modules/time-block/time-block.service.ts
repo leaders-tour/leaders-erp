@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
-import { timeBlockCreateSchema, timeBlockUpdateSchema } from '@tour/validation';
+import { LOCATION_TIMETABLE_SLOTS, timeBlockCreateSchema, timeBlockUpdateSchema } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
 import { TimeBlockRepository } from './time-block.repository';
 import type { TimeBlockCreateDto, TimeBlockUpdateDto } from './time-block.types';
@@ -24,6 +24,9 @@ export class TimeBlockService {
     if (!parsed.success) {
       throw new DomainError('VALIDATION_FAILED', 'Invalid time block input');
     }
+    if (!LOCATION_TIMETABLE_SLOTS.includes(parsed.data.startTime as (typeof LOCATION_TIMETABLE_SLOTS)[number])) {
+      throw new DomainError('VALIDATION_FAILED', 'TimeBlock startTime must be one of 08:00, 12:00, 18:00');
+    }
 
     return this.repository.create(parsed.data);
   }
@@ -32,6 +35,12 @@ export class TimeBlockService {
     const parsed = timeBlockUpdateSchema.safeParse(input);
     if (!parsed.success) {
       throw new DomainError('VALIDATION_FAILED', 'Invalid time block update input');
+    }
+    if (
+      parsed.data.startTime &&
+      !LOCATION_TIMETABLE_SLOTS.includes(parsed.data.startTime as (typeof LOCATION_TIMETABLE_SLOTS)[number])
+    ) {
+      throw new DomainError('VALIDATION_FAILED', 'TimeBlock startTime must be one of 08:00, 12:00, 18:00');
     }
 
     return this.repository.update(id, parsed.data);

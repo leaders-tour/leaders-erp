@@ -14,8 +14,6 @@ type Query {
   segment(id: ID!): Segment
   plans: [Plan!]!
   plan(id: ID!): Plan
-  dayPlans: [DayPlan!]!
-  dayPlan(id: ID!): DayPlan
   timeBlocks: [TimeBlock!]!
   timeBlock(id: ID!): TimeBlock
   activities: [Activity!]!
@@ -30,6 +28,7 @@ type Mutation {
   deleteRegion(id: ID!): Boolean!
 
   createLocation(input: LocationCreateInput!): Location!
+  createLocationProfile(input: LocationProfileCreateInput!): Location!
   updateLocation(id: ID!, input: LocationUpdateInput!): Location!
   deleteLocation(id: ID!): Boolean!
 
@@ -48,10 +47,6 @@ type Mutation {
   createPlan(input: PlanCreateInput!): Plan!
   updatePlan(id: ID!, input: PlanUpdateInput!): Plan!
   deletePlan(id: ID!): Boolean!
-
-  createDayPlan(input: DayPlanCreateInput!): DayPlan!
-  updateDayPlan(id: ID!, input: DayPlanUpdateInput!): DayPlan!
-  deleteDayPlan(id: ID!): Boolean!
 
   createTimeBlock(input: TimeBlockCreateInput!): TimeBlock!
   updateTimeBlock(id: ID!, input: TimeBlockUpdateInput!): TimeBlock!
