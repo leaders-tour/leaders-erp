@@ -60,3 +60,12 @@ input LocationProfileCreateInput {
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
 }
+
+input LocationProfileUpdateInput {
+  regionId: String!
+  name: String!
+  internalMovementDistance: Int
+  timeSlots: [LocationProfileTimeSlotInput!]!
+  lodging: LocationProfileLodgingInput!
+  meals: LocationProfileMealsInput!
+}

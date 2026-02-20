@@ -29,6 +29,7 @@ type Mutation {
 
   createLocation(input: LocationCreateInput!): Location!
   createLocationProfile(input: LocationProfileCreateInput!): Location!
+  updateLocationProfile(id: ID!, input: LocationProfileUpdateInput!): Location!
   updateLocation(id: ID!, input: LocationUpdateInput!): Location!
   deleteLocation(id: ID!): Boolean!
 

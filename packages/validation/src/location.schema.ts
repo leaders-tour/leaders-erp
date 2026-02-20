@@ -40,6 +40,9 @@ export const locationProfileCreateSchema = z.object({
   meals: locationProfileMealsSchema,
 });
 
+export const locationProfileUpdateSchema = locationProfileCreateSchema;
+
 export type LocationCreateInput = z.infer<typeof locationCreateSchema>;
 export type LocationUpdateInput = z.infer<typeof locationUpdateSchema>;
 export type LocationProfileCreateInput = z.infer<typeof locationProfileCreateSchema>;
+export type LocationProfileUpdateInput = z.infer<typeof locationProfileUpdateSchema>;

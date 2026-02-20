@@ -2,6 +2,8 @@ import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
 import { ItineraryBuilderPage } from '../pages/ItineraryBuilderPage';
 import { LocationCreatePage } from '../pages/LocationCreatePage';
+import { LocationDetailPage } from '../pages/LocationDetailPage';
+import { LocationEditPage } from '../pages/LocationEditPage';
 import { LocationListPage } from '../pages/LocationListPage';
 import { RegionCreatePage } from '../pages/RegionCreatePage';
 import { RegionListPage } from '../pages/RegionListPage';
@@ -20,6 +22,8 @@ export const router = createBrowserRouter([
       { path: 'locations', element: <Navigate to="/locations/list" replace /> },
       { path: 'locations/list', element: <LocationListPage /> },
       { path: 'locations/create', element: <LocationCreatePage /> },
+      { path: 'locations/:id', element: <LocationDetailPage /> },
+      { path: 'locations/:id/edit', element: <LocationEditPage /> },
       { path: 'locations/connections', element: <SegmentPage /> },
       { path: 'segments', element: <Navigate to="/locations/connections" replace /> },
     ],
