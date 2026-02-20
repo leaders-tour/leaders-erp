@@ -222,7 +222,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const locationById = useMemo(() => new Map(filteredLocations.map((location) => [location.id, location])), [filteredLocations]);
 
   const nextOptions = useMemo(() => {
-    if (selectedRoute.length >= totalDays) {
+    if (selectedRoute.length >= totalDays - 1) {
       return [];
     }
 
@@ -236,9 +236,15 @@ export function ItineraryBuilderPage(): JSX.Element {
   }, [filteredLocations, filteredSegments, selectedRoute, startLocationId, totalDays]);
 
   const autoRows = useMemo((): PlanRow[] => {
-    return selectedRoute.map((toId, index) => {
+    if (!startLocationId) {
+      return [];
+    }
+
+    const orderedLocationIds = [startLocationId, ...selectedRoute];
+
+    return orderedLocationIds.map((toId, index) => {
       const dayIndex = index + 1;
-      const fromId = index === 0 ? startLocationId : selectedRoute[index - 1] ?? '';
+      const fromId = index === 0 ? '' : orderedLocationIds[index - 1] ?? '';
       const segment = filteredSegments.find((item) => item.fromLocationId === fromId && item.toLocationId === toId);
       const toLocation = locationById.get(toId);
       const segmentHours = segment?.averageTravelHours ?? 0;
@@ -277,7 +283,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     setPlanRows((prev) => prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
   };
 
-  const canCreate = Boolean(regionId && startLocationId && selectedRoute.length === totalDays && planRows.length === totalDays);
+  const canCreate = Boolean(
+    regionId && startLocationId && selectedRoute.length === totalDays - 1 && planRows.length === totalDays,
+  );
 
   return (
     <div className="min-h-screen text-slate-900">
@@ -435,14 +443,14 @@ export function ItineraryBuilderPage(): JSX.Element {
 
               {selectedRoute.map((locationId, index) => (
                 <div key={`selected-${index + 1}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="text-sm font-medium">{index + 1}일차</div>
+                  <div className="text-sm font-medium">{index + 2}일차</div>
                   <div className="mt-1 text-slate-700">{locationById.get(locationId)?.name ?? locationId}</div>
                 </div>
               ))}
 
-              {startLocationId && selectedRoute.length < totalDays ? (
+              {startLocationId && selectedRoute.length < totalDays - 1 ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 p-4">
-                  <div className="mb-3 text-sm font-medium">{selectedRoute.length + 1}일차 선택</div>
+                  <div className="mb-3 text-sm font-medium">{selectedRoute.length + 2}일차 선택</div>
                   <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
                     {nextOptions.map((location) => (
                       <button
