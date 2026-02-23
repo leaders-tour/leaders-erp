@@ -1,5 +1,6 @@
 import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
+import { ActivityPage } from '../pages/ActivityPage';
 import { CustomerPage } from '../pages/CustomerPage';
 import { CustomerPlansPage } from '../pages/CustomerPlansPage';
 import { ItineraryBuilderPage } from '../pages/ItineraryBuilderPage';
@@ -24,6 +25,7 @@ export const router = createBrowserRouter([
       { path: 'customers/:userId/plans', element: <CustomerPlansPage /> },
       { path: 'plans/:planId', element: <PlanDetailPage /> },
       { path: 'plans/:planId/versions/:versionId', element: <PlanVersionDetailPage /> },
+      { path: 'activities', element: <ActivityPage /> },
       { path: 'regions', element: <Navigate to="/regions/list" replace /> },
       { path: 'regions/list', element: <RegionListPage /> },
       { path: 'regions/create', element: <RegionCreatePage /> },
