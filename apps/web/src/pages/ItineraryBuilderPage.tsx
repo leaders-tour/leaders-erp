@@ -14,6 +14,47 @@ interface LocationRow {
   id: string;
   regionId: string;
   name: string;
+  currentVersionId: string | null;
+  currentVersion: {
+    id: string;
+    versionNumber: number;
+    label: string;
+  } | null;
+  versions: Array<{
+    id: string;
+    versionNumber: number;
+    label: string;
+    internalMovementDistance: number | null;
+    lodgings: Array<{
+      id: string;
+      name: string;
+      hasElectricity: 'YES' | 'LIMITED' | 'NO';
+      hasShower: 'YES' | 'LIMITED' | 'NO';
+      hasInternet: 'YES' | 'LIMITED' | 'NO';
+    }>;
+    mealSets: Array<{
+      id: string;
+      breakfast: MealOption | null;
+      lunch: MealOption | null;
+      dinner: MealOption | null;
+    }>;
+    timeBlocks: Array<{
+      id: string;
+      startTime: string;
+      orderIndex: number;
+      activities: Array<{
+        id: string;
+        description: string;
+        orderIndex: number;
+      }>;
+    }>;
+  }>;
+}
+
+interface LocationVersionRow {
+  id: string;
+  versionNumber: number;
+  label: string;
   internalMovementDistance: number | null;
   lodgings: Array<{
     id: string;
@@ -58,12 +99,19 @@ interface PlanContextRow {
 }
 
 interface PlanRow {
+  locationId?: string;
+  locationVersionId?: string;
   dateCellText: string;
   destinationCellText: string;
   timeCellText: string;
   scheduleCellText: string;
   lodgingCellText: string;
   mealCellText: string;
+}
+
+interface RouteSelection {
+  locationId: string;
+  locationVersionId: string;
 }
 
 const REGIONS_QUERY = gql`
@@ -93,28 +141,39 @@ const LOCATIONS_QUERY = gql`
       id
       regionId
       name
-      internalMovementDistance
-      lodgings {
+      currentVersionId
+      currentVersion {
         id
-        name
-        hasElectricity
-        hasShower
-        hasInternet
+        versionNumber
+        label
       }
-      mealSets {
+      versions {
         id
-        breakfast
-        lunch
-        dinner
-      }
-      timeBlocks {
-        id
-        startTime
-        orderIndex
-        activities {
+        versionNumber
+        label
+        internalMovementDistance
+        lodgings {
           id
-          description
+          name
+          hasElectricity
+          hasShower
+          hasInternet
+        }
+        mealSets {
+          id
+          breakfast
+          lunch
+          dinner
+        }
+        timeBlocks {
+          id
+          startTime
           orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
         }
       }
     }
@@ -188,12 +247,19 @@ function formatHours(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(1)));
 }
 
-function toTimeCell(location: LocationRow | undefined): string {
-  if (!location || location.timeBlocks.length === 0) {
+function formatLocationVersion(version: Pick<LocationVersionRow, 'label' | 'versionNumber'> | undefined): string {
+  if (!version) {
+    return '버전 미정';
+  }
+  return `${version.label} (v${version.versionNumber})`;
+}
+
+function toTimeCell(version: LocationVersionRow | undefined): string {
+  if (!version || version.timeBlocks.length === 0) {
     return '';
   }
 
-  return location.timeBlocks
+  return version.timeBlocks
     .slice()
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .flatMap((timeBlock) => {
@@ -206,12 +272,12 @@ function toTimeCell(location: LocationRow | undefined): string {
     .join('\n');
 }
 
-function toScheduleCell(location: LocationRow | undefined): string {
-  if (!location || location.timeBlocks.length === 0) {
+function toScheduleCell(version: LocationVersionRow | undefined): string {
+  if (!version || version.timeBlocks.length === 0) {
     return '';
   }
 
-  return location.timeBlocks
+  return version.timeBlocks
     .slice()
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .flatMap((timeBlock) => {
@@ -224,8 +290,8 @@ function toScheduleCell(location: LocationRow | undefined): string {
     .join('\n');
 }
 
-function toLodgingCell(location: LocationRow | undefined): string {
-  const lodging = location?.lodgings[0];
+function toLodgingCell(version: LocationVersionRow | undefined): string {
+  const lodging = version?.lodgings[0];
   if (!lodging) {
     return '';
   }
@@ -238,8 +304,8 @@ function toLodgingCell(location: LocationRow | undefined): string {
   ].join('\n');
 }
 
-function toMealCell(location: LocationRow | undefined): string {
-  const mealSet = location?.mealSets[0];
+function toMealCell(version: LocationVersionRow | undefined): string {
+  const mealSet = version?.mealSets[0];
   return [
     `아침 ${toMealLabel(mealSet?.breakfast)}`,
     `점심 ${toMealLabel(mealSet?.lunch)}`,
@@ -283,7 +349,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [eventCodes, setEventCodes] = useState<string[]>([]);
   const [remark, setRemark] = useState<string>('');
   const [startLocationId, setStartLocationId] = useState<string>('');
-  const [selectedRoute, setSelectedRoute] = useState<string[]>([]);
+  const [startLocationVersionId, setStartLocationVersionId] = useState<string>('');
+  const [selectedRoute, setSelectedRoute] = useState<RouteSelection[]>([]);
   const [planRows, setPlanRows] = useState<PlanRow[]>([]);
   const [createdId, setCreatedId] = useState<string>('');
 
@@ -326,13 +393,29 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
 
   const locationById = useMemo(() => new Map(filteredLocations.map((location) => [location.id, location])), [filteredLocations]);
+  const locationVersionById = useMemo(
+    () =>
+      new Map(
+        filteredLocations.flatMap((location) =>
+          location.versions.map((version) => [version.id, version] as const),
+        ),
+      ),
+    [filteredLocations],
+  );
+
+  const getDefaultVersionId = (location: LocationRow | undefined): string => {
+    if (!location) {
+      return '';
+    }
+    return location.currentVersionId ?? location.versions[0]?.id ?? '';
+  };
 
   const nextOptions = useMemo(() => {
     if (selectedRoute.length >= totalDays - 1) {
       return [];
     }
 
-    const fromId = selectedRoute.length === 0 ? startLocationId : selectedRoute[selectedRoute.length - 1];
+    const fromId = selectedRoute.length === 0 ? startLocationId : selectedRoute[selectedRoute.length - 1]?.locationId;
     if (!fromId) {
       return [];
     }
@@ -342,35 +425,41 @@ export function ItineraryBuilderPage(): JSX.Element {
   }, [filteredLocations, filteredSegments, selectedRoute, startLocationId, totalDays]);
 
   const autoRows = useMemo((): PlanRow[] => {
-    if (!startLocationId) {
+    if (!startLocationId || !startLocationVersionId) {
       return [];
     }
 
-    const orderedLocationIds = [startLocationId, ...selectedRoute];
+    const orderedStops: RouteSelection[] = [{ locationId: startLocationId, locationVersionId: startLocationVersionId }, ...selectedRoute];
 
-    return orderedLocationIds.map((toId, index) => {
+    return orderedStops.map((toStop, index) => {
       const dayIndex = index + 1;
-      const fromId = index === 0 ? '' : orderedLocationIds[index - 1] ?? '';
-      const segment = filteredSegments.find((item) => item.fromLocationId === fromId && item.toLocationId === toId);
-      const toLocation = locationById.get(toId);
+      const fromId = index === 0 ? '' : orderedStops[index - 1]?.locationId ?? '';
+      const segment = filteredSegments.find((item) => item.fromLocationId === fromId && item.toLocationId === toStop.locationId);
+      const toLocation = locationById.get(toStop.locationId);
+      const toVersion = locationVersionById.get(toStop.locationVersionId);
       const segmentHours = segment?.averageTravelHours ?? 0;
-      const internalHours = toLocation?.internalMovementDistance ?? 0;
+      const internalHours = toVersion?.internalMovementDistance ?? 0;
       const totalTravelHours = segment ? segmentHours + internalHours : 0;
       const destinationCellText = [
-        toLocation?.name ?? toId,
+        toLocation?.name ?? toStop.locationId,
+        toVersion ? `(버전: ${toVersion.label})` : '',
         segment ? `(이동시간: ${formatHours(totalTravelHours)}시간)` : '(이동시간: 미정)',
-      ].join('\n');
+      ]
+        .filter(Boolean)
+        .join('\n');
 
       return {
+        locationId: toStop.locationId,
+        locationVersionId: toStop.locationVersionId,
         dateCellText: `${dayIndex}일차`,
         destinationCellText,
-        timeCellText: toTimeCell(toLocation),
-        scheduleCellText: toScheduleCell(toLocation),
-        lodgingCellText: toLodgingCell(toLocation),
-        mealCellText: toMealCell(toLocation),
+        timeCellText: toTimeCell(toVersion),
+        scheduleCellText: toScheduleCell(toVersion),
+        lodgingCellText: toLodgingCell(toVersion),
+        mealCellText: toMealCell(toVersion),
       };
     });
-  }, [filteredSegments, locationById, selectedRoute, startLocationId]);
+  }, [filteredSegments, locationById, locationVersionById, selectedRoute, startLocationId, startLocationVersionId]);
 
   useEffect(() => {
     setPlanRows(autoRows);
@@ -382,9 +471,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   }, [planRows]);
 
   const hasMissingSegment = useMemo(() => {
-    return selectedRoute.some((toId, index) => {
-      const fromId = index === 0 ? startLocationId : selectedRoute[index - 1] ?? '';
-      return !filteredSegments.some((segment) => segment.fromLocationId === fromId && segment.toLocationId === toId);
+    return selectedRoute.some((toStop, index) => {
+      const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
+      return !filteredSegments.some((segment) => segment.fromLocationId === fromId && segment.toLocationId === toStop.locationId);
     });
   }, [filteredSegments, selectedRoute, startLocationId]);
 
@@ -404,6 +493,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       hasValidHeadcount &&
       rentalItemsText.trim() &&
       startLocationId &&
+      startLocationVersionId &&
       selectedRoute.length === totalDays - 1 &&
       planRows.length === totalDays &&
       (!isVersionMode ? planTitle.trim() : true),
@@ -812,6 +902,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                         onClick={() => {
                           setRegionId(region.id);
                           setStartLocationId('');
+                          setStartLocationVersionId('');
                           setSelectedRoute([]);
                           setPlanRows([]);
                         }}
@@ -857,7 +948,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       type="button"
                       onClick={() => {
                         setTotalDays(day);
-                        setSelectedRoute((prev) => prev.slice(0, day));
+                        setSelectedRoute((prev) => prev.slice(0, day - 1));
                       }}
                       className={`rounded-xl border px-3 py-1.5 text-sm ${
                         totalDays === day
@@ -882,11 +973,15 @@ export function ItineraryBuilderPage(): JSX.Element {
                 <div className="text-sm font-medium">1일차 출발지</div>
                 {startLocationId ? (
                   <div className="mt-1 flex items-center justify-between gap-2">
-                    <div className="text-slate-700">{locationById.get(startLocationId)?.name ?? startLocationId}</div>
+                    <div className="text-slate-700">
+                      {locationById.get(startLocationId)?.name ?? startLocationId}
+                      {startLocationVersionId ? ` (${formatLocationVersion(locationVersionById.get(startLocationVersionId))})` : ''}
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
                         setStartLocationId('');
+                        setStartLocationVersionId('');
                         setSelectedRoute([]);
                         setPlanRows([]);
                       }}
@@ -906,6 +1001,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                         type="button"
                         onClick={() => {
                           setStartLocationId(location.id);
+                          setStartLocationVersionId(getDefaultVersionId(location));
                           setSelectedRoute([]);
                         }}
                         className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
@@ -915,16 +1011,59 @@ export function ItineraryBuilderPage(): JSX.Element {
                     ))}
                   </div>
                 ) : null}
+                {startLocationId ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(locationById.get(startLocationId)?.versions ?? []).map((version) => (
+                      <button
+                        key={`start-version-${version.id}`}
+                        type="button"
+                        onClick={() => setStartLocationVersionId(version.id)}
+                        className={`rounded-lg border px-3 py-1 text-xs ${
+                          startLocationVersionId === version.id
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        {formatLocationVersion(version)}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
 
-              {selectedRoute.map((locationId, index) => (
+              {selectedRoute.map((stop, index) => (
                 <div key={`selected-${index + 1}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                   <div className="text-sm font-medium">{index + 2}일차</div>
-                  <div className="mt-1 text-slate-700">{locationById.get(locationId)?.name ?? locationId}</div>
+                  <div className="mt-1 text-slate-700">
+                    {locationById.get(stop.locationId)?.name ?? stop.locationId}
+                    {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {(locationById.get(stop.locationId)?.versions ?? []).map((version) => (
+                      <button
+                        key={`route-version-${index}-${version.id}`}
+                        type="button"
+                        onClick={() =>
+                          setSelectedRoute((prev) =>
+                            prev.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, locationVersionId: version.id } : item,
+                            ),
+                          )
+                        }
+                        className={`rounded-lg border px-3 py-1 text-xs ${
+                          stop.locationVersionId === version.id
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        {formatLocationVersion(version)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ))}
 
-              {startLocationId && selectedRoute.length < totalDays - 1 ? (
+              {startLocationId && startLocationVersionId && selectedRoute.length < totalDays - 1 ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 p-4">
                   <div className="mb-3 text-sm font-medium">{selectedRoute.length + 2}일차 선택</div>
                   <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
@@ -932,7 +1071,15 @@ export function ItineraryBuilderPage(): JSX.Element {
                       <button
                         key={location.id}
                         type="button"
-                        onClick={() => setSelectedRoute((prev) => [...prev, location.id])}
+                        onClick={() =>
+                          setSelectedRoute((prev) => [
+                            ...prev,
+                            {
+                              locationId: location.id,
+                              locationVersionId: getDefaultVersionId(location),
+                            },
+                          ])
+                        }
                         className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
                       >
                         {location.name}

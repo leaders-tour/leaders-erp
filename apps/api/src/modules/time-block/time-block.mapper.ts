@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 
 export const timeBlockInclude = {
   location: true,
+  locationVersion: true,
   activities: {
     orderBy: { orderIndex: 'asc' },
   },

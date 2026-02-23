@@ -68,18 +68,52 @@ model Location {
   internalMovementDistance Int?
   latitude           Float?
   longitude          Float?
+  currentVersionId   String?
 
   region       Region    @relation(fields: [regionId], references: [id], onDelete: Cascade)
   fromSegments Segment[] @relation("FromLocation")
   toSegments   Segment[] @relation("ToLocation")
+  versions     LocationVersion[] @relation("LocationVersions")
+  currentVersion LocationVersion? @relation("CurrentLocationVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
   lodgings     Lodging[]
   mealSets     MealSet[]
   timeBlocks   TimeBlock[]
+  planStops    PlanStop[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([regionId])
+  @@index([currentVersionId])
+}
+
+model LocationVersion {
+  id                     String @id @default(uuid(7))
+  locationId             String
+  parentVersionId        String?
+  versionNumber          Int
+  label                  String
+  changeNote             String?
+  locationNameSnapshot   String
+  regionNameSnapshot     String
+  internalMovementDistance Int?
+  defaultLodgingType     String
+
+  location      Location         @relation("LocationVersions", fields: [locationId], references: [id], onDelete: Cascade)
+  parentVersion LocationVersion? @relation("LocationVersionParentChild", fields: [parentVersionId], references: [id], onDelete: SetNull)
+  childVersions LocationVersion[] @relation("LocationVersionParentChild")
+  currentForLocations Location[] @relation("CurrentLocationVersion")
+  lodgings      Lodging[]
+  mealSets      MealSet[]
+  timeBlocks    TimeBlock[]
+  planStops     PlanStop[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([locationId, versionNumber])
+  @@index([locationId])
+  @@index([parentVersionId])
 }
 
 model Segment {
@@ -177,6 +211,8 @@ model PlanVersionMeta {
 model PlanStop {
   id                  String @id @default(uuid(7))
   planVersionId       String
+  locationId          String?
+  locationVersionId   String?
   dateCellText        String @db.Text
   destinationCellText String @db.Text
   timeCellText        String @db.Text
@@ -184,17 +220,22 @@ model PlanStop {
   lodgingCellText     String @db.Text
   mealCellText        String @db.Text
 
-  planVersion PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+  planVersion     PlanVersion     @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+  location        Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  locationVersion LocationVersion? @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([planVersionId])
+  @@index([locationId])
+  @@index([locationVersionId])
 }
 
 model Lodging {
   id                   String @id @default(uuid(7))
   locationId           String
+  locationVersionId    String?
   locationNameSnapshot String
   name                 String
   specialNotes         String?
@@ -203,47 +244,55 @@ model Lodging {
   hasShower            FacilityAvailability @default(NO)
   hasInternet          FacilityAvailability @default(NO)
 
-  location Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  location        Location         @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  locationVersion LocationVersion? @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([locationId])
+  @@index([locationVersionId])
 }
 
 model MealSet {
   id                   String     @id @default(uuid(7))
   locationId           String
+  locationVersionId    String?
   locationNameSnapshot String
   setName              String
   breakfast            MealOption?
   lunch                MealOption?
   dinner               MealOption?
 
-  location Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  location        Location         @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  locationVersion LocationVersion? @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([locationId])
-  @@unique([locationId, setName])
+  @@index([locationVersionId])
+  @@unique([locationVersionId, setName])
 }
 
 model TimeBlock {
   id         String @id @default(uuid(7))
   locationId String
+  locationVersionId String?
   startTime  String
   label      String
   orderIndex Int
 
-  location   Location    @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  activities Activity[]
+  location        Location         @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  locationVersion LocationVersion? @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
+  activities      Activity[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([locationId])
-  @@unique([locationId, orderIndex])
+  @@index([locationVersionId])
+  @@unique([locationVersionId, orderIndex])
 }
 
 model Activity {

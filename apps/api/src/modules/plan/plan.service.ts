@@ -13,6 +13,53 @@ import type { PlanCreateDto, PlanUpdateDto, PlanVersionCreateDto, UserCreateDto,
 export class PlanService {
   constructor(private readonly prisma: PrismaClient) {}
 
+  private async normalizePlanStopsWithLocationReferences<T extends { locationId?: string; locationVersionId?: string }>(
+    planStops: T[],
+  ): Promise<T[]> {
+    const locationVersionIds = Array.from(
+      new Set(
+        planStops
+          .map((planStop) => planStop.locationVersionId)
+          .filter((value): value is string => typeof value === 'string' && value.length > 0),
+      ),
+    );
+
+    if (locationVersionIds.length === 0) {
+      return planStops;
+    }
+
+    const versions = await this.prisma.locationVersion.findMany({
+      where: { id: { in: locationVersionIds } },
+      select: { id: true, locationId: true },
+    });
+
+    if (versions.length !== locationVersionIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'One or more locationVersionId values are invalid');
+    }
+
+    const locationIdByVersionId = new Map(versions.map((version) => [version.id, version.locationId]));
+
+    return planStops.map((planStop) => {
+      if (!planStop.locationVersionId) {
+        return planStop;
+      }
+
+      const expectedLocationId = locationIdByVersionId.get(planStop.locationVersionId);
+      if (!expectedLocationId) {
+        throw new DomainError('VALIDATION_FAILED', 'One or more locationVersionId values are invalid');
+      }
+
+      if (planStop.locationId && planStop.locationId !== expectedLocationId) {
+        throw new DomainError('VALIDATION_FAILED', 'locationId and locationVersionId must belong to the same location');
+      }
+
+      return {
+        ...planStop,
+        locationId: expectedLocationId,
+      };
+    });
+  }
+
   private formatDocumentDatePart(value: string): string {
     const date = new Date(value);
     const yy = String(date.getUTCFullYear()).slice(-2);
@@ -100,6 +147,8 @@ export class PlanService {
       throw new DomainError('VALIDATION_FAILED', 'totalDays must match planStops length');
     }
 
+    const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.initialVersion.planStops);
+
     const [user, region] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: parsed.data.userId }, select: { id: true } }),
       this.prisma.region.findUnique({ where: { id: parsed.data.regionId }, select: { id: true } }),
@@ -113,6 +162,7 @@ export class PlanService {
     }
 
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      parsed.data.initialVersion.planStops = normalizedPlanStops;
       const documentNumber = await this.generateDocumentNumber(parsed.data.initialVersion.meta.travelStartDate);
       return new PlanRepository(tx).createWithInitialVersion(parsed.data, documentNumber);
     });
@@ -153,6 +203,8 @@ export class PlanService {
       throw new DomainError('VALIDATION_FAILED', 'totalDays must match planStops length');
     }
 
+    const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.planStops);
+
     const plan = await new PlanRepository(this.prisma).findById(parsed.data.planId);
     if (!plan) {
       throw new DomainError('NOT_FOUND', 'Plan not found');
@@ -170,6 +222,7 @@ export class PlanService {
     }
 
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      parsed.data.planStops = normalizedPlanStops;
       const repository = new PlanRepository(tx);
       const versionNumber = await repository.getNextVersionNumber(parsed.data.planId);
       const documentNumber = await this.generateDocumentNumber(parsed.data.meta.travelStartDate);

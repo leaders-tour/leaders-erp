@@ -10,6 +10,7 @@ enum MealOption {
 type MealSet {
   id: ID!
   locationId: String!
+  locationVersionId: String
   locationNameSnapshot: String!
   setName: String!
   breakfast: MealOption
@@ -21,7 +22,8 @@ type MealSet {
 }
 
 input MealSetCreateInput {
-  locationId: String!
+  locationId: String
+  locationVersionId: String
   setName: String!
   breakfast: MealOption
   lunch: MealOption
@@ -30,6 +32,7 @@ input MealSetCreateInput {
 
 input MealSetUpdateInput {
   locationId: String
+  locationVersionId: String
   setName: String
   breakfast: MealOption
   lunch: MealOption

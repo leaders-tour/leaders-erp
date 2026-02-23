@@ -13,7 +13,7 @@ export class MealSetRepository {
     return this.prisma.mealSet.findUnique({ where: { id }, include: mealSetInclude });
   }
 
-  create(data: MealSetCreateDto & { locationNameSnapshot: string }) {
+  create(data: MealSetCreateDto & { locationId: string; locationVersionId: string; locationNameSnapshot: string }) {
     return this.prisma.mealSet.create({ data, include: mealSetInclude });
   }
 

@@ -6,6 +6,8 @@ type Query {
   region(id: ID!): Region
   locations: [Location!]!
   location(id: ID!): Location
+  locationVersions(locationId: ID!): [LocationVersion!]!
+  locationVersion(id: ID!): LocationVersion
   lodgings: [Lodging!]!
   lodging(id: ID!): Lodging
   mealSets: [MealSet!]!
@@ -33,6 +35,8 @@ type Mutation {
 
   createLocation(input: LocationCreateInput!): Location!
   createLocationProfile(input: LocationProfileCreateInput!): Location!
+  createLocationVersion(input: LocationVersionCreateInput!): LocationVersion!
+  setCurrentLocationVersion(locationId: ID!, versionId: ID!): Location!
   updateLocationProfile(id: ID!, input: LocationProfileUpdateInput!): Location!
   updateLocation(id: ID!, input: LocationUpdateInput!): Location!
   deleteLocation(id: ID!): Boolean!

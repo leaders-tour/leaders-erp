@@ -98,6 +98,9 @@ export function LocationListPage(): JSX.Element {
                       {parsedName.name}
                       {parsedName.tag ? `\n(${parsedName.tag})` : ''}
                     </div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      현재 버전: {row.currentVersion ? `${row.currentVersion.label} (v${row.currentVersion.versionNumber})` : '-'}
+                    </div>
                     <div className="mt-2">
                       <Link
                         to={`/locations/${row.id}`}

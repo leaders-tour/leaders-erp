@@ -69,12 +69,14 @@ export interface PlanVersionDetail extends PlanVersionRow {
       name: string;
     };
   };
-  planStops: Array<{
-    id: string;
-    planVersionId: string;
-    dateCellText: string;
-    destinationCellText: string;
-    timeCellText: string;
+      planStops: Array<{
+        id: string;
+        planVersionId: string;
+        locationId?: string | null;
+        locationVersionId?: string | null;
+        dateCellText: string;
+        destinationCellText: string;
+        timeCellText: string;
     scheduleCellText: string;
     lodgingCellText: string;
     mealCellText: string;
@@ -220,6 +222,8 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
       planStops {
         id
         planVersionId
+        locationId
+        locationVersionId
         dateCellText
         destinationCellText
         timeCellText

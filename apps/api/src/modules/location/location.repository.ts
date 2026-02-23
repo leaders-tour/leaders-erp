@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
-import { locationInclude } from './location.mapper';
+import { locationInclude, locationVersionInclude } from './location.mapper';
 import type { LocationCreateDto, LocationUpdateDto } from './location.types';
 
 export class LocationRepository {
@@ -11,6 +11,18 @@ export class LocationRepository {
 
   findById(id: string) {
     return this.prisma.location.findUnique({ where: { id }, include: locationInclude });
+  }
+
+  findVersionsByLocation(locationId: string) {
+    return this.prisma.locationVersion.findMany({
+      where: { locationId },
+      include: locationVersionInclude,
+      orderBy: { versionNumber: 'desc' },
+    });
+  }
+
+  findVersionById(id: string) {
+    return this.prisma.locationVersion.findUnique({ where: { id }, include: locationVersionInclude });
   }
 
   create(data: LocationCreateDto & { regionName: string }) {

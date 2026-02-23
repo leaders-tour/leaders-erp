@@ -3,6 +3,7 @@ type Location {
   regionId: String!
   regionName: String!
   name: String!
+  currentVersionId: String
   defaultLodgingType: String!
   internalMovementDistance: Int
   latitude: Float
@@ -10,6 +11,29 @@ type Location {
   createdAt: DateTime!
   updatedAt: DateTime!
   region: Region!
+  currentVersion: LocationVersion
+  versions: [LocationVersion!]!
+  timeBlocks: [TimeBlock!]!
+  lodgings: [Lodging!]!
+  mealSets: [MealSet!]!
+}
+
+type LocationVersion {
+  id: ID!
+  locationId: String!
+  parentVersionId: String
+  versionNumber: Int!
+  label: String!
+  changeNote: String
+  locationNameSnapshot: String!
+  regionNameSnapshot: String!
+  internalMovementDistance: Int
+  defaultLodgingType: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  location: Location!
+  parentVersion: LocationVersion
+  childVersions: [LocationVersion!]!
   timeBlocks: [TimeBlock!]!
   lodgings: [Lodging!]!
   mealSets: [MealSet!]!
@@ -68,4 +92,19 @@ input LocationProfileUpdateInput {
   timeSlots: [LocationProfileTimeSlotInput!]!
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
+}
+
+input LocationVersionProfileInput {
+  internalMovementDistance: Int
+  timeSlots: [LocationProfileTimeSlotInput!]!
+  lodging: LocationProfileLodgingInput!
+  meals: LocationProfileMealsInput!
+}
+
+input LocationVersionCreateInput {
+  locationId: String!
+  parentVersionId: String
+  label: String!
+  changeNote: String
+  profile: LocationVersionProfileInput!
 }

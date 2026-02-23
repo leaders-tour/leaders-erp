@@ -7,10 +7,13 @@ import type { LodgingCreateDto, LodgingUpdateDto } from './lodging.types';
 type FacilityAvailability = 'YES' | 'LIMITED' | 'NO';
 
 function normalizeLodgingInput<
-  T extends { isUnspecified?: boolean; hasElectricity?: FacilityAvailability; hasShower?: FacilityAvailability; hasInternet?: FacilityAvailability },
->(
-  input: T,
-) {
+  T extends {
+    isUnspecified?: boolean;
+    hasElectricity?: FacilityAvailability;
+    hasShower?: FacilityAvailability;
+    hasInternet?: FacilityAvailability;
+  },
+>(input: T) {
   const isUnspecified = input.isUnspecified ?? false;
   return {
     ...input,
@@ -42,17 +45,49 @@ export class LodgingService {
       throw new DomainError('VALIDATION_FAILED', 'Invalid lodging input');
     }
 
-    const location = await this.prisma.location.findUnique({
-      where: { id: parsed.data.locationId },
-      select: { name: true },
-    });
-    if (!location) {
-      throw new DomainError('VALIDATION_FAILED', 'Location not found for lodging');
+    let locationId = parsed.data.locationId;
+    let locationVersionId = parsed.data.locationVersionId;
+
+    if (!locationVersionId && locationId) {
+      const location = await this.prisma.location.findUnique({
+        where: { id: locationId },
+        select: { currentVersionId: true },
+      });
+      if (!location?.currentVersionId) {
+        throw new DomainError('VALIDATION_FAILED', 'Location currentVersion is required for lodging');
+      }
+      locationVersionId = location.currentVersionId;
+    }
+
+    let locationNameSnapshot: string | null = null;
+
+    if (locationVersionId) {
+      const version = await this.prisma.locationVersion.findUnique({
+        where: { id: locationVersionId },
+        select: { locationId: true, locationNameSnapshot: true },
+      });
+
+      if (!version) {
+        throw new DomainError('VALIDATION_FAILED', 'LocationVersion not found for lodging');
+      }
+
+      if (locationId && version.locationId !== locationId) {
+        throw new DomainError('VALIDATION_FAILED', 'locationId and locationVersionId mismatch');
+      }
+
+      locationId = version.locationId;
+      locationNameSnapshot = version.locationNameSnapshot;
+    }
+
+    if (!locationId || !locationVersionId) {
+      throw new DomainError('VALIDATION_FAILED', 'locationId and locationVersionId are required');
     }
 
     return this.repository.create({
       ...normalizeLodgingInput(parsed.data),
-      locationNameSnapshot: location.name,
+      locationId,
+      locationVersionId,
+      locationNameSnapshot: locationNameSnapshot ?? '',
     });
   }
 
@@ -62,21 +97,46 @@ export class LodgingService {
       throw new DomainError('VALIDATION_FAILED', 'Invalid lodging update input');
     }
 
-    if (!parsed.data.locationId) {
+    if (!parsed.data.locationId && !parsed.data.locationVersionId) {
       return this.repository.update(id, normalizeLodgingInput(parsed.data));
     }
 
-    const location = await this.prisma.location.findUnique({
-      where: { id: parsed.data.locationId },
-      select: { name: true },
+    let locationId = parsed.data.locationId;
+    let locationVersionId = parsed.data.locationVersionId;
+
+    if (!locationVersionId && locationId) {
+      const location = await this.prisma.location.findUnique({
+        where: { id: locationId },
+        select: { currentVersionId: true },
+      });
+      if (!location?.currentVersionId) {
+        throw new DomainError('VALIDATION_FAILED', 'Location currentVersion is required for lodging update');
+      }
+      locationVersionId = location.currentVersionId;
+    }
+
+    if (!locationVersionId) {
+      return this.repository.update(id, normalizeLodgingInput(parsed.data));
+    }
+
+    const version = await this.prisma.locationVersion.findUnique({
+      where: { id: locationVersionId },
+      select: { locationId: true, locationNameSnapshot: true },
     });
-    if (!location) {
-      throw new DomainError('VALIDATION_FAILED', 'Location not found for lodging');
+
+    if (!version) {
+      throw new DomainError('VALIDATION_FAILED', 'LocationVersion not found for lodging update');
+    }
+
+    if (locationId && version.locationId !== locationId) {
+      throw new DomainError('VALIDATION_FAILED', 'locationId and locationVersionId mismatch');
     }
 
     return this.repository.update(id, {
       ...normalizeLodgingInput(parsed.data),
-      locationNameSnapshot: location.name,
+      locationId: version.locationId,
+      locationVersionId,
+      locationNameSnapshot: version.locationNameSnapshot,
     });
   }
 

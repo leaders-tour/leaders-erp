@@ -7,6 +7,7 @@ const LIST = gql`
     lodgings {
       id
       locationId
+      locationVersionId
       locationNameSnapshot
       name
       specialNotes
@@ -37,7 +38,8 @@ const REMOVE = gql`
 `;
 
 export interface LodgingFormInput {
-  locationId: string;
+  locationId?: string;
+  locationVersionId: string;
   name: string;
   specialNotes?: string | null;
 }
@@ -57,6 +59,8 @@ export function useLodgingCrud() {
     toCreateVariables: (input) => ({
       input: {
         ...input,
+        locationId: input.locationId?.trim() || undefined,
+        locationVersionId: input.locationVersionId.trim(),
         specialNotes: normalizeNullableText(input.specialNotes),
       },
     }),
@@ -64,6 +68,8 @@ export function useLodgingCrud() {
       id,
       input: {
         ...input,
+        locationId: input.locationId?.trim() || undefined,
+        locationVersionId: input.locationVersionId.trim(),
         specialNotes: normalizeNullableText(input.specialNotes),
       },
     }),

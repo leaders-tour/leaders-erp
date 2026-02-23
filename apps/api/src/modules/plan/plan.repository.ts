@@ -98,6 +98,8 @@ export class PlanRepository {
         },
         planStops: {
           create: initialVersion.planStops.map((planStop) => ({
+            locationId: planStop.locationId,
+            locationVersionId: planStop.locationVersionId,
             dateCellText: planStop.dateCellText,
             destinationCellText: planStop.destinationCellText,
             timeCellText: planStop.timeCellText,
@@ -158,6 +160,8 @@ export class PlanRepository {
         },
         planStops: {
           create: data.planStops.map((planStop) => ({
+            locationId: planStop.locationId,
+            locationVersionId: planStop.locationVersionId,
             dateCellText: planStop.dateCellText,
             destinationCellText: planStop.destinationCellText,
             timeCellText: planStop.timeCellText,

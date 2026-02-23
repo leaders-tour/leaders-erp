@@ -7,6 +7,7 @@ const LIST = gql`
     timeBlocks {
       id
       locationId
+      locationVersionId
       startTime
       label
       orderIndex
@@ -37,7 +38,8 @@ const REMOVE = gql`
 `;
 
 export interface TimeBlockFormInput {
-  locationId: string;
+  locationId?: string;
+  locationVersionId: string;
   startTime: string;
   label: string;
   orderIndex: number;
@@ -47,7 +49,20 @@ export function useTimeBlockCrud() {
   return useCrudResource<TimeBlock, TimeBlockFormInput, TimeBlockFormInput>({
     docs: { list: LIST, create: CREATE, update: UPDATE, remove: REMOVE },
     keys: { listKey: 'timeBlocks', createKey: 'createTimeBlock', updateKey: 'updateTimeBlock', removeKey: 'deleteTimeBlock' },
-    toCreateVariables: (input) => ({ input }),
-    toUpdateVariables: (id, input) => ({ id, input }),
+    toCreateVariables: (input) => ({
+      input: {
+        ...input,
+        locationId: input.locationId?.trim() || undefined,
+        locationVersionId: input.locationVersionId.trim(),
+      },
+    }),
+    toUpdateVariables: (id, input) => ({
+      id,
+      input: {
+        ...input,
+        locationId: input.locationId?.trim() || undefined,
+        locationVersionId: input.locationVersionId.trim(),
+      },
+    }),
   });
 }

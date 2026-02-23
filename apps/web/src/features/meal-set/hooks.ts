@@ -7,6 +7,7 @@ const LIST = gql`
     mealSets {
       id
       locationId
+      locationVersionId
       locationNameSnapshot
       setName
       breakfast
@@ -39,7 +40,8 @@ const REMOVE = gql`
 `;
 
 export interface MealSetFormInput {
-  locationId: string;
+  locationId?: string;
+  locationVersionId: string;
   setName: string;
   breakfast?: string | null;
   lunch?: string | null;
@@ -66,6 +68,8 @@ export function useMealSetCrud() {
     toCreateVariables: (input) => ({
       input: {
         ...input,
+        locationId: input.locationId?.trim() || undefined,
+        locationVersionId: input.locationVersionId.trim(),
         breakfast: normalizeMealOption(input.breakfast),
         lunch: normalizeMealOption(input.lunch),
         dinner: normalizeMealOption(input.dinner),
@@ -75,6 +79,8 @@ export function useMealSetCrud() {
       id,
       input: {
         ...input,
+        locationId: input.locationId?.trim() || undefined,
+        locationVersionId: input.locationVersionId.trim(),
         breakfast: normalizeMealOption(input.breakfast),
         lunch: normalizeMealOption(input.lunch),
         dinner: normalizeMealOption(input.dinner),

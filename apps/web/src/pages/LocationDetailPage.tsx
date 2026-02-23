@@ -1,8 +1,8 @@
-import { Card } from '@tour/ui';
+import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { LocationSubNav } from '../features/location/sub-nav';
 import { splitLocationNameAndTag, toFacilityLabel, toMealLabel } from '../features/location/display';
-import { useLocationDetail } from '../features/location/hooks';
+import { useLocationCrud, useLocationDetail } from '../features/location/hooks';
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -12,10 +12,18 @@ function formatDate(value: string): string {
   return date.toLocaleString('ko-KR');
 }
 
+function formatVersionLabel(version: { label: string; versionNumber: number } | null | undefined): string {
+  if (!version) {
+    return '-';
+  }
+  return `${version.label} (v${version.versionNumber})`;
+}
+
 export function LocationDetailPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
   const locationPath = useLocation();
-  const { location, segments, loading } = useLocationDetail(id);
+  const crud = useLocationCrud();
+  const { location, segments, loading, refetch } = useLocationDetail(id);
 
   if (loading) {
     return <section className="py-8 text-sm text-slate-600">불러오는 중...</section>;
@@ -70,9 +78,14 @@ export function LocationDetailPage(): JSX.Element {
             </h1>
             <p className="mt-1 text-sm text-slate-600">목적지 상세 정보</p>
           </div>
-          <Link to={`/locations/${location.id}/edit`} className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-            편집
-          </Link>
+          {location.currentVersionId ? (
+            <Link
+              to={`/locations/${location.id}/versions/${location.currentVersionId}/edit`}
+              className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              현재 버전 수정
+            </Link>
+          ) : null}
         </div>
       </header>
 
@@ -80,14 +93,81 @@ export function LocationDetailPage(): JSX.Element {
         <h2 className="mb-3 text-lg font-semibold">요약</h2>
         <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
           <div>지역: {location.regionName}</div>
+          <div>현재 버전: {formatVersionLabel(location.currentVersion)}</div>
           <div>내부 이동 거리: {location.internalMovementDistance ?? '-'} </div>
           <div>생성일: {formatDate(String(location.createdAt))}</div>
           <div>수정일: {formatDate(String(location.updatedAt))}</div>
         </div>
       </Card>
 
+      <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-4">
+          <h2 className="text-lg font-semibold">버전 목록</h2>
+        </div>
+        <Table>
+          <thead>
+            <tr>
+              <Th>버전</Th>
+              <Th>부모</Th>
+              <Th>변경 메모</Th>
+              <Th>생성일</Th>
+              <Th>상태</Th>
+              <Th>액션</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {location.versions.map((version) => {
+              const isCurrent = location.currentVersionId === version.id;
+              const parent = location.versions.find((candidate) => candidate.id === version.parentVersionId);
+              return (
+                <tr key={version.id}>
+                  <Td>
+                    <div>{version.label}</div>
+                    <div className="text-xs text-slate-500">v{version.versionNumber}</div>
+                  </Td>
+                  <Td>{parent ? formatVersionLabel(parent) : '-'}</Td>
+                  <Td>{version.changeNote ?? '-'}</Td>
+                  <Td>{formatDate(version.createdAt)}</Td>
+                  <Td>{isCurrent ? 'current' : '-'}</Td>
+                  <Td>
+                    <div className="flex flex-wrap gap-2">
+                      <Link
+                        to={`/locations/${location.id}/versions/${version.id}`}
+                        className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        상세
+                      </Link>
+                      <Link
+                        to={`/locations/${location.id}/versions/${version.id}/edit?mode=create`}
+                        className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        새 버전 생성
+                      </Link>
+                      {!isCurrent ? (
+                        <Button
+                          variant="outline"
+                          onClick={async () => {
+                            if (!window.confirm(`'${version.label}' 버전을 현재 버전으로 지정할까요?`)) {
+                              return;
+                            }
+                            await crud.setCurrentVersion(location.id, version.id);
+                            await refetch();
+                          }}
+                        >
+                          현재로 지정
+                        </Button>
+                      ) : null}
+                    </div>
+                  </Td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </Card>
+
       <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold">시간표/일정</h2>
+        <h2 className="mb-3 text-lg font-semibold">시간표/일정 (current)</h2>
         <div className="grid gap-2 text-sm">
           {location.timeBlocks.length === 0 ? (
             <div className="text-slate-500">일정 없음</div>
@@ -119,7 +199,7 @@ export function LocationDetailPage(): JSX.Element {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <h2 className="mb-3 text-lg font-semibold">숙소</h2>
+          <h2 className="mb-3 text-lg font-semibold">숙소 (current)</h2>
           <div className="grid gap-1 text-sm">
             <div>{location.lodgings[0]?.name ?? '-'}</div>
             <div>전기({toFacilityLabel(location.lodgings[0]?.hasElectricity)})</div>
@@ -129,7 +209,7 @@ export function LocationDetailPage(): JSX.Element {
         </Card>
 
         <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <h2 className="mb-3 text-lg font-semibold">식사</h2>
+          <h2 className="mb-3 text-lg font-semibold">식사 (current)</h2>
           <div className="grid gap-1 text-sm">
             <div>{toMealLabel(location.mealSets[0]?.breakfast)}</div>
             <div>{toMealLabel(location.mealSets[0]?.lunch)}</div>

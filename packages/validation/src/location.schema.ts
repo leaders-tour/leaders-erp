@@ -43,7 +43,27 @@ export const locationProfileCreateSchema = z.object({
 
 export const locationProfileUpdateSchema = locationProfileCreateSchema;
 
+export const locationVersionProfileSchema = z.object({
+  internalMovementDistance: z.number().int().min(1).max(1000).nullable().optional(),
+  timeSlots: z.array(locationProfileTimeSlotSchema).min(1).max(24),
+  lodging: locationProfileLodgingSchema,
+  meals: locationProfileMealsSchema,
+});
+
+export const locationVersionCreateSchema = z.object({
+  locationId: z.string().min(1),
+  parentVersionId: z.string().min(1).optional(),
+  label: z.string().min(1).max(100),
+  changeNote: z.string().max(1000).optional(),
+  profile: locationVersionProfileSchema,
+});
+
 export type LocationCreateInput = z.infer<typeof locationCreateSchema>;
 export type LocationUpdateInput = z.infer<typeof locationUpdateSchema>;
 export type LocationProfileCreateInput = z.infer<typeof locationProfileCreateSchema>;
 export type LocationProfileUpdateInput = z.infer<typeof locationProfileUpdateSchema>;
+export type LocationProfileTimeSlotInput = z.infer<typeof locationProfileTimeSlotSchema>;
+export type LocationProfileLodgingInput = z.infer<typeof locationProfileLodgingSchema>;
+export type LocationProfileMealsInput = z.infer<typeof locationProfileMealsSchema>;
+export type LocationVersionProfileInput = z.infer<typeof locationVersionProfileSchema>;
+export type LocationVersionCreateInput = z.infer<typeof locationVersionCreateSchema>;

@@ -41,6 +41,68 @@ async function main(): Promise<void> {
     },
   });
 
+  const ubVersion = await prisma.locationVersion.upsert({
+    where: {
+      locationId_versionNumber: {
+        locationId: ub.id,
+        versionNumber: 1,
+      },
+    },
+    update: {
+      label: '기본',
+      locationNameSnapshot: ub.name,
+      regionNameSnapshot: ub.regionName,
+      internalMovementDistance: ub.internalMovementDistance ?? null,
+      defaultLodgingType: ub.defaultLodgingType,
+    },
+    create: {
+      locationId: ub.id,
+      versionNumber: 1,
+      label: '기본',
+      locationNameSnapshot: ub.name,
+      regionNameSnapshot: ub.regionName,
+      internalMovementDistance: ub.internalMovementDistance ?? null,
+      defaultLodgingType: ub.defaultLodgingType,
+      changeNote: 'seed default',
+    },
+  });
+
+  const dalanVersion = await prisma.locationVersion.upsert({
+    where: {
+      locationId_versionNumber: {
+        locationId: dalanzadgad.id,
+        versionNumber: 1,
+      },
+    },
+    update: {
+      label: '기본',
+      locationNameSnapshot: dalanzadgad.name,
+      regionNameSnapshot: dalanzadgad.regionName,
+      internalMovementDistance: dalanzadgad.internalMovementDistance ?? null,
+      defaultLodgingType: dalanzadgad.defaultLodgingType,
+    },
+    create: {
+      locationId: dalanzadgad.id,
+      versionNumber: 1,
+      label: '기본',
+      locationNameSnapshot: dalanzadgad.name,
+      regionNameSnapshot: dalanzadgad.regionName,
+      internalMovementDistance: dalanzadgad.internalMovementDistance ?? null,
+      defaultLodgingType: dalanzadgad.defaultLodgingType,
+      changeNote: 'seed default',
+    },
+  });
+
+  await prisma.location.update({
+    where: { id: ub.id },
+    data: { currentVersionId: ubVersion.id },
+  });
+
+  await prisma.location.update({
+    where: { id: dalanzadgad.id },
+    data: { currentVersionId: dalanVersion.id },
+  });
+
   await prisma.segment.upsert({
     where: {
       fromLocationId_toLocationId: {
@@ -63,6 +125,7 @@ async function main(): Promise<void> {
     where: { id: 'seed_lodging_dalan_camp' },
     update: {
       locationId: dalanzadgad.id,
+      locationVersionId: dalanVersion.id,
       locationNameSnapshot: dalanzadgad.name,
       name: '여행자 캠프',
       specialNotes: '전기/샤워/인터넷 가능',
@@ -74,6 +137,7 @@ async function main(): Promise<void> {
     create: {
       id: 'seed_lodging_dalan_camp',
       locationId: dalanzadgad.id,
+      locationVersionId: dalanVersion.id,
       locationNameSnapshot: dalanzadgad.name,
       name: '여행자 캠프',
       specialNotes: '전기/샤워/인터넷 가능',
@@ -86,12 +150,13 @@ async function main(): Promise<void> {
 
   const dalanMeals = await prisma.mealSet.upsert({
     where: {
-      locationId_setName: {
-        locationId: dalanzadgad.id,
+      locationVersionId_setName: {
+        locationVersionId: dalanVersion.id,
         setName: '기본 세트',
       },
     },
     update: {
+      locationId: dalanzadgad.id,
       locationNameSnapshot: dalanzadgad.name,
       breakfast: MealOption.CAMP_MEAL,
       lunch: MealOption.LOCAL_RESTAURANT,
@@ -99,6 +164,7 @@ async function main(): Promise<void> {
     },
     create: {
       locationId: dalanzadgad.id,
+      locationVersionId: dalanVersion.id,
       locationNameSnapshot: dalanzadgad.name,
       setName: '기본 세트',
       breakfast: MealOption.CAMP_MEAL,
@@ -109,14 +175,15 @@ async function main(): Promise<void> {
 
   const slot08 = await prisma.timeBlock.upsert({
     where: {
-      locationId_orderIndex: {
-        locationId: dalanzadgad.id,
+      locationVersionId_orderIndex: {
+        locationVersionId: dalanVersion.id,
         orderIndex: 0,
       },
     },
     update: { startTime: '08:00', label: '08:00' },
     create: {
       locationId: dalanzadgad.id,
+      locationVersionId: dalanVersion.id,
       startTime: '08:00',
       label: '08:00',
       orderIndex: 0,
@@ -124,14 +191,15 @@ async function main(): Promise<void> {
   });
   const slot12 = await prisma.timeBlock.upsert({
     where: {
-      locationId_orderIndex: {
-        locationId: dalanzadgad.id,
+      locationVersionId_orderIndex: {
+        locationVersionId: dalanVersion.id,
         orderIndex: 1,
       },
     },
     update: { startTime: '12:00', label: '12:00' },
     create: {
       locationId: dalanzadgad.id,
+      locationVersionId: dalanVersion.id,
       startTime: '12:00',
       label: '12:00',
       orderIndex: 1,
@@ -139,14 +207,15 @@ async function main(): Promise<void> {
   });
   const slot18 = await prisma.timeBlock.upsert({
     where: {
-      locationId_orderIndex: {
-        locationId: dalanzadgad.id,
+      locationVersionId_orderIndex: {
+        locationVersionId: dalanVersion.id,
         orderIndex: 2,
       },
     },
     update: { startTime: '18:00', label: '18:00' },
     create: {
       locationId: dalanzadgad.id,
+      locationVersionId: dalanVersion.id,
       startTime: '18:00',
       label: '18:00',
       orderIndex: 2,
@@ -314,6 +383,8 @@ async function main(): Promise<void> {
     data: [
       {
         planVersionId: initialVersion.id,
+        locationId: dalanzadgad.id,
+        locationVersionId: dalanVersion.id,
         dateCellText: '1일차',
         destinationCellText: `${dalanzadgad.name}\n(이동시간: 8.5시간)`,
         timeCellText: '08:00\n12:00\n18:00',
@@ -323,6 +394,8 @@ async function main(): Promise<void> {
       },
       {
         planVersionId: initialVersion.id,
+        locationId: dalanzadgad.id,
+        locationVersionId: dalanVersion.id,
         dateCellText: '2일차',
         destinationCellText: `${dalanzadgad.name}\n(이동시간: 0시간)`,
         timeCellText: '08:00\n12:00\n18:00',

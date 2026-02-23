@@ -13,7 +13,7 @@ export class TimeBlockRepository {
     return this.prisma.timeBlock.findUnique({ where: { id }, include: timeBlockInclude });
   }
 
-  create(data: TimeBlockCreateDto) {
+  create(data: TimeBlockCreateDto & { locationId: string; locationVersionId: string }) {
     return this.prisma.timeBlock.create({ data, include: timeBlockInclude });
   }
 

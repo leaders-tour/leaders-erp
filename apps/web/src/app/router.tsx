@@ -8,6 +8,8 @@ import { LocationCreatePage } from '../pages/LocationCreatePage';
 import { LocationDetailPage } from '../pages/LocationDetailPage';
 import { LocationEditPage } from '../pages/LocationEditPage';
 import { LocationListPage } from '../pages/LocationListPage';
+import { LocationVersionDetailPage } from '../pages/LocationVersionDetailPage';
+import { LocationVersionEditPage } from '../pages/LocationVersionEditPage';
 import { PlanDetailPage } from '../pages/PlanDetailPage';
 import { PlanVersionDetailPage } from '../pages/PlanVersionDetailPage';
 import { RegionCreatePage } from '../pages/RegionCreatePage';
@@ -34,6 +36,8 @@ export const router = createBrowserRouter([
       { path: 'locations/create', element: <LocationCreatePage /> },
       { path: 'locations/:id', element: <LocationDetailPage /> },
       { path: 'locations/:id/edit', element: <LocationEditPage /> },
+      { path: 'locations/:locationId/versions/:versionId', element: <LocationVersionDetailPage /> },
+      { path: 'locations/:locationId/versions/:versionId/edit', element: <LocationVersionEditPage /> },
       { path: 'locations/connections', element: <SegmentPage /> },
       { path: 'segments', element: <Navigate to="/locations/connections" replace /> },
     ],
