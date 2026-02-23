@@ -5,6 +5,7 @@ type Activity {
   orderIndex: Int!
   isOptional: Boolean!
   conditionNote: String
+  safetyGuidelinesMd: String
   createdAt: DateTime!
   updatedAt: DateTime!
   timeBlock: TimeBlock!
@@ -16,6 +17,7 @@ input ActivityCreateInput {
   orderIndex: Int!
   isOptional: Boolean
   conditionNote: String
+  safetyGuidelinesMd: String
 }
 
 input ActivityUpdateInput {
@@ -24,4 +26,5 @@ input ActivityUpdateInput {
   orderIndex: Int
   isOptional: Boolean
   conditionNote: String
+  safetyGuidelinesMd: String
 }

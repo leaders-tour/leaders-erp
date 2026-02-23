@@ -7,7 +7,7 @@ import type { z } from 'zod';
 export interface FormFieldConfig<TSchema extends z.ZodTypeAny> {
   name: keyof z.infer<TSchema> & string;
   label: string;
-  type?: 'text' | 'number';
+  type?: 'text' | 'number' | 'textarea';
 }
 
 interface SimpleFormProps<TSchema extends z.ZodTypeAny> {
@@ -51,18 +51,25 @@ export function SimpleForm<TSchema extends z.ZodTypeAny>({
         {fields.map((field) => (
           <div key={field.name}>
             <FormField label={field.label}>
-              <Input
-                type={field.type ?? 'text'}
-                {...form.register(field.name as Path<z.infer<TSchema>>, {
-                  setValueAs:
-                    field.type === 'number'
-                      ? (input: string) => {
-                          const parsed = Number(input);
-                          return Number.isNaN(parsed) ? undefined : parsed;
-                        }
-                      : undefined,
-                })}
-              />
+              {field.type === 'textarea' ? (
+                <textarea
+                  className="min-h-32 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+                  {...form.register(field.name as Path<z.infer<TSchema>>)}
+                />
+              ) : (
+                <Input
+                  type={field.type ?? 'text'}
+                  {...form.register(field.name as Path<z.infer<TSchema>>, {
+                    setValueAs:
+                      field.type === 'number'
+                        ? (input: string) => {
+                            const parsed = Number(input);
+                            return Number.isNaN(parsed) ? undefined : parsed;
+                          }
+                        : undefined,
+                  })}
+                />
+              )}
             </FormField>
             {form.formState.errors[field.name as Path<z.infer<TSchema>>] ? (
               <p className="mt-1 text-xs text-rose-600">입력값을 확인해 주세요.</p>

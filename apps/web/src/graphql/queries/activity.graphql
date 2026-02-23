@@ -6,5 +6,6 @@ query Activities {
     orderIndex
     isOptional
     conditionNote
+    safetyGuidelinesMd
   }
 }

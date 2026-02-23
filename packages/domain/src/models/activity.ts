@@ -5,6 +5,7 @@ export interface Activity {
   orderIndex: number;
   isOptional: boolean;
   conditionNote: string | null;
+  safetyGuidelinesMd: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

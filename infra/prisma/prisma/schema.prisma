@@ -253,6 +253,7 @@ model Activity {
   orderIndex    Int
   isOptional    Boolean @default(false)
   conditionNote String?
+  safetyGuidelinesMd String? @db.Text
 
   timeBlock TimeBlock @relation(fields: [timeBlockId], references: [id], onDelete: Cascade)
 
