@@ -135,6 +135,7 @@ model PlanVersion {
   parentVersion PlanVersion?  @relation("PlanVersionParentChild", fields: [parentVersionId], references: [id], onDelete: SetNull)
   childVersions PlanVersion[] @relation("PlanVersionParentChild")
   planAsCurrent Plan[]        @relation("CurrentPlanVersion")
+  meta          PlanVersionMeta?
   planStops     PlanStop[]
   overrides     Override[]
 
@@ -144,6 +145,33 @@ model PlanVersion {
   @@unique([planId, versionNumber])
   @@index([planId])
   @@index([parentVersionId])
+}
+
+model PlanVersionMeta {
+  id                     String   @id @default(uuid(7))
+  planVersionId          String   @unique
+  leaderName             String
+  documentNumber         String   @unique
+  travelStartDate        DateTime
+  travelEndDate          DateTime
+  headcountTotal         Int
+  headcountMale          Int
+  headcountFemale        Int
+  vehicleType            String
+  flightInTime           String
+  flightOutTime          String
+  pickupDropNote         String?
+  externalPickupDropNote String?
+  rentalItemsText        String   @db.Text
+  eventCodes             Json
+  remark                 String?  @db.Text
+
+  planVersion PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([travelStartDate])
 }
 
 model PlanStop {

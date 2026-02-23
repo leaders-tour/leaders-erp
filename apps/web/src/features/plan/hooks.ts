@@ -16,6 +16,29 @@ export interface PlanVersionRow {
   changeNote: string | null;
   createdAt: string;
   updatedAt: string;
+  meta?: PlanVersionMetaRow | null;
+}
+
+export interface PlanVersionMetaRow {
+  id: string;
+  planVersionId: string;
+  leaderName: string;
+  documentNumber: string;
+  travelStartDate: string;
+  travelEndDate: string;
+  headcountTotal: number;
+  headcountMale: number;
+  headcountFemale: number;
+  vehicleType: string;
+  flightInTime: string;
+  flightOutTime: string;
+  pickupDropNote: string | null;
+  externalPickupDropNote: string | null;
+  rentalItemsText: string;
+  eventCodes: string[];
+  remark: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PlanRow {
@@ -203,6 +226,27 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         scheduleCellText
         lodgingCellText
         mealCellText
+      }
+      meta {
+        id
+        planVersionId
+        leaderName
+        documentNumber
+        travelStartDate
+        travelEndDate
+        headcountTotal
+        headcountMale
+        headcountFemale
+        vehicleType
+        flightInTime
+        flightOutTime
+        pickupDropNote
+        externalPickupDropNote
+        rentalItemsText
+        eventCodes
+        remark
+        createdAt
+        updatedAt
       }
     }
   }

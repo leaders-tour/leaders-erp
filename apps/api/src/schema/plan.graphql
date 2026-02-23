@@ -34,8 +34,31 @@ type PlanVersion {
   plan: Plan!
   parentVersion: PlanVersion
   childVersions: [PlanVersion!]!
+  meta: PlanVersionMeta
   planStops: [PlanStop!]!
   overrides: [Override!]!
+}
+
+type PlanVersionMeta {
+  id: ID!
+  planVersionId: String!
+  leaderName: String!
+  documentNumber: String!
+  travelStartDate: DateTime!
+  travelEndDate: DateTime!
+  headcountTotal: Int!
+  headcountMale: Int!
+  headcountFemale: Int!
+  vehicleType: String!
+  flightInTime: String!
+  flightOutTime: String!
+  pickupDropNote: String
+  externalPickupDropNote: String
+  rentalItemsText: String!
+  eventCodes: [String!]!
+  remark: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
 }
 
 input PlanCreateInput {
@@ -50,6 +73,7 @@ input PlanVersionSeedInput {
   totalDays: Int!
   planStops: [PlanStopNestedInput!]!
   changeNote: String
+  meta: PlanVersionMetaInput!
 }
 
 input PlanUpdateInput {
@@ -64,6 +88,24 @@ input PlanVersionCreateInput {
   totalDays: Int!
   planStops: [PlanStopNestedInput!]!
   changeNote: String
+  meta: PlanVersionMetaInput!
+}
+
+input PlanVersionMetaInput {
+  leaderName: String!
+  travelStartDate: DateTime!
+  travelEndDate: DateTime!
+  headcountTotal: Int!
+  headcountMale: Int!
+  headcountFemale: Int!
+  vehicleType: String!
+  flightInTime: String!
+  flightOutTime: String!
+  pickupDropNote: String
+  externalPickupDropNote: String
+  rentalItemsText: String!
+  eventCodes: [String!]!
+  remark: String
 }
 
 type PlanStop {

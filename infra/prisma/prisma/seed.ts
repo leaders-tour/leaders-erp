@@ -268,6 +268,47 @@ async function main(): Promise<void> {
     data: { currentVersionId: initialVersion.id },
   });
 
+  await prisma.planVersionMeta.upsert({
+    where: { planVersionId: initialVersion.id },
+    update: {
+      leaderName: '홍길동',
+      documentNumber: '260101001',
+      travelStartDate: new Date('2026-01-01T00:00:00.000Z'),
+      travelEndDate: new Date('2026-01-02T00:00:00.000Z'),
+      headcountTotal: 6,
+      headcountMale: 6,
+      headcountFemale: 0,
+      vehicleType: '스타렉스',
+      flightInTime: '08:00',
+      flightOutTime: '17:30',
+      pickupDropNote: '',
+      externalPickupDropNote: '',
+      rentalItemsText:
+        '판초 6개, 모기장 6개, 썰매 6개, 돗자리 2개, 별레이저 1개, 랜턴 1개, 멀티탭 2개, 드라이기 1개, 보드게임 1종, 버너/냄비/팬 set',
+      eventCodes: ['A'],
+      remark: '',
+    },
+    create: {
+      planVersionId: initialVersion.id,
+      leaderName: '홍길동',
+      documentNumber: '260101001',
+      travelStartDate: new Date('2026-01-01T00:00:00.000Z'),
+      travelEndDate: new Date('2026-01-02T00:00:00.000Z'),
+      headcountTotal: 6,
+      headcountMale: 6,
+      headcountFemale: 0,
+      vehicleType: '스타렉스',
+      flightInTime: '08:00',
+      flightOutTime: '17:30',
+      pickupDropNote: '',
+      externalPickupDropNote: '',
+      rentalItemsText:
+        '판초 6개, 모기장 6개, 썰매 6개, 돗자리 2개, 별레이저 1개, 랜턴 1개, 멀티탭 2개, 드라이기 1개, 보드게임 1종, 버너/냄비/팬 set',
+      eventCodes: ['A'],
+      remark: '',
+    },
+  });
+
   await prisma.planStop.deleteMany({ where: { planVersionId: initialVersion.id } });
   await prisma.planStop.createMany({
     data: [

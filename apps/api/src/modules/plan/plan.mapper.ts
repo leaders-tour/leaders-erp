@@ -5,6 +5,7 @@ export const planVersionInclude = {
   childVersions: {
     orderBy: { versionNumber: 'asc' },
   },
+  meta: true,
   planStops: {
     orderBy: { createdAt: 'asc' },
   },

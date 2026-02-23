@@ -158,6 +158,32 @@ const VARIANTS = [
   { id: VariantType.Extend, label: '연장' },
 ];
 
+const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
+const FLIGHT_TIME_OPTIONS = ['06:30', '08:00', '09:30', '11:00', '13:30', '15:00', '17:30', '21:00'] as const;
+const EVENT_OPTIONS = ['A', 'B', 'C'] as const;
+
+function toIsoDateTime(value: string): string {
+  return `${value}T00:00:00.000Z`;
+}
+
+function buildDefaultRentalItems(total: number): string {
+  const safeTotal = Math.max(1, total);
+  const matCount = Math.ceil(safeTotal / 3);
+  const multiTapCount = Math.ceil(safeTotal / 3);
+  return [
+    `판초 ${safeTotal}개`,
+    `모기장 ${safeTotal}개`,
+    `썰매 ${safeTotal}개`,
+    `돗자리 ${matCount}개`,
+    '별레이저 1개',
+    '랜턴 1개',
+    `멀티탭 ${multiTapCount}개`,
+    '드라이기 1개',
+    '보드게임 1종',
+    '버너/냄비/팬 set',
+  ].join(', ');
+}
+
 function formatHours(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(1)));
 }
@@ -243,6 +269,19 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [regionId, setRegionId] = useState<string>('');
   const [planTitle, setPlanTitle] = useState<string>('신규 여행 일정');
   const [changeNote, setChangeNote] = useState<string>(initialChangeNote);
+  const [leaderName, setLeaderName] = useState<string>('');
+  const [travelStartDate, setTravelStartDate] = useState<string>('');
+  const [travelEndDate, setTravelEndDate] = useState<string>('');
+  const [headcountTotal, setHeadcountTotal] = useState<number>(6);
+  const [headcountMale, setHeadcountMale] = useState<number>(6);
+  const [vehicleType, setVehicleType] = useState<(typeof VEHICLES)[number]>('스타렉스');
+  const [flightInTime, setFlightInTime] = useState<(typeof FLIGHT_TIME_OPTIONS)[number]>('08:00');
+  const [flightOutTime, setFlightOutTime] = useState<(typeof FLIGHT_TIME_OPTIONS)[number]>('17:30');
+  const [pickupDropNote, setPickupDropNote] = useState<string>('');
+  const [externalPickupDropNote, setExternalPickupDropNote] = useState<string>('');
+  const [rentalItemsText, setRentalItemsText] = useState<string>(buildDefaultRentalItems(6));
+  const [eventCodes, setEventCodes] = useState<string[]>([]);
+  const [remark, setRemark] = useState<string>('');
   const [startLocationId, setStartLocationId] = useState<string>('');
   const [selectedRoute, setSelectedRoute] = useState<string[]>([]);
   const [planRows, setPlanRows] = useState<PlanRow[]>([]);
@@ -353,9 +392,17 @@ export function ItineraryBuilderPage(): JSX.Element {
     setPlanRows((prev) => prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
   };
 
+  const headcountFemale = headcountTotal - headcountMale;
+  const hasValidDateRange = Boolean(travelStartDate && travelEndDate) && travelStartDate <= travelEndDate;
+  const hasValidHeadcount = headcountTotal > 0 && headcountMale >= 0 && headcountFemale >= 0 && headcountMale <= headcountTotal;
+
   const canCreate = Boolean(
     hasValidContext &&
       regionId &&
+      leaderName.trim() &&
+      hasValidDateRange &&
+      hasValidHeadcount &&
+      rentalItemsText.trim() &&
       startLocationId &&
       selectedRoute.length === totalDays - 1 &&
       planRows.length === totalDays &&
@@ -425,6 +472,22 @@ export function ItineraryBuilderPage(): JSX.Element {
                         variantType,
                         totalDays,
                         changeNote: changeNote.trim() || undefined,
+                        meta: {
+                          leaderName: leaderName.trim(),
+                          travelStartDate: toIsoDateTime(travelStartDate),
+                          travelEndDate: toIsoDateTime(travelEndDate),
+                          headcountTotal,
+                          headcountMale,
+                          headcountFemale,
+                          vehicleType,
+                          flightInTime,
+                          flightOutTime,
+                          pickupDropNote: pickupDropNote.trim() || undefined,
+                          externalPickupDropNote: externalPickupDropNote.trim() || undefined,
+                          rentalItemsText,
+                          eventCodes,
+                          remark: remark.trim() || undefined,
+                        },
                         planStops: planRows,
                       },
                     },
@@ -448,6 +511,22 @@ export function ItineraryBuilderPage(): JSX.Element {
                         variantType,
                         totalDays,
                         changeNote: changeNote.trim() || undefined,
+                        meta: {
+                          leaderName: leaderName.trim(),
+                          travelStartDate: toIsoDateTime(travelStartDate),
+                          travelEndDate: toIsoDateTime(travelEndDate),
+                          headcountTotal,
+                          headcountMale,
+                          headcountFemale,
+                          vehicleType,
+                          flightInTime,
+                          flightOutTime,
+                          pickupDropNote: pickupDropNote.trim() || undefined,
+                          externalPickupDropNote: externalPickupDropNote.trim() || undefined,
+                          rentalItemsText,
+                          eventCodes,
+                          remark: remark.trim() || undefined,
+                        },
                         planStops: planRows,
                       },
                     },
@@ -505,6 +584,218 @@ export function ItineraryBuilderPage(): JSX.Element {
                   onChange={(event) => setChangeNote(event.target.value)}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                   placeholder="예: 숙소 동선 개선"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">대표자명</span>
+                <input
+                  value={leaderName}
+                  onChange={(event) => setLeaderName(event.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  placeholder="대표자명을 입력하세요"
+                />
+              </label>
+
+              <div className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">문서번호</span>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                  서버 자동 생성 (YYMMDD + 3자리 랜덤)
+                </div>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <span className="text-xs text-slate-600">여행 기간</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={travelStartDate}
+                    onChange={(event) => setTravelStartDate(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={travelEndDate}
+                    onChange={(event) => setTravelEndDate(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <span className="text-xs text-slate-600">인원</span>
+                <div className="grid gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={headcountTotal}
+                    onChange={(event) => {
+                      const total = Math.max(1, Number(event.target.value) || 1);
+                      setHeadcountTotal(total);
+                      setHeadcountMale((prev) => Math.min(prev, total));
+                    }}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                  <div className="grid gap-1">
+                    <div className="text-xs text-slate-600">남성 토큰 선택</div>
+                    <div className="flex flex-wrap gap-1">
+                      {Array.from({ length: headcountTotal }, (_, index) => {
+                        const count = index + 1;
+                        const active = count <= headcountMale;
+                        return (
+                          <button
+                            key={`male-token-${count}`}
+                            type="button"
+                            onClick={() => setHeadcountMale(count)}
+                            className={`h-7 w-7 rounded-full border text-xs ${
+                              active
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                            }`}
+                            title={`남 ${count}`}
+                          >
+                            {count}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="text-xs text-slate-600">
+                      남 {headcountMale} / 여 {headcountFemale}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">차량</span>
+                <div className="flex flex-wrap gap-2">
+                  {VEHICLES.map((vehicle) => (
+                    <button
+                      key={vehicle}
+                      type="button"
+                      onClick={() => setVehicleType(vehicle)}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        vehicleType === vehicle
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {vehicle}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <span className="text-xs text-slate-600">항공권 IN</span>
+                <div className="flex flex-wrap gap-2">
+                  {FLIGHT_TIME_OPTIONS.map((time) => (
+                    <button
+                      key={`in-${time}`}
+                      type="button"
+                      onClick={() => setFlightInTime(time)}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        flightInTime === time
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {time}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-xs text-slate-600">항공권 OUT</span>
+                <div className="flex flex-wrap gap-2">
+                  {FLIGHT_TIME_OPTIONS.map((time) => (
+                    <button
+                      key={`out-${time}`}
+                      type="button"
+                      onClick={() => setFlightOutTime(time)}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        flightOutTime === time
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {time}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <label className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">픽/드랍 (보류)</span>
+                <input
+                  value={pickupDropNote}
+                  onChange={(event) => setPickupDropNote(event.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  placeholder="보류 항목 (입력만 가능)"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">실투어 외 픽드랍 (보류)</span>
+                <input
+                  value={externalPickupDropNote}
+                  onChange={(event) => setExternalPickupDropNote(event.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  placeholder="보류 항목 (입력만 가능)"
+                />
+              </label>
+
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-600">기본 대여물품</span>
+                  <Button
+                    variant="outline"
+                    onClick={() => setRentalItemsText(buildDefaultRentalItems(headcountTotal))}
+                  >
+                    기본값 다시 계산
+                  </Button>
+                </div>
+                <textarea
+                  value={rentalItemsText}
+                  onChange={(event) => setRentalItemsText(event.target.value)}
+                  rows={4}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">참여 이벤트</span>
+                <div className="flex flex-wrap gap-2">
+                  {EVENT_OPTIONS.map((code) => {
+                    const active = eventCodes.includes(code);
+                    return (
+                      <button
+                        key={code}
+                        type="button"
+                        onClick={() =>
+                          setEventCodes((prev) =>
+                            prev.includes(code) ? prev.filter((item) => item !== code) : [...prev, code],
+                          )
+                        }
+                        className={`rounded-xl border px-3 py-1.5 text-sm ${
+                          active
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {code}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <label className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">비고</span>
+                <textarea
+                  value={remark}
+                  onChange={(event) => setRemark(event.target.value)}
+                  rows={3}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                 />
               </label>
 
@@ -799,14 +1090,30 @@ export function ItineraryBuilderPage(): JSX.Element {
     ? {
         userId,
         planId,
-        parentVersionId,
-        regionId,
-        variantType,
-        totalDays,
-        changeNote,
-        selectedRoute,
-        planStops: planRows,
-      }
+      parentVersionId,
+      regionId,
+      variantType,
+      totalDays,
+      changeNote,
+      meta: {
+        leaderName,
+        travelStartDate,
+        travelEndDate,
+        headcountTotal,
+        headcountMale,
+        headcountFemale,
+        vehicleType,
+        flightInTime,
+        flightOutTime,
+        pickupDropNote,
+        externalPickupDropNote,
+        rentalItemsText,
+        eventCodes,
+        remark,
+      },
+      selectedRoute,
+      planStops: planRows,
+    }
     : {
         userId,
         regionId,
@@ -814,6 +1121,22 @@ export function ItineraryBuilderPage(): JSX.Element {
         variantType,
         totalDays,
         changeNote,
+        meta: {
+          leaderName,
+          travelStartDate,
+          travelEndDate,
+          headcountTotal,
+          headcountMale,
+          headcountFemale,
+          vehicleType,
+          flightInTime,
+          flightOutTime,
+          pickupDropNote,
+          externalPickupDropNote,
+          rentalItemsText,
+          eventCodes,
+          remark,
+        },
         selectedRoute,
         initialVersion: {
           planStops: planRows,

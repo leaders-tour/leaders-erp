@@ -10,6 +10,27 @@ export interface PlanVersion {
   variantType: VariantType;
   totalDays: number;
   changeNote: string | null;
+  meta: {
+    id: string;
+    planVersionId: string;
+    leaderName: string;
+    documentNumber: string;
+    travelStartDate: Date;
+    travelEndDate: Date;
+    headcountTotal: number;
+    headcountMale: number;
+    headcountFemale: number;
+    vehicleType: string;
+    flightInTime: string;
+    flightOutTime: string;
+    pickupDropNote: string | null;
+    externalPickupDropNote: string | null;
+    rentalItemsText: string;
+    eventCodes: string[];
+    remark: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null;
   planStops: PlanStop[];
   overrides: Override[];
   createdAt: Date;

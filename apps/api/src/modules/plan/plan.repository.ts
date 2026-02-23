@@ -60,7 +60,7 @@ export class PlanRepository {
     return (result._max.versionNumber ?? 0) + 1;
   }
 
-  async createWithInitialVersion(data: PlanCreateDto) {
+  async createWithInitialVersion(data: PlanCreateDto, documentNumber: string) {
     const { initialVersion, ...planData } = data;
 
     const createdPlan = await this.prisma.plan.create({
@@ -77,6 +77,25 @@ export class PlanRepository {
         variantType: initialVersion.variantType,
         totalDays: initialVersion.totalDays,
         changeNote: initialVersion.changeNote,
+        meta: {
+          create: {
+            leaderName: initialVersion.meta.leaderName,
+            documentNumber,
+            travelStartDate: new Date(initialVersion.meta.travelStartDate),
+            travelEndDate: new Date(initialVersion.meta.travelEndDate),
+            headcountTotal: initialVersion.meta.headcountTotal,
+            headcountMale: initialVersion.meta.headcountMale,
+            headcountFemale: initialVersion.meta.headcountFemale,
+            vehicleType: initialVersion.meta.vehicleType,
+            flightInTime: initialVersion.meta.flightInTime,
+            flightOutTime: initialVersion.meta.flightOutTime,
+            pickupDropNote: initialVersion.meta.pickupDropNote,
+            externalPickupDropNote: initialVersion.meta.externalPickupDropNote,
+            rentalItemsText: initialVersion.meta.rentalItemsText,
+            eventCodes: initialVersion.meta.eventCodes,
+            remark: initialVersion.meta.remark,
+          },
+        },
         planStops: {
           create: initialVersion.planStops.map((planStop) => ({
             dateCellText: planStop.dateCellText,
@@ -109,7 +128,7 @@ export class PlanRepository {
     });
   }
 
-  async createVersion(data: PlanVersionCreateDto, versionNumber: number) {
+  async createVersion(data: PlanVersionCreateDto, versionNumber: number, documentNumber: string) {
     const createdVersion = await this.prisma.planVersion.create({
       data: {
         planId: data.planId,
@@ -118,6 +137,25 @@ export class PlanRepository {
         variantType: data.variantType,
         totalDays: data.totalDays,
         changeNote: data.changeNote,
+        meta: {
+          create: {
+            leaderName: data.meta.leaderName,
+            documentNumber,
+            travelStartDate: new Date(data.meta.travelStartDate),
+            travelEndDate: new Date(data.meta.travelEndDate),
+            headcountTotal: data.meta.headcountTotal,
+            headcountMale: data.meta.headcountMale,
+            headcountFemale: data.meta.headcountFemale,
+            vehicleType: data.meta.vehicleType,
+            flightInTime: data.meta.flightInTime,
+            flightOutTime: data.meta.flightOutTime,
+            pickupDropNote: data.meta.pickupDropNote,
+            externalPickupDropNote: data.meta.externalPickupDropNote,
+            rentalItemsText: data.meta.rentalItemsText,
+            eventCodes: data.meta.eventCodes,
+            remark: data.meta.remark,
+          },
+        },
         planStops: {
           create: data.planStops.map((planStop) => ({
             dateCellText: planStop.dateCellText,

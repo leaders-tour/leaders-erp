@@ -13,6 +13,32 @@ import type { PlanCreateDto, PlanUpdateDto, PlanVersionCreateDto, UserCreateDto,
 export class PlanService {
   constructor(private readonly prisma: PrismaClient) {}
 
+  private formatDocumentDatePart(value: string): string {
+    const date = new Date(value);
+    const yy = String(date.getUTCFullYear()).slice(-2);
+    const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(date.getUTCDate()).padStart(2, '0');
+    return `${yy}${mm}${dd}`;
+  }
+
+  private async generateDocumentNumber(travelStartDate: string): Promise<string> {
+    const datePart = this.formatDocumentDatePart(travelStartDate);
+
+    for (let retry = 0; retry < 10; retry += 1) {
+      const randomPart = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+      const candidate = `${datePart}${randomPart}`;
+      const existing = await this.prisma.planVersionMeta.findUnique({
+        where: { documentNumber: candidate },
+        select: { id: true },
+      });
+      if (!existing) {
+        return candidate;
+      }
+    }
+
+    throw new DomainError('INTERNAL', 'Failed to allocate unique document number');
+  }
+
   listUsers() {
     return new PlanRepository(this.prisma).findUsers();
   }
@@ -87,7 +113,8 @@ export class PlanService {
     }
 
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      return new PlanRepository(tx).createWithInitialVersion(parsed.data);
+      const documentNumber = await this.generateDocumentNumber(parsed.data.initialVersion.meta.travelStartDate);
+      return new PlanRepository(tx).createWithInitialVersion(parsed.data, documentNumber);
     });
   }
 
@@ -145,7 +172,8 @@ export class PlanService {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const repository = new PlanRepository(tx);
       const versionNumber = await repository.getNextVersionNumber(parsed.data.planId);
-      return repository.createVersion(parsed.data, versionNumber);
+      const documentNumber = await this.generateDocumentNumber(parsed.data.meta.travelStartDate);
+      return repository.createVersion(parsed.data, versionNumber, documentNumber);
     });
   }
 

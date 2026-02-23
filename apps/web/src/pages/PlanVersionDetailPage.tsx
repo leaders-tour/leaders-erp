@@ -71,6 +71,32 @@ export function PlanVersionDetailPage(): JSX.Element {
         </div>
       </Card>
 
+      {version.meta ? (
+        <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">운영 정보</h2>
+          <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
+            <div>대표자명: {version.meta.leaderName}</div>
+            <div>문서번호: {version.meta.documentNumber}</div>
+            <div>
+              여행기간: {new Date(version.meta.travelStartDate).toLocaleDateString('ko-KR')} ~{' '}
+              {new Date(version.meta.travelEndDate).toLocaleDateString('ko-KR')}
+            </div>
+            <div>
+              인원: 총 {version.meta.headcountTotal} (남 {version.meta.headcountMale} / 여 {version.meta.headcountFemale})
+            </div>
+            <div>차량: {version.meta.vehicleType}</div>
+            <div>
+              항공권: IN {version.meta.flightInTime} / OUT {version.meta.flightOutTime}
+            </div>
+            <div>참여 이벤트: {version.meta.eventCodes.length > 0 ? version.meta.eventCodes.join(', ') : '-'}</div>
+            <div>픽/드랍: {version.meta.pickupDropNote ?? '-'}</div>
+            <div>실투어 외 픽드랍: {version.meta.externalPickupDropNote ?? '-'}</div>
+            <div className="md:col-span-2 whitespace-pre-wrap">기본 대여물품: {version.meta.rentalItemsText}</div>
+            <div className="md:col-span-2 whitespace-pre-wrap">비고: {version.meta.remark ?? '-'}</div>
+          </div>
+        </Card>
+      ) : null}
+
       <VersionSnapshotView version={version} />
 
       {confirming ? (
