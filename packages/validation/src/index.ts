@@ -7,3 +7,4 @@ export * from './plan.schema';
 export * from './region.schema';
 export * from './segment.schema';
 export * from './time-block.schema';
+export * from './user.schema';

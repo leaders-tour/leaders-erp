@@ -10,6 +10,20 @@ mutation UpdatePlan($id: ID!, $input: PlanUpdateInput!) {
   }
 }
 
+mutation CreatePlanVersion($input: PlanVersionCreateInput!) {
+  createPlanVersion(input: $input) {
+    id
+    versionNumber
+  }
+}
+
+mutation SetCurrentPlanVersion($planId: ID!, $versionId: ID!) {
+  setCurrentPlanVersion(planId: $planId, versionId: $versionId) {
+    id
+    currentVersionId
+  }
+}
+
 mutation DeletePlan($id: ID!) {
   deletePlan(id: $id)
 }

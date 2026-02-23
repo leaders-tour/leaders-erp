@@ -1,7 +1,7 @@
 query Overrides {
   overrides {
     id
-    planId
+    planVersionId
     targetType
     targetId
     fieldName

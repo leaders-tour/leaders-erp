@@ -2,7 +2,7 @@ import { OverrideTargetType } from '@tour/domain';
 import { z } from 'zod';
 
 export const overrideCreateSchema = z.object({
-  planId: z.string().min(1),
+  planVersionId: z.string().min(1),
   targetType: z.nativeEnum(OverrideTargetType),
   targetId: z.string().min(1),
   fieldName: z.string().min(1).max(100),

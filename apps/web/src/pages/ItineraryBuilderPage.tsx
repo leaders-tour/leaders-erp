@@ -9,6 +9,11 @@ interface RegionRow {
   name: string;
 }
 
+interface UserRow {
+  id: string;
+  name: string;
+}
+
 interface LocationRow {
   id: string;
   regionId: string;
@@ -60,6 +65,15 @@ interface PlanRow {
 const REGIONS_QUERY = gql`
   query ItineraryRegions {
     regions {
+      id
+      name
+    }
+  }
+`;
+
+const USERS_QUERY = gql`
+  query ItineraryUsers {
+    users {
       id
       name
     }
@@ -197,19 +211,23 @@ function autoResizeTextarea(element: HTMLTextAreaElement): void {
 }
 
 export function ItineraryBuilderPage(): JSX.Element {
+  const [userId, setUserId] = useState<string>('');
   const [variantType, setVariantType] = useState<VariantType>(VariantType.Basic);
   const [totalDays, setTotalDays] = useState<number>(6);
   const [regionId, setRegionId] = useState<string>('');
+  const [planTitle, setPlanTitle] = useState<string>('신규 여행 일정');
   const [startLocationId, setStartLocationId] = useState<string>('');
   const [selectedRoute, setSelectedRoute] = useState<string[]>([]);
   const [planRows, setPlanRows] = useState<PlanRow[]>([]);
   const [createdPlanId, setCreatedPlanId] = useState<string>('');
 
+  const { data: userData } = useQuery<{ users: UserRow[] }>(USERS_QUERY);
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
   const { data: segmentData } = useQuery<{ segments: SegmentRow[] }>(SEGMENTS_QUERY);
   const [createPlan, { loading: creating }] = useMutation<{ createPlan: { id: string } }>(CREATE_PLAN_MUTATION);
 
+  const users = userData?.users ?? [];
   const regions = regionData?.regions ?? [];
   const locations = locationData?.locations ?? [];
   const segments = segmentData?.segments ?? [];
@@ -294,7 +312,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   };
 
   const canCreate = Boolean(
-    regionId && startLocationId && selectedRoute.length === totalDays - 1 && planRows.length === totalDays,
+    userId && regionId && planTitle.trim() && startLocationId && selectedRoute.length === totalDays - 1 && planRows.length === totalDays,
   );
 
   return (
@@ -322,10 +340,14 @@ export function ItineraryBuilderPage(): JSX.Element {
                 const result = await createPlan({
                   variables: {
                     input: {
+                      userId,
                       regionId,
-                      variantType,
-                      totalDays,
-                      planStops: planRows,
+                      title: planTitle,
+                      initialVersion: {
+                        variantType,
+                        totalDays,
+                        planStops: planRows,
+                      },
                     },
                   },
                 });
@@ -348,6 +370,36 @@ export function ItineraryBuilderPage(): JSX.Element {
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
             <h2 className="font-medium">설정</h2>
             <div className="mt-3 grid gap-3">
+              <div className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">고객(유저)</span>
+                <div className="flex flex-wrap gap-2">
+                  {users.map((user) => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => setUserId(user.id)}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        userId === user.id
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {user.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">일정명</span>
+                <input
+                  value={planTitle}
+                  onChange={(event) => setPlanTitle(event.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  placeholder="일정명을 입력하세요"
+                />
+              </div>
+
               <div className="grid gap-1 text-sm">
                 <span className="text-xs text-slate-600">지역</span>
                 <div className="flex flex-wrap gap-2">
@@ -632,11 +684,17 @@ export function ItineraryBuilderPage(): JSX.Element {
             <pre className="mt-3 max-h-[280px] overflow-auto rounded-2xl bg-slate-900 p-3 text-xs leading-5 text-slate-100">
 {JSON.stringify(
   {
+    userId,
     regionId,
+    title: planTitle,
     variantType,
     totalDays,
     selectedRoute,
-    planStops: planRows,
+    initialVersion: {
+      variantType,
+      totalDays,
+      planStops: planRows,
+    },
   },
   null,
   2,

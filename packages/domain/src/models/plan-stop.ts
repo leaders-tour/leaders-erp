@@ -1,6 +1,6 @@
 export interface PlanStop {
   id: string;
-  planId: string;
+  planVersionId: string;
   dateCellText: string;
   destinationCellText: string;
   timeCellText: string;

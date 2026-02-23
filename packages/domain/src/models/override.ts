@@ -2,7 +2,7 @@ import type { OverrideTargetType } from '../enums/override-target-type';
 
 export interface Override {
   id: string;
-  planId: string;
+  planVersionId: string;
   targetType: OverrideTargetType;
   targetId: string;
   fieldName: string;

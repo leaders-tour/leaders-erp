@@ -12,8 +12,12 @@ type Query {
   mealSet(id: ID!): MealSet
   segments: [Segment!]!
   segment(id: ID!): Segment
-  plans: [Plan!]!
+  plans(userId: ID!): [Plan!]!
   plan(id: ID!): Plan
+  planVersions(planId: ID!): [PlanVersion!]!
+  planVersion(id: ID!): PlanVersion
+  users: [User!]!
+  user(id: ID!): User
   timeBlocks: [TimeBlock!]!
   timeBlock(id: ID!): TimeBlock
   activities: [Activity!]!
@@ -45,8 +49,14 @@ type Mutation {
   updateSegment(id: ID!, input: SegmentUpdateInput!): Segment!
   deleteSegment(id: ID!): Boolean!
 
+  createUser(input: UserCreateInput!): User!
+  updateUser(id: ID!, input: UserUpdateInput!): User!
+  deleteUser(id: ID!): Boolean!
+
   createPlan(input: PlanCreateInput!): Plan!
   updatePlan(id: ID!, input: PlanUpdateInput!): Plan!
+  createPlanVersion(input: PlanVersionCreateInput!): PlanVersion!
+  setCurrentPlanVersion(planId: ID!, versionId: ID!): Plan!
   deletePlan(id: ID!): Boolean!
 
   createTimeBlock(input: TimeBlockCreateInput!): TimeBlock!

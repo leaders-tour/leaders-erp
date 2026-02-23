@@ -35,6 +35,17 @@ enum FacilityAvailability {
   NO
 }
 
+model User {
+  id    String  @id @default(uuid(7))
+  name  String
+  email String? @unique
+
+  plans Plan[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Region {
   id          String     @id @default(uuid(7))
   name        String
@@ -92,24 +103,52 @@ model Segment {
 }
 
 model Plan {
-  id          String      @id @default(uuid(7))
-  regionId    String
-  variantType VariantType
-  totalDays   Int
+  id               String  @id @default(uuid(7))
+  userId           String
+  regionId         String
+  title            String
+  currentVersionId String?
 
-  region    Region     @relation(fields: [regionId], references: [id])
-  planStops PlanStop[]
-  overrides Override[]
+  user           User          @relation(fields: [userId], references: [id])
+  region         Region        @relation(fields: [regionId], references: [id])
+  versions       PlanVersion[] @relation("PlanVersions")
+  currentVersion PlanVersion?  @relation("CurrentPlanVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([userId])
   @@index([regionId])
+  @@index([currentVersionId])
+}
+
+model PlanVersion {
+  id              String  @id @default(uuid(7))
+  planId          String
+  parentVersionId String?
+  versionNumber   Int
+  variantType     VariantType
+  totalDays       Int
+  changeNote      String?
+
+  plan          Plan          @relation("PlanVersions", fields: [planId], references: [id], onDelete: Cascade)
+  parentVersion PlanVersion?  @relation("PlanVersionParentChild", fields: [parentVersionId], references: [id], onDelete: SetNull)
+  childVersions PlanVersion[] @relation("PlanVersionParentChild")
+  planAsCurrent Plan[]        @relation("CurrentPlanVersion")
+  planStops     PlanStop[]
+  overrides     Override[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([planId, versionNumber])
+  @@index([planId])
+  @@index([parentVersionId])
 }
 
 model PlanStop {
   id                  String @id @default(uuid(7))
-  planId              String
+  planVersionId       String
   dateCellText        String @db.Text
   destinationCellText String @db.Text
   timeCellText        String @db.Text
@@ -117,12 +156,12 @@ model PlanStop {
   lodgingCellText     String @db.Text
   mealCellText        String @db.Text
 
-  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  planVersion PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([planId])
+  @@index([planVersionId])
 }
 
 model Lodging {
@@ -198,16 +237,16 @@ model Activity {
 
 model Override {
   id         String             @id @default(uuid(7))
-  planId     String
+  planVersionId String
   targetType OverrideTargetType
   targetId   String
   fieldName  String
   value      String
 
-  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  planVersion PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([planId])
+  @@index([planVersionId])
 }

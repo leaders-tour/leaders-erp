@@ -1,12 +1,11 @@
 import { gql } from '@apollo/client';
-import type { Override } from '../../generated/graphql';
 import { useCrudResource } from '../../lib/crud';
 
 const LIST = gql`
   query Overrides {
     overrides {
       id
-      planId
+      planVersionId
       targetType
       targetId
       fieldName
@@ -38,7 +37,16 @@ const REMOVE = gql`
 `;
 
 export interface OverrideFormInput {
-  planId: string;
+  planVersionId: string;
+  targetType: string;
+  targetId: string;
+  fieldName: string;
+  value: string;
+}
+
+export interface OverrideRow {
+  id: string;
+  planVersionId: string;
   targetType: string;
   targetId: string;
   fieldName: string;
@@ -46,7 +54,7 @@ export interface OverrideFormInput {
 }
 
 export function useOverrideCrud() {
-  return useCrudResource<Override, OverrideFormInput, OverrideFormInput>({
+  return useCrudResource<OverrideRow, OverrideFormInput, OverrideFormInput>({
     docs: { list: LIST, create: CREATE, update: UPDATE, remove: REMOVE },
     keys: { listKey: 'overrides', createKey: 'createOverride', updateKey: 'updateOverride', removeKey: 'deleteOverride' },
     toCreateVariables: (input) => ({ input }),

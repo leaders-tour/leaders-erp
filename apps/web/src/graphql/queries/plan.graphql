@@ -1,7 +1,19 @@
-query Plans {
-  plans {
+query Plans($userId: ID!) {
+  plans(userId: $userId) {
     id
+    userId
     regionId
+    title
+    currentVersionId
+  }
+}
+
+query PlanVersions($planId: ID!) {
+  planVersions(planId: $planId) {
+    id
+    planId
+    parentVersionId
+    versionNumber
     variantType
     totalDays
   }

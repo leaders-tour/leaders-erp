@@ -1,31 +1,74 @@
-type Plan {
+type User {
   id: ID!
-  regionId: String!
-  variantType: VariantType!
-  totalDays: Int!
+  name: String!
+  email: String
   createdAt: DateTime!
   updatedAt: DateTime!
+  plans: [Plan!]!
+}
+
+type Plan {
+  id: ID!
+  userId: String!
+  regionId: String!
+  title: String!
+  currentVersionId: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  user: User!
   region: Region!
+  currentVersion: PlanVersion
+  versions: [PlanVersion!]!
+}
+
+type PlanVersion {
+  id: ID!
+  planId: String!
+  parentVersionId: String
+  versionNumber: Int!
+  variantType: VariantType!
+  totalDays: Int!
+  changeNote: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  plan: Plan!
+  parentVersion: PlanVersion
+  childVersions: [PlanVersion!]!
   planStops: [PlanStop!]!
   overrides: [Override!]!
 }
 
 input PlanCreateInput {
+  userId: String!
   regionId: String!
+  title: String!
+  initialVersion: PlanVersionSeedInput!
+}
+
+input PlanVersionSeedInput {
   variantType: VariantType!
   totalDays: Int!
   planStops: [PlanStopNestedInput!]!
+  changeNote: String
 }
 
 input PlanUpdateInput {
-  variantType: VariantType
-  totalDays: Int
-  planStops: [PlanStopNestedInput!]
+  title: String
+  currentVersionId: String
+}
+
+input PlanVersionCreateInput {
+  planId: String!
+  parentVersionId: String
+  variantType: VariantType!
+  totalDays: Int!
+  planStops: [PlanStopNestedInput!]!
+  changeNote: String
 }
 
 type PlanStop {
   id: ID!
-  planId: String!
+  planVersionId: String!
   dateCellText: String!
   destinationCellText: String!
   timeCellText: String!
@@ -43,4 +86,14 @@ input PlanStopNestedInput {
   scheduleCellText: String!
   lodgingCellText: String!
   mealCellText: String!
+}
+
+input UserCreateInput {
+  name: String!
+  email: String
+}
+
+input UserUpdateInput {
+  name: String
+  email: String
 }

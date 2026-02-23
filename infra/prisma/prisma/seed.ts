@@ -216,26 +216,63 @@ async function main(): Promise<void> {
     },
   });
 
-  const plan = await prisma.plan.upsert({
-    where: { id: 'seed_plan_gobi_basic' },
-    update: {
-      regionId: gobi.id,
-      variantType: VariantType.basic,
-      totalDays: 2,
-    },
+  const defaultUser = await prisma.user.upsert({
+    where: { email: 'default-user@leaders.local' },
+    update: { name: 'Default User' },
     create: {
-      id: 'seed_plan_gobi_basic',
-      regionId: gobi.id,
-      variantType: VariantType.basic,
-      totalDays: 2,
+      name: 'Default User',
+      email: 'default-user@leaders.local',
     },
   });
 
-  await prisma.planStop.deleteMany({ where: { planId: plan.id } });
+  const plan = await prisma.plan.upsert({
+    where: { id: 'seed_plan_gobi_basic' },
+    update: {
+      userId: defaultUser.id,
+      regionId: gobi.id,
+      title: '고비 기본 일정',
+    },
+    create: {
+      id: 'seed_plan_gobi_basic',
+      userId: defaultUser.id,
+      regionId: gobi.id,
+      title: '고비 기본 일정',
+    },
+  });
+
+  const initialVersion = await prisma.planVersion.upsert({
+    where: {
+      planId_versionNumber: {
+        planId: plan.id,
+        versionNumber: 1,
+      },
+    },
+    update: {
+      variantType: VariantType.basic,
+      totalDays: 2,
+      parentVersionId: null,
+      changeNote: null,
+    },
+    create: {
+      planId: plan.id,
+      versionNumber: 1,
+      variantType: VariantType.basic,
+      totalDays: 2,
+      parentVersionId: null,
+      changeNote: null,
+    },
+  });
+
+  await prisma.plan.update({
+    where: { id: plan.id },
+    data: { currentVersionId: initialVersion.id },
+  });
+
+  await prisma.planStop.deleteMany({ where: { planVersionId: initialVersion.id } });
   await prisma.planStop.createMany({
     data: [
       {
-        planId: plan.id,
+        planVersionId: initialVersion.id,
         dateCellText: '1일차',
         destinationCellText: `${dalanzadgad.name}\n(이동시간: 8.5시간)`,
         timeCellText: '08:00\n12:00\n18:00',
@@ -244,7 +281,7 @@ async function main(): Promise<void> {
         mealCellText: `아침 ${dalanMeals.breakfast === MealOption.CAMP_MEAL ? '캠프식' : 'X'}\n점심 ${dalanMeals.lunch === MealOption.LOCAL_RESTAURANT ? '현지식당' : 'X'}\n저녁 ${dalanMeals.dinner === MealOption.CAMP_MEAL ? '캠프식' : 'X'}`,
       },
       {
-        planId: plan.id,
+        planVersionId: initialVersion.id,
         dateCellText: '2일차',
         destinationCellText: `${dalanzadgad.name}\n(이동시간: 0시간)`,
         timeCellText: '08:00\n12:00\n18:00',

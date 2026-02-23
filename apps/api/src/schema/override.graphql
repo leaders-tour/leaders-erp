@@ -1,17 +1,17 @@
 type Override {
   id: ID!
-  planId: String!
+  planVersionId: String!
   targetType: OverrideTargetType!
   targetId: String!
   fieldName: String!
   value: String!
   createdAt: DateTime!
   updatedAt: DateTime!
-  plan: Plan!
+  planVersion: PlanVersion!
 }
 
 input OverrideCreateInput {
-  planId: String!
+  planVersionId: String!
   targetType: OverrideTargetType!
   targetId: String!
   fieldName: String!
@@ -19,7 +19,7 @@ input OverrideCreateInput {
 }
 
 input OverrideUpdateInput {
-  planId: String
+  planVersionId: String
   targetType: OverrideTargetType
   targetId: String
   fieldName: String

@@ -1,14 +1,13 @@
-import type { VariantType } from '../enums/variant-type';
-import type { Override } from './override';
-import type { PlanStop } from './plan-stop';
+import type { PlanVersion } from './plan-version';
 
 export interface Plan {
   id: string;
+  userId: string;
   regionId: string;
-  variantType: VariantType;
-  totalDays: number;
-  planStops: PlanStop[];
-  overrides: Override[];
+  title: string;
+  currentVersionId: string | null;
+  versions: PlanVersion[];
+  currentVersion: PlanVersion | null;
   createdAt: Date;
   updatedAt: Date;
 }
