@@ -4,6 +4,7 @@ import type { PlanVersionRow } from '../hooks';
 interface VersionListPanelProps {
   versions: PlanVersionRow[];
   currentVersionId: string | null;
+  customerName: string;
   onOpenVersion: (versionId: string) => void;
   onCreateVersion: (versionId: string) => void;
 }
@@ -11,9 +12,12 @@ interface VersionListPanelProps {
 export function VersionListPanel({
   versions,
   currentVersionId,
+  customerName,
   onOpenVersion,
   onCreateVersion,
 }: VersionListPanelProps): JSX.Element {
+  const versionNumberById = new Map(versions.map((version) => [version.id, version.versionNumber]));
+
   return (
     <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 p-4">
@@ -23,17 +27,19 @@ export function VersionListPanel({
         <Table>
           <thead>
             <tr>
+              <Th>고객명</Th>
               <Th>버전</Th>
               <Th>부모</Th>
               <Th>타입</Th>
               <Th>일수</Th>
-              <Th>비고</Th>
+              <Th>변경 메모</Th>
               <Th>관리</Th>
             </tr>
           </thead>
           <tbody>
             {versions.map((version) => (
               <tr key={version.id}>
+                <Td>{customerName}</Td>
                 <Td>
                   <span className="font-medium">v{version.versionNumber}</span>
                   {currentVersionId === version.id ? (
@@ -42,7 +48,11 @@ export function VersionListPanel({
                     </span>
                   ) : null}
                 </Td>
-                <Td>{version.parentVersionId ? version.parentVersionId.slice(0, 8) : '-'}</Td>
+                <Td>
+                  {version.parentVersionId
+                    ? `v${versionNumberById.get(version.parentVersionId) ?? '?'}`
+                    : '-'}
+                </Td>
                 <Td>{version.variantType}</Td>
                 <Td>{version.totalDays}</Td>
                 <Td>{version.changeNote ?? '-'}</Td>

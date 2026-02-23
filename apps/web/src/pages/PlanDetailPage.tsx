@@ -111,6 +111,7 @@ export function PlanDetailPage(): JSX.Element {
           <VersionListPanel
             versions={sortedVersions}
             currentVersionId={plan.currentVersionId}
+            customerName={plan.user.name}
             onOpenVersion={(versionId) => navigate(`/plans/${plan.id}/versions/${versionId}`)}
             onCreateVersion={openCreateVersion}
           />

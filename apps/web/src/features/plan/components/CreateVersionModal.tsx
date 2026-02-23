@@ -1,5 +1,5 @@
 import { Button, Card, Input } from '@tour/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { PlanVersionRow } from '../hooks';
 
 interface CreateVersionModalProps {
@@ -19,6 +19,13 @@ export function CreateVersionModal({
 }: CreateVersionModalProps): JSX.Element | null {
   const [parentVersionId, setParentVersionId] = useState(defaultParentVersionId);
   const [changeNote, setChangeNote] = useState('');
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    setParentVersionId(defaultParentVersionId);
+  }, [defaultParentVersionId, open]);
 
   if (!open) {
     return null;
