@@ -5,6 +5,11 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 const navItems = [
   { path: '/itinerary-builder', label: '일정 빌더' },
   {
+    path: '/customers',
+    label: '고객',
+    children: [{ path: '/customers', label: '고객 목록' }],
+  },
+  {
     path: '/locations',
     label: '목적지',
     children: [

@@ -1,15 +1,11 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toFacilityLabel, toMealLabel } from '../features/location/display';
 import { MealOption, VariantType } from '../generated/graphql';
 
 interface RegionRow {
-  id: string;
-  name: string;
-}
-
-interface UserRow {
   id: string;
   name: string;
 }
@@ -53,6 +49,14 @@ interface SegmentRow {
   averageTravelHours: number;
 }
 
+interface PlanContextRow {
+  id: string;
+  userId: string;
+  regionId: string;
+  title: string;
+  currentVersionId: string | null;
+}
+
 interface PlanRow {
   dateCellText: string;
   destinationCellText: string;
@@ -71,11 +75,14 @@ const REGIONS_QUERY = gql`
   }
 `;
 
-const USERS_QUERY = gql`
-  query ItineraryUsers {
-    users {
+const PLAN_CONTEXT_QUERY = gql`
+  query BuilderPlanContext($id: ID!) {
+    plan(id: $id) {
       id
-      name
+      userId
+      regionId
+      title
+      currentVersionId
     }
   }
 `;
@@ -131,6 +138,15 @@ const CREATE_PLAN_MUTATION = gql`
   mutation CreatePlanFromBuilder($input: PlanCreateInput!) {
     createPlan(input: $input) {
       id
+    }
+  }
+`;
+
+const CREATE_PLAN_VERSION_MUTATION = gql`
+  mutation CreatePlanVersionFromBuilder($input: PlanVersionCreateInput!) {
+    createPlanVersion(input: $input) {
+      id
+      versionNumber
     }
   }
 `;
@@ -211,26 +227,54 @@ function autoResizeTextarea(element: HTMLTextAreaElement): void {
 }
 
 export function ItineraryBuilderPage(): JSX.Element {
-  const [userId, setUserId] = useState<string>('');
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const userId = searchParams.get('userId') ?? '';
+  const planId = searchParams.get('planId') ?? '';
+  const parentVersionId = searchParams.get('parentVersionId') ?? '';
+  const initialChangeNote = searchParams.get('changeNote') ?? '';
+
+  const isVersionMode = Boolean(planId);
+  const hasValidContext = Boolean(userId) && (!isVersionMode || Boolean(parentVersionId));
+
   const [variantType, setVariantType] = useState<VariantType>(VariantType.Basic);
   const [totalDays, setTotalDays] = useState<number>(6);
   const [regionId, setRegionId] = useState<string>('');
   const [planTitle, setPlanTitle] = useState<string>('신규 여행 일정');
+  const [changeNote, setChangeNote] = useState<string>(initialChangeNote);
   const [startLocationId, setStartLocationId] = useState<string>('');
   const [selectedRoute, setSelectedRoute] = useState<string[]>([]);
   const [planRows, setPlanRows] = useState<PlanRow[]>([]);
-  const [createdPlanId, setCreatedPlanId] = useState<string>('');
+  const [createdId, setCreatedId] = useState<string>('');
 
-  const { data: userData } = useQuery<{ users: UserRow[] }>(USERS_QUERY);
+  const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
+    variables: { id: planId },
+    skip: !isVersionMode,
+  });
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
   const { data: segmentData } = useQuery<{ segments: SegmentRow[] }>(SEGMENTS_QUERY);
-  const [createPlan, { loading: creating }] = useMutation<{ createPlan: { id: string } }>(CREATE_PLAN_MUTATION);
 
-  const users = userData?.users ?? [];
+  const [createPlan, { loading: creatingPlan }] = useMutation<{ createPlan: { id: string } }>(CREATE_PLAN_MUTATION);
+  const [createPlanVersion, { loading: creatingVersion }] = useMutation<{
+    createPlanVersion: { id: string; versionNumber: number };
+  }>(CREATE_PLAN_VERSION_MUTATION);
+
+  const creating = creatingPlan || creatingVersion;
+
   const regions = regionData?.regions ?? [];
   const locations = locationData?.locations ?? [];
   const segments = segmentData?.segments ?? [];
+  const planContext = planContextData?.plan ?? null;
+
+  useEffect(() => {
+    if (!isVersionMode || !planContext) {
+      return;
+    }
+
+    setRegionId(planContext.regionId);
+  }, [isVersionMode, planContext]);
 
   const filteredLocations = useMemo(
     () => locations.filter((location) => location.regionId === regionId),
@@ -275,9 +319,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       const totalTravelHours = segment ? segmentHours + internalHours : 0;
       const destinationCellText = [
         toLocation?.name ?? toId,
-        segment
-          ? `(이동시간: ${formatHours(totalTravelHours)}시간)`
-          : '(이동시간: 미정)',
+        segment ? `(이동시간: ${formatHours(totalTravelHours)}시간)` : '(이동시간: 미정)',
       ].join('\n');
 
       return {
@@ -312,16 +354,53 @@ export function ItineraryBuilderPage(): JSX.Element {
   };
 
   const canCreate = Boolean(
-    userId && regionId && planTitle.trim() && startLocationId && selectedRoute.length === totalDays - 1 && planRows.length === totalDays,
+    hasValidContext &&
+      regionId &&
+      startLocationId &&
+      selectedRoute.length === totalDays - 1 &&
+      planRows.length === totalDays &&
+      (!isVersionMode ? planTitle.trim() : true),
   );
+
+  if (!hasValidContext) {
+    return (
+      <section className="grid gap-4 py-8">
+        <Card className="rounded-3xl border border-amber-200 bg-amber-50 p-6">
+          <h1 className="text-xl font-semibold text-amber-900">컨텍스트가 없습니다</h1>
+          <p className="mt-2 text-sm text-amber-800">
+            일정 빌더는 고객/Plan/버전 컨텍스트에서만 접근할 수 있습니다. 고객 또는 Plan 화면에서 다시 진입해주세요.
+          </p>
+          <div className="mt-4">
+            <Button onClick={() => navigate('/customers')}>고객 목록으로 이동</Button>
+          </div>
+        </Card>
+      </section>
+    );
+  }
+
+  if (isVersionMode && planContext && planContext.userId !== userId) {
+    return (
+      <section className="grid gap-4 py-8">
+        <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-6">
+          <h1 className="text-xl font-semibold text-rose-900">유효하지 않은 요청입니다</h1>
+          <p className="mt-2 text-sm text-rose-800">선택한 Plan과 userId가 일치하지 않습니다.</p>
+          <div className="mt-4">
+            <Button onClick={() => navigate('/customers')}>고객 목록으로 이동</Button>
+          </div>
+        </Card>
+      </section>
+    );
+  }
 
   return (
     <div className="min-h-screen text-slate-900">
       <div className="mx-auto max-w-7xl space-y-6 px-2 py-4">
         <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">여행 일정 생성기</h1>
-            <p className="mt-1 text-sm text-slate-600">목적지 순차 선택 → 자동 채움 → 자유 편집 → 저장/PDF</p>
+            <h1 className="text-2xl font-semibold tracking-tight">여행 일정 빌더</h1>
+            <p className="mt-1 text-sm text-slate-600">
+              {isVersionMode ? '기존 버전 기반 새 버전 생성' : '신규 Plan + 초기 버전 생성'}
+            </p>
           </div>
           <div className="flex gap-2 no-print">
             <Button variant="outline" onClick={() => window.print()}>
@@ -337,6 +416,28 @@ export function ItineraryBuilderPage(): JSX.Element {
                   return;
                 }
 
+                if (isVersionMode) {
+                  const result = await createPlanVersion({
+                    variables: {
+                      input: {
+                        planId,
+                        parentVersionId,
+                        variantType,
+                        totalDays,
+                        changeNote: changeNote.trim() || undefined,
+                        planStops: planRows,
+                      },
+                    },
+                  });
+
+                  const createdVersionId = result.data?.createPlanVersion.id ?? '';
+                  setCreatedId(createdVersionId);
+                  if (createdVersionId) {
+                    navigate(`/plans/${planId}/versions/${createdVersionId}`);
+                  }
+                  return;
+                }
+
                 const result = await createPlan({
                   variables: {
                     input: {
@@ -346,82 +447,93 @@ export function ItineraryBuilderPage(): JSX.Element {
                       initialVersion: {
                         variantType,
                         totalDays,
+                        changeNote: changeNote.trim() || undefined,
                         planStops: planRows,
                       },
                     },
                   },
                 });
 
-                setCreatedPlanId(result.data?.createPlan.id ?? '');
+                const createdPlanId = result.data?.createPlan.id ?? '';
+                setCreatedId(createdPlanId);
+                if (createdPlanId) {
+                  navigate(`/plans/${createdPlanId}`);
+                }
               }}
             >
-              {creating ? '생성 중...' : '일정 생성'}
+              {creating ? '저장 중...' : isVersionMode ? '새 버전 생성' : 'Plan 생성'}
             </Button>
           </div>
         </header>
 
-        {createdPlanId ? (
+        {createdId ? (
           <Card>
-            <p className="text-sm text-emerald-700">Plan 생성 완료: {createdPlanId}</p>
+            <p className="text-sm text-emerald-700">생성 완료: {createdId}</p>
           </Card>
         ) : null}
+
+        <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
+            <div>userId: {userId}</div>
+            <div>mode: {isVersionMode ? 'createPlanVersion' : 'createPlan'}</div>
+            <div>planId: {planId || '-'}</div>
+            <div>parentVersionId: {parentVersionId || '-'}</div>
+            {planContext ? <div className="md:col-span-2">기준 Plan: {planContext.title}</div> : null}
+          </div>
+        </Card>
 
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
             <h2 className="font-medium">설정</h2>
             <div className="mt-3 grid gap-3">
-              <div className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">고객(유저)</span>
-                <div className="flex flex-wrap gap-2">
-                  {users.map((user) => (
-                    <button
-                      key={user.id}
-                      type="button"
-                      onClick={() => setUserId(user.id)}
-                      className={`rounded-xl border px-3 py-1.5 text-sm ${
-                        userId === user.id
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {user.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {!isVersionMode ? (
+                <label className="grid gap-1 text-sm">
+                  <span className="text-xs text-slate-600">Plan 제목</span>
+                  <input
+                    value={planTitle}
+                    onChange={(event) => setPlanTitle(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    placeholder="신규 Plan 제목"
+                  />
+                </label>
+              ) : null}
 
-              <div className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">일정명</span>
+              <label className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">변경 메모</span>
                 <input
-                  value={planTitle}
-                  onChange={(event) => setPlanTitle(event.target.value)}
+                  value={changeNote}
+                  onChange={(event) => setChangeNote(event.target.value)}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  placeholder="일정명을 입력하세요"
+                  placeholder="예: 숙소 동선 개선"
                 />
-              </div>
+              </label>
 
               <div className="grid gap-1 text-sm">
                 <span className="text-xs text-slate-600">지역</span>
                 <div className="flex flex-wrap gap-2">
-                  {regions.map((region) => (
-                    <button
-                      key={region.id}
-                      type="button"
-                      onClick={() => {
-                        setRegionId(region.id);
-                        setStartLocationId('');
-                        setSelectedRoute([]);
-                        setPlanRows([]);
-                      }}
-                      className={`rounded-xl border px-3 py-1.5 text-sm ${
-                        regionId === region.id
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {region.name}
-                    </button>
-                  ))}
+                  {regions.map((region) => {
+                    const disabled = isVersionMode && planContext?.regionId !== region.id;
+                    return (
+                      <button
+                        key={region.id}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => {
+                          setRegionId(region.id);
+                          setStartLocationId('');
+                          setSelectedRoute([]);
+                          setPlanRows([]);
+                        }}
+                        className={`rounded-xl border px-3 py-1.5 text-sm ${
+                          regionId === region.id
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+                      >
+                        {region.name}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -680,22 +792,33 @@ export function ItineraryBuilderPage(): JSX.Element {
 
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
             <h2 className="font-medium">저장 데이터 미리보기</h2>
-            <p className="mt-1 text-xs text-slate-600">Plan 생성 시 서버로 전달되는 요약입니다.</p>
+            <p className="mt-1 text-xs text-slate-600">저장 시 서버로 전달되는 요약입니다.</p>
             <pre className="mt-3 max-h-[280px] overflow-auto rounded-2xl bg-slate-900 p-3 text-xs leading-5 text-slate-100">
 {JSON.stringify(
-  {
-    userId,
-    regionId,
-    title: planTitle,
-    variantType,
-    totalDays,
-    selectedRoute,
-    initialVersion: {
-      variantType,
-      totalDays,
-      planStops: planRows,
-    },
-  },
+  isVersionMode
+    ? {
+        userId,
+        planId,
+        parentVersionId,
+        regionId,
+        variantType,
+        totalDays,
+        changeNote,
+        selectedRoute,
+        planStops: planRows,
+      }
+    : {
+        userId,
+        regionId,
+        title: planTitle,
+        variantType,
+        totalDays,
+        changeNote,
+        selectedRoute,
+        initialVersion: {
+          planStops: planRows,
+        },
+      },
   null,
   2,
 )}
