@@ -8,3 +8,4 @@ coverage
 .DS_Store
 apps/web/src/generated/graphql.ts
 infra/prisma/prisma/migrations
+infra/prisma/prisma/migrations_legacy
