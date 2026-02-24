@@ -29,7 +29,7 @@ const LOCATIONS = gql`
   }
 `;
 
-const CREATE = gql`
+const CREATE_MUTATION = `
   mutation CreateLocationGuide($input: LocationGuideCreateInput!) {
     createLocationGuide(input: $input) {
       id
@@ -37,7 +37,7 @@ const CREATE = gql`
   }
 `;
 
-const UPDATE = gql`
+const UPDATE_MUTATION = `
   mutation UpdateLocationGuide($id: ID!, $input: LocationGuideUpdateInput!) {
     updateLocationGuide(id: $id, input: $input) {
       id
@@ -93,16 +93,58 @@ export interface GuideLocationOption {
 export interface LocationGuideFormInput {
   title: string;
   description: string;
-  imageUrls: string[];
+  images?: File[];
   locationId: string;
+}
+
+const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL ?? 'http://localhost:4000/graphql';
+
+async function runUploadMutation(
+  query: string,
+  variables: Record<string, unknown>,
+  files: File[],
+  mapPathFactory: (index: number) => string,
+) {
+  const operations = {
+    query,
+    variables,
+  };
+
+  const map: Record<string, string[]> = {};
+  const formData = new FormData();
+  formData.append('operations', JSON.stringify(operations));
+
+  files.forEach((file, index) => {
+    const key = String(index);
+    map[key] = [mapPathFactory(index)];
+    formData.append(key, file);
+  });
+
+  formData.append('map', JSON.stringify(map));
+
+  const response = await fetch(GRAPHQL_URL, {
+    method: 'POST',
+    body: formData,
+    headers: {
+      'apollo-require-preflight': 'true',
+    },
+  });
+  const json = (await response.json()) as {
+    errors?: Array<{ message?: string }>;
+  };
+
+  if (!response.ok) {
+    throw new Error(`Upload request failed: ${response.status}`);
+  }
+  if (json.errors && json.errors.length > 0) {
+    throw new Error(json.errors[0]?.message ?? 'GraphQL upload failed');
+  }
 }
 
 export function useLocationGuideCrud() {
   const { data, loading, refetch } = useQuery<{ locationGuides: LocationGuideRow[] }>(LIST);
   const { data: locationData } = useQuery<{ locations: GuideLocationOption[] }>(LOCATIONS);
 
-  const [createMutation] = useMutation(CREATE);
-  const [updateMutation] = useMutation(UPDATE);
   const [deleteMutation] = useMutation(REMOVE);
   const [connectMutation] = useMutation(CONNECT);
   const [disconnectMutation] = useMutation(DISCONNECT);
@@ -112,29 +154,39 @@ export function useLocationGuideCrud() {
     locations: locationData?.locations ?? [],
     loading,
     createRow: async (input: LocationGuideFormInput) => {
-      await createMutation({
-        variables: {
+      if (!input.images || input.images.length === 0) {
+        throw new Error('At least one image is required');
+      }
+      await runUploadMutation(
+        CREATE_MUTATION,
+        {
           input: {
             title: input.title.trim(),
             description: input.description.trim(),
-            imageUrls: input.imageUrls,
             locationId: input.locationId,
+            images: input.images.map(() => null),
           },
         },
-      });
+        input.images,
+        (index) => `variables.input.images.${index}`,
+      );
       await refetch();
     },
     updateRow: async (id: string, input: LocationGuideFormInput) => {
-      await updateMutation({
-        variables: {
-          id,
-          input: {
-            title: input.title.trim(),
-            description: input.description.trim(),
-            imageUrls: input.imageUrls,
-          },
-        },
-      });
+      const files = input.images ?? [];
+      const updateInput: {
+        title: string;
+        description: string;
+        images?: null[];
+      } = {
+        title: input.title.trim(),
+        description: input.description.trim(),
+      };
+      if (files.length > 0) {
+        updateInput.images = files.map(() => null);
+      }
+
+      await runUploadMutation(UPDATE_MUTATION, { id, input: updateInput }, files, (index) => `variables.input.images.${index}`);
       await refetch();
     },
     deleteRow: async (id: string) => {

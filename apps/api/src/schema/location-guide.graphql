@@ -12,13 +12,13 @@ type LocationGuide {
 input LocationGuideCreateInput {
   title: String!
   description: String!
-  imageUrls: [String!]!
+  images: [Upload!]!
   locationId: String!
 }
 
 input LocationGuideUpdateInput {
   title: String
   description: String
-  imageUrls: [String!]
+  images: [Upload!]
   locationId: String
 }

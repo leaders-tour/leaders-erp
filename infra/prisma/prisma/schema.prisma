@@ -133,6 +133,7 @@ model SafetyNotice {
   id        String @id @default(uuid(7))
   title     String
   contentMd String @db.Text
+  imageUrls Json?
 
   locationVersionLinks LocationVersionSafetyNotice[]
 

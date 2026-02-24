@@ -11,11 +11,11 @@ export class SafetyNoticeRepository {
     return this.prisma.safetyNotice.findUnique({ where: { id } });
   }
 
-  create(data: { title: string; contentMd: string }) {
+  create(data: { title: string; contentMd: string; imageUrls: string[] }) {
     return this.prisma.safetyNotice.create({ data });
   }
 
-  update(id: string, data: { title?: string; contentMd?: string }) {
+  update(id: string, data: { title?: string; contentMd?: string; imageUrls?: string[] }) {
     return this.prisma.safetyNotice.update({ where: { id }, data });
   }
 

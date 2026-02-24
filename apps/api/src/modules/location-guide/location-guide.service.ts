@@ -1,11 +1,17 @@
 import type { PrismaClient } from '@prisma/client';
 import { locationGuideCreateSchema, locationGuideUpdateSchema } from '@tour/validation';
+import { FileStorageClient, type UploadFile } from '../../lib/file-storage/client';
 import { DomainError } from '../../lib/errors';
 import { LocationGuideRepository } from './location-guide.repository';
-import type { LocationGuideCreateDto, LocationGuideUpdateDto } from './location-guide.types';
+import type { FileUploadLike, LocationGuideCreateDto, LocationGuideUpdateDto } from './location-guide.types';
+
+const MAX_IMAGE_COUNT = 20;
+const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 export class LocationGuideService {
   private readonly repository: LocationGuideRepository;
+  private fileStorageClient: FileStorageClient | null = null;
 
   constructor(private readonly prisma: PrismaClient) {
     this.repository = new LocationGuideRepository(prisma);
@@ -31,7 +37,7 @@ export class LocationGuideService {
     return this.repository.create({
       title: parsed.data.title.trim(),
       description: parsed.data.description.trim(),
-      imageUrls: parsed.data.imageUrls,
+      imageUrls: await this.uploadImages(parsed.data.images as FileUploadLike[]),
       locationId,
     });
   }
@@ -54,7 +60,7 @@ export class LocationGuideService {
     return this.repository.update(id, {
       title: parsed.data.title?.trim(),
       description: parsed.data.description?.trim(),
-      imageUrls: parsed.data.imageUrls,
+      imageUrls: parsed.data.images ? await this.uploadImages(parsed.data.images as FileUploadLike[]) : undefined,
     });
   }
 
@@ -110,5 +116,34 @@ export class LocationGuideService {
     if (location.guide) {
       throw new DomainError('VALIDATION_FAILED', 'Location already has a guide');
     }
+  }
+
+  private async uploadImages(inputs: FileUploadLike[]): Promise<string[]> {
+    if (inputs.length === 0) {
+      throw new DomainError('VALIDATION_FAILED', 'At least one image is required');
+    }
+    if (inputs.length > MAX_IMAGE_COUNT) {
+      throw new DomainError('VALIDATION_FAILED', `Image count exceeds limit (${MAX_IMAGE_COUNT})`);
+    }
+
+    const files = await Promise.all(inputs.map((input) => Promise.resolve(input)));
+    this.assertAllowedMimeTypes(files);
+    const client = this.getFileStorageClient();
+    return Promise.all(files.map((file) => client.uploadImage(file, MAX_FILE_SIZE_BYTES)));
+  }
+
+  private assertAllowedMimeTypes(files: UploadFile[]) {
+    for (const file of files) {
+      if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+        throw new DomainError('VALIDATION_FAILED', `Unsupported file type: ${file.mimetype}`);
+      }
+    }
+  }
+
+  private getFileStorageClient(): FileStorageClient {
+    if (!this.fileStorageClient) {
+      this.fileStorageClient = new FileStorageClient();
+    }
+    return this.fileStorageClient;
   }
 }

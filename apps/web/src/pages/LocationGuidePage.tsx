@@ -1,5 +1,5 @@
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
-import { useMemo, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { LocationSubNav } from '../features/location/sub-nav';
 import { useLocationGuideCrud } from '../features/location-guide/hooks';
@@ -7,23 +7,14 @@ import { useLocationGuideCrud } from '../features/location-guide/hooks';
 interface FormState {
   title: string;
   description: string;
-  imageUrlsText: string;
   locationId: string;
 }
 
 const EMPTY_FORM: FormState = {
   title: '',
   description: '',
-  imageUrlsText: '',
   locationId: '',
 };
-
-function toImageUrls(value: string): string[] {
-  return value
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-}
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -40,13 +31,18 @@ export function LocationGuidePage(): JSX.Element {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const editingRow = editingId ? crud.rows.find((row) => row.id === editingId) : undefined;
   const availableLocations = crud.locations.filter(
     (item) => !item.guide || (editingRow && editingRow.locationId === item.id),
   );
-  const imageUrls = useMemo(() => toImageUrls(form.imageUrlsText), [form.imageUrlsText]);
-  const canSubmit = form.title.trim().length > 0 && form.description.trim().length > 0 && form.locationId.length > 0;
+  const canSubmit =
+    form.title.trim().length > 0 &&
+    form.description.trim().length > 0 &&
+    form.locationId.length > 0 &&
+    (editingId ? true : selectedFiles.length > 0);
 
   return (
     <section className="grid gap-6">
@@ -71,8 +67,8 @@ export function LocationGuidePage(): JSX.Element {
               const payload = {
                 title: form.title,
                 description: form.description,
-                imageUrls,
                 locationId: form.locationId,
+                images: selectedFiles.length > 0 ? selectedFiles : undefined,
               };
 
               if (editingId) {
@@ -82,6 +78,10 @@ export function LocationGuidePage(): JSX.Element {
               }
               setForm(EMPTY_FORM);
               setEditingId('');
+              setSelectedFiles([]);
+              if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+              }
             } finally {
               setSubmitting(false);
             }
@@ -105,14 +105,25 @@ export function LocationGuidePage(): JSX.Element {
             />
           </label>
           <label className="grid gap-1 text-sm">
-            <span>이미지 URL 목록 (줄바꿈으로 구분)</span>
-            <textarea
-              value={form.imageUrlsText}
-              onChange={(event) => setForm((prev) => ({ ...prev, imageUrlsText: event.target.value }))}
-              rows={4}
-              placeholder="https://example.com/1.jpg&#10;https://example.com/2.jpg"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+            <span>{editingId ? '이미지 파일 (선택 시 전체 교체)' : '이미지 파일 (필수)'}</span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              onChange={(event) => {
+                const files = event.target.files ? Array.from(event.target.files) : [];
+                setSelectedFiles(files);
+              }}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
             />
+            <span className="text-xs text-slate-500">
+              허용 형식: jpg/png/webp, 파일당 최대 25MB, 최대 20장
+            </span>
+            {editingRow ? <span className="text-xs text-slate-500">현재 저장된 이미지: {editingRow.imageUrls.length}개</span> : null}
+            {selectedFiles.length > 0 ? (
+              <span className="text-xs text-slate-600">선택된 새 이미지: {selectedFiles.length}개</span>
+            ) : null}
           </label>
           <label className="grid gap-1 text-sm">
             <span>연결할 목적지 (필수)</span>
@@ -145,6 +156,10 @@ export function LocationGuidePage(): JSX.Element {
                 onClick={() => {
                   setEditingId('');
                   setForm(EMPTY_FORM);
+                  setSelectedFiles([]);
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                  }
                 }}
               >
                 취소
@@ -187,9 +202,12 @@ export function LocationGuidePage(): JSX.Element {
                         setForm({
                           title: row.title,
                           description: row.description,
-                          imageUrlsText: row.imageUrls.join('\n'),
                           locationId: row.locationId ?? '',
                         });
+                        setSelectedFiles([]);
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = '';
+                        }
                       }}
                     >
                       수정
@@ -204,6 +222,10 @@ export function LocationGuidePage(): JSX.Element {
                         if (editingId === row.id) {
                           setEditingId('');
                           setForm(EMPTY_FORM);
+                          setSelectedFiles([]);
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = '';
+                          }
                         }
                       }}
                     >

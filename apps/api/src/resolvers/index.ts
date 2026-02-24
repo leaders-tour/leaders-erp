@@ -34,8 +34,22 @@ const dateTimeScalar = new GraphQLScalarType({
   },
 });
 
+const uploadScalar = new GraphQLScalarType({
+  name: 'Upload',
+  parseValue(value: unknown) {
+    return value;
+  },
+  serialize() {
+    return null;
+  },
+  parseLiteral(_ast) {
+    return null;
+  },
+});
+
 export const resolvers = {
   DateTime: dateTimeScalar,
+  Upload: uploadScalar,
   Query: mergeSection(
     regionResolver.Query,
     locationResolver.Query,
@@ -65,6 +79,9 @@ export const resolvers = {
     activityResolver.Mutation,
     overrideResolver.Mutation,
   ),
+  SafetyNotice: {
+    imageUrls: (parent: { imageUrls?: string[] | null }) => parent.imageUrls ?? [],
+  },
   Location: locationResolver.Location,
   LocationVersion: locationResolver.LocationVersion,
 };

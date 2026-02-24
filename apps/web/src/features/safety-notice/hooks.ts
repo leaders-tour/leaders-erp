@@ -7,6 +7,7 @@ const LIST = gql`
       id
       title
       contentMd
+      imageUrls
       createdAt
       updatedAt
     }
@@ -39,6 +40,7 @@ export interface SafetyNoticeRow {
   id: string;
   title: string;
   contentMd: string;
+  imageUrls: string[];
   createdAt: string;
   updatedAt: string;
 }
