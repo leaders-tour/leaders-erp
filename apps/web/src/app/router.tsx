@@ -15,6 +15,7 @@ import { PlanDetailPage } from '../pages/PlanDetailPage';
 import { PlanVersionDetailPage } from '../pages/PlanVersionDetailPage';
 import { RegionCreatePage } from '../pages/RegionCreatePage';
 import { RegionListPage } from '../pages/RegionListPage';
+import { SafetyNoticePage } from '../pages/SafetyNoticePage';
 import { SegmentPage } from '../pages/SegmentPage';
 
 export const router = createBrowserRouter([
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
       { path: 'plans/:planId', element: <PlanDetailPage /> },
       { path: 'plans/:planId/versions/:versionId', element: <PlanVersionDetailPage /> },
       { path: 'activities', element: <ActivityPage /> },
+      { path: 'safety-notices', element: <SafetyNoticePage /> },
       { path: 'regions', element: <Navigate to="/regions/list" replace /> },
       { path: 'regions/list', element: <RegionListPage /> },
       { path: 'regions/create', element: <RegionCreatePage /> },

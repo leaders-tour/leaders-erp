@@ -11,7 +11,6 @@ const LIST = gql`
       orderIndex
       isOptional
       conditionNote
-      safetyGuidelinesMd
     }
   }
 `;
@@ -44,7 +43,6 @@ export interface ActivityFormInput {
   orderIndex: number;
   isOptional: string;
   conditionNote: string;
-  safetyGuidelinesMd: string;
 }
 
 export function useActivityCrud() {
@@ -56,7 +54,6 @@ export function useActivityCrud() {
         ...input,
         isOptional: input.isOptional === 'true',
         conditionNote: input.conditionNote || null,
-        safetyGuidelinesMd: input.safetyGuidelinesMd || null,
       },
     }),
     toUpdateVariables: (id, input) => ({
@@ -65,7 +62,6 @@ export function useActivityCrud() {
         ...input,
         isOptional: input.isOptional === 'true',
         conditionNote: input.conditionNote || null,
-        safetyGuidelinesMd: input.safetyGuidelinesMd || null,
       },
     }),
   });

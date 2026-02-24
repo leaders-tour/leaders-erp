@@ -10,6 +10,7 @@ export * from './models/plan';
 export * from './models/plan-version';
 export * from './models/plan-stop';
 export * from './models/region';
+export * from './models/safety-notice';
 export * from './models/segment';
 export * from './models/time-block';
 export * from './models/user';

@@ -14,6 +14,7 @@ export function LocationVersionEditPage(): JSX.Element {
   const crud = useLocationCrud();
 
   const [value, setValue] = useState(createDefaultLocationProfileFormValue());
+  const [versionLabel, setVersionLabel] = useState('');
   const [changeNote, setChangeNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -26,6 +27,7 @@ export function LocationVersionEditPage(): JSX.Element {
       regionId: version.location.regionId,
       name: version.locationNameSnapshot,
       internalMovementDistance: version.internalMovementDistance ?? null,
+      safetyNoticeIds: version.safetyNotices.map((notice) => notice.id),
       timeSlots:
         version.timeBlocks.length > 0
           ? version.timeBlocks.map((timeBlock) => ({
@@ -46,6 +48,9 @@ export function LocationVersionEditPage(): JSX.Element {
         dinner: version.mealSets[0]?.dinner ?? null,
       },
     });
+    if (isCreateMode) {
+      setVersionLabel(version.label);
+    }
   }, [isCreateMode, version]);
 
   if (loading) {
@@ -106,6 +111,14 @@ export function LocationVersionEditPage(): JSX.Element {
       {isCreateMode ? (
         <Card className="grid gap-3 rounded-3xl border border-slate-200 bg-white shadow-sm">
           <label className="grid gap-1 text-sm">
+            <span className="text-slate-700">버전 이름</span>
+            <Input
+              value={versionLabel}
+              onChange={(event) => setVersionLabel(event.target.value)}
+              placeholder="예: A 경유, + 삼겹살, 늦은 스타트"
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
             <span className="text-slate-700">변경 메모</span>
             <Input
               value={changeNote}
@@ -121,14 +134,22 @@ export function LocationVersionEditPage(): JSX.Element {
         submitLabel={isCreateMode ? '새 버전 생성' : '수정 저장'}
         value={value}
         submitting={submitting}
+        nameReadOnly={isCreateMode}
         onSubmit={async (next) => {
           setSubmitting(true);
           try {
             if (isCreateMode) {
+              const nextLabel = versionLabel.trim();
+              if (!nextLabel) {
+                window.alert('버전 이름을 입력해주세요.');
+                return;
+              }
               const created = await crud.createVersion({
                 locationId,
                 sourceVersionId: version.id,
+                label: nextLabel,
                 changeNote: changeNote.trim() || undefined,
+                safetyNoticeIds: next.safetyNoticeIds,
                 profile: {
                   internalMovementDistance: next.internalMovementDistance,
                   timeSlots: next.timeSlots,

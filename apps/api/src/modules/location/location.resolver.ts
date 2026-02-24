@@ -80,4 +80,8 @@ export const locationResolver = {
     lodgings: (parent: any) => parent.currentVersion?.lodgings ?? parent.lodgings ?? [],
     mealSets: (parent: any) => parent.currentVersion?.mealSets ?? parent.mealSets ?? [],
   },
+  LocationVersion: {
+    safetyNotices: (parent: any) =>
+      (parent.safetyNoticeLinks ?? []).map((link: any) => link.safetyNotice).filter(Boolean),
+  },
 };

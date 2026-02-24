@@ -13,6 +13,20 @@ const REGIONS_QUERY = gql`
   }
 `;
 
+const SAFETY_NOTICES_QUERY = gql`
+  query SafetyNoticesForLocationForm {
+    safetyNotices {
+      id
+      title
+    }
+  }
+`;
+
+interface SafetyNoticeOption {
+  id: string;
+  title: string;
+}
+
 const MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
   { value: MealOption.CampMeal, label: '캠프식' },
   { value: MealOption.LocalRestaurant, label: '현지식당' },
@@ -24,8 +38,7 @@ const MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
 
 const DEFAULT_SLOT_TIMES = ['08:00', '12:00', '18:00'] as const;
 
-export interface LocationProfileFormValue extends LocationProfileFormInput {
-}
+export type LocationProfileFormValue = LocationProfileFormInput;
 
 function createSlot(startTime: string): LocationProfileFormInput['timeSlots'][number] {
   return {
@@ -51,6 +64,7 @@ export function createDefaultLocationProfileFormValue(regionId = ''): LocationPr
     regionId,
     name: '',
     internalMovementDistance: null,
+    safetyNoticeIds: [],
     timeSlots: DEFAULT_SLOT_TIMES.map((slot) => createSlot(slot)),
     lodging: {
       isUnspecified: false,
@@ -72,11 +86,20 @@ interface LocationProfileFormProps {
   submitLabel: string;
   value: LocationProfileFormValue;
   submitting: boolean;
+  nameReadOnly?: boolean;
   onSubmit: (value: LocationProfileFormValue) => Promise<void>;
 }
 
-export function LocationProfileForm({ title, submitLabel, value, submitting, onSubmit }: LocationProfileFormProps): JSX.Element {
+export function LocationProfileForm({
+  title,
+  submitLabel,
+  value,
+  submitting,
+  nameReadOnly = false,
+  onSubmit,
+}: LocationProfileFormProps): JSX.Element {
   const { data: regionData } = useQuery<{ regions: Region[] }>(REGIONS_QUERY);
+  const { data: safetyNoticeData } = useQuery<{ safetyNotices: SafetyNoticeOption[] }>(SAFETY_NOTICES_QUERY);
   const [form, setForm] = useState<LocationProfileFormValue>(value);
 
   useEffect(() => {
@@ -84,6 +107,7 @@ export function LocationProfileForm({ title, submitLabel, value, submitting, onS
   }, [value]);
 
   const regions = useMemo(() => regionData?.regions ?? [], [regionData]);
+  const safetyNotices = useMemo(() => safetyNoticeData?.safetyNotices ?? [], [safetyNoticeData]);
 
   const updateSlotTime = (slotIndex: number, slotValue: string) => {
     setForm((prev) => {
@@ -180,6 +204,18 @@ export function LocationProfileForm({ title, submitLabel, value, submitting, onS
     });
   };
 
+  const toggleSafetyNotice = (noticeId: string) => {
+    setForm((prev) => {
+      const exists = prev.safetyNoticeIds.includes(noticeId);
+      return {
+        ...prev,
+        safetyNoticeIds: exists
+          ? prev.safetyNoticeIds.filter((id) => id !== noticeId)
+          : [...prev.safetyNoticeIds, noticeId],
+      };
+    });
+  };
+
   return (
     <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
       <h2 className="mb-4 text-lg font-semibold tracking-tight">{title}</h2>
@@ -196,7 +232,13 @@ export function LocationProfileForm({ title, submitLabel, value, submitting, onS
               <div className="grid gap-3 md:grid-cols-2 md:items-start">
                 <label className="grid gap-1 text-sm min-w-0">
                   <span className="text-slate-700">이름</span>
-                  <Input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} required />
+                  <Input
+                    value={form.name}
+                    onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                    required
+                    disabled={nameReadOnly}
+                    className={nameReadOnly ? 'border-slate-300 bg-slate-100 text-slate-500' : undefined}
+                  />
                 </label>
                 <label className="grid gap-1 text-sm min-w-0">
                   <span className="text-slate-700">지역</span>
@@ -340,6 +382,29 @@ export function LocationProfileForm({ title, submitLabel, value, submitting, onS
                   </div>
                 </label>
               ))}
+            </div>
+
+            <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+              <h3 className="text-sm font-semibold text-slate-800">주의사항 (Markdown)</h3>
+              {safetyNotices.length === 0 ? (
+                <p className="text-sm text-slate-500">등록된 주의사항이 없습니다.</p>
+              ) : (
+                <div className="grid gap-2">
+                  {safetyNotices.map((notice) => {
+                    const selected = form.safetyNoticeIds.includes(notice.id);
+                    return (
+                      <label key={notice.id} className="flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => toggleSafetyNotice(notice.id)}
+                        />
+                        <span>{notice.title}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 

@@ -36,12 +36,13 @@ interface VersionProfilePayload {
   locationNameSnapshot: string;
   regionNameSnapshot: string;
   versionNumber: number;
-  label?: string;
+  label: string;
   changeNote?: string;
   internalMovementDistance?: number | null;
   timeSlots: LocationProfileTimeSlotInput[];
   lodging: LocationProfileLodgingInput;
   meals: LocationProfileMealsInput;
+  safetyNoticeIds: string[];
 }
 
 export class LocationService {
@@ -73,6 +74,48 @@ export class LocationService {
     return (result._max.versionNumber ?? 0) + 1;
   }
 
+  private normalizeSafetyNoticeIds(ids: string[] | undefined): string[] {
+    if (!ids) {
+      return [];
+    }
+    return Array.from(
+      new Set(
+        ids
+          .map((id) => id.trim())
+          .filter((id) => id.length > 0),
+      ),
+    );
+  }
+
+  private async assertSafetyNoticeIdsExist(tx: Transaction, safetyNoticeIds: string[]) {
+    if (safetyNoticeIds.length === 0) {
+      return;
+    }
+
+    const count = await tx.safetyNotice.count({
+      where: { id: { in: safetyNoticeIds } },
+    });
+    if (count !== safetyNoticeIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'One or more safetyNoticeIds are invalid');
+    }
+  }
+
+  private async syncSafetyNoticeLinks(tx: Transaction, locationVersionId: string, safetyNoticeIds: string[]) {
+    await tx.locationVersionSafetyNotice.deleteMany({
+      where: { locationVersionId },
+    });
+
+    if (safetyNoticeIds.length > 0) {
+      await tx.locationVersionSafetyNotice.createMany({
+        data: safetyNoticeIds.map((safetyNoticeId) => ({
+          locationVersionId,
+          safetyNoticeId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+  }
+
   private async createVersionWithProfile(tx: Transaction, payload: VersionProfilePayload) {
     const normalizedLodging = this.normalizeLodging(payload.lodging);
 
@@ -80,7 +123,7 @@ export class LocationService {
       data: {
         locationId: payload.locationId,
         versionNumber: payload.versionNumber,
-        label: payload.label?.trim() || `버전 ${payload.versionNumber}`,
+        label: payload.label.trim(),
         changeNote: payload.changeNote?.trim() ? payload.changeNote.trim() : null,
         locationNameSnapshot: payload.locationNameSnapshot,
         regionNameSnapshot: payload.regionNameSnapshot,
@@ -112,7 +155,6 @@ export class LocationService {
             orderIndex: activityIndex,
             isOptional: false,
             conditionNote: null,
-            safetyGuidelinesMd: null,
           })),
         });
       }
@@ -143,6 +185,8 @@ export class LocationService {
         dinner: payload.meals.dinner ?? null,
       },
     });
+
+    await this.syncSafetyNoticeLinks(tx, locationVersion.id, payload.safetyNoticeIds);
 
     return locationVersion;
   }
@@ -195,6 +239,9 @@ export class LocationService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const safetyNoticeIds = this.normalizeSafetyNoticeIds(parsed.data.safetyNoticeIds);
+      await this.assertSafetyNoticeIdsExist(tx, safetyNoticeIds);
+
       const region = await tx.region.findUnique({
         where: { id: parsed.data.regionId },
         select: { name: true },
@@ -227,6 +274,7 @@ export class LocationService {
         timeSlots: parsed.data.timeSlots,
         lodging: parsed.data.lodging,
         meals: parsed.data.meals,
+        safetyNoticeIds,
       });
 
       await tx.location.update({
@@ -262,6 +310,7 @@ export class LocationService {
         lodging: LocationProfileLodgingInput;
         meals: LocationProfileMealsInput;
       } | null = null;
+      let sourceSafetyNoticeIds: string[] = [];
 
       if (parsed.data.sourceVersionId) {
         const sourceVersion = await tx.locationVersion.findUnique({
@@ -293,12 +342,19 @@ export class LocationService {
             dinner: (primaryMealSet?.dinner ?? null) as LocationProfileMealsInput['dinner'],
           },
         };
+        sourceSafetyNoticeIds = sourceVersion.safetyNoticeLinks.map((link) => link.safetyNoticeId);
       }
 
       const profile = parsed.data.profile ?? sourceProfile;
       if (!profile) {
         throw new DomainError('VALIDATION_FAILED', 'profile is required when sourceVersionId is not provided');
       }
+
+      const safetyNoticeIds =
+        parsed.data.safetyNoticeIds !== undefined
+          ? this.normalizeSafetyNoticeIds(parsed.data.safetyNoticeIds)
+          : sourceSafetyNoticeIds;
+      await this.assertSafetyNoticeIdsExist(tx, safetyNoticeIds);
 
       const versionNumber = await this.getNextVersionNumber(tx, parsed.data.locationId);
 
@@ -307,11 +363,13 @@ export class LocationService {
         locationNameSnapshot: location.name,
         regionNameSnapshot: location.regionName,
         versionNumber,
+        label: parsed.data.label,
         changeNote: parsed.data.changeNote,
         internalMovementDistance: profile.internalMovementDistance,
         timeSlots: profile.timeSlots,
         lodging: profile.lodging,
         meals: profile.meals,
+        safetyNoticeIds,
       });
 
       return tx.locationVersion.findUnique({ where: { id: createdVersion.id }, include: locationVersionInclude });
@@ -378,6 +436,9 @@ export class LocationService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const safetyNoticeIds = this.normalizeSafetyNoticeIds(parsed.data.safetyNoticeIds);
+      await this.assertSafetyNoticeIdsExist(tx, safetyNoticeIds);
+
       const existing = await tx.location.findUnique({
         where: { id },
         select: { id: true, currentVersionId: true },
@@ -455,7 +516,6 @@ export class LocationService {
               orderIndex: activityIndex,
               isOptional: false,
               conditionNote: null,
-              safetyGuidelinesMd: null,
             })),
           });
         }
@@ -486,6 +546,8 @@ export class LocationService {
           dinner: parsed.data.meals.dinner ?? null,
         },
       });
+
+      await this.syncSafetyNoticeLinks(tx, existing.currentVersionId, safetyNoticeIds);
 
       const location = await tx.location.findUnique({
         where: { id },

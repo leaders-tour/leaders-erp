@@ -120,12 +120,42 @@ model LocationVersion {
   mealSets      MealSet[]
   timeBlocks    TimeBlock[]
   planStops     PlanStop[]
+  safetyNoticeLinks LocationVersionSafetyNotice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([locationId, versionNumber])
   @@index([locationId])
+}
+
+model SafetyNotice {
+  id        String @id @default(uuid(7))
+  title     String
+  contentMd String @db.Text
+
+  locationVersionLinks LocationVersionSafetyNotice[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("safety_notice")
+}
+
+model LocationVersionSafetyNotice {
+  id                String @id @default(uuid(7))
+  locationVersionId String
+  safetyNoticeId    String
+
+  locationVersion LocationVersion @relation(fields: [locationVersionId], references: [id], onDelete: Cascade)
+  safetyNotice    SafetyNotice    @relation(fields: [safetyNoticeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([locationVersionId, safetyNoticeId])
+  @@index([locationVersionId])
+  @@index([safetyNoticeId])
+  @@map("location_version_safety_notice")
 }
 
 model Segment {
@@ -314,7 +344,6 @@ model Activity {
   orderIndex    Int
   isOptional    Boolean @default(false)
   conditionNote String?
-  safetyGuidelinesMd String? @db.Text
 
   timeBlock TimeBlock @relation(fields: [timeBlockId], references: [id], onDelete: Cascade)
 

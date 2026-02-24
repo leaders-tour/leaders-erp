@@ -5,5 +5,6 @@ export { MealSetRepository } from '../modules/meal-set/meal-set.repository';
 export { OverrideRepository } from '../modules/override/override.repository';
 export { PlanRepository } from '../modules/plan/plan.repository';
 export { RegionRepository } from '../modules/region/region.repository';
+export { SafetyNoticeRepository } from '../modules/safety-notice/safety-notice.repository';
 export { SegmentRepository } from '../modules/segment/segment.repository';
 export { TimeBlockRepository } from '../modules/time-block/time-block.repository';

@@ -201,6 +201,11 @@ const VERSION_DETAIL = gql`
         lunch
         dinner
       }
+      safetyNotices {
+        id
+        title
+        contentMd
+      }
     }
   }
 `;
@@ -220,6 +225,7 @@ export interface LocationProfileFormInput {
   regionId: string;
   name: string;
   internalMovementDistance: number | null;
+  safetyNoticeIds: string[];
   timeSlots: LocationProfileTimeSlotFormInput[];
   lodging: {
     isUnspecified: boolean;
@@ -322,6 +328,11 @@ export interface LocationVersionRow {
     lunch: MealOption | null;
     dinner: MealOption | null;
   }>;
+  safetyNotices: Array<{
+    id: string;
+    title: string;
+    contentMd: string;
+  }>;
 }
 
 export interface LocationVersionDetailRow extends LocationVersionRow {
@@ -402,6 +413,7 @@ function toProfileVariables(input: LocationProfileFormInput) {
   return {
     regionId: input.regionId,
     name: input.name.trim(),
+    safetyNoticeIds: input.safetyNoticeIds,
     ...toProfileBody(input),
   };
 }
@@ -428,7 +440,9 @@ export function useLocationCrud() {
     createVersion: async (input: {
       locationId: string;
       sourceVersionId?: string;
+      label: string;
       changeNote?: string;
+      safetyNoticeIds?: string[];
       profile: LocationVersionProfileFormInput;
     }) => {
       const result = await createVersionMutation({
@@ -436,7 +450,9 @@ export function useLocationCrud() {
           input: {
             locationId: input.locationId,
             sourceVersionId: input.sourceVersionId,
+            label: input.label,
             changeNote: input.changeNote,
+            safetyNoticeIds: input.safetyNoticeIds,
             profile: toProfileBody(input.profile),
           },
         },

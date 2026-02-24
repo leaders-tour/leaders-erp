@@ -32,6 +32,13 @@ const locationProfileMealsSchema = z.object({
   dinner: z.nativeEnum(MealOption).nullable().optional(),
 });
 
+const safetyNoticeIdsSchema = z
+  .array(z.string().min(1))
+  .max(50)
+  .refine((ids) => new Set(ids).size === ids.length, {
+    message: 'safetyNoticeIds must be unique',
+  });
+
 export const locationProfileCreateSchema = z.object({
   regionId: z.string().min(1),
   name: z.string().min(1).max(100),
@@ -39,6 +46,7 @@ export const locationProfileCreateSchema = z.object({
   timeSlots: z.array(locationProfileTimeSlotSchema).min(1).max(24),
   lodging: locationProfileLodgingSchema,
   meals: locationProfileMealsSchema,
+  safetyNoticeIds: safetyNoticeIdsSchema,
 });
 
 export const locationProfileUpdateSchema = locationProfileCreateSchema;
@@ -53,8 +61,10 @@ export const locationVersionProfileSchema = z.object({
 export const locationVersionCreateSchema = z.object({
   locationId: z.string().min(1),
   sourceVersionId: z.string().min(1).optional(),
+  label: z.string().min(1).max(100),
   changeNote: z.string().max(1000).optional(),
   profile: locationVersionProfileSchema.optional(),
+  safetyNoticeIds: safetyNoticeIdsSchema.optional(),
 });
 
 export type LocationCreateInput = z.infer<typeof locationCreateSchema>;

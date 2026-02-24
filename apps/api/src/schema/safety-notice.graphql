@@ -1,0 +1,17 @@
+type SafetyNotice {
+  id: ID!
+  title: String!
+  contentMd: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input SafetyNoticeCreateInput {
+  title: String!
+  contentMd: String!
+}
+
+input SafetyNoticeUpdateInput {
+  title: String
+  contentMd: String
+}

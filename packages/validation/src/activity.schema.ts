@@ -6,7 +6,6 @@ export const activityCreateSchema = z.object({
   orderIndex: z.number().int().min(0),
   isOptional: z.boolean().optional().default(false),
   conditionNote: z.string().max(500).nullable().optional(),
-  safetyGuidelinesMd: z.string().max(20000).nullable().optional(),
 });
 
 export const activityUpdateSchema = activityCreateSchema.partial();

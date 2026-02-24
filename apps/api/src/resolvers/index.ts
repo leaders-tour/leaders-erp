@@ -7,6 +7,7 @@ import { mealSetResolver } from '../modules/meal-set/meal-set.resolver';
 import { overrideResolver } from '../modules/override/override.resolver';
 import { planResolver } from '../modules/plan/plan.resolver';
 import { regionResolver } from '../modules/region/region.resolver';
+import { safetyNoticeResolver } from '../modules/safety-notice/safety-notice.resolver';
 import { segmentResolver } from '../modules/segment/segment.resolver';
 import { timeBlockResolver } from '../modules/time-block/time-block.resolver';
 
@@ -38,6 +39,7 @@ export const resolvers = {
   Query: mergeSection(
     regionResolver.Query,
     locationResolver.Query,
+    safetyNoticeResolver.Query,
     locationGuideResolver.Query,
     lodgingResolver.Query,
     mealSetResolver.Query,
@@ -53,6 +55,7 @@ export const resolvers = {
   Mutation: mergeSection(
     regionResolver.Mutation,
     locationResolver.Mutation,
+    safetyNoticeResolver.Mutation,
     locationGuideResolver.Mutation,
     lodgingResolver.Mutation,
     mealSetResolver.Mutation,
@@ -63,4 +66,5 @@ export const resolvers = {
     overrideResolver.Mutation,
   ),
   Location: locationResolver.Location,
+  LocationVersion: locationResolver.LocationVersion,
 };

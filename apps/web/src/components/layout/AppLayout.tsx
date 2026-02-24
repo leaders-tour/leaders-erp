@@ -10,6 +10,7 @@ const navItems = [
     children: [{ path: '/customers', label: '고객 목록' }],
   },
   { path: '/activities', label: '액티비티' },
+  { path: '/safety-notices', label: '주의사항' },
   {
     path: '/locations',
     label: '목적지',

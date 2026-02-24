@@ -9,7 +9,6 @@ const schema = z.object({
   orderIndex: z.number().int().min(0),
   isOptional: z.string(),
   conditionNote: z.string(),
-  safetyGuidelinesMd: z.string(),
 });
 
 export function ActivityPage(): JSX.Element {
@@ -27,7 +26,6 @@ export function ActivityPage(): JSX.Element {
         { name: 'orderIndex', label: '순서', type: 'number' },
         { name: 'isOptional', label: '선택 활동 여부 (true/false)' },
         { name: 'conditionNote', label: '조건 메모' },
-        { name: 'safetyGuidelinesMd', label: '안전수칙 (Markdown)', type: 'textarea' },
       ]}
       columns={[
         { key: 'id', label: 'ID' },
@@ -40,7 +38,6 @@ export function ActivityPage(): JSX.Element {
         orderIndex: 0,
         isOptional: 'false',
         conditionNote: '',
-        safetyGuidelinesMd: '',
       }}
       toUpdateValues={(row) => ({
         timeBlockId: row.timeBlockId,
@@ -48,7 +45,6 @@ export function ActivityPage(): JSX.Element {
         orderIndex: row.orderIndex,
         isOptional: String(row.isOptional),
         conditionNote: row.conditionNote ?? '',
-        safetyGuidelinesMd: (row as Activity & { safetyGuidelinesMd?: string | null }).safetyGuidelinesMd ?? '',
       })}
       onCreate={crud.createRow}
       onUpdate={crud.updateRow}

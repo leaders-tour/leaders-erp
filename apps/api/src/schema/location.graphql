@@ -35,6 +35,7 @@ type LocationVersion {
   timeBlocks: [TimeBlock!]!
   lodgings: [Lodging!]!
   mealSets: [MealSet!]!
+  safetyNotices: [SafetyNotice!]!
 }
 
 input LocationCreateInput {
@@ -81,6 +82,7 @@ input LocationProfileCreateInput {
   timeSlots: [LocationProfileTimeSlotInput!]!
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
+  safetyNoticeIds: [ID!]!
 }
 
 input LocationProfileUpdateInput {
@@ -90,6 +92,7 @@ input LocationProfileUpdateInput {
   timeSlots: [LocationProfileTimeSlotInput!]!
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
+  safetyNoticeIds: [ID!]!
 }
 
 input LocationVersionProfileInput {
@@ -102,6 +105,8 @@ input LocationVersionProfileInput {
 input LocationVersionCreateInput {
   locationId: String!
   sourceVersionId: String
+  label: String!
   changeNote: String
   profile: LocationVersionProfileInput
+  safetyNoticeIds: [ID!]
 }

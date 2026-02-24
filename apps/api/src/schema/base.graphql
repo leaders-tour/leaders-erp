@@ -8,6 +8,8 @@ type Query {
   location(id: ID!): Location
   locationVariations(locationId: ID!): [LocationVersion!]!
   locationVariation(id: ID!): LocationVersion
+  safetyNotices: [SafetyNotice!]!
+  safetyNotice(id: ID!): SafetyNotice
   locationGuides: [LocationGuide!]!
   locationGuide(id: ID!): LocationGuide
   lodgings: [Lodging!]!
@@ -42,6 +44,9 @@ type Mutation {
   updateLocationProfile(id: ID!, input: LocationProfileUpdateInput!): Location!
   updateLocation(id: ID!, input: LocationUpdateInput!): Location!
   deleteLocation(id: ID!): Boolean!
+  createSafetyNotice(input: SafetyNoticeCreateInput!): SafetyNotice!
+  updateSafetyNotice(id: ID!, input: SafetyNoticeUpdateInput!): SafetyNotice!
+  deleteSafetyNotice(id: ID!): Boolean!
   createLocationGuide(input: LocationGuideCreateInput!): LocationGuide!
   updateLocationGuide(id: ID!, input: LocationGuideUpdateInput!): LocationGuide!
   deleteLocationGuide(id: ID!): Boolean!
