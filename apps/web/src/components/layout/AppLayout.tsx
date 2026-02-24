@@ -17,6 +17,7 @@ const navItems = [
       { path: '/locations/list', label: '목적지 목록' },
       { path: '/locations/create', label: '목적지 생성' },
       { path: '/locations/connections', label: '목적지 간 연결' },
+      { path: '/location-guides', label: '여행지 안내사항' },
     ],
   },
   {

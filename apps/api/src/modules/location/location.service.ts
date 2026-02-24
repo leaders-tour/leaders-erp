@@ -38,7 +38,6 @@ interface VersionProfilePayload {
   versionNumber: number;
   label: string;
   changeNote?: string;
-  parentVersionId?: string;
   internalMovementDistance?: number | null;
   timeSlots: LocationProfileTimeSlotInput[];
   lodging: LocationProfileLodgingInput;
@@ -80,7 +79,6 @@ export class LocationService {
     const locationVersion = await tx.locationVersion.create({
       data: {
         locationId: payload.locationId,
-        parentVersionId: payload.parentVersionId,
         versionNumber: payload.versionNumber,
         label: payload.label.trim(),
         changeNote: payload.changeNote?.trim() ? payload.changeNote.trim() : null,
@@ -258,15 +256,48 @@ export class LocationService {
         throw new DomainError('NOT_FOUND', 'Location not found');
       }
 
-      if (parsed.data.parentVersionId) {
-        const parentVersion = await tx.locationVersion.findUnique({
-          where: { id: parsed.data.parentVersionId },
-          select: { id: true, locationId: true },
-        });
+      let sourceProfile: {
+        internalMovementDistance?: number | null;
+        timeSlots: LocationProfileTimeSlotInput[];
+        lodging: LocationProfileLodgingInput;
+        meals: LocationProfileMealsInput;
+      } | null = null;
 
-        if (!parentVersion || parentVersion.locationId !== parsed.data.locationId) {
-          throw new DomainError('VALIDATION_FAILED', 'parentVersionId must belong to the same location');
+      if (parsed.data.sourceVersionId) {
+        const sourceVersion = await tx.locationVersion.findUnique({
+          where: { id: parsed.data.sourceVersionId },
+          include: locationVersionInclude,
+        });
+        if (!sourceVersion || sourceVersion.locationId !== parsed.data.locationId) {
+          throw new DomainError('VALIDATION_FAILED', 'sourceVersionId must belong to the same location');
         }
+
+        const primaryLodging = sourceVersion.lodgings[0];
+        const primaryMealSet = sourceVersion.mealSets[0];
+        sourceProfile = {
+          internalMovementDistance: sourceVersion.internalMovementDistance ?? null,
+          timeSlots: sourceVersion.timeBlocks.map((timeBlock) => ({
+            startTime: timeBlock.startTime,
+            activities: timeBlock.activities.map((activity) => activity.description),
+          })),
+          lodging: {
+            isUnspecified: primaryLodging?.isUnspecified ?? false,
+            name: primaryLodging?.name ?? '여행자 캠프',
+            hasElectricity: primaryLodging?.hasElectricity ?? 'NO',
+            hasShower: primaryLodging?.hasShower ?? 'NO',
+            hasInternet: primaryLodging?.hasInternet ?? 'NO',
+          },
+          meals: {
+            breakfast: (primaryMealSet?.breakfast ?? null) as LocationProfileMealsInput['breakfast'],
+            lunch: (primaryMealSet?.lunch ?? null) as LocationProfileMealsInput['lunch'],
+            dinner: (primaryMealSet?.dinner ?? null) as LocationProfileMealsInput['dinner'],
+          },
+        };
+      }
+
+      const profile = parsed.data.profile ?? sourceProfile;
+      if (!profile) {
+        throw new DomainError('VALIDATION_FAILED', 'profile is required when sourceVersionId is not provided');
       }
 
       const versionNumber = await this.getNextVersionNumber(tx, parsed.data.locationId);
@@ -277,19 +308,18 @@ export class LocationService {
         regionNameSnapshot: location.regionName,
         versionNumber,
         label: parsed.data.label,
-        parentVersionId: parsed.data.parentVersionId,
         changeNote: parsed.data.changeNote,
-        internalMovementDistance: parsed.data.profile.internalMovementDistance,
-        timeSlots: parsed.data.profile.timeSlots,
-        lodging: parsed.data.profile.lodging,
-        meals: parsed.data.profile.meals,
+        internalMovementDistance: profile.internalMovementDistance,
+        timeSlots: profile.timeSlots,
+        lodging: profile.lodging,
+        meals: profile.meals,
       });
 
       return tx.locationVersion.findUnique({ where: { id: createdVersion.id }, include: locationVersionInclude });
     });
   }
 
-  async setCurrentVersion(locationId: string, versionId: string) {
+  async setDefaultVersion(locationId: string, versionId: string) {
     const [location, version] = await Promise.all([
       this.repository.findById(locationId),
       this.prisma.locationVersion.findUnique({ where: { id: versionId }, select: { id: true, locationId: true } }),

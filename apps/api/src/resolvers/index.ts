@@ -1,6 +1,7 @@
 import { GraphQLScalarType, Kind } from 'graphql';
 import { activityResolver } from '../modules/activity/activity.resolver';
 import { lodgingResolver } from '../modules/lodging/lodging.resolver';
+import { locationGuideResolver } from '../modules/location-guide/location-guide.resolver';
 import { locationResolver } from '../modules/location/location.resolver';
 import { mealSetResolver } from '../modules/meal-set/meal-set.resolver';
 import { overrideResolver } from '../modules/override/override.resolver';
@@ -37,6 +38,7 @@ export const resolvers = {
   Query: mergeSection(
     regionResolver.Query,
     locationResolver.Query,
+    locationGuideResolver.Query,
     lodgingResolver.Query,
     mealSetResolver.Query,
     segmentResolver.Query,
@@ -51,6 +53,7 @@ export const resolvers = {
   Mutation: mergeSection(
     regionResolver.Mutation,
     locationResolver.Mutation,
+    locationGuideResolver.Mutation,
     lodgingResolver.Mutation,
     mealSetResolver.Mutation,
     segmentResolver.Mutation,

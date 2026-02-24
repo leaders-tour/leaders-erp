@@ -99,7 +99,7 @@ export function LocationListPage(): JSX.Element {
                       {parsedName.tag ? `\n(${parsedName.tag})` : ''}
                     </div>
                     <div className="mt-1 text-xs text-slate-500">
-                      현재 버전: {row.currentVersion ? `${row.currentVersion.label} (v${row.currentVersion.versionNumber})` : '-'}
+                      기본 버전: {row.defaultVersion ? `${row.defaultVersion.label} (v${row.defaultVersion.versionNumber})` : '-'}
                     </div>
                     <div className="mt-2">
                       <Link

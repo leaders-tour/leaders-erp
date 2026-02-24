@@ -7,6 +7,7 @@ import { ItineraryBuilderPage } from '../pages/ItineraryBuilderPage';
 import { LocationCreatePage } from '../pages/LocationCreatePage';
 import { LocationDetailPage } from '../pages/LocationDetailPage';
 import { LocationEditPage } from '../pages/LocationEditPage';
+import { LocationGuidePage } from '../pages/LocationGuidePage';
 import { LocationListPage } from '../pages/LocationListPage';
 import { LocationVersionDetailPage } from '../pages/LocationVersionDetailPage';
 import { LocationVersionEditPage } from '../pages/LocationVersionEditPage';
@@ -34,6 +35,7 @@ export const router = createBrowserRouter([
       { path: 'locations', element: <Navigate to="/locations/list" replace /> },
       { path: 'locations/list', element: <LocationListPage /> },
       { path: 'locations/create', element: <LocationCreatePage /> },
+      { path: 'location-guides', element: <LocationGuidePage /> },
       { path: 'locations/:id', element: <LocationDetailPage /> },
       { path: 'locations/:id/edit', element: <LocationEditPage /> },
       { path: 'locations/:locationId/versions/:versionId', element: <LocationVersionDetailPage /> },

@@ -52,10 +52,10 @@ export const locationVersionProfileSchema = z.object({
 
 export const locationVersionCreateSchema = z.object({
   locationId: z.string().min(1),
-  parentVersionId: z.string().min(1).optional(),
+  sourceVersionId: z.string().min(1).optional(),
   label: z.string().min(1).max(100),
   changeNote: z.string().max(1000).optional(),
-  profile: locationVersionProfileSchema,
+  profile: locationVersionProfileSchema.optional(),
 });
 
 export type LocationCreateInput = z.infer<typeof locationCreateSchema>;

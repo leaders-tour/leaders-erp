@@ -16,7 +16,7 @@ export function LocationVersionDetailPage(): JSX.Element {
   if (!version || !locationId || version.locationId !== locationId) {
     return (
       <section className="grid gap-4 py-8">
-        <h1 className="text-xl font-semibold text-slate-900">버전을 찾을 수 없습니다.</h1>
+        <h1 className="text-xl font-semibold text-slate-900">variation을 찾을 수 없습니다.</h1>
         <div>
           <Button onClick={() => navigate('/locations/list')}>목록으로 이동</Button>
         </div>
@@ -24,9 +24,8 @@ export function LocationVersionDetailPage(): JSX.Element {
     );
   }
 
-  const isCurrent = version.location.currentVersionId === version.id;
+  const isDefault = version.location.defaultVersionId === version.id;
   const versionDisplay = `${version.label} (v${version.versionNumber})`;
-  const parentDisplay = version.parentVersion ? `${version.parentVersion.label} (v${version.parentVersion.versionNumber})` : '-';
 
   return (
     <section className="grid gap-6">
@@ -36,7 +35,7 @@ export function LocationVersionDetailPage(): JSX.Element {
             {version.locationNameSnapshot} · {versionDisplay}
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            {isCurrent ? '현재 버전' : '이전 버전'} {version.changeNote ? `· ${version.changeNote}` : ''}
+            {isDefault ? '기본 버전' : '선택 버전'} {version.changeNote ? `· ${version.changeNote}` : ''}
           </p>
         </div>
         <div className="flex gap-2">
@@ -50,27 +49,27 @@ export function LocationVersionDetailPage(): JSX.Element {
             to={`/locations/${locationId}/versions/${version.id}/edit?mode=create`}
             className="inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
           >
-            이 버전 기반 새 버전 생성
+            이 버전 기반 새 variation 생성
           </Link>
-          {!isCurrent ? (
+          {!isDefault ? (
             <Button
               variant="outline"
               onClick={async () => {
-                if (!window.confirm(`'${version.label}' 버전을 현재 버전으로 지정할까요?`)) {
+                if (!window.confirm(`'${version.label}'를 기본 버전으로 지정할까요?`)) {
                   return;
                 }
-                await crud.setCurrentVersion(locationId, version.id);
+                await crud.setDefaultVersion(locationId, version.id);
                 await refetch();
               }}
             >
-              현재 버전으로 지정
+              기본 버전으로 지정
             </Button>
           ) : (
             <Link
               to={`/locations/${locationId}/versions/${version.id}/edit`}
               className="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-sm text-white"
             >
-              현재 버전 수정
+              기본 버전 수정
             </Link>
           )}
         </div>
@@ -80,7 +79,6 @@ export function LocationVersionDetailPage(): JSX.Element {
         <h2 className="mb-3 text-lg font-semibold">요약</h2>
         <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
           <div>버전: {versionDisplay}</div>
-          <div>부모 버전: {parentDisplay}</div>
           <div>지역 스냅샷: {version.regionNameSnapshot}</div>
           <div>내부 이동 거리: {version.internalMovementDistance ?? '-'}</div>
         </div>

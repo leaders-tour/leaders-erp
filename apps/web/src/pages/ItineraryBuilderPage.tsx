@@ -14,13 +14,13 @@ interface LocationRow {
   id: string;
   regionId: string;
   name: string;
-  currentVersionId: string | null;
-  currentVersion: {
+  defaultVersionId: string | null;
+  defaultVersion: {
     id: string;
     versionNumber: number;
     label: string;
   } | null;
-  versions: Array<{
+  variations: Array<{
     id: string;
     versionNumber: number;
     label: string;
@@ -141,13 +141,13 @@ const LOCATIONS_QUERY = gql`
       id
       regionId
       name
-      currentVersionId
-      currentVersion {
+      defaultVersionId
+      defaultVersion {
         id
         versionNumber
         label
       }
-      versions {
+      variations {
         id
         versionNumber
         label
@@ -397,7 +397,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     () =>
       new Map(
         filteredLocations.flatMap((location) =>
-          location.versions.map((version) => [version.id, version] as const),
+          location.variations.map((version) => [version.id, version] as const),
         ),
       ),
     [filteredLocations],
@@ -407,7 +407,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     if (!location) {
       return '';
     }
-    return location.currentVersionId ?? location.versions[0]?.id ?? '';
+    return location.defaultVersionId ?? location.variations[0]?.id ?? '';
   };
 
   const nextOptions = useMemo(() => {
@@ -1013,7 +1013,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                 ) : null}
                 {startLocationId ? (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {(locationById.get(startLocationId)?.versions ?? []).map((version) => (
+                    {(locationById.get(startLocationId)?.variations ?? []).map((version) => (
                       <button
                         key={`start-version-${version.id}`}
                         type="button"
@@ -1039,7 +1039,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                     {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {(locationById.get(stop.locationId)?.versions ?? []).map((version) => (
+                    {(locationById.get(stop.locationId)?.variations ?? []).map((version) => (
                       <button
                         key={`route-version-${index}-${version.id}`}
                         type="button"

@@ -30,7 +30,7 @@ interface LocationProfileUpdateArgs {
   input: LocationProfileUpdateDto;
 }
 
-interface LocationVersionsArgs {
+interface LocationVariationsArgs {
   locationId: string;
 }
 
@@ -38,7 +38,7 @@ interface LocationVersionCreateArgs {
   input: LocationVersionCreateDto;
 }
 
-interface SetCurrentLocationVersionArgs {
+interface SetDefaultLocationVersionArgs {
   locationId: string;
   versionId: string;
 }
@@ -47,9 +47,9 @@ export const locationResolver = {
   Query: {
     locations: (_parent: unknown, _args: unknown, ctx: AppContext) => new LocationService(ctx.prisma).list(),
     location: (_parent: unknown, args: LocationArgs, ctx: AppContext) => new LocationService(ctx.prisma).get(args.id),
-    locationVersions: (_parent: unknown, args: LocationVersionsArgs, ctx: AppContext) =>
+    locationVariations: (_parent: unknown, args: LocationVariationsArgs, ctx: AppContext) =>
       new LocationService(ctx.prisma).listVersions(args.locationId),
-    locationVersion: (_parent: unknown, args: LocationArgs, ctx: AppContext) =>
+    locationVariation: (_parent: unknown, args: LocationArgs, ctx: AppContext) =>
       new LocationService(ctx.prisma).getVersion(args.id),
   },
   Mutation: {
@@ -57,10 +57,10 @@ export const locationResolver = {
       new LocationService(ctx.prisma).create(args.input),
     createLocationProfile: (_parent: unknown, args: LocationProfileCreateArgs, ctx: AppContext) =>
       new LocationService(ctx.prisma).createProfile(args.input),
-    createLocationVersion: (_parent: unknown, args: LocationVersionCreateArgs, ctx: AppContext) =>
+    createLocationVariation: (_parent: unknown, args: LocationVersionCreateArgs, ctx: AppContext) =>
       new LocationService(ctx.prisma).createVersion(args.input),
-    setCurrentLocationVersion: (_parent: unknown, args: SetCurrentLocationVersionArgs, ctx: AppContext) =>
-      new LocationService(ctx.prisma).setCurrentVersion(args.locationId, args.versionId),
+    setDefaultLocationVersion: (_parent: unknown, args: SetDefaultLocationVersionArgs, ctx: AppContext) =>
+      new LocationService(ctx.prisma).setDefaultVersion(args.locationId, args.versionId),
     updateLocationProfile: (_parent: unknown, args: LocationProfileUpdateArgs, ctx: AppContext) =>
       new LocationService(ctx.prisma).updateProfile(args.id, args.input),
     updateLocation: (_parent: unknown, args: LocationUpdateArgs, ctx: AppContext) =>
@@ -69,6 +69,9 @@ export const locationResolver = {
       new LocationService(ctx.prisma).delete(args.id),
   },
   Location: {
+    defaultVersionId: (parent: any) => parent.currentVersionId ?? null,
+    defaultVersion: (parent: any) => parent.currentVersion ?? null,
+    variations: (parent: any) => parent.versions ?? [],
     defaultLodgingType: (parent: any) =>
       parent.currentVersion?.defaultLodgingType ?? parent.defaultLodgingType,
     internalMovementDistance: (parent: any) =>

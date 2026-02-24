@@ -62,7 +62,7 @@ export function LocationVersionEditPage(): JSX.Element {
   if (!version || !locationId || version.locationId !== locationId) {
     return (
       <section className="grid gap-4 py-8">
-        <h1 className="text-xl font-semibold text-slate-900">버전을 찾을 수 없습니다.</h1>
+        <h1 className="text-xl font-semibold text-slate-900">variation을 찾을 수 없습니다.</h1>
         <div>
           <Button onClick={() => navigate('/locations/list')}>목록으로 이동</Button>
         </div>
@@ -70,13 +70,13 @@ export function LocationVersionEditPage(): JSX.Element {
     );
   }
 
-  const isCurrent = version.location.currentVersionId === version.id;
+  const isDefault = version.location.defaultVersionId === version.id;
 
-  if (!isCreateMode && !isCurrent) {
+  if (!isCreateMode && !isDefault) {
     return (
       <section className="grid gap-4 py-8">
         <Card className="rounded-3xl border border-amber-200 bg-amber-50 p-6">
-          <h1 className="text-xl font-semibold text-amber-900">현재 버전만 직접 수정할 수 있습니다.</h1>
+          <h1 className="text-xl font-semibold text-amber-900">기본 버전만 직접 수정할 수 있습니다.</h1>
           <p className="mt-2 text-sm text-amber-800">
             이 버전을 수정하려면 새 버전을 생성하세요.
           </p>
@@ -85,13 +85,13 @@ export function LocationVersionEditPage(): JSX.Element {
               to={`/locations/${locationId}/versions/${version.id}/edit?mode=create`}
               className="inline-flex items-center rounded-xl bg-amber-900 px-4 py-2 text-sm text-white"
             >
-              새 버전 생성
+              새 variation 생성
             </Link>
             <Link
               to={`/locations/${locationId}/versions/${version.id}`}
               className="inline-flex items-center rounded-xl border border-amber-400 px-4 py-2 text-sm text-amber-900"
             >
-              버전 상세
+              variation 상세
             </Link>
           </div>
         </Card>
@@ -103,10 +103,10 @@ export function LocationVersionEditPage(): JSX.Element {
     <section className="grid gap-6">
       <header className="grid gap-2">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-          {isCreateMode ? `'${version.label}' 기반 새 버전 생성` : `${version.label} 수정`}
+          {isCreateMode ? `'${version.label}' 기반 새 variation 생성` : `${version.label} 수정`}
         </h1>
         <p className="text-sm text-slate-600">
-          {isCreateMode ? '부모 버전을 기준으로 새 버전을 생성합니다.' : '현재 버전 본문을 직접 수정합니다.'}
+          {isCreateMode ? '이전 선택한 버전을 기준으로 새버전을 생성합니다.' : '기본 버전 본문을 직접 수정합니다.'}
         </p>
       </header>
 
@@ -132,8 +132,8 @@ export function LocationVersionEditPage(): JSX.Element {
       ) : null}
 
       <LocationProfileForm
-        title={isCreateMode ? '새 버전 프로필' : '현재 버전 프로필'}
-        submitLabel={isCreateMode ? '새 버전 생성' : '수정 저장'}
+        title={isCreateMode ? '새 variation 프로필' : '기본 버전 프로필'}
+        submitLabel={isCreateMode ? '새 variation 생성' : '수정 저장'}
         value={value}
         submitting={submitting}
         onSubmit={async (next) => {
@@ -147,7 +147,7 @@ export function LocationVersionEditPage(): JSX.Element {
               }
               const created = await crud.createVersion({
                 locationId,
-                parentVersionId: version.id,
+                sourceVersionId: version.id,
                 label: nextLabel,
                 changeNote: changeNote.trim() || undefined,
                 profile: {

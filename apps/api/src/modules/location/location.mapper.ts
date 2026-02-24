@@ -11,10 +11,6 @@ const locationVersionTimeBlocksInclude = {
 
 export const locationVersionInclude = {
   location: true,
-  parentVersion: true,
-  childVersions: {
-    orderBy: { versionNumber: 'asc' },
-  },
   lodgings: true,
   mealSets: true,
   timeBlocks: locationVersionTimeBlocksInclude,
@@ -22,6 +18,7 @@ export const locationVersionInclude = {
 
 export const locationInclude = {
   region: true,
+  guide: true,
   currentVersion: {
     include: locationVersionInclude,
   },

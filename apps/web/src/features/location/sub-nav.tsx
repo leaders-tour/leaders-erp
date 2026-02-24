@@ -41,6 +41,16 @@ export function LocationSubNav({ pathname }: LocationSubNavProps): JSX.Element {
       >
         목적지 간 연결
       </Link>
+      <Link
+        to="/location-guides"
+        className={`rounded-xl px-3 py-1.5 text-sm transition-colors ${
+          pathname === '/location-guides'
+            ? 'border border-slate-900 bg-slate-900 text-white'
+            : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+        }`}
+      >
+        여행지 안내사항
+      </Link>
     </div>
   );
 }

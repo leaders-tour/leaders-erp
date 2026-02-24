@@ -3,6 +3,7 @@ export * from './enums/variant-type';
 export * from './enums/override-target-type';
 export * from './models/activity';
 export * from './models/location';
+export * from './models/location-guide';
 export * from './models/location-version';
 export * from './models/override';
 export * from './models/plan';

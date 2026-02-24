@@ -10,8 +10,8 @@ const LIST = gql`
       regionId
       regionName
       name
-      currentVersionId
-      currentVersion {
+      defaultVersionId
+      defaultVersion {
         id
         versionNumber
         label
@@ -38,6 +38,14 @@ const LIST = gql`
         lunch
         dinner
       }
+      guide {
+        id
+        title
+        description
+        imageUrls
+        locationId
+        updatedAt
+      }
     }
   }
 `;
@@ -51,8 +59,8 @@ const CREATE_PROFILE = gql`
 `;
 
 const CREATE_VERSION = gql`
-  mutation CreateLocationVersion($input: LocationVersionCreateInput!) {
-    createLocationVersion(input: $input) {
+  mutation CreateLocationVariation($input: LocationVersionCreateInput!) {
+    createLocationVariation(input: $input) {
       id
       locationId
       versionNumber
@@ -62,11 +70,11 @@ const CREATE_VERSION = gql`
   }
 `;
 
-const SET_CURRENT_VERSION = gql`
-  mutation SetCurrentLocationVersion($locationId: ID!, $versionId: ID!) {
-    setCurrentLocationVersion(locationId: $locationId, versionId: $versionId) {
+const SET_DEFAULT_VERSION = gql`
+  mutation SetDefaultLocationVersion($locationId: ID!, $versionId: ID!) {
+    setDefaultLocationVersion(locationId: $locationId, versionId: $versionId) {
       id
-      currentVersionId
+      defaultVersionId
     }
   }
 `;
@@ -86,19 +94,18 @@ const DETAIL = gql`
       regionId
       regionName
       name
-      currentVersionId
+      defaultVersionId
       internalMovementDistance
       createdAt
       updatedAt
-      currentVersion {
+      defaultVersion {
         id
         versionNumber
         label
       }
-      versions {
+      variations {
         id
         locationId
-        parentVersionId
         versionNumber
         label
         changeNote
@@ -151,11 +158,10 @@ const DETAIL = gql`
 `;
 
 const VERSION_DETAIL = gql`
-  query LocationVersionDetail($id: ID!) {
-    locationVersion(id: $id) {
+  query LocationVariationDetail($id: ID!) {
+    locationVariation(id: $id) {
       id
       locationId
-      parentVersionId
       versionNumber
       label
       changeNote
@@ -170,12 +176,7 @@ const VERSION_DETAIL = gql`
         name
         regionId
         regionName
-        currentVersionId
-      }
-      parentVersion {
-        id
-        versionNumber
-        label
+        defaultVersionId
       }
       timeBlocks {
         id
@@ -256,8 +257,8 @@ export interface LocationListRow {
   regionId: string;
   regionName: string;
   name: string;
-  currentVersionId: string | null;
-  currentVersion: {
+  defaultVersionId: string | null;
+  defaultVersion: {
     id: string;
     versionNumber: number;
     label: string;
@@ -289,7 +290,6 @@ export interface LocationListRow {
 export interface LocationVersionRow {
   id: string;
   locationId: string;
-  parentVersionId: string | null;
   versionNumber: number;
   label: string;
   changeNote: string | null;
@@ -330,20 +330,14 @@ export interface LocationVersionDetailRow extends LocationVersionRow {
     name: string;
     regionId: string;
     regionName: string;
-    currentVersionId: string | null;
+    defaultVersionId: string | null;
   };
-  parentVersion: {
-    id: string;
-    versionNumber: number;
-    label: string;
-  } | null;
 }
 
 export interface LocationDetailItem extends LocationListRow {
-  versions: Array<{
+  variations: Array<{
     id: string;
     locationId: string;
-    parentVersionId: string | null;
     versionNumber: number;
     label: string;
     changeNote: string | null;
@@ -355,6 +349,14 @@ export interface LocationDetailItem extends LocationListRow {
     updatedAt: string;
   }>;
   internalMovementDistance: number | null;
+  guide: {
+    id: string;
+    title: string;
+    description: string;
+    imageUrls: string[];
+    locationId: string | null;
+    updatedAt: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -408,7 +410,7 @@ export function useLocationCrud() {
   const { data, loading, refetch } = useQuery<Record<string, LocationListRow[]>>(LIST);
   const [createProfileMutation] = useMutation(CREATE_PROFILE);
   const [createVersionMutation] = useMutation(CREATE_VERSION);
-  const [setCurrentVersionMutation] = useMutation(SET_CURRENT_VERSION);
+  const [setDefaultVersionMutation] = useMutation(SET_DEFAULT_VERSION);
   const [updateProfileMutation] = useMutation(UPDATE_PROFILE);
   const [deleteMutation] = useMutation(REMOVE);
 
@@ -425,7 +427,7 @@ export function useLocationCrud() {
     },
     createVersion: async (input: {
       locationId: string;
-      parentVersionId?: string;
+      sourceVersionId?: string;
       label: string;
       changeNote?: string;
       profile: LocationVersionProfileFormInput;
@@ -434,7 +436,7 @@ export function useLocationCrud() {
         variables: {
           input: {
             locationId: input.locationId,
-            parentVersionId: input.parentVersionId,
+            sourceVersionId: input.sourceVersionId,
             label: input.label,
             changeNote: input.changeNote,
             profile: toProfileBody(input.profile),
@@ -442,10 +444,10 @@ export function useLocationCrud() {
         },
       });
       await refetch();
-      return result.data?.createLocationVersion as { id: string; locationId: string; versionNumber: number; label: string } | undefined;
+      return result.data?.createLocationVariation as { id: string; locationId: string; versionNumber: number; label: string } | undefined;
     },
-    setCurrentVersion: async (locationId: string, versionId: string) => {
-      await setCurrentVersionMutation({
+    setDefaultVersion: async (locationId: string, versionId: string) => {
+      await setDefaultVersionMutation({
         variables: { locationId, versionId },
       });
       await refetch();
@@ -481,13 +483,13 @@ export function useLocationDetail(id: string | undefined) {
 }
 
 export function useLocationVersionDetail(id: string | undefined) {
-  const { data, loading, refetch } = useQuery<{ locationVersion: LocationVersionDetailRow | null }>(VERSION_DETAIL, {
+  const { data, loading, refetch } = useQuery<{ locationVariation: LocationVersionDetailRow | null }>(VERSION_DETAIL, {
     variables: { id },
     skip: !id,
   });
 
   return {
-    version: data?.locationVersion ?? null,
+    version: data?.locationVariation ?? null,
     loading,
     refetch,
   };

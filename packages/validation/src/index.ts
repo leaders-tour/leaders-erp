@@ -1,6 +1,7 @@
 export * from './activity.schema';
 export * from './lodging.schema';
 export * from './location.schema';
+export * from './location-guide.schema';
 export * from './meal-set.schema';
 export * from './override.schema';
 export * from './plan.schema';

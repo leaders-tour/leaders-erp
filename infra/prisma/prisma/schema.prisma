@@ -75,6 +75,7 @@ model Location {
   toSegments   Segment[] @relation("ToLocation")
   versions     LocationVersion[] @relation("LocationVersions")
   currentVersion LocationVersion? @relation("CurrentLocationVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  guide        LocationGuide?
   lodgings     Lodging[]
   mealSets     MealSet[]
   timeBlocks   TimeBlock[]
@@ -87,10 +88,24 @@ model Location {
   @@index([currentVersionId])
 }
 
+model LocationGuide {
+  id          String  @id @default(uuid(7))
+  title       String
+  description String  @db.Text
+  imageUrls   Json
+  locationId  String? @unique
+
+  location Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([locationId])
+}
+
 model LocationVersion {
   id                     String @id @default(uuid(7))
   locationId             String
-  parentVersionId        String?
   versionNumber          Int
   label                  String
   changeNote             String?
@@ -100,8 +115,6 @@ model LocationVersion {
   defaultLodgingType     String
 
   location      Location         @relation("LocationVersions", fields: [locationId], references: [id], onDelete: Cascade)
-  parentVersion LocationVersion? @relation("LocationVersionParentChild", fields: [parentVersionId], references: [id], onDelete: SetNull)
-  childVersions LocationVersion[] @relation("LocationVersionParentChild")
   currentForLocations Location[] @relation("CurrentLocationVersion")
   lodgings      Lodging[]
   mealSets      MealSet[]
@@ -113,7 +126,6 @@ model LocationVersion {
 
   @@unique([locationId, versionNumber])
   @@index([locationId])
-  @@index([parentVersionId])
 }
 
 model Segment {

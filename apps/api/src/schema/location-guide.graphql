@@ -1,0 +1,24 @@
+type LocationGuide {
+  id: ID!
+  title: String!
+  description: String!
+  imageUrls: [String!]!
+  locationId: String
+  location: Location
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input LocationGuideCreateInput {
+  title: String!
+  description: String!
+  imageUrls: [String!]!
+  locationId: String!
+}
+
+input LocationGuideUpdateInput {
+  title: String
+  description: String
+  imageUrls: [String!]
+  locationId: String
+}

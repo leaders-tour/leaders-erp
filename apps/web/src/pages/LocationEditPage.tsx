@@ -22,13 +22,13 @@ export function LocationEditPage(): JSX.Element {
     );
   }
 
-  if (!location.currentVersionId) {
+  if (!location.defaultVersionId) {
     return (
       <section className="grid gap-4 py-8 text-sm text-slate-600">
-        현재 버전이 없어 편집할 수 없습니다.
+        기본 버전이 없어 편집할 수 없습니다.
       </section>
     );
   }
 
-  return <Navigate to={`/locations/${id}/versions/${location.currentVersionId}/edit`} replace />;
+  return <Navigate to={`/locations/${id}/versions/${location.defaultVersionId}/edit`} replace />;
 }
