@@ -1,7 +1,6 @@
 import { Button, Card, Input } from '@tour/ui';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { mergeLocationNameAndTag, splitLocationNameAndTag } from '../features/location/display';
 import { LocationProfileForm, createDefaultLocationProfileFormValue } from '../features/location/profile-form';
 import { useLocationCrud, useLocationVersionDetail } from '../features/location/hooks';
 
@@ -15,7 +14,6 @@ export function LocationVersionEditPage(): JSX.Element {
   const crud = useLocationCrud();
 
   const [value, setValue] = useState(createDefaultLocationProfileFormValue());
-  const [versionLabel, setVersionLabel] = useState('');
   const [changeNote, setChangeNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -24,11 +22,9 @@ export function LocationVersionEditPage(): JSX.Element {
       return;
     }
 
-    const parsedName = splitLocationNameAndTag(version.locationNameSnapshot);
     setValue({
       regionId: version.location.regionId,
-      name: parsedName.name,
-      tag: parsedName.tag ?? '',
+      name: version.locationNameSnapshot,
       internalMovementDistance: version.internalMovementDistance ?? null,
       timeSlots:
         version.timeBlocks.length > 0
@@ -50,9 +46,6 @@ export function LocationVersionEditPage(): JSX.Element {
         dinner: version.mealSets[0]?.dinner ?? null,
       },
     });
-    if (isCreateMode) {
-      setVersionLabel(version.label);
-    }
   }, [isCreateMode, version]);
 
   if (loading) {
@@ -62,7 +55,7 @@ export function LocationVersionEditPage(): JSX.Element {
   if (!version || !locationId || version.locationId !== locationId) {
     return (
       <section className="grid gap-4 py-8">
-        <h1 className="text-xl font-semibold text-slate-900">variation을 찾을 수 없습니다.</h1>
+        <h1 className="text-xl font-semibold text-slate-900">버전을 찾을 수 없습니다.</h1>
         <div>
           <Button onClick={() => navigate('/locations/list')}>목록으로 이동</Button>
         </div>
@@ -85,13 +78,13 @@ export function LocationVersionEditPage(): JSX.Element {
               to={`/locations/${locationId}/versions/${version.id}/edit?mode=create`}
               className="inline-flex items-center rounded-xl bg-amber-900 px-4 py-2 text-sm text-white"
             >
-              새 variation 생성
+              새 버전 생성
             </Link>
             <Link
               to={`/locations/${locationId}/versions/${version.id}`}
               className="inline-flex items-center rounded-xl border border-amber-400 px-4 py-2 text-sm text-amber-900"
             >
-              variation 상세
+              버전 상세
             </Link>
           </div>
         </Card>
@@ -103,7 +96,7 @@ export function LocationVersionEditPage(): JSX.Element {
     <section className="grid gap-6">
       <header className="grid gap-2">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-          {isCreateMode ? `'${version.label}' 기반 새 variation 생성` : `${version.label} 수정`}
+          {isCreateMode ? `'${version.label}' 기반 새 버전 생성` : `${version.label} 수정`}
         </h1>
         <p className="text-sm text-slate-600">
           {isCreateMode ? '이전 선택한 버전을 기준으로 새버전을 생성합니다.' : '기본 버전 본문을 직접 수정합니다.'}
@@ -112,14 +105,6 @@ export function LocationVersionEditPage(): JSX.Element {
 
       {isCreateMode ? (
         <Card className="grid gap-3 rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <label className="grid gap-1 text-sm">
-            <span className="text-slate-700">버전 이름</span>
-            <Input
-              value={versionLabel}
-              onChange={(event) => setVersionLabel(event.target.value)}
-              placeholder="예: A 경유, + 삼겹살, 늦은 스타트"
-            />
-          </label>
           <label className="grid gap-1 text-sm">
             <span className="text-slate-700">변경 메모</span>
             <Input
@@ -132,23 +117,17 @@ export function LocationVersionEditPage(): JSX.Element {
       ) : null}
 
       <LocationProfileForm
-        title={isCreateMode ? '새 variation 프로필' : '기본 버전 프로필'}
-        submitLabel={isCreateMode ? '새 variation 생성' : '수정 저장'}
+        title={isCreateMode ? '새 버전 프로필' : '기본 버전 프로필'}
+        submitLabel={isCreateMode ? '새 버전 생성' : '수정 저장'}
         value={value}
         submitting={submitting}
         onSubmit={async (next) => {
           setSubmitting(true);
           try {
             if (isCreateMode) {
-              const nextLabel = versionLabel.trim();
-              if (!nextLabel) {
-                window.alert('버전 이름을 입력해주세요.');
-                return;
-              }
               const created = await crud.createVersion({
                 locationId,
                 sourceVersionId: version.id,
-                label: nextLabel,
                 changeNote: changeNote.trim() || undefined,
                 profile: {
                   internalMovementDistance: next.internalMovementDistance,
@@ -165,11 +144,7 @@ export function LocationVersionEditPage(): JSX.Element {
               return;
             }
 
-            const { tag, ...rest } = next;
-            await crud.updateProfile(locationId, {
-              ...rest,
-              name: mergeLocationNameAndTag(next.name, tag),
-            });
+            await crud.updateProfile(locationId, next);
             navigate(`/locations/${locationId}/versions/${version.id}`);
           } finally {
             setSubmitting(false);

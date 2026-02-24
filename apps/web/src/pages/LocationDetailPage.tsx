@@ -3,7 +3,6 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { useState } from 'react';
 import { LocationSubNav } from '../features/location/sub-nav';
 import { useLocationGuideCrud } from '../features/location-guide/hooks';
-import { splitLocationNameAndTag } from '../features/location/display';
 import { useLocationCrud, useLocationDetail } from '../features/location/hooks';
 
 function formatDate(value: string): string {
@@ -47,7 +46,6 @@ export function LocationDetailPage(): JSX.Element {
     );
   }
 
-  const parsedName = splitLocationNameAndTag(location.name);
   const fromSegments = segments
     .filter((segment) => segment.toLocationId === location.id)
     .map((segment) => ({
@@ -79,8 +77,7 @@ export function LocationDetailPage(): JSX.Element {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-              {parsedName.name}
-              {parsedName.tag ? <span className="ml-2 text-lg text-slate-600">({parsedName.tag})</span> : null}
+              {location.name}
             </h1>
             <p className="mt-1 text-sm text-slate-600">목적지 상세 정보</p>
           </div>
@@ -180,12 +177,12 @@ export function LocationDetailPage(): JSX.Element {
 
       <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 p-4">
-          <h2 className="text-lg font-semibold">Variation 목록</h2>
+          <h2 className="text-lg font-semibold">버전 목록</h2>
         </div>
         <Table>
           <thead>
             <tr>
-              <Th>Variation</Th>
+              <Th>버전</Th>
               <Th>변경 메모</Th>
               <Th>생성일</Th>
               <Th>상태</Th>
@@ -216,7 +213,7 @@ export function LocationDetailPage(): JSX.Element {
                         to={`/locations/${location.id}/versions/${version.id}/edit?mode=create`}
                         className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
                       >
-                        새 variation 생성
+                        새 버전 생성
                       </Link>
                       {!isDefault ? (
                         <Button

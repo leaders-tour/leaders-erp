@@ -102,7 +102,6 @@ input LocationVersionProfileInput {
 input LocationVersionCreateInput {
   locationId: String!
   sourceVersionId: String
-  label: String!
   changeNote: String
   profile: LocationVersionProfileInput
 }

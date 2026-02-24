@@ -428,7 +428,6 @@ export function useLocationCrud() {
     createVersion: async (input: {
       locationId: string;
       sourceVersionId?: string;
-      label: string;
       changeNote?: string;
       profile: LocationVersionProfileFormInput;
     }) => {
@@ -437,7 +436,6 @@ export function useLocationCrud() {
           input: {
             locationId: input.locationId,
             sourceVersionId: input.sourceVersionId,
-            label: input.label,
             changeNote: input.changeNote,
             profile: toProfileBody(input.profile),
           },

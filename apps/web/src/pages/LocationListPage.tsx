@@ -1,7 +1,7 @@
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { splitLocationNameAndTag, toFacilityLabel, toMealLabel } from '../features/location/display';
+import { toFacilityLabel, toMealLabel } from '../features/location/display';
 import { useLocationCrud } from '../features/location/hooks';
 import { LocationSubNav } from '../features/location/sub-nav';
 
@@ -78,7 +78,6 @@ export function LocationListPage(): JSX.Element {
           </thead>
           <tbody>
             {filteredRows.map((row) => {
-              const parsedName = splitLocationNameAndTag(row.name);
               return (
                 <tr
                   key={row.id}
@@ -94,10 +93,7 @@ export function LocationListPage(): JSX.Element {
                   }}
                 >
                   <Td>
-                    <div className="whitespace-pre-line">
-                      {parsedName.name}
-                      {parsedName.tag ? `\n(${parsedName.tag})` : ''}
-                    </div>
+                    <div>{row.name}</div>
                     <div className="mt-1 text-xs text-slate-500">
                       기본 버전: {row.defaultVersion ? `${row.defaultVersion.label} (v${row.defaultVersion.versionNumber})` : '-'}
                     </div>

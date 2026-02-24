@@ -16,7 +16,7 @@ export function LocationVersionDetailPage(): JSX.Element {
   if (!version || !locationId || version.locationId !== locationId) {
     return (
       <section className="grid gap-4 py-8">
-        <h1 className="text-xl font-semibold text-slate-900">variation을 찾을 수 없습니다.</h1>
+        <h1 className="text-xl font-semibold text-slate-900">버전을 찾을 수 없습니다.</h1>
         <div>
           <Button onClick={() => navigate('/locations/list')}>목록으로 이동</Button>
         </div>
@@ -49,7 +49,7 @@ export function LocationVersionDetailPage(): JSX.Element {
             to={`/locations/${locationId}/versions/${version.id}/edit?mode=create`}
             className="inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
           >
-            이 버전 기반 새 variation 생성
+            이 버전 기반 새 버전 생성
           </Link>
           {!isDefault ? (
             <Button

@@ -16,20 +16,6 @@ export function toMealLabel(value: MealOption | null | undefined): string {
   return labels[value];
 }
 
-export function splitLocationNameAndTag(name: string): { name: string; tag: string | null } {
-  const matched = name.match(/^(.*)\s+\(([^()]+)\)$/);
-  if (!matched) {
-    return { name, tag: null };
-  }
-  return { name: matched[1] ?? name, tag: matched[2] ?? null };
-}
-
-export function mergeLocationNameAndTag(name: string, tag: string): string {
-  const trimmedName = name.trim();
-  const trimmedTag = tag.trim();
-  return trimmedTag ? `${trimmedName} (${trimmedTag})` : trimmedName;
-}
-
 export function toFacilityLabel(value: FacilityAvailability | null | undefined): string {
   if (!value) {
     return '아니오';

@@ -25,7 +25,6 @@ const MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
 const DEFAULT_SLOT_TIMES = ['08:00', '12:00', '18:00'] as const;
 
 export interface LocationProfileFormValue extends LocationProfileFormInput {
-  tag: string;
 }
 
 function createSlot(startTime: string): LocationProfileFormInput['timeSlots'][number] {
@@ -51,7 +50,6 @@ export function createDefaultLocationProfileFormValue(regionId = ''): LocationPr
   return {
     regionId,
     name: '',
-    tag: '',
     internalMovementDistance: null,
     timeSlots: DEFAULT_SLOT_TIMES.map((slot) => createSlot(slot)),
     lodging: {
@@ -234,14 +232,6 @@ export function LocationProfileForm({ title, submitLabel, value, submitting, onS
                       }))
                     }
                     placeholder="1 ~ 1000"
-                  />
-                </label>
-                <label className="grid gap-1 text-sm min-w-0 md:col-span-2">
-                  <span className="text-slate-700">태그 (선택)</span>
-                  <Input
-                    value={form.tag}
-                    onChange={(event) => setForm((prev) => ({ ...prev, tag: event.target.value }))}
-                    placeholder="ex a버전, b버전, 샤슬릭포함 버전 ..."
                   />
                 </label>
               </div>

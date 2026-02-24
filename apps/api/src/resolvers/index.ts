@@ -62,4 +62,5 @@ export const resolvers = {
     activityResolver.Mutation,
     overrideResolver.Mutation,
   ),
+  Location: locationResolver.Location,
 };

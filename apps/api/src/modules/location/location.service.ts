@@ -36,7 +36,7 @@ interface VersionProfilePayload {
   locationNameSnapshot: string;
   regionNameSnapshot: string;
   versionNumber: number;
-  label: string;
+  label?: string;
   changeNote?: string;
   internalMovementDistance?: number | null;
   timeSlots: LocationProfileTimeSlotInput[];
@@ -80,7 +80,7 @@ export class LocationService {
       data: {
         locationId: payload.locationId,
         versionNumber: payload.versionNumber,
-        label: payload.label.trim(),
+        label: payload.label?.trim() || `버전 ${payload.versionNumber}`,
         changeNote: payload.changeNote?.trim() ? payload.changeNote.trim() : null,
         locationNameSnapshot: payload.locationNameSnapshot,
         regionNameSnapshot: payload.regionNameSnapshot,
@@ -307,7 +307,6 @@ export class LocationService {
         locationNameSnapshot: location.name,
         regionNameSnapshot: location.regionName,
         versionNumber,
-        label: parsed.data.label,
         changeNote: parsed.data.changeNote,
         internalMovementDistance: profile.internalMovementDistance,
         timeSlots: profile.timeSlots,

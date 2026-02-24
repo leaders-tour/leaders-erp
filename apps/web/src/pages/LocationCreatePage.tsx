@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import { LocationProfileForm, createDefaultLocationProfileFormValue } from '../features/location/profile-form';
 import { LocationSubNav } from '../features/location/sub-nav';
 import { useLocationCrud } from '../features/location/hooks';
-import { mergeLocationNameAndTag } from '../features/location/display';
 
 export function LocationCreatePage(): JSX.Element {
   const crud = useLocationCrud();
@@ -27,11 +26,7 @@ export function LocationCreatePage(): JSX.Element {
         onSubmit={async (next) => {
           setSubmitting(true);
           try {
-            const { tag, ...rest } = next;
-            await crud.createProfile({
-              ...rest,
-              name: mergeLocationNameAndTag(next.name, tag),
-            });
+            await crud.createProfile(next);
             setValue(createDefaultLocationProfileFormValue(next.regionId));
           } finally {
             setSubmitting(false);
