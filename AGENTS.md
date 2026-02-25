@@ -7,6 +7,7 @@
 1. Codex 환경에서는 `prisma migrate dev`를 사용하지 않는다.
 - 이유: non-interactive 제약 + 과거 체인 불일치 가능성.
 - 표준 명령: `pnpm --filter @tour/prisma db:deploy`
+- DB 스키마/마이그레이션을 변경한 작업은, 요청 대기 없이 작업 턴 내에 `db:deploy`까지 실행해 실제 DB 반영 상태를 확인한다.
 
 2. migration은 수동 SQL 파일 방식으로 작성한다.
 - `schema.prisma` 변경 후 새 폴더 생성:
