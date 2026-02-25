@@ -35,6 +35,7 @@ type PlanVersion {
   parentVersion: PlanVersion
   childVersions: [PlanVersion!]!
   meta: PlanVersionMeta
+  pricing: PlanVersionPricing
   planStops: [PlanStop!]!
   overrides: [Override!]!
 }
@@ -56,9 +57,70 @@ type PlanVersionMeta {
   externalPickupDropNote: String
   rentalItemsText: String!
   eventCodes: [String!]!
+  extraLodgings: [ExtraLodging!]!
   remark: String
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+type ExtraLodging {
+  dayIndex: Int!
+  lodgingCount: Int!
+}
+
+type PlanVersionPricing {
+  id: ID!
+  planVersionId: String!
+  policyId: String!
+  currencyCode: String!
+  baseAmountKrw: Int!
+  addonAmountKrw: Int!
+  totalAmountKrw: Int!
+  longDistanceSegmentCount: Int!
+  extraLodgingCount: Int!
+  lines: [PlanPricingLine!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type PlanPricingPreview {
+  policyId: String!
+  currencyCode: String!
+  baseAmountKrw: Int!
+  addonAmountKrw: Int!
+  totalAmountKrw: Int!
+  longDistanceSegmentCount: Int!
+  extraLodgingCount: Int!
+  lines: [PlanPricingLine!]!
+}
+
+type PlanPricingLine {
+  id: ID
+  lineCode: PricingLineCode!
+  sourceType: PricingLineSourceType!
+  description: String
+  ruleId: String
+  unitPriceKrw: Int
+  quantity: Int!
+  amountKrw: Int!
+}
+
+enum PricingLineCode {
+  BASE
+  BASE_UPLIFT_5PLUS_5PCT
+  BASE_UPLIFT_5PLUS_10PCT
+  LONG_DISTANCE
+  HIACE
+  EXTRA_LODGING
+  EARLY_NIGHT
+  EARLY_MORNING
+  EXTEND
+  MANUAL_ADJUSTMENT
+}
+
+enum PricingLineSourceType {
+  RULE
+  MANUAL
 }
 
 input PlanCreateInput {
@@ -74,6 +136,7 @@ input PlanVersionSeedInput {
   planStops: [PlanStopNestedInput!]!
   changeNote: String
   meta: PlanVersionMetaInput!
+  manualAdjustments: [ManualAdjustmentInput!]
 }
 
 input PlanUpdateInput {
@@ -89,6 +152,7 @@ input PlanVersionCreateInput {
   planStops: [PlanStopNestedInput!]!
   changeNote: String
   meta: PlanVersionMetaInput!
+  manualAdjustments: [ManualAdjustmentInput!]
 }
 
 input PlanVersionMetaInput {
@@ -105,7 +169,30 @@ input PlanVersionMetaInput {
   externalPickupDropNote: String
   rentalItemsText: String!
   eventCodes: [String!]!
+  extraLodgings: [ExtraLodgingInput!]!
   remark: String
+}
+
+input ExtraLodgingInput {
+  dayIndex: Int!
+  lodgingCount: Int!
+}
+
+input ManualAdjustmentInput {
+  description: String!
+  amountKrw: Int!
+}
+
+input PlanPricingPreviewInput {
+  regionId: String!
+  variantType: VariantType!
+  totalDays: Int!
+  planStops: [PlanStopNestedInput!]!
+  travelStartDate: DateTime!
+  headcountTotal: Int!
+  vehicleType: String!
+  extraLodgings: [ExtraLodgingInput!]
+  manualAdjustments: [ManualAdjustmentInput!]
 }
 
 type PlanStop {

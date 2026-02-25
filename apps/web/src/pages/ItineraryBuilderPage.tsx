@@ -109,6 +109,37 @@ interface PlanRow {
   mealCellText: string;
 }
 
+interface ExtraLodgingRow {
+  dayIndex: number;
+  lodgingCount: number;
+}
+
+interface ManualAdjustmentRow {
+  description: string;
+  amountKrw: string;
+}
+
+interface PricingLineRow {
+  lineCode: string;
+  sourceType: 'RULE' | 'MANUAL';
+  description: string | null;
+  ruleId: string | null;
+  unitPriceKrw: number | null;
+  quantity: number;
+  amountKrw: number;
+}
+
+interface PricingPreviewRow {
+  policyId: string;
+  currencyCode: string;
+  baseAmountKrw: number;
+  addonAmountKrw: number;
+  totalAmountKrw: number;
+  longDistanceSegmentCount: number;
+  extraLodgingCount: number;
+  lines: PricingLineRow[];
+}
+
 interface RouteSelection {
   locationId: string;
   locationVersionId: string;
@@ -210,11 +241,37 @@ const CREATE_PLAN_VERSION_MUTATION = gql`
   }
 `;
 
+const PLAN_PRICING_PREVIEW_QUERY = gql`
+  query PlanPricingPreviewFromBuilder($input: PlanPricingPreviewInput!) {
+    planPricingPreview(input: $input) {
+      policyId
+      currencyCode
+      baseAmountKrw
+      addonAmountKrw
+      totalAmountKrw
+      longDistanceSegmentCount
+      extraLodgingCount
+      lines {
+        lineCode
+        sourceType
+        description
+        ruleId
+        unitPriceKrw
+        quantity
+        amountKrw
+      }
+    }
+  }
+`;
+
 const VARIANTS = [
   { id: VariantType.Basic, label: '기본' },
-  { id: VariantType.Early, label: '얼리' },
   { id: VariantType.Afternoon, label: '오후' },
   { id: VariantType.Extend, label: '연장' },
+  { id: VariantType.EarlyNight, label: '얼리(00-04)' },
+  { id: VariantType.EarlyMorning, label: '얼리(04-08)' },
+  { id: VariantType.EarlyNightExtend, label: '얼리(00-04)+연장' },
+  { id: VariantType.EarlyMorningExtend, label: '얼리(04-08)+연장' },
 ];
 
 const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
@@ -245,6 +302,10 @@ function buildDefaultRentalItems(total: number): string {
 
 function formatHours(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(1)));
+}
+
+function formatKrw(value: number): string {
+  return `${new Intl.NumberFormat('ko-KR').format(value)}원`;
 }
 
 function formatLocationVersion(version: Pick<LocationVersionRow, 'label' | 'versionNumber'> | undefined): string {
@@ -352,6 +413,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [startLocationVersionId, setStartLocationVersionId] = useState<string>('');
   const [selectedRoute, setSelectedRoute] = useState<RouteSelection[]>([]);
   const [planRows, setPlanRows] = useState<PlanRow[]>([]);
+  const [extraLodgingCounts, setExtraLodgingCounts] = useState<number[]>(Array.from({ length: 6 }, () => 0));
+  const [manualAdjustments, setManualAdjustments] = useState<ManualAdjustmentRow[]>([]);
   const [createdId, setCreatedId] = useState<string>('');
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
@@ -466,6 +529,10 @@ export function ItineraryBuilderPage(): JSX.Element {
   }, [autoRows]);
 
   useEffect(() => {
+    setExtraLodgingCounts((prev) => Array.from({ length: totalDays }, (_, index) => prev[index] ?? 0));
+  }, [totalDays]);
+
+  useEffect(() => {
     const elements = document.querySelectorAll<HTMLTextAreaElement>('[data-plan-cell="true"]');
     elements.forEach((element) => autoResizeTextarea(element));
   }, [planRows]);
@@ -481,9 +548,74 @@ export function ItineraryBuilderPage(): JSX.Element {
     setPlanRows((prev) => prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
   };
 
+  const extraLodgings = useMemo<ExtraLodgingRow[]>(
+    () =>
+      extraLodgingCounts
+        .map((lodgingCount, index) => ({ dayIndex: index + 1, lodgingCount }))
+        .filter((item) => item.lodgingCount > 0),
+    [extraLodgingCounts],
+  );
+
+  const normalizedManualAdjustments = useMemo(
+    () =>
+      manualAdjustments
+        .map((item) => ({
+          description: item.description.trim(),
+          amountText: item.amountKrw.trim(),
+          amountKrw: Number(item.amountKrw),
+        }))
+        .filter((item) => item.description.length > 0 && item.amountText.length > 0)
+        .map((item) => ({ description: item.description, amountKrw: item.amountKrw })),
+    [manualAdjustments],
+  );
+
+  const hasInvalidManualAdjustments = manualAdjustments.some((item) => {
+    const description = item.description.trim();
+    const amountText = item.amountKrw.trim();
+
+    if (description.length === 0 && amountText.length === 0) {
+      return false;
+    }
+
+    return description.length === 0 || amountText.length === 0 || !Number.isInteger(Number(item.amountKrw));
+  });
+
   const headcountFemale = headcountTotal - headcountMale;
   const hasValidDateRange = Boolean(travelStartDate && travelEndDate) && travelStartDate <= travelEndDate;
   const hasValidHeadcount = headcountTotal > 0 && headcountMale >= 0 && headcountFemale >= 0 && headcountMale <= headcountTotal;
+  const hasHiaceHeadcountViolation = vehicleType === '하이에이스' && (headcountTotal < 3 || headcountTotal > 6);
+
+  const canPreviewPricing = Boolean(
+    regionId &&
+      travelStartDate &&
+      !hasInvalidManualAdjustments &&
+      !hasHiaceHeadcountViolation,
+  );
+
+  const { data: pricingPreviewData, error: pricingPreviewError } = useQuery<{ planPricingPreview: PricingPreviewRow }>(
+    PLAN_PRICING_PREVIEW_QUERY,
+    {
+      skip: !canPreviewPricing,
+      variables: {
+        input: {
+          regionId,
+          variantType,
+          totalDays,
+          planStops: planRows,
+          travelStartDate: toIsoDateTime(travelStartDate),
+          headcountTotal,
+          vehicleType,
+          extraLodgings,
+          manualAdjustments: normalizedManualAdjustments,
+        },
+      },
+    },
+  );
+
+  const pricingPreview = pricingPreviewData?.planPricingPreview ?? null;
+  const pricingPreviewErrorMessage =
+    pricingPreviewError?.graphQLErrors?.[0]?.message ?? pricingPreviewError?.message ?? '금액 미리보기 계산 중 오류가 발생했습니다.';
+  const perPersonTotal = pricingPreview && headcountTotal > 0 ? Math.round(pricingPreview.totalAmountKrw / headcountTotal) : 0;
 
   const canCreate = Boolean(
     hasValidContext &&
@@ -491,6 +623,8 @@ export function ItineraryBuilderPage(): JSX.Element {
       leaderName.trim() &&
       hasValidDateRange &&
       hasValidHeadcount &&
+      !hasHiaceHeadcountViolation &&
+      !hasInvalidManualAdjustments &&
       rentalItemsText.trim() &&
       startLocationId &&
       startLocationVersionId &&
@@ -576,9 +710,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                           externalPickupDropNote: externalPickupDropNote.trim() || undefined,
                           rentalItemsText,
                           eventCodes,
+                          extraLodgings,
                           remark: remark.trim() || undefined,
                         },
                         planStops: planRows,
+                        manualAdjustments: normalizedManualAdjustments,
                       },
                     },
                   });
@@ -615,9 +751,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                           externalPickupDropNote: externalPickupDropNote.trim() || undefined,
                           rentalItemsText,
                           eventCodes,
+                          extraLodgings,
                           remark: remark.trim() || undefined,
                         },
                         planStops: planRows,
+                        manualAdjustments: normalizedManualAdjustments,
                       },
                     },
                   },
@@ -764,17 +902,26 @@ export function ItineraryBuilderPage(): JSX.Element {
                     <button
                       key={vehicle}
                       type="button"
-                      onClick={() => setVehicleType(vehicle)}
+                      onClick={() => {
+                        if (vehicle === '하이에이스' && (headcountTotal < 3 || headcountTotal > 6)) {
+                          return;
+                        }
+                        setVehicleType(vehicle);
+                      }}
+                      disabled={vehicle === '하이에이스' && (headcountTotal < 3 || headcountTotal > 6)}
                       className={`rounded-xl border px-3 py-1.5 text-sm ${
                         vehicleType === vehicle
                           ? 'border-slate-900 bg-slate-900 text-white'
                           : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
+                      } ${vehicle === '하이에이스' && (headcountTotal < 3 || headcountTotal > 6) ? 'cursor-not-allowed opacity-40' : ''}`}
                     >
                       {vehicle}
                     </button>
                   ))}
                 </div>
+                {hasHiaceHeadcountViolation ? (
+                  <p className="text-xs text-rose-700">하이에이스는 3~6인에서만 선택 가능합니다.</p>
+                ) : null}
               </div>
 
               <div className="grid gap-2 text-sm">
@@ -960,6 +1107,88 @@ export function ItineraryBuilderPage(): JSX.Element {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <span className="text-xs text-slate-600">숙소 추가 수량(일차별)</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {Array.from({ length: totalDays }, (_, index) => (
+                    <label key={`extra-lodging-${index + 1}`} className="grid gap-1">
+                      <span className="text-xs text-slate-500">{index + 1}일차</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={extraLodgingCounts[index] ?? 0}
+                        onChange={(event) =>
+                          setExtraLodgingCounts((prev) =>
+                            prev.map((value, valueIndex) =>
+                              valueIndex === index ? Math.max(0, Number(event.target.value) || 0) : value,
+                            ),
+                          )
+                        }
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-600">기타금액(증액/할인)</span>
+                  <Button
+                    variant="outline"
+                    onClick={() => setManualAdjustments((prev) => [...prev, { description: '', amountKrw: '0' }])}
+                  >
+                    항목 추가
+                  </Button>
+                </div>
+                {manualAdjustments.length === 0 ? (
+                  <p className="text-xs text-slate-500">추가된 기타금액 항목이 없습니다.</p>
+                ) : (
+                  <div className="grid gap-2">
+                    {manualAdjustments.map((item, index) => (
+                      <div key={`manual-adjustment-${index}`} className="grid grid-cols-[1fr_140px_auto] gap-2">
+                        <input
+                          value={item.description}
+                          onChange={(event) =>
+                            setManualAdjustments((prev) =>
+                              prev.map((row, rowIndex) =>
+                                rowIndex === index ? { ...row, description: event.target.value } : row,
+                              ),
+                            )
+                          }
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                          placeholder="내용"
+                        />
+                        <input
+                          type="number"
+                          value={item.amountKrw}
+                          onChange={(event) =>
+                            setManualAdjustments((prev) =>
+                              prev.map((row, rowIndex) =>
+                                rowIndex === index ? { ...row, amountKrw: event.target.value } : row,
+                              ),
+                            )
+                          }
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                          placeholder="금액(+/-)"
+                        />
+                        <Button
+                          variant="destructive"
+                          onClick={() =>
+                            setManualAdjustments((prev) => prev.filter((_row, rowIndex) => rowIndex !== index))
+                          }
+                        >
+                          삭제
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {hasInvalidManualAdjustments ? (
+                  <p className="text-xs text-rose-700">기타금액은 내용과 정수 금액(+/-)을 함께 입력해주세요.</p>
+                ) : null}
               </div>
             </div>
           </Card>
@@ -1212,7 +1441,7 @@ export function ItineraryBuilderPage(): JSX.Element {
           </div>
         </section>
 
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
             <h2 className="font-medium">검증</h2>
             <div className="mt-3 space-y-2 text-sm">
@@ -1225,7 +1454,67 @@ export function ItineraryBuilderPage(): JSX.Element {
               )}
 
               <div className="rounded-2xl border border-slate-200 bg-white p-3">편집 행 수: {planRows.length}</div>
+              {hasHiaceHeadcountViolation ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
+                  하이에이스는 3~6인에서만 선택 가능합니다.
+                </div>
+              ) : null}
+              {hasInvalidManualAdjustments ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
+                  기타금액 항목의 내용/금액을 확인해주세요.
+                </div>
+              ) : null}
             </div>
+          </Card>
+
+          <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+            <h2 className="font-medium">자동 금액 산정</h2>
+            {pricingPreviewError ? (
+              <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+                {pricingPreviewErrorMessage}
+              </div>
+            ) : null}
+            {!pricingPreview ? (
+              <p className="mt-3 text-sm text-slate-500">요건이 충족되면 금액이 자동 계산됩니다.</p>
+            ) : (
+              <div className="mt-3 space-y-3 text-sm text-slate-700">
+                <div className="grid gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                  <div>정책: {pricingPreview.policyId}</div>
+                  <div>기본금: {formatKrw(pricingPreview.baseAmountKrw)}</div>
+                  <div>추가금: {formatKrw(pricingPreview.addonAmountKrw)}</div>
+                  <div>총금액: {formatKrw(pricingPreview.totalAmountKrw)}</div>
+                  <div>인당 총액: {formatKrw(perPersonTotal)}</div>
+                  <div>장거리 구간 수: {pricingPreview.longDistanceSegmentCount}</div>
+                  <div>숙소 추가 수량 합: {pricingPreview.extraLodgingCount}</div>
+                </div>
+
+                <div className="max-h-[220px] overflow-auto rounded-2xl border border-slate-200">
+                  <table className="min-w-full text-xs">
+                    <thead className="bg-slate-50 text-slate-600">
+                      <tr>
+                        <th className="px-2 py-2 text-left">항목</th>
+                        <th className="px-2 py-2 text-left">요율</th>
+                        <th className="px-2 py-2 text-left">곱하기</th>
+                        <th className="px-2 py-2 text-left">금액</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pricingPreview.lines.map((line, index) => (
+                        <tr key={`${line.lineCode}-${index}`} className="border-t border-slate-200">
+                          <td className="px-2 py-1.5">
+                            {line.lineCode}
+                            {line.description ? <div className="text-[11px] text-slate-500">{line.description}</div> : null}
+                          </td>
+                          <td className="px-2 py-1.5">{line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-'}</td>
+                          <td className="px-2 py-1.5">{line.quantity}</td>
+                          <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </Card>
 
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
@@ -1256,8 +1545,10 @@ export function ItineraryBuilderPage(): JSX.Element {
         externalPickupDropNote,
         rentalItemsText,
         eventCodes,
+        extraLodgings,
         remark,
       },
+      manualAdjustments: normalizedManualAdjustments,
       selectedRoute,
       planStops: planRows,
     }
@@ -1282,8 +1573,10 @@ export function ItineraryBuilderPage(): JSX.Element {
           externalPickupDropNote,
           rentalItemsText,
           eventCodes,
+          extraLodgings,
           remark,
         },
+        manualAdjustments: normalizedManualAdjustments,
         selectedRoute,
         initialVersion: {
           planStops: planRows,

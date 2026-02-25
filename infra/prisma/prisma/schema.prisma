@@ -9,9 +9,12 @@ datasource db {
 
 enum VariantType {
   basic
-  early
   afternoon
   extend
+  earlyNight
+  earlyMorning
+  earlyNightExtend
+  earlyMorningExtend
 }
 
 enum OverrideTargetType {
@@ -33,6 +36,41 @@ enum FacilityAvailability {
   YES
   LIMITED
   NO
+}
+
+enum PricingPolicyStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PricingLineCode {
+  BASE
+  BASE_UPLIFT_5PLUS_5PCT
+  BASE_UPLIFT_5PLUS_10PCT
+  LONG_DISTANCE
+  HIACE
+  EXTRA_LODGING
+  EARLY_NIGHT
+  EARLY_MORNING
+  EXTEND
+  MANUAL_ADJUSTMENT
+}
+
+enum PricingCalcType {
+  AMOUNT
+  PERCENT_OF_LINE
+}
+
+enum PricingQuantitySource {
+  ONE
+  TOTAL_DAYS
+  LONG_DISTANCE_SEGMENT_COUNT
+  SUM_EXTRA_LODGING_COUNTS
+}
+
+enum PricingLineSourceType {
+  RULE
+  MANUAL
 }
 
 model User {
@@ -133,7 +171,6 @@ model SafetyNotice {
   id        String @id @default(uuid(7))
   title     String
   contentMd String @db.Text
-  imageUrls Json?
 
   locationVersionLinks LocationVersionSafetyNotice[]
 
@@ -167,6 +204,7 @@ model Segment {
   toLocationId       String
   averageDistanceKm  Float
   averageTravelHours Float
+  isLongDistance     Boolean @default(false)
 
   region       Region   @relation(fields: [regionId], references: [id], onDelete: Cascade)
   fromLocation Location @relation("FromLocation", fields: [fromLocationId], references: [id])
@@ -213,6 +251,7 @@ model PlanVersion {
   childVersions PlanVersion[] @relation("PlanVersionParentChild")
   planAsCurrent Plan[]        @relation("CurrentPlanVersion")
   meta          PlanVersionMeta?
+  pricing       PlanVersionPricing?
   planStops     PlanStop[]
   overrides     Override[]
 
@@ -241,6 +280,7 @@ model PlanVersionMeta {
   externalPickupDropNote String?
   rentalItemsText        String   @db.Text
   eventCodes             Json
+  extraLodgings          Json
   remark                 String?  @db.Text
 
   planVersion PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
@@ -249,6 +289,93 @@ model PlanVersionMeta {
   updatedAt DateTime @updatedAt
 
   @@index([travelStartDate])
+}
+
+model PricingPolicy {
+  id            String              @id @default(uuid(7))
+  code          String              @unique
+  name          String
+  status        PricingPolicyStatus @default(ACTIVE)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  priority      Int                 @default(0)
+
+  rules               PricingRule[]
+  planVersionPricings PlanVersionPricing[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, effectiveFrom, effectiveTo])
+  @@index([priority])
+}
+
+model PricingRule {
+  id             String               @id @default(uuid(7))
+  policyId       String
+  lineCode       PricingLineCode
+  calcType       PricingCalcType
+  targetLineCode PricingLineCode?
+  amountKrw      Int?
+  percentBps     Int?
+  quantitySource PricingQuantitySource
+  headcountMin   Int?
+  headcountMax   Int?
+  dayMin         Int?
+  dayMax         Int?
+  vehicleType    String?
+  variantTypes   Json?
+  isEnabled      Boolean              @default(true)
+  sortOrder      Int                  @default(0)
+
+  policy                  PricingPolicy           @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  planVersionPricingLines PlanVersionPricingLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([policyId, lineCode, isEnabled, sortOrder])
+}
+
+model PlanVersionPricing {
+  id             String @id @default(uuid(7))
+  planVersionId  String @unique
+  policyId       String
+  currencyCode   String @default("KRW")
+  baseAmountKrw  Int
+  addonAmountKrw Int
+  totalAmountKrw Int
+  inputSnapshot  Json
+
+  planVersion PlanVersion            @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+  policy      PricingPolicy          @relation(fields: [policyId], references: [id])
+  lines       PlanVersionPricingLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([policyId])
+}
+
+model PlanVersionPricingLine {
+  id                   String                @id @default(uuid(7))
+  planVersionPricingId String
+  lineCode             PricingLineCode
+  sourceType           PricingLineSourceType
+  ruleId               String?
+  description          String?
+  unitPriceKrw         Int?
+  quantity             Int
+  amountKrw            Int
+  meta                 Json?
+
+  planVersionPricing PlanVersionPricing @relation(fields: [planVersionPricingId], references: [id], onDelete: Cascade)
+  rule               PricingRule?       @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([planVersionPricingId])
+  @@index([ruleId])
 }
 
 model PlanStop {
