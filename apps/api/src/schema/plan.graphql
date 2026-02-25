@@ -141,6 +141,7 @@ input PlanVersionSeedInput {
   changeNote: String
   meta: PlanVersionMetaInput!
   manualAdjustments: [ManualAdjustmentInput!]
+  manualDepositAmountKrw: Int
 }
 
 input PlanUpdateInput {
@@ -157,6 +158,7 @@ input PlanVersionCreateInput {
   changeNote: String
   meta: PlanVersionMetaInput!
   manualAdjustments: [ManualAdjustmentInput!]
+  manualDepositAmountKrw: Int
 }
 
 input PlanVersionMetaInput {
@@ -197,6 +199,7 @@ input PlanPricingPreviewInput {
   vehicleType: String!
   extraLodgings: [ExtraLodgingInput!]
   manualAdjustments: [ManualAdjustmentInput!]
+  manualDepositAmountKrw: Int
 }
 
 type PlanStop {

@@ -214,7 +214,7 @@ export class PricingService {
     const baseAmountKrw = baseRawAmount + baseUpliftAmount;
     const totalAmountKrw = lines.reduce((sum, line) => sum + line.amountKrw, 0);
     const addonAmountKrw = totalAmountKrw - baseAmountKrw;
-    const { depositAmountKrw, balanceAmountKrw } = this.computeDepositAndBalance(totalAmountKrw);
+    const { depositAmountKrw, balanceAmountKrw } = this.computeDepositAndBalance(totalAmountKrw, input.manualDepositAmountKrw);
 
     return {
       policyId: policy.id,
@@ -238,6 +238,7 @@ export class PricingService {
         extraLodgingCount,
         extraLodgings: input.extraLodgings,
         manualAdjustments: input.manualAdjustments,
+        manualDepositAmountKrw: input.manualDepositAmountKrw ?? null,
       },
     };
   }
@@ -275,7 +276,27 @@ export class PricingService {
     return variantType === 'extend' || variantType === 'earlyNightExtend' || variantType === 'earlyMorningExtend';
   }
 
-  private computeDepositAndBalance(totalAmountKrw: number): { depositAmountKrw: number; balanceAmountKrw: number } {
+  private computeDepositAndBalance(
+    totalAmountKrw: number,
+    manualDepositAmountKrw?: number,
+  ): { depositAmountKrw: number; balanceAmountKrw: number } {
+    if (manualDepositAmountKrw !== undefined) {
+      if (!Number.isInteger(manualDepositAmountKrw)) {
+        throw new DomainError('VALIDATION_FAILED', 'manualDepositAmountKrw must be an integer');
+      }
+      if (manualDepositAmountKrw < 0) {
+        throw new DomainError('VALIDATION_FAILED', 'manualDepositAmountKrw must be greater than or equal to 0');
+      }
+      if (manualDepositAmountKrw > totalAmountKrw) {
+        throw new DomainError('VALIDATION_FAILED', 'manualDepositAmountKrw must be less than or equal to totalAmountKrw');
+      }
+
+      return {
+        depositAmountKrw: manualDepositAmountKrw,
+        balanceAmountKrw: totalAmountKrw - manualDepositAmountKrw,
+      };
+    }
+
     const tenPercent = Math.round(totalAmountKrw * 0.1);
     const rawBalance = totalAmountKrw - tenPercent;
     const balanceSubTenThousand = rawBalance % 10_000;

@@ -431,6 +431,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [planRows, setPlanRows] = useState<PlanRow[]>([]);
   const [extraLodgingCounts, setExtraLodgingCounts] = useState<number[]>(Array.from({ length: 6 }, () => 0));
   const [manualAdjustments, setManualAdjustments] = useState<ManualAdjustmentRow[]>([]);
+  const [manualDepositInput, setManualDepositInput] = useState<string>('');
+  const [hasEditedManualDeposit, setHasEditedManualDeposit] = useState<boolean>(false);
   const [createdId, setCreatedId] = useState<string>('');
   const [hasEditedLeaderName, setHasEditedLeaderName] = useState<boolean>(false);
   const [isValidationOpen, setIsValidationOpen] = useState<boolean>(false);
@@ -611,6 +613,30 @@ export function ItineraryBuilderPage(): JSX.Element {
     return description.length === 0 || amountText.length === 0 || !Number.isInteger(Number(item.amountKrw));
   });
 
+  const normalizedManualDepositAmountKrw = useMemo(() => {
+    const text = manualDepositInput.trim();
+    if (text.length === 0) {
+      return undefined;
+    }
+
+    const value = Number(text);
+    if (!Number.isInteger(value) || value < 0) {
+      return undefined;
+    }
+
+    return value;
+  }, [manualDepositInput]);
+
+  const hasInvalidManualDepositInput = useMemo(() => {
+    const text = manualDepositInput.trim();
+    if (text.length === 0) {
+      return false;
+    }
+
+    const value = Number(text);
+    return !Number.isInteger(value) || value < 0;
+  }, [manualDepositInput]);
+
   const headcountFemale = headcountTotal - headcountMale;
   const hasValidDateRange = Boolean(travelStartDate && travelEndDate) && travelStartDate <= travelEndDate;
   const hasValidHeadcount = headcountTotal > 0 && headcountMale >= 0 && headcountFemale >= 0 && headcountMale <= headcountTotal;
@@ -623,7 +649,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       !hasHiaceHeadcountViolation,
   );
 
-  const { data: pricingPreviewData, error: pricingPreviewError } = useQuery<{ planPricingPreview: PricingPreviewRow }>(
+  const { data: pricingPreviewData, previousData: pricingPreviewPreviousData, error: pricingPreviewError } = useQuery<{ planPricingPreview: PricingPreviewRow }>(
     PLAN_PRICING_PREVIEW_QUERY,
     {
       skip: !canPreviewPricing,
@@ -638,12 +664,13 @@ export function ItineraryBuilderPage(): JSX.Element {
           vehicleType,
           extraLodgings,
           manualAdjustments: normalizedManualAdjustments,
+          manualDepositAmountKrw: normalizedManualDepositAmountKrw,
         },
       },
     },
   );
 
-  const pricingPreview = pricingPreviewData?.planPricingPreview ?? null;
+  const pricingPreview = pricingPreviewData?.planPricingPreview ?? pricingPreviewPreviousData?.planPricingPreview ?? null;
   const pricingBuckets = useMemo(
     () =>
       pricingPreview
@@ -654,6 +681,13 @@ export function ItineraryBuilderPage(): JSX.Element {
   const pricingPreviewErrorMessage =
     pricingPreviewError?.graphQLErrors?.[0]?.message ?? pricingPreviewError?.message ?? '금액 미리보기 계산 중 오류가 발생했습니다.';
 
+  useEffect(() => {
+    if (!pricingPreview || hasEditedManualDeposit || manualDepositInput.trim().length > 0) {
+      return;
+    }
+    setManualDepositInput(String(pricingPreview.depositAmountKrw));
+  }, [hasEditedManualDeposit, manualDepositInput, pricingPreview]);
+
   const canCreate = Boolean(
     hasValidContext &&
       regionId &&
@@ -662,6 +696,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       hasValidHeadcount &&
       !hasHiaceHeadcountViolation &&
       !hasInvalidManualAdjustments &&
+      !hasInvalidManualDepositInput &&
       rentalItemsText.trim() &&
       startLocationId &&
       startLocationVersionId &&
@@ -752,6 +787,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                         },
                         planStops: planRows,
                         manualAdjustments: normalizedManualAdjustments,
+                        manualDepositAmountKrw: normalizedManualDepositAmountKrw,
                       },
                     },
                   });
@@ -793,6 +829,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                         },
                         planStops: planRows,
                         manualAdjustments: normalizedManualAdjustments,
+                        manualDepositAmountKrw: normalizedManualDepositAmountKrw,
                       },
                     },
                   },
@@ -1576,9 +1613,27 @@ export function ItineraryBuilderPage(): JSX.Element {
                       </div>
 
                       <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                        <div className="font-medium text-slate-900">예약금/잔금</div>
-                        <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
-                          <table className="min-w-full text-xs">
+                          <div className="font-medium text-slate-900">예약금/잔금</div>
+                          <div className="mt-2 grid gap-1 text-xs text-slate-600">
+                            <span>예약금 직접수정</span>
+                            <input
+                              type="number"
+                              min={0}
+                              step={1}
+                              value={manualDepositInput}
+                              onChange={(event) => {
+                                setHasEditedManualDeposit(true);
+                                setManualDepositInput(event.target.value);
+                              }}
+                              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs"
+                              placeholder="자동 계산값 사용 시 비워두기"
+                            />
+                            {hasInvalidManualDepositInput ? (
+                              <p className="text-rose-600">예약금은 0 이상의 정수만 입력 가능합니다.</p>
+                            ) : null}
+                          </div>
+                          <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
+                            <table className="min-w-full text-xs">
                             <thead className="bg-slate-50 text-slate-600">
                               <tr>
                                 <th className="px-2 py-2 text-left">항목</th>
@@ -1683,6 +1738,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                     기타금액 항목의 내용/금액을 확인해주세요.
                   </div>
                 ) : null}
+                {hasInvalidManualDepositInput ? (
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
+                    예약금 수동 입력값을 확인해주세요.
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </Card>
@@ -1733,6 +1793,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         remark,
       },
       manualAdjustments: normalizedManualAdjustments,
+      manualDepositAmountKrw: normalizedManualDepositAmountKrw,
       selectedRoute,
       planStops: planRows,
     }
@@ -1761,6 +1822,7 @@ export function ItineraryBuilderPage(): JSX.Element {
           remark,
         },
         manualAdjustments: normalizedManualAdjustments,
+        manualDepositAmountKrw: normalizedManualDepositAmountKrw,
         selectedRoute,
         initialVersion: {
           planStops: planRows,

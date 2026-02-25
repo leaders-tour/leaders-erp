@@ -29,6 +29,8 @@ export const manualAdjustmentInputSchema = z.object({
   amountKrw: z.number().int().min(-1_000_000_000).max(1_000_000_000),
 });
 
+const manualDepositInputSchema = z.number().int().min(0).max(1_000_000_000);
+
 export const planVersionMetaInputSchema = z
   .object({
     leaderName: z.string().min(1).max(100),
@@ -94,6 +96,7 @@ const planVersionSeedSchema = z
     changeNote: z.string().max(1000).optional(),
     meta: planVersionMetaInputSchema,
     manualAdjustments: z.array(manualAdjustmentInputSchema).default([]),
+    manualDepositAmountKrw: manualDepositInputSchema.optional(),
   })
   .superRefine((value, ctx) => {
     value.meta.extraLodgings.forEach((item, index) => {
@@ -129,6 +132,7 @@ export const planVersionCreateSchema = z
     changeNote: z.string().max(1000).optional(),
     meta: planVersionMetaInputSchema,
     manualAdjustments: z.array(manualAdjustmentInputSchema).default([]),
+    manualDepositAmountKrw: manualDepositInputSchema.optional(),
   })
   .superRefine((value, ctx) => {
     value.meta.extraLodgings.forEach((item, index) => {
@@ -153,6 +157,7 @@ export const planPricingPreviewSchema = z
     vehicleType: z.enum(vehicleTypes),
     extraLodgings: z.array(extraLodgingInputSchema).default([]),
     manualAdjustments: z.array(manualAdjustmentInputSchema).default([]),
+    manualDepositAmountKrw: manualDepositInputSchema.optional(),
   })
   .superRefine((value, ctx) => {
     const seenDayIndexes = new Set<number>();

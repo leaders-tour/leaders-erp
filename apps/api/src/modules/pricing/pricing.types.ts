@@ -25,6 +25,7 @@ export interface PricingComputeInput {
   vehicleType: string;
   extraLodgings: ExtraLodgingInputDto[];
   manualAdjustments: ManualAdjustmentInputDto[];
+  manualDepositAmountKrw?: number;
 }
 
 export interface PricingComputedLine {

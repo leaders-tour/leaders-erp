@@ -196,6 +196,7 @@ export class PlanService {
         vehicleType: parsed.data.initialVersion.meta.vehicleType,
         extraLodgings: parsed.data.initialVersion.meta.extraLodgings,
         manualAdjustments: parsed.data.initialVersion.manualAdjustments,
+        manualDepositAmountKrw: parsed.data.initialVersion.manualDepositAmountKrw,
       });
 
       const documentNumber = await this.generateDocumentNumber(parsed.data.initialVersion.meta.travelStartDate);
@@ -275,6 +276,7 @@ export class PlanService {
         vehicleType: parsed.data.meta.vehicleType,
         extraLodgings: parsed.data.meta.extraLodgings,
         manualAdjustments: parsed.data.manualAdjustments,
+        manualDepositAmountKrw: parsed.data.manualDepositAmountKrw,
       });
 
       const repository = new PlanRepository(tx);
