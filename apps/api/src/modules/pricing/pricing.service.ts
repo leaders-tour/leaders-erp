@@ -24,6 +24,7 @@ type ComputeContext = {
 };
 
 const HIACE = '하이에이스';
+const LONG_DISTANCE_BASE_POOL_KRW = 320_000;
 
 export class PricingService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -128,18 +129,20 @@ export class PricingService {
     }
 
     if (context.longDistanceSegmentCount > 0) {
-      const longDistanceRule = this.findRequiredAmountRule(rules, 'LONG_DISTANCE', context);
-      const unitPrice = this.ensureAmount(longDistanceRule);
-      const quantity = this.resolveQuantity(longDistanceRule.quantitySource, context);
+      const unitPrice = Math.ceil((LONG_DISTANCE_BASE_POOL_KRW / context.headcountTotal) / 1000) * 1000;
+      const quantity = context.longDistanceSegmentCount;
       lines.push({
         lineCode: 'LONG_DISTANCE',
         sourceType: 'RULE',
-        ruleId: longDistanceRule.id,
+        ruleId: null,
         description: null,
         unitPriceKrw: unitPrice,
         quantity,
         amountKrw: unitPrice * quantity,
-        meta: { longDistanceSegmentCount: context.longDistanceSegmentCount },
+        meta: {
+          longDistanceSegmentCount: context.longDistanceSegmentCount,
+          basePoolKrw: LONG_DISTANCE_BASE_POOL_KRW,
+        },
       });
     }
 
