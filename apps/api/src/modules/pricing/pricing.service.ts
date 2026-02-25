@@ -147,22 +147,25 @@ export class PricingService {
     }
 
     if (context.vehicleType === HIACE) {
-      if (context.headcountTotal < 3 || context.headcountTotal > 6) {
-        throw new DomainError('VALIDATION_FAILED', '하이에이스 차량은 3~6인에서만 선택할 수 있습니다.');
+      if (context.headcountTotal < 3) {
+        throw new DomainError('VALIDATION_FAILED', '하이에이스 차량은 3인 이상부터 선택할 수 있습니다.');
       }
-      const hiaceRule = this.findRequiredAmountRule(rules, 'HIACE', context);
-      const unitPrice = this.ensureAmount(hiaceRule);
-      const quantity = this.resolveQuantity(hiaceRule.quantitySource, context);
-      lines.push({
-        lineCode: 'HIACE',
-        sourceType: 'RULE',
-        ruleId: hiaceRule.id,
-        description: null,
-        unitPriceKrw: unitPrice,
-        quantity,
-        amountKrw: unitPrice * quantity,
-        meta: null,
-      });
+
+      if (context.headcountTotal <= 6) {
+        const hiaceRule = this.findRequiredAmountRule(rules, 'HIACE', context);
+        const unitPrice = this.ensureAmount(hiaceRule);
+        const quantity = this.resolveQuantity(hiaceRule.quantitySource, context);
+        lines.push({
+          lineCode: 'HIACE',
+          sourceType: 'RULE',
+          ruleId: hiaceRule.id,
+          description: null,
+          unitPriceKrw: unitPrice,
+          quantity,
+          amountKrw: unitPrice * quantity,
+          meta: null,
+        });
+      }
     }
 
     if (context.extraLodgingCount > 0) {

@@ -607,7 +607,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const headcountFemale = headcountTotal - headcountMale;
   const hasValidDateRange = Boolean(travelStartDate && travelEndDate) && travelStartDate <= travelEndDate;
   const hasValidHeadcount = headcountTotal > 0 && headcountMale >= 0 && headcountFemale >= 0 && headcountMale <= headcountTotal;
-  const hasHiaceHeadcountViolation = vehicleType === '하이에이스' && (headcountTotal < 3 || headcountTotal > 6);
+  const hasHiaceHeadcountViolation = vehicleType === '하이에이스' && headcountTotal < 3;
 
   const canPreviewPricing = Boolean(
     regionId &&
@@ -992,24 +992,24 @@ export function ItineraryBuilderPage(): JSX.Element {
                       key={vehicle}
                       type="button"
                       onClick={() => {
-                        if (vehicle === '하이에이스' && (headcountTotal < 3 || headcountTotal > 6)) {
+                        if (vehicle === '하이에이스' && headcountTotal < 3) {
                           return;
                         }
                         setVehicleType(vehicle);
                       }}
-                      disabled={vehicle === '하이에이스' && (headcountTotal < 3 || headcountTotal > 6)}
+                      disabled={vehicle === '하이에이스' && headcountTotal < 3}
                       className={`rounded-xl border px-3 py-1.5 text-sm ${
                         vehicleType === vehicle
                           ? 'border-slate-900 bg-slate-900 text-white'
                           : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      } ${vehicle === '하이에이스' && (headcountTotal < 3 || headcountTotal > 6) ? 'cursor-not-allowed opacity-40' : ''}`}
+                      } ${vehicle === '하이에이스' && headcountTotal < 3 ? 'cursor-not-allowed opacity-40' : ''}`}
                     >
                       {vehicle}
                     </button>
                   ))}
                 </div>
                 {hasHiaceHeadcountViolation ? (
-                  <p className="text-xs text-rose-700">하이에이스는 3~6인에서만 선택 가능합니다.</p>
+                  <p className="text-xs text-rose-700">하이에이스는 3인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.</p>
                 ) : null}
               </div>
 
@@ -1495,7 +1495,7 @@ export function ItineraryBuilderPage(): JSX.Element {
               <div className="rounded-2xl border border-slate-200 bg-white p-3">편집 행 수: {planRows.length}</div>
               {hasHiaceHeadcountViolation ? (
                 <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
-                  하이에이스는 3~6인에서만 선택 가능합니다.
+                  하이에이스는 3인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.
                 </div>
               ) : null}
               {hasInvalidManualAdjustments ? (
