@@ -64,6 +64,8 @@ export interface PlanVersionPricingRow {
   baseAmountKrw: number;
   addonAmountKrw: number;
   totalAmountKrw: number;
+  depositAmountKrw: number;
+  balanceAmountKrw: number;
   longDistanceSegmentCount: number;
   extraLodgingCount: number;
   lines: PlanPricingLineRow[];
@@ -295,6 +297,8 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         baseAmountKrw
         addonAmountKrw
         totalAmountKrw
+        depositAmountKrw
+        balanceAmountKrw
         longDistanceSegmentCount
         extraLodgingCount
         createdAt

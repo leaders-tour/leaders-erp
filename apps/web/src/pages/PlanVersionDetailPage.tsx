@@ -185,6 +185,30 @@ export function PlanVersionDetailPage(): JSX.Element {
                     </div>
                   )}
                 </div>
+
+                <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="font-medium text-slate-900">예약금/잔금</div>
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="min-w-full border-collapse text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-slate-600">
+                          <th className="py-2 pr-3">항목</th>
+                          <th className="py-2">금액</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-slate-100">
+                          <td className="py-2 pr-3">예약금</td>
+                          <td className="py-2">{formatKrw(version.pricing.depositAmountKrw)}</td>
+                        </tr>
+                        <tr className="border-b border-slate-100">
+                          <td className="py-2 pr-3">잔금</td>
+                          <td className="py-2">{formatKrw(version.pricing.balanceAmountKrw)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
 
               <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3">
@@ -215,6 +239,8 @@ export function PlanVersionDetailPage(): JSX.Element {
                     </div>
                   )}
                   <div className="font-semibold">총합: {formatKrw(pricingBuckets.grandTotal)}</div>
+                  <div>예약금: {formatKrw(version.pricing.depositAmountKrw)}</div>
+                  <div>잔금: {formatKrw(version.pricing.balanceAmountKrw)}</div>
                 </div>
               </div>
             </div>

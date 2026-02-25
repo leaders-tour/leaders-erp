@@ -313,6 +313,8 @@ model PlanVersionPricing {
   baseAmountKrw  Int
   addonAmountKrw Int
   totalAmountKrw Int
+  depositAmountKrw Int
+  balanceAmountKrw Int
   inputSnapshot  Json
 
   planVersion PlanVersion            @relation(fields: [planVersionId], references: [id], onDelete: Cascade)

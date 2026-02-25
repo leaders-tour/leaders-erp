@@ -44,6 +44,8 @@ export interface PricingComputationResult {
   baseAmountKrw: number;
   addonAmountKrw: number;
   totalAmountKrw: number;
+  depositAmountKrw: number;
+  balanceAmountKrw: number;
   longDistanceSegmentCount: number;
   extraLodgingCount: number;
   lines: PricingComputedLine[];

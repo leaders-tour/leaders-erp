@@ -76,6 +76,8 @@ type PlanVersionPricing {
   baseAmountKrw: Int!
   addonAmountKrw: Int!
   totalAmountKrw: Int!
+  depositAmountKrw: Int!
+  balanceAmountKrw: Int!
   longDistanceSegmentCount: Int!
   extraLodgingCount: Int!
   lines: [PlanPricingLine!]!
@@ -89,6 +91,8 @@ type PlanPricingPreview {
   baseAmountKrw: Int!
   addonAmountKrw: Int!
   totalAmountKrw: Int!
+  depositAmountKrw: Int!
+  balanceAmountKrw: Int!
   longDistanceSegmentCount: Int!
   extraLodgingCount: Int!
   lines: [PlanPricingLine!]!

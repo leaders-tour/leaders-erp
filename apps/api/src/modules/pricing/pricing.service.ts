@@ -50,6 +50,8 @@ export class PricingService {
         baseAmountKrw: result.baseAmountKrw,
         addonAmountKrw: result.addonAmountKrw,
         totalAmountKrw: result.totalAmountKrw,
+        depositAmountKrw: result.depositAmountKrw,
+        balanceAmountKrw: result.balanceAmountKrw,
         inputSnapshot: result.inputSnapshot as Prisma.InputJsonValue,
         lines: {
           create: result.lines.map((line) => ({
@@ -212,6 +214,7 @@ export class PricingService {
     const baseAmountKrw = baseRawAmount + baseUpliftAmount;
     const totalAmountKrw = lines.reduce((sum, line) => sum + line.amountKrw, 0);
     const addonAmountKrw = totalAmountKrw - baseAmountKrw;
+    const { depositAmountKrw, balanceAmountKrw } = this.computeDepositAndBalance(totalAmountKrw);
 
     return {
       policyId: policy.id,
@@ -219,6 +222,8 @@ export class PricingService {
       baseAmountKrw,
       addonAmountKrw,
       totalAmountKrw,
+      depositAmountKrw,
+      balanceAmountKrw,
       longDistanceSegmentCount,
       extraLodgingCount,
       lines,
@@ -268,6 +273,17 @@ export class PricingService {
 
   private shouldApplyExtend(variantType: VariantType): boolean {
     return variantType === 'extend' || variantType === 'earlyNightExtend' || variantType === 'earlyMorningExtend';
+  }
+
+  private computeDepositAndBalance(totalAmountKrw: number): { depositAmountKrw: number; balanceAmountKrw: number } {
+    const tenPercent = Math.round(totalAmountKrw * 0.1);
+    const rawBalance = totalAmountKrw - tenPercent;
+    const balanceSubTenThousand = rawBalance % 10_000;
+    const rawDeposit = tenPercent + balanceSubTenThousand;
+    const depositAmountKrw = Math.min(rawDeposit, totalAmountKrw);
+    const balanceAmountKrw = totalAmountKrw - depositAmountKrw;
+
+    return { depositAmountKrw, balanceAmountKrw };
   }
 
   private ensureAmount(rule: PricingRule): number {
