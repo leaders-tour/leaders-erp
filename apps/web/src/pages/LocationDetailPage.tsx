@@ -97,7 +97,6 @@ export function LocationDetailPage(): JSX.Element {
         <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
           <div>지역: {location.regionName}</div>
           <div>기본 버전: {formatVersionLabel(location.defaultVersion)}</div>
-          <div>내부 이동 거리: {location.internalMovementDistance ?? '-'} </div>
           <div>생성일: {formatDate(String(location.createdAt))}</div>
           <div>수정일: {formatDate(String(location.updatedAt))}</div>
         </div>

@@ -74,14 +74,8 @@ export const locationResolver = {
     variations: (parent: any) => parent.versions ?? [],
     defaultLodgingType: (parent: any) =>
       parent.currentVersion?.defaultLodgingType ?? parent.defaultLodgingType,
-    internalMovementDistance: (parent: any) =>
-      parent.currentVersion?.internalMovementDistance ?? parent.internalMovementDistance,
     timeBlocks: (parent: any) => parent.currentVersion?.timeBlocks ?? parent.timeBlocks ?? [],
     lodgings: (parent: any) => parent.currentVersion?.lodgings ?? parent.lodgings ?? [],
     mealSets: (parent: any) => parent.currentVersion?.mealSets ?? parent.mealSets ?? [],
-  },
-  LocationVersion: {
-    safetyNotices: (parent: any) =>
-      (parent.safetyNoticeLinks ?? []).map((link: any) => link.safetyNotice).filter(Boolean),
   },
 };

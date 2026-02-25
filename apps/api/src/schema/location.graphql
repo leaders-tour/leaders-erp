@@ -5,7 +5,6 @@ type Location {
   name: String!
   defaultVersionId: String
   defaultLodgingType: String!
-  internalMovementDistance: Int
   latitude: Float
   longitude: Float
   createdAt: DateTime!
@@ -27,7 +26,6 @@ type LocationVersion {
   changeNote: String
   locationNameSnapshot: String!
   regionNameSnapshot: String!
-  internalMovementDistance: Int
   defaultLodgingType: String!
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -35,14 +33,12 @@ type LocationVersion {
   timeBlocks: [TimeBlock!]!
   lodgings: [Lodging!]!
   mealSets: [MealSet!]!
-  safetyNotices: [SafetyNotice!]!
 }
 
 input LocationCreateInput {
   regionId: String!
   name: String!
   defaultLodgingType: String!
-  internalMovementDistance: Int
   latitude: Float
   longitude: Float
 }
@@ -51,7 +47,6 @@ input LocationUpdateInput {
   regionId: String
   name: String
   defaultLodgingType: String
-  internalMovementDistance: Int
   latitude: Float
   longitude: Float
 }
@@ -78,25 +73,20 @@ input LocationProfileMealsInput {
 input LocationProfileCreateInput {
   regionId: String!
   name: String!
-  internalMovementDistance: Int
   timeSlots: [LocationProfileTimeSlotInput!]!
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
-  safetyNoticeIds: [ID!]!
 }
 
 input LocationProfileUpdateInput {
   regionId: String!
   name: String!
-  internalMovementDistance: Int
   timeSlots: [LocationProfileTimeSlotInput!]!
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
-  safetyNoticeIds: [ID!]!
 }
 
 input LocationVersionProfileInput {
-  internalMovementDistance: Int
   timeSlots: [LocationProfileTimeSlotInput!]!
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
@@ -108,5 +98,4 @@ input LocationVersionCreateInput {
   label: String!
   changeNote: String
   profile: LocationVersionProfileInput
-  safetyNoticeIds: [ID!]
 }

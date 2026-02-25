@@ -6,7 +6,6 @@ export const locationCreateSchema = z.object({
   regionId: z.string().min(1),
   name: z.string().min(1).max(100),
   defaultLodgingType: z.string().min(1).max(100),
-  internalMovementDistance: z.number().int().min(1).max(1000).nullable().optional(),
   latitude: z.number().min(-90).max(90).nullable().optional(),
   longitude: z.number().min(-180).max(180).nullable().optional(),
 });
@@ -32,27 +31,17 @@ const locationProfileMealsSchema = z.object({
   dinner: z.nativeEnum(MealOption).nullable().optional(),
 });
 
-const safetyNoticeIdsSchema = z
-  .array(z.string().min(1))
-  .max(50)
-  .refine((ids) => new Set(ids).size === ids.length, {
-    message: 'safetyNoticeIds must be unique',
-  });
-
 export const locationProfileCreateSchema = z.object({
   regionId: z.string().min(1),
   name: z.string().min(1).max(100),
-  internalMovementDistance: z.number().int().min(1).max(1000).nullable().optional(),
   timeSlots: z.array(locationProfileTimeSlotSchema).min(1).max(24),
   lodging: locationProfileLodgingSchema,
   meals: locationProfileMealsSchema,
-  safetyNoticeIds: safetyNoticeIdsSchema,
 });
 
 export const locationProfileUpdateSchema = locationProfileCreateSchema;
 
 export const locationVersionProfileSchema = z.object({
-  internalMovementDistance: z.number().int().min(1).max(1000).nullable().optional(),
   timeSlots: z.array(locationProfileTimeSlotSchema).min(1).max(24),
   lodging: locationProfileLodgingSchema,
   meals: locationProfileMealsSchema,
@@ -64,7 +53,6 @@ export const locationVersionCreateSchema = z.object({
   label: z.string().min(1).max(100),
   changeNote: z.string().max(1000).optional(),
   profile: locationVersionProfileSchema.optional(),
-  safetyNoticeIds: safetyNoticeIdsSchema.optional(),
 });
 
 export type LocationCreateInput = z.infer<typeof locationCreateSchema>;

@@ -80,7 +80,6 @@ export function LocationVersionDetailPage(): JSX.Element {
         <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
           <div>버전: {versionDisplay}</div>
           <div>지역 스냅샷: {version.regionNameSnapshot}</div>
-          <div>내부 이동 거리: {version.internalMovementDistance ?? '-'}</div>
         </div>
       </Card>
 
@@ -120,21 +119,6 @@ export function LocationVersionDetailPage(): JSX.Element {
         </Card>
       </div>
 
-      <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold">주의사항</h2>
-        {version.safetyNotices.length === 0 ? (
-          <p className="text-sm text-slate-500">연결된 주의사항이 없습니다.</p>
-        ) : (
-          <div className="grid gap-4">
-            {version.safetyNotices.map((notice) => (
-              <div key={notice.id} className="rounded-xl border border-slate-200 p-3">
-                <h3 className="text-sm font-semibold text-slate-900">{notice.title}</h3>
-                <pre className="mt-2 whitespace-pre-wrap text-xs text-slate-600">{notice.contentMd}</pre>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
     </section>
   );
 }

@@ -95,7 +95,6 @@ const DETAIL = gql`
       regionName
       name
       defaultVersionId
-      internalMovementDistance
       createdAt
       updatedAt
       defaultVersion {
@@ -111,7 +110,6 @@ const DETAIL = gql`
         changeNote
         locationNameSnapshot
         regionNameSnapshot
-        internalMovementDistance
         defaultLodgingType
         createdAt
         updatedAt
@@ -167,7 +165,6 @@ const VERSION_DETAIL = gql`
       changeNote
       locationNameSnapshot
       regionNameSnapshot
-      internalMovementDistance
       defaultLodgingType
       createdAt
       updatedAt
@@ -201,11 +198,6 @@ const VERSION_DETAIL = gql`
         lunch
         dinner
       }
-      safetyNotices {
-        id
-        title
-        contentMd
-      }
     }
   }
 `;
@@ -224,8 +216,6 @@ export interface LocationProfileTimeSlotFormInput {
 export interface LocationProfileFormInput {
   regionId: string;
   name: string;
-  internalMovementDistance: number | null;
-  safetyNoticeIds: string[];
   timeSlots: LocationProfileTimeSlotFormInput[];
   lodging: {
     isUnspecified: boolean;
@@ -242,7 +232,6 @@ export interface LocationProfileFormInput {
 }
 
 export interface LocationVersionProfileFormInput {
-  internalMovementDistance: number | null;
   timeSlots: LocationProfileTimeSlotFormInput[];
   lodging: {
     isUnspecified: boolean;
@@ -301,7 +290,6 @@ export interface LocationVersionRow {
   changeNote: string | null;
   locationNameSnapshot: string;
   regionNameSnapshot: string;
-  internalMovementDistance: number | null;
   defaultLodgingType: string;
   createdAt: string;
   updatedAt: string;
@@ -328,11 +316,6 @@ export interface LocationVersionRow {
     lunch: MealOption | null;
     dinner: MealOption | null;
   }>;
-  safetyNotices: Array<{
-    id: string;
-    title: string;
-    contentMd: string;
-  }>;
 }
 
 export interface LocationVersionDetailRow extends LocationVersionRow {
@@ -354,12 +337,10 @@ export interface LocationDetailItem extends LocationListRow {
     changeNote: string | null;
     locationNameSnapshot: string;
     regionNameSnapshot: string;
-    internalMovementDistance: number | null;
     defaultLodgingType: string;
     createdAt: string;
     updatedAt: string;
   }>;
-  internalMovementDistance: number | null;
   guide: {
     id: string;
     title: string;
@@ -387,10 +368,6 @@ export interface LocationDetailData {
 
 function toProfileBody(input: LocationVersionProfileFormInput) {
   return {
-    internalMovementDistance:
-      typeof input.internalMovementDistance === 'number' && Number.isFinite(input.internalMovementDistance)
-        ? input.internalMovementDistance
-        : null,
     lodging: {
       ...input.lodging,
       name: input.lodging.name.trim(),
@@ -413,7 +390,6 @@ function toProfileVariables(input: LocationProfileFormInput) {
   return {
     regionId: input.regionId,
     name: input.name.trim(),
-    safetyNoticeIds: input.safetyNoticeIds,
     ...toProfileBody(input),
   };
 }
@@ -442,7 +418,6 @@ export function useLocationCrud() {
       sourceVersionId?: string;
       label: string;
       changeNote?: string;
-      safetyNoticeIds?: string[];
       profile: LocationVersionProfileFormInput;
     }) => {
       const result = await createVersionMutation({
@@ -452,7 +427,6 @@ export function useLocationCrud() {
             sourceVersionId: input.sourceVersionId,
             label: input.label,
             changeNote: input.changeNote,
-            safetyNoticeIds: input.safetyNoticeIds,
             profile: toProfileBody(input.profile),
           },
         },

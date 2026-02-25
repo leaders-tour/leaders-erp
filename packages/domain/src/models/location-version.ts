@@ -7,7 +7,6 @@ export interface LocationVersion {
   changeNote: string | null;
   locationNameSnapshot: string;
   regionNameSnapshot: string;
-  internalMovementDistance: number | null;
   defaultLodgingType: string;
   createdAt: Date;
   updatedAt: Date;

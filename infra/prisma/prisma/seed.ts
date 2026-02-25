@@ -52,7 +52,6 @@ async function main(): Promise<void> {
       label: '기본',
       locationNameSnapshot: ub.name,
       regionNameSnapshot: ub.regionName,
-      internalMovementDistance: ub.internalMovementDistance ?? null,
       defaultLodgingType: ub.defaultLodgingType,
     },
     create: {
@@ -61,7 +60,6 @@ async function main(): Promise<void> {
       label: '기본',
       locationNameSnapshot: ub.name,
       regionNameSnapshot: ub.regionName,
-      internalMovementDistance: ub.internalMovementDistance ?? null,
       defaultLodgingType: ub.defaultLodgingType,
       changeNote: 'seed default',
     },
@@ -78,7 +76,6 @@ async function main(): Promise<void> {
       label: '기본',
       locationNameSnapshot: dalanzadgad.name,
       regionNameSnapshot: dalanzadgad.regionName,
-      internalMovementDistance: dalanzadgad.internalMovementDistance ?? null,
       defaultLodgingType: dalanzadgad.defaultLodgingType,
     },
     create: {
@@ -87,7 +84,6 @@ async function main(): Promise<void> {
       label: '기본',
       locationNameSnapshot: dalanzadgad.name,
       regionNameSnapshot: dalanzadgad.regionName,
-      internalMovementDistance: dalanzadgad.internalMovementDistance ?? null,
       defaultLodgingType: dalanzadgad.defaultLodgingType,
       changeNote: 'seed default',
     },

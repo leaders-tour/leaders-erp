@@ -24,7 +24,6 @@ interface LocationRow {
     id: string;
     versionNumber: number;
     label: string;
-    internalMovementDistance: number | null;
     lodgings: Array<{
       id: string;
       name: string;
@@ -55,7 +54,6 @@ interface LocationVersionRow {
   id: string;
   versionNumber: number;
   label: string;
-  internalMovementDistance: number | null;
   lodgings: Array<{
     id: string;
     name: string;
@@ -196,7 +194,6 @@ const LOCATIONS_QUERY = gql`
         id
         versionNumber
         label
-        internalMovementDistance
         lodgings {
           id
           name
@@ -529,8 +526,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       const toLocation = locationById.get(toStop.locationId);
       const toVersion = locationVersionById.get(toStop.locationVersionId);
       const segmentHours = segment?.averageTravelHours ?? 0;
-      const internalHours = toVersion?.internalMovementDistance ?? 0;
-      const totalTravelHours = segment ? segmentHours + internalHours : 0;
+      const totalTravelHours = segment ? segmentHours : 0;
       const destinationCellText = [
         toLocation?.name ?? toStop.locationId,
         toVersion ? `(버전: ${toVersion.label})` : '',
@@ -764,7 +760,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       initialVersion: {
                         variantType,
                         totalDays,
-                        changeNote: changeNote.trim() || undefined,
+                        changeNote: undefined,
                         meta: {
                           leaderName: leaderName.trim(),
                           travelStartDate: toIsoDateTime(travelStartDate),
@@ -807,16 +803,6 @@ export function ItineraryBuilderPage(): JSX.Element {
           </Card>
         ) : null}
 
-        <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
-            <div>userId: {userId}</div>
-            <div>mode: {isVersionMode ? 'createPlanVersion' : 'createPlan'}</div>
-            <div>planId: {planId || '-'}</div>
-            <div>parentVersionId: {parentVersionId || '-'}</div>
-            {planContext ? <div className="md:col-span-2">기준 Plan: {planContext.title}</div> : null}
-          </div>
-        </Card>
-
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
             <h2 className="font-medium">설정</h2>
@@ -833,15 +819,37 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </label>
               ) : null}
 
+              {isVersionMode ? (
+                <label className="grid gap-1 text-sm">
+                  <span className="text-xs text-slate-600">변경 메모</span>
+                  <input
+                    value={changeNote}
+                    onChange={(event) => setChangeNote(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    placeholder="예: 숙소 동선 개선"
+                  />
+                </label>
+              ) : null}
+
               <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">변경 메모</span>
+                <span className="text-xs text-slate-600">대표자명</span>
                 <input
-                  value={changeNote}
-                  onChange={(event) => setChangeNote(event.target.value)}
+                  value={leaderName}
+                  onChange={(event) => {
+                    setHasEditedLeaderName(true);
+                    setLeaderName(event.target.value);
+                  }}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  placeholder="예: 숙소 동선 개선"
+                  placeholder="대표자명을 입력하세요"
                 />
               </label>
+
+              <div className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">문서번호</span>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                  서버 자동 생성 (YYMMDD + 3자리 랜덤)
+                </div>
+              </div>
 
               <div className="grid gap-1 text-sm">
                 <span className="text-xs text-slate-600">지역</span>
@@ -875,7 +883,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
               <div className="grid gap-2 text-sm">
                 <span className="text-xs text-slate-600">인원</span>
-                <div className="grid gap-2">
+                <div className="grid gap-3">
                   <input
                     type="number"
                     min={1}
@@ -888,23 +896,39 @@ export function ItineraryBuilderPage(): JSX.Element {
                     }}
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                   />
-                  <div className="grid gap-1">
-                    <div className="text-xs text-slate-600">남성 토큰 선택</div>
-                    <div className="flex flex-wrap gap-1">
+                  <div className="grid gap-2 pt-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs text-slate-600">남성 토큰 선택 (성비조절)</div>
+                      <label className="flex items-center gap-2 text-xs text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={headcountMale === 0}
+                          onChange={(event) => {
+                            if (event.target.checked) {
+                              setHeadcountMale(0);
+                              return;
+                            }
+                            setHeadcountMale((prev) => (prev === 0 ? 1 : prev));
+                          }}
+                        />
+                        남성없음
+                      </label>
+                    </div>
+                    <div className="flex w-full flex-wrap gap-1">
                       {Array.from({ length: headcountTotal }, (_, index) => {
                         const count = index + 1;
-                        const active = count <= headcountMale;
+                        const isMaleToken = count <= headcountMale;
                         return (
                           <button
                             key={`male-token-${count}`}
                             type="button"
                             onClick={() => setHeadcountMale(count)}
                             className={`h-7 w-7 rounded-full border text-xs ${
-                              active
-                                ? 'border-slate-900 bg-slate-900 text-white'
-                                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                              isMaleToken
+                                ? 'border-blue-700 bg-blue-600 text-white'
+                                : 'border-pink-200 bg-pink-50 text-pink-700 hover:bg-pink-100'
                             }`}
-                            title={`남 ${count}`}
+                            title={isMaleToken ? `남 ${count}` : `여 ${count - headcountMale}`}
                           >
                             {count}
                           </button>
@@ -939,26 +963,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                       {day}일
                     </button>
                   ))}
-                </div>
-              </div>
-
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">대표자명</span>
-                <input
-                  value={leaderName}
-                  onChange={(event) => {
-                    setHasEditedLeaderName(true);
-                    setLeaderName(event.target.value);
-                  }}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  placeholder="대표자명을 입력하세요"
-                />
-              </label>
-
-              <div className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">문서번호</span>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-                  서버 자동 생성 (YYMMDD + 3자리 랜덤)
                 </div>
               </div>
 
@@ -1112,7 +1116,9 @@ export function ItineraryBuilderPage(): JSX.Element {
               </div>
 
               <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">비고</span>
+                <span className="text-xs text-slate-600">
+                  비고 <span className="ml-1 text-slate-400">*고객에게 노출됩니다</span>
+                </span>
                 <textarea
                   value={remark}
                   onChange={(event) => setRemark(event.target.value)}

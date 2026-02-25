@@ -13,11 +13,6 @@ export const locationVersionInclude = {
   location: true,
   lodgings: true,
   mealSets: true,
-  safetyNoticeLinks: {
-    include: {
-      safetyNotice: true,
-    },
-  },
   timeBlocks: locationVersionTimeBlocksInclude,
 } satisfies Prisma.LocationVersionInclude;
 

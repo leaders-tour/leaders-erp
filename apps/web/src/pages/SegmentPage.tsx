@@ -251,6 +251,7 @@ export function SegmentPage(): JSX.Element {
               onChange={(event) => setForm((prev) => ({ ...prev, isLongDistance: event.target.checked }))}
             />
             장거리 여행
+            <span className="text-xs text-slate-500">비용 추가 관련 존재, 정확한 기재 바람.</span>
           </label>
 
           {selectedFromLocation && selectedToLocation && selectedFromLocation.regionId !== selectedToLocation.regionId ? (

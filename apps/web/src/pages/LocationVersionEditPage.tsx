@@ -26,8 +26,6 @@ export function LocationVersionEditPage(): JSX.Element {
     setValue({
       regionId: version.location.regionId,
       name: version.locationNameSnapshot,
-      internalMovementDistance: version.internalMovementDistance ?? null,
-      safetyNoticeIds: version.safetyNotices.map((notice) => notice.id),
       timeSlots:
         version.timeBlocks.length > 0
           ? version.timeBlocks.map((timeBlock) => ({
@@ -149,9 +147,7 @@ export function LocationVersionEditPage(): JSX.Element {
                 sourceVersionId: version.id,
                 label: nextLabel,
                 changeNote: changeNote.trim() || undefined,
-                safetyNoticeIds: next.safetyNoticeIds,
                 profile: {
-                  internalMovementDistance: next.internalMovementDistance,
                   timeSlots: next.timeSlots,
                   lodging: next.lodging,
                   meals: next.meals,

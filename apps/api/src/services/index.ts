@@ -5,6 +5,5 @@ export { MealSetService } from '../modules/meal-set/meal-set.service';
 export { OverrideService } from '../modules/override/override.service';
 export { PlanService } from '../modules/plan/plan.service';
 export { RegionService } from '../modules/region/region.service';
-export { SafetyNoticeService } from '../modules/safety-notice/safety-notice.service';
 export { SegmentService } from '../modules/segment/segment.service';
 export { TimeBlockService } from '../modules/time-block/time-block.service';

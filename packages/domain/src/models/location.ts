@@ -5,7 +5,6 @@ export interface Location {
   name: string;
   currentVersionId?: string | null;
   defaultLodgingType: string;
-  internalMovementDistance?: number | null;
   latitude: number | null;
   longitude: number | null;
   createdAt: Date;
