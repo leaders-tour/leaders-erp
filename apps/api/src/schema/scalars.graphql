@@ -1,8 +1,11 @@
 enum VariantType {
   basic
-  early
   afternoon
   extend
+  earlyNight
+  earlyMorning
+  earlyNightExtend
+  earlyMorningExtend
 }
 
 enum OverrideTargetType {

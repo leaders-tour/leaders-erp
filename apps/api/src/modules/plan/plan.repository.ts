@@ -62,6 +62,7 @@ export class PlanRepository {
 
   async createWithInitialVersion(data: PlanCreateDto, documentNumber: string) {
     const { initialVersion, ...planData } = data;
+    const { manualAdjustments: _manualAdjustments, ...initialVersionData } = initialVersion;
 
     const createdPlan = await this.prisma.plan.create({
       data: {
@@ -74,30 +75,31 @@ export class PlanRepository {
       data: {
         planId: createdPlan.id,
         versionNumber: 1,
-        variantType: initialVersion.variantType,
-        totalDays: initialVersion.totalDays,
-        changeNote: initialVersion.changeNote,
+        variantType: initialVersionData.variantType,
+        totalDays: initialVersionData.totalDays,
+        changeNote: initialVersionData.changeNote,
         meta: {
           create: {
-            leaderName: initialVersion.meta.leaderName,
+            leaderName: initialVersionData.meta.leaderName,
             documentNumber,
-            travelStartDate: new Date(initialVersion.meta.travelStartDate),
-            travelEndDate: new Date(initialVersion.meta.travelEndDate),
-            headcountTotal: initialVersion.meta.headcountTotal,
-            headcountMale: initialVersion.meta.headcountMale,
-            headcountFemale: initialVersion.meta.headcountFemale,
-            vehicleType: initialVersion.meta.vehicleType,
-            flightInTime: initialVersion.meta.flightInTime,
-            flightOutTime: initialVersion.meta.flightOutTime,
-            pickupDropNote: initialVersion.meta.pickupDropNote,
-            externalPickupDropNote: initialVersion.meta.externalPickupDropNote,
-            rentalItemsText: initialVersion.meta.rentalItemsText,
-            eventCodes: initialVersion.meta.eventCodes,
-            remark: initialVersion.meta.remark,
+            travelStartDate: new Date(initialVersionData.meta.travelStartDate),
+            travelEndDate: new Date(initialVersionData.meta.travelEndDate),
+            headcountTotal: initialVersionData.meta.headcountTotal,
+            headcountMale: initialVersionData.meta.headcountMale,
+            headcountFemale: initialVersionData.meta.headcountFemale,
+            vehicleType: initialVersionData.meta.vehicleType,
+            flightInTime: initialVersionData.meta.flightInTime,
+            flightOutTime: initialVersionData.meta.flightOutTime,
+            pickupDropNote: initialVersionData.meta.pickupDropNote,
+            externalPickupDropNote: initialVersionData.meta.externalPickupDropNote,
+            rentalItemsText: initialVersionData.meta.rentalItemsText,
+            eventCodes: initialVersionData.meta.eventCodes,
+            extraLodgings: initialVersionData.meta.extraLodgings,
+            remark: initialVersionData.meta.remark,
           },
         },
         planStops: {
-          create: initialVersion.planStops.map((planStop) => ({
+          create: initialVersionData.planStops.map((planStop) => ({
             locationId: planStop.locationId,
             locationVersionId: planStop.locationVersionId,
             dateCellText: planStop.dateCellText,
@@ -131,35 +133,38 @@ export class PlanRepository {
   }
 
   async createVersion(data: PlanVersionCreateDto, versionNumber: number, documentNumber: string) {
+    const { manualAdjustments: _manualAdjustments, ...versionData } = data;
+
     const createdVersion = await this.prisma.planVersion.create({
       data: {
-        planId: data.planId,
-        parentVersionId: data.parentVersionId,
+        planId: versionData.planId,
+        parentVersionId: versionData.parentVersionId,
         versionNumber,
-        variantType: data.variantType,
-        totalDays: data.totalDays,
-        changeNote: data.changeNote,
+        variantType: versionData.variantType,
+        totalDays: versionData.totalDays,
+        changeNote: versionData.changeNote,
         meta: {
           create: {
-            leaderName: data.meta.leaderName,
+            leaderName: versionData.meta.leaderName,
             documentNumber,
-            travelStartDate: new Date(data.meta.travelStartDate),
-            travelEndDate: new Date(data.meta.travelEndDate),
-            headcountTotal: data.meta.headcountTotal,
-            headcountMale: data.meta.headcountMale,
-            headcountFemale: data.meta.headcountFemale,
-            vehicleType: data.meta.vehicleType,
-            flightInTime: data.meta.flightInTime,
-            flightOutTime: data.meta.flightOutTime,
-            pickupDropNote: data.meta.pickupDropNote,
-            externalPickupDropNote: data.meta.externalPickupDropNote,
-            rentalItemsText: data.meta.rentalItemsText,
-            eventCodes: data.meta.eventCodes,
-            remark: data.meta.remark,
+            travelStartDate: new Date(versionData.meta.travelStartDate),
+            travelEndDate: new Date(versionData.meta.travelEndDate),
+            headcountTotal: versionData.meta.headcountTotal,
+            headcountMale: versionData.meta.headcountMale,
+            headcountFemale: versionData.meta.headcountFemale,
+            vehicleType: versionData.meta.vehicleType,
+            flightInTime: versionData.meta.flightInTime,
+            flightOutTime: versionData.meta.flightOutTime,
+            pickupDropNote: versionData.meta.pickupDropNote,
+            externalPickupDropNote: versionData.meta.externalPickupDropNote,
+            rentalItemsText: versionData.meta.rentalItemsText,
+            eventCodes: versionData.meta.eventCodes,
+            extraLodgings: versionData.meta.extraLodgings,
+            remark: versionData.meta.remark,
           },
         },
         planStops: {
-          create: data.planStops.map((planStop) => ({
+          create: versionData.planStops.map((planStop) => ({
             locationId: planStop.locationId,
             locationVersionId: planStop.locationVersionId,
             dateCellText: planStop.dateCellText,
@@ -175,7 +180,7 @@ export class PlanRepository {
     });
 
     await this.prisma.plan.update({
-      where: { id: data.planId },
+      where: { id: versionData.planId },
       data: { currentVersionId: createdVersion.id },
     });
 

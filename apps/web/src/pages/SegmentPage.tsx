@@ -21,6 +21,7 @@ interface SegmentFormState {
   toLocationId: string;
   averageDistanceKm: string;
   averageTravelHours: string;
+  isLongDistance: boolean;
 }
 
 const EMPTY_FORM: SegmentFormState = {
@@ -28,6 +29,7 @@ const EMPTY_FORM: SegmentFormState = {
   toLocationId: '',
   averageDistanceKm: '',
   averageTravelHours: '',
+  isLongDistance: false,
 };
 
 export function SegmentPage(): JSX.Element {
@@ -130,6 +132,7 @@ export function SegmentPage(): JSX.Element {
                 toLocationId: form.toLocationId,
                 averageDistanceKm: Number(form.averageDistanceKm),
                 averageTravelHours: Number(form.averageTravelHours),
+                isLongDistance: form.isLongDistance,
               });
               setForm(EMPTY_FORM);
               setFromSearch('');
@@ -241,6 +244,15 @@ export function SegmentPage(): JSX.Element {
             />
           </div>
 
+          <label className="flex items-center gap-2 rounded-2xl border border-slate-200 p-4 text-sm text-slate-800">
+            <input
+              type="checkbox"
+              checked={form.isLongDistance}
+              onChange={(event) => setForm((prev) => ({ ...prev, isLongDistance: event.target.checked }))}
+            />
+            장거리 여행
+          </label>
+
           {selectedFromLocation && selectedToLocation && selectedFromLocation.regionId !== selectedToLocation.regionId ? (
             <p className="text-sm text-red-600">A/B 도착지는 동일한 지역이어야 합니다.</p>
           ) : null}
@@ -266,6 +278,7 @@ export function SegmentPage(): JSX.Element {
               <Th>B도착지</Th>
               <Th>평균거리(km)</Th>
               <Th>평균 이동 시간(시간)</Th>
+              <Th>장거리</Th>
               <Th>관리</Th>
             </tr>
           </thead>
@@ -278,6 +291,7 @@ export function SegmentPage(): JSX.Element {
                 <Td>{locationById.get(row.toLocationId)?.name ?? row.toLocationId}</Td>
                 <Td>{row.averageDistanceKm}</Td>
                 <Td>{row.averageTravelHours}</Td>
+                <Td>{row.isLongDistance ? 'Y' : 'N'}</Td>
                 <Td>
                   <Button variant="destructive" onClick={() => void crud.deleteRow(row.id)} disabled={crud.loading}>
                     삭제

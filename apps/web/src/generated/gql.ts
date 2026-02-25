@@ -20,7 +20,7 @@ type Documents = {
     "mutation CreateLodging($input: LodgingCreateInput!) {\n  createLodging(input: $input) {\n    id\n  }\n}\n\nmutation UpdateLodging($id: ID!, $input: LodgingUpdateInput!) {\n  updateLodging(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteLodging($id: ID!) {\n  deleteLodging(id: $id)\n}": typeof types.CreateLodgingDocument,
     "mutation CreateMealSet($input: MealSetCreateInput!) {\n  createMealSet(input: $input) {\n    id\n  }\n}\n\nmutation UpdateMealSet($id: ID!, $input: MealSetUpdateInput!) {\n  updateMealSet(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteMealSet($id: ID!) {\n  deleteMealSet(id: $id)\n}": typeof types.CreateMealSetDocument,
     "mutation CreateOverride($input: OverrideCreateInput!) {\n  createOverride(input: $input) {\n    id\n  }\n}\n\nmutation UpdateOverride($id: ID!, $input: OverrideUpdateInput!) {\n  updateOverride(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteOverride($id: ID!) {\n  deleteOverride(id: $id)\n}": typeof types.CreateOverrideDocument,
-    "mutation CreatePlan($input: PlanCreateInput!) {\n  createPlan(input: $input) {\n    id\n  }\n}\n\nmutation UpdatePlan($id: ID!, $input: PlanUpdateInput!) {\n  updatePlan(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeletePlan($id: ID!) {\n  deletePlan(id: $id)\n}": typeof types.CreatePlanDocument,
+    "mutation CreatePlan($input: PlanCreateInput!) {\n  createPlan(input: $input) {\n    id\n  }\n}\n\nmutation UpdatePlan($id: ID!, $input: PlanUpdateInput!) {\n  updatePlan(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation CreatePlanVersion($input: PlanVersionCreateInput!) {\n  createPlanVersion(input: $input) {\n    id\n    versionNumber\n  }\n}\n\nmutation SetCurrentPlanVersion($planId: ID!, $versionId: ID!) {\n  setCurrentPlanVersion(planId: $planId, versionId: $versionId) {\n    id\n    currentVersionId\n  }\n}\n\nmutation DeletePlan($id: ID!) {\n  deletePlan(id: $id)\n}": typeof types.CreatePlanDocument,
     "mutation CreateRegion($input: RegionCreateInput!) {\n  createRegion(input: $input) {\n    id\n  }\n}\n\nmutation UpdateRegion($id: ID!, $input: RegionUpdateInput!) {\n  updateRegion(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteRegion($id: ID!) {\n  deleteRegion(id: $id)\n}": typeof types.CreateRegionDocument,
     "mutation CreateSegment($input: SegmentCreateInput!) {\n  createSegment(input: $input) {\n    id\n  }\n}\n\nmutation UpdateSegment($id: ID!, $input: SegmentUpdateInput!) {\n  updateSegment(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteSegment($id: ID!) {\n  deleteSegment(id: $id)\n}": typeof types.CreateSegmentDocument,
     "mutation CreateTimeBlock($input: TimeBlockCreateInput!) {\n  createTimeBlock(input: $input) {\n    id\n  }\n}\n\nmutation UpdateTimeBlock($id: ID!, $input: TimeBlockUpdateInput!) {\n  updateTimeBlock(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteTimeBlock($id: ID!) {\n  deleteTimeBlock(id: $id)\n}": typeof types.CreateTimeBlockDocument,
@@ -28,10 +28,10 @@ type Documents = {
     "query Locations {\n  locations {\n    id\n    regionId\n    regionName\n    name\n    defaultLodgingType\n    latitude\n    longitude\n  }\n}": typeof types.LocationsDocument,
     "query Lodgings {\n  lodgings {\n    id\n    locationId\n    locationNameSnapshot\n    name\n    specialNotes\n  }\n}": typeof types.LodgingsDocument,
     "query MealSets {\n  mealSets {\n    id\n    locationId\n    locationNameSnapshot\n    setName\n    breakfast\n    lunch\n    dinner\n  }\n}": typeof types.MealSetsDocument,
-    "query Overrides {\n  overrides {\n    id\n    planId\n    targetType\n    targetId\n    fieldName\n    value\n  }\n}": typeof types.OverridesDocument,
-    "query Plans {\n  plans {\n    id\n    regionId\n    variantType\n    totalDays\n  }\n}": typeof types.PlansDocument,
+    "query Overrides {\n  overrides {\n    id\n    planVersionId\n    targetType\n    targetId\n    fieldName\n    value\n  }\n}": typeof types.OverridesDocument,
+    "query Plans($userId: ID!) {\n  plans(userId: $userId) {\n    id\n    userId\n    regionId\n    title\n    currentVersionId\n  }\n}\n\nquery PlanVersions($planId: ID!) {\n  planVersions(planId: $planId) {\n    id\n    planId\n    parentVersionId\n    versionNumber\n    variantType\n    totalDays\n  }\n}": typeof types.PlansDocument,
     "query Regions {\n  regions {\n    id\n    name\n    description\n  }\n}": typeof types.RegionsDocument,
-    "query Segments {\n  segments {\n    id\n    regionId\n    regionName\n    fromLocationId\n    toLocationId\n    averageDistanceKm\n    averageTravelHours\n  }\n}": typeof types.SegmentsDocument,
+    "query Segments {\n  segments {\n    id\n    regionId\n    regionName\n    fromLocationId\n    toLocationId\n    averageDistanceKm\n    averageTravelHours\n    isLongDistance\n  }\n}": typeof types.SegmentsDocument,
     "query TimeBlocks {\n  timeBlocks {\n    id\n    locationId\n    startTime\n    label\n    orderIndex\n  }\n}": typeof types.TimeBlocksDocument,
 };
 const documents: Documents = {
@@ -41,7 +41,7 @@ const documents: Documents = {
     "mutation CreateLodging($input: LodgingCreateInput!) {\n  createLodging(input: $input) {\n    id\n  }\n}\n\nmutation UpdateLodging($id: ID!, $input: LodgingUpdateInput!) {\n  updateLodging(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteLodging($id: ID!) {\n  deleteLodging(id: $id)\n}": types.CreateLodgingDocument,
     "mutation CreateMealSet($input: MealSetCreateInput!) {\n  createMealSet(input: $input) {\n    id\n  }\n}\n\nmutation UpdateMealSet($id: ID!, $input: MealSetUpdateInput!) {\n  updateMealSet(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteMealSet($id: ID!) {\n  deleteMealSet(id: $id)\n}": types.CreateMealSetDocument,
     "mutation CreateOverride($input: OverrideCreateInput!) {\n  createOverride(input: $input) {\n    id\n  }\n}\n\nmutation UpdateOverride($id: ID!, $input: OverrideUpdateInput!) {\n  updateOverride(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteOverride($id: ID!) {\n  deleteOverride(id: $id)\n}": types.CreateOverrideDocument,
-    "mutation CreatePlan($input: PlanCreateInput!) {\n  createPlan(input: $input) {\n    id\n  }\n}\n\nmutation UpdatePlan($id: ID!, $input: PlanUpdateInput!) {\n  updatePlan(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeletePlan($id: ID!) {\n  deletePlan(id: $id)\n}": types.CreatePlanDocument,
+    "mutation CreatePlan($input: PlanCreateInput!) {\n  createPlan(input: $input) {\n    id\n  }\n}\n\nmutation UpdatePlan($id: ID!, $input: PlanUpdateInput!) {\n  updatePlan(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation CreatePlanVersion($input: PlanVersionCreateInput!) {\n  createPlanVersion(input: $input) {\n    id\n    versionNumber\n  }\n}\n\nmutation SetCurrentPlanVersion($planId: ID!, $versionId: ID!) {\n  setCurrentPlanVersion(planId: $planId, versionId: $versionId) {\n    id\n    currentVersionId\n  }\n}\n\nmutation DeletePlan($id: ID!) {\n  deletePlan(id: $id)\n}": types.CreatePlanDocument,
     "mutation CreateRegion($input: RegionCreateInput!) {\n  createRegion(input: $input) {\n    id\n  }\n}\n\nmutation UpdateRegion($id: ID!, $input: RegionUpdateInput!) {\n  updateRegion(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteRegion($id: ID!) {\n  deleteRegion(id: $id)\n}": types.CreateRegionDocument,
     "mutation CreateSegment($input: SegmentCreateInput!) {\n  createSegment(input: $input) {\n    id\n  }\n}\n\nmutation UpdateSegment($id: ID!, $input: SegmentUpdateInput!) {\n  updateSegment(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteSegment($id: ID!) {\n  deleteSegment(id: $id)\n}": types.CreateSegmentDocument,
     "mutation CreateTimeBlock($input: TimeBlockCreateInput!) {\n  createTimeBlock(input: $input) {\n    id\n  }\n}\n\nmutation UpdateTimeBlock($id: ID!, $input: TimeBlockUpdateInput!) {\n  updateTimeBlock(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteTimeBlock($id: ID!) {\n  deleteTimeBlock(id: $id)\n}": types.CreateTimeBlockDocument,
@@ -49,10 +49,10 @@ const documents: Documents = {
     "query Locations {\n  locations {\n    id\n    regionId\n    regionName\n    name\n    defaultLodgingType\n    latitude\n    longitude\n  }\n}": types.LocationsDocument,
     "query Lodgings {\n  lodgings {\n    id\n    locationId\n    locationNameSnapshot\n    name\n    specialNotes\n  }\n}": types.LodgingsDocument,
     "query MealSets {\n  mealSets {\n    id\n    locationId\n    locationNameSnapshot\n    setName\n    breakfast\n    lunch\n    dinner\n  }\n}": types.MealSetsDocument,
-    "query Overrides {\n  overrides {\n    id\n    planId\n    targetType\n    targetId\n    fieldName\n    value\n  }\n}": types.OverridesDocument,
-    "query Plans {\n  plans {\n    id\n    regionId\n    variantType\n    totalDays\n  }\n}": types.PlansDocument,
+    "query Overrides {\n  overrides {\n    id\n    planVersionId\n    targetType\n    targetId\n    fieldName\n    value\n  }\n}": types.OverridesDocument,
+    "query Plans($userId: ID!) {\n  plans(userId: $userId) {\n    id\n    userId\n    regionId\n    title\n    currentVersionId\n  }\n}\n\nquery PlanVersions($planId: ID!) {\n  planVersions(planId: $planId) {\n    id\n    planId\n    parentVersionId\n    versionNumber\n    variantType\n    totalDays\n  }\n}": types.PlansDocument,
     "query Regions {\n  regions {\n    id\n    name\n    description\n  }\n}": types.RegionsDocument,
-    "query Segments {\n  segments {\n    id\n    regionId\n    regionName\n    fromLocationId\n    toLocationId\n    averageDistanceKm\n    averageTravelHours\n  }\n}": types.SegmentsDocument,
+    "query Segments {\n  segments {\n    id\n    regionId\n    regionName\n    fromLocationId\n    toLocationId\n    averageDistanceKm\n    averageTravelHours\n    isLongDistance\n  }\n}": types.SegmentsDocument,
     "query TimeBlocks {\n  timeBlocks {\n    id\n    locationId\n    startTime\n    label\n    orderIndex\n  }\n}": types.TimeBlocksDocument,
 };
 
@@ -97,7 +97,7 @@ export function graphql(source: "mutation CreateOverride($input: OverrideCreateI
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "mutation CreatePlan($input: PlanCreateInput!) {\n  createPlan(input: $input) {\n    id\n  }\n}\n\nmutation UpdatePlan($id: ID!, $input: PlanUpdateInput!) {\n  updatePlan(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeletePlan($id: ID!) {\n  deletePlan(id: $id)\n}"): (typeof documents)["mutation CreatePlan($input: PlanCreateInput!) {\n  createPlan(input: $input) {\n    id\n  }\n}\n\nmutation UpdatePlan($id: ID!, $input: PlanUpdateInput!) {\n  updatePlan(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeletePlan($id: ID!) {\n  deletePlan(id: $id)\n}"];
+export function graphql(source: "mutation CreatePlan($input: PlanCreateInput!) {\n  createPlan(input: $input) {\n    id\n  }\n}\n\nmutation UpdatePlan($id: ID!, $input: PlanUpdateInput!) {\n  updatePlan(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation CreatePlanVersion($input: PlanVersionCreateInput!) {\n  createPlanVersion(input: $input) {\n    id\n    versionNumber\n  }\n}\n\nmutation SetCurrentPlanVersion($planId: ID!, $versionId: ID!) {\n  setCurrentPlanVersion(planId: $planId, versionId: $versionId) {\n    id\n    currentVersionId\n  }\n}\n\nmutation DeletePlan($id: ID!) {\n  deletePlan(id: $id)\n}"): (typeof documents)["mutation CreatePlan($input: PlanCreateInput!) {\n  createPlan(input: $input) {\n    id\n  }\n}\n\nmutation UpdatePlan($id: ID!, $input: PlanUpdateInput!) {\n  updatePlan(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation CreatePlanVersion($input: PlanVersionCreateInput!) {\n  createPlanVersion(input: $input) {\n    id\n    versionNumber\n  }\n}\n\nmutation SetCurrentPlanVersion($planId: ID!, $versionId: ID!) {\n  setCurrentPlanVersion(planId: $planId, versionId: $versionId) {\n    id\n    currentVersionId\n  }\n}\n\nmutation DeletePlan($id: ID!) {\n  deletePlan(id: $id)\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -129,11 +129,11 @@ export function graphql(source: "query MealSets {\n  mealSets {\n    id\n    loc
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query Overrides {\n  overrides {\n    id\n    planId\n    targetType\n    targetId\n    fieldName\n    value\n  }\n}"): (typeof documents)["query Overrides {\n  overrides {\n    id\n    planId\n    targetType\n    targetId\n    fieldName\n    value\n  }\n}"];
+export function graphql(source: "query Overrides {\n  overrides {\n    id\n    planVersionId\n    targetType\n    targetId\n    fieldName\n    value\n  }\n}"): (typeof documents)["query Overrides {\n  overrides {\n    id\n    planVersionId\n    targetType\n    targetId\n    fieldName\n    value\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query Plans {\n  plans {\n    id\n    regionId\n    variantType\n    totalDays\n  }\n}"): (typeof documents)["query Plans {\n  plans {\n    id\n    regionId\n    variantType\n    totalDays\n  }\n}"];
+export function graphql(source: "query Plans($userId: ID!) {\n  plans(userId: $userId) {\n    id\n    userId\n    regionId\n    title\n    currentVersionId\n  }\n}\n\nquery PlanVersions($planId: ID!) {\n  planVersions(planId: $planId) {\n    id\n    planId\n    parentVersionId\n    versionNumber\n    variantType\n    totalDays\n  }\n}"): (typeof documents)["query Plans($userId: ID!) {\n  plans(userId: $userId) {\n    id\n    userId\n    regionId\n    title\n    currentVersionId\n  }\n}\n\nquery PlanVersions($planId: ID!) {\n  planVersions(planId: $planId) {\n    id\n    planId\n    parentVersionId\n    versionNumber\n    variantType\n    totalDays\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -141,7 +141,7 @@ export function graphql(source: "query Regions {\n  regions {\n    id\n    name\
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "query Segments {\n  segments {\n    id\n    regionId\n    regionName\n    fromLocationId\n    toLocationId\n    averageDistanceKm\n    averageTravelHours\n  }\n}"): (typeof documents)["query Segments {\n  segments {\n    id\n    regionId\n    regionName\n    fromLocationId\n    toLocationId\n    averageDistanceKm\n    averageTravelHours\n  }\n}"];
+export function graphql(source: "query Segments {\n  segments {\n    id\n    regionId\n    regionName\n    fromLocationId\n    toLocationId\n    averageDistanceKm\n    averageTravelHours\n    isLongDistance\n  }\n}"): (typeof documents)["query Segments {\n  segments {\n    id\n    regionId\n    regionName\n    fromLocationId\n    toLocationId\n    averageDistanceKm\n    averageTravelHours\n    isLongDistance\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

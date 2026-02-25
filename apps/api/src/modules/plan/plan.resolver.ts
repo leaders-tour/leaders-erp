@@ -1,6 +1,13 @@
 import type { AppContext } from '../../context';
 import { PlanService } from './plan.service';
-import type { PlanCreateDto, PlanUpdateDto, PlanVersionCreateDto, UserCreateDto, UserUpdateDto } from './plan.types';
+import type {
+  PlanCreateDto,
+  PlanPricingPreviewDto,
+  PlanUpdateDto,
+  PlanVersionCreateDto,
+  UserCreateDto,
+  UserUpdateDto,
+} from './plan.types';
 
 interface IdArgs {
   id: string;
@@ -36,6 +43,10 @@ interface PlanVersionCreateArgs {
   input: PlanVersionCreateDto;
 }
 
+interface PlanPricingPreviewArgs {
+  input: PlanPricingPreviewDto;
+}
+
 interface SetCurrentPlanVersionArgs {
   planId: string;
   versionId: string;
@@ -50,6 +61,8 @@ export const planResolver = {
     planVersions: (_parent: unknown, args: PlanVersionsArgs, ctx: AppContext) =>
       new PlanService(ctx.prisma).listVersions(args.planId),
     planVersion: (_parent: unknown, args: IdArgs, ctx: AppContext) => new PlanService(ctx.prisma).getVersion(args.id),
+    planPricingPreview: (_parent: unknown, args: PlanPricingPreviewArgs, ctx: AppContext) =>
+      new PlanService(ctx.prisma).previewPricing(args.input),
   },
   Mutation: {
     createUser: (_parent: unknown, args: UserCreateArgs, ctx: AppContext) => new PlanService(ctx.prisma).createUser(args.input),
@@ -64,5 +77,25 @@ export const planResolver = {
     setCurrentPlanVersion: (_parent: unknown, args: SetCurrentPlanVersionArgs, ctx: AppContext) =>
       new PlanService(ctx.prisma).setCurrentVersion(args.planId, args.versionId),
     deletePlan: (_parent: unknown, args: IdArgs, ctx: AppContext) => new PlanService(ctx.prisma).delete(args.id),
+  },
+  PlanVersionMeta: {
+    extraLodgings: (parent: { extraLodgings?: unknown }) =>
+      Array.isArray(parent.extraLodgings) ? parent.extraLodgings : [],
+  },
+  PlanVersionPricing: {
+    longDistanceSegmentCount: (parent: { inputSnapshot?: unknown }) => {
+      if (!parent.inputSnapshot || typeof parent.inputSnapshot !== 'object') {
+        return 0;
+      }
+      const value = (parent.inputSnapshot as Record<string, unknown>).longDistanceSegmentCount;
+      return typeof value === 'number' ? value : 0;
+    },
+    extraLodgingCount: (parent: { inputSnapshot?: unknown }) => {
+      if (!parent.inputSnapshot || typeof parent.inputSnapshot !== 'object') {
+        return 0;
+      }
+      const value = (parent.inputSnapshot as Record<string, unknown>).extraLodgingCount;
+      return typeof value === 'number' ? value : 0;
+    },
   },
 };

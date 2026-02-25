@@ -36,7 +36,37 @@ export interface PlanVersionMetaRow {
   externalPickupDropNote: string | null;
   rentalItemsText: string;
   eventCodes: string[];
+  extraLodgings: Array<{
+    dayIndex: number;
+    lodgingCount: number;
+  }>;
   remark: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlanPricingLineRow {
+  id?: string | null;
+  lineCode: string;
+  sourceType: string;
+  description: string | null;
+  ruleId: string | null;
+  unitPriceKrw: number | null;
+  quantity: number;
+  amountKrw: number;
+}
+
+export interface PlanVersionPricingRow {
+  id: string;
+  planVersionId: string;
+  policyId: string;
+  currencyCode: string;
+  baseAmountKrw: number;
+  addonAmountKrw: number;
+  totalAmountKrw: number;
+  longDistanceSegmentCount: number;
+  extraLodgingCount: number;
+  lines: PlanPricingLineRow[];
   createdAt: string;
   updatedAt: string;
 }
@@ -69,18 +99,19 @@ export interface PlanVersionDetail extends PlanVersionRow {
       name: string;
     };
   };
-      planStops: Array<{
-        id: string;
-        planVersionId: string;
-        locationId?: string | null;
-        locationVersionId?: string | null;
-        dateCellText: string;
-        destinationCellText: string;
-        timeCellText: string;
+  planStops: Array<{
+    id: string;
+    planVersionId: string;
+    locationId?: string | null;
+    locationVersionId?: string | null;
+    dateCellText: string;
+    destinationCellText: string;
+    timeCellText: string;
     scheduleCellText: string;
     lodgingCellText: string;
     mealCellText: string;
   }>;
+  pricing?: PlanVersionPricingRow | null;
 }
 
 const USERS_QUERY = gql`
@@ -248,9 +279,36 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         externalPickupDropNote
         rentalItemsText
         eventCodes
+        extraLodgings {
+          dayIndex
+          lodgingCount
+        }
         remark
         createdAt
         updatedAt
+      }
+      pricing {
+        id
+        planVersionId
+        policyId
+        currencyCode
+        baseAmountKrw
+        addonAmountKrw
+        totalAmountKrw
+        longDistanceSegmentCount
+        extraLodgingCount
+        createdAt
+        updatedAt
+        lines {
+          id
+          lineCode
+          sourceType
+          description
+          ruleId
+          unitPriceKrw
+          quantity
+          amountKrw
+        }
       }
     }
   }

@@ -6,6 +6,13 @@ export const planVersionInclude = {
     orderBy: { versionNumber: 'asc' },
   },
   meta: true,
+  pricing: {
+    include: {
+      lines: {
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+  },
   planStops: {
     orderBy: { createdAt: 'asc' },
   },

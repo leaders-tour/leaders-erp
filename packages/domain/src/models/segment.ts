@@ -5,6 +5,7 @@ export interface Segment {
   toLocationId: string;
   averageDistanceKm: number;
   averageTravelHours: number;
+  isLongDistance: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -4,6 +4,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { VersionSnapshotView } from '../features/plan/components';
 import { usePlanVersionDetail, useSetCurrentPlanVersion } from '../features/plan/hooks';
 
+const currencyFormatter = new Intl.NumberFormat('ko-KR');
+
+function formatKrw(value: number): string {
+  return `${currencyFormatter.format(value)}원`;
+}
+
 export function PlanVersionDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { planId, versionId } = useParams<{ planId: string; versionId: string }>();
@@ -91,8 +97,54 @@ export function PlanVersionDetailPage(): JSX.Element {
             <div>참여 이벤트: {version.meta.eventCodes.length > 0 ? version.meta.eventCodes.join(', ') : '-'}</div>
             <div>픽/드랍: {version.meta.pickupDropNote ?? '-'}</div>
             <div>실투어 외 픽드랍: {version.meta.externalPickupDropNote ?? '-'}</div>
+            <div className="md:col-span-2">
+              숙소 추가(일차/개수):{' '}
+              {version.meta.extraLodgings.length > 0
+                ? version.meta.extraLodgings.map((item) => `${item.dayIndex}일차:${item.lodgingCount}개`).join(', ')
+                : '-'}
+            </div>
             <div className="md:col-span-2 whitespace-pre-wrap">기본 대여물품: {version.meta.rentalItemsText}</div>
             <div className="md:col-span-2 whitespace-pre-wrap">비고: {version.meta.remark ?? '-'}</div>
+          </div>
+        </Card>
+      ) : null}
+
+      {version.pricing ? (
+        <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">금액 스냅샷</h2>
+          <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
+            <div>정책 ID: {version.pricing.policyId}</div>
+            <div>통화: {version.pricing.currencyCode}</div>
+            <div>기본 금액: {formatKrw(version.pricing.baseAmountKrw)}</div>
+            <div>추가 금액: {formatKrw(version.pricing.addonAmountKrw)}</div>
+            <div>총 금액: {formatKrw(version.pricing.totalAmountKrw)}</div>
+            <div>장거리 구간 수: {version.pricing.longDistanceSegmentCount}</div>
+            <div>숙소 추가 수량: {version.pricing.extraLodgingCount}</div>
+          </div>
+
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-600">
+                  <th className="py-2 pr-3">항목</th>
+                  <th className="py-2 pr-3">설명</th>
+                  <th className="py-2 pr-3">요율</th>
+                  <th className="py-2 pr-3">곱하기</th>
+                  <th className="py-2">금액</th>
+                </tr>
+              </thead>
+              <tbody>
+                {version.pricing.lines.map((line) => (
+                  <tr key={line.id ?? `${line.lineCode}-${line.description ?? ''}`} className="border-b border-slate-100">
+                    <td className="py-2 pr-3">{line.lineCode}</td>
+                    <td className="py-2 pr-3">{line.description ?? '-'}</td>
+                    <td className="py-2 pr-3">{line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-'}</td>
+                    <td className="py-2 pr-3">{line.quantity}</td>
+                    <td className="py-2">{formatKrw(line.amountKrw)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
       ) : null}

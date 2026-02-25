@@ -23,6 +23,7 @@ type Query {
   plan(id: ID!): Plan
   planVersions(planId: ID!): [PlanVersion!]!
   planVersion(id: ID!): PlanVersion
+  planPricingPreview(input: PlanPricingPreviewInput!): PlanPricingPreview!
   users: [User!]!
   user(id: ID!): User
   timeBlocks: [TimeBlock!]!

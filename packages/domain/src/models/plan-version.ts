@@ -27,7 +27,32 @@ export interface PlanVersion {
     externalPickupDropNote: string | null;
     rentalItemsText: string;
     eventCodes: string[];
+    extraLodgings: Array<{
+      dayIndex: number;
+      lodgingCount: number;
+    }>;
     remark: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null;
+  pricing: {
+    id: string;
+    planVersionId: string;
+    policyId: string;
+    currencyCode: string;
+    baseAmountKrw: number;
+    addonAmountKrw: number;
+    totalAmountKrw: number;
+    lines: Array<{
+      id: string;
+      lineCode: string;
+      sourceType: 'RULE' | 'MANUAL';
+      ruleId: string | null;
+      description: string | null;
+      unitPriceKrw: number | null;
+      quantity: number;
+      amountKrw: number;
+    }>;
     createdAt: Date;
     updatedAt: Date;
   } | null;

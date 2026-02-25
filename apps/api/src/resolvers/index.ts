@@ -79,9 +79,8 @@ export const resolvers = {
     activityResolver.Mutation,
     overrideResolver.Mutation,
   ),
-  SafetyNotice: {
-    imageUrls: (parent: { imageUrls?: string[] | null }) => parent.imageUrls ?? [],
-  },
+  PlanVersionMeta: planResolver.PlanVersionMeta,
+  PlanVersionPricing: planResolver.PlanVersionPricing,
   Location: locationResolver.Location,
   LocationVersion: locationResolver.LocationVersion,
 };

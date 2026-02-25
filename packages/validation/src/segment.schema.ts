@@ -6,6 +6,7 @@ const segmentBaseSchema = z.object({
   toLocationId: z.string().min(1),
   averageDistanceKm: z.number().positive(),
   averageTravelHours: z.number().positive(),
+  isLongDistance: z.boolean(),
 });
 
 export const segmentCreateSchema = segmentBaseSchema

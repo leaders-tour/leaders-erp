@@ -1,5 +1,4 @@
 import { gql } from '@apollo/client';
-import type { Segment } from '../../generated/graphql';
 import { useCrudResource } from '../../lib/crud';
 
 const LIST = gql`
@@ -12,6 +11,7 @@ const LIST = gql`
       toLocationId
       averageDistanceKm
       averageTravelHours
+      isLongDistance
     }
   }
 `;
@@ -44,10 +44,22 @@ export interface SegmentFormInput {
   toLocationId: string;
   averageDistanceKm: number;
   averageTravelHours: number;
+  isLongDistance: boolean;
+}
+
+export interface SegmentRow {
+  id: string;
+  regionId: string;
+  regionName: string;
+  fromLocationId: string;
+  toLocationId: string;
+  averageDistanceKm: number;
+  averageTravelHours: number;
+  isLongDistance: boolean;
 }
 
 export function useSegmentCrud() {
-  return useCrudResource<Segment, SegmentFormInput, SegmentFormInput>({
+  return useCrudResource<SegmentRow, SegmentFormInput, SegmentFormInput>({
     docs: { list: LIST, create: CREATE, update: UPDATE, remove: REMOVE },
     keys: { listKey: 'segments', createKey: 'createSegment', updateKey: 'updateSegment', removeKey: 'deleteSegment' },
     toCreateVariables: (input) => ({ input }),

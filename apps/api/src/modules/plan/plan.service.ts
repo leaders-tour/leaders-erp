@@ -1,14 +1,23 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import {
   planCreateSchema,
+  planPricingPreviewSchema,
   planUpdateSchema,
   planVersionCreateSchema,
   userCreateSchema,
   userUpdateSchema,
 } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
+import { PricingService } from '../pricing/pricing.service';
 import { PlanRepository } from './plan.repository';
-import type { PlanCreateDto, PlanUpdateDto, PlanVersionCreateDto, UserCreateDto, UserUpdateDto } from './plan.types';
+import type {
+  PlanCreateDto,
+  PlanPricingPreviewDto,
+  PlanUpdateDto,
+  PlanVersionCreateDto,
+  UserCreateDto,
+  UserUpdateDto,
+} from './plan.types';
 
 export class PlanService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -137,6 +146,20 @@ export class PlanService {
     return new PlanRepository(this.prisma).findVersionById(id);
   }
 
+  async previewPricing(input: PlanPricingPreviewDto) {
+    const parsed = planPricingPreviewSchema.safeParse(input);
+    if (!parsed.success) {
+      throw new DomainError('VALIDATION_FAILED', 'Invalid pricing preview input');
+    }
+
+    const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.planStops);
+
+    return new PricingService(this.prisma).preview({
+      ...parsed.data,
+      planStops: normalizedPlanStops,
+    });
+  }
+
   async create(input: PlanCreateDto) {
     const parsed = planCreateSchema.safeParse(input);
     if (!parsed.success) {
@@ -163,8 +186,27 @@ export class PlanService {
 
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       parsed.data.initialVersion.planStops = normalizedPlanStops;
+      const pricingResult = await new PricingService(this.prisma).computeWithTransaction(tx, {
+        regionId: parsed.data.regionId,
+        variantType: parsed.data.initialVersion.variantType,
+        totalDays: parsed.data.initialVersion.totalDays,
+        planStops: normalizedPlanStops,
+        travelStartDate: parsed.data.initialVersion.meta.travelStartDate,
+        headcountTotal: parsed.data.initialVersion.meta.headcountTotal,
+        vehicleType: parsed.data.initialVersion.meta.vehicleType,
+        extraLodgings: parsed.data.initialVersion.meta.extraLodgings,
+        manualAdjustments: parsed.data.initialVersion.manualAdjustments,
+      });
+
       const documentNumber = await this.generateDocumentNumber(parsed.data.initialVersion.meta.travelStartDate);
-      return new PlanRepository(tx).createWithInitialVersion(parsed.data, documentNumber);
+      const repository = new PlanRepository(tx);
+      const createdPlan = await repository.createWithInitialVersion(parsed.data, documentNumber);
+      if (!createdPlan?.currentVersionId) {
+        throw new DomainError('INTERNAL', 'Failed to resolve created plan version');
+      }
+
+      await new PricingService(this.prisma).createSnapshot(tx, createdPlan.currentVersionId, pricingResult);
+      return repository.findById(createdPlan.id);
     });
   }
 
@@ -223,10 +265,24 @@ export class PlanService {
 
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       parsed.data.planStops = normalizedPlanStops;
+      const pricingResult = await new PricingService(this.prisma).computeWithTransaction(tx, {
+        regionId: plan.regionId,
+        variantType: parsed.data.variantType,
+        totalDays: parsed.data.totalDays,
+        planStops: normalizedPlanStops,
+        travelStartDate: parsed.data.meta.travelStartDate,
+        headcountTotal: parsed.data.meta.headcountTotal,
+        vehicleType: parsed.data.meta.vehicleType,
+        extraLodgings: parsed.data.meta.extraLodgings,
+        manualAdjustments: parsed.data.manualAdjustments,
+      });
+
       const repository = new PlanRepository(tx);
       const versionNumber = await repository.getNextVersionNumber(parsed.data.planId);
       const documentNumber = await this.generateDocumentNumber(parsed.data.meta.travelStartDate);
-      return repository.createVersion(parsed.data, versionNumber, documentNumber);
+      const createdVersion = await repository.createVersion(parsed.data, versionNumber, documentNumber);
+      await new PricingService(this.prisma).createSnapshot(tx, createdVersion.id, pricingResult);
+      return repository.findVersionById(createdVersion.id);
     });
   }
 
