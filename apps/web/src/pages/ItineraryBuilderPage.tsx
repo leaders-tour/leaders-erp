@@ -98,6 +98,11 @@ interface PlanContextRow {
   currentVersionId: string | null;
 }
 
+interface UserRow {
+  id: string;
+  name: string;
+}
+
 interface PlanRow {
   locationId?: string;
   locationVersionId?: string;
@@ -162,6 +167,15 @@ const PLAN_CONTEXT_QUERY = gql`
       regionId
       title
       currentVersionId
+    }
+  }
+`;
+
+const USER_QUERY = gql`
+  query BuilderUser($id: ID!) {
+    user(id: $id) {
+      id
+      name
     }
   }
 `;
@@ -416,10 +430,15 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [extraLodgingCounts, setExtraLodgingCounts] = useState<number[]>(Array.from({ length: 6 }, () => 0));
   const [manualAdjustments, setManualAdjustments] = useState<ManualAdjustmentRow[]>([]);
   const [createdId, setCreatedId] = useState<string>('');
+  const [hasEditedLeaderName, setHasEditedLeaderName] = useState<boolean>(false);
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
     skip: !isVersionMode,
+  });
+  const { data: userData } = useQuery<{ user: UserRow | null }>(USER_QUERY, {
+    variables: { id: userId },
+    skip: !userId,
   });
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
@@ -436,6 +455,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const locations = locationData?.locations ?? [];
   const segments = segmentData?.segments ?? [];
   const planContext = planContextData?.plan ?? null;
+  const selectedUserName = userData?.user?.name ?? '';
 
   useEffect(() => {
     if (!isVersionMode || !planContext) {
@@ -444,6 +464,14 @@ export function ItineraryBuilderPage(): JSX.Element {
 
     setRegionId(planContext.regionId);
   }, [isVersionMode, planContext]);
+
+  useEffect(() => {
+    const trimmedName = selectedUserName.trim();
+    if (hasEditedLeaderName || leaderName.trim().length > 0 || trimmedName.length === 0) {
+      return;
+    }
+    setLeaderName(trimmedName);
+  }, [hasEditedLeaderName, leaderName, selectedUserName]);
 
   const filteredLocations = useMemo(
     () => locations.filter((location) => location.regionId === regionId),
@@ -815,38 +843,33 @@ export function ItineraryBuilderPage(): JSX.Element {
                 />
               </label>
 
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">대표자명</span>
-                <input
-                  value={leaderName}
-                  onChange={(event) => setLeaderName(event.target.value)}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  placeholder="대표자명을 입력하세요"
-                />
-              </label>
-
               <div className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">문서번호</span>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-                  서버 자동 생성 (YYMMDD + 3자리 랜덤)
-                </div>
-              </div>
-
-              <div className="grid gap-2 text-sm">
-                <span className="text-xs text-slate-600">여행 기간</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="date"
-                    value={travelStartDate}
-                    onChange={(event) => setTravelStartDate(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="date"
-                    value={travelEndDate}
-                    onChange={(event) => setTravelEndDate(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  />
+                <span className="text-xs text-slate-600">지역</span>
+                <div className="flex flex-wrap gap-2">
+                  {regions.map((region) => {
+                    const disabled = isVersionMode && planContext?.regionId !== region.id;
+                    return (
+                      <button
+                        key={region.id}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => {
+                          setRegionId(region.id);
+                          setStartLocationId('');
+                          setStartLocationVersionId('');
+                          setSelectedRoute([]);
+                          setPlanRows([]);
+                        }}
+                        className={`rounded-xl border px-3 py-1.5 text-sm ${
+                          regionId === region.id
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+                      >
+                        {region.name}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -892,6 +915,68 @@ export function ItineraryBuilderPage(): JSX.Element {
                       남 {headcountMale} / 여 {headcountFemale}
                     </div>
                   </div>
+                </div>
+              </div>
+
+
+              <div className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">일수</span>
+                <div className="flex flex-wrap gap-2">
+                  {Array.from({ length: 9 }, (_, idx) => idx + 2).map((day) => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => {
+                        setTotalDays(day);
+                        setSelectedRoute((prev) => prev.slice(0, day - 1));
+                      }}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        totalDays === day
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {day}일
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <label className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">대표자명</span>
+                <input
+                  value={leaderName}
+                  onChange={(event) => {
+                    setHasEditedLeaderName(true);
+                    setLeaderName(event.target.value);
+                  }}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  placeholder="대표자명을 입력하세요"
+                />
+              </label>
+
+              <div className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">문서번호</span>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                  서버 자동 생성 (YYMMDD + 3자리 랜덤)
+                </div>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <span className="text-xs text-slate-600">여행 기간</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={travelStartDate}
+                    onChange={(event) => setTravelStartDate(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={travelEndDate}
+                    onChange={(event) => setTravelEndDate(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
                 </div>
               </div>
 
@@ -1036,35 +1121,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                 />
               </label>
 
-              <div className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">지역</span>
-                <div className="flex flex-wrap gap-2">
-                  {regions.map((region) => {
-                    const disabled = isVersionMode && planContext?.regionId !== region.id;
-                    return (
-                      <button
-                        key={region.id}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => {
-                          setRegionId(region.id);
-                          setStartLocationId('');
-                          setStartLocationVersionId('');
-                          setSelectedRoute([]);
-                          setPlanRows([]);
-                        }}
-                        className={`rounded-xl border px-3 py-1.5 text-sm ${
-                          regionId === region.id
-                            ? 'border-slate-900 bg-slate-900 text-white'
-                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                        } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
-                      >
-                        {region.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
 
               <div className="grid gap-1 text-sm">
                 <span className="text-xs text-slate-600">Variant</span>
@@ -1081,29 +1137,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                       }`}
                     >
                       {variant.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">일수</span>
-                <div className="flex flex-wrap gap-2">
-                  {Array.from({ length: 9 }, (_, idx) => idx + 2).map((day) => (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => {
-                        setTotalDays(day);
-                        setSelectedRoute((prev) => prev.slice(0, day - 1));
-                      }}
-                      className={`rounded-xl border px-3 py-1.5 text-sm ${
-                        totalDays === day
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {day}일
                     </button>
                   ))}
                 </div>
