@@ -3,6 +3,7 @@ import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toFacilityLabel, toMealLabel } from '../features/location/display';
+import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 import { MealOption, VariantType } from '../generated/graphql';
 
 interface RegionRow {
@@ -637,9 +638,15 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
 
   const pricingPreview = pricingPreviewData?.planPricingPreview ?? null;
+  const pricingBuckets = useMemo(
+    () =>
+      pricingPreview
+        ? buildPricingViewBuckets(pricingPreview.lines, pricingPreview.totalAmountKrw)
+        : null,
+    [pricingPreview],
+  );
   const pricingPreviewErrorMessage =
     pricingPreviewError?.graphQLErrors?.[0]?.message ?? pricingPreviewError?.message ?? '금액 미리보기 계산 중 오류가 발생했습니다.';
-  const perPersonTotal = pricingPreview && headcountTotal > 0 ? Math.round(pricingPreview.totalAmountKrw / headcountTotal) : 0;
 
   const canCreate = Boolean(
     hasValidContext &&
@@ -1517,41 +1524,109 @@ export function ItineraryBuilderPage(): JSX.Element {
               <p className="mt-3 text-sm text-slate-500">요건이 충족되면 금액이 자동 계산됩니다.</p>
             ) : (
               <div className="mt-3 space-y-3 text-sm text-slate-700">
-                <div className="grid gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  <div>정책: {pricingPreview.policyId}</div>
-                  <div>기본금: {formatKrw(pricingPreview.baseAmountKrw)}</div>
-                  <div>추가금: {formatKrw(pricingPreview.addonAmountKrw)}</div>
-                  <div>총금액: {formatKrw(pricingPreview.totalAmountKrw)}</div>
-                  <div>인당 총액: {formatKrw(perPersonTotal)}</div>
-                  <div>장거리 구간 수: {pricingPreview.longDistanceSegmentCount}</div>
-                  <div>숙소 추가 수량 합: {pricingPreview.extraLodgingCount}</div>
-                </div>
+                {pricingBuckets ? (
+                  <>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <h3 className="text-sm font-semibold text-slate-900">직원이 확인할 것 (상세)</h3>
 
-                <div className="max-h-[220px] overflow-auto rounded-2xl border border-slate-200">
-                  <table className="min-w-full text-xs">
-                    <thead className="bg-slate-50 text-slate-600">
-                      <tr>
-                        <th className="px-2 py-2 text-left">항목</th>
-                        <th className="px-2 py-2 text-left">요율</th>
-                        <th className="px-2 py-2 text-left">곱하기</th>
-                        <th className="px-2 py-2 text-left">금액</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pricingPreview.lines.map((line, index) => (
-                        <tr key={`${line.lineCode}-${index}`} className="border-t border-slate-200">
-                          <td className="px-2 py-1.5">
-                            {line.lineCode}
-                            {line.description ? <div className="text-[11px] text-slate-500">{line.description}</div> : null}
-                          </td>
-                          <td className="px-2 py-1.5">{line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-'}</td>
-                          <td className="px-2 py-1.5">{line.quantity}</td>
-                          <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                        <div className="font-medium text-slate-900">기본금 {formatKrw(pricingBuckets.baseTotal)}</div>
+                        {pricingBuckets.baseLines.length === 0 ? (
+                          <p className="mt-2 text-xs text-slate-500">기본금 항목이 없습니다.</p>
+                        ) : (
+                          <div className="mt-2 max-h-[220px] overflow-auto rounded-lg border border-slate-200">
+                            <table className="min-w-full text-xs">
+                              <thead className="bg-slate-50 text-slate-600">
+                                <tr>
+                                  <th className="px-2 py-2 text-left">항목</th>
+                                  <th className="px-2 py-2 text-left">가격</th>
+                                  <th className="px-2 py-2 text-left">개수</th>
+                                  <th className="px-2 py-2 text-left">금액</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {pricingBuckets.baseLines.map((line, index) => (
+                                  <tr key={`${line.lineCode}-base-${index}`} className="border-t border-slate-200">
+                                    <td className="px-2 py-1.5">{getPricingLineLabel(line)}</td>
+                                    <td className="px-2 py-1.5">{line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-'}</td>
+                                    <td className="px-2 py-1.5">{line.quantity}</td>
+                                    <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                        <div className="font-medium text-slate-900">추가금 {formatKrw(pricingBuckets.addonTotal)}</div>
+                        {pricingBuckets.addonLines.length === 0 ? (
+                          <p className="mt-2 text-xs text-slate-500">추가금 항목이 없습니다.</p>
+                        ) : (
+                          <div className="mt-2 max-h-[220px] overflow-auto rounded-lg border border-slate-200">
+                            <table className="min-w-full text-xs">
+                              <thead className="bg-slate-50 text-slate-600">
+                                <tr>
+                                  <th className="px-2 py-2 text-left">항목</th>
+                                  <th className="px-2 py-2 text-left">가격</th>
+                                  <th className="px-2 py-2 text-left">개수</th>
+                                  <th className="px-2 py-2 text-left">금액</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {pricingBuckets.addonLines.map((line, index) => (
+                                  <tr key={`${line.lineCode}-addon-${index}`} className="border-t border-slate-200">
+                                    <td className="px-2 py-1.5">
+                                      {getPricingLineLabel(line)}
+                                      {line.description && line.lineCode !== 'MANUAL_ADJUSTMENT' ? (
+                                        <div className="text-[11px] text-slate-500">{line.description}</div>
+                                      ) : null}
+                                    </td>
+                                    <td className="px-2 py-1.5">{line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-'}</td>
+                                    <td className="px-2 py-1.5">{line.quantity}</td>
+                                    <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3">
+                      <h3 className="text-sm font-semibold text-blue-900">고객이 확인할 것</h3>
+                      <div className="mt-2 grid gap-2 text-sm text-blue-900">
+                        <div>기본금: {formatKrw(pricingBuckets.baseTotal)}</div>
+                        <div>추가금: {formatKrw(pricingBuckets.addonTotal)}</div>
+                        {pricingBuckets.addonLines.length === 0 ? (
+                          <p className="text-xs text-blue-700">추가금 항목이 없습니다.</p>
+                        ) : (
+                          <div className="max-h-[180px] overflow-auto rounded-lg border border-blue-200 bg-white">
+                            <table className="min-w-full text-xs">
+                              <thead className="bg-blue-50 text-blue-900">
+                                <tr>
+                                  <th className="px-2 py-2 text-left">항목</th>
+                                  <th className="px-2 py-2 text-left">금액</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {pricingBuckets.addonLines.map((line, index) => (
+                                  <tr key={`${line.lineCode}-customer-addon-${index}`} className="border-t border-blue-100">
+                                    <td className="px-2 py-1.5">{getPricingLineLabel(line)}</td>
+                                    <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                        <div className="font-semibold">총합: {formatKrw(pricingBuckets.grandTotal)}</div>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
               </div>
             )}
           </Card>

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { VersionSnapshotView } from '../features/plan/components';
 import { usePlanVersionDetail, useSetCurrentPlanVersion } from '../features/plan/hooks';
+import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
 
@@ -30,6 +31,9 @@ export function PlanVersionDetailPage(): JSX.Element {
   }
 
   const isCurrent = version.plan.currentVersionId === version.id;
+  const pricingBuckets = version.pricing
+    ? buildPricingViewBuckets(version.pricing.lines, version.pricing.totalAmountKrw)
+    : null;
 
   return (
     <section className="grid gap-6">
@@ -112,40 +116,109 @@ export function PlanVersionDetailPage(): JSX.Element {
       {version.pricing ? (
         <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">금액 스냅샷</h2>
-          <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
-            <div>정책 ID: {version.pricing.policyId}</div>
-            <div>통화: {version.pricing.currencyCode}</div>
-            <div>기본 금액: {formatKrw(version.pricing.baseAmountKrw)}</div>
-            <div>추가 금액: {formatKrw(version.pricing.addonAmountKrw)}</div>
-            <div>총 금액: {formatKrw(version.pricing.totalAmountKrw)}</div>
-            <div>장거리 구간 수: {version.pricing.longDistanceSegmentCount}</div>
-            <div>숙소 추가 수량: {version.pricing.extraLodgingCount}</div>
-          </div>
+          {pricingBuckets ? (
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <h3 className="text-sm font-semibold text-slate-900">직원이 확인할 것 (상세)</h3>
 
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-600">
-                  <th className="py-2 pr-3">항목</th>
-                  <th className="py-2 pr-3">설명</th>
-                  <th className="py-2 pr-3">요율</th>
-                  <th className="py-2 pr-3">곱하기</th>
-                  <th className="py-2">금액</th>
-                </tr>
-              </thead>
-              <tbody>
-                {version.pricing.lines.map((line) => (
-                  <tr key={line.id ?? `${line.lineCode}-${line.description ?? ''}`} className="border-b border-slate-100">
-                    <td className="py-2 pr-3">{line.lineCode}</td>
-                    <td className="py-2 pr-3">{line.description ?? '-'}</td>
-                    <td className="py-2 pr-3">{line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-'}</td>
-                    <td className="py-2 pr-3">{line.quantity}</td>
-                    <td className="py-2">{formatKrw(line.amountKrw)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="font-medium text-slate-900">기본금 {formatKrw(pricingBuckets.baseTotal)}</div>
+                  {pricingBuckets.baseLines.length === 0 ? (
+                    <p className="mt-2 text-xs text-slate-500">기본금 항목이 없습니다.</p>
+                  ) : (
+                    <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200">
+                      <table className="min-w-full border-collapse text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-slate-200 bg-slate-50 text-slate-600">
+                            <th className="py-2 pl-2 pr-3">항목</th>
+                            <th className="py-2 pr-3">가격</th>
+                            <th className="py-2 pr-3">개수</th>
+                            <th className="py-2 pr-2">금액</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pricingBuckets.baseLines.map((line) => (
+                            <tr key={line.id ?? `${line.lineCode}-${line.amountKrw}`} className="border-b border-slate-100">
+                              <td className="py-2 pl-2 pr-3">{getPricingLineLabel(line)}</td>
+                              <td className="py-2 pr-3">{line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-'}</td>
+                              <td className="py-2 pr-3">{line.quantity}</td>
+                              <td className="py-2 pr-2">{formatKrw(line.amountKrw)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="font-medium text-slate-900">추가금 {formatKrw(pricingBuckets.addonTotal)}</div>
+                  {pricingBuckets.addonLines.length === 0 ? (
+                    <p className="mt-2 text-xs text-slate-500">추가금 항목이 없습니다.</p>
+                  ) : (
+                    <div className="mt-2 overflow-x-auto">
+                      <table className="min-w-full border-collapse text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-slate-200 text-slate-600">
+                            <th className="py-2 pr-3">항목</th>
+                            <th className="py-2 pr-3">가격</th>
+                            <th className="py-2 pr-3">개수</th>
+                            <th className="py-2">금액</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pricingBuckets.addonLines.map((line) => (
+                            <tr key={line.id ?? `${line.lineCode}-${line.description ?? ''}`} className="border-b border-slate-100">
+                              <td className="py-2 pr-3">
+                                {getPricingLineLabel(line)}
+                                {line.description && line.lineCode !== 'MANUAL_ADJUSTMENT' ? (
+                                  <div className="text-[11px] text-slate-500">{line.description}</div>
+                                ) : null}
+                              </td>
+                              <td className="py-2 pr-3">{line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-'}</td>
+                              <td className="py-2 pr-3">{line.quantity}</td>
+                              <td className="py-2">{formatKrw(line.amountKrw)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3">
+                <h3 className="text-sm font-semibold text-blue-900">고객이 확인할 것</h3>
+                <div className="mt-2 grid gap-2 text-sm text-blue-900">
+                  <div>기본금: {formatKrw(pricingBuckets.baseTotal)}</div>
+                  <div>추가금: {formatKrw(pricingBuckets.addonTotal)}</div>
+                  {pricingBuckets.addonLines.length === 0 ? (
+                    <p className="text-xs text-blue-700">추가금 항목이 없습니다.</p>
+                  ) : (
+                    <div className="max-h-[180px] overflow-auto rounded-lg border border-blue-200 bg-white">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-blue-50 text-blue-900">
+                          <tr>
+                            <th className="px-2 py-2 text-left">항목</th>
+                            <th className="px-2 py-2 text-left">금액</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pricingBuckets.addonLines.map((line) => (
+                            <tr key={`customer-addon-${line.id ?? `${line.lineCode}-${line.amountKrw}`}`} className="border-t border-blue-100">
+                              <td className="px-2 py-1.5">{getPricingLineLabel(line)}</td>
+                              <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <div className="font-semibold">총합: {formatKrw(pricingBuckets.grandTotal)}</div>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </Card>
       ) : null}
 
