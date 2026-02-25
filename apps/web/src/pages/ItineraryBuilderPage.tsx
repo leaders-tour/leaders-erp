@@ -429,6 +429,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [manualAdjustments, setManualAdjustments] = useState<ManualAdjustmentRow[]>([]);
   const [createdId, setCreatedId] = useState<string>('');
   const [hasEditedLeaderName, setHasEditedLeaderName] = useState<boolean>(false);
+  const [isValidationOpen, setIsValidationOpen] = useState<boolean>(false);
+  const [isPayloadPreviewOpen, setIsPayloadPreviewOpen] = useState<boolean>(false);
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
@@ -1487,34 +1489,9 @@ export function ItineraryBuilderPage(): JSX.Element {
           </div>
         </section>
 
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <section className="space-y-4">
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <h2 className="font-medium">검증</h2>
-            <div className="mt-3 space-y-2 text-sm">
-              {hasMissingSegment ? (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                  일부 구간 템플릿이 없습니다. Segment 데이터를 보강해주세요.
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">현재 구간 커버리지 정상</div>
-              )}
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-3">편집 행 수: {planRows.length}</div>
-              {hasHiaceHeadcountViolation ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
-                  하이에이스는 3인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.
-                </div>
-              ) : null}
-              {hasInvalidManualAdjustments ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
-                  기타금액 항목의 내용/금액을 확인해주세요.
-                </div>
-              ) : null}
-            </div>
-          </Card>
-
-          <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <h2 className="font-medium">자동 금액 산정</h2>
+            <h2 className="font-medium">금액</h2>
             {pricingPreviewError ? (
               <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
                 {pricingPreviewErrorMessage}
@@ -1523,11 +1500,11 @@ export function ItineraryBuilderPage(): JSX.Element {
             {!pricingPreview ? (
               <p className="mt-3 text-sm text-slate-500">요건이 충족되면 금액이 자동 계산됩니다.</p>
             ) : (
-              <div className="mt-3 space-y-3 text-sm text-slate-700">
+              <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {pricingBuckets ? (
                   <>
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      <h3 className="text-sm font-semibold text-slate-900">직원이 확인할 것 (상세)</h3>
+                      <h3 className="text-sm font-semibold text-slate-900">직원 확인용</h3>
 
                       <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
                         <div className="font-medium text-slate-900">기본금 {formatKrw(pricingBuckets.baseTotal)}</div>
@@ -1596,33 +1573,46 @@ export function ItineraryBuilderPage(): JSX.Element {
                     </div>
 
                     <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3">
-                      <h3 className="text-sm font-semibold text-blue-900">고객이 확인할 것</h3>
-                      <div className="mt-2 grid gap-2 text-sm text-blue-900">
-                        <div>기본금: {formatKrw(pricingBuckets.baseTotal)}</div>
-                        <div>추가금: {formatKrw(pricingBuckets.addonTotal)}</div>
-                        {pricingBuckets.addonLines.length === 0 ? (
-                          <p className="text-xs text-blue-700">추가금 항목이 없습니다.</p>
-                        ) : (
-                          <div className="max-h-[180px] overflow-auto rounded-lg border border-blue-200 bg-white">
-                            <table className="min-w-full text-xs">
-                              <thead className="bg-blue-50 text-blue-900">
-                                <tr>
-                                  <th className="px-2 py-2 text-left">항목</th>
-                                  <th className="px-2 py-2 text-left">금액</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {pricingBuckets.addonLines.map((line, index) => (
-                                  <tr key={`${line.lineCode}-customer-addon-${index}`} className="border-t border-blue-100">
-                                    <td className="px-2 py-1.5">{getPricingLineLabel(line)}</td>
-                                    <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
+                      <h3 className="text-sm font-semibold text-blue-900">고객 안내용</h3>
+                      <div className="mt-2 grid gap-2 text-blue-900">
+                        <div className="rounded-xl border border-blue-200 bg-white p-3">
+                          <div className="font-medium text-slate-900">기본금 {formatKrw(pricingBuckets.baseTotal)}</div>
+                        </div>
+                        <div className="rounded-xl border border-blue-200 bg-white p-3">
+                          <div className="font-medium text-slate-900">추가금 {formatKrw(pricingBuckets.addonTotal)}</div>
+                          {pricingBuckets.addonLines.length === 0 ? (
+                            <p className="mt-2 text-xs text-blue-700">추가금 항목이 없습니다.</p>
+                          ) : (
+                            <div className="mt-2 max-h-[180px] overflow-auto rounded-lg border border-blue-200 bg-white">
+                              <table className="min-w-full text-xs">
+                                <thead className="bg-blue-50 text-blue-900">
+                                  <tr>
+                                    <th className="px-2 py-2 text-left">항목</th>
+                                    <th className="px-2 py-2 text-left">가격</th>
+                                    <th className="px-2 py-2 text-left">개수</th>
+                                    <th className="px-2 py-2 text-left">금액</th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                        <div className="font-semibold">총합: {formatKrw(pricingBuckets.grandTotal)}</div>
+                                </thead>
+                                <tbody>
+                                  {pricingBuckets.addonLines.map((line, index) => (
+                                    <tr key={`${line.lineCode}-customer-addon-${index}`} className="border-t border-blue-100">
+                                      <td className="px-2 py-1.5">
+                                        {getPricingLineLabel(line)}
+                                        {line.description && line.lineCode !== 'MANUAL_ADJUSTMENT' ? (
+                                          <div className="text-[11px] text-blue-700">{line.description}</div>
+                                        ) : null}
+                                      </td>
+                                      <td className="px-2 py-1.5">{line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-'}</td>
+                                      <td className="px-2 py-1.5">{line.quantity}</td>
+                                      <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-sm font-semibold">총합: {formatKrw(pricingBuckets.grandTotal)}</div>
                       </div>
                     </div>
                   </>
@@ -1632,9 +1622,59 @@ export function ItineraryBuilderPage(): JSX.Element {
           </Card>
 
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <h2 className="font-medium">저장 데이터 미리보기</h2>
-            <p className="mt-1 text-xs text-slate-600">저장 시 서버로 전달되는 요약입니다.</p>
-            <pre className="mt-3 max-h-[280px] overflow-auto rounded-2xl bg-slate-900 p-3 text-xs leading-5 text-slate-100">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between text-left"
+              aria-expanded={isValidationOpen}
+              aria-controls="builder-validation-panel"
+              onClick={() => setIsValidationOpen((prev) => !prev)}
+            >
+              <h2 className="font-medium">검증</h2>
+              <span className="text-xs text-slate-500">{isValidationOpen ? '닫기' : '열기'}</span>
+            </button>
+            {isValidationOpen ? (
+              <div id="builder-validation-panel" className="mt-3 space-y-2 text-sm">
+                {hasMissingSegment ? (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                    일부 구간 템플릿이 없습니다. Segment 데이터를 보강해주세요.
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">현재 구간 커버리지 정상</div>
+                )}
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-3">편집 행 수: {planRows.length}</div>
+                {hasHiaceHeadcountViolation ? (
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
+                    하이에이스는 3인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.
+                  </div>
+                ) : null}
+                {hasInvalidManualAdjustments ? (
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
+                    기타금액 항목의 내용/금액을 확인해주세요.
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </Card>
+
+          <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between text-left"
+              aria-expanded={isPayloadPreviewOpen}
+              aria-controls="builder-payload-preview-panel"
+              onClick={() => setIsPayloadPreviewOpen((prev) => !prev)}
+            >
+              <h2 className="font-medium">저장 데이터 미리보기</h2>
+              <span className="text-xs text-slate-500">{isPayloadPreviewOpen ? '닫기' : '열기'}</span>
+            </button>
+            {isPayloadPreviewOpen ? (
+              <>
+                <p className="mt-1 text-xs text-slate-600">저장 시 서버로 전달되는 요약입니다.</p>
+                <pre
+                  id="builder-payload-preview-panel"
+                  className="mt-3 max-h-[280px] overflow-auto rounded-2xl bg-slate-900 p-3 text-xs leading-5 text-slate-100"
+                >
 {JSON.stringify(
   isVersionMode
     ? {
@@ -1699,7 +1739,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   null,
   2,
 )}
-            </pre>
+                </pre>
+              </>
+            ) : null}
           </Card>
         </section>
       </div>
