@@ -2,7 +2,6 @@ type SafetyNotice {
   id: ID!
   title: String!
   contentMd: String!
-  imageUrls: [String!]!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -10,11 +9,9 @@ type SafetyNotice {
 input SafetyNoticeCreateInput {
   title: String!
   contentMd: String!
-  imageUrls: [String!]
 }
 
 input SafetyNoticeUpdateInput {
   title: String
   contentMd: String
-  imageUrls: [String!]
 }

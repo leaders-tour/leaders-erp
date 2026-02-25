@@ -28,7 +28,6 @@ export class SafetyNoticeService {
     return this.repository.create({
       title: parsed.data.title.trim(),
       contentMd: parsed.data.contentMd.trim(),
-      imageUrls: parsed.data.imageUrls ?? [],
     });
   }
 
@@ -46,7 +45,6 @@ export class SafetyNoticeService {
     return this.repository.update(id, {
       title: parsed.data.title?.trim(),
       contentMd: parsed.data.contentMd?.trim(),
-      imageUrls: parsed.data.imageUrls,
     });
   }
 
