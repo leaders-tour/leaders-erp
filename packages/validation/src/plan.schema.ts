@@ -44,7 +44,8 @@ export const planVersionMetaInputSchema = z
     flightOutTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
     pickupDropNote: z.string().max(1000).optional(),
     externalPickupDropNote: z.string().max(1000).optional(),
-    rentalItemsText: z.string().min(1).max(10000),
+    includeRentalItems: z.boolean().default(true),
+    rentalItemsText: z.string().max(10000),
     eventCodes: z.array(z.enum(eventCodes)).default([]),
     extraLodgings: z.array(extraLodgingInputSchema).default([]),
     remark: z.string().max(2000).optional(),
@@ -72,6 +73,14 @@ export const planVersionMetaInputSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'headcountMale + headcountFemale must equal headcountTotal',
+      });
+    }
+
+    if (value.includeRentalItems && value.rentalItemsText.trim().length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'rentalItemsText is required when includeRentalItems is true',
+        path: ['rentalItemsText'],
       });
     }
 

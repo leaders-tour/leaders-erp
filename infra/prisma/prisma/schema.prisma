@@ -246,6 +246,7 @@ model PlanVersionMeta {
   flightOutTime          String
   pickupDropNote         String?
   externalPickupDropNote String?
+  includeRentalItems     Boolean  @default(true)
   rentalItemsText        String   @db.Text
   eventCodes             Json
   extraLodgings          Json

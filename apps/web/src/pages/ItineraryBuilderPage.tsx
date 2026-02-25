@@ -422,6 +422,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [flightOutTime, setFlightOutTime] = useState<(typeof FLIGHT_TIME_OPTIONS)[number]>('17:30');
   const [pickupDropNote, setPickupDropNote] = useState<string>('');
   const [externalPickupDropNote, setExternalPickupDropNote] = useState<string>('');
+  const [includeRentalItems, setIncludeRentalItems] = useState<boolean>(true);
   const [rentalItemsText, setRentalItemsText] = useState<string>(buildDefaultRentalItems(6));
   const [eventCodes, setEventCodes] = useState<string[]>([]);
   const [remark, setRemark] = useState<string>('');
@@ -697,7 +698,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       !hasHiaceHeadcountViolation &&
       !hasInvalidManualAdjustments &&
       !hasInvalidManualDepositInput &&
-      rentalItemsText.trim() &&
+      (includeRentalItems ? rentalItemsText.trim() : true) &&
       startLocationId &&
       startLocationVersionId &&
       selectedRoute.length === totalDays - 1 &&
@@ -780,6 +781,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           flightOutTime,
                           pickupDropNote: pickupDropNote.trim() || undefined,
                           externalPickupDropNote: externalPickupDropNote.trim() || undefined,
+                          includeRentalItems,
                           rentalItemsText,
                           eventCodes,
                           extraLodgings,
@@ -822,6 +824,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           flightOutTime,
                           pickupDropNote: pickupDropNote.trim() || undefined,
                           externalPickupDropNote: externalPickupDropNote.trim() || undefined,
+                          includeRentalItems,
                           rentalItemsText,
                           eventCodes,
                           extraLodgings,
@@ -1125,15 +1128,31 @@ export function ItineraryBuilderPage(): JSX.Element {
                   <span className="text-xs text-slate-600">기본 대여물품</span>
                   <Button
                     variant="outline"
+                    disabled={!includeRentalItems}
                     onClick={() => setRentalItemsText(buildDefaultRentalItems(headcountTotal))}
                   >
                     기본값 다시 계산
                   </Button>
                 </div>
+                <label className="flex items-center gap-2 text-xs text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={includeRentalItems}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setIncludeRentalItems(checked);
+                      if (!checked) {
+                        setRentalItemsText('');
+                      }
+                    }}
+                  />
+                  기본 물품 포함
+                </label>
                 <textarea
                   value={rentalItemsText}
                   onChange={(event) => setRentalItemsText(event.target.value)}
                   rows={4}
+                  disabled={!includeRentalItems}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                 />
               </div>
@@ -1787,6 +1806,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         flightOutTime,
         pickupDropNote,
         externalPickupDropNote,
+        includeRentalItems,
         rentalItemsText,
         eventCodes,
         extraLodgings,
@@ -1816,6 +1836,7 @@ export function ItineraryBuilderPage(): JSX.Element {
           flightOutTime,
           pickupDropNote,
           externalPickupDropNote,
+          includeRentalItems,
           rentalItemsText,
           eventCodes,
           extraLodgings,
