@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 export const eventCreateSchema = z.object({
-  code: z.string().min(1).max(50),
   name: z.string().min(1).max(100),
   isActive: z.boolean().default(true),
   securityDepositKrw: z.number().int().min(0).max(1_000_000_000).default(0),

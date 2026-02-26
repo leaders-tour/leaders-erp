@@ -38,7 +38,6 @@ export interface PlanVersionMetaRow {
   rentalItemsText: string;
   events: Array<{
     id: string;
-    code: string;
     name: string;
     securityDepositKrw: number;
     isActive: boolean;
@@ -290,7 +289,6 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         rentalItemsText
         events {
           id
-          code
           name
           securityDepositKrw
           isActive

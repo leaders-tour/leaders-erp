@@ -104,7 +104,6 @@ interface UserRow {
 
 interface EventOptionRow {
   id: string;
-  code: string;
   name: string;
 }
 
@@ -191,7 +190,6 @@ const EVENTS_QUERY = gql`
   query BuilderEvents($activeOnly: Boolean) {
     events(activeOnly: $activeOnly) {
       id
-      code
       name
     }
   }
@@ -1198,7 +1196,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                         }`}
                       >
                         {eventOption.name}
-                        <span className="ml-1 text-[11px] opacity-80">({eventOption.code})</span>
                       </button>
                     );
                   })}

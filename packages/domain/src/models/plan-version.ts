@@ -29,7 +29,6 @@ export interface PlanVersion {
     rentalItemsText: string;
     events: Array<{
       id: string;
-      code: string;
       name: string;
       isActive: boolean;
       securityDepositKrw: number;

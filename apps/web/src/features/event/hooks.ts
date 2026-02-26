@@ -3,7 +3,6 @@ import { useCrudResource } from '../../lib/crud';
 
 export interface EventRow {
   id: string;
-  code: string;
   name: string;
   isActive: boolean;
   securityDepositKrw: number;
@@ -16,7 +15,6 @@ const LIST = gql`
   query EventsForCrud {
     events {
       id
-      code
       name
       isActive
       securityDepositKrw
@@ -50,7 +48,6 @@ const REMOVE = gql`
 `;
 
 export interface EventFormInput {
-  code: string;
   name: string;
   isActive: boolean;
   securityDepositKrw: number;
@@ -63,7 +60,6 @@ export function useEventCrud() {
     keys: { listKey: 'events', createKey: 'createEvent', updateKey: 'updateEvent', removeKey: 'deleteEvent' },
     toCreateVariables: (input) => ({
       input: {
-        code: input.code.trim(),
         name: input.name.trim(),
         isActive: input.isActive,
         securityDepositKrw: input.securityDepositKrw,
@@ -73,7 +69,6 @@ export function useEventCrud() {
     toUpdateVariables: (id, input) => ({
       id,
       input: {
-        code: input.code.trim(),
         name: input.name.trim(),
         isActive: input.isActive,
         securityDepositKrw: input.securityDepositKrw,

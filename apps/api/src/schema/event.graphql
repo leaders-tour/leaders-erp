@@ -1,6 +1,5 @@
 type Event {
   id: ID!
-  code: String!
   name: String!
   isActive: Boolean!
   securityDepositKrw: Int!
@@ -10,7 +9,6 @@ type Event {
 }
 
 input EventCreateInput {
-  code: String!
   name: String!
   isActive: Boolean
   securityDepositKrw: Int
@@ -18,7 +16,6 @@ input EventCreateInput {
 }
 
 input EventUpdateInput {
-  code: String
   name: String
   isActive: Boolean
   securityDepositKrw: Int

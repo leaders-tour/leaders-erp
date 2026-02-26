@@ -263,7 +263,6 @@ model PlanVersionMeta {
 
 model Event {
   id                 String @id @default(uuid(7))
-  code               String @unique
   name               String
   isActive           Boolean @default(true)
   securityDepositKrw Int @default(0)
