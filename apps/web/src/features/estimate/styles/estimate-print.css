@@ -157,6 +157,8 @@
 
 .estimate-sheet-itinerary {
   height: 297mm;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -178,7 +180,15 @@
   font-weight: 600;
 }
 
+.estimate-itinerary-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .estimate-itinerary-table {
+  --itinerary-row-count: 1;
+  height: 100%;
   font-size: 10px;
   table-layout: fixed;
 }
@@ -195,13 +205,12 @@
 }
 
 .estimate-itinerary-table td {
-  text-align: left;
-  vertical-align: top;
+  text-align: center;
+  vertical-align: middle;
 }
 
-.estimate-itinerary-table td:nth-child(1),
-.estimate-itinerary-table td:nth-child(3) {
-  text-align: center;
+.estimate-itinerary-table tbody tr {
+  height: calc(196mm / var(--itinerary-row-count));
 }
 
 .estimate-itinerary-table th:nth-child(1),
@@ -239,10 +248,22 @@
   padding-left: 16px;
   font-size: 10px;
   line-height: 1.3;
+  flex-shrink: 0;
 }
 
 .estimate-itinerary-footer li {
   margin: 3px 0;
+}
+
+.estimate-itinerary-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  white-space: pre-line;
+  text-align: center;
 }
 
 @page {
