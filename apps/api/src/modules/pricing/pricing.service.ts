@@ -1,4 +1,5 @@
 import type {
+  Event,
   PricingCalcType,
   PricingLineCode,
   PricingPolicy,
@@ -25,6 +26,7 @@ type ComputeContext = {
 
 const HIACE = '하이에이스';
 const LONG_DISTANCE_BASE_POOL_KRW = 320_000;
+const RENTAL_ITEM_DEPOSIT_PER_PERSON_KRW = 30_000;
 
 export class PricingService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -52,6 +54,11 @@ export class PricingService {
         totalAmountKrw: result.totalAmountKrw,
         depositAmountKrw: result.depositAmountKrw,
         balanceAmountKrw: result.balanceAmountKrw,
+        securityDepositAmountKrw: result.securityDepositAmountKrw,
+        securityDepositUnitPriceKrw: result.securityDepositUnitPriceKrw,
+        securityDepositQuantity: result.securityDepositQuantity,
+        securityDepositMode: result.securityDepositMode,
+        securityDepositEventId: result.securityDepositEventId,
         inputSnapshot: result.inputSnapshot as Prisma.InputJsonValue,
         lines: {
           create: result.lines.map((line) => ({
@@ -75,13 +82,22 @@ export class PricingService {
       throw new DomainError('VALIDATION_FAILED', 'Invalid travelStartDate for pricing');
     }
 
-    const [policy, longDistanceSegmentCount] = await Promise.all([
+    const [policy, longDistanceSegmentCount, selectedEvents] = await Promise.all([
       this.loadActivePolicy(prisma, travelStartDate),
       this.countLongDistanceSegments(prisma, input.regionId, input.planStops),
+      input.eventIds.length > 0
+        ? prisma.event.findMany({
+            where: { id: { in: input.eventIds } },
+            select: { id: true, name: true, securityDepositKrw: true, isActive: true, sortOrder: true },
+          })
+        : Promise.resolve([]),
     ]);
 
     if (!policy) {
       throw new DomainError('VALIDATION_FAILED', 'No active pricing policy found for travelStartDate');
+    }
+    if (selectedEvents.length !== input.eventIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'One or more eventIds are invalid');
     }
 
     const rules = await prisma.pricingRule.findMany({
@@ -215,6 +231,11 @@ export class PricingService {
     const totalAmountKrw = lines.reduce((sum, line) => sum + line.amountKrw, 0);
     const addonAmountKrw = totalAmountKrw - baseAmountKrw;
     const { depositAmountKrw, balanceAmountKrw } = this.computeDepositAndBalance(totalAmountKrw, input.manualDepositAmountKrw);
+    const securityDeposit = this.computeSecurityDeposit({
+      includeRentalItems: input.includeRentalItems,
+      headcountTotal: input.headcountTotal,
+      events: selectedEvents,
+    });
 
     return {
       policyId: policy.id,
@@ -224,6 +245,12 @@ export class PricingService {
       totalAmountKrw,
       depositAmountKrw,
       balanceAmountKrw,
+      securityDepositAmountKrw: securityDeposit.amountKrw,
+      securityDepositUnitPriceKrw: securityDeposit.unitPriceKrw,
+      securityDepositQuantity: securityDeposit.quantity,
+      securityDepositMode: securityDeposit.mode,
+      securityDepositEventId: securityDeposit.event?.id ?? null,
+      securityDepositEvent: securityDeposit.event,
       longDistanceSegmentCount,
       extraLodgingCount,
       lines,
@@ -239,7 +266,71 @@ export class PricingService {
         extraLodgings: input.extraLodgings,
         manualAdjustments: input.manualAdjustments,
         manualDepositAmountKrw: input.manualDepositAmountKrw ?? null,
+        includeRentalItems: input.includeRentalItems,
+        eventIds: input.eventIds,
+        securityDeposit: {
+          amountKrw: securityDeposit.amountKrw,
+          unitPriceKrw: securityDeposit.unitPriceKrw,
+          quantity: securityDeposit.quantity,
+          mode: securityDeposit.mode,
+          eventId: securityDeposit.event?.id ?? null,
+        },
       },
+    };
+  }
+
+  private computeSecurityDeposit(input: {
+    includeRentalItems: boolean;
+    headcountTotal: number;
+    events: Array<Pick<Event, 'id' | 'name' | 'securityDepositKrw' | 'isActive' | 'sortOrder'>>;
+  }): {
+    amountKrw: number;
+    unitPriceKrw: number;
+    quantity: number;
+    mode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+    event: {
+      id: string;
+      name: string;
+      securityDepositKrw: number;
+      isActive: boolean;
+      sortOrder: number;
+    } | null;
+  } {
+    const topEvent =
+      input.events.length > 0
+        ? input.events
+            .slice()
+            .sort((a, b) => b.securityDepositKrw - a.securityDepositKrw || a.sortOrder - b.sortOrder)[0]
+        : null;
+
+    if (topEvent) {
+      return {
+        amountKrw: topEvent.securityDepositKrw,
+        unitPriceKrw: topEvent.securityDepositKrw,
+        quantity: 1,
+        mode: 'PER_TEAM',
+        event: topEvent,
+      };
+    }
+
+    if (input.includeRentalItems) {
+      const unitPriceKrw = RENTAL_ITEM_DEPOSIT_PER_PERSON_KRW;
+      const quantity = input.headcountTotal;
+      return {
+        amountKrw: unitPriceKrw * quantity,
+        unitPriceKrw,
+        quantity,
+        mode: 'PER_PERSON',
+        event: null,
+      };
+    }
+
+    return {
+      amountKrw: 0,
+      unitPriceKrw: 0,
+      quantity: 0,
+      mode: 'NONE',
+      event: null,
     };
   }
 

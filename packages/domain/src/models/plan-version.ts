@@ -50,6 +50,19 @@ export interface PlanVersion {
     baseAmountKrw: number;
     addonAmountKrw: number;
     totalAmountKrw: number;
+    depositAmountKrw: number;
+    balanceAmountKrw: number;
+    securityDepositAmountKrw: number;
+    securityDepositUnitPriceKrw: number;
+    securityDepositQuantity: number;
+    securityDepositMode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+    securityDepositEvent: {
+      id: string;
+      name: string;
+      securityDepositKrw: number;
+      isActive: boolean;
+      sortOrder: number;
+    } | null;
     lines: Array<{
       id: string;
       lineCode: string;

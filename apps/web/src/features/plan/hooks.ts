@@ -72,6 +72,14 @@ export interface PlanVersionPricingRow {
   totalAmountKrw: number;
   depositAmountKrw: number;
   balanceAmountKrw: number;
+  securityDepositAmountKrw: number;
+  securityDepositUnitPriceKrw: number;
+  securityDepositQuantity: number;
+  securityDepositMode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+  securityDepositEvent: {
+    id: string;
+    name: string;
+  } | null;
   longDistanceSegmentCount: number;
   extraLodgingCount: number;
   lines: PlanPricingLineRow[];
@@ -311,6 +319,14 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         totalAmountKrw
         depositAmountKrw
         balanceAmountKrw
+        securityDepositAmountKrw
+        securityDepositUnitPriceKrw
+        securityDepositQuantity
+        securityDepositMode
+        securityDepositEvent {
+          id
+          name
+        }
         longDistanceSegmentCount
         extraLodgingCount
         createdAt

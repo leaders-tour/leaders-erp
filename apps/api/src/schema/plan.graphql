@@ -79,6 +79,11 @@ type PlanVersionPricing {
   totalAmountKrw: Int!
   depositAmountKrw: Int!
   balanceAmountKrw: Int!
+  securityDepositAmountKrw: Int!
+  securityDepositUnitPriceKrw: Int!
+  securityDepositQuantity: Int!
+  securityDepositMode: SecurityDepositMode!
+  securityDepositEvent: Event
   longDistanceSegmentCount: Int!
   extraLodgingCount: Int!
   lines: [PlanPricingLine!]!
@@ -94,6 +99,11 @@ type PlanPricingPreview {
   totalAmountKrw: Int!
   depositAmountKrw: Int!
   balanceAmountKrw: Int!
+  securityDepositAmountKrw: Int!
+  securityDepositUnitPriceKrw: Int!
+  securityDepositQuantity: Int!
+  securityDepositMode: SecurityDepositMode!
+  securityDepositEvent: Event
   longDistanceSegmentCount: Int!
   extraLodgingCount: Int!
   lines: [PlanPricingLine!]!
@@ -126,6 +136,12 @@ enum PricingLineCode {
 enum PricingLineSourceType {
   RULE
   MANUAL
+}
+
+enum SecurityDepositMode {
+  NONE
+  PER_PERSON
+  PER_TEAM
 }
 
 input PlanCreateInput {
@@ -199,6 +215,8 @@ input PlanPricingPreviewInput {
   travelStartDate: DateTime!
   headcountTotal: Int!
   vehicleType: String!
+  includeRentalItems: Boolean!
+  eventIds: [ID!]!
   extraLodgings: [ExtraLodgingInput!]
   manualAdjustments: [ManualAdjustmentInput!]
   manualDepositAmountKrw: Int

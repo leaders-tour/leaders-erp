@@ -146,6 +146,14 @@ interface PricingPreviewRow {
   totalAmountKrw: number;
   depositAmountKrw: number;
   balanceAmountKrw: number;
+  securityDepositAmountKrw: number;
+  securityDepositUnitPriceKrw: number;
+  securityDepositQuantity: number;
+  securityDepositMode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+  securityDepositEvent: {
+    id: string;
+    name: string;
+  } | null;
   longDistanceSegmentCount: number;
   extraLodgingCount: number;
   lines: PricingLineRow[];
@@ -279,6 +287,14 @@ const PLAN_PRICING_PREVIEW_QUERY = gql`
       totalAmountKrw
       depositAmountKrw
       balanceAmountKrw
+      securityDepositAmountKrw
+      securityDepositUnitPriceKrw
+      securityDepositQuantity
+      securityDepositMode
+      securityDepositEvent {
+        id
+        name
+      }
       longDistanceSegmentCount
       extraLodgingCount
       lines {
@@ -334,6 +350,16 @@ function formatHours(value: number): string {
 
 function formatKrw(value: number): string {
   return `${new Intl.NumberFormat('ko-KR').format(value)}원`;
+}
+
+function formatSecurityDepositScope(mode: 'NONE' | 'PER_PERSON' | 'PER_TEAM'): string {
+  if (mode === 'PER_TEAM') {
+    return '팀당';
+  }
+  if (mode === 'PER_PERSON') {
+    return '인당';
+  }
+  return '-';
 }
 
 function formatLocationVersion(version: Pick<LocationVersionRow, 'label' | 'versionNumber'> | undefined): string {
@@ -679,6 +705,8 @@ export function ItineraryBuilderPage(): JSX.Element {
           travelStartDate: toIsoDateTime(travelStartDate),
           headcountTotal,
           vehicleType,
+          includeRentalItems,
+          eventIds,
           extraLodgings,
           manualAdjustments: normalizedManualAdjustments,
           manualDepositAmountKrw: normalizedManualDepositAmountKrw,
@@ -1651,6 +1679,34 @@ export function ItineraryBuilderPage(): JSX.Element {
                       </div>
 
                       <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                        <div className="font-medium text-slate-900">보증금 {formatKrw(pricingPreview.securityDepositAmountKrw)}</div>
+                        <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
+                          <table className="min-w-full text-xs">
+                            <thead className="bg-slate-50 text-slate-600">
+                              <tr>
+                                <th className="px-2 py-2 text-left">항목</th>
+                                <th className="px-2 py-2 text-left">기준</th>
+                                <th className="px-2 py-2 text-left">금액</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="border-t border-slate-200">
+                                <td className="px-2 py-1.5">
+                                  {pricingPreview.securityDepositEvent ? `이벤트(${pricingPreview.securityDepositEvent.name})` : '기본 물품'}
+                                </td>
+                                <td className="px-2 py-1.5">
+                                  {pricingPreview.securityDepositMode === 'NONE'
+                                    ? '-'
+                                    : `${formatKrw(pricingPreview.securityDepositUnitPriceKrw)}(${formatSecurityDepositScope(pricingPreview.securityDepositMode)}) x ${pricingPreview.securityDepositQuantity}`}
+                                </td>
+                                <td className="px-2 py-1.5">{formatKrw(pricingPreview.securityDepositAmountKrw)}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
                           <div className="font-medium text-slate-900">예약금/잔금</div>
                           <div className="mt-2 grid gap-1 text-xs text-slate-600">
                             <span>예약금 직접수정</span>
@@ -1734,6 +1790,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                           )}
                         </div>
                         <div className="text-sm font-semibold">총합: {formatKrw(pricingBuckets.grandTotal)}</div>
+                        <div>
+                          보증금: {formatKrw(pricingPreview.securityDepositUnitPriceKrw)}{' '}
+                          {pricingPreview.securityDepositMode === 'NONE'
+                            ? ''
+                            : `(${formatSecurityDepositScope(pricingPreview.securityDepositMode)})`}
+                        </div>
                         <div>예약금: {formatKrw(pricingPreview.depositAmountKrw)}</div>
                         <div>잔금: {formatKrw(pricingPreview.balanceAmountKrw)}</div>
                       </div>

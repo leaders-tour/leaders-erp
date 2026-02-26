@@ -11,6 +11,16 @@ function formatKrw(value: number): string {
   return `${currencyFormatter.format(value)}원`;
 }
 
+function formatSecurityDepositScope(mode: 'NONE' | 'PER_PERSON' | 'PER_TEAM'): string {
+  if (mode === 'PER_TEAM') {
+    return '팀당';
+  }
+  if (mode === 'PER_PERSON') {
+    return '인당';
+  }
+  return '-';
+}
+
 export function PlanVersionDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { planId, versionId } = useParams<{ planId: string; versionId: string }>();
@@ -187,6 +197,36 @@ export function PlanVersionDetailPage(): JSX.Element {
                 </div>
 
                 <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="font-medium text-slate-900">보증금 {formatKrw(version.pricing.securityDepositAmountKrw)}</div>
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="min-w-full border-collapse text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-slate-600">
+                          <th className="py-2 pr-3">항목</th>
+                          <th className="py-2 pr-3">기준</th>
+                          <th className="py-2">금액</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-slate-100">
+                          <td className="py-2 pr-3">
+                            {version.pricing.securityDepositEvent
+                              ? `이벤트(${version.pricing.securityDepositEvent.name})`
+                              : '기본 물품'}
+                          </td>
+                          <td className="py-2 pr-3">
+                            {version.pricing.securityDepositMode === 'NONE'
+                              ? '-'
+                              : `${formatKrw(version.pricing.securityDepositUnitPriceKrw)}(${formatSecurityDepositScope(version.pricing.securityDepositMode)}) x ${version.pricing.securityDepositQuantity}`}
+                          </td>
+                          <td className="py-2">{formatKrw(version.pricing.securityDepositAmountKrw)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
                   <div className="font-medium text-slate-900">예약금/잔금</div>
                   <div className="mt-2 overflow-x-auto">
                     <table className="min-w-full border-collapse text-left text-xs">
@@ -239,6 +279,12 @@ export function PlanVersionDetailPage(): JSX.Element {
                     </div>
                   )}
                   <div className="font-semibold">총합: {formatKrw(pricingBuckets.grandTotal)}</div>
+                  <div>
+                    보증금: {formatKrw(version.pricing.securityDepositUnitPriceKrw)}{' '}
+                    {version.pricing.securityDepositMode === 'NONE'
+                      ? ''
+                      : `(${formatSecurityDepositScope(version.pricing.securityDepositMode)})`}
+                  </div>
                   <div>예약금: {formatKrw(version.pricing.depositAmountKrw)}</div>
                   <div>잔금: {formatKrw(version.pricing.balanceAmountKrw)}</div>
                 </div>

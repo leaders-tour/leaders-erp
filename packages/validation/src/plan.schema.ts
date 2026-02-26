@@ -163,11 +163,22 @@ export const planPricingPreviewSchema = z
     travelStartDate: dateTimeInputSchema,
     headcountTotal: z.number().int().min(1).max(100),
     vehicleType: z.enum(vehicleTypes),
+    includeRentalItems: z.boolean().default(true),
+    eventIds: z.array(z.string().min(1)).default([]),
     extraLodgings: z.array(extraLodgingInputSchema).default([]),
     manualAdjustments: z.array(manualAdjustmentInputSchema).default([]),
     manualDepositAmountKrw: manualDepositInputSchema.optional(),
   })
   .superRefine((value, ctx) => {
+    const uniqueEventIds = new Set(value.eventIds);
+    if (uniqueEventIds.size !== value.eventIds.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'eventIds must not contain duplicates',
+        path: ['eventIds'],
+      });
+    }
+
     const seenDayIndexes = new Set<number>();
     value.extraLodgings.forEach((item, index) => {
       if (item.dayIndex > value.totalDays) {

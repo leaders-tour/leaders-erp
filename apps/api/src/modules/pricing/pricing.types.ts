@@ -1,4 +1,4 @@
-import type { PricingLineCode, PricingLineSourceType } from '@prisma/client';
+import type { PricingLineCode, PricingLineSourceType, SecurityDepositMode } from '@prisma/client';
 import type { VariantType as DomainVariantType } from '@tour/domain';
 
 export interface ExtraLodgingInputDto {
@@ -23,6 +23,8 @@ export interface PricingComputeInput {
   travelStartDate: string;
   headcountTotal: number;
   vehicleType: string;
+  includeRentalItems: boolean;
+  eventIds: string[];
   extraLodgings: ExtraLodgingInputDto[];
   manualAdjustments: ManualAdjustmentInputDto[];
   manualDepositAmountKrw?: number;
@@ -47,6 +49,18 @@ export interface PricingComputationResult {
   totalAmountKrw: number;
   depositAmountKrw: number;
   balanceAmountKrw: number;
+  securityDepositAmountKrw: number;
+  securityDepositUnitPriceKrw: number;
+  securityDepositQuantity: number;
+  securityDepositMode: SecurityDepositMode;
+  securityDepositEventId: string | null;
+  securityDepositEvent: {
+    id: string;
+    name: string;
+    securityDepositKrw: number;
+    isActive: boolean;
+    sortOrder: number;
+  } | null;
   longDistanceSegmentCount: number;
   extraLodgingCount: number;
   lines: PricingComputedLine[];

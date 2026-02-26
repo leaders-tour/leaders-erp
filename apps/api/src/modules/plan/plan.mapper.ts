@@ -8,6 +8,7 @@ export const planVersionInclude = {
   meta: true,
   pricing: {
     include: {
+      securityDepositEvent: true,
       lines: {
         orderBy: { createdAt: 'asc' },
       },
