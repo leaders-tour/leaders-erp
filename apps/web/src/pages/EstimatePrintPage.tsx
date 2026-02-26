@@ -1,5 +1,4 @@
 import { Button, Card } from '@tour/ui';
-import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
@@ -14,25 +13,12 @@ export function EstimatePrintPage(): JSX.Element {
   const mode: EstimateSourceMode = modeParam === 'version' ? 'version' : 'draft';
   const versionId = searchParams.get('versionId');
   const draftKey = searchParams.get('draftKey');
-  const autoPrint = searchParams.get('autoprint') === '1';
 
   const { data, loading, errorMessage } = useEstimateSource({
     mode,
     versionId,
     draftKey,
   });
-
-  useEffect(() => {
-    if (!autoPrint || loading || !data || errorMessage) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      window.print();
-    }, 150);
-
-    return () => window.clearTimeout(timer);
-  }, [autoPrint, data, errorMessage, loading]);
 
   return (
     <section className="estimate-print-root">

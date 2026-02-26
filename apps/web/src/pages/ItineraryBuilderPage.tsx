@@ -866,7 +866,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
 
     window.open(
-      `/documents/estimate?mode=draft&draftKey=${encodeURIComponent(draftKey)}&autoprint=1`,
+      `/documents/estimate?mode=draft&draftKey=${encodeURIComponent(draftKey)}`,
       '_blank',
       'noopener,noreferrer',
     );

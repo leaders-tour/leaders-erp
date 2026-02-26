@@ -64,7 +64,7 @@ export function PlanVersionDetailPage(): JSX.Element {
             variant="outline"
             onClick={() =>
               window.open(
-                `/documents/estimate?mode=version&versionId=${encodeURIComponent(version.id)}&autoprint=1`,
+                `/documents/estimate?mode=version&versionId=${encodeURIComponent(version.id)}`,
                 '_blank',
                 'noopener,noreferrer',
               )

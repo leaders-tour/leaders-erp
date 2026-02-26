@@ -37,18 +37,23 @@
 }
 
 .estimate-tagline {
-  margin: 6px 0 0;
+  margin: 0;
   font-size: 13px;
   font-weight: 600;
 }
 
-.estimate-company-list {
-  margin: 12px 0 0;
-  padding-left: 18px;
+.estimate-company-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 20px;
+  row-gap: 4px;
 }
 
-.estimate-company-list li {
-  margin: 3px 0;
+.estimate-company-grid > div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .estimate-divider {
@@ -80,6 +85,7 @@
   border: 1px solid #cbd5e1;
   padding: 6px 8px;
   vertical-align: top;
+  text-align: center;
 }
 
 .estimate-table th {
@@ -115,6 +121,20 @@
 
 .estimate-notes li {
   margin: 3px 0;
+}
+
+.estimate-single-line-note {
+  margin: 12px 0 6px;
+  white-space: nowrap;
+}
+
+.estimate-footer-meta {
+  text-align: right;
+}
+
+.estimate-payment-line {
+  margin: 4px 0;
+  white-space: nowrap;
 }
 
 .estimate-draft-badge {

@@ -1,4 +1,4 @@
-export const ESTIMATE_TITLE = '리더스투어 맞춤견적서';
+export const ESTIMATE_TITLE = '리더스 투어 맞춤견적서';
 export const ESTIMATE_TAGLINE = 'Walk New Paths, Write Your Own Story';
 
 export const ESTIMATE_COMPANY = {
@@ -11,7 +11,7 @@ export const ESTIMATE_COMPANY = {
 export const ESTIMATE_PAYMENT = {
   reservationAndDepositMethod: '계좌이체',
   balanceMethod: '현장결제(현금원화)',
-  vatText: '부가세 포함',
+  vatText: '부가세 미포함',
   bankName: '농협',
   bankAccount: '351-1285-3040-13',
   bankOwner: '김영웅(리더스투어)',

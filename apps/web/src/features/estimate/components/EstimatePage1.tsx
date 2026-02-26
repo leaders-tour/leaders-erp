@@ -29,15 +29,15 @@ export function EstimatePage1({ data }: EstimatePage1Props): JSX.Element {
     <section className="estimate-sheet">
       {data.isDraft ? <div className="estimate-draft-badge">임시본 (저장 전 출력)</div> : null}
 
-      <h1 className="estimate-title">{ESTIMATE_TITLE}</h1>
       <p className="estimate-tagline">{ESTIMATE_TAGLINE}</p>
+      <h1 className="estimate-title">{ESTIMATE_TITLE}</h1>
 
-      <ul className="estimate-company-list">
-        <li>사업자 등록번호: {ESTIMATE_COMPANY.businessNumber}</li>
-        <li>네이버플레이스: {ESTIMATE_COMPANY.naverPlace}</li>
-        <li>인스타그램: {ESTIMATE_COMPANY.instagram}</li>
-        <li>카카오톡 채널: {ESTIMATE_COMPANY.kakaoChannel}</li>
-      </ul>
+      <div className="estimate-company-grid">
+        <div>사업자 등록번호: {ESTIMATE_COMPANY.businessNumber}</div>
+        <div>인스타그램: {ESTIMATE_COMPANY.instagram}</div>
+        <div>네이버플레이스: {ESTIMATE_COMPANY.naverPlace}</div>
+        <div>카카오톡 채널: {ESTIMATE_COMPANY.kakaoChannel}</div>
+      </div>
 
       <hr className="estimate-divider" />
 
@@ -162,26 +162,19 @@ export function EstimatePage1({ data }: EstimatePage1Props): JSX.Element {
         </tbody>
       </table>
 
-      <h2 className="estimate-section-title">6) 안내 사항</h2>
-      <ul className="estimate-notes">
-        <li>견적서 내 금액은 모두 1인 기준 견적입니다.</li>
-        <li>해당 견적은 {formatDateKorean(data.validUntilDate)}까지 유효합니다.</li>
-      </ul>
+      <div className="estimate-footer-meta">
+        <p className="estimate-single-line-note">
+          견적서 내 금액은 모두 1인 기준 견적입니다. 해당 견적은 {formatDateKorean(data.validUntilDate)}까지 유효합니다.
+        </p>
 
-      <p className="estimate-subtitle">결제 방식</p>
-      <ul className="estimate-notes">
-        <li>예약금, 보증금: {ESTIMATE_PAYMENT.reservationAndDepositMethod}</li>
-        <li>잔금: {ESTIMATE_PAYMENT.balanceMethod}</li>
-        <li>{ESTIMATE_PAYMENT.vatText}</li>
-      </ul>
-
-      <p className="estimate-subtitle">입금 계좌</p>
-      <ul className="estimate-notes">
-        <li>
-          {ESTIMATE_PAYMENT.bankName} {ESTIMATE_PAYMENT.bankAccount}
-        </li>
-        <li>예금주: {ESTIMATE_PAYMENT.bankOwner}</li>
-      </ul>
+        <p className="estimate-payment-line">
+          [결제 방식] 예약금, 보증금 : {ESTIMATE_PAYMENT.reservationAndDepositMethod} / 잔금 : {ESTIMATE_PAYMENT.balanceMethod} [
+          {ESTIMATE_PAYMENT.vatText}]
+        </p>
+        <p className="estimate-payment-line">
+          [입금 계좌] {ESTIMATE_PAYMENT.bankAccount} {ESTIMATE_PAYMENT.bankName} {ESTIMATE_PAYMENT.bankOwner}
+        </p>
+      </div>
     </section>
   );
 }
