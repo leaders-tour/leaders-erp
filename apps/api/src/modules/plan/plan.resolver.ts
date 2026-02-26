@@ -81,6 +81,14 @@ export const planResolver = {
   PlanVersionMeta: {
     extraLodgings: (parent: { extraLodgings?: unknown }) =>
       Array.isArray(parent.extraLodgings) ? parent.extraLodgings : [],
+    events: async (parent: { planVersionId: string }, _args: unknown, ctx: AppContext) => {
+      const rows = await ctx.prisma.planVersionEvent.findMany({
+        where: { planVersionId: parent.planVersionId },
+        include: { event: true },
+        orderBy: [{ event: { sortOrder: 'asc' } }, { createdAt: 'asc' }],
+      });
+      return rows.map((row) => row.event);
+    },
   },
   PlanVersionPricing: {
     longDistanceSegmentCount: (parent: { inputSnapshot?: unknown }) => {

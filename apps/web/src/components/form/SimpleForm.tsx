@@ -7,7 +7,7 @@ import type { z } from 'zod';
 export interface FormFieldConfig<TSchema extends z.ZodTypeAny> {
   name: keyof z.infer<TSchema> & string;
   label: string;
-  type?: 'text' | 'number' | 'textarea';
+  type?: 'text' | 'number' | 'textarea' | 'checkbox';
 }
 
 interface SimpleFormProps<TSchema extends z.ZodTypeAny> {
@@ -56,6 +56,15 @@ export function SimpleForm<TSchema extends z.ZodTypeAny>({
                   className="min-h-32 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
                   {...form.register(field.name as Path<z.infer<TSchema>>)}
                 />
+              ) : field.type === 'checkbox' ? (
+                <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300"
+                    {...form.register(field.name as Path<z.infer<TSchema>>)}
+                  />
+                  <span>사용</span>
+                </label>
               ) : (
                 <Input
                   type={field.type ?? 'text'}

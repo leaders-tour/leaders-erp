@@ -28,6 +28,8 @@ type Query {
   timeBlock(id: ID!): TimeBlock
   activities: [Activity!]!
   activity(id: ID!): Activity
+  events(activeOnly: Boolean): [Event!]!
+  event(id: ID!): Event
   overrides: [Override!]!
   override(id: ID!): Override
 }
@@ -79,6 +81,10 @@ type Mutation {
   createActivity(input: ActivityCreateInput!): Activity!
   updateActivity(id: ID!, input: ActivityUpdateInput!): Activity!
   deleteActivity(id: ID!): Boolean!
+
+  createEvent(input: EventCreateInput!): Event!
+  updateEvent(id: ID!, input: EventUpdateInput!): Event!
+  deleteEvent(id: ID!): Boolean!
 
   createOverride(input: OverrideCreateInput!): Override!
   updateOverride(id: ID!, input: OverrideUpdateInput!): Override!

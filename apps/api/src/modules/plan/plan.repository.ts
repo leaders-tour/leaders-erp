@@ -94,10 +94,15 @@ export class PlanRepository {
             externalPickupDropNote: initialVersionData.meta.externalPickupDropNote,
             includeRentalItems: initialVersionData.meta.includeRentalItems,
             rentalItemsText: initialVersionData.meta.rentalItemsText,
-            eventCodes: initialVersionData.meta.eventCodes,
+            eventCodes: [],
             extraLodgings: initialVersionData.meta.extraLodgings,
             remark: initialVersionData.meta.remark,
           },
+        },
+        planVersionEvents: {
+          create: initialVersionData.meta.eventIds.map((eventId) => ({
+            eventId,
+          })),
         },
         planStops: {
           create: initialVersionData.planStops.map((planStop) => ({
@@ -160,10 +165,15 @@ export class PlanRepository {
             externalPickupDropNote: versionData.meta.externalPickupDropNote,
             includeRentalItems: versionData.meta.includeRentalItems,
             rentalItemsText: versionData.meta.rentalItemsText,
-            eventCodes: versionData.meta.eventCodes,
+            eventCodes: [],
             extraLodgings: versionData.meta.extraLodgings,
             remark: versionData.meta.remark,
           },
+        },
+        planVersionEvents: {
+          create: versionData.meta.eventIds.map((eventId) => ({
+            eventId,
+          })),
         },
         planStops: {
           create: versionData.planStops.map((planStop) => ({

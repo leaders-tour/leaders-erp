@@ -1,5 +1,6 @@
 import { GraphQLScalarType, Kind } from 'graphql';
 import { activityResolver } from '../modules/activity/activity.resolver';
+import { eventResolver } from '../modules/event/event.resolver';
 import { lodgingResolver } from '../modules/lodging/lodging.resolver';
 import { locationGuideResolver } from '../modules/location-guide/location-guide.resolver';
 import { locationResolver } from '../modules/location/location.resolver';
@@ -59,6 +60,7 @@ export const resolvers = {
     planResolver.Query,
     timeBlockResolver.Query,
     activityResolver.Query,
+    eventResolver.Query,
     overrideResolver.Query,
     {
       health: () => 'ok',
@@ -74,6 +76,7 @@ export const resolvers = {
     planResolver.Mutation,
     timeBlockResolver.Mutation,
     activityResolver.Mutation,
+    eventResolver.Mutation,
     overrideResolver.Mutation,
   ),
   PlanVersionMeta: planResolver.PlanVersionMeta,

@@ -17,6 +17,7 @@ const files = [
   'plan.graphql',
   'time-block.graphql',
   'activity.graphql',
+  'event.graphql',
   'override.graphql',
 ];
 

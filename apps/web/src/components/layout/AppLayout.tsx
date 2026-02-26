@@ -27,6 +27,7 @@ const navItems = [
       { path: '/regions/create', label: '지역 생성' },
     ],
   },
+  { path: '/events', label: '이벤트' },
 ];
 
 export function AppLayout(): JSX.Element {

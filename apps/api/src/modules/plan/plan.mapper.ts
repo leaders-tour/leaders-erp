@@ -16,6 +16,14 @@ export const planVersionInclude = {
   planStops: {
     orderBy: { createdAt: 'asc' },
   },
+  planVersionEvents: {
+    include: {
+      event: true,
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
+  },
   overrides: true,
 } satisfies Prisma.PlanVersionInclude;
 

@@ -1,4 +1,5 @@
 export * from './activity.schema';
+export * from './event.schema';
 export * from './lodging.schema';
 export * from './location.schema';
 export * from './location-guide.schema';

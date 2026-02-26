@@ -22,6 +22,24 @@ import type {
 export class PlanService {
   constructor(private readonly prisma: PrismaClient) {}
 
+  private async validateEventIds(eventIds: string[]): Promise<void> {
+    const uniqueEventIds = Array.from(new Set(eventIds));
+    if (uniqueEventIds.length !== eventIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'eventIds must not contain duplicates');
+    }
+    if (uniqueEventIds.length === 0) {
+      return;
+    }
+
+    const eventCount = await this.prisma.event.count({
+      where: { id: { in: uniqueEventIds } },
+    });
+
+    if (eventCount !== uniqueEventIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'One or more eventIds are invalid');
+    }
+  }
+
   private async normalizePlanStopsWithLocationReferences<T extends { locationId?: string; locationVersionId?: string }>(
     planStops: T[],
   ): Promise<T[]> {
@@ -171,6 +189,7 @@ export class PlanService {
     }
 
     const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.initialVersion.planStops);
+    await this.validateEventIds(parsed.data.initialVersion.meta.eventIds);
 
     const [user, region] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: parsed.data.userId }, select: { id: true } }),
@@ -247,6 +266,7 @@ export class PlanService {
     }
 
     const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.planStops);
+    await this.validateEventIds(parsed.data.meta.eventIds);
 
     const plan = await new PlanRepository(this.prisma).findById(parsed.data.planId);
     if (!plan) {

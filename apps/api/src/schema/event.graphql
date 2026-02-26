@@ -1,0 +1,26 @@
+type Event {
+  id: ID!
+  code: String!
+  name: String!
+  isActive: Boolean!
+  securityDepositKrw: Int!
+  sortOrder: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input EventCreateInput {
+  code: String!
+  name: String!
+  isActive: Boolean
+  securityDepositKrw: Int
+  sortOrder: Int
+}
+
+input EventUpdateInput {
+  code: String
+  name: String
+  isActive: Boolean
+  securityDepositKrw: Int
+  sortOrder: Int
+}

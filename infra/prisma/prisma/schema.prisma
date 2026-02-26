@@ -221,6 +221,7 @@ model PlanVersion {
   meta          PlanVersionMeta?
   pricing       PlanVersionPricing?
   planStops     PlanStop[]
+  planVersionEvents PlanVersionEvent[]
   overrides     Override[]
 
   createdAt DateTime @default(now())
@@ -258,6 +259,37 @@ model PlanVersionMeta {
   updatedAt DateTime @updatedAt
 
   @@index([travelStartDate])
+}
+
+model Event {
+  id                 String @id @default(uuid(7))
+  code               String @unique
+  name               String
+  isActive           Boolean @default(true)
+  securityDepositKrw Int @default(0)
+  sortOrder          Int @default(0)
+
+  planVersionEvents PlanVersionEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+model PlanVersionEvent {
+  id            String @id @default(uuid(7))
+  planVersionId String
+  eventId       String
+
+  planVersion PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+  event       Event       @relation(fields: [eventId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([planVersionId, eventId])
+  @@index([planVersionId])
+  @@index([eventId])
 }
 
 model PricingPolicy {

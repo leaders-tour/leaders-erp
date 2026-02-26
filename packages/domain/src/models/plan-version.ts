@@ -25,8 +25,16 @@ export interface PlanVersion {
     flightOutTime: string;
     pickupDropNote: string | null;
     externalPickupDropNote: string | null;
+    includeRentalItems: boolean;
     rentalItemsText: string;
-    eventCodes: string[];
+    events: Array<{
+      id: string;
+      code: string;
+      name: string;
+      isActive: boolean;
+      securityDepositKrw: number;
+      sortOrder: number;
+    }>;
     extraLodgings: Array<{
       dayIndex: number;
       lodgingCount: number;

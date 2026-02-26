@@ -2,7 +2,6 @@ import { VariantType } from '@tour/domain';
 import { z } from 'zod';
 
 const vehicleTypes = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
-const eventCodes = ['A', 'B', 'C'] as const;
 const dateTimeInputSchema = z.preprocess(
   (value) => (value instanceof Date ? value.toISOString() : value),
   z.string().datetime(),
@@ -46,7 +45,7 @@ export const planVersionMetaInputSchema = z
     externalPickupDropNote: z.string().max(1000).optional(),
     includeRentalItems: z.boolean().default(true),
     rentalItemsText: z.string().max(10000),
-    eventCodes: z.array(z.enum(eventCodes)).default([]),
+    eventIds: z.array(z.string().min(1)).default([]),
     extraLodgings: z.array(extraLodgingInputSchema).default([]),
     remark: z.string().max(2000).optional(),
   })

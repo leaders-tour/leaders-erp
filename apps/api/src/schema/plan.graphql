@@ -57,7 +57,7 @@ type PlanVersionMeta {
   externalPickupDropNote: String
   includeRentalItems: Boolean!
   rentalItemsText: String!
-  eventCodes: [String!]!
+  events: [Event!]!
   extraLodgings: [ExtraLodging!]!
   remark: String
   createdAt: DateTime!
@@ -176,7 +176,7 @@ input PlanVersionMetaInput {
   externalPickupDropNote: String
   includeRentalItems: Boolean!
   rentalItemsText: String!
-  eventCodes: [String!]!
+  eventIds: [ID!]!
   extraLodgings: [ExtraLodgingInput!]!
   remark: String
 }

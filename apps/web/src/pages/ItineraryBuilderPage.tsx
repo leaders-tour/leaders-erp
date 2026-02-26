@@ -102,6 +102,12 @@ interface UserRow {
   name: string;
 }
 
+interface EventOptionRow {
+  id: string;
+  code: string;
+  name: string;
+}
+
 interface PlanRow {
   locationId?: string;
   locationVersionId?: string;
@@ -176,6 +182,16 @@ const USER_QUERY = gql`
   query BuilderUser($id: ID!) {
     user(id: $id) {
       id
+      name
+    }
+  }
+`;
+
+const EVENTS_QUERY = gql`
+  query BuilderEvents($activeOnly: Boolean) {
+    events(activeOnly: $activeOnly) {
+      id
+      code
       name
     }
   }
@@ -292,8 +308,6 @@ const VARIANTS = [
 
 const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
 const FLIGHT_TIME_OPTIONS = ['06:30', '08:00', '09:30', '11:00', '13:30', '15:00', '17:30', '21:00'] as const;
-const EVENT_OPTIONS = ['A', 'B', 'C'] as const;
-
 function toIsoDateTime(value: string): string {
   return `${value}T00:00:00.000Z`;
 }
@@ -424,7 +438,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [externalPickupDropNote, setExternalPickupDropNote] = useState<string>('');
   const [includeRentalItems, setIncludeRentalItems] = useState<boolean>(true);
   const [rentalItemsText, setRentalItemsText] = useState<string>(buildDefaultRentalItems(6));
-  const [eventCodes, setEventCodes] = useState<string[]>([]);
+  const [eventIds, setEventIds] = useState<string[]>([]);
   const [remark, setRemark] = useState<string>('');
   const [startLocationId, setStartLocationId] = useState<string>('');
   const [startLocationVersionId, setStartLocationVersionId] = useState<string>('');
@@ -447,6 +461,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     variables: { id: userId },
     skip: !userId,
   });
+  const { data: eventData } = useQuery<{ events: EventOptionRow[] }>(EVENTS_QUERY, {
+    variables: { activeOnly: true },
+  });
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
   const { data: segmentData } = useQuery<{ segments: SegmentRow[] }>(SEGMENTS_QUERY);
@@ -463,6 +480,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const segments = segmentData?.segments ?? [];
   const planContext = planContextData?.plan ?? null;
   const selectedUserName = userData?.user?.name ?? '';
+  const eventOptions = eventData?.events ?? [];
 
   useEffect(() => {
     if (!isVersionMode || !planContext) {
@@ -783,7 +801,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           externalPickupDropNote: externalPickupDropNote.trim() || undefined,
                           includeRentalItems,
                           rentalItemsText,
-                          eventCodes,
+                          eventIds,
                           extraLodgings,
                           remark: remark.trim() || undefined,
                         },
@@ -826,7 +844,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           externalPickupDropNote: externalPickupDropNote.trim() || undefined,
                           includeRentalItems,
                           rentalItemsText,
-                          eventCodes,
+                          eventIds,
                           extraLodgings,
                           remark: remark.trim() || undefined,
                         },
@@ -1160,15 +1178,17 @@ export function ItineraryBuilderPage(): JSX.Element {
               <div className="grid gap-1 text-sm">
                 <span className="text-xs text-slate-600">참여 이벤트</span>
                 <div className="flex flex-wrap gap-2">
-                  {EVENT_OPTIONS.map((code) => {
-                    const active = eventCodes.includes(code);
+                  {eventOptions.map((eventOption) => {
+                    const active = eventIds.includes(eventOption.id);
                     return (
                       <button
-                        key={code}
+                        key={eventOption.id}
                         type="button"
                         onClick={() =>
-                          setEventCodes((prev) =>
-                            prev.includes(code) ? prev.filter((item) => item !== code) : [...prev, code],
+                          setEventIds((prev) =>
+                            prev.includes(eventOption.id)
+                              ? prev.filter((item) => item !== eventOption.id)
+                              : [...prev, eventOption.id],
                           )
                         }
                         className={`rounded-xl border px-3 py-1.5 text-sm ${
@@ -1177,10 +1197,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                             : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                         }`}
                       >
-                        {code}
+                        {eventOption.name}
+                        <span className="ml-1 text-[11px] opacity-80">({eventOption.code})</span>
                       </button>
                     );
                   })}
+                  {eventOptions.length === 0 ? <span className="text-xs text-slate-500">진행중 이벤트 없음</span> : null}
                 </div>
               </div>
 
@@ -1808,7 +1830,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         externalPickupDropNote,
         includeRentalItems,
         rentalItemsText,
-        eventCodes,
+        eventIds,
         extraLodgings,
         remark,
       },
@@ -1838,7 +1860,7 @@ export function ItineraryBuilderPage(): JSX.Element {
           externalPickupDropNote,
           includeRentalItems,
           rentalItemsText,
-          eventCodes,
+          eventIds,
           extraLodgings,
           remark,
         },
