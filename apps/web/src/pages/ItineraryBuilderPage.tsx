@@ -657,6 +657,10 @@ export function ItineraryBuilderPage(): JSX.Element {
   });
 
   const normalizedManualDepositAmountKrw = useMemo(() => {
+    if (!hasEditedManualDeposit) {
+      return undefined;
+    }
+
     const text = manualDepositInput.trim();
     if (text.length === 0) {
       return undefined;
@@ -668,9 +672,13 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
 
     return value;
-  }, [manualDepositInput]);
+  }, [hasEditedManualDeposit, manualDepositInput]);
 
   const hasInvalidManualDepositInput = useMemo(() => {
+    if (!hasEditedManualDeposit) {
+      return false;
+    }
+
     const text = manualDepositInput.trim();
     if (text.length === 0) {
       return false;
@@ -678,7 +686,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
     const value = Number(text);
     return !Number.isInteger(value) || value < 0;
-  }, [manualDepositInput]);
+  }, [hasEditedManualDeposit, manualDepositInput]);
 
   const headcountFemale = headcountTotal - headcountMale;
   const hasValidDateRange = Boolean(travelStartDate && travelEndDate) && travelStartDate <= travelEndDate;
@@ -727,11 +735,11 @@ export function ItineraryBuilderPage(): JSX.Element {
     pricingPreviewError?.graphQLErrors?.[0]?.message ?? pricingPreviewError?.message ?? '금액 미리보기 계산 중 오류가 발생했습니다.';
 
   useEffect(() => {
-    if (!pricingPreview || hasEditedManualDeposit || manualDepositInput.trim().length > 0) {
+    if (!pricingPreview || hasEditedManualDeposit) {
       return;
     }
     setManualDepositInput(String(pricingPreview.depositAmountKrw));
-  }, [hasEditedManualDeposit, manualDepositInput, pricingPreview]);
+  }, [hasEditedManualDeposit, pricingPreview]);
 
   const canCreate = Boolean(
     hasValidContext &&
