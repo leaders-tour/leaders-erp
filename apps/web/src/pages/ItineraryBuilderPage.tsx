@@ -1797,15 +1797,24 @@ export function ItineraryBuilderPage(): JSX.Element {
                             </div>
                           )}
                         </div>
-                        <div className="text-sm font-semibold">총합: {formatKrw(pricingBuckets.grandTotal)}</div>
-                        <div>
-                          보증금: {formatKrw(pricingPreview.securityDepositUnitPriceKrw)}{' '}
-                          {pricingPreview.securityDepositMode === 'NONE'
-                            ? ''
-                            : `(${formatSecurityDepositScope(pricingPreview.securityDepositMode)})`}
+                        <div className="mt-1 overflow-hidden rounded-lg border border-blue-200 bg-white">
+                          <div className="grid grid-cols-4 bg-slate-100 text-center text-[11px] font-medium text-slate-600">
+                            <div className="border-r border-slate-200 px-2 py-2">총액(1인)</div>
+                            <div className="border-r border-slate-200 px-2 py-2">예약금(1인)</div>
+                            <div className="border-r border-slate-200 px-2 py-2">잔금(1인)</div>
+                            <div className="px-2 py-2">보증금(팀당/인당)</div>
+                          </div>
+                          <div className="grid grid-cols-4 text-center text-sm text-slate-900">
+                            <div className="border-r border-slate-200 px-2 py-4 font-semibold">{formatKrw(pricingBuckets.grandTotal)}</div>
+                            <div className="border-r border-slate-200 px-2 py-4">{formatKrw(pricingPreview.depositAmountKrw)}</div>
+                            <div className="border-r border-slate-200 px-2 py-4">{formatKrw(pricingPreview.balanceAmountKrw)}</div>
+                            <div className="px-2 py-4">
+                              {pricingPreview.securityDepositMode === 'NONE'
+                                ? formatKrw(0)
+                                : `${formatKrw(pricingPreview.securityDepositUnitPriceKrw)} (${formatSecurityDepositScope(pricingPreview.securityDepositMode)})`}
+                            </div>
+                          </div>
                         </div>
-                        <div>예약금: {formatKrw(pricingPreview.depositAmountKrw)}</div>
-                        <div>잔금: {formatKrw(pricingPreview.balanceAmountKrw)}</div>
                       </div>
                     </div>
                   </>
