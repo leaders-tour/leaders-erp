@@ -1,0 +1,158 @@
+.estimate-print-root {
+  display: grid;
+  gap: 16px;
+  padding: 12px 0 24px;
+}
+
+.estimate-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.estimate-document {
+  display: grid;
+  gap: 16px;
+}
+
+.estimate-sheet {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 14mm;
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  font-family: 'Pretendard', 'Noto Sans KR', sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.estimate-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.estimate-tagline {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.estimate-company-list {
+  margin: 12px 0 0;
+  padding-left: 18px;
+}
+
+.estimate-company-list li {
+  margin: 3px 0;
+}
+
+.estimate-divider {
+  margin: 14px 0;
+  border: 0;
+  border-top: 1px solid #cbd5e1;
+}
+
+.estimate-section-title {
+  margin: 12px 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.estimate-subtitle {
+  margin: 8px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.estimate-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.estimate-table th,
+.estimate-table td {
+  border: 1px solid #cbd5e1;
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.estimate-table th {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.estimate-table-pricing th,
+.estimate-table-summary th {
+  text-align: center;
+}
+
+.pre-line {
+  white-space: pre-line;
+}
+
+.align-top {
+  vertical-align: top;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.emphasis {
+  font-weight: 700;
+}
+
+.estimate-notes {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
+.estimate-notes li {
+  margin: 3px 0;
+}
+
+.estimate-draft-badge {
+  margin-bottom: 8px;
+  display: inline-block;
+  border: 1px solid #fbbf24;
+  background: #fffbeb;
+  color: #92400e;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+@media print {
+  body {
+    background: #fff !important;
+  }
+
+  .estimate-no-print {
+    display: none !important;
+  }
+
+  .estimate-print-root {
+    padding: 0;
+    gap: 0;
+  }
+
+  .estimate-sheet {
+    width: auto;
+    min-height: auto;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+}

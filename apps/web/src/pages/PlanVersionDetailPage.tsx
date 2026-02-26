@@ -61,6 +61,18 @@ export function PlanVersionDetailPage(): JSX.Element {
             Plan 상세로
           </Button>
           <Button
+            variant="outline"
+            onClick={() =>
+              window.open(
+                `/documents/estimate?mode=version&versionId=${encodeURIComponent(version.id)}&autoprint=1`,
+                '_blank',
+                'noopener,noreferrer',
+              )
+            }
+          >
+            견적서 PDF
+          </Button>
+          <Button
             onClick={() => {
               const params = new URLSearchParams({
                 userId: version.plan.userId,

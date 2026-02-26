@@ -2,6 +2,7 @@ import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import type { EstimateBuilderDraftSnapshot } from '../features/estimate/model/types';
 import { toFacilityLabel, toMealLabel } from '../features/location/display';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 import { MealOption, VariantType } from '../generated/graphql';
@@ -367,6 +368,75 @@ function formatLocationVersion(version: Pick<LocationVersionRow, 'label' | 'vers
     return '버전 미정';
   }
   return `${version.label} (v${version.versionNumber})`;
+}
+
+function createEstimateDraftSnapshot(input: {
+  planTitle: string;
+  leaderName: string;
+  regionName: string;
+  headcountTotal: number;
+  headcountMale: number;
+  headcountFemale: number;
+  travelStartDate: string;
+  travelEndDate: string;
+  vehicleType: string;
+  flightInTime: string;
+  flightOutTime: string;
+  pickupDropNote: string;
+  externalPickupDropNote: string;
+  includeRentalItems: boolean;
+  rentalItemsText: string;
+  eventNames: string[];
+  remark: string;
+  planStops: PlanRow[];
+  pricingPreview: PricingPreviewRow | null;
+}): EstimateBuilderDraftSnapshot {
+  return {
+    planTitle: input.planTitle,
+    leaderName: input.leaderName,
+    regionName: input.regionName,
+    headcountTotal: input.headcountTotal,
+    headcountMale: input.headcountMale,
+    headcountFemale: input.headcountFemale,
+    travelStartDate: input.travelStartDate,
+    travelEndDate: input.travelEndDate,
+    vehicleType: input.vehicleType,
+    flightInTime: input.flightInTime,
+    flightOutTime: input.flightOutTime,
+    pickupDropNote: input.pickupDropNote,
+    externalPickupDropNote: input.externalPickupDropNote,
+    includeRentalItems: input.includeRentalItems,
+    rentalItemsText: input.rentalItemsText,
+    eventNames: input.eventNames,
+    remark: input.remark,
+    planStops: input.planStops.map((row) => ({
+      dateCellText: row.dateCellText,
+      destinationCellText: row.destinationCellText,
+      timeCellText: row.timeCellText,
+      scheduleCellText: row.scheduleCellText,
+      lodgingCellText: row.lodgingCellText,
+      mealCellText: row.mealCellText,
+    })),
+    pricing: input.pricingPreview
+      ? {
+          baseAmountKrw: input.pricingPreview.baseAmountKrw,
+          totalAmountKrw: input.pricingPreview.totalAmountKrw,
+          depositAmountKrw: input.pricingPreview.depositAmountKrw,
+          balanceAmountKrw: input.pricingPreview.balanceAmountKrw,
+          securityDepositTotalKrw: input.pricingPreview.securityDepositAmountKrw,
+          securityDepositUnitKrw: input.pricingPreview.securityDepositUnitPriceKrw,
+          securityDepositMode: input.pricingPreview.securityDepositMode,
+          lines: input.pricingPreview.lines.map((line) => ({
+            lineCode: line.lineCode,
+            sourceType: line.sourceType,
+            description: line.description,
+            unitPriceKrw: line.unitPriceKrw,
+            quantity: line.quantity,
+            amountKrw: line.amountKrw,
+          })),
+        }
+      : null,
+  };
 }
 
 function toTimeCell(version: LocationVersionRow | undefined): string {
@@ -758,6 +828,50 @@ export function ItineraryBuilderPage(): JSX.Element {
       (!isVersionMode ? planTitle.trim() : true),
   );
 
+  const openEstimatePdf = (): void => {
+    const regionName = regions.find((region) => region.id === regionId)?.name ?? '';
+    const selectedEventNames = eventOptions
+      .filter((eventOption) => eventIds.includes(eventOption.id))
+      .map((eventOption) => eventOption.name);
+
+    const draft = createEstimateDraftSnapshot({
+      planTitle: isVersionMode && planContext ? planContext.title : planTitle,
+      leaderName: leaderName.trim(),
+      regionName,
+      headcountTotal,
+      headcountMale,
+      headcountFemale,
+      travelStartDate,
+      travelEndDate,
+      vehicleType,
+      flightInTime,
+      flightOutTime,
+      pickupDropNote: pickupDropNote.trim(),
+      externalPickupDropNote: externalPickupDropNote.trim(),
+      includeRentalItems,
+      rentalItemsText: rentalItemsText.trim(),
+      eventNames: selectedEventNames,
+      remark: remark.trim(),
+      planStops: planRows,
+      pricingPreview,
+    });
+
+    const draftKey = `estimate-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    try {
+      window.sessionStorage.setItem(draftKey, JSON.stringify(draft));
+    } catch (_error) {
+      window.alert('견적서 임시 데이터를 저장할 수 없습니다. 브라우저 저장공간을 확인해주세요.');
+      return;
+    }
+
+    window.open(
+      `/documents/estimate?mode=draft&draftKey=${encodeURIComponent(draftKey)}&autoprint=1`,
+      '_blank',
+      'noopener,noreferrer',
+    );
+  };
+
   if (!hasValidContext) {
     return (
       <section className="grid gap-4 py-8">
@@ -799,8 +913,8 @@ export function ItineraryBuilderPage(): JSX.Element {
             </p>
           </div>
           <div className="flex gap-2 no-print">
-            <Button variant="outline" onClick={() => window.print()}>
-              인쇄/PDF
+            <Button variant="outline" onClick={openEstimatePdf}>
+              견적서 PDF
             </Button>
             <Button variant="outline" onClick={() => setPlanRows(autoRows)}>
               자동값 다시 채우기
