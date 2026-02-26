@@ -65,6 +65,7 @@ export interface EstimateDocumentData {
   mode: EstimateSourceMode;
   isDraft: boolean;
   planTitle: string;
+  page2Title: string;
   leaderName: string;
   documentNumber: string | null;
   destinationName: string;

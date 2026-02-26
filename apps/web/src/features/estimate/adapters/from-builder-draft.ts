@@ -1,7 +1,14 @@
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
 import { ESTIMATE_VALIDITY_DAYS } from '../model/constants';
 import type { EstimateBuilderDraftSnapshot, EstimateDocumentData } from '../model/types';
-import { addDays, formatCalculationBasis, normalizeMultilineText, toSecurityDepositScope, todayIsoDate } from '../utils/format';
+import {
+  addDays,
+  buildPage2Title,
+  formatCalculationBasis,
+  normalizeMultilineText,
+  toSecurityDepositScope,
+  todayIsoDate,
+} from '../utils/format';
 
 export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): EstimateDocumentData {
   const pricingBuckets = snapshot.pricing
@@ -12,6 +19,7 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     mode: 'draft',
     isDraft: true,
     planTitle: snapshot.planTitle,
+    page2Title: buildPage2Title(snapshot.regionName, snapshot.planStops.length),
     leaderName: normalizeMultilineText(snapshot.leaderName),
     documentNumber: null,
     destinationName: normalizeMultilineText(snapshot.regionName),

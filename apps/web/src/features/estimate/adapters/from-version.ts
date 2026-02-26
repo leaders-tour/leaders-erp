@@ -2,7 +2,14 @@ import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view
 import type { PlanVersionDetail } from '../../plan/hooks';
 import { ESTIMATE_VALIDITY_DAYS } from '../model/constants';
 import type { EstimateDocumentData } from '../model/types';
-import { addDays, formatCalculationBasis, normalizeMultilineText, toSecurityDepositScope, todayIsoDate } from '../utils/format';
+import {
+  addDays,
+  buildPage2Title,
+  formatCalculationBasis,
+  normalizeMultilineText,
+  toSecurityDepositScope,
+  todayIsoDate,
+} from '../utils/format';
 
 export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
   const meta = version.meta;
@@ -13,6 +20,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     mode: 'version',
     isDraft: false,
     planTitle: version.plan.title,
+    page2Title: buildPage2Title(version.plan.region.name, version.planStops.length),
     leaderName: normalizeMultilineText(meta?.leaderName),
     documentNumber: meta?.documentNumber ?? null,
     destinationName: normalizeMultilineText(version.plan.region.name),

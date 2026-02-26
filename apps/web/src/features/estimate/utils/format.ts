@@ -144,3 +144,15 @@ export function normalizeMultilineText(value: string | null | undefined): string
   const text = value?.trim();
   return text && text.length > 0 ? text : '-';
 }
+
+export function buildPage2Title(destinationName: string | null | undefined, dayCount: number): string {
+  const normalizedDestination = destinationName?.trim() ?? '';
+  const safeDayCount = Number.isFinite(dayCount) ? Math.max(0, Math.floor(dayCount)) : 0;
+
+  if (normalizedDestination.length === 0 || safeDayCount === 0) {
+    return '여행 일정표';
+  }
+
+  const nights = Math.max(safeDayCount - 1, 0);
+  return `${normalizedDestination} ${nights}박${safeDayCount}일 일정표`;
+}

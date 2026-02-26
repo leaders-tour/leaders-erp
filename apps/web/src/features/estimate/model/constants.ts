@@ -18,3 +18,12 @@ export const ESTIMATE_PAYMENT = {
 } as const;
 
 export const ESTIMATE_VALIDITY_DAYS = 7;
+
+export const ESTIMATE_PAGE2_BRAND = 'Leaders Tour';
+export const ESTIMATE_PAGE2_INTENSITY_TEXT = '이동강도: ● (표기 유지용)';
+
+export const ESTIMATE_PAGE2_FOOTER_NOTICES = [
+  '몽골 현지 특성상 업체측 사정 및 갑작스런 단수, 정전 등 숙소 또는 액티비티 일정에 일부 차질이 발생할 수 있습니다.',
+  '이동시간 및 일정상의 시간은 현지 상황에 따라 달라질 수 있으니, 참고용으로만 확인해 주시기 바랍니다.',
+  '이 견적서에 포함된 내용 및 기타 모든 정보는 리더스투어 몽골리아의 소유이며, 무단 복제 및 사용을 금지합니다.',
+] as const;
