@@ -1,5 +1,6 @@
 import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
+import { CustomerCreatePage } from '../pages/CustomerCreatePage';
 import { CustomerPage } from '../pages/CustomerPage';
 import { CustomerPlansPage } from '../pages/CustomerPlansPage';
 import { EstimatePrintPage } from '../pages/EstimatePrintPage';
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
       { path: 'itinerary-builder', element: <ItineraryBuilderPage /> },
       { path: 'documents/estimate', element: <EstimatePrintPage /> },
       { path: 'customers', element: <CustomerPage /> },
+      { path: 'customers/create', element: <CustomerCreatePage /> },
       { path: 'customers/:userId/plans', element: <CustomerPlansPage /> },
       { path: 'plans/:planId', element: <PlanDetailPage /> },
       { path: 'plans/:planId/versions/:versionId', element: <PlanVersionDetailPage /> },
