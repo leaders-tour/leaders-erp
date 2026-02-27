@@ -6,6 +6,7 @@ interface VersionListPanelProps {
   currentVersionId: string | null;
   customerName: string;
   onOpenVersion: (versionId: string) => void;
+  onOpenEstimatePdf: (versionId: string) => void;
   onCreateVersion: (versionId: string) => void;
 }
 
@@ -14,6 +15,7 @@ export function VersionListPanel({
   currentVersionId,
   customerName,
   onOpenVersion,
+  onOpenEstimatePdf,
   onCreateVersion,
 }: VersionListPanelProps): JSX.Element {
   const versionNumberById = new Map(versions.map((version) => [version.id, version.versionNumber]));
@@ -57,9 +59,12 @@ export function VersionListPanel({
                 <Td>{version.totalDays}</Td>
                 <Td>{version.changeNote ?? '-'}</Td>
                 <Td>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button variant="outline" onClick={() => onOpenVersion(version.id)}>
                       상세
+                    </Button>
+                    <Button variant="outline" onClick={() => onOpenEstimatePdf(version.id)}>
+                      PDF 출력
                     </Button>
                     <Button variant="outline" onClick={() => onCreateVersion(version.id)}>
                       새 버전 생성
