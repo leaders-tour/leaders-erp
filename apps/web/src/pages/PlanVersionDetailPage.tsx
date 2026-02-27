@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { VersionSnapshotView } from '../features/plan/components';
 import { usePlanVersionDetail, useSetCurrentPlanVersion } from '../features/plan/hooks';
+import { toVariantLabel } from '../features/plan/variant-label';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
@@ -98,7 +99,7 @@ export function PlanVersionDetailPage(): JSX.Element {
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-2 text-sm text-slate-700">
           <div>부모 버전: {version.parentVersionId ? version.parentVersionId.slice(0, 8) : '-'}</div>
-          <div>타입: {version.variantType}</div>
+          <div>타입: {toVariantLabel(version.variantType)}</div>
           <div>일수: {version.totalDays}</div>
           <div>변경 메모: {version.changeNote ?? '-'}</div>
         </div>

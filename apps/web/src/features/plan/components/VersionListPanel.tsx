@@ -1,5 +1,6 @@
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import type { PlanVersionRow } from '../hooks';
+import { toVariantLabel } from '../variant-label';
 
 interface VersionListPanelProps {
   versions: PlanVersionRow[];
@@ -55,7 +56,7 @@ export function VersionListPanel({
                     ? `v${versionNumberById.get(version.parentVersionId) ?? '?'}`
                     : '-'}
                 </Td>
-                <Td>{version.variantType}</Td>
+                <Td>{toVariantLabel(version.variantType)}</Td>
                 <Td>{version.totalDays}</Td>
                 <Td>{version.changeNote ?? '-'}</Td>
                 <Td>

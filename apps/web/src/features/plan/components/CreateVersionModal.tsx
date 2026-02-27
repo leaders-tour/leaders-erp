@@ -1,6 +1,7 @@
 import { Button, Card, Input } from '@tour/ui';
 import { useEffect, useState } from 'react';
 import type { PlanVersionRow } from '../hooks';
+import { toVariantLabel } from '../variant-label';
 
 interface CreateVersionModalProps {
   open: boolean;
@@ -47,7 +48,7 @@ export function CreateVersionModal({
             >
               {versions.map((version) => (
                 <option key={version.id} value={version.id}>
-                  v{version.versionNumber} ({version.variantType})
+                  v{version.versionNumber} ({toVariantLabel(version.variantType)})
                 </option>
               ))}
             </select>
