@@ -8,12 +8,25 @@ export function CustomerPage(): JSX.Element {
   const navigate = useNavigate();
   const { users, loading } = useUsers();
   const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [customerSearch, setCustomerSearch] = useState<string>('');
+
+  const filteredUsers = useMemo(() => {
+    const keyword = customerSearch.trim().toLowerCase();
+    if (!keyword) {
+      return users;
+    }
+    return users.filter((user) => user.name.toLowerCase().includes(keyword));
+  }, [customerSearch, users]);
 
   useEffect(() => {
-    if (!selectedUserId && users.length > 0) {
-      setSelectedUserId(users[0]?.id ?? '');
+    if (!selectedUserId && filteredUsers.length > 0) {
+      setSelectedUserId(filteredUsers[0]?.id ?? '');
+      return;
     }
-  }, [selectedUserId, users]);
+    if (selectedUserId && !filteredUsers.some((user) => user.id === selectedUserId)) {
+      setSelectedUserId(filteredUsers[0]?.id ?? '');
+    }
+  }, [filteredUsers, selectedUserId]);
 
   const { plans, loading: planLoading } = usePlansByUser(selectedUserId || undefined);
   const selectedUser = useMemo(() => users.find((user) => user.id === selectedUserId) ?? null, [selectedUserId, users]);
@@ -30,7 +43,13 @@ export function CustomerPage(): JSX.Element {
 
       <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <div className="grid gap-4">
-          <CustomerSelector users={users} selectedUserId={selectedUserId} onSelect={setSelectedUserId} />
+          <CustomerSelector
+            users={filteredUsers}
+            selectedUserId={selectedUserId}
+            searchValue={customerSearch}
+            onChangeSearch={setCustomerSearch}
+            onSelect={setSelectedUserId}
+          />
         </div>
 
         <div className="grid gap-4">

@@ -1,16 +1,32 @@
-import { Card } from '@tour/ui';
+import { Card, Input } from '@tour/ui';
 import type { UserRow } from '../hooks';
 
 interface CustomerSelectorProps {
   users: UserRow[];
   selectedUserId?: string;
+  searchValue: string;
+  onChangeSearch: (value: string) => void;
   onSelect: (userId: string) => void;
 }
 
-export function CustomerSelector({ users, selectedUserId, onSelect }: CustomerSelectorProps): JSX.Element {
+export function CustomerSelector({
+  users,
+  selectedUserId,
+  searchValue,
+  onChangeSearch,
+  onSelect,
+}: CustomerSelectorProps): JSX.Element {
   return (
     <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h2 className="text-sm font-semibold text-slate-900">고객</h2>
+      <div className="flex items-center gap-2">
+        <h2 className="shrink-0 text-sm font-semibold text-slate-900">고객</h2>
+        <Input
+          value={searchValue}
+          onChange={(event) => onChangeSearch(event.target.value)}
+          placeholder="고객 검색"
+          className="h-8 text-xs"
+        />
+      </div>
       <div className="mt-3 grid gap-2">
         {users.map((user) => (
           <button
@@ -26,6 +42,7 @@ export function CustomerSelector({ users, selectedUserId, onSelect }: CustomerSe
             {user.name}
           </button>
         ))}
+        {users.length === 0 ? <p className="text-xs text-slate-500">검색 결과가 없습니다.</p> : null}
       </div>
     </Card>
   );
