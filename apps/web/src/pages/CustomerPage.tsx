@@ -28,7 +28,7 @@ export function CustomerPage(): JSX.Element {
         <Button onClick={() => navigate('/customers/create')}>고객 생성</Button>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <div className="grid gap-4">
           <CustomerSelector users={users} selectedUserId={selectedUserId} onSelect={setSelectedUserId} />
         </div>
