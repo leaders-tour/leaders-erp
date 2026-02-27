@@ -33,6 +33,15 @@ const navItems = [
 export function AppLayout(): JSX.Element {
   const location = useLocation();
   const [hideLogo, setHideLogo] = useState(false);
+  const isNavItemActive = (path: string, children?: Array<{ path: string; label: string }>): boolean => {
+    if (location.pathname.startsWith(path)) {
+      return true;
+    }
+    if (!children || children.length === 0) {
+      return false;
+    }
+    return children.some((child) => location.pathname === child.path || location.pathname.startsWith(`${child.path}/`));
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -57,7 +66,7 @@ export function AppLayout(): JSX.Element {
                   <Link
                     to={item.path}
                     className={`rounded-xl px-3 py-1.5 text-sm transition-colors ${
-                      location.pathname.startsWith(item.path)
+                      isNavItemActive(item.path, item.children)
                         ? 'border border-slate-900 bg-slate-900 text-white'
                         : 'border border-transparent text-slate-700 hover:border-slate-200 hover:bg-white'
                     }`}

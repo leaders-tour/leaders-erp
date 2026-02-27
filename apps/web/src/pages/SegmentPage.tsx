@@ -1,7 +1,8 @@
 import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
 import { useMemo, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { LocationSubNav } from '../features/location/sub-nav';
 import type { Location } from '../generated/graphql';
 import { useSegmentCrud } from '../features/segment/hooks';
 
@@ -78,38 +79,7 @@ export function SegmentPage(): JSX.Element {
   return (
     <section className="grid gap-6">
       <header className="grid gap-3">
-        <div className="flex items-center gap-2">
-          <Link
-            to="/locations/list"
-            className={`rounded-xl px-3 py-1.5 text-sm transition-colors ${
-              location.pathname === '/locations/list'
-                ? 'border border-slate-900 bg-slate-900 text-white'
-                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            목적지 목록
-          </Link>
-          <Link
-            to="/locations/create"
-            className={`rounded-xl px-3 py-1.5 text-sm transition-colors ${
-              location.pathname === '/locations/create'
-                ? 'border border-slate-900 bg-slate-900 text-white'
-                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            목적지 생성
-          </Link>
-          <Link
-            to="/locations/connections"
-            className={`rounded-xl px-3 py-1.5 text-sm transition-colors ${
-              location.pathname === '/locations/connections'
-                ? 'border border-slate-900 bg-slate-900 text-white'
-                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            목적지 간 연결
-          </Link>
-        </div>
+        <LocationSubNav pathname={location.pathname} />
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">목적지 간 연결</h1>
         <p className="mt-1 text-sm text-slate-600">A/B 도착지를 검색 또는 드롭다운으로 선택해 연결 정보를 관리합니다.</p>
       </header>

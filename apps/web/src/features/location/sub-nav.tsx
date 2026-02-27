@@ -5,7 +5,7 @@ interface LocationSubNavProps {
 }
 
 function isListContext(pathname: string): boolean {
-  return pathname === '/locations/list' || /^\/locations\/[^/]+(?:\/edit)?$/.test(pathname);
+  return pathname === '/locations/list' || /^\/locations\/(?!list$|create$|connections$)[^/]+(?:\/edit)?$/.test(pathname);
 }
 
 export function LocationSubNav({ pathname }: LocationSubNavProps): JSX.Element {
