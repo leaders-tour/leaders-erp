@@ -5,12 +5,21 @@ export type EstimateSecurityDepositMode = 'NONE' | 'PER_PERSON' | 'PER_TEAM';
 export type EstimateSecurityDepositScope = '-' | '인당' | '팀당';
 
 export interface EstimatePlanStopRow {
+  locationId?: string | null;
   dateCellText: string;
   destinationCellText: string;
   timeCellText: string;
   scheduleCellText: string;
   lodgingCellText: string;
   mealCellText: string;
+}
+
+export interface EstimateGuideBlock {
+  locationId: string;
+  locationName: string;
+  title: string;
+  description: string;
+  imageUrls: string[];
 }
 
 export interface EstimatePricingLineSnapshot {
@@ -66,6 +75,7 @@ export interface EstimateDocumentData {
   isDraft: boolean;
   planTitle: string;
   page2Title: string;
+  page3Title: string;
   leaderName: string;
   documentNumber: string | null;
   destinationName: string;
@@ -96,4 +106,5 @@ export interface EstimateDocumentData {
   securityDepositScope: EstimateSecurityDepositScope;
   validUntilDate: string | null;
   planStops: EstimatePlanStopRow[];
+  page3Blocks: EstimateGuideBlock[];
 }

@@ -1,5 +1,5 @@
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
-import { ESTIMATE_VALIDITY_DAYS } from '../model/constants';
+import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
 import type { EstimateBuilderDraftSnapshot, EstimateDocumentData } from '../model/types';
 import {
   addDays,
@@ -20,6 +20,7 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     isDraft: true,
     planTitle: snapshot.planTitle,
     page2Title: buildPage2Title(snapshot.regionName, snapshot.planStops.length),
+    page3Title: ESTIMATE_PAGE3_TITLE,
     leaderName: normalizeMultilineText(snapshot.leaderName),
     documentNumber: null,
     destinationName: normalizeMultilineText(snapshot.regionName),
@@ -55,5 +56,6 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     securityDepositScope: snapshot.pricing ? toSecurityDepositScope(snapshot.pricing.securityDepositMode) : '-',
     validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
     planStops: snapshot.planStops,
+    page3Blocks: [],
   };
 }

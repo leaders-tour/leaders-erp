@@ -22,7 +22,7 @@ export function EstimatePage2({ data }: EstimatePage2Props): JSX.Element {
   } as CSSProperties;
 
   return (
-    <section className="estimate-sheet estimate-sheet-itinerary">
+    <section className="estimate-sheet estimate-sheet-page2 estimate-sheet-itinerary">
       <h1 className="estimate-itinerary-title">{fallback(data.page2Title)}</h1>
       <p className="estimate-itinerary-brand">{ESTIMATE_PAGE2_BRAND}</p>
       <p className="estimate-itinerary-intensity">{ESTIMATE_PAGE2_INTENSITY_TEXT}</p>

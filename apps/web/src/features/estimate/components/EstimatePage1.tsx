@@ -26,7 +26,7 @@ export function EstimatePage1({ data }: EstimatePage1Props): JSX.Element {
       : `${formatCurrency(data.securityDepositUnitKrw)} (${data.securityDepositScope})`;
 
   return (
-    <section className="estimate-sheet">
+    <section className="estimate-sheet estimate-sheet-page1">
       {data.isDraft ? <div className="estimate-draft-badge">임시본 (저장 전 출력)</div> : null}
 
       <p className="estimate-tagline">{ESTIMATE_TAGLINE}</p>

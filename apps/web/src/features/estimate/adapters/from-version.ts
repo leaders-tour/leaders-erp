@@ -1,6 +1,6 @@
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
 import type { PlanVersionDetail } from '../../plan/hooks';
-import { ESTIMATE_VALIDITY_DAYS } from '../model/constants';
+import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
 import type { EstimateDocumentData } from '../model/types';
 import {
   addDays,
@@ -21,6 +21,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     isDraft: false,
     planTitle: version.plan.title,
     page2Title: buildPage2Title(version.plan.region.name, version.planStops.length),
+    page3Title: ESTIMATE_PAGE3_TITLE,
     leaderName: normalizeMultilineText(meta?.leaderName),
     documentNumber: meta?.documentNumber ?? null,
     destinationName: normalizeMultilineText(version.plan.region.name),
@@ -56,6 +57,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     securityDepositScope: pricing ? toSecurityDepositScope(pricing.securityDepositMode) : '-',
     validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
     planStops: version.planStops.map((row) => ({
+      locationId: row.locationId ?? null,
       dateCellText: row.dateCellText,
       destinationCellText: row.destinationCellText,
       timeCellText: row.timeCellText,
@@ -63,5 +65,6 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
       lodgingCellText: row.lodgingCellText,
       mealCellText: row.mealCellText,
     })),
+    page3Blocks: [],
   };
 }

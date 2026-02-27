@@ -410,6 +410,7 @@ function createEstimateDraftSnapshot(input: {
     eventNames: input.eventNames,
     remark: input.remark,
     planStops: input.planStops.map((row) => ({
+      locationId: row.locationId,
       dateCellText: row.dateCellText,
       destinationCellText: row.destinationCellText,
       timeCellText: row.timeCellText,
