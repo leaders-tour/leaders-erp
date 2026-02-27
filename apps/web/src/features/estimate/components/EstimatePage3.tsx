@@ -30,11 +30,16 @@ export function EstimatePage3({ data }: EstimatePage3Props): JSX.Element {
 
         {blocks.map((block, index) => {
           const blockHasImages = hasImages(block);
+          const isSingleImage = block.imageUrls.length === 1;
           const reverseClass = blockHasImages && index % 2 === 1 ? ' estimate-guide-item--reverse' : '';
           const textOnlyClass = !blockHasImages ? ' estimate-guide-item--text-only' : '';
+          const singleImageClass = isSingleImage ? ' estimate-guide-item--single-image' : '';
 
           return (
-            <article className={`estimate-guide-item${reverseClass}${textOnlyClass}`} key={`${block.locationId}-${index + 1}`}>
+            <article
+              className={`estimate-guide-item${reverseClass}${textOnlyClass}${singleImageClass}`}
+              key={`${block.locationId}-${index + 1}`}
+            >
               <div className="estimate-guide-text">
                 <h2 className="estimate-guide-location">{fallback(block.locationName)}</h2>
                 <p className="estimate-guide-description">{fallback(block.description)}</p>
