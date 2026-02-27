@@ -243,31 +243,23 @@ export function SegmentPage(): JSX.Element {
         <Table>
           <thead>
             <tr>
-              <Th>ID</Th>
               <Th>지역</Th>
               <Th>A도착지</Th>
               <Th>B도착지</Th>
               <Th>평균거리(km)</Th>
               <Th>평균 이동 시간(시간)</Th>
               <Th>장거리</Th>
-              <Th>관리</Th>
             </tr>
           </thead>
           <tbody>
             {crud.rows.map((row) => (
               <tr key={row.id}>
-                <Td>{row.id}</Td>
                 <Td>{row.regionName}</Td>
                 <Td>{locationById.get(row.fromLocationId)?.name ?? row.fromLocationId}</Td>
                 <Td>{locationById.get(row.toLocationId)?.name ?? row.toLocationId}</Td>
                 <Td>{row.averageDistanceKm}</Td>
                 <Td>{row.averageTravelHours}</Td>
                 <Td>{row.isLongDistance ? 'Y' : 'N'}</Td>
-                <Td>
-                  <Button variant="destructive" onClick={() => void crud.deleteRow(row.id)} disabled={crud.loading}>
-                    삭제
-                  </Button>
-                </Td>
               </tr>
             ))}
           </tbody>
