@@ -327,6 +327,29 @@ function toIsoDateTime(value: string): string {
   return `${value}T00:00:00.000Z`;
 }
 
+function toAutoTravelEndDate(startDate: string, totalDays: number): string {
+  if (!startDate) {
+    return '';
+  }
+
+  const [yearText, monthText, dayText] = startDate.split('-');
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return '';
+  }
+
+  const daysToAdd = Math.max(totalDays - 1, 0);
+  const utcDate = new Date(Date.UTC(year, month - 1, day));
+  utcDate.setUTCDate(utcDate.getUTCDate() + daysToAdd);
+
+  const yyyy = utcDate.getUTCFullYear();
+  const mm = String(utcDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(utcDate.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function buildDefaultRentalItems(total: number): string {
   const safeTotal = Math.max(1, total);
   const matCount = Math.ceil(safeTotal / 3);
@@ -678,6 +701,14 @@ export function ItineraryBuilderPage(): JSX.Element {
   useEffect(() => {
     setExtraLodgingCounts((prev) => Array.from({ length: totalDays }, (_, index) => prev[index] ?? 0));
   }, [totalDays]);
+
+  useEffect(() => {
+    if (!travelStartDate) {
+      setTravelEndDate('');
+      return;
+    }
+    setTravelEndDate(toAutoTravelEndDate(travelStartDate, totalDays));
+  }, [totalDays, travelStartDate]);
 
   useEffect(() => {
     const elements = document.querySelectorAll<HTMLTextAreaElement>('[data-plan-cell="true"]');
