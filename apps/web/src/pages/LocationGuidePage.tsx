@@ -190,7 +190,7 @@ export function LocationGuidePage(): JSX.Element {
               {editingId ? <span className="text-xs text-slate-500">연결 변경은 목적지 상세에서 해제/재연결로 처리합니다.</span> : null}
             </label>
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" disabled={!canSubmit || submitting}>
+            <Button type="submit" variant={editingId ? 'default' : 'primary'} disabled={!canSubmit || submitting}>
               {submitting ? '저장 중...' : editingId ? '수정 저장' : '소개 생성'}
             </Button>
             {editingId ? (

@@ -73,6 +73,7 @@ export function PlanVersionDetailPage(): JSX.Element {
             견적서 PDF
           </Button>
           <Button
+            variant="primary"
             onClick={() => {
               const params = new URLSearchParams({
                 userId: version.plan.userId,

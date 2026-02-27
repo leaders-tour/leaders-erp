@@ -79,7 +79,7 @@ export function LocationVersionEditPage(): JSX.Element {
           <div className="mt-4 flex gap-2">
             <Link
               to={`/locations/${locationId}/versions/${version.id}/edit?mode=create`}
-              className="inline-flex items-center rounded-xl bg-amber-900 px-4 py-2 text-sm text-white"
+              className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               새 버전 생성
             </Link>
@@ -130,6 +130,7 @@ export function LocationVersionEditPage(): JSX.Element {
       <LocationProfileForm
         title={isCreateMode ? '새 버전 프로필' : '기본 버전 프로필'}
         submitLabel={isCreateMode ? '새 버전 생성' : '수정 저장'}
+        submitVariant={isCreateMode ? 'primary' : 'default'}
         value={value}
         submitting={submitting}
         nameReadOnly={isCreateMode}

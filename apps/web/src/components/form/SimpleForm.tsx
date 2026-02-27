@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button, Card, FormField, Input } from '@tour/ui';
+import { Button, Card, FormField, Input, type ButtonProps } from '@tour/ui';
 import { useEffect, useMemo } from 'react';
 import { useForm, type Path } from 'react-hook-form';
 import type { z } from 'zod';
@@ -18,6 +18,7 @@ interface SimpleFormProps<TSchema extends z.ZodTypeAny> {
   defaultValues: z.infer<TSchema>;
   onSubmit: (value: z.infer<TSchema>) => Promise<void>;
   submitLabel: string;
+  submitVariant?: ButtonProps['variant'];
 }
 
 export function SimpleForm<TSchema extends z.ZodTypeAny>({
@@ -27,6 +28,7 @@ export function SimpleForm<TSchema extends z.ZodTypeAny>({
   defaultValues,
   onSubmit,
   submitLabel,
+  submitVariant,
 }: SimpleFormProps<TSchema>): JSX.Element {
   const form = useForm<z.infer<TSchema>>({
     resolver: zodResolver(schema),
@@ -113,7 +115,9 @@ export function SimpleForm<TSchema extends z.ZodTypeAny>({
           </div>
         ))}
         <div className="md:col-span-2">
-          <Button type="submit">{submitLabel}</Button>
+          <Button type="submit" variant={submitVariant}>
+            {submitLabel}
+          </Button>
         </div>
       </form>
     </Card>

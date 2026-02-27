@@ -1,5 +1,5 @@
 import { gql, useQuery } from '@apollo/client';
-import { Button, Card, Input } from '@tour/ui';
+import { Button, Card, Input, type ButtonProps } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { MealOption, type Region } from '../../generated/graphql';
 import type { FacilityAvailability, LocationProfileFormInput } from './hooks';
@@ -68,6 +68,7 @@ export function createDefaultLocationProfileFormValue(regionId = ''): LocationPr
 interface LocationProfileFormProps {
   title: string;
   submitLabel: string;
+  submitVariant?: ButtonProps['variant'];
   value: LocationProfileFormValue;
   submitting: boolean;
   nameReadOnly?: boolean;
@@ -77,6 +78,7 @@ interface LocationProfileFormProps {
 export function LocationProfileForm({
   title,
   submitLabel,
+  submitVariant,
   value,
   submitting,
   nameReadOnly = false,
@@ -442,7 +444,7 @@ export function LocationProfileForm({
         </div>
 
         <div className="lg:col-span-2">
-          <Button type="submit" disabled={submitting || !form.regionId || !form.name.trim()}>
+          <Button type="submit" variant={submitVariant} disabled={submitting || !form.regionId || !form.name.trim()}>
             {submitting ? '저장 중...' : submitLabel}
           </Button>
         </div>

@@ -229,7 +229,7 @@ export function SegmentPage(): JSX.Element {
           ) : null}
 
           <div>
-            <Button type="submit" disabled={!canSubmit || submitting || locationsLoading || crud.loading}>
+            <Button type="submit" variant="primary" disabled={!canSubmit || submitting || locationsLoading || crud.loading}>
               {submitting ? '생성 중...' : '이동경로 생성'}
             </Button>
           </div>

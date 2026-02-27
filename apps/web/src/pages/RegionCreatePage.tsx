@@ -65,7 +65,7 @@ export function RegionCreatePage(): JSX.Element {
             <Input value={description} onChange={(event) => setDescription(event.target.value)} />
           </label>
           <div>
-            <Button type="submit" disabled={submitting || !name.trim() || crud.loading}>
+            <Button type="submit" variant="primary" disabled={submitting || !name.trim() || crud.loading}>
               {submitting ? '생성 중...' : '지역 생성'}
             </Button>
           </div>

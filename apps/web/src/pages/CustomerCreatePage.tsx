@@ -25,6 +25,7 @@ export function CustomerCreatePage(): JSX.Element {
           <Input value={newUserName} onChange={(event) => setNewUserName(event.target.value)} placeholder="고객명 입력" />
           <div>
             <Button
+              variant="primary"
               disabled={!newUserName.trim() || creatingUser}
               onClick={async () => {
                 const created = await createUser(newUserName.trim());

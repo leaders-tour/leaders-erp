@@ -55,6 +55,7 @@ export function CrudScreen<TItem extends { id: string }, TSchema extends z.ZodTy
         fields={fields}
         defaultValues={defaults}
         submitLabel={editing ? '수정 저장' : '신규 생성'}
+        submitVariant={editing ? 'default' : 'primary'}
         onSubmit={async (value) => {
           if (editing) {
             await onUpdate(editing.id, value);

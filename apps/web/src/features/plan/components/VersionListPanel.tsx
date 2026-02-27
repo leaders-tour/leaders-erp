@@ -66,7 +66,7 @@ export function VersionListPanel({
                     <Button variant="outline" onClick={() => onOpenEstimatePdf(version.id)}>
                       PDF 출력
                     </Button>
-                    <Button variant="outline" onClick={() => onCreateVersion(version.id)}>
+                    <Button variant="primary" onClick={() => onCreateVersion(version.id)}>
                       새 버전 생성
                     </Button>
                   </div>

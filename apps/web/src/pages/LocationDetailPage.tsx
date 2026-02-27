@@ -127,7 +127,7 @@ export function LocationDetailPage(): JSX.Element {
               </Button>
               <Link
                 to="/location-guides"
-                className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
+                className="inline-flex items-center rounded-lg bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
               >
                 새 소개 생성 후 연결
               </Link>
@@ -165,7 +165,7 @@ export function LocationDetailPage(): JSX.Element {
               </Button>
               <Link
                 to="/location-guides"
-                className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
+                className="inline-flex items-center rounded-lg bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
               >
                 새 소개 생성 후 연결
               </Link>
@@ -210,7 +210,7 @@ export function LocationDetailPage(): JSX.Element {
                       </Link>
                       <Link
                         to={`/locations/${location.id}/versions/${version.id}/edit?mode=create`}
-                        className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
+                        className="inline-flex items-center rounded-lg bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
                       >
                         새 버전 생성
                       </Link>

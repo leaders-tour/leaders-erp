@@ -12,7 +12,9 @@ export function PlanListPanel({ plans, onOpenPlan, onCreatePlan }: PlanListPanel
     <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-slate-900">Plan 목록</h2>
-        <Button onClick={onCreatePlan}>신규 Plan 생성</Button>
+        <Button variant="primary" onClick={onCreatePlan}>
+          신규 Plan 생성
+        </Button>
       </div>
       <div className="overflow-auto">
         <Table>

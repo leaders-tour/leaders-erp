@@ -56,6 +56,7 @@ export function PlanDetailPage(): JSX.Element {
               고객 Plan 목록
             </Button>
             <Button
+              variant="primary"
               onClick={() => {
                 const parentId = currentVersion?.id ?? sortedVersions[0]?.id;
                 if (!parentId) {

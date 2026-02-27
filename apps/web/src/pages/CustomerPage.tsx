@@ -38,7 +38,9 @@ export function CustomerPage(): JSX.Element {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">고객</h1>
           <p className="mt-1 text-sm text-slate-600">고객별 Plan과 버전 이력을 탐색합니다.</p>
         </div>
-        <Button onClick={() => navigate('/customers/create')}>고객 생성</Button>
+        <Button variant="primary" onClick={() => navigate('/customers/create')}>
+          고객 생성
+        </Button>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">

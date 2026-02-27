@@ -47,7 +47,7 @@ export function LocationVersionDetailPage(): JSX.Element {
           </Link>
           <Link
             to={`/locations/${locationId}/versions/${version.id}/edit?mode=create`}
-            className="inline-flex items-center rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
             이 버전 기반 새 버전 생성
           </Link>

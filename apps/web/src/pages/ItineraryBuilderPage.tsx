@@ -952,6 +952,7 @@ export function ItineraryBuilderPage(): JSX.Element {
               자동값 다시 채우기
             </Button>
             <Button
+              variant="primary"
               disabled={!canCreate || creating}
               onClick={async () => {
                 if (!canCreate) {
