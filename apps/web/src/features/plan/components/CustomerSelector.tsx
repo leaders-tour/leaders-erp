@@ -18,13 +18,13 @@ export function CustomerSelector({
 }: CustomerSelectorProps): JSX.Element {
   return (
     <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center">
         <h2 className="shrink-0 text-sm font-semibold text-slate-900">고객</h2>
         <Input
           value={searchValue}
           onChange={(event) => onChangeSearch(event.target.value)}
           placeholder="고객 검색"
-          className="h-8 text-xs"
+          className="ml-auto h-8 w-1/2 text-xs"
         />
       </div>
       <div className="mt-3 grid gap-2">
