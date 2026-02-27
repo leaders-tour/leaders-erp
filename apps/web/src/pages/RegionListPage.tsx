@@ -1,4 +1,4 @@
-import { Button, Card, Table, Td, Th } from '@tour/ui';
+import { Card, Table, Td, Th } from '@tour/ui';
 import { Link, useLocation } from 'react-router-dom';
 import { useRegionCrud } from '../features/region/hooks';
 
@@ -34,7 +34,7 @@ export function RegionListPage(): JSX.Element {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">지역 목록</h1>
-            <p className="mt-1 text-sm text-slate-600">등록된 지역 정보를 조회하고 삭제할 수 있습니다.</p>
+            <p className="mt-1 text-sm text-slate-600">등록된 지역 정보를 조회할 수 있습니다.</p>
           </div>
           <Link
             to="/regions/create"
@@ -49,23 +49,15 @@ export function RegionListPage(): JSX.Element {
         <Table>
           <thead>
             <tr>
-              <Th>ID</Th>
               <Th>지역명</Th>
               <Th>설명</Th>
-              <Th>관리</Th>
             </tr>
           </thead>
           <tbody>
             {crud.rows.map((row) => (
               <tr key={row.id}>
-                <Td>{row.id}</Td>
                 <Td>{row.name}</Td>
                 <Td>{row.description ?? '-'}</Td>
-                <Td>
-                  <Button variant="destructive" onClick={() => void crud.deleteRow(row.id)} disabled={crud.loading}>
-                    삭제
-                  </Button>
-                </Td>
               </tr>
             ))}
           </tbody>

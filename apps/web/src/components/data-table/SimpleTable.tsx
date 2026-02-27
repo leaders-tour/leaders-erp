@@ -1,8 +1,10 @@
 import { Button, Card, Table, Td, Th } from '@tour/ui';
+import type { ReactNode } from 'react';
 
 export interface TableColumn<TItem> {
   key: keyof TItem;
   label: string;
+  render?: (row: TItem) => ReactNode;
 }
 
 interface SimpleTableProps<TItem extends { id: string }> {
@@ -11,6 +13,7 @@ interface SimpleTableProps<TItem extends { id: string }> {
   rows: TItem[];
   onEdit: (row: TItem) => void;
   onDelete: (id: string) => void;
+  allowDelete?: boolean;
 }
 
 export function SimpleTable<TItem extends { id: string }>({
@@ -19,6 +22,7 @@ export function SimpleTable<TItem extends { id: string }>({
   rows,
   onEdit,
   onDelete,
+  allowDelete = true,
 }: SimpleTableProps<TItem>): JSX.Element {
   return (
     <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -45,16 +49,20 @@ export function SimpleTable<TItem extends { id: string }>({
             rows.map((row) => (
               <tr key={row.id}>
                 {columns.map((column) => (
-                  <Td key={String(column.key)}>{String(row[column.key] ?? '')}</Td>
+                  <Td key={String(column.key)}>
+                    {column.render ? column.render(row) : String(row[column.key] ?? '')}
+                  </Td>
                 ))}
                 <Td>
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={() => onEdit(row)}>
                       수정
                     </Button>
-                    <Button variant="destructive" onClick={() => onDelete(row.id)}>
-                      삭제
-                    </Button>
+                    {allowDelete ? (
+                      <Button variant="destructive" onClick={() => onDelete(row.id)}>
+                        삭제
+                      </Button>
+                    ) : null}
                   </div>
                 </Td>
               </tr>
