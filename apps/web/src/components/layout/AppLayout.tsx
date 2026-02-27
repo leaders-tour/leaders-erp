@@ -7,7 +7,10 @@ const navItems = [
   {
     path: '/customers',
     label: '고객',
-    children: [{ path: '/customers', label: '고객 목록' }],
+    children: [
+      { path: '/customers', label: '고객 목록' },
+      { path: '/customers/create', label: '고객 생성' },
+    ],
   },
   {
     path: '/locations',
