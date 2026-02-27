@@ -1,5 +1,5 @@
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { LocationSubNav } from '../features/location/sub-nav';
 import { useLocationGuideCrud } from '../features/location-guide/hooks';
@@ -32,7 +32,12 @@ export function LocationGuidePage(): JSX.Element {
   const [editingId, setEditingId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [previewTitle, setPreviewTitle] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const closePreviewButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const editingRow = editingId ? crud.rows.find((row) => row.id === editingId) : undefined;
   const availableLocations = crud.locations.filter(
@@ -43,6 +48,45 @@ export function LocationGuidePage(): JSX.Element {
     form.description.trim().length > 0 &&
     form.locationId.length > 0 &&
     (editingId ? true : selectedFiles.length > 0);
+
+  const closePreview = (): void => {
+    setPreviewOpen(false);
+    setPreviewImages([]);
+    setPreviewIndex(0);
+    setPreviewTitle('');
+  };
+
+  useEffect(() => {
+    if (!previewOpen) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        closePreview();
+        return;
+      }
+
+      if (previewImages.length <= 1) {
+        return;
+      }
+
+      if (event.key === 'ArrowRight') {
+        setPreviewIndex((prev) => (prev + 1) % previewImages.length);
+      }
+
+      if (event.key === 'ArrowLeft') {
+        setPreviewIndex((prev) => (prev - 1 + previewImages.length) % previewImages.length);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    window.setTimeout(() => closePreviewButtonRef.current?.focus(), 0);
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [previewImages.length, previewOpen]);
 
   return (
     <section className="grid gap-6">
@@ -191,7 +235,37 @@ export function LocationGuidePage(): JSX.Element {
                   <div className="mt-1 max-w-xl whitespace-pre-wrap text-xs text-slate-500">{row.description}</div>
                 </Td>
                 <Td>{row.location?.name ?? '-'}</Td>
-                <Td>{row.imageUrls.length}개</Td>
+                <Td className="w-[120px]">
+                  {row.imageUrls.length > 0 ? (
+                    <button
+                      type="button"
+                      className="relative inline-flex rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
+                      onClick={() => {
+                        setPreviewImages(row.imageUrls);
+                        setPreviewIndex(0);
+                        setPreviewTitle(row.title);
+                        setPreviewOpen(true);
+                      }}
+                      aria-label={`${row.title} 이미지 미리보기 열기`}
+                    >
+                      <img
+                        src={row.imageUrls[0]}
+                        alt={`${row.title} 썸네일`}
+                        className="h-16 w-24 rounded-md border border-slate-200 object-cover"
+                        loading="lazy"
+                      />
+                      {row.imageUrls.length > 1 ? (
+                        <span className="absolute -right-2 -top-2 rounded-full bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">
+                          +{row.imageUrls.length - 1}
+                        </span>
+                      ) : null}
+                    </button>
+                  ) : (
+                    <div className="flex h-16 w-24 items-center justify-center rounded-md border border-slate-300 bg-slate-100 text-[11px] text-slate-500">
+                      이미지 없음
+                    </div>
+                  )}
+                </Td>
                 <Td>{formatDate(row.updatedAt)}</Td>
                 <Td>
                   <div className="flex flex-wrap gap-2">
@@ -238,6 +312,62 @@ export function LocationGuidePage(): JSX.Element {
           </tbody>
         </Table>
       </Card>
+
+      {previewOpen && previewImages.length > 0 ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={closePreview}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="guide-image-preview-title"
+        >
+          <Card
+            className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-4 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div>
+                <h3 id="guide-image-preview-title" className="text-base font-semibold text-slate-900">
+                  {previewTitle}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {previewIndex + 1} / {previewImages.length}
+                </p>
+              </div>
+              <button
+                ref={closePreviewButtonRef}
+                type="button"
+                onClick={closePreview}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                닫기
+              </button>
+            </div>
+
+            <div className="flex items-center justify-center gap-3">
+              <Button
+                variant="outline"
+                disabled={previewImages.length <= 1}
+                onClick={() => setPreviewIndex((prev) => (prev - 1 + previewImages.length) % previewImages.length)}
+              >
+                {'<'}
+              </Button>
+              <img
+                src={previewImages[previewIndex]}
+                alt={`${previewTitle} 원본 이미지 ${previewIndex + 1}`}
+                className="max-h-[75vh] w-full rounded-md border border-slate-200 object-contain"
+              />
+              <Button
+                variant="outline"
+                disabled={previewImages.length <= 1}
+                onClick={() => setPreviewIndex((prev) => (prev + 1) % previewImages.length)}
+              >
+                {'>'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </section>
   );
 }
