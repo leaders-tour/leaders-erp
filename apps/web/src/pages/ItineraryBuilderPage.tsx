@@ -668,7 +668,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [homeSelectedUserId, setHomeSelectedUserId] = useState<string>('');
   const [homeSelectedUserName, setHomeSelectedUserName] = useState<string>('');
   const [homeSelectedTemplateId, setHomeSelectedTemplateId] = useState<string>('');
-  const [homeEntryMode, setHomeEntryMode] = useState<'new' | 'existing'>('new');
+  const [homeEntryMode, setHomeEntryMode] = useState<'new' | 'existing' | null>(null);
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState<boolean>(false);
   const [homeNewUserName, setHomeNewUserName] = useState<string>('');
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
@@ -1117,32 +1117,48 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   if (!hasValidContext) {
     return (
-      <section className="grid gap-4 py-8">
+      <section className="grid gap-6 py-8">
+        <header>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">시작하기</h1>
+          <p className="mt-1 text-sm text-slate-600">아래에서 고객 유형을 선택하면 다음 단계가 열립니다.</p>
+        </header>
+
         <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h1 className="text-xl font-semibold text-slate-900">여행 일정 빌더 시작</h1>
-          <p className="mt-2 text-sm text-slate-600">처음에 고객 유형을 선택하세요.</p>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <h2 className="text-sm font-semibold text-slate-900">고객 유형 선택</h2>
+          <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
             <button
               type="button"
               onClick={() => setHomeEntryMode('new')}
-              className={`rounded-xl border px-3 py-1.5 text-sm ${
+              className={`min-h-[260px] rounded-2xl border p-6 text-left transition ${
                 homeEntryMode === 'new'
                   ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  : 'border-slate-200 bg-white text-slate-900 hover:border-primary-500 hover:bg-primary-50'
               }`}
             >
-              신규 고객
+              <div className="flex h-full flex-col justify-between">
+                <div>
+                  <p className="text-lg font-semibold">신규 고객</p>
+                  <p className={`mt-2 text-sm ${homeEntryMode === 'new' ? 'text-slate-100' : 'text-slate-600'}`}>
+                    고객을 새로 생성하고 일정 제작을 시작합니다.
+                  </p>
+                </div>
+                <div className={`text-xs font-medium ${homeEntryMode === 'new' ? 'text-slate-100' : 'text-slate-500'}`}>
+                  선택
+                </div>
+              </div>
             </button>
             <button
               type="button"
-              onClick={() => setHomeEntryMode('existing')}
-              className={`rounded-xl border px-3 py-1.5 text-sm ${
-                homeEntryMode === 'existing'
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
+              onClick={() => navigate('/customers')}
+              className="min-h-[260px] rounded-2xl border border-slate-200 bg-white p-6 text-left text-slate-900 transition hover:border-primary-500 hover:bg-primary-50"
             >
-              기존 고객
+              <div className="flex h-full flex-col justify-between">
+                <div>
+                  <p className="text-lg font-semibold">기존 고객</p>
+                  <p className="mt-2 text-sm text-slate-600">고객 페이지로 이동해 기존 고객을 선택합니다.</p>
+                </div>
+                <div className="text-xs font-medium text-slate-500">고객 페이지로 이동</div>
+              </div>
             </button>
           </div>
         </Card>
@@ -1241,19 +1257,7 @@ export function ItineraryBuilderPage(): JSX.Element {
               </div>
             </Card>
           </>
-        ) : (
-          <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="grid gap-3">
-              <h2 className="text-sm font-semibold text-slate-900">기존 고객 선택</h2>
-              <p className="text-sm text-slate-600">기존 고객으로 일정 생성은 고객 페이지에서 고객 선택 후 진행합니다.</p>
-              <div>
-                <Button variant="outline" onClick={() => navigate('/customers')}>
-                  고객 페이지로 이동
-                </Button>
-              </div>
-            </div>
-          </Card>
-        )}
+        ) : null}
 
         {isCreateUserModalOpen ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
