@@ -219,6 +219,15 @@ const USER_QUERY = gql`
   }
 `;
 
+const USERS_QUERY = gql`
+  query BuilderUsers {
+    users {
+      id
+      name
+    }
+  }
+`;
+
 const EVENTS_QUERY = gql`
   query BuilderEvents($activeOnly: Boolean) {
     events(activeOnly: $activeOnly) {
@@ -386,6 +395,15 @@ const UPDATE_PLAN_TEMPLATE_MUTATION = gql`
         id
         dayIndex
       }
+    }
+  }
+`;
+
+const CREATE_USER_MUTATION = gql`
+  mutation CreateUserFromBuilder($input: UserCreateInput!) {
+    createUser(input: $input) {
+      id
+      name
     }
   }
 `;
@@ -695,10 +713,19 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [templateSortOrder, setTemplateSortOrder] = useState<number>(0);
   const [hasAppliedInitialTemplate, setHasAppliedInitialTemplate] = useState<boolean>(false);
   const [skipNextAutoRowsSync, setSkipNextAutoRowsSync] = useState<boolean>(false);
+  const [homeSelectedUserId, setHomeSelectedUserId] = useState<string>('');
+  const [homeSelectedTemplateId, setHomeSelectedTemplateId] = useState<string>('');
+  const [homeCustomerSearch, setHomeCustomerSearch] = useState<string>('');
+  const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState<boolean>(false);
+  const [homeNewUserName, setHomeNewUserName] = useState<string>('');
+  const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
     skip: !isVersionMode,
+  });
+  const { data: userListData, loading: userListLoading, refetch: refetchUserList } = useQuery<{ users: UserRow[] }>(USERS_QUERY, {
+    skip: hasValidContext,
   });
   const { data: userData } = useQuery<{ user: UserRow | null }>(USER_QUERY, {
     variables: { id: userId },
@@ -712,11 +739,11 @@ export function ItineraryBuilderPage(): JSX.Element {
   const { data: segmentData } = useQuery<{ segments: SegmentRow[] }>(SEGMENTS_QUERY);
   const { data: templateListData, refetch: refetchTemplates } = useQuery<{ planTemplates: PlanTemplateRow[] }>(PLAN_TEMPLATES_QUERY, {
     variables: {
-      regionId: regionId || undefined,
-      totalDays,
+      regionId: hasValidContext ? regionId || undefined : undefined,
+      totalDays: hasValidContext ? totalDays : undefined,
       activeOnly: true,
     },
-    skip: !regionId,
+    skip: hasValidContext ? !regionId : false,
   });
   const { data: templateByIdData } = useQuery<{ planTemplate: PlanTemplateRow | null }>(PLAN_TEMPLATE_QUERY, {
     variables: { id: initialTemplateId },
@@ -733,6 +760,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [updatePlanTemplate, { loading: updatingTemplate }] = useMutation<{ updatePlanTemplate: PlanTemplateRow }>(
     UPDATE_PLAN_TEMPLATE_MUTATION,
   );
+  const [createUser, { loading: creatingUser }] = useMutation<{ createUser: UserRow }>(CREATE_USER_MUTATION);
 
   const creating = creatingPlan || creatingVersion;
 
@@ -741,9 +769,17 @@ export function ItineraryBuilderPage(): JSX.Element {
   const segments = segmentData?.segments ?? [];
   const planContext = planContextData?.plan ?? null;
   const selectedUserName = userData?.user?.name ?? '';
+  const userList = userListData?.users ?? [];
   const eventOptions = eventData?.events ?? [];
   const activeTemplateRows = templateListData?.planTemplates ?? [];
   const templateById = templateByIdData?.planTemplate ?? null;
+  const filteredHomeUsers = useMemo(() => {
+    const keyword = homeCustomerSearch.trim().toLowerCase();
+    if (!keyword) {
+      return userList;
+    }
+    return userList.filter((user) => user.name.toLowerCase().includes(keyword));
+  }, [homeCustomerSearch, userList]);
 
   const templateOptions = useMemo(() => {
     const deduped = new Map<string, PlanTemplateRow>();
@@ -760,6 +796,15 @@ export function ItineraryBuilderPage(): JSX.Element {
       return a.name.localeCompare(b.name, 'ko-KR');
     });
   }, [activeTemplateRows, templateById]);
+
+  useEffect(() => {
+    if (hasValidContext) {
+      return;
+    }
+    if (homeSelectedUserId && !userList.some((user) => user.id === homeSelectedUserId)) {
+      setHomeSelectedUserId('');
+    }
+  }, [hasValidContext, homeSelectedUserId, userList]);
 
   const selectedTemplate = useMemo(
     () => templateOptions.find((template) => template.id === selectedTemplateId) ?? null,
@@ -1188,15 +1233,190 @@ export function ItineraryBuilderPage(): JSX.Element {
   if (!hasValidContext) {
     return (
       <section className="grid gap-4 py-8">
-        <Card className="rounded-3xl border border-amber-200 bg-amber-50 p-6">
-          <h1 className="text-xl font-semibold text-amber-900">컨텍스트가 없습니다</h1>
-          <p className="mt-2 text-sm text-amber-800">
-            일정 빌더는 고객/Plan/버전 컨텍스트에서만 접근할 수 있습니다. 고객 또는 Plan 화면에서 다시 진입해주세요.
-          </p>
-          <div className="mt-4">
-            <Button onClick={() => navigate('/customers')}>고객 목록으로 이동</Button>
+        <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h1 className="text-xl font-semibold text-slate-900">여행 일정 빌더 시작</h1>
+          <p className="mt-2 text-sm text-slate-600">고객 선택과 시작 방법을 순서대로 선택해 빌더를 시작합니다.</p>
+        </Card>
+
+        <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="grid gap-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-slate-900">1. 고객 선택</h2>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => navigate('/customers')}>
+                  고객 목록
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    setIsCreateUserModalOpen(true);
+                    setHomeNewUserName('');
+                    setHomeCreateUserError('');
+                  }}
+                >
+                  고객 생성
+                </Button>
+              </div>
+            </div>
+            <input
+              value={homeCustomerSearch}
+              onChange={(event) => setHomeCustomerSearch(event.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+              placeholder="고객 검색"
+            />
+            {userListLoading ? <p className="text-xs text-slate-500">고객 불러오는 중...</p> : null}
+            <div className="max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-2">
+              <div className="grid gap-2">
+                {filteredHomeUsers.map((user) => (
+                  <button
+                    key={`home-user-${user.id}`}
+                    type="button"
+                    onClick={() => setHomeSelectedUserId(user.id)}
+                    className={`rounded-xl border px-3 py-2 text-left text-sm ${
+                      homeSelectedUserId === user.id
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {user.name}
+                  </button>
+                ))}
+                {filteredHomeUsers.length === 0 ? (
+                  <p className="px-1 py-3 text-xs text-slate-500">검색 결과가 없습니다.</p>
+                ) : null}
+              </div>
+            </div>
           </div>
         </Card>
+
+        <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="grid gap-3">
+            <h2 className="text-sm font-semibold text-slate-900">2. 방법 선택</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <h3 className="text-sm font-semibold text-slate-900">빈 페이지 선택</h3>
+                <p className="mt-1 text-xs text-slate-600">템플릿 없이 새 일정 빌더를 바로 시작합니다.</p>
+                <div className="mt-3">
+                  <Button
+                    disabled={!homeSelectedUserId}
+                    onClick={() => navigate(`/itinerary-builder?userId=${encodeURIComponent(homeSelectedUserId)}`)}
+                  >
+                    빈 페이지로 시작
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <h3 className="text-sm font-semibold text-slate-900">템플릿에서 선택</h3>
+                <p className="mt-1 text-xs text-slate-600">템플릿을 먼저 선택한 뒤 빌더를 시작합니다.</p>
+                <div className="mt-3 max-h-48 space-y-2 overflow-auto rounded-xl border border-slate-200 bg-white p-2">
+                  {templateOptions.map((template) => (
+                    <div
+                      key={`home-template-${template.id}`}
+                      className={`flex items-center justify-between rounded-lg border px-2 py-1.5 ${
+                        homeSelectedTemplateId === template.id
+                          ? 'border-slate-900 bg-slate-100'
+                          : 'border-slate-200 bg-white'
+                      }`}
+                    >
+                      <div className="text-xs text-slate-700">
+                        <div className="font-medium text-slate-900">{template.name}</div>
+                        <div>
+                          {template.totalDays}일 · {template.isActive ? '활성' : '비활성'}
+                        </div>
+                      </div>
+                      <Button variant="outline" onClick={() => setHomeSelectedTemplateId(template.id)}>
+                        선택
+                      </Button>
+                    </div>
+                  ))}
+                  {templateOptions.length === 0 ? (
+                    <p className="px-1 py-2 text-xs text-slate-500">선택 가능한 템플릿이 없습니다.</p>
+                  ) : null}
+                </div>
+                <div className="mt-3">
+                  <Button
+                    disabled={!homeSelectedUserId || !homeSelectedTemplateId}
+                    onClick={() =>
+                      navigate(
+                        `/itinerary-builder?userId=${encodeURIComponent(homeSelectedUserId)}&templateId=${encodeURIComponent(homeSelectedTemplateId)}`,
+                      )
+                    }
+                  >
+                    템플릿으로 시작
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {isCreateUserModalOpen ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+            <Card className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-5 shadow-xl">
+              <h3 className="text-lg font-semibold text-slate-900">고객 생성</h3>
+              <p className="mt-1 text-sm text-slate-600">새 고객을 등록하면 바로 선택 목록에 반영됩니다.</p>
+
+              <div className="mt-4 grid gap-2">
+                <label className="grid gap-1 text-sm">
+                  <span className="text-xs text-slate-600">고객명</span>
+                  <input
+                    value={homeNewUserName}
+                    onChange={(event) => setHomeNewUserName(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    placeholder="고객명 입력"
+                  />
+                </label>
+                {homeCreateUserError ? <p className="text-xs text-rose-700">{homeCreateUserError}</p> : null}
+              </div>
+
+              <div className="mt-5 flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsCreateUserModalOpen(false);
+                    setHomeCreateUserError('');
+                  }}
+                >
+                  취소
+                </Button>
+                <Button
+                  disabled={!homeNewUserName.trim() || creatingUser}
+                  onClick={async () => {
+                    const trimmedName = homeNewUserName.trim();
+                    if (!trimmedName) {
+                      return;
+                    }
+
+                    try {
+                      const result = await createUser({
+                        variables: {
+                          input: {
+                            name: trimmedName,
+                          },
+                        },
+                      });
+                      await refetchUserList();
+                      const createdUserId = result.data?.createUser.id ?? '';
+                      if (createdUserId) {
+                        setHomeSelectedUserId(createdUserId);
+                      }
+                      setHomeCustomerSearch('');
+                      setHomeNewUserName('');
+                      setHomeCreateUserError('');
+                      setIsCreateUserModalOpen(false);
+                    } catch (error) {
+                      const message = error instanceof Error ? error.message : '고객 생성에 실패했습니다.';
+                      setHomeCreateUserError(message);
+                    }
+                  }}
+                >
+                  {creatingUser ? '생성 중...' : '생성'}
+                </Button>
+              </div>
+            </Card>
+          </div>
+        ) : null}
       </section>
     );
   }
