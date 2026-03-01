@@ -664,6 +664,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [isPayloadPreviewOpen, setIsPayloadPreviewOpen] = useState<boolean>(false);
   const [hasAppliedInitialTemplate, setHasAppliedInitialTemplate] = useState<boolean>(false);
   const [skipNextAutoRowsSync, setSkipNextAutoRowsSync] = useState<boolean>(false);
+  const [routePresetTemplateId, setRoutePresetTemplateId] = useState<string>('');
   const [homeSelectedUserId, setHomeSelectedUserId] = useState<string>('');
   const [homeSelectedUserName, setHomeSelectedUserName] = useState<string>('');
   const [homeSelectedTemplateId, setHomeSelectedTemplateId] = useState<string>('');
@@ -732,6 +733,22 @@ export function ItineraryBuilderPage(): JSX.Element {
     });
   }, [activeTemplateRows, templateById]);
 
+  const routePresetOptions = useMemo(
+    () =>
+      templateOptions.filter(
+        (template) =>
+          template.isActive &&
+          template.regionId === regionId &&
+          template.totalDays === totalDays,
+      ),
+    [regionId, templateOptions, totalDays],
+  );
+
+  const routePresetSelected = useMemo(
+    () => routePresetOptions.find((template) => template.id === routePresetTemplateId) ?? null,
+    [routePresetOptions, routePresetTemplateId],
+  );
+
   useEffect(() => {
     if (!isVersionMode || !planContext) {
       return;
@@ -747,6 +764,15 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
     setLeaderName(trimmedName);
   }, [hasEditedLeaderName, leaderName, selectedUserName]);
+
+  useEffect(() => {
+    if (!routePresetTemplateId) {
+      return;
+    }
+    if (!routePresetOptions.some((template) => template.id === routePresetTemplateId)) {
+      setRoutePresetTemplateId('');
+    }
+  }, [routePresetOptions, routePresetTemplateId]);
 
   const filteredLocations = useMemo(
     () => locations.filter((location) => location.regionId === regionId),
@@ -906,6 +932,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       return;
     }
 
+    setRoutePresetTemplateId(templateById.id);
     applyTemplate(templateById, false);
     setHasAppliedInitialTemplate(true);
   }, [hasAppliedInitialTemplate, initialTemplateId, templateById]);
@@ -1895,6 +1922,39 @@ export function ItineraryBuilderPage(): JSX.Element {
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm lg:col-span-2">
             <h2 className="font-medium">일차별 목적지 선택 (순차 선택)</h2>
             <p className="mt-1 text-xs text-slate-600">이전 일차와 연결 가능한 목적지만 버튼으로 노출됩니다.</p>
+            <div className="mt-3 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
+              <div className="text-xs font-semibold text-slate-700">템플릿 불러오기 (현재 지역/일수)</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={routePresetTemplateId}
+                  onChange={(event) => setRoutePresetTemplateId(event.target.value)}
+                  disabled={!regionId || totalDays <= 0 || routePresetOptions.length === 0}
+                  className="min-w-[260px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100"
+                >
+                  <option value="">템플릿 선택</option>
+                  {routePresetOptions.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  variant="outline"
+                  disabled={!regionId || totalDays <= 0 || routePresetOptions.length === 0 || !routePresetSelected}
+                  onClick={() => {
+                    if (!routePresetSelected) {
+                      return;
+                    }
+                    applyTemplate(routePresetSelected, true);
+                  }}
+                >
+                  불러오기
+                </Button>
+              </div>
+              {regionId && totalDays > 0 && routePresetOptions.length === 0 ? (
+                <p className="text-xs text-slate-500">선택 가능한 템플릿이 없습니다. 지역과 일수를 확인하세요.</p>
+              ) : null}
+            </div>
 
             <div className="mt-4 space-y-4">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
