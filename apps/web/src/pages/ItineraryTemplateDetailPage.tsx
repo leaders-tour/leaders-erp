@@ -163,6 +163,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
   const [saveMessage, setSaveMessage] = useState<string>('');
   const [routeRecoveryMessage, setRouteRecoveryMessage] = useState<string>('');
   const [skipNextAutoRowsSync, setSkipNextAutoRowsSync] = useState<boolean>(false);
+  const [isAutoRowsSyncEnabled, setIsAutoRowsSyncEnabled] = useState<boolean>(false);
 
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationOption[] }>(LOCATIONS_QUERY);
@@ -237,8 +238,11 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
       setSkipNextAutoRowsSync(false);
       return;
     }
+    if (!isAutoRowsSyncEnabled) {
+      return;
+    }
     setPlanRows(autoRows);
-  }, [autoRows, skipNextAutoRowsSync]);
+  }, [autoRows, isAutoRowsSyncEnabled, skipNextAutoRowsSync]);
 
   useEffect(() => {
     if (!template) {
@@ -278,6 +282,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
     setFormTotalDays(template.totalDays);
     setFormSortOrder(template.sortOrder);
     setFormIsActive(template.isActive);
+    setIsAutoRowsSyncEnabled(false);
     setSkipNextAutoRowsSync(true);
     setPlanRows(rowsFromTemplate);
     setSaveMessage('');
@@ -400,6 +405,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
               <button
                 type="button"
                 onClick={() => {
+                  setIsAutoRowsSyncEnabled(true);
                   setFormRegionId('');
                   setStartLocationId('');
                   setStartLocationVersionId('');
@@ -419,6 +425,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                   key={region.id}
                   type="button"
                   onClick={() => {
+                    setIsAutoRowsSyncEnabled(true);
                     setFormRegionId(region.id);
                     setStartLocationId('');
                     setStartLocationVersionId('');
@@ -444,6 +451,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                   key={day}
                   type="button"
                   onClick={() => {
+                    setIsAutoRowsSyncEnabled(true);
                     setFormTotalDays(day);
                     setSelectedRoute((prev) => prev.slice(0, Math.max(day - 1, 0)));
                     setRouteRecoveryMessage('');
@@ -505,6 +513,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                 <button
                   type="button"
                   onClick={() => {
+                    setIsAutoRowsSyncEnabled(true);
                     setStartLocationId('');
                     setStartLocationVersionId('');
                     setSelectedRoute([]);
@@ -524,6 +533,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                     key={`start-${location.id}`}
                     type="button"
                     onClick={() => {
+                      setIsAutoRowsSyncEnabled(true);
                       setStartLocationId(location.id);
                       setStartLocationVersionId(getDefaultVersionId(location));
                       setSelectedRoute([]);
@@ -541,7 +551,10 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                   <button
                     key={`start-version-${version.id}`}
                     type="button"
-                    onClick={() => setStartLocationVersionId(version.id)}
+                    onClick={() => {
+                      setIsAutoRowsSyncEnabled(true);
+                      setStartLocationVersionId(version.id);
+                    }}
                     className={`rounded-lg border px-3 py-1 text-xs ${
                       startLocationVersionId === version.id
                         ? 'border-slate-900 bg-slate-900 text-white'
@@ -567,13 +580,14 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                   <button
                     key={`route-version-${index}-${version.id}`}
                     type="button"
-                    onClick={() =>
+                    onClick={() => {
+                      setIsAutoRowsSyncEnabled(true);
                       setSelectedRoute((prev) =>
                         prev.map((item, itemIndex) =>
                           itemIndex === index ? { ...item, locationVersionId: version.id } : item,
                         ),
-                      )
-                    }
+                      );
+                    }}
                     className={`rounded-lg border px-3 py-1 text-xs ${
                       stop.locationVersionId === version.id
                         ? 'border-slate-900 bg-slate-900 text-white'
@@ -595,15 +609,16 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                   <button
                     key={location.id}
                     type="button"
-                    onClick={() =>
+                    onClick={() => {
+                      setIsAutoRowsSyncEnabled(true);
                       setSelectedRoute((prev) => [
                         ...prev,
                         {
                           locationId: location.id,
                           locationVersionId: getDefaultVersionId(location),
                         },
-                      ])
-                    }
+                      ]);
+                    }}
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
                   >
                     {location.name}
@@ -618,6 +633,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
             <button
               type="button"
               onClick={() => {
+                setIsAutoRowsSyncEnabled(true);
                 setSelectedRoute([]);
               }}
               className="text-xs text-red-500 underline"
