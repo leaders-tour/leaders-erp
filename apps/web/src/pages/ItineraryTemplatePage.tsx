@@ -254,7 +254,15 @@ export function ItineraryTemplatePage(): JSX.Element {
                     <Td>{template.name}</Td>
                     <Td>{regionNameById.get(template.regionId) ?? template.regionId}</Td>
                     <Td>{template.totalDays}일</Td>
-                    <Td>{template.isActive ? '활성' : '비활성'}</Td>
+                    <Td>
+                      <span className="inline-flex items-center gap-2">
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full ${template.isActive ? 'bg-emerald-500' : 'bg-slate-400'}`}
+                          aria-hidden
+                        />
+                        <span>{template.isActive ? '활성' : '비활성'}</span>
+                      </span>
+                    </Td>
                     <Td>{template.sortOrder}</Td>
                     <Td>{new Date(template.updatedAt).toLocaleString('ko-KR')}</Td>
                     <Td>

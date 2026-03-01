@@ -486,14 +486,35 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
             />
           </label>
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={formIsActive}
-              onChange={(event) => setFormIsActive(event.target.checked)}
-            />
-            활성
-          </label>
+          <div className="grid gap-1 text-sm">
+            <span className="text-xs text-slate-600">상태</span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setFormIsActive(true)}
+                aria-pressed={formIsActive}
+                className={`rounded-xl border px-3 py-1.5 text-sm ${
+                  formIsActive
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                활성
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormIsActive(false)}
+                aria-pressed={!formIsActive}
+                className={`rounded-xl border px-3 py-1.5 text-sm ${
+                  !formIsActive
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                비활성
+              </button>
+            </div>
+          </div>
           </div>
         </Card>
 
