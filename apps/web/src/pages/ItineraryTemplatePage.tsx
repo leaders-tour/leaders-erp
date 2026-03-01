@@ -1,4 +1,4 @@
-import { gql, useMutation, useQuery } from '@apollo/client';
+import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -11,8 +11,6 @@ interface RegionRow {
 interface PlanTemplateStopRow {
   id: string;
   dayIndex: number;
-  locationId: string | null;
-  locationVersionId: string | null;
   dateCellText: string;
   destinationCellText: string;
   timeCellText: string;
@@ -24,12 +22,14 @@ interface PlanTemplateStopRow {
 interface PlanTemplateRow {
   id: string;
   name: string;
-  description: string | null;
   regionId: string;
   totalDays: number;
   sortOrder: number;
   isActive: boolean;
   updatedAt: string;
+}
+
+interface PlanTemplateDetailRow extends PlanTemplateRow {
   planStops: PlanTemplateStopRow[];
 }
 
@@ -47,7 +47,20 @@ const PLAN_TEMPLATES_QUERY = gql`
     planTemplates(regionId: $regionId, totalDays: $totalDays, activeOnly: $activeOnly) {
       id
       name
-      description
+      regionId
+      totalDays
+      sortOrder
+      isActive
+      updatedAt
+    }
+  }
+`;
+
+const PLAN_TEMPLATE_QUERY = gql`
+  query ItineraryTemplateSummary($id: ID!) {
+    planTemplate(id: $id) {
+      id
+      name
       regionId
       totalDays
       sortOrder
@@ -56,8 +69,6 @@ const PLAN_TEMPLATES_QUERY = gql`
       planStops {
         id
         dayIndex
-        locationId
-        locationVersionId
         dateCellText
         destinationCellText
         timeCellText
@@ -69,26 +80,6 @@ const PLAN_TEMPLATES_QUERY = gql`
   }
 `;
 
-const UPDATE_PLAN_TEMPLATE_MUTATION = gql`
-  mutation UpdateItineraryTemplate($id: ID!, $input: PlanTemplateUpdateInput!) {
-    updatePlanTemplate(id: $id, input: $input) {
-      id
-      name
-      description
-      regionId
-      totalDays
-      sortOrder
-      isActive
-    }
-  }
-`;
-
-const DELETE_PLAN_TEMPLATE_MUTATION = gql`
-  mutation DeleteItineraryTemplate($id: ID!) {
-    deletePlanTemplate(id: $id)
-  }
-`;
-
 export function ItineraryTemplatePage(): JSX.Element {
   const navigate = useNavigate();
   const [regionFilter, setRegionFilter] = useState<string>('');
@@ -96,17 +87,10 @@ export function ItineraryTemplatePage(): JSX.Element {
   const [activeOnly, setActiveOnly] = useState<boolean>(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
 
-  const [formName, setFormName] = useState<string>('');
-  const [formDescription, setFormDescription] = useState<string>('');
-  const [formRegionId, setFormRegionId] = useState<string>('');
-  const [formTotalDays, setFormTotalDays] = useState<number>(6);
-  const [formSortOrder, setFormSortOrder] = useState<number>(0);
-  const [formIsActive, setFormIsActive] = useState<boolean>(true);
-
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
 
   const totalDaysFilter = dayFilter === 'all' ? undefined : Number(dayFilter);
-  const { data: templateData, loading, refetch } = useQuery<{ planTemplates: PlanTemplateRow[] }>(PLAN_TEMPLATES_QUERY, {
+  const { data: templateData, loading } = useQuery<{ planTemplates: PlanTemplateRow[] }>(PLAN_TEMPLATES_QUERY, {
     variables: {
       regionId: regionFilter || undefined,
       totalDays: totalDaysFilter,
@@ -114,14 +98,19 @@ export function ItineraryTemplatePage(): JSX.Element {
     },
   });
 
-  const [updateTemplate, { loading: updating }] = useMutation(UPDATE_PLAN_TEMPLATE_MUTATION);
-  const [deleteTemplate, { loading: deleting }] = useMutation(DELETE_PLAN_TEMPLATE_MUTATION);
+  const { data: selectedTemplateData, loading: selectedTemplateLoading } = useQuery<{
+    planTemplate: PlanTemplateDetailRow | null;
+  }>(PLAN_TEMPLATE_QUERY, {
+    variables: { id: selectedTemplateId },
+    skip: !selectedTemplateId,
+  });
 
   const regions = regionData?.regions ?? [];
   const templates = templateData?.planTemplates ?? [];
-  const selectedTemplate = useMemo(
-    () => templates.find((template) => template.id === selectedTemplateId) ?? null,
-    [selectedTemplateId, templates],
+  const selectedTemplate = selectedTemplateData?.planTemplate ?? null;
+  const orderedStops = useMemo(
+    () => selectedTemplate?.planStops.slice().sort((a, b) => a.dayIndex - b.dayIndex) ?? [],
+    [selectedTemplate],
   );
 
   useEffect(() => {
@@ -129,22 +118,11 @@ export function ItineraryTemplatePage(): JSX.Element {
       setSelectedTemplateId('');
       return;
     }
+
     if (!selectedTemplateId || !templates.some((template) => template.id === selectedTemplateId)) {
       setSelectedTemplateId(templates[0]?.id ?? '');
     }
   }, [selectedTemplateId, templates]);
-
-  useEffect(() => {
-    if (!selectedTemplate) {
-      return;
-    }
-    setFormName(selectedTemplate.name);
-    setFormDescription(selectedTemplate.description ?? '');
-    setFormRegionId(selectedTemplate.regionId);
-    setFormTotalDays(selectedTemplate.totalDays);
-    setFormSortOrder(selectedTemplate.sortOrder);
-    setFormIsActive(selectedTemplate.isActive);
-  }, [selectedTemplate]);
 
   const regionNameById = useMemo(() => new Map(regions.map((region) => [region.id, region.name])), [regions]);
 
@@ -153,46 +131,76 @@ export function ItineraryTemplatePage(): JSX.Element {
       <header className="flex items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">일정 템플릿</h1>
-          <p className="mt-1 text-sm text-slate-600">템플릿 목록 조회 및 메타데이터를 관리합니다. 일정 본문은 빌더에서 수정합니다.</p>
+          <p className="mt-1 text-sm text-slate-600">목록에서 템플릿을 선택하면 하단에 본문 요약이 표시됩니다.</p>
         </div>
       </header>
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900">필터</h2>
-        <div className="mt-3 grid gap-3 md:grid-cols-4">
-          <label className="grid gap-1 text-sm">
+        <div className="mt-3 grid gap-4">
+          <div className="grid gap-1 text-sm">
             <span className="text-xs text-slate-600">지역</span>
-            <select
-              value={regionFilter}
-              onChange={(event) => setRegionFilter(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">전체</option>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setRegionFilter('')}
+                className={`rounded-xl border px-3 py-1.5 text-sm ${
+                  regionFilter === ''
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                전체
+              </button>
               {regions.map((region) => (
-                <option key={region.id} value={region.id}>
+                <button
+                  key={region.id}
+                  type="button"
+                  onClick={() => setRegionFilter(region.id)}
+                  className={`rounded-xl border px-3 py-1.5 text-sm ${
+                    regionFilter === region.id
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
                   {region.name}
-                </option>
+                </button>
               ))}
-            </select>
-          </label>
+            </div>
+          </div>
 
-          <label className="grid gap-1 text-sm">
+          <div className="grid gap-1 text-sm">
             <span className="text-xs text-slate-600">일수</span>
-            <select
-              value={dayFilter}
-              onChange={(event) => setDayFilter(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-            >
-              <option value="all">전체</option>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setDayFilter('all')}
+                className={`rounded-xl border px-3 py-1.5 text-sm ${
+                  dayFilter === 'all'
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                전체
+              </button>
               {Array.from({ length: 9 }, (_, idx) => idx + 2).map((day) => (
-                <option key={day} value={String(day)}>
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => setDayFilter(String(day))}
+                  className={`rounded-xl border px-3 py-1.5 text-sm ${
+                    dayFilter === String(day)
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
                   {day}일
-                </option>
+                </button>
               ))}
-            </select>
-          </label>
+            </div>
+          </div>
 
-          <label className="flex items-end gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={activeOnly}
@@ -203,172 +211,115 @@ export function ItineraryTemplatePage(): JSX.Element {
         </div>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-slate-900">템플릿 목록</h2>
-          {loading ? <p className="mt-3 text-sm text-slate-500">불러오는 중...</p> : null}
+      <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-900">템플릿 목록</h2>
+        {loading ? <p className="mt-3 text-sm text-slate-500">불러오는 중...</p> : null}
+        <div className="mt-3 overflow-auto">
+          <Table className="min-w-[920px] w-full text-sm">
+            <thead className="bg-slate-50 text-slate-700">
+              <tr>
+                <Th>이름</Th>
+                <Th>지역</Th>
+                <Th>일수</Th>
+                <Th>상태</Th>
+                <Th>정렬</Th>
+                <Th>수정일</Th>
+                <Th>액션</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {templates.map((template) => {
+                const isSelected = selectedTemplateId === template.id;
+                return (
+                  <tr
+                    key={template.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedTemplateId(template.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedTemplateId(template.id);
+                      }
+                    }}
+                    className={`cursor-pointer border-t border-slate-200 ${
+                      isSelected ? 'bg-slate-100' : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <Td>{template.name}</Td>
+                    <Td>{regionNameById.get(template.regionId) ?? template.regionId}</Td>
+                    <Td>{template.totalDays}일</Td>
+                    <Td>{template.isActive ? '활성' : '비활성'}</Td>
+                    <Td>{template.sortOrder}</Td>
+                    <Td>{new Date(template.updatedAt).toLocaleString('ko-KR')}</Td>
+                    <Td>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            navigate(`/itinerary-builder?templateId=${encodeURIComponent(template.id)}`);
+                          }}
+                        >
+                          빌더로 이동
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            navigate(`/itinerary-templates/${template.id}`);
+                          }}
+                        >
+                          상세보기
+                        </Button>
+                      </div>
+                    </Td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>
+        </div>
+      </Card>
+
+      <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-900">일차별 본문 요약 (읽기 전용)</h2>
+        {selectedTemplateLoading ? <p className="mt-3 text-sm text-slate-500">요약 불러오는 중...</p> : null}
+        {!selectedTemplateId ? <p className="mt-3 text-sm text-slate-500">선택된 템플릿이 없습니다.</p> : null}
+        {selectedTemplate && orderedStops.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-500">일차별 본문 데이터가 없습니다.</p>
+        ) : null}
+        {selectedTemplate && orderedStops.length > 0 ? (
           <div className="mt-3 overflow-auto">
-            <Table className="min-w-[860px] w-full text-sm">
+            <Table className="min-w-[1200px] w-full text-sm">
               <thead className="bg-slate-50 text-slate-700">
                 <tr>
-                  <Th>이름</Th>
-                  <Th>지역</Th>
-                  <Th>일수</Th>
-                  <Th>상태</Th>
-                  <Th>정렬</Th>
-                  <Th>수정일</Th>
-                  <Th>액션</Th>
+                  <Th>일차</Th>
+                  <Th>날짜</Th>
+                  <Th>목적지</Th>
+                  <Th>시간</Th>
+                  <Th>일정</Th>
+                  <Th>숙소</Th>
+                  <Th>식사</Th>
                 </tr>
               </thead>
               <tbody>
-                {templates.map((template) => {
-                  const isSelected = template.id === selectedTemplateId;
-                  return (
-                    <tr key={template.id} className={`border-t border-slate-200 ${isSelected ? 'bg-slate-50' : ''}`}>
-                      <Td>{template.name}</Td>
-                      <Td>{regionNameById.get(template.regionId) ?? template.regionId}</Td>
-                      <Td>{template.totalDays}일</Td>
-                      <Td>{template.isActive ? '활성' : '비활성'}</Td>
-                      <Td>{template.sortOrder}</Td>
-                      <Td>{new Date(template.updatedAt).toLocaleString('ko-KR')}</Td>
-                      <Td>
-                        <div className="flex flex-wrap gap-2">
-                          <Button variant="outline" onClick={() => setSelectedTemplateId(template.id)}>
-                            선택
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => navigate(`/itinerary-builder?templateId=${encodeURIComponent(template.id)}`)}
-                          >
-                            빌더로 이동
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            disabled={deleting}
-                            onClick={async () => {
-                              if (!window.confirm(`템플릿 \"${template.name}\"을(를) 삭제할까요?`)) {
-                                return;
-                              }
-                              await deleteTemplate({ variables: { id: template.id } });
-                              await refetch();
-                            }}
-                          >
-                            삭제
-                          </Button>
-                        </div>
-                      </Td>
-                    </tr>
-                  );
-                })}
+                {orderedStops.map((stop) => (
+                  <tr key={stop.id} className="border-t border-slate-200 align-top">
+                    <Td>{stop.dayIndex}일차</Td>
+                    <Td className="whitespace-pre-wrap">{stop.dateCellText}</Td>
+                    <Td className="whitespace-pre-wrap">{stop.destinationCellText}</Td>
+                    <Td className="whitespace-pre-wrap">{stop.timeCellText}</Td>
+                    <Td className="whitespace-pre-wrap">{stop.scheduleCellText}</Td>
+                    <Td className="whitespace-pre-wrap">{stop.lodgingCellText}</Td>
+                    <Td className="whitespace-pre-wrap">{stop.mealCellText}</Td>
+                  </tr>
+                ))}
               </tbody>
             </Table>
           </div>
-        </Card>
-
-        <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-slate-900">템플릿 메타 수정</h2>
-          {!selectedTemplate ? (
-            <p className="mt-3 text-sm text-slate-500">수정할 템플릿을 선택해주세요.</p>
-          ) : (
-            <div className="mt-3 grid gap-3">
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">이름</span>
-                <input
-                  value={formName}
-                  onChange={(event) => setFormName(event.target.value)}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">설명</span>
-                <textarea
-                  value={formDescription}
-                  onChange={(event) => setFormDescription(event.target.value)}
-                  rows={3}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">지역</span>
-                <select
-                  value={formRegionId}
-                  onChange={(event) => setFormRegionId(event.target.value)}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                >
-                  <option value="">선택</option>
-                  {regions.map((region) => (
-                    <option key={region.id} value={region.id}>
-                      {region.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">일수</span>
-                <select
-                  value={String(formTotalDays)}
-                  onChange={(event) => setFormTotalDays(Number(event.target.value))}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                >
-                  {Array.from({ length: 9 }, (_, idx) => idx + 2).map((day) => (
-                    <option key={day} value={String(day)}>
-                      {day}일
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">정렬 순서</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={formSortOrder}
-                  onChange={(event) => setFormSortOrder(Math.max(0, Number(event.target.value) || 0))}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={formIsActive}
-                  onChange={(event) => setFormIsActive(event.target.checked)}
-                />
-                활성
-              </label>
-              <p className="text-xs text-slate-500">
-                6일 일정 본문(일차별 텍스트/루트)은 빌더 화면에서 템플릿을 불러와 수정 후 덮어쓰기 저장하세요.
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="primary"
-                  disabled={updating || !formName.trim() || !formRegionId}
-                  onClick={async () => {
-                    if (!selectedTemplate) {
-                      return;
-                    }
-                    await updateTemplate({
-                      variables: {
-                        id: selectedTemplate.id,
-                        input: {
-                          name: formName.trim(),
-                          description: formDescription.trim(),
-                          regionId: formRegionId,
-                          totalDays: formTotalDays,
-                          sortOrder: formSortOrder,
-                          isActive: formIsActive,
-                        },
-                      },
-                    });
-                    await refetch();
-                  }}
-                >
-                  {updating ? '저장 중...' : '메타 저장'}
-                </Button>
-              </div>
-            </div>
-          )}
-        </Card>
-      </div>
+        ) : null}
+      </Card>
     </section>
   );
 }
