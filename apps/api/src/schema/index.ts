@@ -15,6 +15,7 @@ const files = [
   'meal-set.graphql',
   'segment.graphql',
   'plan.graphql',
+  'plan-template.graphql',
   'time-block.graphql',
   'activity.graphql',
   'event.graphql',

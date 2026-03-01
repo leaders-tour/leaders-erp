@@ -1,0 +1,61 @@
+type PlanTemplate {
+  id: ID!
+  name: String!
+  description: String
+  regionId: String!
+  totalDays: Int!
+  sortOrder: Int!
+  isActive: Boolean!
+  region: Region!
+  planStops: [PlanTemplateStop!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type PlanTemplateStop {
+  id: ID!
+  planTemplateId: String!
+  dayIndex: Int!
+  locationId: String
+  locationVersionId: String
+  dateCellText: String!
+  destinationCellText: String!
+  timeCellText: String!
+  scheduleCellText: String!
+  lodgingCellText: String!
+  mealCellText: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input PlanTemplateStopNestedInput {
+  dayIndex: Int!
+  locationId: String
+  locationVersionId: String
+  dateCellText: String!
+  destinationCellText: String!
+  timeCellText: String!
+  scheduleCellText: String!
+  lodgingCellText: String!
+  mealCellText: String!
+}
+
+input PlanTemplateCreateInput {
+  name: String!
+  description: String
+  regionId: ID!
+  totalDays: Int!
+  sortOrder: Int
+  isActive: Boolean
+  planStops: [PlanTemplateStopNestedInput!]!
+}
+
+input PlanTemplateUpdateInput {
+  name: String
+  description: String
+  regionId: ID
+  totalDays: Int
+  sortOrder: Int
+  isActive: Boolean
+  planStops: [PlanTemplateStopNestedInput!]
+}

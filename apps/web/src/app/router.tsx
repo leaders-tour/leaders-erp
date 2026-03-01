@@ -6,6 +6,7 @@ import { CustomerPlansPage } from '../pages/CustomerPlansPage';
 import { EstimatePrintPage } from '../pages/EstimatePrintPage';
 import { EventPage } from '../pages/EventPage';
 import { ItineraryBuilderPage } from '../pages/ItineraryBuilderPage';
+import { ItineraryTemplatePage } from '../pages/ItineraryTemplatePage';
 import { LocationCreatePage } from '../pages/LocationCreatePage';
 import { LocationDetailPage } from '../pages/LocationDetailPage';
 import { LocationEditPage } from '../pages/LocationEditPage';
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/itinerary-builder" replace /> },
       { path: 'itinerary-builder', element: <ItineraryBuilderPage /> },
+      { path: 'itinerary-templates', element: <ItineraryTemplatePage /> },
       { path: 'documents/estimate', element: <EstimatePrintPage /> },
       { path: 'customers', element: <CustomerPage /> },
       { path: 'customers/create', element: <CustomerCreatePage /> },

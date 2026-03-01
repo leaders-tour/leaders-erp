@@ -98,6 +98,7 @@ model Region {
   locations Location[]
   segments  Segment[]
   plans     Plan[]
+  planTemplates PlanTemplate[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -123,6 +124,7 @@ model Location {
   mealSets     MealSet[]
   timeBlocks   TimeBlock[]
   planStops    PlanStop[]
+  planTemplateStops PlanTemplateStop[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -162,6 +164,7 @@ model LocationVersion {
   mealSets      MealSet[]
   timeBlocks    TimeBlock[]
   planStops     PlanStop[]
+  planTemplateStops PlanTemplateStop[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -392,6 +395,50 @@ model PlanVersionPricingLine {
 
   @@index([planVersionPricingId])
   @@index([ruleId])
+}
+
+model PlanTemplate {
+  id          String  @id @default(uuid(7))
+  name        String
+  description String? @db.Text
+  regionId    String
+  totalDays   Int
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+
+  region Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  planStops PlanTemplateStop[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([regionId, totalDays, isActive, sortOrder])
+}
+
+model PlanTemplateStop {
+  id                String @id @default(uuid(7))
+  planTemplateId    String
+  dayIndex          Int
+  locationId        String?
+  locationVersionId String?
+  dateCellText      String @db.Text
+  destinationCellText String @db.Text
+  timeCellText      String @db.Text
+  scheduleCellText  String @db.Text
+  lodgingCellText   String @db.Text
+  mealCellText      String @db.Text
+
+  planTemplate    PlanTemplate    @relation(fields: [planTemplateId], references: [id], onDelete: Cascade)
+  location        Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  locationVersion LocationVersion? @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([planTemplateId, dayIndex])
+  @@index([planTemplateId])
+  @@index([locationId])
+  @@index([locationVersionId])
 }
 
 model PlanStop {

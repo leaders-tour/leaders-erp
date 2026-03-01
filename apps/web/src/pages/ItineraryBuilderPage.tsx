@@ -165,6 +165,30 @@ interface RouteSelection {
   locationVersionId: string;
 }
 
+interface PlanTemplateStopRow {
+  id: string;
+  dayIndex: number;
+  locationId: string | null;
+  locationVersionId: string | null;
+  dateCellText: string;
+  destinationCellText: string;
+  timeCellText: string;
+  scheduleCellText: string;
+  lodgingCellText: string;
+  mealCellText: string;
+}
+
+interface PlanTemplateRow {
+  id: string;
+  name: string;
+  description: string | null;
+  regionId: string;
+  totalDays: number;
+  sortOrder: number;
+  isActive: boolean;
+  planStops: PlanTemplateStopRow[];
+}
+
 const REGIONS_QUERY = gql`
   query ItineraryRegions {
     regions {
@@ -261,6 +285,58 @@ const SEGMENTS_QUERY = gql`
   }
 `;
 
+const PLAN_TEMPLATES_QUERY = gql`
+  query ItineraryBuilderTemplates($regionId: ID, $totalDays: Int, $activeOnly: Boolean) {
+    planTemplates(regionId: $regionId, totalDays: $totalDays, activeOnly: $activeOnly) {
+      id
+      name
+      description
+      regionId
+      totalDays
+      sortOrder
+      isActive
+      planStops {
+        id
+        dayIndex
+        locationId
+        locationVersionId
+        dateCellText
+        destinationCellText
+        timeCellText
+        scheduleCellText
+        lodgingCellText
+        mealCellText
+      }
+    }
+  }
+`;
+
+const PLAN_TEMPLATE_QUERY = gql`
+  query ItineraryBuilderTemplate($id: ID!) {
+    planTemplate(id: $id) {
+      id
+      name
+      description
+      regionId
+      totalDays
+      sortOrder
+      isActive
+      planStops {
+        id
+        dayIndex
+        locationId
+        locationVersionId
+        dateCellText
+        destinationCellText
+        timeCellText
+        scheduleCellText
+        lodgingCellText
+        mealCellText
+      }
+    }
+  }
+`;
+
 const CREATE_PLAN_MUTATION = gql`
   mutation CreatePlanFromBuilder($input: PlanCreateInput!) {
     createPlan(input: $input) {
@@ -274,6 +350,42 @@ const CREATE_PLAN_VERSION_MUTATION = gql`
     createPlanVersion(input: $input) {
       id
       versionNumber
+    }
+  }
+`;
+
+const CREATE_PLAN_TEMPLATE_MUTATION = gql`
+  mutation CreateTemplateFromBuilder($input: PlanTemplateCreateInput!) {
+    createPlanTemplate(input: $input) {
+      id
+      name
+      description
+      regionId
+      totalDays
+      sortOrder
+      isActive
+      planStops {
+        id
+        dayIndex
+      }
+    }
+  }
+`;
+
+const UPDATE_PLAN_TEMPLATE_MUTATION = gql`
+  mutation UpdateTemplateFromBuilder($id: ID!, $input: PlanTemplateUpdateInput!) {
+    updatePlanTemplate(id: $id, input: $input) {
+      id
+      name
+      description
+      regionId
+      totalDays
+      sortOrder
+      isActive
+      planStops {
+        id
+        dayIndex
+      }
     }
   }
 `;
@@ -527,6 +639,10 @@ function autoResizeTextarea(element: HTMLTextAreaElement): void {
   element.style.height = `${element.scrollHeight}px`;
 }
 
+function sortTemplateStops(stops: PlanTemplateStopRow[]): PlanTemplateStopRow[] {
+  return stops.slice().sort((a, b) => a.dayIndex - b.dayIndex);
+}
+
 export function ItineraryBuilderPage(): JSX.Element {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -535,9 +651,12 @@ export function ItineraryBuilderPage(): JSX.Element {
   const planId = searchParams.get('planId') ?? '';
   const parentVersionId = searchParams.get('parentVersionId') ?? '';
   const initialChangeNote = searchParams.get('changeNote') ?? '';
+  const initialTemplateId = searchParams.get('templateId') ?? '';
 
   const isVersionMode = Boolean(planId);
-  const hasValidContext = Boolean(userId) && (!isVersionMode || Boolean(parentVersionId));
+  const hasPlanContext = Boolean(userId) && (!isVersionMode || Boolean(parentVersionId));
+  const isTemplateOnlyMode = !hasPlanContext && Boolean(initialTemplateId);
+  const hasValidContext = hasPlanContext || isTemplateOnlyMode;
 
   const [variantType, setVariantType] = useState<VariantType>(VariantType.Basic);
   const [totalDays, setTotalDays] = useState<number>(6);
@@ -570,6 +689,12 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [hasEditedLeaderName, setHasEditedLeaderName] = useState<boolean>(false);
   const [isValidationOpen, setIsValidationOpen] = useState<boolean>(false);
   const [isPayloadPreviewOpen, setIsPayloadPreviewOpen] = useState<boolean>(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initialTemplateId);
+  const [templateName, setTemplateName] = useState<string>('');
+  const [templateDescription, setTemplateDescription] = useState<string>('');
+  const [templateSortOrder, setTemplateSortOrder] = useState<number>(0);
+  const [hasAppliedInitialTemplate, setHasAppliedInitialTemplate] = useState<boolean>(false);
+  const [skipNextAutoRowsSync, setSkipNextAutoRowsSync] = useState<boolean>(false);
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
@@ -585,11 +710,29 @@ export function ItineraryBuilderPage(): JSX.Element {
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
   const { data: segmentData } = useQuery<{ segments: SegmentRow[] }>(SEGMENTS_QUERY);
+  const { data: templateListData, refetch: refetchTemplates } = useQuery<{ planTemplates: PlanTemplateRow[] }>(PLAN_TEMPLATES_QUERY, {
+    variables: {
+      regionId: regionId || undefined,
+      totalDays,
+      activeOnly: true,
+    },
+    skip: !regionId,
+  });
+  const { data: templateByIdData } = useQuery<{ planTemplate: PlanTemplateRow | null }>(PLAN_TEMPLATE_QUERY, {
+    variables: { id: initialTemplateId },
+    skip: !initialTemplateId,
+  });
 
   const [createPlan, { loading: creatingPlan }] = useMutation<{ createPlan: { id: string } }>(CREATE_PLAN_MUTATION);
   const [createPlanVersion, { loading: creatingVersion }] = useMutation<{
     createPlanVersion: { id: string; versionNumber: number };
   }>(CREATE_PLAN_VERSION_MUTATION);
+  const [createPlanTemplate, { loading: creatingTemplate }] = useMutation<{ createPlanTemplate: PlanTemplateRow }>(
+    CREATE_PLAN_TEMPLATE_MUTATION,
+  );
+  const [updatePlanTemplate, { loading: updatingTemplate }] = useMutation<{ updatePlanTemplate: PlanTemplateRow }>(
+    UPDATE_PLAN_TEMPLATE_MUTATION,
+  );
 
   const creating = creatingPlan || creatingVersion;
 
@@ -599,6 +742,31 @@ export function ItineraryBuilderPage(): JSX.Element {
   const planContext = planContextData?.plan ?? null;
   const selectedUserName = userData?.user?.name ?? '';
   const eventOptions = eventData?.events ?? [];
+  const activeTemplateRows = templateListData?.planTemplates ?? [];
+  const templateById = templateByIdData?.planTemplate ?? null;
+
+  const templateOptions = useMemo(() => {
+    const deduped = new Map<string, PlanTemplateRow>();
+    activeTemplateRows.forEach((template) => {
+      deduped.set(template.id, template);
+    });
+    if (templateById) {
+      deduped.set(templateById.id, templateById);
+    }
+    return Array.from(deduped.values()).sort((a, b) => {
+      if (a.sortOrder !== b.sortOrder) {
+        return a.sortOrder - b.sortOrder;
+      }
+      return a.name.localeCompare(b.name, 'ko-KR');
+    });
+  }, [activeTemplateRows, templateById]);
+
+  const selectedTemplate = useMemo(
+    () => templateOptions.find((template) => template.id === selectedTemplateId) ?? null,
+    [selectedTemplateId, templateOptions],
+  );
+
+  const templateMutationLoading = creatingTemplate || updatingTemplate;
 
   useEffect(() => {
     if (!isVersionMode || !planContext) {
@@ -615,6 +783,29 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
     setLeaderName(trimmedName);
   }, [hasEditedLeaderName, leaderName, selectedUserName]);
+
+  useEffect(() => {
+    if (templateOptions.length === 0) {
+      if (selectedTemplateId) {
+        setSelectedTemplateId('');
+      }
+      return;
+    }
+
+    if (!selectedTemplateId || !templateOptions.some((template) => template.id === selectedTemplateId)) {
+      setSelectedTemplateId(templateOptions[0]?.id ?? '');
+    }
+  }, [selectedTemplateId, templateOptions]);
+
+  useEffect(() => {
+    if (!selectedTemplate) {
+      return;
+    }
+
+    setTemplateName(selectedTemplate.name);
+    setTemplateDescription(selectedTemplate.description ?? '');
+    setTemplateSortOrder(selectedTemplate.sortOrder);
+  }, [selectedTemplate]);
 
   const filteredLocations = useMemo(
     () => locations.filter((location) => location.regionId === regionId),
@@ -695,8 +886,12 @@ export function ItineraryBuilderPage(): JSX.Element {
   }, [filteredSegments, locationById, locationVersionById, selectedRoute, startLocationId, startLocationVersionId]);
 
   useEffect(() => {
+    if (skipNextAutoRowsSync) {
+      setSkipNextAutoRowsSync(false);
+      return;
+    }
     setPlanRows(autoRows);
-  }, [autoRows]);
+  }, [autoRows, skipNextAutoRowsSync]);
 
   useEffect(() => {
     setExtraLodgingCounts((prev) => Array.from({ length: totalDays }, (_, index) => prev[index] ?? 0));
@@ -725,6 +920,77 @@ export function ItineraryBuilderPage(): JSX.Element {
   const updateCell = (rowIndex: number, field: keyof PlanRow, value: string): void => {
     setPlanRows((prev) => prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
   };
+
+  const buildTemplateStopsFromBuilder = () => {
+    const routeStops: Array<Pick<RouteSelection, 'locationId' | 'locationVersionId'>> = [
+      { locationId: startLocationId, locationVersionId: startLocationVersionId },
+      ...selectedRoute,
+    ];
+
+    return planRows.map((row, index) => {
+      const routeStop = routeStops[index];
+      return {
+        dayIndex: index + 1,
+        locationId: routeStop?.locationId || row.locationId || undefined,
+        locationVersionId: routeStop?.locationVersionId || row.locationVersionId || undefined,
+        dateCellText: row.dateCellText,
+        destinationCellText: row.destinationCellText,
+        timeCellText: row.timeCellText,
+        scheduleCellText: row.scheduleCellText,
+        lodgingCellText: row.lodgingCellText,
+        mealCellText: row.mealCellText,
+      };
+    });
+  };
+
+  const applyTemplate = (template: PlanTemplateRow, withConfirm = true): void => {
+    if (withConfirm && !window.confirm(`템플릿 \"${template.name}\"을(를) 현재 빌더에 적용할까요?`)) {
+      return;
+    }
+
+    const orderedStops = sortTemplateStops(template.planStops);
+    const firstStop = orderedStops[0];
+    if (!firstStop) {
+      return;
+    }
+
+    setSkipNextAutoRowsSync(true);
+    setRegionId(template.regionId);
+    setTotalDays(template.totalDays);
+    setStartLocationId(firstStop.locationId ?? '');
+    setStartLocationVersionId(firstStop.locationVersionId ?? '');
+    setSelectedRoute(
+      orderedStops.slice(1).map((stop) => ({
+        locationId: stop.locationId ?? '',
+        locationVersionId: stop.locationVersionId ?? '',
+      })),
+    );
+    setPlanRows(
+      orderedStops.map((stop) => ({
+        locationId: stop.locationId ?? undefined,
+        locationVersionId: stop.locationVersionId ?? undefined,
+        dateCellText: stop.dateCellText,
+        destinationCellText: stop.destinationCellText,
+        timeCellText: stop.timeCellText,
+        scheduleCellText: stop.scheduleCellText,
+        lodgingCellText: stop.lodgingCellText,
+        mealCellText: stop.mealCellText,
+      })),
+    );
+  };
+
+  useEffect(() => {
+    if (!initialTemplateId || hasAppliedInitialTemplate) {
+      return;
+    }
+    if (!templateById) {
+      return;
+    }
+
+    setSelectedTemplateId(templateById.id);
+    applyTemplate(templateById, false);
+    setHasAppliedInitialTemplate(true);
+  }, [hasAppliedInitialTemplate, initialTemplateId, templateById]);
 
   const extraLodgings = useMemo<ExtraLodgingRow[]>(
     () =>
@@ -843,8 +1109,23 @@ export function ItineraryBuilderPage(): JSX.Element {
     setManualDepositInput(String(pricingPreview.depositAmountKrw));
   }, [hasEditedManualDeposit, pricingPreview]);
 
+  const hasCompleteRouteForTemplate = Boolean(
+    startLocationId &&
+      startLocationVersionId &&
+      selectedRoute.length === totalDays - 1 &&
+      selectedRoute.every((stop) => Boolean(stop.locationId && stop.locationVersionId)) &&
+      planRows.length === totalDays,
+  );
+
+  const canMutateTemplate = Boolean(
+    regionId &&
+      totalDays >= 2 &&
+      hasCompleteRouteForTemplate &&
+      templateName.trim().length > 0,
+  );
+
   const canCreate = Boolean(
-    hasValidContext &&
+    hasPlanContext &&
       regionId &&
       leaderName.trim() &&
       hasValidDateRange &&
@@ -941,7 +1222,11 @@ export function ItineraryBuilderPage(): JSX.Element {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">여행 일정 빌더</h1>
             <p className="mt-1 text-sm text-slate-600">
-              {isVersionMode ? '기존 버전 기반 새 버전 생성' : '신규 Plan + 초기 버전 생성'}
+              {isTemplateOnlyMode
+                ? '템플릿 수정 모드 (Plan 저장 비활성)'
+                : isVersionMode
+                  ? '기존 버전 기반 새 버전 생성'
+                  : '신규 Plan + 초기 버전 생성'}
             </p>
           </div>
           <div className="flex gap-2 no-print">
@@ -1055,11 +1340,142 @@ export function ItineraryBuilderPage(): JSX.Element {
           </Card>
         ) : null}
 
+        {isTemplateOnlyMode ? (
+          <Card className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+            템플릿 전용 진입 상태입니다. 템플릿 적용/저장은 가능하지만 Plan 생성은 고객 컨텍스트에서만 가능합니다.
+          </Card>
+        ) : null}
+
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
             <h2 className="font-medium">설정</h2>
             <div className="mt-3 grid gap-3">
-              {!isVersionMode ? (
+              <div className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-slate-700">프리셋 템플릿</span>
+                  <Button
+                    variant="outline"
+                    disabled={!selectedTemplate}
+                    onClick={() => {
+                      if (!selectedTemplate) {
+                        return;
+                      }
+                      applyTemplate(selectedTemplate, true);
+                    }}
+                  >
+                    템플릿 적용
+                  </Button>
+                </div>
+                <label className="grid gap-1">
+                  <span className="text-xs text-slate-600">선택 (현재 지역/일수 필터)</span>
+                  <select
+                    value={selectedTemplateId}
+                    onChange={(event) => setSelectedTemplateId(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  >
+                    <option value="">템플릿 선택</option>
+                    {templateOptions.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name} ({template.totalDays}일)
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs text-slate-600">템플릿 이름</span>
+                  <input
+                    value={templateName}
+                    onChange={(event) => setTemplateName(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    placeholder="예: 고비 6일 A"
+                  />
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs text-slate-600">설명</span>
+                  <textarea
+                    value={templateDescription}
+                    onChange={(event) => setTemplateDescription(event.target.value)}
+                    rows={2}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs text-slate-600">정렬 순서</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={templateSortOrder}
+                    onChange={(event) => setTemplateSortOrder(Math.max(0, Number(event.target.value) || 0))}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={!canMutateTemplate || templateMutationLoading}
+                    onClick={async () => {
+                      if (!canMutateTemplate) {
+                        return;
+                      }
+
+                      const result = await createPlanTemplate({
+                        variables: {
+                          input: {
+                            name: templateName.trim(),
+                            description: templateDescription.trim() || undefined,
+                            regionId,
+                            totalDays,
+                            sortOrder: templateSortOrder,
+                            isActive: true,
+                            planStops: buildTemplateStopsFromBuilder(),
+                          },
+                        },
+                      });
+
+                      await refetchTemplates();
+                      const createdTemplateId = result.data?.createPlanTemplate.id ?? '';
+                      if (createdTemplateId) {
+                        setSelectedTemplateId(createdTemplateId);
+                      }
+                    }}
+                  >
+                    {creatingTemplate ? '저장 중...' : '현재 일정으로 새 템플릿 저장'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={!canMutateTemplate || !selectedTemplateId || templateMutationLoading}
+                    onClick={async () => {
+                      if (!selectedTemplateId || !canMutateTemplate) {
+                        return;
+                      }
+                      if (!window.confirm('선택한 템플릿을 현재 일정으로 덮어쓸까요?')) {
+                        return;
+                      }
+                      await updatePlanTemplate({
+                        variables: {
+                          id: selectedTemplateId,
+                          input: {
+                            name: templateName.trim(),
+                            description: templateDescription.trim(),
+                            regionId,
+                            totalDays,
+                            sortOrder: templateSortOrder,
+                            planStops: buildTemplateStopsFromBuilder(),
+                          },
+                        },
+                      });
+                      await refetchTemplates();
+                    }}
+                  >
+                    {updatingTemplate ? '저장 중...' : '선택 템플릿 덮어쓰기'}
+                  </Button>
+                </div>
+                {!hasCompleteRouteForTemplate ? (
+                  <p className="text-xs text-amber-700">템플릿 저장/덮어쓰기는 일수와 동일한 루트·일정표가 준비되어야 가능합니다.</p>
+                ) : null}
+              </div>
+
+              {!isVersionMode && hasPlanContext ? (
                 <label className="grid gap-1 text-sm">
                   <span className="text-xs text-slate-600">Plan 제목</span>
                   <input

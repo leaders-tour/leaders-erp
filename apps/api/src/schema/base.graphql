@@ -22,6 +22,8 @@ type Query {
   planVersions(planId: ID!): [PlanVersion!]!
   planVersion(id: ID!): PlanVersion
   planPricingPreview(input: PlanPricingPreviewInput!): PlanPricingPreview!
+  planTemplates(regionId: ID, totalDays: Int, activeOnly: Boolean): [PlanTemplate!]!
+  planTemplate(id: ID!): PlanTemplate
   users: [User!]!
   user(id: ID!): User
   timeBlocks: [TimeBlock!]!
@@ -73,6 +75,10 @@ type Mutation {
   createPlanVersion(input: PlanVersionCreateInput!): PlanVersion!
   setCurrentPlanVersion(planId: ID!, versionId: ID!): Plan!
   deletePlan(id: ID!): Boolean!
+
+  createPlanTemplate(input: PlanTemplateCreateInput!): PlanTemplate!
+  updatePlanTemplate(id: ID!, input: PlanTemplateUpdateInput!): PlanTemplate!
+  deletePlanTemplate(id: ID!): Boolean!
 
   createTimeBlock(input: TimeBlockCreateInput!): TimeBlock!
   updateTimeBlock(id: ID!, input: TimeBlockUpdateInput!): TimeBlock!
