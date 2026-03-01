@@ -371,12 +371,6 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
           <Button variant="outline" onClick={() => navigate('/itinerary-templates')}>
             목록으로
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => navigate(`/itinerary-builder?templateId=${encodeURIComponent(template.id)}`)}
-          >
-            빌더로 이동
-          </Button>
         </div>
       </header>
 

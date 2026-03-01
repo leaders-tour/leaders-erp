@@ -263,15 +263,6 @@ export function ItineraryTemplatePage(): JSX.Element {
                           variant="outline"
                           onClick={(event) => {
                             event.stopPropagation();
-                            navigate(`/itinerary-builder?templateId=${encodeURIComponent(template.id)}`);
-                          }}
-                        >
-                          빌더로 이동
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={(event) => {
-                            event.stopPropagation();
                             navigate(`/itinerary-templates/${template.id}`);
                           }}
                         >
