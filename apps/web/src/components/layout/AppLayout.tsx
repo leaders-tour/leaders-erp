@@ -4,7 +4,6 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 
 const navItems = [
   { path: '/itinerary-builder', label: '일정 빌더' },
-  { path: '/itinerary-templates', label: '일정 템플릿' },
   {
     path: '/customers',
     label: '고객',
@@ -13,6 +12,7 @@ const navItems = [
       { path: '/customers/create', label: '고객 생성' },
     ],
   },
+  { path: '/itinerary-templates', label: '일정 템플릿' },
   {
     path: '/locations',
     label: '목적지',
