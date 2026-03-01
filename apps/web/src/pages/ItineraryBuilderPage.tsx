@@ -219,15 +219,6 @@ const USER_QUERY = gql`
   }
 `;
 
-const USERS_QUERY = gql`
-  query BuilderUsers {
-    users {
-      id
-      name
-    }
-  }
-`;
-
 const EVENTS_QUERY = gql`
   query BuilderEvents($activeOnly: Boolean) {
     events(activeOnly: $activeOnly) {
@@ -359,42 +350,6 @@ const CREATE_PLAN_VERSION_MUTATION = gql`
     createPlanVersion(input: $input) {
       id
       versionNumber
-    }
-  }
-`;
-
-const CREATE_PLAN_TEMPLATE_MUTATION = gql`
-  mutation CreateTemplateFromBuilder($input: PlanTemplateCreateInput!) {
-    createPlanTemplate(input: $input) {
-      id
-      name
-      description
-      regionId
-      totalDays
-      sortOrder
-      isActive
-      planStops {
-        id
-        dayIndex
-      }
-    }
-  }
-`;
-
-const UPDATE_PLAN_TEMPLATE_MUTATION = gql`
-  mutation UpdateTemplateFromBuilder($id: ID!, $input: PlanTemplateUpdateInput!) {
-    updatePlanTemplate(id: $id, input: $input) {
-      id
-      name
-      description
-      regionId
-      totalDays
-      sortOrder
-      isActive
-      planStops {
-        id
-        dayIndex
-      }
     }
   }
 `;
@@ -707,15 +662,12 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [hasEditedLeaderName, setHasEditedLeaderName] = useState<boolean>(false);
   const [isValidationOpen, setIsValidationOpen] = useState<boolean>(false);
   const [isPayloadPreviewOpen, setIsPayloadPreviewOpen] = useState<boolean>(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initialTemplateId);
-  const [templateName, setTemplateName] = useState<string>('');
-  const [templateDescription, setTemplateDescription] = useState<string>('');
-  const [templateSortOrder, setTemplateSortOrder] = useState<number>(0);
   const [hasAppliedInitialTemplate, setHasAppliedInitialTemplate] = useState<boolean>(false);
   const [skipNextAutoRowsSync, setSkipNextAutoRowsSync] = useState<boolean>(false);
   const [homeSelectedUserId, setHomeSelectedUserId] = useState<string>('');
+  const [homeSelectedUserName, setHomeSelectedUserName] = useState<string>('');
   const [homeSelectedTemplateId, setHomeSelectedTemplateId] = useState<string>('');
-  const [homeCustomerSearch, setHomeCustomerSearch] = useState<string>('');
+  const [homeEntryMode, setHomeEntryMode] = useState<'new' | 'existing'>('new');
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState<boolean>(false);
   const [homeNewUserName, setHomeNewUserName] = useState<string>('');
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
@@ -723,9 +675,6 @@ export function ItineraryBuilderPage(): JSX.Element {
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
     skip: !isVersionMode,
-  });
-  const { data: userListData, loading: userListLoading, refetch: refetchUserList } = useQuery<{ users: UserRow[] }>(USERS_QUERY, {
-    skip: hasValidContext,
   });
   const { data: userData } = useQuery<{ user: UserRow | null }>(USER_QUERY, {
     variables: { id: userId },
@@ -737,7 +686,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
   const { data: segmentData } = useQuery<{ segments: SegmentRow[] }>(SEGMENTS_QUERY);
-  const { data: templateListData, refetch: refetchTemplates } = useQuery<{ planTemplates: PlanTemplateRow[] }>(PLAN_TEMPLATES_QUERY, {
+  const { data: templateListData } = useQuery<{ planTemplates: PlanTemplateRow[] }>(PLAN_TEMPLATES_QUERY, {
     variables: {
       regionId: hasValidContext ? regionId || undefined : undefined,
       totalDays: hasValidContext ? totalDays : undefined,
@@ -754,12 +703,6 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [createPlanVersion, { loading: creatingVersion }] = useMutation<{
     createPlanVersion: { id: string; versionNumber: number };
   }>(CREATE_PLAN_VERSION_MUTATION);
-  const [createPlanTemplate, { loading: creatingTemplate }] = useMutation<{ createPlanTemplate: PlanTemplateRow }>(
-    CREATE_PLAN_TEMPLATE_MUTATION,
-  );
-  const [updatePlanTemplate, { loading: updatingTemplate }] = useMutation<{ updatePlanTemplate: PlanTemplateRow }>(
-    UPDATE_PLAN_TEMPLATE_MUTATION,
-  );
   const [createUser, { loading: creatingUser }] = useMutation<{ createUser: UserRow }>(CREATE_USER_MUTATION);
 
   const creating = creatingPlan || creatingVersion;
@@ -769,17 +712,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   const segments = segmentData?.segments ?? [];
   const planContext = planContextData?.plan ?? null;
   const selectedUserName = userData?.user?.name ?? '';
-  const userList = userListData?.users ?? [];
   const eventOptions = eventData?.events ?? [];
   const activeTemplateRows = templateListData?.planTemplates ?? [];
   const templateById = templateByIdData?.planTemplate ?? null;
-  const filteredHomeUsers = useMemo(() => {
-    const keyword = homeCustomerSearch.trim().toLowerCase();
-    if (!keyword) {
-      return userList;
-    }
-    return userList.filter((user) => user.name.toLowerCase().includes(keyword));
-  }, [homeCustomerSearch, userList]);
 
   const templateOptions = useMemo(() => {
     const deduped = new Map<string, PlanTemplateRow>();
@@ -798,22 +733,6 @@ export function ItineraryBuilderPage(): JSX.Element {
   }, [activeTemplateRows, templateById]);
 
   useEffect(() => {
-    if (hasValidContext) {
-      return;
-    }
-    if (homeSelectedUserId && !userList.some((user) => user.id === homeSelectedUserId)) {
-      setHomeSelectedUserId('');
-    }
-  }, [hasValidContext, homeSelectedUserId, userList]);
-
-  const selectedTemplate = useMemo(
-    () => templateOptions.find((template) => template.id === selectedTemplateId) ?? null,
-    [selectedTemplateId, templateOptions],
-  );
-
-  const templateMutationLoading = creatingTemplate || updatingTemplate;
-
-  useEffect(() => {
     if (!isVersionMode || !planContext) {
       return;
     }
@@ -828,29 +747,6 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
     setLeaderName(trimmedName);
   }, [hasEditedLeaderName, leaderName, selectedUserName]);
-
-  useEffect(() => {
-    if (templateOptions.length === 0) {
-      if (selectedTemplateId) {
-        setSelectedTemplateId('');
-      }
-      return;
-    }
-
-    if (!selectedTemplateId || !templateOptions.some((template) => template.id === selectedTemplateId)) {
-      setSelectedTemplateId(templateOptions[0]?.id ?? '');
-    }
-  }, [selectedTemplateId, templateOptions]);
-
-  useEffect(() => {
-    if (!selectedTemplate) {
-      return;
-    }
-
-    setTemplateName(selectedTemplate.name);
-    setTemplateDescription(selectedTemplate.description ?? '');
-    setTemplateSortOrder(selectedTemplate.sortOrder);
-  }, [selectedTemplate]);
 
   const filteredLocations = useMemo(
     () => locations.filter((location) => location.regionId === regionId),
@@ -966,28 +862,6 @@ export function ItineraryBuilderPage(): JSX.Element {
     setPlanRows((prev) => prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
   };
 
-  const buildTemplateStopsFromBuilder = () => {
-    const routeStops: Array<Pick<RouteSelection, 'locationId' | 'locationVersionId'>> = [
-      { locationId: startLocationId, locationVersionId: startLocationVersionId },
-      ...selectedRoute,
-    ];
-
-    return planRows.map((row, index) => {
-      const routeStop = routeStops[index];
-      return {
-        dayIndex: index + 1,
-        locationId: routeStop?.locationId || row.locationId || undefined,
-        locationVersionId: routeStop?.locationVersionId || row.locationVersionId || undefined,
-        dateCellText: row.dateCellText,
-        destinationCellText: row.destinationCellText,
-        timeCellText: row.timeCellText,
-        scheduleCellText: row.scheduleCellText,
-        lodgingCellText: row.lodgingCellText,
-        mealCellText: row.mealCellText,
-      };
-    });
-  };
-
   const applyTemplate = (template: PlanTemplateRow, withConfirm = true): void => {
     if (withConfirm && !window.confirm(`템플릿 \"${template.name}\"을(를) 현재 빌더에 적용할까요?`)) {
       return;
@@ -1032,7 +906,6 @@ export function ItineraryBuilderPage(): JSX.Element {
       return;
     }
 
-    setSelectedTemplateId(templateById.id);
     applyTemplate(templateById, false);
     setHasAppliedInitialTemplate(true);
   }, [hasAppliedInitialTemplate, initialTemplateId, templateById]);
@@ -1154,21 +1027,6 @@ export function ItineraryBuilderPage(): JSX.Element {
     setManualDepositInput(String(pricingPreview.depositAmountKrw));
   }, [hasEditedManualDeposit, pricingPreview]);
 
-  const hasCompleteRouteForTemplate = Boolean(
-    startLocationId &&
-      startLocationVersionId &&
-      selectedRoute.length === totalDays - 1 &&
-      selectedRoute.every((stop) => Boolean(stop.locationId && stop.locationVersionId)) &&
-      planRows.length === totalDays,
-  );
-
-  const canMutateTemplate = Boolean(
-    regionId &&
-      totalDays >= 2 &&
-      hasCompleteRouteForTemplate &&
-      templateName.trim().length > 0,
-  );
-
   const canCreate = Boolean(
     hasPlanContext &&
       regionId &&
@@ -1235,127 +1093,146 @@ export function ItineraryBuilderPage(): JSX.Element {
       <section className="grid gap-4 py-8">
         <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <h1 className="text-xl font-semibold text-slate-900">여행 일정 빌더 시작</h1>
-          <p className="mt-2 text-sm text-slate-600">고객 선택과 시작 방법을 순서대로 선택해 빌더를 시작합니다.</p>
-        </Card>
-
-        <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="grid gap-3">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-slate-900">1. 고객 선택</h2>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => navigate('/customers')}>
-                  고객 목록
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    setIsCreateUserModalOpen(true);
-                    setHomeNewUserName('');
-                    setHomeCreateUserError('');
-                  }}
-                >
-                  고객 생성
-                </Button>
-              </div>
-            </div>
-            <input
-              value={homeCustomerSearch}
-              onChange={(event) => setHomeCustomerSearch(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-              placeholder="고객 검색"
-            />
-            {userListLoading ? <p className="text-xs text-slate-500">고객 불러오는 중...</p> : null}
-            <div className="max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-2">
-              <div className="grid gap-2">
-                {filteredHomeUsers.map((user) => (
-                  <button
-                    key={`home-user-${user.id}`}
-                    type="button"
-                    onClick={() => setHomeSelectedUserId(user.id)}
-                    className={`rounded-xl border px-3 py-2 text-left text-sm ${
-                      homeSelectedUserId === user.id
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    {user.name}
-                  </button>
-                ))}
-                {filteredHomeUsers.length === 0 ? (
-                  <p className="px-1 py-3 text-xs text-slate-500">검색 결과가 없습니다.</p>
-                ) : null}
-              </div>
-            </div>
+          <p className="mt-2 text-sm text-slate-600">처음에 고객 유형을 선택하세요.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setHomeEntryMode('new')}
+              className={`rounded-xl border px-3 py-1.5 text-sm ${
+                homeEntryMode === 'new'
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              신규 고객
+            </button>
+            <button
+              type="button"
+              onClick={() => setHomeEntryMode('existing')}
+              className={`rounded-xl border px-3 py-1.5 text-sm ${
+                homeEntryMode === 'existing'
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              기존 고객
+            </button>
           </div>
         </Card>
 
-        <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="grid gap-3">
-            <h2 className="text-sm font-semibold text-slate-900">2. 방법 선택</h2>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <h3 className="text-sm font-semibold text-slate-900">빈 페이지 선택</h3>
-                <p className="mt-1 text-xs text-slate-600">템플릿 없이 새 일정 빌더를 바로 시작합니다.</p>
-                <div className="mt-3">
-                  <Button
-                    disabled={!homeSelectedUserId}
-                    onClick={() => navigate(`/itinerary-builder?userId=${encodeURIComponent(homeSelectedUserId)}`)}
-                  >
-                    빈 페이지로 시작
-                  </Button>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <h3 className="text-sm font-semibold text-slate-900">템플릿에서 선택</h3>
-                <p className="mt-1 text-xs text-slate-600">템플릿을 먼저 선택한 뒤 빌더를 시작합니다.</p>
-                <div className="mt-3 max-h-48 space-y-2 overflow-auto rounded-xl border border-slate-200 bg-white p-2">
-                  {templateOptions.map((template) => (
-                    <div
-                      key={`home-template-${template.id}`}
-                      className={`flex items-center justify-between rounded-lg border px-2 py-1.5 ${
-                        homeSelectedTemplateId === template.id
-                          ? 'border-slate-900 bg-slate-100'
-                          : 'border-slate-200 bg-white'
-                      }`}
+        {homeEntryMode === 'new' ? (
+          <>
+            <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="grid gap-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold text-slate-900">1. 고객 생성</h2>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={() => navigate('/customers')}>
+                      고객 목록
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        setIsCreateUserModalOpen(true);
+                        setHomeNewUserName('');
+                        setHomeCreateUserError('');
+                      }}
                     >
-                      <div className="text-xs text-slate-700">
-                        <div className="font-medium text-slate-900">{template.name}</div>
-                        <div>
-                          {template.totalDays}일 · {template.isActive ? '활성' : '비활성'}
-                        </div>
-                      </div>
-                      <Button variant="outline" onClick={() => setHomeSelectedTemplateId(template.id)}>
-                        선택
+                      고객 생성
+                    </Button>
+                  </div>
+                </div>
+                {homeSelectedUserId ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                    선택됨: {homeSelectedUserName || homeSelectedUserId}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">먼저 고객을 생성해 주세요.</p>
+                )}
+              </div>
+            </Card>
+
+            <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="grid gap-3">
+                <h2 className="text-sm font-semibold text-slate-900">2. 방법 선택</h2>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <h3 className="text-sm font-semibold text-slate-900">빈 페이지 선택</h3>
+                    <p className="mt-1 text-xs text-slate-600">템플릿 없이 새 일정 빌더를 바로 시작합니다.</p>
+                    <div className="mt-3">
+                      <Button
+                        disabled={!homeSelectedUserId}
+                        onClick={() => navigate(`/itinerary-builder?userId=${encodeURIComponent(homeSelectedUserId)}`)}
+                      >
+                        빈 페이지로 시작
                       </Button>
                     </div>
-                  ))}
-                  {templateOptions.length === 0 ? (
-                    <p className="px-1 py-2 text-xs text-slate-500">선택 가능한 템플릿이 없습니다.</p>
-                  ) : null}
-                </div>
-                <div className="mt-3">
-                  <Button
-                    disabled={!homeSelectedUserId || !homeSelectedTemplateId}
-                    onClick={() =>
-                      navigate(
-                        `/itinerary-builder?userId=${encodeURIComponent(homeSelectedUserId)}&templateId=${encodeURIComponent(homeSelectedTemplateId)}`,
-                      )
-                    }
-                  >
-                    템플릿으로 시작
-                  </Button>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <h3 className="text-sm font-semibold text-slate-900">템플릿에서 선택</h3>
+                    <p className="mt-1 text-xs text-slate-600">템플릿을 먼저 선택한 뒤 빌더를 시작합니다.</p>
+                    <div className="mt-3 max-h-48 space-y-2 overflow-auto rounded-xl border border-slate-200 bg-white p-2">
+                      {templateOptions.map((template) => (
+                        <div
+                          key={`home-template-${template.id}`}
+                          className={`flex items-center justify-between rounded-lg border px-2 py-1.5 ${
+                            homeSelectedTemplateId === template.id
+                              ? 'border-slate-900 bg-slate-100'
+                              : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          <div className="text-xs text-slate-700">
+                            <div className="font-medium text-slate-900">{template.name}</div>
+                            <div>
+                              {template.totalDays}일 · {template.isActive ? '활성' : '비활성'}
+                            </div>
+                          </div>
+                          <Button variant="outline" onClick={() => setHomeSelectedTemplateId(template.id)}>
+                            선택
+                          </Button>
+                        </div>
+                      ))}
+                      {templateOptions.length === 0 ? (
+                        <p className="px-1 py-2 text-xs text-slate-500">선택 가능한 템플릿이 없습니다.</p>
+                      ) : null}
+                    </div>
+                    <div className="mt-3">
+                      <Button
+                        disabled={!homeSelectedUserId || !homeSelectedTemplateId}
+                        onClick={() =>
+                          navigate(
+                            `/itinerary-builder?userId=${encodeURIComponent(homeSelectedUserId)}&templateId=${encodeURIComponent(homeSelectedTemplateId)}`,
+                          )
+                        }
+                      >
+                        템플릿으로 시작
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </Card>
+          </>
+        ) : (
+          <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="grid gap-3">
+              <h2 className="text-sm font-semibold text-slate-900">기존 고객 선택</h2>
+              <p className="text-sm text-slate-600">기존 고객으로 일정 생성은 고객 페이지에서 고객 선택 후 진행합니다.</p>
+              <div>
+                <Button variant="outline" onClick={() => navigate('/customers')}>
+                  고객 페이지로 이동
+                </Button>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        )}
 
         {isCreateUserModalOpen ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
             <Card className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-5 shadow-xl">
               <h3 className="text-lg font-semibold text-slate-900">고객 생성</h3>
-              <p className="mt-1 text-sm text-slate-600">새 고객을 등록하면 바로 선택 목록에 반영됩니다.</p>
+              <p className="mt-1 text-sm text-slate-600">새 고객을 등록하면 바로 신규 고객 시작에 사용됩니다.</p>
 
               <div className="mt-4 grid gap-2">
                 <label className="grid gap-1 text-sm">
@@ -1396,12 +1273,13 @@ export function ItineraryBuilderPage(): JSX.Element {
                           },
                         },
                       });
-                      await refetchUserList();
                       const createdUserId = result.data?.createUser.id ?? '';
+                      const createdUserName = result.data?.createUser.name ?? '';
                       if (createdUserId) {
                         setHomeSelectedUserId(createdUserId);
+                        setHomeSelectedUserName(createdUserName);
+                        setHomeEntryMode('new');
                       }
-                      setHomeCustomerSearch('');
                       setHomeNewUserName('');
                       setHomeCreateUserError('');
                       setIsCreateUserModalOpen(false);
@@ -1562,7 +1440,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
         {isTemplateOnlyMode ? (
           <Card className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-            템플릿 전용 진입 상태입니다. 템플릿 적용/저장은 가능하지만 Plan 생성은 고객 컨텍스트에서만 가능합니다.
+            템플릿으로 진입한 상태입니다. Plan 생성은 고객 컨텍스트에서만 가능합니다.
           </Card>
         ) : null}
 
@@ -1570,131 +1448,6 @@ export function ItineraryBuilderPage(): JSX.Element {
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
             <h2 className="font-medium">설정</h2>
             <div className="mt-3 grid gap-3">
-              <div className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-slate-700">프리셋 템플릿</span>
-                  <Button
-                    variant="outline"
-                    disabled={!selectedTemplate}
-                    onClick={() => {
-                      if (!selectedTemplate) {
-                        return;
-                      }
-                      applyTemplate(selectedTemplate, true);
-                    }}
-                  >
-                    템플릿 적용
-                  </Button>
-                </div>
-                <label className="grid gap-1">
-                  <span className="text-xs text-slate-600">선택 (현재 지역/일수 필터)</span>
-                  <select
-                    value={selectedTemplateId}
-                    onChange={(event) => setSelectedTemplateId(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  >
-                    <option value="">템플릿 선택</option>
-                    {templateOptions.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.name} ({template.totalDays}일)
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-1">
-                  <span className="text-xs text-slate-600">템플릿 이름</span>
-                  <input
-                    value={templateName}
-                    onChange={(event) => setTemplateName(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                    placeholder="예: 고비 6일 A"
-                  />
-                </label>
-                <label className="grid gap-1">
-                  <span className="text-xs text-slate-600">설명</span>
-                  <textarea
-                    value={templateDescription}
-                    onChange={(event) => setTemplateDescription(event.target.value)}
-                    rows={2}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="grid gap-1">
-                  <span className="text-xs text-slate-600">정렬 순서</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={templateSortOrder}
-                    onChange={(event) => setTemplateSortOrder(Math.max(0, Number(event.target.value) || 0))}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  />
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    disabled={!canMutateTemplate || templateMutationLoading}
-                    onClick={async () => {
-                      if (!canMutateTemplate) {
-                        return;
-                      }
-
-                      const result = await createPlanTemplate({
-                        variables: {
-                          input: {
-                            name: templateName.trim(),
-                            description: templateDescription.trim() || undefined,
-                            regionId,
-                            totalDays,
-                            sortOrder: templateSortOrder,
-                            isActive: true,
-                            planStops: buildTemplateStopsFromBuilder(),
-                          },
-                        },
-                      });
-
-                      await refetchTemplates();
-                      const createdTemplateId = result.data?.createPlanTemplate.id ?? '';
-                      if (createdTemplateId) {
-                        setSelectedTemplateId(createdTemplateId);
-                      }
-                    }}
-                  >
-                    {creatingTemplate ? '저장 중...' : '현재 일정으로 새 템플릿 저장'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    disabled={!canMutateTemplate || !selectedTemplateId || templateMutationLoading}
-                    onClick={async () => {
-                      if (!selectedTemplateId || !canMutateTemplate) {
-                        return;
-                      }
-                      if (!window.confirm('선택한 템플릿을 현재 일정으로 덮어쓸까요?')) {
-                        return;
-                      }
-                      await updatePlanTemplate({
-                        variables: {
-                          id: selectedTemplateId,
-                          input: {
-                            name: templateName.trim(),
-                            description: templateDescription.trim(),
-                            regionId,
-                            totalDays,
-                            sortOrder: templateSortOrder,
-                            planStops: buildTemplateStopsFromBuilder(),
-                          },
-                        },
-                      });
-                      await refetchTemplates();
-                    }}
-                  >
-                    {updatingTemplate ? '저장 중...' : '선택 템플릿 덮어쓰기'}
-                  </Button>
-                </div>
-                {!hasCompleteRouteForTemplate ? (
-                  <p className="text-xs text-amber-700">템플릿 저장/덮어쓰기는 일수와 동일한 루트·일정표가 준비되어야 가능합니다.</p>
-                ) : null}
-              </div>
-
               {!isVersionMode && hasPlanContext ? (
                 <label className="grid gap-1 text-sm">
                   <span className="text-xs text-slate-600">Plan 제목</span>
