@@ -446,7 +446,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
           <div className="grid gap-1 text-sm">
             <span className="text-xs text-slate-600">일수</span>
             <div className="flex flex-wrap gap-2">
-              {Array.from({ length: 9 }, (_, idx) => idx + 2).map((day) => (
+              {Array.from({ length: 12 }, (_, idx) => idx + 2).map((day) => (
                 <button
                   key={day}
                   type="button"

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const planTemplateStopInputSchema = z.object({
-  dayIndex: z.number().int().min(1).max(10),
+  dayIndex: z.number().int().min(1).max(13),
   locationId: z.string().min(1).optional(),
   locationVersionId: z.string().min(1).optional(),
   dateCellText: z.string(),
@@ -16,7 +16,7 @@ const planTemplateBaseSchema = z.object({
   name: z.string().min(1).max(120),
   description: z.string().max(5000).optional(),
   regionId: z.string().min(1),
-  totalDays: z.number().int().min(2).max(10),
+  totalDays: z.number().int().min(2).max(13),
   sortOrder: z.number().int().min(0).max(100_000).default(0),
   isActive: z.boolean().default(true),
 });
@@ -59,7 +59,7 @@ export const planTemplateUpdateSchema = z
     name: z.string().min(1).max(120).optional(),
     description: z.string().max(5000).optional(),
     regionId: z.string().min(1).optional(),
-    totalDays: z.number().int().min(2).max(10).optional(),
+    totalDays: z.number().int().min(2).max(13).optional(),
     sortOrder: z.number().int().min(0).max(100_000).optional(),
     isActive: z.boolean().optional(),
     planStops: z.array(planTemplateStopInputSchema).min(1).optional(),
@@ -71,7 +71,7 @@ export const planTemplateUpdateSchema = z
 
     const seen = new Set<number>();
     value.planStops.forEach((stop, index) => {
-      const totalDays = value.totalDays ?? 10;
+      const totalDays = value.totalDays ?? 13;
       if (stop.dayIndex > totalDays) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

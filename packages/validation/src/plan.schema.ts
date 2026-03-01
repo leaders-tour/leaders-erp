@@ -19,7 +19,7 @@ export const planStopNestedSchema = z.object({
 });
 
 export const extraLodgingInputSchema = z.object({
-  dayIndex: z.number().int().min(1).max(10),
+  dayIndex: z.number().int().min(1).max(13),
   lodgingCount: z.number().int().min(0).max(10),
 });
 
@@ -99,7 +99,7 @@ export const planVersionMetaInputSchema = z
 const planVersionSeedSchema = z
   .object({
     variantType: z.nativeEnum(VariantType),
-    totalDays: z.number().int().min(2).max(10),
+    totalDays: z.number().int().min(2).max(13),
     planStops: z.array(planStopNestedSchema).min(1),
     changeNote: z.string().max(1000).optional(),
     meta: planVersionMetaInputSchema,
@@ -135,7 +135,7 @@ export const planVersionCreateSchema = z
     planId: z.string().min(1),
     parentVersionId: z.string().min(1).optional(),
     variantType: z.nativeEnum(VariantType),
-    totalDays: z.number().int().min(2).max(10),
+    totalDays: z.number().int().min(2).max(13),
     planStops: z.array(planStopNestedSchema).min(1),
     changeNote: z.string().max(1000).optional(),
     meta: planVersionMetaInputSchema,
@@ -158,7 +158,7 @@ export const planPricingPreviewSchema = z
   .object({
     regionId: z.string().min(1),
     variantType: z.nativeEnum(VariantType),
-    totalDays: z.number().int().min(2).max(10),
+    totalDays: z.number().int().min(2).max(13),
     planStops: z.array(planStopNestedSchema),
     travelStartDate: dateTimeInputSchema,
     headcountTotal: z.number().int().min(1).max(100),

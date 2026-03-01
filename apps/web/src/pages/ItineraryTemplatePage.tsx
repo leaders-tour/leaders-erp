@@ -188,7 +188,7 @@ export function ItineraryTemplatePage(): JSX.Element {
               >
                 전체
               </button>
-              {Array.from({ length: 9 }, (_, idx) => idx + 2).map((day) => (
+              {Array.from({ length: 12 }, (_, idx) => idx + 2).map((day) => (
                 <button
                   key={day}
                   type="button"
