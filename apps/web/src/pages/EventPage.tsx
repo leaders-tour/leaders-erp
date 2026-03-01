@@ -59,7 +59,11 @@ export function EventPage(): JSX.Element {
             </span>
           ),
         },
-        { key: 'securityDepositKrw', label: '보증금(원)' },
+        {
+          key: 'securityDepositKrw',
+          label: '보증금(원)',
+          render: (row) => row.securityDepositKrw.toLocaleString('ko-KR'),
+        },
       ]}
       createDefaultValues={{ name: '', isActive: true, securityDepositKrw: 0, sortOrder: 0 }}
       toUpdateValues={(row): EventFormValues => ({
