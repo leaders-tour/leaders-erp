@@ -407,7 +407,9 @@ const VARIANTS = [
 ];
 
 const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
-const FLIGHT_TIME_OPTIONS = ['06:30', '08:00', '09:30', '11:00', '13:30', '15:00', '17:30', '21:00'] as const;
+const FLIGHT_IN_TIME_OPTIONS = ['00:15', '00:30', '00:35', '00:55', '02:40', '04:15', '10:25', '13:50', '14:15', '16:05', '18:40', '23:30'] as const;
+const FLIGHT_OUT_TIME_OPTIONS = ['00:50', '01:30', '01:50', '01:55', '07:45', '11:05', '12:25', '15:15', '15:20', '18:20'] as const;
+
 function toIsoDateTime(value: string): string {
   return `${value}T00:00:00.000Z`;
 }
@@ -642,8 +644,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [headcountTotal, setHeadcountTotal] = useState<number>(6);
   const [headcountMale, setHeadcountMale] = useState<number>(6);
   const [vehicleType, setVehicleType] = useState<(typeof VEHICLES)[number]>('스타렉스');
-  const [flightInTime, setFlightInTime] = useState<(typeof FLIGHT_TIME_OPTIONS)[number]>('08:00');
-  const [flightOutTime, setFlightOutTime] = useState<(typeof FLIGHT_TIME_OPTIONS)[number]>('17:30');
+  const [flightInTime, setFlightInTime] = useState<string>('10:25');
+  const [flightOutTime, setFlightOutTime] = useState<string>('18:20');
   const [pickupDropNote, setPickupDropNote] = useState<string>('');
   const [externalPickupDropNote, setExternalPickupDropNote] = useState<string>('');
   const [includeRentalItems, setIncludeRentalItems] = useState<boolean>(true);
@@ -1688,7 +1690,7 @@ export function ItineraryBuilderPage(): JSX.Element {
               <div className="grid gap-2 text-sm">
                 <span className="text-xs text-slate-600">항공권 IN</span>
                 <div className="flex flex-wrap gap-2">
-                  {FLIGHT_TIME_OPTIONS.map((time) => (
+                  {FLIGHT_IN_TIME_OPTIONS.map((time) => (
                     <button
                       key={`in-${time}`}
                       type="button"
@@ -1702,10 +1704,16 @@ export function ItineraryBuilderPage(): JSX.Element {
                       {time}
                     </button>
                   ))}
+                  <input
+                    value={flightInTime}
+                    onChange={(event) => setFlightInTime(event.target.value)}
+                    placeholder="직접"
+                    className="h-[34px] w-[72px] rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
+                  />
                 </div>
                 <span className="text-xs text-slate-600">항공권 OUT</span>
                 <div className="flex flex-wrap gap-2">
-                  {FLIGHT_TIME_OPTIONS.map((time) => (
+                  {FLIGHT_OUT_TIME_OPTIONS.map((time) => (
                     <button
                       key={`out-${time}`}
                       type="button"
@@ -1719,6 +1727,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                       {time}
                     </button>
                   ))}
+                  <input
+                    value={flightOutTime}
+                    onChange={(event) => setFlightOutTime(event.target.value)}
+                    placeholder="직접"
+                    className="h-[34px] w-[72px] rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
+                  />
                 </div>
               </div>
 
