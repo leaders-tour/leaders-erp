@@ -1,7 +1,7 @@
 import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 interface RegionRow {
   id: string;
@@ -82,10 +82,12 @@ const PLAN_TEMPLATE_QUERY = gql`
 
 export function ItineraryTemplatePage(): JSX.Element {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialSelectedTemplateId = searchParams.get('selectedTemplateId') ?? '';
   const [regionFilter, setRegionFilter] = useState<string>('');
-  const [dayFilter, setDayFilter] = useState<string>('6');
+  const [dayFilter, setDayFilter] = useState<string>(initialSelectedTemplateId ? 'all' : '6');
   const [activeOnly, setActiveOnly] = useState<boolean>(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initialSelectedTemplateId);
 
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
 
@@ -133,6 +135,9 @@ export function ItineraryTemplatePage(): JSX.Element {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">일정 템플릿</h1>
           <p className="mt-1 text-sm text-slate-600">목록에서 템플릿을 선택하면 하단에 본문 요약이 표시됩니다.</p>
         </div>
+        <Button variant="primary" onClick={() => navigate('/itinerary-templates/new')}>
+          신규 템플릿 생성
+        </Button>
       </header>
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">

@@ -1,8 +1,7 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { buildEmptyPlanRow, type TemplatePlanRow } from '../features/plan-template/editor-utils';
+import { useNavigate } from 'react-router-dom';
 import {
   buildAutoRowsFromRoute,
   buildNextOptions,
@@ -13,39 +12,15 @@ import {
   type RouteSelection,
   type SegmentOption,
 } from '../features/plan-template/route-autofill';
+import type { TemplatePlanRow } from '../features/plan-template/editor-utils';
 
 interface RegionRow {
   id: string;
   name: string;
 }
 
-interface PlanTemplateStopRow {
-  id: string;
-  dayIndex: number;
-  locationId: string | null;
-  locationVersionId: string | null;
-  dateCellText: string;
-  destinationCellText: string;
-  timeCellText: string;
-  scheduleCellText: string;
-  lodgingCellText: string;
-  mealCellText: string;
-}
-
-interface PlanTemplateRow {
-  id: string;
-  name: string;
-  description: string | null;
-  regionId: string;
-  totalDays: number;
-  sortOrder: number;
-  isActive: boolean;
-  updatedAt: string;
-  planStops: PlanTemplateStopRow[];
-}
-
 const REGIONS_QUERY = gql`
-  query ItineraryTemplateDetailRegions {
+  query ItineraryTemplateCreateRegions {
     regions {
       id
       name
@@ -54,7 +29,7 @@ const REGIONS_QUERY = gql`
 `;
 
 const LOCATIONS_QUERY = gql`
-  query ItineraryTemplateDetailLocations {
+  query ItineraryTemplateCreateLocations {
     locations {
       id
       regionId
@@ -93,7 +68,7 @@ const LOCATIONS_QUERY = gql`
 `;
 
 const SEGMENTS_QUERY = gql`
-  query ItineraryTemplateDetailSegments {
+  query ItineraryTemplateCreateSegments {
     segments {
       id
       regionId
@@ -104,95 +79,47 @@ const SEGMENTS_QUERY = gql`
   }
 `;
 
-const PLAN_TEMPLATE_QUERY = gql`
-  query ItineraryTemplateDetail($id: ID!) {
-    planTemplate(id: $id) {
+const CREATE_PLAN_TEMPLATE_MUTATION = gql`
+  mutation CreateItineraryTemplate($input: PlanTemplateCreateInput!) {
+    createPlanTemplate(input: $input) {
       id
-      name
-      description
-      regionId
-      totalDays
-      sortOrder
-      isActive
-      updatedAt
-      planStops {
-        id
-        dayIndex
-        locationId
-        locationVersionId
-        dateCellText
-        destinationCellText
-        timeCellText
-        scheduleCellText
-        lodgingCellText
-        mealCellText
-      }
     }
   }
 `;
 
-const UPDATE_PLAN_TEMPLATE_MUTATION = gql`
-  mutation UpdateItineraryTemplateDetail($id: ID!, $input: PlanTemplateUpdateInput!) {
-    updatePlanTemplate(id: $id, input: $input) {
-      id
-      updatedAt
-    }
-  }
-`;
-
-const DELETE_PLAN_TEMPLATE_MUTATION = gql`
-  mutation DeleteItineraryTemplateDetail($id: ID!) {
-    deletePlanTemplate(id: $id)
-  }
-`;
-
-export function ItineraryTemplateDetailPage(): JSX.Element {
+export function ItineraryTemplateCreatePage(): JSX.Element {
   const navigate = useNavigate();
-  const { templateId } = useParams<{ templateId: string }>();
 
-  const [formName, setFormName] = useState<string>('');
-  const [formDescription, setFormDescription] = useState<string>('');
-  const [formRegionId, setFormRegionId] = useState<string>('');
-  const [formTotalDays, setFormTotalDays] = useState<number>(6);
-  const [formSortOrder, setFormSortOrder] = useState<number>(0);
-  const [formIsActive, setFormIsActive] = useState<boolean>(true);
+  const [name, setName] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
+  const [regionId, setRegionId] = useState<string>('');
+  const [totalDays, setTotalDays] = useState<number>(6);
+  const [sortOrder, setSortOrder] = useState<number>(0);
+  const [isActive, setIsActive] = useState<boolean>(true);
   const [startLocationId, setStartLocationId] = useState<string>('');
   const [startLocationVersionId, setStartLocationVersionId] = useState<string>('');
   const [selectedRoute, setSelectedRoute] = useState<RouteSelection[]>([]);
   const [planRows, setPlanRows] = useState<TemplatePlanRow[]>([]);
-  const [saveMessage, setSaveMessage] = useState<string>('');
-  const [routeRecoveryMessage, setRouteRecoveryMessage] = useState<string>('');
-  const [skipNextAutoRowsSync, setSkipNextAutoRowsSync] = useState<boolean>(false);
 
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationOption[] }>(LOCATIONS_QUERY);
   const { data: segmentData } = useQuery<{ segments: SegmentOption[] }>(SEGMENTS_QUERY);
-  const {
-    data: templateData,
-    loading,
-    error,
-    refetch,
-  } = useQuery<{ planTemplate: PlanTemplateRow | null }>(PLAN_TEMPLATE_QUERY, {
-    variables: { id: templateId },
-    skip: !templateId,
-  });
+  const [createPlanTemplate, { loading: creating }] = useMutation<{ createPlanTemplate: { id: string } }>(
+    CREATE_PLAN_TEMPLATE_MUTATION,
+  );
 
-  const [updateTemplate, { loading: updating }] = useMutation(UPDATE_PLAN_TEMPLATE_MUTATION);
-  const [deleteTemplate, { loading: deleting }] = useMutation(DELETE_PLAN_TEMPLATE_MUTATION);
-
-  const template = templateData?.planTemplate ?? null;
   const regions = regionData?.regions ?? [];
   const locations = locationData?.locations ?? [];
   const segments = segmentData?.segments ?? [];
 
   const filteredLocations = useMemo(
-    () => locations.filter((location) => location.regionId === formRegionId),
-    [locations, formRegionId],
+    () => locations.filter((location) => location.regionId === regionId),
+    [locations, regionId],
   );
 
   const filteredSegments = useMemo(
-    () => segments.filter((segment) => segment.regionId === formRegionId),
-    [segments, formRegionId],
+    () => segments.filter((segment) => segment.regionId === regionId),
+    [segments, regionId],
   );
 
   const locationById = useMemo(() => new Map(filteredLocations.map((location) => [location.id, location])), [filteredLocations]);
@@ -213,9 +140,9 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
         filteredSegments,
         startLocationId,
         selectedRoute,
-        totalDays: formTotalDays,
+        totalDays,
       }),
-    [filteredLocations, filteredSegments, selectedRoute, startLocationId, formTotalDays],
+    [filteredLocations, filteredSegments, selectedRoute, startLocationId, totalDays],
   );
 
   const autoRows = useMemo(
@@ -227,166 +154,38 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
         filteredSegments,
         locationById,
         locationVersionById,
-        totalDays: formTotalDays,
+        totalDays,
       }),
-    [filteredSegments, locationById, locationVersionById, selectedRoute, startLocationId, startLocationVersionId, formTotalDays],
+    [filteredSegments, locationById, locationVersionById, selectedRoute, startLocationId, startLocationVersionId, totalDays],
   );
 
   useEffect(() => {
-    if (skipNextAutoRowsSync) {
-      setSkipNextAutoRowsSync(false);
-      return;
-    }
     setPlanRows(autoRows);
-  }, [autoRows, skipNextAutoRowsSync]);
-
-  useEffect(() => {
-    if (!template) {
-      return;
-    }
-
-    const stopByDayIndex = new Map(template.planStops.map((stop) => [stop.dayIndex, stop]));
-    const rowsFromTemplate: TemplatePlanRow[] = Array.from({ length: template.totalDays }, (_, index) => {
-      const stop = stopByDayIndex.get(index + 1);
-      if (!stop) {
-        return buildEmptyPlanRow(index + 1);
-      }
-
-      return {
-        locationId: stop.locationId ?? undefined,
-        locationVersionId: stop.locationVersionId ?? undefined,
-        dateCellText: stop.dateCellText,
-        destinationCellText: stop.destinationCellText,
-        timeCellText: stop.timeCellText,
-        scheduleCellText: stop.scheduleCellText,
-        lodgingCellText: stop.lodgingCellText,
-        mealCellText: stop.mealCellText,
-      };
-    });
-
-    const dayOrderedStops: Array<PlanTemplateStopRow | undefined> = Array.from(
-      { length: template.totalDays },
-      (_, index) => stopByDayIndex.get(index + 1),
-    );
-
-    const hasMissingRouteData = dayOrderedStops.some((stop) => !stop?.locationId || !stop?.locationVersionId);
-    const firstStop = dayOrderedStops[0];
-
-    setFormName(template.name);
-    setFormDescription(template.description ?? '');
-    setFormRegionId(template.regionId);
-    setFormTotalDays(template.totalDays);
-    setFormSortOrder(template.sortOrder);
-    setFormIsActive(template.isActive);
-    setSkipNextAutoRowsSync(true);
-    setPlanRows(rowsFromTemplate);
-    setSaveMessage('');
-
-    if (firstStop?.locationId && firstStop.locationVersionId) {
-      setStartLocationId(firstStop.locationId);
-      setStartLocationVersionId(firstStop.locationVersionId);
-    } else {
-      setStartLocationId('');
-      setStartLocationVersionId('');
-    }
-
-    if (hasMissingRouteData) {
-      const recoveredRoute: RouteSelection[] = [];
-      for (const stop of dayOrderedStops.slice(1)) {
-        if (!stop?.locationId || !stop.locationVersionId) {
-          break;
-        }
-        recoveredRoute.push({ locationId: stop.locationId, locationVersionId: stop.locationVersionId });
-      }
-      setSelectedRoute(recoveredRoute);
-      setRouteRecoveryMessage('기존 템플릿의 위치 정보가 일부 없어 루트를 완전히 복원하지 못했습니다. 루트를 다시 선택해 주세요.');
-      return;
-    }
-
-    setSelectedRoute(
-      dayOrderedStops.slice(1).map((stop) => ({
-        locationId: stop?.locationId ?? '',
-        locationVersionId: stop?.locationVersionId ?? '',
-      })),
-    );
-    setRouteRecoveryMessage('');
-  }, [template]);
+  }, [autoRows]);
 
   const hasCompleteRoute =
     Boolean(startLocationId) &&
     Boolean(startLocationVersionId) &&
-    selectedRoute.length === formTotalDays - 1 &&
+    selectedRoute.length === totalDays - 1 &&
     selectedRoute.every((stop) => Boolean(stop.locationId && stop.locationVersionId));
 
-  const canSave = Boolean(formName.trim() && formRegionId && hasCompleteRoute && planRows.length === formTotalDays);
+  const canSave = Boolean(name.trim() && regionId && hasCompleteRoute && planRows.length === totalDays);
 
   const updateCell = (rowIndex: number, field: keyof TemplatePlanRow, value: string): void => {
     setPlanRows((prev) => prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
   };
 
-  if (!templateId) {
-    return <section className="py-8 text-sm text-slate-600">잘못된 접근입니다.</section>;
-  }
-
-  if (loading) {
-    return <section className="py-8 text-sm text-slate-600">불러오는 중...</section>;
-  }
-
-  if (error) {
-    return (
-      <section className="grid gap-4 py-8">
-        <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-6">
-          <h1 className="text-xl font-semibold text-rose-900">오류가 발생했습니다</h1>
-          <p className="mt-2 text-sm text-rose-800">템플릿 데이터를 불러오지 못했습니다.</p>
-          <div className="mt-4">
-            <Button onClick={() => navigate('/itinerary-templates')}>목록으로 이동</Button>
-          </div>
-        </Card>
-      </section>
-    );
-  }
-
-  if (!template) {
-    return (
-      <section className="grid gap-4 py-8">
-        <Card className="rounded-3xl border border-amber-200 bg-amber-50 p-6">
-          <h1 className="text-xl font-semibold text-amber-900">템플릿을 찾을 수 없습니다</h1>
-          <p className="mt-2 text-sm text-amber-800">삭제되었거나 잘못된 템플릿 ID입니다.</p>
-          <div className="mt-4">
-            <Button onClick={() => navigate('/itinerary-templates')}>목록으로 이동</Button>
-          </div>
-        </Card>
-      </section>
-    );
-  }
-
   return (
     <section className="grid gap-6">
       <header className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{template.name}</h1>
-          <p className="mt-1 text-sm text-slate-600">템플릿 메타정보와 일차별 본문을 수정할 수 있습니다.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">신규 템플릿 생성</h1>
+          <p className="mt-1 text-sm text-slate-600">메타정보와 일차별 본문을 입력해 템플릿을 생성합니다.</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate('/itinerary-templates')}>
-            목록으로
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => navigate(`/itinerary-builder?templateId=${encodeURIComponent(template.id)}`)}
-          >
-            빌더로 이동
-          </Button>
-        </div>
+        <Button variant="outline" onClick={() => navigate('/itinerary-templates')}>
+          목록으로
+        </Button>
       </header>
-
-      {saveMessage ? (
-        <Card className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{saveMessage}</Card>
-      ) : null}
-
-      {routeRecoveryMessage ? (
-        <Card className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{routeRecoveryMessage}</Card>
-      ) : null}
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -395,9 +194,10 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
           <label className="grid gap-1 text-sm">
             <span className="text-xs text-slate-600">이름</span>
             <input
-              value={formName}
-              onChange={(event) => setFormName(event.target.value)}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+              placeholder="예: 고비 6일 D"
             />
           </label>
           <div className="grid gap-1 text-sm">
@@ -406,14 +206,13 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
               <button
                 type="button"
                 onClick={() => {
-                  setFormRegionId('');
+                  setRegionId('');
                   setStartLocationId('');
                   setStartLocationVersionId('');
                   setSelectedRoute([]);
-                  setRouteRecoveryMessage('');
                 }}
                 className={`rounded-xl border px-3 py-1.5 text-sm ${
-                  formRegionId === ''
+                  regionId === ''
                     ? 'border-slate-900 bg-slate-900 text-white'
                     : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                 }`}
@@ -425,14 +224,13 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                   key={region.id}
                   type="button"
                   onClick={() => {
-                    setFormRegionId(region.id);
+                    setRegionId(region.id);
                     setStartLocationId('');
                     setStartLocationVersionId('');
                     setSelectedRoute([]);
-                    setRouteRecoveryMessage('');
                   }}
                   className={`rounded-xl border px-3 py-1.5 text-sm ${
-                    formRegionId === region.id
+                    regionId === region.id
                       ? 'border-slate-900 bg-slate-900 text-white'
                       : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                   }`}
@@ -445,17 +243,16 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
           <div className="grid gap-1 text-sm">
             <span className="text-xs text-slate-600">일수</span>
             <div className="flex flex-wrap gap-2">
-              {Array.from({ length: 9 }, (_, idx) => idx + 2).map((day) => (
+              {Array.from({ length: 9 }, (_, index) => index + 2).map((day) => (
                 <button
                   key={day}
                   type="button"
                   onClick={() => {
-                    setFormTotalDays(day);
+                    setTotalDays(day);
                     setSelectedRoute((prev) => prev.slice(0, Math.max(day - 1, 0)));
-                    setRouteRecoveryMessage('');
                   }}
                   className={`rounded-xl border px-3 py-1.5 text-sm ${
-                    formTotalDays === day
+                    totalDays === day
                       ? 'border-slate-900 bg-slate-900 text-white'
                       : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                   }`}
@@ -470,16 +267,16 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
             <input
               type="number"
               min={0}
-              value={formSortOrder}
-              onChange={(event) => setFormSortOrder(Math.max(0, Number(event.target.value) || 0))}
+              value={sortOrder}
+              onChange={(event) => setSortOrder(Math.max(0, Number(event.target.value) || 0))}
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
             />
           </label>
           <label className="grid gap-1 text-sm">
             <span className="text-xs text-slate-600">설명</span>
             <textarea
-              value={formDescription}
-              onChange={(event) => setFormDescription(event.target.value)}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
               rows={2}
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
             />
@@ -487,8 +284,8 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input
               type="checkbox"
-              checked={formIsActive}
-              onChange={(event) => setFormIsActive(event.target.checked)}
+              checked={isActive}
+              onChange={(event) => setIsActive(event.target.checked)}
             />
             활성
           </label>
@@ -593,7 +390,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
             </div>
           ))}
 
-          {startLocationId && startLocationVersionId && selectedRoute.length < formTotalDays - 1 ? (
+          {startLocationId && startLocationVersionId && selectedRoute.length < totalDays - 1 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 p-4">
               <div className="mb-3 text-sm font-medium">{selectedRoute.length + 2}일차 선택</div>
               <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
@@ -638,7 +435,6 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900">일차별 본문 편집</h2>
         <p className="mt-1 text-xs text-slate-600">루트 변경 시 아래 본문은 자동으로 다시 채워집니다.</p>
-
         <div className="mt-3 overflow-auto">
           <Table className="min-w-[1280px] w-full text-sm">
             <thead className="bg-slate-50 text-slate-700">
@@ -654,7 +450,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
             </thead>
             <tbody>
               {planRows.map((row, rowIndex) => (
-                <tr key={`detail-row-${rowIndex + 1}`} className="border-t border-slate-200 align-top">
+                <tr key={`create-row-${rowIndex + 1}`} className="border-t border-slate-200 align-top">
                   <Td>{rowIndex + 1}일차</Td>
                   <Td>
                     <textarea
@@ -711,24 +507,23 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
         </div>
 
         {!hasCompleteRoute ? (
-          <p className="mt-3 text-xs text-amber-700">저장하려면 1일차 출발지와 {formTotalDays}일 전체 목적지를 순서대로 선택해야 합니다.</p>
+          <p className="mt-3 text-xs text-amber-700">저장하려면 1일차 출발지와 {totalDays}일 전체 목적지를 순서대로 선택해야 합니다.</p>
         ) : null}
 
         <div className="mt-4 flex gap-2">
           <Button
             variant="primary"
-            disabled={updating || !canSave}
+            disabled={!canSave || creating}
             onClick={async () => {
-              await updateTemplate({
+              const result = await createPlanTemplate({
                 variables: {
-                  id: template.id,
                   input: {
-                    name: formName.trim(),
-                    description: formDescription.trim(),
-                    regionId: formRegionId,
-                    totalDays: formTotalDays,
-                    sortOrder: formSortOrder,
-                    isActive: formIsActive,
+                    name: name.trim(),
+                    description: description.trim() || undefined,
+                    regionId,
+                    totalDays,
+                    sortOrder,
+                    isActive,
                     planStops: buildTemplateStopsFromRouteAndRows({
                       startLocationId,
                       startLocationVersionId,
@@ -738,24 +533,14 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                   },
                 },
               });
-              await refetch();
-              setSaveMessage('템플릿 메타와 일차별 본문을 저장했습니다.');
-            }}
-          >
-            {updating ? '저장 중...' : '저장'}
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={deleting}
-            onClick={async () => {
-              if (!window.confirm(`템플릿 \"${template.name}\"을(를) 삭제할까요?`)) {
-                return;
+
+              const createdId = result.data?.createPlanTemplate.id ?? '';
+              if (createdId) {
+                navigate(`/itinerary-templates?selectedTemplateId=${encodeURIComponent(createdId)}`);
               }
-              await deleteTemplate({ variables: { id: template.id } });
-              navigate('/itinerary-templates');
             }}
           >
-            {deleting ? '삭제 중...' : '삭제'}
+            {creating ? '생성 중...' : '템플릿 생성'}
           </Button>
         </div>
       </Card>

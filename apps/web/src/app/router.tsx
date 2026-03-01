@@ -6,6 +6,7 @@ import { CustomerPlansPage } from '../pages/CustomerPlansPage';
 import { EstimatePrintPage } from '../pages/EstimatePrintPage';
 import { EventPage } from '../pages/EventPage';
 import { ItineraryBuilderPage } from '../pages/ItineraryBuilderPage';
+import { ItineraryTemplateCreatePage } from '../pages/ItineraryTemplateCreatePage';
 import { ItineraryTemplateDetailPage } from '../pages/ItineraryTemplateDetailPage';
 import { ItineraryTemplatePage } from '../pages/ItineraryTemplatePage';
 import { LocationCreatePage } from '../pages/LocationCreatePage';
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/itinerary-builder" replace /> },
       { path: 'itinerary-builder', element: <ItineraryBuilderPage /> },
       { path: 'itinerary-templates', element: <ItineraryTemplatePage /> },
+      { path: 'itinerary-templates/new', element: <ItineraryTemplateCreatePage /> },
       { path: 'itinerary-templates/:templateId', element: <ItineraryTemplateDetailPage /> },
       { path: 'documents/estimate', element: <EstimatePrintPage /> },
       { path: 'customers', element: <CustomerPage /> },
