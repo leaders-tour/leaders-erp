@@ -663,7 +663,6 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [manualDepositInput, setManualDepositInput] = useState<string>('');
   const [hasEditedManualDeposit, setHasEditedManualDeposit] = useState<boolean>(false);
   const [createdId, setCreatedId] = useState<string>('');
-  const [hasEditedLeaderName, setHasEditedLeaderName] = useState<boolean>(false);
   const [isValidationOpen, setIsValidationOpen] = useState<boolean>(false);
   const [isPayloadPreviewOpen, setIsPayloadPreviewOpen] = useState<boolean>(false);
   const [hasAppliedInitialTemplate, setHasAppliedInitialTemplate] = useState<boolean>(false);
@@ -763,11 +762,11 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   useEffect(() => {
     const trimmedName = selectedUserName.trim();
-    if (hasEditedLeaderName || leaderName.trim().length > 0 || trimmedName.length === 0) {
+    if (!trimmedName || leaderName === trimmedName) {
       return;
     }
     setLeaderName(trimmedName);
-  }, [hasEditedLeaderName, leaderName, selectedUserName]);
+  }, [leaderName, selectedUserName]);
 
   useEffect(() => {
     if (!routePresetTemplateId) {
@@ -1485,12 +1484,12 @@ export function ItineraryBuilderPage(): JSX.Element {
             <div className="mt-3 grid gap-3">
               {!isVersionMode && hasPlanContext ? (
                 <label className="grid gap-1 text-sm">
-                  <span className="text-xs text-slate-600">Plan 제목</span>
+                  <span className="text-xs text-slate-600">제목</span>
                   <input
                     value={planTitle}
                     onChange={(event) => setPlanTitle(event.target.value)}
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                    placeholder="신규 Plan 제목"
+                    placeholder="신규 제목"
                   />
                 </label>
               ) : null}
@@ -1511,21 +1510,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                 <span className="text-xs text-slate-600">대표자명</span>
                 <input
                   value={leaderName}
-                  onChange={(event) => {
-                    setHasEditedLeaderName(true);
-                    setLeaderName(event.target.value);
-                  }}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  placeholder="대표자명을 입력하세요"
+                  readOnly
+                  disabled
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
+                  placeholder="고객명을 기준으로 자동 반영"
                 />
               </label>
-
-              <div className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">문서번호</span>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-                  서버 자동 생성 (YYMMDD + 3자리 랜덤)
-                </div>
-              </div>
 
               <div className="grid gap-1 text-sm">
                 <span className="text-xs text-slate-600">지역</span>
@@ -1972,7 +1962,7 @@ export function ItineraryBuilderPage(): JSX.Element {
           </Card>
 
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm lg:col-span-2">
-            <h2 className="font-medium">일차별 목적지 선택 (순차 선택)</h2>
+            <h2 className="font-medium">일차별 목적지 선택</h2>
             <p className="mt-1 text-xs text-slate-600">이전 일차와 연결 가능한 목적지만 버튼으로 노출됩니다.</p>
             <div className="mt-3 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
               <div className="text-xs font-semibold text-slate-700">템플릿 불러오기 (현재 지역/일수)</div>

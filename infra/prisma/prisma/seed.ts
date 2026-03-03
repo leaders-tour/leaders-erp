@@ -296,12 +296,14 @@ async function main(): Promise<void> {
       userId: defaultUser.id,
       regionId: gobi.id,
       title: '고비 기본 일정',
+      documentNumberBase: '260101001',
     },
     create: {
       id: 'seed_plan_gobi_basic',
       userId: defaultUser.id,
       regionId: gobi.id,
       title: '고비 기본 일정',
+      documentNumberBase: '260101001',
     },
   });
 
@@ -337,7 +339,7 @@ async function main(): Promise<void> {
     where: { planVersionId: initialVersion.id },
     update: {
       leaderName: '홍길동',
-      documentNumber: '260101001',
+      documentNumber: '260101001V1',
       travelStartDate: new Date('2026-01-01T00:00:00.000Z'),
       travelEndDate: new Date('2026-01-02T00:00:00.000Z'),
       headcountTotal: 6,
@@ -356,7 +358,7 @@ async function main(): Promise<void> {
     create: {
       planVersionId: initialVersion.id,
       leaderName: '홍길동',
-      documentNumber: '260101001',
+      documentNumber: '260101001V1',
       travelStartDate: new Date('2026-01-01T00:00:00.000Z'),
       travelEndDate: new Date('2026-01-02T00:00:00.000Z'),
       headcountTotal: 6,

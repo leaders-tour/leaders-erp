@@ -95,14 +95,14 @@ export class PlanService {
     return `${yy}${mm}${dd}`;
   }
 
-  private async generateDocumentNumber(travelStartDate: string): Promise<string> {
+  private async generatePlanDocumentNumberBase(travelStartDate: string): Promise<string> {
     const datePart = this.formatDocumentDatePart(travelStartDate);
 
     for (let retry = 0; retry < 10; retry += 1) {
       const randomPart = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
       const candidate = `${datePart}${randomPart}`;
-      const existing = await this.prisma.planVersionMeta.findUnique({
-        where: { documentNumber: candidate },
+      const existing = await this.prisma.plan.findUnique({
+        where: { documentNumberBase: candidate },
         select: { id: true },
       });
       if (!existing) {
@@ -111,6 +111,10 @@ export class PlanService {
     }
 
     throw new DomainError('INTERNAL', 'Failed to allocate unique document number');
+  }
+
+  private buildVersionDocumentNumber(documentNumberBase: string, versionNumber: number): string {
+    return `${documentNumberBase}V${versionNumber}`;
   }
 
   listUsers() {
@@ -220,9 +224,10 @@ export class PlanService {
         manualDepositAmountKrw: parsed.data.initialVersion.manualDepositAmountKrw,
       });
 
-      const documentNumber = await this.generateDocumentNumber(parsed.data.initialVersion.meta.travelStartDate);
+      const documentNumberBase = await this.generatePlanDocumentNumberBase(parsed.data.initialVersion.meta.travelStartDate);
+      const documentNumber = this.buildVersionDocumentNumber(documentNumberBase, 1);
       const repository = new PlanRepository(tx);
-      const createdPlan = await repository.createWithInitialVersion(parsed.data, documentNumber);
+      const createdPlan = await repository.createWithInitialVersion(parsed.data, documentNumberBase, documentNumber);
       if (!createdPlan?.currentVersionId) {
         throw new DomainError('INTERNAL', 'Failed to resolve created plan version');
       }
@@ -305,7 +310,7 @@ export class PlanService {
 
       const repository = new PlanRepository(tx);
       const versionNumber = await repository.getNextVersionNumber(parsed.data.planId);
-      const documentNumber = await this.generateDocumentNumber(parsed.data.meta.travelStartDate);
+      const documentNumber = this.buildVersionDocumentNumber(plan.documentNumberBase, versionNumber);
       const createdVersion = await repository.createVersion(parsed.data, versionNumber, documentNumber);
       await new PricingService(this.prisma).createSnapshot(tx, createdVersion.id, pricingResult);
       return repository.findVersionById(createdVersion.id);

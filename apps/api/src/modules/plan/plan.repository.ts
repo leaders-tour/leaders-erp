@@ -60,7 +60,7 @@ export class PlanRepository {
     return (result._max.versionNumber ?? 0) + 1;
   }
 
-  async createWithInitialVersion(data: PlanCreateDto, documentNumber: string) {
+  async createWithInitialVersion(data: PlanCreateDto, documentNumberBase: string, documentNumber: string) {
     const { initialVersion, ...planData } = data;
     const { manualAdjustments: _manualAdjustments, ...initialVersionData } = initialVersion;
 
@@ -68,6 +68,7 @@ export class PlanRepository {
       data: {
         ...planData,
         title: planData.title.trim(),
+        documentNumberBase,
       },
     });
 

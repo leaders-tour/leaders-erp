@@ -199,6 +199,7 @@ model Plan {
   userId           String
   regionId         String
   title            String
+  documentNumberBase String @unique
   currentVersionId String?
 
   user           User          @relation(fields: [userId], references: [id])

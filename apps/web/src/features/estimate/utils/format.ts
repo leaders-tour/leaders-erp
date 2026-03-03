@@ -87,7 +87,7 @@ export function formatHeadcount(total: number | null, male: number | null, femal
     return '-';
   }
 
-  return `${total}명 / 남 ${male} 여 ${female}`;
+  return `${total}인 (남${male}/여${female})`;
 }
 
 export function formatCurrency(value: number | null | undefined): string {
