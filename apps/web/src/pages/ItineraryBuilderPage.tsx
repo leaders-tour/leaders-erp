@@ -646,6 +646,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [vehicleType, setVehicleType] = useState<(typeof VEHICLES)[number]>('스타렉스');
   const [flightInTime, setFlightInTime] = useState<string>('10:25');
   const [flightOutTime, setFlightOutTime] = useState<string>('18:20');
+  const [isCustomFlightInTime, setIsCustomFlightInTime] = useState<boolean>(false);
+  const [isCustomFlightOutTime, setIsCustomFlightOutTime] = useState<boolean>(false);
   const [pickupDropNote, setPickupDropNote] = useState<string>('');
   const [externalPickupDropNote, setExternalPickupDropNote] = useState<string>('');
   const [includeRentalItems, setIncludeRentalItems] = useState<boolean>(true);
@@ -1694,7 +1696,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                     <button
                       key={`in-${time}`}
                       type="button"
-                      onClick={() => setFlightInTime(time)}
+                      onClick={() => {
+                        setIsCustomFlightInTime(false);
+                        setFlightInTime(time);
+                      }}
                       className={`rounded-xl border px-3 py-1.5 text-sm ${
                         flightInTime === time
                           ? 'border-slate-900 bg-slate-900 text-white'
@@ -1704,12 +1709,25 @@ export function ItineraryBuilderPage(): JSX.Element {
                       {time}
                     </button>
                   ))}
-                  <input
-                    value={flightInTime}
-                    onChange={(event) => setFlightInTime(event.target.value)}
-                    placeholder="직접"
-                    className="h-[34px] w-[72px] rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomFlightInTime((prev) => !prev)}
+                    className={`rounded-xl border px-3 py-1.5 text-sm ${
+                      isCustomFlightInTime
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    직접
+                  </button>
+                  {isCustomFlightInTime ? (
+                    <input
+                      value={flightInTime}
+                      onChange={(event) => setFlightInTime(event.target.value)}
+                      placeholder="직접"
+                      className="h-[34px] w-[72px] rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
+                    />
+                  ) : null}
                 </div>
                 <span className="text-xs text-slate-600">항공권 OUT</span>
                 <div className="flex flex-wrap gap-2">
@@ -1717,7 +1735,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                     <button
                       key={`out-${time}`}
                       type="button"
-                      onClick={() => setFlightOutTime(time)}
+                      onClick={() => {
+                        setIsCustomFlightOutTime(false);
+                        setFlightOutTime(time);
+                      }}
                       className={`rounded-xl border px-3 py-1.5 text-sm ${
                         flightOutTime === time
                           ? 'border-slate-900 bg-slate-900 text-white'
@@ -1727,12 +1748,25 @@ export function ItineraryBuilderPage(): JSX.Element {
                       {time}
                     </button>
                   ))}
-                  <input
-                    value={flightOutTime}
-                    onChange={(event) => setFlightOutTime(event.target.value)}
-                    placeholder="직접"
-                    className="h-[34px] w-[72px] rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomFlightOutTime((prev) => !prev)}
+                    className={`rounded-xl border px-3 py-1.5 text-sm ${
+                      isCustomFlightOutTime
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    직접
+                  </button>
+                  {isCustomFlightOutTime ? (
+                    <input
+                      value={flightOutTime}
+                      onChange={(event) => setFlightOutTime(event.target.value)}
+                      placeholder="직접"
+                      className="h-[34px] w-[72px] rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
+                    />
+                  ) : null}
                 </div>
               </div>
 
