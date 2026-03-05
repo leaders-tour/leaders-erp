@@ -15,6 +15,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { path: '/itinerary-builder', label: '일정 빌더' },
+  { path: '/deal-pipeline', label: '딜 파이프라인' },
   {
     path: '/customers',
     label: '고객',
@@ -107,9 +108,10 @@ export function AppLayout(): JSX.Element {
               {navItems.map((item) => {
                 const itemActive = isNavItemActive(item.path, item.children);
                 const activeChildPath = item.children ? getActiveChildPath(item.children) : null;
+                const showDividerAbove = item.path === '/customers';
 
                 return (
-                  <li key={item.path} className="space-y-1">
+                  <li key={item.path} className={`space-y-1 ${showDividerAbove ? 'mt-3 border-t border-slate-200 pt-3' : ''}`}>
                     {item.children && item.children.length > 0 ? (
                       <button
                         type="button"

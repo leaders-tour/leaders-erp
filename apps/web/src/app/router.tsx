@@ -3,6 +3,7 @@ import { AppLayout } from '../components/layout/AppLayout';
 import { CustomerCreatePage } from '../pages/CustomerCreatePage';
 import { CustomerPage } from '../pages/CustomerPage';
 import { CustomerPlansPage } from '../pages/CustomerPlansPage';
+import { DealPipelinePage } from '../pages/DealPipelinePage';
 import { EstimatePrintPage } from '../pages/EstimatePrintPage';
 import { EventPage } from '../pages/EventPage';
 import { ItineraryBuilderPage } from '../pages/ItineraryBuilderPage';
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
       { path: 'customers', element: <CustomerPage /> },
       { path: 'customers/create', element: <CustomerCreatePage /> },
       { path: 'customers/:userId/plans', element: <CustomerPlansPage /> },
+      { path: 'deal-pipeline', element: <DealPipelinePage /> },
       { path: 'plans/:planId', element: <PlanDetailPage /> },
       { path: 'plans/:planId/versions/:versionId', element: <PlanVersionDetailPage /> },
       { path: 'regions', element: <Navigate to="/regions/list" replace /> },
