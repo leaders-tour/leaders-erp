@@ -11,6 +11,8 @@ export type DealStageValue =
   | 'BEFORE_DEPARTURE_3D'
   | 'TRIP_COMPLETED';
 
+export type DealTodoStatusValue = 'TODO' | 'DOING' | 'DONE';
+
 export interface UserRow {
   id: string;
   name: string;
@@ -32,6 +34,19 @@ export interface UserNoteRow {
   userId: string;
   content: string;
   createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserDealTodoRow {
+  id: string;
+  userId: string;
+  stage: DealStageValue;
+  templateId: string | null;
+  title: string;
+  description: string | null;
+  status: DealTodoStatusValue;
+  completedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -443,6 +458,40 @@ const CREATE_USER_NOTE_MUTATION = gql`
   }
 `;
 
+const USER_DEAL_TODOS_QUERY = gql`
+  query UserDealTodos($userId: ID!, $includeDone: Boolean) {
+    userDealTodos(userId: $userId, includeDone: $includeDone) {
+      id
+      userId
+      stage
+      templateId
+      title
+      description
+      status
+      completedAt
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+const UPDATE_USER_DEAL_TODO_STATUS_MUTATION = gql`
+  mutation UpdateUserDealTodoStatus($id: ID!, $status: DealTodoStatus!) {
+    updateUserDealTodoStatus(id: $id, status: $status) {
+      id
+      userId
+      stage
+      templateId
+      title
+      description
+      status
+      completedAt
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
 export function useUsers() {
   const { data, loading, refetch } = useQuery<{ users: UserRow[] }>(USERS_QUERY);
   return { users: data?.users ?? [], loading, refetch };
@@ -568,6 +617,34 @@ export function useCreateUserNote() {
       }
 
       return result.data.createUserNote;
+    },
+  };
+}
+
+export function useUserDealTodos(userId: string | undefined, includeDone = false) {
+  const { data, loading, refetch } = useQuery<{ userDealTodos: UserDealTodoRow[] }>(USER_DEAL_TODOS_QUERY, {
+    variables: { userId, includeDone },
+    skip: !userId,
+  });
+
+  return { todos: data?.userDealTodos ?? [], loading, refetch };
+}
+
+export function useUpdateUserDealTodoStatus() {
+  const [mutate, { loading }] = useMutation<{ updateUserDealTodoStatus: UserDealTodoRow }>(UPDATE_USER_DEAL_TODO_STATUS_MUTATION);
+
+  return {
+    loading,
+    updateUserDealTodoStatus: async (input: { id: string; status: DealTodoStatusValue }): Promise<UserDealTodoRow> => {
+      const result = await mutate({
+        variables: input,
+      });
+
+      if (!result.data?.updateUserDealTodoStatus) {
+        throw new Error('Failed to update user deal todo status');
+      }
+
+      return result.data.updateUserDealTodoStatus;
     },
   };
 }

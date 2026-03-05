@@ -7,6 +7,8 @@ import type {
   PlanUpdateDto,
   PlanVersionCreateDto,
   UserCreateDto,
+  UserDealTodoStatusUpdateDto,
+  UserDealTodosQueryDto,
   UserNoteCreateDto,
   UserUpdateDto,
 } from './plan.types';
@@ -36,12 +38,19 @@ interface UserNotesArgs {
   userId: string;
 }
 
+interface UserDealTodosArgs extends UserDealTodosQueryDto {}
+
 interface DealPipelineReorderArgs {
   input: DealPipelineReorderDto;
 }
 
 interface UserNoteCreateArgs {
   input: UserNoteCreateDto;
+}
+
+interface UpdateUserDealTodoStatusArgs {
+  id: string;
+  status: UserDealTodoStatusUpdateDto['status'];
 }
 
 interface PlanCreateArgs {
@@ -71,6 +80,8 @@ export const planResolver = {
     users: (_parent: unknown, _args: unknown, ctx: AppContext) => new PlanService(ctx.prisma).listUsers(),
     user: (_parent: unknown, args: IdArgs, ctx: AppContext) => new PlanService(ctx.prisma).getUser(args.id),
     userNotes: (_parent: unknown, args: UserNotesArgs, ctx: AppContext) => new PlanService(ctx.prisma).listUserNotes(args.userId),
+    userDealTodos: (_parent: unknown, args: UserDealTodosArgs, ctx: AppContext) =>
+      new PlanService(ctx.prisma).listUserDealTodos(args),
     plans: (_parent: unknown, args: PlansArgs, ctx: AppContext) => new PlanService(ctx.prisma).list(args.userId),
     plan: (_parent: unknown, args: IdArgs, ctx: AppContext) => new PlanService(ctx.prisma).get(args.id),
     planVersions: (_parent: unknown, args: PlanVersionsArgs, ctx: AppContext) =>
@@ -87,6 +98,8 @@ export const planResolver = {
       new PlanService(ctx.prisma).reorderDealPipeline(args.input),
     createUserNote: (_parent: unknown, args: UserNoteCreateArgs, ctx: AppContext) =>
       new PlanService(ctx.prisma).createUserNote(args.input),
+    updateUserDealTodoStatus: (_parent: unknown, args: UpdateUserDealTodoStatusArgs, ctx: AppContext) =>
+      new PlanService(ctx.prisma).updateUserDealTodoStatus({ id: args.id, status: args.status }),
     deleteUser: (_parent: unknown, args: IdArgs, ctx: AppContext) => new PlanService(ctx.prisma).deleteUser(args.id),
     createPlan: (_parent: unknown, args: PlanCreateArgs, ctx: AppContext) => new PlanService(ctx.prisma).create(args.input),
     updatePlan: (_parent: unknown, args: PlanUpdateArgs, ctx: AppContext) =>

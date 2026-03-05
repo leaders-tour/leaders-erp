@@ -18,10 +18,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   useCreateUserNote,
   useReorderDealPipeline,
+  useUpdateUserDealTodoStatus,
+  useUserDealTodos,
   useUserNotes,
   useUsers,
   type DealPipelineCardUpdateInput,
   type DealStageValue,
+  type DealTodoStatusValue,
+  type UserDealTodoRow,
   type UserNoteRow,
   type UserRow,
 } from '../features/plan/hooks';
@@ -155,6 +159,16 @@ function stageLabel(stage: DealStageValue): string {
   return STAGES.find((item) => item.key === stage)?.label ?? stage;
 }
 
+function todoStatusLabel(status: DealTodoStatusValue): string {
+  if (status === 'TODO') {
+    return 'TODO';
+  }
+  if (status === 'DOING') {
+    return '진행중';
+  }
+  return '완료';
+}
+
 function boardsEqual(left: BoardState, right: BoardState): boolean {
   for (const stage of STAGES) {
     const leftItems = left[stage.key];
@@ -272,16 +286,20 @@ function UserDetailDrawer({
   const [noteContent, setNoteContent] = useState('');
   const [noteCreatedBy, setNoteCreatedBy] = useState('운영자');
   const [noteError, setNoteError] = useState<string | null>(null);
+  const [todoError, setTodoError] = useState<string | null>(null);
 
   const userId = user?.id;
   const { notes, loading: notesLoading } = useUserNotes(userId);
+  const { todos, loading: todosLoading, refetch: refetchTodos } = useUserDealTodos(userId, false);
   const { createUserNote, loading: noteCreating } = useCreateUserNote();
+  const { updateUserDealTodoStatus, loading: todoUpdating } = useUpdateUserDealTodoStatus();
 
   useEffect(() => {
     setIsNoteComposerOpen(false);
     setNoteContent('');
     setNoteCreatedBy('운영자');
     setNoteError(null);
+    setTodoError(null);
   }, [userId]);
 
   if (!user) {
@@ -313,6 +331,25 @@ function UserDetailDrawer({
       setNoteError('노트 저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
     }
   };
+
+  const handleTodoStatusChange = async (todo: UserDealTodoRow, status: DealTodoStatusValue) => {
+    if (todo.status === status) {
+      return;
+    }
+
+    setTodoError(null);
+    try {
+      await updateUserDealTodoStatus({ id: todo.id, status });
+      await refetchTodos();
+    } catch (_error) {
+      setTodoError('TODO 상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    }
+  };
+
+  const todoGroups = STAGES.map((stage) => ({
+    stage,
+    items: todos.filter((todo) => todo.stage === stage.key),
+  })).filter((group) => group.items.length > 0);
 
   return (
     <div className={dealPipelineTokens.drawer.overlay}>
@@ -458,14 +495,51 @@ function UserDetailDrawer({
           {activeTab === 'todo' ? (
             <section className="grid gap-3">
               <p className={dealPipelineTokens.drawer.sectionLabel}>TODO</p>
-              <Card className={dealPipelineTokens.drawer.simpleCard}>
-                <p className="text-sm font-medium text-slate-900">[팔로업] 일정 상담 리마인드</p>
-                <p className="mt-1 text-xs text-slate-500">상태: 진행중</p>
-              </Card>
-              <Card className={dealPipelineTokens.drawer.simpleCard}>
-                <p className="text-sm font-medium text-slate-900">[준비] 계약서 전달</p>
-                <p className="mt-1 text-xs text-slate-500">상태: 대기</p>
-              </Card>
+
+              {todoError ? <p className={dealPipelineTokens.drawer.todoError}>{todoError}</p> : null}
+              {todosLoading ? <p className={dealPipelineTokens.drawer.todoLoading}>TODO를 불러오는 중...</p> : null}
+
+              {todoGroups.length === 0 && !todosLoading ? (
+                <Card className={dealPipelineTokens.drawer.todoEmptyCard}>미완료 TODO 없음</Card>
+              ) : null}
+
+              {todoGroups.map((group) => (
+                <section key={group.stage.key} className={dealPipelineTokens.drawer.todoGroupWrap}>
+                  <header className={dealPipelineTokens.drawer.todoGroupHeader}>
+                    <h4 className={dealPipelineTokens.drawer.todoGroupTitle}>{group.stage.label}</h4>
+                    <span className={dealPipelineTokens.drawer.todoGroupCount}>{group.items.length}</span>
+                  </header>
+
+                  {group.items.map((todo) => (
+                    <Card key={todo.id} className={dealPipelineTokens.drawer.simpleCard}>
+                      <div className={dealPipelineTokens.drawer.todoItemMetaRow}>
+                        <span>{formatDateTime(todo.createdAt)}</span>
+                        <span>{todoStatusLabel(todo.status)}</span>
+                      </div>
+                      <p className={dealPipelineTokens.drawer.todoItemTitle}>{todo.title}</p>
+                      {todo.description ? <p className={dealPipelineTokens.drawer.todoItemDescription}>{todo.description}</p> : null}
+
+                      <div className={dealPipelineTokens.drawer.todoStatusButtons}>
+                        {(['TODO', 'DOING', 'DONE'] as DealTodoStatusValue[]).map((status) => (
+                          <button
+                            key={status}
+                            type="button"
+                            disabled={todoUpdating}
+                            onClick={() => handleTodoStatusChange(todo, status)}
+                            className={`${dealPipelineTokens.drawer.todoStatusButtonBase} ${
+                              todo.status === status
+                                ? dealPipelineTokens.drawer.todoStatusButtonActive
+                                : dealPipelineTokens.drawer.todoStatusButtonInactive
+                            }`}
+                          >
+                            {todoStatusLabel(status)}
+                          </button>
+                        ))}
+                      </div>
+                    </Card>
+                  ))}
+                </section>
+              ))}
             </section>
           ) : null}
 

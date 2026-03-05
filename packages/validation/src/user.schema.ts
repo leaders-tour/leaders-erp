@@ -1,7 +1,8 @@
-import { DealStage } from '@tour/domain';
+import { DealStage, DealTodoStatus } from '@tour/domain';
 import { z } from 'zod';
 
 export const dealStageSchema = z.nativeEnum(DealStage);
+export const dealTodoStatusSchema = z.nativeEnum(DealTodoStatus);
 
 export const userCreateSchema = z.object({
   name: z.string().min(1).max(100),
@@ -42,8 +43,20 @@ export const userNoteCreateSchema = z.object({
   createdBy: z.string().min(1).max(100),
 });
 
+export const userDealTodosQuerySchema = z.object({
+  userId: z.string().min(1),
+  includeDone: z.boolean().optional().default(false),
+});
+
+export const userDealTodoStatusUpdateSchema = z.object({
+  id: z.string().min(1),
+  status: dealTodoStatusSchema,
+});
+
 export type UserCreateInput = z.infer<typeof userCreateSchema>;
 export type UserUpdateInput = z.infer<typeof userUpdateSchema>;
 export type DealPipelineCardUpdateInput = z.infer<typeof dealPipelineCardUpdateSchema>;
 export type DealPipelineReorderInput = z.infer<typeof dealPipelineReorderSchema>;
 export type UserNoteCreateInput = z.infer<typeof userNoteCreateSchema>;
+export type UserDealTodosQueryInput = z.infer<typeof userDealTodosQuerySchema>;
+export type UserDealTodoStatusUpdateInput = z.infer<typeof userDealTodoStatusUpdateSchema>;

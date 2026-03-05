@@ -91,6 +91,12 @@ enum DealStage {
   TRIP_COMPLETED
 }
 
+enum DealTodoStatus {
+  TODO
+  DOING
+  DONE
+}
+
 model User {
   id             String    @id @default(uuid(7))
   name           String
@@ -98,8 +104,9 @@ model User {
   dealStage      DealStage @default(CONSULTING)
   dealStageOrder Int       @default(0)
 
-  plans Plan[]
-  notes UserNote[]
+  plans    Plan[]
+  notes    UserNote[]
+  dealTodos UserDealTodo[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -119,6 +126,43 @@ model UserNote {
   updatedAt DateTime @updatedAt
 
   @@index([userId, createdAt])
+}
+
+model DealTodoTemplate {
+  id          String    @id @default(uuid(7))
+  stage       DealStage
+  title       String
+  description String?   @db.Text
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+
+  userDealTodos UserDealTodo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stage, isActive, sortOrder])
+}
+
+model UserDealTodo {
+  id          String         @id @default(uuid(7))
+  userId      String
+  stage       DealStage
+  templateId  String?
+  title       String
+  description String?        @db.Text
+  status      DealTodoStatus @default(TODO)
+  completedAt DateTime?
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template  DealTodoTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, stage, templateId])
+  @@index([userId, status, createdAt])
+  @@index([userId, stage, status])
 }
 
 model Region {

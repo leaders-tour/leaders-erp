@@ -6,6 +6,8 @@ import type {
   PlanUpdateInput,
   PlanVersionCreateInput,
   UserCreateInput,
+  UserDealTodoStatusUpdateInput,
+  UserDealTodosQueryInput,
   UserNoteCreateInput,
   UserUpdateInput,
 } from '@tour/validation';
@@ -13,6 +15,8 @@ import type {
 export type UserCreateDto = UserCreateInput;
 export type UserUpdateDto = UserUpdateInput;
 export type UserNoteCreateDto = UserNoteCreateInput;
+export type UserDealTodosQueryDto = UserDealTodosQueryInput;
+export type UserDealTodoStatusUpdateDto = UserDealTodoStatusUpdateInput;
 export type DealPipelineCardUpdateDto = DealPipelineCardUpdateInput;
 export type DealPipelineReorderDto = DealPipelineReorderInput;
 export type PlanCreateDto = PlanCreateInput;

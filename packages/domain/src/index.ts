@@ -2,6 +2,7 @@ export * from './enums/meal-option';
 export * from './enums/variant-type';
 export * from './enums/override-target-type';
 export * from './enums/deal-stage';
+export * from './enums/deal-todo-status';
 export * from './models/activity';
 export * from './models/location';
 export * from './models/location-guide';

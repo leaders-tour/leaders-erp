@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import type { DealStage, DealTodoStatus, Prisma, PrismaClient } from '@prisma/client';
 import { planInclude, planVersionInclude } from './plan.mapper';
 import type {
   DealPipelineCardUpdateDto,
@@ -32,6 +32,20 @@ export class PlanRepository {
     });
   }
 
+  findDealTodoTemplatesByStages(stages: DealStage[]) {
+    if (stages.length === 0) {
+      return Promise.resolve([]);
+    }
+
+    return this.prisma.dealTodoTemplate.findMany({
+      where: {
+        stage: { in: stages },
+        isActive: true,
+      },
+      orderBy: [{ stage: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
   createUser(data: UserCreateDto) {
     return this.prisma.user.create({ data });
   }
@@ -42,6 +56,52 @@ export class PlanRepository {
 
   createUserNote(data: UserNoteCreateDto) {
     return this.prisma.userNote.create({ data });
+  }
+
+  createUserDealTodosFromTemplates(
+    input: Array<{
+      userId: string;
+      stage: DealStage;
+      templateId: string;
+      title: string;
+      description?: string | null;
+    }>,
+  ) {
+    if (input.length === 0) {
+      return Promise.resolve({ count: 0 });
+    }
+
+    return this.prisma.userDealTodo.createMany({
+      data: input.map((item) => ({
+        userId: item.userId,
+        stage: item.stage,
+        templateId: item.templateId,
+        title: item.title,
+        description: item.description ?? null,
+        status: 'TODO',
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  findUserDealTodos(userId: string, includeDone: boolean) {
+    return this.prisma.userDealTodo.findMany({
+      where: {
+        userId,
+        ...(includeDone ? {} : { status: { in: ['TODO', 'DOING'] } }),
+      },
+      orderBy: [{ stage: 'asc' }, { createdAt: 'desc' }, { id: 'asc' }],
+    });
+  }
+
+  updateUserDealTodoStatus(id: string, status: DealTodoStatus) {
+    return this.prisma.userDealTodo.update({
+      where: { id },
+      data: {
+        status,
+        completedAt: status === 'DONE' ? new Date() : null,
+      },
+    });
   }
 
   async reorderDealPipeline(updates: DealPipelineCardUpdateDto[]): Promise<boolean> {

@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import type { DealStage, Prisma, PrismaClient } from '@prisma/client';
 import {
   dealPipelineReorderSchema,
   planCreateSchema,
@@ -6,6 +6,8 @@ import {
   planUpdateSchema,
   planVersionCreateSchema,
   userCreateSchema,
+  userDealTodoStatusUpdateSchema,
+  userDealTodosQuerySchema,
   userNoteCreateSchema,
   userUpdateSchema,
 } from '@tour/validation';
@@ -20,6 +22,8 @@ import type {
   PlanUpdateDto,
   PlanVersionCreateDto,
   UserCreateDto,
+  UserDealTodoStatusUpdateDto,
+  UserDealTodosQueryDto,
   UserNoteCreateDto,
   UserUpdateDto,
 } from './plan.types';
@@ -180,6 +184,38 @@ export class PlanService {
     return new PlanRepository(this.prisma).createUserNote(parsed.data);
   }
 
+  async listUserDealTodos(input: UserDealTodosQueryDto) {
+    const parsed = userDealTodosQuerySchema.safeParse(input);
+    if (!parsed.success) {
+      throw new DomainError('VALIDATION_FAILED', 'Invalid user deal todo query');
+    }
+
+    const existing = await new PlanRepository(this.prisma).findUserById(parsed.data.userId);
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'User not found');
+    }
+
+    return new PlanRepository(this.prisma).findUserDealTodos(parsed.data.userId, parsed.data.includeDone);
+  }
+
+  async updateUserDealTodoStatus(input: UserDealTodoStatusUpdateDto) {
+    const parsed = userDealTodoStatusUpdateSchema.safeParse(input);
+    if (!parsed.success) {
+      throw new DomainError('VALIDATION_FAILED', 'Invalid user deal todo status input');
+    }
+
+    const existing = await this.prisma.userDealTodo.findUnique({
+      where: { id: parsed.data.id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'User deal todo not found');
+    }
+
+    return new PlanRepository(this.prisma).updateUserDealTodoStatus(parsed.data.id, parsed.data.status);
+  }
+
   async reorderDealPipeline(input: DealPipelineReorderDto) {
     const parsed = dealPipelineReorderSchema.safeParse(input);
     if (!parsed.success) {
@@ -189,7 +225,7 @@ export class PlanService {
     const userIds = parsed.data.updates.map((update) => update.userId);
     const existingUsers = await this.prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true },
+      select: { id: true, dealStage: true },
     });
 
     if (existingUsers.length !== userIds.length) {
@@ -197,10 +233,40 @@ export class PlanService {
     }
 
     const updates: DealPipelineCardUpdateDto[] = parsed.data.updates;
+    const currentStageByUserId = new Map(existingUsers.map((user) => [user.id, user.dealStage]));
+    const changedStageUpdates = updates.filter((update) => {
+      const previousStage = currentStageByUserId.get(update.userId);
+      return previousStage !== undefined && previousStage !== update.dealStage;
+    });
 
     await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const repository = new PlanRepository(tx);
       await repository.reorderDealPipeline(updates);
+
+      if (changedStageUpdates.length === 0) {
+        return;
+      }
+
+      const changedStages = Array.from(new Set(changedStageUpdates.map((update) => update.dealStage))) as DealStage[];
+      const templates = await repository.findDealTodoTemplatesByStages(changedStages);
+
+      if (templates.length === 0) {
+        return;
+      }
+
+      const todosToCreate = changedStageUpdates.flatMap((update) =>
+        templates
+          .filter((template) => template.stage === update.dealStage)
+          .map((template) => ({
+            userId: update.userId,
+            stage: update.dealStage as DealStage,
+            templateId: template.id,
+            title: template.title,
+            description: template.description ?? null,
+          })),
+      );
+
+      await repository.createUserDealTodosFromTemplates(todosToCreate);
     });
 
     return true;

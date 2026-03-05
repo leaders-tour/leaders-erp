@@ -18,6 +18,19 @@ type UserNote {
   updatedAt: DateTime!
 }
 
+type UserDealTodo {
+  id: ID!
+  userId: String!
+  stage: DealStage!
+  templateId: String
+  title: String!
+  description: String
+  status: DealTodoStatus!
+  completedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
 type Plan {
   id: ID!
   userId: String!
@@ -165,6 +178,12 @@ enum DealStage {
   BEFORE_DEPARTURE_10D
   BEFORE_DEPARTURE_3D
   TRIP_COMPLETED
+}
+
+enum DealTodoStatus {
+  TODO
+  DOING
+  DONE
 }
 
 input PlanCreateInput {
