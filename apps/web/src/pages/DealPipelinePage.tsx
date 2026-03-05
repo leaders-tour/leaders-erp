@@ -13,7 +13,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Card } from '@tour/ui';
+import { Card, dealPipelineTokens } from '@tour/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   useCreateUserNote,
@@ -207,13 +207,13 @@ function PipelineCard({
       style={style}
       {...attributes}
       {...listeners}
-      className={disabled ? undefined : 'cursor-pointer'}
+      className={disabled ? undefined : dealPipelineTokens.card.wrapperCursor}
       onClick={() => onClick(user.id)}
     >
-      <Card className={`rounded-xl border border-slate-200 bg-white p-3 shadow-sm ${isDragging ? 'opacity-60' : ''}`}>
+      <Card className={`${dealPipelineTokens.card.base} ${isDragging ? dealPipelineTokens.card.dragging : ''}`}>
         <div className="grid gap-1">
-          <p className="text-sm font-semibold text-slate-900">{user.name}</p>
-          <p className="text-xs text-slate-500">{user.email ?? '이메일 없음'}</p>
+          <p className={dealPipelineTokens.card.title}>{user.name}</p>
+          <p className={dealPipelineTokens.card.subtitle}>{user.email ?? '이메일 없음'}</p>
         </div>
       </Card>
     </div>
@@ -236,17 +236,17 @@ function PipelineColumn({
   return (
     <section
       ref={setNodeRef}
-      className={`rounded-2xl border border-slate-200 bg-slate-100/70 p-3 transition-colors ${isOver ? 'bg-slate-200/60' : ''}`}
+      className={`${dealPipelineTokens.column.base} ${isOver ? dealPipelineTokens.column.over : ''}`}
     >
-      <header className="mb-3 flex items-center justify-between gap-2 border-b border-slate-200 pb-2">
-        <h2 className="text-sm font-semibold text-slate-900">{stage.label}</h2>
-        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">{users.length}</span>
+      <header className={dealPipelineTokens.column.header}>
+        <h2 className={dealPipelineTokens.column.title}>{stage.label}</h2>
+        <span className={dealPipelineTokens.column.count}>{users.length}</span>
       </header>
 
       <SortableContext items={users.map((user) => user.id)} strategy={verticalListSortingStrategy}>
         <div className="grid gap-2">
           {users.length === 0 ? (
-            <Card className="rounded-xl border border-dashed border-slate-300 bg-white/70 p-3 text-xs text-slate-500 shadow-none">
+            <Card className={dealPipelineTokens.column.emptyCard}>
               현재 단계에 고객이 없습니다.
             </Card>
           ) : null}
@@ -315,42 +315,42 @@ function UserDetailDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50">
-      <button type="button" aria-label="닫기" className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <aside className="absolute right-0 top-0 h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-slate-50 shadow-2xl">
-        <header className="border-b border-slate-200 bg-white px-6 py-5">
+    <div className={dealPipelineTokens.drawer.overlay}>
+      <button type="button" aria-label="닫기" className={dealPipelineTokens.drawer.backdrop} onClick={onClose} />
+      <aside className={dealPipelineTokens.drawer.panel}>
+        <header className={dealPipelineTokens.drawer.header}>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-medium text-slate-500">고객정보</p>
-              <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">{user.name}</h2>
+              <p className={dealPipelineTokens.drawer.headingTopLabel}>고객정보</p>
+              <h2 className={dealPipelineTokens.drawer.headingTitle}>{user.name}</h2>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
+              className={dealPipelineTokens.drawer.closeButton}
             >
               닫기
             </button>
           </div>
 
-          <div className="mt-4 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-              <span className="text-slate-500">이메일</span>
+          <div className={dealPipelineTokens.drawer.infoCard}>
+            <div className={dealPipelineTokens.drawer.infoRow}>
+              <span className={dealPipelineTokens.drawer.infoLabel}>이메일</span>
               <span>{user.email ?? '이메일 없음'}</span>
             </div>
-            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-              <span className="text-slate-500">현재 단계</span>
-              <span className="font-medium text-slate-900">{stageLabel(user.dealStage)}</span>
+            <div className={dealPipelineTokens.drawer.infoRow}>
+              <span className={dealPipelineTokens.drawer.infoLabel}>현재 단계</span>
+              <span className={dealPipelineTokens.drawer.infoEmphasis}>{stageLabel(user.dealStage)}</span>
             </div>
-            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
-              <span className="text-slate-500">순서</span>
+            <div className={dealPipelineTokens.drawer.infoRow}>
+              <span className={dealPipelineTokens.drawer.infoLabel}>순서</span>
               <span>{user.dealStageOrder + 1}번째</span>
             </div>
           </div>
         </header>
 
-        <div className="border-b border-slate-200 bg-white px-6">
-          <div className="flex items-center gap-6">
+        <div className={dealPipelineTokens.drawer.tabsWrap}>
+          <div className={dealPipelineTokens.drawer.tabsRow}>
             {[
               { key: 'note', label: '노트' },
               { key: 'todo', label: 'TODO' },
@@ -360,10 +360,10 @@ function UserDetailDrawer({
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key as 'note' | 'todo' | 'estimate')}
-                className={`border-b-2 py-3 text-sm font-medium transition-colors ${
+                className={`${dealPipelineTokens.drawer.tabButtonBase} ${
                   activeTab === tab.key
-                    ? 'border-slate-900 text-slate-900'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                    ? dealPipelineTokens.drawer.tabButtonActive
+                    : dealPipelineTokens.drawer.tabButtonInactive
                 }`}
               >
                 {tab.label}
@@ -372,52 +372,52 @@ function UserDetailDrawer({
           </div>
         </div>
 
-        <div className="px-6 py-6">
+        <div className={dealPipelineTokens.drawer.contentWrap}>
           {activeTab === 'note' ? (
             <section className="grid gap-3">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold tracking-wide text-slate-500">노트</p>
+                <p className={dealPipelineTokens.drawer.sectionLabel}>노트</p>
                 <button
                   type="button"
                   onClick={() => setIsNoteComposerOpen((current) => !current)}
-                  className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-100"
+                  className={dealPipelineTokens.drawer.noteComposerToggle}
                 >
                   {isNoteComposerOpen ? '입력 닫기' : '노트 추가'}
                 </button>
               </div>
 
               {isNoteComposerOpen ? (
-                <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-none">
+                <Card className={dealPipelineTokens.drawer.noteComposerCard}>
                   <div className="grid gap-3">
                     <label className="grid gap-1">
-                      <span className="text-xs text-slate-500">작성자</span>
+                      <span className={dealPipelineTokens.drawer.fieldLabel}>작성자</span>
                       <input
                         type="text"
                         value={noteCreatedBy}
                         onChange={(event) => setNoteCreatedBy(event.target.value)}
-                        className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-900"
+                        className={dealPipelineTokens.drawer.fieldInput}
                       />
                     </label>
 
                     <label className="grid gap-1">
-                      <span className="text-xs text-slate-500">내용</span>
+                      <span className={dealPipelineTokens.drawer.fieldLabel}>내용</span>
                       <textarea
                         rows={4}
                         value={noteContent}
                         onChange={(event) => setNoteContent(event.target.value)}
                         placeholder={`${user.name} 고객 관련 메모를 입력하세요.`}
-                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-900"
+                        className={dealPipelineTokens.drawer.fieldTextarea}
                       />
                     </label>
 
-                    {noteError ? <p className="text-xs text-rose-600">{noteError}</p> : null}
+                    {noteError ? <p className={dealPipelineTokens.drawer.noteError}>{noteError}</p> : null}
 
                     <div>
                       <button
                         type="button"
                         onClick={handleCreateNote}
                         disabled={noteCreating}
-                        className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        className={dealPipelineTokens.drawer.noteSubmitButton}
                       >
                         {noteCreating ? '저장 중...' : '노트 저장'}
                       </button>
@@ -426,29 +426,29 @@ function UserDetailDrawer({
                 </Card>
               ) : null}
 
-              {notesLoading ? <p className="text-xs text-slate-500">노트를 불러오는 중...</p> : null}
+              {notesLoading ? <p className={dealPipelineTokens.drawer.notesLoading}>노트를 불러오는 중...</p> : null}
 
               <div className="grid gap-2">
                 {notes.length === 0 ? (
-                  <Card className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500 shadow-none">
+                  <Card className={dealPipelineTokens.drawer.notesEmptyCard}>
                     아직 작성된 노트가 없습니다.
                   </Card>
                 ) : null}
                 {notes.map((note: UserNoteRow) => (
-                  <Card key={note.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-none">
+                  <Card key={note.id} className={dealPipelineTokens.drawer.noteItemCard}>
                     {(() => {
                       const parts = formatDateTimeParts(note.createdAt);
                       return (
-                        <div className="mb-2 flex items-center justify-between gap-2 text-xs">
-                          <span className="text-slate-500">{note.createdBy}</span>
+                        <div className={dealPipelineTokens.drawer.noteMetaRow}>
+                          <span className={dealPipelineTokens.drawer.noteMetaAuthor}>{note.createdBy}</span>
                           <span className="inline-flex items-center gap-2">
-                            <span className="font-semibold text-slate-900">{parts.date}</span>
-                            <span className="text-slate-500">{parts.time}</span>
+                            <span className={dealPipelineTokens.drawer.noteMetaDateStrong}>{parts.date}</span>
+                            <span className={dealPipelineTokens.drawer.noteMetaTime}>{parts.time}</span>
                           </span>
                         </div>
                       );
                     })()}
-                    <p className="whitespace-pre-wrap text-sm text-slate-900">{note.content}</p>
+                    <p className={dealPipelineTokens.drawer.noteText}>{note.content}</p>
                   </Card>
                 ))}
               </div>
@@ -457,12 +457,12 @@ function UserDetailDrawer({
 
           {activeTab === 'todo' ? (
             <section className="grid gap-3">
-              <p className="text-xs font-semibold tracking-wide text-slate-500">TODO</p>
-              <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-none">
+              <p className={dealPipelineTokens.drawer.sectionLabel}>TODO</p>
+              <Card className={dealPipelineTokens.drawer.simpleCard}>
                 <p className="text-sm font-medium text-slate-900">[팔로업] 일정 상담 리마인드</p>
                 <p className="mt-1 text-xs text-slate-500">상태: 진행중</p>
               </Card>
-              <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-none">
+              <Card className={dealPipelineTokens.drawer.simpleCard}>
                 <p className="text-sm font-medium text-slate-900">[준비] 계약서 전달</p>
                 <p className="mt-1 text-xs text-slate-500">상태: 대기</p>
               </Card>
@@ -471,8 +471,8 @@ function UserDetailDrawer({
 
           {activeTab === 'estimate' ? (
             <section className="grid gap-3">
-              <p className="text-xs font-semibold tracking-wide text-slate-500">견적서</p>
-              <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-none">
+              <p className={dealPipelineTokens.drawer.sectionLabel}>견적서</p>
+              <Card className={dealPipelineTokens.drawer.simpleCard}>
                 <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 text-sm">
                   <span className="text-slate-500">고객명</span>
                   <span className="text-slate-900">{user.name}</span>
@@ -703,7 +703,7 @@ export function DealPipelinePage(): JSX.Element {
   };
 
   return (
-    <section className="grid gap-4">
+    <section className={dealPipelineTokens.board.section}>
       <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">딜 파이프라인</h1>
@@ -722,13 +722,11 @@ export function DealPipelinePage(): JSX.Element {
         </label>
       </header>
 
-      {normalizedKeyword ? (
-        <p className="text-xs text-slate-500">검색 중에는 드래그를 잠시 비활성화합니다.</p>
-      ) : null}
+      {normalizedKeyword ? <p className={dealPipelineTokens.board.searchHint}>검색 중에는 드래그를 잠시 비활성화합니다.</p> : null}
 
-      {errorMessage ? <p className="text-sm text-rose-600">{errorMessage}</p> : null}
+      {errorMessage ? <p className={dealPipelineTokens.board.errorText}>{errorMessage}</p> : null}
 
-      {loading ? <div className="text-sm text-slate-600">고객 데이터를 불러오는 중...</div> : null}
+      {loading ? <div className={dealPipelineTokens.board.loadingText}>고객 데이터를 불러오는 중...</div> : null}
 
       <DndContext
         sensors={sensors}
@@ -738,8 +736,8 @@ export function DealPipelinePage(): JSX.Element {
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-        <div className="overflow-x-auto pb-2">
-          <div className="grid min-w-max grid-flow-col auto-cols-[260px] gap-4">
+        <div className={dealPipelineTokens.board.track}>
+          <div className={dealPipelineTokens.board.grid}>
             {STAGES.map((stage) => (
               <PipelineColumn
                 key={stage.key}
