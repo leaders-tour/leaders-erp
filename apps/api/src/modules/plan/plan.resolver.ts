@@ -1,6 +1,7 @@
 import type { AppContext } from '../../context';
 import { PlanService } from './plan.service';
 import type {
+  DealPipelineReorderDto,
   PlanCreateDto,
   PlanPricingPreviewDto,
   PlanUpdateDto,
@@ -28,6 +29,10 @@ interface UserCreateArgs {
 interface UserUpdateArgs {
   id: string;
   input: UserUpdateDto;
+}
+
+interface DealPipelineReorderArgs {
+  input: DealPipelineReorderDto;
 }
 
 interface PlanCreateArgs {
@@ -68,6 +73,8 @@ export const planResolver = {
     createUser: (_parent: unknown, args: UserCreateArgs, ctx: AppContext) => new PlanService(ctx.prisma).createUser(args.input),
     updateUser: (_parent: unknown, args: UserUpdateArgs, ctx: AppContext) =>
       new PlanService(ctx.prisma).updateUser(args.id, args.input),
+    reorderDealPipeline: (_parent: unknown, args: DealPipelineReorderArgs, ctx: AppContext) =>
+      new PlanService(ctx.prisma).reorderDealPipeline(args.input),
     deleteUser: (_parent: unknown, args: IdArgs, ctx: AppContext) => new PlanService(ctx.prisma).deleteUser(args.id),
     createPlan: (_parent: unknown, args: PlanCreateArgs, ctx: AppContext) => new PlanService(ctx.prisma).create(args.input),
     updatePlan: (_parent: unknown, args: PlanUpdateArgs, ctx: AppContext) =>

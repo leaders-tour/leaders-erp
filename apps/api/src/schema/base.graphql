@@ -68,6 +68,7 @@ type Mutation {
 
   createUser(input: UserCreateInput!): User!
   updateUser(id: ID!, input: UserUpdateInput!): User!
+  reorderDealPipeline(input: DealPipelineReorderInput!): Boolean!
   deleteUser(id: ID!): Boolean!
 
   createPlan(input: PlanCreateInput!): Plan!

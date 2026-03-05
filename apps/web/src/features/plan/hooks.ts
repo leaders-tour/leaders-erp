@@ -1,9 +1,30 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 
+export type DealStageValue =
+  | 'CONSULTING'
+  | 'CONTRACTING'
+  | 'CONTRACT_CONFIRMED'
+  | 'MONGOL_ASSIGNING'
+  | 'MONGOL_ASSIGNED'
+  | 'ON_HOLD'
+  | 'BEFORE_DEPARTURE_10D'
+  | 'BEFORE_DEPARTURE_3D'
+  | 'TRIP_COMPLETED';
+
 export interface UserRow {
   id: string;
   name: string;
   email: string | null;
+  dealStage: DealStageValue;
+  dealStageOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DealPipelineCardUpdateInput {
+  userId: string;
+  dealStage: DealStageValue;
+  dealStageOrder: number;
 }
 
 export interface PlanVersionRow {
@@ -136,6 +157,10 @@ const USERS_QUERY = gql`
       id
       name
       email
+      dealStage
+      dealStageOrder
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -146,6 +171,10 @@ const USER_QUERY = gql`
       id
       name
       email
+      dealStage
+      dealStageOrder
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -189,6 +218,10 @@ const PLAN_DETAIL_QUERY = gql`
         id
         name
         email
+        dealStage
+        dealStageOrder
+        createdAt
+        updatedAt
       }
       region {
         id
@@ -260,6 +293,10 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
           id
           name
           email
+          dealStage
+          dealStageOrder
+          createdAt
+          updatedAt
         }
         region {
           id
@@ -365,6 +402,12 @@ const SET_CURRENT_VERSION_MUTATION = gql`
   }
 `;
 
+const REORDER_DEAL_PIPELINE_MUTATION = gql`
+  mutation ReorderDealPipeline($input: DealPipelineReorderInput!) {
+    reorderDealPipeline(input: $input)
+  }
+`;
+
 export function useUsers() {
   const { data, loading, refetch } = useQuery<{ users: UserRow[] }>(USERS_QUERY);
   return { users: data?.users ?? [], loading, refetch };
@@ -444,6 +487,23 @@ export function useSetCurrentPlanVersion() {
           { query: PLAN_VERSION_DETAIL_QUERY, variables: { id: versionId } },
         ],
       });
+    },
+  };
+}
+
+export function useReorderDealPipeline() {
+  const [mutate, { loading }] = useMutation<{ reorderDealPipeline: boolean }>(REORDER_DEAL_PIPELINE_MUTATION);
+
+  return {
+    loading,
+    reorderDealPipeline: async (updates: DealPipelineCardUpdateInput[]): Promise<void> => {
+      const result = await mutate({
+        variables: { input: { updates } },
+      });
+
+      if (!result.data?.reorderDealPipeline) {
+        throw new Error('Failed to reorder deal pipeline');
+      }
     },
   };
 }

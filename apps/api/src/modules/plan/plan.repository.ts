@@ -1,6 +1,13 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { planInclude, planVersionInclude } from './plan.mapper';
-import type { PlanCreateDto, PlanUpdateDto, PlanVersionCreateDto, UserCreateDto, UserUpdateDto } from './plan.types';
+import type {
+  DealPipelineCardUpdateDto,
+  PlanCreateDto,
+  PlanUpdateDto,
+  PlanVersionCreateDto,
+  UserCreateDto,
+  UserUpdateDto,
+} from './plan.types';
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
@@ -8,7 +15,9 @@ export class PlanRepository {
   constructor(private readonly prisma: PrismaLike) {}
 
   findUsers() {
-    return this.prisma.user.findMany({ orderBy: { createdAt: 'desc' } });
+    return this.prisma.user.findMany({
+      orderBy: [{ dealStage: 'asc' }, { dealStageOrder: 'asc' }, { createdAt: 'desc' }],
+    });
   }
 
   findUserById(id: string) {
@@ -21,6 +30,22 @@ export class PlanRepository {
 
   updateUser(id: string, data: UserUpdateDto) {
     return this.prisma.user.update({ where: { id }, data });
+  }
+
+  async reorderDealPipeline(updates: DealPipelineCardUpdateDto[]): Promise<boolean> {
+    await Promise.all(
+      updates.map((update) =>
+        this.prisma.user.update({
+          where: { id: update.userId },
+          data: {
+            dealStage: update.dealStage,
+            dealStageOrder: update.dealStageOrder,
+          },
+        }),
+      ),
+    );
+
+    return true;
   }
 
   async deleteUser(id: string): Promise<boolean> {

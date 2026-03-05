@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import {
+  dealPipelineReorderSchema,
   planCreateSchema,
   planPricingPreviewSchema,
   planUpdateSchema,
@@ -11,6 +12,8 @@ import { DomainError } from '../../lib/errors';
 import { PricingService } from '../pricing/pricing.service';
 import { PlanRepository } from './plan.repository';
 import type {
+  DealPipelineCardUpdateDto,
+  DealPipelineReorderDto,
   PlanCreateDto,
   PlanPricingPreviewDto,
   PlanUpdateDto,
@@ -150,6 +153,32 @@ export class PlanService {
 
   deleteUser(id: string) {
     return new PlanRepository(this.prisma).deleteUser(id);
+  }
+
+  async reorderDealPipeline(input: DealPipelineReorderDto) {
+    const parsed = dealPipelineReorderSchema.safeParse(input);
+    if (!parsed.success) {
+      throw new DomainError('VALIDATION_FAILED', 'Invalid deal pipeline reorder input');
+    }
+
+    const userIds = parsed.data.updates.map((update) => update.userId);
+    const existingUsers = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true },
+    });
+
+    if (existingUsers.length !== userIds.length) {
+      throw new DomainError('NOT_FOUND', 'One or more users were not found');
+    }
+
+    const updates: DealPipelineCardUpdateDto[] = parsed.data.updates;
+
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const repository = new PlanRepository(tx);
+      await repository.reorderDealPipeline(updates);
+    });
+
+    return true;
   }
 
   list(userId: string) {

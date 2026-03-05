@@ -79,15 +79,31 @@ enum SecurityDepositMode {
   PER_TEAM
 }
 
+enum DealStage {
+  CONSULTING
+  CONTRACTING
+  CONTRACT_CONFIRMED
+  MONGOL_ASSIGNING
+  MONGOL_ASSIGNED
+  ON_HOLD
+  BEFORE_DEPARTURE_10D
+  BEFORE_DEPARTURE_3D
+  TRIP_COMPLETED
+}
+
 model User {
-  id    String  @id @default(uuid(7))
-  name  String
-  email String? @unique
+  id             String    @id @default(uuid(7))
+  name           String
+  email          String?   @unique
+  dealStage      DealStage @default(CONSULTING)
+  dealStageOrder Int       @default(0)
 
   plans Plan[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([dealStage, dealStageOrder])
 }
 
 model Region {

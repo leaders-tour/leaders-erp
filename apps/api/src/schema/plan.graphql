@@ -2,6 +2,8 @@ type User {
   id: ID!
   name: String!
   email: String
+  dealStage: DealStage!
+  dealStageOrder: Int!
   createdAt: DateTime!
   updatedAt: DateTime!
   plans: [Plan!]!
@@ -144,6 +146,18 @@ enum SecurityDepositMode {
   PER_TEAM
 }
 
+enum DealStage {
+  CONSULTING
+  CONTRACTING
+  CONTRACT_CONFIRMED
+  MONGOL_ASSIGNING
+  MONGOL_ASSIGNED
+  ON_HOLD
+  BEFORE_DEPARTURE_10D
+  BEFORE_DEPARTURE_3D
+  TRIP_COMPLETED
+}
+
 input PlanCreateInput {
   userId: String!
   regionId: String!
@@ -256,4 +270,16 @@ input UserCreateInput {
 input UserUpdateInput {
   name: String
   email: String
+  dealStage: DealStage
+  dealStageOrder: Int
+}
+
+input DealPipelineCardUpdateInput {
+  userId: ID!
+  dealStage: DealStage!
+  dealStageOrder: Int!
+}
+
+input DealPipelineReorderInput {
+  updates: [DealPipelineCardUpdateInput!]!
 }
