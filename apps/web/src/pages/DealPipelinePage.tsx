@@ -129,6 +129,18 @@ function flattenBoardToUpdates(board: BoardState): DealPipelineCardUpdateInput[]
   return updates;
 }
 
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+  return date.toLocaleString('ko-KR');
+}
+
+function stageLabel(stage: DealStageValue): string {
+  return STAGES.find((item) => item.key === stage)?.label ?? stage;
+}
+
 function boardsEqual(left: BoardState, right: BoardState): boolean {
   for (const stage of STAGES) {
     const leftItems = left[stage.key];
@@ -152,7 +164,15 @@ function boardsEqual(left: BoardState, right: BoardState): boolean {
   return true;
 }
 
-function PipelineCard({ user, disabled }: { user: UserRow; disabled: boolean }): JSX.Element {
+function PipelineCard({
+  user,
+  disabled,
+  onClick,
+}: {
+  user: UserRow;
+  disabled: boolean;
+  onClick: (userId: string) => void;
+}): JSX.Element {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: user.id,
     disabled,
@@ -168,7 +188,14 @@ function PipelineCard({ user, disabled }: { user: UserRow; disabled: boolean }):
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={disabled ? undefined : 'cursor-pointer'}
+      onClick={() => onClick(user.id)}
+    >
       <Card className={`rounded-xl border border-slate-200 bg-white p-3 shadow-sm ${isDragging ? 'opacity-60' : ''}`}>
         <div className="grid gap-1">
           <p className="text-sm font-semibold text-slate-900">{user.name}</p>
@@ -183,10 +210,12 @@ function PipelineColumn({
   stage,
   users,
   dragDisabled,
+  onCardClick,
 }: {
   stage: { key: DealStageValue; label: string };
   users: UserRow[];
   dragDisabled: boolean;
+  onCardClick: (userId: string) => void;
 }): JSX.Element {
   const { setNodeRef, isOver } = useDroppable({ id: columnId(stage.key) });
 
@@ -209,11 +238,71 @@ function PipelineColumn({
           ) : null}
 
           {users.map((user) => (
-            <PipelineCard key={user.id} user={user} disabled={dragDisabled} />
+            <PipelineCard key={user.id} user={user} disabled={dragDisabled} onClick={onCardClick} />
           ))}
         </div>
       </SortableContext>
     </section>
+  );
+}
+
+function UserDetailDrawer({
+  user,
+  onClose,
+}: {
+  user: UserRow | null;
+  onClose: () => void;
+}): JSX.Element | null {
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <button type="button" aria-label="닫기" className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <aside className="absolute right-0 top-0 h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-white p-5 shadow-2xl">
+        <header className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium text-slate-500">고객 상세</p>
+            <h2 className="mt-1 text-xl font-semibold text-slate-900">{user.name}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
+          >
+            닫기
+          </button>
+        </header>
+
+        <div className="grid gap-3">
+          <Card className="rounded-xl border border-slate-200 p-4 shadow-none">
+            <p className="text-xs text-slate-500">이메일</p>
+            <p className="mt-1 text-sm text-slate-900">{user.email ?? '이메일 없음'}</p>
+          </Card>
+
+          <Card className="rounded-xl border border-slate-200 p-4 shadow-none">
+            <p className="text-xs text-slate-500">현재 단계</p>
+            <p className="mt-1 text-sm font-medium text-slate-900">{stageLabel(user.dealStage)}</p>
+          </Card>
+
+          <Card className="rounded-xl border border-slate-200 p-4 shadow-none">
+            <p className="text-xs text-slate-500">단계 내 정렬순서</p>
+            <p className="mt-1 text-sm text-slate-900">{user.dealStageOrder + 1}번째</p>
+          </Card>
+
+          <Card className="rounded-xl border border-slate-200 p-4 shadow-none">
+            <p className="text-xs text-slate-500">생성일</p>
+            <p className="mt-1 text-sm text-slate-900">{formatDateTime(user.createdAt)}</p>
+          </Card>
+
+          <Card className="rounded-xl border border-slate-200 p-4 shadow-none">
+            <p className="text-xs text-slate-500">수정일</p>
+            <p className="mt-1 text-sm text-slate-900">{formatDateTime(user.updatedAt)}</p>
+          </Card>
+        </div>
+      </aside>
+    </div>
   );
 }
 
@@ -224,6 +313,7 @@ export function DealPipelinePage(): JSX.Element {
   const [search, setSearch] = useState('');
   const [board, setBoard] = useState<BoardState>(() => createEmptyBoard());
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const previousBoardRef = useRef<BoardState | null>(null);
 
@@ -265,11 +355,26 @@ export function DealPipelinePage(): JSX.Element {
   }, [activeUserId, board]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
+
+  const selectedUser = useMemo(() => {
+    if (!selectedUserId) {
+      return null;
+    }
+    for (const stage of STAGES) {
+      const found = board[stage.key].find((user) => user.id === selectedUserId);
+      if (found) {
+        return found;
+      }
+    }
+    return null;
+  }, [board, selectedUserId]);
 
   const findContainer = (id: string): DealStageValue | null => {
     const asColumn = parseColumnId(id);
@@ -452,7 +557,13 @@ export function DealPipelinePage(): JSX.Element {
         <div className="overflow-x-auto pb-2">
           <div className="grid min-w-max grid-flow-col auto-cols-[260px] gap-4">
             {STAGES.map((stage) => (
-              <PipelineColumn key={stage.key} stage={stage} users={displayedBoard[stage.key]} dragDisabled={dragDisabled} />
+              <PipelineColumn
+                key={stage.key}
+                stage={stage}
+                users={displayedBoard[stage.key]}
+                dragDisabled={dragDisabled}
+                onCardClick={setSelectedUserId}
+              />
             ))}
           </div>
         </div>
@@ -468,6 +579,8 @@ export function DealPipelinePage(): JSX.Element {
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      <UserDetailDrawer user={selectedUser} onClose={() => setSelectedUserId(null)} />
     </section>
   );
 }
