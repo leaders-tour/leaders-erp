@@ -16,10 +16,13 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card } from '@tour/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  useCreateUserNote,
   useReorderDealPipeline,
+  useUserNotes,
   useUsers,
   type DealPipelineCardUpdateInput,
   type DealStageValue,
+  type UserNoteRow,
   type UserRow,
 } from '../features/plan/hooks';
 
@@ -135,6 +138,17 @@ function formatDateTime(value: string): string {
     return '-';
   }
   return date.toLocaleString('ko-KR');
+}
+
+function formatDateTimeParts(value: string): { date: string; time: string } {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return { date: '-', time: '' };
+  }
+  return {
+    date: date.toLocaleDateString('ko-KR'),
+    time: date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+  };
 }
 
 function stageLabel(stage: DealStageValue): string {
@@ -254,10 +268,51 @@ function UserDetailDrawer({
   onClose: () => void;
 }): JSX.Element | null {
   const [activeTab, setActiveTab] = useState<'note' | 'todo' | 'estimate'>('note');
+  const [isNoteComposerOpen, setIsNoteComposerOpen] = useState(false);
+  const [noteContent, setNoteContent] = useState('');
+  const [noteCreatedBy, setNoteCreatedBy] = useState('운영자');
+  const [noteError, setNoteError] = useState<string | null>(null);
+
+  const userId = user?.id;
+  const { notes, loading: notesLoading } = useUserNotes(userId);
+  const { createUserNote, loading: noteCreating } = useCreateUserNote();
+
+  useEffect(() => {
+    setIsNoteComposerOpen(false);
+    setNoteContent('');
+    setNoteCreatedBy('운영자');
+    setNoteError(null);
+  }, [userId]);
 
   if (!user) {
     return null;
   }
+
+  const handleCreateNote = async () => {
+    const content = noteContent.trim();
+    const createdBy = noteCreatedBy.trim();
+
+    if (!content) {
+      setNoteError('노트 내용을 입력해주세요.');
+      return;
+    }
+    if (!createdBy) {
+      setNoteError('작성자를 입력해주세요.');
+      return;
+    }
+
+    setNoteError(null);
+    try {
+      await createUserNote({
+        userId: user.id,
+        content,
+        createdBy,
+      });
+      setNoteContent('');
+    } catch (_error) {
+      setNoteError('노트 저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50">
@@ -320,15 +375,82 @@ function UserDetailDrawer({
         <div className="px-6 py-6">
           {activeTab === 'note' ? (
             <section className="grid gap-3">
-              <p className="text-xs font-semibold tracking-wide text-slate-500">노트</p>
-              <textarea
-                rows={8}
-                defaultValue={`${user.name} 고객 관련 메모를 입력하세요.`}
-                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900"
-              />
-              <div className="grid gap-1 text-xs text-slate-500">
-                <span>생성일: {formatDateTime(user.createdAt)}</span>
-                <span>수정일: {formatDateTime(user.updatedAt)}</span>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold tracking-wide text-slate-500">노트</p>
+                <button
+                  type="button"
+                  onClick={() => setIsNoteComposerOpen((current) => !current)}
+                  className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-100"
+                >
+                  {isNoteComposerOpen ? '입력 닫기' : '노트 추가'}
+                </button>
+              </div>
+
+              {isNoteComposerOpen ? (
+                <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-none">
+                  <div className="grid gap-3">
+                    <label className="grid gap-1">
+                      <span className="text-xs text-slate-500">작성자</span>
+                      <input
+                        type="text"
+                        value={noteCreatedBy}
+                        onChange={(event) => setNoteCreatedBy(event.target.value)}
+                        className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-900"
+                      />
+                    </label>
+
+                    <label className="grid gap-1">
+                      <span className="text-xs text-slate-500">내용</span>
+                      <textarea
+                        rows={4}
+                        value={noteContent}
+                        onChange={(event) => setNoteContent(event.target.value)}
+                        placeholder={`${user.name} 고객 관련 메모를 입력하세요.`}
+                        className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-900"
+                      />
+                    </label>
+
+                    {noteError ? <p className="text-xs text-rose-600">{noteError}</p> : null}
+
+                    <div>
+                      <button
+                        type="button"
+                        onClick={handleCreateNote}
+                        disabled={noteCreating}
+                        className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                      >
+                        {noteCreating ? '저장 중...' : '노트 저장'}
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+              ) : null}
+
+              {notesLoading ? <p className="text-xs text-slate-500">노트를 불러오는 중...</p> : null}
+
+              <div className="grid gap-2">
+                {notes.length === 0 ? (
+                  <Card className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500 shadow-none">
+                    아직 작성된 노트가 없습니다.
+                  </Card>
+                ) : null}
+                {notes.map((note: UserNoteRow) => (
+                  <Card key={note.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-none">
+                    {(() => {
+                      const parts = formatDateTimeParts(note.createdAt);
+                      return (
+                        <div className="mb-2 flex items-center justify-between gap-2 text-xs">
+                          <span className="text-slate-500">{note.createdBy}</span>
+                          <span className="inline-flex items-center gap-2">
+                            <span className="font-semibold text-slate-900">{parts.date}</span>
+                            <span className="text-slate-500">{parts.time}</span>
+                          </span>
+                        </div>
+                      );
+                    })()}
+                    <p className="whitespace-pre-wrap text-sm text-slate-900">{note.content}</p>
+                  </Card>
+                ))}
               </div>
             </section>
           ) : null}

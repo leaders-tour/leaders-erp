@@ -27,6 +27,15 @@ export interface DealPipelineCardUpdateInput {
   dealStageOrder: number;
 }
 
+export interface UserNoteRow {
+  id: string;
+  userId: string;
+  content: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PlanVersionRow {
   id: string;
   planId: string;
@@ -408,6 +417,32 @@ const REORDER_DEAL_PIPELINE_MUTATION = gql`
   }
 `;
 
+const USER_NOTES_QUERY = gql`
+  query UserNotes($userId: ID!) {
+    userNotes(userId: $userId) {
+      id
+      userId
+      content
+      createdBy
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+const CREATE_USER_NOTE_MUTATION = gql`
+  mutation CreateUserNote($input: UserNoteCreateInput!) {
+    createUserNote(input: $input) {
+      id
+      userId
+      content
+      createdBy
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
 export function useUsers() {
   const { data, loading, refetch } = useQuery<{ users: UserRow[] }>(USERS_QUERY);
   return { users: data?.users ?? [], loading, refetch };
@@ -504,6 +539,35 @@ export function useReorderDealPipeline() {
       if (!result.data?.reorderDealPipeline) {
         throw new Error('Failed to reorder deal pipeline');
       }
+    },
+  };
+}
+
+export function useUserNotes(userId: string | undefined) {
+  const { data, loading, refetch } = useQuery<{ userNotes: UserNoteRow[] }>(USER_NOTES_QUERY, {
+    variables: { userId },
+    skip: !userId,
+  });
+
+  return { notes: data?.userNotes ?? [], loading, refetch };
+}
+
+export function useCreateUserNote() {
+  const [mutate, { loading }] = useMutation<{ createUserNote: UserNoteRow }>(CREATE_USER_NOTE_MUTATION);
+
+  return {
+    loading,
+    createUserNote: async (input: { userId: string; content: string; createdBy: string }): Promise<UserNoteRow> => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [{ query: USER_NOTES_QUERY, variables: { userId: input.userId } }],
+      });
+
+      if (!result.data?.createUserNote) {
+        throw new Error('Failed to create user note');
+      }
+
+      return result.data.createUserNote;
     },
   };
 }

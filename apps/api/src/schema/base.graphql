@@ -26,6 +26,7 @@ type Query {
   planTemplate(id: ID!): PlanTemplate
   users: [User!]!
   user(id: ID!): User
+  userNotes(userId: ID!): [UserNote!]!
   timeBlocks: [TimeBlock!]!
   timeBlock(id: ID!): TimeBlock
   activities: [Activity!]!
@@ -69,6 +70,7 @@ type Mutation {
   createUser(input: UserCreateInput!): User!
   updateUser(id: ID!, input: UserUpdateInput!): User!
   reorderDealPipeline(input: DealPipelineReorderInput!): Boolean!
+  createUserNote(input: UserNoteCreateInput!): UserNote!
   deleteUser(id: ID!): Boolean!
 
   createPlan(input: PlanCreateInput!): Plan!

@@ -6,6 +6,7 @@ import {
   planUpdateSchema,
   planVersionCreateSchema,
   userCreateSchema,
+  userNoteCreateSchema,
   userUpdateSchema,
 } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
@@ -19,6 +20,7 @@ import type {
   PlanUpdateDto,
   PlanVersionCreateDto,
   UserCreateDto,
+  UserNoteCreateDto,
   UserUpdateDto,
 } from './plan.types';
 
@@ -128,6 +130,15 @@ export class PlanService {
     return new PlanRepository(this.prisma).findUserById(id);
   }
 
+  async listUserNotes(userId: string) {
+    const existing = await new PlanRepository(this.prisma).findUserById(userId);
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'User not found');
+    }
+
+    return new PlanRepository(this.prisma).findUserNotes(userId);
+  }
+
   createUser(input: UserCreateDto) {
     const parsed = userCreateSchema.safeParse(input);
     if (!parsed.success) {
@@ -153,6 +164,20 @@ export class PlanService {
 
   deleteUser(id: string) {
     return new PlanRepository(this.prisma).deleteUser(id);
+  }
+
+  async createUserNote(input: UserNoteCreateDto) {
+    const parsed = userNoteCreateSchema.safeParse(input);
+    if (!parsed.success) {
+      throw new DomainError('VALIDATION_FAILED', 'Invalid user note input');
+    }
+
+    const existing = await new PlanRepository(this.prisma).findUserById(parsed.data.userId);
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'User not found');
+    }
+
+    return new PlanRepository(this.prisma).createUserNote(parsed.data);
   }
 
   async reorderDealPipeline(input: DealPipelineReorderDto) {

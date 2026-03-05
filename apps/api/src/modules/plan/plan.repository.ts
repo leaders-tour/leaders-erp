@@ -6,6 +6,7 @@ import type {
   PlanUpdateDto,
   PlanVersionCreateDto,
   UserCreateDto,
+  UserNoteCreateDto,
   UserUpdateDto,
 } from './plan.types';
 
@@ -24,12 +25,23 @@ export class PlanRepository {
     return this.prisma.user.findUnique({ where: { id }, include: { plans: { include: planInclude, orderBy: { createdAt: 'desc' } } } });
   }
 
+  findUserNotes(userId: string) {
+    return this.prisma.userNote.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   createUser(data: UserCreateDto) {
     return this.prisma.user.create({ data });
   }
 
   updateUser(id: string, data: UserUpdateDto) {
     return this.prisma.user.update({ where: { id }, data });
+  }
+
+  createUserNote(data: UserNoteCreateDto) {
+    return this.prisma.userNote.create({ data });
   }
 
   async reorderDealPipeline(updates: DealPipelineCardUpdateDto[]): Promise<boolean> {

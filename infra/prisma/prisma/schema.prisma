@@ -99,11 +99,26 @@ model User {
   dealStageOrder Int       @default(0)
 
   plans Plan[]
+  notes UserNote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([dealStage, dealStageOrder])
+}
+
+model UserNote {
+  id        String @id @default(uuid(7))
+  userId    String
+  content   String @db.Text
+  createdBy String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
 }
 
 model Region {

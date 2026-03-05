@@ -9,6 +9,15 @@ type User {
   plans: [Plan!]!
 }
 
+type UserNote {
+  id: ID!
+  userId: String!
+  content: String!
+  createdBy: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
 type Plan {
   id: ID!
   userId: String!
@@ -282,4 +291,10 @@ input DealPipelineCardUpdateInput {
 
 input DealPipelineReorderInput {
   updates: [DealPipelineCardUpdateInput!]!
+}
+
+input UserNoteCreateInput {
+  userId: ID!
+  content: String!
+  createdBy: String!
 }

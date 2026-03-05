@@ -36,7 +36,14 @@ export const dealPipelineReorderSchema = z
     }
   });
 
+export const userNoteCreateSchema = z.object({
+  userId: z.string().min(1),
+  content: z.string().min(1).max(5000),
+  createdBy: z.string().min(1).max(100),
+});
+
 export type UserCreateInput = z.infer<typeof userCreateSchema>;
 export type UserUpdateInput = z.infer<typeof userUpdateSchema>;
 export type DealPipelineCardUpdateInput = z.infer<typeof dealPipelineCardUpdateSchema>;
 export type DealPipelineReorderInput = z.infer<typeof dealPipelineReorderSchema>;
+export type UserNoteCreateInput = z.infer<typeof userNoteCreateSchema>;
