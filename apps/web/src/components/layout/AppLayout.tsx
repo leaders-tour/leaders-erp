@@ -1,5 +1,5 @@
 import { PageShell } from '@tour/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
 interface NavChild {
@@ -72,6 +72,17 @@ export function AppLayout(): JSX.Element {
     return matchedChildren[0]?.path ?? null;
   };
 
+  const activeExpandablePath =
+    navItems.find((item) => item.children && item.children.some((child) => matchesPath(child.path)))?.path ?? null;
+
+  const [openNavPath, setOpenNavPath] = useState<string | null>(activeExpandablePath);
+
+  useEffect(() => {
+    if (activeExpandablePath) {
+      setOpenNavPath(activeExpandablePath);
+    }
+  }, [activeExpandablePath]);
+
   return (
     <div className="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
       <aside className="hidden border-r border-slate-200 bg-white/95 backdrop-blur lg:flex lg:flex-col">
@@ -99,18 +110,33 @@ export function AppLayout(): JSX.Element {
 
                 return (
                   <li key={item.path} className="space-y-1">
-                    <Link
-                      to={item.path}
-                      className={`block rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                        itemActive
-                          ? 'bg-slate-900 text-white'
-                          : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-
                     {item.children && item.children.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setOpenNavPath((currentPath) => (currentPath === item.path ? null : item.path))}
+                        className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                          itemActive
+                            ? 'bg-slate-900 text-white'
+                            : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                        }`}
+                      >
+                        <span>{item.label}</span>
+                        <span className="text-xs">{openNavPath === item.path ? '▾' : '▸'}</span>
+                      </button>
+                    ) : (
+                      <Link
+                        to={item.path}
+                        className={`block rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                          itemActive
+                            ? 'bg-slate-900 text-white'
+                            : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    )}
+
+                    {item.children && item.children.length > 0 && openNavPath === item.path ? (
                       <ul className="space-y-1 pl-3">
                         {item.children.map((child) => {
                           const childActive = activeChildPath === child.path;
