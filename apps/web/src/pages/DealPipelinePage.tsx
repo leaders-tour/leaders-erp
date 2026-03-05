@@ -295,7 +295,7 @@ function UserDetailDrawer({
 
   const userId = user?.id;
   const { notes, loading: notesLoading } = useUserNotes(userId);
-  const { todos, loading: todosLoading, refetch: refetchTodos } = useUserDealTodos(userId, false);
+  const { todos, loading: todosLoading, refetch: refetchTodos } = useUserDealTodos(userId, true);
   const { createUserNote, loading: noteCreating } = useCreateUserNote();
   const { updateUserDealTodoStatus, loading: todoUpdating } = useUpdateUserDealTodoStatus();
 
@@ -358,10 +358,7 @@ function UserDetailDrawer({
     }
   };
 
-  const todoGroups = STAGES.map((stage) => ({
-    stage,
-    items: todos.filter((todo) => todo.stage === stage.key),
-  })).filter((group) => group.items.length > 0);
+  const currentStageTodos = todos.filter((todo) => todo.stage === user.dealStage);
 
   return (
     <div className={dealPipelineTokens.drawer.overlay}>
@@ -506,30 +503,58 @@ function UserDetailDrawer({
 
           {activeTab === 'todo' ? (
             <section className="grid gap-3">
-              <p className={dealPipelineTokens.drawer.sectionLabel}>TODO</p>
+              <p className={dealPipelineTokens.drawer.sectionLabel}>TODO · {stageLabel(user.dealStage)}</p>
 
               {todoError ? <p className={dealPipelineTokens.drawer.todoError}>{todoError}</p> : null}
               {todosLoading ? <p className={dealPipelineTokens.drawer.todoLoading}>TODO를 불러오는 중...</p> : null}
 
-              {todoGroups.length === 0 && !todosLoading ? (
-                <Card className={dealPipelineTokens.drawer.todoEmptyCard}>미완료 TODO 없음</Card>
+              {currentStageTodos.length === 0 && !todosLoading ? (
+                <Card className={dealPipelineTokens.drawer.todoEmptyCard}>현재 단계 TODO 없음</Card>
               ) : null}
 
-              {todoGroups.map((group) => (
-                <section key={group.stage.key} className={dealPipelineTokens.drawer.todoGroupWrap}>
-                  <header className={dealPipelineTokens.drawer.todoGroupHeader}>
-                    <h4 className={dealPipelineTokens.drawer.todoGroupTitle}>{group.stage.label}</h4>
-                    <span className={dealPipelineTokens.drawer.todoGroupCount}>{group.items.length}</span>
-                  </header>
+              <div className={dealPipelineTokens.drawer.todoTimelineList}>
+                {currentStageTodos.map((todo, index) => (
+                  <div key={todo.id} className={dealPipelineTokens.drawer.todoTimelineItem}>
+                    <div className={dealPipelineTokens.drawer.todoTimelineRail}>
+                      <span
+                        className={`${dealPipelineTokens.drawer.todoTimelineBulletBase} ${
+                          todo.status === 'DONE'
+                            ? dealPipelineTokens.drawer.todoTimelineBulletDone
+                            : dealPipelineTokens.drawer.todoTimelineBulletActive
+                        }`}
+                      >
+                        {index + 1}
+                      </span>
+                      {index < currentStageTodos.length - 1 ? (
+                        <span className={dealPipelineTokens.drawer.todoTimelineConnector} />
+                      ) : null}
+                    </div>
 
-                  {group.items.map((todo) => (
-                    <Card key={todo.id} className={dealPipelineTokens.drawer.simpleCard}>
-                      <div className={dealPipelineTokens.drawer.todoItemMetaRow}>
+                    <Card
+                      className={todo.status === 'DONE' ? dealPipelineTokens.drawer.todoDoneCard : dealPipelineTokens.drawer.simpleCard}
+                    >
+                      <div
+                        className={
+                          todo.status === 'DONE' ? dealPipelineTokens.drawer.todoDoneMetaRow : dealPipelineTokens.drawer.todoItemMetaRow
+                        }
+                      >
                         <span>{formatDateTime(todo.createdAt)}</span>
                         <span>{todoStatusLabel(todo.status)}</span>
                       </div>
-                      <p className={dealPipelineTokens.drawer.todoItemTitle}>{todo.title}</p>
-                      {todo.description ? <p className={dealPipelineTokens.drawer.todoItemDescription}>{todo.description}</p> : null}
+                      <p className={todo.status === 'DONE' ? dealPipelineTokens.drawer.todoDoneTitle : dealPipelineTokens.drawer.todoItemTitle}>
+                        {todo.title}
+                      </p>
+                      {todo.description ? (
+                        <p
+                          className={
+                            todo.status === 'DONE'
+                              ? dealPipelineTokens.drawer.todoDoneDescription
+                              : dealPipelineTokens.drawer.todoItemDescription
+                          }
+                        >
+                          {todo.description}
+                        </p>
+                      ) : null}
 
                       <div className={dealPipelineTokens.drawer.todoStatusButtons}>
                         {(['TODO', 'DOING', 'DONE'] as DealTodoStatusValue[]).map((status) => (
@@ -540,7 +565,9 @@ function UserDetailDrawer({
                             onClick={() => handleTodoStatusChange(todo, status)}
                             className={`${dealPipelineTokens.drawer.todoStatusButtonBase} ${
                               todo.status === status
-                                ? dealPipelineTokens.drawer.todoStatusButtonActive
+                                ? todo.status === 'DONE'
+                                  ? dealPipelineTokens.drawer.todoStatusButtonDoneActive
+                                  : dealPipelineTokens.drawer.todoStatusButtonActive
                                 : dealPipelineTokens.drawer.todoStatusButtonInactive
                             }`}
                           >
@@ -549,9 +576,9 @@ function UserDetailDrawer({
                         ))}
                       </div>
                     </Card>
-                  ))}
-                </section>
-              ))}
+                  </div>
+                ))}
+              </div>
             </section>
           ) : null}
 
