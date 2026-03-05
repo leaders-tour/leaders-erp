@@ -222,7 +222,12 @@ function PipelineCard({
       {...attributes}
       {...listeners}
       className={disabled ? undefined : dealPipelineTokens.card.wrapperCursor}
-      onClick={() => onClick(user.id)}
+      onClick={() => {
+        if (disabled) {
+          return;
+        }
+        onClick(user.id);
+      }}
     >
       <Card className={`${dealPipelineTokens.card.base} ${isDragging ? dealPipelineTokens.card.dragging : ''}`}>
         <div className="grid gap-1">
@@ -301,6 +306,13 @@ function UserDetailDrawer({
     setNoteError(null);
     setTodoError(null);
   }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+    void refetchTodos();
+  }, [refetchTodos, user?.dealStage, userId]);
 
   if (!user) {
     return null;

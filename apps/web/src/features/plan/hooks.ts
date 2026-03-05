@@ -625,6 +625,9 @@ export function useUserDealTodos(userId: string | undefined, includeDone = false
   const { data, loading, refetch } = useQuery<{ userDealTodos: UserDealTodoRow[] }>(USER_DEAL_TODOS_QUERY, {
     variables: { userId, includeDone },
     skip: !userId,
+    fetchPolicy: 'network-only',
+    nextFetchPolicy: 'network-only',
+    notifyOnNetworkStatusChange: true,
   });
 
   return { todos: data?.userDealTodos ?? [], loading, refetch };
