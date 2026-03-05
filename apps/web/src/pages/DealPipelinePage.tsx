@@ -253,6 +253,8 @@ function UserDetailDrawer({
   user: UserRow | null;
   onClose: () => void;
 }): JSX.Element | null {
+  const [activeTab, setActiveTab] = useState<'note' | 'todo' | 'estimate'>('note');
+
   if (!user) {
     return null;
   }
@@ -260,46 +262,106 @@ function UserDetailDrawer({
   return (
     <div className="fixed inset-0 z-50">
       <button type="button" aria-label="닫기" className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <aside className="absolute right-0 top-0 h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-white p-5 shadow-2xl">
-        <header className="mb-5 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-medium text-slate-500">고객 상세</p>
-            <h2 className="mt-1 text-xl font-semibold text-slate-900">{user.name}</h2>
+      <aside className="absolute right-0 top-0 h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-slate-50 shadow-2xl">
+        <header className="border-b border-slate-200 bg-white px-6 py-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-slate-500">고객정보</p>
+              <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">{user.name}</h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
+            >
+              닫기
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
-          >
-            닫기
-          </button>
+
+          <div className="mt-4 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+              <span className="text-slate-500">이메일</span>
+              <span>{user.email ?? '이메일 없음'}</span>
+            </div>
+            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+              <span className="text-slate-500">현재 단계</span>
+              <span className="font-medium text-slate-900">{stageLabel(user.dealStage)}</span>
+            </div>
+            <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2">
+              <span className="text-slate-500">순서</span>
+              <span>{user.dealStageOrder + 1}번째</span>
+            </div>
+          </div>
         </header>
 
-        <div className="grid gap-3">
-          <Card className="rounded-xl border border-slate-200 p-4 shadow-none">
-            <p className="text-xs text-slate-500">이메일</p>
-            <p className="mt-1 text-sm text-slate-900">{user.email ?? '이메일 없음'}</p>
-          </Card>
+        <div className="border-b border-slate-200 bg-white px-6">
+          <div className="flex items-center gap-6">
+            {[
+              { key: 'note', label: '노트' },
+              { key: 'todo', label: 'TODO' },
+              { key: 'estimate', label: '견적서' },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key as 'note' | 'todo' | 'estimate')}
+                className={`border-b-2 py-3 text-sm font-medium transition-colors ${
+                  activeTab === tab.key
+                    ? 'border-slate-900 text-slate-900'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-          <Card className="rounded-xl border border-slate-200 p-4 shadow-none">
-            <p className="text-xs text-slate-500">현재 단계</p>
-            <p className="mt-1 text-sm font-medium text-slate-900">{stageLabel(user.dealStage)}</p>
-          </Card>
+        <div className="px-6 py-6">
+          {activeTab === 'note' ? (
+            <section className="grid gap-3">
+              <p className="text-xs font-semibold tracking-wide text-slate-500">노트</p>
+              <textarea
+                rows={8}
+                defaultValue={`${user.name} 고객 관련 메모를 입력하세요.`}
+                className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900"
+              />
+              <div className="grid gap-1 text-xs text-slate-500">
+                <span>생성일: {formatDateTime(user.createdAt)}</span>
+                <span>수정일: {formatDateTime(user.updatedAt)}</span>
+              </div>
+            </section>
+          ) : null}
 
-          <Card className="rounded-xl border border-slate-200 p-4 shadow-none">
-            <p className="text-xs text-slate-500">단계 내 정렬순서</p>
-            <p className="mt-1 text-sm text-slate-900">{user.dealStageOrder + 1}번째</p>
-          </Card>
+          {activeTab === 'todo' ? (
+            <section className="grid gap-3">
+              <p className="text-xs font-semibold tracking-wide text-slate-500">TODO</p>
+              <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-none">
+                <p className="text-sm font-medium text-slate-900">[팔로업] 일정 상담 리마인드</p>
+                <p className="mt-1 text-xs text-slate-500">상태: 진행중</p>
+              </Card>
+              <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-none">
+                <p className="text-sm font-medium text-slate-900">[준비] 계약서 전달</p>
+                <p className="mt-1 text-xs text-slate-500">상태: 대기</p>
+              </Card>
+            </section>
+          ) : null}
 
-          <Card className="rounded-xl border border-slate-200 p-4 shadow-none">
-            <p className="text-xs text-slate-500">생성일</p>
-            <p className="mt-1 text-sm text-slate-900">{formatDateTime(user.createdAt)}</p>
-          </Card>
-
-          <Card className="rounded-xl border border-slate-200 p-4 shadow-none">
-            <p className="text-xs text-slate-500">수정일</p>
-            <p className="mt-1 text-sm text-slate-900">{formatDateTime(user.updatedAt)}</p>
-          </Card>
+          {activeTab === 'estimate' ? (
+            <section className="grid gap-3">
+              <p className="text-xs font-semibold tracking-wide text-slate-500">견적서</p>
+              <Card className="rounded-2xl border border-slate-200 bg-white p-4 shadow-none">
+                <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 text-sm">
+                  <span className="text-slate-500">고객명</span>
+                  <span className="text-slate-900">{user.name}</span>
+                  <span className="text-slate-500">현재 금액</span>
+                  <span className="font-medium text-slate-900">0 원</span>
+                  <span className="text-slate-500">상태</span>
+                  <span className="text-slate-900">초안</span>
+                </div>
+              </Card>
+            </section>
+          ) : null}
         </div>
       </aside>
     </div>
