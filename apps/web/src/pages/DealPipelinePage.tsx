@@ -37,8 +37,8 @@ const STAGES: Array<{ key: DealStageValue; label: string }> = [
   { key: 'MONGOL_ASSIGNING', label: '몽골배정단계' },
   { key: 'MONGOL_ASSIGNED', label: '몽골배정완료' },
   { key: 'ON_HOLD', label: '대기중' },
-  { key: 'BEFORE_DEPARTURE_10D', label: '출발10일전' },
-  { key: 'BEFORE_DEPARTURE_3D', label: '출발3일전' },
+  { key: 'BEFORE_DEPARTURE_10D', label: '출발 10일이내' },
+  { key: 'BEFORE_DEPARTURE_3D', label: '출발 3일이내' },
   { key: 'TRIP_COMPLETED', label: '여행 완료시' },
 ];
 
