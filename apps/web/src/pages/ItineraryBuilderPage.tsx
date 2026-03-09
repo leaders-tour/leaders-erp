@@ -192,6 +192,30 @@ interface PlanTemplateRow {
   planStops: PlanTemplateStopRow[];
 }
 
+function arePlanRowsEqual(left: PlanRow[], right: PlanRow[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((row, index) => {
+    const other = right[index];
+    if (!other) {
+      return false;
+    }
+
+    return (
+      row.locationId === other.locationId &&
+      row.locationVersionId === other.locationVersionId &&
+      row.dateCellText === other.dateCellText &&
+      row.destinationCellText === other.destinationCellText &&
+      row.timeCellText === other.timeCellText &&
+      row.scheduleCellText === other.scheduleCellText &&
+      row.lodgingCellText === other.lodgingCellText &&
+      row.mealCellText === other.mealCellText
+    );
+  });
+}
+
 const REGIONS_QUERY = gql`
   query ItineraryRegions {
     regions {
@@ -882,7 +906,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       setSkipNextAutoRowsSync(false);
       return;
     }
-    setPlanRows(autoRows);
+    setPlanRows((current) => (arePlanRowsEqual(current, autoRows) ? current : autoRows));
   }, [autoRows, skipNextAutoRowsSync]);
 
   useEffect(() => {
