@@ -105,6 +105,8 @@ const baseNavItems: NavItem[] = [
   { path: '/events', label: '이벤트', icon: EventIcon },
 ];
 
+const sidebarCollapsedStorageKey = 'tour-erp:sidebar-collapsed';
+
 function roleLabel(role: EmployeeRole): string {
   return role === EmployeeRole.ADMIN ? '관리자' : '일반';
 }
@@ -114,11 +116,25 @@ export function AppLayout(): JSX.Element {
   const navigate = useNavigate();
   const { employee, logout } = useAuth();
   const [hideLogo, setHideLogo] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') {
+      return true;
+    }
+
+    const savedValue = window.localStorage.getItem(sidebarCollapsedStorageKey);
+
+    if (savedValue === null) {
+      return true;
+    }
+
+    return savedValue === 'true';
+  });
   const navItems = employee?.role === EmployeeRole.ADMIN ? [...baseNavItems, { path: '/admin/employees', label: '직원 관리', icon: AdminIcon }] : baseNavItems;
 
   const matchesPath = (path: string): boolean =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);
   const isFullBleedPage = matchesPath('/itinerary-builder');
+  const isCompactSidebar = isSidebarCollapsed;
 
   const isNavItemActive = (path: string, children?: NavChild[]): boolean => {
     if (matchesPath(path)) {
@@ -151,59 +167,91 @@ export function AppLayout(): JSX.Element {
     }
   }, [activeExpandablePath]);
 
+  useEffect(() => {
+    window.localStorage.setItem(sidebarCollapsedStorageKey, String(isSidebarCollapsed));
+  }, [isSidebarCollapsed]);
+
   return (
-    <div className="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
+    <div className={`min-h-screen bg-slate-50 lg:grid ${isCompactSidebar ? 'lg:grid-cols-[88px_minmax(0,1fr)]' : 'lg:grid-cols-[240px_minmax(0,1fr)]'}`}>
       <aside className="hidden border-r border-slate-200 bg-white/95 backdrop-blur lg:flex lg:flex-col">
         <div className="sticky top-0 flex h-screen flex-col">
-          <div className="border-b border-slate-200 px-5 py-6">
-            <Link to="/itinerary-builder" className="flex h-12 items-center">
-              {!hideLogo ? (
-                <img
-                  src="/text-logo.png"
-                  alt="로고"
-                  className="h-12 w-auto object-contain"
-                  onError={() => setHideLogo(true)}
-                />
-              ) : (
-                <span className="text-base font-semibold text-slate-700">Tour ERP</span>
-              )}
-            </Link>
-          </div>
-
-          <div className="border-b border-slate-200 px-5 py-4">
-            <div className="rounded-2xl bg-slate-900 px-4 py-3 text-white">
-              <p className="text-xs uppercase tracking-[0.22em] text-slate-300">Signed In</p>
-              <p className="mt-2 text-sm font-semibold">{employee?.name ?? '직원'}</p>
-              <p className="mt-1 text-xs text-slate-300">{employee?.email ?? '-'}</p>
-              <div className="mt-3 flex items-center justify-between gap-2">
-                <span className="rounded-full border border-white/20 px-2 py-0.5 text-[11px] text-slate-200">
-                  {employee ? roleLabel(employee.role) : '-'}
-                </span>
-                <Button
-                  variant="outline"
-                  className="h-8 border-white/20 bg-white/10 px-3 text-xs text-white hover:bg-white/20"
-                  onClick={async () => {
-                    await logout();
-                    navigate('/login', { replace: true });
-                  }}
+          <div className={`border-b border-slate-200 ${isCompactSidebar ? 'px-3 py-5' : 'px-5 py-6'}`}>
+            <div className={`grid h-[152px] ${isCompactSidebar ? 'grid-rows-[40px_1fr]' : 'grid-rows-[48px_1fr]'} gap-4`}>
+              <div className={`flex items-center ${isCompactSidebar ? 'justify-center' : 'justify-between gap-3'}`}>
+                <div className={`flex h-12 items-center overflow-hidden ${isCompactSidebar ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
+                  <Link to="/itinerary-builder" className="flex h-12 items-center" title="일정 빌더" aria-hidden={isCompactSidebar}>
+                    {!hideLogo ? (
+                      <img
+                        src="/text-logo.png"
+                        alt="로고"
+                        className="h-12 w-auto object-contain"
+                        onError={() => setHideLogo(true)}
+                      />
+                    ) : (
+                      <span className="text-base font-semibold text-slate-700">Tour ERP</span>
+                    )}
+                  </Link>
+                </div>
+                <button
+                  type="button"
+                  title={isCompactSidebar ? '사이드바 펼치기' : '사이드바 접기'}
+                  aria-label={isCompactSidebar ? '사이드바 펼치기' : '사이드바 접기'}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                  onClick={() => setIsSidebarCollapsed((current) => !current)}
                 >
-                  로그아웃
-                </Button>
+                  <span className="text-sm font-semibold tracking-tight">{isCompactSidebar ? '>>' : '<<'}</span>
+                </button>
+              </div>
+
+              <div className={`min-h-0 ${isCompactSidebar ? 'flex flex-col items-center justify-center gap-3' : ''}`}>
+                {isCompactSidebar ? (
+                  <>
+                    <div
+                      className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white"
+                      title={`${employee?.name ?? '직원'} · ${employee?.email ?? '-'}`}
+                    >
+                      {(employee?.name ?? '직원').slice(0, 1)}
+                    </div>
+                    <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[11px] text-slate-500">
+                      {employee ? roleLabel(employee.role) : '-'}
+                    </span>
+                  </>
+                ) : (
+                  <div className="rounded-2xl bg-slate-900 px-4 py-3 text-white">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-300">Signed In</p>
+                    <p className="mt-2 text-sm font-semibold">{employee?.name ?? '직원'}</p>
+                    <p className="mt-1 text-xs text-slate-300">{employee?.email ?? '-'}</p>
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className="rounded-full border border-white/20 px-2 py-0.5 text-[11px] text-slate-200">
+                        {employee ? roleLabel(employee.role) : '-'}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          <nav className="flex-1 overflow-y-auto px-4 py-5">
+          <nav className={`flex-1 overflow-y-auto ${isCompactSidebar ? 'px-2 py-4' : 'px-4 py-5'}`}>
             <ul className="space-y-2">
               {navItems.map((item) => {
                 const itemActive = isNavItemActive(item.path, item.children);
                 const activeChildPath = item.children ? getActiveChildPath(item.children) : null;
                 const showDividerAbove = item.path === '/customers';
                 const ItemIcon = item.icon;
+                const compactItemClassName = `flex items-center justify-center rounded-2xl px-3 py-3 transition-colors ${
+                  itemActive
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                }`;
 
                 return (
                   <li key={item.path} className={`space-y-1 ${showDividerAbove ? 'mt-3 border-t border-slate-200 pt-3' : ''}`}>
-                    {item.children && item.children.length > 0 ? (
+                    {isCompactSidebar ? (
+                      <Link to={item.path} title={item.label} aria-label={item.label} className={compactItemClassName}>
+                        <ItemIcon className="h-5 w-5 flex-none" />
+                      </Link>
+                    ) : item.children && item.children.length > 0 ? (
                       <button
                         type="button"
                         onClick={() => setOpenNavPath((currentPath) => (currentPath === item.path ? null : item.path))}
@@ -233,7 +281,7 @@ export function AppLayout(): JSX.Element {
                       </Link>
                     )}
 
-                    {item.children && item.children.length > 0 && openNavPath === item.path ? (
+                    {!isCompactSidebar && item.children && item.children.length > 0 && openNavPath === item.path ? (
                       <ul className="space-y-1 pl-3">
                         {item.children.map((child) => {
                           const childActive = activeChildPath === child.path;
