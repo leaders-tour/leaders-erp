@@ -108,3 +108,35 @@ export interface EstimateDocumentData {
   planStops: EstimatePlanStopRow[];
   page3Blocks: EstimateGuideBlock[];
 }
+
+export type EstimatePage1EditableField =
+  | 'travelPeriod'
+  | 'vehicleType'
+  | 'flightInTime'
+  | 'flightOutTime'
+  | 'pickupText'
+  | 'externalPickupDropText'
+  | 'rentalItemsText'
+  | 'remarkText';
+
+export interface EstimatePage1Editor {
+  travelStartDate: string;
+  travelEndDate: string;
+  vehicleType: string;
+  vehicleOptions: readonly string[];
+  flightInTime: string;
+  flightOutTime: string;
+  pickupText: string;
+  externalPickupDropText: string;
+  rentalItemsText: string;
+  remarkText: string;
+  onTravelStartDateChange: (value: string) => void;
+  onTravelEndDateChange: (value: string) => void;
+  onVehicleTypeChange: (value: string) => void;
+  onFlightInTimeChange: (value: string) => void;
+  onFlightOutTimeChange: (value: string) => void;
+  onPickupTextChange: (value: string) => void;
+  onExternalPickupDropTextChange: (value: string) => void;
+  onRentalItemsTextChange: (value: string) => void;
+  onRemarkTextChange: (value: string) => void;
+}

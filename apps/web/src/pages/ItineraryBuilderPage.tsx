@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
-import type { EstimateBuilderDraftSnapshot } from '../features/estimate/model/types';
+import type { EstimateBuilderDraftSnapshot, EstimatePage1Editor } from '../features/estimate/model/types';
 import { useAuth } from '../features/auth/context';
 import { toFacilityLabel, toMealLabel } from '../features/location/display';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
@@ -1144,6 +1144,34 @@ export function ItineraryBuilderPage(): JSX.Element {
     ],
   );
   const { data: previewEstimateData, guidesLoading: previewGuidesLoading } = useBuilderEstimatePreview(estimateDraftSnapshot);
+  const previewPage1Editor: EstimatePage1Editor = {
+    travelStartDate,
+    travelEndDate,
+    vehicleType,
+    vehicleOptions: VEHICLES,
+    flightInTime,
+    flightOutTime,
+    pickupText: pickupDropNote,
+    externalPickupDropText: externalPickupDropNote,
+    rentalItemsText,
+    remarkText: remark,
+    onTravelStartDateChange: setTravelStartDate,
+    onTravelEndDateChange: setTravelEndDate,
+    onVehicleTypeChange: (value) => {
+      if (VEHICLES.includes(value as (typeof VEHICLES)[number])) {
+        setVehicleType(value as (typeof VEHICLES)[number]);
+      }
+    },
+    onFlightInTimeChange: setFlightInTime,
+    onFlightOutTimeChange: setFlightOutTime,
+    onPickupTextChange: setPickupDropNote,
+    onExternalPickupDropTextChange: setExternalPickupDropNote,
+    onRentalItemsTextChange: (value) => {
+      setIncludeRentalItems(true);
+      setRentalItemsText(value);
+    },
+    onRemarkTextChange: setRemark,
+  };
 
   const openEstimatePdf = (): void => {
     const draftKey = `estimate-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -2702,11 +2730,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                   </div>
                 </div>
 
-                {previewEstimateData ? (
-                  <div className="estimate-preview-frame">
-                    <EstimateDocument data={previewEstimateData} viewMode="screen-preview" />
-                  </div>
-                ) : (
+              {previewEstimateData ? (
+                <div className="estimate-preview-frame">
+                    <EstimateDocument data={previewEstimateData} viewMode="screen-preview" page1Editor={previewPage1Editor} />
+                </div>
+              ) : (
                   <Card className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
                     미리보기 데이터를 준비 중입니다...
                   </Card>
