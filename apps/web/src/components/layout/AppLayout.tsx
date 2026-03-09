@@ -118,6 +118,7 @@ export function AppLayout(): JSX.Element {
 
   const matchesPath = (path: string): boolean =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);
+  const isFullBleedPage = matchesPath('/itinerary-builder');
 
   const isNavItemActive = (path: string, children?: NavChild[]): boolean => {
     if (matchesPath(path)) {
@@ -306,7 +307,7 @@ export function AppLayout(): JSX.Element {
         </div>
 
         <main>
-          <PageShell>
+          <PageShell className={isFullBleedPage ? 'max-w-none px-0 py-0' : undefined}>
             <Outlet />
           </PageShell>
         </main>

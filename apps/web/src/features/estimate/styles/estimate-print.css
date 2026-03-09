@@ -21,6 +21,44 @@
   --estimate-page5-padding: 0;
 }
 
+.estimate-preview-frame {
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top, rgba(148, 163, 184, 0.14), transparent 34%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  padding: 16px;
+}
+
+.estimate-document--preview {
+  justify-items: center;
+  gap: 24px;
+  --estimate-page1-padding: clamp(20px, 3.6vw, 38px);
+  --estimate-page2-padding: clamp(20px, 3.6vw, 38px);
+  --estimate-page3-padding: clamp(20px, 3.6vw, 38px);
+  --estimate-page4-padding: clamp(16px, 3vw, 30px) clamp(16px, 3vw, 30px) clamp(12px, 2.4vw, 24px);
+  --estimate-page5-padding: 0;
+}
+
+.estimate-document--preview .estimate-page-break {
+  break-before: auto;
+  page-break-before: auto;
+}
+
+.estimate-document--preview .estimate-sheet {
+  width: min(100%, 760px);
+  min-height: auto;
+  aspect-ratio: 210 / 297;
+}
+
+.estimate-document--preview .estimate-sheet-page1,
+.estimate-document--preview .estimate-sheet-page2,
+.estimate-document--preview .estimate-sheet-page3,
+.estimate-document--preview .estimate-sheet-page4,
+.estimate-document--preview .estimate-sheet-page5 {
+  box-sizing: border-box;
+  height: 100%;
+}
+
 .estimate-sheet {
   box-sizing: border-box;
   width: 210mm;
@@ -185,6 +223,11 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.estimate-document--preview .estimate-sheet-itinerary,
+.estimate-document--preview .estimate-sheet-guides {
+  height: 100%;
 }
 
 .estimate-itinerary-title {

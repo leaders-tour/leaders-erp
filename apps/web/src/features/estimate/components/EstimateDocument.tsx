@@ -1,3 +1,4 @@
+import '../styles/estimate-print.css';
 import type { EstimateDocumentData } from '../model/types';
 import { EstimatePage1 } from './EstimatePage1';
 import { EstimatePage2 } from './EstimatePage2';
@@ -7,11 +8,12 @@ import { EstimatePage5 } from './EstimatePage5';
 
 interface EstimateDocumentProps {
   data: EstimateDocumentData;
+  viewMode?: 'screen-preview' | 'print';
 }
 
-export function EstimateDocument({ data }: EstimateDocumentProps): JSX.Element {
+export function EstimateDocument({ data, viewMode = 'print' }: EstimateDocumentProps): JSX.Element {
   return (
-    <article className="estimate-document">
+    <article className={`estimate-document ${viewMode === 'screen-preview' ? 'estimate-document--preview' : ''}`}>
       <EstimatePage1 data={data} />
       <div className="estimate-page-break">
         <EstimatePage2 data={data} />
