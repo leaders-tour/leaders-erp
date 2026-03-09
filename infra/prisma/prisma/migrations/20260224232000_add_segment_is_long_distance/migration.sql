@@ -1,0 +1,2 @@
+ALTER TABLE `Segment`
+  ADD COLUMN `isLongDistance` BOOLEAN NOT NULL DEFAULT false;
