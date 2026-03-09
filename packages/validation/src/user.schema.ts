@@ -6,12 +6,14 @@ export const dealTodoStatusSchema = z.nativeEnum(DealTodoStatus);
 
 export const userCreateSchema = z.object({
   name: z.string().min(1).max(100),
-  email: z.string().email().optional(),
+  email: z.string().email().nullable().optional(),
+  ownerEmployeeId: z.string().min(1).nullable().optional(),
 });
 
 export const userUpdateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  email: z.string().email().optional(),
+  email: z.string().email().nullable().optional(),
+  ownerEmployeeId: z.string().min(1).nullable().optional(),
   dealStage: dealStageSchema.optional(),
   dealStageOrder: z.number().int().min(0).optional(),
 });

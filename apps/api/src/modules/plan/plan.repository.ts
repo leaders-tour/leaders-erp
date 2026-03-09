@@ -17,12 +17,25 @@ export class PlanRepository {
 
   findUsers() {
     return this.prisma.user.findMany({
+      include: {
+        ownerEmployee: true,
+        dealTodos: {
+          orderBy: [{ stage: 'asc' }, { createdAt: 'desc' }, { id: 'asc' }],
+        },
+      },
       orderBy: [{ dealStage: 'asc' }, { dealStageOrder: 'asc' }, { createdAt: 'desc' }],
     });
   }
 
   findUserById(id: string) {
-    return this.prisma.user.findUnique({ where: { id }, include: { plans: { include: planInclude, orderBy: { createdAt: 'desc' } } } });
+    return this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        ownerEmployee: true,
+        plans: { include: planInclude, orderBy: { createdAt: 'desc' } },
+        dealTodos: { orderBy: [{ stage: 'asc' }, { createdAt: 'desc' }, { id: 'asc' }] },
+      },
+    });
   }
 
   findUserNotes(userId: string) {
@@ -136,14 +149,14 @@ export class PlanRepository {
   findVersionById(id: string) {
     return this.prisma.planVersion.findUnique({
       where: { id },
-      include: { ...planVersionInclude, plan: { include: { user: true, region: true } } },
+      include: { ...planVersionInclude, plan: { include: { user: { include: { ownerEmployee: true } }, region: true } } },
     });
   }
 
   findVersionsByPlan(planId: string) {
     return this.prisma.planVersion.findMany({
       where: { planId },
-      include: { ...planVersionInclude, plan: { include: { user: true, region: true } } },
+      include: { ...planVersionInclude, plan: { include: { user: { include: { ownerEmployee: true } }, region: true } } },
       orderBy: { versionNumber: 'desc' },
     });
   }
@@ -286,7 +299,7 @@ export class PlanRepository {
           })),
         },
       },
-      include: { ...planVersionInclude, plan: { include: { user: true, region: true } } },
+      include: { ...planVersionInclude, plan: { include: { user: { include: { ownerEmployee: true } }, region: true } } },
     });
 
     await this.prisma.plan.update({

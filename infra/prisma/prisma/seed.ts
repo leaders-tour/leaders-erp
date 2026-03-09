@@ -1,8 +1,72 @@
-import { FacilityAvailability, MealOption, PrismaClient, VariantType } from '@prisma/client';
+import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { promisify } from 'node:util';
+import { EmployeeRole, FacilityAvailability, MealOption, PrismaClient, VariantType } from '@prisma/client';
+
+const envFilePath = path.resolve(process.cwd(), '.env');
+if (existsSync(envFilePath)) {
+  const envContent = readFileSync(envFilePath, 'utf8');
+  for (const rawLine of envContent.split('\n')) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+
+    const separatorIndex = line.indexOf('=');
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const key = line.slice(0, separatorIndex).trim();
+    const value = line.slice(separatorIndex + 1).trim().replace(/^['"]|['"]$/g, '');
+    if (!(key in process.env)) {
+      process.env[key] = value;
+    }
+  }
+}
 
 const prisma = new PrismaClient();
+const scrypt = promisify(scryptCallback);
+
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString('hex');
+  const derivedKey = (await scrypt(password, salt, 64)) as Buffer;
+  return `scrypt$${salt}$${derivedKey.toString('hex')}`;
+}
+
+async function ensureBootstrapAdmin(): Promise<void> {
+  const email = process.env.AUTH_BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.AUTH_BOOTSTRAP_ADMIN_PASSWORD?.trim();
+  const name = process.env.AUTH_BOOTSTRAP_ADMIN_NAME?.trim() || 'ERP 관리자';
+
+  if (!email || !password) {
+    return;
+  }
+
+  const existing = await prisma.employee.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  if (existing) {
+    return;
+  }
+
+  await prisma.employee.create({
+    data: {
+      name,
+      email,
+      passwordHash: await hashPassword(password),
+      role: EmployeeRole.ADMIN,
+      isActive: true,
+    },
+  });
+}
 
 async function main(): Promise<void> {
+  await ensureBootstrapAdmin();
+
   const gobi = await prisma.region.upsert({
     where: { id: 'seed_region_gobi' },
     update: {},
@@ -350,9 +414,11 @@ async function main(): Promise<void> {
       flightOutTime: '17:30',
       pickupDropNote: '',
       externalPickupDropNote: '',
+      includeRentalItems: true,
       rentalItemsText:
         '판초 6개, 모기장 6개, 썰매 6개, 돗자리 2개, 별레이저 1개, 랜턴 1개, 멀티탭 2개, 드라이기 1개, 보드게임 1종, 버너/냄비/팬 set',
       eventCodes: ['A'],
+      extraLodgings: [],
       remark: '',
     },
     create: {
@@ -369,9 +435,11 @@ async function main(): Promise<void> {
       flightOutTime: '17:30',
       pickupDropNote: '',
       externalPickupDropNote: '',
+      includeRentalItems: true,
       rentalItemsText:
         '판초 6개, 모기장 6개, 썰매 6개, 돗자리 2개, 별레이저 1개, 랜턴 1개, 멀티탭 2개, 드라이기 1개, 보드게임 1종, 버너/냄비/팬 set',
       eventCodes: ['A'],
+      extraLodgings: [],
       remark: '',
     },
   });

@@ -2,11 +2,14 @@ type User {
   id: ID!
   name: String!
   email: String
+  ownerEmployeeId: String
+  ownerEmployee: Employee
   dealStage: DealStage!
   dealStageOrder: Int!
   createdAt: DateTime!
   updatedAt: DateTime!
   plans: [Plan!]!
+  userDealTodos: [UserDealTodo!]!
 }
 
 type UserNote {
@@ -293,11 +296,13 @@ input PlanStopNestedInput {
 input UserCreateInput {
   name: String!
   email: String
+  ownerEmployeeId: String
 }
 
 input UserUpdateInput {
   name: String
   email: String
+  ownerEmployeeId: String
   dealStage: DealStage
   dealStageOrder: Int
 }

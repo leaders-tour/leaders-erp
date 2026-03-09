@@ -1,5 +1,6 @@
 import { GraphQLScalarType, Kind } from 'graphql';
 import { activityResolver } from '../modules/activity/activity.resolver';
+import { authResolver } from '../modules/auth/auth.resolver';
 import { eventResolver } from '../modules/event/event.resolver';
 import { lodgingResolver } from '../modules/lodging/lodging.resolver';
 import { locationGuideResolver } from '../modules/location-guide/location-guide.resolver';
@@ -11,9 +12,31 @@ import { planTemplateResolver } from '../modules/plan-template/plan-template.res
 import { regionResolver } from '../modules/region/region.resolver';
 import { segmentResolver } from '../modules/segment/segment.resolver';
 import { timeBlockResolver } from '../modules/time-block/time-block.resolver';
+import { requireEmployee } from '../lib/auth-guards';
 
 function mergeSection(...items: Array<Record<string, unknown>>): Record<string, unknown> {
   return items.reduce<Record<string, unknown>>((acc, current) => ({ ...acc, ...current }), {});
+}
+
+function protectSection(
+  entries: Record<string, unknown>,
+  publicFields: string[] = [],
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(entries).map(([fieldName, resolver]) => {
+      if (publicFields.includes(fieldName) || typeof resolver !== 'function') {
+        return [fieldName, resolver];
+      }
+
+      return [
+        fieldName,
+        (parent: unknown, args: unknown, ctx: Parameters<typeof requireEmployee>[0], info: unknown) => {
+          requireEmployee(ctx);
+          return (resolver as (parent: unknown, args: unknown, ctx: unknown, info: unknown) => unknown)(parent, args, ctx, info);
+        },
+      ];
+    }),
+  );
 }
 
 const dateTimeScalar = new GraphQLScalarType({
@@ -51,37 +74,46 @@ const uploadScalar = new GraphQLScalarType({
 export const resolvers = {
   DateTime: dateTimeScalar,
   Upload: uploadScalar,
-  Query: mergeSection(
-    regionResolver.Query,
-    locationResolver.Query,
-    locationGuideResolver.Query,
-    lodgingResolver.Query,
-    mealSetResolver.Query,
-    segmentResolver.Query,
-    planResolver.Query,
-    planTemplateResolver.Query,
-    timeBlockResolver.Query,
-    activityResolver.Query,
-    eventResolver.Query,
-    overrideResolver.Query,
-    {
-      health: () => 'ok',
-    },
+  Query: protectSection(
+    mergeSection(
+      authResolver.Query,
+      regionResolver.Query,
+      locationResolver.Query,
+      locationGuideResolver.Query,
+      lodgingResolver.Query,
+      mealSetResolver.Query,
+      segmentResolver.Query,
+      planResolver.Query,
+      planTemplateResolver.Query,
+      timeBlockResolver.Query,
+      activityResolver.Query,
+      eventResolver.Query,
+      overrideResolver.Query,
+      {
+        health: () => 'ok',
+      },
+    ),
+    ['health'],
   ),
-  Mutation: mergeSection(
-    regionResolver.Mutation,
-    locationResolver.Mutation,
-    locationGuideResolver.Mutation,
-    lodgingResolver.Mutation,
-    mealSetResolver.Mutation,
-    segmentResolver.Mutation,
-    planResolver.Mutation,
-    planTemplateResolver.Mutation,
-    timeBlockResolver.Mutation,
-    activityResolver.Mutation,
-    eventResolver.Mutation,
-    overrideResolver.Mutation,
+  Mutation: protectSection(
+    mergeSection(
+      authResolver.Mutation,
+      regionResolver.Mutation,
+      locationResolver.Mutation,
+      locationGuideResolver.Mutation,
+      lodgingResolver.Mutation,
+      mealSetResolver.Mutation,
+      segmentResolver.Mutation,
+      planResolver.Mutation,
+      planTemplateResolver.Mutation,
+      timeBlockResolver.Mutation,
+      activityResolver.Mutation,
+      eventResolver.Mutation,
+      overrideResolver.Mutation,
+    ),
+    ['login', 'refreshAccessToken', 'logout'],
   ),
+  User: mergeSection(planResolver.User ?? {}),
   PlanVersionMeta: planResolver.PlanVersionMeta,
   PlanVersionPricing: planResolver.PlanVersionPricing,
   Location: locationResolver.Location,

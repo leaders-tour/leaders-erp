@@ -15,6 +15,7 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from '@dnd-kit/utilities';
 import { Card, dealPipelineTokens } from '@tour/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useAuth } from '../features/auth/context';
 import {
   useCreateUserNote,
   useReorderDealPipeline,
@@ -214,6 +215,8 @@ function PipelineCard({
     transform: CSS.Transform.toString(transform),
     transition,
   };
+  const stageTodos = (user.userDealTodos ?? []).filter((todo) => todo.stage === user.dealStage);
+  const previewTodos = stageTodos.slice(0, 3);
 
   return (
     <div
@@ -233,6 +236,43 @@ function PipelineCard({
         <div className="grid gap-1">
           <p className={dealPipelineTokens.card.title}>{user.name}</p>
           <p className={dealPipelineTokens.card.subtitle}>{user.email ?? '이메일 없음'}</p>
+        </div>
+
+        <div className={dealPipelineTokens.card.todoPreviewWrap}>
+          <div className={dealPipelineTokens.card.todoPreviewHeader}>
+            <span className={dealPipelineTokens.card.todoPreviewLabel}>TODO</span>
+            <span className={dealPipelineTokens.card.todoPreviewCount}>{stageTodos.length}</span>
+          </div>
+
+          {previewTodos.length === 0 ? (
+            <p className={dealPipelineTokens.card.todoPreviewEmpty}>현재 단계 TODO 없음</p>
+          ) : (
+            <div className={dealPipelineTokens.card.todoPreviewTimelineList}>
+              {previewTodos.map((todo, index) => (
+                <div key={todo.id} className={dealPipelineTokens.card.todoPreviewTimelineItem}>
+                  <div className={dealPipelineTokens.card.todoPreviewRail}>
+                    <span
+                      className={`${dealPipelineTokens.card.todoPreviewBulletBase} ${
+                        todo.status === 'DONE'
+                          ? dealPipelineTokens.card.todoPreviewBulletDone
+                          : dealPipelineTokens.card.todoPreviewBulletActive
+                      }`}
+                    >
+                      {index + 1}
+                    </span>
+                    {index < previewTodos.length - 1 ? <span className={dealPipelineTokens.card.todoPreviewConnector} /> : null}
+                  </div>
+                  <p className={todo.status === 'DONE' ? dealPipelineTokens.card.todoPreviewTextDone : dealPipelineTokens.card.todoPreviewText}>
+                    {todo.title}
+                  </p>
+                </div>
+              ))}
+
+              {stageTodos.length > previewTodos.length ? (
+                <p className={dealPipelineTokens.card.todoPreviewMore}>+{stageTodos.length - previewTodos.length}개 더</p>
+              ) : null}
+            </div>
+          )}
         </div>
       </Card>
     </div>
@@ -282,14 +322,16 @@ function PipelineColumn({
 function UserDetailDrawer({
   user,
   onClose,
+  onTodoChanged,
 }: {
   user: UserRow | null;
   onClose: () => void;
+  onTodoChanged?: () => void;
 }): JSX.Element | null {
+  const { employee } = useAuth();
   const [activeTab, setActiveTab] = useState<'note' | 'todo' | 'estimate'>('note');
   const [isNoteComposerOpen, setIsNoteComposerOpen] = useState(false);
   const [noteContent, setNoteContent] = useState('');
-  const [noteCreatedBy, setNoteCreatedBy] = useState('운영자');
   const [noteError, setNoteError] = useState<string | null>(null);
   const [todoError, setTodoError] = useState<string | null>(null);
 
@@ -302,17 +344,9 @@ function UserDetailDrawer({
   useEffect(() => {
     setIsNoteComposerOpen(false);
     setNoteContent('');
-    setNoteCreatedBy('운영자');
     setNoteError(null);
     setTodoError(null);
   }, [userId]);
-
-  useEffect(() => {
-    if (!userId) {
-      return;
-    }
-    void refetchTodos();
-  }, [refetchTodos, user?.dealStage, userId]);
 
   if (!user) {
     return null;
@@ -320,7 +354,7 @@ function UserDetailDrawer({
 
   const handleCreateNote = async () => {
     const content = noteContent.trim();
-    const createdBy = noteCreatedBy.trim();
+    const createdBy = employee?.name?.trim() ?? '';
 
     if (!content) {
       setNoteError('노트 내용을 입력해주세요.');
@@ -353,6 +387,7 @@ function UserDetailDrawer({
     try {
       await updateUserDealTodoStatus({ id: todo.id, status });
       await refetchTodos();
+      onTodoChanged?.();
     } catch (_error) {
       setTodoError('TODO 상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.');
     }
@@ -435,15 +470,12 @@ function UserDetailDrawer({
               {isNoteComposerOpen ? (
                 <Card className={dealPipelineTokens.drawer.noteComposerCard}>
                   <div className="grid gap-3">
-                    <label className="grid gap-1">
+                    <div className="grid gap-1">
                       <span className={dealPipelineTokens.drawer.fieldLabel}>작성자</span>
-                      <input
-                        type="text"
-                        value={noteCreatedBy}
-                        onChange={(event) => setNoteCreatedBy(event.target.value)}
-                        className={dealPipelineTokens.drawer.fieldInput}
-                      />
-                    </label>
+                      <div className={`${dealPipelineTokens.drawer.fieldInput} flex items-center bg-slate-50 text-slate-600`}>
+                        {employee?.name ?? '알 수 없음'}
+                      </div>
+                    </div>
 
                     <label className="grid gap-1">
                       <span className={dealPipelineTokens.drawer.fieldLabel}>내용</span>
@@ -604,7 +636,7 @@ function UserDetailDrawer({
 }
 
 export function DealPipelinePage(): JSX.Element {
-  const { users, loading } = useUsers();
+  const { users, loading, refetch: refetchUsers } = useUsers();
   const { reorderDealPipeline, loading: reorderLoading } = useReorderDealPipeline();
 
   const [search, setSearch] = useState('');
@@ -615,7 +647,8 @@ export function DealPipelinePage(): JSX.Element {
   const previousBoardRef = useRef<BoardState | null>(null);
 
   useEffect(() => {
-    setBoard(buildBoard(users));
+    const nextBoard = buildBoard(users);
+    setBoard((current) => (boardsEqual(current, nextBoard) ? current : nextBoard));
   }, [users]);
 
   const normalizedKeyword = search.trim().toLowerCase();
@@ -807,6 +840,7 @@ export function DealPipelinePage(): JSX.Element {
 
     try {
       await reorderDealPipeline(flattenBoardToUpdates(normalized));
+      void refetchUsers();
     } catch (_error) {
       if (before) {
         setBoard(before);
@@ -875,7 +909,13 @@ export function DealPipelinePage(): JSX.Element {
         </DragOverlay>
       </DndContext>
 
-      <UserDetailDrawer user={selectedUser} onClose={() => setSelectedUserId(null)} />
+      <UserDetailDrawer
+        user={selectedUser}
+        onClose={() => setSelectedUserId(null)}
+        onTodoChanged={() => {
+          void refetchUsers();
+        }}
+      />
     </section>
   );
 }

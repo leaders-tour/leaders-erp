@@ -1,6 +1,8 @@
-import { PageShell } from '@tour/ui';
+import { EmployeeRole } from '@tour/domain';
+import { Button, PageShell } from '@tour/ui';
 import { type ComponentType, useEffect, useState } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../features/auth/context';
 
 interface NavChild {
   path: string;
@@ -60,7 +62,14 @@ const EventIcon: NavIcon = ({ className }) => (
   </svg>
 );
 
-const navItems: NavItem[] = [
+const AdminIcon: NavIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l7 4v5c0 4.2-2.9 8-7 9-4.1-1-7-4.8-7-9V7l7-4Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 12.5 11 14l3.5-3.5" />
+  </svg>
+);
+
+const baseNavItems: NavItem[] = [
   { path: '/itinerary-builder', label: '일정 빌더', icon: ItineraryIcon },
   { path: '/deal-pipeline', label: '딜 파이프라인', icon: PipelineIcon },
   {
@@ -96,9 +105,16 @@ const navItems: NavItem[] = [
   { path: '/events', label: '이벤트', icon: EventIcon },
 ];
 
+function roleLabel(role: EmployeeRole): string {
+  return role === EmployeeRole.ADMIN ? '관리자' : '일반';
+}
+
 export function AppLayout(): JSX.Element {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { employee, logout } = useAuth();
   const [hideLogo, setHideLogo] = useState(false);
+  const navItems = employee?.role === EmployeeRole.ADMIN ? [...baseNavItems, { path: '/admin/employees', label: '직원 관리', icon: AdminIcon }] : baseNavItems;
 
   const matchesPath = (path: string): boolean =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);
@@ -151,6 +167,29 @@ export function AppLayout(): JSX.Element {
                 <span className="text-base font-semibold text-slate-700">Tour ERP</span>
               )}
             </Link>
+          </div>
+
+          <div className="border-b border-slate-200 px-5 py-4">
+            <div className="rounded-2xl bg-slate-900 px-4 py-3 text-white">
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-300">Signed In</p>
+              <p className="mt-2 text-sm font-semibold">{employee?.name ?? '직원'}</p>
+              <p className="mt-1 text-xs text-slate-300">{employee?.email ?? '-'}</p>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <span className="rounded-full border border-white/20 px-2 py-0.5 text-[11px] text-slate-200">
+                  {employee ? roleLabel(employee.role) : '-'}
+                </span>
+                <Button
+                  variant="outline"
+                  className="h-8 border-white/20 bg-white/10 px-3 text-xs text-white hover:bg-white/20"
+                  onClick={async () => {
+                    await logout();
+                    navigate('/login', { replace: true });
+                  }}
+                >
+                  로그아웃
+                </Button>
+              </div>
+            </div>
           </div>
 
           <nav className="flex-1 overflow-y-auto px-4 py-5">
@@ -225,6 +264,24 @@ export function AppLayout(): JSX.Element {
 
       <div className="min-w-0">
         <div className="border-b border-slate-200 bg-white px-4 py-3 lg:hidden no-print">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{employee?.name ?? '직원'}</p>
+              <p className="text-xs text-slate-500">
+                {employee?.email ?? '-'} · {employee ? roleLabel(employee.role) : '-'}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="h-8 px-3 text-xs"
+              onClick={async () => {
+                await logout();
+                navigate('/login', { replace: true });
+              }}
+            >
+              로그아웃
+            </Button>
+          </div>
           <nav className="flex gap-2 overflow-x-auto pb-1">
             {navItems.map((item) => {
               const itemActive = isNavItemActive(item.path, item.children);

@@ -111,6 +111,7 @@ const parseGraphqlMultipartRequest: RequestHandler = async (req, _res, next) => 
 
 export async function createApp(): Promise<express.Express> {
   const app = express();
+  const webOrigin = process.env.WEB_ORIGIN?.trim() || 'http://localhost:5173';
 
   const server = new ApolloServer({
     typeDefs,
@@ -135,10 +136,21 @@ export async function createApp(): Promise<express.Express> {
 
   app.use(
     '/graphql',
-    cors(),
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || origin === webOrigin) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error('Not allowed by CORS'));
+      },
+      credentials: true,
+    }),
     parseGraphqlMultipartRequest,
     express.json(),
-    expressMiddleware(server, { context: async () => createContext() }),
+    expressMiddleware(server, {
+      context: async ({ req, res }) => createContext({ req, res }),
+    }),
   );
 
   app.get('/health', (_req, res) => {

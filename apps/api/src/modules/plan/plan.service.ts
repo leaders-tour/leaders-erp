@@ -31,6 +31,21 @@ import type {
 export class PlanService {
   constructor(private readonly prisma: PrismaClient) {}
 
+  private async validateOwnerEmployeeId(ownerEmployeeId: string | null | undefined): Promise<void> {
+    if (!ownerEmployeeId) {
+      return;
+    }
+
+    const ownerEmployee = await this.prisma.employee.findUnique({
+      where: { id: ownerEmployeeId },
+      select: { id: true },
+    });
+
+    if (!ownerEmployee) {
+      throw new DomainError('VALIDATION_FAILED', 'Invalid owner employee');
+    }
+  }
+
   private async validateEventIds(eventIds: string[]): Promise<void> {
     const uniqueEventIds = Array.from(new Set(eventIds));
     if (uniqueEventIds.length !== eventIds.length) {
@@ -143,12 +158,13 @@ export class PlanService {
     return new PlanRepository(this.prisma).findUserNotes(userId);
   }
 
-  createUser(input: UserCreateDto) {
+  async createUser(input: UserCreateDto) {
     const parsed = userCreateSchema.safeParse(input);
     if (!parsed.success) {
       throw new DomainError('VALIDATION_FAILED', 'Invalid user input');
     }
 
+    await this.validateOwnerEmployeeId(parsed.data.ownerEmployeeId);
     return new PlanRepository(this.prisma).createUser(parsed.data);
   }
 
@@ -163,6 +179,7 @@ export class PlanService {
       throw new DomainError('NOT_FOUND', 'User not found');
     }
 
+    await this.validateOwnerEmployeeId(parsed.data.ownerEmployeeId);
     return new PlanRepository(this.prisma).updateUser(id, parsed.data);
   }
 

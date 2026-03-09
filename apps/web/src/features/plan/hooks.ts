@@ -13,12 +13,31 @@ export type DealStageValue =
 
 export type DealTodoStatusValue = 'TODO' | 'DOING' | 'DONE';
 
+export interface EmployeeOwnerRow {
+  id: string;
+  name: string;
+  email: string;
+  role: 'ADMIN' | 'STAFF';
+  isActive: boolean;
+}
+
+export interface UserDealTodoPreviewRow {
+  id: string;
+  stage: DealStageValue;
+  title: string;
+  status: DealTodoStatusValue;
+  createdAt: string;
+}
+
 export interface UserRow {
   id: string;
   name: string;
   email: string | null;
+  ownerEmployeeId: string | null;
+  ownerEmployee: EmployeeOwnerRow | null;
   dealStage: DealStageValue;
   dealStageOrder: number;
+  userDealTodos?: UserDealTodoPreviewRow[];
   createdAt: string;
   updatedAt: string;
 }
@@ -181,8 +200,23 @@ const USERS_QUERY = gql`
       id
       name
       email
+      ownerEmployeeId
+      ownerEmployee {
+        id
+        name
+        email
+        role
+        isActive
+      }
       dealStage
       dealStageOrder
+      userDealTodos {
+        id
+        stage
+        title
+        status
+        createdAt
+      }
       createdAt
       updatedAt
     }
@@ -195,8 +229,23 @@ const USER_QUERY = gql`
       id
       name
       email
+      ownerEmployeeId
+      ownerEmployee {
+        id
+        name
+        email
+        role
+        isActive
+      }
       dealStage
       dealStageOrder
+      userDealTodos {
+        id
+        stage
+        title
+        status
+        createdAt
+      }
       createdAt
       updatedAt
     }
@@ -242,6 +291,14 @@ const PLAN_DETAIL_QUERY = gql`
         id
         name
         email
+        ownerEmployeeId
+        ownerEmployee {
+          id
+          name
+          email
+          role
+          isActive
+        }
         dealStage
         dealStageOrder
         createdAt
@@ -317,6 +374,14 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
           id
           name
           email
+          ownerEmployeeId
+          ownerEmployee {
+            id
+            name
+            email
+            role
+            isActive
+          }
           dealStage
           dealStageOrder
           createdAt
@@ -413,6 +478,36 @@ const CREATE_USER_MUTATION = gql`
       id
       name
       email
+      ownerEmployeeId
+      ownerEmployee {
+        id
+        name
+        email
+        role
+        isActive
+      }
+    }
+  }
+`;
+
+const UPDATE_USER_MUTATION = gql`
+  mutation UpdateUser($id: ID!, $input: UserUpdateInput!) {
+    updateUser(id: $id, input: $input) {
+      id
+      name
+      email
+      ownerEmployeeId
+      ownerEmployee {
+        id
+        name
+        email
+        role
+        isActive
+      }
+      dealStage
+      dealStageOrder
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -547,12 +642,44 @@ export function useCreateUser() {
 
   return {
     loading,
-    createUser: async (name: string): Promise<UserRow> => {
-      const result = await mutate({ variables: { input: { name } }, refetchQueries: [{ query: USERS_QUERY }] });
+    createUser: async (input: { name: string; email?: string | null; ownerEmployeeId?: string | null }): Promise<UserRow> => {
+      const result = await mutate({ variables: { input }, refetchQueries: [{ query: USERS_QUERY }] });
       if (!result.data?.createUser) {
         throw new Error('Failed to create user');
       }
       return result.data.createUser;
+    },
+  };
+}
+
+export function useUpdateUser() {
+  const [mutate, { loading }] = useMutation<{ updateUser: UserRow }>(UPDATE_USER_MUTATION);
+
+  return {
+    loading,
+    updateUser: async (
+      id: string,
+      input: {
+        name?: string;
+        email?: string | null;
+        ownerEmployeeId?: string | null;
+        dealStage?: DealStageValue;
+        dealStageOrder?: number;
+      },
+    ): Promise<UserRow> => {
+      const result = await mutate({
+        variables: { id, input },
+        refetchQueries: [
+          { query: USERS_QUERY },
+          { query: USER_QUERY, variables: { id } },
+        ],
+      });
+
+      if (!result.data?.updateUser) {
+        throw new Error('Failed to update user');
+      }
+
+      return result.data.updateUser;
     },
   };
 }

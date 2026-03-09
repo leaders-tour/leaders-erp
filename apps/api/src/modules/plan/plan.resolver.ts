@@ -110,6 +110,10 @@ export const planResolver = {
       new PlanService(ctx.prisma).setCurrentVersion(args.planId, args.versionId),
     deletePlan: (_parent: unknown, args: IdArgs, ctx: AppContext) => new PlanService(ctx.prisma).delete(args.id),
   },
+  User: {
+    userDealTodos: (parent: { dealTodos?: unknown[] }) => (Array.isArray(parent.dealTodos) ? parent.dealTodos : []),
+    ownerEmployee: (parent: { ownerEmployee?: unknown }) => parent.ownerEmployee ?? null,
+  },
   PlanVersionMeta: {
     extraLodgings: (parent: { extraLodgings?: unknown }) =>
       Array.isArray(parent.extraLodgings) ? parent.extraLodgings : [],

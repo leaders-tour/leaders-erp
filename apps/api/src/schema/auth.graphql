@@ -1,0 +1,66 @@
+enum EmployeeRole {
+  ADMIN
+  STAFF
+}
+
+type Employee {
+  id: ID!
+  name: String!
+  email: String!
+  role: EmployeeRole!
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Me {
+  id: ID!
+  name: String!
+  email: String!
+  role: EmployeeRole!
+}
+
+type AuthPayload {
+  accessToken: String!
+  employee: Employee!
+  expiresAt: DateTime!
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+input EmployeeCreateInput {
+  name: String!
+  email: String!
+  password: String!
+  role: EmployeeRole = STAFF
+}
+
+input EmployeeUpdateInput {
+  name: String
+  email: String
+  role: EmployeeRole
+  isActive: Boolean
+}
+
+input EmployeePasswordResetInput {
+  newPassword: String!
+}
+
+extend type Query {
+  me: Me!
+  employees(activeOnly: Boolean = true): [Employee!]!
+}
+
+extend type Mutation {
+  login(input: LoginInput!): AuthPayload!
+  refreshAccessToken: AuthPayload!
+  logout: Boolean!
+
+  createEmployee(input: EmployeeCreateInput!): Employee!
+  updateEmployee(id: ID!, input: EmployeeUpdateInput!): Employee!
+  resetEmployeePassword(id: ID!, input: EmployeePasswordResetInput!): Employee!
+  deactivateEmployee(id: ID!): Employee!
+}

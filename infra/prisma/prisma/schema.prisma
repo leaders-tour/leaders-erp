@@ -97,21 +97,63 @@ enum DealTodoStatus {
   DONE
 }
 
-model User {
-  id             String    @id @default(uuid(7))
-  name           String
-  email          String?   @unique
-  dealStage      DealStage @default(CONSULTING)
-  dealStageOrder Int       @default(0)
+enum EmployeeRole {
+  ADMIN
+  STAFF
+}
 
-  plans    Plan[]
-  notes    UserNote[]
-  dealTodos UserDealTodo[]
+model Employee {
+  id           String              @id @default(uuid(7))
+  name         String
+  email        String              @unique
+  passwordHash String
+  role         EmployeeRole        @default(STAFF)
+  isActive     Boolean             @default(true)
+
+  ownedUsers    User[]                @relation("UserOwnerEmployee")
+  refreshTokens EmployeeRefreshToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, role])
+}
+
+model EmployeeRefreshToken {
+  id          String    @id @default(uuid(7))
+  employeeId  String
+  tokenHash   String    @unique
+  userAgent   String?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId, expiresAt])
+  @@index([employeeId, revokedAt])
+}
+
+model User {
+  id              String    @id @default(uuid(7))
+  name            String
+  email           String?   @unique
+  dealStage       DealStage @default(CONSULTING)
+  dealStageOrder  Int       @default(0)
+  ownerEmployeeId String?
+
+  ownerEmployee Employee?      @relation("UserOwnerEmployee", fields: [ownerEmployeeId], references: [id], onDelete: SetNull)
+  plans         Plan[]
+  notes         UserNote[]
+  dealTodos     UserDealTodo[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([dealStage, dealStageOrder])
+  @@index([ownerEmployeeId])
 }
 
 model UserNote {

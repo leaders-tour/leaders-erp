@@ -8,6 +8,7 @@ const __dirname = path.dirname(__filename);
 const files = [
   'base.graphql',
   'scalars.graphql',
+  'auth.graphql',
   'region.graphql',
   'location.graphql',
   'location-guide.graphql',

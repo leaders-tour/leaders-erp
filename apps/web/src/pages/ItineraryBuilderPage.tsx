@@ -3,6 +3,7 @@ import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { EstimateBuilderDraftSnapshot } from '../features/estimate/model/types';
+import { useAuth } from '../features/auth/context';
 import { toFacilityLabel, toMealLabel } from '../features/location/display';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 import { MealOption, VariantType } from '../generated/graphql';
@@ -619,6 +620,7 @@ function sortTemplateStops(stops: PlanTemplateStopRow[]): PlanTemplateStopRow[] 
 }
 
 export function ItineraryBuilderPage(): JSX.Element {
+  const { employee } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -1304,6 +1306,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                         variables: {
                           input: {
                             name: trimmedName,
+                            ownerEmployeeId: employee?.id ?? null,
                           },
                         },
                       });

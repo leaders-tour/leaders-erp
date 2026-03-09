@@ -39,7 +39,12 @@ export function CustomerSelector({
                 : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
             }`}
           >
-            {user.name}
+            <div className="grid gap-1">
+              <span className="font-medium">{user.name}</span>
+              <span className={`text-xs ${selectedUserId === user.id ? 'text-slate-200' : 'text-slate-500'}`}>
+                담당자: {user.ownerEmployee?.name ?? '미지정'}
+              </span>
+            </div>
           </button>
         ))}
         {users.length === 0 ? <p className="text-xs text-slate-500">검색 결과가 없습니다.</p> : null}
