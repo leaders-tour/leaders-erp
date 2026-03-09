@@ -79,15 +79,132 @@ enum SecurityDepositMode {
   PER_TEAM
 }
 
-model User {
-  id    String  @id @default(uuid(7))
-  name  String
-  email String? @unique
+enum DealStage {
+  CONSULTING
+  CONTRACTING
+  CONTRACT_CONFIRMED
+  MONGOL_ASSIGNING
+  MONGOL_ASSIGNED
+  ON_HOLD
+  BEFORE_DEPARTURE_10D
+  BEFORE_DEPARTURE_3D
+  TRIP_COMPLETED
+}
 
-  plans Plan[]
+enum DealTodoStatus {
+  TODO
+  DOING
+  DONE
+}
+
+enum EmployeeRole {
+  ADMIN
+  STAFF
+}
+
+model Employee {
+  id           String              @id @default(uuid(7))
+  name         String
+  email        String              @unique
+  passwordHash String
+  role         EmployeeRole        @default(STAFF)
+  isActive     Boolean             @default(true)
+
+  ownedUsers    User[]                @relation("UserOwnerEmployee")
+  refreshTokens EmployeeRefreshToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([isActive, role])
+}
+
+model EmployeeRefreshToken {
+  id          String    @id @default(uuid(7))
+  employeeId  String
+  tokenHash   String    @unique
+  userAgent   String?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId, expiresAt])
+  @@index([employeeId, revokedAt])
+}
+
+model User {
+  id              String    @id @default(uuid(7))
+  name            String
+  email           String?   @unique
+  dealStage       DealStage @default(CONSULTING)
+  dealStageOrder  Int       @default(0)
+  ownerEmployeeId String?
+
+  ownerEmployee Employee?      @relation("UserOwnerEmployee", fields: [ownerEmployeeId], references: [id], onDelete: SetNull)
+  plans         Plan[]
+  notes         UserNote[]
+  dealTodos     UserDealTodo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealStage, dealStageOrder])
+  @@index([ownerEmployeeId])
+}
+
+model UserNote {
+  id        String @id @default(uuid(7))
+  userId    String
+  content   String @db.Text
+  createdBy String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+model DealTodoTemplate {
+  id          String    @id @default(uuid(7))
+  stage       DealStage
+  title       String
+  description String?   @db.Text
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+
+  userDealTodos UserDealTodo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stage, isActive, sortOrder])
+}
+
+model UserDealTodo {
+  id          String         @id @default(uuid(7))
+  userId      String
+  stage       DealStage
+  templateId  String?
+  title       String
+  description String?        @db.Text
+  status      DealTodoStatus @default(TODO)
+  completedAt DateTime?
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template  DealTodoTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, stage, templateId])
+  @@index([userId, status, createdAt])
+  @@index([userId, stage, status])
 }
 
 model Region {
@@ -255,8 +372,13 @@ model PlanVersionMeta {
   vehicleType            String
   flightInTime           String
   flightOutTime          String
+  pickupDate             DateTime?
+  pickupTime             String?
+  dropDate               DateTime?
+  dropTime               String?
   pickupDropNote         String?
   externalPickupDropNote String?
+  specialNote            String?  @db.Text
   includeRentalItems     Boolean  @default(true)
   rentalItemsText        String   @db.Text
   eventCodes             Json

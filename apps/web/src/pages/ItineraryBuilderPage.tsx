@@ -1,8 +1,11 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import type { EstimateBuilderDraftSnapshot } from '../features/estimate/model/types';
+import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
+import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
+import type { EstimateBuilderDraftSnapshot, EstimatePage1Editor } from '../features/estimate/model/types';
+import { useAuth } from '../features/auth/context';
 import { toFacilityLabel, toMealLabel } from '../features/location/display';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 import { MealOption, VariantType } from '../generated/graphql';
@@ -187,6 +190,30 @@ interface PlanTemplateRow {
   sortOrder: number;
   isActive: boolean;
   planStops: PlanTemplateStopRow[];
+}
+
+function arePlanRowsEqual(left: PlanRow[], right: PlanRow[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((row, index) => {
+    const other = right[index];
+    if (!other) {
+      return false;
+    }
+
+    return (
+      row.locationId === other.locationId &&
+      row.locationVersionId === other.locationVersionId &&
+      row.dateCellText === other.dateCellText &&
+      row.destinationCellText === other.destinationCellText &&
+      row.timeCellText === other.timeCellText &&
+      row.scheduleCellText === other.scheduleCellText &&
+      row.lodgingCellText === other.lodgingCellText &&
+      row.mealCellText === other.mealCellText
+    );
+  });
 }
 
 const REGIONS_QUERY = gql`
@@ -492,8 +519,13 @@ function createEstimateDraftSnapshot(input: {
   vehicleType: string;
   flightInTime: string;
   flightOutTime: string;
+  pickupDate: string;
+  pickupTime: string;
+  dropDate: string;
+  dropTime: string;
   pickupDropNote: string;
   externalPickupDropNote: string;
+  specialNote: string;
   includeRentalItems: boolean;
   rentalItemsText: string;
   eventNames: string[];
@@ -513,8 +545,13 @@ function createEstimateDraftSnapshot(input: {
     vehicleType: input.vehicleType,
     flightInTime: input.flightInTime,
     flightOutTime: input.flightOutTime,
+    pickupDate: input.pickupDate,
+    pickupTime: input.pickupTime,
+    dropDate: input.dropDate,
+    dropTime: input.dropTime,
     pickupDropNote: input.pickupDropNote,
     externalPickupDropNote: input.externalPickupDropNote,
+    specialNote: input.specialNote,
     includeRentalItems: input.includeRentalItems,
     rentalItemsText: input.rentalItemsText,
     eventNames: input.eventNames,
@@ -619,6 +656,7 @@ function sortTemplateStops(stops: PlanTemplateStopRow[]): PlanTemplateStopRow[] 
 }
 
 export function ItineraryBuilderPage(): JSX.Element {
+  const { employee } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -648,8 +686,12 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [flightOutTime, setFlightOutTime] = useState<string>('18:20');
   const [isCustomFlightInTime, setIsCustomFlightInTime] = useState<boolean>(false);
   const [isCustomFlightOutTime, setIsCustomFlightOutTime] = useState<boolean>(false);
-  const [pickupDropNote, setPickupDropNote] = useState<string>('');
+  const [pickupDate, setPickupDate] = useState<string>('');
+  const [pickupTime, setPickupTime] = useState<string>('');
+  const [dropDate, setDropDate] = useState<string>('');
+  const [dropTime, setDropTime] = useState<string>('');
   const [externalPickupDropNote, setExternalPickupDropNote] = useState<string>('');
+  const [specialNote, setSpecialNote] = useState<string>('');
   const [includeRentalItems, setIncludeRentalItems] = useState<boolean>(true);
   const [rentalItemsText, setRentalItemsText] = useState<string>(buildDefaultRentalItems(6));
   const [eventIds, setEventIds] = useState<string[]>([]);
@@ -665,6 +707,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [createdId, setCreatedId] = useState<string>('');
   const [isValidationOpen, setIsValidationOpen] = useState<boolean>(false);
   const [isPayloadPreviewOpen, setIsPayloadPreviewOpen] = useState<boolean>(false);
+  const [isPreviewEnabled, setIsPreviewEnabled] = useState<boolean>(true);
+  const [activePane, setActivePane] = useState<'builder' | 'preview'>('builder');
   const [hasAppliedInitialTemplate, setHasAppliedInitialTemplate] = useState<boolean>(false);
   const [skipNextAutoRowsSync, setSkipNextAutoRowsSync] = useState<boolean>(false);
   const [routePresetTemplateId, setRoutePresetTemplateId] = useState<string>('');
@@ -675,6 +719,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState<boolean>(false);
   const [homeNewUserName, setHomeNewUserName] = useState<string>('');
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
+  const previousTravelStartDateRef = useRef<string>('');
+  const previousTravelEndDateRef = useRef<string>('');
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
@@ -860,7 +906,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       setSkipNextAutoRowsSync(false);
       return;
     }
-    setPlanRows(autoRows);
+    setPlanRows((current) => (arePlanRowsEqual(current, autoRows) ? current : autoRows));
   }, [autoRows, skipNextAutoRowsSync]);
 
   useEffect(() => {
@@ -874,6 +920,38 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
     setTravelEndDate(toAutoTravelEndDate(travelStartDate, totalDays));
   }, [totalDays, travelStartDate]);
+
+  useEffect(() => {
+    setPickupDate((current) => {
+      const previousTravelStartDate = previousTravelStartDateRef.current;
+      if (!travelStartDate) {
+        return current === previousTravelStartDate ? '' : current;
+      }
+
+      if (!current || current === previousTravelStartDate) {
+        return travelStartDate;
+      }
+
+      return current;
+    });
+    previousTravelStartDateRef.current = travelStartDate;
+  }, [travelStartDate]);
+
+  useEffect(() => {
+    setDropDate((current) => {
+      const previousTravelEndDate = previousTravelEndDateRef.current;
+      if (!travelEndDate) {
+        return current === previousTravelEndDate ? '' : current;
+      }
+
+      if (!current || current === previousTravelEndDate) {
+        return travelEndDate;
+      }
+
+      return current;
+    });
+    previousTravelEndDateRef.current = travelEndDate;
+  }, [travelEndDate]);
 
   useEffect(() => {
     const elements = document.querySelectorAll<HTMLTextAreaElement>('[data-plan-cell="true"]');
@@ -1057,6 +1135,12 @@ export function ItineraryBuilderPage(): JSX.Element {
     setManualDepositInput(String(pricingPreview.depositAmountKrw));
   }, [hasEditedManualDeposit, pricingPreview]);
 
+  useEffect(() => {
+    if (!isPreviewEnabled && activePane === 'preview') {
+      setActivePane('builder');
+    }
+  }, [activePane, isPreviewEnabled]);
+
   const canCreate = Boolean(
     hasPlanContext &&
       regionId &&
@@ -1074,16 +1158,50 @@ export function ItineraryBuilderPage(): JSX.Element {
       (!isVersionMode ? planTitle.trim() : true),
   );
 
-  const openEstimatePdf = (): void => {
-    const regionName = regions.find((region) => region.id === regionId)?.name ?? '';
-    const selectedEventNames = eventOptions
-      .filter((eventOption) => eventIds.includes(eventOption.id))
-      .map((eventOption) => eventOption.name);
-
-    const draft = createEstimateDraftSnapshot({
-      planTitle: isVersionMode && planContext ? planContext.title : planTitle,
-      leaderName: leaderName.trim(),
-      regionName,
+  const effectivePlanTitle = isVersionMode && planContext ? planContext.title : planTitle;
+  const selectedEventNames = useMemo(
+    () =>
+      eventOptions
+        .filter((eventOption) => eventIds.includes(eventOption.id))
+        .map((eventOption) => eventOption.name),
+    [eventIds, eventOptions],
+  );
+  const previewRegionName = useMemo(
+    () => regions.find((region) => region.id === regionId)?.name ?? '',
+    [regionId, regions],
+  );
+  const estimateDraftSnapshot = useMemo<EstimateBuilderDraftSnapshot>(
+    () =>
+      createEstimateDraftSnapshot({
+        planTitle: effectivePlanTitle,
+        leaderName: leaderName.trim(),
+        regionName: previewRegionName,
+        headcountTotal,
+        headcountMale,
+        headcountFemale,
+        travelStartDate,
+        travelEndDate,
+        vehicleType,
+        flightInTime,
+        flightOutTime,
+        pickupDate,
+        pickupTime,
+        dropDate,
+        dropTime,
+        pickupDropNote: '',
+        externalPickupDropNote: externalPickupDropNote.trim(),
+        specialNote: specialNote.trim(),
+        includeRentalItems,
+        rentalItemsText: rentalItemsText.trim(),
+        eventNames: selectedEventNames,
+        remark: remark.trim(),
+        planStops: planRows,
+        pricingPreview,
+      }),
+    [
+      effectivePlanTitle,
+      leaderName,
+      previewRegionName,
       headcountTotal,
       headcountMale,
       headcountFemale,
@@ -1092,20 +1210,78 @@ export function ItineraryBuilderPage(): JSX.Element {
       vehicleType,
       flightInTime,
       flightOutTime,
-      pickupDropNote: pickupDropNote.trim(),
-      externalPickupDropNote: externalPickupDropNote.trim(),
+      pickupDate,
+      pickupTime,
+      dropDate,
+      dropTime,
+      externalPickupDropNote,
+      specialNote,
       includeRentalItems,
-      rentalItemsText: rentalItemsText.trim(),
-      eventNames: selectedEventNames,
-      remark: remark.trim(),
-      planStops: planRows,
+      rentalItemsText,
+      selectedEventNames,
+      remark,
+      planRows,
       pricingPreview,
-    });
+    ],
+  );
+  const { data: previewEstimateData, guidesLoading: previewGuidesLoading } = useBuilderEstimatePreview(estimateDraftSnapshot);
+  const previewPage1Editor: EstimatePage1Editor = {
+    headcountTotal,
+    headcountMale,
+    travelStartDate,
+    travelEndDate,
+    vehicleType,
+    vehicleOptions: VEHICLES,
+    flightInTime,
+    flightOutTime,
+    pickupDate,
+    pickupTime,
+    dropDate,
+    dropTime,
+    eventIds,
+    eventOptions: eventOptions.map((eventOption) => ({ id: eventOption.id, name: eventOption.name })),
+    externalPickupDropText: externalPickupDropNote,
+    specialNoteText: specialNote,
+    rentalItemsText,
+    remarkText: remark,
+    onHeadcountTotalChange: (value) => {
+      const nextTotal = Math.max(1, value || 1);
+      setHeadcountTotal(nextTotal);
+      setHeadcountMale((current) => Math.min(current, nextTotal));
+    },
+    onHeadcountMaleChange: (value) => {
+      const nextMale = Math.max(0, Math.min(value, headcountTotal));
+      setHeadcountMale(nextMale);
+    },
+    onTravelStartDateChange: setTravelStartDate,
+    onTravelEndDateChange: setTravelEndDate,
+    onVehicleTypeChange: (value) => {
+      if (VEHICLES.includes(value as (typeof VEHICLES)[number])) {
+        setVehicleType(value as (typeof VEHICLES)[number]);
+      }
+    },
+    onFlightInTimeChange: setFlightInTime,
+    onFlightOutTimeChange: setFlightOutTime,
+    onPickupDateChange: setPickupDate,
+    onPickupTimeChange: setPickupTime,
+    onDropDateChange: setDropDate,
+    onDropTimeChange: setDropTime,
+    onToggleEventId: (value) =>
+      setEventIds((current) => (current.includes(value) ? current.filter((id) => id !== value) : [...current, value])),
+    onExternalPickupDropTextChange: setExternalPickupDropNote,
+    onSpecialNoteTextChange: setSpecialNote,
+    onRentalItemsTextChange: (value) => {
+      setIncludeRentalItems(true);
+      setRentalItemsText(value);
+    },
+    onRemarkTextChange: setRemark,
+  };
 
+  const openEstimatePdf = (): void => {
     const draftKey = `estimate-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     try {
-      window.sessionStorage.setItem(draftKey, JSON.stringify(draft));
+      window.sessionStorage.setItem(draftKey, JSON.stringify(estimateDraftSnapshot));
     } catch (_error) {
       window.alert('견적서 임시 데이터를 저장할 수 없습니다. 브라우저 저장공간을 확인해주세요.');
       return;
@@ -1120,7 +1296,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   if (!hasValidContext) {
     return (
-      <section className="grid gap-6 py-8">
+      <section className="mx-auto grid max-w-7xl gap-6 px-6 py-8">
         <header>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">시작하기</h1>
           <p className="mt-1 text-sm text-slate-600">아래에서 고객 유형을 선택하면 다음 단계가 열립니다.</p>
@@ -1304,6 +1480,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                         variables: {
                           input: {
                             name: trimmedName,
+                            ownerEmployeeId: employee?.id ?? null,
                           },
                         },
                       });
@@ -1335,7 +1512,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   if (isVersionMode && planContext && planContext.userId !== userId) {
     return (
-      <section className="grid gap-4 py-8">
+      <section className="mx-auto grid max-w-7xl gap-4 px-6 py-8">
         <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-6">
           <h1 className="text-xl font-semibold text-rose-900">유효하지 않은 요청입니다</h1>
           <p className="mt-2 text-sm text-rose-800">선택한 Plan과 userId가 일치하지 않습니다.</p>
@@ -1348,8 +1525,52 @@ export function ItineraryBuilderPage(): JSX.Element {
   }
 
   return (
-    <div className="min-h-screen text-slate-900">
-      <div className="mx-auto max-w-7xl space-y-6 px-2 py-4">
+    <div className={`min-h-screen text-slate-900 ${isPreviewEnabled ? 'lg:h-screen lg:min-h-0' : ''}`}>
+      <div className="border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
+        <div className="flex items-center gap-2">
+          {isPreviewEnabled ? (
+            <div className="grid flex-1 grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+              <button
+                type="button"
+                onClick={() => setActivePane('builder')}
+                className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+                  activePane === 'builder' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600'
+                }`}
+              >
+                빌더
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePane('preview')}
+                className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+                  activePane === 'preview' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600'
+                }`}
+              >
+                미리보기
+              </button>
+            </div>
+          ) : (
+            <div className="flex-1 text-sm font-medium text-slate-700">빌더 전용 보기</div>
+          )}
+          <Button variant="outline" className="shrink-0" onClick={() => setIsPreviewEnabled((prev) => !prev)}>
+            {isPreviewEnabled ? '미리보기 끄기' : '미리보기 켜기'}
+          </Button>
+        </div>
+      </div>
+
+      <div className={isPreviewEnabled ? 'lg:grid lg:h-full lg:grid-cols-2' : ''}>
+        <div
+          className={`${
+            !isPreviewEnabled || activePane === 'builder' ? 'block' : 'hidden'
+          } bg-slate-50 ${
+            isPreviewEnabled ? 'border-b border-slate-200 lg:block lg:h-full lg:overflow-y-auto lg:border-b-0 lg:border-r' : ''
+          }`}
+        >
+          <div
+            className={`space-y-6 px-4 py-4 sm:px-6 lg:py-6 ${
+              isPreviewEnabled ? 'lg:px-8' : 'mx-auto max-w-7xl lg:px-6'
+            }`}
+          >
         <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">여행 일정 빌더</h1>
@@ -1362,6 +1583,9 @@ export function ItineraryBuilderPage(): JSX.Element {
             </p>
           </div>
           <div className="flex gap-2 no-print">
+            <Button variant="outline" onClick={() => setIsPreviewEnabled((prev) => !prev)}>
+              {isPreviewEnabled ? '미리보기 끄기' : '미리보기 켜기'}
+            </Button>
             <Button variant="outline" onClick={openEstimatePdf}>
               견적서 PDF
             </Button>
@@ -1395,8 +1619,13 @@ export function ItineraryBuilderPage(): JSX.Element {
                           vehicleType,
                           flightInTime,
                           flightOutTime,
-                          pickupDropNote: pickupDropNote.trim() || undefined,
+                          pickupDate: pickupDate ? toIsoDateTime(pickupDate) : undefined,
+                          pickupTime: pickupTime.trim() || undefined,
+                          dropDate: dropDate ? toIsoDateTime(dropDate) : undefined,
+                          dropTime: dropTime.trim() || undefined,
+                          pickupDropNote: undefined,
                           externalPickupDropNote: externalPickupDropNote.trim() || undefined,
+                          specialNote: specialNote.trim() || undefined,
                           includeRentalItems,
                           rentalItemsText,
                           eventIds,
@@ -1438,8 +1667,13 @@ export function ItineraryBuilderPage(): JSX.Element {
                           vehicleType,
                           flightInTime,
                           flightOutTime,
-                          pickupDropNote: pickupDropNote.trim() || undefined,
+                          pickupDate: pickupDate ? toIsoDateTime(pickupDate) : undefined,
+                          pickupTime: pickupTime.trim() || undefined,
+                          dropDate: dropDate ? toIsoDateTime(dropDate) : undefined,
+                          dropTime: dropTime.trim() || undefined,
+                          pickupDropNote: undefined,
                           externalPickupDropNote: externalPickupDropNote.trim() || undefined,
+                          specialNote: specialNote.trim() || undefined,
                           includeRentalItems,
                           rentalItemsText,
                           eventIds,
@@ -1760,23 +1994,55 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </div>
               </div>
 
+              <div className="grid gap-2 text-sm">
+                <span className="text-xs text-slate-600">픽업 / 드랍 날짜 및 시간</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={pickupDate}
+                    onChange={(event) => setPickupDate(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="time"
+                    value={pickupTime}
+                    onChange={(event) => setPickupTime(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={dropDate}
+                    onChange={(event) => setDropDate(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="time"
+                    value={dropTime}
+                    onChange={(event) => setDropTime(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+
               <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">픽/드랍 (보류)</span>
-                <input
-                  value={pickupDropNote}
-                  onChange={(event) => setPickupDropNote(event.target.value)}
+                <span className="text-xs text-slate-600">실투어 외 픽드랍</span>
+                <textarea
+                  value={externalPickupDropNote}
+                  onChange={(event) => setExternalPickupDropNote(event.target.value)}
+                  rows={3}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  placeholder="보류 항목 (입력만 가능)"
+                  placeholder="줄바꿈 포함 입력 가능"
                 />
               </label>
 
               <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">실투어 외 픽드랍 (보류)</span>
-                <input
-                  value={externalPickupDropNote}
-                  onChange={(event) => setExternalPickupDropNote(event.target.value)}
+                <span className="text-xs text-slate-600">특이사항</span>
+                <textarea
+                  value={specialNote}
+                  onChange={(event) => setSpecialNote(event.target.value)}
+                  rows={3}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  placeholder="보류 항목 (입력만 가능)"
+                  placeholder="줄바꿈 포함 입력 가능"
                 />
               </label>
 
@@ -2540,8 +2806,12 @@ export function ItineraryBuilderPage(): JSX.Element {
         vehicleType,
         flightInTime,
         flightOutTime,
-        pickupDropNote,
+        pickupDate,
+        pickupTime,
+        dropDate,
+        dropTime,
         externalPickupDropNote,
+        specialNote,
         includeRentalItems,
         rentalItemsText,
         eventIds,
@@ -2570,8 +2840,12 @@ export function ItineraryBuilderPage(): JSX.Element {
           vehicleType,
           flightInTime,
           flightOutTime,
-          pickupDropNote,
+          pickupDate,
+          pickupTime,
+          dropDate,
+          dropTime,
           externalPickupDropNote,
+          specialNote,
           includeRentalItems,
           rentalItemsText,
           eventIds,
@@ -2593,6 +2867,36 @@ export function ItineraryBuilderPage(): JSX.Element {
             ) : null}
           </Card>
         </section>
+          </div>
+        </div>
+
+        {isPreviewEnabled ? (
+          <aside className={`${activePane === 'preview' ? 'block' : 'hidden'} bg-slate-100/80 lg:block lg:h-full lg:overflow-y-auto`}>
+            <div className="p-4 sm:p-6 lg:sticky lg:top-0 lg:p-6">
+              <div className="estimate-preview-panel rounded-[28px] border border-slate-200 bg-white/90 p-4 shadow-xl backdrop-blur sm:p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-900">실시간 견적서 미리보기</h2>
+                    <p className="mt-1 text-xs text-slate-600">좌측 입력값이 우측 문서에 바로 반영됩니다.</p>
+                  </div>
+                  <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600">
+                    {previewGuidesLoading ? '여행지 안내 동기화 중' : '실시간 반영'}
+                  </div>
+                </div>
+
+              {previewEstimateData ? (
+                <div className="estimate-preview-frame">
+                    <EstimateDocument data={previewEstimateData} viewMode="screen-preview" page1Editor={previewPage1Editor} />
+                </div>
+              ) : (
+                  <Card className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
+                    미리보기 데이터를 준비 중입니다...
+                  </Card>
+                )}
+              </div>
+            </div>
+          </aside>
+        ) : null}
       </div>
     </div>
   );

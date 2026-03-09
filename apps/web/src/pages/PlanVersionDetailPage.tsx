@@ -123,8 +123,16 @@ export function PlanVersionDetailPage(): JSX.Element {
               항공권: IN {version.meta.flightInTime} / OUT {version.meta.flightOutTime}
             </div>
             <div>참여 이벤트: {version.meta.events.length > 0 ? version.meta.events.map((item) => item.name).join(', ') : '-'}</div>
-            <div>픽/드랍: {version.meta.pickupDropNote ?? '-'}</div>
-            <div>실투어 외 픽드랍: {version.meta.externalPickupDropNote ?? '-'}</div>
+            <div>
+              픽업: {version.meta.pickupDate ? new Date(version.meta.pickupDate).toLocaleDateString('ko-KR') : '-'}
+              {version.meta.pickupTime ? ` / ${version.meta.pickupTime}` : ''}
+            </div>
+            <div>
+              드랍: {version.meta.dropDate ? new Date(version.meta.dropDate).toLocaleDateString('ko-KR') : '-'}
+              {version.meta.dropTime ? ` / ${version.meta.dropTime}` : ''}
+            </div>
+            <div className="md:col-span-2 whitespace-pre-wrap">실투어 외 픽드랍: {version.meta.externalPickupDropNote ?? '-'}</div>
+            <div className="md:col-span-2 whitespace-pre-wrap">특이사항: {version.meta.specialNote ?? '-'}</div>
             <div className="md:col-span-2">
               숙소 추가(일차/개수):{' '}
               {version.meta.extraLodgings.length > 0

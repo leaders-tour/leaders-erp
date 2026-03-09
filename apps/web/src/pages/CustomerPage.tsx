@@ -15,7 +15,11 @@ export function CustomerPage(): JSX.Element {
     if (!keyword) {
       return users;
     }
-    return users.filter((user) => user.name.toLowerCase().includes(keyword));
+    return users.filter((user) => {
+      const ownerNameMatched = user.ownerEmployee?.name.toLowerCase().includes(keyword) ?? false;
+      const ownerEmailMatched = user.ownerEmployee?.email.toLowerCase().includes(keyword) ?? false;
+      return user.name.toLowerCase().includes(keyword) || ownerNameMatched || ownerEmailMatched;
+    });
   }, [customerSearch, users]);
 
   useEffect(() => {

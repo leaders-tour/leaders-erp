@@ -23,8 +23,13 @@ export interface PlanVersion {
     vehicleType: string;
     flightInTime: string;
     flightOutTime: string;
+    pickupDate: Date | null;
+    pickupTime: string | null;
+    dropDate: Date | null;
+    dropTime: string | null;
     pickupDropNote: string | null;
     externalPickupDropNote: string | null;
+    specialNote: string | null;
     includeRentalItems: boolean;
     rentalItemsText: string;
     events: Array<{

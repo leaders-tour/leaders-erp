@@ -1,5 +1,6 @@
+import { useState, type FocusEvent, type ReactNode } from 'react';
 import { ESTIMATE_COMPANY, ESTIMATE_PAYMENT, ESTIMATE_TAGLINE, ESTIMATE_TITLE } from '../model/constants';
-import type { EstimateDocumentData } from '../model/types';
+import type { EstimateDocumentData, EstimatePage1EditableField, EstimatePage1Editor } from '../model/types';
 import {
   formatCurrency,
   formatDateKorean,
@@ -11,6 +12,7 @@ import {
 
 interface EstimatePage1Props {
   data: EstimateDocumentData;
+  editor?: EstimatePage1Editor;
 }
 
 function fallback(value: string | null | undefined): string {
@@ -18,8 +20,70 @@ function fallback(value: string | null | undefined): string {
   return text && text.length > 0 ? text : '-';
 }
 
-export function EstimatePage1({ data }: EstimatePage1Props): JSX.Element {
+interface EditableCellProps {
+  field: EstimatePage1EditableField;
+  activeField: EstimatePage1EditableField | null;
+  editor?: EstimatePage1Editor;
+  displayValue: ReactNode;
+  input: ReactNode;
+  multiline?: boolean;
+  className?: string;
+  contentClassName?: string;
+  onActivate: (field: EstimatePage1EditableField) => void;
+  onDeactivate: () => void;
+}
+
+function EditableCell({
+  field,
+  activeField,
+  editor,
+  displayValue,
+  input,
+  multiline = false,
+  className,
+  contentClassName,
+  onActivate,
+  onDeactivate,
+}: EditableCellProps): JSX.Element {
+  if (!editor) {
+    return <td className={className}>{displayValue}</td>;
+  }
+
+  const isActive = activeField === field;
+
+  if (isActive) {
+    return (
+      <td className={className}>
+        <div
+          className="estimate-editable-shell estimate-editable-shell--active"
+          onBlurCapture={(event: FocusEvent<HTMLDivElement>) => {
+            const nextTarget = event.relatedTarget;
+            if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+              return;
+            }
+            onDeactivate();
+          }}
+        >
+          {input}
+        </div>
+      </td>
+    );
+  }
+
+  return (
+    <td className={className}>
+      <button type="button" className="estimate-editable-trigger" onClick={() => onActivate(field)}>
+        <span className={`estimate-editable-content ${multiline ? 'estimate-editable-content--multiline' : ''} ${contentClassName ?? ''}`}>
+          {displayValue}
+        </span>
+      </button>
+    </td>
+  );
+}
+
+export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element {
   const adjustmentLines = data.adjustmentLines;
+  const [activeField, setActiveField] = useState<EstimatePage1EditableField | null>(null);
   const securityDepositSummary =
     data.securityDepositUnitKrw === null
       ? '-'
@@ -27,8 +91,6 @@ export function EstimatePage1({ data }: EstimatePage1Props): JSX.Element {
 
   return (
     <section className="estimate-sheet estimate-sheet-page1">
-      {data.isDraft ? <div className="estimate-draft-badge">임시본 (저장 전 출력)</div> : null}
-
       <p className="estimate-tagline">{ESTIMATE_TAGLINE}</p>
       <h1 className="estimate-title">{ESTIMATE_TITLE}</h1>
 
@@ -54,31 +116,245 @@ export function EstimatePage1({ data }: EstimatePage1Props): JSX.Element {
             <th>여행지</th>
             <td>{fallback(data.destinationName)}</td>
             <th>인원</th>
-            <td>{formatHeadcount(data.headcountTotal, data.headcountMale, data.headcountFemale)}</td>
+            <EditableCell
+              field="headcount"
+              activeField={activeField}
+              editor={editor}
+              displayValue={formatHeadcount(data.headcountTotal, data.headcountMale, data.headcountFemale)}
+              input={
+                <div className="estimate-editable-grid">
+                  <label className="estimate-editable-meta">
+                    <span>총 인원</span>
+                    <input
+                      autoFocus
+                      type="number"
+                      min={1}
+                      value={editor?.headcountTotal ?? 1}
+                      onChange={(event) => editor?.onHeadcountTotalChange(Math.max(1, Number(event.target.value) || 1))}
+                      className="estimate-editable-input"
+                    />
+                  </label>
+                  <div className="estimate-editable-meta">
+                    <span>남성 인원</span>
+                    <div className="estimate-editable-token-grid">
+                      {Array.from({ length: (editor?.headcountTotal ?? 0) + 1 }, (_unused, count) => (
+                        <button
+                          key={`male-count-${count}`}
+                          type="button"
+                          className={`estimate-editable-token ${editor?.headcountMale === count ? 'estimate-editable-token--active' : ''}`}
+                          onClick={() => editor?.onHeadcountMaleChange(count)}
+                        >
+                          {count}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              }
+              onActivate={setActiveField}
+              onDeactivate={() => setActiveField(null)}
+            />
           </tr>
           <tr>
             <th>여행 기간</th>
-            <td>{formatTravelPeriod(data.travelStartDate, data.travelEndDate)}</td>
+            <EditableCell
+              field="travelPeriod"
+              activeField={activeField}
+              editor={editor}
+              displayValue={formatTravelPeriod(data.travelStartDate, data.travelEndDate)}
+              input={
+                <div className="estimate-editable-grid">
+                  <input
+                    autoFocus
+                    type="date"
+                    value={editor?.travelStartDate ?? ''}
+                    onChange={(event) => editor?.onTravelStartDateChange(event.target.value)}
+                    className="estimate-editable-input"
+                  />
+                  <input
+                    type="date"
+                    value={editor?.travelEndDate ?? ''}
+                    onChange={(event) => editor?.onTravelEndDateChange(event.target.value)}
+                    className="estimate-editable-input"
+                  />
+                </div>
+              }
+              onActivate={setActiveField}
+              onDeactivate={() => setActiveField(null)}
+            />
             <th>차량</th>
-            <td>{fallback(data.vehicleType)}</td>
+            <EditableCell
+              field="vehicleType"
+              activeField={activeField}
+              editor={editor}
+              displayValue={fallback(data.vehicleType)}
+              input={
+                <select
+                  autoFocus
+                  value={editor?.vehicleType ?? ''}
+                  onChange={(event) => editor?.onVehicleTypeChange(event.target.value)}
+                  className="estimate-editable-input"
+                >
+                  {editor?.vehicleOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              }
+              onActivate={setActiveField}
+              onDeactivate={() => setActiveField(null)}
+            />
           </tr>
           <tr>
             <th>항공권 IN</th>
-            <td>{formatFlightText(data.flightInDate, data.flightInTime)}</td>
+            <EditableCell
+              field="flightInTime"
+              activeField={activeField}
+              editor={editor}
+              displayValue={formatFlightText(data.flightInDate, data.flightInTime)}
+              input={
+                <div className="estimate-editable-grid">
+                  <input
+                    autoFocus
+                    type="date"
+                    value={editor?.travelStartDate ?? ''}
+                    onChange={(event) => editor?.onTravelStartDateChange(event.target.value)}
+                    className="estimate-editable-input"
+                  />
+                  <input
+                    type="time"
+                    value={editor?.flightInTime ?? ''}
+                    onChange={(event) => editor?.onFlightInTimeChange(event.target.value)}
+                    className="estimate-editable-input"
+                  />
+                </div>
+              }
+              onActivate={setActiveField}
+              onDeactivate={() => setActiveField(null)}
+            />
             <th>항공권 OUT</th>
-            <td>{formatFlightText(data.flightOutDate, data.flightOutTime)}</td>
+            <EditableCell
+              field="flightOutTime"
+              activeField={activeField}
+              editor={editor}
+              displayValue={formatFlightText(data.flightOutDate, data.flightOutTime)}
+              input={
+                <div className="estimate-editable-grid">
+                  <input
+                    autoFocus
+                    type="date"
+                    value={editor?.travelEndDate ?? ''}
+                    onChange={(event) => editor?.onTravelEndDateChange(event.target.value)}
+                    className="estimate-editable-input"
+                  />
+                  <input
+                    type="time"
+                    value={editor?.flightOutTime ?? ''}
+                    onChange={(event) => editor?.onFlightOutTimeChange(event.target.value)}
+                    className="estimate-editable-input"
+                  />
+                </div>
+              }
+              onActivate={setActiveField}
+              onDeactivate={() => setActiveField(null)}
+            />
           </tr>
           <tr>
             <th>픽업</th>
-            <td className="pre-line">{fallback(data.pickupText)}</td>
+            <EditableCell
+              field="pickupDate"
+              activeField={activeField}
+              editor={editor}
+              displayValue={formatFlightText(data.pickupDate, data.pickupTime)}
+              input={
+                <div className="estimate-editable-grid">
+                  <input
+                    autoFocus
+                    type="date"
+                    value={editor?.pickupDate ?? ''}
+                    onChange={(event) => editor?.onPickupDateChange(event.target.value)}
+                    className="estimate-editable-input"
+                  />
+                  <input
+                    type="time"
+                    value={editor?.pickupTime ?? ''}
+                    onChange={(event) => editor?.onPickupTimeChange(event.target.value)}
+                    className="estimate-editable-input"
+                  />
+                </div>
+              }
+              onActivate={setActiveField}
+              onDeactivate={() => setActiveField(null)}
+            />
             <th>드랍</th>
-            <td className="pre-line">{fallback(data.dropText)}</td>
+            <EditableCell
+              field="dropDate"
+              activeField={activeField}
+              editor={editor}
+              displayValue={formatFlightText(data.dropDate, data.dropTime)}
+              input={
+                <div className="estimate-editable-grid">
+                  <input
+                    autoFocus
+                    type="date"
+                    value={editor?.dropDate ?? ''}
+                    onChange={(event) => editor?.onDropDateChange(event.target.value)}
+                    className="estimate-editable-input"
+                  />
+                  <input
+                    type="time"
+                    value={editor?.dropTime ?? ''}
+                    onChange={(event) => editor?.onDropTimeChange(event.target.value)}
+                    className="estimate-editable-input"
+                  />
+                </div>
+              }
+              onActivate={setActiveField}
+              onDeactivate={() => setActiveField(null)}
+            />
           </tr>
           <tr>
             <th>실투어 외 픽드랍</th>
-            <td className="pre-line">{fallback(data.externalPickupDropText)}</td>
+            <EditableCell
+              field="externalPickupDropText"
+              activeField={activeField}
+              editor={editor}
+              displayValue={fallback(data.externalPickupDropText)}
+              multiline
+              className="pre-line"
+              input={
+                <textarea
+                  autoFocus
+                  rows={3}
+                  value={editor?.externalPickupDropText ?? ''}
+                  onChange={(event) => editor?.onExternalPickupDropTextChange(event.target.value)}
+                  className="estimate-editable-input estimate-editable-textarea"
+                />
+              }
+              onActivate={setActiveField}
+              onDeactivate={() => setActiveField(null)}
+            />
             <th>특이사항</th>
-            <td className="pre-line">{fallback(data.specialNoteText)}</td>
+            <EditableCell
+              field="specialNoteText"
+              activeField={activeField}
+              editor={editor}
+              displayValue={fallback(data.specialNoteText)}
+              multiline
+              className="pre-line"
+              input={
+                <textarea
+                  autoFocus
+                  rows={3}
+                  value={editor?.specialNoteText ?? ''}
+                  onChange={(event) => editor?.onSpecialNoteTextChange(event.target.value)}
+                  className="estimate-editable-input estimate-editable-textarea"
+                />
+              }
+              onActivate={setActiveField}
+              onDeactivate={() => setActiveField(null)}
+            />
           </tr>
         </tbody>
       </table>
@@ -88,9 +364,56 @@ export function EstimatePage1({ data }: EstimatePage1Props): JSX.Element {
         <tbody>
           <tr>
             <th>기본 대여물품</th>
-            <td className="pre-line">{fallback(data.rentalItemsText)}</td>
+            <EditableCell
+              field="rentalItemsText"
+              activeField={activeField}
+              editor={editor}
+              displayValue={fallback(data.rentalItemsText)}
+              multiline
+              className="pre-line"
+              input={
+                <textarea
+                  autoFocus
+                  rows={4}
+                  value={editor?.rentalItemsText ?? ''}
+                  onChange={(event) => editor?.onRentalItemsTextChange(event.target.value)}
+                  className="estimate-editable-input estimate-editable-textarea"
+                />
+              }
+              onActivate={setActiveField}
+              onDeactivate={() => setActiveField(null)}
+            />
             <th>참여 이벤트</th>
-            <td className="pre-line">{fallback(data.eventText)}</td>
+            <EditableCell
+              field="eventIds"
+              activeField={activeField}
+              editor={editor}
+              displayValue={fallback(data.eventText)}
+              multiline
+              className="pre-line"
+              input={
+                <div className="estimate-editable-grid">
+                  <div className="estimate-editable-chip-list">
+                    {editor?.eventOptions.map((eventOption) => {
+                      const active = editor.eventIds.includes(eventOption.id);
+                      return (
+                        <button
+                          key={eventOption.id}
+                          type="button"
+                          className={`estimate-editable-chip ${active ? 'estimate-editable-chip--active' : ''}`}
+                          onClick={() => editor.onToggleEventId(eventOption.id)}
+                        >
+                          {eventOption.name}
+                        </button>
+                      );
+                    })}
+                    {editor?.eventOptions.length === 0 ? <span className="estimate-editable-empty">진행중 이벤트 없음</span> : null}
+                  </div>
+                </div>
+              }
+              onActivate={setActiveField}
+              onDeactivate={() => setActiveField(null)}
+            />
           </tr>
         </tbody>
       </table>
@@ -101,7 +424,34 @@ export function EstimatePage1({ data }: EstimatePage1Props): JSX.Element {
           <tr>
             <th>비고</th>
             <td className="pre-line" colSpan={3}>
-              {fallback(data.remarkText)}
+              {editor ? (
+                activeField === 'remarkText' ? (
+                  <div
+                    className="estimate-editable-shell estimate-editable-shell--active"
+                    onBlurCapture={(event: FocusEvent<HTMLDivElement>) => {
+                      const nextTarget = event.relatedTarget;
+                      if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+                        return;
+                      }
+                      setActiveField(null);
+                    }}
+                  >
+                    <textarea
+                      autoFocus
+                      rows={4}
+                      value={editor.remarkText}
+                      onChange={(event) => editor.onRemarkTextChange(event.target.value)}
+                      className="estimate-editable-input estimate-editable-textarea"
+                    />
+                  </div>
+                ) : (
+                  <button type="button" className="estimate-editable-trigger" onClick={() => setActiveField('remarkText')}>
+                    <span className="estimate-editable-content estimate-editable-content--multiline">{fallback(data.remarkText)}</span>
+                  </button>
+                )
+              ) : (
+                fallback(data.remarkText)
+              )}
             </td>
           </tr>
         </tbody>

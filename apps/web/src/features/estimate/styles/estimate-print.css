@@ -21,6 +21,44 @@
   --estimate-page5-padding: 0;
 }
 
+.estimate-preview-frame {
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top, rgba(148, 163, 184, 0.14), transparent 34%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  padding: 16px;
+}
+
+.estimate-document--preview {
+  justify-items: center;
+  gap: 24px;
+  --estimate-page1-padding: clamp(20px, 3.6vw, 38px);
+  --estimate-page2-padding: clamp(20px, 3.6vw, 38px);
+  --estimate-page3-padding: clamp(20px, 3.6vw, 38px);
+  --estimate-page4-padding: clamp(16px, 3vw, 30px) clamp(16px, 3vw, 30px) clamp(12px, 2.4vw, 24px);
+  --estimate-page5-padding: 0;
+}
+
+.estimate-document--preview .estimate-page-break {
+  break-before: auto;
+  page-break-before: auto;
+}
+
+.estimate-document--preview .estimate-sheet {
+  width: min(100%, 760px);
+  min-height: auto;
+  aspect-ratio: 210 / 297;
+}
+
+.estimate-document--preview .estimate-sheet-page1,
+.estimate-document--preview .estimate-sheet-page2,
+.estimate-document--preview .estimate-sheet-page3,
+.estimate-document--preview .estimate-sheet-page4,
+.estimate-document--preview .estimate-sheet-page5 {
+  box-sizing: border-box;
+  height: 100%;
+}
+
 .estimate-sheet {
   box-sizing: border-box;
   width: 210mm;
@@ -185,6 +223,122 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.estimate-document--preview .estimate-sheet-itinerary,
+.estimate-document--preview .estimate-sheet-guides {
+  height: 100%;
+}
+
+.estimate-editable-trigger {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.estimate-editable-content {
+  display: block;
+  width: 100%;
+}
+
+.estimate-editable-content--multiline {
+  white-space: pre-line;
+}
+
+.estimate-editable-shell {
+  width: 100%;
+}
+
+.estimate-document--preview .estimate-editable-trigger {
+  border-radius: 8px;
+  padding: 6px;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.estimate-document--preview .estimate-editable-trigger:hover {
+  background: rgba(241, 245, 249, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.55);
+}
+
+.estimate-document--preview .estimate-editable-shell--active {
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.96);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.15);
+  padding: 6px;
+}
+
+.estimate-editable-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.estimate-editable-meta {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.estimate-editable-meta > span {
+  font-size: 11px;
+  color: #475569;
+}
+
+.estimate-editable-input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  line-height: 1.4;
+  padding: 6px 8px;
+}
+
+.estimate-editable-textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
+.estimate-editable-token-grid,
+.estimate-editable-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.estimate-editable-token,
+.estimate-editable-chip {
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  line-height: 1.3;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.estimate-editable-token--active,
+.estimate-editable-chip--active {
+  border-color: #0f172a;
+  background: #0f172a;
+  color: #fff;
+}
+
+.estimate-editable-empty {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.estimate-document--preview .estimate-editable-input:focus {
+  outline: 2px solid rgba(15, 23, 42, 0.18);
+  outline-offset: 0;
+  border-color: #94a3b8;
 }
 
 .estimate-itinerary-title {

@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
 import type { EstimateSourceMode } from '../features/estimate/model/types';
-import '../features/estimate/styles/estimate-print.css';
 
 export function EstimatePrintPage(): JSX.Element {
   const navigate = useNavigate();

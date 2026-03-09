@@ -29,7 +29,11 @@ export const planVersionInclude = {
 } satisfies Prisma.PlanVersionInclude;
 
 export const planInclude = {
-  user: true,
+  user: {
+    include: {
+      ownerEmployee: true,
+    },
+  },
   region: true,
   currentVersion: {
     include: planVersionInclude,

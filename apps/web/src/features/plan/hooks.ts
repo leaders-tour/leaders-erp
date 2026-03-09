@@ -1,9 +1,76 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 
+export type DealStageValue =
+  | 'CONSULTING'
+  | 'CONTRACTING'
+  | 'CONTRACT_CONFIRMED'
+  | 'MONGOL_ASSIGNING'
+  | 'MONGOL_ASSIGNED'
+  | 'ON_HOLD'
+  | 'BEFORE_DEPARTURE_10D'
+  | 'BEFORE_DEPARTURE_3D'
+  | 'TRIP_COMPLETED';
+
+export type DealTodoStatusValue = 'TODO' | 'DOING' | 'DONE';
+
+export interface EmployeeOwnerRow {
+  id: string;
+  name: string;
+  email: string;
+  role: 'ADMIN' | 'STAFF';
+  isActive: boolean;
+}
+
+export interface UserDealTodoPreviewRow {
+  id: string;
+  stage: DealStageValue;
+  title: string;
+  description: string | null;
+  status: DealTodoStatusValue;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface UserRow {
   id: string;
   name: string;
   email: string | null;
+  ownerEmployeeId: string | null;
+  ownerEmployee: EmployeeOwnerRow | null;
+  dealStage: DealStageValue;
+  dealStageOrder: number;
+  userDealTodos?: UserDealTodoPreviewRow[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DealPipelineCardUpdateInput {
+  userId: string;
+  dealStage: DealStageValue;
+  dealStageOrder: number;
+}
+
+export interface UserNoteRow {
+  id: string;
+  userId: string;
+  content: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserDealTodoRow {
+  id: string;
+  userId: string;
+  stage: DealStageValue;
+  templateId: string | null;
+  title: string;
+  description: string | null;
+  status: DealTodoStatusValue;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PlanVersionRow {
@@ -32,8 +99,13 @@ export interface PlanVersionMetaRow {
   vehicleType: string;
   flightInTime: string;
   flightOutTime: string;
+  pickupDate: string | null;
+  pickupTime: string | null;
+  dropDate: string | null;
+  dropTime: string | null;
   pickupDropNote: string | null;
   externalPickupDropNote: string | null;
+  specialNote: string | null;
   includeRentalItems: boolean;
   rentalItemsText: string;
   events: Array<{
@@ -136,6 +208,28 @@ const USERS_QUERY = gql`
       id
       name
       email
+      ownerEmployeeId
+      ownerEmployee {
+        id
+        name
+        email
+        role
+        isActive
+      }
+      dealStage
+      dealStageOrder
+      userDealTodos {
+        id
+        stage
+        title
+        description
+        status
+        completedAt
+        createdAt
+        updatedAt
+      }
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -146,6 +240,28 @@ const USER_QUERY = gql`
       id
       name
       email
+      ownerEmployeeId
+      ownerEmployee {
+        id
+        name
+        email
+        role
+        isActive
+      }
+      dealStage
+      dealStageOrder
+      userDealTodos {
+        id
+        stage
+        title
+        description
+        status
+        completedAt
+        createdAt
+        updatedAt
+      }
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -189,6 +305,18 @@ const PLAN_DETAIL_QUERY = gql`
         id
         name
         email
+        ownerEmployeeId
+        ownerEmployee {
+          id
+          name
+          email
+          role
+          isActive
+        }
+        dealStage
+        dealStageOrder
+        createdAt
+        updatedAt
       }
       region {
         id
@@ -260,6 +388,18 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
           id
           name
           email
+          ownerEmployeeId
+          ownerEmployee {
+            id
+            name
+            email
+            role
+            isActive
+          }
+          dealStage
+          dealStageOrder
+          createdAt
+          updatedAt
         }
         region {
           id
@@ -291,8 +431,13 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         vehicleType
         flightInTime
         flightOutTime
+        pickupDate
+        pickupTime
+        dropDate
+        dropTime
         pickupDropNote
         externalPickupDropNote
+        specialNote
         includeRentalItems
         rentalItemsText
         events {
@@ -352,6 +497,36 @@ const CREATE_USER_MUTATION = gql`
       id
       name
       email
+      ownerEmployeeId
+      ownerEmployee {
+        id
+        name
+        email
+        role
+        isActive
+      }
+    }
+  }
+`;
+
+const UPDATE_USER_MUTATION = gql`
+  mutation UpdateUser($id: ID!, $input: UserUpdateInput!) {
+    updateUser(id: $id, input: $input) {
+      id
+      name
+      email
+      ownerEmployeeId
+      ownerEmployee {
+        id
+        name
+        email
+        role
+        isActive
+      }
+      dealStage
+      dealStageOrder
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -365,9 +540,75 @@ const SET_CURRENT_VERSION_MUTATION = gql`
   }
 `;
 
+const REORDER_DEAL_PIPELINE_MUTATION = gql`
+  mutation ReorderDealPipeline($input: DealPipelineReorderInput!) {
+    reorderDealPipeline(input: $input)
+  }
+`;
+
+const USER_NOTES_QUERY = gql`
+  query UserNotes($userId: ID!) {
+    userNotes(userId: $userId) {
+      id
+      userId
+      content
+      createdBy
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+const CREATE_USER_NOTE_MUTATION = gql`
+  mutation CreateUserNote($input: UserNoteCreateInput!) {
+    createUserNote(input: $input) {
+      id
+      userId
+      content
+      createdBy
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+const USER_DEAL_TODOS_QUERY = gql`
+  query UserDealTodos($userId: ID!, $includeDone: Boolean) {
+    userDealTodos(userId: $userId, includeDone: $includeDone) {
+      id
+      userId
+      stage
+      templateId
+      title
+      description
+      status
+      completedAt
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+const UPDATE_USER_DEAL_TODO_STATUS_MUTATION = gql`
+  mutation UpdateUserDealTodoStatus($id: ID!, $status: DealTodoStatus!) {
+    updateUserDealTodoStatus(id: $id, status: $status) {
+      id
+      userId
+      stage
+      templateId
+      title
+      description
+      status
+      completedAt
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
 export function useUsers() {
-  const { data, loading, refetch } = useQuery<{ users: UserRow[] }>(USERS_QUERY);
-  return { users: data?.users ?? [], loading, refetch };
+  const { data, loading, error, refetch } = useQuery<{ users: UserRow[] }>(USERS_QUERY);
+  return { users: data?.users ?? [], loading, error, refetch };
 }
 
 export function useUser(id: string | undefined) {
@@ -420,12 +661,44 @@ export function useCreateUser() {
 
   return {
     loading,
-    createUser: async (name: string): Promise<UserRow> => {
-      const result = await mutate({ variables: { input: { name } }, refetchQueries: [{ query: USERS_QUERY }] });
+    createUser: async (input: { name: string; email?: string | null; ownerEmployeeId?: string | null }): Promise<UserRow> => {
+      const result = await mutate({ variables: { input }, refetchQueries: [{ query: USERS_QUERY }] });
       if (!result.data?.createUser) {
         throw new Error('Failed to create user');
       }
       return result.data.createUser;
+    },
+  };
+}
+
+export function useUpdateUser() {
+  const [mutate, { loading }] = useMutation<{ updateUser: UserRow }>(UPDATE_USER_MUTATION);
+
+  return {
+    loading,
+    updateUser: async (
+      id: string,
+      input: {
+        name?: string;
+        email?: string | null;
+        ownerEmployeeId?: string | null;
+        dealStage?: DealStageValue;
+        dealStageOrder?: number;
+      },
+    ): Promise<UserRow> => {
+      const result = await mutate({
+        variables: { id, input },
+        refetchQueries: [
+          { query: USERS_QUERY },
+          { query: USER_QUERY, variables: { id } },
+        ],
+      });
+
+      if (!result.data?.updateUser) {
+        throw new Error('Failed to update user');
+      }
+
+      return result.data.updateUser;
     },
   };
 }
@@ -444,6 +717,83 @@ export function useSetCurrentPlanVersion() {
           { query: PLAN_VERSION_DETAIL_QUERY, variables: { id: versionId } },
         ],
       });
+    },
+  };
+}
+
+export function useReorderDealPipeline() {
+  const [mutate, { loading }] = useMutation<{ reorderDealPipeline: boolean }>(REORDER_DEAL_PIPELINE_MUTATION);
+
+  return {
+    loading,
+    reorderDealPipeline: async (updates: DealPipelineCardUpdateInput[]): Promise<void> => {
+      const result = await mutate({
+        variables: { input: { updates } },
+      });
+
+      if (!result.data?.reorderDealPipeline) {
+        throw new Error('Failed to reorder deal pipeline');
+      }
+    },
+  };
+}
+
+export function useUserNotes(userId: string | undefined) {
+  const { data, loading, refetch } = useQuery<{ userNotes: UserNoteRow[] }>(USER_NOTES_QUERY, {
+    variables: { userId },
+    skip: !userId,
+  });
+
+  return { notes: data?.userNotes ?? [], loading, refetch };
+}
+
+export function useCreateUserNote() {
+  const [mutate, { loading }] = useMutation<{ createUserNote: UserNoteRow }>(CREATE_USER_NOTE_MUTATION);
+
+  return {
+    loading,
+    createUserNote: async (input: { userId: string; content: string; createdBy: string }): Promise<UserNoteRow> => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [{ query: USER_NOTES_QUERY, variables: { userId: input.userId } }],
+      });
+
+      if (!result.data?.createUserNote) {
+        throw new Error('Failed to create user note');
+      }
+
+      return result.data.createUserNote;
+    },
+  };
+}
+
+export function useUserDealTodos(userId: string | undefined, includeDone = false) {
+  const { data, loading, refetch } = useQuery<{ userDealTodos: UserDealTodoRow[] }>(USER_DEAL_TODOS_QUERY, {
+    variables: { userId, includeDone },
+    skip: !userId,
+    fetchPolicy: 'network-only',
+    nextFetchPolicy: 'network-only',
+    notifyOnNetworkStatusChange: true,
+  });
+
+  return { todos: data?.userDealTodos ?? [], loading, refetch };
+}
+
+export function useUpdateUserDealTodoStatus() {
+  const [mutate, { loading }] = useMutation<{ updateUserDealTodoStatus: UserDealTodoRow }>(UPDATE_USER_DEAL_TODO_STATUS_MUTATION);
+
+  return {
+    loading,
+    updateUserDealTodoStatus: async (input: { id: string; status: DealTodoStatusValue }): Promise<UserDealTodoRow> => {
+      const result = await mutate({
+        variables: input,
+      });
+
+      if (!result.data?.updateUserDealTodoStatus) {
+        throw new Error('Failed to update user deal todo status');
+      }
+
+      return result.data.updateUserDealTodoStatus;
     },
   };
 }

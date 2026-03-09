@@ -1,4 +1,6 @@
 export * from './activity.schema';
+export * from './auth.schema';
+export * from './employee.schema';
 export * from './event.schema';
 export * from './lodging.schema';
 export * from './location.schema';

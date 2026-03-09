@@ -1,6 +1,14 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import type { DealStage, DealTodoStatus, Prisma, PrismaClient } from '@prisma/client';
 import { planInclude, planVersionInclude } from './plan.mapper';
-import type { PlanCreateDto, PlanUpdateDto, PlanVersionCreateDto, UserCreateDto, UserUpdateDto } from './plan.types';
+import type {
+  DealPipelineCardUpdateDto,
+  PlanCreateDto,
+  PlanUpdateDto,
+  PlanVersionCreateDto,
+  UserCreateDto,
+  UserNoteCreateDto,
+  UserUpdateDto,
+} from './plan.types';
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
@@ -8,11 +16,47 @@ export class PlanRepository {
   constructor(private readonly prisma: PrismaLike) {}
 
   findUsers() {
-    return this.prisma.user.findMany({ orderBy: { createdAt: 'desc' } });
+    return this.prisma.user.findMany({
+      include: {
+        ownerEmployee: true,
+        dealTodos: {
+          orderBy: [{ stage: 'asc' }, { createdAt: 'desc' }, { id: 'asc' }],
+        },
+      },
+      orderBy: [{ dealStage: 'asc' }, { dealStageOrder: 'asc' }, { createdAt: 'desc' }],
+    });
   }
 
   findUserById(id: string) {
-    return this.prisma.user.findUnique({ where: { id }, include: { plans: { include: planInclude, orderBy: { createdAt: 'desc' } } } });
+    return this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        ownerEmployee: true,
+        plans: { include: planInclude, orderBy: { createdAt: 'desc' } },
+        dealTodos: { orderBy: [{ stage: 'asc' }, { createdAt: 'desc' }, { id: 'asc' }] },
+      },
+    });
+  }
+
+  findUserNotes(userId: string) {
+    return this.prisma.userNote.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  findDealTodoTemplatesByStages(stages: DealStage[]) {
+    if (stages.length === 0) {
+      return Promise.resolve([]);
+    }
+
+    return this.prisma.dealTodoTemplate.findMany({
+      where: {
+        stage: { in: stages },
+        isActive: true,
+      },
+      orderBy: [{ stage: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
   }
 
   createUser(data: UserCreateDto) {
@@ -21,6 +65,72 @@ export class PlanRepository {
 
   updateUser(id: string, data: UserUpdateDto) {
     return this.prisma.user.update({ where: { id }, data });
+  }
+
+  createUserNote(data: UserNoteCreateDto) {
+    return this.prisma.userNote.create({ data });
+  }
+
+  createUserDealTodosFromTemplates(
+    input: Array<{
+      userId: string;
+      stage: DealStage;
+      templateId: string;
+      title: string;
+      description?: string | null;
+    }>,
+  ) {
+    if (input.length === 0) {
+      return Promise.resolve({ count: 0 });
+    }
+
+    return this.prisma.userDealTodo.createMany({
+      data: input.map((item) => ({
+        userId: item.userId,
+        stage: item.stage,
+        templateId: item.templateId,
+        title: item.title,
+        description: item.description ?? null,
+        status: 'TODO',
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  findUserDealTodos(userId: string, includeDone: boolean) {
+    return this.prisma.userDealTodo.findMany({
+      where: {
+        userId,
+        ...(includeDone ? {} : { status: { in: ['TODO', 'DOING'] } }),
+      },
+      orderBy: [{ stage: 'asc' }, { createdAt: 'desc' }, { id: 'asc' }],
+    });
+  }
+
+  updateUserDealTodoStatus(id: string, status: DealTodoStatus) {
+    return this.prisma.userDealTodo.update({
+      where: { id },
+      data: {
+        status,
+        completedAt: status === 'DONE' ? new Date() : null,
+      },
+    });
+  }
+
+  async reorderDealPipeline(updates: DealPipelineCardUpdateDto[]): Promise<boolean> {
+    await Promise.all(
+      updates.map((update) =>
+        this.prisma.user.update({
+          where: { id: update.userId },
+          data: {
+            dealStage: update.dealStage,
+            dealStageOrder: update.dealStageOrder,
+          },
+        }),
+      ),
+    );
+
+    return true;
   }
 
   async deleteUser(id: string): Promise<boolean> {
@@ -39,14 +149,14 @@ export class PlanRepository {
   findVersionById(id: string) {
     return this.prisma.planVersion.findUnique({
       where: { id },
-      include: { ...planVersionInclude, plan: { include: { user: true, region: true } } },
+      include: { ...planVersionInclude, plan: { include: { user: { include: { ownerEmployee: true } }, region: true } } },
     });
   }
 
   findVersionsByPlan(planId: string) {
     return this.prisma.planVersion.findMany({
       where: { planId },
-      include: { ...planVersionInclude, plan: { include: { user: true, region: true } } },
+      include: { ...planVersionInclude, plan: { include: { user: { include: { ownerEmployee: true } }, region: true } } },
       orderBy: { versionNumber: 'desc' },
     });
   }
@@ -91,8 +201,13 @@ export class PlanRepository {
             vehicleType: initialVersionData.meta.vehicleType,
             flightInTime: initialVersionData.meta.flightInTime,
             flightOutTime: initialVersionData.meta.flightOutTime,
+            pickupDate: initialVersionData.meta.pickupDate ? new Date(initialVersionData.meta.pickupDate) : null,
+            pickupTime: initialVersionData.meta.pickupTime ?? null,
+            dropDate: initialVersionData.meta.dropDate ? new Date(initialVersionData.meta.dropDate) : null,
+            dropTime: initialVersionData.meta.dropTime ?? null,
             pickupDropNote: initialVersionData.meta.pickupDropNote,
             externalPickupDropNote: initialVersionData.meta.externalPickupDropNote,
+            specialNote: initialVersionData.meta.specialNote,
             includeRentalItems: initialVersionData.meta.includeRentalItems,
             rentalItemsText: initialVersionData.meta.rentalItemsText,
             eventCodes: [],
@@ -162,8 +277,13 @@ export class PlanRepository {
             vehicleType: versionData.meta.vehicleType,
             flightInTime: versionData.meta.flightInTime,
             flightOutTime: versionData.meta.flightOutTime,
+            pickupDate: versionData.meta.pickupDate ? new Date(versionData.meta.pickupDate) : null,
+            pickupTime: versionData.meta.pickupTime ?? null,
+            dropDate: versionData.meta.dropDate ? new Date(versionData.meta.dropDate) : null,
+            dropTime: versionData.meta.dropTime ?? null,
             pickupDropNote: versionData.meta.pickupDropNote,
             externalPickupDropNote: versionData.meta.externalPickupDropNote,
+            specialNote: versionData.meta.specialNote,
             includeRentalItems: versionData.meta.includeRentalItems,
             rentalItemsText: versionData.meta.rentalItemsText,
             eventCodes: [],
@@ -189,7 +309,7 @@ export class PlanRepository {
           })),
         },
       },
-      include: { ...planVersionInclude, plan: { include: { user: true, region: true } } },
+      include: { ...planVersionInclude, plan: { include: { user: { include: { ownerEmployee: true } }, region: true } } },
     });
 
     await this.prisma.plan.update({

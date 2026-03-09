@@ -1,14 +1,18 @@
 import { Navigate, createBrowserRouter } from 'react-router-dom';
+import { RedirectAuthenticated, RequireAdmin, RequireAuth } from './auth-guards';
 import { AppLayout } from '../components/layout/AppLayout';
 import { CustomerCreatePage } from '../pages/CustomerCreatePage';
 import { CustomerPage } from '../pages/CustomerPage';
 import { CustomerPlansPage } from '../pages/CustomerPlansPage';
+import { DealPipelinePage } from '../pages/DealPipelinePage';
+import { EmployeeAdminPage } from '../pages/EmployeeAdminPage';
 import { EstimatePrintPage } from '../pages/EstimatePrintPage';
 import { EventPage } from '../pages/EventPage';
 import { ItineraryBuilderPage } from '../pages/ItineraryBuilderPage';
 import { ItineraryTemplateCreatePage } from '../pages/ItineraryTemplateCreatePage';
 import { ItineraryTemplateDetailPage } from '../pages/ItineraryTemplateDetailPage';
 import { ItineraryTemplatePage } from '../pages/ItineraryTemplatePage';
+import { LoginPage } from '../pages/LoginPage';
 import { LocationCreatePage } from '../pages/LocationCreatePage';
 import { LocationDetailPage } from '../pages/LocationDetailPage';
 import { LocationEditPage } from '../pages/LocationEditPage';
@@ -21,11 +25,24 @@ import { PlanVersionDetailPage } from '../pages/PlanVersionDetailPage';
 import { RegionCreatePage } from '../pages/RegionCreatePage';
 import { RegionListPage } from '../pages/RegionListPage';
 import { SegmentPage } from '../pages/SegmentPage';
+import { TodoListPage } from '../pages/TodoListPage';
 
 export const router = createBrowserRouter([
   {
+    path: '/login',
+    element: (
+      <RedirectAuthenticated>
+        <LoginPage />
+      </RedirectAuthenticated>
+    ),
+  },
+  {
     path: '/',
-    element: <AppLayout />,
+    element: (
+      <RequireAuth>
+        <AppLayout />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <Navigate to="/itinerary-builder" replace /> },
       { path: 'itinerary-builder', element: <ItineraryBuilderPage /> },
@@ -36,6 +53,8 @@ export const router = createBrowserRouter([
       { path: 'customers', element: <CustomerPage /> },
       { path: 'customers/create', element: <CustomerCreatePage /> },
       { path: 'customers/:userId/plans', element: <CustomerPlansPage /> },
+      { path: 'deal-pipeline', element: <DealPipelinePage /> },
+      { path: 'todos/list', element: <TodoListPage /> },
       { path: 'plans/:planId', element: <PlanDetailPage /> },
       { path: 'plans/:planId/versions/:versionId', element: <PlanVersionDetailPage /> },
       { path: 'regions', element: <Navigate to="/regions/list" replace /> },
@@ -52,6 +71,14 @@ export const router = createBrowserRouter([
       { path: 'locations/:locationId/versions/:versionId/edit', element: <LocationVersionEditPage /> },
       { path: 'locations/connections', element: <SegmentPage /> },
       { path: 'segments', element: <Navigate to="/locations/connections" replace /> },
+      {
+        path: 'admin/employees',
+        element: (
+          <RequireAdmin>
+            <EmployeeAdminPage />
+          </RequireAdmin>
+        ),
+      },
     ],
   },
 ]);

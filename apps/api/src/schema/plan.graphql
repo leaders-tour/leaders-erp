@@ -2,9 +2,36 @@ type User {
   id: ID!
   name: String!
   email: String
+  ownerEmployeeId: String
+  ownerEmployee: Employee
+  dealStage: DealStage!
+  dealStageOrder: Int!
   createdAt: DateTime!
   updatedAt: DateTime!
   plans: [Plan!]!
+  userDealTodos: [UserDealTodo!]!
+}
+
+type UserNote {
+  id: ID!
+  userId: String!
+  content: String!
+  createdBy: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type UserDealTodo {
+  id: ID!
+  userId: String!
+  stage: DealStage!
+  templateId: String
+  title: String!
+  description: String
+  status: DealTodoStatus!
+  completedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
 }
 
 type Plan {
@@ -53,8 +80,13 @@ type PlanVersionMeta {
   vehicleType: String!
   flightInTime: String!
   flightOutTime: String!
+  pickupDate: DateTime
+  pickupTime: String
+  dropDate: DateTime
+  dropTime: String
   pickupDropNote: String
   externalPickupDropNote: String
+  specialNote: String
   includeRentalItems: Boolean!
   rentalItemsText: String!
   events: [Event!]!
@@ -144,6 +176,24 @@ enum SecurityDepositMode {
   PER_TEAM
 }
 
+enum DealStage {
+  CONSULTING
+  CONTRACTING
+  CONTRACT_CONFIRMED
+  MONGOL_ASSIGNING
+  MONGOL_ASSIGNED
+  ON_HOLD
+  BEFORE_DEPARTURE_10D
+  BEFORE_DEPARTURE_3D
+  TRIP_COMPLETED
+}
+
+enum DealTodoStatus {
+  TODO
+  DOING
+  DONE
+}
+
 input PlanCreateInput {
   userId: String!
   regionId: String!
@@ -188,8 +238,13 @@ input PlanVersionMetaInput {
   vehicleType: String!
   flightInTime: String!
   flightOutTime: String!
+  pickupDate: DateTime
+  pickupTime: String
+  dropDate: DateTime
+  dropTime: String
   pickupDropNote: String
   externalPickupDropNote: String
+  specialNote: String
   includeRentalItems: Boolean!
   rentalItemsText: String!
   eventIds: [ID!]!
@@ -251,9 +306,29 @@ input PlanStopNestedInput {
 input UserCreateInput {
   name: String!
   email: String
+  ownerEmployeeId: String
 }
 
 input UserUpdateInput {
   name: String
   email: String
+  ownerEmployeeId: String
+  dealStage: DealStage
+  dealStageOrder: Int
+}
+
+input DealPipelineCardUpdateInput {
+  userId: ID!
+  dealStage: DealStage!
+  dealStageOrder: Int!
+}
+
+input DealPipelineReorderInput {
+  updates: [DealPipelineCardUpdateInput!]!
+}
+
+input UserNoteCreateInput {
+  userId: ID!
+  content: String!
+  createdBy: String!
 }

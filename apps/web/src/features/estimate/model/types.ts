@@ -54,8 +54,13 @@ export interface EstimateBuilderDraftSnapshot {
   vehicleType: string;
   flightInTime: string;
   flightOutTime: string;
+  pickupDate: string;
+  pickupTime: string;
+  dropDate: string;
+  dropTime: string;
   pickupDropNote: string;
   externalPickupDropNote: string;
+  specialNote: string;
   includeRentalItems: boolean;
   rentalItemsText: string;
   eventNames: string[];
@@ -89,6 +94,10 @@ export interface EstimateDocumentData {
   flightInTime: string | null;
   flightOutDate: string | null;
   flightOutTime: string | null;
+  pickupDate: string | null;
+  pickupTime: string | null;
+  dropDate: string | null;
+  dropTime: string | null;
   pickupText: string;
   dropText: string;
   externalPickupDropText: string;
@@ -107,4 +116,60 @@ export interface EstimateDocumentData {
   validUntilDate: string | null;
   planStops: EstimatePlanStopRow[];
   page3Blocks: EstimateGuideBlock[];
+}
+
+export type EstimatePage1EditableField =
+  | 'headcount'
+  | 'eventIds'
+  | 'travelPeriod'
+  | 'vehicleType'
+  | 'flightInTime'
+  | 'flightOutTime'
+  | 'pickupDate'
+  | 'dropDate'
+  | 'externalPickupDropText'
+  | 'specialNoteText'
+  | 'rentalItemsText'
+  | 'remarkText';
+
+export interface EstimatePage1EventOption {
+  id: string;
+  name: string;
+}
+
+export interface EstimatePage1Editor {
+  headcountTotal: number;
+  headcountMale: number;
+  travelStartDate: string;
+  travelEndDate: string;
+  vehicleType: string;
+  vehicleOptions: readonly string[];
+  flightInTime: string;
+  flightOutTime: string;
+  pickupDate: string;
+  pickupTime: string;
+  dropDate: string;
+  dropTime: string;
+  eventIds: string[];
+  eventOptions: EstimatePage1EventOption[];
+  externalPickupDropText: string;
+  specialNoteText: string;
+  rentalItemsText: string;
+  remarkText: string;
+  onHeadcountTotalChange: (value: number) => void;
+  onHeadcountMaleChange: (value: number) => void;
+  onTravelStartDateChange: (value: string) => void;
+  onTravelEndDateChange: (value: string) => void;
+  onVehicleTypeChange: (value: string) => void;
+  onFlightInTimeChange: (value: string) => void;
+  onFlightOutTimeChange: (value: string) => void;
+  onPickupDateChange: (value: string) => void;
+  onPickupTimeChange: (value: string) => void;
+  onDropDateChange: (value: string) => void;
+  onDropTimeChange: (value: string) => void;
+  onToggleEventId: (value: string) => void;
+  onExternalPickupDropTextChange: (value: string) => void;
+  onSpecialNoteTextChange: (value: string) => void;
+  onRentalItemsTextChange: (value: string) => void;
+  onRemarkTextChange: (value: string) => void;
 }
