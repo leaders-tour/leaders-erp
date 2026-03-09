@@ -5,6 +5,14 @@ import { useAuth } from '../features/auth/context';
 import { useEmployees } from '../features/auth/hooks';
 import { useCreateUser } from '../features/plan/hooks';
 
+interface FieldLabelProps {
+  children: string;
+}
+
+function FieldLabel({ children }: FieldLabelProps): JSX.Element {
+  return <span className="mb-1.5 block text-xs font-medium text-slate-600">{children}</span>;
+}
+
 export function CustomerCreatePage(): JSX.Element {
   const navigate = useNavigate();
   const { createUser, loading: creatingUser } = useCreateUser();
@@ -34,20 +42,29 @@ export function CustomerCreatePage(): JSX.Element {
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-2">
-          <Input value={newUserName} onChange={(event) => setNewUserName(event.target.value)} placeholder="고객명 입력" />
-          <Input value={newUserEmail} onChange={(event) => setNewUserEmail(event.target.value)} placeholder="이메일 입력 (선택)" />
-          <select
-            value={ownerEmployeeId}
-            onChange={(event) => setOwnerEmployeeId(event.target.value)}
-            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
-          >
-            <option value="">담당자 미지정</option>
-            {employees.map((staff) => (
-              <option key={staff.id} value={staff.id}>
-                {staff.name} ({staff.email})
-              </option>
-            ))}
-          </select>
+          <label>
+            <FieldLabel>고객명</FieldLabel>
+            <Input value={newUserName} onChange={(event) => setNewUserName(event.target.value)} placeholder="고객 이름을 입력하세요" />
+          </label>
+          <label>
+            <FieldLabel>이메일 주소</FieldLabel>
+            <Input value={newUserEmail} onChange={(event) => setNewUserEmail(event.target.value)} placeholder="이메일 주소를 입력하세요 (선택)" />
+          </label>
+          <label>
+            <FieldLabel>담당 직원</FieldLabel>
+            <select
+              value={ownerEmployeeId}
+              onChange={(event) => setOwnerEmployeeId(event.target.value)}
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+            >
+              <option value="">담당자 미지정</option>
+              {employees.map((staff) => (
+                <option key={staff.id} value={staff.id}>
+                  {staff.name} ({staff.email})
+                </option>
+              ))}
+            </select>
+          </label>
           <div>
             <Button
               variant="primary"
