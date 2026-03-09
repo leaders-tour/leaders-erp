@@ -1,6 +1,6 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
@@ -495,8 +495,13 @@ function createEstimateDraftSnapshot(input: {
   vehicleType: string;
   flightInTime: string;
   flightOutTime: string;
+  pickupDate: string;
+  pickupTime: string;
+  dropDate: string;
+  dropTime: string;
   pickupDropNote: string;
   externalPickupDropNote: string;
+  specialNote: string;
   includeRentalItems: boolean;
   rentalItemsText: string;
   eventNames: string[];
@@ -516,8 +521,13 @@ function createEstimateDraftSnapshot(input: {
     vehicleType: input.vehicleType,
     flightInTime: input.flightInTime,
     flightOutTime: input.flightOutTime,
+    pickupDate: input.pickupDate,
+    pickupTime: input.pickupTime,
+    dropDate: input.dropDate,
+    dropTime: input.dropTime,
     pickupDropNote: input.pickupDropNote,
     externalPickupDropNote: input.externalPickupDropNote,
+    specialNote: input.specialNote,
     includeRentalItems: input.includeRentalItems,
     rentalItemsText: input.rentalItemsText,
     eventNames: input.eventNames,
@@ -652,8 +662,12 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [flightOutTime, setFlightOutTime] = useState<string>('18:20');
   const [isCustomFlightInTime, setIsCustomFlightInTime] = useState<boolean>(false);
   const [isCustomFlightOutTime, setIsCustomFlightOutTime] = useState<boolean>(false);
-  const [pickupDropNote, setPickupDropNote] = useState<string>('');
+  const [pickupDate, setPickupDate] = useState<string>('');
+  const [pickupTime, setPickupTime] = useState<string>('');
+  const [dropDate, setDropDate] = useState<string>('');
+  const [dropTime, setDropTime] = useState<string>('');
   const [externalPickupDropNote, setExternalPickupDropNote] = useState<string>('');
+  const [specialNote, setSpecialNote] = useState<string>('');
   const [includeRentalItems, setIncludeRentalItems] = useState<boolean>(true);
   const [rentalItemsText, setRentalItemsText] = useState<string>(buildDefaultRentalItems(6));
   const [eventIds, setEventIds] = useState<string[]>([]);
@@ -681,6 +695,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState<boolean>(false);
   const [homeNewUserName, setHomeNewUserName] = useState<string>('');
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
+  const previousTravelStartDateRef = useRef<string>('');
+  const previousTravelEndDateRef = useRef<string>('');
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
@@ -880,6 +896,38 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
     setTravelEndDate(toAutoTravelEndDate(travelStartDate, totalDays));
   }, [totalDays, travelStartDate]);
+
+  useEffect(() => {
+    setPickupDate((current) => {
+      const previousTravelStartDate = previousTravelStartDateRef.current;
+      if (!travelStartDate) {
+        return current === previousTravelStartDate ? '' : current;
+      }
+
+      if (!current || current === previousTravelStartDate) {
+        return travelStartDate;
+      }
+
+      return current;
+    });
+    previousTravelStartDateRef.current = travelStartDate;
+  }, [travelStartDate]);
+
+  useEffect(() => {
+    setDropDate((current) => {
+      const previousTravelEndDate = previousTravelEndDateRef.current;
+      if (!travelEndDate) {
+        return current === previousTravelEndDate ? '' : current;
+      }
+
+      if (!current || current === previousTravelEndDate) {
+        return travelEndDate;
+      }
+
+      return current;
+    });
+    previousTravelEndDateRef.current = travelEndDate;
+  }, [travelEndDate]);
 
   useEffect(() => {
     const elements = document.querySelectorAll<HTMLTextAreaElement>('[data-plan-cell="true"]');
@@ -1112,8 +1160,13 @@ export function ItineraryBuilderPage(): JSX.Element {
         vehicleType,
         flightInTime,
         flightOutTime,
-        pickupDropNote: pickupDropNote.trim(),
+        pickupDate,
+        pickupTime,
+        dropDate,
+        dropTime,
+        pickupDropNote: '',
         externalPickupDropNote: externalPickupDropNote.trim(),
+        specialNote: specialNote.trim(),
         includeRentalItems,
         rentalItemsText: rentalItemsText.trim(),
         eventNames: selectedEventNames,
@@ -1133,8 +1186,12 @@ export function ItineraryBuilderPage(): JSX.Element {
       vehicleType,
       flightInTime,
       flightOutTime,
-      pickupDropNote,
+      pickupDate,
+      pickupTime,
+      dropDate,
+      dropTime,
       externalPickupDropNote,
+      specialNote,
       includeRentalItems,
       rentalItemsText,
       selectedEventNames,
@@ -1145,16 +1202,33 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
   const { data: previewEstimateData, guidesLoading: previewGuidesLoading } = useBuilderEstimatePreview(estimateDraftSnapshot);
   const previewPage1Editor: EstimatePage1Editor = {
+    headcountTotal,
+    headcountMale,
     travelStartDate,
     travelEndDate,
     vehicleType,
     vehicleOptions: VEHICLES,
     flightInTime,
     flightOutTime,
-    pickupText: pickupDropNote,
+    pickupDate,
+    pickupTime,
+    dropDate,
+    dropTime,
+    eventIds,
+    eventOptions: eventOptions.map((eventOption) => ({ id: eventOption.id, name: eventOption.name })),
     externalPickupDropText: externalPickupDropNote,
+    specialNoteText: specialNote,
     rentalItemsText,
     remarkText: remark,
+    onHeadcountTotalChange: (value) => {
+      const nextTotal = Math.max(1, value || 1);
+      setHeadcountTotal(nextTotal);
+      setHeadcountMale((current) => Math.min(current, nextTotal));
+    },
+    onHeadcountMaleChange: (value) => {
+      const nextMale = Math.max(0, Math.min(value, headcountTotal));
+      setHeadcountMale(nextMale);
+    },
     onTravelStartDateChange: setTravelStartDate,
     onTravelEndDateChange: setTravelEndDate,
     onVehicleTypeChange: (value) => {
@@ -1164,8 +1238,14 @@ export function ItineraryBuilderPage(): JSX.Element {
     },
     onFlightInTimeChange: setFlightInTime,
     onFlightOutTimeChange: setFlightOutTime,
-    onPickupTextChange: setPickupDropNote,
+    onPickupDateChange: setPickupDate,
+    onPickupTimeChange: setPickupTime,
+    onDropDateChange: setDropDate,
+    onDropTimeChange: setDropTime,
+    onToggleEventId: (value) =>
+      setEventIds((current) => (current.includes(value) ? current.filter((id) => id !== value) : [...current, value])),
     onExternalPickupDropTextChange: setExternalPickupDropNote,
+    onSpecialNoteTextChange: setSpecialNote,
     onRentalItemsTextChange: (value) => {
       setIncludeRentalItems(true);
       setRentalItemsText(value);
@@ -1515,8 +1595,13 @@ export function ItineraryBuilderPage(): JSX.Element {
                           vehicleType,
                           flightInTime,
                           flightOutTime,
-                          pickupDropNote: pickupDropNote.trim() || undefined,
+                          pickupDate: pickupDate ? toIsoDateTime(pickupDate) : undefined,
+                          pickupTime: pickupTime.trim() || undefined,
+                          dropDate: dropDate ? toIsoDateTime(dropDate) : undefined,
+                          dropTime: dropTime.trim() || undefined,
+                          pickupDropNote: undefined,
                           externalPickupDropNote: externalPickupDropNote.trim() || undefined,
+                          specialNote: specialNote.trim() || undefined,
                           includeRentalItems,
                           rentalItemsText,
                           eventIds,
@@ -1558,8 +1643,13 @@ export function ItineraryBuilderPage(): JSX.Element {
                           vehicleType,
                           flightInTime,
                           flightOutTime,
-                          pickupDropNote: pickupDropNote.trim() || undefined,
+                          pickupDate: pickupDate ? toIsoDateTime(pickupDate) : undefined,
+                          pickupTime: pickupTime.trim() || undefined,
+                          dropDate: dropDate ? toIsoDateTime(dropDate) : undefined,
+                          dropTime: dropTime.trim() || undefined,
+                          pickupDropNote: undefined,
                           externalPickupDropNote: externalPickupDropNote.trim() || undefined,
+                          specialNote: specialNote.trim() || undefined,
                           includeRentalItems,
                           rentalItemsText,
                           eventIds,
@@ -1880,23 +1970,55 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </div>
               </div>
 
+              <div className="grid gap-2 text-sm">
+                <span className="text-xs text-slate-600">픽업 / 드랍 날짜 및 시간</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={pickupDate}
+                    onChange={(event) => setPickupDate(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="time"
+                    value={pickupTime}
+                    onChange={(event) => setPickupTime(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={dropDate}
+                    onChange={(event) => setDropDate(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="time"
+                    value={dropTime}
+                    onChange={(event) => setDropTime(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+
               <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">픽/드랍 (보류)</span>
-                <input
-                  value={pickupDropNote}
-                  onChange={(event) => setPickupDropNote(event.target.value)}
+                <span className="text-xs text-slate-600">실투어 외 픽드랍</span>
+                <textarea
+                  value={externalPickupDropNote}
+                  onChange={(event) => setExternalPickupDropNote(event.target.value)}
+                  rows={3}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  placeholder="보류 항목 (입력만 가능)"
+                  placeholder="줄바꿈 포함 입력 가능"
                 />
               </label>
 
               <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">실투어 외 픽드랍 (보류)</span>
-                <input
-                  value={externalPickupDropNote}
-                  onChange={(event) => setExternalPickupDropNote(event.target.value)}
+                <span className="text-xs text-slate-600">특이사항</span>
+                <textarea
+                  value={specialNote}
+                  onChange={(event) => setSpecialNote(event.target.value)}
+                  rows={3}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  placeholder="보류 항목 (입력만 가능)"
+                  placeholder="줄바꿈 포함 입력 가능"
                 />
               </label>
 
@@ -2660,8 +2782,12 @@ export function ItineraryBuilderPage(): JSX.Element {
         vehicleType,
         flightInTime,
         flightOutTime,
-        pickupDropNote,
+        pickupDate,
+        pickupTime,
+        dropDate,
+        dropTime,
         externalPickupDropNote,
+        specialNote,
         includeRentalItems,
         rentalItemsText,
         eventIds,
@@ -2690,8 +2816,12 @@ export function ItineraryBuilderPage(): JSX.Element {
           vehicleType,
           flightInTime,
           flightOutTime,
-          pickupDropNote,
+          pickupDate,
+          pickupTime,
+          dropDate,
+          dropTime,
           externalPickupDropNote,
+          specialNote,
           includeRentalItems,
           rentalItemsText,
           eventIds,

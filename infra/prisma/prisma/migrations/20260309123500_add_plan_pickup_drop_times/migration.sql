@@ -1,0 +1,3 @@
+ALTER TABLE `PlanVersionMeta`
+  ADD COLUMN `pickupTime` VARCHAR(191) NULL,
+  ADD COLUMN `dropTime` VARCHAR(191) NULL;

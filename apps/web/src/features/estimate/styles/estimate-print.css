@@ -277,6 +277,17 @@
   gap: 6px;
 }
 
+.estimate-editable-meta {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.estimate-editable-meta > span {
+  font-size: 11px;
+  color: #475569;
+}
+
 .estimate-editable-input {
   width: 100%;
   border: 1px solid #cbd5e1;
@@ -291,6 +302,37 @@
 .estimate-editable-textarea {
   resize: vertical;
   min-height: 72px;
+}
+
+.estimate-editable-token-grid,
+.estimate-editable-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.estimate-editable-token,
+.estimate-editable-chip {
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  line-height: 1.3;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.estimate-editable-token--active,
+.estimate-editable-chip--active {
+  border-color: #0f172a;
+  background: #0f172a;
+  color: #fff;
+}
+
+.estimate-editable-empty {
+  font-size: 11px;
+  color: #64748b;
 }
 
 .estimate-document--preview .estimate-editable-input:focus {

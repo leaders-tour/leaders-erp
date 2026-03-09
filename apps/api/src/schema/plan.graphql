@@ -80,8 +80,13 @@ type PlanVersionMeta {
   vehicleType: String!
   flightInTime: String!
   flightOutTime: String!
+  pickupDate: DateTime
+  pickupTime: String
+  dropDate: DateTime
+  dropTime: String
   pickupDropNote: String
   externalPickupDropNote: String
+  specialNote: String
   includeRentalItems: Boolean!
   rentalItemsText: String!
   events: [Event!]!
@@ -233,8 +238,13 @@ input PlanVersionMetaInput {
   vehicleType: String!
   flightInTime: String!
   flightOutTime: String!
+  pickupDate: DateTime
+  pickupTime: String
+  dropDate: DateTime
+  dropTime: String
   pickupDropNote: String
   externalPickupDropNote: String
+  specialNote: String
   includeRentalItems: Boolean!
   rentalItemsText: String!
   eventIds: [ID!]!

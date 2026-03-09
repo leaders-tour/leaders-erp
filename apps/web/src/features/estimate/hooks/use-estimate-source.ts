@@ -35,14 +35,31 @@ function isDraftSnapshot(value: unknown): value is EstimateBuilderDraftSnapshot 
     typeof value.vehicleType === 'string' &&
     typeof value.flightInTime === 'string' &&
     typeof value.flightOutTime === 'string' &&
-    typeof value.pickupDropNote === 'string' &&
+    (value.pickupDate === undefined || typeof value.pickupDate === 'string') &&
+    (value.pickupTime === undefined || typeof value.pickupTime === 'string') &&
+    (value.dropDate === undefined || typeof value.dropDate === 'string') &&
+    (value.dropTime === undefined || typeof value.dropTime === 'string') &&
+    (value.pickupDropNote === undefined || typeof value.pickupDropNote === 'string') &&
     typeof value.externalPickupDropNote === 'string' &&
+    typeof value.specialNote === 'string' &&
     typeof value.includeRentalItems === 'boolean' &&
     typeof value.rentalItemsText === 'string' &&
     typeof value.remark === 'string' &&
     Array.isArray(value.eventNames) &&
     Array.isArray(value.planStops)
   );
+}
+
+function normalizeDraftSnapshot(snapshot: EstimateBuilderDraftSnapshot): EstimateBuilderDraftSnapshot {
+  return {
+    ...snapshot,
+    pickupDate: snapshot.pickupDate ?? '',
+    pickupTime: snapshot.pickupTime ?? '',
+    dropDate: snapshot.dropDate ?? '',
+    dropTime: snapshot.dropTime ?? '',
+    pickupDropNote: snapshot.pickupDropNote ?? '',
+    specialNote: snapshot.specialNote ?? '',
+  };
 }
 
 export function useEstimateSource({ mode, versionId, draftKey }: EstimateSourceParams): EstimateSourceResult {
@@ -79,7 +96,7 @@ export function useEstimateSource({ mode, versionId, draftKey }: EstimateSourceP
         return;
       }
 
-      setDraftSnapshot(parsed);
+      setDraftSnapshot(normalizeDraftSnapshot(parsed));
       setDraftError(null);
     } catch (_error) {
       setDraftSnapshot(null);

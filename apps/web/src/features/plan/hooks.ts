@@ -96,8 +96,13 @@ export interface PlanVersionMetaRow {
   vehicleType: string;
   flightInTime: string;
   flightOutTime: string;
+  pickupDate: string | null;
+  pickupTime: string | null;
+  dropDate: string | null;
+  dropTime: string | null;
   pickupDropNote: string | null;
   externalPickupDropNote: string | null;
+  specialNote: string | null;
   includeRentalItems: boolean;
   rentalItemsText: string;
   events: Array<{
@@ -417,8 +422,13 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         vehicleType
         flightInTime
         flightOutTime
+        pickupDate
+        pickupTime
+        dropDate
+        dropTime
         pickupDropNote
         externalPickupDropNote
+        specialNote
         includeRentalItems
         rentalItemsText
         events {

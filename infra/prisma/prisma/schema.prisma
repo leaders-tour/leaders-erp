@@ -372,8 +372,13 @@ model PlanVersionMeta {
   vehicleType            String
   flightInTime           String
   flightOutTime          String
+  pickupDate             DateTime?
+  pickupTime             String?
+  dropDate               DateTime?
+  dropTime               String?
   pickupDropNote         String?
   externalPickupDropNote String?
+  specialNote            String?  @db.Text
   includeRentalItems     Boolean  @default(true)
   rentalItemsText        String   @db.Text
   eventCodes             Json
