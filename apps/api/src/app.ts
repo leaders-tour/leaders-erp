@@ -51,7 +51,10 @@ function toUploadFile(file: File): UploadFile {
   return {
     filename: file.name,
     mimetype: file.type,
-    createReadStream: () => Readable.fromWeb(file.stream() as unknown as import('node:stream/web').ReadableStream) as Readable,
+    createReadStream: () =>
+      Readable.fromWeb(
+        file.stream() as unknown as import('node:stream/web').ReadableStream,
+      ) as Readable,
   };
 }
 
@@ -62,15 +65,12 @@ const parseGraphqlMultipartRequest: RequestHandler = async (req, _res, next) => 
   }
 
   try {
-    const request = new Request(
-      'http://localhost/graphql',
-      {
+    const request = new Request('http://localhost/graphql', {
       method: req.method,
       headers: req.headers as HeadersInit,
       body: Readable.toWeb(req) as unknown as BodyInit,
       duplex: 'half',
-      } as RequestInit,
-    );
+    } as RequestInit);
     const formData = await request.formData();
     const operationsRaw = formData.get('operations');
     const mapRaw = formData.get('map');
@@ -132,7 +132,7 @@ export async function createApp(): Promise<express.Express> {
     },
   });
 
-  await server.start();
+  await server.start(); // start
 
   app.use(
     '/graphql',
