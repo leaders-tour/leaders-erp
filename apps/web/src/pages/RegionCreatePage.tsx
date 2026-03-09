@@ -59,10 +59,12 @@ export function RegionCreatePage(): JSX.Element {
           <label className="grid gap-1 text-sm">
             <span className="text-slate-700">지역명</span>
             <Input value={name} onChange={(event) => setName(event.target.value)} required />
+            <span className="text-xs text-slate-500">*(예시: 홉스골, 고비, 중부)</span>
           </label>
           <label className="grid gap-1 text-sm">
-            <span className="text-slate-700">설명</span>
+            <span className="text-slate-700">설명 (선택)</span>
             <Input value={description} onChange={(event) => setDescription(event.target.value)} />
+            <span className="text-xs text-slate-500">*직원만 보입니다.</span>
           </label>
           <div>
             <Button type="submit" variant="primary" disabled={submitting || !name.trim() || crud.loading}>
