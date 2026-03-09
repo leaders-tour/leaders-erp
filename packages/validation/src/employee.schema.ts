@@ -6,7 +6,7 @@ export const employeeRoleSchema = z.nativeEnum(EmployeeRole);
 export const employeeCreateSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email(),
-  password: z.string().min(8).max(200),
+  password: z.string().min(4).max(200),
   role: employeeRoleSchema.default(EmployeeRole.STAFF),
 });
 
@@ -18,7 +18,7 @@ export const employeeUpdateSchema = z.object({
 });
 
 export const employeePasswordResetSchema = z.object({
-  newPassword: z.string().min(8).max(200),
+  newPassword: z.string().min(4).max(200),
 });
 
 export type EmployeeCreateInput = z.infer<typeof employeeCreateSchema>;

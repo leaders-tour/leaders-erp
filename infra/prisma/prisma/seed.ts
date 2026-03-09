@@ -44,22 +44,30 @@ async function ensureBootstrapAdmin(): Promise<void> {
     return;
   }
 
-  const existing = await prisma.employee.findUnique({
+  const employee = await prisma.employee.upsert({
     where: { email },
-    select: { id: true },
-  });
-
-  if (existing) {
-    return;
-  }
-
-  await prisma.employee.create({
-    data: {
+    update: {
+      name,
+      passwordHash: await hashPassword(password),
+      role: EmployeeRole.ADMIN,
+      isActive: true,
+    },
+    create: {
       name,
       email,
       passwordHash: await hashPassword(password),
       role: EmployeeRole.ADMIN,
       isActive: true,
+    },
+  });
+
+  await prisma.employeeRefreshToken.updateMany({
+    where: {
+      employeeId: employee.id,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt: new Date(),
     },
   });
 }

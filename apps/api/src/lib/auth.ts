@@ -6,8 +6,10 @@ const scrypt = promisify(scryptCallback);
 const DEFAULT_ACCESS_TOKEN_TTL_MINUTES = 30;
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 7;
 const DEFAULT_REFRESH_COOKIE_NAME = 'tour_refresh_token';
+const DEFAULT_DEV_ACCESS_TOKEN_SECRET = 'tour-erp-dev-access-secret';
 const ACCESS_TOKEN_AUDIENCE = 'tour-erp';
 const ACCESS_TOKEN_TYPE = 'access';
+let warnedMissingAccessTokenSecret = false;
 
 export interface AuthenticatedEmployee {
   id: string;
@@ -44,10 +46,16 @@ function base64UrlDecode(value: string): string {
 
 function getAccessTokenSecret(): string {
   const secret = process.env.AUTH_ACCESS_TOKEN_SECRET?.trim();
-  if (!secret) {
-    throw new Error('AUTH_ACCESS_TOKEN_SECRET is required');
+  if (secret) {
+    return secret;
   }
-  return secret;
+
+  if (!warnedMissingAccessTokenSecret) {
+    process.stderr.write('[auth] AUTH_ACCESS_TOKEN_SECRET is missing; using local development fallback secret.\n');
+    warnedMissingAccessTokenSecret = true;
+  }
+
+  return DEFAULT_DEV_ACCESS_TOKEN_SECRET;
 }
 
 function signAccessToken(payload: AccessTokenPayload): string {

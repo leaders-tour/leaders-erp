@@ -107,7 +107,7 @@ export function EmployeeAdminPage(): JSX.Element {
           </select>
           <Button
             variant="primary"
-            disabled={!createForm.name.trim() || !createForm.email.trim() || createForm.password.length < 8 || creatingEmployee}
+            disabled={!createForm.name.trim() || !createForm.email.trim() || createForm.password.length < 4 || creatingEmployee}
             onClick={async () => {
               setErrorMessage(null);
               setFeedback(null);
@@ -250,11 +250,11 @@ export function EmployeeAdminPage(): JSX.Element {
                           [employee.id]: { ...draft, password: event.target.value },
                         }))
                       }
-                      placeholder="새 비밀번호 (8자 이상)"
+                      placeholder="새 비밀번호 (4자 이상)"
                     />
                     <Button
                       variant="outline"
-                      disabled={draft.password.length < 8 || resettingPassword}
+                      disabled={draft.password.length < 4 || resettingPassword}
                       onClick={async () => {
                         setErrorMessage(null);
                         setFeedback(null);
