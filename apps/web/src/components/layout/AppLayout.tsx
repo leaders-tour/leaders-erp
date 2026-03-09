@@ -80,8 +80,8 @@ const AdminIcon: NavIcon = ({ className }) => (
 
 const baseNavItems: NavItem[] = [
   { path: '/itinerary-builder', label: '일정 빌더', icon: ItineraryIcon },
-  { path: '/deal-pipeline', label: '딜 파이프라인', icon: PipelineIcon },
-  { path: '/todos/list', label: 'TODO', icon: TodoIcon },
+  { path: '/deal-pipeline', label: '딜 파이프라인 ( 준비중 )', icon: PipelineIcon },
+  { path: '/todos/list', label: 'TODO ( 준비중 )', icon: TodoIcon },
   {
     path: '/customers',
     label: '고객',
