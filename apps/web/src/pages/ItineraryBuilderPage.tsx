@@ -669,6 +669,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [createdId, setCreatedId] = useState<string>('');
   const [isValidationOpen, setIsValidationOpen] = useState<boolean>(false);
   const [isPayloadPreviewOpen, setIsPayloadPreviewOpen] = useState<boolean>(false);
+  const [isPreviewEnabled, setIsPreviewEnabled] = useState<boolean>(true);
   const [activePane, setActivePane] = useState<'builder' | 'preview'>('builder');
   const [hasAppliedInitialTemplate, setHasAppliedInitialTemplate] = useState<boolean>(false);
   const [skipNextAutoRowsSync, setSkipNextAutoRowsSync] = useState<boolean>(false);
@@ -1062,6 +1063,12 @@ export function ItineraryBuilderPage(): JSX.Element {
     setManualDepositInput(String(pricingPreview.depositAmountKrw));
   }, [hasEditedManualDeposit, pricingPreview]);
 
+  useEffect(() => {
+    if (!isPreviewEnabled && activePane === 'preview') {
+      setActivePane('builder');
+    }
+  }, [activePane, isPreviewEnabled]);
+
   const canCreate = Boolean(
     hasPlanContext &&
       regionId &&
@@ -1386,35 +1393,52 @@ export function ItineraryBuilderPage(): JSX.Element {
   }
 
   return (
-    <div className="min-h-screen text-slate-900 lg:h-screen lg:min-h-0">
+    <div className={`min-h-screen text-slate-900 ${isPreviewEnabled ? 'lg:h-screen lg:min-h-0' : ''}`}>
       <div className="border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
-        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
-          <button
-            type="button"
-            onClick={() => setActivePane('builder')}
-            className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
-              activePane === 'builder' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600'
-            }`}
-          >
-            빌더
-          </button>
-          <button
-            type="button"
-            onClick={() => setActivePane('preview')}
-            className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
-              activePane === 'preview' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600'
-            }`}
-          >
-            미리보기
-          </button>
+        <div className="flex items-center gap-2">
+          {isPreviewEnabled ? (
+            <div className="grid flex-1 grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+              <button
+                type="button"
+                onClick={() => setActivePane('builder')}
+                className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+                  activePane === 'builder' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600'
+                }`}
+              >
+                빌더
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePane('preview')}
+                className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+                  activePane === 'preview' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600'
+                }`}
+              >
+                미리보기
+              </button>
+            </div>
+          ) : (
+            <div className="flex-1 text-sm font-medium text-slate-700">빌더 전용 보기</div>
+          )}
+          <Button variant="outline" className="shrink-0" onClick={() => setIsPreviewEnabled((prev) => !prev)}>
+            {isPreviewEnabled ? '미리보기 끄기' : '미리보기 켜기'}
+          </Button>
         </div>
       </div>
 
-      <div className="lg:grid lg:h-full lg:grid-cols-2">
+      <div className={isPreviewEnabled ? 'lg:grid lg:h-full lg:grid-cols-2' : ''}>
         <div
-          className={`${activePane === 'builder' ? 'block' : 'hidden'} border-b border-slate-200 bg-slate-50 lg:block lg:h-full lg:overflow-y-auto lg:border-b-0 lg:border-r`}
+          className={`${
+            !isPreviewEnabled || activePane === 'builder' ? 'block' : 'hidden'
+          } bg-slate-50 ${
+            isPreviewEnabled ? 'border-b border-slate-200 lg:block lg:h-full lg:overflow-y-auto lg:border-b-0 lg:border-r' : ''
+          }`}
         >
-          <div className="space-y-6 px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
+          <div
+            className={`space-y-6 px-4 py-4 sm:px-6 lg:py-6 ${
+              isPreviewEnabled ? 'lg:px-8' : 'mx-auto max-w-7xl lg:px-6'
+            }`}
+          >
         <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">여행 일정 빌더</h1>
@@ -1427,6 +1451,9 @@ export function ItineraryBuilderPage(): JSX.Element {
             </p>
           </div>
           <div className="flex gap-2 no-print">
+            <Button variant="outline" onClick={() => setIsPreviewEnabled((prev) => !prev)}>
+              {isPreviewEnabled ? '미리보기 끄기' : '미리보기 켜기'}
+            </Button>
             <Button variant="outline" onClick={openEstimatePdf}>
               견적서 PDF
             </Button>
@@ -2661,31 +2688,33 @@ export function ItineraryBuilderPage(): JSX.Element {
           </div>
         </div>
 
-        <aside className={`${activePane === 'preview' ? 'block' : 'hidden'} bg-slate-100/80 lg:block lg:h-full lg:overflow-y-auto`}>
-          <div className="p-4 sm:p-6 lg:sticky lg:top-0 lg:p-6">
-            <div className="estimate-preview-panel rounded-[28px] border border-slate-200 bg-white/90 p-4 shadow-xl backdrop-blur sm:p-5">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-semibold text-slate-900">실시간 견적서 미리보기</h2>
-                  <p className="mt-1 text-xs text-slate-600">좌측 입력값이 우측 문서에 바로 반영됩니다.</p>
+        {isPreviewEnabled ? (
+          <aside className={`${activePane === 'preview' ? 'block' : 'hidden'} bg-slate-100/80 lg:block lg:h-full lg:overflow-y-auto`}>
+            <div className="p-4 sm:p-6 lg:sticky lg:top-0 lg:p-6">
+              <div className="estimate-preview-panel rounded-[28px] border border-slate-200 bg-white/90 p-4 shadow-xl backdrop-blur sm:p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-900">실시간 견적서 미리보기</h2>
+                    <p className="mt-1 text-xs text-slate-600">좌측 입력값이 우측 문서에 바로 반영됩니다.</p>
+                  </div>
+                  <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600">
+                    {previewGuidesLoading ? '여행지 안내 동기화 중' : '실시간 반영'}
+                  </div>
                 </div>
-                <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600">
-                  {previewGuidesLoading ? '여행지 안내 동기화 중' : '실시간 반영'}
-                </div>
-              </div>
 
-              {previewEstimateData ? (
-                <div className="estimate-preview-frame">
-                  <EstimateDocument data={previewEstimateData} viewMode="screen-preview" />
-                </div>
-              ) : (
-                <Card className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
-                  미리보기 데이터를 준비 중입니다...
-                </Card>
-              )}
+                {previewEstimateData ? (
+                  <div className="estimate-preview-frame">
+                    <EstimateDocument data={previewEstimateData} viewMode="screen-preview" />
+                  </div>
+                ) : (
+                  <Card className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
+                    미리보기 데이터를 준비 중입니다...
+                  </Card>
+                )}
+              </div>
             </div>
-          </div>
-        </aside>
+          </aside>
+        ) : null}
       </div>
     </div>
   );
