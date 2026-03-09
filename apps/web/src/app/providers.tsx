@@ -17,7 +17,14 @@ function ApolloAppProvider({ children }: PropsWithChildren): JSX.Element {
 
   useEffect(() => {
     const sessionKey = employee?.id ?? status;
-    if (previousSessionKeyRef.current && previousSessionKeyRef.current !== sessionKey) {
+    const previousSessionKey = previousSessionKeyRef.current;
+
+    if (
+      previousSessionKey &&
+      previousSessionKey !== 'loading' &&
+      sessionKey !== 'loading' &&
+      previousSessionKey !== sessionKey
+    ) {
       void client.clearStore();
     }
     previousSessionKeyRef.current = sessionKey;
