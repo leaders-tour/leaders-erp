@@ -20,6 +20,14 @@ interface EmployeeDraftMap {
   };
 }
 
+interface FieldLabelProps {
+  children: string;
+}
+
+function FieldLabel({ children }: FieldLabelProps): JSX.Element {
+  return <span className="mb-1.5 block text-xs font-medium text-slate-600">{children}</span>;
+}
+
 function roleLabel(role: EmployeeRole): string {
   return role === EmployeeRole.ADMIN ? '관리자' : '일반';
 }
@@ -80,53 +88,67 @@ export function EmployeeAdminPage(): JSX.Element {
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[1.2fr_1.4fr_1fr_0.9fr_auto]">
-          <Input
-            value={createForm.name}
-            onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))}
-            placeholder="이름"
-          />
-          <Input
-            type="email"
-            value={createForm.email}
-            onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))}
-            placeholder="이메일"
-          />
-          <Input
-            type="password"
-            value={createForm.password}
-            onChange={(event) => setCreateForm((current) => ({ ...current, password: event.target.value }))}
-            placeholder="초기 비밀번호"
-          />
-          <select
-            value={createForm.role}
-            onChange={(event) => setCreateForm((current) => ({ ...current, role: event.target.value as EmployeeRole }))}
-            className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
-          >
-            <option value={EmployeeRole.STAFF}>일반</option>
-            <option value={EmployeeRole.ADMIN}>관리자</option>
-          </select>
-          <Button
-            variant="primary"
-            disabled={!createForm.name.trim() || !createForm.email.trim() || createForm.password.length < 4 || creatingEmployee}
-            onClick={async () => {
-              setErrorMessage(null);
-              setFeedback(null);
-              try {
-                await createEmployee({
-                  name: createForm.name.trim(),
-                  email: createForm.email.trim(),
-                  password: createForm.password,
-                  role: createForm.role,
-                });
-                setCreateForm({ name: '', email: '', password: '', role: EmployeeRole.STAFF });
-                setFeedback('직원 계정을 생성했습니다.');
-              } catch (error) {
-                setErrorMessage(error instanceof Error ? error.message : '직원 생성에 실패했습니다.');
-              }
-            }}
-          >
-            {creatingEmployee ? '생성 중...' : '직원 생성'}
-          </Button>
+          <label>
+            <FieldLabel>이름</FieldLabel>
+            <Input
+              value={createForm.name}
+              onChange={(event) => setCreateForm((current) => ({ ...current, name: event.target.value }))}
+              placeholder="직원 이름"
+            />
+          </label>
+          <label>
+            <FieldLabel>이메일 주소</FieldLabel>
+            <Input
+              type="email"
+              value={createForm.email}
+              onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))}
+              placeholder="example@tour.com"
+            />
+          </label>
+          <label>
+            <FieldLabel>초기 비밀번호</FieldLabel>
+            <Input
+              type="password"
+              value={createForm.password}
+              onChange={(event) => setCreateForm((current) => ({ ...current, password: event.target.value }))}
+              placeholder="4자 이상 입력"
+            />
+          </label>
+          <label>
+            <FieldLabel>권한</FieldLabel>
+            <select
+              value={createForm.role}
+              onChange={(event) => setCreateForm((current) => ({ ...current, role: event.target.value as EmployeeRole }))}
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+            >
+              <option value={EmployeeRole.STAFF}>일반</option>
+              <option value={EmployeeRole.ADMIN}>관리자</option>
+            </select>
+          </label>
+          <div className="flex items-end">
+            <Button
+              variant="primary"
+              disabled={!createForm.name.trim() || !createForm.email.trim() || createForm.password.length < 4 || creatingEmployee}
+              onClick={async () => {
+                setErrorMessage(null);
+                setFeedback(null);
+                try {
+                  await createEmployee({
+                    name: createForm.name.trim(),
+                    email: createForm.email.trim(),
+                    password: createForm.password,
+                    role: createForm.role,
+                  });
+                  setCreateForm({ name: '', email: '', password: '', role: EmployeeRole.STAFF });
+                  setFeedback('직원 계정을 생성했습니다.');
+                } catch (error) {
+                  setErrorMessage(error instanceof Error ? error.message : '직원 생성에 실패했습니다.');
+                }
+              }}
+            >
+              {creatingEmployee ? '생성 중...' : '직원 생성'}
+            </Button>
+          </div>
         </div>
       </Card>
 
@@ -149,53 +171,65 @@ export function EmployeeAdminPage(): JSX.Element {
             <Card key={employee.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div className="grid flex-1 gap-3 md:grid-cols-2 xl:grid-cols-[1.1fr_1.2fr_0.8fr_0.9fr]">
-                  <Input
-                    value={draft.name}
-                    onChange={(event) =>
-                      setDrafts((current) => ({
-                        ...current,
-                        [employee.id]: { ...draft, name: event.target.value },
-                      }))
-                    }
-                    placeholder="이름"
-                  />
-                  <Input
-                    type="email"
-                    value={draft.email}
-                    onChange={(event) =>
-                      setDrafts((current) => ({
-                        ...current,
-                        [employee.id]: { ...draft, email: event.target.value },
-                      }))
-                    }
-                    placeholder="이메일"
-                  />
-                  <select
-                    value={draft.role}
-                    onChange={(event) =>
-                      setDrafts((current) => ({
-                        ...current,
-                        [employee.id]: { ...draft, role: event.target.value as EmployeeRole },
-                      }))
-                    }
-                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
-                  >
-                    <option value={EmployeeRole.STAFF}>일반</option>
-                    <option value={EmployeeRole.ADMIN}>관리자</option>
-                  </select>
-                  <select
-                    value={draft.isActive ? 'ACTIVE' : 'INACTIVE'}
-                    onChange={(event) =>
-                      setDrafts((current) => ({
-                        ...current,
-                        [employee.id]: { ...draft, isActive: event.target.value === 'ACTIVE' },
-                      }))
-                    }
-                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
-                  >
-                    <option value="ACTIVE">활성</option>
-                    <option value="INACTIVE">비활성</option>
-                  </select>
+                  <label>
+                    <FieldLabel>이름</FieldLabel>
+                    <Input
+                      value={draft.name}
+                      onChange={(event) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [employee.id]: { ...draft, name: event.target.value },
+                        }))
+                      }
+                      placeholder="직원 이름"
+                    />
+                  </label>
+                  <label>
+                    <FieldLabel>이메일 주소</FieldLabel>
+                    <Input
+                      type="email"
+                      value={draft.email}
+                      onChange={(event) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [employee.id]: { ...draft, email: event.target.value },
+                        }))
+                      }
+                      placeholder="example@tour.com"
+                    />
+                  </label>
+                  <label>
+                    <FieldLabel>권한</FieldLabel>
+                    <select
+                      value={draft.role}
+                      onChange={(event) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [employee.id]: { ...draft, role: event.target.value as EmployeeRole },
+                        }))
+                      }
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                    >
+                      <option value={EmployeeRole.STAFF}>일반</option>
+                      <option value={EmployeeRole.ADMIN}>관리자</option>
+                    </select>
+                  </label>
+                  <label>
+                    <FieldLabel>상태</FieldLabel>
+                    <select
+                      value={draft.isActive ? 'ACTIVE' : 'INACTIVE'}
+                      onChange={(event) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [employee.id]: { ...draft, isActive: event.target.value === 'ACTIVE' },
+                        }))
+                      }
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                    >
+                      <option value="ACTIVE">활성</option>
+                      <option value="INACTIVE">비활성</option>
+                    </select>
+                  </label>
                 </div>
 
                 <div className="grid gap-2 xl:min-w-[320px]">
@@ -241,41 +275,46 @@ export function EmployeeAdminPage(): JSX.Element {
                   </div>
 
                   <div className="grid gap-2 md:grid-cols-[1fr_auto]">
-                    <Input
-                      type="password"
-                      value={draft.password}
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [employee.id]: { ...draft, password: event.target.value },
-                        }))
-                      }
-                      placeholder="새 비밀번호 (4자 이상)"
-                    />
-                    <Button
-                      variant="outline"
-                      disabled={draft.password.length < 4 || resettingPassword}
-                      onClick={async () => {
-                        setErrorMessage(null);
-                        setFeedback(null);
-                        try {
-                          await resetEmployeePassword(employee.id, draft.password);
+                    <label>
+                      <FieldLabel>새 비밀번호</FieldLabel>
+                      <Input
+                        type="password"
+                        value={draft.password}
+                        onChange={(event) =>
                           setDrafts((current) => ({
                             ...current,
-                            [employee.id]: { ...draft, password: '' },
-                          }));
-                          setFeedback(`${employee.name} 비밀번호를 재설정했습니다.`);
-                        } catch (error) {
-                          setErrorMessage(error instanceof Error ? error.message : '비밀번호 재설정에 실패했습니다.');
+                            [employee.id]: { ...draft, password: event.target.value },
+                          }))
                         }
-                      }}
-                    >
-                      비밀번호 재설정
-                    </Button>
+                        placeholder="4자 이상 입력"
+                      />
+                    </label>
+                    <div className="flex items-end">
+                      <Button
+                        variant="outline"
+                        disabled={draft.password.length < 4 || resettingPassword}
+                        onClick={async () => {
+                          setErrorMessage(null);
+                          setFeedback(null);
+                          try {
+                            await resetEmployeePassword(employee.id, draft.password);
+                            setDrafts((current) => ({
+                              ...current,
+                              [employee.id]: { ...draft, password: '' },
+                            }));
+                            setFeedback(`${employee.name} 비밀번호를 재설정했습니다.`);
+                          } catch (error) {
+                            setErrorMessage(error instanceof Error ? error.message : '비밀번호 재설정에 실패했습니다.');
+                          }
+                        }}
+                      >
+                        비밀번호 재설정
+                      </Button>
+                    </div>
                   </div>
 
                   <p className="text-xs text-slate-500">
-                    {roleLabel(employee.role)} · {employee.isActive ? '활성' : '비활성'} · 생성 {new Date(employee.createdAt).toLocaleDateString('ko-KR')}
+                    권한 {roleLabel(employee.role)} · 상태 {employee.isActive ? '활성' : '비활성'} · 계정 생성일 {new Date(employee.createdAt).toLocaleDateString('ko-KR')}
                   </p>
                 </div>
               </div>
