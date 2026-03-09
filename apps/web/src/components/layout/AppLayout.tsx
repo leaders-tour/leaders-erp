@@ -91,7 +91,15 @@ const baseNavItems: NavItem[] = [
       { path: '/customers/create', label: '고객 생성' },
     ],
   },
-  { path: '/itinerary-templates', label: '일정 템플릿', icon: TemplateIcon },
+  {
+    path: '/itinerary-templates',
+    label: '일정 템플릿',
+    icon: TemplateIcon,
+    children: [
+      { path: '/itinerary-templates', label: '템플릿 목록' },
+      { path: '/itinerary-templates/new', label: '템플릿 생성' },
+    ],
+  },
   {
     path: '/locations',
     label: '목적지',
@@ -112,7 +120,15 @@ const baseNavItems: NavItem[] = [
       { path: '/regions/create', label: '지역 생성' },
     ],
   },
-  { path: '/events', label: '이벤트', icon: EventIcon },
+  {
+    path: '/events',
+    label: '이벤트',
+    icon: EventIcon,
+    children: [
+      { path: '/events/list', label: '이벤트 목록' },
+      { path: '/events/create', label: '이벤트 생성' },
+    ],
+  },
 ];
 
 const sidebarCollapsedStorageKey = 'tour-erp:sidebar-collapsed';
