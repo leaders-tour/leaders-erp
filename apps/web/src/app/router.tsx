@@ -25,6 +25,7 @@ import { PlanVersionDetailPage } from '../pages/PlanVersionDetailPage';
 import { RegionCreatePage } from '../pages/RegionCreatePage';
 import { RegionListPage } from '../pages/RegionListPage';
 import { SegmentPage } from '../pages/SegmentPage';
+import { TodoListPage } from '../pages/TodoListPage';
 
 export const router = createBrowserRouter([
   {
@@ -53,6 +54,7 @@ export const router = createBrowserRouter([
       { path: 'customers/create', element: <CustomerCreatePage /> },
       { path: 'customers/:userId/plans', element: <CustomerPlansPage /> },
       { path: 'deal-pipeline', element: <DealPipelinePage /> },
+      { path: 'todos/list', element: <TodoListPage /> },
       { path: 'plans/:planId', element: <PlanDetailPage /> },
       { path: 'plans/:planId/versions/:versionId', element: <PlanVersionDetailPage /> },
       { path: 'regions', element: <Navigate to="/regions/list" replace /> },

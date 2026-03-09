@@ -30,6 +30,15 @@ const PipelineIcon: NavIcon = ({ className }) => (
   </svg>
 );
 
+const TodoIcon: NavIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 6h11M9 12h11M9 18h11" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="m4 6 1.5 1.5L7.5 5.5" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="m4 12 1.5 1.5L7.5 11.5" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="m4 18 1.5 1.5L7.5 17.5" />
+  </svg>
+);
+
 const CustomerIcon: NavIcon = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M16 3.1a4 4 0 0 1 0 7.8M22 21v-2a4 4 0 0 0-3-3.9M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
@@ -72,6 +81,7 @@ const AdminIcon: NavIcon = ({ className }) => (
 const baseNavItems: NavItem[] = [
   { path: '/itinerary-builder', label: '일정 빌더', icon: ItineraryIcon },
   { path: '/deal-pipeline', label: '딜 파이프라인', icon: PipelineIcon },
+  { path: '/todos/list', label: 'TODO', icon: TodoIcon },
   {
     path: '/customers',
     label: '고객',

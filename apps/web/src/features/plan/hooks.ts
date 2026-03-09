@@ -25,8 +25,11 @@ export interface UserDealTodoPreviewRow {
   id: string;
   stage: DealStageValue;
   title: string;
+  description: string | null;
   status: DealTodoStatusValue;
+  completedAt: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface UserRow {
@@ -219,8 +222,11 @@ const USERS_QUERY = gql`
         id
         stage
         title
+        description
         status
+        completedAt
         createdAt
+        updatedAt
       }
       createdAt
       updatedAt
@@ -248,8 +254,11 @@ const USER_QUERY = gql`
         id
         stage
         title
+        description
         status
+        completedAt
         createdAt
+        updatedAt
       }
       createdAt
       updatedAt
@@ -598,8 +607,8 @@ const UPDATE_USER_DEAL_TODO_STATUS_MUTATION = gql`
 `;
 
 export function useUsers() {
-  const { data, loading, refetch } = useQuery<{ users: UserRow[] }>(USERS_QUERY);
-  return { users: data?.users ?? [], loading, refetch };
+  const { data, loading, error, refetch } = useQuery<{ users: UserRow[] }>(USERS_QUERY);
+  return { users: data?.users ?? [], loading, error, refetch };
 }
 
 export function useUser(id: string | undefined) {
