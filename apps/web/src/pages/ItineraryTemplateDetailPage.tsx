@@ -99,6 +99,7 @@ const SEGMENTS_QUERY = gql`
       regionId
       fromLocationId
       toLocationId
+      averageDistanceKm
       averageTravelHours
     }
   }

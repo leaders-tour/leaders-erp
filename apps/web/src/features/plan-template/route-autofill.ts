@@ -49,6 +49,7 @@ export interface SegmentOption {
   regionId: string;
   fromLocationId: string;
   toLocationId: string;
+  averageDistanceKm: number;
   averageTravelHours: number;
 }
 
@@ -61,6 +62,27 @@ export function formatLocationVersion(version: Pick<LocationVersionOption, 'labe
 
 function formatHours(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(1)));
+}
+
+function formatDistance(value: number): string {
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(1)));
+}
+
+export function formatRouteDestinationCellText(input: {
+  locationName: string;
+  averageTravelHours?: number | null;
+  averageDistanceKm?: number | null;
+}): string {
+  const travelLine =
+    typeof input.averageTravelHours === 'number' && input.averageTravelHours > 0
+      ? `이동 ${formatHours(input.averageTravelHours)}시간`
+      : '이동 미정';
+  const distanceLine =
+    typeof input.averageDistanceKm === 'number' && input.averageDistanceKm > 0
+      ? `(${formatDistance(input.averageDistanceKm)} km)`
+      : '(거리 미정)';
+
+  return [input.locationName, travelLine, distanceLine].join('\n');
 }
 
 function toTimeCell(version: LocationVersionOption | undefined): string {
@@ -184,13 +206,11 @@ export function buildAutoRowsFromRoute(input: {
     const toLocation = locationById.get(toStop.locationId);
     const toVersion = locationVersionById.get(toStop.locationVersionId);
 
-    const destinationCellText = [
-      toLocation?.name ?? toStop.locationId,
-      toVersion ? `(버전: ${toVersion.label})` : '(버전: 미정)',
-      segment ? `(이동시간: ${formatHours(segment.averageTravelHours)}시간)` : '(이동시간: 미정)',
-    ]
-      .filter(Boolean)
-      .join('\n');
+    const destinationCellText = formatRouteDestinationCellText({
+      locationName: toLocation?.name ?? toStop.locationId,
+      averageTravelHours: segment?.averageTravelHours,
+      averageDistanceKm: segment?.averageDistanceKm,
+    });
 
     return {
       locationId: toStop.locationId,

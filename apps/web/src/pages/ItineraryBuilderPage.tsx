@@ -7,6 +7,7 @@ import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builde
 import type { EstimateBuilderDraftSnapshot, EstimatePage1Editor } from '../features/estimate/model/types';
 import { useAuth } from '../features/auth/context';
 import { toFacilityLabel, toMealLabel } from '../features/location/display';
+import { formatRouteDestinationCellText } from '../features/plan-template/route-autofill';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 import { MealOption, VariantType } from '../generated/graphql';
 
@@ -482,10 +483,6 @@ function buildDefaultRentalItems(total: number): string {
   ].join(', ');
 }
 
-function formatHours(value: number): string {
-  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(1)));
-}
-
 function formatKrw(value: number): string {
   return `${new Intl.NumberFormat('ko-KR').format(value)}원`;
 }
@@ -878,15 +875,11 @@ export function ItineraryBuilderPage(): JSX.Element {
       const segment = filteredSegments.find((item) => item.fromLocationId === fromId && item.toLocationId === toStop.locationId);
       const toLocation = locationById.get(toStop.locationId);
       const toVersion = locationVersionById.get(toStop.locationVersionId);
-      const segmentHours = segment?.averageTravelHours ?? 0;
-      const totalTravelHours = segment ? segmentHours : 0;
-      const destinationCellText = [
-        toLocation?.name ?? toStop.locationId,
-        toVersion ? `(버전: ${toVersion.label})` : '',
-        segment ? `(이동시간: ${formatHours(totalTravelHours)}시간)` : '(이동시간: 미정)',
-      ]
-        .filter(Boolean)
-        .join('\n');
+      const destinationCellText = formatRouteDestinationCellText({
+        locationName: toLocation?.name ?? toStop.locationId,
+        averageTravelHours: segment?.averageTravelHours,
+        averageDistanceKm: segment?.averageDistanceKm,
+      });
 
       return {
         locationId: toStop.locationId,
