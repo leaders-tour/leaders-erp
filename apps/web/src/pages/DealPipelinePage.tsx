@@ -303,7 +303,7 @@ function PipelineColumn({
       </header>
 
       <SortableContext items={users.map((user) => user.id)} strategy={verticalListSortingStrategy}>
-        <div className="grid gap-2">
+        <div className={dealPipelineTokens.column.list}>
           {users.length === 0 ? (
             <Card className={dealPipelineTokens.column.emptyCard}>
               현재 단계에 고객이 없습니다.

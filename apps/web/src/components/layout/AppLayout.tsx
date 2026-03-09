@@ -143,7 +143,7 @@ export function AppLayout(): JSX.Element {
 
   const matchesPath = (path: string): boolean =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);
-  const isFullBleedPage = matchesPath('/itinerary-builder');
+  const isFullBleedPage = matchesPath('/itinerary-builder') || matchesPath('/deal-pipeline');
   const isCompactSidebar = isSidebarCollapsed;
 
   const isNavItemActive = (path: string, children?: NavChild[]): boolean => {

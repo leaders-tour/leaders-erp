@@ -1,18 +1,19 @@
 export const dealPipelineTokens = {
   board: {
-    section: 'grid gap-4',
-    track: 'overflow-x-auto pb-2',
+    section: 'grid gap-4 px-6 py-6 lg:px-8 lg:py-8',
+    track: 'overflow-x-auto pb-4',
     grid: 'grid min-w-max grid-flow-col auto-cols-[260px] gap-4',
     searchHint: 'text-xs text-slate-500',
     errorText: 'text-sm text-rose-600',
     loadingText: 'text-sm text-slate-600',
   },
   column: {
-    base: 'rounded-2xl border border-slate-200 bg-slate-100/70 p-3 transition-colors',
+    base: 'flex min-h-[32rem] flex-col self-start rounded-2xl border border-slate-200 bg-slate-100/70 p-3 transition-colors lg:min-h-[40rem]',
     over: 'bg-slate-200/60',
     header: 'mb-3 flex items-center justify-between gap-2 border-b border-slate-200 pb-2',
     title: 'text-sm font-semibold text-slate-900',
     count: 'rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700',
+    list: 'grid min-h-[28rem] content-start gap-2 lg:min-h-[36rem]',
     emptyCard: 'rounded-xl border border-dashed border-slate-300 bg-white/70 p-3 text-xs text-slate-500 shadow-none',
   },
   card: {
