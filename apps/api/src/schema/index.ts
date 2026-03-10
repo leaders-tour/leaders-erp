@@ -21,6 +21,7 @@ const files = [
   'activity.graphql',
   'event.graphql',
   'override.graphql',
+  'outreach.graphql',
 ];
 
 export const typeDefs = files.map((fileName) => readFileSync(path.join(__dirname, fileName), 'utf8'));

@@ -20,6 +20,8 @@ import { LocationGuidePage } from '../pages/LocationGuidePage';
 import { LocationListPage } from '../pages/LocationListPage';
 import { LocationVersionDetailPage } from '../pages/LocationVersionDetailPage';
 import { LocationVersionEditPage } from '../pages/LocationVersionEditPage';
+import { OutreachLeadDetailPage } from '../pages/OutreachLeadDetailPage';
+import { OutreachLeadListPage } from '../pages/OutreachLeadListPage';
 import { PlanDetailPage } from '../pages/PlanDetailPage';
 import { PlanVersionDetailPage } from '../pages/PlanVersionDetailPage';
 import { RegionCreatePage } from '../pages/RegionCreatePage';
@@ -54,6 +56,8 @@ export const router = createBrowserRouter([
       { path: 'customers/create', element: <CustomerCreatePage /> },
       { path: 'customers/:userId/plans', element: <CustomerPlansPage /> },
       { path: 'deal-pipeline', element: <DealPipelinePage /> },
+      { path: 'outreach/leads', element: <OutreachLeadListPage /> },
+      { path: 'outreach/leads/:leadId', element: <OutreachLeadDetailPage /> },
       { path: 'todos/list', element: <TodoListPage /> },
       { path: 'plans/:planId', element: <PlanDetailPage /> },
       { path: 'plans/:planId/versions/:versionId', element: <PlanVersionDetailPage /> },

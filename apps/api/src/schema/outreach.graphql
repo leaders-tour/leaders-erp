@@ -1,0 +1,163 @@
+enum CafeSourceType {
+  NAVER_CAFE_BOARD
+}
+
+enum CafeLeadStatus {
+  DISCOVERED
+  FETCHED
+  PARSED
+  DRAFTED
+  APPROVED
+  SENT
+  SKIPPED
+  FAILED
+}
+
+enum TravelerType {
+  family
+  couple
+  friends
+  solo
+  unknown
+}
+
+enum OutreachReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EDITED
+}
+
+enum OutboundChannel {
+  EMAIL
+}
+
+enum OutboundDeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+  BOUNCED
+}
+
+type CafeSource {
+  id: ID!
+  sourceType: CafeSourceType!
+  cafeId: String!
+  menuId: String!
+  boardName: String!
+  boardUrl: String!
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type CafeLeadNeeds {
+  departureDate: String
+  returnDate: String
+  durationNights: Int
+  durationDays: Int
+  travelerCount: Int
+  travelerType: TravelerType!
+  destinations: [String!]!
+  budget: String
+  interests: [String!]!
+  specialRequests: [String!]!
+  urgency: String
+  leadScore: Int
+}
+
+type OutreachDraft {
+  id: ID!
+  cafeLeadId: ID!
+  version: Int!
+  subject: String!
+  previewText: String
+  bodyText: String!
+  bodyHtml: String!
+  promptVersion: String!
+  modelName: String!
+  qualityScore: Int
+  reviewStatus: OutreachReviewStatus!
+  reviewerId: ID
+  reviewedAt: DateTime
+  reviewer: Employee
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type OutboundMessage {
+  id: ID!
+  draftId: ID!
+  channel: OutboundChannel!
+  toEmail: String!
+  deliveryStatus: OutboundDeliveryStatus!
+  provider: String
+  providerMessageId: String
+  failReason: String
+  sentAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type CafeLead {
+  id: ID!
+  cafeSourceId: ID!
+  articleId: String!
+  articleUrl: String!
+  title: String!
+  authorNickname: String
+  postedAtRaw: String
+  postedAt: DateTime
+  views: Int
+  commentCount: Int
+  rawHtml: String
+  rawText: String
+  contactEmail: String
+  contactPhone: String
+  contactKakaoId: String
+  leadScore: Int
+  status: CafeLeadStatus!
+  failReason: String
+  firstSeenAt: DateTime!
+  lastSeenAt: DateTime!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  parsedNeeds: CafeLeadNeeds
+  source: CafeSource
+  drafts: [OutreachDraft!]!
+  latestDraft: OutreachDraft
+  outboundMessages: [OutboundMessage!]!
+  artifactHtmlPath: String
+  artifactScreenshotPath: String
+  isSuppressed: Boolean!
+}
+
+input CafeLeadFilterInput {
+  statuses: [CafeLeadStatus!]
+  search: String
+  sourceId: ID
+  hasEmail: Boolean
+}
+
+input OutreachDraftEditInput {
+  subject: String!
+  previewText: String
+  bodyText: String!
+  bodyHtml: String!
+}
+
+extend type Query {
+  cafeSources(activeOnly: Boolean = true): [CafeSource!]!
+  cafeLeads(filter: CafeLeadFilterInput): [CafeLead!]!
+  cafeLead(id: ID!): CafeLead
+  outreachDrafts(cafeLeadId: ID!): [OutreachDraft!]!
+  outboundMessages(cafeLeadId: ID!): [OutboundMessage!]!
+}
+
+extend type Mutation {
+  approveOutreachDraft(draftId: ID!): OutreachDraft!
+  editOutreachDraftAndApprove(draftId: ID!, input: OutreachDraftEditInput!): OutreachDraft!
+  holdCafeLead(id: ID!): CafeLead!
+  skipCafeLead(id: ID!, reason: String): CafeLead!
+  regenerateOutreachDraft(cafeLeadId: ID!): CafeLead!
+}

@@ -7,6 +7,7 @@ export * from './location.schema';
 export * from './location-guide.schema';
 export * from './meal-set.schema';
 export * from './override.schema';
+export * from './outreach.schema';
 export * from './plan.schema';
 export * from './plan-template.schema';
 export * from './region.schema';

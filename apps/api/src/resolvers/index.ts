@@ -9,6 +9,7 @@ import { mealSetResolver } from '../modules/meal-set/meal-set.resolver';
 import { overrideResolver } from '../modules/override/override.resolver';
 import { planResolver } from '../modules/plan/plan.resolver';
 import { planTemplateResolver } from '../modules/plan-template/plan-template.resolver';
+import { outreachResolver } from '../modules/outreach/outreach.resolver';
 import { regionResolver } from '../modules/region/region.resolver';
 import { segmentResolver } from '../modules/segment/segment.resolver';
 import { timeBlockResolver } from '../modules/time-block/time-block.resolver';
@@ -89,6 +90,7 @@ export const resolvers = {
       activityResolver.Query,
       eventResolver.Query,
       overrideResolver.Query,
+      outreachResolver.Query,
       {
         health: () => 'ok',
       },
@@ -110,10 +112,14 @@ export const resolvers = {
       activityResolver.Mutation,
       eventResolver.Mutation,
       overrideResolver.Mutation,
+      outreachResolver.Mutation,
     ),
     ['login', 'refreshAccessToken', 'logout'],
   ),
   User: mergeSection(planResolver.User ?? {}),
+  CafeLead: outreachResolver.CafeLead,
+  OutreachDraft: outreachResolver.OutreachDraft,
+  CafeLeadNeeds: outreachResolver.CafeLeadNeeds,
   PlanVersionMeta: planResolver.PlanVersionMeta,
   PlanVersionPricing: planResolver.PlanVersionPricing,
   Location: locationResolver.Location,

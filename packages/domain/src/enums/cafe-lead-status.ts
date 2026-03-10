@@ -1,0 +1,10 @@
+export enum CafeLeadStatus {
+  DISCOVERED = 'DISCOVERED',
+  FETCHED = 'FETCHED',
+  PARSED = 'PARSED',
+  DRAFTED = 'DRAFTED',
+  APPROVED = 'APPROVED',
+  SENT = 'SENT',
+  SKIPPED = 'SKIPPED',
+  FAILED = 'FAILED',
+}

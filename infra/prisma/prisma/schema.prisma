@@ -102,6 +102,39 @@ enum EmployeeRole {
   STAFF
 }
 
+enum CafeSourceType {
+  NAVER_CAFE_BOARD
+}
+
+enum CafeLeadStatus {
+  DISCOVERED
+  FETCHED
+  PARSED
+  DRAFTED
+  APPROVED
+  SENT
+  SKIPPED
+  FAILED
+}
+
+enum OutreachReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EDITED
+}
+
+enum OutboundChannel {
+  EMAIL
+}
+
+enum OutboundDeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+  BOUNCED
+}
+
 model Employee {
   id           String              @id @default(uuid(7))
   name         String
@@ -112,6 +145,7 @@ model Employee {
 
   ownedUsers    User[]                @relation("UserOwnerEmployee")
   refreshTokens EmployeeRefreshToken[]
+  reviewedOutreachDrafts OutreachDraft[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -134,6 +168,119 @@ model EmployeeRefreshToken {
 
   @@index([employeeId, expiresAt])
   @@index([employeeId, revokedAt])
+}
+
+model CafeSource {
+  id         String         @id @default(uuid(7))
+  sourceType CafeSourceType
+  cafeId     String
+  menuId     String
+  boardName  String
+  boardUrl   String         @db.Text
+  isActive   Boolean        @default(true)
+
+  leads CafeLead[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sourceType, cafeId, menuId])
+  @@index([isActive, sourceType])
+}
+
+model CafeLead {
+  id              String         @id @default(uuid(7))
+  cafeSourceId    String
+  articleId       String         @unique
+  articleUrl      String         @db.Text
+  title           String
+  authorNickname  String?
+  postedAtRaw     String?
+  postedAt        DateTime?
+  views           Int?
+  commentCount    Int?
+  rawHtml         String?        @db.LongText
+  rawText         String?        @db.LongText
+  rawMetadataJson Json?
+  parsedNeedsJson Json?
+  contactEmail    String?
+  contactPhone    String?
+  leadScore       Int?
+  status          CafeLeadStatus @default(DISCOVERED)
+  failReason      String?        @db.Text
+  firstSeenAt     DateTime       @default(now())
+  lastSeenAt      DateTime       @default(now())
+
+  cafeSource     CafeSource       @relation(fields: [cafeSourceId], references: [id], onDelete: Cascade)
+  outreachDrafts OutreachDraft[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cafeSourceId, status, createdAt])
+  @@index([status, leadScore])
+  @@index([contactEmail])
+  @@index([postedAt])
+}
+
+model OutreachDraft {
+  id            String               @id @default(uuid(7))
+  cafeLeadId    String
+  version       Int
+  subject       String
+  previewText   String?
+  bodyText      String               @db.LongText
+  bodyHtml      String               @db.LongText
+  promptVersion String
+  modelName     String
+  qualityScore  Int?
+  reviewStatus  OutreachReviewStatus @default(PENDING)
+  reviewerId    String?
+  reviewedAt    DateTime?
+
+  cafeLead          CafeLead           @relation(fields: [cafeLeadId], references: [id], onDelete: Cascade)
+  reviewer          Employee?          @relation(fields: [reviewerId], references: [id], onDelete: SetNull)
+  outboundMessages  OutboundMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cafeLeadId, version])
+  @@index([reviewStatus, updatedAt])
+  @@index([reviewerId])
+}
+
+model OutboundMessage {
+  id                String                 @id @default(uuid(7))
+  draftId           String
+  channel           OutboundChannel        @default(EMAIL)
+  toEmail           String
+  deliveryStatus    OutboundDeliveryStatus @default(QUEUED)
+  provider          String?
+  providerMessageId String?
+  failReason        String?                @db.Text
+  sentAt            DateTime?
+
+  draft OutreachDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([draftId, createdAt])
+  @@index([deliveryStatus, createdAt])
+  @@index([toEmail, createdAt])
+}
+
+model ContactSuppression {
+  id       String  @id @default(uuid(7))
+  email    String  @unique
+  reason   String?
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, email])
 }
 
 model User {

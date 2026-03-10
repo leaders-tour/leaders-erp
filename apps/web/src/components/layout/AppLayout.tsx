@@ -30,6 +30,13 @@ const PipelineIcon: NavIcon = ({ className }) => (
   </svg>
 );
 
+const OutreachIcon: NavIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16v12H4z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="m4 7 8 6 8-6" />
+  </svg>
+);
+
 const TodoIcon: NavIcon = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M9 6h11M9 12h11M9 18h11" />
@@ -81,6 +88,7 @@ const AdminIcon: NavIcon = ({ className }) => (
 const baseNavItems: NavItem[] = [
   { path: '/itinerary-builder', label: '일정 빌더', icon: ItineraryIcon },
   { path: '/deal-pipeline', label: '딜 파이프라인 ( 준비중 )', icon: PipelineIcon },
+  { path: '/outreach/leads', label: '카페 리드', icon: OutreachIcon },
   { path: '/todos/list', label: 'TODO ( 준비중 )', icon: TodoIcon },
   {
     path: '/customers',

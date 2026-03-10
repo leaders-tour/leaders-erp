@@ -10,7 +10,11 @@
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "codegen": "pnpm --filter @tour/web codegen"
+    "codegen": "pnpm --filter @tour/web codegen",
+    "bootstrap:naver-auth": "pnpm --filter @tour/workers bootstrap:naver-auth",
+    "worker:cafe": "pnpm --filter @tour/workers worker:cafe",
+    "worker:ai": "pnpm --filter @tour/workers worker:ai",
+    "worker:mail": "pnpm --filter @tour/workers worker:mail"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.56.0",
