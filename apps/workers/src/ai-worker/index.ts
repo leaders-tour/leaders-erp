@@ -124,6 +124,9 @@ async function processLead(client: OpenAI, leadId: string, logger: ReturnType<ty
 
 async function main() {
   const env = getWorkerEnv();
+  if (!env.openAiApiKey) {
+    throw new Error('OPENAI_API_KEY is required for worker-ai');
+  }
   const { logger } = createRunContext('worker-ai');
   const client = new OpenAI({ apiKey: env.openAiApiKey });
 

@@ -27,9 +27,14 @@ export interface ArticleDetailResult {
 }
 
 const TITLE_SELECTORS = ['.ArticleTitle .title_text', '.article_subject', 'h3', 'h2'];
-const BODY_SELECTORS = ['.se-main-container', '.ContentRenderer', '.article_viewer', '.article_container'];
+const BODY_SELECTORS = ['.content.CafeViewer', '.se-component-content', '.se-main-container', '.ContentRenderer', '.article_viewer', '.article_container'];
 
 async function resolveCafeFrame(page: Page): Promise<Frame> {
+  const iframeCount = await page.locator('iframe#cafe_main, iframe[name="cafe_main"]').count();
+  if (iframeCount === 0) {
+    return page.mainFrame();
+  }
+
   for (const selector of ['iframe#cafe_main', 'iframe[name="cafe_main"]']) {
     const frameHandle = await page.locator(selector).first().elementHandle();
     const frame = await frameHandle?.contentFrame();
@@ -107,54 +112,54 @@ export async function fetchBoardArticles(boardUrl: string): Promise<BoardArticle
     await page.waitForLoadState('networkidle').catch(() => undefined);
     const frame = await resolveCafeFrame(page);
 
-    const anchors = await frame.locator('a').evaluateAll((nodes) =>
-      nodes.map((node) => {
-        const anchor = node as HTMLAnchorElement;
-        const container = anchor.closest('tr, li, div, td');
-        return {
-          href: anchor.getAttribute('href'),
-          onclick: anchor.getAttribute('onclick'),
-          text: anchor.textContent,
-          authorNickname:
-            container?.querySelector('.nickname, .p-nick, .td_name, .writer, .name')?.textContent?.trim() ?? null,
-          postedAtRaw:
-            container?.querySelector('.td_date, .date, .time, .td_day, .wdate')?.textContent?.trim() ?? null,
-          views: container?.querySelector('.td_view, .view, .count')?.textContent?.trim() ?? null,
-          commentCount:
-            anchor.querySelector('.comment, .num, .reply')?.textContent?.trim() ??
-            container?.querySelector('.comment, .num, .reply')?.textContent?.trim() ??
-            null,
-        };
-      }),
+    const rows = await frame.locator('tr').evaluateAll((nodes) =>
+      nodes
+        .map((node) => {
+          const row = node as HTMLTableRowElement;
+          const articleAnchor = row.querySelector('a.article') as HTMLAnchorElement | null;
+          const commentAnchor = row.querySelector('a.cmt') as HTMLAnchorElement | null;
+
+          return {
+            href: articleAnchor?.getAttribute('href') ?? null,
+            onclick: articleAnchor?.getAttribute('onclick') ?? null,
+            text: articleAnchor?.textContent ?? null,
+            articleIdCell: row.querySelector('.type_articleNumber')?.textContent?.trim() ?? null,
+            authorNickname: row.querySelector('.nickname')?.textContent?.trim() ?? null,
+            postedAtRaw: row.querySelector('.type_date')?.textContent?.trim() ?? null,
+            views: row.querySelector('.type_readCount')?.textContent?.trim() ?? null,
+            commentCount: commentAnchor?.textContent?.trim() ?? null,
+          };
+        })
+        .filter((item) => item.href || item.articleIdCell),
     );
 
     const seen = new Set<string>();
-    const rows: BoardArticleSummary[] = [];
-    for (const anchor of anchors) {
-      const articleId = extractArticleIdFromCandidates([anchor.href, anchor.onclick]);
-      const title = normalizeWhitespace(anchor.text ?? '');
+    const summaries: BoardArticleSummary[] = [];
+    for (const row of rows) {
+      const articleId = row.articleIdCell || extractArticleIdFromCandidates([row.href, row.onclick]);
+      const title = normalizeWhitespace(row.text ?? '');
       if (!articleId || !title || seen.has(articleId)) {
         continue;
       }
 
       const articleUrl =
-        anchor.href && !anchor.href.startsWith('javascript:')
-          ? new URL(anchor.href, boardUrl).toString()
+        row.href && !row.href.startsWith('javascript:')
+          ? new URL(row.href, boardUrl).toString()
           : `https://cafe.naver.com/ArticleRead.nhn?clubid=${process.env.NAVER_CAFE_ID}&articleid=${articleId}&menuid=${process.env.NAVER_CAFE_MENU_ID}`;
 
       seen.add(articleId);
-      rows.push({
+      summaries.push({
         articleId,
         articleUrl,
         title,
-        authorNickname: anchor.authorNickname ? normalizeWhitespace(anchor.authorNickname) : null,
-        postedAtRaw: anchor.postedAtRaw ? normalizeWhitespace(anchor.postedAtRaw) : null,
-        views: parseInteger(anchor.views),
-        commentCount: parseInteger(anchor.commentCount),
+        authorNickname: row.authorNickname ? normalizeWhitespace(row.authorNickname) : null,
+        postedAtRaw: row.postedAtRaw ? normalizeWhitespace(row.postedAtRaw) : null,
+        views: parseInteger(row.views),
+        commentCount: parseInteger(row.commentCount),
       });
     }
 
-    return rows;
+    return summaries;
   } finally {
     await context.close();
     await browser.close();
@@ -176,7 +181,13 @@ export async function fetchArticleDetail(options: {
     return await withRetry(
       async () => {
         await sleep(randomBetween(400, 1200));
-        await page.goto(options.articleUrl, { waitUntil: 'domcontentloaded' });
+        const nextArticleUrl = options.articleUrl.includes('/f-e/')
+          ? options.articleUrl
+              .replace('/f-e/', '/ca-fe/')
+              .replace(/([?&])referrerAllArticles=false/, '$1referrerAllArticles=false')
+              .concat(options.articleUrl.includes('fromNext=true') ? '' : `${options.articleUrl.includes('?') ? '&' : '?'}fromNext=true`)
+          : options.articleUrl;
+        await page.goto(nextArticleUrl, { waitUntil: 'domcontentloaded' });
         await page.waitForLoadState('networkidle').catch(() => undefined);
         const frame = await resolveCafeFrame(page);
         const frameHtml = await frame.content();

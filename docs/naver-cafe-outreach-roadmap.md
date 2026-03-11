@@ -28,14 +28,48 @@
   - 연락처 regex
   - AI schema 검증
 - README / env example 정리
+- 실카페 스모크 테스트 1차 완료
+  - 대상 게시판: `https://cafe.naver.com/f-e/cafes/10709297/menus/177?viewType=L`
+  - `storageState` bootstrap 완료
+  - 신형 `f-e` / `ca-fe` 경로 대응
+  - iframe 미사용 페이지 대응
+  - 실제 게시글 상세 HTML / screenshot artifact 저장 확인
+  - `leaders-db2`에 실데이터 수집 확인
 
 ## 남은 작업
 
 ### 1. 실환경 스모크 테스트
 
-- 실제 네이버 카페 게시판에서 `worker-cafe` selector 동작 확인
-- iframe / 제목 / 본문 / 메타데이터 fallback이 충분한지 확인
-- storageState 만료/재로그인 흐름 확인
+- `worker-cafe`는 실제 네이버 카페 게시판에서 동작 확인 완료
+- iframe / 제목 / 본문 / 메타데이터 fallback은 1차 검증 완료
+- 남은 확인
+  - storageState 만료/재로그인 흐름 확인
+  - `worker-ai` 실제 OpenAI 응답 품질 확인
+  - 승인 후 `worker-mail` Gmail 발송 end-to-end 확인
+
+## 최근 실측 결과
+
+- 2026-03-11 실카페 수집 결과
+  - `CafeLead` 18건 저장
+  - `FETCHED` 17건
+  - `DISCOVERED` 1건
+  - `FAILED` 0건
+- 확인된 실제 수집 articleId 예시
+  - `255761`
+  - `255760`
+  - `255754`
+  - `255751`
+  - `255743`
+  - `255742`
+  - `255736`
+- artifact 저장 예시
+  - `tmp/artifacts/cafe/255761/.../article.html`
+  - `tmp/artifacts/cafe/255761/.../article.png`
+
+## 현재 블로커
+
+- `.env`에 `OPENAI_API_KEY`가 없어 `worker-ai` 실테스트는 아직 미진행
+- `.env`에 Gmail 발송 계정 값이 없어 `worker-mail` 실테스트는 아직 미진행
 
 ### 2. 운영 보강
 

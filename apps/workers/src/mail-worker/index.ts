@@ -21,6 +21,9 @@ const FOOTER_HTML = [
 
 async function main() {
   const env = getWorkerEnv();
+  if (!env.gmailUser || !env.gmailAppPassword || !env.mailFrom) {
+    throw new Error('GMAIL_USER, GMAIL_APP_PASSWORD, MAIL_FROM are required for worker-mail');
+  }
   const { logger } = createRunContext('worker-mail');
 
   const transporter = nodemailer.createTransport({

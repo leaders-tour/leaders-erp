@@ -8,16 +8,38 @@ interface WorkerEnv {
   naverCafeId: string;
   naverCafeMenuId: string;
   cafePollIntervalMs: number;
-  openAiApiKey: string;
-  gmailUser: string;
-  gmailAppPassword: string;
-  mailFrom: string;
+  openAiApiKey: string | null;
+  gmailUser: string | null;
+  gmailAppPassword: string | null;
+  mailFrom: string | null;
   mailProvider: string;
   artifactBasePath: string;
 }
 
 let loaded = false;
 let cachedEnv: WorkerEnv | null = null;
+let workspaceRootCache: string | null = null;
+
+function findWorkspaceRoot(startDir: string): string {
+  if (workspaceRootCache) {
+    return workspaceRootCache;
+  }
+
+  let currentDir = startDir;
+  while (true) {
+    if (existsSync(path.join(currentDir, 'pnpm-workspace.yaml'))) {
+      workspaceRootCache = currentDir;
+      return currentDir;
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      workspaceRootCache = startDir;
+      return startDir;
+    }
+    currentDir = parentDir;
+  }
+}
 
 function parseEnvFile(filePath: string): Record<string, string> {
   if (!existsSync(filePath)) {
@@ -53,7 +75,7 @@ function loadEnvFile(): void {
     return;
   }
 
-  const root = process.cwd();
+  const root = findWorkspaceRoot(process.cwd());
   for (const fileName of ['.env', '.env.local']) {
     const filePath = path.join(root, fileName);
     const parsed = parseEnvFile(filePath);
@@ -79,6 +101,11 @@ function getOptional(name: string, fallback: string): string {
   return process.env[name]?.trim() || fallback;
 }
 
+function getOptionalNullable(name: string): string | null {
+  const value = process.env[name]?.trim();
+  return value ? value : null;
+}
+
 function getNumber(name: string, fallback: number): number {
   const raw = process.env[name]?.trim();
   if (!raw) {
@@ -96,7 +123,7 @@ export function resolveFromRoot(relativeOrAbsolutePath: string): string {
   if (path.isAbsolute(relativeOrAbsolutePath)) {
     return relativeOrAbsolutePath;
   }
-  return path.join(process.cwd(), relativeOrAbsolutePath);
+  return path.join(findWorkspaceRoot(process.cwd()), relativeOrAbsolutePath);
 }
 
 export function getWorkerEnv(): WorkerEnv {
@@ -112,10 +139,10 @@ export function getWorkerEnv(): WorkerEnv {
     naverCafeId: getRequired('NAVER_CAFE_ID'),
     naverCafeMenuId: getRequired('NAVER_CAFE_MENU_ID'),
     cafePollIntervalMs: getNumber('CAFE_POLL_INTERVAL_MS', 180_000),
-    openAiApiKey: getRequired('OPENAI_API_KEY'),
-    gmailUser: getRequired('GMAIL_USER'),
-    gmailAppPassword: getRequired('GMAIL_APP_PASSWORD'),
-    mailFrom: getRequired('MAIL_FROM'),
+    openAiApiKey: getOptionalNullable('OPENAI_API_KEY'),
+    gmailUser: getOptionalNullable('GMAIL_USER'),
+    gmailAppPassword: getOptionalNullable('GMAIL_APP_PASSWORD'),
+    mailFrom: getOptionalNullable('MAIL_FROM'),
     mailProvider: getOptional('MAIL_PROVIDER', 'gmail'),
     artifactBasePath: resolveFromRoot(getOptional('ARTIFACT_BASE_PATH', 'tmp/artifacts')),
   };
