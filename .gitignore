@@ -9,5 +9,4 @@ coverage
 apps/web/src/generated/graphql.ts
 secrets
 tmp/artifacts
-infra/prisma/prisma/migrations
 infra/prisma/prisma/migrations_legacy
