@@ -114,7 +114,10 @@ export function OutreachLeadListPage(): JSX.Element {
                     <StatusBadge tone={statusTone(lead.status)} label={lead.status} />
                   </Td>
                   <Td>
-                    <Link to={`/outreach/leads/${lead.id}`} className="text-sm font-medium text-blue-700 hover:text-blue-800">
+                    <Link
+                      to={`/outreach/leads/${lead.id}`}
+                      className="whitespace-nowrap text-sm font-medium text-blue-700 hover:text-blue-800"
+                    >
                       상세 보기
                     </Link>
                   </Td>
