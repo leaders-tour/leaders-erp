@@ -1,4 +1,5 @@
 import { useState, type FocusEvent, type ReactNode } from 'react';
+import { PICKUP_DROP_PLACE_OPTIONS, formatPickupDropDisplay, type PickupDropPlaceType } from '../../plan/pickup-drop';
 import { ESTIMATE_COMPANY, ESTIMATE_PAYMENT, ESTIMATE_TAGLINE, ESTIMATE_TITLE } from '../model/constants';
 import type { EstimateDocumentData, EstimatePage1EditableField, EstimatePage1Editor } from '../model/types';
 import {
@@ -26,6 +27,7 @@ interface EditableCellProps {
   editor?: EstimatePage1Editor;
   displayValue: ReactNode;
   input: ReactNode;
+  colSpan?: number;
   multiline?: boolean;
   className?: string;
   contentClassName?: string;
@@ -39,6 +41,7 @@ function EditableCell({
   editor,
   displayValue,
   input,
+  colSpan,
   multiline = false,
   className,
   contentClassName,
@@ -46,14 +49,18 @@ function EditableCell({
   onDeactivate,
 }: EditableCellProps): JSX.Element {
   if (!editor) {
-    return <td className={className}>{displayValue}</td>;
+    return (
+      <td className={className} colSpan={colSpan}>
+        {displayValue}
+      </td>
+    );
   }
 
   const isActive = activeField === field;
 
   if (isActive) {
     return (
-      <td className={className}>
+      <td className={className} colSpan={colSpan}>
         <div
           className="estimate-editable-shell estimate-editable-shell--active"
           onBlurCapture={(event: FocusEvent<HTMLDivElement>) => {
@@ -71,7 +78,7 @@ function EditableCell({
   }
 
   return (
-    <td className={className}>
+    <td className={className} colSpan={colSpan}>
       <button type="button" className="estimate-editable-trigger" onClick={() => onActivate(field)}>
         <span className={`estimate-editable-content ${multiline ? 'estimate-editable-content--multiline' : ''} ${contentClassName ?? ''}`}>
           {displayValue}
@@ -266,7 +273,12 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
               field="pickupDate"
               activeField={activeField}
               editor={editor}
-              displayValue={formatFlightText(data.pickupDate, data.pickupTime)}
+              displayValue={formatPickupDropDisplay(
+                data.pickupDate,
+                data.pickupTime,
+                data.pickupPlaceType,
+                data.pickupPlaceCustomText,
+              )}
               input={
                 <div className="estimate-editable-grid">
                   <input
@@ -282,6 +294,26 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                     onChange={(event) => editor?.onPickupTimeChange(event.target.value)}
                     className="estimate-editable-input"
                   />
+                  <select
+                    value={editor?.pickupPlaceType ?? 'AIRPORT'}
+                    onChange={(event) => editor?.onPickupPlaceTypeChange(event.target.value as PickupDropPlaceType)}
+                    className="estimate-editable-input"
+                  >
+                    {PICKUP_DROP_PLACE_OPTIONS.map((option) => (
+                      <option key={`pickup-place-${option.value}`} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {editor?.pickupPlaceType === 'CUSTOM' ? (
+                    <input
+                      type="text"
+                      value={editor?.pickupPlaceCustomText ?? ''}
+                      onChange={(event) => editor?.onPickupPlaceCustomTextChange(event.target.value)}
+                      placeholder="장소 직접 입력"
+                      className="estimate-editable-input"
+                    />
+                  ) : null}
                 </div>
               }
               onActivate={setActiveField}
@@ -292,7 +324,12 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
               field="dropDate"
               activeField={activeField}
               editor={editor}
-              displayValue={formatFlightText(data.dropDate, data.dropTime)}
+              displayValue={formatPickupDropDisplay(
+                data.dropDate,
+                data.dropTime,
+                data.dropPlaceType,
+                data.dropPlaceCustomText,
+              )}
               input={
                 <div className="estimate-editable-grid">
                   <input
@@ -308,6 +345,26 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                     onChange={(event) => editor?.onDropTimeChange(event.target.value)}
                     className="estimate-editable-input"
                   />
+                  <select
+                    value={editor?.dropPlaceType ?? 'AIRPORT'}
+                    onChange={(event) => editor?.onDropPlaceTypeChange(event.target.value as PickupDropPlaceType)}
+                    className="estimate-editable-input"
+                  >
+                    {PICKUP_DROP_PLACE_OPTIONS.map((option) => (
+                      <option key={`drop-place-${option.value}`} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {editor?.dropPlaceType === 'CUSTOM' ? (
+                    <input
+                      type="text"
+                      value={editor?.dropPlaceCustomText ?? ''}
+                      onChange={(event) => editor?.onDropPlaceCustomTextChange(event.target.value)}
+                      placeholder="장소 직접 입력"
+                      className="estimate-editable-input"
+                    />
+                  ) : null}
                 </div>
               }
               onActivate={setActiveField}
@@ -315,26 +372,118 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
             />
           </tr>
           <tr>
-            <th>실투어 외 픽드랍</th>
+            <th>실투어 외 픽업</th>
             <EditableCell
-              field="externalPickupDropText"
+              field="externalPickupDate"
               activeField={activeField}
               editor={editor}
-              displayValue={fallback(data.externalPickupDropText)}
-              multiline
-              className="pre-line"
+              displayValue={
+                data.externalPickupDate || data.externalPickupTime || data.externalPickupPlaceType
+                  ? formatPickupDropDisplay(
+                      data.externalPickupDate,
+                      data.externalPickupTime,
+                      data.externalPickupPlaceType,
+                      data.externalPickupPlaceCustomText,
+                    )
+                  : fallback(data.externalPickupDropText)
+              }
               input={
-                <textarea
-                  autoFocus
-                  rows={3}
-                  value={editor?.externalPickupDropText ?? ''}
-                  onChange={(event) => editor?.onExternalPickupDropTextChange(event.target.value)}
-                  className="estimate-editable-input estimate-editable-textarea"
-                />
+                <div className="estimate-editable-grid">
+                  <input
+                    autoFocus
+                    type="date"
+                    value={editor?.externalPickupDate ?? ''}
+                    onChange={(event) => editor?.onExternalPickupDateChange(event.target.value)}
+                    className="estimate-editable-input"
+                  />
+                  <input
+                    type="time"
+                    value={editor?.externalPickupTime ?? ''}
+                    onChange={(event) => editor?.onExternalPickupTimeChange(event.target.value)}
+                    className="estimate-editable-input"
+                  />
+                  <select
+                    value={editor?.externalPickupPlaceType ?? 'AIRPORT'}
+                    onChange={(event) => editor?.onExternalPickupPlaceTypeChange(event.target.value as PickupDropPlaceType)}
+                    className="estimate-editable-input"
+                  >
+                    {PICKUP_DROP_PLACE_OPTIONS.map((option) => (
+                      <option key={`external-pickup-place-${option.value}`} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {editor?.externalPickupPlaceType === 'CUSTOM' ? (
+                    <input
+                      type="text"
+                      value={editor?.externalPickupPlaceCustomText ?? ''}
+                      onChange={(event) => editor?.onExternalPickupPlaceCustomTextChange(event.target.value)}
+                      placeholder="장소 직접 입력"
+                      className="estimate-editable-input"
+                    />
+                  ) : null}
+                </div>
               }
               onActivate={setActiveField}
               onDeactivate={() => setActiveField(null)}
             />
+            <th>실투어 외 드랍</th>
+            <EditableCell
+              field="externalDropDate"
+              activeField={activeField}
+              editor={editor}
+              displayValue={
+                data.externalDropDate || data.externalDropTime || data.externalDropPlaceType
+                  ? formatPickupDropDisplay(
+                      data.externalDropDate,
+                      data.externalDropTime,
+                      data.externalDropPlaceType,
+                      data.externalDropPlaceCustomText,
+                    )
+                  : '-'
+              }
+              input={
+                <div className="estimate-editable-grid">
+                  <input
+                    autoFocus
+                    type="date"
+                    value={editor?.externalDropDate ?? ''}
+                    onChange={(event) => editor?.onExternalDropDateChange(event.target.value)}
+                    className="estimate-editable-input"
+                  />
+                  <input
+                    type="time"
+                    value={editor?.externalDropTime ?? ''}
+                    onChange={(event) => editor?.onExternalDropTimeChange(event.target.value)}
+                    className="estimate-editable-input"
+                  />
+                  <select
+                    value={editor?.externalDropPlaceType ?? 'AIRPORT'}
+                    onChange={(event) => editor?.onExternalDropPlaceTypeChange(event.target.value as PickupDropPlaceType)}
+                    className="estimate-editable-input"
+                  >
+                    {PICKUP_DROP_PLACE_OPTIONS.map((option) => (
+                      <option key={`external-drop-place-${option.value}`} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {editor?.externalDropPlaceType === 'CUSTOM' ? (
+                    <input
+                      type="text"
+                      value={editor?.externalDropPlaceCustomText ?? ''}
+                      onChange={(event) => editor?.onExternalDropPlaceCustomTextChange(event.target.value)}
+                      placeholder="장소 직접 입력"
+                      className="estimate-editable-input"
+                    />
+                  ) : null}
+                </div>
+              }
+              onActivate={setActiveField}
+              onDeactivate={() => setActiveField(null)}
+            />
+          </tr>
+          <tr>
             <th>특이사항</th>
             <EditableCell
               field="specialNoteText"
@@ -343,6 +492,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
               displayValue={fallback(data.specialNoteText)}
               multiline
               className="pre-line"
+              colSpan={3}
               input={
                 <textarea
                   autoFocus

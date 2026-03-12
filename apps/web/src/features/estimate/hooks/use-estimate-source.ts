@@ -39,6 +39,18 @@ function isDraftSnapshot(value: unknown): value is EstimateBuilderDraftSnapshot 
     (value.pickupTime === undefined || typeof value.pickupTime === 'string') &&
     (value.dropDate === undefined || typeof value.dropDate === 'string') &&
     (value.dropTime === undefined || typeof value.dropTime === 'string') &&
+    (value.pickupPlaceType === undefined || typeof value.pickupPlaceType === 'string') &&
+    (value.pickupPlaceCustomText === undefined || typeof value.pickupPlaceCustomText === 'string') &&
+    (value.dropPlaceType === undefined || typeof value.dropPlaceType === 'string') &&
+    (value.dropPlaceCustomText === undefined || typeof value.dropPlaceCustomText === 'string') &&
+    (value.externalPickupDate === undefined || typeof value.externalPickupDate === 'string') &&
+    (value.externalPickupTime === undefined || typeof value.externalPickupTime === 'string') &&
+    (value.externalPickupPlaceType === undefined || typeof value.externalPickupPlaceType === 'string') &&
+    (value.externalPickupPlaceCustomText === undefined || typeof value.externalPickupPlaceCustomText === 'string') &&
+    (value.externalDropDate === undefined || typeof value.externalDropDate === 'string') &&
+    (value.externalDropTime === undefined || typeof value.externalDropTime === 'string') &&
+    (value.externalDropPlaceType === undefined || typeof value.externalDropPlaceType === 'string') &&
+    (value.externalDropPlaceCustomText === undefined || typeof value.externalDropPlaceCustomText === 'string') &&
     (value.pickupDropNote === undefined || typeof value.pickupDropNote === 'string') &&
     typeof value.externalPickupDropNote === 'string' &&
     typeof value.specialNote === 'string' &&
@@ -57,7 +69,20 @@ function normalizeDraftSnapshot(snapshot: EstimateBuilderDraftSnapshot): Estimat
     pickupTime: snapshot.pickupTime ?? '',
     dropDate: snapshot.dropDate ?? '',
     dropTime: snapshot.dropTime ?? '',
+    pickupPlaceType: snapshot.pickupPlaceType ?? 'AIRPORT',
+    pickupPlaceCustomText: snapshot.pickupPlaceCustomText ?? '',
+    dropPlaceType: snapshot.dropPlaceType ?? 'AIRPORT',
+    dropPlaceCustomText: snapshot.dropPlaceCustomText ?? '',
+    externalPickupDate: snapshot.externalPickupDate ?? '',
+    externalPickupTime: snapshot.externalPickupTime ?? '',
+    externalPickupPlaceType: snapshot.externalPickupPlaceType ?? 'AIRPORT',
+    externalPickupPlaceCustomText: snapshot.externalPickupPlaceCustomText ?? '',
+    externalDropDate: snapshot.externalDropDate ?? '',
+    externalDropTime: snapshot.externalDropTime ?? '',
+    externalDropPlaceType: snapshot.externalDropPlaceType ?? 'AIRPORT',
+    externalDropPlaceCustomText: snapshot.externalDropPlaceCustomText ?? '',
     pickupDropNote: snapshot.pickupDropNote ?? '',
+    externalPickupDropNote: snapshot.externalPickupDropNote ?? '',
     specialNote: snapshot.specialNote ?? '',
   };
 }

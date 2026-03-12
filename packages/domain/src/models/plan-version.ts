@@ -28,6 +28,18 @@ export interface PlanVersion {
     dropDate: Date | null;
     dropTime: string | null;
     pickupDropNote: string | null;
+    pickupPlaceType: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;
+    pickupPlaceCustomText: string | null;
+    dropPlaceType: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;
+    dropPlaceCustomText: string | null;
+    externalPickupDate: Date | null;
+    externalPickupTime: string | null;
+    externalPickupPlaceType: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;
+    externalPickupPlaceCustomText: string | null;
+    externalDropDate: Date | null;
+    externalDropTime: string | null;
+    externalDropPlaceType: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;
+    externalDropPlaceCustomText: string | null;
     externalPickupDropNote: string | null;
     specialNote: string | null;
     includeRentalItems: boolean;

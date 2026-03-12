@@ -1,3 +1,4 @@
+import { formatPickupDropDisplay } from '../../plan/pickup-drop';
 import type { EstimateSecurityDepositMode, EstimateSecurityDepositScope } from '../model/types';
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
@@ -118,6 +119,31 @@ export function formatFlightText(date: string | null | undefined, time: string |
   }
 
   return `${formatDateShort(date)} - ${normalizedTime}`;
+}
+
+export function formatExternalPickupDropText(
+  pickupDate: string | null | undefined,
+  pickupTime: string | null | undefined,
+  pickupPlaceType: string | null | undefined,
+  pickupPlaceCustomText: string | null | undefined,
+  dropDate: string | null | undefined,
+  dropTime: string | null | undefined,
+  dropPlaceType: string | null | undefined,
+  dropPlaceCustomText: string | null | undefined,
+  legacyText: string | null | undefined,
+): string {
+  const pickupDisplay = formatPickupDropDisplay(pickupDate, pickupTime, pickupPlaceType, pickupPlaceCustomText);
+  const dropDisplay = formatPickupDropDisplay(dropDate, dropTime, dropPlaceType, dropPlaceCustomText);
+  const lines = [
+    pickupDisplay !== '-' ? `픽업: ${pickupDisplay}` : '',
+    dropDisplay !== '-' ? `드랍: ${dropDisplay}` : '',
+  ].filter((value) => value.length > 0);
+
+  if (lines.length > 0) {
+    return lines.join('\n');
+  }
+
+  return normalizeMultilineText(legacyText);
 }
 
 export function formatCalculationBasis(unitPriceKrw: number | null, quantity: number): string {

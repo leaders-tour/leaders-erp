@@ -85,6 +85,18 @@ type PlanVersionMeta {
   dropDate: DateTime
   dropTime: String
   pickupDropNote: String
+  pickupPlaceType: PlaceType
+  pickupPlaceCustomText: String
+  dropPlaceType: PlaceType
+  dropPlaceCustomText: String
+  externalPickupDate: DateTime
+  externalPickupTime: String
+  externalPickupPlaceType: PlaceType
+  externalPickupPlaceCustomText: String
+  externalDropDate: DateTime
+  externalDropTime: String
+  externalDropPlaceType: PlaceType
+  externalDropPlaceCustomText: String
   externalPickupDropNote: String
   specialNote: String
   includeRentalItems: Boolean!
@@ -176,6 +188,13 @@ enum SecurityDepositMode {
   PER_TEAM
 }
 
+enum PlaceType {
+  AIRPORT
+  OZ_HOUSE
+  ULAANBAATAR
+  CUSTOM
+}
+
 enum DealStage {
   CONSULTING
   CONTRACTING
@@ -243,6 +262,18 @@ input PlanVersionMetaInput {
   dropDate: DateTime
   dropTime: String
   pickupDropNote: String
+  pickupPlaceType: PlaceType
+  pickupPlaceCustomText: String
+  dropPlaceType: PlaceType
+  dropPlaceCustomText: String
+  externalPickupDate: DateTime
+  externalPickupTime: String
+  externalPickupPlaceType: PlaceType
+  externalPickupPlaceCustomText: String
+  externalDropDate: DateTime
+  externalDropTime: String
+  externalDropPlaceType: PlaceType
+  externalDropPlaceCustomText: String
   externalPickupDropNote: String
   specialNote: String
   includeRentalItems: Boolean!

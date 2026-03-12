@@ -104,6 +104,18 @@ export interface PlanVersionMetaRow {
   dropDate: string | null;
   dropTime: string | null;
   pickupDropNote: string | null;
+  pickupPlaceType: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;
+  pickupPlaceCustomText: string | null;
+  dropPlaceType: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;
+  dropPlaceCustomText: string | null;
+  externalPickupDate: string | null;
+  externalPickupTime: string | null;
+  externalPickupPlaceType: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;
+  externalPickupPlaceCustomText: string | null;
+  externalDropDate: string | null;
+  externalDropTime: string | null;
+  externalDropPlaceType: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;
+  externalDropPlaceCustomText: string | null;
   externalPickupDropNote: string | null;
   specialNote: string | null;
   includeRentalItems: boolean;
@@ -436,6 +448,18 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         dropDate
         dropTime
         pickupDropNote
+        pickupPlaceType
+        pickupPlaceCustomText
+        dropPlaceType
+        dropPlaceCustomText
+        externalPickupDate
+        externalPickupTime
+        externalPickupPlaceType
+        externalPickupPlaceCustomText
+        externalDropDate
+        externalDropTime
+        externalDropPlaceType
+        externalDropPlaceCustomText
         externalPickupDropNote
         specialNote
         includeRentalItems

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { VersionSnapshotView } from '../features/plan/components';
 import { usePlanVersionDetail, useSetCurrentPlanVersion } from '../features/plan/hooks';
+import { formatPickupDropDisplay } from '../features/plan/pickup-drop';
 import { toVariantLabel } from '../features/plan/variant-label';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 
@@ -124,14 +125,52 @@ export function PlanVersionDetailPage(): JSX.Element {
             </div>
             <div>참여 이벤트: {version.meta.events.length > 0 ? version.meta.events.map((item) => item.name).join(', ') : '-'}</div>
             <div>
-              픽업: {version.meta.pickupDate ? new Date(version.meta.pickupDate).toLocaleDateString('ko-KR') : '-'}
-              {version.meta.pickupTime ? ` / ${version.meta.pickupTime}` : ''}
+              픽업:{' '}
+              {formatPickupDropDisplay(
+                version.meta.pickupDate,
+                version.meta.pickupTime,
+                version.meta.pickupPlaceType,
+                version.meta.pickupPlaceCustomText,
+              )}
             </div>
             <div>
-              드랍: {version.meta.dropDate ? new Date(version.meta.dropDate).toLocaleDateString('ko-KR') : '-'}
-              {version.meta.dropTime ? ` / ${version.meta.dropTime}` : ''}
+              드랍:{' '}
+              {formatPickupDropDisplay(
+                version.meta.dropDate,
+                version.meta.dropTime,
+                version.meta.dropPlaceType,
+                version.meta.dropPlaceCustomText,
+              )}
             </div>
-            <div className="md:col-span-2 whitespace-pre-wrap">실투어 외 픽드랍: {version.meta.externalPickupDropNote ?? '-'}</div>
+            <div>
+              실투어 외 픽업:{' '}
+              {formatPickupDropDisplay(
+                version.meta.externalPickupDate,
+                version.meta.externalPickupTime,
+                version.meta.externalPickupPlaceType,
+                version.meta.externalPickupPlaceCustomText,
+              )}
+            </div>
+            <div>
+              실투어 외 드랍:{' '}
+              {formatPickupDropDisplay(
+                version.meta.externalDropDate,
+                version.meta.externalDropTime,
+                version.meta.externalDropPlaceType,
+                version.meta.externalDropPlaceCustomText,
+              )}
+            </div>
+            {(!version.meta.externalPickupDate &&
+              !version.meta.externalPickupTime &&
+              !version.meta.externalPickupPlaceType &&
+              !version.meta.externalPickupPlaceCustomText &&
+              !version.meta.externalDropDate &&
+              !version.meta.externalDropTime &&
+              !version.meta.externalDropPlaceType &&
+              !version.meta.externalDropPlaceCustomText &&
+              version.meta.externalPickupDropNote) ? (
+              <div className="md:col-span-2 whitespace-pre-wrap">실투어 외 픽드랍: {version.meta.externalPickupDropNote}</div>
+            ) : null}
             <div className="md:col-span-2 whitespace-pre-wrap">특이사항: {version.meta.specialNote ?? '-'}</div>
             <div className="md:col-span-2">
               숙소 추가(일차/개수):{' '}

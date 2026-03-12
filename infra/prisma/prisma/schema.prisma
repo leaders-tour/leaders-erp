@@ -135,6 +135,13 @@ enum OutboundDeliveryStatus {
   BOUNCED
 }
 
+enum PlaceType {
+  AIRPORT
+  OZ_HOUSE
+  ULAANBAATAR
+  CUSTOM
+}
+
 model Employee {
   id           String              @id @default(uuid(7))
   name         String
@@ -524,6 +531,18 @@ model PlanVersionMeta {
   dropDate               DateTime?
   dropTime               String?
   pickupDropNote         String?
+  pickupPlaceType        PlaceType?
+  pickupPlaceCustomText  String?
+  dropPlaceType          PlaceType?
+  dropPlaceCustomText    String?
+  externalPickupDate     DateTime?
+  externalPickupTime     String?
+  externalPickupPlaceType       PlaceType?
+  externalPickupPlaceCustomText String?
+  externalDropDate       DateTime?
+  externalDropTime       String?
+  externalDropPlaceType        PlaceType?
+  externalDropPlaceCustomText  String?
   externalPickupDropNote String?
   specialNote            String?  @db.Text
   includeRentalItems     Boolean  @default(true)

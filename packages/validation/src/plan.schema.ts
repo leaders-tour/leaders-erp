@@ -2,6 +2,7 @@ import { VariantType } from '@tour/domain';
 import { z } from 'zod';
 
 const vehicleTypes = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
+const placeTypes = ['AIRPORT', 'OZ_HOUSE', 'ULAANBAATAR', 'CUSTOM'] as const;
 const dateTimeInputSchema = z.preprocess(
   (value) => (value instanceof Date ? value.toISOString() : value),
   z.string().datetime(),
@@ -46,6 +47,18 @@ export const planVersionMetaInputSchema = z
     dropDate: dateTimeInputSchema.optional(),
     dropTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
     pickupDropNote: z.string().max(1000).optional(),
+    pickupPlaceType: z.enum(placeTypes).optional(),
+    pickupPlaceCustomText: z.string().max(100).optional(),
+    dropPlaceType: z.enum(placeTypes).optional(),
+    dropPlaceCustomText: z.string().max(100).optional(),
+    externalPickupDate: dateTimeInputSchema.optional(),
+    externalPickupTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+    externalPickupPlaceType: z.enum(placeTypes).optional(),
+    externalPickupPlaceCustomText: z.string().max(100).optional(),
+    externalDropDate: dateTimeInputSchema.optional(),
+    externalDropTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+    externalDropPlaceType: z.enum(placeTypes).optional(),
+    externalDropPlaceCustomText: z.string().max(100).optional(),
     externalPickupDropNote: z.string().max(1000).optional(),
     specialNote: z.string().max(2000).optional(),
     includeRentalItems: z.boolean().default(true),
@@ -98,6 +111,30 @@ export const planVersionMetaInputSchema = z
         });
       }
       seenDayIndexes.add(item.dayIndex);
+    });
+
+    const customPlaceFields = [
+      ['pickupPlaceType', 'pickupPlaceCustomText'],
+      ['dropPlaceType', 'dropPlaceCustomText'],
+      ['externalPickupPlaceType', 'externalPickupPlaceCustomText'],
+      ['externalDropPlaceType', 'externalDropPlaceCustomText'],
+    ] as const;
+
+    customPlaceFields.forEach(([typeKey, textKey]) => {
+      if (value[typeKey] !== 'CUSTOM') {
+        return;
+      }
+
+      const text = value[textKey]?.trim() ?? '';
+      if (text.length > 0) {
+        return;
+      }
+
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${textKey} is required when ${typeKey} is CUSTOM`,
+        path: [textKey],
+      });
     });
   });
 

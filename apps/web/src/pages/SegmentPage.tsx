@@ -133,7 +133,7 @@ export function SegmentPage(): JSX.Element {
         >
           <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-2">
             <div className="grid gap-2 relative">
-              <h3 className="text-sm font-semibold text-slate-800">A도착지</h3>
+              <h3 className="text-sm font-semibold text-slate-800">출발지</h3>
               <Input
                 value={fromSearch}
                 onFocus={() => setFromOpen(true)}
@@ -143,7 +143,7 @@ export function SegmentPage(): JSX.Element {
                   setForm((prev) => ({ ...prev, fromLocationId: '' }));
                   setFromOpen(true);
                 }}
-                placeholder="도착지 검색 또는 선택"
+                placeholder="출발지 검색 또는 선택"
               />
               {fromOpen ? (
                 <div className="absolute left-0 right-0 top-[76px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
@@ -170,7 +170,7 @@ export function SegmentPage(): JSX.Element {
             </div>
 
             <div className="grid gap-2 relative">
-              <h3 className="text-sm font-semibold text-slate-800">B도착지</h3>
+              <h3 className="text-sm font-semibold text-slate-800">도착지</h3>
               <Input
                 value={toSearch}
                 onFocus={() => setToOpen(true)}
@@ -242,7 +242,7 @@ export function SegmentPage(): JSX.Element {
           </label>
 
           {selectedFromLocation && selectedToLocation && selectedFromLocation.regionId !== selectedToLocation.regionId ? (
-            <p className="text-sm text-red-600">A/B 도착지는 동일한 지역이어야 합니다.</p>
+            <p className="text-sm text-red-600">출발지와 도착지는 동일한 지역이어야 합니다.</p>
           ) : null}
 
           <div>
@@ -261,8 +261,8 @@ export function SegmentPage(): JSX.Element {
           <thead>
             <tr>
               <Th>지역</Th>
-              <Th>A도착지</Th>
-              <Th>B도착지</Th>
+              <Th>출발지</Th>
+              <Th>도착지</Th>
               <Th>평균거리(km)</Th>
               <Th>평균 이동 시간(시간)</Th>
               <Th>장거리</Th>
@@ -339,7 +339,7 @@ export function SegmentPage(): JSX.Element {
           >
             <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-2">
               <div className="relative grid gap-2">
-                <h3 className="text-sm font-semibold text-slate-800">A도착지</h3>
+                <h3 className="text-sm font-semibold text-slate-800">출발지</h3>
                 <Input
                   value={editFromSearch}
                   onFocus={() => setEditFromOpen(true)}
@@ -349,7 +349,7 @@ export function SegmentPage(): JSX.Element {
                     setEditForm((prev) => ({ ...prev, fromLocationId: '' }));
                     setEditFromOpen(true);
                   }}
-                  placeholder="도착지 검색 또는 선택"
+                  placeholder="출발지 검색 또는 선택"
                 />
                 {editFromOpen ? (
                   <div className="absolute left-0 right-0 top-[76px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
@@ -376,7 +376,7 @@ export function SegmentPage(): JSX.Element {
               </div>
 
               <div className="relative grid gap-2">
-                <h3 className="text-sm font-semibold text-slate-800">B도착지</h3>
+                <h3 className="text-sm font-semibold text-slate-800">도착지</h3>
                 <Input
                   value={editToSearch}
                   onFocus={() => setEditToOpen(true)}

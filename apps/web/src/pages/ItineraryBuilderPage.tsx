@@ -7,6 +7,14 @@ import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builde
 import type { EstimateBuilderDraftSnapshot, EstimatePage1Editor } from '../features/estimate/model/types';
 import { useAuth } from '../features/auth/context';
 import { toFacilityLabel, toMealLabel } from '../features/location/display';
+import {
+  DEFAULT_PICKUP_DROP_PLACE_TYPE,
+  PICKUP_DROP_PLACE_OPTIONS,
+  getRecommendedDropTime,
+  getRecommendedPickupTime,
+  normalizePickupDropCustomText,
+  type PickupDropPlaceType,
+} from '../features/plan/pickup-drop';
 import { formatRouteDestinationCellText } from '../features/plan-template/route-autofill';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 import { MealOption, VariantType } from '../generated/graphql';
@@ -191,6 +199,14 @@ interface PlanTemplateRow {
   sortOrder: number;
   isActive: boolean;
   planStops: PlanTemplateStopRow[];
+}
+
+interface PlaceFieldProps {
+  label: string;
+  placeType: PickupDropPlaceType;
+  customText: string;
+  onPlaceTypeChange: (value: PickupDropPlaceType) => void;
+  onCustomTextChange: (value: string) => void;
 }
 
 function arePlanRowsEqual(left: PlanRow[], right: PlanRow[]): boolean {
@@ -520,6 +536,18 @@ function createEstimateDraftSnapshot(input: {
   pickupTime: string;
   dropDate: string;
   dropTime: string;
+  pickupPlaceType: PickupDropPlaceType;
+  pickupPlaceCustomText: string;
+  dropPlaceType: PickupDropPlaceType;
+  dropPlaceCustomText: string;
+  externalPickupDate: string;
+  externalPickupTime: string;
+  externalPickupPlaceType: PickupDropPlaceType;
+  externalPickupPlaceCustomText: string;
+  externalDropDate: string;
+  externalDropTime: string;
+  externalDropPlaceType: PickupDropPlaceType;
+  externalDropPlaceCustomText: string;
   pickupDropNote: string;
   externalPickupDropNote: string;
   specialNote: string;
@@ -546,6 +574,18 @@ function createEstimateDraftSnapshot(input: {
     pickupTime: input.pickupTime,
     dropDate: input.dropDate,
     dropTime: input.dropTime,
+    pickupPlaceType: input.pickupPlaceType,
+    pickupPlaceCustomText: input.pickupPlaceCustomText,
+    dropPlaceType: input.dropPlaceType,
+    dropPlaceCustomText: input.dropPlaceCustomText,
+    externalPickupDate: input.externalPickupDate,
+    externalPickupTime: input.externalPickupTime,
+    externalPickupPlaceType: input.externalPickupPlaceType,
+    externalPickupPlaceCustomText: input.externalPickupPlaceCustomText,
+    externalDropDate: input.externalDropDate,
+    externalDropTime: input.externalDropTime,
+    externalDropPlaceType: input.externalDropPlaceType,
+    externalDropPlaceCustomText: input.externalDropPlaceCustomText,
     pickupDropNote: input.pickupDropNote,
     externalPickupDropNote: input.externalPickupDropNote,
     specialNote: input.specialNote,
@@ -652,6 +692,33 @@ function sortTemplateStops(stops: PlanTemplateStopRow[]): PlanTemplateStopRow[] 
   return stops.slice().sort((a, b) => a.dayIndex - b.dayIndex);
 }
 
+function PlaceField({ label, placeType, customText, onPlaceTypeChange, onCustomTextChange }: PlaceFieldProps): JSX.Element {
+  return (
+    <div className="grid gap-2 text-sm">
+      <span className="text-xs text-slate-600">{label}</span>
+      <select
+        value={placeType}
+        onChange={(event) => onPlaceTypeChange(event.target.value as PickupDropPlaceType)}
+        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+      >
+        {PICKUP_DROP_PLACE_OPTIONS.map((option) => (
+          <option key={`${label}-${option.value}`} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {placeType === 'CUSTOM' ? (
+        <input
+          value={customText}
+          onChange={(event) => onCustomTextChange(event.target.value)}
+          placeholder="장소 직접 입력"
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+        />
+      ) : null}
+    </div>
+  );
+}
+
 export function ItineraryBuilderPage(): JSX.Element {
   const { employee } = useAuth();
   const navigate = useNavigate();
@@ -687,7 +754,18 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [pickupTime, setPickupTime] = useState<string>('');
   const [dropDate, setDropDate] = useState<string>('');
   const [dropTime, setDropTime] = useState<string>('');
-  const [externalPickupDropNote, setExternalPickupDropNote] = useState<string>('');
+  const [pickupPlaceType, setPickupPlaceType] = useState<PickupDropPlaceType>(DEFAULT_PICKUP_DROP_PLACE_TYPE);
+  const [pickupPlaceCustomText, setPickupPlaceCustomText] = useState<string>('');
+  const [dropPlaceType, setDropPlaceType] = useState<PickupDropPlaceType>(DEFAULT_PICKUP_DROP_PLACE_TYPE);
+  const [dropPlaceCustomText, setDropPlaceCustomText] = useState<string>('');
+  const [externalPickupDate, setExternalPickupDate] = useState<string>('');
+  const [externalPickupTime, setExternalPickupTime] = useState<string>('');
+  const [externalPickupPlaceType, setExternalPickupPlaceType] = useState<PickupDropPlaceType>(DEFAULT_PICKUP_DROP_PLACE_TYPE);
+  const [externalPickupPlaceCustomText, setExternalPickupPlaceCustomText] = useState<string>('');
+  const [externalDropDate, setExternalDropDate] = useState<string>('');
+  const [externalDropTime, setExternalDropTime] = useState<string>('');
+  const [externalDropPlaceType, setExternalDropPlaceType] = useState<PickupDropPlaceType>(DEFAULT_PICKUP_DROP_PLACE_TYPE);
+  const [externalDropPlaceCustomText, setExternalDropPlaceCustomText] = useState<string>('');
   const [specialNote, setSpecialNote] = useState<string>('');
   const [includeRentalItems, setIncludeRentalItems] = useState<boolean>(true);
   const [rentalItemsText, setRentalItemsText] = useState<string>(buildDefaultRentalItems(6));
@@ -716,8 +794,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState<boolean>(false);
   const [homeNewUserName, setHomeNewUserName] = useState<string>('');
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
-  const previousTravelStartDateRef = useRef<string>('');
-  const previousTravelEndDateRef = useRef<string>('');
+  const hasEditedPickupRef = useRef<boolean>(false);
+  const hasEditedDropRef = useRef<boolean>(false);
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
@@ -914,37 +992,54 @@ export function ItineraryBuilderPage(): JSX.Element {
     setTravelEndDate(toAutoTravelEndDate(travelStartDate, totalDays));
   }, [totalDays, travelStartDate]);
 
+  const handlePickupDateChange = (value: string): void => {
+    hasEditedPickupRef.current = true;
+    setPickupDate(value);
+  };
+
+  const handlePickupTimeChange = (value: string): void => {
+    hasEditedPickupRef.current = true;
+    setPickupTime(value);
+  };
+
+  const handleDropDateChange = (value: string): void => {
+    hasEditedDropRef.current = true;
+    setDropDate(value);
+  };
+
+  const handleDropTimeChange = (value: string): void => {
+    hasEditedDropRef.current = true;
+    setDropTime(value);
+  };
+
+  const handlePlaceTypeChange = (
+    setter: (value: PickupDropPlaceType) => void,
+    customSetter: (value: string) => void,
+    value: PickupDropPlaceType,
+  ): void => {
+    setter(value);
+    if (value !== 'CUSTOM') {
+      customSetter('');
+    }
+  };
+
   useEffect(() => {
-    setPickupDate((current) => {
-      const previousTravelStartDate = previousTravelStartDateRef.current;
-      if (!travelStartDate) {
-        return current === previousTravelStartDate ? '' : current;
-      }
+    if (hasEditedPickupRef.current) {
+      return;
+    }
 
-      if (!current || current === previousTravelStartDate) {
-        return travelStartDate;
-      }
-
-      return current;
-    });
-    previousTravelStartDateRef.current = travelStartDate;
-  }, [travelStartDate]);
+    setPickupDate(travelStartDate);
+    setPickupTime(travelStartDate ? getRecommendedPickupTime(flightInTime) : '');
+  }, [flightInTime, travelStartDate]);
 
   useEffect(() => {
-    setDropDate((current) => {
-      const previousTravelEndDate = previousTravelEndDateRef.current;
-      if (!travelEndDate) {
-        return current === previousTravelEndDate ? '' : current;
-      }
+    if (hasEditedDropRef.current) {
+      return;
+    }
 
-      if (!current || current === previousTravelEndDate) {
-        return travelEndDate;
-      }
-
-      return current;
-    });
-    previousTravelEndDateRef.current = travelEndDate;
-  }, [travelEndDate]);
+    setDropDate(travelEndDate);
+    setDropTime(travelEndDate ? getRecommendedDropTime(flightOutTime) : '');
+  }, [flightOutTime, travelEndDate]);
 
   useEffect(() => {
     const elements = document.querySelectorAll<HTMLTextAreaElement>('[data-plan-cell="true"]');
@@ -1075,6 +1170,26 @@ export function ItineraryBuilderPage(): JSX.Element {
     return !Number.isInteger(value) || value < 0;
   }, [hasEditedManualDeposit, manualDepositInput]);
 
+  const hasMissingCustomPlaceText = useMemo(
+    () =>
+      [
+        [pickupPlaceType, pickupPlaceCustomText],
+        [dropPlaceType, dropPlaceCustomText],
+        [externalPickupPlaceType, externalPickupPlaceCustomText],
+        [externalDropPlaceType, externalDropPlaceCustomText],
+      ].some(([placeType, customText]) => placeType === 'CUSTOM' && (customText?.trim() ?? '').length === 0),
+    [
+      dropPlaceCustomText,
+      dropPlaceType,
+      externalDropPlaceCustomText,
+      externalDropPlaceType,
+      externalPickupPlaceCustomText,
+      externalPickupPlaceType,
+      pickupPlaceCustomText,
+      pickupPlaceType,
+    ],
+  );
+
   const headcountFemale = headcountTotal - headcountMale;
   const hasValidDateRange = Boolean(travelStartDate && travelEndDate) && travelStartDate <= travelEndDate;
   const hasValidHeadcount = headcountTotal > 0 && headcountMale >= 0 && headcountFemale >= 0 && headcountMale <= headcountTotal;
@@ -1143,6 +1258,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       !hasHiaceHeadcountViolation &&
       !hasInvalidManualAdjustments &&
       !hasInvalidManualDepositInput &&
+      !hasMissingCustomPlaceText &&
       (includeRentalItems ? rentalItemsText.trim() : true) &&
       startLocationId &&
       startLocationVersionId &&
@@ -1181,8 +1297,20 @@ export function ItineraryBuilderPage(): JSX.Element {
         pickupTime,
         dropDate,
         dropTime,
+        pickupPlaceType,
+        pickupPlaceCustomText,
+        dropPlaceType,
+        dropPlaceCustomText,
+        externalPickupDate,
+        externalPickupTime,
+        externalPickupPlaceType,
+        externalPickupPlaceCustomText,
+        externalDropDate,
+        externalDropTime,
+        externalDropPlaceType,
+        externalDropPlaceCustomText,
         pickupDropNote: '',
-        externalPickupDropNote: externalPickupDropNote.trim(),
+        externalPickupDropNote: '',
         specialNote: specialNote.trim(),
         includeRentalItems,
         rentalItemsText: rentalItemsText.trim(),
@@ -1207,7 +1335,18 @@ export function ItineraryBuilderPage(): JSX.Element {
       pickupTime,
       dropDate,
       dropTime,
-      externalPickupDropNote,
+      pickupPlaceType,
+      pickupPlaceCustomText,
+      dropPlaceType,
+      dropPlaceCustomText,
+      externalPickupDate,
+      externalPickupTime,
+      externalPickupPlaceType,
+      externalPickupPlaceCustomText,
+      externalDropDate,
+      externalDropTime,
+      externalDropPlaceType,
+      externalDropPlaceCustomText,
       specialNote,
       includeRentalItems,
       rentalItemsText,
@@ -1229,11 +1368,22 @@ export function ItineraryBuilderPage(): JSX.Element {
     flightOutTime,
     pickupDate,
     pickupTime,
+    pickupPlaceType,
+    pickupPlaceCustomText,
     dropDate,
     dropTime,
+    dropPlaceType,
+    dropPlaceCustomText,
+    externalPickupDate,
+    externalPickupTime,
+    externalPickupPlaceType,
+    externalPickupPlaceCustomText,
+    externalDropDate,
+    externalDropTime,
+    externalDropPlaceType,
+    externalDropPlaceCustomText,
     eventIds,
     eventOptions: eventOptions.map((eventOption) => ({ id: eventOption.id, name: eventOption.name })),
-    externalPickupDropText: externalPickupDropNote,
     specialNoteText: specialNote,
     rentalItemsText,
     remarkText: remark,
@@ -1255,13 +1405,26 @@ export function ItineraryBuilderPage(): JSX.Element {
     },
     onFlightInTimeChange: setFlightInTime,
     onFlightOutTimeChange: setFlightOutTime,
-    onPickupDateChange: setPickupDate,
-    onPickupTimeChange: setPickupTime,
-    onDropDateChange: setDropDate,
-    onDropTimeChange: setDropTime,
+    onPickupDateChange: handlePickupDateChange,
+    onPickupTimeChange: handlePickupTimeChange,
+    onPickupPlaceTypeChange: (value) => handlePlaceTypeChange(setPickupPlaceType, setPickupPlaceCustomText, value),
+    onPickupPlaceCustomTextChange: setPickupPlaceCustomText,
+    onDropDateChange: handleDropDateChange,
+    onDropTimeChange: handleDropTimeChange,
+    onDropPlaceTypeChange: (value) => handlePlaceTypeChange(setDropPlaceType, setDropPlaceCustomText, value),
+    onDropPlaceCustomTextChange: setDropPlaceCustomText,
+    onExternalPickupDateChange: setExternalPickupDate,
+    onExternalPickupTimeChange: setExternalPickupTime,
+    onExternalPickupPlaceTypeChange: (value) =>
+      handlePlaceTypeChange(setExternalPickupPlaceType, setExternalPickupPlaceCustomText, value),
+    onExternalPickupPlaceCustomTextChange: setExternalPickupPlaceCustomText,
+    onExternalDropDateChange: setExternalDropDate,
+    onExternalDropTimeChange: setExternalDropTime,
+    onExternalDropPlaceTypeChange: (value) =>
+      handlePlaceTypeChange(setExternalDropPlaceType, setExternalDropPlaceCustomText, value),
+    onExternalDropPlaceCustomTextChange: setExternalDropPlaceCustomText,
     onToggleEventId: (value) =>
       setEventIds((current) => (current.includes(value) ? current.filter((id) => id !== value) : [...current, value])),
-    onExternalPickupDropTextChange: setExternalPickupDropNote,
     onSpecialNoteTextChange: setSpecialNote,
     onRentalItemsTextChange: (value) => {
       setIncludeRentalItems(true);
@@ -1616,8 +1779,26 @@ export function ItineraryBuilderPage(): JSX.Element {
                           pickupTime: pickupTime.trim() || undefined,
                           dropDate: dropDate ? toIsoDateTime(dropDate) : undefined,
                           dropTime: dropTime.trim() || undefined,
+                          pickupPlaceType,
+                          pickupPlaceCustomText: normalizePickupDropCustomText(pickupPlaceType, pickupPlaceCustomText),
+                          dropPlaceType,
+                          dropPlaceCustomText: normalizePickupDropCustomText(dropPlaceType, dropPlaceCustomText),
+                          externalPickupDate: externalPickupDate ? toIsoDateTime(externalPickupDate) : undefined,
+                          externalPickupTime: externalPickupTime.trim() || undefined,
+                          externalPickupPlaceType,
+                          externalPickupPlaceCustomText: normalizePickupDropCustomText(
+                            externalPickupPlaceType,
+                            externalPickupPlaceCustomText,
+                          ),
+                          externalDropDate: externalDropDate ? toIsoDateTime(externalDropDate) : undefined,
+                          externalDropTime: externalDropTime.trim() || undefined,
+                          externalDropPlaceType,
+                          externalDropPlaceCustomText: normalizePickupDropCustomText(
+                            externalDropPlaceType,
+                            externalDropPlaceCustomText,
+                          ),
                           pickupDropNote: undefined,
-                          externalPickupDropNote: externalPickupDropNote.trim() || undefined,
+                          externalPickupDropNote: undefined,
                           specialNote: specialNote.trim() || undefined,
                           includeRentalItems,
                           rentalItemsText,
@@ -1664,8 +1845,26 @@ export function ItineraryBuilderPage(): JSX.Element {
                           pickupTime: pickupTime.trim() || undefined,
                           dropDate: dropDate ? toIsoDateTime(dropDate) : undefined,
                           dropTime: dropTime.trim() || undefined,
+                          pickupPlaceType,
+                          pickupPlaceCustomText: normalizePickupDropCustomText(pickupPlaceType, pickupPlaceCustomText),
+                          dropPlaceType,
+                          dropPlaceCustomText: normalizePickupDropCustomText(dropPlaceType, dropPlaceCustomText),
+                          externalPickupDate: externalPickupDate ? toIsoDateTime(externalPickupDate) : undefined,
+                          externalPickupTime: externalPickupTime.trim() || undefined,
+                          externalPickupPlaceType,
+                          externalPickupPlaceCustomText: normalizePickupDropCustomText(
+                            externalPickupPlaceType,
+                            externalPickupPlaceCustomText,
+                          ),
+                          externalDropDate: externalDropDate ? toIsoDateTime(externalDropDate) : undefined,
+                          externalDropTime: externalDropTime.trim() || undefined,
+                          externalDropPlaceType,
+                          externalDropPlaceCustomText: normalizePickupDropCustomText(
+                            externalDropPlaceType,
+                            externalDropPlaceCustomText,
+                          ),
                           pickupDropNote: undefined,
-                          externalPickupDropNote: externalPickupDropNote.trim() || undefined,
+                          externalPickupDropNote: undefined,
                           specialNote: specialNote.trim() || undefined,
                           includeRentalItems,
                           rentalItemsText,
@@ -1993,43 +2192,100 @@ export function ItineraryBuilderPage(): JSX.Element {
                   <input
                     type="date"
                     value={pickupDate}
-                    onChange={(event) => setPickupDate(event.target.value)}
+                    onChange={(event) => handlePickupDateChange(event.target.value)}
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                   />
                   <input
                     type="time"
                     value={pickupTime}
-                    onChange={(event) => setPickupTime(event.target.value)}
+                    onChange={(event) => handlePickupTimeChange(event.target.value)}
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                   />
                   <input
                     type="date"
                     value={dropDate}
-                    onChange={(event) => setDropDate(event.target.value)}
+                    onChange={(event) => handleDropDateChange(event.target.value)}
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                   />
                   <input
                     type="time"
                     value={dropTime}
-                    onChange={(event) => setDropTime(event.target.value)}
+                    onChange={(event) => handleDropTimeChange(event.target.value)}
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <PlaceField
+                    label="픽업 장소"
+                    placeType={pickupPlaceType}
+                    customText={pickupPlaceCustomText}
+                    onPlaceTypeChange={(value) => handlePlaceTypeChange(setPickupPlaceType, setPickupPlaceCustomText, value)}
+                    onCustomTextChange={setPickupPlaceCustomText}
+                  />
+                  <PlaceField
+                    label="드랍 장소"
+                    placeType={dropPlaceType}
+                    customText={dropPlaceCustomText}
+                    onPlaceTypeChange={(value) => handlePlaceTypeChange(setDropPlaceType, setDropPlaceCustomText, value)}
+                    onCustomTextChange={setDropPlaceCustomText}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <span className="text-xs text-slate-600">실투어 외 픽업 / 드랍 날짜 및 시간</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={externalPickupDate}
+                    onChange={(event) => setExternalPickupDate(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="time"
+                    value={externalPickupTime}
+                    onChange={(event) => setExternalPickupTime(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={externalDropDate}
+                    onChange={(event) => setExternalDropDate(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="time"
+                    value={externalDropTime}
+                    onChange={(event) => setExternalDropTime(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <PlaceField
+                    label="실투어 외 픽업 장소"
+                    placeType={externalPickupPlaceType}
+                    customText={externalPickupPlaceCustomText}
+                    onPlaceTypeChange={(value) =>
+                      handlePlaceTypeChange(setExternalPickupPlaceType, setExternalPickupPlaceCustomText, value)
+                    }
+                    onCustomTextChange={setExternalPickupPlaceCustomText}
+                  />
+                  <PlaceField
+                    label="실투어 외 드랍 장소"
+                    placeType={externalDropPlaceType}
+                    customText={externalDropPlaceCustomText}
+                    onPlaceTypeChange={(value) =>
+                      handlePlaceTypeChange(setExternalDropPlaceType, setExternalDropPlaceCustomText, value)
+                    }
+                    onCustomTextChange={setExternalDropPlaceCustomText}
                   />
                 </div>
               </div>
 
               <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">실투어 외 픽드랍</span>
-                <textarea
-                  value={externalPickupDropNote}
-                  onChange={(event) => setExternalPickupDropNote(event.target.value)}
-                  rows={3}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  placeholder="줄바꿈 포함 입력 가능"
-                />
-              </label>
-
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">특이사항</span>
+                <span className="text-xs text-slate-600">
+                  특별요청사항 <span className="ml-1 text-slate-400">*고객에게 노출됩니다</span>
+                </span>
                 <textarea
                   value={specialNote}
                   onChange={(event) => setSpecialNote(event.target.value)}
@@ -2757,6 +3013,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                     예약금 수동 입력값을 확인해주세요.
                   </div>
                 ) : null}
+                {hasMissingCustomPlaceText ? (
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
+                    직접입력 장소를 선택한 항목의 장소명을 입력해주세요.
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </Card>
@@ -2801,9 +3062,20 @@ export function ItineraryBuilderPage(): JSX.Element {
         flightOutTime,
         pickupDate,
         pickupTime,
+        pickupPlaceType,
+        pickupPlaceCustomText,
         dropDate,
         dropTime,
-        externalPickupDropNote,
+        dropPlaceType,
+        dropPlaceCustomText,
+        externalPickupDate,
+        externalPickupTime,
+        externalPickupPlaceType,
+        externalPickupPlaceCustomText,
+        externalDropDate,
+        externalDropTime,
+        externalDropPlaceType,
+        externalDropPlaceCustomText,
         specialNote,
         includeRentalItems,
         rentalItemsText,
@@ -2835,9 +3107,20 @@ export function ItineraryBuilderPage(): JSX.Element {
           flightOutTime,
           pickupDate,
           pickupTime,
+          pickupPlaceType,
+          pickupPlaceCustomText,
           dropDate,
           dropTime,
-          externalPickupDropNote,
+          dropPlaceType,
+          dropPlaceCustomText,
+          externalPickupDate,
+          externalPickupTime,
+          externalPickupPlaceType,
+          externalPickupPlaceCustomText,
+          externalDropDate,
+          externalDropTime,
+          externalDropPlaceType,
+          externalDropPlaceCustomText,
           specialNote,
           includeRentalItems,
           rentalItemsText,
