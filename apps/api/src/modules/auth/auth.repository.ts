@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { normalizeEmail } from '../../lib/auth';
-import type { EmployeeCreateDto, EmployeeUpdateDto } from './auth.types';
+import type { EmployeeCreateDto, EmployeeSelfSignupDto, EmployeeUpdateDto } from './auth.types';
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
@@ -52,6 +52,18 @@ export class AuthRepository {
   }
 
   createEmployee(data: EmployeeCreateDto & { passwordHash: string }) {
+    return this.prisma.employee.create({
+      data: {
+        name: data.name.trim(),
+        email: normalizeEmail(data.email),
+        passwordHash: data.passwordHash,
+        role: data.role,
+      },
+      select: employeeSelect,
+    });
+  }
+
+  createEmployeeSelfSignup(data: EmployeeSelfSignupDto & { passwordHash: string; role: 'ADMIN' | 'STAFF' }) {
     return this.prisma.employee.create({
       data: {
         name: data.name.trim(),
@@ -127,6 +139,15 @@ export class AuthRepository {
     return this.prisma.employee.count({
       where: {
         id: { not: employeeId },
+        role: 'ADMIN',
+        isActive: true,
+      },
+    });
+  }
+
+  countActiveAdmins() {
+    return this.prisma.employee.count({
+      where: {
         role: 'ADMIN',
         isActive: true,
       },

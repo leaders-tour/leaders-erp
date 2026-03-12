@@ -114,7 +114,7 @@ export const resolvers = {
       overrideResolver.Mutation,
       outreachResolver.Mutation,
     ),
-    ['login', 'refreshAccessToken', 'logout'],
+    ['login', 'registerEmployee', 'refreshAccessToken', 'logout'],
   ),
   User: mergeSection(planResolver.User ?? {}),
   CafeLead: outreachResolver.CafeLead,

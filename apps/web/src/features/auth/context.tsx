@@ -22,6 +22,7 @@ interface AuthContextValue {
   employee: SessionEmployee | null;
   expiresAt: string | null;
   login: (email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   ensureAccessToken: (forceRefresh?: boolean) => Promise<string | null>;
   getAccessToken: () => string | null;
@@ -32,6 +33,21 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const LOGIN_MUTATION = `
   mutation Login($input: LoginInput!) {
     login(input: $input) {
+      accessToken
+      expiresAt
+      employee {
+        id
+        name
+        email
+        role
+      }
+    }
+  }
+`;
+
+const REGISTER_MUTATION = `
+  mutation RegisterEmployee($input: EmployeeSelfSignupInput!) {
+    registerEmployee(input: $input) {
       accessToken
       expiresAt
       employee {
@@ -153,6 +169,16 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
     [applySession],
   );
 
+  const register = useCallback(
+    async (name: string, email: string, password: string): Promise<void> => {
+      const data = await requestGraphql<{ registerEmployee: AuthPayload }>(REGISTER_MUTATION, {
+        input: { name, email, password },
+      });
+      applySession(data.registerEmployee);
+    },
+    [applySession],
+  );
+
   const logout = useCallback(async (): Promise<void> => {
     try {
       await requestGraphql<{ logout: boolean }>(LOGOUT_MUTATION);
@@ -188,11 +214,12 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
       employee,
       expiresAt,
       login,
+      register,
       logout,
       ensureAccessToken,
       getAccessToken,
     }),
-    [employee, ensureAccessToken, expiresAt, getAccessToken, login, logout, status],
+    [employee, ensureAccessToken, expiresAt, getAccessToken, login, logout, register, status],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

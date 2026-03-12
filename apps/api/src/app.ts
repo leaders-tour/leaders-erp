@@ -12,8 +12,21 @@ import { typeDefs } from './schema';
 
 const MAX_UPLOAD_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const MAX_UPLOAD_FILES = 20;
+const DEFAULT_WEB_ORIGINS = ['http://localhost:5173', 'http://localhost:5174'];
 
 type JsonObject = Record<string, unknown>;
+
+function getAllowedWebOrigins(): string[] {
+  const configured = process.env.WEB_ORIGIN?.trim();
+  if (!configured) {
+    return DEFAULT_WEB_ORIGINS;
+  }
+
+  return configured
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+}
 
 function setValueByPath(target: JsonObject, path: string, value: unknown) {
   const segments = path.split('.');
@@ -111,7 +124,7 @@ const parseGraphqlMultipartRequest: RequestHandler = async (req, _res, next) => 
 
 export async function createApp(): Promise<express.Express> {
   const app = express();
-  const webOrigin = process.env.WEB_ORIGIN?.trim() || 'http://localhost:5173';
+  const allowedWebOrigins = new Set(getAllowedWebOrigins());
 
   const server = new ApolloServer({
     typeDefs,
@@ -138,7 +151,7 @@ export async function createApp(): Promise<express.Express> {
     '/graphql',
     cors({
       origin: (origin, callback) => {
-        if (!origin || origin === webOrigin) {
+        if (!origin || allowedWebOrigins.has(origin)) {
           callback(null, true);
           return;
         }

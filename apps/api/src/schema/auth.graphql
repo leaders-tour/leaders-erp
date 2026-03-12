@@ -38,6 +38,12 @@ input EmployeeCreateInput {
   role: EmployeeRole = STAFF
 }
 
+input EmployeeSelfSignupInput {
+  name: String!
+  email: String!
+  password: String!
+}
+
 input EmployeeUpdateInput {
   name: String
   email: String
@@ -56,6 +62,7 @@ extend type Query {
 
 extend type Mutation {
   login(input: LoginInput!): AuthPayload!
+  registerEmployee(input: EmployeeSelfSignupInput!): AuthPayload!
   refreshAccessToken: AuthPayload!
   logout: Boolean!
 

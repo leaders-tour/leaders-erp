@@ -3,6 +3,7 @@ import type { Response } from 'express';
 import {
   employeeCreateSchema,
   employeePasswordResetSchema,
+  employeeSelfSignupSchema,
   employeeUpdateSchema,
   loginSchema,
 } from '@tour/validation';
@@ -20,7 +21,13 @@ import {
 } from '../../lib/auth';
 import { DomainError } from '../../lib/errors';
 import { AuthRepository } from './auth.repository';
-import type { EmployeeCreateDto, EmployeePasswordResetDto, EmployeeUpdateDto, LoginDto } from './auth.types';
+import type {
+  EmployeeCreateDto,
+  EmployeePasswordResetDto,
+  EmployeeSelfSignupDto,
+  EmployeeUpdateDto,
+  LoginDto,
+} from './auth.types';
 
 type Actor = AuthenticatedEmployee;
 type EmployeeRecord = {
@@ -58,6 +65,20 @@ export class AuthService {
     res.append('Set-Cookie', clearRefreshTokenCookie());
   }
 
+  private async issueSession(employee: EmployeeRecord, metadata: { res: Response; userAgent?: string | null }) {
+    const refreshToken = generateRefreshToken();
+    const refreshTokenExpiresAt = new Date(Date.now() + getRefreshTokenTtlMs());
+    await new AuthRepository(this.prisma).createRefreshToken({
+      employeeId: employee.id,
+      tokenHash: hashRefreshToken(refreshToken),
+      userAgent: metadata.userAgent?.slice(0, 191) ?? null,
+      expiresAt: refreshTokenExpiresAt,
+    });
+
+    this.issueRefreshToken(metadata.res, refreshToken, refreshTokenExpiresAt);
+    return this.buildAuthPayload(employee);
+  }
+
   private async ensureAdminFloor(employeeId: string, nextRole: 'ADMIN' | 'STAFF', nextIsActive: boolean): Promise<void> {
     const existing = await new AuthRepository(this.prisma).findEmployeeForAdminChecks(employeeId);
     if (!existing) {
@@ -90,18 +111,29 @@ export class AuthService {
       throw new DomainError('UNAUTHENTICATED', 'Invalid email or password');
     }
 
-    const refreshToken = generateRefreshToken();
-    const refreshTokenExpiresAt = new Date(Date.now() + getRefreshTokenTtlMs());
-    await new AuthRepository(this.prisma).createRefreshToken({
-      employeeId: employee.id,
-      tokenHash: hashRefreshToken(refreshToken),
-      userAgent: metadata.userAgent?.slice(0, 191) ?? null,
-      expiresAt: refreshTokenExpiresAt,
+    return this.issueSession(employee, metadata);
+  }
+
+  async registerEmployee(input: EmployeeSelfSignupDto, metadata: { res: Response; userAgent?: string | null }) {
+    const parsed = employeeSelfSignupSchema.safeParse(input);
+    if (!parsed.success) {
+      throw new DomainError('VALIDATION_FAILED', 'Invalid employee signup input');
+    }
+
+    const repository = new AuthRepository(this.prisma);
+    const existing = await repository.findEmployeeByEmail(parsed.data.email);
+    if (existing) {
+      throw new DomainError('VALIDATION_FAILED', 'Employee email already exists');
+    }
+
+    const activeAdminCount = await repository.countActiveAdmins();
+    const employee = await repository.createEmployeeSelfSignup({
+      ...parsed.data,
+      passwordHash: await hashPassword(parsed.data.password),
+      role: activeAdminCount === 0 ? 'ADMIN' : 'STAFF',
     });
 
-    this.issueRefreshToken(metadata.res, refreshToken, refreshTokenExpiresAt);
-
-    return this.buildAuthPayload(employee);
+    return this.issueSession(employee, metadata);
   }
 
   async refreshAccessToken(refreshToken: string | null, metadata: { res: Response }) {

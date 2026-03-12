@@ -1,7 +1,13 @@
 import type { AppContext } from '../../context';
 import { requireAdmin, requireEmployee } from '../../lib/auth-guards';
 import { AuthService } from './auth.service';
-import type { EmployeeCreateDto, EmployeePasswordResetDto, EmployeeUpdateDto, LoginDto } from './auth.types';
+import type {
+  EmployeeCreateDto,
+  EmployeePasswordResetDto,
+  EmployeeSelfSignupDto,
+  EmployeeUpdateDto,
+  LoginDto,
+} from './auth.types';
 
 interface LoginArgs {
   input: LoginDto;
@@ -13,6 +19,10 @@ interface EmployeesArgs {
 
 interface EmployeeCreateArgs {
   input: EmployeeCreateDto;
+}
+
+interface EmployeeSelfSignupArgs {
+  input: EmployeeSelfSignupDto;
 }
 
 interface EmployeeUpdateArgs {
@@ -38,6 +48,11 @@ export const authResolver = {
   Mutation: {
     login: (_parent: unknown, args: LoginArgs, ctx: AppContext) =>
       new AuthService(ctx.prisma).login(args.input, {
+        res: ctx.res,
+        userAgent: Array.isArray(ctx.req.headers['user-agent']) ? ctx.req.headers['user-agent'][0] : ctx.req.headers['user-agent'],
+      }),
+    registerEmployee: (_parent: unknown, args: EmployeeSelfSignupArgs, ctx: AppContext) =>
+      new AuthService(ctx.prisma).registerEmployee(args.input, {
         res: ctx.res,
         userAgent: Array.isArray(ctx.req.headers['user-agent']) ? ctx.req.headers['user-agent'][0] : ctx.req.headers['user-agent'],
       }),

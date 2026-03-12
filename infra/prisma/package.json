@@ -8,6 +8,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
+    "db:create-admin": "tsx prisma/create-admin.ts",
     "lint": "echo 'no lint for prisma package'",
     "test": "echo 'no tests for prisma package'",
     "typecheck": "tsc -p tsconfig.json --noEmit"
