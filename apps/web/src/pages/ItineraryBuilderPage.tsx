@@ -451,6 +451,9 @@ const VARIANTS = [
 ];
 
 const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
+const FLIGHT_IN_TIME_OPTIONS = ['00:15', '00:30', '00:35', '00:55', '02:40', '04:15', '10:25', '13:50', '14:15', '16:05', '18:40', '23:30'] as const;
+const FLIGHT_OUT_TIME_OPTIONS = ['00:50', '01:30', '01:50', '01:55', '07:45', '11:05', '12:25', '15:15', '15:20', '18:20'] as const;
+const PICKUP_DROP_TIME_OPTIONS = ['04:00', '05:00', '08:00', '15:30', '19:00', '21:00', '23:00'] as const;
 
 function toIsoDateTime(value: string): string {
   return `${value}T00:00:00.000Z`;
@@ -2478,6 +2481,22 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 onChange={(event) => updateTransportGroup(index, 'flightInTime', event.target.value)}
                                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                               />
+                              <div className="flex flex-wrap gap-2">
+                                {FLIGHT_IN_TIME_OPTIONS.map((time) => (
+                                  <button
+                                    key={`builder-flight-in-${index}-${time}`}
+                                    type="button"
+                                    onClick={() => updateTransportGroup(index, 'flightInTime', time)}
+                                    className={`rounded-xl border px-3 py-1.5 text-xs transition ${
+                                      group.flightInTime === time
+                                        ? 'border-slate-900 bg-slate-900 text-white'
+                                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    {time}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                           </div>
 
@@ -2496,6 +2515,22 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 onChange={(event) => updateTransportGroup(index, 'flightOutTime', event.target.value)}
                                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                               />
+                              <div className="flex flex-wrap gap-2">
+                                {FLIGHT_OUT_TIME_OPTIONS.map((time) => (
+                                  <button
+                                    key={`builder-flight-out-${index}-${time}`}
+                                    type="button"
+                                    onClick={() => updateTransportGroup(index, 'flightOutTime', time)}
+                                    className={`rounded-xl border px-3 py-1.5 text-xs transition ${
+                                      group.flightOutTime === time
+                                        ? 'border-slate-900 bg-slate-900 text-white'
+                                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    {time}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -2516,6 +2551,22 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 onChange={(event) => updateTransportGroup(index, 'pickupTime', event.target.value)}
                                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                               />
+                              <div className="flex flex-wrap gap-2">
+                                {PICKUP_DROP_TIME_OPTIONS.map((time) => (
+                                  <button
+                                    key={`builder-pickup-${index}-${time}`}
+                                    type="button"
+                                    onClick={() => updateTransportGroup(index, 'pickupTime', time)}
+                                    className={`rounded-xl border px-3 py-1.5 text-xs transition ${
+                                      group.pickupTime === time
+                                        ? 'border-slate-900 bg-slate-900 text-white'
+                                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    {time}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                             <PlaceField
                               label="픽업 장소"
@@ -2541,6 +2592,22 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 onChange={(event) => updateTransportGroup(index, 'dropTime', event.target.value)}
                                 className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                               />
+                              <div className="flex flex-wrap gap-2">
+                                {PICKUP_DROP_TIME_OPTIONS.map((time) => (
+                                  <button
+                                    key={`builder-drop-${index}-${time}`}
+                                    type="button"
+                                    onClick={() => updateTransportGroup(index, 'dropTime', time)}
+                                    className={`rounded-xl border px-3 py-1.5 text-xs transition ${
+                                      group.dropTime === time
+                                        ? 'border-slate-900 bg-slate-900 text-white'
+                                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    {time}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                             <PlaceField
                               label="드랍 장소"
@@ -2573,6 +2640,22 @@ export function ItineraryBuilderPage(): JSX.Element {
                       onChange={(event) => setExternalPickupTime(event.target.value)}
                       className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                     />
+                    <div className="flex flex-wrap gap-2">
+                      {PICKUP_DROP_TIME_OPTIONS.map((time) => (
+                        <button
+                          key={`builder-external-pickup-${time}`}
+                          type="button"
+                          onClick={() => setExternalPickupTime(time)}
+                          className={`rounded-xl border px-3 py-1.5 text-xs transition ${
+                            externalPickupTime === time
+                              ? 'border-slate-900 bg-slate-900 text-white'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {time}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div className="grid gap-2">
                     <input
@@ -2587,6 +2670,22 @@ export function ItineraryBuilderPage(): JSX.Element {
                       onChange={(event) => setExternalDropTime(event.target.value)}
                       className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                     />
+                    <div className="flex flex-wrap gap-2">
+                      {PICKUP_DROP_TIME_OPTIONS.map((time) => (
+                        <button
+                          key={`builder-external-drop-${time}`}
+                          type="button"
+                          onClick={() => setExternalDropTime(time)}
+                          className={`rounded-xl border px-3 py-1.5 text-xs transition ${
+                            externalDropTime === time
+                              ? 'border-slate-900 bg-slate-900 text-white'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {time}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">

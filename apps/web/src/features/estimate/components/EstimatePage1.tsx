@@ -13,6 +13,10 @@ import {
   formatTravelPeriod,
 } from '../utils/format';
 
+const FLIGHT_IN_TIME_OPTIONS = ['00:15', '00:30', '00:35', '00:55', '02:40', '04:15', '10:25', '13:50', '14:15', '16:05', '18:40', '23:30'] as const;
+const FLIGHT_OUT_TIME_OPTIONS = ['00:50', '01:30', '01:50', '01:55', '07:45', '11:05', '12:25', '15:15', '15:20', '18:20'] as const;
+const PICKUP_DROP_TIME_OPTIONS = ['04:00', '05:00', '08:00', '15:30', '19:00', '21:00', '23:00'] as const;
+
 interface EstimatePage1Props {
   data: EstimateDocumentData;
   editor?: EstimatePage1Editor;
@@ -124,6 +128,33 @@ function PlaceButtonGroup({ placeType, onChange }: PlaceButtonGroupProps): JSX.E
   );
 }
 
+interface FlightTimeButtonGroupProps {
+  options: readonly string[];
+  value: string;
+  onChange: (value: string) => void;
+}
+
+function FlightTimeButtonGroup({ options, value, onChange }: FlightTimeButtonGroupProps): JSX.Element {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((option) => (
+        <button
+          key={`flight-time-${option}`}
+          type="button"
+          onClick={() => onChange(option)}
+          className={`rounded-xl border px-3 py-1.5 text-xs transition ${
+            value === option
+              ? 'border-slate-900 bg-slate-900 text-white'
+              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          {option}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: TransportGroupEditorProps): JSX.Element {
   const showGroupMeta = groups.length > 1;
   const title =
@@ -182,6 +213,11 @@ function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: 
                 onChange={(event) => onFieldChange(index, 'flightInTime', event.target.value)}
                 className="estimate-editable-input"
               />
+              <FlightTimeButtonGroup
+                options={FLIGHT_IN_TIME_OPTIONS}
+                value={group.flightInTime}
+                onChange={(value) => onFieldChange(index, 'flightInTime', value)}
+              />
             </div>
           ) : null}
 
@@ -198,6 +234,11 @@ function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: 
                 value={group.flightOutTime}
                 onChange={(event) => onFieldChange(index, 'flightOutTime', event.target.value)}
                 className="estimate-editable-input"
+              />
+              <FlightTimeButtonGroup
+                options={FLIGHT_OUT_TIME_OPTIONS}
+                value={group.flightOutTime}
+                onChange={(value) => onFieldChange(index, 'flightOutTime', value)}
               />
             </div>
           ) : null}
@@ -216,6 +257,11 @@ function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: 
                   value={group.pickupTime}
                   onChange={(event) => onFieldChange(index, 'pickupTime', event.target.value)}
                   className="estimate-editable-input"
+                />
+                <FlightTimeButtonGroup
+                  options={PICKUP_DROP_TIME_OPTIONS}
+                  value={group.pickupTime}
+                  onChange={(value) => onFieldChange(index, 'pickupTime', value)}
                 />
               </div>
               <PlaceButtonGroup
@@ -248,6 +294,11 @@ function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: 
                   value={group.dropTime}
                   onChange={(event) => onFieldChange(index, 'dropTime', event.target.value)}
                   className="estimate-editable-input"
+                />
+                <FlightTimeButtonGroup
+                  options={PICKUP_DROP_TIME_OPTIONS}
+                  value={group.dropTime}
+                  onChange={(value) => onFieldChange(index, 'dropTime', value)}
                 />
               </div>
               <PlaceButtonGroup
@@ -546,6 +597,11 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                       onChange={(event) => editor?.onExternalPickupTimeChange(event.target.value)}
                       className="estimate-editable-input"
                     />
+                    <FlightTimeButtonGroup
+                      options={PICKUP_DROP_TIME_OPTIONS}
+                      value={editor?.externalPickupTime ?? ''}
+                      onChange={(value) => editor?.onExternalPickupTimeChange(value)}
+                    />
                   </div>
                   <PlaceButtonGroup
                     placeType={editor?.externalPickupPlaceType ?? 'AIRPORT'}
@@ -595,6 +651,11 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                       value={editor?.externalDropTime ?? ''}
                       onChange={(event) => editor?.onExternalDropTimeChange(event.target.value)}
                       className="estimate-editable-input"
+                    />
+                    <FlightTimeButtonGroup
+                      options={PICKUP_DROP_TIME_OPTIONS}
+                      value={editor?.externalDropTime ?? ''}
+                      onChange={(value) => editor?.onExternalDropTimeChange(value)}
                     />
                   </div>
                   <PlaceButtonGroup
