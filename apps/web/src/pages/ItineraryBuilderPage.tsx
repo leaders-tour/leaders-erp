@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DatePickerModal } from '../components/date-picker/DatePickerModal';
 import { formatDateTriggerLabel, getCurrentLocalYear } from '../components/date-picker/date-picker-utils';
+import { TimePickerModal } from '../components/date-picker/TimePickerModal';
+import { formatTimeTriggerLabel } from '../components/date-picker/time-picker-utils';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
 import type { EstimateBuilderDraftSnapshot, EstimatePage1Editor, EstimateTransportGroup } from '../features/estimate/model/types';
@@ -221,7 +223,21 @@ type DatePickerTarget =
   | { kind: 'externalPickupDate'; anchorEl: HTMLButtonElement }
   | { kind: 'externalDropDate'; anchorEl: HTMLButtonElement };
 
+type TimePickerTarget =
+  | { kind: 'flightInTime'; index: number; anchorEl: HTMLButtonElement }
+  | { kind: 'flightOutTime'; index: number; anchorEl: HTMLButtonElement }
+  | { kind: 'pickupTime'; index: number; anchorEl: HTMLButtonElement }
+  | { kind: 'dropTime'; index: number; anchorEl: HTMLButtonElement }
+  | { kind: 'externalPickupTime'; anchorEl: HTMLButtonElement }
+  | { kind: 'externalDropTime'; anchorEl: HTMLButtonElement };
+
 interface DateInputTriggerProps {
+  value: string;
+  placeholder?: string;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+}
+
+interface TimeInputTriggerProps {
   value: string;
   placeholder?: string;
   onClick: (event: MouseEvent<HTMLButtonElement>) => void;
@@ -472,6 +488,7 @@ const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스'
 const FLIGHT_IN_TIME_OPTIONS = ['00:00', '00:50', '02:45', '04:00', '04:30', '05:00'] as const;
 const FLIGHT_OUT_TIME_OPTIONS = ['00:25', '01:55', '02:05', '11:00', '14:50', '18:15', '20:30'] as const;
 const PICKUP_DROP_TIME_OPTIONS = ['04:00', '05:00', '08:00', '15:30', '19:00', '21:00', '23:00'] as const;
+const HALF_HOUR_MINUTE_OPTIONS = [0, 30] as const;
 
 function toIsoDateTime(value: string): string {
   return `${value}T00:00:00.000Z`;
@@ -804,6 +821,24 @@ function DateInputTrigger({
   );
 }
 
+function TimeInputTrigger({
+  value,
+  placeholder = '시간을 선택하세요',
+  onClick,
+}: TimeInputTriggerProps): JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-10 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm transition hover:bg-slate-50"
+      aria-haspopup="dialog"
+    >
+      <span className={value ? 'text-slate-900' : 'text-slate-400'}>{formatTimeTriggerLabel(value) || placeholder}</span>
+      <span className="text-xs text-slate-500">열기</span>
+    </button>
+  );
+}
+
 export function ItineraryBuilderPage(): JSX.Element {
   const { employee } = useAuth();
   const navigate = useNavigate();
@@ -876,6 +911,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [homeEntryMode, setHomeEntryMode] = useState<'new' | 'existing' | null>(null);
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState<boolean>(false);
   const [datePickerTarget, setDatePickerTarget] = useState<DatePickerTarget | null>(null);
+  const [timePickerTarget, setTimePickerTarget] = useState<TimePickerTarget | null>(null);
   const [homeNewUserName, setHomeNewUserName] = useState<string>('');
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
 
@@ -1033,6 +1069,63 @@ export function ItineraryBuilderPage(): JSX.Element {
         return '실투어 외 드랍 날짜 선택';
     }
   }, [datePickerTarget]);
+  const activeTimePickerAnchorEl = timePickerTarget?.anchorEl ?? null;
+  const activeTimePickerValue = useMemo(() => {
+    if (!timePickerTarget) {
+      return '';
+    }
+
+    switch (timePickerTarget.kind) {
+      case 'flightInTime':
+        return transportGroups[timePickerTarget.index]?.flightInTime ?? '';
+      case 'flightOutTime':
+        return transportGroups[timePickerTarget.index]?.flightOutTime ?? '';
+      case 'pickupTime':
+        return transportGroups[timePickerTarget.index]?.pickupTime ?? '';
+      case 'dropTime':
+        return transportGroups[timePickerTarget.index]?.dropTime ?? '';
+      case 'externalPickupTime':
+        return externalPickupTime;
+      case 'externalDropTime':
+        return externalDropTime;
+    }
+  }, [externalDropTime, externalPickupTime, timePickerTarget, transportGroups]);
+  const activeTimePickerTitle = useMemo(() => {
+    if (!timePickerTarget) {
+      return '시간 선택';
+    }
+
+    switch (timePickerTarget.kind) {
+      case 'flightInTime':
+        return '항공권 IN 시간 선택';
+      case 'flightOutTime':
+        return '항공권 OUT 시간 선택';
+      case 'pickupTime':
+        return '픽업 시간 선택';
+      case 'dropTime':
+        return '드랍 시간 선택';
+      case 'externalPickupTime':
+        return '실투어 외 픽업 시간 선택';
+      case 'externalDropTime':
+        return '실투어 외 드랍 시간 선택';
+    }
+  }, [timePickerTarget]);
+  const activeTimePickerAllowedMinutes = useMemo(() => {
+    if (!timePickerTarget) {
+      return undefined;
+    }
+
+    switch (timePickerTarget.kind) {
+      case 'flightInTime':
+      case 'flightOutTime':
+        return undefined;
+      case 'pickupTime':
+      case 'dropTime':
+      case 'externalPickupTime':
+      case 'externalDropTime':
+        return HALF_HOUR_MINUTE_OPTIONS;
+    }
+  }, [timePickerTarget]);
 
   const filteredSegments = useMemo(
     () => segments.filter((segment) => segment.regionId === regionId),
@@ -1238,6 +1331,33 @@ export function ItineraryBuilderPage(): JSX.Element {
         return;
       case 'externalDropDate':
         setExternalDropDate(nextIsoDate);
+        return;
+    }
+  };
+
+  const handleTimePickerChange = (nextTime: string): void => {
+    if (!timePickerTarget) {
+      return;
+    }
+
+    switch (timePickerTarget.kind) {
+      case 'flightInTime':
+        updateTransportGroup(timePickerTarget.index, 'flightInTime', nextTime);
+        return;
+      case 'flightOutTime':
+        updateTransportGroup(timePickerTarget.index, 'flightOutTime', nextTime);
+        return;
+      case 'pickupTime':
+        updateTransportGroup(timePickerTarget.index, 'pickupTime', nextTime);
+        return;
+      case 'dropTime':
+        updateTransportGroup(timePickerTarget.index, 'dropTime', nextTime);
+        return;
+      case 'externalPickupTime':
+        setExternalPickupTime(nextTime);
+        return;
+      case 'externalDropTime':
+        setExternalDropTime(nextTime);
         return;
     }
   };
@@ -2619,11 +2739,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   setDatePickerTarget({ kind: 'flightInDate', index, anchorEl: event.currentTarget })
                                 }
                               />
-                              <input
-                                type="time"
+                              <TimeInputTrigger
                                 value={group.flightInTime}
-                                onChange={(event) => updateTransportGroup(index, 'flightInTime', event.target.value)}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                onClick={(event) =>
+                                  setTimePickerTarget({ kind: 'flightInTime', index, anchorEl: event.currentTarget })
+                                }
                               />
                               <div className="flex flex-wrap gap-2">
                                 {FLIGHT_IN_TIME_OPTIONS.map((time) => (
@@ -2653,11 +2773,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   setDatePickerTarget({ kind: 'flightOutDate', index, anchorEl: event.currentTarget })
                                 }
                               />
-                              <input
-                                type="time"
+                              <TimeInputTrigger
                                 value={group.flightOutTime}
-                                onChange={(event) => updateTransportGroup(index, 'flightOutTime', event.target.value)}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                onClick={(event) =>
+                                  setTimePickerTarget({ kind: 'flightOutTime', index, anchorEl: event.currentTarget })
+                                }
                               />
                               <div className="flex flex-wrap gap-2">
                                 {FLIGHT_OUT_TIME_OPTIONS.map((time) => (
@@ -2689,11 +2809,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   setDatePickerTarget({ kind: 'pickupDate', index, anchorEl: event.currentTarget })
                                 }
                               />
-                              <input
-                                type="time"
+                              <TimeInputTrigger
                                 value={group.pickupTime}
-                                onChange={(event) => updateTransportGroup(index, 'pickupTime', event.target.value)}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                onClick={(event) =>
+                                  setTimePickerTarget({ kind: 'pickupTime', index, anchorEl: event.currentTarget })
+                                }
                               />
                               <div className="flex flex-wrap gap-2">
                                 {PICKUP_DROP_TIME_OPTIONS.map((time) => (
@@ -2730,11 +2850,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   setDatePickerTarget({ kind: 'dropDate', index, anchorEl: event.currentTarget })
                                 }
                               />
-                              <input
-                                type="time"
+                              <TimeInputTrigger
                                 value={group.dropTime}
-                                onChange={(event) => updateTransportGroup(index, 'dropTime', event.target.value)}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                onClick={(event) =>
+                                  setTimePickerTarget({ kind: 'dropTime', index, anchorEl: event.currentTarget })
+                                }
                               />
                               <div className="flex flex-wrap gap-2">
                                 {PICKUP_DROP_TIME_OPTIONS.map((time) => (
@@ -2779,11 +2899,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                         setDatePickerTarget({ kind: 'externalPickupDate', anchorEl: event.currentTarget })
                       }
                     />
-                    <input
-                      type="time"
+                    <TimeInputTrigger
                       value={externalPickupTime}
-                      onChange={(event) => setExternalPickupTime(event.target.value)}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                      placeholder="실투어 외 픽업 시간 선택"
+                      onClick={(event) =>
+                        setTimePickerTarget({ kind: 'externalPickupTime', anchorEl: event.currentTarget })
+                      }
                     />
                     <div className="flex flex-wrap gap-2">
                       {PICKUP_DROP_TIME_OPTIONS.map((time) => (
@@ -2810,11 +2931,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                         setDatePickerTarget({ kind: 'externalDropDate', anchorEl: event.currentTarget })
                       }
                     />
-                    <input
-                      type="time"
+                    <TimeInputTrigger
                       value={externalDropTime}
-                      onChange={(event) => setExternalDropTime(event.target.value)}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                      placeholder="실투어 외 드랍 시간 선택"
+                      onClick={(event) =>
+                        setTimePickerTarget({ kind: 'externalDropTime', anchorEl: event.currentTarget })
+                      }
                     />
                     <div className="flex flex-wrap gap-2">
                       {PICKUP_DROP_TIME_OPTIONS.map((time) => (
@@ -3763,6 +3885,15 @@ export function ItineraryBuilderPage(): JSX.Element {
           title={activeDatePickerTitle}
           onClose={() => setDatePickerTarget(null)}
           onChange={handleDatePickerChange}
+        />
+        <TimePickerModal
+          open={timePickerTarget !== null}
+          value={activeTimePickerValue}
+          anchorEl={activeTimePickerAnchorEl}
+          title={activeTimePickerTitle}
+          allowedMinutes={activeTimePickerAllowedMinutes}
+          onClose={() => setTimePickerTarget(null)}
+          onChange={handleTimePickerChange}
         />
       </div>
     </div>
