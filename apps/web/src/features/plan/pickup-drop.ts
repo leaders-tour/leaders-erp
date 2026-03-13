@@ -54,6 +54,20 @@ function formatDateShort(value: string | null | undefined): string {
   return `${String(date.getUTCMonth() + 1).padStart(2, '0')}/${String(date.getUTCDate()).padStart(2, '0')}`;
 }
 
+function formatDateInput(value: Date): string {
+  return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}-${String(value.getUTCDate()).padStart(2, '0')}`;
+}
+
+function shiftDate(value: string | null | undefined, days: number): string | null {
+  const date = toDate(value);
+  if (!date) {
+    return null;
+  }
+
+  date.setUTCDate(date.getUTCDate() + days);
+  return formatDateInput(date);
+}
+
 export function parseTimeToMinutes(value: string | null | undefined): number | null {
   const trimmed = value?.trim() ?? '';
   const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(trimmed);
@@ -74,21 +88,87 @@ export function formatMinutesAsTime(minutes: number): string | null {
   return `${hour}:${minute}`;
 }
 
+function roundMinutesToHalfHour(minutes: number): number {
+  const remainder = minutes % 60;
+
+  if (remainder === 0 || remainder === 30) {
+    return minutes;
+  }
+
+  if (remainder < 15) {
+    return minutes - remainder;
+  }
+
+  if (remainder < 30) {
+    return minutes + (30 - remainder);
+  }
+
+  if (remainder < 45) {
+    return minutes - (remainder - 30);
+  }
+
+  return minutes + (60 - remainder);
+}
+
+function shouldUsePreviousDayLateNightDrop(minutes: number): boolean {
+  return minutes > 2 * 60 && minutes < 6 * 60;
+}
+
 export function getRecommendedPickupTime(flightInTime: string | null | undefined): string {
   const minutes = parseTimeToMinutes(flightInTime);
   if (minutes !== null && minutes < 4 * 60) {
     return '04:00';
+  }
+  if (minutes !== null && minutes >= 4 * 60 && minutes <= 5 * 60) {
+    return '05:00';
   }
   return '08:00';
 }
 
 export function getRecommendedDropTime(flightOutTime: string | null | undefined): string {
   const minutes = parseTimeToMinutes(flightOutTime);
-  if (minutes === null || minutes - 3 * 60 < 0) {
+  if (minutes === null) {
     return '19:00';
   }
 
-  return formatMinutesAsTime(minutes - 3 * 60) ?? '19:00';
+  if (minutes - 3 * 60 < 0 || shouldUsePreviousDayLateNightDrop(minutes)) {
+    return '23:00';
+  }
+
+  return formatMinutesAsTime(roundMinutesToHalfHour(minutes - 3 * 60)) ?? '19:00';
+}
+
+export function getRecommendedDropSchedule(
+  flightOutDate: string | null | undefined,
+  flightOutTime: string | null | undefined,
+): { date: string; time: string } {
+  const normalizedDate = flightOutDate?.trim() ?? '';
+  if (normalizedDate.length === 0) {
+    return {
+      date: '',
+      time: getRecommendedDropTime(flightOutTime),
+    };
+  }
+
+  const minutes = parseTimeToMinutes(flightOutTime);
+  if (minutes === null) {
+    return {
+      date: normalizedDate,
+      time: '19:00',
+    };
+  }
+
+  if (minutes - 3 * 60 < 0 || shouldUsePreviousDayLateNightDrop(minutes)) {
+    return {
+      date: shiftDate(normalizedDate, -1) ?? normalizedDate,
+      time: '23:00',
+    };
+  }
+
+  return {
+    date: normalizedDate,
+    time: formatMinutesAsTime(roundMinutesToHalfHour(minutes - 3 * 60)) ?? '19:00',
+  };
 }
 
 export function resolvePickupDropPlaceLabel(

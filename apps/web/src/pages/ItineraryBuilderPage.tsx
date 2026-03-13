@@ -10,7 +10,7 @@ import { toFacilityLabel, toMealLabel } from '../features/location/display';
 import {
   DEFAULT_PICKUP_DROP_PLACE_TYPE,
   PICKUP_DROP_PLACE_OPTIONS,
-  getRecommendedDropTime,
+  getRecommendedDropSchedule,
   getRecommendedPickupTime,
   normalizePickupDropCustomText,
   type PickupDropPlaceType,
@@ -646,7 +646,7 @@ function createTransportGroupDraft(input: {
   flightOutTime: string;
 }): TransportGroupDraft {
   const pickupDate = input.travelStartDate;
-  const dropDate = input.travelEndDate;
+  const recommendedDrop = getRecommendedDropSchedule(input.travelEndDate, input.flightOutTime);
 
   return {
     teamName: getTransportGroupTeamName(input.index),
@@ -659,8 +659,8 @@ function createTransportGroupDraft(input: {
     pickupTime: pickupDate ? getRecommendedPickupTime(input.flightInTime) : '',
     pickupPlaceType: DEFAULT_PICKUP_DROP_PLACE_TYPE,
     pickupPlaceCustomText: '',
-    dropDate,
-    dropTime: dropDate ? getRecommendedDropTime(input.flightOutTime) : '',
+    dropDate: recommendedDrop.date,
+    dropTime: recommendedDrop.time,
     dropPlaceType: DEFAULT_PICKUP_DROP_PLACE_TYPE,
     dropPlaceCustomText: '',
     hasEditedPickup: false,
@@ -801,8 +801,8 @@ export function ItineraryBuilderPage(): JSX.Element {
       headcount: 6,
       travelStartDate: '',
       travelEndDate: '',
-      flightInTime: '10:25',
-      flightOutTime: '18:20',
+      flightInTime: '02:45',
+      flightOutTime: '18:15',
     }),
   ]);
   const [externalPickupDate, setExternalPickupDate] = useState<string>('');
@@ -1063,25 +1063,42 @@ export function ItineraryBuilderPage(): JSX.Element {
 
         if (field === 'flightInDate') {
           if (!group.hasEditedPickup) {
-            nextGroup.pickupDate = typeof value === 'string' ? value : group.pickupDate;
+            const nextFlightInDate = typeof value === 'string' ? value : group.flightInDate;
+            nextGroup.pickupDate = nextFlightInDate;
+            if (!nextGroup.pickupTime.trim()) {
+              nextGroup.pickupTime = getRecommendedPickupTime(nextGroup.flightInTime);
+            }
           }
         }
 
         if (field === 'flightInTime') {
           if (!group.hasEditedPickup) {
+            if (!nextGroup.pickupDate.trim() && nextGroup.flightInDate.trim()) {
+              nextGroup.pickupDate = nextGroup.flightInDate;
+            }
             nextGroup.pickupTime = getRecommendedPickupTime(typeof value === 'string' ? value : group.flightInTime);
           }
         }
 
         if (field === 'flightOutDate') {
           if (!group.hasEditedDrop) {
-            nextGroup.dropDate = typeof value === 'string' ? value : group.dropDate;
+            const recommendedDrop = getRecommendedDropSchedule(
+              typeof value === 'string' ? value : group.flightOutDate,
+              nextGroup.flightOutTime,
+            );
+            nextGroup.dropDate = recommendedDrop.date;
+            nextGroup.dropTime = recommendedDrop.time;
           }
         }
 
         if (field === 'flightOutTime') {
           if (!group.hasEditedDrop) {
-            nextGroup.dropTime = getRecommendedDropTime(typeof value === 'string' ? value : group.flightOutTime);
+            const recommendedDrop = getRecommendedDropSchedule(
+              nextGroup.flightOutDate,
+              typeof value === 'string' ? value : group.flightOutTime,
+            );
+            nextGroup.dropDate = recommendedDrop.date;
+            nextGroup.dropTime = recommendedDrop.time;
           }
         }
 
@@ -1119,13 +1136,23 @@ export function ItineraryBuilderPage(): JSX.Element {
           nextGroup.flightInDate = travelStartDate;
           if (!group.hasEditedPickup) {
             nextGroup.pickupDate = travelStartDate;
+            if (!nextGroup.pickupTime.trim()) {
+              nextGroup.pickupTime = getRecommendedPickupTime(nextGroup.flightInTime);
+            }
+          }
+        } else if (!group.hasEditedPickup && !group.pickupDate && group.flightInDate) {
+          nextGroup.pickupDate = group.flightInDate;
+          if (!nextGroup.pickupTime.trim()) {
+            nextGroup.pickupTime = getRecommendedPickupTime(nextGroup.flightInTime);
           }
         }
 
         if (!group.flightOutDate && travelEndDate) {
           nextGroup.flightOutDate = travelEndDate;
           if (!group.hasEditedDrop) {
-            nextGroup.dropDate = travelEndDate;
+            const recommendedDrop = getRecommendedDropSchedule(travelEndDate, nextGroup.flightOutTime);
+            nextGroup.dropDate = recommendedDrop.date;
+            nextGroup.dropTime = recommendedDrop.time;
           }
         }
 
@@ -1143,8 +1170,8 @@ export function ItineraryBuilderPage(): JSX.Element {
             headcount: headcountTotal,
             travelStartDate,
             travelEndDate,
-            flightInTime: '10:25',
-            flightOutTime: '18:20',
+            flightInTime: '02:45',
+            flightOutTime: '18:15',
           }),
         ];
       }
@@ -1188,8 +1215,8 @@ export function ItineraryBuilderPage(): JSX.Element {
         transportGroups.length === 1 &&
         !transportGroups[0]?.flightInDate &&
         !transportGroups[0]?.flightOutDate &&
-        transportGroups[0]?.flightInTime === '10:25' &&
-        transportGroups[0]?.flightOutTime === '18:20' &&
+        transportGroups[0]?.flightInTime === '02:45' &&
+        transportGroups[0]?.flightOutTime === '18:15' &&
         !transportGroups[0]?.pickupDate &&
         !transportGroups[0]?.pickupTime &&
         transportGroups[0]?.pickupPlaceType === DEFAULT_PICKUP_DROP_PLACE_TYPE &&
@@ -1640,8 +1667,8 @@ export function ItineraryBuilderPage(): JSX.Element {
           headcount: remainingHeadcount > 0 ? remainingHeadcount : 1,
           travelStartDate,
           travelEndDate,
-          flightInTime: '10:25',
-          flightOutTime: '18:20',
+          flightInTime: '02:45',
+          flightOutTime: '18:15',
         }),
       ]);
     },
@@ -2007,8 +2034,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                           headcountMale,
                           headcountFemale,
                           vehicleType,
-                          flightInTime: primaryTransportGroup?.flightInTime ?? '10:25',
-                          flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:20',
+                          flightInTime: primaryTransportGroup?.flightInTime ?? '02:45',
+                          flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:15',
                           pickupDate: primaryTransportGroup?.pickupDate ? toIsoDateTime(primaryTransportGroup.pickupDate) : undefined,
                           pickupTime: primaryTransportGroup?.pickupTime.trim() || undefined,
                           dropDate: primaryTransportGroup?.dropDate ? toIsoDateTime(primaryTransportGroup.dropDate) : undefined,
@@ -2098,8 +2125,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                           headcountMale,
                           headcountFemale,
                           vehicleType,
-                          flightInTime: primaryTransportGroup?.flightInTime ?? '10:25',
-                          flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:20',
+                          flightInTime: primaryTransportGroup?.flightInTime ?? '02:45',
+                          flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:15',
                           pickupDate: primaryTransportGroup?.pickupDate ? toIsoDateTime(primaryTransportGroup.pickupDate) : undefined,
                           pickupTime: primaryTransportGroup?.pickupTime.trim() || undefined,
                           dropDate: primaryTransportGroup?.dropDate ? toIsoDateTime(primaryTransportGroup.dropDate) : undefined,
@@ -2404,8 +2431,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                           headcount: remainingHeadcount > 0 ? remainingHeadcount : 1,
                           travelStartDate,
                           travelEndDate,
-                          flightInTime: '10:25',
-                          flightOutTime: '18:20',
+                          flightInTime: '02:45',
+                          flightOutTime: '18:15',
                         }),
                       ]);
                     }}
