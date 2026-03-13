@@ -2083,7 +2083,7 @@ export function ItineraryBuilderPage(): JSX.Element {
           </Card>
         ) : null}
 
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
             <h2 className="font-medium">설정</h2>
             <div className="mt-3 grid gap-3">
@@ -2699,7 +2699,7 @@ export function ItineraryBuilderPage(): JSX.Element {
             </div>
           </Card>
 
-          <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm lg:col-span-2">
+          <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
             <h2 className="font-medium">일차별 목적지 선택</h2>
             <p className="mt-1 text-xs text-slate-600">이전 일차와 연결 가능한 목적지만 버튼으로 노출됩니다.</p>
             <div className="mt-3 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
