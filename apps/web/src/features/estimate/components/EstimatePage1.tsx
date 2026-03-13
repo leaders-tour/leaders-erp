@@ -98,6 +98,32 @@ interface TransportGroupEditorProps {
   onRemove: (index: number) => void;
 }
 
+interface PlaceButtonGroupProps {
+  placeType: PickupDropPlaceType;
+  onChange: (value: PickupDropPlaceType) => void;
+}
+
+function PlaceButtonGroup({ placeType, onChange }: PlaceButtonGroupProps): JSX.Element {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {PICKUP_DROP_PLACE_OPTIONS.map((option) => (
+        <button
+          key={`place-button-${option.value}`}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className={`rounded-xl border px-3 py-1.5 text-sm transition ${
+            placeType === option.value
+              ? 'border-slate-900 bg-slate-900 text-white'
+              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: TransportGroupEditorProps): JSX.Element {
   const showGroupMeta = groups.length > 1;
   const title =
@@ -143,7 +169,7 @@ function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: 
           ) : null}
 
           {mode === 'flightIn' ? (
-            <div className="grid gap-2 md:grid-cols-2">
+            <div className="grid gap-2">
               <input
                 type="date"
                 value={group.flightInDate}
@@ -160,7 +186,7 @@ function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: 
           ) : null}
 
           {mode === 'flightOut' ? (
-            <div className="grid gap-2 md:grid-cols-2">
+            <div className="grid gap-2">
               <input
                 type="date"
                 value={group.flightOutDate}
@@ -178,7 +204,7 @@ function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: 
 
           {mode === 'pickup' ? (
             <div className="grid gap-2">
-              <div className="grid gap-2 md:grid-cols-2">
+              <div className="grid gap-2">
                 <input
                   type="date"
                   value={group.pickupDate}
@@ -192,17 +218,10 @@ function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: 
                   className="estimate-editable-input"
                 />
               </div>
-              <select
-                value={group.pickupPlaceType}
-                onChange={(event) => onFieldChange(index, 'pickupPlaceType', event.target.value as PickupDropPlaceType)}
-                className="estimate-editable-input"
-              >
-                {PICKUP_DROP_PLACE_OPTIONS.map((option) => (
-                  <option key={`pickup-place-${index}-${option.value}`} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              <PlaceButtonGroup
+                placeType={group.pickupPlaceType}
+                onChange={(value) => onFieldChange(index, 'pickupPlaceType', value)}
+              />
               {group.pickupPlaceType === 'CUSTOM' ? (
                 <input
                   type="text"
@@ -217,7 +236,7 @@ function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: 
 
           {mode === 'drop' ? (
             <div className="grid gap-2">
-              <div className="grid gap-2 md:grid-cols-2">
+              <div className="grid gap-2">
                 <input
                   type="date"
                   value={group.dropDate}
@@ -231,17 +250,10 @@ function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: 
                   className="estimate-editable-input"
                 />
               </div>
-              <select
-                value={group.dropPlaceType}
-                onChange={(event) => onFieldChange(index, 'dropPlaceType', event.target.value as PickupDropPlaceType)}
-                className="estimate-editable-input"
-              >
-                {PICKUP_DROP_PLACE_OPTIONS.map((option) => (
-                  <option key={`drop-place-${index}-${option.value}`} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              <PlaceButtonGroup
+                placeType={group.dropPlaceType}
+                onChange={(value) => onFieldChange(index, 'dropPlaceType', value)}
+              />
               {group.dropPlaceType === 'CUSTOM' ? (
                 <input
                   type="text"
@@ -520,30 +532,25 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
               }
               input={
                 <div className="estimate-editable-grid">
-                  <input
-                    autoFocus
-                    type="date"
-                    value={editor?.externalPickupDate ?? ''}
-                    onChange={(event) => editor?.onExternalPickupDateChange(event.target.value)}
-                    className="estimate-editable-input"
+                  <div className="grid gap-2">
+                    <input
+                      autoFocus
+                      type="date"
+                      value={editor?.externalPickupDate ?? ''}
+                      onChange={(event) => editor?.onExternalPickupDateChange(event.target.value)}
+                      className="estimate-editable-input"
+                    />
+                    <input
+                      type="time"
+                      value={editor?.externalPickupTime ?? ''}
+                      onChange={(event) => editor?.onExternalPickupTimeChange(event.target.value)}
+                      className="estimate-editable-input"
+                    />
+                  </div>
+                  <PlaceButtonGroup
+                    placeType={editor?.externalPickupPlaceType ?? 'AIRPORT'}
+                    onChange={(value) => editor?.onExternalPickupPlaceTypeChange(value)}
                   />
-                  <input
-                    type="time"
-                    value={editor?.externalPickupTime ?? ''}
-                    onChange={(event) => editor?.onExternalPickupTimeChange(event.target.value)}
-                    className="estimate-editable-input"
-                  />
-                  <select
-                    value={editor?.externalPickupPlaceType ?? 'AIRPORT'}
-                    onChange={(event) => editor?.onExternalPickupPlaceTypeChange(event.target.value as PickupDropPlaceType)}
-                    className="estimate-editable-input"
-                  >
-                    {PICKUP_DROP_PLACE_OPTIONS.map((option) => (
-                      <option key={`external-pickup-place-${option.value}`} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
                   {editor?.externalPickupPlaceType === 'CUSTOM' ? (
                     <input
                       type="text"
@@ -575,30 +582,25 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
               }
               input={
                 <div className="estimate-editable-grid">
-                  <input
-                    autoFocus
-                    type="date"
-                    value={editor?.externalDropDate ?? ''}
-                    onChange={(event) => editor?.onExternalDropDateChange(event.target.value)}
-                    className="estimate-editable-input"
+                  <div className="grid gap-2">
+                    <input
+                      autoFocus
+                      type="date"
+                      value={editor?.externalDropDate ?? ''}
+                      onChange={(event) => editor?.onExternalDropDateChange(event.target.value)}
+                      className="estimate-editable-input"
+                    />
+                    <input
+                      type="time"
+                      value={editor?.externalDropTime ?? ''}
+                      onChange={(event) => editor?.onExternalDropTimeChange(event.target.value)}
+                      className="estimate-editable-input"
+                    />
+                  </div>
+                  <PlaceButtonGroup
+                    placeType={editor?.externalDropPlaceType ?? 'AIRPORT'}
+                    onChange={(value) => editor?.onExternalDropPlaceTypeChange(value)}
                   />
-                  <input
-                    type="time"
-                    value={editor?.externalDropTime ?? ''}
-                    onChange={(event) => editor?.onExternalDropTimeChange(event.target.value)}
-                    className="estimate-editable-input"
-                  />
-                  <select
-                    value={editor?.externalDropPlaceType ?? 'AIRPORT'}
-                    onChange={(event) => editor?.onExternalDropPlaceTypeChange(event.target.value as PickupDropPlaceType)}
-                    className="estimate-editable-input"
-                  >
-                    {PICKUP_DROP_PLACE_OPTIONS.map((option) => (
-                      <option key={`external-drop-place-${option.value}`} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
                   {editor?.externalDropPlaceType === 'CUSTOM' ? (
                     <input
                       type="text"

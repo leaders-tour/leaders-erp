@@ -737,17 +737,22 @@ function PlaceField({ label, placeType, customText, onPlaceTypeChange, onCustomT
   return (
     <div className="grid gap-2 text-sm">
       <span className="text-xs text-slate-600">{label}</span>
-      <select
-        value={placeType}
-        onChange={(event) => onPlaceTypeChange(event.target.value as PickupDropPlaceType)}
-        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-      >
+      <div className="flex flex-wrap gap-2">
         {PICKUP_DROP_PLACE_OPTIONS.map((option) => (
-          <option key={`${label}-${option.value}`} value={option.value}>
+          <button
+            key={`${label}-${option.value}`}
+            type="button"
+            onClick={() => onPlaceTypeChange(option.value)}
+            className={`rounded-xl border px-3 py-1.5 text-sm transition ${
+              placeType === option.value
+                ? 'border-slate-900 bg-slate-900 text-white'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
             {option.label}
-          </option>
+          </button>
         ))}
-      </select>
+      </div>
       {placeType === 'CUSTOM' ? (
         <input
           value={customText}
@@ -2460,7 +2465,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                         <div className="grid gap-3 md:grid-cols-2">
                           <div className="grid gap-2">
                             <span className="text-xs text-slate-600">항공권 IN</span>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid gap-2">
                               <input
                                 type="date"
                                 value={group.flightInDate}
@@ -2478,7 +2483,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                           <div className="grid gap-2">
                             <span className="text-xs text-slate-600">항공권 OUT</span>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid gap-2">
                               <input
                                 type="date"
                                 value={group.flightOutDate}
@@ -2498,7 +2503,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                         <div className="grid gap-3 md:grid-cols-2">
                           <div className="grid gap-2">
                             <span className="text-xs text-slate-600">픽업 날짜 및 시간</span>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid gap-2">
                               <input
                                 type="date"
                                 value={group.pickupDate}
@@ -2523,7 +2528,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                           <div className="grid gap-2">
                             <span className="text-xs text-slate-600">드랍 날짜 및 시간</span>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid gap-2">
                               <input
                                 type="date"
                                 value={group.dropDate}
@@ -2554,31 +2559,35 @@ export function ItineraryBuilderPage(): JSX.Element {
 
               <div className="grid gap-2 text-sm">
                 <span className="text-xs text-slate-600">실투어 외 픽업 / 드랍 날짜 및 시간</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="date"
-                    value={externalPickupDate}
-                    onChange={(event) => setExternalPickupDate(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="time"
-                    value={externalPickupTime}
-                    onChange={(event) => setExternalPickupTime(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="date"
-                    value={externalDropDate}
-                    onChange={(event) => setExternalDropDate(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="time"
-                    value={externalDropTime}
-                    onChange={(event) => setExternalDropTime(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-2">
+                    <input
+                      type="date"
+                      value={externalPickupDate}
+                      onChange={(event) => setExternalPickupDate(event.target.value)}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="time"
+                      value={externalPickupTime}
+                      onChange={(event) => setExternalPickupTime(event.target.value)}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <input
+                      type="date"
+                      value={externalDropDate}
+                      onChange={(event) => setExternalDropDate(event.target.value)}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="time"
+                      value={externalDropTime}
+                      onChange={(event) => setExternalDropTime(event.target.value)}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    />
+                  </div>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
                   <PlaceField
