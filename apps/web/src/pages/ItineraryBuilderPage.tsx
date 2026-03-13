@@ -2,6 +2,8 @@ import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { DatePickerModal } from '../components/date-picker/DatePickerModal';
+import { formatDateTriggerLabel, getCurrentLocalYear } from '../components/date-picker/date-picker-utils';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
 import type { EstimateBuilderDraftSnapshot, EstimatePage1Editor, EstimateTransportGroup } from '../features/estimate/model/types';
@@ -839,6 +841,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [homeSelectedTemplateId, setHomeSelectedTemplateId] = useState<string>('');
   const [homeEntryMode, setHomeEntryMode] = useState<'new' | 'existing' | null>(null);
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState<boolean>(false);
+  const [flightInDatePickerIndex, setFlightInDatePickerIndex] = useState<number | null>(null);
   const [homeNewUserName, setHomeNewUserName] = useState<string>('');
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
 
@@ -947,6 +950,8 @@ export function ItineraryBuilderPage(): JSX.Element {
     () => locations.filter((location) => location.regionId === regionId),
     [locations, regionId],
   );
+  const activeFlightInDateValue =
+    flightInDatePickerIndex !== null ? (transportGroups[flightInDatePickerIndex]?.flightInDate ?? '') : '';
 
   const filteredSegments = useMemo(
     () => segments.filter((segment) => segment.regionId === regionId),
@@ -2496,12 +2501,17 @@ export function ItineraryBuilderPage(): JSX.Element {
                           <div className="grid gap-2">
                             <span className="text-xs text-slate-600">항공권 IN</span>
                             <div className="grid gap-2">
-                              <input
-                                type="date"
-                                value={group.flightInDate}
-                                onChange={(event) => updateTransportGroup(index, 'flightInDate', event.target.value)}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                              />
+                              <button
+                                type="button"
+                                onClick={() => setFlightInDatePickerIndex(index)}
+                                className="flex min-h-10 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm transition hover:bg-slate-50"
+                                aria-haspopup="dialog"
+                              >
+                                <span className={group.flightInDate ? 'text-slate-900' : 'text-slate-400'}>
+                                  {formatDateTriggerLabel(group.flightInDate) || '날짜를 선택하세요'}
+                                </span>
+                                <span className="text-xs text-slate-500">열기</span>
+                              </button>
                               <input
                                 type="time"
                                 value={group.flightInTime}
@@ -3635,6 +3645,21 @@ export function ItineraryBuilderPage(): JSX.Element {
             </div>
           </aside>
         ) : null}
+
+        <DatePickerModal
+          open={flightInDatePickerIndex !== null}
+          value={activeFlightInDateValue}
+          defaultYear={getCurrentLocalYear()}
+          title="항공권 IN 날짜 선택"
+          onClose={() => setFlightInDatePickerIndex(null)}
+          onChange={(nextIsoDate) => {
+            if (flightInDatePickerIndex === null) {
+              return;
+            }
+
+            updateTransportGroup(flightInDatePickerIndex, 'flightInDate', nextIsoDate);
+          }}
+        />
       </div>
     </div>
   );
