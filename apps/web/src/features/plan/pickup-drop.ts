@@ -172,6 +172,7 @@ export function formatTransportFlightLines(
   groups: Array<Pick<TransportGroupLike, 'teamName' | 'headcount' | 'flightInDate' | 'flightInTime' | 'flightOutDate' | 'flightOutTime'>>,
   direction: 'IN' | 'OUT',
 ): string {
+  const shouldShowLabel = groups.length > 1;
   const lines = groups
     .map((group) => {
       const display =
@@ -183,7 +184,7 @@ export function formatTransportFlightLines(
         return '';
       }
 
-      const label = formatTransportGroupLabel(group.teamName, group.headcount);
+      const label = shouldShowLabel ? formatTransportGroupLabel(group.teamName, group.headcount) : '';
       return label ? `${label} ${display}` : display;
     })
     .filter((value) => value.length > 0);
@@ -195,6 +196,7 @@ export function formatTransportPickupDropLines(
   groups: TransportGroupLike[],
   direction: 'pickup' | 'drop',
 ): string {
+  const shouldShowLabel = groups.length > 1;
   const lines = groups
     .map((group) => {
       const display =
@@ -216,7 +218,7 @@ export function formatTransportPickupDropLines(
         return '';
       }
 
-      const label = formatTransportGroupLabel(group.teamName, group.headcount);
+      const label = shouldShowLabel ? formatTransportGroupLabel(group.teamName, group.headcount) : '';
       return label ? `${label} ${display}` : display;
     })
     .filter((value) => value.length > 0);

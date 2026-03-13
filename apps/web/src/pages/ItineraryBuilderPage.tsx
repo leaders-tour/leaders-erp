@@ -2305,7 +2305,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       ]);
                     }}
                   >
-                    세트 추가
+                    팀 추가
                   </Button>
                 </div>
 
@@ -2314,45 +2314,51 @@ export function ItineraryBuilderPage(): JSX.Element {
                     <div key={`transport-group-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <div className="mb-3 flex items-center justify-between gap-2">
                         <div>
-                          <p className="text-sm font-semibold text-slate-900">{group.teamName || `${index + 1}번 세트`}</p>
+                          <p className="text-sm font-semibold text-slate-900">
+                            {transportGroups.length > 1 ? group.teamName || `${index + 1}번 팀` : '이동 정보'}
+                          </p>
                           <p className="text-xs text-slate-500">항공권과 연동된 픽업/드랍 세트</p>
                         </div>
-                        <Button
-                          variant="outline"
-                          disabled={transportGroups.length <= 1}
-                          onClick={() =>
-                            setTransportGroups((current) =>
-                              current.length <= 1 ? current : current.filter((_, groupIndex) => groupIndex !== index),
-                            )
-                          }
-                        >
-                          삭제
-                        </Button>
+                        {transportGroups.length > 1 ? (
+                          <Button
+                            variant="outline"
+                            disabled={transportGroups.length <= 1}
+                            onClick={() =>
+                              setTransportGroups((current) =>
+                                current.length <= 1 ? current : current.filter((_, groupIndex) => groupIndex !== index),
+                              )
+                            }
+                          >
+                            삭제
+                          </Button>
+                        ) : null}
                       </div>
 
                       <div className="grid gap-3">
-                        <div className="grid gap-2 md:grid-cols-2">
-                          <label className="grid gap-1">
-                            <span className="text-xs text-slate-600">팀명</span>
-                            <input
-                              value={group.teamName}
-                              onChange={(event) => updateTransportGroup(index, 'teamName', event.target.value)}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                            />
-                          </label>
-                          <label className="grid gap-1">
-                            <span className="text-xs text-slate-600">인원</span>
-                            <input
-                              type="number"
-                              min={1}
-                              value={group.headcount}
-                              onChange={(event) =>
-                                updateTransportGroup(index, 'headcount', Math.max(1, Number(event.target.value) || 1))
-                              }
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                            />
-                          </label>
-                        </div>
+                        {transportGroups.length > 1 ? (
+                          <div className="grid gap-2 md:grid-cols-2">
+                            <label className="grid gap-1">
+                              <span className="text-xs text-slate-600">팀명</span>
+                              <input
+                                value={group.teamName}
+                                onChange={(event) => updateTransportGroup(index, 'teamName', event.target.value)}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                              />
+                            </label>
+                            <label className="grid gap-1">
+                              <span className="text-xs text-slate-600">인원</span>
+                              <input
+                                type="number"
+                                min={1}
+                                value={group.headcount}
+                                onChange={(event) =>
+                                  updateTransportGroup(index, 'headcount', Math.max(1, Number(event.target.value) || 1))
+                                }
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                              />
+                            </label>
+                          </div>
+                        ) : null}
 
                         <div className="grid gap-3 md:grid-cols-2">
                           <div className="grid gap-2">

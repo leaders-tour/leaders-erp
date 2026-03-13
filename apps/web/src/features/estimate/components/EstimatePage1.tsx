@@ -99,6 +99,7 @@ interface TransportGroupEditorProps {
 }
 
 function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: TransportGroupEditorProps): JSX.Element {
+  const showGroupMeta = groups.length > 1;
   const title =
     mode === 'flightIn'
       ? 'IN'
@@ -112,32 +113,34 @@ function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: 
     <div className="estimate-editable-grid">
       {groups.map((group, index) => (
         <div key={`${title}-${index}`} className="rounded-xl border border-slate-200 bg-white p-3">
-          <div className="mb-2 grid gap-2 md:grid-cols-[1fr_100px_auto]">
-            <input
-              autoFocus={index === 0}
-              type="text"
-              value={group.teamName}
-              onChange={(event) => onFieldChange(index, 'teamName', event.target.value)}
-              placeholder="팀명"
-              className="estimate-editable-input"
-            />
-            <input
-              type="number"
-              min={1}
-              value={group.headcount}
-              onChange={(event) => onFieldChange(index, 'headcount', Math.max(1, Number(event.target.value) || 1))}
-              placeholder="인원"
-              className="estimate-editable-input"
-            />
-            <button
-              type="button"
-              disabled={groups.length <= 1}
-              onClick={() => onRemove(index)}
-              className="estimate-editable-input disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              삭제
-            </button>
-          </div>
+          {showGroupMeta ? (
+            <div className="mb-2 grid gap-2 md:grid-cols-[1fr_100px_auto]">
+              <input
+                autoFocus={index === 0}
+                type="text"
+                value={group.teamName}
+                onChange={(event) => onFieldChange(index, 'teamName', event.target.value)}
+                placeholder="팀명"
+                className="estimate-editable-input"
+              />
+              <input
+                type="number"
+                min={1}
+                value={group.headcount}
+                onChange={(event) => onFieldChange(index, 'headcount', Math.max(1, Number(event.target.value) || 1))}
+                placeholder="인원"
+                className="estimate-editable-input"
+              />
+              <button
+                type="button"
+                disabled={groups.length <= 1}
+                onClick={() => onRemove(index)}
+                className="estimate-editable-input disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                삭제
+              </button>
+            </div>
+          ) : null}
 
           {mode === 'flightIn' ? (
             <div className="grid gap-2 md:grid-cols-2">
@@ -254,7 +257,7 @@ function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: 
       ))}
 
       <button type="button" onClick={onAdd} className="estimate-editable-input">
-        세트 추가
+        팀 추가
       </button>
     </div>
   );
