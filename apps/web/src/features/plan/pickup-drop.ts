@@ -1,5 +1,22 @@
 export type PickupDropPlaceType = 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM';
 
+export interface TransportGroupLike {
+  teamName: string;
+  headcount: number;
+  flightInDate: string | null | undefined;
+  flightInTime: string | null | undefined;
+  flightOutDate: string | null | undefined;
+  flightOutTime: string | null | undefined;
+  pickupDate: string | null | undefined;
+  pickupTime: string | null | undefined;
+  pickupPlaceType: PickupDropPlaceType | string | null | undefined;
+  pickupPlaceCustomText: string | null | undefined;
+  dropDate: string | null | undefined;
+  dropTime: string | null | undefined;
+  dropPlaceType: PickupDropPlaceType | string | null | undefined;
+  dropPlaceCustomText: string | null | undefined;
+}
+
 export const DEFAULT_PICKUP_DROP_PLACE_TYPE: PickupDropPlaceType = 'AIRPORT';
 
 export const PICKUP_DROP_PLACE_OPTIONS: Array<{ value: PickupDropPlaceType; label: string }> = [
@@ -125,4 +142,84 @@ export function formatPickupDropDisplay(
   }
 
   return `${formatDateShort(date)} - ${normalizedTime} ${placeLabel}`;
+}
+
+export function formatFlightDisplay(date: string | null | undefined, time: string | null | undefined): string {
+  const normalizedTime = time?.trim() ?? '';
+  if (!date || normalizedTime.length === 0) {
+    return '-';
+  }
+
+  return `${formatDateShort(date)} - ${normalizedTime}`;
+}
+
+export function formatTransportGroupLabel(teamName: string | null | undefined, headcount: number | null | undefined): string {
+  const normalizedName = teamName?.trim() ?? '';
+  const safeHeadcount = Number.isFinite(headcount) ? Math.max(0, Number(headcount)) : 0;
+
+  if (normalizedName.length === 0 && safeHeadcount === 0) {
+    return '';
+  }
+
+  if (normalizedName.length === 0) {
+    return `${safeHeadcount}인)`;
+  }
+
+  return `${normalizedName} ${safeHeadcount}인)`;
+}
+
+export function formatTransportFlightLines(
+  groups: Array<Pick<TransportGroupLike, 'teamName' | 'headcount' | 'flightInDate' | 'flightInTime' | 'flightOutDate' | 'flightOutTime'>>,
+  direction: 'IN' | 'OUT',
+): string {
+  const lines = groups
+    .map((group) => {
+      const display =
+        direction === 'IN'
+          ? formatFlightDisplay(group.flightInDate, group.flightInTime)
+          : formatFlightDisplay(group.flightOutDate, group.flightOutTime);
+
+      if (display === '-') {
+        return '';
+      }
+
+      const label = formatTransportGroupLabel(group.teamName, group.headcount);
+      return label ? `${label} ${display}` : display;
+    })
+    .filter((value) => value.length > 0);
+
+  return lines.length > 0 ? lines.join('\n') : '-';
+}
+
+export function formatTransportPickupDropLines(
+  groups: TransportGroupLike[],
+  direction: 'pickup' | 'drop',
+): string {
+  const lines = groups
+    .map((group) => {
+      const display =
+        direction === 'pickup'
+          ? formatPickupDropDisplay(
+              group.pickupDate,
+              group.pickupTime,
+              group.pickupPlaceType,
+              group.pickupPlaceCustomText,
+            )
+          : formatPickupDropDisplay(
+              group.dropDate,
+              group.dropTime,
+              group.dropPlaceType,
+              group.dropPlaceCustomText,
+            );
+
+      if (display === '-') {
+        return '';
+      }
+
+      const label = formatTransportGroupLabel(group.teamName, group.headcount);
+      return label ? `${label} ${display}` : display;
+    })
+    .filter((value) => value.length > 0);
+
+  return lines.length > 0 ? lines.join('\n') : '-';
 }

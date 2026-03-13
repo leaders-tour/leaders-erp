@@ -1,10 +1,10 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
-import type { EstimateBuilderDraftSnapshot, EstimatePage1Editor } from '../features/estimate/model/types';
+import type { EstimateBuilderDraftSnapshot, EstimatePage1Editor, EstimateTransportGroup } from '../features/estimate/model/types';
 import { useAuth } from '../features/auth/context';
 import { toFacilityLabel, toMealLabel } from '../features/location/display';
 import {
@@ -451,8 +451,6 @@ const VARIANTS = [
 ];
 
 const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
-const FLIGHT_IN_TIME_OPTIONS = ['00:15', '00:30', '00:35', '00:55', '02:40', '04:15', '10:25', '13:50', '14:15', '16:05', '18:40', '23:30'] as const;
-const FLIGHT_OUT_TIME_OPTIONS = ['00:50', '01:30', '01:50', '01:55', '07:45', '11:05', '12:25', '15:15', '15:20', '18:20'] as const;
 
 function toIsoDateTime(value: string): string {
   return `${value}T00:00:00.000Z`;
@@ -530,16 +528,7 @@ function createEstimateDraftSnapshot(input: {
   travelStartDate: string;
   travelEndDate: string;
   vehicleType: string;
-  flightInTime: string;
-  flightOutTime: string;
-  pickupDate: string;
-  pickupTime: string;
-  dropDate: string;
-  dropTime: string;
-  pickupPlaceType: PickupDropPlaceType;
-  pickupPlaceCustomText: string;
-  dropPlaceType: PickupDropPlaceType;
-  dropPlaceCustomText: string;
+  transportGroups: EstimateTransportGroup[];
   externalPickupDate: string;
   externalPickupTime: string;
   externalPickupPlaceType: PickupDropPlaceType;
@@ -568,16 +557,7 @@ function createEstimateDraftSnapshot(input: {
     travelStartDate: input.travelStartDate,
     travelEndDate: input.travelEndDate,
     vehicleType: input.vehicleType,
-    flightInTime: input.flightInTime,
-    flightOutTime: input.flightOutTime,
-    pickupDate: input.pickupDate,
-    pickupTime: input.pickupTime,
-    dropDate: input.dropDate,
-    dropTime: input.dropTime,
-    pickupPlaceType: input.pickupPlaceType,
-    pickupPlaceCustomText: input.pickupPlaceCustomText,
-    dropPlaceType: input.dropPlaceType,
-    dropPlaceCustomText: input.dropPlaceCustomText,
+    transportGroups: input.transportGroups,
     externalPickupDate: input.externalPickupDate,
     externalPickupTime: input.externalPickupTime,
     externalPickupPlaceType: input.externalPickupPlaceType,
@@ -586,7 +566,6 @@ function createEstimateDraftSnapshot(input: {
     externalDropTime: input.externalDropTime,
     externalDropPlaceType: input.externalDropPlaceType,
     externalDropPlaceCustomText: input.externalDropPlaceCustomText,
-    pickupDropNote: input.pickupDropNote,
     externalPickupDropNote: input.externalPickupDropNote,
     specialNote: input.specialNote,
     includeRentalItems: input.includeRentalItems,
@@ -621,6 +600,68 @@ function createEstimateDraftSnapshot(input: {
           })),
         }
       : null,
+  };
+}
+
+interface TransportGroupDraft extends EstimateTransportGroup {
+  hasEditedPickup: boolean;
+  hasEditedDrop: boolean;
+}
+
+function getTransportGroupTeamName(index: number): string {
+  const normalizedIndex = Math.max(0, index);
+  const alphabet = String.fromCharCode(65 + (normalizedIndex % 26));
+  const suffix = normalizedIndex >= 26 ? String(Math.floor(normalizedIndex / 26) + 1) : '';
+  return `${alphabet}팀${suffix}`;
+}
+
+function toEstimateTransportGroup(group: TransportGroupDraft): EstimateTransportGroup {
+  return {
+    teamName: group.teamName,
+    headcount: group.headcount,
+    flightInDate: group.flightInDate,
+    flightInTime: group.flightInTime,
+    flightOutDate: group.flightOutDate,
+    flightOutTime: group.flightOutTime,
+    pickupDate: group.pickupDate,
+    pickupTime: group.pickupTime,
+    pickupPlaceType: group.pickupPlaceType,
+    pickupPlaceCustomText: group.pickupPlaceCustomText,
+    dropDate: group.dropDate,
+    dropTime: group.dropTime,
+    dropPlaceType: group.dropPlaceType,
+    dropPlaceCustomText: group.dropPlaceCustomText,
+  };
+}
+
+function createTransportGroupDraft(input: {
+  index: number;
+  headcount: number;
+  travelStartDate: string;
+  travelEndDate: string;
+  flightInTime: string;
+  flightOutTime: string;
+}): TransportGroupDraft {
+  const pickupDate = input.travelStartDate;
+  const dropDate = input.travelEndDate;
+
+  return {
+    teamName: getTransportGroupTeamName(input.index),
+    headcount: Math.max(1, input.headcount),
+    flightInDate: input.travelStartDate,
+    flightInTime: input.flightInTime,
+    flightOutDate: input.travelEndDate,
+    flightOutTime: input.flightOutTime,
+    pickupDate,
+    pickupTime: pickupDate ? getRecommendedPickupTime(input.flightInTime) : '',
+    pickupPlaceType: DEFAULT_PICKUP_DROP_PLACE_TYPE,
+    pickupPlaceCustomText: '',
+    dropDate,
+    dropTime: dropDate ? getRecommendedDropTime(input.flightOutTime) : '',
+    dropPlaceType: DEFAULT_PICKUP_DROP_PLACE_TYPE,
+    dropPlaceCustomText: '',
+    hasEditedPickup: false,
+    hasEditedDrop: false,
   };
 }
 
@@ -746,18 +787,16 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [headcountTotal, setHeadcountTotal] = useState<number>(6);
   const [headcountMale, setHeadcountMale] = useState<number>(6);
   const [vehicleType, setVehicleType] = useState<(typeof VEHICLES)[number]>('스타렉스');
-  const [flightInTime, setFlightInTime] = useState<string>('10:25');
-  const [flightOutTime, setFlightOutTime] = useState<string>('18:20');
-  const [isCustomFlightInTime, setIsCustomFlightInTime] = useState<boolean>(false);
-  const [isCustomFlightOutTime, setIsCustomFlightOutTime] = useState<boolean>(false);
-  const [pickupDate, setPickupDate] = useState<string>('');
-  const [pickupTime, setPickupTime] = useState<string>('');
-  const [dropDate, setDropDate] = useState<string>('');
-  const [dropTime, setDropTime] = useState<string>('');
-  const [pickupPlaceType, setPickupPlaceType] = useState<PickupDropPlaceType>(DEFAULT_PICKUP_DROP_PLACE_TYPE);
-  const [pickupPlaceCustomText, setPickupPlaceCustomText] = useState<string>('');
-  const [dropPlaceType, setDropPlaceType] = useState<PickupDropPlaceType>(DEFAULT_PICKUP_DROP_PLACE_TYPE);
-  const [dropPlaceCustomText, setDropPlaceCustomText] = useState<string>('');
+  const [transportGroups, setTransportGroups] = useState<TransportGroupDraft[]>([
+    createTransportGroupDraft({
+      index: 0,
+      headcount: 6,
+      travelStartDate: '',
+      travelEndDate: '',
+      flightInTime: '10:25',
+      flightOutTime: '18:20',
+    }),
+  ]);
   const [externalPickupDate, setExternalPickupDate] = useState<string>('');
   const [externalPickupTime, setExternalPickupTime] = useState<string>('');
   const [externalPickupPlaceType, setExternalPickupPlaceType] = useState<PickupDropPlaceType>(DEFAULT_PICKUP_DROP_PLACE_TYPE);
@@ -794,8 +833,6 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState<boolean>(false);
   const [homeNewUserName, setHomeNewUserName] = useState<string>('');
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
-  const hasEditedPickupRef = useRef<boolean>(false);
-  const hasEditedDropRef = useRef<boolean>(false);
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
@@ -992,26 +1029,6 @@ export function ItineraryBuilderPage(): JSX.Element {
     setTravelEndDate(toAutoTravelEndDate(travelStartDate, totalDays));
   }, [totalDays, travelStartDate]);
 
-  const handlePickupDateChange = (value: string): void => {
-    hasEditedPickupRef.current = true;
-    setPickupDate(value);
-  };
-
-  const handlePickupTimeChange = (value: string): void => {
-    hasEditedPickupRef.current = true;
-    setPickupTime(value);
-  };
-
-  const handleDropDateChange = (value: string): void => {
-    hasEditedDropRef.current = true;
-    setDropDate(value);
-  };
-
-  const handleDropTimeChange = (value: string): void => {
-    hasEditedDropRef.current = true;
-    setDropTime(value);
-  };
-
   const handlePlaceTypeChange = (
     setter: (value: PickupDropPlaceType) => void,
     customSetter: (value: string) => void,
@@ -1023,23 +1040,123 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
   };
 
+  const updateTransportGroup = <K extends keyof TransportGroupDraft>(
+    index: number,
+    field: K,
+    value: TransportGroupDraft[K],
+  ): void => {
+    setTransportGroups((current) =>
+      current.map((group, groupIndex) => {
+        if (groupIndex !== index) {
+          return group;
+        }
+
+        const nextGroup = { ...group, [field]: value } as TransportGroupDraft;
+
+        if (field === 'flightInDate') {
+          if (!group.hasEditedPickup) {
+            nextGroup.pickupDate = typeof value === 'string' ? value : group.pickupDate;
+          }
+        }
+
+        if (field === 'flightInTime') {
+          if (!group.hasEditedPickup) {
+            nextGroup.pickupTime = getRecommendedPickupTime(typeof value === 'string' ? value : group.flightInTime);
+          }
+        }
+
+        if (field === 'flightOutDate') {
+          if (!group.hasEditedDrop) {
+            nextGroup.dropDate = typeof value === 'string' ? value : group.dropDate;
+          }
+        }
+
+        if (field === 'flightOutTime') {
+          if (!group.hasEditedDrop) {
+            nextGroup.dropTime = getRecommendedDropTime(typeof value === 'string' ? value : group.flightOutTime);
+          }
+        }
+
+        if (field === 'pickupDate' || field === 'pickupTime') {
+          nextGroup.hasEditedPickup = true;
+        }
+
+        if (field === 'dropDate' || field === 'dropTime') {
+          nextGroup.hasEditedDrop = true;
+        }
+
+        if (field === 'pickupPlaceType' && value !== 'CUSTOM') {
+          nextGroup.pickupPlaceCustomText = '';
+        }
+
+        if (field === 'dropPlaceType' && value !== 'CUSTOM') {
+          nextGroup.dropPlaceCustomText = '';
+        }
+
+        return nextGroup;
+      }),
+    );
+  };
+
   useEffect(() => {
-    if (hasEditedPickupRef.current) {
-      return;
-    }
+    setTransportGroups((current) =>
+      current.map((group, index) => {
+        const nextGroup = { ...group };
 
-    setPickupDate(travelStartDate);
-    setPickupTime(travelStartDate ? getRecommendedPickupTime(flightInTime) : '');
-  }, [flightInTime, travelStartDate]);
+        if (index === 0 && group.teamName.trim().length === 0) {
+          nextGroup.teamName = getTransportGroupTeamName(index);
+        }
+
+        if (!group.flightInDate && travelStartDate) {
+          nextGroup.flightInDate = travelStartDate;
+          if (!group.hasEditedPickup) {
+            nextGroup.pickupDate = travelStartDate;
+          }
+        }
+
+        if (!group.flightOutDate && travelEndDate) {
+          nextGroup.flightOutDate = travelEndDate;
+          if (!group.hasEditedDrop) {
+            nextGroup.dropDate = travelEndDate;
+          }
+        }
+
+        return nextGroup;
+      }),
+    );
+  }, [travelEndDate, travelStartDate]);
 
   useEffect(() => {
-    if (hasEditedDropRef.current) {
-      return;
-    }
+    setTransportGroups((current) => {
+      if (current.length === 0) {
+        return [
+          createTransportGroupDraft({
+            index: 0,
+            headcount: headcountTotal,
+            travelStartDate,
+            travelEndDate,
+            flightInTime: '10:25',
+            flightOutTime: '18:20',
+          }),
+        ];
+      }
 
-    setDropDate(travelEndDate);
-    setDropTime(travelEndDate ? getRecommendedDropTime(flightOutTime) : '');
-  }, [flightOutTime, travelEndDate]);
+      const nextGroups = current.map((group, index) => {
+        const nextGroup = { ...group };
+        if (nextGroup.teamName.trim().length === 0) {
+          nextGroup.teamName = getTransportGroupTeamName(index);
+        }
+        return nextGroup;
+      });
+
+      const firstGroup = nextGroups[0];
+      if (nextGroups.length === 1 && firstGroup && firstGroup.headcount !== headcountTotal) {
+        nextGroups[0] = { ...firstGroup, headcount: headcountTotal };
+      }
+
+      return nextGroups;
+    });
+  }, [headcountTotal, travelEndDate, travelStartDate]);
 
   useEffect(() => {
     const elements = document.querySelectorAll<HTMLTextAreaElement>('[data-plan-cell="true"]');
@@ -1170,30 +1287,52 @@ export function ItineraryBuilderPage(): JSX.Element {
     return !Number.isInteger(value) || value < 0;
   }, [hasEditedManualDeposit, manualDepositInput]);
 
-  const hasMissingCustomPlaceText = useMemo(
-    () =>
-      [
-        [pickupPlaceType, pickupPlaceCustomText],
-        [dropPlaceType, dropPlaceCustomText],
-        [externalPickupPlaceType, externalPickupPlaceCustomText],
-        [externalDropPlaceType, externalDropPlaceCustomText],
-      ].some(([placeType, customText]) => placeType === 'CUSTOM' && (customText?.trim() ?? '').length === 0),
-    [
-      dropPlaceCustomText,
-      dropPlaceType,
-      externalDropPlaceCustomText,
-      externalDropPlaceType,
-      externalPickupPlaceCustomText,
-      externalPickupPlaceType,
-      pickupPlaceCustomText,
-      pickupPlaceType,
-    ],
-  );
-
   const headcountFemale = headcountTotal - headcountMale;
   const hasValidDateRange = Boolean(travelStartDate && travelEndDate) && travelStartDate <= travelEndDate;
   const hasValidHeadcount = headcountTotal > 0 && headcountMale >= 0 && headcountFemale >= 0 && headcountMale <= headcountTotal;
   const hasHiaceHeadcountViolation = vehicleType === '하이에이스' && headcountTotal < 3;
+  const transportGroupHeadcountTotal = useMemo(
+    () => transportGroups.reduce((sum, group) => sum + group.headcount, 0),
+    [transportGroups],
+  );
+  const hasInvalidTransportGroups = useMemo(
+    () =>
+      transportGroups.length === 0 ||
+      transportGroups.some(
+        (group) =>
+          group.teamName.trim().length === 0 ||
+          group.headcount < 1 ||
+          !group.flightInDate ||
+          !group.flightInTime.trim() ||
+          !group.flightOutDate ||
+          !group.flightOutTime.trim() ||
+          !group.pickupDate ||
+          !group.pickupTime.trim() ||
+          !group.dropDate ||
+          !group.dropTime.trim(),
+      ) ||
+      transportGroupHeadcountTotal !== headcountTotal,
+    [headcountTotal, transportGroupHeadcountTotal, transportGroups],
+  );
+  const hasMissingCustomPlaceText = useMemo(
+    () =>
+      transportGroups.some(
+        (group) =>
+          (group.pickupPlaceType === 'CUSTOM' && group.pickupPlaceCustomText.trim().length === 0) ||
+          (group.dropPlaceType === 'CUSTOM' && group.dropPlaceCustomText.trim().length === 0),
+      ) ||
+      [
+        [externalPickupPlaceType, externalPickupPlaceCustomText],
+        [externalDropPlaceType, externalDropPlaceCustomText],
+      ].some(([placeType, customText]) => placeType === 'CUSTOM' && (customText?.trim() ?? '').length === 0),
+    [
+      externalDropPlaceCustomText,
+      externalDropPlaceType,
+      externalPickupPlaceCustomText,
+      externalPickupPlaceType,
+      transportGroups,
+    ],
+  );
 
   const canPreviewPricing = Boolean(
     regionId &&
@@ -1255,6 +1394,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       leaderName.trim() &&
       hasValidDateRange &&
       hasValidHeadcount &&
+      !hasInvalidTransportGroups &&
       !hasHiaceHeadcountViolation &&
       !hasInvalidManualAdjustments &&
       !hasInvalidManualDepositInput &&
@@ -1279,6 +1419,11 @@ export function ItineraryBuilderPage(): JSX.Element {
     () => regions.find((region) => region.id === regionId)?.name ?? '',
     [regionId, regions],
   );
+  const normalizedTransportGroups = useMemo(
+    () => transportGroups.map((group) => toEstimateTransportGroup(group)),
+    [transportGroups],
+  );
+  const primaryTransportGroup = normalizedTransportGroups[0];
   const estimateDraftSnapshot = useMemo<EstimateBuilderDraftSnapshot>(
     () =>
       createEstimateDraftSnapshot({
@@ -1291,16 +1436,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         travelStartDate,
         travelEndDate,
         vehicleType,
-        flightInTime,
-        flightOutTime,
-        pickupDate,
-        pickupTime,
-        dropDate,
-        dropTime,
-        pickupPlaceType,
-        pickupPlaceCustomText,
-        dropPlaceType,
-        dropPlaceCustomText,
+        transportGroups: normalizedTransportGroups,
         externalPickupDate,
         externalPickupTime,
         externalPickupPlaceType,
@@ -1329,16 +1465,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       travelStartDate,
       travelEndDate,
       vehicleType,
-      flightInTime,
-      flightOutTime,
-      pickupDate,
-      pickupTime,
-      dropDate,
-      dropTime,
-      pickupPlaceType,
-      pickupPlaceCustomText,
-      dropPlaceType,
-      dropPlaceCustomText,
+      normalizedTransportGroups,
       externalPickupDate,
       externalPickupTime,
       externalPickupPlaceType,
@@ -1357,6 +1484,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     ],
   );
   const { data: previewEstimateData, guidesLoading: previewGuidesLoading } = useBuilderEstimatePreview(estimateDraftSnapshot);
+  const handlePreviewTransportGroupFieldChange: EstimatePage1Editor['onTransportGroupFieldChange'] = (index, field, value) => {
+    updateTransportGroup(index, field as keyof TransportGroupDraft, value as TransportGroupDraft[keyof TransportGroupDraft]);
+  };
   const previewPage1Editor: EstimatePage1Editor = {
     headcountTotal,
     headcountMale,
@@ -1364,16 +1494,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     travelEndDate,
     vehicleType,
     vehicleOptions: VEHICLES,
-    flightInTime,
-    flightOutTime,
-    pickupDate,
-    pickupTime,
-    pickupPlaceType,
-    pickupPlaceCustomText,
-    dropDate,
-    dropTime,
-    dropPlaceType,
-    dropPlaceCustomText,
+    transportGroups: normalizedTransportGroups,
     externalPickupDate,
     externalPickupTime,
     externalPickupPlaceType,
@@ -1403,16 +1524,24 @@ export function ItineraryBuilderPage(): JSX.Element {
         setVehicleType(value as (typeof VEHICLES)[number]);
       }
     },
-    onFlightInTimeChange: setFlightInTime,
-    onFlightOutTimeChange: setFlightOutTime,
-    onPickupDateChange: handlePickupDateChange,
-    onPickupTimeChange: handlePickupTimeChange,
-    onPickupPlaceTypeChange: (value) => handlePlaceTypeChange(setPickupPlaceType, setPickupPlaceCustomText, value),
-    onPickupPlaceCustomTextChange: setPickupPlaceCustomText,
-    onDropDateChange: handleDropDateChange,
-    onDropTimeChange: handleDropTimeChange,
-    onDropPlaceTypeChange: (value) => handlePlaceTypeChange(setDropPlaceType, setDropPlaceCustomText, value),
-    onDropPlaceCustomTextChange: setDropPlaceCustomText,
+    onTransportGroupFieldChange: handlePreviewTransportGroupFieldChange,
+    onAddTransportGroup: () => {
+      const usedHeadcount = transportGroups.reduce((sum, group) => sum + group.headcount, 0);
+      const remainingHeadcount = Math.max(headcountTotal - usedHeadcount, 0);
+      setTransportGroups((current) => [
+        ...current,
+        createTransportGroupDraft({
+          index: current.length,
+          headcount: remainingHeadcount > 0 ? remainingHeadcount : 1,
+          travelStartDate,
+          travelEndDate,
+          flightInTime: '10:25',
+          flightOutTime: '18:20',
+        }),
+      ]);
+    },
+    onRemoveTransportGroup: (index) =>
+      setTransportGroups((current) => (current.length <= 1 ? current : current.filter((_, groupIndex) => groupIndex !== index))),
     onExternalPickupDateChange: setExternalPickupDate,
     onExternalPickupTimeChange: setExternalPickupTime,
     onExternalPickupPlaceTypeChange: (value) =>
@@ -1773,16 +1902,22 @@ export function ItineraryBuilderPage(): JSX.Element {
                           headcountMale,
                           headcountFemale,
                           vehicleType,
-                          flightInTime,
-                          flightOutTime,
-                          pickupDate: pickupDate ? toIsoDateTime(pickupDate) : undefined,
-                          pickupTime: pickupTime.trim() || undefined,
-                          dropDate: dropDate ? toIsoDateTime(dropDate) : undefined,
-                          dropTime: dropTime.trim() || undefined,
-                          pickupPlaceType,
-                          pickupPlaceCustomText: normalizePickupDropCustomText(pickupPlaceType, pickupPlaceCustomText),
-                          dropPlaceType,
-                          dropPlaceCustomText: normalizePickupDropCustomText(dropPlaceType, dropPlaceCustomText),
+                          flightInTime: primaryTransportGroup?.flightInTime ?? '10:25',
+                          flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:20',
+                          pickupDate: primaryTransportGroup?.pickupDate ? toIsoDateTime(primaryTransportGroup.pickupDate) : undefined,
+                          pickupTime: primaryTransportGroup?.pickupTime.trim() || undefined,
+                          dropDate: primaryTransportGroup?.dropDate ? toIsoDateTime(primaryTransportGroup.dropDate) : undefined,
+                          dropTime: primaryTransportGroup?.dropTime.trim() || undefined,
+                          pickupPlaceType: primaryTransportGroup?.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                          pickupPlaceCustomText: normalizePickupDropCustomText(
+                            primaryTransportGroup?.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                            primaryTransportGroup?.pickupPlaceCustomText,
+                          ),
+                          dropPlaceType: primaryTransportGroup?.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                          dropPlaceCustomText: normalizePickupDropCustomText(
+                            primaryTransportGroup?.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                            primaryTransportGroup?.dropPlaceCustomText,
+                          ),
                           externalPickupDate: externalPickupDate ? toIsoDateTime(externalPickupDate) : undefined,
                           externalPickupTime: externalPickupTime.trim() || undefined,
                           externalPickupPlaceType,
@@ -1804,6 +1939,25 @@ export function ItineraryBuilderPage(): JSX.Element {
                           rentalItemsText,
                           eventIds,
                           extraLodgings,
+                          transportGroups: normalizedTransportGroups.map((group) => ({
+                            teamName: group.teamName.trim(),
+                            headcount: group.headcount,
+                            flightInDate: toIsoDateTime(group.flightInDate),
+                            flightInTime: group.flightInTime.trim(),
+                            flightOutDate: toIsoDateTime(group.flightOutDate),
+                            flightOutTime: group.flightOutTime.trim(),
+                            pickupDate: group.pickupDate ? toIsoDateTime(group.pickupDate) : undefined,
+                            pickupTime: group.pickupTime.trim() || undefined,
+                            pickupPlaceType: group.pickupPlaceType,
+                            pickupPlaceCustomText: normalizePickupDropCustomText(
+                              group.pickupPlaceType,
+                              group.pickupPlaceCustomText,
+                            ),
+                            dropDate: group.dropDate ? toIsoDateTime(group.dropDate) : undefined,
+                            dropTime: group.dropTime.trim() || undefined,
+                            dropPlaceType: group.dropPlaceType,
+                            dropPlaceCustomText: normalizePickupDropCustomText(group.dropPlaceType, group.dropPlaceCustomText),
+                          })),
                           remark: remark.trim() || undefined,
                         },
                         planStops: planRows,
@@ -1839,16 +1993,22 @@ export function ItineraryBuilderPage(): JSX.Element {
                           headcountMale,
                           headcountFemale,
                           vehicleType,
-                          flightInTime,
-                          flightOutTime,
-                          pickupDate: pickupDate ? toIsoDateTime(pickupDate) : undefined,
-                          pickupTime: pickupTime.trim() || undefined,
-                          dropDate: dropDate ? toIsoDateTime(dropDate) : undefined,
-                          dropTime: dropTime.trim() || undefined,
-                          pickupPlaceType,
-                          pickupPlaceCustomText: normalizePickupDropCustomText(pickupPlaceType, pickupPlaceCustomText),
-                          dropPlaceType,
-                          dropPlaceCustomText: normalizePickupDropCustomText(dropPlaceType, dropPlaceCustomText),
+                          flightInTime: primaryTransportGroup?.flightInTime ?? '10:25',
+                          flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:20',
+                          pickupDate: primaryTransportGroup?.pickupDate ? toIsoDateTime(primaryTransportGroup.pickupDate) : undefined,
+                          pickupTime: primaryTransportGroup?.pickupTime.trim() || undefined,
+                          dropDate: primaryTransportGroup?.dropDate ? toIsoDateTime(primaryTransportGroup.dropDate) : undefined,
+                          dropTime: primaryTransportGroup?.dropTime.trim() || undefined,
+                          pickupPlaceType: primaryTransportGroup?.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                          pickupPlaceCustomText: normalizePickupDropCustomText(
+                            primaryTransportGroup?.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                            primaryTransportGroup?.pickupPlaceCustomText,
+                          ),
+                          dropPlaceType: primaryTransportGroup?.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                          dropPlaceCustomText: normalizePickupDropCustomText(
+                            primaryTransportGroup?.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                            primaryTransportGroup?.dropPlaceCustomText,
+                          ),
                           externalPickupDate: externalPickupDate ? toIsoDateTime(externalPickupDate) : undefined,
                           externalPickupTime: externalPickupTime.trim() || undefined,
                           externalPickupPlaceType,
@@ -1870,6 +2030,25 @@ export function ItineraryBuilderPage(): JSX.Element {
                           rentalItemsText,
                           eventIds,
                           extraLodgings,
+                          transportGroups: normalizedTransportGroups.map((group) => ({
+                            teamName: group.teamName.trim(),
+                            headcount: group.headcount,
+                            flightInDate: toIsoDateTime(group.flightInDate),
+                            flightInTime: group.flightInTime.trim(),
+                            flightOutDate: toIsoDateTime(group.flightOutDate),
+                            flightOutTime: group.flightOutTime.trim(),
+                            pickupDate: group.pickupDate ? toIsoDateTime(group.pickupDate) : undefined,
+                            pickupTime: group.pickupTime.trim() || undefined,
+                            pickupPlaceType: group.pickupPlaceType,
+                            pickupPlaceCustomText: normalizePickupDropCustomText(
+                              group.pickupPlaceType,
+                              group.pickupPlaceCustomText,
+                            ),
+                            dropDate: group.dropDate ? toIsoDateTime(group.dropDate) : undefined,
+                            dropTime: group.dropTime.trim() || undefined,
+                            dropPlaceType: group.dropPlaceType,
+                            dropPlaceCustomText: normalizePickupDropCustomText(group.dropPlaceType, group.dropPlaceCustomText),
+                          })),
                           remark: remark.trim() || undefined,
                         },
                         planStops: planRows,
@@ -2105,130 +2284,168 @@ export function ItineraryBuilderPage(): JSX.Element {
                 ) : null}
               </div>
 
-              <div className="grid gap-2 text-sm">
-                <span className="text-xs text-slate-600">항공권 IN</span>
-                <div className="flex flex-wrap gap-2">
-                  {FLIGHT_IN_TIME_OPTIONS.map((time) => (
-                    <button
-                      key={`in-${time}`}
-                      type="button"
-                      onClick={() => {
-                        setIsCustomFlightInTime(false);
-                        setFlightInTime(time);
-                      }}
-                      className={`rounded-xl border px-3 py-1.5 text-sm ${
-                        flightInTime === time
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {time}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setIsCustomFlightInTime((prev) => !prev)}
-                    className={`rounded-xl border px-3 py-1.5 text-sm ${
-                      isCustomFlightInTime
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
+              <div className="grid gap-3 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-slate-600">팀별 항공 / 픽업 / 드랍</span>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const usedHeadcount = transportGroups.reduce((sum, group) => sum + group.headcount, 0);
+                      const remainingHeadcount = Math.max(headcountTotal - usedHeadcount, 0);
+                      setTransportGroups((current) => [
+                        ...current,
+                        createTransportGroupDraft({
+                          index: current.length,
+                          headcount: remainingHeadcount > 0 ? remainingHeadcount : 1,
+                          travelStartDate,
+                          travelEndDate,
+                          flightInTime: '10:25',
+                          flightOutTime: '18:20',
+                        }),
+                      ]);
+                    }}
                   >
-                    직접
-                  </button>
-                  {isCustomFlightInTime ? (
-                    <input
-                      value={flightInTime}
-                      onChange={(event) => setFlightInTime(event.target.value)}
-                      placeholder="직접"
-                      className="h-[34px] w-[72px] rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
-                    />
-                  ) : null}
+                    세트 추가
+                  </Button>
                 </div>
-                <span className="text-xs text-slate-600">항공권 OUT</span>
-                <div className="flex flex-wrap gap-2">
-                  {FLIGHT_OUT_TIME_OPTIONS.map((time) => (
-                    <button
-                      key={`out-${time}`}
-                      type="button"
-                      onClick={() => {
-                        setIsCustomFlightOutTime(false);
-                        setFlightOutTime(time);
-                      }}
-                      className={`rounded-xl border px-3 py-1.5 text-sm ${
-                        flightOutTime === time
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {time}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setIsCustomFlightOutTime((prev) => !prev)}
-                    className={`rounded-xl border px-3 py-1.5 text-sm ${
-                      isCustomFlightOutTime
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    직접
-                  </button>
-                  {isCustomFlightOutTime ? (
-                    <input
-                      value={flightOutTime}
-                      onChange={(event) => setFlightOutTime(event.target.value)}
-                      placeholder="직접"
-                      className="h-[34px] w-[72px] rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700"
-                    />
-                  ) : null}
-                </div>
-              </div>
 
-              <div className="grid gap-2 text-sm">
-                <span className="text-xs text-slate-600">픽업 / 드랍 날짜 및 시간</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="date"
-                    value={pickupDate}
-                    onChange={(event) => handlePickupDateChange(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="time"
-                    value={pickupTime}
-                    onChange={(event) => handlePickupTimeChange(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="date"
-                    value={dropDate}
-                    onChange={(event) => handleDropDateChange(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="time"
-                    value={dropTime}
-                    onChange={(event) => handleDropTimeChange(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  />
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <PlaceField
-                    label="픽업 장소"
-                    placeType={pickupPlaceType}
-                    customText={pickupPlaceCustomText}
-                    onPlaceTypeChange={(value) => handlePlaceTypeChange(setPickupPlaceType, setPickupPlaceCustomText, value)}
-                    onCustomTextChange={setPickupPlaceCustomText}
-                  />
-                  <PlaceField
-                    label="드랍 장소"
-                    placeType={dropPlaceType}
-                    customText={dropPlaceCustomText}
-                    onPlaceTypeChange={(value) => handlePlaceTypeChange(setDropPlaceType, setDropPlaceCustomText, value)}
-                    onCustomTextChange={setDropPlaceCustomText}
-                  />
+                <div className="grid gap-4">
+                  {transportGroups.map((group, index) => (
+                    <div key={`transport-group-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{group.teamName || `${index + 1}번 세트`}</p>
+                          <p className="text-xs text-slate-500">항공권과 연동된 픽업/드랍 세트</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          disabled={transportGroups.length <= 1}
+                          onClick={() =>
+                            setTransportGroups((current) =>
+                              current.length <= 1 ? current : current.filter((_, groupIndex) => groupIndex !== index),
+                            )
+                          }
+                        >
+                          삭제
+                        </Button>
+                      </div>
+
+                      <div className="grid gap-3">
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <label className="grid gap-1">
+                            <span className="text-xs text-slate-600">팀명</span>
+                            <input
+                              value={group.teamName}
+                              onChange={(event) => updateTransportGroup(index, 'teamName', event.target.value)}
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                            />
+                          </label>
+                          <label className="grid gap-1">
+                            <span className="text-xs text-slate-600">인원</span>
+                            <input
+                              type="number"
+                              min={1}
+                              value={group.headcount}
+                              onChange={(event) =>
+                                updateTransportGroup(index, 'headcount', Math.max(1, Number(event.target.value) || 1))
+                              }
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                            />
+                          </label>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="grid gap-2">
+                            <span className="text-xs text-slate-600">항공권 IN</span>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="date"
+                                value={group.flightInDate}
+                                onChange={(event) => updateTransportGroup(index, 'flightInDate', event.target.value)}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                              />
+                              <input
+                                type="time"
+                                value={group.flightInTime}
+                                onChange={(event) => updateTransportGroup(index, 'flightInTime', event.target.value)}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid gap-2">
+                            <span className="text-xs text-slate-600">항공권 OUT</span>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="date"
+                                value={group.flightOutDate}
+                                onChange={(event) => updateTransportGroup(index, 'flightOutDate', event.target.value)}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                              />
+                              <input
+                                type="time"
+                                value={group.flightOutTime}
+                                onChange={(event) => updateTransportGroup(index, 'flightOutTime', event.target.value)}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="grid gap-2">
+                            <span className="text-xs text-slate-600">픽업 날짜 및 시간</span>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="date"
+                                value={group.pickupDate}
+                                onChange={(event) => updateTransportGroup(index, 'pickupDate', event.target.value)}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                              />
+                              <input
+                                type="time"
+                                value={group.pickupTime}
+                                onChange={(event) => updateTransportGroup(index, 'pickupTime', event.target.value)}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                              />
+                            </div>
+                            <PlaceField
+                              label="픽업 장소"
+                              placeType={group.pickupPlaceType}
+                              customText={group.pickupPlaceCustomText}
+                              onPlaceTypeChange={(value) => updateTransportGroup(index, 'pickupPlaceType', value)}
+                              onCustomTextChange={(value) => updateTransportGroup(index, 'pickupPlaceCustomText', value)}
+                            />
+                          </div>
+
+                          <div className="grid gap-2">
+                            <span className="text-xs text-slate-600">드랍 날짜 및 시간</span>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="date"
+                                value={group.dropDate}
+                                onChange={(event) => updateTransportGroup(index, 'dropDate', event.target.value)}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                              />
+                              <input
+                                type="time"
+                                value={group.dropTime}
+                                onChange={(event) => updateTransportGroup(index, 'dropTime', event.target.value)}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                              />
+                            </div>
+                            <PlaceField
+                              label="드랍 장소"
+                              placeType={group.dropPlaceType}
+                              customText={group.dropPlaceCustomText}
+                              onPlaceTypeChange={(value) => updateTransportGroup(index, 'dropPlaceType', value)}
+                              onCustomTextChange={(value) => updateTransportGroup(index, 'dropPlaceCustomText', value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -3013,6 +3230,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                     예약금 수동 입력값을 확인해주세요.
                   </div>
                 ) : null}
+                {hasInvalidTransportGroups ? (
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
+                    팀별 항공/픽업/드랍 세트의 팀명, 인원, 날짜/시간을 확인해주세요. 팀 인원 합계는 총 인원과 같아야 합니다.
+                  </div>
+                ) : null}
                 {hasMissingCustomPlaceText ? (
                   <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
                     직접입력 장소를 선택한 항목의 장소명을 입력해주세요.
@@ -3058,16 +3280,16 @@ export function ItineraryBuilderPage(): JSX.Element {
         headcountMale,
         headcountFemale,
         vehicleType,
-        flightInTime,
-        flightOutTime,
-        pickupDate,
-        pickupTime,
-        pickupPlaceType,
-        pickupPlaceCustomText,
-        dropDate,
-        dropTime,
-        dropPlaceType,
-        dropPlaceCustomText,
+        flightInTime: primaryTransportGroup?.flightInTime ?? '',
+        flightOutTime: primaryTransportGroup?.flightOutTime ?? '',
+        pickupDate: primaryTransportGroup?.pickupDate ?? '',
+        pickupTime: primaryTransportGroup?.pickupTime ?? '',
+        pickupPlaceType: primaryTransportGroup?.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+        pickupPlaceCustomText: primaryTransportGroup?.pickupPlaceCustomText ?? '',
+        dropDate: primaryTransportGroup?.dropDate ?? '',
+        dropTime: primaryTransportGroup?.dropTime ?? '',
+        dropPlaceType: primaryTransportGroup?.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+        dropPlaceCustomText: primaryTransportGroup?.dropPlaceCustomText ?? '',
         externalPickupDate,
         externalPickupTime,
         externalPickupPlaceType,
@@ -3076,6 +3298,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         externalDropTime,
         externalDropPlaceType,
         externalDropPlaceCustomText,
+        transportGroups: normalizedTransportGroups,
         specialNote,
         includeRentalItems,
         rentalItemsText,
@@ -3103,16 +3326,16 @@ export function ItineraryBuilderPage(): JSX.Element {
           headcountMale,
           headcountFemale,
           vehicleType,
-          flightInTime,
-          flightOutTime,
-          pickupDate,
-          pickupTime,
-          pickupPlaceType,
-          pickupPlaceCustomText,
-          dropDate,
-          dropTime,
-          dropPlaceType,
-          dropPlaceCustomText,
+          flightInTime: primaryTransportGroup?.flightInTime ?? '',
+          flightOutTime: primaryTransportGroup?.flightOutTime ?? '',
+          pickupDate: primaryTransportGroup?.pickupDate ?? '',
+          pickupTime: primaryTransportGroup?.pickupTime ?? '',
+          pickupPlaceType: primaryTransportGroup?.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+          pickupPlaceCustomText: primaryTransportGroup?.pickupPlaceCustomText ?? '',
+          dropDate: primaryTransportGroup?.dropDate ?? '',
+          dropTime: primaryTransportGroup?.dropTime ?? '',
+          dropPlaceType: primaryTransportGroup?.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+          dropPlaceCustomText: primaryTransportGroup?.dropPlaceCustomText ?? '',
           externalPickupDate,
           externalPickupTime,
           externalPickupPlaceType,
@@ -3121,6 +3344,7 @@ export function ItineraryBuilderPage(): JSX.Element {
           externalDropTime,
           externalDropPlaceType,
           externalDropPlaceCustomText,
+          transportGroups: normalizedTransportGroups,
           specialNote,
           includeRentalItems,
           rentalItemsText,

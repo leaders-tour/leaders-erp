@@ -117,6 +117,8 @@ export const planResolver = {
   PlanVersionMeta: {
     extraLodgings: (parent: { extraLodgings?: unknown }) =>
       Array.isArray(parent.extraLodgings) ? parent.extraLodgings : [],
+    transportGroups: (parent: { transportGroups?: unknown }) =>
+      Array.isArray(parent.transportGroups) ? parent.transportGroups : [],
     events: async (parent: { planVersionId: string }, _args: unknown, ctx: AppContext) => {
       const rows = await ctx.prisma.planVersionEvent.findMany({
         where: { planVersionId: parent.planVersionId },

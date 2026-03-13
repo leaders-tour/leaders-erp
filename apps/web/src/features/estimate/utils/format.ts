@@ -1,5 +1,5 @@
-import { formatPickupDropDisplay } from '../../plan/pickup-drop';
-import type { EstimateSecurityDepositMode, EstimateSecurityDepositScope } from '../model/types';
+import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../../plan/pickup-drop';
+import type { EstimateSecurityDepositMode, EstimateSecurityDepositScope, EstimateTransportGroup } from '../model/types';
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
 
@@ -119,6 +119,28 @@ export function formatFlightText(date: string | null | undefined, time: string |
   }
 
   return `${formatDateShort(date)} - ${normalizedTime}`;
+}
+
+export function formatTransportFlightText(
+  groups: EstimateTransportGroup[] | null | undefined,
+  direction: 'IN' | 'OUT',
+): string {
+  if (!groups || groups.length === 0) {
+    return '-';
+  }
+
+  return formatTransportFlightLines(groups, direction);
+}
+
+export function formatTransportPickupDropText(
+  groups: EstimateTransportGroup[] | null | undefined,
+  direction: 'pickup' | 'drop',
+): string {
+  if (!groups || groups.length === 0) {
+    return '-';
+  }
+
+  return formatTransportPickupDropLines(groups, direction);
 }
 
 export function formatExternalPickupDropText(

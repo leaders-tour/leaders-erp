@@ -551,12 +551,41 @@ model PlanVersionMeta {
   extraLodgings          Json
   remark                 String?  @db.Text
 
-  planVersion PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+  planVersion      PlanVersion               @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+  transportGroups  PlanVersionTransportGroup[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([travelStartDate])
+}
+
+model PlanVersionTransportGroup {
+  id                String    @id @default(uuid(7))
+  planVersionMetaId String
+  orderIndex        Int
+  teamName          String
+  headcount         Int
+  flightInDate      DateTime
+  flightInTime      String
+  flightOutDate     DateTime
+  flightOutTime     String
+  pickupDate        DateTime?
+  pickupTime        String?
+  pickupPlaceType   PlaceType?
+  pickupPlaceCustomText String?
+  dropDate          DateTime?
+  dropTime          String?
+  dropPlaceType     PlaceType?
+  dropPlaceCustomText String?
+
+  planVersionMeta PlanVersionMeta @relation(fields: [planVersionMetaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([planVersionMetaId, orderIndex])
+  @@unique([planVersionMetaId, orderIndex])
 }
 
 model Event {

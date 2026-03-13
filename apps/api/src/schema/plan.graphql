@@ -103,7 +103,30 @@ type PlanVersionMeta {
   rentalItemsText: String!
   events: [Event!]!
   extraLodgings: [ExtraLodging!]!
+  transportGroups: [PlanVersionTransportGroup!]!
   remark: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type PlanVersionTransportGroup {
+  id: ID!
+  planVersionMetaId: String!
+  orderIndex: Int!
+  teamName: String!
+  headcount: Int!
+  flightInDate: DateTime!
+  flightInTime: String!
+  flightOutDate: DateTime!
+  flightOutTime: String!
+  pickupDate: DateTime
+  pickupTime: String
+  pickupPlaceType: PlaceType
+  pickupPlaceCustomText: String
+  dropDate: DateTime
+  dropTime: String
+  dropPlaceType: PlaceType
+  dropPlaceCustomText: String
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -280,7 +303,25 @@ input PlanVersionMetaInput {
   rentalItemsText: String!
   eventIds: [ID!]!
   extraLodgings: [ExtraLodgingInput!]!
+  transportGroups: [PlanVersionTransportGroupInput!]!
   remark: String
+}
+
+input PlanVersionTransportGroupInput {
+  teamName: String!
+  headcount: Int!
+  flightInDate: DateTime!
+  flightInTime: String!
+  flightOutDate: DateTime!
+  flightOutTime: String!
+  pickupDate: DateTime
+  pickupTime: String
+  pickupPlaceType: PlaceType
+  pickupPlaceCustomText: String
+  dropDate: DateTime
+  dropTime: String
+  dropPlaceType: PlaceType
+  dropPlaceCustomText: String
 }
 
 input ExtraLodgingInput {

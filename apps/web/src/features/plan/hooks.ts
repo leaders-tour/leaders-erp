@@ -130,6 +130,27 @@ export interface PlanVersionMetaRow {
     dayIndex: number;
     lodgingCount: number;
   }>;
+  transportGroups: Array<{
+    id: string;
+    planVersionMetaId: string;
+    orderIndex: number;
+    teamName: string;
+    headcount: number;
+    flightInDate: string;
+    flightInTime: string;
+    flightOutDate: string;
+    flightOutTime: string;
+    pickupDate: string | null;
+    pickupTime: string | null;
+    pickupPlaceType: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;
+    pickupPlaceCustomText: string | null;
+    dropDate: string | null;
+    dropTime: string | null;
+    dropPlaceType: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;
+    dropPlaceCustomText: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
   remark: string | null;
   createdAt: string;
   updatedAt: string;
@@ -473,6 +494,27 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         extraLodgings {
           dayIndex
           lodgingCount
+        }
+        transportGroups {
+          id
+          planVersionMetaId
+          orderIndex
+          teamName
+          headcount
+          flightInDate
+          flightInTime
+          flightOutDate
+          flightOutTime
+          pickupDate
+          pickupTime
+          pickupPlaceType
+          pickupPlaceCustomText
+          dropDate
+          dropTime
+          dropPlaceType
+          dropPlaceCustomText
+          createdAt
+          updatedAt
         }
         remark
         createdAt

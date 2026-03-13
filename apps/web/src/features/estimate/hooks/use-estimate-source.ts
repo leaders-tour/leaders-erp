@@ -33,16 +33,7 @@ function isDraftSnapshot(value: unknown): value is EstimateBuilderDraftSnapshot 
     typeof value.travelStartDate === 'string' &&
     typeof value.travelEndDate === 'string' &&
     typeof value.vehicleType === 'string' &&
-    typeof value.flightInTime === 'string' &&
-    typeof value.flightOutTime === 'string' &&
-    (value.pickupDate === undefined || typeof value.pickupDate === 'string') &&
-    (value.pickupTime === undefined || typeof value.pickupTime === 'string') &&
-    (value.dropDate === undefined || typeof value.dropDate === 'string') &&
-    (value.dropTime === undefined || typeof value.dropTime === 'string') &&
-    (value.pickupPlaceType === undefined || typeof value.pickupPlaceType === 'string') &&
-    (value.pickupPlaceCustomText === undefined || typeof value.pickupPlaceCustomText === 'string') &&
-    (value.dropPlaceType === undefined || typeof value.dropPlaceType === 'string') &&
-    (value.dropPlaceCustomText === undefined || typeof value.dropPlaceCustomText === 'string') &&
+    Array.isArray(value.transportGroups) &&
     (value.externalPickupDate === undefined || typeof value.externalPickupDate === 'string') &&
     (value.externalPickupTime === undefined || typeof value.externalPickupTime === 'string') &&
     (value.externalPickupPlaceType === undefined || typeof value.externalPickupPlaceType === 'string') &&
@@ -65,14 +56,22 @@ function isDraftSnapshot(value: unknown): value is EstimateBuilderDraftSnapshot 
 function normalizeDraftSnapshot(snapshot: EstimateBuilderDraftSnapshot): EstimateBuilderDraftSnapshot {
   return {
     ...snapshot,
-    pickupDate: snapshot.pickupDate ?? '',
-    pickupTime: snapshot.pickupTime ?? '',
-    dropDate: snapshot.dropDate ?? '',
-    dropTime: snapshot.dropTime ?? '',
-    pickupPlaceType: snapshot.pickupPlaceType ?? 'AIRPORT',
-    pickupPlaceCustomText: snapshot.pickupPlaceCustomText ?? '',
-    dropPlaceType: snapshot.dropPlaceType ?? 'AIRPORT',
-    dropPlaceCustomText: snapshot.dropPlaceCustomText ?? '',
+    transportGroups: snapshot.transportGroups.map((group) => ({
+      teamName: group.teamName ?? '',
+      headcount: group.headcount ?? 1,
+      flightInDate: group.flightInDate ?? '',
+      flightInTime: group.flightInTime ?? '',
+      flightOutDate: group.flightOutDate ?? '',
+      flightOutTime: group.flightOutTime ?? '',
+      pickupDate: group.pickupDate ?? '',
+      pickupTime: group.pickupTime ?? '',
+      pickupPlaceType: group.pickupPlaceType ?? 'AIRPORT',
+      pickupPlaceCustomText: group.pickupPlaceCustomText ?? '',
+      dropDate: group.dropDate ?? '',
+      dropTime: group.dropTime ?? '',
+      dropPlaceType: group.dropPlaceType ?? 'AIRPORT',
+      dropPlaceCustomText: group.dropPlaceCustomText ?? '',
+    })),
     externalPickupDate: snapshot.externalPickupDate ?? '',
     externalPickupTime: snapshot.externalPickupTime ?? '',
     externalPickupPlaceType: snapshot.externalPickupPlaceType ?? 'AIRPORT',
@@ -81,7 +80,6 @@ function normalizeDraftSnapshot(snapshot: EstimateBuilderDraftSnapshot): Estimat
     externalDropTime: snapshot.externalDropTime ?? '',
     externalDropPlaceType: snapshot.externalDropPlaceType ?? 'AIRPORT',
     externalDropPlaceCustomText: snapshot.externalDropPlaceCustomText ?? '',
-    pickupDropNote: snapshot.pickupDropNote ?? '',
     externalPickupDropNote: snapshot.externalPickupDropNote ?? '',
     specialNote: snapshot.specialNote ?? '',
   };

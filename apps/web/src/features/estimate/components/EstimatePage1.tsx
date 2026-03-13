@@ -1,13 +1,15 @@
 import { useState, type FocusEvent, type ReactNode } from 'react';
 import { PICKUP_DROP_PLACE_OPTIONS, formatPickupDropDisplay, type PickupDropPlaceType } from '../../plan/pickup-drop';
 import { ESTIMATE_COMPANY, ESTIMATE_PAYMENT, ESTIMATE_TAGLINE, ESTIMATE_TITLE } from '../model/constants';
-import type { EstimateDocumentData, EstimatePage1EditableField, EstimatePage1Editor } from '../model/types';
+import type { EstimateDocumentData, EstimatePage1EditableField, EstimatePage1Editor, EstimateTransportGroup } from '../model/types';
 import {
   formatCurrency,
   formatDateKorean,
   formatFlightText,
   formatHeadcount,
   formatSignedCurrency,
+  formatTransportFlightText,
+  formatTransportPickupDropText,
   formatTravelPeriod,
 } from '../utils/format';
 
@@ -85,6 +87,176 @@ function EditableCell({
         </span>
       </button>
     </td>
+  );
+}
+
+interface TransportGroupEditorProps {
+  groups: EstimateTransportGroup[];
+  mode: 'flightIn' | 'flightOut' | 'pickup' | 'drop';
+  onFieldChange: EstimatePage1Editor['onTransportGroupFieldChange'];
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+}
+
+function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: TransportGroupEditorProps): JSX.Element {
+  const title =
+    mode === 'flightIn'
+      ? 'IN'
+      : mode === 'flightOut'
+        ? 'OUT'
+        : mode === 'pickup'
+          ? '픽업'
+          : '드랍';
+
+  return (
+    <div className="estimate-editable-grid">
+      {groups.map((group, index) => (
+        <div key={`${title}-${index}`} className="rounded-xl border border-slate-200 bg-white p-3">
+          <div className="mb-2 grid gap-2 md:grid-cols-[1fr_100px_auto]">
+            <input
+              autoFocus={index === 0}
+              type="text"
+              value={group.teamName}
+              onChange={(event) => onFieldChange(index, 'teamName', event.target.value)}
+              placeholder="팀명"
+              className="estimate-editable-input"
+            />
+            <input
+              type="number"
+              min={1}
+              value={group.headcount}
+              onChange={(event) => onFieldChange(index, 'headcount', Math.max(1, Number(event.target.value) || 1))}
+              placeholder="인원"
+              className="estimate-editable-input"
+            />
+            <button
+              type="button"
+              disabled={groups.length <= 1}
+              onClick={() => onRemove(index)}
+              className="estimate-editable-input disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              삭제
+            </button>
+          </div>
+
+          {mode === 'flightIn' ? (
+            <div className="grid gap-2 md:grid-cols-2">
+              <input
+                type="date"
+                value={group.flightInDate}
+                onChange={(event) => onFieldChange(index, 'flightInDate', event.target.value)}
+                className="estimate-editable-input"
+              />
+              <input
+                type="time"
+                value={group.flightInTime}
+                onChange={(event) => onFieldChange(index, 'flightInTime', event.target.value)}
+                className="estimate-editable-input"
+              />
+            </div>
+          ) : null}
+
+          {mode === 'flightOut' ? (
+            <div className="grid gap-2 md:grid-cols-2">
+              <input
+                type="date"
+                value={group.flightOutDate}
+                onChange={(event) => onFieldChange(index, 'flightOutDate', event.target.value)}
+                className="estimate-editable-input"
+              />
+              <input
+                type="time"
+                value={group.flightOutTime}
+                onChange={(event) => onFieldChange(index, 'flightOutTime', event.target.value)}
+                className="estimate-editable-input"
+              />
+            </div>
+          ) : null}
+
+          {mode === 'pickup' ? (
+            <div className="grid gap-2">
+              <div className="grid gap-2 md:grid-cols-2">
+                <input
+                  type="date"
+                  value={group.pickupDate}
+                  onChange={(event) => onFieldChange(index, 'pickupDate', event.target.value)}
+                  className="estimate-editable-input"
+                />
+                <input
+                  type="time"
+                  value={group.pickupTime}
+                  onChange={(event) => onFieldChange(index, 'pickupTime', event.target.value)}
+                  className="estimate-editable-input"
+                />
+              </div>
+              <select
+                value={group.pickupPlaceType}
+                onChange={(event) => onFieldChange(index, 'pickupPlaceType', event.target.value as PickupDropPlaceType)}
+                className="estimate-editable-input"
+              >
+                {PICKUP_DROP_PLACE_OPTIONS.map((option) => (
+                  <option key={`pickup-place-${index}-${option.value}`} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {group.pickupPlaceType === 'CUSTOM' ? (
+                <input
+                  type="text"
+                  value={group.pickupPlaceCustomText}
+                  onChange={(event) => onFieldChange(index, 'pickupPlaceCustomText', event.target.value)}
+                  placeholder="장소 직접 입력"
+                  className="estimate-editable-input"
+                />
+              ) : null}
+            </div>
+          ) : null}
+
+          {mode === 'drop' ? (
+            <div className="grid gap-2">
+              <div className="grid gap-2 md:grid-cols-2">
+                <input
+                  type="date"
+                  value={group.dropDate}
+                  onChange={(event) => onFieldChange(index, 'dropDate', event.target.value)}
+                  className="estimate-editable-input"
+                />
+                <input
+                  type="time"
+                  value={group.dropTime}
+                  onChange={(event) => onFieldChange(index, 'dropTime', event.target.value)}
+                  className="estimate-editable-input"
+                />
+              </div>
+              <select
+                value={group.dropPlaceType}
+                onChange={(event) => onFieldChange(index, 'dropPlaceType', event.target.value as PickupDropPlaceType)}
+                className="estimate-editable-input"
+              >
+                {PICKUP_DROP_PLACE_OPTIONS.map((option) => (
+                  <option key={`drop-place-${index}-${option.value}`} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {group.dropPlaceType === 'CUSTOM' ? (
+                <input
+                  type="text"
+                  value={group.dropPlaceCustomText}
+                  onChange={(event) => onFieldChange(index, 'dropPlaceCustomText', event.target.value)}
+                  placeholder="장소 직접 입력"
+                  className="estimate-editable-input"
+                />
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ))}
+
+      <button type="button" onClick={onAdd} className="estimate-editable-input">
+        세트 추가
+      </button>
+    </div>
   );
 }
 
@@ -219,23 +391,22 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
               field="flightInTime"
               activeField={activeField}
               editor={editor}
-              displayValue={formatFlightText(data.flightInDate, data.flightInTime)}
+              displayValue={
+                <span className="whitespace-pre-wrap">
+                  {data.transportGroups.length > 0
+                    ? formatTransportFlightText(data.transportGroups, 'IN')
+                    : formatFlightText(data.flightInDate, data.flightInTime)}
+                </span>
+              }
+              multiline
               input={
-                <div className="estimate-editable-grid">
-                  <input
-                    autoFocus
-                    type="date"
-                    value={editor?.travelStartDate ?? ''}
-                    onChange={(event) => editor?.onTravelStartDateChange(event.target.value)}
-                    className="estimate-editable-input"
-                  />
-                  <input
-                    type="time"
-                    value={editor?.flightInTime ?? ''}
-                    onChange={(event) => editor?.onFlightInTimeChange(event.target.value)}
-                    className="estimate-editable-input"
-                  />
-                </div>
+                <TransportGroupEditor
+                  groups={editor?.transportGroups ?? []}
+                  mode="flightIn"
+                  onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
+                  onAdd={() => editor?.onAddTransportGroup()}
+                  onRemove={(index) => editor?.onRemoveTransportGroup(index)}
+                />
               }
               onActivate={setActiveField}
               onDeactivate={() => setActiveField(null)}
@@ -245,23 +416,22 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
               field="flightOutTime"
               activeField={activeField}
               editor={editor}
-              displayValue={formatFlightText(data.flightOutDate, data.flightOutTime)}
+              displayValue={
+                <span className="whitespace-pre-wrap">
+                  {data.transportGroups.length > 0
+                    ? formatTransportFlightText(data.transportGroups, 'OUT')
+                    : formatFlightText(data.flightOutDate, data.flightOutTime)}
+                </span>
+              }
+              multiline
               input={
-                <div className="estimate-editable-grid">
-                  <input
-                    autoFocus
-                    type="date"
-                    value={editor?.travelEndDate ?? ''}
-                    onChange={(event) => editor?.onTravelEndDateChange(event.target.value)}
-                    className="estimate-editable-input"
-                  />
-                  <input
-                    type="time"
-                    value={editor?.flightOutTime ?? ''}
-                    onChange={(event) => editor?.onFlightOutTimeChange(event.target.value)}
-                    className="estimate-editable-input"
-                  />
-                </div>
+                <TransportGroupEditor
+                  groups={editor?.transportGroups ?? []}
+                  mode="flightOut"
+                  onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
+                  onAdd={() => editor?.onAddTransportGroup()}
+                  onRemove={(index) => editor?.onRemoveTransportGroup(index)}
+                />
               }
               onActivate={setActiveField}
               onDeactivate={() => setActiveField(null)}
@@ -273,48 +443,27 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
               field="pickupDate"
               activeField={activeField}
               editor={editor}
-              displayValue={formatPickupDropDisplay(
-                data.pickupDate,
-                data.pickupTime,
-                data.pickupPlaceType,
-                data.pickupPlaceCustomText,
-              )}
+              displayValue={
+                <span className="whitespace-pre-wrap">
+                  {data.transportGroups.length > 0
+                    ? formatTransportPickupDropText(data.transportGroups, 'pickup')
+                    : formatPickupDropDisplay(
+                        data.pickupDate,
+                        data.pickupTime,
+                        data.pickupPlaceType,
+                        data.pickupPlaceCustomText,
+                      )}
+                </span>
+              }
+              multiline
               input={
-                <div className="estimate-editable-grid">
-                  <input
-                    autoFocus
-                    type="date"
-                    value={editor?.pickupDate ?? ''}
-                    onChange={(event) => editor?.onPickupDateChange(event.target.value)}
-                    className="estimate-editable-input"
-                  />
-                  <input
-                    type="time"
-                    value={editor?.pickupTime ?? ''}
-                    onChange={(event) => editor?.onPickupTimeChange(event.target.value)}
-                    className="estimate-editable-input"
-                  />
-                  <select
-                    value={editor?.pickupPlaceType ?? 'AIRPORT'}
-                    onChange={(event) => editor?.onPickupPlaceTypeChange(event.target.value as PickupDropPlaceType)}
-                    className="estimate-editable-input"
-                  >
-                    {PICKUP_DROP_PLACE_OPTIONS.map((option) => (
-                      <option key={`pickup-place-${option.value}`} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  {editor?.pickupPlaceType === 'CUSTOM' ? (
-                    <input
-                      type="text"
-                      value={editor?.pickupPlaceCustomText ?? ''}
-                      onChange={(event) => editor?.onPickupPlaceCustomTextChange(event.target.value)}
-                      placeholder="장소 직접 입력"
-                      className="estimate-editable-input"
-                    />
-                  ) : null}
-                </div>
+                <TransportGroupEditor
+                  groups={editor?.transportGroups ?? []}
+                  mode="pickup"
+                  onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
+                  onAdd={() => editor?.onAddTransportGroup()}
+                  onRemove={(index) => editor?.onRemoveTransportGroup(index)}
+                />
               }
               onActivate={setActiveField}
               onDeactivate={() => setActiveField(null)}
@@ -324,48 +473,27 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
               field="dropDate"
               activeField={activeField}
               editor={editor}
-              displayValue={formatPickupDropDisplay(
-                data.dropDate,
-                data.dropTime,
-                data.dropPlaceType,
-                data.dropPlaceCustomText,
-              )}
+              displayValue={
+                <span className="whitespace-pre-wrap">
+                  {data.transportGroups.length > 0
+                    ? formatTransportPickupDropText(data.transportGroups, 'drop')
+                    : formatPickupDropDisplay(
+                        data.dropDate,
+                        data.dropTime,
+                        data.dropPlaceType,
+                        data.dropPlaceCustomText,
+                      )}
+                </span>
+              }
+              multiline
               input={
-                <div className="estimate-editable-grid">
-                  <input
-                    autoFocus
-                    type="date"
-                    value={editor?.dropDate ?? ''}
-                    onChange={(event) => editor?.onDropDateChange(event.target.value)}
-                    className="estimate-editable-input"
-                  />
-                  <input
-                    type="time"
-                    value={editor?.dropTime ?? ''}
-                    onChange={(event) => editor?.onDropTimeChange(event.target.value)}
-                    className="estimate-editable-input"
-                  />
-                  <select
-                    value={editor?.dropPlaceType ?? 'AIRPORT'}
-                    onChange={(event) => editor?.onDropPlaceTypeChange(event.target.value as PickupDropPlaceType)}
-                    className="estimate-editable-input"
-                  >
-                    {PICKUP_DROP_PLACE_OPTIONS.map((option) => (
-                      <option key={`drop-place-${option.value}`} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  {editor?.dropPlaceType === 'CUSTOM' ? (
-                    <input
-                      type="text"
-                      value={editor?.dropPlaceCustomText ?? ''}
-                      onChange={(event) => editor?.onDropPlaceCustomTextChange(event.target.value)}
-                      placeholder="장소 직접 입력"
-                      className="estimate-editable-input"
-                    />
-                  ) : null}
-                </div>
+                <TransportGroupEditor
+                  groups={editor?.transportGroups ?? []}
+                  mode="drop"
+                  onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
+                  onAdd={() => editor?.onAddTransportGroup()}
+                  onRemove={(index) => editor?.onRemoveTransportGroup(index)}
+                />
               }
               onActivate={setActiveField}
               onDeactivate={() => setActiveField(null)}

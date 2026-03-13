@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { VersionSnapshotView } from '../features/plan/components';
 import { usePlanVersionDetail, useSetCurrentPlanVersion } from '../features/plan/hooks';
-import { formatPickupDropDisplay } from '../features/plan/pickup-drop';
+import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
 import { toVariantLabel } from '../features/plan/variant-label';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 
@@ -46,6 +46,30 @@ export function PlanVersionDetailPage(): JSX.Element {
   const pricingBuckets = version.pricing
     ? buildPricingViewBuckets(version.pricing.lines, version.pricing.totalAmountKrw)
     : null;
+  const transportGroups = version.meta?.transportGroups ?? [];
+  const flightInText =
+    transportGroups.length > 0
+      ? formatTransportFlightLines(transportGroups, 'IN')
+      : `IN ${version.meta?.flightInTime ?? '-'} / OUT ${version.meta?.flightOutTime ?? '-'}`;
+  const flightOutText = transportGroups.length > 0 ? formatTransportFlightLines(transportGroups, 'OUT') : '-';
+  const pickupText =
+    transportGroups.length > 0
+      ? formatTransportPickupDropLines(transportGroups, 'pickup')
+      : formatPickupDropDisplay(
+          version.meta?.pickupDate,
+          version.meta?.pickupTime,
+          version.meta?.pickupPlaceType,
+          version.meta?.pickupPlaceCustomText,
+        );
+  const dropText =
+    transportGroups.length > 0
+      ? formatTransportPickupDropLines(transportGroups, 'drop')
+      : formatPickupDropDisplay(
+          version.meta?.dropDate,
+          version.meta?.dropTime,
+          version.meta?.dropPlaceType,
+          version.meta?.dropPlaceCustomText,
+        );
 
   return (
     <section className="grid gap-6">
@@ -121,27 +145,12 @@ export function PlanVersionDetailPage(): JSX.Element {
             </div>
             <div>차량: {version.meta.vehicleType}</div>
             <div>
-              항공권: IN {version.meta.flightInTime} / OUT {version.meta.flightOutTime}
+              항공권 IN: <span className="whitespace-pre-wrap">{flightInText}</span>
             </div>
+            <div className="whitespace-pre-wrap">항공권 OUT: {flightOutText}</div>
             <div>참여 이벤트: {version.meta.events.length > 0 ? version.meta.events.map((item) => item.name).join(', ') : '-'}</div>
-            <div>
-              픽업:{' '}
-              {formatPickupDropDisplay(
-                version.meta.pickupDate,
-                version.meta.pickupTime,
-                version.meta.pickupPlaceType,
-                version.meta.pickupPlaceCustomText,
-              )}
-            </div>
-            <div>
-              드랍:{' '}
-              {formatPickupDropDisplay(
-                version.meta.dropDate,
-                version.meta.dropTime,
-                version.meta.dropPlaceType,
-                version.meta.dropPlaceCustomText,
-              )}
-            </div>
+            <div className="whitespace-pre-wrap">픽업: {pickupText}</div>
+            <div className="whitespace-pre-wrap">드랍: {dropText}</div>
             <div>
               실투어 외 픽업:{' '}
               {formatPickupDropDisplay(

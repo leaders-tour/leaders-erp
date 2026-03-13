@@ -44,6 +44,23 @@ export interface EstimatePricingSnapshot {
   lines: EstimatePricingLineSnapshot[];
 }
 
+export interface EstimateTransportGroup {
+  teamName: string;
+  headcount: number;
+  flightInDate: string;
+  flightInTime: string;
+  flightOutDate: string;
+  flightOutTime: string;
+  pickupDate: string;
+  pickupTime: string;
+  pickupPlaceType: PickupDropPlaceType;
+  pickupPlaceCustomText: string;
+  dropDate: string;
+  dropTime: string;
+  dropPlaceType: PickupDropPlaceType;
+  dropPlaceCustomText: string;
+}
+
 export interface EstimateBuilderDraftSnapshot {
   planTitle: string;
   leaderName: string;
@@ -54,17 +71,7 @@ export interface EstimateBuilderDraftSnapshot {
   travelStartDate: string;
   travelEndDate: string;
   vehicleType: string;
-  flightInTime: string;
-  flightOutTime: string;
-  pickupDate: string;
-  pickupTime: string;
-  dropDate: string;
-  dropTime: string;
-  pickupDropNote: string;
-  pickupPlaceType: PickupDropPlaceType;
-  pickupPlaceCustomText: string;
-  dropPlaceType: PickupDropPlaceType;
-  dropPlaceCustomText: string;
+  transportGroups: EstimateTransportGroup[];
   externalPickupDate: string;
   externalPickupTime: string;
   externalPickupPlaceType: PickupDropPlaceType;
@@ -104,6 +111,7 @@ export interface EstimateDocumentData {
   travelStartDate: string | null;
   travelEndDate: string | null;
   vehicleType: string;
+  transportGroups: EstimateTransportGroup[];
   flightInDate: string | null;
   flightInTime: string | null;
   flightOutDate: string | null;
@@ -171,16 +179,7 @@ export interface EstimatePage1Editor {
   travelEndDate: string;
   vehicleType: string;
   vehicleOptions: readonly string[];
-  flightInTime: string;
-  flightOutTime: string;
-  pickupDate: string;
-  pickupTime: string;
-  pickupPlaceType: PickupDropPlaceType;
-  pickupPlaceCustomText: string;
-  dropDate: string;
-  dropTime: string;
-  dropPlaceType: PickupDropPlaceType;
-  dropPlaceCustomText: string;
+  transportGroups: EstimateTransportGroup[];
   externalPickupDate: string;
   externalPickupTime: string;
   externalPickupPlaceType: PickupDropPlaceType;
@@ -199,16 +198,13 @@ export interface EstimatePage1Editor {
   onTravelStartDateChange: (value: string) => void;
   onTravelEndDateChange: (value: string) => void;
   onVehicleTypeChange: (value: string) => void;
-  onFlightInTimeChange: (value: string) => void;
-  onFlightOutTimeChange: (value: string) => void;
-  onPickupDateChange: (value: string) => void;
-  onPickupTimeChange: (value: string) => void;
-  onPickupPlaceTypeChange: (value: PickupDropPlaceType) => void;
-  onPickupPlaceCustomTextChange: (value: string) => void;
-  onDropDateChange: (value: string) => void;
-  onDropTimeChange: (value: string) => void;
-  onDropPlaceTypeChange: (value: PickupDropPlaceType) => void;
-  onDropPlaceCustomTextChange: (value: string) => void;
+  onTransportGroupFieldChange: <K extends keyof EstimateTransportGroup>(
+    index: number,
+    field: K,
+    value: EstimateTransportGroup[K],
+  ) => void;
+  onAddTransportGroup: () => void;
+  onRemoveTransportGroup: (index: number) => void;
   onExternalPickupDateChange: (value: string) => void;
   onExternalPickupTimeChange: (value: string) => void;
   onExternalPickupPlaceTypeChange: (value: PickupDropPlaceType) => void;

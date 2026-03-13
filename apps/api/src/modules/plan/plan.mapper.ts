@@ -5,7 +5,13 @@ export const planVersionInclude = {
   childVersions: {
     orderBy: { versionNumber: 'asc' },
   },
-  meta: true,
+  meta: {
+    include: {
+      transportGroups: {
+        orderBy: { orderIndex: 'asc' },
+      },
+    },
+  },
   pricing: {
     include: {
       securityDepositEvent: true,

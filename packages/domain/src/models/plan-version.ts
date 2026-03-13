@@ -55,6 +55,27 @@ export interface PlanVersion {
       dayIndex: number;
       lodgingCount: number;
     }>;
+    transportGroups: Array<{
+      id: string;
+      planVersionMetaId: string;
+      orderIndex: number;
+      teamName: string;
+      headcount: number;
+      flightInDate: Date;
+      flightInTime: string;
+      flightOutDate: Date;
+      flightOutTime: string;
+      pickupDate: Date | null;
+      pickupTime: string | null;
+      pickupPlaceType: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;
+      pickupPlaceCustomText: string | null;
+      dropDate: Date | null;
+      dropTime: string | null;
+      dropPlaceType: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;
+      dropPlaceCustomText: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }>;
     remark: string | null;
     createdAt: Date;
     updatedAt: Date;

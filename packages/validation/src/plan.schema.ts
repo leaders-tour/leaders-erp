@@ -30,6 +30,48 @@ export const manualAdjustmentInputSchema = z.object({
 });
 
 const manualDepositInputSchema = z.number().int().min(0).max(1_000_000_000);
+const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+
+export const planVersionTransportGroupInputSchema = z
+  .object({
+    teamName: z.string().min(1).max(100),
+    headcount: z.number().int().min(1).max(100),
+    flightInDate: dateTimeInputSchema,
+    flightInTime: timeSchema,
+    flightOutDate: dateTimeInputSchema,
+    flightOutTime: timeSchema,
+    pickupDate: dateTimeInputSchema.optional(),
+    pickupTime: timeSchema.optional(),
+    pickupPlaceType: z.enum(placeTypes).optional(),
+    pickupPlaceCustomText: z.string().max(100).optional(),
+    dropDate: dateTimeInputSchema.optional(),
+    dropTime: timeSchema.optional(),
+    dropPlaceType: z.enum(placeTypes).optional(),
+    dropPlaceCustomText: z.string().max(100).optional(),
+  })
+  .superRefine((value, ctx) => {
+    const customPlaceFields = [
+      ['pickupPlaceType', 'pickupPlaceCustomText'],
+      ['dropPlaceType', 'dropPlaceCustomText'],
+    ] as const;
+
+    customPlaceFields.forEach(([typeKey, textKey]) => {
+      if (value[typeKey] !== 'CUSTOM') {
+        return;
+      }
+
+      const text = value[textKey]?.trim() ?? '';
+      if (text.length > 0) {
+        return;
+      }
+
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${textKey} is required when ${typeKey} is CUSTOM`,
+        path: [textKey],
+      });
+    });
+  });
 
 export const planVersionMetaInputSchema = z
   .object({
@@ -40,23 +82,23 @@ export const planVersionMetaInputSchema = z
     headcountMale: z.number().int().min(0).max(100),
     headcountFemale: z.number().int().min(0).max(100),
     vehicleType: z.enum(vehicleTypes),
-    flightInTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-    flightOutTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+    flightInTime: timeSchema,
+    flightOutTime: timeSchema,
     pickupDate: dateTimeInputSchema.optional(),
-    pickupTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+    pickupTime: timeSchema.optional(),
     dropDate: dateTimeInputSchema.optional(),
-    dropTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+    dropTime: timeSchema.optional(),
     pickupDropNote: z.string().max(1000).optional(),
     pickupPlaceType: z.enum(placeTypes).optional(),
     pickupPlaceCustomText: z.string().max(100).optional(),
     dropPlaceType: z.enum(placeTypes).optional(),
     dropPlaceCustomText: z.string().max(100).optional(),
     externalPickupDate: dateTimeInputSchema.optional(),
-    externalPickupTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+    externalPickupTime: timeSchema.optional(),
     externalPickupPlaceType: z.enum(placeTypes).optional(),
     externalPickupPlaceCustomText: z.string().max(100).optional(),
     externalDropDate: dateTimeInputSchema.optional(),
-    externalDropTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+    externalDropTime: timeSchema.optional(),
     externalDropPlaceType: z.enum(placeTypes).optional(),
     externalDropPlaceCustomText: z.string().max(100).optional(),
     externalPickupDropNote: z.string().max(1000).optional(),
@@ -65,6 +107,7 @@ export const planVersionMetaInputSchema = z
     rentalItemsText: z.string().max(10000),
     eventIds: z.array(z.string().min(1)).default([]),
     extraLodgings: z.array(extraLodgingInputSchema).default([]),
+    transportGroups: z.array(planVersionTransportGroupInputSchema).min(1),
     remark: z.string().max(2000).optional(),
   })
   .superRefine((value, ctx) => {
@@ -90,6 +133,15 @@ export const planVersionMetaInputSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'headcountMale + headcountFemale must equal headcountTotal',
+      });
+    }
+
+    const transportHeadcountTotal = value.transportGroups.reduce((sum, item) => sum + item.headcount, 0);
+    if (transportHeadcountTotal !== value.headcountTotal) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'transportGroups headcount must equal headcountTotal',
+        path: ['transportGroups'],
       });
     }
 
@@ -246,6 +298,7 @@ export type PlanUpdateInput = z.infer<typeof planUpdateSchema>;
 export type PlanVersionCreateInput = z.infer<typeof planVersionCreateSchema>;
 export type PlanStopNestedInput = z.infer<typeof planStopNestedSchema>;
 export type PlanVersionMetaInput = z.infer<typeof planVersionMetaInputSchema>;
+export type PlanVersionTransportGroupInput = z.infer<typeof planVersionTransportGroupInputSchema>;
 export type ExtraLodgingInput = z.infer<typeof extraLodgingInputSchema>;
 export type ManualAdjustmentInput = z.infer<typeof manualAdjustmentInputSchema>;
 export type PlanPricingPreviewInput = z.infer<typeof planPricingPreviewSchema>;
