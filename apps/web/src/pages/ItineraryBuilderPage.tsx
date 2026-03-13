@@ -1163,6 +1163,103 @@ export function ItineraryBuilderPage(): JSX.Element {
     elements.forEach((element) => autoResizeTextarea(element));
   }, [planRows]);
 
+  useEffect(() => {
+    if (!hasValidContext || createdId) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
+      if (
+        !regionId &&
+        !travelStartDate &&
+        !travelEndDate &&
+        totalDays === 6 &&
+        headcountTotal === 6 &&
+        headcountMale === 6 &&
+        vehicleType === '스타렉스' &&
+        transportGroups.length === 1 &&
+        !transportGroups[0]?.flightInDate &&
+        !transportGroups[0]?.flightOutDate &&
+        transportGroups[0]?.flightInTime === '10:25' &&
+        transportGroups[0]?.flightOutTime === '18:20' &&
+        !transportGroups[0]?.pickupDate &&
+        !transportGroups[0]?.pickupTime &&
+        transportGroups[0]?.pickupPlaceType === DEFAULT_PICKUP_DROP_PLACE_TYPE &&
+        !transportGroups[0]?.pickupPlaceCustomText &&
+        !transportGroups[0]?.dropDate &&
+        !transportGroups[0]?.dropTime &&
+        transportGroups[0]?.dropPlaceType === DEFAULT_PICKUP_DROP_PLACE_TYPE &&
+        !transportGroups[0]?.dropPlaceCustomText &&
+        !externalPickupDate &&
+        !externalPickupTime &&
+        externalPickupPlaceType === DEFAULT_PICKUP_DROP_PLACE_TYPE &&
+        !externalPickupPlaceCustomText &&
+        !externalDropDate &&
+        !externalDropTime &&
+        externalDropPlaceType === DEFAULT_PICKUP_DROP_PLACE_TYPE &&
+        !externalDropPlaceCustomText &&
+        !specialNote.trim() &&
+        includeRentalItems &&
+        rentalItemsText.trim() === buildDefaultRentalItems(headcountTotal) &&
+        eventIds.length === 0 &&
+        !remark.trim() &&
+        !startLocationId &&
+        !startLocationVersionId &&
+        selectedRoute.length === 0 &&
+        planRows.length === 0 &&
+        extraLodgingCounts.every((count) => count === 0) &&
+        manualAdjustments.length === 0 &&
+        !manualDepositInput.trim() &&
+        !routePresetTemplateId &&
+        !changeNote.trim() &&
+        (isVersionMode || planTitle.trim() === '신규 여행 일정')
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [
+    changeNote,
+    createdId,
+    eventIds,
+    externalDropDate,
+    externalDropPlaceCustomText,
+    externalDropPlaceType,
+    externalDropTime,
+    externalPickupDate,
+    externalPickupPlaceCustomText,
+    externalPickupPlaceType,
+    externalPickupTime,
+    extraLodgingCounts,
+    hasValidContext,
+    headcountMale,
+    headcountTotal,
+    includeRentalItems,
+    isVersionMode,
+    manualAdjustments,
+    manualDepositInput,
+    planRows.length,
+    planTitle,
+    regionId,
+    remark,
+    rentalItemsText,
+    routePresetTemplateId,
+    selectedRoute.length,
+    specialNote,
+    startLocationId,
+    startLocationVersionId,
+    totalDays,
+    transportGroups,
+    travelEndDate,
+    travelStartDate,
+    vehicleType,
+  ]);
+
   const hasMissingSegment = useMemo(() => {
     return selectedRoute.some((toStop, index) => {
       const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
