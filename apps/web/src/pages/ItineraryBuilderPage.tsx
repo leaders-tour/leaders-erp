@@ -1,6 +1,6 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DatePickerModal } from '../components/date-picker/DatePickerModal';
 import { formatDateTriggerLabel, getCurrentLocalYear } from '../components/date-picker/date-picker-utils';
@@ -209,6 +209,22 @@ interface PlaceFieldProps {
   customText: string;
   onPlaceTypeChange: (value: PickupDropPlaceType) => void;
   onCustomTextChange: (value: string) => void;
+}
+
+type DatePickerTarget =
+  | { kind: 'travelStartDate'; anchorEl: HTMLButtonElement }
+  | { kind: 'travelEndDate'; anchorEl: HTMLButtonElement }
+  | { kind: 'flightInDate'; index: number; anchorEl: HTMLButtonElement }
+  | { kind: 'flightOutDate'; index: number; anchorEl: HTMLButtonElement }
+  | { kind: 'pickupDate'; index: number; anchorEl: HTMLButtonElement }
+  | { kind: 'dropDate'; index: number; anchorEl: HTMLButtonElement }
+  | { kind: 'externalPickupDate'; anchorEl: HTMLButtonElement }
+  | { kind: 'externalDropDate'; anchorEl: HTMLButtonElement };
+
+interface DateInputTriggerProps {
+  value: string;
+  placeholder?: string;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
 }
 
 function arePlanRowsEqual(left: PlanRow[], right: PlanRow[]): boolean {
@@ -770,6 +786,24 @@ function PlaceField({ label, placeType, customText, onPlaceTypeChange, onCustomT
   );
 }
 
+function DateInputTrigger({
+  value,
+  placeholder = '날짜를 선택하세요',
+  onClick,
+}: DateInputTriggerProps): JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-10 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm transition hover:bg-slate-50"
+      aria-haspopup="dialog"
+    >
+      <span className={value ? 'text-slate-900' : 'text-slate-400'}>{formatDateTriggerLabel(value) || placeholder}</span>
+      <span className="text-xs text-slate-500">열기</span>
+    </button>
+  );
+}
+
 export function ItineraryBuilderPage(): JSX.Element {
   const { employee } = useAuth();
   const navigate = useNavigate();
@@ -841,7 +875,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [homeSelectedTemplateId, setHomeSelectedTemplateId] = useState<string>('');
   const [homeEntryMode, setHomeEntryMode] = useState<'new' | 'existing' | null>(null);
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState<boolean>(false);
-  const [flightInDatePickerIndex, setFlightInDatePickerIndex] = useState<number | null>(null);
+  const [datePickerTarget, setDatePickerTarget] = useState<DatePickerTarget | null>(null);
   const [homeNewUserName, setHomeNewUserName] = useState<string>('');
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
 
@@ -950,8 +984,55 @@ export function ItineraryBuilderPage(): JSX.Element {
     () => locations.filter((location) => location.regionId === regionId),
     [locations, regionId],
   );
-  const activeFlightInDateValue =
-    flightInDatePickerIndex !== null ? (transportGroups[flightInDatePickerIndex]?.flightInDate ?? '') : '';
+  const activeDatePickerAnchorEl = datePickerTarget?.anchorEl ?? null;
+  const activeDatePickerValue = useMemo(() => {
+    if (!datePickerTarget) {
+      return '';
+    }
+
+    switch (datePickerTarget.kind) {
+      case 'travelStartDate':
+        return travelStartDate;
+      case 'travelEndDate':
+        return travelEndDate;
+      case 'flightInDate':
+        return transportGroups[datePickerTarget.index]?.flightInDate ?? '';
+      case 'flightOutDate':
+        return transportGroups[datePickerTarget.index]?.flightOutDate ?? '';
+      case 'pickupDate':
+        return transportGroups[datePickerTarget.index]?.pickupDate ?? '';
+      case 'dropDate':
+        return transportGroups[datePickerTarget.index]?.dropDate ?? '';
+      case 'externalPickupDate':
+        return externalPickupDate;
+      case 'externalDropDate':
+        return externalDropDate;
+    }
+  }, [datePickerTarget, externalDropDate, externalPickupDate, travelEndDate, travelStartDate, transportGroups]);
+  const activeDatePickerTitle = useMemo(() => {
+    if (!datePickerTarget) {
+      return '날짜 선택';
+    }
+
+    switch (datePickerTarget.kind) {
+      case 'travelStartDate':
+        return '여행 시작일 선택';
+      case 'travelEndDate':
+        return '여행 종료일 선택';
+      case 'flightInDate':
+        return '항공권 IN 날짜 선택';
+      case 'flightOutDate':
+        return '항공권 OUT 날짜 선택';
+      case 'pickupDate':
+        return '픽업 날짜 선택';
+      case 'dropDate':
+        return '드랍 날짜 선택';
+      case 'externalPickupDate':
+        return '실투어 외 픽업 날짜 선택';
+      case 'externalDropDate':
+        return '실투어 외 드랍 날짜 선택';
+    }
+  }, [datePickerTarget]);
 
   const filteredSegments = useMemo(
     () => segments.filter((segment) => segment.regionId === regionId),
@@ -1126,6 +1207,39 @@ export function ItineraryBuilderPage(): JSX.Element {
         return nextGroup;
       }),
     );
+  };
+
+  const handleDatePickerChange = (nextIsoDate: string): void => {
+    if (!datePickerTarget) {
+      return;
+    }
+
+    switch (datePickerTarget.kind) {
+      case 'travelStartDate':
+        setTravelStartDate(nextIsoDate);
+        return;
+      case 'travelEndDate':
+        setTravelEndDate(nextIsoDate);
+        return;
+      case 'flightInDate':
+        updateTransportGroup(datePickerTarget.index, 'flightInDate', nextIsoDate);
+        return;
+      case 'flightOutDate':
+        updateTransportGroup(datePickerTarget.index, 'flightOutDate', nextIsoDate);
+        return;
+      case 'pickupDate':
+        updateTransportGroup(datePickerTarget.index, 'pickupDate', nextIsoDate);
+        return;
+      case 'dropDate':
+        updateTransportGroup(datePickerTarget.index, 'dropDate', nextIsoDate);
+        return;
+      case 'externalPickupDate':
+        setExternalPickupDate(nextIsoDate);
+        return;
+      case 'externalDropDate':
+        setExternalDropDate(nextIsoDate);
+        return;
+    }
   };
 
   useEffect(() => {
@@ -2377,17 +2491,15 @@ export function ItineraryBuilderPage(): JSX.Element {
               <div className="grid gap-2 text-sm">
                 <span className="text-xs text-slate-600">여행 기간</span>
                 <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="date"
+                  <DateInputTrigger
                     value={travelStartDate}
-                    onChange={(event) => setTravelStartDate(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    placeholder="시작일 선택"
+                    onClick={(event) => setDatePickerTarget({ kind: 'travelStartDate', anchorEl: event.currentTarget })}
                   />
-                  <input
-                    type="date"
+                  <DateInputTrigger
                     value={travelEndDate}
-                    onChange={(event) => setTravelEndDate(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    placeholder="종료일 선택"
+                    onClick={(event) => setDatePickerTarget({ kind: 'travelEndDate', anchorEl: event.currentTarget })}
                   />
                 </div>
               </div>
@@ -2501,17 +2613,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                           <div className="grid gap-2">
                             <span className="text-xs text-slate-600">항공권 IN</span>
                             <div className="grid gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setFlightInDatePickerIndex(index)}
-                                className="flex min-h-10 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm transition hover:bg-slate-50"
-                                aria-haspopup="dialog"
-                              >
-                                <span className={group.flightInDate ? 'text-slate-900' : 'text-slate-400'}>
-                                  {formatDateTriggerLabel(group.flightInDate) || '날짜를 선택하세요'}
-                                </span>
-                                <span className="text-xs text-slate-500">열기</span>
-                              </button>
+                              <DateInputTrigger
+                                value={group.flightInDate}
+                                onClick={(event) =>
+                                  setDatePickerTarget({ kind: 'flightInDate', index, anchorEl: event.currentTarget })
+                                }
+                              />
                               <input
                                 type="time"
                                 value={group.flightInTime}
@@ -2540,11 +2647,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                           <div className="grid gap-2">
                             <span className="text-xs text-slate-600">항공권 OUT</span>
                             <div className="grid gap-2">
-                              <input
-                                type="date"
+                              <DateInputTrigger
                                 value={group.flightOutDate}
-                                onChange={(event) => updateTransportGroup(index, 'flightOutDate', event.target.value)}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                onClick={(event) =>
+                                  setDatePickerTarget({ kind: 'flightOutDate', index, anchorEl: event.currentTarget })
+                                }
                               />
                               <input
                                 type="time"
@@ -2576,11 +2683,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                           <div className="grid gap-2">
                             <span className="text-xs text-slate-600">픽업 날짜 및 시간</span>
                             <div className="grid gap-2">
-                              <input
-                                type="date"
+                              <DateInputTrigger
                                 value={group.pickupDate}
-                                onChange={(event) => updateTransportGroup(index, 'pickupDate', event.target.value)}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                onClick={(event) =>
+                                  setDatePickerTarget({ kind: 'pickupDate', index, anchorEl: event.currentTarget })
+                                }
                               />
                               <input
                                 type="time"
@@ -2617,11 +2724,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                           <div className="grid gap-2">
                             <span className="text-xs text-slate-600">드랍 날짜 및 시간</span>
                             <div className="grid gap-2">
-                              <input
-                                type="date"
+                              <DateInputTrigger
                                 value={group.dropDate}
-                                onChange={(event) => updateTransportGroup(index, 'dropDate', event.target.value)}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                onClick={(event) =>
+                                  setDatePickerTarget({ kind: 'dropDate', index, anchorEl: event.currentTarget })
+                                }
                               />
                               <input
                                 type="time"
@@ -2665,11 +2772,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                 <span className="text-xs text-slate-600">실투어 외 픽업 / 드랍 날짜 및 시간</span>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="grid gap-2">
-                    <input
-                      type="date"
+                    <DateInputTrigger
                       value={externalPickupDate}
-                      onChange={(event) => setExternalPickupDate(event.target.value)}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                      placeholder="실투어 외 픽업 날짜 선택"
+                      onClick={(event) =>
+                        setDatePickerTarget({ kind: 'externalPickupDate', anchorEl: event.currentTarget })
+                      }
                     />
                     <input
                       type="time"
@@ -2695,11 +2803,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                     </div>
                   </div>
                   <div className="grid gap-2">
-                    <input
-                      type="date"
+                    <DateInputTrigger
                       value={externalDropDate}
-                      onChange={(event) => setExternalDropDate(event.target.value)}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                      placeholder="실투어 외 드랍 날짜 선택"
+                      onClick={(event) =>
+                        setDatePickerTarget({ kind: 'externalDropDate', anchorEl: event.currentTarget })
+                      }
                     />
                     <input
                       type="time"
@@ -3647,18 +3756,13 @@ export function ItineraryBuilderPage(): JSX.Element {
         ) : null}
 
         <DatePickerModal
-          open={flightInDatePickerIndex !== null}
-          value={activeFlightInDateValue}
+          open={datePickerTarget !== null}
+          value={activeDatePickerValue}
+          anchorEl={activeDatePickerAnchorEl}
           defaultYear={getCurrentLocalYear()}
-          title="항공권 IN 날짜 선택"
-          onClose={() => setFlightInDatePickerIndex(null)}
-          onChange={(nextIsoDate) => {
-            if (flightInDatePickerIndex === null) {
-              return;
-            }
-
-            updateTransportGroup(flightInDatePickerIndex, 'flightInDate', nextIsoDate);
-          }}
+          title={activeDatePickerTitle}
+          onClose={() => setDatePickerTarget(null)}
+          onChange={handleDatePickerChange}
         />
       </div>
     </div>
