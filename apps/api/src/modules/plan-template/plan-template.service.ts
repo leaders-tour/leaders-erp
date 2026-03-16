@@ -21,7 +21,7 @@ export class PlanTemplateService {
   }
 
   private async normalizePlanStopsWithLocationReferences<
-    T extends { dayIndex: number; segmentId?: string; locationId?: string; locationVersionId?: string },
+    T extends { dayIndex: number; segmentId?: string; segmentVersionId?: string; locationId?: string; locationVersionId?: string },
   >(
     planStops: T[],
   ): Promise<T[]> {
@@ -74,26 +74,62 @@ export class PlanTemplateService {
           .filter((value): value is string => typeof value === 'string' && value.length > 0),
       ),
     );
-    if (segmentIds.length === 0) {
+    const segmentVersionIds = Array.from(
+      new Set(
+        normalizedStops
+          .map((planStop) => planStop.segmentVersionId)
+          .filter((value): value is string => typeof value === 'string' && value.length > 0),
+      ),
+    );
+    if (segmentIds.length === 0 && segmentVersionIds.length === 0) {
       return normalizedStops;
     }
 
-    const segments = await this.prisma.segment.findMany({
-      where: { id: { in: segmentIds } },
-      select: { id: true, fromLocationId: true, toLocationId: true },
-    });
+    const segments =
+      segmentIds.length > 0
+        ? await this.prisma.segment.findMany({
+            where: { id: { in: segmentIds } },
+            select: { id: true, fromLocationId: true, toLocationId: true },
+          })
+        : [];
     if (segments.length !== segmentIds.length) {
       throw new DomainError('VALIDATION_FAILED', 'One or more segmentId values are invalid');
     }
 
     const segmentById = new Map(segments.map((segment) => [segment.id, segment]));
+    const segmentVersions =
+      segmentVersionIds.length > 0
+        ? await this.prisma.segmentVersion.findMany({
+            where: { id: { in: segmentVersionIds } },
+            select: { id: true, segmentId: true },
+          })
+        : [];
+    if (segmentVersions.length !== segmentVersionIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'One or more segmentVersionId values are invalid');
+    }
+    const segmentVersionById = new Map(segmentVersions.map((segmentVersion) => [segmentVersion.id, segmentVersion]));
     const orderedStops = normalizedStops.slice().sort((a, b) => a.dayIndex - b.dayIndex);
     orderedStops.forEach((planStop, index) => {
+      if (planStop.segmentVersionId) {
+        if (!planStop.segmentId) {
+          throw new DomainError('VALIDATION_FAILED', 'segmentVersionId requires segmentId');
+        }
+        const segmentVersion = segmentVersionById.get(planStop.segmentVersionId);
+        if (!segmentVersion) {
+          throw new DomainError('VALIDATION_FAILED', 'One or more segmentVersionId values are invalid');
+        }
+        if (segmentVersion.segmentId !== planStop.segmentId) {
+          throw new DomainError('VALIDATION_FAILED', 'segmentVersionId must belong to segmentId');
+        }
+      }
       if (!planStop.segmentId) {
         return;
       }
       if (index === 0) {
         throw new DomainError('VALIDATION_FAILED', 'segmentId is not allowed on the first stop');
+      }
+      if (planStop.segmentVersionId && index === 0) {
+        throw new DomainError('VALIDATION_FAILED', 'segmentVersionId is not allowed on the first stop');
       }
 
       const previousStop = orderedStops[index - 1];

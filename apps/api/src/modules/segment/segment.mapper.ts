@@ -4,6 +4,7 @@ export const segmentInclude = {
   region: true,
   fromLocation: true,
   toLocation: true,
+  defaultVersion: true,
   scheduleTimeBlocks: {
     include: {
       activities: {
@@ -11,5 +12,21 @@ export const segmentInclude = {
       },
     },
     orderBy: { orderIndex: 'asc' },
+  },
+  versions: {
+    include: {
+      viaLocations: {
+        orderBy: { orderIndex: 'asc' },
+      },
+      scheduleTimeBlocks: {
+        include: {
+          activities: {
+            orderBy: { orderIndex: 'asc' },
+          },
+        },
+        orderBy: { orderIndex: 'asc' },
+      },
+    },
+    orderBy: { sortOrder: 'asc' },
   },
 } satisfies Prisma.SegmentInclude;

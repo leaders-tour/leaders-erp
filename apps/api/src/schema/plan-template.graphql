@@ -17,6 +17,7 @@ type PlanTemplateStop {
   planTemplateId: String!
   dayIndex: Int!
   segmentId: String
+  segmentVersionId: String
   locationId: String
   locationVersionId: String
   dateCellText: String!
@@ -32,6 +33,7 @@ type PlanTemplateStop {
 input PlanTemplateStopNestedInput {
   dayIndex: Int!
   segmentId: String
+  segmentVersionId: String
   locationId: String
   locationVersionId: String
   dateCellText: String!

@@ -1,5 +1,6 @@
 export interface TemplatePlanRow {
   segmentId?: string;
+  segmentVersionId?: string;
   locationId?: string;
   locationVersionId?: string;
   dateCellText: string;

@@ -38,7 +38,14 @@ import {
   normalizePickupDropCustomText,
   type PickupDropPlaceType,
 } from '../features/plan/pickup-drop';
-import { formatRouteDestinationCellText } from '../features/plan-template/route-autofill';
+import {
+  findSegment,
+  formatRouteDestinationCellText,
+  formatSegmentVersionLabel,
+  getDefaultSegmentVersionId,
+  getSegmentVersions,
+  resolveSegmentVersion,
+} from '../features/plan-template/route-autofill';
 import { ManualAdjustmentsModal, type ManualAdjustmentDraftRow } from '../features/pricing/components/ManualAdjustmentsModal';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 import { MealOption, VariantType } from '../generated/graphql';
@@ -122,8 +129,10 @@ interface SegmentRow {
   regionId: string;
   fromLocationId: string;
   toLocationId: string;
+  defaultVersionId?: string | null;
   averageDistanceKm: number;
   averageTravelHours: number;
+  isLongDistance?: boolean;
   scheduleTimeBlocks: Array<{
     id: string;
     startTime: string;
@@ -132,6 +141,32 @@ interface SegmentRow {
       id: string;
       description: string;
       orderIndex: number;
+    }>;
+  }>;
+  versions?: Array<{
+    id: string;
+    segmentId: string;
+    name: string;
+    kind: 'DIRECT' | 'VIA';
+    averageDistanceKm: number;
+    averageTravelHours: number;
+    isLongDistance: boolean;
+    sortOrder: number;
+    isDefault: boolean;
+    viaLocations: Array<{
+      id: string;
+      locationId: string;
+      orderIndex: number;
+    }>;
+    scheduleTimeBlocks: Array<{
+      id: string;
+      startTime: string;
+      orderIndex: number;
+      activities: Array<{
+        id: string;
+        description: string;
+        orderIndex: number;
+      }>;
     }>;
   }>;
 }
@@ -156,6 +191,7 @@ interface EventOptionRow {
 
 interface PlanRow {
   segmentId?: string;
+  segmentVersionId?: string;
   locationId?: string;
   locationVersionId?: string;
   lodgingSelectionLevel: LodgingSelectionLevel;
@@ -210,12 +246,15 @@ interface PricingPreviewRow {
 interface RouteSelection {
   locationId: string;
   locationVersionId: string;
+  segmentId?: string;
+  segmentVersionId?: string;
 }
 
 interface PlanTemplateStopRow {
   id: string;
   dayIndex: number;
   segmentId: string | null;
+  segmentVersionId: string | null;
   locationId: string | null;
   locationVersionId: string | null;
   lodgingSelectionLevel?: LodgingSelectionLevel | null;
@@ -313,6 +352,7 @@ function arePlanRowsEqual(left: PlanRow[], right: PlanRow[]): boolean {
 
     return (
       row.segmentId === other.segmentId &&
+      row.segmentVersionId === other.segmentVersionId &&
       row.locationId === other.locationId &&
       row.locationVersionId === other.locationVersionId &&
       row.lodgingSelectionLevel === other.lodgingSelectionLevel &&
@@ -433,8 +473,10 @@ const SEGMENTS_QUERY = gql`
       regionId
       fromLocationId
       toLocationId
+      defaultVersionId
       averageDistanceKm
       averageTravelHours
+      isLongDistance
       scheduleTimeBlocks {
         id
         startTime
@@ -443,6 +485,32 @@ const SEGMENTS_QUERY = gql`
           id
           description
           orderIndex
+        }
+      }
+      versions {
+        id
+        segmentId
+        name
+        kind
+        averageDistanceKm
+        averageTravelHours
+        isLongDistance
+        sortOrder
+        isDefault
+        viaLocations {
+          id
+          locationId
+          orderIndex
+        }
+        scheduleTimeBlocks {
+          id
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
         }
       }
     }
@@ -463,6 +531,7 @@ const PLAN_TEMPLATES_QUERY = gql`
         id
         dayIndex
         segmentId
+        segmentVersionId
         locationId
         locationVersionId
         dateCellText
@@ -490,6 +559,7 @@ const PLAN_TEMPLATE_QUERY = gql`
         id
         dayIndex
         segmentId
+        segmentVersionId
         locationId
         locationVersionId
         dateCellText
@@ -817,12 +887,25 @@ function toScheduleCell(version: LocationVersionRow | undefined): string {
     .join('\n');
 }
 
-function toSegmentTimeCell(segment: SegmentRow | undefined): string {
-  if (!segment || segment.scheduleTimeBlocks.length === 0) {
+function toSegmentTimeCell(
+  segmentVersion:
+    | {
+        scheduleTimeBlocks: Array<{
+          startTime: string;
+          orderIndex: number;
+          activities: Array<{
+            description: string;
+            orderIndex: number;
+          }>;
+        }>;
+      }
+    | undefined,
+): string {
+  if (!segmentVersion || segmentVersion.scheduleTimeBlocks.length === 0) {
     return '';
   }
 
-  return segment.scheduleTimeBlocks
+  return segmentVersion.scheduleTimeBlocks
     .slice()
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .flatMap((timeBlock) => {
@@ -835,12 +918,25 @@ function toSegmentTimeCell(segment: SegmentRow | undefined): string {
     .join('\n');
 }
 
-function toSegmentScheduleCell(segment: SegmentRow | undefined): string {
-  if (!segment || segment.scheduleTimeBlocks.length === 0) {
+function toSegmentScheduleCell(
+  segmentVersion:
+    | {
+        scheduleTimeBlocks: Array<{
+          startTime: string;
+          orderIndex: number;
+          activities: Array<{
+            description: string;
+            orderIndex: number;
+          }>;
+        }>;
+      }
+    | undefined,
+): string {
+  if (!segmentVersion || segmentVersion.scheduleTimeBlocks.length === 0) {
     return '';
   }
 
-  return segment.scheduleTimeBlocks
+  return segmentVersion.scheduleTimeBlocks
     .slice()
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .flatMap((timeBlock) => {
@@ -877,6 +973,7 @@ function sortTemplateStops(stops: PlanTemplateStopRow[]): PlanTemplateStopRow[] 
 
 function buildDefaultLodgingRow(input: {
   segmentId?: string;
+  segmentVersionId?: string;
   locationId?: string;
   locationVersionId?: string;
   dateCellText: string;
@@ -889,6 +986,7 @@ function buildDefaultLodgingRow(input: {
 }): PlanRow {
   return {
     segmentId: input.segmentId,
+    segmentVersionId: input.segmentVersionId,
     locationId: input.locationId,
     locationVersionId: input.locationVersionId,
     lodgingSelectionLevel: 'LV3',
@@ -1328,23 +1426,25 @@ export function ItineraryBuilderPage(): JSX.Element {
     return orderedStops.map((toStop, index) => {
       const dayIndex = index + 1;
       const fromId = index === 0 ? '' : orderedStops[index - 1]?.locationId ?? '';
-      const segment = filteredSegments.find((item) => item.fromLocationId === fromId && item.toLocationId === toStop.locationId);
+      const segment = index === 0 ? undefined : findSegment(filteredSegments, fromId, toStop.locationId);
+      const segmentVersion = index === 0 ? undefined : resolveSegmentVersion(segment, toStop.segmentVersionId);
       const toLocation = locationById.get(toStop.locationId);
       const toVersion = locationVersionById.get(toStop.locationVersionId);
       const destinationCellText = formatRouteDestinationCellText({
         locationName: toLocation?.name ?? toStop.locationId,
-        averageTravelHours: segment?.averageTravelHours,
-        averageDistanceKm: segment?.averageDistanceKm,
+        averageTravelHours: segmentVersion?.averageTravelHours,
+        averageDistanceKm: segmentVersion?.averageDistanceKm,
       });
 
       return buildDefaultLodgingRow({
         segmentId: segment?.id,
+        segmentVersionId: segmentVersion?.id,
         locationId: toStop.locationId,
         locationVersionId: toStop.locationVersionId,
         dateCellText: `${dayIndex}일차`,
         destinationCellText,
-        timeCellText: dayIndex === 1 ? toTimeCell(toVersion) : toSegmentTimeCell(segment),
-        scheduleCellText: dayIndex === 1 ? toScheduleCell(toVersion) : toSegmentScheduleCell(segment),
+        timeCellText: dayIndex === 1 ? toTimeCell(toVersion) : toSegmentTimeCell(segmentVersion),
+        scheduleCellText: dayIndex === 1 ? toScheduleCell(toVersion) : toSegmentScheduleCell(segmentVersion),
         mealCellText: toMealCell(toVersion),
         baseLodgingName: toLodgingCell(toVersion),
       });
@@ -1716,6 +1816,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     () =>
       planRows.map((row) => ({
         segmentId: row.segmentId,
+        segmentVersionId: row.segmentVersionId,
         locationId: row.locationId,
         locationVersionId: row.locationVersionId,
         dateCellText: row.dateCellText,
@@ -1746,6 +1847,8 @@ export function ItineraryBuilderPage(): JSX.Element {
     setStartLocationVersionId(firstStop.locationVersionId ?? '');
     setSelectedRoute(
       orderedStops.slice(1).map((stop) => ({
+        segmentId: stop.segmentId ?? undefined,
+        segmentVersionId: stop.segmentVersionId ?? undefined,
         locationId: stop.locationId ?? '',
         locationVersionId: stop.locationVersionId ?? '',
       })),
@@ -1754,6 +1857,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       orderedStops.map((stop) =>
         buildDefaultLodgingRow({
           segmentId: stop.segmentId ?? undefined,
+          segmentVersionId: stop.segmentVersionId ?? undefined,
           locationId: stop.locationId ?? undefined,
           locationVersionId: stop.locationVersionId ?? undefined,
           dateCellText: stop.dateCellText,
@@ -3372,6 +3476,14 @@ export function ItineraryBuilderPage(): JSX.Element {
 
               {selectedRoute.map((stop, index) => (
                 <div key={`selected-${index + 1}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                  {(() => {
+                    const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
+                    const segment = findSegment(filteredSegments, fromId, stop.locationId);
+                    const versions = getSegmentVersions(segment);
+                    const selectedVersion = resolveSegmentVersion(segment, stop.segmentVersionId);
+
+                    return (
+                      <>
                   <div className="text-sm font-medium">{index + 2}일차</div>
                   <div className="mt-1 text-slate-700">
                     {locationById.get(stop.locationId)?.name ?? stop.locationId}
@@ -3399,6 +3511,42 @@ export function ItineraryBuilderPage(): JSX.Element {
                       </button>
                     ))}
                   </div>
+                  {versions.length > 1 ? (
+                    <div className="mt-3 grid gap-2">
+                      <div className="text-xs text-slate-500">이동 버전</div>
+                      <div className="flex flex-wrap gap-2">
+                        {versions.map((version) => (
+                          <button
+                            key={`route-segment-version-${index}-${version.id}`}
+                            type="button"
+                            onClick={() =>
+                              setSelectedRoute((prev) =>
+                                prev.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        segmentId: segment?.id,
+                                        segmentVersionId: version.id,
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className={`rounded-lg border px-3 py-1 text-xs ${
+                              selectedVersion?.id === version.id
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            {formatSegmentVersionLabel(version, locationById)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                      </>
+                    );
+                  })()}
                 </div>
               ))}
 
@@ -3408,20 +3556,26 @@ export function ItineraryBuilderPage(): JSX.Element {
                   <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
                     {nextOptions.map((location) => (
                       <button
-                        key={location.id}
-                        type="button"
-                        onClick={() =>
-                          setSelectedRoute((prev) => [
-                            ...prev,
-                            {
-                              locationId: location.id,
-                              locationVersionId: getDefaultVersionId(location),
-                            },
-                          ])
-                        }
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
-                      >
-                        {location.name}
+                    key={location.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedRoute((prev) => {
+                        const fromId = prev.length === 0 ? startLocationId : prev[prev.length - 1]?.locationId ?? '';
+                        const segment = findSegment(filteredSegments, fromId, location.id);
+                        return [
+                          ...prev,
+                          {
+                            locationId: location.id,
+                            locationVersionId: getDefaultVersionId(location),
+                            segmentId: segment?.id,
+                            segmentVersionId: getDefaultSegmentVersionId(segment) || undefined,
+                          },
+                        ];
+                      })
+                    }
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
+                  >
+                    {location.name}
                       </button>
                     ))}
                   </div>

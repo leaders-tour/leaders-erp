@@ -4,15 +4,69 @@ type Segment {
   regionName: String!
   fromLocationId: String!
   toLocationId: String!
+  defaultVersionId: String
   averageDistanceKm: Float!
   averageTravelHours: Float!
   isLongDistance: Boolean!
   scheduleTimeBlocks: [SegmentTimeBlock!]!
+  versions: [SegmentVersion!]!
   createdAt: DateTime!
   updatedAt: DateTime!
   region: Region!
   fromLocation: Location!
   toLocation: Location!
+}
+
+enum SegmentVersionKind {
+  DIRECT
+  VIA
+}
+
+type SegmentVersion {
+  id: ID!
+  segmentId: String!
+  name: String!
+  kind: SegmentVersionKind!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  isLongDistance: Boolean!
+  sortOrder: Int!
+  isDefault: Boolean!
+  viaLocations: [SegmentVersionViaLocation!]!
+  scheduleTimeBlocks: [SegmentVersionTimeBlock!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type SegmentVersionViaLocation {
+  id: ID!
+  segmentVersionId: String!
+  locationId: String!
+  orderIndex: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type SegmentVersionTimeBlock {
+  id: ID!
+  segmentVersionId: String!
+  startTime: String!
+  label: String!
+  orderIndex: Int!
+  activities: [SegmentVersionActivity!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type SegmentVersionActivity {
+  id: ID!
+  segmentVersionTimeBlockId: String!
+  description: String!
+  orderIndex: Int!
+  isOptional: Boolean!
+  conditionNote: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
 }
 
 type SegmentTimeBlock {
@@ -42,6 +96,18 @@ input SegmentTimeSlotInput {
   activities: [String!]!
 }
 
+input SegmentVersionInput {
+  id: String
+  name: String!
+  kind: SegmentVersionKind!
+  viaLocationIds: [String!]!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  isLongDistance: Boolean!
+  timeSlots: [SegmentTimeSlotInput!]!
+  isDefault: Boolean
+}
+
 input SegmentCreateInput {
   regionId: String!
   fromLocationId: String!
@@ -50,6 +116,7 @@ input SegmentCreateInput {
   averageTravelHours: Float!
   isLongDistance: Boolean!
   timeSlots: [SegmentTimeSlotInput!]!
+  versions: [SegmentVersionInput!]
 }
 
 input SegmentUpdateInput {
@@ -60,4 +127,5 @@ input SegmentUpdateInput {
   averageTravelHours: Float
   isLongDistance: Boolean
   timeSlots: [SegmentTimeSlotInput!]
+  versions: [SegmentVersionInput!]
 }

@@ -58,6 +58,7 @@ export class PlanTemplateRepository {
         planTemplateId,
         dayIndex: stop.dayIndex,
         segmentId: stop.segmentId,
+        segmentVersionId: stop.segmentVersionId,
         locationId: stop.locationId,
         locationVersionId: stop.locationVersionId,
         dateCellText: stop.dateCellText,

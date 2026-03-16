@@ -9,6 +9,7 @@ const LIST = gql`
       regionName
       fromLocationId
       toLocationId
+      defaultVersionId
       averageDistanceKm
       averageTravelHours
       isLongDistance
@@ -20,6 +21,32 @@ const LIST = gql`
           id
           description
           orderIndex
+        }
+      }
+      versions {
+        id
+        segmentId
+        name
+        kind
+        averageDistanceKm
+        averageTravelHours
+        isLongDistance
+        sortOrder
+        isDefault
+        viaLocations {
+          id
+          locationId
+          orderIndex
+        }
+        scheduleTimeBlocks {
+          id
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
         }
       }
     }
@@ -56,11 +83,24 @@ export interface SegmentFormInput {
   averageTravelHours: number;
   isLongDistance: boolean;
   timeSlots: SegmentTimeSlotFormInput[];
+  versions?: SegmentVersionFormInput[];
 }
 
 export interface SegmentTimeSlotFormInput {
   startTime: string;
   activities: string[];
+}
+
+export interface SegmentVersionFormInput {
+  id?: string;
+  name: string;
+  kind: 'DIRECT' | 'VIA';
+  viaLocationIds: string[];
+  averageDistanceKm: number;
+  averageTravelHours: number;
+  isLongDistance: boolean;
+  timeSlots: SegmentTimeSlotFormInput[];
+  isDefault?: boolean;
 }
 
 export interface SegmentRow {
@@ -69,6 +109,7 @@ export interface SegmentRow {
   regionName: string;
   fromLocationId: string;
   toLocationId: string;
+  defaultVersionId?: string | null;
   averageDistanceKm: number;
   averageTravelHours: number;
   isLongDistance: boolean;
@@ -80,6 +121,32 @@ export interface SegmentRow {
       id: string;
       description: string;
       orderIndex: number;
+    }>;
+  }>;
+  versions: Array<{
+    id: string;
+    segmentId: string;
+    name: string;
+    kind: 'DIRECT' | 'VIA';
+    averageDistanceKm: number;
+    averageTravelHours: number;
+    isLongDistance: boolean;
+    sortOrder: number;
+    isDefault: boolean;
+    viaLocations: Array<{
+      id: string;
+      locationId: string;
+      orderIndex: number;
+    }>;
+    scheduleTimeBlocks: Array<{
+      id: string;
+      startTime: string;
+      orderIndex: number;
+      activities: Array<{
+        id: string;
+        description: string;
+        orderIndex: number;
+      }>;
     }>;
   }>;
 }

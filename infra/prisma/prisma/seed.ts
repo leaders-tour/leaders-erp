@@ -186,6 +186,42 @@ async function main(): Promise<void> {
       toLocationId: dalanzadgad.id,
       averageDistanceKm: 540,
       averageTravelHours: 8.5,
+      isLongDistance: true,
+    },
+  });
+
+  const ubToDalanDirectVersion = await prisma.segmentVersion.upsert({
+    where: {
+      segmentId_sortOrder: {
+        segmentId: ubToDalanSegment.id,
+        sortOrder: 0,
+      },
+    },
+    update: {
+      name: 'Direct',
+      kind: 'DIRECT',
+      averageDistanceKm: 540,
+      averageTravelHours: 8.5,
+      isLongDistance: true,
+      isDefault: true,
+    },
+    create: {
+      segmentId: ubToDalanSegment.id,
+      name: 'Direct',
+      kind: 'DIRECT',
+      averageDistanceKm: 540,
+      averageTravelHours: 8.5,
+      isLongDistance: true,
+      sortOrder: 0,
+      isDefault: true,
+    },
+  });
+
+  await prisma.segment.update({
+    where: { id: ubToDalanSegment.id },
+    data: {
+      defaultVersionId: ubToDalanDirectVersion.id,
+      isLongDistance: true,
     },
   });
 
@@ -413,6 +449,115 @@ async function main(): Promise<void> {
     },
     create: {
       segmentTimeBlockId: segmentSlot18.id,
+      description: '숙소 도착 후 휴식',
+      orderIndex: 0,
+      isOptional: false,
+      conditionNote: null,
+    },
+  });
+
+  const segmentVersionSlot08 = await prisma.segmentVersionTimeBlock.upsert({
+    where: {
+      segmentVersionId_orderIndex: {
+        segmentVersionId: ubToDalanDirectVersion.id,
+        orderIndex: 0,
+      },
+    },
+    update: { startTime: '08:00', label: '08:00' },
+    create: {
+      segmentVersionId: ubToDalanDirectVersion.id,
+      startTime: '08:00',
+      label: '08:00',
+      orderIndex: 0,
+    },
+  });
+  const segmentVersionSlot12 = await prisma.segmentVersionTimeBlock.upsert({
+    where: {
+      segmentVersionId_orderIndex: {
+        segmentVersionId: ubToDalanDirectVersion.id,
+        orderIndex: 1,
+      },
+    },
+    update: { startTime: '12:00', label: '12:00' },
+    create: {
+      segmentVersionId: ubToDalanDirectVersion.id,
+      startTime: '12:00',
+      label: '12:00',
+      orderIndex: 1,
+    },
+  });
+  const segmentVersionSlot18 = await prisma.segmentVersionTimeBlock.upsert({
+    where: {
+      segmentVersionId_orderIndex: {
+        segmentVersionId: ubToDalanDirectVersion.id,
+        orderIndex: 2,
+      },
+    },
+    update: { startTime: '18:00', label: '18:00' },
+    create: {
+      segmentVersionId: ubToDalanDirectVersion.id,
+      startTime: '18:00',
+      label: '18:00',
+      orderIndex: 2,
+    },
+  });
+
+  await prisma.segmentVersionActivity.upsert({
+    where: {
+      segmentVersionTimeBlockId_orderIndex: {
+        segmentVersionTimeBlockId: segmentVersionSlot08.id,
+        orderIndex: 0,
+      },
+    },
+    update: {
+      description: '가이드 미팅 후 고비로 출발',
+      isOptional: false,
+      conditionNote: null,
+    },
+    create: {
+      segmentVersionTimeBlockId: segmentVersionSlot08.id,
+      description: '가이드 미팅 후 고비로 출발',
+      orderIndex: 0,
+      isOptional: false,
+      conditionNote: null,
+    },
+  });
+
+  await prisma.segmentVersionActivity.upsert({
+    where: {
+      segmentVersionTimeBlockId_orderIndex: {
+        segmentVersionTimeBlockId: segmentVersionSlot12.id,
+        orderIndex: 0,
+      },
+    },
+    update: {
+      description: '이동 중 점심식사',
+      isOptional: false,
+      conditionNote: null,
+    },
+    create: {
+      segmentVersionTimeBlockId: segmentVersionSlot12.id,
+      description: '이동 중 점심식사',
+      orderIndex: 0,
+      isOptional: false,
+      conditionNote: null,
+    },
+  });
+
+  await prisma.segmentVersionActivity.upsert({
+    where: {
+      segmentVersionTimeBlockId_orderIndex: {
+        segmentVersionTimeBlockId: segmentVersionSlot18.id,
+        orderIndex: 0,
+      },
+    },
+    update: {
+      description: '숙소 도착 후 휴식',
+      isOptional: false,
+      conditionNote: null,
+    },
+    create: {
+      segmentVersionTimeBlockId: segmentVersionSlot18.id,
       description: '숙소 도착 후 휴식',
       orderIndex: 0,
       isOptional: false,

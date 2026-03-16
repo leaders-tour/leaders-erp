@@ -6,10 +6,15 @@ import {
   buildAutoRowsFromRoute,
   buildNextOptions,
   buildTemplateStopsFromRouteAndRows,
+  findSegment,
+  formatSegmentVersionLabel,
   formatLocationVersion,
+  getDefaultSegmentVersionId,
   getDefaultVersionId,
+  getSegmentVersions,
   type LocationOption,
   type RouteSelection,
+  resolveSegmentVersion,
   type SegmentOption,
 } from '../features/plan-template/route-autofill';
 import type { TemplatePlanRow } from '../features/plan-template/editor-utils';
@@ -74,8 +79,10 @@ const SEGMENTS_QUERY = gql`
       regionId
       fromLocationId
       toLocationId
+      defaultVersionId
       averageDistanceKm
       averageTravelHours
+      isLongDistance
       scheduleTimeBlocks {
         id
         startTime
@@ -84,6 +91,32 @@ const SEGMENTS_QUERY = gql`
           id
           description
           orderIndex
+        }
+      }
+      versions {
+        id
+        segmentId
+        name
+        kind
+        averageDistanceKm
+        averageTravelHours
+        isLongDistance
+        sortOrder
+        isDefault
+        viaLocations {
+          id
+          locationId
+          orderIndex
+        }
+        scheduleTimeBlocks {
+          id
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
         }
       }
     }
@@ -392,6 +425,14 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
 
           {selectedRoute.map((stop, index) => (
             <div key={`selected-${index + 1}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              {(() => {
+                const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
+                const segment = findSegment(filteredSegments, fromId, stop.locationId);
+                const versions = getSegmentVersions(segment);
+                const selectedVersion = resolveSegmentVersion(segment, stop.segmentVersionId);
+
+                return (
+                  <>
               <div className="text-sm font-medium">{index + 2}일차</div>
               <div className="mt-1 text-slate-700">
                 {locationById.get(stop.locationId)?.name ?? stop.locationId}
@@ -419,6 +460,42 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                   </button>
                 ))}
               </div>
+              {versions.length > 1 ? (
+                <div className="mt-3 grid gap-2">
+                  <div className="text-xs text-slate-500">이동 버전</div>
+                  <div className="flex flex-wrap gap-2">
+                    {versions.map((version) => (
+                      <button
+                        key={`route-segment-version-${index}-${version.id}`}
+                        type="button"
+                        onClick={() =>
+                          setSelectedRoute((prev) =>
+                            prev.map((item, itemIndex) =>
+                              itemIndex === index
+                                ? {
+                                    ...item,
+                                    segmentId: segment?.id,
+                                    segmentVersionId: version.id,
+                                  }
+                                : item,
+                            ),
+                          )
+                        }
+                        className={`rounded-lg border px-3 py-1 text-xs ${
+                          selectedVersion?.id === version.id
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        {formatSegmentVersionLabel(version, locationById)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+                  </>
+                );
+              })()}
             </div>
           ))}
 
@@ -431,13 +508,19 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                     key={location.id}
                     type="button"
                     onClick={() =>
-                      setSelectedRoute((prev) => [
-                        ...prev,
-                        {
-                          locationId: location.id,
-                          locationVersionId: getDefaultVersionId(location),
-                        },
-                      ])
+                      setSelectedRoute((prev) => {
+                        const fromId = prev.length === 0 ? startLocationId : prev[prev.length - 1]?.locationId ?? '';
+                        const segment = findSegment(filteredSegments, fromId, location.id);
+                        return [
+                          ...prev,
+                          {
+                            locationId: location.id,
+                            locationVersionId: getDefaultVersionId(location),
+                            segmentId: segment?.id,
+                            segmentVersionId: getDefaultSegmentVersionId(segment) || undefined,
+                          },
+                        ];
+                      })
                     }
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
                   >

@@ -71,6 +71,7 @@ const segment: SegmentOption = {
   regionId: 'region-1',
   fromLocationId: 'loc-a',
   toLocationId: 'loc-b',
+  defaultVersionId: 'segment-version-direct',
   averageDistanceKm: 540,
   averageTravelHours: 8.5,
   scheduleTimeBlocks: [
@@ -87,6 +88,34 @@ const segment: SegmentOption = {
       activities: [{ id: 'seg-act-2', description: '숙소 도착', orderIndex: 0 }],
     },
   ],
+  versions: [
+    {
+      id: 'segment-version-direct',
+      segmentId: 'segment-ab',
+      name: 'Direct',
+      kind: 'DIRECT',
+      averageDistanceKm: 540,
+      averageTravelHours: 8.5,
+      isLongDistance: false,
+      sortOrder: 0,
+      isDefault: true,
+      viaLocations: [],
+      scheduleTimeBlocks: [
+        {
+          id: 'segv-tb-1',
+          startTime: '12:00',
+          orderIndex: 0,
+          activities: [{ id: 'segv-act-1', description: '이동 중 점심식사', orderIndex: 0 }],
+        },
+        {
+          id: 'segv-tb-2',
+          startTime: '18:00',
+          orderIndex: 1,
+          activities: [{ id: 'segv-act-2', description: '숙소 도착', orderIndex: 0 }],
+        },
+      ],
+    },
+  ],
 };
 
 const locationAVersion = locationA.variations[0]!;
@@ -97,7 +126,14 @@ describe('route-autofill', () => {
     const rows = buildAutoRowsFromRoute({
       startLocationId: locationA.id,
       startLocationVersionId: 'ver-a',
-      selectedRoute: [{ locationId: locationB.id, locationVersionId: 'ver-b' }],
+      selectedRoute: [
+        {
+          locationId: locationB.id,
+          locationVersionId: 'ver-b',
+          segmentId: 'segment-ab',
+          segmentVersionId: 'segment-version-direct',
+        },
+      ],
       filteredSegments: [segment],
       locationById: new Map([
         [locationA.id, locationA],
@@ -117,6 +153,7 @@ describe('route-autofill', () => {
     });
     expect(rows[1]).toMatchObject({
       segmentId: 'segment-ab',
+      segmentVersionId: 'segment-version-direct',
       timeCellText: '12:00\n18:00',
       scheduleCellText: '이동 중 점심식사\n숙소 도착',
       lodgingCellText: '여행자 캠프\n전기 O\n샤워 O\n인터넷 제한',
@@ -127,7 +164,14 @@ describe('route-autofill', () => {
     const stops = buildTemplateStopsFromRouteAndRows({
       startLocationId: locationA.id,
       startLocationVersionId: 'ver-a',
-      selectedRoute: [{ locationId: locationB.id, locationVersionId: 'ver-b' }],
+      selectedRoute: [
+        {
+          locationId: locationB.id,
+          locationVersionId: 'ver-b',
+          segmentId: 'segment-ab',
+          segmentVersionId: 'segment-version-direct',
+        },
+      ],
       planRows: [
         {
           locationId: locationA.id,
@@ -141,6 +185,7 @@ describe('route-autofill', () => {
         },
         {
           segmentId: 'segment-ab',
+          segmentVersionId: 'segment-version-direct',
           locationId: locationB.id,
           locationVersionId: 'ver-b',
           dateCellText: '2일차',
@@ -155,5 +200,6 @@ describe('route-autofill', () => {
 
     expect(stops[0]?.segmentId).toBeUndefined();
     expect(stops[1]?.segmentId).toBe('segment-ab');
+    expect(stops[1]?.segmentVersionId).toBe('segment-version-direct');
   });
 });

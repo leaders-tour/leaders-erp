@@ -418,6 +418,7 @@ type PlanStop {
   id: ID!
   planVersionId: String!
   segmentId: String
+  segmentVersionId: String
   locationId: String
   locationVersionId: String
   dateCellText: String!
@@ -432,6 +433,7 @@ type PlanStop {
 
 input PlanStopNestedInput {
   segmentId: String
+  segmentVersionId: String
   locationId: String
   locationVersionId: String
   dateCellText: String!

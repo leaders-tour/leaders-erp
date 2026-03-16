@@ -80,6 +80,11 @@ enum SecurityDepositMode {
   PER_TEAM
 }
 
+enum SegmentVersionKind {
+  DIRECT
+  VIA
+}
+
 enum DealStage {
   CONSULTING
   CONTRACTING
@@ -398,6 +403,7 @@ model Location {
   timeBlocks   TimeBlock[]
   planStops    PlanStop[]
   planTemplateStops PlanTemplateStop[]
+  segmentVersionViaLocations SegmentVersionViaLocation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -452,6 +458,7 @@ model Segment {
   regionName         String
   fromLocationId     String
   toLocationId       String
+  defaultVersionId   String?
   averageDistanceKm  Float
   averageTravelHours Float
   isLongDistance     Boolean @default(false)
@@ -459,6 +466,8 @@ model Segment {
   region       Region   @relation(fields: [regionId], references: [id], onDelete: Cascade)
   fromLocation Location @relation("FromLocation", fields: [fromLocationId], references: [id])
   toLocation   Location @relation("ToLocation", fields: [toLocationId], references: [id])
+  defaultVersion SegmentVersion? @relation("SegmentDefaultVersion", fields: [defaultVersionId], references: [id], onDelete: SetNull)
+  versions     SegmentVersion[] @relation("SegmentVersions")
   scheduleTimeBlocks SegmentTimeBlock[]
   planStops PlanStop[]
   planTemplateStops PlanTemplateStop[]
@@ -467,7 +476,84 @@ model Segment {
   updatedAt DateTime @updatedAt
 
   @@index([regionId])
+  @@index([defaultVersionId])
   @@unique([fromLocationId, toLocationId])
+}
+
+model SegmentVersion {
+  id                 String @id @default(uuid(7))
+  segmentId          String
+  name               String
+  kind               SegmentVersionKind
+  averageDistanceKm  Float
+  averageTravelHours Float
+  isLongDistance     Boolean @default(false)
+  sortOrder          Int
+  isDefault          Boolean @default(false)
+
+  segment         Segment @relation("SegmentVersions", fields: [segmentId], references: [id], onDelete: Cascade)
+  defaultForSegments Segment[] @relation("SegmentDefaultVersion")
+  viaLocations    SegmentVersionViaLocation[]
+  scheduleTimeBlocks SegmentVersionTimeBlock[]
+  planStops       PlanStop[]
+  planTemplateStops PlanTemplateStop[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([segmentId])
+  @@unique([segmentId, sortOrder])
+}
+
+model SegmentVersionViaLocation {
+  id               String @id @default(uuid(7))
+  segmentVersionId String
+  locationId       String
+  orderIndex       Int
+
+  segmentVersion SegmentVersion @relation(fields: [segmentVersionId], references: [id], onDelete: Cascade)
+  location       Location       @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([segmentVersionId])
+  @@index([locationId])
+  @@unique([segmentVersionId, orderIndex])
+}
+
+model SegmentVersionTimeBlock {
+  id               String @id @default(uuid(7))
+  segmentVersionId String
+  startTime        String
+  label            String
+  orderIndex       Int
+
+  segmentVersion SegmentVersion @relation(fields: [segmentVersionId], references: [id], onDelete: Cascade)
+  activities     SegmentVersionActivity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([segmentVersionId])
+  @@unique([segmentVersionId, orderIndex])
+}
+
+model SegmentVersionActivity {
+  id                        String  @id @default(uuid(7))
+  segmentVersionTimeBlockId String
+  description               String
+  orderIndex                Int
+  isOptional                Boolean @default(false)
+  conditionNote             String?
+
+  segmentVersionTimeBlock SegmentVersionTimeBlock @relation(fields: [segmentVersionTimeBlockId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([segmentVersionTimeBlockId])
+  @@unique([segmentVersionTimeBlockId, orderIndex])
 }
 
 model Plan {
@@ -745,6 +831,7 @@ model PlanTemplateStop {
   planTemplateId    String
   dayIndex          Int
   segmentId         String?
+  segmentVersionId  String?
   locationId        String?
   locationVersionId String?
   dateCellText      String @db.Text
@@ -756,6 +843,7 @@ model PlanTemplateStop {
 
   planTemplate    PlanTemplate    @relation(fields: [planTemplateId], references: [id], onDelete: Cascade)
   segment         Segment?        @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  segmentVersion  SegmentVersion? @relation(fields: [segmentVersionId], references: [id], onDelete: SetNull)
   location        Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
   locationVersion LocationVersion? @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
 
@@ -765,6 +853,7 @@ model PlanTemplateStop {
   @@unique([planTemplateId, dayIndex])
   @@index([planTemplateId])
   @@index([segmentId])
+  @@index([segmentVersionId])
   @@index([locationId])
   @@index([locationVersionId])
 }
@@ -773,6 +862,7 @@ model PlanStop {
   id                  String @id @default(uuid(7))
   planVersionId       String
   segmentId           String?
+  segmentVersionId    String?
   locationId          String?
   locationVersionId   String?
   dateCellText        String @db.Text
@@ -784,6 +874,7 @@ model PlanStop {
 
   planVersion     PlanVersion     @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
   segment         Segment?        @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  segmentVersion  SegmentVersion? @relation(fields: [segmentVersionId], references: [id], onDelete: SetNull)
   location        Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
   locationVersion LocationVersion? @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
 
@@ -792,6 +883,7 @@ model PlanStop {
 
   @@index([planVersionId])
   @@index([segmentId])
+  @@index([segmentVersionId])
   @@index([locationId])
   @@index([locationVersionId])
 }

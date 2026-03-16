@@ -6,6 +6,8 @@ import { buildEmptyPlanRow, buildPlaceholderPlanRows, type TemplatePlanRow } fro
 export interface RouteSelection {
   locationId: string;
   locationVersionId: string;
+  segmentId?: string;
+  segmentVersionId?: string;
 }
 
 export interface LocationVersionOption {
@@ -45,13 +47,70 @@ export interface LocationOption {
   variations: LocationVersionOption[];
 }
 
+export interface SegmentVersionOption {
+  id: string;
+  segmentId: string;
+  name: string;
+  kind: 'DIRECT' | 'VIA';
+  averageDistanceKm: number;
+  averageTravelHours: number;
+  isLongDistance: boolean;
+  sortOrder: number;
+  isDefault: boolean;
+  viaLocations: Array<{
+    id: string;
+    locationId: string;
+    orderIndex: number;
+  }>;
+  scheduleTimeBlocks: Array<{
+    id: string;
+    startTime: string;
+    orderIndex: number;
+    activities: Array<{
+      id: string;
+      description: string;
+      orderIndex: number;
+    }>;
+  }>;
+}
+
 export interface SegmentOption {
   id: string;
   regionId: string;
   fromLocationId: string;
   toLocationId: string;
+  defaultVersionId?: string | null;
   averageDistanceKm: number;
   averageTravelHours: number;
+  isLongDistance?: boolean;
+  scheduleTimeBlocks: Array<{
+    id: string;
+    startTime: string;
+    orderIndex: number;
+    activities: Array<{
+      id: string;
+      description: string;
+      orderIndex: number;
+    }>;
+  }>;
+  versions?: SegmentVersionOption[];
+}
+
+interface ResolvedSegmentVersionOption {
+  id: string;
+  segmentId: string;
+  name: string;
+  kind: 'DIRECT' | 'VIA';
+  averageDistanceKm: number;
+  averageTravelHours: number;
+  isLongDistance: boolean;
+  sortOrder: number;
+  isDefault: boolean;
+  viaLocations: Array<{
+    id: string;
+    locationId: string;
+    orderIndex: number;
+  }>;
   scheduleTimeBlocks: Array<{
     id: string;
     startTime: string;
@@ -132,12 +191,12 @@ function toScheduleCell(version: LocationVersionOption | undefined): string {
     .join('\n');
 }
 
-function toSegmentTimeCell(segment: SegmentOption | undefined): string {
-  if (!segment || segment.scheduleTimeBlocks.length === 0) {
+function toSegmentTimeCell(segmentVersion: ResolvedSegmentVersionOption | undefined): string {
+  if (!segmentVersion || segmentVersion.scheduleTimeBlocks.length === 0) {
     return '';
   }
 
-  return segment.scheduleTimeBlocks
+  return segmentVersion.scheduleTimeBlocks
     .slice()
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .flatMap((timeBlock) => {
@@ -150,12 +209,12 @@ function toSegmentTimeCell(segment: SegmentOption | undefined): string {
     .join('\n');
 }
 
-function toSegmentScheduleCell(segment: SegmentOption | undefined): string {
-  if (!segment || segment.scheduleTimeBlocks.length === 0) {
+function toSegmentScheduleCell(segmentVersion: ResolvedSegmentVersionOption | undefined): string {
+  if (!segmentVersion || segmentVersion.scheduleTimeBlocks.length === 0) {
     return '';
   }
 
-  return segment.scheduleTimeBlocks
+  return segmentVersion.scheduleTimeBlocks
     .slice()
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .flatMap((timeBlock) => {
@@ -179,11 +238,96 @@ function toMealCell(version: LocationVersionOption | undefined): string {
   );
 }
 
+function buildLegacyDirectVersion(segment: SegmentOption): ResolvedSegmentVersionOption {
+  return {
+    id: `${segment.id}::direct`,
+    segmentId: segment.id,
+    name: 'Direct',
+    kind: 'DIRECT',
+    averageDistanceKm: segment.averageDistanceKm,
+    averageTravelHours: segment.averageTravelHours,
+    isLongDistance: segment.isLongDistance ?? false,
+    sortOrder: 0,
+    isDefault: true,
+    viaLocations: [],
+    scheduleTimeBlocks: segment.scheduleTimeBlocks,
+  };
+}
+
+export function getSegmentVersions(segment: SegmentOption | undefined): ResolvedSegmentVersionOption[] {
+  if (!segment) {
+    return [];
+  }
+
+  if (!segment.versions || segment.versions.length === 0) {
+    return [buildLegacyDirectVersion(segment)];
+  }
+
+  return segment.versions.slice().sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+export function getDefaultSegmentVersionId(segment: SegmentOption | undefined): string {
+  if (!segment) {
+    return '';
+  }
+
+  return (
+    segment.defaultVersionId ??
+    getSegmentVersions(segment).find((version) => version.isDefault)?.id ??
+    getSegmentVersions(segment)[0]?.id ??
+    ''
+  );
+}
+
+export function resolveSegmentVersion(
+  segment: SegmentOption | undefined,
+  segmentVersionId?: string,
+): ResolvedSegmentVersionOption | undefined {
+  const versions = getSegmentVersions(segment);
+  if (versions.length === 0) {
+    return undefined;
+  }
+
+  if (segmentVersionId) {
+    const matched = versions.find((version) => version.id === segmentVersionId);
+    if (matched) {
+      return matched;
+    }
+  }
+
+  const defaultVersionId = getDefaultSegmentVersionId(segment);
+  return versions.find((version) => version.id === defaultVersionId) ?? versions[0];
+}
+
+export function formatSegmentVersionLabel(
+  version: Pick<ResolvedSegmentVersionOption, 'name' | 'kind' | 'viaLocations'>,
+  locationById?: Map<string, Pick<LocationOption, 'id' | 'name'>>,
+): string {
+  if (version.kind === 'DIRECT') {
+    return version.name || 'Direct';
+  }
+
+  if (version.name.trim().length > 0) {
+    return version.name;
+  }
+
+  const viaNames = version.viaLocations.map((viaLocation) => locationById?.get(viaLocation.locationId)?.name ?? viaLocation.locationId);
+  return viaNames.length > 0 ? `Via ${viaNames.join(' → ')}` : 'Via';
+}
+
 export function getDefaultVersionId(location: LocationOption | undefined): string {
   if (!location) {
     return '';
   }
   return location.defaultVersionId ?? location.variations[0]?.id ?? '';
+}
+
+export function findSegment(
+  filteredSegments: SegmentOption[],
+  fromLocationId: string,
+  toLocationId: string,
+): SegmentOption | undefined {
+  return filteredSegments.find((segment) => segment.fromLocationId === fromLocationId && segment.toLocationId === toLocationId);
 }
 
 export function buildNextOptions(input: {
@@ -239,24 +383,26 @@ export function buildAutoRowsFromRoute(input: {
   const rows: TemplatePlanRow[] = orderedStops.map((toStop, index) => {
     const dayIndex = index + 1;
     const fromId = index === 0 ? '' : orderedStops[index - 1]?.locationId ?? '';
-    const segment = filteredSegments.find((item) => item.fromLocationId === fromId && item.toLocationId === toStop.locationId);
+    const segment = index === 0 ? undefined : findSegment(filteredSegments, fromId, toStop.locationId);
+    const segmentVersion = index === 0 ? undefined : resolveSegmentVersion(segment, toStop.segmentVersionId);
     const toLocation = locationById.get(toStop.locationId);
     const toVersion = locationVersionById.get(toStop.locationVersionId);
 
     const destinationCellText = formatRouteDestinationCellText({
       locationName: toLocation?.name ?? toStop.locationId,
-      averageTravelHours: segment?.averageTravelHours,
-      averageDistanceKm: segment?.averageDistanceKm,
+      averageTravelHours: segmentVersion?.averageTravelHours,
+      averageDistanceKm: segmentVersion?.averageDistanceKm,
     });
 
     return {
       segmentId: segment?.id,
+      segmentVersionId: segmentVersion?.id,
       locationId: toStop.locationId,
       locationVersionId: toStop.locationVersionId,
       dateCellText: `${dayIndex}일차`,
       destinationCellText,
-      timeCellText: dayIndex === 1 ? toTimeCell(toVersion) : toSegmentTimeCell(segment),
-      scheduleCellText: dayIndex === 1 ? toScheduleCell(toVersion) : toSegmentScheduleCell(segment),
+      timeCellText: dayIndex === 1 ? toTimeCell(toVersion) : toSegmentTimeCell(segmentVersion),
+      scheduleCellText: dayIndex === 1 ? toScheduleCell(toVersion) : toSegmentScheduleCell(segmentVersion),
       lodgingCellText: toLodgingCell(toVersion),
       mealCellText: toMealCell(toVersion),
     };
@@ -276,7 +422,7 @@ export function buildTemplateStopsFromRouteAndRows(input: {
   planRows: TemplatePlanRow[];
 }) {
   const { startLocationId, startLocationVersionId, selectedRoute, planRows } = input;
-  const routeStops: Array<Pick<RouteSelection, 'locationId' | 'locationVersionId'>> = [
+  const routeStops: Array<Pick<RouteSelection, 'locationId' | 'locationVersionId' | 'segmentId' | 'segmentVersionId'>> = [
     { locationId: startLocationId, locationVersionId: startLocationVersionId },
     ...selectedRoute,
   ];
@@ -285,7 +431,8 @@ export function buildTemplateStopsFromRouteAndRows(input: {
     const routeStop = routeStops[index];
     return {
       dayIndex: index + 1,
-      segmentId: index === 0 ? undefined : row.segmentId,
+      segmentId: index === 0 ? undefined : routeStop?.segmentId || row.segmentId,
+      segmentVersionId: index === 0 ? undefined : routeStop?.segmentVersionId || row.segmentVersionId,
       locationId: routeStop?.locationId || row.locationId || undefined,
       locationVersionId: routeStop?.locationVersionId || row.locationVersionId || undefined,
       dateCellText: row.dateCellText,

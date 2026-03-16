@@ -11,6 +11,7 @@ const dateTimeInputSchema = z.preprocess(
 
 export const planStopNestedSchema = z.object({
   segmentId: z.string().min(1).optional(),
+  segmentVersionId: z.string().min(1).optional(),
   locationId: z.string().min(1).optional(),
   locationVersionId: z.string().min(1).optional(),
   dateCellText: z.string(),
