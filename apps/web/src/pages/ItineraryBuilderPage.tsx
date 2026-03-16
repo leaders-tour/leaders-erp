@@ -21,6 +21,7 @@ import {
   type RegionLodgingOption,
 } from '../features/lodging-selection/model';
 import { ExternalTransferModal } from '../features/plan/components/ExternalTransferModal';
+import { ExternalTransfersManagerModal } from '../features/plan/components/ExternalTransfersManagerModal';
 import {
   buildDerivedExternalTransferManualAdjustments,
   buildExternalTransferDirectionText,
@@ -264,6 +265,10 @@ type TimePickerTarget =
 interface ExternalTransferModalState {
   open: boolean;
   editingIndex: number | null;
+}
+
+interface ExternalTransfersManagerModalState {
+  open: boolean;
 }
 
 interface LodgingSelectionModalState {
@@ -620,6 +625,13 @@ function buildDefaultRentalItems(total: number): string {
 
 function formatKrw(value: number): string {
   return `${new Intl.NumberFormat('ko-KR').format(value)}원`;
+}
+
+function cloneExternalTransfer(transfer: ExternalTransfer): ExternalTransfer {
+  return {
+    ...transfer,
+    selectedTeamOrderIndexes: [...transfer.selectedTeamOrderIndexes],
+  };
 }
 
 function formatSecurityDepositScope(mode: 'NONE' | 'PER_PERSON' | 'PER_TEAM'): string {
@@ -998,6 +1010,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     }),
   ]);
   const [externalTransfers, setExternalTransfers] = useState<ExternalTransfer[]>([]);
+  const [externalTransfersDraft, setExternalTransfersDraft] = useState<ExternalTransfer[]>([]);
   const [specialNote, setSpecialNote] = useState<string>('');
   const [includeRentalItems, setIncludeRentalItems] = useState<boolean>(true);
   const [rentalItemsText, setRentalItemsText] = useState<string>(buildDefaultRentalItems(6));
@@ -1015,6 +1028,10 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [manualAdjustmentsModalState, setManualAdjustmentsModalState] = useState<ManualAdjustmentsModalState>({
     open: false,
   });
+  const [externalTransfersManagerModalState, setExternalTransfersManagerModalState] =
+    useState<ExternalTransfersManagerModalState>({
+      open: false,
+    });
   const [manualDepositInput, setManualDepositInput] = useState<string>('');
   const [hasEditedManualDeposit, setHasEditedManualDeposit] = useState<boolean>(false);
   const [createdId, setCreatedId] = useState<string>('');
@@ -1872,13 +1889,13 @@ export function ItineraryBuilderPage(): JSX.Element {
     () => externalTransfers.some((transfer) => !isExternalTransferComplete(transfer)),
     [externalTransfers],
   );
-  const externalPickupText = useMemo(
-    () => buildExternalTransferDirectionText(externalTransfers, transportGroups, 'PICKUP'),
-    [externalTransfers, transportGroups],
+  const draftExternalPickupText = useMemo(
+    () => buildExternalTransferDirectionText(externalTransfersDraft, transportGroups, 'PICKUP'),
+    [externalTransfersDraft, transportGroups],
   );
-  const externalDropText = useMemo(
-    () => buildExternalTransferDirectionText(externalTransfers, transportGroups, 'DROP'),
-    [externalTransfers, transportGroups],
+  const draftExternalDropText = useMemo(
+    () => buildExternalTransferDirectionText(externalTransfersDraft, transportGroups, 'DROP'),
+    [externalTransfersDraft, transportGroups],
   );
 
   const headcountFemale = headcountTotal - headcountMale;
@@ -3056,84 +3073,28 @@ export function ItineraryBuilderPage(): JSX.Element {
               </div>
 
               <div className="grid gap-3 text-sm">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div>
                     <span className="text-xs text-slate-600">실투어 외 픽업 / 드랍</span>
-                    <p className="mt-1 text-xs text-slate-400">preset 또는 수동입력으로 외부 이동 항목을 팀별로 추가합니다.</p>
+                    <p className="mt-1 text-xs text-slate-400">외부 이동 항목 추가, 수정, 삭제를 모달에서 관리합니다.</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {externalTransfers.length === 0
+                        ? '아직 추가된 외부 이동 항목이 없습니다.'
+                        : `${externalTransfers.length}건 · 픽업 ${externalTransfers.filter((item) => item.direction === 'PICKUP').length}건 · 드랍 ${
+                            externalTransfers.filter((item) => item.direction === 'DROP').length
+                          }건`}
+                    </p>
                   </div>
                   <Button
                     variant="outline"
-                    onClick={() =>
-                      setExternalTransferModalState({
-                        open: true,
-                        editingIndex: null,
-                      })
-                    }
+                    onClick={() => {
+                      setExternalTransfersDraft(externalTransfers.map(cloneExternalTransfer));
+                      setExternalTransfersManagerModalState({ open: true });
+                    }}
                   >
-                    추가하기
+                    실투어 외 픽드랍 설정
                   </Button>
                 </div>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="text-xs font-medium text-slate-500">픽업 표시</div>
-                    <div className="mt-2 whitespace-pre-wrap text-sm text-slate-800">{externalPickupText}</div>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="text-xs font-medium text-slate-500">드랍 표시</div>
-                    <div className="mt-2 whitespace-pre-wrap text-sm text-slate-800">{externalDropText}</div>
-                  </div>
-                </div>
-
-                {externalTransfers.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                    아직 추가된 외부 이동 항목이 없습니다.
-                  </div>
-                ) : (
-                  <div className="grid gap-3">
-                    {externalTransfers.map((transfer, index) => {
-                      const teamNames = transfer.selectedTeamOrderIndexes
-                        .map((teamOrderIndex) => transportGroups[teamOrderIndex]?.teamName || `${teamOrderIndex + 1}번 팀`)
-                        .join(', ');
-                      return (
-                        <div key={`external-transfer-${index}`} className="rounded-3xl border border-slate-200 bg-white p-4">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <div className="text-sm font-semibold text-slate-900">
-                                {transfer.direction === 'PICKUP' ? '픽업' : '드랍'} · {transfer.departurePlace} → {transfer.arrivalPlace}
-                              </div>
-                              <div className="mt-1 text-xs text-slate-500">
-                                {transfer.travelDate} {transfer.departureTime} → {transfer.arrivalTime} · {teamNames || '-'} · 팀당{' '}
-                                {transfer.unitPriceKrw.toLocaleString('ko-KR')}원
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                onClick={() =>
-                                  setExternalTransferModalState({
-                                    open: true,
-                                    editingIndex: index,
-                                  })
-                                }
-                              >
-                                수정
-                              </Button>
-                              <Button
-                                variant="outline"
-                                onClick={() =>
-                                  setExternalTransfers((current) => current.filter((_, transferIndex) => transferIndex !== index))
-                                }
-                              >
-                                삭제
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
 
               <label className="grid gap-1 text-sm">
@@ -3999,12 +3960,52 @@ export function ItineraryBuilderPage(): JSX.Element {
           </aside>
         ) : null}
 
+        <ExternalTransfersManagerModal
+          open={externalTransfersManagerModalState.open}
+          externalTransfers={externalTransfersDraft}
+          transportGroups={transportGroups}
+          externalPickupText={draftExternalPickupText}
+          externalDropText={draftExternalDropText}
+          onClose={() => {
+            setExternalTransfersManagerModalState({ open: false });
+            setExternalTransfersDraft([]);
+            setExternalTransferModalState({
+              open: false,
+              editingIndex: null,
+            });
+          }}
+          onComplete={() => {
+            setExternalTransfers(externalTransfersDraft.map(cloneExternalTransfer));
+            setExternalTransfersManagerModalState({ open: false });
+            setExternalTransfersDraft([]);
+            setExternalTransferModalState({
+              open: false,
+              editingIndex: null,
+            });
+          }}
+          onAdd={() =>
+            setExternalTransferModalState({
+              open: true,
+              editingIndex: null,
+            })
+          }
+          onEdit={(index) =>
+            setExternalTransferModalState({
+              open: true,
+              editingIndex: index,
+            })
+          }
+          onRemove={(index) =>
+            setExternalTransfersDraft((current) => current.filter((_item, transferIndex) => transferIndex !== index))
+          }
+        />
+
         <ExternalTransferModal
           open={externalTransferModalState.open}
           transportGroups={transportGroups}
           initialValue={
             externalTransferModalState.editingIndex !== null
-              ? externalTransfers[externalTransferModalState.editingIndex] ?? buildEmptyExternalTransfer()
+              ? externalTransfersDraft[externalTransferModalState.editingIndex] ?? buildEmptyExternalTransfer()
               : null
           }
           onClose={() =>
@@ -4014,7 +4015,7 @@ export function ItineraryBuilderPage(): JSX.Element {
             })
           }
           onSubmit={(value) => {
-            setExternalTransfers((current) => {
+            setExternalTransfersDraft((current) => {
               if (externalTransferModalState.editingIndex === null) {
                 return [...current, value];
               }
