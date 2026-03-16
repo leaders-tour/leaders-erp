@@ -13,6 +13,7 @@ import { useAuth } from '../features/auth/context';
 import { toFacilityLabel, toMealLabel } from '../features/location/display';
 import { LodgingUpgradeModal } from '../features/lodging-selection/components/LodgingUpgradeModal';
 import { RegionLodgingSelectModal } from '../features/lodging-selection/components/RegionLodgingSelectModal';
+import { ExtraLodgingsModal } from '../features/pricing/components/ExtraLodgingsModal';
 import {
   buildLodgingCellText,
   getBaseLodgingText,
@@ -275,6 +276,10 @@ interface LodgingUpgradeModalState {
 }
 
 interface ManualAdjustmentsModalState {
+  open: boolean;
+}
+
+interface ExtraLodgingsModalState {
   open: boolean;
 }
 
@@ -1003,6 +1008,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [selectedRoute, setSelectedRoute] = useState<RouteSelection[]>([]);
   const [planRows, setPlanRows] = useState<PlanRow[]>([]);
   const [extraLodgingCounts, setExtraLodgingCounts] = useState<number[]>(Array.from({ length: 6 }, () => 0));
+  const [extraLodgingsModalState, setExtraLodgingsModalState] = useState<ExtraLodgingsModalState>({
+    open: false,
+  });
   const [manualAdjustments, setManualAdjustments] = useState<ManualAdjustmentRow[]>([]);
   const [manualAdjustmentsModalState, setManualAdjustmentsModalState] = useState<ManualAdjustmentsModalState>({
     open: false,
@@ -1762,6 +1770,13 @@ export function ItineraryBuilderPage(): JSX.Element {
         .map((lodgingCount, index) => ({ dayIndex: index + 1, lodgingCount }))
         .filter((item) => item.lodgingCount > 0),
     [extraLodgingCounts],
+  );
+  const extraLodgingSummary = useMemo(
+    () => ({
+      activeDayCount: extraLodgings.length,
+      totalCount: extraLodgings.reduce((sum, item) => sum + item.lodgingCount, 0),
+    }),
+    [extraLodgings],
   );
 
   const externalTransferManualAdjustments = useMemo(
@@ -3232,26 +3247,23 @@ export function ItineraryBuilderPage(): JSX.Element {
               </div>
 
               <div className="grid gap-2 text-sm">
-                <span className="text-xs text-slate-600">숙소 추가 수량(일차별)</span>
-                <div className="grid grid-cols-2 gap-2">
-                  {Array.from({ length: totalDays }, (_, index) => (
-                    <label key={`extra-lodging-${index + 1}`} className="grid gap-1">
-                      <span className="text-xs text-slate-500">{index + 1}일차</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={extraLodgingCounts[index] ?? 0}
-                        onChange={(event) =>
-                          setExtraLodgingCounts((prev) =>
-                            prev.map((value, valueIndex) =>
-                              valueIndex === index ? Math.max(0, Number(event.target.value) || 0) : value,
-                            ),
-                          )
-                        }
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                      />
-                    </label>
-                  ))}
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <span className="text-xs text-slate-600">숙소 추가</span>
+                    <p className="mt-1 text-xs text-slate-400">일차별 추가 숙소 수량을 모달에서 설정합니다.</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {planRows.length === 0
+                        ? '아직 설정할 일차가 없습니다.'
+                        : `적용 일차 ${extraLodgingSummary.activeDayCount}일 · 총 ${extraLodgingSummary.totalCount}개`}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setExtraLodgingsModalState({ open: true })}
+                    disabled={planRows.length === 0}
+                  >
+                    숙소 추가 설정
+                  </Button>
                 </div>
               </div>
 
@@ -4026,6 +4038,17 @@ export function ItineraryBuilderPage(): JSX.Element {
               open: true,
               rowIndex,
             })
+          }
+        />
+
+        <ExtraLodgingsModal
+          open={extraLodgingsModalState.open}
+          counts={extraLodgingCounts}
+          onClose={() => setExtraLodgingsModalState({ open: false })}
+          onChangeCount={(index, nextValue) =>
+            setExtraLodgingCounts((prev) =>
+              prev.map((value, valueIndex) => (valueIndex === index ? nextValue : value)),
+            )
           }
         />
 
