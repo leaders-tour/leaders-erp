@@ -1,3 +1,5 @@
+import { VariantType } from '../../generated/graphql';
+
 export type PickupDropPlaceType = 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM';
 
 export interface TransportGroupLike {
@@ -123,6 +125,38 @@ export function getRecommendedPickupTime(flightInTime: string | null | undefined
     return '05:00';
   }
   return '08:00';
+}
+
+export function isEarlyPickupTime(value: string | null | undefined): boolean {
+  const minutes = parseTimeToMinutes(value);
+  return minutes !== null && minutes >= 4 * 60 && minutes <= 5 * 60;
+}
+
+export function isExtendDropTime(value: string | null | undefined): boolean {
+  const minutes = parseTimeToMinutes(value);
+  return minutes !== null && minutes >= 21 * 60 && minutes <= 23 * 60 + 30;
+}
+
+export function resolveAutoVariantType(
+  currentVariantType: VariantType,
+  groups: Array<Pick<TransportGroupLike, 'pickupTime' | 'dropTime'>>,
+): VariantType {
+  const hasEarlyPickup = groups.some((group) => isEarlyPickupTime(group.pickupTime));
+  const hasLateDrop = groups.some((group) => isExtendDropTime(group.dropTime));
+
+  if (hasEarlyPickup && hasLateDrop) {
+    return VariantType.EarlyExtend;
+  }
+  if (hasEarlyPickup) {
+    return VariantType.Early;
+  }
+  if (hasLateDrop) {
+    return VariantType.Extend;
+  }
+  if (currentVariantType === VariantType.Afternoon) {
+    return currentVariantType;
+  }
+  return VariantType.Basic;
 }
 
 export function getRecommendedDropTime(flightOutTime: string | null | undefined): string {

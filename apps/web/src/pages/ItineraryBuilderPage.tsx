@@ -35,6 +35,7 @@ import {
   PICKUP_DROP_PLACE_OPTIONS,
   getRecommendedDropSchedule,
   getRecommendedPickupTime,
+  resolveAutoVariantType,
   normalizePickupDropCustomText,
   type PickupDropPlaceType,
 } from '../features/plan/pickup-drop';
@@ -1661,6 +1662,13 @@ export function ItineraryBuilderPage(): JSX.Element {
       return nextGroups;
     });
   }, [headcountTotal, travelEndDate, travelStartDate]);
+
+  useEffect(() => {
+    const nextVariantType = resolveAutoVariantType(variantType, transportGroups);
+    if (nextVariantType !== variantType) {
+      setVariantType(nextVariantType);
+    }
+  }, [transportGroups, variantType]);
 
   useEffect(() => {
     const elements = document.querySelectorAll<HTMLTextAreaElement>('[data-plan-cell="true"]');
