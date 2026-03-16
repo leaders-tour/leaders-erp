@@ -850,22 +850,34 @@ function createTransportGroupDraft(input: {
   };
 }
 
-function toTimeCell(version: LocationVersionRow | undefined): string {
+function toTimeCell(
+  version: LocationVersionRow | undefined,
+  options?: {
+    firstStartTimeOverride?: string;
+    lastStartTimeOverride?: string;
+  },
+): string {
   if (!version || version.timeBlocks.length === 0) {
     return '';
   }
 
-  return version.timeBlocks
+  const orderedTimeBlocks = version.timeBlocks
     .slice()
-    .sort((a, b) => a.orderIndex - b.orderIndex)
-    .flatMap((timeBlock) => {
+    .sort((a, b) => a.orderIndex - b.orderIndex);
+
+  return orderedTimeBlocks.flatMap((timeBlock, index) => {
       const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
+      const isFirst = index === 0;
+      const isLast = index === orderedTimeBlocks.length - 1;
+      const startTime =
+        (isFirst && options?.firstStartTimeOverride?.trim()) ||
+        (isLast && options?.lastStartTimeOverride?.trim()) ||
+        timeBlock.startTime;
       if (orderedActivities.length <= 1) {
-        return [timeBlock.startTime];
+        return [startTime];
       }
-      return [timeBlock.startTime, ...orderedActivities.slice(1).map(() => '-')];
-    })
-    .join('\n');
+      return [startTime, ...orderedActivities.slice(1).map(() => '-')];
+    }).join('\n');
 }
 
 function toScheduleCell(version: LocationVersionRow | undefined): string {
@@ -899,22 +911,29 @@ function toSegmentTimeCell(
         }>;
       }
     | undefined,
+  options?: {
+    lastStartTimeOverride?: string;
+  },
 ): string {
   if (!segmentVersion || segmentVersion.scheduleTimeBlocks.length === 0) {
     return '';
   }
 
-  return segmentVersion.scheduleTimeBlocks
+  const orderedTimeBlocks = segmentVersion.scheduleTimeBlocks
     .slice()
-    .sort((a, b) => a.orderIndex - b.orderIndex)
-    .flatMap((timeBlock) => {
+    .sort((a, b) => a.orderIndex - b.orderIndex);
+
+  return orderedTimeBlocks.flatMap((timeBlock, index) => {
       const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
+      const startTime =
+        index === orderedTimeBlocks.length - 1 && options?.lastStartTimeOverride?.trim()
+          ? options.lastStartTimeOverride.trim()
+          : timeBlock.startTime;
       if (orderedActivities.length <= 1) {
-        return [timeBlock.startTime];
+        return [startTime];
       }
-      return [timeBlock.startTime, ...orderedActivities.slice(1).map(() => '-')];
-    })
-    .join('\n');
+      return [startTime, ...orderedActivities.slice(1).map(() => '-')];
+    }).join('\n');
 }
 
 function toSegmentScheduleCell(
@@ -1420,10 +1439,16 @@ export function ItineraryBuilderPage(): JSX.Element {
       return [];
     }
 
+    const firstPickupTime = transportGroups[0]?.pickupTime?.trim() ?? '';
+    const finalDropTime = transportGroups[0]?.dropTime?.trim() ?? '';
+    const firstDayTimeOverride =
+      (variantType === VariantType.Early || variantType === VariantType.EarlyExtend) && firstPickupTime ? firstPickupTime : undefined;
+
     const orderedStops: RouteSelection[] = [{ locationId: startLocationId, locationVersionId: startLocationVersionId }, ...selectedRoute];
 
     return orderedStops.map((toStop, index) => {
       const dayIndex = index + 1;
+      const isLastDay = index === orderedStops.length - 1;
       const fromId = index === 0 ? '' : orderedStops[index - 1]?.locationId ?? '';
       const segment = index === 0 ? undefined : findSegment(filteredSegments, fromId, toStop.locationId);
       const segmentVersion = index === 0 ? undefined : resolveSegmentVersion(segment, toStop.segmentVersionId);
@@ -1442,13 +1467,21 @@ export function ItineraryBuilderPage(): JSX.Element {
         locationVersionId: toStop.locationVersionId,
         dateCellText: `${dayIndex}일차`,
         destinationCellText,
-        timeCellText: dayIndex === 1 ? toTimeCell(toVersion) : toSegmentTimeCell(segmentVersion),
+        timeCellText:
+          dayIndex === 1
+            ? toTimeCell(toVersion, {
+                firstStartTimeOverride: firstDayTimeOverride,
+                lastStartTimeOverride: isLastDay ? finalDropTime : undefined,
+              })
+            : toSegmentTimeCell(segmentVersion, {
+                lastStartTimeOverride: isLastDay ? finalDropTime : undefined,
+              }),
         scheduleCellText: dayIndex === 1 ? toScheduleCell(toVersion) : toSegmentScheduleCell(segmentVersion),
         mealCellText: toMealCell(toVersion),
         baseLodgingName: toLodgingCell(toVersion),
       });
     });
-  }, [filteredSegments, locationById, locationVersionById, selectedRoute, startLocationId, startLocationVersionId]);
+  }, [filteredSegments, locationById, locationVersionById, selectedRoute, startLocationId, startLocationVersionId, transportGroups, variantType]);
 
   useEffect(() => {
     if (skipNextAutoRowsSync) {
