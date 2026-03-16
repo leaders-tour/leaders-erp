@@ -37,6 +37,7 @@ import {
   type PickupDropPlaceType,
 } from '../features/plan/pickup-drop';
 import { formatRouteDestinationCellText } from '../features/plan-template/route-autofill';
+import { ManualAdjustmentsModal, type ManualAdjustmentDraftRow } from '../features/pricing/components/ManualAdjustmentsModal';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 import { MealOption, VariantType } from '../generated/graphql';
 
@@ -171,10 +172,7 @@ interface ExtraLodgingRow {
   lodgingCount: number;
 }
 
-interface ManualAdjustmentRow {
-  description: string;
-  amountKrw: string;
-}
+type ManualAdjustmentRow = ManualAdjustmentDraftRow;
 
 interface PricingLineRow {
   lineCode: string;
@@ -273,6 +271,10 @@ interface LodgingSelectionModalState {
 }
 
 interface LodgingUpgradeModalState {
+  open: boolean;
+}
+
+interface ManualAdjustmentsModalState {
   open: boolean;
 }
 
@@ -1002,6 +1004,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [planRows, setPlanRows] = useState<PlanRow[]>([]);
   const [extraLodgingCounts, setExtraLodgingCounts] = useState<number[]>(Array.from({ length: 6 }, () => 0));
   const [manualAdjustments, setManualAdjustments] = useState<ManualAdjustmentRow[]>([]);
+  const [manualAdjustmentsModalState, setManualAdjustmentsModalState] = useState<ManualAdjustmentsModalState>({
+    open: false,
+  });
   const [manualDepositInput, setManualDepositInput] = useState<string>('');
   const [hasEditedManualDeposit, setHasEditedManualDeposit] = useState<boolean>(false);
   const [createdId, setCreatedId] = useState<string>('');
@@ -1769,12 +1774,16 @@ export function ItineraryBuilderPage(): JSX.Element {
       [
         ...manualAdjustments
           .map((item) => ({
+            kind: item.kind,
             description: item.description.trim(),
             amountText: item.amountKrw.trim(),
-            amountKrw: Number(item.amountKrw),
+            amountKrw: Math.abs(Number(item.amountKrw)),
           }))
           .filter((item) => item.description.length > 0 && item.amountText.length > 0)
-          .map((item) => ({ description: item.description, amountKrw: item.amountKrw })),
+          .map((item) => ({
+            description: item.description,
+            amountKrw: item.kind === 'DISCOUNT' ? -item.amountKrw : item.amountKrw,
+          })),
         ...externalTransferManualAdjustments,
       ],
     [externalTransferManualAdjustments, manualAdjustments],
@@ -1788,8 +1797,26 @@ export function ItineraryBuilderPage(): JSX.Element {
       return false;
     }
 
-    return description.length === 0 || amountText.length === 0 || !Number.isInteger(Number(item.amountKrw));
+    return description.length === 0 || amountText.length === 0 || !Number.isInteger(Number(item.amountKrw)) || Number(item.amountKrw) < 0;
   });
+
+  const manualAdjustmentSummary = useMemo(() => {
+    const validRows = manualAdjustments
+      .map((item) => ({
+        kind: item.kind,
+        description: item.description.trim(),
+        amountText: item.amountKrw.trim(),
+        amountKrw: Math.abs(Number(item.amountKrw)),
+      }))
+      .filter((item) => item.description.length > 0 && item.amountText.length > 0 && Number.isInteger(item.amountKrw));
+
+    const addCount = validRows.filter((item) => item.kind === 'ADD').length;
+    const discountCount = validRows.filter((item) => item.kind === 'DISCOUNT').length;
+    const addTotal = validRows.filter((item) => item.kind === 'ADD').reduce((sum, item) => sum + item.amountKrw, 0);
+    const discountTotal = validRows.filter((item) => item.kind === 'DISCOUNT').reduce((sum, item) => sum + item.amountKrw, 0);
+
+    return { addCount, discountCount, addTotal, discountTotal };
+  }, [manualAdjustments]);
 
   const hasInvalidLodgingSelections = lodgingSelections.some(
     (item) => item.level === 'CUSTOM' && (!item.customLodgingId || item.customLodgingId.trim().length === 0),
@@ -3250,60 +3277,21 @@ export function ItineraryBuilderPage(): JSX.Element {
               </div>
 
               <div className="grid gap-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-600">기타금액(증액/할인)</span>
-                  <Button
-                    variant="outline"
-                    onClick={() => setManualAdjustments((prev) => [...prev, { description: '', amountKrw: '0' }])}
-                  >
-                    항목 추가
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <span className="text-xs text-slate-600">기타 금액</span>
+                    <p className="mt-1 text-xs text-slate-400">추가와 할인을 모달에서 분리해 관리합니다.</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      추가 {manualAdjustmentSummary.addCount}건 ({formatKrw(manualAdjustmentSummary.addTotal)}) · 할인{' '}
+                      {manualAdjustmentSummary.discountCount}건 ({formatKrw(manualAdjustmentSummary.discountTotal)})
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={() => setManualAdjustmentsModalState({ open: true })}>
+                    기타 금액 설정
                   </Button>
                 </div>
-                {manualAdjustments.length === 0 ? (
-                  <p className="text-xs text-slate-500">추가된 기타금액 항목이 없습니다.</p>
-                ) : (
-                  <div className="grid gap-2">
-                    {manualAdjustments.map((item, index) => (
-                      <div key={`manual-adjustment-${index}`} className="grid grid-cols-[1fr_140px_auto] gap-2">
-                        <input
-                          value={item.description}
-                          onChange={(event) =>
-                            setManualAdjustments((prev) =>
-                              prev.map((row, rowIndex) =>
-                                rowIndex === index ? { ...row, description: event.target.value } : row,
-                              ),
-                            )
-                          }
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                          placeholder="내용"
-                        />
-                        <input
-                          type="number"
-                          value={item.amountKrw}
-                          onChange={(event) =>
-                            setManualAdjustments((prev) =>
-                              prev.map((row, rowIndex) =>
-                                rowIndex === index ? { ...row, amountKrw: event.target.value } : row,
-                              ),
-                            )
-                          }
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                          placeholder="금액(+/-)"
-                        />
-                        <Button
-                          variant="destructive"
-                          onClick={() =>
-                            setManualAdjustments((prev) => prev.filter((_row, rowIndex) => rowIndex !== index))
-                          }
-                        >
-                          삭제
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
                 {hasInvalidManualAdjustments ? (
-                  <p className="text-xs text-rose-700">기타금액은 내용과 정수 금액(+/-)을 함께 입력해주세요.</p>
+                  <p className="text-xs text-rose-700">기타 금액은 내용과 0 이상 정수 금액을 함께 입력해주세요.</p>
                 ) : null}
               </div>
             </div>
@@ -4038,6 +4026,30 @@ export function ItineraryBuilderPage(): JSX.Element {
               open: true,
               rowIndex,
             })
+          }
+        />
+
+        <ManualAdjustmentsModal
+          open={manualAdjustmentsModalState.open}
+          rows={manualAdjustments}
+          onClose={() => setManualAdjustmentsModalState({ open: false })}
+          onAddRow={(kind) =>
+            setManualAdjustments((prev) => [
+              ...prev,
+              {
+                kind,
+                description: '',
+                amountKrw: '0',
+              },
+            ])
+          }
+          onUpdateRow={(index, field, value) =>
+            setManualAdjustments((prev) =>
+              prev.map((row, rowIndex) => (rowIndex === index ? { ...row, [field]: value } : row)),
+            )
+          }
+          onRemoveRow={(index) =>
+            setManualAdjustments((prev) => prev.filter((_row, rowIndex) => rowIndex !== index))
           }
         />
 
