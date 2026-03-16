@@ -11,10 +11,8 @@ enum VariantType {
   basic
   afternoon
   extend
-  earlyNight
-  earlyMorning
-  earlyNightExtend
-  earlyMorningExtend
+  early
+  earlyExtend
 }
 
 enum OverrideTargetType {
@@ -51,8 +49,7 @@ enum PricingLineCode {
   HIACE
   EXTRA_LODGING
   LODGING_SELECTION
-  EARLY_NIGHT
-  EARLY_MORNING
+  EARLY
   EXTEND
   MANUAL_ADJUSTMENT
 }

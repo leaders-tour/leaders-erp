@@ -218,12 +218,8 @@ export class PricingService {
       lines.push(line);
     });
 
-    if (this.shouldApplyEarlyNight(input.variantType)) {
-      lines.push(this.buildTripFlatLine(rules, 'EARLY_NIGHT', context));
-    }
-
-    if (this.shouldApplyEarlyMorning(input.variantType)) {
-      lines.push(this.buildTripFlatLine(rules, 'EARLY_MORNING', context));
+    if (this.shouldApplyEarly(input.variantType)) {
+      lines.push(this.buildTripFlatLine(rules, 'EARLY', context));
     }
 
     if (this.shouldApplyExtend(input.variantType)) {
@@ -424,16 +420,12 @@ export class PricingService {
     };
   }
 
-  private shouldApplyEarlyNight(variantType: VariantType): boolean {
-    return variantType === 'earlyNight' || variantType === 'earlyNightExtend';
-  }
-
-  private shouldApplyEarlyMorning(variantType: VariantType): boolean {
-    return variantType === 'earlyMorning' || variantType === 'earlyMorningExtend';
+  private shouldApplyEarly(variantType: VariantType): boolean {
+    return variantType === 'early' || variantType === 'earlyExtend';
   }
 
   private shouldApplyExtend(variantType: VariantType): boolean {
-    return variantType === 'extend' || variantType === 'earlyNightExtend' || variantType === 'earlyMorningExtend';
+    return variantType === 'extend' || variantType === 'earlyExtend';
   }
 
   private computeDepositAndBalance(

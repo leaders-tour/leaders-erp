@@ -25,8 +25,7 @@ const LINE_CODE_LABELS: Record<string, string> = {
   HIACE: '하이에이스 추가',
   EXTRA_LODGING: '숙소 추가',
   LODGING_SELECTION: '숙소 선택',
-  EARLY_NIGHT: '얼리(00-04)',
-  EARLY_MORNING: '얼리(04-08)',
+  EARLY: '얼리',
   EXTEND: '연장',
   MANUAL_ADJUSTMENT: '기타금액',
 };

@@ -636,10 +636,8 @@ const VARIANTS = [
   { id: VariantType.Basic, label: '기본' },
   { id: VariantType.Afternoon, label: '오후' },
   { id: VariantType.Extend, label: '연장' },
-  { id: VariantType.EarlyNight, label: '얼리(00-04)' },
-  { id: VariantType.EarlyMorning, label: '얼리(04-08)' },
-  { id: VariantType.EarlyNightExtend, label: '얼리(00-04)+연장' },
-  { id: VariantType.EarlyMorningExtend, label: '얼리(04-08)+연장' },
+  { id: VariantType.Early, label: '얼리' },
+  { id: VariantType.EarlyExtend, label: '얼리+연장' },
 ];
 
 const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
