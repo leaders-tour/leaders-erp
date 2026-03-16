@@ -113,6 +113,16 @@ interface SegmentRow {
   toLocationId: string;
   averageDistanceKm: number;
   averageTravelHours: number;
+  scheduleTimeBlocks: Array<{
+    id: string;
+    startTime: string;
+    orderIndex: number;
+    activities: Array<{
+      id: string;
+      description: string;
+      orderIndex: number;
+    }>;
+  }>;
 }
 
 interface PlanContextRow {
@@ -134,6 +144,7 @@ interface EventOptionRow {
 }
 
 interface PlanRow {
+  segmentId?: string;
   locationId?: string;
   locationVersionId?: string;
   dateCellText: string;
@@ -193,6 +204,7 @@ interface RouteSelection {
 interface PlanTemplateStopRow {
   id: string;
   dayIndex: number;
+  segmentId: string | null;
   locationId: string | null;
   locationVersionId: string | null;
   dateCellText: string;
@@ -265,6 +277,7 @@ function arePlanRowsEqual(left: PlanRow[], right: PlanRow[]): boolean {
     }
 
     return (
+      row.segmentId === other.segmentId &&
       row.locationId === other.locationId &&
       row.locationVersionId === other.locationVersionId &&
       row.dateCellText === other.dateCellText &&
@@ -369,6 +382,16 @@ const SEGMENTS_QUERY = gql`
       toLocationId
       averageDistanceKm
       averageTravelHours
+      scheduleTimeBlocks {
+        id
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
     }
   }
 `;
@@ -386,6 +409,7 @@ const PLAN_TEMPLATES_QUERY = gql`
       planStops {
         id
         dayIndex
+        segmentId
         locationId
         locationVersionId
         dateCellText
@@ -412,6 +436,7 @@ const PLAN_TEMPLATE_QUERY = gql`
       planStops {
         id
         dayIndex
+        segmentId
         locationId
         locationVersionId
         dateCellText
@@ -720,6 +745,42 @@ function toScheduleCell(version: LocationVersionRow | undefined): string {
   }
 
   return version.timeBlocks
+    .slice()
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .flatMap((timeBlock) => {
+      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
+      if (orderedActivities.length === 0) {
+        return ['(일정 없음)'];
+      }
+      return orderedActivities.map((activity) => activity.description);
+    })
+    .join('\n');
+}
+
+function toSegmentTimeCell(segment: SegmentRow | undefined): string {
+  if (!segment || segment.scheduleTimeBlocks.length === 0) {
+    return '';
+  }
+
+  return segment.scheduleTimeBlocks
+    .slice()
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .flatMap((timeBlock) => {
+      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
+      if (orderedActivities.length <= 1) {
+        return [timeBlock.startTime];
+      }
+      return [timeBlock.startTime, ...orderedActivities.slice(1).map(() => '-')];
+    })
+    .join('\n');
+}
+
+function toSegmentScheduleCell(segment: SegmentRow | undefined): string {
+  if (!segment || segment.scheduleTimeBlocks.length === 0) {
+    return '';
+  }
+
+  return segment.scheduleTimeBlocks
     .slice()
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .flatMap((timeBlock) => {
@@ -1172,12 +1233,13 @@ export function ItineraryBuilderPage(): JSX.Element {
       });
 
       return {
+        segmentId: segment?.id,
         locationId: toStop.locationId,
         locationVersionId: toStop.locationVersionId,
         dateCellText: `${dayIndex}일차`,
         destinationCellText,
-        timeCellText: toTimeCell(toVersion),
-        scheduleCellText: toScheduleCell(toVersion),
+        timeCellText: dayIndex === 1 ? toTimeCell(toVersion) : toSegmentTimeCell(segment),
+        scheduleCellText: dayIndex === 1 ? toScheduleCell(toVersion) : toSegmentScheduleCell(segment),
         lodgingCellText: toLodgingCell(toVersion),
         mealCellText: toMealCell(toVersion),
       };
@@ -1520,6 +1582,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     );
     setPlanRows(
       orderedStops.map((stop) => ({
+        segmentId: stop.segmentId ?? undefined,
         locationId: stop.locationId ?? undefined,
         locationVersionId: stop.locationVersionId ?? undefined,
         dateCellText: stop.dateCellText,

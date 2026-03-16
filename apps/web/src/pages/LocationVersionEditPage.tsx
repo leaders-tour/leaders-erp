@@ -128,7 +128,7 @@ export function LocationVersionEditPage(): JSX.Element {
       ) : null}
 
       <LocationProfileForm
-        title={isCreateMode ? '새 버전 프로필' : '기본 버전 프로필'}
+        title={isCreateMode ? '새 버전 출발일 프로필' : '기본 버전 출발일 프로필'}
         submitLabel={isCreateMode ? '새 버전 생성' : '수정 저장'}
         submitVariant={isCreateMode ? 'primary' : 'default'}
         value={value}

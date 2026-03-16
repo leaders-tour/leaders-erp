@@ -57,6 +57,7 @@ export class PlanTemplateRepository {
       data: stops.map((stop) => ({
         planTemplateId,
         dayIndex: stop.dayIndex,
+        segmentId: stop.segmentId,
         locationId: stop.locationId,
         locationVersionId: stop.locationVersionId,
         dateCellText: stop.dateCellText,

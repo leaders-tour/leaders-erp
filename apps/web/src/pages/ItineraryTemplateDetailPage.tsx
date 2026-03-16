@@ -22,6 +22,7 @@ interface RegionRow {
 interface PlanTemplateStopRow {
   id: string;
   dayIndex: number;
+  segmentId: string | null;
   locationId: string | null;
   locationVersionId: string | null;
   dateCellText: string;
@@ -101,6 +102,16 @@ const SEGMENTS_QUERY = gql`
       toLocationId
       averageDistanceKm
       averageTravelHours
+      scheduleTimeBlocks {
+        id
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
     }
   }
 `;
@@ -119,6 +130,7 @@ const PLAN_TEMPLATE_QUERY = gql`
       planStops {
         id
         dayIndex
+        segmentId
         locationId
         locationVersionId
         dateCellText
@@ -258,6 +270,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
       }
 
       return {
+        segmentId: stop.segmentId ?? undefined,
         locationId: stop.locationId ?? undefined,
         locationVersionId: stop.locationVersionId ?? undefined,
         dateCellText: stop.dateCellText,

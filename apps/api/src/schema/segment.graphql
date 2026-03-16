@@ -7,11 +7,39 @@ type Segment {
   averageDistanceKm: Float!
   averageTravelHours: Float!
   isLongDistance: Boolean!
+  scheduleTimeBlocks: [SegmentTimeBlock!]!
   createdAt: DateTime!
   updatedAt: DateTime!
   region: Region!
   fromLocation: Location!
   toLocation: Location!
+}
+
+type SegmentTimeBlock {
+  id: ID!
+  segmentId: String!
+  startTime: String!
+  label: String!
+  orderIndex: Int!
+  activities: [SegmentActivity!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type SegmentActivity {
+  id: ID!
+  segmentTimeBlockId: String!
+  description: String!
+  orderIndex: Int!
+  isOptional: Boolean!
+  conditionNote: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input SegmentTimeSlotInput {
+  startTime: String!
+  activities: [String!]!
 }
 
 input SegmentCreateInput {
@@ -21,6 +49,7 @@ input SegmentCreateInput {
   averageDistanceKm: Float!
   averageTravelHours: Float!
   isLongDistance: Boolean!
+  timeSlots: [SegmentTimeSlotInput!]!
 }
 
 input SegmentUpdateInput {
@@ -30,4 +59,5 @@ input SegmentUpdateInput {
   averageDistanceKm: Float
   averageTravelHours: Float
   isLongDistance: Boolean
+  timeSlots: [SegmentTimeSlotInput!]
 }

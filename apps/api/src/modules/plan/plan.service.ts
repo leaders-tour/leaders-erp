@@ -64,7 +64,9 @@ export class PlanService {
     }
   }
 
-  private async normalizePlanStopsWithLocationReferences<T extends { locationId?: string; locationVersionId?: string }>(
+  private async normalizePlanStopsWithLocationReferences<
+    T extends { segmentId?: string; locationId?: string; locationVersionId?: string },
+  >(
     planStops: T[],
   ): Promise<T[]> {
     const locationVersionIds = Array.from(
@@ -75,40 +77,84 @@ export class PlanService {
       ),
     );
 
-    if (locationVersionIds.length === 0) {
-      return planStops;
-    }
+    let normalizedStops = planStops;
+    if (locationVersionIds.length > 0) {
+      const versions = await this.prisma.locationVersion.findMany({
+        where: { id: { in: locationVersionIds } },
+        select: { id: true, locationId: true },
+      });
 
-    const versions = await this.prisma.locationVersion.findMany({
-      where: { id: { in: locationVersionIds } },
-      select: { id: true, locationId: true },
-    });
-
-    if (versions.length !== locationVersionIds.length) {
-      throw new DomainError('VALIDATION_FAILED', 'One or more locationVersionId values are invalid');
-    }
-
-    const locationIdByVersionId = new Map(versions.map((version) => [version.id, version.locationId]));
-
-    return planStops.map((planStop) => {
-      if (!planStop.locationVersionId) {
-        return planStop;
-      }
-
-      const expectedLocationId = locationIdByVersionId.get(planStop.locationVersionId);
-      if (!expectedLocationId) {
+      if (versions.length !== locationVersionIds.length) {
         throw new DomainError('VALIDATION_FAILED', 'One or more locationVersionId values are invalid');
       }
 
-      if (planStop.locationId && planStop.locationId !== expectedLocationId) {
-        throw new DomainError('VALIDATION_FAILED', 'locationId and locationVersionId must belong to the same location');
+      const locationIdByVersionId = new Map(versions.map((version) => [version.id, version.locationId]));
+
+      normalizedStops = planStops.map((planStop) => {
+        if (!planStop.locationVersionId) {
+          return planStop;
+        }
+
+        const expectedLocationId = locationIdByVersionId.get(planStop.locationVersionId);
+        if (!expectedLocationId) {
+          throw new DomainError('VALIDATION_FAILED', 'One or more locationVersionId values are invalid');
+        }
+
+        if (planStop.locationId && planStop.locationId !== expectedLocationId) {
+          throw new DomainError('VALIDATION_FAILED', 'locationId and locationVersionId must belong to the same location');
+        }
+
+        return {
+          ...planStop,
+          locationId: expectedLocationId,
+        };
+      });
+    }
+
+    const segmentIds = Array.from(
+      new Set(
+        normalizedStops
+          .map((planStop) => planStop.segmentId)
+          .filter((value): value is string => typeof value === 'string' && value.length > 0),
+      ),
+    );
+    if (segmentIds.length === 0) {
+      return normalizedStops;
+    }
+
+    const segments = await this.prisma.segment.findMany({
+      where: { id: { in: segmentIds } },
+      select: { id: true, fromLocationId: true, toLocationId: true },
+    });
+    if (segments.length !== segmentIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'One or more segmentId values are invalid');
+    }
+
+    const segmentById = new Map(segments.map((segment) => [segment.id, segment]));
+    normalizedStops.forEach((planStop, index) => {
+      if (!planStop.segmentId) {
+        return;
+      }
+      if (index === 0) {
+        throw new DomainError('VALIDATION_FAILED', 'segmentId is not allowed on the first stop');
       }
 
-      return {
-        ...planStop,
-        locationId: expectedLocationId,
-      };
+      const previousStop = normalizedStops[index - 1];
+      const currentLocationId = planStop.locationId;
+      const previousLocationId = previousStop?.locationId;
+      const segment = segmentById.get(planStop.segmentId);
+      if (!segment) {
+        throw new DomainError('VALIDATION_FAILED', 'One or more segmentId values are invalid');
+      }
+      if (!previousLocationId || !currentLocationId) {
+        throw new DomainError('VALIDATION_FAILED', 'segmentId requires consecutive stops with location references');
+      }
+      if (segment.fromLocationId !== previousLocationId || segment.toLocationId !== currentLocationId) {
+        throw new DomainError('VALIDATION_FAILED', 'segmentId must match the previous and current stop locations');
+      }
     });
+
+    return normalizedStops;
   }
 
   private formatDocumentDatePart(value: string): string {

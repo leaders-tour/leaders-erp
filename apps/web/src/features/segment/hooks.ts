@@ -12,6 +12,16 @@ const LIST = gql`
       averageDistanceKm
       averageTravelHours
       isLongDistance
+      scheduleTimeBlocks {
+        id
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
     }
   }
 `;
@@ -45,6 +55,12 @@ export interface SegmentFormInput {
   averageDistanceKm: number;
   averageTravelHours: number;
   isLongDistance: boolean;
+  timeSlots: SegmentTimeSlotFormInput[];
+}
+
+export interface SegmentTimeSlotFormInput {
+  startTime: string;
+  activities: string[];
 }
 
 export interface SegmentRow {
@@ -56,6 +72,16 @@ export interface SegmentRow {
   averageDistanceKm: number;
   averageTravelHours: number;
   isLongDistance: boolean;
+  scheduleTimeBlocks: Array<{
+    id: string;
+    startTime: string;
+    orderIndex: number;
+    activities: Array<{
+      id: string;
+      description: string;
+      orderIndex: number;
+    }>;
+  }>;
 }
 
 export function useSegmentCrud() {

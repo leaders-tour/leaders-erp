@@ -76,6 +76,16 @@ const SEGMENTS_QUERY = gql`
       toLocationId
       averageDistanceKm
       averageTravelHours
+      scheduleTimeBlocks {
+        id
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
     }
   }
 `;

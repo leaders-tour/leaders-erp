@@ -390,6 +390,7 @@ input PlanPricingPreviewInput {
 type PlanStop {
   id: ID!
   planVersionId: String!
+  segmentId: String
   locationId: String
   locationVersionId: String
   dateCellText: String!
@@ -403,6 +404,7 @@ type PlanStop {
 }
 
 input PlanStopNestedInput {
+  segmentId: String
   locationId: String
   locationVersionId: String
   dateCellText: String!

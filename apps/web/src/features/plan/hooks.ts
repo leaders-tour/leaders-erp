@@ -234,6 +234,7 @@ export interface PlanVersionDetail extends PlanVersionRow {
   planStops: Array<{
     id: string;
     planVersionId: string;
+    segmentId?: string | null;
     locationId?: string | null;
     locationVersionId?: string | null;
     dateCellText: string;
@@ -453,6 +454,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
       planStops {
         id
         planVersionId
+        segmentId
         locationId
         locationVersionId
         dateCellText

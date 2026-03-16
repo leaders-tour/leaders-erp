@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const planTemplateStopInputSchema = z.object({
   dayIndex: z.number().int().min(1).max(13),
+  segmentId: z.string().min(1).optional(),
   locationId: z.string().min(1).optional(),
   locationVersionId: z.string().min(1).optional(),
   dateCellText: z.string(),

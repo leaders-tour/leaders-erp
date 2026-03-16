@@ -1,6 +1,7 @@
 export interface PlanStop {
   id: string;
   planVersionId: string;
+  segmentId: string | null;
   locationId: string | null;
   locationVersionId: string | null;
   dateCellText: string;

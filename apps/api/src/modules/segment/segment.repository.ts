@@ -1,9 +1,11 @@
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import { segmentInclude } from './segment.mapper';
 import type { SegmentCreateDto, SegmentUpdateDto } from './segment.types';
 
+type PrismaLike = PrismaClient | Prisma.TransactionClient;
+
 export class SegmentRepository {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(private readonly prisma: PrismaLike) {}
 
   findMany() {
     return this.prisma.segment.findMany({ include: segmentInclude, orderBy: { createdAt: 'desc' } });

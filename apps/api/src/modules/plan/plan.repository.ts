@@ -340,6 +340,7 @@ export class PlanRepository {
         },
         planStops: {
           create: initialVersionData.planStops.map((planStop) => ({
+            segmentId: planStop.segmentId,
             locationId: planStop.locationId,
             locationVersionId: planStop.locationVersionId,
             dateCellText: planStop.dateCellText,
@@ -395,6 +396,7 @@ export class PlanRepository {
         },
         planStops: {
           create: versionData.planStops.map((planStop) => ({
+            segmentId: planStop.segmentId,
             locationId: planStop.locationId,
             locationVersionId: planStop.locationVersionId,
             dateCellText: planStop.dateCellText,

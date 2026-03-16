@@ -51,6 +51,16 @@ export interface SegmentOption {
   toLocationId: string;
   averageDistanceKm: number;
   averageTravelHours: number;
+  scheduleTimeBlocks: Array<{
+    id: string;
+    startTime: string;
+    orderIndex: number;
+    activities: Array<{
+      id: string;
+      description: string;
+      orderIndex: number;
+    }>;
+  }>;
 }
 
 export function formatLocationVersion(version: Pick<LocationVersionOption, 'label' | 'versionNumber'> | undefined): string {
@@ -109,6 +119,42 @@ function toScheduleCell(version: LocationVersionOption | undefined): string {
   }
 
   return version.timeBlocks
+    .slice()
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .flatMap((timeBlock) => {
+      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
+      if (orderedActivities.length === 0) {
+        return ['(일정 없음)'];
+      }
+      return orderedActivities.map((activity) => activity.description);
+    })
+    .join('\n');
+}
+
+function toSegmentTimeCell(segment: SegmentOption | undefined): string {
+  if (!segment || segment.scheduleTimeBlocks.length === 0) {
+    return '';
+  }
+
+  return segment.scheduleTimeBlocks
+    .slice()
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .flatMap((timeBlock) => {
+      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
+      if (orderedActivities.length <= 1) {
+        return [timeBlock.startTime];
+      }
+      return [timeBlock.startTime, ...orderedActivities.slice(1).map(() => '-')];
+    })
+    .join('\n');
+}
+
+function toSegmentScheduleCell(segment: SegmentOption | undefined): string {
+  if (!segment || segment.scheduleTimeBlocks.length === 0) {
+    return '';
+  }
+
+  return segment.scheduleTimeBlocks
     .slice()
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .flatMap((timeBlock) => {
@@ -213,12 +259,13 @@ export function buildAutoRowsFromRoute(input: {
     });
 
     return {
+      segmentId: segment?.id,
       locationId: toStop.locationId,
       locationVersionId: toStop.locationVersionId,
       dateCellText: `${dayIndex}일차`,
       destinationCellText,
-      timeCellText: toTimeCell(toVersion),
-      scheduleCellText: toScheduleCell(toVersion),
+      timeCellText: dayIndex === 1 ? toTimeCell(toVersion) : toSegmentTimeCell(segment),
+      scheduleCellText: dayIndex === 1 ? toScheduleCell(toVersion) : toSegmentScheduleCell(segment),
       lodgingCellText: toLodgingCell(toVersion),
       mealCellText: toMealCell(toVersion),
     };
@@ -247,6 +294,7 @@ export function buildTemplateStopsFromRouteAndRows(input: {
     const routeStop = routeStops[index];
     return {
       dayIndex: index + 1,
+      segmentId: index === 0 ? undefined : row.segmentId,
       locationId: routeStop?.locationId || row.locationId || undefined,
       locationVersionId: routeStop?.locationVersionId || row.locationVersionId || undefined,
       dateCellText: row.dateCellText,

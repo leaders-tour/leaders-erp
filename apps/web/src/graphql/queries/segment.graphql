@@ -8,5 +8,15 @@ query Segments {
     averageDistanceKm
     averageTravelHours
     isLongDistance
+    scheduleTimeBlocks {
+      id
+      startTime
+      orderIndex
+      activities {
+        id
+        description
+        orderIndex
+      }
+    }
   }
 }

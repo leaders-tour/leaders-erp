@@ -171,7 +171,7 @@ async function main(): Promise<void> {
     data: { currentVersionId: dalanVersion.id },
   });
 
-  await prisma.segment.upsert({
+  const ubToDalanSegment = await prisma.segment.upsert({
     where: {
       fromLocationId_toLocationId: {
         fromLocationId: ub.id,
@@ -305,6 +305,115 @@ async function main(): Promise<void> {
     create: {
       timeBlockId: slot08.id,
       description: '가이드 미팅 후 고비로 출발',
+      orderIndex: 0,
+      isOptional: false,
+      conditionNote: null,
+    },
+  });
+
+  const segmentSlot08 = await prisma.segmentTimeBlock.upsert({
+    where: {
+      segmentId_orderIndex: {
+        segmentId: ubToDalanSegment.id,
+        orderIndex: 0,
+      },
+    },
+    update: { startTime: '08:00', label: '08:00' },
+    create: {
+      segmentId: ubToDalanSegment.id,
+      startTime: '08:00',
+      label: '08:00',
+      orderIndex: 0,
+    },
+  });
+  const segmentSlot12 = await prisma.segmentTimeBlock.upsert({
+    where: {
+      segmentId_orderIndex: {
+        segmentId: ubToDalanSegment.id,
+        orderIndex: 1,
+      },
+    },
+    update: { startTime: '12:00', label: '12:00' },
+    create: {
+      segmentId: ubToDalanSegment.id,
+      startTime: '12:00',
+      label: '12:00',
+      orderIndex: 1,
+    },
+  });
+  const segmentSlot18 = await prisma.segmentTimeBlock.upsert({
+    where: {
+      segmentId_orderIndex: {
+        segmentId: ubToDalanSegment.id,
+        orderIndex: 2,
+      },
+    },
+    update: { startTime: '18:00', label: '18:00' },
+    create: {
+      segmentId: ubToDalanSegment.id,
+      startTime: '18:00',
+      label: '18:00',
+      orderIndex: 2,
+    },
+  });
+
+  await prisma.segmentActivity.upsert({
+    where: {
+      segmentTimeBlockId_orderIndex: {
+        segmentTimeBlockId: segmentSlot08.id,
+        orderIndex: 0,
+      },
+    },
+    update: {
+      description: '가이드 미팅 후 고비로 출발',
+      isOptional: false,
+      conditionNote: null,
+    },
+    create: {
+      segmentTimeBlockId: segmentSlot08.id,
+      description: '가이드 미팅 후 고비로 출발',
+      orderIndex: 0,
+      isOptional: false,
+      conditionNote: null,
+    },
+  });
+
+  await prisma.segmentActivity.upsert({
+    where: {
+      segmentTimeBlockId_orderIndex: {
+        segmentTimeBlockId: segmentSlot12.id,
+        orderIndex: 0,
+      },
+    },
+    update: {
+      description: '이동 중 점심식사',
+      isOptional: false,
+      conditionNote: null,
+    },
+    create: {
+      segmentTimeBlockId: segmentSlot12.id,
+      description: '이동 중 점심식사',
+      orderIndex: 0,
+      isOptional: false,
+      conditionNote: null,
+    },
+  });
+
+  await prisma.segmentActivity.upsert({
+    where: {
+      segmentTimeBlockId_orderIndex: {
+        segmentTimeBlockId: segmentSlot18.id,
+        orderIndex: 0,
+      },
+    },
+    update: {
+      description: '숙소 도착 후 휴식',
+      isOptional: false,
+      conditionNote: null,
+    },
+    create: {
+      segmentTimeBlockId: segmentSlot18.id,
+      description: '숙소 도착 후 휴식',
       orderIndex: 0,
       isOptional: false,
       conditionNote: null,

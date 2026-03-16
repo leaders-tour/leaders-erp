@@ -342,14 +342,17 @@ export function LocationProfileForm({
           </div>
 
           <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 self-start">
-            <h3 className="text-sm font-semibold text-slate-800">시간/일정</h3>
+            <div className="grid gap-1">
+              <h3 className="text-sm font-semibold text-slate-800">출발일 일정</h3>
+              <p className="text-xs text-slate-500">1일차 출발지 프로필에만 사용되는 시간/일정입니다.</p>
+            </div>
             <div className="grid gap-3">
               {form.timeSlots.map((slot, slotIndex) => (
                 <div key={`slot-${slotIndex}`} className="grid gap-2">
                   <div className="grid gap-3 rounded-xl border border-slate-200 p-3 md:grid-cols-[max-content_minmax(0,1fr)]">
                     <div className="grid gap-2 md:content-start">
                       <div className="flex h-10 items-center">
-                        <h4 className="text-sm font-semibold text-slate-800">시간</h4>
+                        <h4 className="text-sm font-semibold text-slate-800">출발 시간</h4>
                       </div>
                       <Input
                         className="w-[110px] border-slate-500 text-lg font-semibold"
@@ -360,7 +363,7 @@ export function LocationProfileForm({
                     </div>
                     <div className="grid gap-2 min-w-0">
                       <div className="flex h-10 items-center justify-between gap-2">
-                        <h4 className="text-sm font-semibold text-slate-800">일정</h4>
+                        <h4 className="text-sm font-semibold text-slate-800">출발일 일정</h4>
                         <Button
                           type="button"
                           variant="outline"

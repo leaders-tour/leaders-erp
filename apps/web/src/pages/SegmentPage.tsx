@@ -1,10 +1,10 @@
 import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { useLocation } from 'react-router-dom';
 import { LocationSubNav } from '../features/location/sub-nav';
+import { useSegmentCrud, type SegmentRow, type SegmentTimeSlotFormInput } from '../features/segment/hooks';
 import type { Location } from '../generated/graphql';
-import { useSegmentCrud } from '../features/segment/hooks';
 
 const LOCATIONS_QUERY = gql`
   query SegmentLocations {
@@ -17,30 +17,222 @@ const LOCATIONS_QUERY = gql`
   }
 `;
 
+const DEFAULT_SLOT_TIMES = ['08:00', '12:00', '18:00'] as const;
+
 interface SegmentFormState {
   fromLocationId: string;
   toLocationId: string;
   averageDistanceKm: string;
   averageTravelHours: string;
   isLongDistance: boolean;
+  timeSlots: SegmentTimeSlotFormInput[];
 }
 
-const EMPTY_FORM: SegmentFormState = {
-  fromLocationId: '',
-  toLocationId: '',
-  averageDistanceKm: '',
-  averageTravelHours: '',
-  isLongDistance: false,
-};
+function createTimeSlot(startTime: string): SegmentTimeSlotFormInput {
+  return {
+    startTime,
+    activities: ['', '', '', ''],
+  };
+}
+
+function createDefaultTimeSlots(): SegmentTimeSlotFormInput[] {
+  return DEFAULT_SLOT_TIMES.map((time) => createTimeSlot(time));
+}
+
+function createEmptyForm(): SegmentFormState {
+  return {
+    fromLocationId: '',
+    toLocationId: '',
+    averageDistanceKm: '',
+    averageTravelHours: '',
+    isLongDistance: false,
+    timeSlots: createDefaultTimeSlots(),
+  };
+}
+
+function getNextSlotTime(timeSlots: SegmentTimeSlotFormInput[]): string {
+  const last = timeSlots[timeSlots.length - 1];
+  if (!last || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(last.startTime)) {
+    return '';
+  }
+
+  const [hours = 0, minutes = 0] = last.startTime.split(':').map(Number);
+  const nextTotalMinutes = (hours * 60 + minutes + 60) % (24 * 60);
+  return `${String(Math.floor(nextTotalMinutes / 60)).padStart(2, '0')}:${String(nextTotalMinutes % 60).padStart(2, '0')}`;
+}
+
+function toFormTimeSlots(segment: SegmentRow | undefined): SegmentTimeSlotFormInput[] {
+  if (!segment || segment.scheduleTimeBlocks.length === 0) {
+    return createDefaultTimeSlots();
+  }
+
+  return segment.scheduleTimeBlocks
+    .slice()
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .map((timeBlock) => ({
+      startTime: timeBlock.startTime,
+      activities:
+        timeBlock.activities.length > 0
+          ? timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex).map((activity) => activity.description)
+          : [''],
+    }));
+}
+
+function TimeSlotEditor(props: {
+  value: SegmentTimeSlotFormInput[];
+  onChange: Dispatch<SetStateAction<SegmentFormState>>;
+}): JSX.Element {
+  const { value, onChange } = props;
+
+  const updateSlotTime = (slotIndex: number, startTime: string) => {
+    onChange((prev) => {
+      const nextSlots = [...prev.timeSlots];
+      const slot = nextSlots[slotIndex];
+      if (!slot) {
+        return prev;
+      }
+      nextSlots[slotIndex] = { ...slot, startTime };
+      return { ...prev, timeSlots: nextSlots };
+    });
+  };
+
+  const updateActivity = (slotIndex: number, activityIndex: number, description: string) => {
+    onChange((prev) => {
+      const nextSlots = [...prev.timeSlots];
+      const slot = nextSlots[slotIndex];
+      if (!slot) {
+        return prev;
+      }
+      const nextActivities = [...slot.activities];
+      if (activityIndex < 0 || activityIndex >= nextActivities.length) {
+        return prev;
+      }
+      nextActivities[activityIndex] = description;
+      nextSlots[slotIndex] = { ...slot, activities: nextActivities };
+      return { ...prev, timeSlots: nextSlots };
+    });
+  };
+
+  const addTimeSlot = () => {
+    onChange((prev) => ({
+      ...prev,
+      timeSlots: [...prev.timeSlots, createTimeSlot(getNextSlotTime(prev.timeSlots))],
+    }));
+  };
+
+  const removeTimeSlot = (slotIndex: number) => {
+    onChange((prev) => {
+      if (prev.timeSlots.length <= 1) {
+        return prev;
+      }
+      return {
+        ...prev,
+        timeSlots: prev.timeSlots.filter((_, index) => index !== slotIndex),
+      };
+    });
+  };
+
+  const addActivity = (slotIndex: number) => {
+    onChange((prev) => {
+      const nextSlots = [...prev.timeSlots];
+      const slot = nextSlots[slotIndex];
+      if (!slot) {
+        return prev;
+      }
+      nextSlots[slotIndex] = {
+        ...slot,
+        activities: [...slot.activities, ''],
+      };
+      return { ...prev, timeSlots: nextSlots };
+    });
+  };
+
+  const removeActivity = (slotIndex: number, activityIndex: number) => {
+    onChange((prev) => {
+      const nextSlots = [...prev.timeSlots];
+      const slot = nextSlots[slotIndex];
+      if (!slot || slot.activities.length <= 1) {
+        return prev;
+      }
+      nextSlots[slotIndex] = {
+        ...slot,
+        activities: slot.activities.filter((_, index) => index !== activityIndex),
+      };
+      return { ...prev, timeSlots: nextSlots };
+    });
+  };
+
+  return (
+    <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-800">연결 일정</h3>
+          <p className="text-xs text-slate-500">2일차 이후 자동 채움에 사용되는 연결별 시간/일정입니다.</p>
+        </div>
+        <Button type="button" variant="outline" onClick={addTimeSlot}>
+          슬롯 추가
+        </Button>
+      </div>
+
+      <div className="grid gap-4">
+        {value.map((slot, slotIndex) => (
+          <div key={`${slot.startTime}-${slotIndex}`} className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <label className="grid gap-1 text-sm">
+                <span className="text-slate-700">시작 시간</span>
+                <Input
+                  value={slot.startTime}
+                  onChange={(event) => updateSlotTime(slotIndex, event.target.value)}
+                  placeholder="08:00"
+                />
+              </label>
+              <Button type="button" variant="outline" onClick={() => removeTimeSlot(slotIndex)} disabled={value.length <= 1}>
+                슬롯 삭제
+              </Button>
+            </div>
+
+            <div className="grid gap-2">
+              {slot.activities.map((activity, activityIndex) => (
+                <div key={`${slotIndex}-${activityIndex}`} className="flex items-start gap-2">
+                  <textarea
+                    value={activity}
+                    onChange={(event) => updateActivity(slotIndex, activityIndex, event.target.value)}
+                    rows={2}
+                    className="min-h-[72px] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    placeholder="예: 점심 식사 후 다음 목적지로 이동"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => removeActivity(slotIndex, activityIndex)}
+                    disabled={slot.activities.length <= 1}
+                  >
+                    삭제
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <Button type="button" variant="outline" onClick={() => addActivity(slotIndex)}>
+                활동 추가
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function SegmentPage(): JSX.Element {
   const crud = useSegmentCrud();
   const location = useLocation();
   const { data: locationData, loading: locationsLoading } = useQuery<{ locations: Location[] }>(LOCATIONS_QUERY);
 
-  const [form, setForm] = useState<SegmentFormState>(EMPTY_FORM);
+  const [form, setForm] = useState<SegmentFormState>(createEmptyForm);
   const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<SegmentFormState>(EMPTY_FORM);
+  const [editForm, setEditForm] = useState<SegmentFormState>(createEmptyForm);
   const [fromSearch, setFromSearch] = useState('');
   const [toSearch, setToSearch] = useState('');
   const [fromOpen, setFromOpen] = useState(false);
@@ -53,15 +245,14 @@ export function SegmentPage(): JSX.Element {
   const [updating, setUpdating] = useState(false);
 
   const locations = useMemo(() => locationData?.locations ?? [], [locationData]);
-
-  const locationById = useMemo(() => new Map(locations.map((location) => [location.id, location])), [locations]);
+  const locationById = useMemo(() => new Map(locations.map((item) => [item.id, item])), [locations]);
 
   const filteredFromLocations = useMemo(() => {
     const keyword = fromSearch.trim().toLowerCase();
     if (!keyword) {
       return locations;
     }
-    return locations.filter((location) => location.name.toLowerCase().includes(keyword));
+    return locations.filter((item) => item.name.toLowerCase().includes(keyword));
   }, [locations, fromSearch]);
 
   const filteredToLocations = useMemo(() => {
@@ -69,7 +260,7 @@ export function SegmentPage(): JSX.Element {
     if (!keyword) {
       return locations;
     }
-    return locations.filter((location) => location.name.toLowerCase().includes(keyword));
+    return locations.filter((item) => item.name.toLowerCase().includes(keyword));
   }, [locations, toSearch]);
 
   const selectedFromLocation = form.fromLocationId ? locationById.get(form.fromLocationId) : undefined;
@@ -98,7 +289,7 @@ export function SegmentPage(): JSX.Element {
       <header className="grid gap-3">
         <LocationSubNav pathname={location.pathname} />
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">목적지 간 연결</h1>
-        <p className="mt-1 text-sm text-slate-600">A/B 도착지를 검색 또는 드롭다운으로 선택해 연결 정보를 관리합니다.</p>
+        <p className="mt-1 text-sm text-slate-600">출발지-도착지 연결과 연결별 이동 일정을 함께 관리합니다.</p>
       </header>
 
       <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -120,8 +311,9 @@ export function SegmentPage(): JSX.Element {
                 averageDistanceKm: Number(form.averageDistanceKm),
                 averageTravelHours: Number(form.averageTravelHours),
                 isLongDistance: form.isLongDistance,
+                timeSlots: form.timeSlots,
               });
-              setForm(EMPTY_FORM);
+              setForm(createEmptyForm());
               setFromSearch('');
               setToSearch('');
               setFromOpen(false);
@@ -132,7 +324,7 @@ export function SegmentPage(): JSX.Element {
           }}
         >
           <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-2">
-            <div className="grid gap-2 relative">
+            <div className="relative grid gap-2">
               <h3 className="text-sm font-semibold text-slate-800">출발지</h3>
               <Input
                 value={fromSearch}
@@ -150,18 +342,18 @@ export function SegmentPage(): JSX.Element {
                   {filteredFromLocations.length === 0 ? (
                     <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
                   ) : (
-                    filteredFromLocations.map((location) => (
+                    filteredFromLocations.map((item) => (
                       <button
-                        key={location.id}
+                        key={item.id}
                         type="button"
                         onClick={() => {
-                          setForm((prev) => ({ ...prev, fromLocationId: location.id }));
-                          setFromSearch(location.name);
+                          setForm((prev) => ({ ...prev, fromLocationId: item.id }));
+                          setFromSearch(item.name);
                           setFromOpen(false);
                         }}
                         className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                       >
-                        {location.name} ({location.regionName})
+                        {item.name} ({item.regionName})
                       </button>
                     ))
                   )}
@@ -169,7 +361,7 @@ export function SegmentPage(): JSX.Element {
               ) : null}
             </div>
 
-            <div className="grid gap-2 relative">
+            <div className="relative grid gap-2">
               <h3 className="text-sm font-semibold text-slate-800">도착지</h3>
               <Input
                 value={toSearch}
@@ -187,18 +379,18 @@ export function SegmentPage(): JSX.Element {
                   {filteredToLocations.length === 0 ? (
                     <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
                   ) : (
-                    filteredToLocations.map((location) => (
+                    filteredToLocations.map((item) => (
                       <button
-                        key={location.id}
+                        key={item.id}
                         type="button"
                         onClick={() => {
-                          setForm((prev) => ({ ...prev, toLocationId: location.id }));
-                          setToSearch(location.name);
+                          setForm((prev) => ({ ...prev, toLocationId: item.id }));
+                          setToSearch(item.name);
                           setToOpen(false);
                         }}
                         className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                       >
-                        {location.name} ({location.regionName})
+                        {item.name} ({item.regionName})
                       </button>
                     ))
                   )}
@@ -241,6 +433,8 @@ export function SegmentPage(): JSX.Element {
             <span className="text-xs text-slate-500">비용 추가 관련 존재, 정확한 기재 바람.</span>
           </label>
 
+          <TimeSlotEditor value={form.timeSlots} onChange={setForm} />
+
           {selectedFromLocation && selectedToLocation && selectedFromLocation.regionId !== selectedToLocation.regionId ? (
             <p className="text-sm text-red-600">출발지와 도착지는 동일한 지역이어야 합니다.</p>
           ) : null}
@@ -265,6 +459,7 @@ export function SegmentPage(): JSX.Element {
               <Th>도착지</Th>
               <Th>평균거리(km)</Th>
               <Th>평균 이동 시간(시간)</Th>
+              <Th>일정 슬롯</Th>
               <Th>장거리</Th>
               <Th>액션</Th>
             </tr>
@@ -277,6 +472,7 @@ export function SegmentPage(): JSX.Element {
                 <Td>{locationById.get(row.toLocationId)?.name ?? row.toLocationId}</Td>
                 <Td>{row.averageDistanceKm}</Td>
                 <Td>{row.averageTravelHours}</Td>
+                <Td>{row.scheduleTimeBlocks.length}</Td>
                 <Td>{row.isLongDistance ? 'Y' : 'N'}</Td>
                 <Td>
                   <Button
@@ -289,6 +485,7 @@ export function SegmentPage(): JSX.Element {
                         averageDistanceKm: String(row.averageDistanceKm),
                         averageTravelHours: String(row.averageTravelHours),
                         isLongDistance: row.isLongDistance,
+                        timeSlots: toFormTimeSlots(row),
                       });
                       setEditFromSearch(locationById.get(row.fromLocationId)?.name ?? '');
                       setEditToSearch(locationById.get(row.toLocationId)?.name ?? '');
@@ -325,9 +522,10 @@ export function SegmentPage(): JSX.Element {
                   averageDistanceKm: Number(editForm.averageDistanceKm),
                   averageTravelHours: Number(editForm.averageTravelHours),
                   isLongDistance: editForm.isLongDistance,
+                  timeSlots: editForm.timeSlots,
                 });
                 setEditingSegmentId(null);
-                setEditForm(EMPTY_FORM);
+                setEditForm(createEmptyForm());
                 setEditFromSearch('');
                 setEditToSearch('');
                 setEditFromOpen(false);
@@ -356,18 +554,18 @@ export function SegmentPage(): JSX.Element {
                     {filteredFromLocations.length === 0 ? (
                       <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
                     ) : (
-                      filteredFromLocations.map((location) => (
+                      filteredFromLocations.map((item) => (
                         <button
-                          key={location.id}
+                          key={item.id}
                           type="button"
                           onClick={() => {
-                            setEditForm((prev) => ({ ...prev, fromLocationId: location.id }));
-                            setEditFromSearch(location.name);
+                            setEditForm((prev) => ({ ...prev, fromLocationId: item.id }));
+                            setEditFromSearch(item.name);
                             setEditFromOpen(false);
                           }}
                           className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                         >
-                          {location.name} ({location.regionName})
+                          {item.name} ({item.regionName})
                         </button>
                       ))
                     )}
@@ -393,18 +591,18 @@ export function SegmentPage(): JSX.Element {
                     {filteredToLocations.length === 0 ? (
                       <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
                     ) : (
-                      filteredToLocations.map((location) => (
+                      filteredToLocations.map((item) => (
                         <button
-                          key={location.id}
+                          key={item.id}
                           type="button"
                           onClick={() => {
-                            setEditForm((prev) => ({ ...prev, toLocationId: location.id }));
-                            setEditToSearch(location.name);
+                            setEditForm((prev) => ({ ...prev, toLocationId: item.id }));
+                            setEditToSearch(item.name);
                             setEditToOpen(false);
                           }}
                           className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                         >
-                          {location.name} ({location.regionName})
+                          {item.name} ({item.regionName})
                         </button>
                       ))
                     )}
@@ -447,8 +645,10 @@ export function SegmentPage(): JSX.Element {
               <span className="text-xs text-slate-500">비용 추가 관련 존재, 정확한 기재 바람.</span>
             </label>
 
+            <TimeSlotEditor value={editForm.timeSlots} onChange={setEditForm} />
+
             {selectedEditFromLocation && selectedEditToLocation && selectedEditFromLocation.regionId !== selectedEditToLocation.regionId ? (
-              <p className="text-sm text-red-600">A/B 도착지는 동일한 지역이어야 합니다.</p>
+              <p className="text-sm text-red-600">출발지와 도착지는 동일한 지역이어야 합니다.</p>
             ) : null}
 
             <div className="flex gap-2">
@@ -460,7 +660,7 @@ export function SegmentPage(): JSX.Element {
                 variant="outline"
                 onClick={() => {
                   setEditingSegmentId(null);
-                  setEditForm(EMPTY_FORM);
+                  setEditForm(createEmptyForm());
                   setEditFromSearch('');
                   setEditToSearch('');
                   setEditFromOpen(false);
