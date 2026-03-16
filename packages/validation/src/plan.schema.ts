@@ -31,6 +31,40 @@ export const manualAdjustmentInputSchema = z.object({
 
 const manualDepositInputSchema = z.number().int().min(0).max(1_000_000_000);
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+const externalTransferDirections = ['PICKUP', 'DROP'] as const;
+const externalTransferPresetCodes = [
+  'DROP_ULAANBAATAR_AIRPORT',
+  'DROP_TERELJ_AIRPORT',
+  'PICKUP_AIRPORT_OZHOUSE',
+  'CUSTOM',
+] as const;
+
+export const externalTransferInputSchema = z
+  .object({
+    direction: z.enum(externalTransferDirections),
+    presetCode: z.enum(externalTransferPresetCodes),
+    travelDate: dateTimeInputSchema,
+    departureTime: timeSchema,
+    arrivalTime: timeSchema,
+    departurePlace: z.string().min(1).max(100),
+    arrivalPlace: z.string().min(1).max(100),
+    selectedTeamOrderIndexes: z.array(z.number().int().min(0)).min(1),
+    unitPriceKrw: z.number().int().min(0).max(1_000_000_000),
+  })
+  .superRefine((value, ctx) => {
+    const seen = new Set<number>();
+    value.selectedTeamOrderIndexes.forEach((orderIndex, index) => {
+      if (seen.has(orderIndex)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'selectedTeamOrderIndexes must not contain duplicates',
+          path: ['selectedTeamOrderIndexes', index],
+        });
+        return;
+      }
+      seen.add(orderIndex);
+    });
+  });
 
 export const planVersionTransportGroupInputSchema = z
   .object({
@@ -102,6 +136,7 @@ export const planVersionMetaInputSchema = z
     externalDropPlaceType: z.enum(placeTypes).optional(),
     externalDropPlaceCustomText: z.string().max(100).optional(),
     externalPickupDropNote: z.string().max(1000).optional(),
+    externalTransfers: z.array(externalTransferInputSchema).default([]),
     specialNote: z.string().max(2000).optional(),
     includeRentalItems: z.boolean().default(true),
     rentalItemsText: z.string().max(10000),
@@ -163,6 +198,21 @@ export const planVersionMetaInputSchema = z
         });
       }
       seenDayIndexes.add(item.dayIndex);
+    });
+
+    const validTransportIndexes = new Set(value.transportGroups.map((_group, index) => index));
+    value.externalTransfers.forEach((item, index) => {
+      item.selectedTeamOrderIndexes.forEach((teamOrderIndex, teamIndex) => {
+        if (validTransportIndexes.has(teamOrderIndex)) {
+          return;
+        }
+
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'selectedTeamOrderIndexes must refer to an existing transport group',
+          path: ['externalTransfers', index, 'selectedTeamOrderIndexes', teamIndex],
+        });
+      });
     });
 
     const customPlaceFields = [
@@ -300,5 +350,6 @@ export type PlanStopNestedInput = z.infer<typeof planStopNestedSchema>;
 export type PlanVersionMetaInput = z.infer<typeof planVersionMetaInputSchema>;
 export type PlanVersionTransportGroupInput = z.infer<typeof planVersionTransportGroupInputSchema>;
 export type ExtraLodgingInput = z.infer<typeof extraLodgingInputSchema>;
+export type ExternalTransferInput = z.infer<typeof externalTransferInputSchema>;
 export type ManualAdjustmentInput = z.infer<typeof manualAdjustmentInputSchema>;
 export type PlanPricingPreviewInput = z.infer<typeof planPricingPreviewSchema>;

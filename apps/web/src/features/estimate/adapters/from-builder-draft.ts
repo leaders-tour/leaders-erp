@@ -1,10 +1,10 @@
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
 import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
 import type { EstimateBuilderDraftSnapshot, EstimateDocumentData } from '../model/types';
+import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
 import {
   addDays,
   buildPage2Title,
-  formatExternalPickupDropText,
   formatCalculationBasis,
   normalizeMultilineText,
   toSecurityDepositScope,
@@ -15,6 +15,8 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
   const pricingBuckets = snapshot.pricing
     ? buildPricingViewBuckets(snapshot.pricing.lines, snapshot.pricing.totalAmountKrw)
     : null;
+  const externalPickupText = buildExternalTransferDirectionText(snapshot.externalTransfers, snapshot.transportGroups, 'PICKUP');
+  const externalDropText = buildExternalTransferDirectionText(snapshot.externalTransfers, snapshot.transportGroups, 'DROP');
 
   return {
     mode: 'draft',
@@ -44,27 +46,20 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     pickupPlaceCustomText: snapshot.transportGroups[0]?.pickupPlaceCustomText || null,
     dropPlaceType: snapshot.transportGroups[0]?.dropPlaceType ?? null,
     dropPlaceCustomText: snapshot.transportGroups[0]?.dropPlaceCustomText || null,
-    externalPickupDate: snapshot.externalPickupDate || null,
-    externalPickupTime: snapshot.externalPickupTime || null,
-    externalPickupPlaceType: snapshot.externalPickupPlaceType,
-    externalPickupPlaceCustomText: snapshot.externalPickupPlaceCustomText || null,
-    externalDropDate: snapshot.externalDropDate || null,
-    externalDropTime: snapshot.externalDropTime || null,
-    externalDropPlaceType: snapshot.externalDropPlaceType,
-    externalDropPlaceCustomText: snapshot.externalDropPlaceCustomText || null,
+    externalTransfers: snapshot.externalTransfers,
+    externalPickupDate: null,
+    externalPickupTime: null,
+    externalPickupPlaceType: null,
+    externalPickupPlaceCustomText: null,
+    externalDropDate: null,
+    externalDropTime: null,
+    externalDropPlaceType: null,
+    externalDropPlaceCustomText: null,
     pickupText: '-',
     dropText: '-',
-    externalPickupDropText: formatExternalPickupDropText(
-      snapshot.externalPickupDate,
-      snapshot.externalPickupTime,
-      snapshot.externalPickupPlaceType,
-      snapshot.externalPickupPlaceCustomText,
-      snapshot.externalDropDate,
-      snapshot.externalDropTime,
-      snapshot.externalDropPlaceType,
-      snapshot.externalDropPlaceCustomText,
-      snapshot.externalPickupDropNote,
-    ),
+    externalPickupText,
+    externalDropText,
+    externalPickupDropText: [externalPickupText, externalDropText].filter((value) => value !== '-').join('\n'),
     specialNoteText: normalizeMultilineText(snapshot.specialNote),
     rentalItemsText: snapshot.includeRentalItems ? normalizeMultilineText(snapshot.rentalItemsText) : '-',
     eventText: snapshot.eventNames.length > 0 ? snapshot.eventNames.join(' / ') : '-',

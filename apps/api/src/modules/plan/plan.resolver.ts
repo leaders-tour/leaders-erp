@@ -115,6 +115,8 @@ export const planResolver = {
     ownerEmployee: (parent: { ownerEmployee?: unknown }) => parent.ownerEmployee ?? null,
   },
   PlanVersionMeta: {
+    externalTransfers: (parent: { externalTransfers?: unknown }) =>
+      Array.isArray(parent.externalTransfers) ? parent.externalTransfers : [],
     extraLodgings: (parent: { extraLodgings?: unknown }) =>
       Array.isArray(parent.extraLodgings) ? parent.extraLodgings : [],
     transportGroups: (parent: { transportGroups?: unknown }) =>

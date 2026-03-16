@@ -78,6 +78,7 @@ function buildPlanVersionMetaCreateInput(
     externalDropPlaceType?: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM';
     externalDropPlaceCustomText?: string;
     externalPickupDropNote?: string;
+    externalTransfers: Prisma.InputJsonValue;
     specialNote?: string;
     includeRentalItems: boolean;
     rentalItemsText: string;
@@ -137,6 +138,7 @@ function buildPlanVersionMetaCreateInput(
     externalDropPlaceType: meta.externalDropPlaceType ?? null,
     externalDropPlaceCustomText: meta.externalDropPlaceCustomText ?? null,
     externalPickupDropNote: meta.externalPickupDropNote,
+    externalTransfers: meta.externalTransfers,
     specialNote: meta.specialNote,
     includeRentalItems: meta.includeRentalItems,
     rentalItemsText: meta.rentalItemsText,

@@ -98,6 +98,7 @@ type PlanVersionMeta {
   externalDropPlaceType: PlaceType
   externalDropPlaceCustomText: String
   externalPickupDropNote: String
+  externalTransfers: [ExternalTransfer!]!
   specialNote: String
   includeRentalItems: Boolean!
   rentalItemsText: String!
@@ -107,6 +108,30 @@ type PlanVersionMeta {
   remark: String
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+enum ExternalTransferDirection {
+  PICKUP
+  DROP
+}
+
+enum ExternalTransferPresetCode {
+  DROP_ULAANBAATAR_AIRPORT
+  DROP_TERELJ_AIRPORT
+  PICKUP_AIRPORT_OZHOUSE
+  CUSTOM
+}
+
+type ExternalTransfer {
+  direction: ExternalTransferDirection!
+  presetCode: ExternalTransferPresetCode!
+  travelDate: DateTime!
+  departureTime: String!
+  arrivalTime: String!
+  departurePlace: String!
+  arrivalPlace: String!
+  selectedTeamOrderIndexes: [Int!]!
+  unitPriceKrw: Int!
 }
 
 type PlanVersionTransportGroup {
@@ -298,6 +323,7 @@ input PlanVersionMetaInput {
   externalDropPlaceType: PlaceType
   externalDropPlaceCustomText: String
   externalPickupDropNote: String
+  externalTransfers: [ExternalTransferInput!]!
   specialNote: String
   includeRentalItems: Boolean!
   rentalItemsText: String!
@@ -305,6 +331,18 @@ input PlanVersionMetaInput {
   extraLodgings: [ExtraLodgingInput!]!
   transportGroups: [PlanVersionTransportGroupInput!]!
   remark: String
+}
+
+input ExternalTransferInput {
+  direction: ExternalTransferDirection!
+  presetCode: ExternalTransferPresetCode!
+  travelDate: DateTime!
+  departureTime: String!
+  arrivalTime: String!
+  departurePlace: String!
+  arrivalPlace: String!
+  selectedTeamOrderIndexes: [Int!]!
+  unitPriceKrw: Int!
 }
 
 input PlanVersionTransportGroupInput {

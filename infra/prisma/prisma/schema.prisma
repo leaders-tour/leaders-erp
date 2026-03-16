@@ -544,6 +544,7 @@ model PlanVersionMeta {
   externalDropPlaceType        PlaceType?
   externalDropPlaceCustomText  String?
   externalPickupDropNote String?
+  externalTransfers      Json?
   specialNote            String?  @db.Text
   includeRentalItems     Boolean  @default(true)
   rentalItemsText        String   @db.Text

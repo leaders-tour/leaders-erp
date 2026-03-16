@@ -1,4 +1,5 @@
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
+import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
 import type { PlanVersionDetail } from '../../plan/hooks';
 import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
 import type { EstimateDocumentData } from '../model/types';
@@ -6,6 +7,7 @@ import {
   addDays,
   buildPage2Title,
   formatExternalPickupDropText,
+  formatLegacyExternalTransferText,
   formatCalculationBasis,
   normalizeMultilineText,
   toSecurityDepositScope,
@@ -16,6 +18,25 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
   const meta = version.meta;
   const pricing = version.pricing;
   const pricingBuckets = pricing ? buildPricingViewBuckets(pricing.lines, pricing.totalAmountKrw) : null;
+  const externalTransfers = meta?.externalTransfers ?? [];
+  const externalPickupTextFromTransfers = buildExternalTransferDirectionText(externalTransfers, meta?.transportGroups, 'PICKUP');
+  const externalDropTextFromTransfers = buildExternalTransferDirectionText(externalTransfers, meta?.transportGroups, 'DROP');
+  const legacyExternalPickupText = formatLegacyExternalTransferText(
+    meta?.externalPickupDate,
+    meta?.externalPickupTime,
+    meta?.externalPickupPlaceType,
+    meta?.externalPickupPlaceCustomText,
+    meta?.externalPickupDropNote,
+  );
+  const legacyExternalDropText = formatLegacyExternalTransferText(
+    meta?.externalDropDate,
+    meta?.externalDropTime,
+    meta?.externalDropPlaceType,
+    meta?.externalDropPlaceCustomText,
+    undefined,
+  );
+  const externalPickupText = externalPickupTextFromTransfers !== '-' ? externalPickupTextFromTransfers : legacyExternalPickupText;
+  const externalDropText = externalDropTextFromTransfers !== '-' ? externalDropTextFromTransfers : legacyExternalDropText;
 
   return {
     mode: 'version',
@@ -61,6 +82,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     pickupPlaceCustomText: meta?.transportGroups[0]?.pickupPlaceCustomText ?? meta?.pickupPlaceCustomText ?? null,
     dropPlaceType: meta?.transportGroups[0]?.dropPlaceType ?? meta?.dropPlaceType ?? null,
     dropPlaceCustomText: meta?.transportGroups[0]?.dropPlaceCustomText ?? meta?.dropPlaceCustomText ?? null,
+    externalTransfers,
     externalPickupDate: meta?.externalPickupDate ?? null,
     externalPickupTime: meta?.externalPickupTime ?? null,
     externalPickupPlaceType: meta?.externalPickupPlaceType ?? null,
@@ -71,6 +93,8 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     externalDropPlaceCustomText: meta?.externalDropPlaceCustomText ?? null,
     pickupText: '-',
     dropText: '-',
+    externalPickupText,
+    externalDropText,
     externalPickupDropText: formatExternalPickupDropText(
       meta?.externalPickupDate,
       meta?.externalPickupTime,

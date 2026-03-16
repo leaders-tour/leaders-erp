@@ -168,6 +168,21 @@ export function formatExternalPickupDropText(
   return normalizeMultilineText(legacyText);
 }
 
+export function formatLegacyExternalTransferText(
+  date: string | null | undefined,
+  time: string | null | undefined,
+  placeType: string | null | undefined,
+  customText: string | null | undefined,
+  legacyText?: string | null | undefined,
+): string {
+  const display = formatPickupDropDisplay(date, time, placeType, customText);
+  if (display !== '-') {
+    return display;
+  }
+
+  return normalizeMultilineText(legacyText);
+}
+
 export function formatCalculationBasis(unitPriceKrw: number | null, quantity: number): string {
   if (unitPriceKrw === null) {
     return quantity > 0 ? `${quantity}회` : '-';

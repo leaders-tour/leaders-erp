@@ -41,6 +41,17 @@ export interface PlanVersion {
     externalDropPlaceType: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;
     externalDropPlaceCustomText: string | null;
     externalPickupDropNote: string | null;
+    externalTransfers: Array<{
+      direction: 'PICKUP' | 'DROP';
+      presetCode: 'DROP_ULAANBAATAR_AIRPORT' | 'DROP_TERELJ_AIRPORT' | 'PICKUP_AIRPORT_OZHOUSE' | 'CUSTOM';
+      travelDate: string;
+      departureTime: string;
+      arrivalTime: string;
+      departurePlace: string;
+      arrivalPlace: string;
+      selectedTeamOrderIndexes: number[];
+      unitPriceKrw: number;
+    }>;
     specialNote: string | null;
     includeRentalItems: boolean;
     rentalItemsText: string;

@@ -2,6 +2,7 @@ import { Button, Card } from '@tour/ui';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { VersionSnapshotView } from '../features/plan/components';
+import { buildExternalTransferDirectionText } from '../features/plan/external-transfer';
 import { usePlanVersionDetail, useSetCurrentPlanVersion } from '../features/plan/hooks';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
 import { toVariantLabel } from '../features/plan/variant-label';
@@ -69,6 +70,24 @@ export function PlanVersionDetailPage(): JSX.Element {
           version.meta?.dropTime,
           version.meta?.dropPlaceType,
           version.meta?.dropPlaceCustomText,
+        );
+  const externalPickupText =
+    buildExternalTransferDirectionText(version.meta?.externalTransfers, transportGroups, 'PICKUP') !== '-'
+      ? buildExternalTransferDirectionText(version.meta?.externalTransfers, transportGroups, 'PICKUP')
+      : formatPickupDropDisplay(
+          version.meta?.externalPickupDate,
+          version.meta?.externalPickupTime,
+          version.meta?.externalPickupPlaceType,
+          version.meta?.externalPickupPlaceCustomText,
+        );
+  const externalDropText =
+    buildExternalTransferDirectionText(version.meta?.externalTransfers, transportGroups, 'DROP') !== '-'
+      ? buildExternalTransferDirectionText(version.meta?.externalTransfers, transportGroups, 'DROP')
+      : formatPickupDropDisplay(
+          version.meta?.externalDropDate,
+          version.meta?.externalDropTime,
+          version.meta?.externalDropPlaceType,
+          version.meta?.externalDropPlaceCustomText,
         );
 
   return (
@@ -151,24 +170,8 @@ export function PlanVersionDetailPage(): JSX.Element {
             <div>참여 이벤트: {version.meta.events.length > 0 ? version.meta.events.map((item) => item.name).join(', ') : '-'}</div>
             <div className="whitespace-pre-wrap">픽업: {pickupText}</div>
             <div className="whitespace-pre-wrap">드랍: {dropText}</div>
-            <div>
-              실투어 외 픽업:{' '}
-              {formatPickupDropDisplay(
-                version.meta.externalPickupDate,
-                version.meta.externalPickupTime,
-                version.meta.externalPickupPlaceType,
-                version.meta.externalPickupPlaceCustomText,
-              )}
-            </div>
-            <div>
-              실투어 외 드랍:{' '}
-              {formatPickupDropDisplay(
-                version.meta.externalDropDate,
-                version.meta.externalDropTime,
-                version.meta.externalDropPlaceType,
-                version.meta.externalDropPlaceCustomText,
-              )}
-            </div>
+            <div className="whitespace-pre-wrap">실투어 외 픽업: {externalPickupText}</div>
+            <div className="whitespace-pre-wrap">실투어 외 드랍: {externalDropText}</div>
             {(!version.meta.externalPickupDate &&
               !version.meta.externalPickupTime &&
               !version.meta.externalPickupPlaceType &&

@@ -1,3 +1,4 @@
+import type { ExternalTransfer } from '../../plan/external-transfer';
 import type { PickupDropPlaceType } from '../../plan/pickup-drop';
 
 export type EstimateSourceMode = 'version' | 'draft';
@@ -72,15 +73,7 @@ export interface EstimateBuilderDraftSnapshot {
   travelEndDate: string;
   vehicleType: string;
   transportGroups: EstimateTransportGroup[];
-  externalPickupDate: string;
-  externalPickupTime: string;
-  externalPickupPlaceType: PickupDropPlaceType;
-  externalPickupPlaceCustomText: string;
-  externalDropDate: string;
-  externalDropTime: string;
-  externalDropPlaceType: PickupDropPlaceType;
-  externalDropPlaceCustomText: string;
-  externalPickupDropNote: string;
+  externalTransfers: ExternalTransfer[];
   specialNote: string;
   includeRentalItems: boolean;
   rentalItemsText: string;
@@ -124,6 +117,7 @@ export interface EstimateDocumentData {
   pickupPlaceCustomText: string | null;
   dropPlaceType: PickupDropPlaceType | null;
   dropPlaceCustomText: string | null;
+  externalTransfers: ExternalTransfer[];
   externalPickupDate: string | null;
   externalPickupTime: string | null;
   externalPickupPlaceType: PickupDropPlaceType | null;
@@ -134,6 +128,8 @@ export interface EstimateDocumentData {
   externalDropPlaceCustomText: string | null;
   pickupText: string;
   dropText: string;
+  externalPickupText: string;
+  externalDropText: string;
   externalPickupDropText: string;
   specialNoteText: string;
   rentalItemsText: string;
@@ -161,8 +157,6 @@ export type EstimatePage1EditableField =
   | 'flightOutTime'
   | 'pickupDate'
   | 'dropDate'
-  | 'externalPickupDate'
-  | 'externalDropDate'
   | 'specialNoteText'
   | 'rentalItemsText'
   | 'remarkText';
@@ -180,14 +174,6 @@ export interface EstimatePage1Editor {
   vehicleType: string;
   vehicleOptions: readonly string[];
   transportGroups: EstimateTransportGroup[];
-  externalPickupDate: string;
-  externalPickupTime: string;
-  externalPickupPlaceType: PickupDropPlaceType;
-  externalPickupPlaceCustomText: string;
-  externalDropDate: string;
-  externalDropTime: string;
-  externalDropPlaceType: PickupDropPlaceType;
-  externalDropPlaceCustomText: string;
   eventIds: string[];
   eventOptions: EstimatePage1EventOption[];
   specialNoteText: string;
@@ -205,14 +191,6 @@ export interface EstimatePage1Editor {
   ) => void;
   onAddTransportGroup: () => void;
   onRemoveTransportGroup: (index: number) => void;
-  onExternalPickupDateChange: (value: string) => void;
-  onExternalPickupTimeChange: (value: string) => void;
-  onExternalPickupPlaceTypeChange: (value: PickupDropPlaceType) => void;
-  onExternalPickupPlaceCustomTextChange: (value: string) => void;
-  onExternalDropDateChange: (value: string) => void;
-  onExternalDropTimeChange: (value: string) => void;
-  onExternalDropPlaceTypeChange: (value: PickupDropPlaceType) => void;
-  onExternalDropPlaceCustomTextChange: (value: string) => void;
   onToggleEventId: (value: string) => void;
   onSpecialNoteTextChange: (value: string) => void;
   onRentalItemsTextChange: (value: string) => void;
