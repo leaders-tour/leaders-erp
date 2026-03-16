@@ -11,6 +11,15 @@ export interface ManualAdjustmentInputDto {
   amountKrw: number;
 }
 
+export interface LodgingSelectionPricingInputDto {
+  dayIndex: number;
+  level: 'LV1' | 'LV2' | 'LV3' | 'LV4' | 'CUSTOM';
+  customLodgingId?: string | null;
+  customLodgingNameSnapshot?: string | null;
+  pricingModeSnapshot?: 'PER_PERSON' | 'PER_TEAM' | 'FLAT' | null;
+  priceSnapshotKrw?: number | null;
+}
+
 export interface PricingPlanStopDto {
   locationId?: string;
 }
@@ -23,9 +32,11 @@ export interface PricingComputeInput {
   travelStartDate: string;
   headcountTotal: number;
   vehicleType: string;
+  transportGroupCount: number;
   includeRentalItems: boolean;
   eventIds: string[];
   extraLodgings: ExtraLodgingInputDto[];
+  lodgingSelections: LodgingSelectionPricingInputDto[];
   manualAdjustments: ManualAdjustmentInputDto[];
   manualDepositAmountKrw?: number;
 }

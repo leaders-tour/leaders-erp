@@ -1,5 +1,6 @@
 import type { MealOption } from '../../generated/graphql';
 import { toFacilityLabel, toMealLabel } from '../location/display';
+import { getBaseLodgingText } from '../lodging-selection/model';
 import { buildEmptyPlanRow, buildPlaceholderPlanRows, type TemplatePlanRow } from './editor-utils';
 
 export interface RouteSelection {
@@ -168,17 +169,7 @@ function toSegmentScheduleCell(segment: SegmentOption | undefined): string {
 }
 
 function toLodgingCell(version: LocationVersionOption | undefined): string {
-  const lodging = version?.lodgings[0];
-  if (!lodging) {
-    return '';
-  }
-
-  return [
-    lodging.name,
-    `전기 ${toFacilityLabel(lodging.hasElectricity)}`,
-    `샤워 ${toFacilityLabel(lodging.hasShower)}`,
-    `인터넷 ${toFacilityLabel(lodging.hasInternet)}`,
-  ].join('\n');
+  return getBaseLodgingText(version, toFacilityLabel);
 }
 
 function toMealCell(version: LocationVersionOption | undefined): string {

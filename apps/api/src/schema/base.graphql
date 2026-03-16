@@ -13,6 +13,8 @@ type Query {
   locationGuide(id: ID!): LocationGuide
   lodgings: [Lodging!]!
   lodging(id: ID!): Lodging
+  regionLodgings(regionId: ID, activeOnly: Boolean): [RegionLodging!]!
+  regionLodging(id: ID!): RegionLodging
   mealSets: [MealSet!]!
   mealSet(id: ID!): MealSet
   segments: [Segment!]!
@@ -59,6 +61,10 @@ type Mutation {
   createLodging(input: LodgingCreateInput!): Lodging!
   updateLodging(id: ID!, input: LodgingUpdateInput!): Lodging!
   deleteLodging(id: ID!): Boolean!
+
+  createRegionLodging(input: RegionLodgingCreateInput!): RegionLodging!
+  updateRegionLodging(id: ID!, input: RegionLodgingUpdateInput!): RegionLodging!
+  deleteRegionLodging(id: ID!): Boolean!
 
   createMealSet(input: MealSetCreateInput!): MealSet!
   updateMealSet(id: ID!, input: MealSetUpdateInput!): MealSet!

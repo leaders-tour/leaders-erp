@@ -1,6 +1,7 @@
 import type { DealStage, Prisma, PrismaClient } from '@prisma/client';
 import {
   dealPipelineReorderSchema,
+  type LodgingSelectionInput,
   planCreateSchema,
   planPricingPreviewSchema,
   planUpdateSchema,
@@ -27,6 +28,13 @@ import type {
   UserNoteCreateDto,
   UserUpdateDto,
 } from './plan.types';
+
+type NormalizedLodgingSelection = LodgingSelectionInput & {
+  customLodgingId?: string;
+  customLodgingNameSnapshot: string | null;
+  pricingModeSnapshot: 'PER_PERSON' | 'PER_TEAM' | 'FLAT' | null;
+  priceSnapshotKrw: number | null;
+};
 
 export class PlanService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -351,6 +359,92 @@ export class PlanService {
     return new PlanRepository(this.prisma).findVersionById(id);
   }
 
+  private async normalizeLodgingSelections(
+    regionId: string,
+    totalDays: number,
+    lodgingSelections: LodgingSelectionInput[],
+  ): Promise<NormalizedLodgingSelection[]> {
+    if (lodgingSelections.length === 0) {
+      return [];
+    }
+
+    const customLodgingIds = Array.from(
+      new Set(
+        lodgingSelections
+          .map((selection) => selection.customLodgingId)
+          .filter((value): value is string => typeof value === 'string' && value.length > 0),
+      ),
+    );
+
+    const regionLodgings =
+      customLodgingIds.length > 0
+        ? await this.prisma.regionLodging.findMany({
+            where: {
+              id: { in: customLodgingIds },
+              regionId,
+            },
+            select: {
+              id: true,
+              name: true,
+              priceKrw: true,
+              pricePerPersonKrw: true,
+              pricePerTeamKrw: true,
+            },
+          })
+        : [];
+
+    if (regionLodgings.length !== customLodgingIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'One or more customLodgingId values are invalid');
+    }
+
+    const lodgingById = new Map(regionLodgings.map((lodging) => [lodging.id, lodging]));
+
+    return lodgingSelections.map((selection) => {
+      if (selection.dayIndex > totalDays) {
+        throw new DomainError('VALIDATION_FAILED', 'lodgingSelections dayIndex must be within totalDays');
+      }
+
+      if (selection.level !== 'CUSTOM') {
+        return {
+          ...selection,
+          customLodgingNameSnapshot: null,
+          pricingModeSnapshot: null,
+          priceSnapshotKrw: null,
+        };
+      }
+
+      const lodging = selection.customLodgingId ? lodgingById.get(selection.customLodgingId) : null;
+      if (!lodging) {
+        throw new DomainError('VALIDATION_FAILED', 'customLodgingId is required when level is CUSTOM');
+      }
+
+      if (lodging.pricePerPersonKrw !== null) {
+        return {
+          ...selection,
+          customLodgingNameSnapshot: lodging.name,
+          pricingModeSnapshot: 'PER_PERSON',
+          priceSnapshotKrw: lodging.pricePerPersonKrw,
+        };
+      }
+
+      if (lodging.pricePerTeamKrw !== null) {
+        return {
+          ...selection,
+          customLodgingNameSnapshot: lodging.name,
+          pricingModeSnapshot: 'PER_TEAM',
+          priceSnapshotKrw: lodging.pricePerTeamKrw,
+        };
+      }
+
+      return {
+        ...selection,
+        customLodgingNameSnapshot: lodging.name,
+        pricingModeSnapshot: 'FLAT',
+        priceSnapshotKrw: lodging.priceKrw ?? 0,
+      };
+    });
+  }
+
   async previewPricing(input: PlanPricingPreviewDto) {
     const parsed = planPricingPreviewSchema.safeParse(input);
     if (!parsed.success) {
@@ -358,10 +452,16 @@ export class PlanService {
     }
 
     const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.planStops);
+    const normalizedLodgingSelections = await this.normalizeLodgingSelections(
+      parsed.data.regionId,
+      parsed.data.totalDays,
+      parsed.data.lodgingSelections,
+    );
 
     return new PricingService(this.prisma).preview({
       ...parsed.data,
       planStops: normalizedPlanStops,
+      lodgingSelections: normalizedLodgingSelections,
     });
   }
 
@@ -376,6 +476,11 @@ export class PlanService {
     }
 
     const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.initialVersion.planStops);
+    const normalizedLodgingSelections = await this.normalizeLodgingSelections(
+      parsed.data.regionId,
+      parsed.data.initialVersion.totalDays,
+      parsed.data.initialVersion.meta.lodgingSelections,
+    );
     await this.validateEventIds(parsed.data.initialVersion.meta.eventIds);
 
     const [user, region] = await Promise.all([
@@ -392,6 +497,7 @@ export class PlanService {
 
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       parsed.data.initialVersion.planStops = normalizedPlanStops;
+      parsed.data.initialVersion.meta.lodgingSelections = normalizedLodgingSelections;
       const pricingResult = await new PricingService(this.prisma).computeWithTransaction(tx, {
         regionId: parsed.data.regionId,
         variantType: parsed.data.initialVersion.variantType,
@@ -399,10 +505,12 @@ export class PlanService {
         planStops: normalizedPlanStops,
         travelStartDate: parsed.data.initialVersion.meta.travelStartDate,
         headcountTotal: parsed.data.initialVersion.meta.headcountTotal,
+        transportGroupCount: parsed.data.initialVersion.meta.transportGroups.length,
         vehicleType: parsed.data.initialVersion.meta.vehicleType,
         includeRentalItems: parsed.data.initialVersion.meta.includeRentalItems,
         eventIds: parsed.data.initialVersion.meta.eventIds,
         extraLodgings: parsed.data.initialVersion.meta.extraLodgings,
+        lodgingSelections: normalizedLodgingSelections,
         manualAdjustments: parsed.data.initialVersion.manualAdjustments,
         manualDepositAmountKrw: parsed.data.initialVersion.manualDepositAmountKrw,
       });
@@ -455,13 +563,18 @@ export class PlanService {
       throw new DomainError('VALIDATION_FAILED', 'totalDays must match planStops length');
     }
 
-    const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.planStops);
-    await this.validateEventIds(parsed.data.meta.eventIds);
-
     const plan = await new PlanRepository(this.prisma).findById(parsed.data.planId);
     if (!plan) {
       throw new DomainError('NOT_FOUND', 'Plan not found');
     }
+
+    const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.planStops);
+    const normalizedLodgingSelections = await this.normalizeLodgingSelections(
+      plan.regionId,
+      parsed.data.totalDays,
+      parsed.data.meta.lodgingSelections,
+    );
+    await this.validateEventIds(parsed.data.meta.eventIds);
 
     if (parsed.data.parentVersionId) {
       const parentVersion = await this.prisma.planVersion.findUnique({
@@ -476,6 +589,7 @@ export class PlanService {
 
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       parsed.data.planStops = normalizedPlanStops;
+      parsed.data.meta.lodgingSelections = normalizedLodgingSelections;
       const pricingResult = await new PricingService(this.prisma).computeWithTransaction(tx, {
         regionId: plan.regionId,
         variantType: parsed.data.variantType,
@@ -483,10 +597,12 @@ export class PlanService {
         planStops: normalizedPlanStops,
         travelStartDate: parsed.data.meta.travelStartDate,
         headcountTotal: parsed.data.meta.headcountTotal,
+        transportGroupCount: parsed.data.meta.transportGroups.length,
         vehicleType: parsed.data.meta.vehicleType,
         includeRentalItems: parsed.data.meta.includeRentalItems,
         eventIds: parsed.data.meta.eventIds,
         extraLodgings: parsed.data.meta.extraLodgings,
+        lodgingSelections: normalizedLodgingSelections,
         manualAdjustments: parsed.data.manualAdjustments,
         manualDepositAmountKrw: parsed.data.manualDepositAmountKrw,
       });

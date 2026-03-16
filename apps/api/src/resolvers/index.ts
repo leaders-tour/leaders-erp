@@ -11,6 +11,7 @@ import { planResolver } from '../modules/plan/plan.resolver';
 import { planTemplateResolver } from '../modules/plan-template/plan-template.resolver';
 import { outreachResolver } from '../modules/outreach/outreach.resolver';
 import { regionResolver } from '../modules/region/region.resolver';
+import { regionLodgingResolver } from '../modules/region-lodging/region-lodging.resolver';
 import { segmentResolver } from '../modules/segment/segment.resolver';
 import { timeBlockResolver } from '../modules/time-block/time-block.resolver';
 import { requireEmployee } from '../lib/auth-guards';
@@ -82,6 +83,7 @@ export const resolvers = {
       locationResolver.Query,
       locationGuideResolver.Query,
       lodgingResolver.Query,
+      regionLodgingResolver.Query,
       mealSetResolver.Query,
       segmentResolver.Query,
       planResolver.Query,
@@ -104,6 +106,7 @@ export const resolvers = {
       locationResolver.Mutation,
       locationGuideResolver.Mutation,
       lodgingResolver.Mutation,
+      regionLodgingResolver.Mutation,
       mealSetResolver.Mutation,
       segmentResolver.Mutation,
       planResolver.Mutation,

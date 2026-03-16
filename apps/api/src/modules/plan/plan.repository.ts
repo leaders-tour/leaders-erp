@@ -83,6 +83,7 @@ function buildPlanVersionMetaCreateInput(
     includeRentalItems: boolean;
     rentalItemsText: string;
     extraLodgings: Prisma.InputJsonValue;
+    lodgingSelections: Prisma.InputJsonValue;
     remark?: string;
     transportGroups: Array<{
       teamName: string;
@@ -144,6 +145,7 @@ function buildPlanVersionMetaCreateInput(
     rentalItemsText: meta.rentalItemsText,
     eventCodes: [],
     extraLodgings: meta.extraLodgings,
+    lodgingSelections: meta.lodgingSelections,
     remark: meta.remark,
     transportGroups: {
       create: toTransportGroupCreateManyInput(meta.transportGroups),

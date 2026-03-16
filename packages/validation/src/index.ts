@@ -11,6 +11,7 @@ export * from './outreach.schema';
 export * from './plan.schema';
 export * from './plan-template.schema';
 export * from './region.schema';
+export * from './region-lodging.schema';
 export * from './segment.schema';
 export * from './time-block.schema';
 export * from './user.schema';

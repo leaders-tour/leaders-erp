@@ -1,0 +1,33 @@
+type RegionLodging {
+  id: ID!
+  regionId: String!
+  name: String!
+  priceKrw: Int
+  pricePerPersonKrw: Int
+  pricePerTeamKrw: Int
+  isActive: Boolean!
+  sortOrder: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  region: Region!
+}
+
+input RegionLodgingCreateInput {
+  regionId: String!
+  name: String!
+  priceKrw: Int
+  pricePerPersonKrw: Int
+  pricePerTeamKrw: Int
+  isActive: Boolean
+  sortOrder: Int
+}
+
+input RegionLodgingUpdateInput {
+  regionId: String
+  name: String
+  priceKrw: Int
+  pricePerPersonKrw: Int
+  pricePerTeamKrw: Int
+  isActive: Boolean
+  sortOrder: Int
+}

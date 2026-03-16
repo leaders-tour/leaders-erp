@@ -13,6 +13,7 @@ const files = [
   'location.graphql',
   'location-guide.graphql',
   'lodging.graphql',
+  'region-lodging.graphql',
   'meal-set.graphql',
   'segment.graphql',
   'plan.graphql',

@@ -11,7 +11,13 @@ import type {
 import type { VariantType } from '@tour/domain';
 import type { PlanPricingPreviewInput } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
-import type { PricingComputationResult, PricingComputeInput, PricingComputedLine, PricingPlanStopDto } from './pricing.types';
+import type {
+  LodgingSelectionPricingInputDto,
+  PricingComputationResult,
+  PricingComputeInput,
+  PricingComputedLine,
+  PricingPlanStopDto,
+} from './pricing.types';
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
@@ -27,6 +33,12 @@ type ComputeContext = {
 const HIACE = '하이에이스';
 const LONG_DISTANCE_BASE_POOL_KRW = 320_000;
 const RENTAL_ITEM_DEPOSIT_PER_PERSON_KRW = 30_000;
+const FIXED_LODGING_SELECTION_AMOUNTS: Record<'LV1' | 'LV2' | 'LV3' | 'LV4', number> = {
+  LV1: -50_000,
+  LV2: -30_000,
+  LV3: 0,
+  LV4: 50_000,
+};
 
 export class PricingService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -202,6 +214,10 @@ export class PricingService {
       });
     }
 
+    this.buildLodgingSelectionLines(input.lodgingSelections, input.headcountTotal, input.transportGroupCount).forEach((line) => {
+      lines.push(line);
+    });
+
     if (this.shouldApplyEarlyNight(input.variantType)) {
       lines.push(this.buildTripFlatLine(rules, 'EARLY_NIGHT', context));
     }
@@ -264,6 +280,8 @@ export class PricingService {
         longDistanceSegmentCount,
         extraLodgingCount,
         extraLodgings: input.extraLodgings,
+        lodgingSelections: input.lodgingSelections,
+        transportGroupCount: input.transportGroupCount,
         manualAdjustments: input.manualAdjustments,
         manualDepositAmountKrw: input.manualDepositAmountKrw ?? null,
         includeRentalItems: input.includeRentalItems,
@@ -277,6 +295,57 @@ export class PricingService {
         },
       },
     };
+  }
+
+  private buildLodgingSelectionLines(
+    lodgingSelections: LodgingSelectionPricingInputDto[],
+    headcountTotal: number,
+    transportGroupCount: number,
+  ): PricingComputedLine[] {
+    const lines: PricingComputedLine[] = [];
+
+    lodgingSelections.forEach((selection) => {
+      if (selection.level === 'LV3') {
+        return;
+      }
+
+      if (selection.level !== 'CUSTOM') {
+        const unitPriceKrw = FIXED_LODGING_SELECTION_AMOUNTS[selection.level];
+        const quantity = headcountTotal;
+        lines.push({
+          lineCode: 'LODGING_SELECTION',
+          sourceType: 'MANUAL',
+          ruleId: null,
+          description: `${selection.dayIndex}일차 ${selection.level}`,
+          unitPriceKrw,
+          quantity,
+          amountKrw: unitPriceKrw * quantity,
+          meta: { dayIndex: selection.dayIndex, level: selection.level },
+        });
+        return;
+      }
+
+      const price = selection.priceSnapshotKrw ?? 0;
+      const pricingMode = selection.pricingModeSnapshot ?? 'FLAT';
+      const quantity = pricingMode === 'PER_PERSON' ? headcountTotal : pricingMode === 'PER_TEAM' ? transportGroupCount : 1;
+      lines.push({
+        lineCode: 'LODGING_SELECTION',
+        sourceType: 'MANUAL',
+        ruleId: null,
+        description: `${selection.dayIndex}일차 숙소지정: ${selection.customLodgingNameSnapshot ?? '-'}`,
+        unitPriceKrw: price,
+        quantity,
+        amountKrw: price * quantity,
+        meta: {
+          dayIndex: selection.dayIndex,
+          level: selection.level,
+          customLodgingId: selection.customLodgingId ?? null,
+          pricingModeSnapshot: pricingMode,
+        },
+      });
+    });
+
+    return lines;
   }
 
   private computeSecurityDeposit(input: {

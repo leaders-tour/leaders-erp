@@ -141,6 +141,14 @@ export interface PlanVersionMetaRow {
     dayIndex: number;
     lodgingCount: number;
   }>;
+  lodgingSelections: Array<{
+    dayIndex: number;
+    level: 'LV1' | 'LV2' | 'LV3' | 'LV4' | 'CUSTOM';
+    customLodgingId?: string | null;
+    customLodgingNameSnapshot?: string | null;
+    pricingModeSnapshot?: string | null;
+    priceSnapshotKrw?: number | null;
+  }>;
   transportGroups: Array<{
     id: string;
     planVersionMetaId: string;
@@ -518,6 +526,14 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         extraLodgings {
           dayIndex
           lodgingCount
+        }
+        lodgingSelections {
+          dayIndex
+          level
+          customLodgingId
+          customLodgingNameSnapshot
+          pricingModeSnapshot
+          priceSnapshotKrw
         }
         transportGroups {
           id

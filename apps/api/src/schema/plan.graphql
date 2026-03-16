@@ -104,10 +104,28 @@ type PlanVersionMeta {
   rentalItemsText: String!
   events: [Event!]!
   extraLodgings: [ExtraLodging!]!
+  lodgingSelections: [LodgingSelection!]!
   transportGroups: [PlanVersionTransportGroup!]!
   remark: String
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+enum LodgingSelectionLevel {
+  LV1
+  LV2
+  LV3
+  LV4
+  CUSTOM
+}
+
+type LodgingSelection {
+  dayIndex: Int!
+  level: LodgingSelectionLevel!
+  customLodgingId: String
+  customLodgingNameSnapshot: String
+  pricingModeSnapshot: String
+  priceSnapshotKrw: Int
 }
 
 enum ExternalTransferDirection {
@@ -329,8 +347,15 @@ input PlanVersionMetaInput {
   rentalItemsText: String!
   eventIds: [ID!]!
   extraLodgings: [ExtraLodgingInput!]!
+  lodgingSelections: [LodgingSelectionInput!]!
   transportGroups: [PlanVersionTransportGroupInput!]!
   remark: String
+}
+
+input LodgingSelectionInput {
+  dayIndex: Int!
+  level: LodgingSelectionLevel!
+  customLodgingId: String
 }
 
 input ExternalTransferInput {
@@ -379,10 +404,12 @@ input PlanPricingPreviewInput {
   planStops: [PlanStopNestedInput!]!
   travelStartDate: DateTime!
   headcountTotal: Int!
+  transportGroupCount: Int!
   vehicleType: String!
   includeRentalItems: Boolean!
   eventIds: [ID!]!
   extraLodgings: [ExtraLodgingInput!]
+  lodgingSelections: [LodgingSelectionInput!]
   manualAdjustments: [ManualAdjustmentInput!]
   manualDepositAmountKrw: Int
 }

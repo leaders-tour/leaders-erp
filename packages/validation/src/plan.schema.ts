@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 const vehicleTypes = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
 const placeTypes = ['AIRPORT', 'OZ_HOUSE', 'ULAANBAATAR', 'CUSTOM'] as const;
+const lodgingSelectionLevels = ['LV1', 'LV2', 'LV3', 'LV4', 'CUSTOM'] as const;
 const dateTimeInputSchema = z.preprocess(
   (value) => (value instanceof Date ? value.toISOString() : value),
   z.string().datetime(),
@@ -29,6 +30,37 @@ export const manualAdjustmentInputSchema = z.object({
   description: z.string().min(1).max(200),
   amountKrw: z.number().int().min(-1_000_000_000).max(1_000_000_000),
 });
+
+export const lodgingSelectionInputSchema = z
+  .object({
+    dayIndex: z.number().int().min(1).max(13),
+    level: z.enum(lodgingSelectionLevels),
+    customLodgingId: z.string().min(1).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.level === 'CUSTOM') {
+      if (value.customLodgingId?.trim()) {
+        return;
+      }
+
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'customLodgingId is required when level is CUSTOM',
+        path: ['customLodgingId'],
+      });
+      return;
+    }
+
+    if (!value.customLodgingId) {
+      return;
+    }
+
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'customLodgingId is only allowed when level is CUSTOM',
+      path: ['customLodgingId'],
+    });
+  });
 
 const manualDepositInputSchema = z.number().int().min(0).max(1_000_000_000);
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
@@ -143,6 +175,7 @@ export const planVersionMetaInputSchema = z
     rentalItemsText: z.string().max(10000),
     eventIds: z.array(z.string().min(1)).default([]),
     extraLodgings: z.array(extraLodgingInputSchema).default([]),
+    lodgingSelections: z.array(lodgingSelectionInputSchema).default([]),
     transportGroups: z.array(planVersionTransportGroupInputSchema).min(1),
     remark: z.string().max(2000).optional(),
   })
@@ -199,6 +232,18 @@ export const planVersionMetaInputSchema = z
         });
       }
       seenDayIndexes.add(item.dayIndex);
+    });
+
+    const seenLodgingSelectionDays = new Set<number>();
+    value.lodgingSelections.forEach((item, index) => {
+      if (seenLodgingSelectionDays.has(item.dayIndex)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'lodgingSelections must have unique dayIndex values',
+          path: ['lodgingSelections', index, 'dayIndex'],
+        });
+      }
+      seenLodgingSelectionDays.add(item.dayIndex);
     });
 
     const validTransportIndexes = new Set(value.transportGroups.map((_group, index) => index));
@@ -261,6 +306,16 @@ const planVersionSeedSchema = z
         });
       }
     });
+
+    value.meta.lodgingSelections.forEach((item, index) => {
+      if (item.dayIndex > value.totalDays) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'lodgingSelections dayIndex must be within totalDays',
+          path: ['meta', 'lodgingSelections', index, 'dayIndex'],
+        });
+      }
+    });
   });
 
 export const planCreateSchema = z.object({
@@ -297,6 +352,16 @@ export const planVersionCreateSchema = z
         });
       }
     });
+
+    value.meta.lodgingSelections.forEach((item, index) => {
+      if (item.dayIndex > value.totalDays) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'lodgingSelections dayIndex must be within totalDays',
+          path: ['meta', 'lodgingSelections', index, 'dayIndex'],
+        });
+      }
+    });
   });
 
 export const planPricingPreviewSchema = z
@@ -307,10 +372,12 @@ export const planPricingPreviewSchema = z
     planStops: z.array(planStopNestedSchema),
     travelStartDate: dateTimeInputSchema,
     headcountTotal: z.number().int().min(1).max(100),
+    transportGroupCount: z.number().int().min(1).max(100),
     vehicleType: z.enum(vehicleTypes),
     includeRentalItems: z.boolean().default(true),
     eventIds: z.array(z.string().min(1)).default([]),
     extraLodgings: z.array(extraLodgingInputSchema).default([]),
+    lodgingSelections: z.array(lodgingSelectionInputSchema).default([]),
     manualAdjustments: z.array(manualAdjustmentInputSchema).default([]),
     manualDepositAmountKrw: manualDepositInputSchema.optional(),
   })
@@ -342,6 +409,25 @@ export const planPricingPreviewSchema = z
       }
       seenDayIndexes.add(item.dayIndex);
     });
+
+    const seenLodgingSelectionDays = new Set<number>();
+    value.lodgingSelections.forEach((item, index) => {
+      if (item.dayIndex > value.totalDays) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'lodgingSelections dayIndex must be within totalDays',
+          path: ['lodgingSelections', index, 'dayIndex'],
+        });
+      }
+      if (seenLodgingSelectionDays.has(item.dayIndex)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'lodgingSelections must have unique dayIndex values',
+          path: ['lodgingSelections', index, 'dayIndex'],
+        });
+      }
+      seenLodgingSelectionDays.add(item.dayIndex);
+    });
   });
 
 export type PlanCreateInput = z.infer<typeof planCreateSchema>;
@@ -353,4 +439,5 @@ export type PlanVersionTransportGroupInput = z.infer<typeof planVersionTransport
 export type ExtraLodgingInput = z.infer<typeof extraLodgingInputSchema>;
 export type ExternalTransferInput = z.infer<typeof externalTransferInputSchema>;
 export type ManualAdjustmentInput = z.infer<typeof manualAdjustmentInputSchema>;
+export type LodgingSelectionInput = z.infer<typeof lodgingSelectionInputSchema>;
 export type PlanPricingPreviewInput = z.infer<typeof planPricingPreviewSchema>;

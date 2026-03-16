@@ -1,4 +1,5 @@
 import type { VariantType } from '../enums/variant-type';
+import type { LodgingSelection } from './lodging-selection';
 import type { Override } from './override';
 import type { PlanStop } from './plan-stop';
 
@@ -66,6 +67,7 @@ export interface PlanVersion {
       dayIndex: number;
       lodgingCount: number;
     }>;
+    lodgingSelections: LodgingSelection[];
     transportGroups: Array<{
       id: string;
       planVersionMetaId: string;

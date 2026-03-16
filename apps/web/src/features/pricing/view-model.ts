@@ -24,6 +24,7 @@ const LINE_CODE_LABELS: Record<string, string> = {
   LONG_DISTANCE: '장거리 구간 합계',
   HIACE: '하이에이스 추가',
   EXTRA_LODGING: '숙소 추가',
+  LODGING_SELECTION: '숙소 선택',
   EARLY_NIGHT: '얼리(00-04)',
   EARLY_MORNING: '얼리(04-08)',
   EXTEND: '연장',
@@ -58,7 +59,7 @@ export function buildPricingViewBuckets<TLine extends PricingViewLine>(
 }
 
 export function getPricingLineLabel(line: Pick<PricingViewLine, 'lineCode' | 'description' | 'quantity'>): string {
-  if (line.lineCode === 'MANUAL_ADJUSTMENT') {
+  if (line.lineCode === 'MANUAL_ADJUSTMENT' || line.lineCode === 'LODGING_SELECTION') {
     const custom = line.description?.trim();
     if (custom) {
       return custom;

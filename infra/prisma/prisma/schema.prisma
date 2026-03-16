@@ -50,6 +50,7 @@ enum PricingLineCode {
   LONG_DISTANCE
   HIACE
   EXTRA_LODGING
+  LODGING_SELECTION
   EARLY_NIGHT
   EARLY_MORNING
   EXTEND
@@ -370,6 +371,7 @@ model Region {
   segments  Segment[]
   plans     Plan[]
   planTemplates PlanTemplate[]
+  regionLodgings RegionLodging[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -553,6 +555,7 @@ model PlanVersionMeta {
   rentalItemsText        String   @db.Text
   eventCodes             Json
   extraLodgings          Json
+  lodgingSelections      Json
   remark                 String?  @db.Text
 
   planVersion      PlanVersion               @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
@@ -813,6 +816,24 @@ model Lodging {
 
   @@index([locationId])
   @@index([locationVersionId])
+}
+
+model RegionLodging {
+  id                String  @id @default(uuid(7))
+  regionId          String
+  name              String
+  priceKrw          Int?
+  pricePerPersonKrw Int?
+  pricePerTeamKrw   Int?
+  isActive          Boolean @default(true)
+  sortOrder         Int     @default(0)
+
+  region Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([regionId, isActive, sortOrder])
 }
 
 model MealSet {

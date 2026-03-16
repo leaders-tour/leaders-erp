@@ -11,6 +11,14 @@ import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builde
 import type { EstimateBuilderDraftSnapshot, EstimatePage1Editor, EstimateTransportGroup } from '../features/estimate/model/types';
 import { useAuth } from '../features/auth/context';
 import { toFacilityLabel, toMealLabel } from '../features/location/display';
+import { LodgingUpgradeModal } from '../features/lodging-selection/components/LodgingUpgradeModal';
+import { RegionLodgingSelectModal } from '../features/lodging-selection/components/RegionLodgingSelectModal';
+import {
+  buildLodgingCellText,
+  getBaseLodgingText,
+  type LodgingSelectionLevel,
+  type RegionLodgingOption,
+} from '../features/lodging-selection/model';
 import { ExternalTransferModal } from '../features/plan/components/ExternalTransferModal';
 import {
   buildDerivedExternalTransferManualAdjustments,
@@ -147,6 +155,9 @@ interface PlanRow {
   segmentId?: string;
   locationId?: string;
   locationVersionId?: string;
+  lodgingSelectionLevel: LodgingSelectionLevel;
+  customLodgingId?: string;
+  customLodgingNameSnapshot?: string | null;
   dateCellText: string;
   destinationCellText: string;
   timeCellText: string;
@@ -207,6 +218,9 @@ interface PlanTemplateStopRow {
   segmentId: string | null;
   locationId: string | null;
   locationVersionId: string | null;
+  lodgingSelectionLevel?: LodgingSelectionLevel | null;
+  customLodgingId?: string | null;
+  customLodgingNameSnapshot?: string | null;
   dateCellText: string;
   destinationCellText: string;
   timeCellText: string;
@@ -253,6 +267,15 @@ interface ExternalTransferModalState {
   editingIndex: number | null;
 }
 
+interface LodgingSelectionModalState {
+  open: boolean;
+  rowIndex: number | null;
+}
+
+interface LodgingUpgradeModalState {
+  open: boolean;
+}
+
 interface DateInputTriggerProps {
   value: string;
   placeholder?: string;
@@ -280,6 +303,9 @@ function arePlanRowsEqual(left: PlanRow[], right: PlanRow[]): boolean {
       row.segmentId === other.segmentId &&
       row.locationId === other.locationId &&
       row.locationVersionId === other.locationVersionId &&
+      row.lodgingSelectionLevel === other.lodgingSelectionLevel &&
+      row.customLodgingId === other.customLodgingId &&
+      row.customLodgingNameSnapshot === other.customLodgingNameSnapshot &&
       row.dateCellText === other.dateCellText &&
       row.destinationCellText === other.destinationCellText &&
       row.timeCellText === other.timeCellText &&
@@ -325,6 +351,21 @@ const EVENTS_QUERY = gql`
     events(activeOnly: $activeOnly) {
       id
       name
+    }
+  }
+`;
+
+const REGION_LODGINGS_QUERY = gql`
+  query BuilderRegionLodgings($regionId: ID, $activeOnly: Boolean) {
+    regionLodgings(regionId: $regionId, activeOnly: $activeOnly) {
+      id
+      regionId
+      name
+      priceKrw
+      pricePerPersonKrw
+      pricePerTeamKrw
+      isActive
+      sortOrder
     }
   }
 `;
@@ -794,17 +835,7 @@ function toSegmentScheduleCell(segment: SegmentRow | undefined): string {
 }
 
 function toLodgingCell(version: LocationVersionRow | undefined): string {
-  const lodging = version?.lodgings[0];
-  if (!lodging) {
-    return '';
-  }
-
-  return [
-    lodging.name,
-    `전기 ${toFacilityLabel(lodging.hasElectricity)}`,
-    `샤워 ${toFacilityLabel(lodging.hasShower)}`,
-    `인터넷 ${toFacilityLabel(lodging.hasInternet)}`,
-  ].join('\n');
+  return getBaseLodgingText(version, toFacilityLabel);
 }
 
 function toMealCell(version: LocationVersionRow | undefined): string {
@@ -823,6 +854,35 @@ function autoResizeTextarea(element: HTMLTextAreaElement): void {
 
 function sortTemplateStops(stops: PlanTemplateStopRow[]): PlanTemplateStopRow[] {
   return stops.slice().sort((a, b) => a.dayIndex - b.dayIndex);
+}
+
+function buildDefaultLodgingRow(input: {
+  segmentId?: string;
+  locationId?: string;
+  locationVersionId?: string;
+  dateCellText: string;
+  destinationCellText: string;
+  timeCellText: string;
+  scheduleCellText: string;
+  mealCellText: string;
+  baseLodgingName: string;
+  lodgingCellText?: string;
+}): PlanRow {
+  return {
+    segmentId: input.segmentId,
+    locationId: input.locationId,
+    locationVersionId: input.locationVersionId,
+    lodgingSelectionLevel: 'LV3',
+    customLodgingId: undefined,
+    customLodgingNameSnapshot: null,
+    dateCellText: input.dateCellText,
+    destinationCellText: input.destinationCellText,
+    timeCellText: input.timeCellText,
+    scheduleCellText: input.scheduleCellText,
+    lodgingCellText:
+      input.lodgingCellText ?? buildLodgingCellText({ level: 'LV3', baseLodgingName: input.baseLodgingName }),
+    mealCellText: input.mealCellText,
+  };
 }
 
 function PlaceField({ label, placeType, customText, onPlaceTypeChange, onCustomTextChange }: PlaceFieldProps): JSX.Element {
@@ -963,6 +1023,13 @@ export function ItineraryBuilderPage(): JSX.Element {
     open: false,
     editingIndex: null,
   });
+  const [lodgingUpgradeModalState, setLodgingUpgradeModalState] = useState<LodgingUpgradeModalState>({
+    open: false,
+  });
+  const [lodgingSelectionModalState, setLodgingSelectionModalState] = useState<LodgingSelectionModalState>({
+    open: false,
+    rowIndex: null,
+  });
   const [homeNewUserName, setHomeNewUserName] = useState<string>('');
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
 
@@ -976,6 +1043,13 @@ export function ItineraryBuilderPage(): JSX.Element {
   });
   const { data: eventData } = useQuery<{ events: EventOptionRow[] }>(EVENTS_QUERY, {
     variables: { activeOnly: true },
+  });
+  const { data: regionLodgingData } = useQuery<{ regionLodgings: RegionLodgingOption[] }>(REGION_LODGINGS_QUERY, {
+    variables: {
+      regionId: regionId || undefined,
+      activeOnly: true,
+    },
+    skip: !regionId,
   });
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
@@ -1007,6 +1081,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const planContext = planContextData?.plan ?? null;
   const selectedUserName = userData?.user?.name ?? '';
   const eventOptions = eventData?.events ?? [];
+  const regionLodgings = regionLodgingData?.regionLodgings ?? [];
   const activeTemplateRows = templateListData?.planTemplates ?? [];
   const templateById = templateByIdData?.planTemplate ?? null;
 
@@ -1232,7 +1307,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         averageDistanceKm: segment?.averageDistanceKm,
       });
 
-      return {
+      return buildDefaultLodgingRow({
         segmentId: segment?.id,
         locationId: toStop.locationId,
         locationVersionId: toStop.locationVersionId,
@@ -1240,9 +1315,9 @@ export function ItineraryBuilderPage(): JSX.Element {
         destinationCellText,
         timeCellText: dayIndex === 1 ? toTimeCell(toVersion) : toSegmentTimeCell(segment),
         scheduleCellText: dayIndex === 1 ? toScheduleCell(toVersion) : toSegmentScheduleCell(segment),
-        lodgingCellText: toLodgingCell(toVersion),
         mealCellText: toMealCell(toVersion),
-      };
+        baseLodgingName: toLodgingCell(toVersion),
+      });
     });
   }, [filteredSegments, locationById, locationVersionById, selectedRoute, startLocationId, startLocationVersionId]);
 
@@ -1558,6 +1633,71 @@ export function ItineraryBuilderPage(): JSX.Element {
     setPlanRows((prev) => prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
   };
 
+  const applyLodgingSelection = (
+    rowIndex: number,
+    level: LodgingSelectionLevel,
+    customLodging?: RegionLodgingOption | null,
+  ): void => {
+    setPlanRows((prev) =>
+      prev.map((row, index) => {
+        if (index !== rowIndex) {
+          return row;
+        }
+
+        const baseLodgingName = toLodgingCell(row.locationVersionId ? locationVersionById.get(row.locationVersionId) : undefined);
+        const customLodgingName = level === 'CUSTOM' ? (customLodging?.name ?? row.customLodgingNameSnapshot ?? '') : null;
+
+        return {
+          ...row,
+          lodgingSelectionLevel: level,
+          customLodgingId: level === 'CUSTOM' ? (customLodging?.id ?? row.customLodgingId) : undefined,
+          customLodgingNameSnapshot: customLodgingName,
+          lodgingCellText: buildLodgingCellText({
+            level,
+            baseLodgingName,
+            customLodgingName,
+          }),
+        };
+      }),
+    );
+  };
+
+  const lodgingSelections = useMemo(
+    () =>
+      planRows.map((row, index) => ({
+        dayIndex: index + 1,
+        level: row.lodgingSelectionLevel,
+        customLodgingId: row.lodgingSelectionLevel === 'CUSTOM' ? row.customLodgingId : undefined,
+      })),
+    [planRows],
+  );
+  const lodgingUpgradeRows = useMemo(
+    () =>
+      planRows.map((row, index) => ({
+        dayIndex: index + 1,
+        locationLabel: locationById.get(row.locationId ?? '')?.name ?? row.locationId ?? '목적지 미정',
+        lodgingSelectionLevel: row.lodgingSelectionLevel,
+        lodgingCellText: row.lodgingCellText,
+        customLodgingId: row.customLodgingId,
+      })),
+    [locationById, planRows],
+  );
+  const planStopInputs = useMemo(
+    () =>
+      planRows.map((row) => ({
+        segmentId: row.segmentId,
+        locationId: row.locationId,
+        locationVersionId: row.locationVersionId,
+        dateCellText: row.dateCellText,
+        destinationCellText: row.destinationCellText,
+        timeCellText: row.timeCellText,
+        scheduleCellText: row.scheduleCellText,
+        lodgingCellText: row.lodgingCellText,
+        mealCellText: row.mealCellText,
+      })),
+    [planRows],
+  );
+
   const applyTemplate = (template: PlanTemplateRow, withConfirm = true): void => {
     if (withConfirm && !window.confirm(`템플릿 \"${template.name}\"을(를) 현재 빌더에 적용할까요?`)) {
       return;
@@ -1581,17 +1721,20 @@ export function ItineraryBuilderPage(): JSX.Element {
       })),
     );
     setPlanRows(
-      orderedStops.map((stop) => ({
-        segmentId: stop.segmentId ?? undefined,
-        locationId: stop.locationId ?? undefined,
-        locationVersionId: stop.locationVersionId ?? undefined,
-        dateCellText: stop.dateCellText,
-        destinationCellText: stop.destinationCellText,
-        timeCellText: stop.timeCellText,
-        scheduleCellText: stop.scheduleCellText,
-        lodgingCellText: stop.lodgingCellText,
-        mealCellText: stop.mealCellText,
-      })),
+      orderedStops.map((stop) =>
+        buildDefaultLodgingRow({
+          segmentId: stop.segmentId ?? undefined,
+          locationId: stop.locationId ?? undefined,
+          locationVersionId: stop.locationVersionId ?? undefined,
+          dateCellText: stop.dateCellText,
+          destinationCellText: stop.destinationCellText,
+          timeCellText: stop.timeCellText,
+          scheduleCellText: stop.scheduleCellText,
+          lodgingCellText: stop.lodgingCellText,
+          mealCellText: stop.mealCellText,
+          baseLodgingName: stop.lodgingCellText,
+        }),
+      ),
     );
   };
 
@@ -1647,6 +1790,10 @@ export function ItineraryBuilderPage(): JSX.Element {
 
     return description.length === 0 || amountText.length === 0 || !Number.isInteger(Number(item.amountKrw));
   });
+
+  const hasInvalidLodgingSelections = lodgingSelections.some(
+    (item) => item.level === 'CUSTOM' && (!item.customLodgingId || item.customLodgingId.trim().length === 0),
+  );
 
   const normalizedManualDepositAmountKrw = useMemo(() => {
     if (!hasEditedManualDeposit) {
@@ -1733,6 +1880,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     regionId &&
       travelStartDate &&
       !hasInvalidManualAdjustments &&
+      !hasInvalidLodgingSelections &&
       !hasInvalidExternalTransfers &&
       !hasHiaceHeadcountViolation,
   );
@@ -1746,13 +1894,15 @@ export function ItineraryBuilderPage(): JSX.Element {
           regionId,
           variantType,
           totalDays,
-          planStops: planRows,
+          planStops: planStopInputs,
           travelStartDate: toIsoDateTime(travelStartDate),
           headcountTotal,
+          transportGroupCount: transportGroups.length,
           vehicleType,
           includeRentalItems,
           eventIds,
           extraLodgings,
+          lodgingSelections,
           manualAdjustments: normalizedManualAdjustments,
           manualDepositAmountKrw: normalizedManualDepositAmountKrw,
         },
@@ -1793,6 +1943,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       !hasInvalidTransportGroups &&
       !hasHiaceHeadcountViolation &&
       !hasInvalidManualAdjustments &&
+      !hasInvalidLodgingSelections &&
       !hasInvalidExternalTransfers &&
       !hasInvalidManualDepositInput &&
       !hasMissingCustomPlaceText &&
@@ -2292,6 +2443,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           rentalItemsText,
                           eventIds,
                           extraLodgings,
+                          lodgingSelections,
                           transportGroups: normalizedTransportGroups.map((group) => ({
                             teamName: group.teamName.trim(),
                             headcount: group.headcount,
@@ -2313,7 +2465,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           })),
                           remark: remark.trim() || undefined,
                         },
-                        planStops: planRows,
+                        planStops: planStopInputs,
                         manualAdjustments: normalizedManualAdjustments,
                         manualDepositAmountKrw: normalizedManualDepositAmountKrw,
                       },
@@ -2373,6 +2525,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           rentalItemsText,
                           eventIds,
                           extraLodgings,
+                          lodgingSelections,
                           transportGroups: normalizedTransportGroups.map((group) => ({
                             teamName: group.teamName.trim(),
                             headcount: group.headcount,
@@ -2394,7 +2547,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           })),
                           remark: remark.trim() || undefined,
                         },
-                        planStops: planRows,
+                        planStops: planStopInputs,
                         manualAdjustments: normalizedManualAdjustments,
                         manualDepositAmountKrw: normalizedManualDepositAmountKrw,
                       },
@@ -3075,6 +3228,27 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </div>
               </div>
 
+              <div className="grid gap-3 text-sm">
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <span className="text-xs text-slate-600">숙소 업그레이드</span>
+                    <p className="mt-1 text-xs text-slate-400">버튼을 눌러 일차별 숙소 등급과 지정 숙소를 한 번에 설정합니다.</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {planRows.length === 0
+                        ? '아직 설정할 일차가 없습니다.'
+                        : `총 ${planRows.length}일차 · 업그레이드 ${planRows.filter((row) => row.lodgingSelectionLevel !== 'LV3').length}건`}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setLodgingUpgradeModalState({ open: true })}
+                    disabled={planRows.length === 0}
+                  >
+                    숙소 업그레이드 하기
+                  </Button>
+                </div>
+              </div>
+
               <div className="grid gap-2 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-600">기타금액(증액/할인)</span>
@@ -3313,7 +3487,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 p-4">
             <h2 className="font-medium">일정표 편집기</h2>
-            <p className="mt-1 text-xs text-slate-600">모든 셀은 줄바꿈 포함 자유 편집됩니다.</p>
+            <p className="mt-1 text-xs text-slate-600">숙소 셀은 선택값으로 자동 생성되며 나머지 셀은 줄바꿈 포함 자유 편집됩니다.</p>
           </div>
 
           <div className="overflow-auto">
@@ -3384,17 +3558,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                       />
                     </Td>
                     <Td>
-                      <textarea
-                        value={row.lodgingCellText}
-                        onChange={(event) => {
-                          updateCell(rowIndex, 'lodgingCellText', event.target.value);
-                          autoResizeTextarea(event.currentTarget);
-                        }}
-                        onInput={(event) => autoResizeTextarea(event.currentTarget)}
-                        rows={1}
-                        data-plan-cell="true"
-                        className="w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
-                      />
+                      <div className="min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-5 whitespace-pre-wrap text-slate-900">
+                        {row.lodgingCellText || '-'}
+                      </div>
                     </Td>
                     <Td>
                       <textarea
@@ -3744,12 +3910,13 @@ export function ItineraryBuilderPage(): JSX.Element {
         rentalItemsText,
         eventIds,
         extraLodgings,
+        lodgingSelections,
         remark,
       },
       manualAdjustments: normalizedManualAdjustments,
       manualDepositAmountKrw: normalizedManualDepositAmountKrw,
       selectedRoute,
-      planStops: planRows,
+      planStops: planStopInputs,
     }
     : {
         userId,
@@ -3783,13 +3950,14 @@ export function ItineraryBuilderPage(): JSX.Element {
           rentalItemsText,
           eventIds,
           extraLodgings,
+          lodgingSelections,
           remark,
         },
         manualAdjustments: normalizedManualAdjustments,
         manualDepositAmountKrw: normalizedManualDepositAmountKrw,
         selectedRoute,
         initialVersion: {
-          planStops: planRows,
+          planStops: planStopInputs,
         },
       },
   null,
@@ -3856,6 +4024,52 @@ export function ItineraryBuilderPage(): JSX.Element {
             setExternalTransferModalState({
               open: false,
               editingIndex: null,
+            });
+          }}
+        />
+
+        <LodgingUpgradeModal
+          open={lodgingUpgradeModalState.open}
+          rows={lodgingUpgradeRows}
+          onClose={() => setLodgingUpgradeModalState({ open: false })}
+          onChooseLevel={(rowIndex, level) => applyLodgingSelection(rowIndex, level)}
+          onChooseCustom={(rowIndex) =>
+            setLodgingSelectionModalState({
+              open: true,
+              rowIndex,
+            })
+          }
+        />
+
+        <RegionLodgingSelectModal
+          open={lodgingSelectionModalState.open}
+          dayIndex={lodgingSelectionModalState.rowIndex !== null ? lodgingSelectionModalState.rowIndex + 1 : null}
+          lodgings={regionLodgings}
+          initialSelectedId={
+            lodgingSelectionModalState.rowIndex !== null
+              ? planRows[lodgingSelectionModalState.rowIndex]?.customLodgingId ?? null
+              : null
+          }
+          onClose={() =>
+            setLodgingSelectionModalState({
+              open: false,
+              rowIndex: null,
+            })
+          }
+          onSubmit={(lodgingId) => {
+            const lodging = regionLodgings.find((item) => item.id === lodgingId) ?? null;
+            if (lodgingSelectionModalState.rowIndex === null || !lodging) {
+              setLodgingSelectionModalState({
+                open: false,
+                rowIndex: null,
+              });
+              return;
+            }
+
+            applyLodgingSelection(lodgingSelectionModalState.rowIndex, 'CUSTOM', lodging);
+            setLodgingSelectionModalState({
+              open: false,
+              rowIndex: null,
             });
           }}
         />

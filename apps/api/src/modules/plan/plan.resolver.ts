@@ -119,6 +119,8 @@ export const planResolver = {
       Array.isArray(parent.externalTransfers) ? parent.externalTransfers : [],
     extraLodgings: (parent: { extraLodgings?: unknown }) =>
       Array.isArray(parent.extraLodgings) ? parent.extraLodgings : [],
+    lodgingSelections: (parent: { lodgingSelections?: unknown }) =>
+      Array.isArray(parent.lodgingSelections) ? parent.lodgingSelections : [],
     transportGroups: (parent: { transportGroups?: unknown }) =>
       Array.isArray(parent.transportGroups) ? parent.transportGroups : [],
     events: async (parent: { planVersionId: string }, _args: unknown, ctx: AppContext) => {
