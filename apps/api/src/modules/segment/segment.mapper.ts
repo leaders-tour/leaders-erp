@@ -15,9 +15,6 @@ export const segmentInclude = {
   },
   versions: {
     include: {
-      viaLocations: {
-        orderBy: { orderIndex: 'asc' },
-      },
       scheduleTimeBlocks: {
         include: {
           activities: {

@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import { lodgingCreateSchema, lodgingUpdateSchema } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
 import { LodgingRepository } from './lodging.repository';
@@ -22,6 +22,16 @@ function normalizeLodgingInput<
     hasShower: isUnspecified ? 'NO' : (input.hasShower ?? 'NO'),
     hasInternet: isUnspecified ? 'NO' : (input.hasInternet ?? 'NO'),
   };
+}
+
+function coerceLocationNameSnapshot(value: Prisma.JsonValue | null | undefined): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((line): line is string => typeof line === 'string').map((line) => line.trim()).filter((line) => line.length > 0);
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return [value.trim()];
+  }
+  return [];
 }
 
 export class LodgingService {
@@ -59,7 +69,7 @@ export class LodgingService {
       locationVersionId = location.currentVersionId;
     }
 
-    let locationNameSnapshot: string | null = null;
+    let locationNameSnapshot: string[] | null = null;
 
     if (locationVersionId) {
       const version = await this.prisma.locationVersion.findUnique({
@@ -76,7 +86,7 @@ export class LodgingService {
       }
 
       locationId = version.locationId;
-      locationNameSnapshot = version.locationNameSnapshot;
+      locationNameSnapshot = coerceLocationNameSnapshot(version.locationNameSnapshot);
     }
 
     if (!locationId || !locationVersionId) {
@@ -87,7 +97,7 @@ export class LodgingService {
       ...normalizeLodgingInput(parsed.data),
       locationId,
       locationVersionId,
-      locationNameSnapshot: locationNameSnapshot ?? '',
+      locationNameSnapshot: locationNameSnapshot ?? [],
     });
   }
 
@@ -136,7 +146,7 @@ export class LodgingService {
       ...normalizeLodgingInput(parsed.data),
       locationId: version.locationId,
       locationVersionId,
-      locationNameSnapshot: version.locationNameSnapshot,
+      locationNameSnapshot: coerceLocationNameSnapshot(version.locationNameSnapshot),
     });
   }
 

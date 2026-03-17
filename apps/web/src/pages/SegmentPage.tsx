@@ -2,6 +2,7 @@ import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
 import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { formatLocationNameInline, includesLocationNameKeyword } from '../features/location/display';
 import { LocationSubNav } from '../features/location/sub-nav';
 import {
   useSegmentCrud,
@@ -29,7 +30,7 @@ interface LocationRow {
   id: string;
   regionId: string;
   regionName: string;
-  name: string;
+  name: string[];
   isFirstDayEligible: boolean;
   isLastDayEligible: boolean;
 }
@@ -44,13 +45,12 @@ interface SegmentFormState {
   earlyTimeSlots: SegmentTimeSlotFormInput[];
   extendTimeSlots: SegmentTimeSlotFormInput[];
   earlyExtendTimeSlots: SegmentTimeSlotFormInput[];
-  viaVersions: SegmentVersionDraft[];
+  versions: SegmentVersionDraft[];
 }
 
 interface SegmentVersionDraft {
   clientId: string;
   name: string;
-  viaLocationIds: string[];
   averageDistanceKm: string;
   averageTravelHours: string;
   isLongDistance: boolean;
@@ -75,11 +75,10 @@ function createDraftId(): string {
   return `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function createViaVersionDraft(): SegmentVersionDraft {
+function createVersionDraft(): SegmentVersionDraft {
   return {
     clientId: createDraftId(),
     name: '',
-    viaLocationIds: [],
     averageDistanceKm: '',
     averageTravelHours: '',
     isLongDistance: false,
@@ -101,7 +100,7 @@ function createEmptyForm(): SegmentFormState {
     earlyTimeSlots: createDefaultTimeSlots(),
     extendTimeSlots: createDefaultTimeSlots(),
     earlyExtendTimeSlots: createDefaultTimeSlots(),
-    viaVersions: [],
+    versions: [],
   };
 }
 
@@ -115,19 +114,6 @@ function getNextSlotTime(timeSlots: SegmentTimeSlotFormInput[]): string {
   const nextTotalMinutes = (hours * 60 + minutes + 60) % (24 * 60);
   return `${String(Math.floor(nextTotalMinutes / 60)).padStart(2, '0')}:${String(nextTotalMinutes % 60).padStart(2, '0')}`;
 }
-
-type SegmentScheduleField = 'timeSlots' | 'earlyTimeSlots' | 'extendTimeSlots' | 'earlyExtendTimeSlots';
-
-const SEGMENT_VARIANT_CONFIG: Array<{
-  field: SegmentScheduleField;
-  title: string;
-  description: string;
-}> = [
-  { field: 'timeSlots', title: '기본 일정', description: '기본 연결 일정입니다.' },
-  { field: 'earlyTimeSlots', title: '얼리 일정', description: '첫날 얼리 조건에서 사용하는 연결 일정입니다.' },
-  { field: 'extendTimeSlots', title: '연장 일정', description: '마지막날 연장 조건에서 사용하는 연결 일정입니다.' },
-  { field: 'earlyExtendTimeSlots', title: '얼리+연장 일정', description: '첫날 얼리이면서 마지막날 연장 조건에서 사용하는 연결 일정입니다.' },
-];
 
 function toFormTimeSlots(
   timeBlocks:
@@ -157,18 +143,17 @@ function toFormTimeSlots(
     }));
 }
 
-function toViaVersionDrafts(segment: SegmentRow | undefined): SegmentVersionDraft[] {
+function toVersionDrafts(segment: SegmentRow | undefined): SegmentVersionDraft[] {
   if (!segment || segment.versions.length === 0) {
     return [];
   }
 
   return segment.versions
-    .filter((version) => version.kind === 'VIA')
+    .filter((version) => !version.isDefault)
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((version) => ({
       clientId: version.id,
       name: version.name,
-      viaLocationIds: version.viaLocations.slice().sort((a, b) => a.orderIndex - b.orderIndex).map((item) => item.locationId),
       averageDistanceKm: String(version.averageDistanceKm),
       averageTravelHours: String(version.averageTravelHours),
       isLongDistance: version.isLongDistance,
@@ -349,63 +334,55 @@ function buildVersionInputs(
   return [
     {
       name: 'Direct',
-      kind: 'DIRECT',
-      viaLocationIds: [],
       averageDistanceKm: Number(form.averageDistanceKm),
       averageTravelHours: Number(form.averageTravelHours),
       isLongDistance: form.isLongDistance,
       ...buildVariantTimeSlotInput(form, input),
       isDefault: true,
     },
-    ...form.viaVersions.map((version) => ({
-      name: version.name.trim() || `Via ${version.viaLocationIds.join(' → ')}`,
-      kind: 'VIA' as const,
-      viaLocationIds: version.viaLocationIds,
+    ...form.versions.map((version) => ({
+      name: version.name.trim(),
       averageDistanceKm: Number(version.averageDistanceKm),
       averageTravelHours: Number(version.averageTravelHours),
       isLongDistance: version.isLongDistance,
       ...buildVariantTimeSlotInput(version, input),
+      isDefault: false,
     })),
   ];
 }
 
-function ViaVersionEditor(props: {
+function AlternativeVersionEditor(props: {
   value: SegmentVersionDraft[];
-  locations: LocationRow[];
-  fromLocationId: string;
-  toLocationId: string;
   includeEarly: boolean;
   includeExtend: boolean;
   includeEarlyExtend: boolean;
   onChange: (nextValue: SegmentVersionDraft[]) => void;
 }): JSX.Element {
-  const { value, locations, fromLocationId, toLocationId, includeEarly, includeExtend, includeEarlyExtend, onChange } = props;
-
-  const candidateLocations = locations.filter((location) => location.id !== fromLocationId && location.id !== toLocationId);
+  const { value, includeEarly, includeExtend, includeEarlyExtend, onChange } = props;
 
   return (
     <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-slate-800">경유지 버전</h3>
-          <p className="text-xs text-slate-500">같은 출발지/도착지에 대해 direct 외 경유 경로 버전을 추가합니다.</p>
+          <h3 className="text-sm font-semibold text-slate-800">대안 버전</h3>
+          <p className="text-xs text-slate-500">같은 출발지/도착지에 대해 직결 대안 버전을 추가합니다.</p>
         </div>
-        <Button type="button" variant="outline" onClick={() => onChange([...value, createViaVersionDraft()])}>
-          경유지 버전 추가
+        <Button type="button" variant="outline" onClick={() => onChange([...value, createVersionDraft()])}>
+          대안 버전 추가
         </Button>
       </div>
 
       {value.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-          아직 경유지 버전이 없습니다.
+          아직 대안 버전이 없습니다.
         </div>
       ) : (
         value.map((version, index) => (
           <div key={version.clientId} className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="text-sm font-semibold text-slate-800">Via 버전 {index + 1}</div>
-                <p className="text-xs text-slate-500">경유지와 버전별 이동 정보를 입력합니다.</p>
+                <div className="text-sm font-semibold text-slate-800">대안 버전 {index + 1}</div>
+                <p className="text-xs text-slate-500">버전별 이동 정보를 입력합니다.</p>
               </div>
               <Button
                 type="button"
@@ -425,43 +402,9 @@ function ViaVersionEditor(props: {
                     value.map((item) => (item.clientId === version.clientId ? { ...item, name: event.target.value } : item)),
                   )
                 }
-                placeholder="예: Via 바양작"
+                placeholder="예: 포토스팟 우선"
               />
             </label>
-
-            <div className="grid gap-2">
-              <div className="text-sm font-medium text-slate-700">경유지 선택</div>
-              <div className="flex flex-wrap gap-2">
-                {candidateLocations.map((location) => {
-                  const selected = version.viaLocationIds.includes(location.id);
-                  return (
-                    <button
-                      key={`${version.clientId}-${location.id}`}
-                      type="button"
-                      onClick={() =>
-                        onChange(
-                          value.map((item) =>
-                            item.clientId === version.clientId
-                              ? {
-                                  ...item,
-                                  viaLocationIds: selected
-                                    ? item.viaLocationIds.filter((locationId) => locationId !== location.id)
-                                    : [...item.viaLocationIds, location.id],
-                                }
-                              : item,
-                          ),
-                        )
-                      }
-                      className={`rounded-lg border px-3 py-1 text-xs ${
-                        selected ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      {location.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
 
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-2 text-sm">
@@ -517,7 +460,7 @@ function ViaVersionEditor(props: {
 
             <TimeSlotEditor
               title="버전 일정"
-              description="선택된 경유 버전의 시간/일정 자동 채움에 사용됩니다."
+              description="선택된 대안 버전의 시간/일정 자동 채움에 사용됩니다."
               value={version.timeSlots}
               onChange={(nextTimeSlots) =>
                 onChange(
@@ -597,7 +540,7 @@ export function SegmentPage(): JSX.Element {
     if (!keyword) {
       return locations;
     }
-    return locations.filter((item) => item.name.toLowerCase().includes(keyword));
+    return locations.filter((item) => includesLocationNameKeyword(item.name, keyword));
   }, [locations, fromSearch]);
 
   const filteredToLocations = useMemo(() => {
@@ -605,7 +548,7 @@ export function SegmentPage(): JSX.Element {
     if (!keyword) {
       return locations;
     }
-    return locations.filter((item) => item.name.toLowerCase().includes(keyword));
+    return locations.filter((item) => includesLocationNameKeyword(item.name, keyword));
   }, [locations, toSearch]);
 
   const selectedFromLocation = form.fromLocationId ? locationById.get(form.fromLocationId) : undefined;
@@ -626,10 +569,9 @@ export function SegmentPage(): JSX.Element {
     form.fromLocationId !== form.toLocationId &&
     Number(form.averageDistanceKm) > 0 &&
     Number(form.averageTravelHours) > 0 &&
-    form.viaVersions.every(
+    form.versions.every(
       (version) =>
         version.name.trim().length > 0 &&
-        version.viaLocationIds.length > 0 &&
         Number(version.averageDistanceKm) > 0 &&
         Number(version.averageTravelHours) > 0,
     );
@@ -641,10 +583,9 @@ export function SegmentPage(): JSX.Element {
     editForm.fromLocationId !== editForm.toLocationId &&
     Number(editForm.averageDistanceKm) > 0 &&
     Number(editForm.averageTravelHours) > 0 &&
-    editForm.viaVersions.every(
+    editForm.versions.every(
       (version) =>
         version.name.trim().length > 0 &&
-        version.viaLocationIds.length > 0 &&
         Number(version.averageDistanceKm) > 0 &&
         Number(version.averageTravelHours) > 0,
     );
@@ -722,12 +663,12 @@ export function SegmentPage(): JSX.Element {
                         type="button"
                         onClick={() => {
                           setForm((prev) => ({ ...prev, fromLocationId: item.id }));
-                          setFromSearch(item.name);
+                          setFromSearch(formatLocationNameInline(item.name));
                           setFromOpen(false);
                         }}
                         className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                       >
-                        {item.name} ({item.regionName})
+                        {formatLocationNameInline(item.name)} ({item.regionName})
                       </button>
                     ))
                   )}
@@ -759,12 +700,12 @@ export function SegmentPage(): JSX.Element {
                         type="button"
                         onClick={() => {
                           setForm((prev) => ({ ...prev, toLocationId: item.id }));
-                          setToSearch(item.name);
+                          setToSearch(formatLocationNameInline(item.name));
                           setToOpen(false);
                         }}
                         className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                       >
-                        {item.name} ({item.regionName})
+                        {formatLocationNameInline(item.name)} ({item.regionName})
                       </button>
                     ))
                   )}
@@ -808,14 +749,14 @@ export function SegmentPage(): JSX.Element {
           </label>
 
           <TimeSlotEditor
-            title="Direct 일정"
-            description="기본 direct 버전의 시간/일정입니다."
+            title="기본 버전 일정"
+            description="기본 직결 버전의 시간/일정입니다."
             value={form.timeSlots}
             onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
           />
           {includeCreateEarly ? (
             <TimeSlotEditor
-              title="Direct 얼리 일정"
+              title="기본 버전 얼리 일정"
               description="첫날 얼리 조건의 연결 일정입니다."
               value={form.earlyTimeSlots}
               onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, earlyTimeSlots: nextTimeSlots }))}
@@ -823,7 +764,7 @@ export function SegmentPage(): JSX.Element {
           ) : null}
           {includeCreateExtend ? (
             <TimeSlotEditor
-              title="Direct 연장 일정"
+              title="기본 버전 연장 일정"
               description="마지막날 연장 조건의 연결 일정입니다."
               value={form.extendTimeSlots}
               onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
@@ -831,22 +772,19 @@ export function SegmentPage(): JSX.Element {
           ) : null}
           {includeCreateEarlyExtend ? (
             <TimeSlotEditor
-              title="Direct 얼리+연장 일정"
+              title="기본 버전 얼리+연장 일정"
               description="첫날 얼리이면서 마지막날 연장 조건의 연결 일정입니다."
               value={form.earlyExtendTimeSlots}
               onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, earlyExtendTimeSlots: nextTimeSlots }))}
             />
           ) : null}
 
-          <ViaVersionEditor
-            value={form.viaVersions}
-            locations={locations}
-            fromLocationId={form.fromLocationId}
-            toLocationId={form.toLocationId}
+          <AlternativeVersionEditor
+            value={form.versions}
             includeEarly={includeCreateEarly}
             includeExtend={includeCreateExtend}
             includeEarlyExtend={includeCreateEarlyExtend}
-            onChange={(nextViaVersions) => setForm((prev) => ({ ...prev, viaVersions: nextViaVersions }))}
+            onChange={(nextVersions) => setForm((prev) => ({ ...prev, versions: nextVersions }))}
           />
 
           {selectedFromLocation && selectedToLocation && selectedFromLocation.regionId !== selectedToLocation.regionId ? (
@@ -882,8 +820,8 @@ export function SegmentPage(): JSX.Element {
             {crud.rows.map((row) => (
               <tr key={row.id}>
                 <Td>{row.regionName}</Td>
-                <Td>{locationById.get(row.fromLocationId)?.name ?? row.fromLocationId}</Td>
-                <Td>{locationById.get(row.toLocationId)?.name ?? row.toLocationId}</Td>
+                <Td>{formatLocationNameInline(locationById.get(row.fromLocationId)?.name ?? row.fromLocationId)}</Td>
+                <Td>{formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? row.toLocationId)}</Td>
                 <Td>{row.averageDistanceKm}</Td>
                 <Td>{row.averageTravelHours}</Td>
                 <Td>
@@ -893,11 +831,7 @@ export function SegmentPage(): JSX.Element {
                     ) : (
                       row.versions.map((version) => (
                         <span key={version.id} className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-600">
-                          {version.kind === 'DIRECT'
-                            ? 'Direct'
-                            : version.name.trim().length > 0
-                              ? version.name
-                              : `Via ${version.viaLocations.map((item) => locationById.get(item.locationId)?.name ?? item.locationId).join(' → ')}`}
+                          {version.name.trim() || 'Direct'}
                         </span>
                       ))
                     )}
@@ -919,10 +853,10 @@ export function SegmentPage(): JSX.Element {
                         earlyTimeSlots: toFormTimeSlots(row.earlyScheduleTimeBlocks),
                         extendTimeSlots: toFormTimeSlots(row.extendScheduleTimeBlocks),
                         earlyExtendTimeSlots: toFormTimeSlots(row.earlyExtendScheduleTimeBlocks),
-                        viaVersions: toViaVersionDrafts(row),
+                        versions: toVersionDrafts(row),
                       });
-                      setEditFromSearch(locationById.get(row.fromLocationId)?.name ?? '');
-                      setEditToSearch(locationById.get(row.toLocationId)?.name ?? '');
+                      setEditFromSearch(formatLocationNameInline(locationById.get(row.fromLocationId)?.name ?? row.fromLocationId));
+                      setEditToSearch(formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? row.toLocationId));
                       setEditFromOpen(false);
                       setEditToOpen(false);
                     }}
@@ -1003,12 +937,12 @@ export function SegmentPage(): JSX.Element {
                           type="button"
                           onClick={() => {
                             setEditForm((prev) => ({ ...prev, fromLocationId: item.id }));
-                            setEditFromSearch(item.name);
+                            setEditFromSearch(formatLocationNameInline(item.name));
                             setEditFromOpen(false);
                           }}
                           className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                         >
-                          {item.name} ({item.regionName})
+                          {formatLocationNameInline(item.name)} ({item.regionName})
                         </button>
                       ))
                     )}
@@ -1040,12 +974,12 @@ export function SegmentPage(): JSX.Element {
                           type="button"
                           onClick={() => {
                             setEditForm((prev) => ({ ...prev, toLocationId: item.id }));
-                            setEditToSearch(item.name);
+                            setEditToSearch(formatLocationNameInline(item.name));
                             setEditToOpen(false);
                           }}
                           className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                         >
-                          {item.name} ({item.regionName})
+                          {formatLocationNameInline(item.name)} ({item.regionName})
                         </button>
                       ))
                     )}
@@ -1089,14 +1023,14 @@ export function SegmentPage(): JSX.Element {
             </label>
 
             <TimeSlotEditor
-              title="Direct 일정"
-              description="기본 direct 버전의 시간/일정입니다."
+              title="기본 버전 일정"
+              description="기본 직결 버전의 시간/일정입니다."
               value={editForm.timeSlots}
               onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
             />
             {includeEditEarly ? (
               <TimeSlotEditor
-                title="Direct 얼리 일정"
+                title="기본 버전 얼리 일정"
                 description="첫날 얼리 조건의 연결 일정입니다."
                 value={editForm.earlyTimeSlots}
                 onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, earlyTimeSlots: nextTimeSlots }))}
@@ -1104,7 +1038,7 @@ export function SegmentPage(): JSX.Element {
             ) : null}
             {includeEditExtend ? (
               <TimeSlotEditor
-                title="Direct 연장 일정"
+                title="기본 버전 연장 일정"
                 description="마지막날 연장 조건의 연결 일정입니다."
                 value={editForm.extendTimeSlots}
                 onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
@@ -1112,22 +1046,19 @@ export function SegmentPage(): JSX.Element {
             ) : null}
             {includeEditEarlyExtend ? (
               <TimeSlotEditor
-                title="Direct 얼리+연장 일정"
+                title="기본 버전 얼리+연장 일정"
                 description="첫날 얼리이면서 마지막날 연장 조건의 연결 일정입니다."
                 value={editForm.earlyExtendTimeSlots}
                 onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, earlyExtendTimeSlots: nextTimeSlots }))}
               />
             ) : null}
 
-            <ViaVersionEditor
-              value={editForm.viaVersions}
-              locations={locations}
-              fromLocationId={editForm.fromLocationId}
-              toLocationId={editForm.toLocationId}
+            <AlternativeVersionEditor
+              value={editForm.versions}
               includeEarly={includeEditEarly}
               includeExtend={includeEditExtend}
               includeEarlyExtend={includeEditEarlyExtend}
-              onChange={(nextViaVersions) => setEditForm((prev) => ({ ...prev, viaVersions: nextViaVersions }))}
+              onChange={(nextVersions) => setEditForm((prev) => ({ ...prev, versions: nextVersions }))}
             />
 
             {selectedEditFromLocation && selectedEditToLocation && selectedEditFromLocation.regionId !== selectedEditToLocation.regionId ? (

@@ -6,7 +6,7 @@ import { buildAutoRowsFromRoute, buildFirstDayOptions, buildNextOptions, buildTe
 const locationA: LocationOption = {
   id: 'loc-a',
   regionId: 'region-1',
-  name: '울란바토르',
+  name: ['울란바토르'],
   defaultVersionId: 'ver-a',
   isFirstDayEligible: true,
   isLastDayEligible: false,
@@ -40,7 +40,7 @@ const locationA: LocationOption = {
 const locationB: LocationOption = {
   id: 'loc-b',
   regionId: 'region-1',
-  name: '달란자드가드',
+  name: ['차강소브라가', '달란자드가드'],
   defaultVersionId: 'ver-b',
   isFirstDayEligible: false,
   isLastDayEligible: false,
@@ -75,7 +75,7 @@ const locationB: LocationOption = {
 const locationC: LocationOption = {
   id: 'loc-c',
   regionId: 'region-1',
-  name: '고비 사막',
+  name: ['고비 사막'],
   defaultVersionId: 'ver-c',
   isFirstDayEligible: false,
   isLastDayEligible: true,
@@ -123,13 +123,11 @@ const segmentAB: SegmentOption = {
       id: 'segment-version-ab',
       segmentId: 'segment-ab',
       name: 'Direct',
-      kind: 'DIRECT',
       averageDistanceKm: 540,
       averageTravelHours: 8.5,
       isLongDistance: false,
       sortOrder: 0,
       isDefault: true,
-      viaLocations: [],
       scheduleTimeBlocks: [
         {
           id: 'segv-ab-basic',
@@ -183,13 +181,11 @@ const segmentBC: SegmentOption = {
       id: 'segment-version-bc',
       segmentId: 'segment-bc',
       name: 'Direct',
-      kind: 'DIRECT',
       averageDistanceKm: 200,
       averageTravelHours: 4,
       isLongDistance: false,
       sortOrder: 0,
       isDefault: true,
-      viaLocations: [],
       scheduleTimeBlocks: [
         {
           id: 'segv-bc-basic',
@@ -257,13 +253,11 @@ const segmentAC: SegmentOption = {
       id: 'segment-version-ac',
       segmentId: 'segment-ac',
       name: 'Direct',
-      kind: 'DIRECT',
       averageDistanceKm: 620,
       averageTravelHours: 10,
       isLongDistance: false,
       sortOrder: 0,
       isDefault: true,
-      viaLocations: [],
       scheduleTimeBlocks: [
         {
           id: 'segv-ac-basic',
@@ -421,7 +415,7 @@ describe('route-autofill', () => {
           locationId: locationB.id,
           locationVersionId: 'ver-b',
           dateCellText: '2일차',
-          destinationCellText: '달란자드가드',
+          destinationCellText: '차강소브라가\n달란자드가드',
           timeCellText: '12:00',
           scheduleCellText: '이동 중 점심식사',
           lodgingCellText: '',

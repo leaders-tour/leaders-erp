@@ -2,7 +2,7 @@ export interface Location {
   id: string;
   regionId: string;
   regionName?: string;
-  name: string;
+  name: string[];
   currentVersionId?: string | null;
   defaultLodgingType: string;
   isFirstDayEligible: boolean;

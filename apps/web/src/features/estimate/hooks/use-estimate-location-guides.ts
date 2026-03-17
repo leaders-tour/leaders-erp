@@ -8,7 +8,7 @@ export interface EstimateLocationGuideRow {
   locationId: string | null;
   location: {
     id: string;
-    name: string;
+    name: string[];
   } | null;
 }
 

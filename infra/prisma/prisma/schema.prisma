@@ -90,11 +90,6 @@ enum SecurityDepositMode {
   PER_TEAM
 }
 
-enum SegmentVersionKind {
-  DIRECT
-  VIA
-}
-
 enum DealStage {
   CONSULTING
   CONTRACTING
@@ -396,7 +391,7 @@ model Location {
   id                 String  @id @default(uuid(7))
   regionId           String
   regionName         String
-  name               String
+  name               Json
   defaultLodgingType String
   isFirstDayEligible Boolean @default(false)
   isLastDayEligible  Boolean @default(false)
@@ -415,7 +410,6 @@ model Location {
   timeBlocks   TimeBlock[]
   planStops    PlanStop[]
   planTemplateStops PlanTemplateStop[]
-  segmentVersionViaLocations SegmentVersionViaLocation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -445,7 +439,7 @@ model LocationVersion {
   versionNumber          Int
   label                  String
   changeNote             String?
-  locationNameSnapshot   String
+  locationNameSnapshot   Json
   regionNameSnapshot     String
   defaultLodgingType     String
 
@@ -496,7 +490,6 @@ model SegmentVersion {
   id                 String @id @default(uuid(7))
   segmentId          String
   name               String
-  kind               SegmentVersionKind
   averageDistanceKm  Float
   averageTravelHours Float
   isLongDistance     Boolean @default(false)
@@ -505,7 +498,6 @@ model SegmentVersion {
 
   segment         Segment @relation("SegmentVersions", fields: [segmentId], references: [id], onDelete: Cascade)
   defaultForSegments Segment[] @relation("SegmentDefaultVersion")
-  viaLocations    SegmentVersionViaLocation[]
   scheduleTimeBlocks SegmentVersionTimeBlock[]
   planStops       PlanStop[]
   planTemplateStops PlanTemplateStop[]
@@ -515,23 +507,6 @@ model SegmentVersion {
 
   @@index([segmentId])
   @@unique([segmentId, sortOrder])
-}
-
-model SegmentVersionViaLocation {
-  id               String @id @default(uuid(7))
-  segmentVersionId String
-  locationId       String
-  orderIndex       Int
-
-  segmentVersion SegmentVersion @relation(fields: [segmentVersionId], references: [id], onDelete: Cascade)
-  location       Location       @relation(fields: [locationId], references: [id], onDelete: Restrict)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([segmentVersionId])
-  @@index([locationId])
-  @@unique([segmentVersionId, orderIndex])
 }
 
 model SegmentVersionTimeBlock {
@@ -905,7 +880,7 @@ model Lodging {
   id                   String @id @default(uuid(7))
   locationId           String
   locationVersionId    String?
-  locationNameSnapshot String
+  locationNameSnapshot Json
   name                 String
   specialNotes         String?
   isUnspecified        Boolean @default(false)
@@ -945,7 +920,7 @@ model MealSet {
   id                   String     @id @default(uuid(7))
   locationId           String
   locationVersionId    String?
-  locationNameSnapshot String
+  locationNameSnapshot Json
   setName              String
   breakfast            MealOption?
   lunch                MealOption?

@@ -2,7 +2,7 @@ type Location {
   id: ID!
   regionId: String!
   regionName: String!
-  name: String!
+  name: [String!]!
   defaultVersionId: String
   defaultLodgingType: String!
   isFirstDayEligible: Boolean!
@@ -26,7 +26,7 @@ type LocationVersion {
   versionNumber: Int!
   label: String!
   changeNote: String
-  locationNameSnapshot: String!
+  locationNameSnapshot: [String!]!
   regionNameSnapshot: String!
   defaultLodgingType: String!
   createdAt: DateTime!
@@ -41,7 +41,7 @@ type LocationVersion {
 
 input LocationCreateInput {
   regionId: String!
-  name: String!
+  name: [String!]!
   defaultLodgingType: String!
   isFirstDayEligible: Boolean
   isLastDayEligible: Boolean
@@ -51,7 +51,7 @@ input LocationCreateInput {
 
 input LocationUpdateInput {
   regionId: String
-  name: String
+  name: [String!]
   defaultLodgingType: String
   isFirstDayEligible: Boolean
   isLastDayEligible: Boolean
@@ -80,7 +80,7 @@ input LocationProfileMealsInput {
 
 input LocationProfileCreateInput {
   regionId: String!
-  name: String!
+  name: [String!]!
   isFirstDayEligible: Boolean
   isLastDayEligible: Boolean
   firstDayTimeSlots: [LocationProfileTimeSlotInput!]
@@ -91,7 +91,7 @@ input LocationProfileCreateInput {
 
 input LocationProfileUpdateInput {
   regionId: String!
-  name: String!
+  name: [String!]!
   isFirstDayEligible: Boolean
   isLastDayEligible: Boolean
   firstDayTimeSlots: [LocationProfileTimeSlotInput!]

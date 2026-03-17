@@ -49,7 +49,7 @@ function getNextSlotTime(currentSlots: LocationProfileFormInput['firstDayTimeSlo
 export function createDefaultLocationProfileFormValue(regionId = ''): LocationProfileFormValue {
   return {
     regionId,
-    name: '',
+    name: [''],
     isFirstDayEligible: false,
     isLastDayEligible: false,
     firstDayTimeSlots: DEFAULT_SLOT_TIMES.map((slot) => createSlot(slot)),
@@ -98,6 +98,33 @@ export function LocationProfileForm({
   }, [value]);
 
   const regions = useMemo(() => regionData?.regions ?? [], [regionData]);
+
+  const updateNameLine = (index: number, nextValue: string) => {
+    setForm((prev) => {
+      const nextName = [...prev.name];
+      if (index < 0 || index >= nextName.length) {
+        return prev;
+      }
+      nextName[index] = nextValue;
+      return { ...prev, name: nextName };
+    });
+  };
+
+  const addNameLine = () => {
+    setForm((prev) => ({ ...prev, name: [...prev.name, ''] }));
+  };
+
+  const removeNameLine = (index: number) => {
+    setForm((prev) => {
+      if (prev.name.length <= 1) {
+        return prev;
+      }
+      return {
+        ...prev,
+        name: prev.name.filter((_, currentIndex) => currentIndex !== index),
+      };
+    });
+  };
 
   const updateSlotTime = (field: TimeSlotField, slotIndex: number, slotValue: string) => {
     setForm((prev) => {
@@ -322,37 +349,62 @@ export function LocationProfileForm({
         <div className="grid items-start gap-6 lg:grid-cols-2">
           <div className="grid gap-6">
             <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
-              <div className="grid gap-3 md:grid-cols-2 md:items-start">
-                <label className="grid gap-1 text-sm min-w-0">
-                  <span className="text-slate-700">이름</span>
-                  <Input
-                    value={form.name}
-                    onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                    required
-                    disabled={nameReadOnly}
-                    className={nameReadOnly ? 'border-slate-300 bg-slate-100 text-slate-500' : undefined}
-                  />
-                </label>
-                <label className="grid gap-1 text-sm min-w-0">
-                  <span className="text-slate-700">지역</span>
-                  <div className="flex flex-wrap gap-2">
-                    {regions.map((region) => (
-                      <button
-                        key={region.id}
+              <label className="grid gap-1 text-sm min-w-0">
+                <span className="text-slate-700">도착지</span>
+                <div className="grid gap-2">
+                  {form.name.map((line, index) => (
+                    <div key={`location-name-${index}`} className="flex items-center gap-2">
+                      <Input
+                        value={line}
+                        onChange={(event) => updateNameLine(index, event.target.value)}
+                        required={index === 0}
+                        disabled={nameReadOnly}
+                        className={nameReadOnly ? 'border-slate-300 bg-slate-100 text-slate-500' : undefined}
+                        placeholder={index === 0 ? '예: 욜린암' : '예: 차강소브라가'}
+                      />
+                      <Button
                         type="button"
-                        onClick={() => setForm((prev) => ({ ...prev, regionId: region.id }))}
-                        className={`rounded-xl border px-3 py-1.5 text-sm ${
-                          form.regionId === region.id
-                            ? 'border-slate-900 bg-slate-900 text-white'
-                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                        }`}
+                        variant="outline"
+                        onClick={() => removeNameLine(index)}
+                        disabled={nameReadOnly || form.name.length <= 1}
+                        className="whitespace-nowrap"
                       >
-                        {region.name}
-                      </button>
-                    ))}
+                        삭제
+                      </Button>
+                    </div>
+                  ))}
+                  <div>
+                    <Button type="button" variant="outline" onClick={addNameLine} disabled={nameReadOnly}>
+                      경유지 추가
+                    </Button>
                   </div>
-                </label>
-              </div>
+                </div>
+              </label>
+            </div>
+
+            <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+              <label className="grid gap-1 text-sm min-w-0">
+                <span className="text-slate-700">지역</span>
+                <div className="flex flex-wrap gap-2">
+                  {regions.map((region) => (
+                    <button
+                      key={region.id}
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, regionId: region.id }))}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        form.regionId === region.id
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {region.name}
+                    </button>
+                  ))}
+                </div>
+              </label>
+            </div>
+
+            <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
               <div className="flex flex-wrap gap-6 text-sm text-slate-700">
                 <label className="flex items-center gap-2">
                   <input
@@ -507,7 +559,11 @@ export function LocationProfileForm({
         </div>
 
         <div className="lg:col-span-2">
-          <Button type="submit" variant={submitVariant} disabled={submitting || !form.regionId || !form.name.trim()}>
+          <Button
+            type="submit"
+            variant={submitVariant}
+            disabled={submitting || !form.regionId || form.name.every((line) => line.trim().length === 0)}
+          >
             {submitting ? '저장 중...' : submitLabel}
           </Button>
         </div>

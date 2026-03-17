@@ -2,7 +2,7 @@ type Lodging {
   id: ID!
   locationId: String!
   locationVersionId: String
-  locationNameSnapshot: String!
+  locationNameSnapshot: [String!]!
   name: String!
   specialNotes: String
   isUnspecified: Boolean!

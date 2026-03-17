@@ -3,6 +3,7 @@ import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { buildEmptyPlanRow, type TemplatePlanRow } from '../features/plan-template/editor-utils';
+import { formatLocationNameMultiline } from '../features/location/display';
 import {
   buildAutoRowsFromRoute,
   buildFirstDayOptions,
@@ -167,17 +168,11 @@ const SEGMENTS_QUERY = gql`
         id
         segmentId
         name
-        kind
         averageDistanceKm
         averageTravelHours
         isLongDistance
         sortOrder
         isDefault
-        viaLocations {
-          id
-          locationId
-          orderIndex
-        }
         scheduleTimeBlocks {
           id
           startTime
@@ -656,7 +651,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
             {startLocationId ? (
               <div className="mt-1 flex items-center justify-between gap-2">
                 <div className="text-slate-700">
-                  {locationById.get(startLocationId)?.name ?? startLocationId}
+                  <span className="whitespace-pre-line">{formatLocationNameMultiline(locationById.get(startLocationId)?.name ?? startLocationId)}</span>
                   {startLocationVersionId ? ` (${formatLocationVersion(locationVersionById.get(startLocationVersionId))})` : ''}
                 </div>
                 <button
@@ -689,7 +684,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                     }}
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
                   >
-                    {location.name}
+                    <span className="whitespace-pre-line">{formatLocationNameMultiline(location.name)}</span>
                   </button>
                 ))}
               </div>
@@ -732,7 +727,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                   <>
               <div className="text-sm font-medium">{index + 2}일차</div>
               <div className="mt-1 text-slate-700">
-                {locationById.get(stop.locationId)?.name ?? stop.locationId}
+                <span className="whitespace-pre-line">{formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}</span>
                 {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -786,7 +781,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                             : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
                         }`}
                       >
-                        {formatSegmentVersionLabel(version, locationById)}
+                        {formatSegmentVersionLabel(version)}
                       </button>
                     ))}
                   </div>
@@ -824,7 +819,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                     }}
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
                   >
-                    {location.name}
+                    <span className="whitespace-pre-line">{formatLocationNameMultiline(location.name)}</span>
                   </button>
                 ))}
               </div>

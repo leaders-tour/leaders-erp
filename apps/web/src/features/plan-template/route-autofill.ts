@@ -1,5 +1,9 @@
 import type { MealOption, VariantType } from '../../generated/graphql';
-import { toFacilityLabel, toMealLabel } from '../location/display';
+import {
+  formatLocationNameMultiline,
+  toFacilityLabel,
+  toMealLabel,
+} from '../location/display';
 import { getBaseLodgingText } from '../lodging-selection/model';
 import { buildEmptyPlanRow, buildPlaceholderPlanRows, type TemplatePlanRow } from './editor-utils';
 
@@ -48,7 +52,7 @@ export interface LocationVersionOption {
 export interface LocationOption {
   id: string;
   regionId: string;
-  name: string;
+  name: string[];
   defaultVersionId: string | null;
   isFirstDayEligible: boolean;
   isLastDayEligible: boolean;
@@ -59,17 +63,11 @@ export interface SegmentVersionOption {
   id: string;
   segmentId: string;
   name: string;
-  kind: 'DIRECT' | 'VIA';
   averageDistanceKm: number;
   averageTravelHours: number;
   isLongDistance: boolean;
   sortOrder: number;
   isDefault: boolean;
-  viaLocations: Array<{
-    id: string;
-    locationId: string;
-    orderIndex: number;
-  }>;
   scheduleTimeBlocks: TimeBlockOption[];
   earlyScheduleTimeBlocks: TimeBlockOption[];
   extendScheduleTimeBlocks: TimeBlockOption[];
@@ -96,17 +94,11 @@ interface ResolvedSegmentVersionOption {
   id: string;
   segmentId: string;
   name: string;
-  kind: 'DIRECT' | 'VIA';
   averageDistanceKm: number;
   averageTravelHours: number;
   isLongDistance: boolean;
   sortOrder: number;
   isDefault: boolean;
-  viaLocations: Array<{
-    id: string;
-    locationId: string;
-    orderIndex: number;
-  }>;
   scheduleTimeBlocks: TimeBlockOption[];
   earlyScheduleTimeBlocks: TimeBlockOption[];
   extendScheduleTimeBlocks: TimeBlockOption[];
@@ -184,13 +176,11 @@ function buildLegacyDirectVersion(segment: SegmentOption): ResolvedSegmentVersio
     id: `${segment.id}::direct`,
     segmentId: segment.id,
     name: 'Direct',
-    kind: 'DIRECT',
     averageDistanceKm: segment.averageDistanceKm,
     averageTravelHours: segment.averageTravelHours,
     isLongDistance: segment.isLongDistance ?? false,
     sortOrder: 0,
     isDefault: true,
-    viaLocations: [],
     scheduleTimeBlocks: segment.scheduleTimeBlocks,
     earlyScheduleTimeBlocks: segment.earlyScheduleTimeBlocks,
     extendScheduleTimeBlocks: segment.extendScheduleTimeBlocks,
@@ -243,7 +233,7 @@ export function formatLocationVersion(version: Pick<LocationVersionOption, 'labe
 }
 
 export function formatRouteDestinationCellText(input: {
-  locationName: string;
+  locationName: string[] | string;
   averageTravelHours?: number | null;
   averageDistanceKm?: number | null;
 }): string {
@@ -256,7 +246,7 @@ export function formatRouteDestinationCellText(input: {
       ? `(${formatDistance(input.averageDistanceKm)} km)`
       : '(거리 미정)';
 
-  return [input.locationName, travelLine, distanceLine].join('\n');
+  return [formatLocationNameMultiline(input.locationName), travelLine, distanceLine].join('\n');
 }
 
 export function getSegmentVersions(segment: SegmentOption | undefined): ResolvedSegmentVersionOption[] {
@@ -305,19 +295,9 @@ export function resolveSegmentVersion(
 }
 
 export function formatSegmentVersionLabel(
-  version: Pick<ResolvedSegmentVersionOption, 'name' | 'kind' | 'viaLocations'>,
-  locationById?: Map<string, Pick<LocationOption, 'id' | 'name'>>,
+  version: Pick<ResolvedSegmentVersionOption, 'name'>,
 ): string {
-  if (version.kind === 'DIRECT') {
-    return version.name || 'Direct';
-  }
-
-  if (version.name.trim().length > 0) {
-    return version.name;
-  }
-
-  const viaNames = version.viaLocations.map((viaLocation) => locationById?.get(viaLocation.locationId)?.name ?? viaLocation.locationId);
-  return viaNames.length > 0 ? `Via ${viaNames.join(' → ')}` : 'Via';
+  return version.name.trim() || 'Direct';
 }
 
 export function getDefaultVersionId(location: LocationOption | undefined): string {

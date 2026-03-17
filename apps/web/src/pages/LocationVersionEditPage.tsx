@@ -2,6 +2,7 @@ import { Button, Card, Input } from '@tour/ui';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { LocationProfileForm, createDefaultLocationProfileFormValue } from '../features/location/profile-form';
+import { formatLocationNameInline } from '../features/location/display';
 import { useLocationCrud, useLocationVersionDetail } from '../features/location/hooks';
 
 export function LocationVersionEditPage(): JSX.Element {
@@ -116,7 +117,7 @@ export function LocationVersionEditPage(): JSX.Element {
     <section className="grid gap-6">
       <header className="grid gap-2">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-          {isCreateMode ? `'${version.label}' 기반 새 버전 생성` : `${version.label} 수정`}
+          {isCreateMode ? `'${formatLocationNameInline(version.locationNameSnapshot)} / ${version.label}' 기반 새 버전 생성` : `${version.label} 수정`}
         </h1>
         <p className="text-sm text-slate-600">
           {isCreateMode ? '이전 선택한 버전을 기준으로 새버전을 생성합니다.' : '기본 버전 본문을 직접 수정합니다.'}

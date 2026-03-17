@@ -1,8 +1,18 @@
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import { mealSetCreateSchema, mealSetUpdateSchema } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
 import { MealSetRepository } from './meal-set.repository';
 import type { MealSetCreateDto, MealSetUpdateDto } from './meal-set.types';
+
+function coerceLocationNameSnapshot(value: Prisma.JsonValue | null | undefined): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((line): line is string => typeof line === 'string').map((line) => line.trim()).filter((line) => line.length > 0);
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return [value.trim()];
+  }
+  return [];
+}
 
 export class MealSetService {
   private readonly repository: MealSetRepository;
@@ -39,7 +49,7 @@ export class MealSetService {
       locationVersionId = location.currentVersionId;
     }
 
-    let locationNameSnapshot: string | null = null;
+    let locationNameSnapshot: string[] | null = null;
 
     if (locationVersionId) {
       const version = await this.prisma.locationVersion.findUnique({
@@ -56,7 +66,7 @@ export class MealSetService {
       }
 
       locationId = version.locationId;
-      locationNameSnapshot = version.locationNameSnapshot;
+      locationNameSnapshot = coerceLocationNameSnapshot(version.locationNameSnapshot);
     }
 
     if (!locationId || !locationVersionId) {
@@ -67,7 +77,7 @@ export class MealSetService {
       ...parsed.data,
       locationId,
       locationVersionId,
-      locationNameSnapshot: locationNameSnapshot ?? '',
+      locationNameSnapshot: locationNameSnapshot ?? [],
     });
   }
 
@@ -116,7 +126,7 @@ export class MealSetService {
       ...parsed.data,
       locationId: version.locationId,
       locationVersionId,
-      locationNameSnapshot: version.locationNameSnapshot,
+      locationNameSnapshot: coerceLocationNameSnapshot(version.locationNameSnapshot),
     });
   }
 

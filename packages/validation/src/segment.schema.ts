@@ -7,13 +7,9 @@ const segmentTimeSlotSchema = z.object({
 
 const segmentTimeSlotsSchema = z.array(segmentTimeSlotSchema).min(1).max(24);
 
-const segmentVersionKinds = ['DIRECT', 'VIA'] as const;
-
 const segmentVersionSchema = z.object({
   id: z.string().min(1).optional(),
   name: z.string().min(1).max(120),
-  kind: z.enum(segmentVersionKinds),
-  viaLocationIds: z.array(z.string().min(1)).max(10),
   averageDistanceKm: z.number().positive(),
   averageTravelHours: z.number().positive(),
   isLongDistance: z.boolean(),
@@ -48,61 +44,14 @@ export const segmentCreateSchema = segmentBaseSchema
       return;
     }
 
-    if (value.versions.some((version) => version.kind === 'DIRECT')) {
-      // versions path is canonical when provided; top-level direct fields remain required for legacy compatibility.
-    }
-
-    const directVersions = value.versions.filter((version) => version.kind === 'DIRECT');
-    if (directVersions.length !== 1) {
+    const defaultVersions = value.versions.filter((version) => version.isDefault !== false);
+    if (defaultVersions.length !== 1) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'versions must include exactly one DIRECT version',
+        message: 'versions must include exactly one default version',
         path: ['versions'],
       });
     }
-
-    value.versions.forEach((version, index) => {
-      const viaSet = new Set(version.viaLocationIds);
-      if (version.kind === 'DIRECT') {
-        if (version.viaLocationIds.length > 0) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'DIRECT version must not include via locations',
-            path: ['versions', index, 'viaLocationIds'],
-          });
-        }
-        if (version.isDefault === false) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'DIRECT version must be default',
-            path: ['versions', index, 'isDefault'],
-          });
-        }
-        return;
-      }
-
-      if (version.viaLocationIds.length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'VIA version must include via locations',
-          path: ['versions', index, 'viaLocationIds'],
-        });
-      }
-      if (viaSet.size !== version.viaLocationIds.length) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'viaLocationIds must not contain duplicates',
-          path: ['versions', index, 'viaLocationIds'],
-        });
-      }
-      if (version.isDefault) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'VIA version cannot be default',
-          path: ['versions', index, 'isDefault'],
-        });
-      }
-    });
   });
 
 export const segmentUpdateSchema = segmentBaseSchema
@@ -112,57 +61,14 @@ export const segmentUpdateSchema = segmentBaseSchema
       return;
     }
 
-    const directVersions = value.versions.filter((version) => version.kind === 'DIRECT');
-    if (directVersions.length !== 1) {
+    const defaultVersions = value.versions.filter((version) => version.isDefault !== false);
+    if (defaultVersions.length !== 1) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'versions must include exactly one DIRECT version',
+        message: 'versions must include exactly one default version',
         path: ['versions'],
       });
     }
-
-    value.versions.forEach((version, index) => {
-      const viaSet = new Set(version.viaLocationIds);
-      if (version.kind === 'DIRECT') {
-        if (version.viaLocationIds.length > 0) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'DIRECT version must not include via locations',
-            path: ['versions', index, 'viaLocationIds'],
-          });
-        }
-        if (version.isDefault === false) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'DIRECT version must be default',
-            path: ['versions', index, 'isDefault'],
-          });
-        }
-        return;
-      }
-
-      if (version.viaLocationIds.length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'VIA version must include via locations',
-          path: ['versions', index, 'viaLocationIds'],
-        });
-      }
-      if (viaSet.size !== version.viaLocationIds.length) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'viaLocationIds must not contain duplicates',
-          path: ['versions', index, 'viaLocationIds'],
-        });
-      }
-      if (version.isDefault) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'VIA version cannot be default',
-          path: ['versions', index, 'isDefault'],
-        });
-      }
-    });
   });
 
 export type SegmentCreateInput = z.infer<typeof segmentCreateSchema>;

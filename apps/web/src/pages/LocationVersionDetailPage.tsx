@@ -1,6 +1,6 @@
 import { Button, Card } from '@tour/ui';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { toFacilityLabel, toMealLabel } from '../features/location/display';
+import { formatLocationNameInline, formatLocationNameMultiline, toFacilityLabel, toMealLabel } from '../features/location/display';
 import { useLocationCrud, useLocationVersionDetail } from '../features/location/hooks';
 
 export function LocationVersionDetailPage(): JSX.Element {
@@ -32,7 +32,7 @@ export function LocationVersionDetailPage(): JSX.Element {
       <header className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            {version.locationNameSnapshot} · {versionDisplay}
+            <span className="whitespace-pre-line">{formatLocationNameMultiline(version.locationNameSnapshot)}</span> · {versionDisplay}
           </h1>
           <p className="mt-1 text-sm text-slate-600">
             {isDefault ? '기본 버전' : '선택 버전'} {version.changeNote ? `· ${version.changeNote}` : ''}
@@ -80,6 +80,7 @@ export function LocationVersionDetailPage(): JSX.Element {
         <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
           <div>버전: {versionDisplay}</div>
           <div>지역 스냅샷: {version.regionNameSnapshot}</div>
+          <div>목적지 스냅샷: {formatLocationNameInline(version.locationNameSnapshot)}</div>
           <div>첫날 가능: {version.location.isFirstDayEligible ? 'Y' : 'N'}</div>
           <div>마지막날 가능: {version.location.isLastDayEligible ? 'Y' : 'N'}</div>
         </div>

@@ -5,7 +5,7 @@ export interface LocationVersion {
   versionNumber: number;
   label: string;
   changeNote: string | null;
-  locationNameSnapshot: string;
+  locationNameSnapshot: string[];
   regionNameSnapshot: string;
   defaultLodgingType: string;
   createdAt: Date;

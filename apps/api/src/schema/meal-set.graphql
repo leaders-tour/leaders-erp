@@ -11,7 +11,7 @@ type MealSet {
   id: ID!
   locationId: String!
   locationVersionId: String
-  locationNameSnapshot: String!
+  locationNameSnapshot: [String!]!
   setName: String!
   breakfast: MealOption
   lunch: MealOption

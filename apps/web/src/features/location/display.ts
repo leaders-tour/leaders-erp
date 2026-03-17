@@ -1,6 +1,35 @@
 import { MealOption } from '../../generated/graphql';
 import type { FacilityAvailability } from './hooks';
 
+export type LocationNameLike = string[] | string | null | undefined;
+
+export function normalizeLocationNameLines(value: LocationNameLike): string[] {
+  if (Array.isArray(value)) {
+    return value.map((line) => line.trim()).filter((line) => line.length > 0);
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? [trimmed] : [];
+  }
+  return [];
+}
+
+export function formatLocationNameMultiline(value: LocationNameLike): string {
+  return normalizeLocationNameLines(value).join('\n');
+}
+
+export function formatLocationNameInline(value: LocationNameLike): string {
+  return normalizeLocationNameLines(value).join(' / ');
+}
+
+export function includesLocationNameKeyword(value: LocationNameLike, keyword: string): boolean {
+  const normalizedKeyword = keyword.trim().toLowerCase();
+  if (!normalizedKeyword) {
+    return true;
+  }
+  return normalizeLocationNameLines(value).some((line) => line.toLowerCase().includes(normalizedKeyword));
+}
+
 export function toMealLabel(value: MealOption | null | undefined): string {
   if (!value) {
     return 'X';

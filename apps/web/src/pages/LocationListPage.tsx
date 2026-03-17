@@ -1,7 +1,7 @@
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { toFacilityLabel, toMealLabel } from '../features/location/display';
+import { formatLocationNameMultiline, includesLocationNameKeyword, toFacilityLabel, toMealLabel } from '../features/location/display';
 import { useLocationCrud } from '../features/location/hooks';
 import { LocationSubNav } from '../features/location/sub-nav';
 
@@ -22,7 +22,7 @@ export function LocationListPage(): JSX.Element {
     if (!keyword) {
       return byRegion;
     }
-    return byRegion.filter((row) => row.name.toLowerCase().includes(keyword));
+    return byRegion.filter((row) => includesLocationNameKeyword(row.name, keyword));
   }, [crud.rows, searchKeyword, selectedRegion]);
 
   return (
@@ -92,7 +92,7 @@ export function LocationListPage(): JSX.Element {
                   }}
                 >
                   <Td>
-                    <div>{row.name}</div>
+                    <div className="whitespace-pre-line">{formatLocationNameMultiline(row.name)}</div>
                     <div className="mt-1 text-xs text-slate-500">
                       기본 버전: {row.defaultVersion ? `${row.defaultVersion.label} (v${row.defaultVersion.versionNumber})` : '-'}
                     </div>

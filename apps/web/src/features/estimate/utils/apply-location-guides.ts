@@ -1,5 +1,6 @@
 import type { EstimateLocationGuideRow } from '../hooks/use-estimate-location-guides';
 import type { EstimateDocumentData } from '../model/types';
+import { formatLocationNameMultiline } from '../../location/display';
 
 function parseStopDestinationText(value: string): string | null {
   const line = value
@@ -60,7 +61,7 @@ export function applyLocationGuides(baseData: EstimateDocumentData, guideRows: E
 
       return {
         locationId,
-        locationName: guide.location?.name?.trim() || stopLocationNameById.get(locationId) || guide.title,
+        locationName: formatLocationNameMultiline(guide.location?.name) || stopLocationNameById.get(locationId) || guide.title,
         title: guide.title,
         description: guide.description,
         imageUrls: guide.imageUrls.slice(0, 2),

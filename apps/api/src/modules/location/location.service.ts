@@ -34,7 +34,7 @@ interface NormalizedLodging {
 
 interface VersionProfilePayload {
   locationId: string;
-  locationNameSnapshot: string;
+  locationNameSnapshot: string[];
   regionNameSnapshot: string;
   versionNumber: number;
   label: string;
@@ -70,6 +70,20 @@ export class LocationService {
       hasShower: isUnspecified ? 'NO' : ((lodging.hasShower ?? 'NO') as FacilityAvailability),
       hasInternet: isUnspecified ? 'NO' : ((lodging.hasInternet ?? 'NO') as FacilityAvailability),
     };
+  }
+
+  private normalizeLocationName(name: string[]): string[] {
+    return name.map((line) => line.trim()).filter((line) => line.length > 0);
+  }
+
+  private coerceLocationName(value: Prisma.JsonValue | null | undefined): string[] {
+    if (Array.isArray(value)) {
+      return value.filter((line): line is string => typeof line === 'string').map((line) => line.trim()).filter((line) => line.length > 0);
+    }
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return [value.trim()];
+    }
+    return [];
   }
 
   private cloneTimeSlots(timeSlots: LocationProfileTimeSlotInput[]): LocationProfileTimeSlotInput[] {
@@ -174,7 +188,7 @@ export class LocationService {
     input: {
       locationId: string;
       locationVersionId: string;
-      locationNameSnapshot: string;
+      locationNameSnapshot: string[];
       isFirstDayEligible: boolean;
       firstDayTimeSlots?: LocationProfileTimeSlotInput[];
       firstDayEarlyTimeSlots?: LocationProfileTimeSlotInput[];
@@ -346,9 +360,17 @@ export class LocationService {
         throw new DomainError('VALIDATION_FAILED', 'Region not found for location');
       }
 
+      const normalizedName = this.normalizeLocationName(parsed.data.name);
+
       return tx.location.create({
         data: {
-          ...parsed.data,
+          regionId: parsed.data.regionId,
+          name: normalizedName,
+          defaultLodgingType: parsed.data.defaultLodgingType,
+          isFirstDayEligible: parsed.data.isFirstDayEligible,
+          isLastDayEligible: parsed.data.isLastDayEligible,
+          latitude: parsed.data.latitude ?? null,
+          longitude: parsed.data.longitude ?? null,
           regionName: region.name,
         },
         include: locationInclude,
@@ -377,12 +399,13 @@ export class LocationService {
       }
 
       const normalizedLodging = this.normalizeLodging(parsed.data.lodging);
+      const normalizedName = this.normalizeLocationName(parsed.data.name);
 
       const location = await tx.location.create({
         data: {
           regionId: parsed.data.regionId,
           regionName: region.name,
-          name: parsed.data.name,
+          name: normalizedName,
           defaultLodgingType: normalizedLodging.name,
           isFirstDayEligible: parsed.data.isFirstDayEligible,
           isLastDayEligible: parsed.data.isLastDayEligible,
@@ -393,7 +416,7 @@ export class LocationService {
 
       const createdVersion = await this.createVersionWithProfile(tx, {
         locationId: location.id,
-        locationNameSnapshot: location.name,
+        locationNameSnapshot: normalizedName,
         regionNameSnapshot: region.name,
         versionNumber: 1,
         label: '기본',
@@ -439,6 +462,7 @@ export class LocationService {
 
       const nextIsFirstDayEligible = parsed.data.isFirstDayEligible ?? location.isFirstDayEligible;
       const nextIsLastDayEligible = parsed.data.isLastDayEligible ?? location.isLastDayEligible;
+      const normalizedLocationName = this.coerceLocationName(location.name);
 
       let sourceProfile: VersionProfileSnapshot | null = null;
 
@@ -468,7 +492,7 @@ export class LocationService {
 
       const createdVersion = await this.createVersionWithProfile(tx, {
         locationId: parsed.data.locationId,
-        locationNameSnapshot: location.name,
+        locationNameSnapshot: normalizedLocationName,
         regionNameSnapshot: location.regionName,
         versionNumber,
         label: parsed.data.label,
@@ -527,6 +551,7 @@ export class LocationService {
     return this.prisma.$transaction(async (tx) => {
       const nextRegionId = parsed.data.regionId;
       let nextRegionName: string | undefined;
+      const normalizedName = parsed.data.name ? this.normalizeLocationName(parsed.data.name) : undefined;
 
       if (nextRegionId) {
         const nextRegion = await tx.region.findUnique({
@@ -542,7 +567,13 @@ export class LocationService {
       return tx.location.update({
         where: { id },
         data: {
-          ...parsed.data,
+          ...(parsed.data.regionId !== undefined ? { regionId: parsed.data.regionId } : {}),
+          ...(normalizedName ? { name: normalizedName } : {}),
+          ...(parsed.data.defaultLodgingType !== undefined ? { defaultLodgingType: parsed.data.defaultLodgingType } : {}),
+          ...(parsed.data.isFirstDayEligible !== undefined ? { isFirstDayEligible: parsed.data.isFirstDayEligible } : {}),
+          ...(parsed.data.isLastDayEligible !== undefined ? { isLastDayEligible: parsed.data.isLastDayEligible } : {}),
+          ...(parsed.data.latitude !== undefined ? { latitude: parsed.data.latitude } : {}),
+          ...(parsed.data.longitude !== undefined ? { longitude: parsed.data.longitude } : {}),
           ...(nextRegionName ? { regionName: nextRegionName } : {}),
         },
         include: locationInclude,
@@ -583,13 +614,14 @@ export class LocationService {
       }
 
       const normalizedLodging = this.normalizeLodging(parsed.data.lodging);
+      const normalizedName = this.normalizeLocationName(parsed.data.name);
 
       await tx.location.update({
         where: { id },
         data: {
           regionId: parsed.data.regionId,
           regionName: region.name,
-          name: parsed.data.name,
+          name: normalizedName,
           defaultLodgingType: normalizedLodging.name,
           isFirstDayEligible: parsed.data.isFirstDayEligible,
           isLastDayEligible: parsed.data.isLastDayEligible,
@@ -599,7 +631,7 @@ export class LocationService {
       await tx.locationVersion.update({
         where: { id: existing.currentVersionId },
         data: {
-          locationNameSnapshot: parsed.data.name,
+          locationNameSnapshot: normalizedName,
           regionNameSnapshot: region.name,
           defaultLodgingType: normalizedLodging.name,
         },
@@ -608,7 +640,7 @@ export class LocationService {
       await this.replaceVersionProfileData(tx, {
         locationId: id,
         locationVersionId: existing.currentVersionId,
-        locationNameSnapshot: parsed.data.name,
+        locationNameSnapshot: normalizedName,
         isFirstDayEligible: parsed.data.isFirstDayEligible,
         firstDayTimeSlots: parsed.data.firstDayTimeSlots,
         firstDayEarlyTimeSlots: parsed.data.firstDayEarlyTimeSlots,

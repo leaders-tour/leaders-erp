@@ -20,11 +20,6 @@ type Segment {
   toLocation: Location!
 }
 
-enum SegmentVersionKind {
-  DIRECT
-  VIA
-}
-
 enum SegmentScheduleVariant {
   basic
   early
@@ -36,26 +31,15 @@ type SegmentVersion {
   id: ID!
   segmentId: String!
   name: String!
-  kind: SegmentVersionKind!
   averageDistanceKm: Float!
   averageTravelHours: Float!
   isLongDistance: Boolean!
   sortOrder: Int!
   isDefault: Boolean!
-  viaLocations: [SegmentVersionViaLocation!]!
   scheduleTimeBlocks: [SegmentVersionTimeBlock!]!
   earlyScheduleTimeBlocks: [SegmentVersionTimeBlock!]!
   extendScheduleTimeBlocks: [SegmentVersionTimeBlock!]!
   earlyExtendScheduleTimeBlocks: [SegmentVersionTimeBlock!]!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-}
-
-type SegmentVersionViaLocation {
-  id: ID!
-  segmentVersionId: String!
-  locationId: String!
-  orderIndex: Int!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -114,8 +98,6 @@ input SegmentTimeSlotInput {
 input SegmentVersionInput {
   id: String
   name: String!
-  kind: SegmentVersionKind!
-  viaLocationIds: [String!]!
   averageDistanceKm: Float!
   averageTravelHours: Float!
   isLongDistance: Boolean!

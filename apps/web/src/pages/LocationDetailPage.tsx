@@ -2,6 +2,7 @@ import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useState } from 'react';
 import { LocationSubNav } from '../features/location/sub-nav';
+import { formatLocationNameInline, formatLocationNameMultiline } from '../features/location/display';
 import { useLocationGuideCrud } from '../features/location-guide/hooks';
 import { useLocationCrud, useLocationDetail } from '../features/location/hooks';
 
@@ -51,7 +52,7 @@ export function LocationDetailPage(): JSX.Element {
     .map((segment) => ({
       segmentId: segment.id,
       targetLocationId: segment.fromLocation.id,
-      targetLocationName: segment.fromLocation.name,
+      targetLocationName: formatLocationNameInline(segment.fromLocation.name),
       distanceKm: segment.averageDistanceKm,
       travelHours: segment.averageTravelHours,
     }))
@@ -62,7 +63,7 @@ export function LocationDetailPage(): JSX.Element {
     .map((segment) => ({
       segmentId: segment.id,
       targetLocationId: segment.toLocation.id,
-      targetLocationName: segment.toLocation.name,
+      targetLocationName: formatLocationNameInline(segment.toLocation.name),
       distanceKm: segment.averageDistanceKm,
       travelHours: segment.averageTravelHours,
     }))
@@ -77,7 +78,7 @@ export function LocationDetailPage(): JSX.Element {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-              {location.name}
+              <span className="whitespace-pre-line">{formatLocationNameMultiline(location.name)}</span>
             </h1>
             <p className="mt-1 text-sm text-slate-600">목적지 상세 정보</p>
           </div>

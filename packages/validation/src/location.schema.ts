@@ -2,9 +2,28 @@ import { MealOption } from '@tour/domain';
 import { z } from 'zod';
 import { facilityAvailabilitySchema } from './lodging.schema';
 
-export const locationCreateSchema = z.object({
+const locationNameLineSchema = z.string().max(100);
+const locationNameSchema = z.array(locationNameLineSchema).min(1).max(20);
+
+function validateLocationName(name: unknown, ctx: z.RefinementCtx): void {
+  if (!Array.isArray(name)) {
+    return;
+  }
+
+  name.forEach((line, index) => {
+    if (typeof line !== 'string' || line.trim().length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'location name lines must not be empty',
+        path: ['name', index],
+      });
+    }
+  });
+}
+
+const locationBaseSchema = z.object({
   regionId: z.string().min(1),
-  name: z.string().min(1).max(100),
+  name: locationNameSchema,
   defaultLodgingType: z.string().min(1).max(100),
   isFirstDayEligible: z.boolean().default(false),
   isLastDayEligible: z.boolean().default(false),
@@ -12,7 +31,13 @@ export const locationCreateSchema = z.object({
   longitude: z.number().min(-180).max(180).nullable().optional(),
 });
 
-export const locationUpdateSchema = locationCreateSchema.partial();
+export const locationCreateSchema = locationBaseSchema.superRefine((value, ctx) => validateLocationName(value.name, ctx));
+
+export const locationUpdateSchema = locationBaseSchema.partial().superRefine((value, ctx) => {
+  if (value.name !== undefined) {
+    validateLocationName(value.name, ctx);
+  }
+});
 
 const locationProfileTimeSlotSchema = z.object({
   startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
@@ -72,11 +97,14 @@ function validateFirstDaySchedules<
 
 export const locationProfileCreateSchema = z.object({
   regionId: z.string().min(1),
-  name: z.string().min(1).max(100),
+  name: locationNameSchema,
   ...locationProfileFirstDaySchema.shape,
   lodging: locationProfileLodgingSchema,
   meals: locationProfileMealsSchema,
-}).superRefine(validateFirstDaySchedules);
+}).superRefine((value, ctx) => {
+  validateLocationName(value.name, ctx);
+  validateFirstDaySchedules(value, ctx);
+});
 
 export const locationProfileUpdateSchema = locationProfileCreateSchema;
 

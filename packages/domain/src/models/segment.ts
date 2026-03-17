@@ -13,30 +13,18 @@ export interface Segment {
   updatedAt: Date;
 }
 
-export type SegmentVersionKind = 'DIRECT' | 'VIA';
 export type SegmentScheduleVariant = 'basic' | 'early' | 'extend' | 'earlyExtend';
 
 export interface SegmentVersion {
   id: string;
   segmentId: string;
   name: string;
-  kind: SegmentVersionKind;
   averageDistanceKm: number;
   averageTravelHours: number;
   isLongDistance: boolean;
   sortOrder: number;
   isDefault: boolean;
-  viaLocations: SegmentVersionViaLocation[];
   scheduleTimeBlocks: SegmentVersionTimeBlock[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface SegmentVersionViaLocation {
-  id: string;
-  segmentVersionId: string;
-  locationId: string;
-  orderIndex: number;
   createdAt: Date;
   updatedAt: Date;
 }

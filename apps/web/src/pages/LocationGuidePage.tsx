@@ -1,6 +1,7 @@
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { formatLocationNameInline } from '../features/location/display';
 import { LocationSubNav } from '../features/location/sub-nav';
 import { useLocationGuideCrud } from '../features/location-guide/hooks';
 
@@ -180,7 +181,7 @@ export function LocationGuidePage(): JSX.Element {
                 <option value="">목적지 선택</option>
                 {availableLocations.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name}
+                    {formatLocationNameInline(item.name)}
                   </option>
                 ))}
               </select>
@@ -234,7 +235,7 @@ export function LocationGuidePage(): JSX.Element {
                   <div className="font-medium text-slate-800">{row.title}</div>
                   <div className="mt-1 max-w-xl whitespace-pre-wrap text-xs text-slate-500">{row.description}</div>
                 </Td>
-                <Td>{row.location?.name ?? '-'}</Td>
+                <Td>{formatLocationNameInline(row.location?.name) || '-'}</Td>
                 <Td className="w-[120px]">
                   {row.imageUrls.length > 0 ? (
                     <button

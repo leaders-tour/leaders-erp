@@ -6,7 +6,7 @@ describe('location first-day validation', () => {
   it('allows locations without first-day schedules when first-day eligibility is false', () => {
     const result = locationProfileCreateSchema.safeParse({
       regionId: 'region-1',
-      name: '울란바토르',
+      name: ['울란바토르'],
       isFirstDayEligible: false,
       isLastDayEligible: false,
       lodging: {
@@ -29,7 +29,7 @@ describe('location first-day validation', () => {
   it('requires both first-day schedules when first-day eligibility is true', () => {
     const result = locationProfileCreateSchema.safeParse({
       regionId: 'region-1',
-      name: '울란바토르',
+      name: ['울란바토르'],
       isFirstDayEligible: true,
       isLastDayEligible: false,
       firstDayTimeSlots: [{ startTime: '08:00', activities: ['1일차 기본'] }],
@@ -67,8 +67,6 @@ describe('segment variant validation shape', () => {
       versions: [
         {
           name: 'Direct',
-          kind: 'DIRECT',
-          viaLocationIds: [],
           averageDistanceKm: 10,
           averageTravelHours: 1,
           isLongDistance: false,

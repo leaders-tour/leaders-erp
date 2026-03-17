@@ -9,7 +9,6 @@ import { DomainError } from '../../lib/errors';
 import { SegmentRepository } from './segment.repository';
 import type { SegmentCreateDto, SegmentUpdateDto } from './segment.types';
 
-type SegmentVersionKind = 'DIRECT' | 'VIA';
 type SegmentScheduleVariant = 'basic' | 'early' | 'extend' | 'earlyExtend';
 
 interface NormalizedTimeSlot {
@@ -27,11 +26,10 @@ interface VariantTimeSlotMap {
 
 interface NormalizedSegmentVersion {
   name: string;
-  kind: SegmentVersionKind;
-  viaLocationIds: string[];
   averageDistanceKm: number;
   averageTravelHours: number;
   isLongDistance: boolean;
+  isDefault: boolean;
   timeSlotsByVariant: VariantTimeSlotMap;
 }
 
@@ -55,15 +53,11 @@ interface ExistingSegmentLike {
   versions: Array<{
     id: string;
     name: string;
-    kind: SegmentVersionKind;
     averageDistanceKm: number;
     averageTravelHours: number;
     isLongDistance: boolean;
     sortOrder: number;
-    viaLocations: Array<{
-      locationId: string;
-      orderIndex: number;
-    }>;
+    isDefault: boolean;
     scheduleTimeBlocks: Array<{
       variant: SegmentScheduleVariant;
       startTime: string;
@@ -181,11 +175,10 @@ export class SegmentService {
   }): NormalizedSegmentVersion {
     return {
       name: 'Direct',
-      kind: 'DIRECT',
-      viaLocationIds: [],
       averageDistanceKm: input.averageDistanceKm,
       averageTravelHours: input.averageTravelHours,
       isLongDistance: input.isLongDistance,
+      isDefault: true,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(input),
     };
   }
@@ -197,11 +190,10 @@ export class SegmentService {
         .sort((a, b) => a.sortOrder - b.sortOrder)
         .map((version) => ({
           name: version.name,
-          kind: version.kind,
-          viaLocationIds: version.viaLocations.slice().sort((a, b) => a.orderIndex - b.orderIndex).map((item) => item.locationId),
           averageDistanceKm: version.averageDistanceKm,
           averageTravelHours: version.averageTravelHours,
           isLongDistance: version.isLongDistance,
+          isDefault: version.isDefault,
           timeSlotsByVariant: this.mapTimeBlocksToVariantTimeSlots(version.scheduleTimeBlocks),
         }));
     }
@@ -222,11 +214,10 @@ export class SegmentService {
   private normalizeVersionsFromInput(inputVersions: SegmentVersionInput[]): NormalizedSegmentVersion[] {
     return inputVersions.map((version) => ({
       name: version.name.trim(),
-      kind: version.kind,
-      viaLocationIds: version.viaLocationIds,
       averageDistanceKm: version.averageDistanceKm,
       averageTravelHours: version.averageTravelHours,
       isLongDistance: version.isLongDistance,
+      isDefault: version.isDefault !== false,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(version),
     }));
   }
@@ -243,12 +234,12 @@ export class SegmentService {
     );
   }
 
-  private getDirectVersion(versions: NormalizedSegmentVersion[]): NormalizedSegmentVersion {
-    const directVersion = versions.find((version) => version.kind === 'DIRECT');
-    if (!directVersion) {
-      throw new DomainError('VALIDATION_FAILED', 'DIRECT version is required');
+  private getDefaultVersion(versions: NormalizedSegmentVersion[]): NormalizedSegmentVersion {
+    const defaultVersion = versions.find((version) => version.isDefault);
+    if (!defaultVersion) {
+      throw new DomainError('VALIDATION_FAILED', 'Default version is required');
     }
-    return directVersion;
+    return defaultVersion;
   }
 
   private getRequiredVariants(fromLocation: SegmentEndpointLocation, toLocation: SegmentEndpointLocation): SegmentScheduleVariant[] {
@@ -297,7 +288,7 @@ export class SegmentService {
     version: NormalizedSegmentVersion,
     requiredVariants: SegmentScheduleVariant[],
   ): void {
-    const versionLabel = version.name || version.kind;
+    const versionLabel = version.name || 'Default';
 
     requiredVariants.forEach((variant) => {
       const timeSlots = version.timeSlotsByVariant[variant];
@@ -308,66 +299,17 @@ export class SegmentService {
   }
 
   private async validateVersions(
-    regionId: string,
     fromLocation: SegmentEndpointLocation,
     toLocation: SegmentEndpointLocation,
     versions: NormalizedSegmentVersion[],
   ) {
-    const directVersions = versions.filter((version) => version.kind === 'DIRECT');
-    if (directVersions.length !== 1) {
-      throw new DomainError('VALIDATION_FAILED', 'Segment must include exactly one DIRECT version');
+    const defaultVersions = versions.filter((version) => version.isDefault);
+    if (defaultVersions.length !== 1) {
+      throw new DomainError('VALIDATION_FAILED', 'Segment must include exactly one default version');
     }
 
     const requiredVariants = this.getRequiredVariants(fromLocation, toLocation);
     versions.forEach((version) => this.assertRequiredVariantSchedules(version, requiredVariants));
-
-    const viaLocationIds = Array.from(new Set(versions.flatMap((version) => version.viaLocationIds)));
-    if (viaLocationIds.length === 0) {
-      return;
-    }
-
-    const viaLocations = await this.prisma.location.findMany({
-      where: { id: { in: viaLocationIds } },
-      select: { id: true, regionId: true },
-    });
-
-    if (viaLocations.length !== viaLocationIds.length) {
-      throw new DomainError('VALIDATION_FAILED', 'One or more via locations are invalid');
-    }
-
-    const viaLocationById = new Map(viaLocations.map((location) => [location.id, location]));
-
-    versions.forEach((version) => {
-      if (version.kind === 'DIRECT') {
-        if (version.viaLocationIds.length > 0) {
-          throw new DomainError('VALIDATION_FAILED', 'DIRECT version must not include via locations');
-        }
-        return;
-      }
-
-      if (version.viaLocationIds.length === 0) {
-        throw new DomainError('VALIDATION_FAILED', 'VIA version must include at least one via location');
-      }
-
-      const seen = new Set<string>();
-      version.viaLocationIds.forEach((locationId) => {
-        if (locationId === fromLocation.id || locationId === toLocation.id) {
-          throw new DomainError('VALIDATION_FAILED', 'Via locations must not match segment endpoints');
-        }
-        if (seen.has(locationId)) {
-          throw new DomainError('VALIDATION_FAILED', 'Via locations must not contain duplicates');
-        }
-        seen.add(locationId);
-
-        const location = viaLocationById.get(locationId);
-        if (!location) {
-          throw new DomainError('VALIDATION_FAILED', 'One or more via locations are invalid');
-        }
-        if (location.regionId !== regionId) {
-          throw new DomainError('VALIDATION_FAILED', 'Via locations must belong to the selected region');
-        }
-      });
-    });
   }
 
   private async replaceLegacyScheduleTimeBlocks(
@@ -454,45 +396,23 @@ export class SegmentService {
     }
   }
 
-  private async replaceVersionViaLocations(
-    tx: Prisma.TransactionClient,
-    segmentVersionId: string,
-    viaLocationIds: string[],
-  ) {
-    await tx.segmentVersionViaLocation.deleteMany({
-      where: { segmentVersionId },
-    });
-
-    if (viaLocationIds.length === 0) {
-      return;
-    }
-
-    await tx.segmentVersionViaLocation.createMany({
-      data: viaLocationIds.map((locationId, orderIndex) => ({
-        segmentVersionId,
-        locationId,
-        orderIndex,
-      })),
-    });
-  }
-
-  private async syncDirectMirror(
+  private async syncDefaultMirror(
     tx: Prisma.TransactionClient,
     segmentId: string,
-    directVersionId: string,
-    directVersion: NormalizedSegmentVersion,
+    defaultVersionId: string,
+    defaultVersion: NormalizedSegmentVersion,
   ) {
     await tx.segment.update({
       where: { id: segmentId },
       data: {
-        defaultVersionId: directVersionId,
-        averageDistanceKm: directVersion.averageDistanceKm,
-        averageTravelHours: directVersion.averageTravelHours,
-        isLongDistance: directVersion.isLongDistance,
+        defaultVersionId,
+        averageDistanceKm: defaultVersion.averageDistanceKm,
+        averageTravelHours: defaultVersion.averageTravelHours,
+        isLongDistance: defaultVersion.isLongDistance,
       },
     });
 
-    await this.replaceLegacyScheduleTimeBlocks(tx, segmentId, directVersion.timeSlotsByVariant);
+    await this.replaceLegacyScheduleTimeBlocks(tx, segmentId, defaultVersion.timeSlotsByVariant);
   }
 
   private async replaceAllVersions(
@@ -504,81 +424,77 @@ export class SegmentService {
       where: { segmentId },
     });
 
-    let directVersionId = '';
+    let defaultVersionId = '';
 
     for (const [sortOrder, version] of versions.entries()) {
       const createdVersion = await tx.segmentVersion.create({
         data: {
           segmentId,
           name: version.name,
-          kind: version.kind,
           averageDistanceKm: version.averageDistanceKm,
           averageTravelHours: version.averageTravelHours,
           isLongDistance: version.isLongDistance,
           sortOrder,
-          isDefault: version.kind === 'DIRECT',
+          isDefault: version.isDefault,
         },
       });
 
-      await this.replaceVersionViaLocations(tx, createdVersion.id, version.viaLocationIds);
       await this.replaceVersionTimeBlocks(tx, createdVersion.id, version.timeSlotsByVariant);
 
-      if (version.kind === 'DIRECT') {
-        directVersionId = createdVersion.id;
+      if (version.isDefault) {
+        defaultVersionId = createdVersion.id;
       }
     }
 
-    if (!directVersionId) {
-      throw new DomainError('VALIDATION_FAILED', 'DIRECT version is required');
+    if (!defaultVersionId) {
+      throw new DomainError('VALIDATION_FAILED', 'Default version is required');
     }
 
-    return directVersionId;
+    return defaultVersionId;
   }
 
-  private async upsertDirectVersionOnly(
+  private async upsertDefaultVersionOnly(
     tx: Prisma.TransactionClient,
     segmentId: string,
-    directVersion: NormalizedSegmentVersion,
+    defaultVersion: NormalizedSegmentVersion,
   ): Promise<string> {
-    const existingDirectVersion = await tx.segmentVersion.findFirst({
-      where: { segmentId, kind: 'DIRECT' },
+    const existingDefaultVersion = await tx.segmentVersion.findFirst({
+      where: { segmentId, isDefault: true },
       orderBy: { sortOrder: 'asc' },
       select: { id: true, name: true },
     });
 
-    if (!existingDirectVersion) {
+    if (!existingDefaultVersion) {
       const createdVersion = await tx.segmentVersion.create({
         data: {
           segmentId,
-          name: directVersion.name || 'Direct',
-          kind: 'DIRECT',
-          averageDistanceKm: directVersion.averageDistanceKm,
-          averageTravelHours: directVersion.averageTravelHours,
-          isLongDistance: directVersion.isLongDistance,
+          name: defaultVersion.name || 'Direct',
+          averageDistanceKm: defaultVersion.averageDistanceKm,
+          averageTravelHours: defaultVersion.averageTravelHours,
+          isLongDistance: defaultVersion.isLongDistance,
           sortOrder: 0,
           isDefault: true,
         },
       });
 
-      await this.replaceVersionTimeBlocks(tx, createdVersion.id, directVersion.timeSlotsByVariant);
+      await this.replaceVersionTimeBlocks(tx, createdVersion.id, defaultVersion.timeSlotsByVariant);
       return createdVersion.id;
     }
 
     await tx.segmentVersion.update({
-      where: { id: existingDirectVersion.id },
+      where: { id: existingDefaultVersion.id },
       data: {
-        name: existingDirectVersion.name || directVersion.name || 'Direct',
-        averageDistanceKm: directVersion.averageDistanceKm,
-        averageTravelHours: directVersion.averageTravelHours,
-        isLongDistance: directVersion.isLongDistance,
+        name: existingDefaultVersion.name || defaultVersion.name || 'Direct',
+        averageDistanceKm: defaultVersion.averageDistanceKm,
+        averageTravelHours: defaultVersion.averageTravelHours,
+        isLongDistance: defaultVersion.isLongDistance,
         sortOrder: 0,
         isDefault: true,
       },
     });
 
-    await this.replaceVersionViaLocations(tx, existingDirectVersion.id, []);
-    await this.replaceVersionTimeBlocks(tx, existingDirectVersion.id, directVersion.timeSlotsByVariant);
-    return existingDirectVersion.id;
+    await this.replaceVersionTimeBlocks(tx, existingDefaultVersion.id, defaultVersion.timeSlotsByVariant);
+    return existingDefaultVersion.id;
   }
 
   async create(input: SegmentCreateDto) {
@@ -600,8 +516,8 @@ export class SegmentService {
     const nextVersions = parsed.data.versions
       ? this.normalizeVersionsFromInput(parsed.data.versions)
       : [this.buildLegacyDirectVersionFromInput(parsed.data)];
-    await this.validateVersions(parsed.data.regionId, endpoints.fromLocation, endpoints.toLocation, nextVersions);
-    const directVersion = this.getDirectVersion(nextVersions);
+    await this.validateVersions(endpoints.fromLocation, endpoints.toLocation, nextVersions);
+    const defaultVersion = this.getDefaultVersion(nextVersions);
 
     return this.prisma.$transaction(async (tx) => {
       const created = await tx.segment.create({
@@ -610,14 +526,14 @@ export class SegmentService {
           regionName: region.name,
           fromLocationId: parsed.data.fromLocationId,
           toLocationId: parsed.data.toLocationId,
-          averageDistanceKm: directVersion.averageDistanceKm,
-          averageTravelHours: directVersion.averageTravelHours,
-          isLongDistance: directVersion.isLongDistance,
+          averageDistanceKm: defaultVersion.averageDistanceKm,
+          averageTravelHours: defaultVersion.averageTravelHours,
+          isLongDistance: defaultVersion.isLongDistance,
         },
       });
 
-      const directVersionId = await this.replaceAllVersions(tx, created.id, nextVersions);
-      await this.syncDirectMirror(tx, created.id, directVersionId, directVersion);
+      const defaultVersionId = await this.replaceAllVersions(tx, created.id, nextVersions);
+      await this.syncDefaultMirror(tx, created.id, defaultVersionId, defaultVersion);
 
       return new SegmentRepository(tx).findById(created.id);
     });
@@ -655,7 +571,7 @@ export class SegmentService {
 
     if (!parsed.data.versions && hasLegacyDirectUpdates) {
       nextVersions = existingVersions.map((version) =>
-        version.kind === 'DIRECT'
+        version.isDefault
           ? {
               ...version,
               averageDistanceKm: parsed.data.averageDistanceKm ?? version.averageDistanceKm,
@@ -672,8 +588,8 @@ export class SegmentService {
       );
     }
 
-    await this.validateVersions(nextRegionId, endpoints.fromLocation, endpoints.toLocation, nextVersions);
-    const directVersion = this.getDirectVersion(nextVersions);
+    await this.validateVersions(endpoints.fromLocation, endpoints.toLocation, nextVersions);
+    const defaultVersion = this.getDefaultVersion(nextVersions);
 
     return this.prisma.$transaction(async (tx) => {
       await tx.segment.update({
@@ -685,13 +601,13 @@ export class SegmentService {
         },
       });
 
-      let directVersionId = existing.defaultVersionId ?? '';
+      let defaultVersionId = existing.defaultVersionId ?? '';
       if (parsed.data.versions) {
-        directVersionId = await this.replaceAllVersions(tx, id, nextVersions);
-        await this.syncDirectMirror(tx, id, directVersionId, directVersion);
+        defaultVersionId = await this.replaceAllVersions(tx, id, nextVersions);
+        await this.syncDefaultMirror(tx, id, defaultVersionId, defaultVersion);
       } else if (hasLegacyDirectUpdates || existing.versions.length === 0) {
-        directVersionId = await this.upsertDirectVersionOnly(tx, id, directVersion);
-        await this.syncDirectMirror(tx, id, directVersionId, directVersion);
+        defaultVersionId = await this.upsertDefaultVersionOnly(tx, id, defaultVersion);
+        await this.syncDefaultMirror(tx, id, defaultVersionId, defaultVersion);
       } else if (parsed.data.regionId !== undefined || parsed.data.fromLocationId !== undefined || parsed.data.toLocationId !== undefined) {
         await tx.segment.update({
           where: { id },

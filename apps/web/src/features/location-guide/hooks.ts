@@ -78,13 +78,13 @@ export interface LocationGuideRow {
   updatedAt: string;
   location: {
     id: string;
-    name: string;
+    name: string[];
   } | null;
 }
 
 export interface GuideLocationOption {
   id: string;
-  name: string;
+  name: string[];
   guide: {
     id: string;
   } | null;

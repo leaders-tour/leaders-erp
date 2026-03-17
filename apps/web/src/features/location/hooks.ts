@@ -1,5 +1,6 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import type { MealOption } from '../../generated/graphql';
+import { normalizeLocationNameLines } from './display';
 
 export type FacilityAvailability = 'YES' | 'LIMITED' | 'NO';
 
@@ -215,7 +216,7 @@ export interface LocationProfileTimeSlotFormInput {
 
 export interface LocationProfileFormInput {
   regionId: string;
-  name: string;
+  name: string[];
   isFirstDayEligible: boolean;
   isLastDayEligible: boolean;
   firstDayTimeSlots: LocationProfileTimeSlotFormInput[];
@@ -255,7 +256,7 @@ export interface LocationListRow {
   id: string;
   regionId: string;
   regionName: string;
-  name: string;
+  name: string[];
   isFirstDayEligible: boolean;
   isLastDayEligible: boolean;
   defaultVersionId: string | null;
@@ -285,7 +286,7 @@ export interface LocationVersionRow {
   versionNumber: number;
   label: string;
   changeNote: string | null;
-  locationNameSnapshot: string;
+  locationNameSnapshot: string[];
   regionNameSnapshot: string;
   defaultLodgingType: string;
   createdAt: string;
@@ -330,7 +331,7 @@ export interface LocationVersionRow {
 export interface LocationVersionDetailRow extends LocationVersionRow {
   location: {
     id: string;
-    name: string;
+    name: string[];
     regionId: string;
     regionName: string;
     isFirstDayEligible: boolean;
@@ -346,7 +347,7 @@ export interface LocationDetailItem extends LocationListRow {
     versionNumber: number;
     label: string;
     changeNote: string | null;
-    locationNameSnapshot: string;
+    locationNameSnapshot: string[];
     regionNameSnapshot: string;
     defaultLodgingType: string;
     createdAt: string;
@@ -372,8 +373,8 @@ export interface LocationDetailData {
     toLocationId: string;
     averageDistanceKm: number;
     averageTravelHours: number;
-    fromLocation: { id: string; name: string };
-    toLocation: { id: string; name: string };
+    fromLocation: { id: string; name: string[] };
+    toLocation: { id: string; name: string[] };
   }>;
 }
 
@@ -406,7 +407,7 @@ function toProfileBody(input: LocationVersionProfileFormInput) {
 function toProfileVariables(input: LocationProfileFormInput) {
   return {
     regionId: input.regionId,
-    name: input.name.trim(),
+    name: normalizeLocationNameLines(input.name),
     isFirstDayEligible: input.isFirstDayEligible,
     isLastDayEligible: input.isLastDayEligible,
     ...toProfileBody(input),

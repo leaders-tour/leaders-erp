@@ -61,17 +61,11 @@ const LIST = gql`
         id
         segmentId
         name
-        kind
         averageDistanceKm
         averageTravelHours
         isLongDistance
         sortOrder
         isDefault
-        viaLocations {
-          id
-          locationId
-          orderIndex
-        }
         scheduleTimeBlocks {
           id
           variant
@@ -165,8 +159,6 @@ export interface SegmentTimeSlotFormInput {
 export interface SegmentVersionFormInput {
   id?: string;
   name: string;
-  kind: 'DIRECT' | 'VIA';
-  viaLocationIds: string[];
   averageDistanceKm: number;
   averageTravelHours: number;
   isLongDistance: boolean;
@@ -235,17 +227,11 @@ export interface SegmentRow {
     id: string;
     segmentId: string;
     name: string;
-    kind: 'DIRECT' | 'VIA';
     averageDistanceKm: number;
     averageTravelHours: number;
     isLongDistance: boolean;
     sortOrder: number;
     isDefault: boolean;
-    viaLocations: Array<{
-      id: string;
-      locationId: string;
-      orderIndex: number;
-    }>;
     scheduleTimeBlocks: Array<{
       id: string;
       variant: 'basic' | 'early' | 'extend' | 'earlyExtend';

@@ -13,11 +13,11 @@ export class LodgingRepository {
     return this.prisma.lodging.findUnique({ where: { id }, include: lodgingInclude });
   }
 
-  create(data: LodgingCreateDto & { locationId: string; locationVersionId: string; locationNameSnapshot: string }) {
+  create(data: LodgingCreateDto & { locationId: string; locationVersionId: string; locationNameSnapshot: string[] }) {
     return this.prisma.lodging.create({ data, include: lodgingInclude });
   }
 
-  update(id: string, data: LodgingUpdateDto & { locationNameSnapshot?: string }) {
+  update(id: string, data: LodgingUpdateDto & { locationNameSnapshot?: string[] }) {
     return this.prisma.lodging.update({ where: { id }, data, include: lodgingInclude });
   }
 
