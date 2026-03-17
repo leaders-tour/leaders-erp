@@ -1,7 +1,14 @@
+enum LocationTimeBlockProfile {
+  DEFAULT
+  FIRST_DAY
+  FIRST_DAY_EARLY
+}
+
 type TimeBlock {
   id: ID!
   locationId: String!
   locationVersionId: String
+  profile: LocationTimeBlockProfile!
   startTime: String!
   label: String!
   orderIndex: Int!
@@ -14,6 +21,7 @@ type TimeBlock {
 input TimeBlockCreateInput {
   locationId: String
   locationVersionId: String
+  profile: LocationTimeBlockProfile
   startTime: String!
   label: String!
   orderIndex: Int!
@@ -22,6 +30,7 @@ input TimeBlockCreateInput {
 input TimeBlockUpdateInput {
   locationId: String
   locationVersionId: String
+  profile: LocationTimeBlockProfile
   startTime: String
   label: String
   orderIndex: Int

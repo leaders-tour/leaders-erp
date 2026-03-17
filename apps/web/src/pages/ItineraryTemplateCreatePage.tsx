@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   buildAutoRowsFromRoute,
+  buildFirstDayOptions,
   buildNextOptions,
   buildTemplateStopsFromRouteAndRows,
   findSegment,
@@ -39,6 +40,8 @@ const LOCATIONS_QUERY = gql`
       id
       regionId
       name
+      isFirstDayEligible
+      isLastDayEligible
       defaultVersionId
       variations {
         id
@@ -57,7 +60,17 @@ const LOCATIONS_QUERY = gql`
           lunch
           dinner
         }
-        timeBlocks {
+        firstDayTimeBlocks {
+          id
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+        firstDayEarlyTimeBlocks {
           id
           startTime
           orderIndex
@@ -93,6 +106,36 @@ const SEGMENTS_QUERY = gql`
           orderIndex
         }
       }
+      earlyScheduleTimeBlocks {
+        id
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
+      extendScheduleTimeBlocks {
+        id
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
+      earlyExtendScheduleTimeBlocks {
+        id
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
       versions {
         id
         segmentId
@@ -109,6 +152,36 @@ const SEGMENTS_QUERY = gql`
           orderIndex
         }
         scheduleTimeBlocks {
+          id
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+        earlyScheduleTimeBlocks {
+          id
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+        extendScheduleTimeBlocks {
+          id
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+        earlyExtendScheduleTimeBlocks {
           id
           startTime
           orderIndex
@@ -176,6 +249,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
       ),
     [filteredLocations],
   );
+  const firstDayOptions = useMemo(() => buildFirstDayOptions(filteredLocations), [filteredLocations]);
 
   const nextOptions = useMemo(
     () =>
@@ -387,7 +461,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
             )}
             {!startLocationId ? (
               <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
-                {filteredLocations.map((location) => (
+                {firstDayOptions.map((location) => (
                   <button
                     key={`start-${location.id}`}
                     type="button"
@@ -402,6 +476,9 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                   </button>
                 ))}
               </div>
+            ) : null}
+            {!startLocationId && firstDayOptions.length === 0 ? (
+              <p className="mt-3 text-xs text-amber-700">첫날 가능으로 설정된 목적지가 없습니다.</p>
             ) : null}
             {startLocationId ? (
               <div className="mt-3 flex flex-wrap gap-2">

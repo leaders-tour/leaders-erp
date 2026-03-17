@@ -40,12 +40,18 @@ import {
   type PickupDropPlaceType,
 } from '../features/plan/pickup-drop';
 import {
+  buildAutoRowsFromRoute,
+  buildFirstDayOptions,
+  buildNextOptions,
   findSegment,
   formatRouteDestinationCellText,
   formatSegmentVersionLabel,
   getDefaultSegmentVersionId,
+  getDefaultVersionId,
   getSegmentVersions,
+  type LocationOption,
   resolveSegmentVersion,
+  type SegmentOption,
 } from '../features/plan-template/route-autofill';
 import { ManualAdjustmentsModal, type ManualAdjustmentDraftRow } from '../features/pricing/components/ManualAdjustmentsModal';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
@@ -56,121 +62,9 @@ interface RegionRow {
   name: string;
 }
 
-interface LocationRow {
-  id: string;
-  regionId: string;
-  name: string;
-  defaultVersionId: string | null;
-  defaultVersion: {
-    id: string;
-    versionNumber: number;
-    label: string;
-  } | null;
-  variations: Array<{
-    id: string;
-    versionNumber: number;
-    label: string;
-    lodgings: Array<{
-      id: string;
-      name: string;
-      hasElectricity: 'YES' | 'LIMITED' | 'NO';
-      hasShower: 'YES' | 'LIMITED' | 'NO';
-      hasInternet: 'YES' | 'LIMITED' | 'NO';
-    }>;
-    mealSets: Array<{
-      id: string;
-      breakfast: MealOption | null;
-      lunch: MealOption | null;
-      dinner: MealOption | null;
-    }>;
-    timeBlocks: Array<{
-      id: string;
-      startTime: string;
-      orderIndex: number;
-      activities: Array<{
-        id: string;
-        description: string;
-        orderIndex: number;
-      }>;
-    }>;
-  }>;
-}
-
-interface LocationVersionRow {
-  id: string;
-  versionNumber: number;
-  label: string;
-  lodgings: Array<{
-    id: string;
-    name: string;
-    hasElectricity: 'YES' | 'LIMITED' | 'NO';
-    hasShower: 'YES' | 'LIMITED' | 'NO';
-    hasInternet: 'YES' | 'LIMITED' | 'NO';
-  }>;
-  mealSets: Array<{
-    id: string;
-    breakfast: MealOption | null;
-    lunch: MealOption | null;
-    dinner: MealOption | null;
-  }>;
-  timeBlocks: Array<{
-    id: string;
-    startTime: string;
-    orderIndex: number;
-    activities: Array<{
-      id: string;
-      description: string;
-      orderIndex: number;
-    }>;
-  }>;
-}
-
-interface SegmentRow {
-  id: string;
-  regionId: string;
-  fromLocationId: string;
-  toLocationId: string;
-  defaultVersionId?: string | null;
-  averageDistanceKm: number;
-  averageTravelHours: number;
-  isLongDistance?: boolean;
-  scheduleTimeBlocks: Array<{
-    id: string;
-    startTime: string;
-    orderIndex: number;
-    activities: Array<{
-      id: string;
-      description: string;
-      orderIndex: number;
-    }>;
-  }>;
-  versions?: Array<{
-    id: string;
-    segmentId: string;
-    name: string;
-    kind: 'DIRECT' | 'VIA';
-    averageDistanceKm: number;
-    averageTravelHours: number;
-    isLongDistance: boolean;
-    sortOrder: number;
-    isDefault: boolean;
-    viaLocations: Array<{
-      id: string;
-      locationId: string;
-      orderIndex: number;
-    }>;
-    scheduleTimeBlocks: Array<{
-      id: string;
-      startTime: string;
-      orderIndex: number;
-      activities: Array<{
-        id: string;
-        description: string;
-        orderIndex: number;
-      }>;
-    }>;
-  }>;
-}
+type LocationRow = LocationOption;
+type LocationVersionRow = LocationOption['variations'][number];
+type SegmentRow = SegmentOption;
 
 interface PlanContextRow {
   id: string;
@@ -429,6 +323,8 @@ const LOCATIONS_QUERY = gql`
       id
       regionId
       name
+      isFirstDayEligible
+      isLastDayEligible
       defaultVersionId
       defaultVersion {
         id
@@ -452,7 +348,17 @@ const LOCATIONS_QUERY = gql`
           lunch
           dinner
         }
-        timeBlocks {
+        firstDayTimeBlocks {
+          id
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+        firstDayEarlyTimeBlocks {
           id
           startTime
           orderIndex
@@ -488,6 +394,36 @@ const SEGMENTS_QUERY = gql`
           orderIndex
         }
       }
+      earlyScheduleTimeBlocks {
+        id
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
+      extendScheduleTimeBlocks {
+        id
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
+      earlyExtendScheduleTimeBlocks {
+        id
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
       versions {
         id
         segmentId
@@ -504,6 +440,36 @@ const SEGMENTS_QUERY = gql`
           orderIndex
         }
         scheduleTimeBlocks {
+          id
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+        earlyScheduleTimeBlocks {
+          id
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+        extendScheduleTimeBlocks {
+          id
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+        earlyExtendScheduleTimeBlocks {
           id
           startTime
           orderIndex
@@ -848,54 +814,6 @@ function createTransportGroupDraft(input: {
     hasEditedPickup: false,
     hasEditedDrop: false,
   };
-}
-
-function toTimeCell(
-  version: LocationVersionRow | undefined,
-  options?: {
-    firstStartTimeOverride?: string;
-    lastStartTimeOverride?: string;
-  },
-): string {
-  if (!version || version.timeBlocks.length === 0) {
-    return '';
-  }
-
-  const orderedTimeBlocks = version.timeBlocks
-    .slice()
-    .sort((a, b) => a.orderIndex - b.orderIndex);
-
-  return orderedTimeBlocks.flatMap((timeBlock, index) => {
-      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
-      const isFirst = index === 0;
-      const isLast = index === orderedTimeBlocks.length - 1;
-      const startTime =
-        (isFirst && options?.firstStartTimeOverride?.trim()) ||
-        (isLast && options?.lastStartTimeOverride?.trim()) ||
-        timeBlock.startTime;
-      if (orderedActivities.length <= 1) {
-        return [startTime];
-      }
-      return [startTime, ...orderedActivities.slice(1).map(() => '-')];
-    }).join('\n');
-}
-
-function toScheduleCell(version: LocationVersionRow | undefined): string {
-  if (!version || version.timeBlocks.length === 0) {
-    return '';
-  }
-
-  return version.timeBlocks
-    .slice()
-    .sort((a, b) => a.orderIndex - b.orderIndex)
-    .flatMap((timeBlock) => {
-      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
-      if (orderedActivities.length === 0) {
-        return ['(일정 없음)'];
-      }
-      return orderedActivities.map((activity) => activity.description);
-    })
-    .join('\n');
 }
 
 function toSegmentTimeCell(
@@ -1413,26 +1331,20 @@ export function ItineraryBuilderPage(): JSX.Element {
     [filteredLocations],
   );
 
-  const getDefaultVersionId = (location: LocationRow | undefined): string => {
-    if (!location) {
-      return '';
-    }
-    return location.defaultVersionId ?? location.variations[0]?.id ?? '';
-  };
+  const firstDayOptions = useMemo(() => buildFirstDayOptions(filteredLocations), [filteredLocations]);
 
-  const nextOptions = useMemo(() => {
-    if (selectedRoute.length >= totalDays - 1) {
-      return [];
-    }
-
-    const fromId = selectedRoute.length === 0 ? startLocationId : selectedRoute[selectedRoute.length - 1]?.locationId;
-    if (!fromId) {
-      return [];
-    }
-
-    const toIds = filteredSegments.filter((segment) => segment.fromLocationId === fromId).map((segment) => segment.toLocationId);
-    return filteredLocations.filter((location) => toIds.includes(location.id));
-  }, [filteredLocations, filteredSegments, selectedRoute, startLocationId, totalDays]);
+  const nextOptions = useMemo(
+    () =>
+      buildNextOptions({
+        filteredLocations,
+        filteredSegments,
+        startLocationId,
+        selectedRoute,
+        totalDays,
+        variantType,
+      }),
+    [filteredLocations, filteredSegments, selectedRoute, startLocationId, totalDays, variantType],
+  );
 
   const autoRows = useMemo((): PlanRow[] => {
     if (!startLocationId || !startLocationVersionId) {
@@ -1444,44 +1356,24 @@ export function ItineraryBuilderPage(): JSX.Element {
     const firstDayTimeOverride =
       (variantType === VariantType.Early || variantType === VariantType.EarlyExtend) && firstPickupTime ? firstPickupTime : undefined;
 
-    const orderedStops: RouteSelection[] = [{ locationId: startLocationId, locationVersionId: startLocationVersionId }, ...selectedRoute];
-
-    return orderedStops.map((toStop, index) => {
-      const dayIndex = index + 1;
-      const isLastDay = index === orderedStops.length - 1;
-      const fromId = index === 0 ? '' : orderedStops[index - 1]?.locationId ?? '';
-      const segment = index === 0 ? undefined : findSegment(filteredSegments, fromId, toStop.locationId);
-      const segmentVersion = index === 0 ? undefined : resolveSegmentVersion(segment, toStop.segmentVersionId);
-      const toLocation = locationById.get(toStop.locationId);
-      const toVersion = locationVersionById.get(toStop.locationVersionId);
-      const destinationCellText = formatRouteDestinationCellText({
-        locationName: toLocation?.name ?? toStop.locationId,
-        averageTravelHours: segmentVersion?.averageTravelHours,
-        averageDistanceKm: segmentVersion?.averageDistanceKm,
-      });
-
-      return buildDefaultLodgingRow({
-        segmentId: segment?.id,
-        segmentVersionId: segmentVersion?.id,
-        locationId: toStop.locationId,
-        locationVersionId: toStop.locationVersionId,
-        dateCellText: `${dayIndex}일차`,
-        destinationCellText,
-        timeCellText:
-          dayIndex === 1
-            ? toTimeCell(toVersion, {
-                firstStartTimeOverride: firstDayTimeOverride,
-                lastStartTimeOverride: isLastDay ? finalDropTime : undefined,
-              })
-            : toSegmentTimeCell(segmentVersion, {
-                lastStartTimeOverride: isLastDay ? finalDropTime : undefined,
-              }),
-        scheduleCellText: dayIndex === 1 ? toScheduleCell(toVersion) : toSegmentScheduleCell(segmentVersion),
-        mealCellText: toMealCell(toVersion),
-        baseLodgingName: toLodgingCell(toVersion),
-      });
-    });
-  }, [filteredSegments, locationById, locationVersionById, selectedRoute, startLocationId, startLocationVersionId, transportGroups, variantType]);
+    return buildAutoRowsFromRoute({
+      startLocationId,
+      startLocationVersionId,
+      selectedRoute,
+      filteredSegments,
+      locationById,
+      locationVersionById,
+      totalDays,
+      variantType,
+      firstDayTimeOverride,
+      lastDayTimeOverride: finalDropTime || undefined,
+    }).map((row) => ({
+      ...row,
+      lodgingSelectionLevel: 'LV3',
+      customLodgingId: undefined,
+      customLodgingNameSnapshot: null,
+    }));
+  }, [filteredSegments, locationById, locationVersionById, selectedRoute, startLocationId, startLocationVersionId, totalDays, transportGroups, variantType]);
 
   useEffect(() => {
     if (skipNextAutoRowsSync) {
@@ -3477,7 +3369,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                 )}
                 {!startLocationId ? (
                   <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
-                    {filteredLocations.map((location) => (
+                    {firstDayOptions.map((location) => (
                       <button
                         key={`start-${location.id}`}
                         type="button"
@@ -3492,6 +3384,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                       </button>
                     ))}
                   </div>
+                ) : null}
+                {!startLocationId && firstDayOptions.length === 0 ? (
+                  <p className="mt-3 text-xs text-amber-700">첫날 가능으로 설정된 목적지가 없습니다.</p>
                 ) : null}
                 {startLocationId ? (
                   <div className="mt-3 flex flex-wrap gap-2">

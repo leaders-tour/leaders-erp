@@ -126,4 +126,6 @@ export const resolvers = {
   PlanVersionMeta: planResolver.PlanVersionMeta,
   PlanVersionPricing: planResolver.PlanVersionPricing,
   Location: locationResolver.Location,
+  Segment: segmentResolver.Segment,
+  SegmentVersion: segmentResolver.SegmentVersion,
 };

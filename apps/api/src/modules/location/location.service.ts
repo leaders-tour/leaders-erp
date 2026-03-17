@@ -22,6 +22,7 @@ import type {
 
 type FacilityAvailability = 'YES' | 'LIMITED' | 'NO';
 type Transaction = Prisma.TransactionClient;
+type TimeBlockProfile = 'DEFAULT' | 'FIRST_DAY' | 'FIRST_DAY_EARLY';
 
 interface NormalizedLodging {
   isUnspecified: boolean;
@@ -38,7 +39,15 @@ interface VersionProfilePayload {
   versionNumber: number;
   label: string;
   changeNote?: string;
-  timeSlots: LocationProfileTimeSlotInput[];
+  firstDayTimeSlots?: LocationProfileTimeSlotInput[];
+  firstDayEarlyTimeSlots?: LocationProfileTimeSlotInput[];
+  lodging: LocationProfileLodgingInput;
+  meals: LocationProfileMealsInput;
+}
+
+interface VersionProfileSnapshot {
+  firstDayTimeSlots?: LocationProfileTimeSlotInput[];
+  firstDayEarlyTimeSlots?: LocationProfileTimeSlotInput[];
   lodging: LocationProfileLodgingInput;
   meals: LocationProfileMealsInput;
 }
@@ -63,6 +72,38 @@ export class LocationService {
     };
   }
 
+  private cloneTimeSlots(timeSlots: LocationProfileTimeSlotInput[]): LocationProfileTimeSlotInput[] {
+    return timeSlots.map((slot) => ({
+      startTime: slot.startTime,
+      activities: [...slot.activities],
+    }));
+  }
+
+  private mapTimeBlocksToTimeSlots(
+    timeBlocks: Array<{
+      profile: TimeBlockProfile;
+      startTime: string;
+      orderIndex: number;
+      activities: Array<{
+        description: string;
+        orderIndex: number;
+      }>;
+    }>,
+    profile: TimeBlockProfile,
+  ): LocationProfileTimeSlotInput[] {
+    return timeBlocks
+      .filter((timeBlock) => timeBlock.profile === profile)
+      .slice()
+      .sort((a, b) => a.orderIndex - b.orderIndex)
+      .map((timeBlock) => ({
+        startTime: timeBlock.startTime,
+        activities: timeBlock.activities
+          .slice()
+          .sort((a, b) => a.orderIndex - b.orderIndex)
+          .map((activity) => activity.description),
+      }));
+  }
+
   private async getNextVersionNumber(tx: Transaction, locationId: string): Promise<number> {
     const result = await tx.locationVersion.aggregate({
       where: { locationId },
@@ -72,26 +113,38 @@ export class LocationService {
     return (result._max.versionNumber ?? 0) + 1;
   }
 
-  private async createVersionWithProfile(tx: Transaction, payload: VersionProfilePayload) {
-    const normalizedLodging = this.normalizeLodging(payload.lodging);
+  private validateFirstDayProfile(input: {
+    isFirstDayEligible: boolean;
+    profile: Pick<VersionProfilePayload, 'firstDayTimeSlots' | 'firstDayEarlyTimeSlots'>;
+  }): void {
+    if (!input.isFirstDayEligible) {
+      return;
+    }
 
-    const locationVersion = await tx.locationVersion.create({
-      data: {
-        locationId: payload.locationId,
-        versionNumber: payload.versionNumber,
-        label: payload.label.trim(),
-        changeNote: payload.changeNote?.trim() ? payload.changeNote.trim() : null,
-        locationNameSnapshot: payload.locationNameSnapshot,
-        regionNameSnapshot: payload.regionNameSnapshot,
-        defaultLodgingType: normalizedLodging.name,
-      },
-    });
+    if (!input.profile.firstDayTimeSlots || input.profile.firstDayTimeSlots.length === 0) {
+      throw new DomainError('VALIDATION_FAILED', 'firstDayTimeSlots is required when isFirstDayEligible is true');
+    }
 
-    for (const [index, slot] of payload.timeSlots.entries()) {
+    if (!input.profile.firstDayEarlyTimeSlots || input.profile.firstDayEarlyTimeSlots.length === 0) {
+      throw new DomainError('VALIDATION_FAILED', 'firstDayEarlyTimeSlots is required when isFirstDayEligible is true');
+    }
+  }
+
+  private async createTimeBlocksForProfile(
+    tx: Transaction,
+    input: {
+      locationId: string;
+      locationVersionId: string;
+      profile: TimeBlockProfile;
+      timeSlots: LocationProfileTimeSlotInput[];
+    },
+  ): Promise<void> {
+    for (const [index, slot] of input.timeSlots.entries()) {
       const timeBlock = await tx.timeBlock.create({
         data: {
-          locationId: payload.locationId,
-          locationVersionId: locationVersion.id,
+          locationId: input.locationId,
+          locationVersionId: input.locationVersionId,
+          profile: input.profile,
           startTime: slot.startTime,
           label: slot.startTime,
           orderIndex: index,
@@ -114,12 +167,54 @@ export class LocationService {
         });
       }
     }
+  }
+
+  private async replaceVersionProfileData(
+    tx: Transaction,
+    input: {
+      locationId: string;
+      locationVersionId: string;
+      locationNameSnapshot: string;
+      isFirstDayEligible: boolean;
+      firstDayTimeSlots?: LocationProfileTimeSlotInput[];
+      firstDayEarlyTimeSlots?: LocationProfileTimeSlotInput[];
+      lodging: LocationProfileLodgingInput;
+      meals: LocationProfileMealsInput;
+    },
+  ): Promise<void> {
+    const normalizedLodging = this.normalizeLodging(input.lodging);
+
+    await tx.activity.deleteMany({
+      where: {
+        timeBlock: {
+          locationVersionId: input.locationVersionId,
+        },
+      },
+    });
+    await tx.timeBlock.deleteMany({ where: { locationVersionId: input.locationVersionId } });
+    await tx.lodging.deleteMany({ where: { locationVersionId: input.locationVersionId } });
+    await tx.mealSet.deleteMany({ where: { locationVersionId: input.locationVersionId } });
+
+    if (input.isFirstDayEligible) {
+      await this.createTimeBlocksForProfile(tx, {
+        locationId: input.locationId,
+        locationVersionId: input.locationVersionId,
+        profile: 'FIRST_DAY',
+        timeSlots: input.firstDayTimeSlots ?? [],
+      });
+      await this.createTimeBlocksForProfile(tx, {
+        locationId: input.locationId,
+        locationVersionId: input.locationVersionId,
+        profile: 'FIRST_DAY_EARLY',
+        timeSlots: input.firstDayEarlyTimeSlots ?? [],
+      });
+    }
 
     await tx.lodging.create({
       data: {
-        locationId: payload.locationId,
-        locationVersionId: locationVersion.id,
-        locationNameSnapshot: payload.locationNameSnapshot,
+        locationId: input.locationId,
+        locationVersionId: input.locationVersionId,
+        locationNameSnapshot: input.locationNameSnapshot,
         name: normalizedLodging.name,
         specialNotes: null,
         isUnspecified: normalizedLodging.isUnspecified,
@@ -131,17 +226,93 @@ export class LocationService {
 
     await tx.mealSet.create({
       data: {
-        locationId: payload.locationId,
-        locationVersionId: locationVersion.id,
-        locationNameSnapshot: payload.locationNameSnapshot,
+        locationId: input.locationId,
+        locationVersionId: input.locationVersionId,
+        locationNameSnapshot: input.locationNameSnapshot,
         setName: '기본 세트',
-        breakfast: payload.meals.breakfast ?? null,
-        lunch: payload.meals.lunch ?? null,
-        dinner: payload.meals.dinner ?? null,
+        breakfast: input.meals.breakfast ?? null,
+        lunch: input.meals.lunch ?? null,
+        dinner: input.meals.dinner ?? null,
+      },
+    });
+  }
+
+  private async createVersionWithProfile(
+    tx: Transaction,
+    payload: VersionProfilePayload & { isFirstDayEligible: boolean },
+  ) {
+    const normalizedLodging = this.normalizeLodging(payload.lodging);
+
+    const locationVersion = await tx.locationVersion.create({
+      data: {
+        locationId: payload.locationId,
+        versionNumber: payload.versionNumber,
+        label: payload.label.trim(),
+        changeNote: payload.changeNote?.trim() ? payload.changeNote.trim() : null,
+        locationNameSnapshot: payload.locationNameSnapshot,
+        regionNameSnapshot: payload.regionNameSnapshot,
+        defaultLodgingType: normalizedLodging.name,
       },
     });
 
+    await this.replaceVersionProfileData(tx, {
+      locationId: payload.locationId,
+      locationVersionId: locationVersion.id,
+      locationNameSnapshot: payload.locationNameSnapshot,
+      isFirstDayEligible: payload.isFirstDayEligible,
+      firstDayTimeSlots: payload.firstDayTimeSlots,
+      firstDayEarlyTimeSlots: payload.firstDayEarlyTimeSlots,
+      lodging: payload.lodging,
+      meals: payload.meals,
+    });
+
     return locationVersion;
+  }
+
+  private buildProfileFromVersion(
+    sourceVersion: {
+      timeBlocks: Array<{
+        profile: TimeBlockProfile;
+        startTime: string;
+        orderIndex: number;
+        activities: Array<{
+          description: string;
+          orderIndex: number;
+        }>;
+      }>;
+      lodgings: Array<{
+        isUnspecified: boolean;
+        name: string;
+        hasElectricity: FacilityAvailability;
+        hasShower: FacilityAvailability;
+        hasInternet: FacilityAvailability;
+      }>;
+      mealSets: Array<{
+        breakfast: unknown;
+        lunch: unknown;
+        dinner: unknown;
+      }>;
+    },
+  ): VersionProfileSnapshot {
+    const primaryLodging = sourceVersion.lodgings[0];
+    const primaryMealSet = sourceVersion.mealSets[0];
+
+    return {
+      firstDayTimeSlots: this.mapTimeBlocksToTimeSlots(sourceVersion.timeBlocks, 'FIRST_DAY'),
+      firstDayEarlyTimeSlots: this.mapTimeBlocksToTimeSlots(sourceVersion.timeBlocks, 'FIRST_DAY_EARLY'),
+      lodging: {
+        isUnspecified: primaryLodging?.isUnspecified ?? false,
+        name: primaryLodging?.name ?? '여행자 캠프',
+        hasElectricity: primaryLodging?.hasElectricity ?? 'NO',
+        hasShower: primaryLodging?.hasShower ?? 'NO',
+        hasInternet: primaryLodging?.hasInternet ?? 'NO',
+      },
+      meals: {
+        breakfast: (primaryMealSet?.breakfast ?? null) as LocationProfileMealsInput['breakfast'],
+        lunch: (primaryMealSet?.lunch ?? null) as LocationProfileMealsInput['lunch'],
+        dinner: (primaryMealSet?.dinner ?? null) as LocationProfileMealsInput['dinner'],
+      },
+    };
   }
 
   list() {
@@ -191,6 +362,11 @@ export class LocationService {
       throw new DomainError('VALIDATION_FAILED', 'Invalid location profile input');
     }
 
+    this.validateFirstDayProfile({
+      isFirstDayEligible: parsed.data.isFirstDayEligible,
+      profile: parsed.data,
+    });
+
     return this.prisma.$transaction(async (tx) => {
       const region = await tx.region.findUnique({
         where: { id: parsed.data.regionId },
@@ -208,6 +384,8 @@ export class LocationService {
           regionName: region.name,
           name: parsed.data.name,
           defaultLodgingType: normalizedLodging.name,
+          isFirstDayEligible: parsed.data.isFirstDayEligible,
+          isLastDayEligible: parsed.data.isLastDayEligible,
           latitude: null,
           longitude: null,
         },
@@ -219,7 +397,9 @@ export class LocationService {
         regionNameSnapshot: region.name,
         versionNumber: 1,
         label: '기본',
-        timeSlots: parsed.data.timeSlots,
+        isFirstDayEligible: parsed.data.isFirstDayEligible,
+        firstDayTimeSlots: parsed.data.firstDayTimeSlots,
+        firstDayEarlyTimeSlots: parsed.data.firstDayEarlyTimeSlots,
         lodging: parsed.data.lodging,
         meals: parsed.data.meals,
       });
@@ -245,17 +425,22 @@ export class LocationService {
     return this.prisma.$transaction(async (tx) => {
       const location = await tx.location.findUnique({
         where: { id: parsed.data.locationId },
-        select: { id: true, name: true, regionName: true },
+        select: {
+          id: true,
+          name: true,
+          regionName: true,
+          isFirstDayEligible: true,
+          isLastDayEligible: true,
+        },
       });
       if (!location) {
         throw new DomainError('NOT_FOUND', 'Location not found');
       }
 
-      let sourceProfile: {
-        timeSlots: LocationProfileTimeSlotInput[];
-        lodging: LocationProfileLodgingInput;
-        meals: LocationProfileMealsInput;
-      } | null = null;
+      const nextIsFirstDayEligible = parsed.data.isFirstDayEligible ?? location.isFirstDayEligible;
+      const nextIsLastDayEligible = parsed.data.isLastDayEligible ?? location.isLastDayEligible;
+
+      let sourceProfile: VersionProfileSnapshot | null = null;
 
       if (parsed.data.sourceVersionId) {
         const sourceVersion = await tx.locationVersion.findUnique({
@@ -266,32 +451,18 @@ export class LocationService {
           throw new DomainError('VALIDATION_FAILED', 'sourceVersionId must belong to the same location');
         }
 
-        const primaryLodging = sourceVersion.lodgings[0];
-        const primaryMealSet = sourceVersion.mealSets[0];
-        sourceProfile = {
-          timeSlots: sourceVersion.timeBlocks.map((timeBlock) => ({
-            startTime: timeBlock.startTime,
-            activities: timeBlock.activities.map((activity) => activity.description),
-          })),
-          lodging: {
-            isUnspecified: primaryLodging?.isUnspecified ?? false,
-            name: primaryLodging?.name ?? '여행자 캠프',
-            hasElectricity: primaryLodging?.hasElectricity ?? 'NO',
-            hasShower: primaryLodging?.hasShower ?? 'NO',
-            hasInternet: primaryLodging?.hasInternet ?? 'NO',
-          },
-          meals: {
-            breakfast: (primaryMealSet?.breakfast ?? null) as LocationProfileMealsInput['breakfast'],
-            lunch: (primaryMealSet?.lunch ?? null) as LocationProfileMealsInput['lunch'],
-            dinner: (primaryMealSet?.dinner ?? null) as LocationProfileMealsInput['dinner'],
-          },
-        };
+        sourceProfile = this.buildProfileFromVersion(sourceVersion);
       }
 
       const profile = parsed.data.profile ?? sourceProfile;
       if (!profile) {
         throw new DomainError('VALIDATION_FAILED', 'profile is required when sourceVersionId is not provided');
       }
+
+      this.validateFirstDayProfile({
+        isFirstDayEligible: nextIsFirstDayEligible,
+        profile,
+      });
 
       const versionNumber = await this.getNextVersionNumber(tx, parsed.data.locationId);
 
@@ -302,10 +473,25 @@ export class LocationService {
         versionNumber,
         label: parsed.data.label,
         changeNote: parsed.data.changeNote,
-        timeSlots: profile.timeSlots,
+        isFirstDayEligible: nextIsFirstDayEligible,
+        firstDayTimeSlots: profile.firstDayTimeSlots ? this.cloneTimeSlots(profile.firstDayTimeSlots) : undefined,
+        firstDayEarlyTimeSlots: profile.firstDayEarlyTimeSlots ? this.cloneTimeSlots(profile.firstDayEarlyTimeSlots) : undefined,
         lodging: profile.lodging,
         meals: profile.meals,
       });
+
+      if (
+        parsed.data.isFirstDayEligible !== undefined ||
+        parsed.data.isLastDayEligible !== undefined
+      ) {
+        await tx.location.update({
+          where: { id: parsed.data.locationId },
+          data: {
+            isFirstDayEligible: nextIsFirstDayEligible,
+            isLastDayEligible: nextIsLastDayEligible,
+          },
+        });
+      }
 
       return tx.locationVersion.findUnique({ where: { id: createdVersion.id }, include: locationVersionInclude });
     });
@@ -370,6 +556,11 @@ export class LocationService {
       throw new DomainError('VALIDATION_FAILED', 'Invalid location profile update input');
     }
 
+    this.validateFirstDayProfile({
+      isFirstDayEligible: parsed.data.isFirstDayEligible,
+      profile: parsed.data,
+    });
+
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.location.findUnique({
         where: { id },
@@ -400,6 +591,8 @@ export class LocationService {
           regionName: region.name,
           name: parsed.data.name,
           defaultLodgingType: normalizedLodging.name,
+          isFirstDayEligible: parsed.data.isFirstDayEligible,
+          isLastDayEligible: parsed.data.isLastDayEligible,
         },
       });
 
@@ -412,69 +605,15 @@ export class LocationService {
         },
       });
 
-      await tx.activity.deleteMany({
-        where: {
-          timeBlock: {
-            locationVersionId: existing.currentVersionId,
-          },
-        },
-      });
-      await tx.timeBlock.deleteMany({ where: { locationVersionId: existing.currentVersionId } });
-      await tx.lodging.deleteMany({ where: { locationVersionId: existing.currentVersionId } });
-      await tx.mealSet.deleteMany({ where: { locationVersionId: existing.currentVersionId } });
-
-      for (const [index, slot] of parsed.data.timeSlots.entries()) {
-        const timeBlock = await tx.timeBlock.create({
-          data: {
-            locationId: id,
-            locationVersionId: existing.currentVersionId,
-            startTime: slot.startTime,
-            label: slot.startTime,
-            orderIndex: index,
-          },
-        });
-
-        const activities = slot.activities
-          .map((activity) => activity.trim())
-          .filter((activity) => activity.length > 0);
-
-        if (activities.length > 0) {
-          await tx.activity.createMany({
-            data: activities.map((description, activityIndex) => ({
-              timeBlockId: timeBlock.id,
-              description,
-              orderIndex: activityIndex,
-              isOptional: false,
-              conditionNote: null,
-            })),
-          });
-        }
-      }
-
-      await tx.lodging.create({
-        data: {
-          locationId: id,
-          locationVersionId: existing.currentVersionId,
-          locationNameSnapshot: parsed.data.name,
-          name: normalizedLodging.name,
-          specialNotes: null,
-          isUnspecified: normalizedLodging.isUnspecified,
-          hasElectricity: normalizedLodging.hasElectricity,
-          hasShower: normalizedLodging.hasShower,
-          hasInternet: normalizedLodging.hasInternet,
-        },
-      });
-
-      await tx.mealSet.create({
-        data: {
-          locationId: id,
-          locationVersionId: existing.currentVersionId,
-          locationNameSnapshot: parsed.data.name,
-          setName: '기본 세트',
-          breakfast: parsed.data.meals.breakfast ?? null,
-          lunch: parsed.data.meals.lunch ?? null,
-          dinner: parsed.data.meals.dinner ?? null,
-        },
+      await this.replaceVersionProfileData(tx, {
+        locationId: id,
+        locationVersionId: existing.currentVersionId,
+        locationNameSnapshot: parsed.data.name,
+        isFirstDayEligible: parsed.data.isFirstDayEligible,
+        firstDayTimeSlots: parsed.data.firstDayTimeSlots,
+        firstDayEarlyTimeSlots: parsed.data.firstDayEarlyTimeSlots,
+        lodging: parsed.data.lodging,
+        meals: parsed.data.meals,
       });
 
       const location = await tx.location.findUnique({

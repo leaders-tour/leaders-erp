@@ -9,23 +9,30 @@ import { DomainError } from '../../lib/errors';
 import { SegmentRepository } from './segment.repository';
 import type { SegmentCreateDto, SegmentUpdateDto } from './segment.types';
 
+type SegmentVersionKind = 'DIRECT' | 'VIA';
+type SegmentScheduleVariant = 'basic' | 'early' | 'extend' | 'earlyExtend';
+
 interface NormalizedTimeSlot {
   startTime: string;
   label: string;
   activities: string[];
 }
 
+interface VariantTimeSlotMap {
+  basic: SegmentTimeSlotInput[];
+  early?: SegmentTimeSlotInput[];
+  extend?: SegmentTimeSlotInput[];
+  earlyExtend?: SegmentTimeSlotInput[];
+}
+
 interface NormalizedSegmentVersion {
   name: string;
-  kind: 'DIRECT' | 'VIA';
+  kind: SegmentVersionKind;
   viaLocationIds: string[];
   averageDistanceKm: number;
   averageTravelHours: number;
   isLongDistance: boolean;
-  timeSlots: Array<{
-    startTime: string;
-    activities: string[];
-  }>;
+  timeSlotsByVariant: VariantTimeSlotMap;
 }
 
 interface ExistingSegmentLike {
@@ -37,6 +44,7 @@ interface ExistingSegmentLike {
   averageTravelHours: number;
   isLongDistance: boolean;
   scheduleTimeBlocks: Array<{
+    variant: SegmentScheduleVariant;
     startTime: string;
     orderIndex: number;
     activities: Array<{
@@ -47,7 +55,7 @@ interface ExistingSegmentLike {
   versions: Array<{
     id: string;
     name: string;
-    kind: 'DIRECT' | 'VIA';
+    kind: SegmentVersionKind;
     averageDistanceKm: number;
     averageTravelHours: number;
     isLongDistance: boolean;
@@ -57,6 +65,7 @@ interface ExistingSegmentLike {
       orderIndex: number;
     }>;
     scheduleTimeBlocks: Array<{
+      variant: SegmentScheduleVariant;
       startTime: string;
       orderIndex: number;
       activities: Array<{
@@ -66,6 +75,15 @@ interface ExistingSegmentLike {
     }>;
   }>;
 }
+
+interface SegmentEndpointLocation {
+  id: string;
+  regionId: string;
+  isFirstDayEligible: boolean;
+  isLastDayEligible: boolean;
+}
+
+const SEGMENT_SCHEDULE_VARIANTS: SegmentScheduleVariant[] = ['basic', 'early', 'extend', 'earlyExtend'];
 
 export class SegmentService {
   private readonly repository: SegmentRepository;
@@ -90,10 +108,39 @@ export class SegmentService {
     }));
   }
 
+  private cloneTimeSlots(timeSlots: SegmentTimeSlotInput[] | undefined): SegmentTimeSlotInput[] | undefined {
+    if (!timeSlots) {
+      return undefined;
+    }
+
+    return timeSlots.map((slot) => ({
+      startTime: slot.startTime,
+      activities: [...slot.activities],
+    }));
+  }
+
+  private normalizeVariantTimeSlots(input: {
+    timeSlots: SegmentTimeSlotInput[];
+    earlyTimeSlots?: SegmentTimeSlotInput[];
+    extendTimeSlots?: SegmentTimeSlotInput[];
+    earlyExtendTimeSlots?: SegmentTimeSlotInput[];
+  }): VariantTimeSlotMap {
+    return {
+      basic: this.cloneTimeSlots(input.timeSlots) ?? [],
+      early: this.cloneTimeSlots(input.earlyTimeSlots),
+      extend: this.cloneTimeSlots(input.extendTimeSlots),
+      earlyExtend: this.cloneTimeSlots(input.earlyExtendTimeSlots),
+    };
+  }
+
   private mapScheduleTimeBlocksToTimeSlots(
-    timeBlocks: ExistingSegmentLike['scheduleTimeBlocks'] | ExistingSegmentLike['versions'][number]['scheduleTimeBlocks'],
+    timeBlocks:
+      | ExistingSegmentLike['scheduleTimeBlocks']
+      | ExistingSegmentLike['versions'][number]['scheduleTimeBlocks'],
+    variant: SegmentScheduleVariant,
   ): SegmentTimeSlotInput[] {
     return timeBlocks
+      .filter((timeBlock) => timeBlock.variant === variant)
       .slice()
       .sort((a, b) => a.orderIndex - b.orderIndex)
       .map((timeBlock) => ({
@@ -105,11 +152,32 @@ export class SegmentService {
       }));
   }
 
+  private mapTimeBlocksToVariantTimeSlots(
+    timeBlocks:
+      | ExistingSegmentLike['scheduleTimeBlocks']
+      | ExistingSegmentLike['versions'][number]['scheduleTimeBlocks'],
+  ): VariantTimeSlotMap {
+    const basic = this.mapScheduleTimeBlocksToTimeSlots(timeBlocks, 'basic');
+    const early = this.mapScheduleTimeBlocksToTimeSlots(timeBlocks, 'early');
+    const extend = this.mapScheduleTimeBlocksToTimeSlots(timeBlocks, 'extend');
+    const earlyExtend = this.mapScheduleTimeBlocksToTimeSlots(timeBlocks, 'earlyExtend');
+
+    return {
+      basic,
+      ...(early.length > 0 ? { early } : {}),
+      ...(extend.length > 0 ? { extend } : {}),
+      ...(earlyExtend.length > 0 ? { earlyExtend } : {}),
+    };
+  }
+
   private buildLegacyDirectVersionFromInput(input: {
     averageDistanceKm: number;
     averageTravelHours: number;
     isLongDistance: boolean;
     timeSlots: SegmentTimeSlotInput[];
+    earlyTimeSlots?: SegmentTimeSlotInput[];
+    extendTimeSlots?: SegmentTimeSlotInput[];
+    earlyExtendTimeSlots?: SegmentTimeSlotInput[];
   }): NormalizedSegmentVersion {
     return {
       name: 'Direct',
@@ -118,7 +186,7 @@ export class SegmentService {
       averageDistanceKm: input.averageDistanceKm,
       averageTravelHours: input.averageTravelHours,
       isLongDistance: input.isLongDistance,
-      timeSlots: input.timeSlots,
+      timeSlotsByVariant: this.normalizeVariantTimeSlots(input),
     };
   }
 
@@ -134,7 +202,7 @@ export class SegmentService {
           averageDistanceKm: version.averageDistanceKm,
           averageTravelHours: version.averageTravelHours,
           isLongDistance: version.isLongDistance,
-          timeSlots: this.mapScheduleTimeBlocksToTimeSlots(version.scheduleTimeBlocks),
+          timeSlotsByVariant: this.mapTimeBlocksToVariantTimeSlots(version.scheduleTimeBlocks),
         }));
     }
 
@@ -143,7 +211,10 @@ export class SegmentService {
         averageDistanceKm: existing.averageDistanceKm,
         averageTravelHours: existing.averageTravelHours,
         isLongDistance: existing.isLongDistance,
-        timeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks),
+        timeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'basic'),
+        earlyTimeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'early'),
+        extendTimeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'extend'),
+        earlyExtendTimeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'earlyExtend'),
       }),
     ];
   }
@@ -156,7 +227,7 @@ export class SegmentService {
       averageDistanceKm: version.averageDistanceKm,
       averageTravelHours: version.averageTravelHours,
       isLongDistance: version.isLongDistance,
-      timeSlots: version.timeSlots,
+      timeSlotsByVariant: this.normalizeVariantTimeSlots(version),
     }));
   }
 
@@ -165,7 +236,10 @@ export class SegmentService {
       input.averageDistanceKm !== undefined ||
       input.averageTravelHours !== undefined ||
       input.isLongDistance !== undefined ||
-      input.timeSlots !== undefined
+      input.timeSlots !== undefined ||
+      input.earlyTimeSlots !== undefined ||
+      input.extendTimeSlots !== undefined ||
+      input.earlyExtendTimeSlots !== undefined
     );
   }
 
@@ -177,10 +251,28 @@ export class SegmentService {
     return directVersion;
   }
 
-  private async validateLocations(regionId: string, fromLocationId: string, toLocationId: string) {
+  private getRequiredVariants(fromLocation: SegmentEndpointLocation, toLocation: SegmentEndpointLocation): SegmentScheduleVariant[] {
+    const variants: SegmentScheduleVariant[] = ['basic'];
+    if (fromLocation.isFirstDayEligible) {
+      variants.push('early');
+    }
+    if (toLocation.isLastDayEligible) {
+      variants.push('extend');
+    }
+    if (fromLocation.isFirstDayEligible && toLocation.isLastDayEligible) {
+      variants.push('earlyExtend');
+    }
+    return variants;
+  }
+
+  private async validateLocations(
+    regionId: string,
+    fromLocationId: string,
+    toLocationId: string,
+  ): Promise<{ fromLocation: SegmentEndpointLocation; toLocation: SegmentEndpointLocation }> {
     const locations = await this.prisma.location.findMany({
       where: { id: { in: [fromLocationId, toLocationId] } },
-      select: { id: true, regionId: true },
+      select: { id: true, regionId: true, isFirstDayEligible: true, isLastDayEligible: true },
     });
 
     if (locations.length !== 2) {
@@ -197,18 +289,37 @@ export class SegmentService {
     if (fromLocation.regionId !== regionId || toLocation.regionId !== regionId) {
       throw new DomainError('VALIDATION_FAILED', 'Segment locations must belong to the selected region');
     }
+
+    return { fromLocation, toLocation };
+  }
+
+  private assertRequiredVariantSchedules(
+    version: NormalizedSegmentVersion,
+    requiredVariants: SegmentScheduleVariant[],
+  ): void {
+    const versionLabel = version.name || version.kind;
+
+    requiredVariants.forEach((variant) => {
+      const timeSlots = version.timeSlotsByVariant[variant];
+      if (!timeSlots || timeSlots.length === 0) {
+        throw new DomainError('VALIDATION_FAILED', `Segment version "${versionLabel}" requires ${variant} schedules`);
+      }
+    });
   }
 
   private async validateVersions(
     regionId: string,
-    fromLocationId: string,
-    toLocationId: string,
+    fromLocation: SegmentEndpointLocation,
+    toLocation: SegmentEndpointLocation,
     versions: NormalizedSegmentVersion[],
   ) {
     const directVersions = versions.filter((version) => version.kind === 'DIRECT');
     if (directVersions.length !== 1) {
       throw new DomainError('VALIDATION_FAILED', 'Segment must include exactly one DIRECT version');
     }
+
+    const requiredVariants = this.getRequiredVariants(fromLocation, toLocation);
+    versions.forEach((version) => this.assertRequiredVariantSchedules(version, requiredVariants));
 
     const viaLocationIds = Array.from(new Set(versions.flatMap((version) => version.viaLocationIds)));
     if (viaLocationIds.length === 0) {
@@ -240,7 +351,7 @@ export class SegmentService {
 
       const seen = new Set<string>();
       version.viaLocationIds.forEach((locationId) => {
-        if (locationId === fromLocationId || locationId === toLocationId) {
+        if (locationId === fromLocation.id || locationId === toLocation.id) {
           throw new DomainError('VALIDATION_FAILED', 'Via locations must not match segment endpoints');
         }
         if (seen.has(locationId)) {
@@ -262,34 +373,41 @@ export class SegmentService {
   private async replaceLegacyScheduleTimeBlocks(
     tx: Prisma.TransactionClient,
     segmentId: string,
-    timeSlots: SegmentTimeSlotInput[],
+    timeSlotsByVariant: VariantTimeSlotMap,
   ) {
-    const normalizedSlots = this.normalizeTimeSlots(timeSlots);
-
     await tx.segmentTimeBlock.deleteMany({
       where: { segmentId },
     });
 
-    for (const [orderIndex, slot] of normalizedSlots.entries()) {
-      const createdTimeBlock = await tx.segmentTimeBlock.create({
-        data: {
-          segmentId,
-          startTime: slot.startTime,
-          label: slot.label,
-          orderIndex,
-        },
-      });
+    for (const variant of SEGMENT_SCHEDULE_VARIANTS) {
+      const timeSlots = timeSlotsByVariant[variant];
+      if (!timeSlots || timeSlots.length === 0) {
+        continue;
+      }
 
-      if (slot.activities.length > 0) {
-        await tx.segmentActivity.createMany({
-          data: slot.activities.map((description, activityIndex) => ({
-            segmentTimeBlockId: createdTimeBlock.id,
-            description,
-            orderIndex: activityIndex,
-            isOptional: false,
-            conditionNote: null,
-          })),
+      const normalizedSlots = this.normalizeTimeSlots(timeSlots);
+      for (const [orderIndex, slot] of normalizedSlots.entries()) {
+        const createdTimeBlock = await tx.segmentTimeBlock.create({
+          data: {
+            segmentId,
+            variant,
+            startTime: slot.startTime,
+            label: slot.label,
+            orderIndex,
+          },
         });
+
+        if (slot.activities.length > 0) {
+          await tx.segmentActivity.createMany({
+            data: slot.activities.map((description, activityIndex) => ({
+              segmentTimeBlockId: createdTimeBlock.id,
+              description,
+              orderIndex: activityIndex,
+              isOptional: false,
+              conditionNote: null,
+            })),
+          });
+        }
       }
     }
   }
@@ -297,34 +415,41 @@ export class SegmentService {
   private async replaceVersionTimeBlocks(
     tx: Prisma.TransactionClient,
     segmentVersionId: string,
-    timeSlots: SegmentTimeSlotInput[],
+    timeSlotsByVariant: VariantTimeSlotMap,
   ) {
-    const normalizedSlots = this.normalizeTimeSlots(timeSlots);
-
     await tx.segmentVersionTimeBlock.deleteMany({
       where: { segmentVersionId },
     });
 
-    for (const [orderIndex, slot] of normalizedSlots.entries()) {
-      const createdTimeBlock = await tx.segmentVersionTimeBlock.create({
-        data: {
-          segmentVersionId,
-          startTime: slot.startTime,
-          label: slot.label,
-          orderIndex,
-        },
-      });
+    for (const variant of SEGMENT_SCHEDULE_VARIANTS) {
+      const timeSlots = timeSlotsByVariant[variant];
+      if (!timeSlots || timeSlots.length === 0) {
+        continue;
+      }
 
-      if (slot.activities.length > 0) {
-        await tx.segmentVersionActivity.createMany({
-          data: slot.activities.map((description, activityIndex) => ({
-            segmentVersionTimeBlockId: createdTimeBlock.id,
-            description,
-            orderIndex: activityIndex,
-            isOptional: false,
-            conditionNote: null,
-          })),
+      const normalizedSlots = this.normalizeTimeSlots(timeSlots);
+      for (const [orderIndex, slot] of normalizedSlots.entries()) {
+        const createdTimeBlock = await tx.segmentVersionTimeBlock.create({
+          data: {
+            segmentVersionId,
+            variant,
+            startTime: slot.startTime,
+            label: slot.label,
+            orderIndex,
+          },
         });
+
+        if (slot.activities.length > 0) {
+          await tx.segmentVersionActivity.createMany({
+            data: slot.activities.map((description, activityIndex) => ({
+              segmentVersionTimeBlockId: createdTimeBlock.id,
+              description,
+              orderIndex: activityIndex,
+              isOptional: false,
+              conditionNote: null,
+            })),
+          });
+        }
       }
     }
   }
@@ -367,7 +492,7 @@ export class SegmentService {
       },
     });
 
-    await this.replaceLegacyScheduleTimeBlocks(tx, segmentId, directVersion.timeSlots);
+    await this.replaceLegacyScheduleTimeBlocks(tx, segmentId, directVersion.timeSlotsByVariant);
   }
 
   private async replaceAllVersions(
@@ -396,7 +521,7 @@ export class SegmentService {
       });
 
       await this.replaceVersionViaLocations(tx, createdVersion.id, version.viaLocationIds);
-      await this.replaceVersionTimeBlocks(tx, createdVersion.id, version.timeSlots);
+      await this.replaceVersionTimeBlocks(tx, createdVersion.id, version.timeSlotsByVariant);
 
       if (version.kind === 'DIRECT') {
         directVersionId = createdVersion.id;
@@ -435,7 +560,7 @@ export class SegmentService {
         },
       });
 
-      await this.replaceVersionTimeBlocks(tx, createdVersion.id, directVersion.timeSlots);
+      await this.replaceVersionTimeBlocks(tx, createdVersion.id, directVersion.timeSlotsByVariant);
       return createdVersion.id;
     }
 
@@ -452,7 +577,7 @@ export class SegmentService {
     });
 
     await this.replaceVersionViaLocations(tx, existingDirectVersion.id, []);
-    await this.replaceVersionTimeBlocks(tx, existingDirectVersion.id, directVersion.timeSlots);
+    await this.replaceVersionTimeBlocks(tx, existingDirectVersion.id, directVersion.timeSlotsByVariant);
     return existingDirectVersion.id;
   }
 
@@ -470,12 +595,12 @@ export class SegmentService {
       throw new DomainError('VALIDATION_FAILED', 'Region not found for segment');
     }
 
-    await this.validateLocations(parsed.data.regionId, parsed.data.fromLocationId, parsed.data.toLocationId);
+    const endpoints = await this.validateLocations(parsed.data.regionId, parsed.data.fromLocationId, parsed.data.toLocationId);
 
     const nextVersions = parsed.data.versions
       ? this.normalizeVersionsFromInput(parsed.data.versions)
       : [this.buildLegacyDirectVersionFromInput(parsed.data)];
-    await this.validateVersions(parsed.data.regionId, parsed.data.fromLocationId, parsed.data.toLocationId, nextVersions);
+    await this.validateVersions(parsed.data.regionId, endpoints.fromLocation, endpoints.toLocation, nextVersions);
     const directVersion = this.getDirectVersion(nextVersions);
 
     return this.prisma.$transaction(async (tx) => {
@@ -521,7 +646,7 @@ export class SegmentService {
       throw new DomainError('VALIDATION_FAILED', 'Region not found for segment update');
     }
 
-    await this.validateLocations(nextRegionId, nextFromLocationId, nextToLocationId);
+    const endpoints = await this.validateLocations(nextRegionId, nextFromLocationId, nextToLocationId);
 
     const existingVersions = this.buildVersionsFromExisting(existing as ExistingSegmentLike);
     const hasLegacyDirectUpdates = this.hasLegacyDirectUpdates(parsed.data);
@@ -536,13 +661,18 @@ export class SegmentService {
               averageDistanceKm: parsed.data.averageDistanceKm ?? version.averageDistanceKm,
               averageTravelHours: parsed.data.averageTravelHours ?? version.averageTravelHours,
               isLongDistance: parsed.data.isLongDistance ?? version.isLongDistance,
-              timeSlots: parsed.data.timeSlots ?? version.timeSlots,
+              timeSlotsByVariant: {
+                basic: parsed.data.timeSlots ?? version.timeSlotsByVariant.basic,
+                early: parsed.data.earlyTimeSlots ?? version.timeSlotsByVariant.early,
+                extend: parsed.data.extendTimeSlots ?? version.timeSlotsByVariant.extend,
+                earlyExtend: parsed.data.earlyExtendTimeSlots ?? version.timeSlotsByVariant.earlyExtend,
+              },
             }
           : version,
       );
     }
 
-    await this.validateVersions(nextRegionId, nextFromLocationId, nextToLocationId, nextVersions);
+    await this.validateVersions(nextRegionId, endpoints.fromLocation, endpoints.toLocation, nextVersions);
     const directVersion = this.getDirectVersion(nextVersions);
 
     return this.prisma.$transaction(async (tx) => {

@@ -15,6 +15,19 @@ enum VariantType {
   earlyExtend
 }
 
+enum LocationTimeBlockProfile {
+  DEFAULT
+  FIRST_DAY
+  FIRST_DAY_EARLY
+}
+
+enum SegmentScheduleVariant {
+  basic
+  early
+  extend
+  earlyExtend
+}
+
 enum OverrideTargetType {
   DayPlan
   TimeBlock
@@ -385,6 +398,8 @@ model Location {
   regionName         String
   name               String
   defaultLodgingType String
+  isFirstDayEligible Boolean @default(false)
+  isLastDayEligible  Boolean @default(false)
   latitude           Float?
   longitude          Float?
   currentVersionId   String?
@@ -522,6 +537,7 @@ model SegmentVersionViaLocation {
 model SegmentVersionTimeBlock {
   id               String @id @default(uuid(7))
   segmentVersionId String
+  variant          SegmentScheduleVariant @default(basic)
   startTime        String
   label            String
   orderIndex       Int
@@ -533,7 +549,7 @@ model SegmentVersionTimeBlock {
   updatedAt DateTime @updatedAt
 
   @@index([segmentVersionId])
-  @@unique([segmentVersionId, orderIndex])
+  @@unique([segmentVersionId, variant, orderIndex])
 }
 
 model SegmentVersionActivity {
@@ -950,6 +966,7 @@ model TimeBlock {
   id         String @id @default(uuid(7))
   locationId String
   locationVersionId String?
+  profile    LocationTimeBlockProfile @default(DEFAULT)
   startTime  String
   label      String
   orderIndex Int
@@ -963,7 +980,7 @@ model TimeBlock {
 
   @@index([locationId])
   @@index([locationVersionId])
-  @@unique([locationVersionId, orderIndex])
+  @@unique([locationVersionId, profile, orderIndex])
 }
 
 model Activity {
@@ -986,6 +1003,7 @@ model Activity {
 model SegmentTimeBlock {
   id         String @id @default(uuid(7))
   segmentId   String
+  variant    SegmentScheduleVariant @default(basic)
   startTime  String
   label      String
   orderIndex Int
@@ -997,7 +1015,7 @@ model SegmentTimeBlock {
   updatedAt DateTime @updatedAt
 
   @@index([segmentId])
-  @@unique([segmentId, orderIndex])
+  @@unique([segmentId, variant, orderIndex])
 }
 
 model SegmentActivity {

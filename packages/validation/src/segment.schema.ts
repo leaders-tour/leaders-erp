@@ -5,6 +5,8 @@ const segmentTimeSlotSchema = z.object({
   activities: z.array(z.string().max(500)).max(20),
 });
 
+const segmentTimeSlotsSchema = z.array(segmentTimeSlotSchema).min(1).max(24);
+
 const segmentVersionKinds = ['DIRECT', 'VIA'] as const;
 
 const segmentVersionSchema = z.object({
@@ -15,7 +17,10 @@ const segmentVersionSchema = z.object({
   averageDistanceKm: z.number().positive(),
   averageTravelHours: z.number().positive(),
   isLongDistance: z.boolean(),
-  timeSlots: z.array(segmentTimeSlotSchema).min(1).max(24),
+  timeSlots: segmentTimeSlotsSchema,
+  earlyTimeSlots: segmentTimeSlotsSchema.optional(),
+  extendTimeSlots: segmentTimeSlotsSchema.optional(),
+  earlyExtendTimeSlots: segmentTimeSlotsSchema.optional(),
   isDefault: z.boolean().optional(),
 });
 
@@ -26,7 +31,10 @@ const segmentBaseSchema = z.object({
   averageDistanceKm: z.number().positive(),
   averageTravelHours: z.number().positive(),
   isLongDistance: z.boolean(),
-  timeSlots: z.array(segmentTimeSlotSchema).min(1).max(24),
+  timeSlots: segmentTimeSlotsSchema,
+  earlyTimeSlots: segmentTimeSlotsSchema.optional(),
+  extendTimeSlots: segmentTimeSlotsSchema.optional(),
+  earlyExtendTimeSlots: segmentTimeSlotsSchema.optional(),
   versions: z.array(segmentVersionSchema).min(1).max(20).optional(),
 });
 

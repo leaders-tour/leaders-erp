@@ -5,6 +5,8 @@ type Location {
   name: String!
   defaultVersionId: String
   defaultLodgingType: String!
+  isFirstDayEligible: Boolean!
+  isLastDayEligible: Boolean!
   latitude: Float
   longitude: Float
   createdAt: DateTime!
@@ -31,6 +33,8 @@ type LocationVersion {
   updatedAt: DateTime!
   location: Location!
   timeBlocks: [TimeBlock!]!
+  firstDayTimeBlocks: [TimeBlock!]!
+  firstDayEarlyTimeBlocks: [TimeBlock!]!
   lodgings: [Lodging!]!
   mealSets: [MealSet!]!
 }
@@ -39,6 +43,8 @@ input LocationCreateInput {
   regionId: String!
   name: String!
   defaultLodgingType: String!
+  isFirstDayEligible: Boolean
+  isLastDayEligible: Boolean
   latitude: Float
   longitude: Float
 }
@@ -47,6 +53,8 @@ input LocationUpdateInput {
   regionId: String
   name: String
   defaultLodgingType: String
+  isFirstDayEligible: Boolean
+  isLastDayEligible: Boolean
   latitude: Float
   longitude: Float
 }
@@ -73,7 +81,10 @@ input LocationProfileMealsInput {
 input LocationProfileCreateInput {
   regionId: String!
   name: String!
-  timeSlots: [LocationProfileTimeSlotInput!]!
+  isFirstDayEligible: Boolean
+  isLastDayEligible: Boolean
+  firstDayTimeSlots: [LocationProfileTimeSlotInput!]
+  firstDayEarlyTimeSlots: [LocationProfileTimeSlotInput!]
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
 }
@@ -81,13 +92,17 @@ input LocationProfileCreateInput {
 input LocationProfileUpdateInput {
   regionId: String!
   name: String!
-  timeSlots: [LocationProfileTimeSlotInput!]!
+  isFirstDayEligible: Boolean
+  isLastDayEligible: Boolean
+  firstDayTimeSlots: [LocationProfileTimeSlotInput!]
+  firstDayEarlyTimeSlots: [LocationProfileTimeSlotInput!]
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
 }
 
 input LocationVersionProfileInput {
-  timeSlots: [LocationProfileTimeSlotInput!]!
+  firstDayTimeSlots: [LocationProfileTimeSlotInput!]
+  firstDayEarlyTimeSlots: [LocationProfileTimeSlotInput!]
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
 }
@@ -97,5 +112,7 @@ input LocationVersionCreateInput {
   sourceVersionId: String
   label: String!
   changeNote: String
+  isFirstDayEligible: Boolean
+  isLastDayEligible: Boolean
   profile: LocationVersionProfileInput
 }

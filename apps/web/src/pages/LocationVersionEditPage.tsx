@@ -26,13 +26,30 @@ export function LocationVersionEditPage(): JSX.Element {
     setValue({
       regionId: version.location.regionId,
       name: version.locationNameSnapshot,
-      timeSlots:
-        version.timeBlocks.length > 0
-          ? version.timeBlocks.map((timeBlock) => ({
+      isFirstDayEligible: version.location.isFirstDayEligible,
+      isLastDayEligible: version.location.isLastDayEligible,
+      firstDayTimeSlots:
+        version.firstDayTimeBlocks.length > 0
+          ? version.firstDayTimeBlocks.map((timeBlock) => ({
               startTime: timeBlock.startTime,
               activities: timeBlock.activities.length > 0 ? timeBlock.activities.map((activity) => activity.description) : [''],
             }))
-          : [{ startTime: '08:00', activities: ['', '', '', ''] }],
+          : [
+              { startTime: '08:00', activities: ['', '', '', ''] },
+              { startTime: '12:00', activities: ['', '', '', ''] },
+              { startTime: '18:00', activities: ['', '', '', ''] },
+            ],
+      firstDayEarlyTimeSlots:
+        version.firstDayEarlyTimeBlocks.length > 0
+          ? version.firstDayEarlyTimeBlocks.map((timeBlock) => ({
+              startTime: timeBlock.startTime,
+              activities: timeBlock.activities.length > 0 ? timeBlock.activities.map((activity) => activity.description) : [''],
+            }))
+          : [
+              { startTime: '08:00', activities: ['', '', '', ''] },
+              { startTime: '12:00', activities: ['', '', '', ''] },
+              { startTime: '18:00', activities: ['', '', '', ''] },
+            ],
       lodging: {
         isUnspecified: (version.lodgings[0]?.name ?? '') === '숙소 미지정',
         name: version.lodgings[0]?.name ?? '여행자 캠프',
@@ -134,6 +151,7 @@ export function LocationVersionEditPage(): JSX.Element {
         value={value}
         submitting={submitting}
         nameReadOnly={isCreateMode}
+        eligibilityReadOnly={isCreateMode}
         onSubmit={async (next) => {
           setSubmitting(true);
           try {
@@ -149,7 +167,8 @@ export function LocationVersionEditPage(): JSX.Element {
                 label: nextLabel,
                 changeNote: changeNote.trim() || undefined,
                 profile: {
-                  timeSlots: next.timeSlots,
+                  firstDayTimeSlots: next.firstDayTimeSlots,
+                  firstDayEarlyTimeSlots: next.firstDayEarlyTimeSlots,
                   lodging: next.lodging,
                   meals: next.meals,
                 },

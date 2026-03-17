@@ -10,20 +10,13 @@ const LIST = gql`
       regionId
       regionName
       name
+      isFirstDayEligible
+      isLastDayEligible
       defaultVersionId
       defaultVersion {
         id
         versionNumber
         label
-      }
-      timeBlocks {
-        id
-        startTime
-        activities {
-          id
-          description
-          orderIndex
-        }
       }
       lodgings {
         id
@@ -94,6 +87,8 @@ const DETAIL = gql`
       regionId
       regionName
       name
+      isFirstDayEligible
+      isLastDayEligible
       defaultVersionId
       createdAt
       updatedAt
@@ -113,15 +108,6 @@ const DETAIL = gql`
         defaultLodgingType
         createdAt
         updatedAt
-      }
-      timeBlocks {
-        id
-        startTime
-        activities {
-          id
-          description
-          orderIndex
-        }
       }
       lodgings {
         id
@@ -173,10 +159,24 @@ const VERSION_DETAIL = gql`
         name
         regionId
         regionName
+        isFirstDayEligible
+        isLastDayEligible
         defaultVersionId
       }
-      timeBlocks {
+      firstDayTimeBlocks {
         id
+        profile
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
+      firstDayEarlyTimeBlocks {
+        id
+        profile
         startTime
         orderIndex
         activities {
@@ -216,7 +216,10 @@ export interface LocationProfileTimeSlotFormInput {
 export interface LocationProfileFormInput {
   regionId: string;
   name: string;
-  timeSlots: LocationProfileTimeSlotFormInput[];
+  isFirstDayEligible: boolean;
+  isLastDayEligible: boolean;
+  firstDayTimeSlots: LocationProfileTimeSlotFormInput[];
+  firstDayEarlyTimeSlots: LocationProfileTimeSlotFormInput[];
   lodging: {
     isUnspecified: boolean;
     name: string;
@@ -232,7 +235,8 @@ export interface LocationProfileFormInput {
 }
 
 export interface LocationVersionProfileFormInput {
-  timeSlots: LocationProfileTimeSlotFormInput[];
+  firstDayTimeSlots: LocationProfileTimeSlotFormInput[];
+  firstDayEarlyTimeSlots: LocationProfileTimeSlotFormInput[];
   lodging: {
     isUnspecified: boolean;
     name: string;
@@ -252,21 +256,14 @@ export interface LocationListRow {
   regionId: string;
   regionName: string;
   name: string;
+  isFirstDayEligible: boolean;
+  isLastDayEligible: boolean;
   defaultVersionId: string | null;
   defaultVersion: {
     id: string;
     versionNumber: number;
     label: string;
   } | null;
-  timeBlocks: Array<{
-    id: string;
-    startTime: string;
-    activities: Array<{
-      id: string;
-      description: string;
-      orderIndex: number;
-    }>;
-  }>;
   lodgings: Array<{
     id: string;
     name: string;
@@ -293,8 +290,20 @@ export interface LocationVersionRow {
   defaultLodgingType: string;
   createdAt: string;
   updatedAt: string;
-  timeBlocks: Array<{
+  firstDayTimeBlocks: Array<{
     id: string;
+    profile: 'DEFAULT' | 'FIRST_DAY' | 'FIRST_DAY_EARLY';
+    startTime: string;
+    orderIndex: number;
+    activities: Array<{
+      id: string;
+      description: string;
+      orderIndex: number;
+    }>;
+  }>;
+  firstDayEarlyTimeBlocks: Array<{
+    id: string;
+    profile: 'DEFAULT' | 'FIRST_DAY' | 'FIRST_DAY_EARLY';
     startTime: string;
     orderIndex: number;
     activities: Array<{
@@ -324,6 +333,8 @@ export interface LocationVersionDetailRow extends LocationVersionRow {
     name: string;
     regionId: string;
     regionName: string;
+    isFirstDayEligible: boolean;
+    isLastDayEligible: boolean;
     defaultVersionId: string | null;
   };
 }
@@ -368,6 +379,18 @@ export interface LocationDetailData {
 
 function toProfileBody(input: LocationVersionProfileFormInput) {
   return {
+    firstDayTimeSlots: input.firstDayTimeSlots.map((slot) => ({
+      startTime: slot.startTime.trim(),
+      activities: slot.activities
+        .map((activity) => activity.trim())
+        .filter((activity) => activity.length > 0),
+    })),
+    firstDayEarlyTimeSlots: input.firstDayEarlyTimeSlots.map((slot) => ({
+      startTime: slot.startTime.trim(),
+      activities: slot.activities
+        .map((activity) => activity.trim())
+        .filter((activity) => activity.length > 0),
+    })),
     lodging: {
       ...input.lodging,
       name: input.lodging.name.trim(),
@@ -377,12 +400,6 @@ function toProfileBody(input: LocationVersionProfileFormInput) {
       lunch: input.meals.lunch ?? null,
       dinner: input.meals.dinner ?? null,
     },
-    timeSlots: input.timeSlots.map((slot) => ({
-      startTime: slot.startTime.trim(),
-      activities: slot.activities
-        .map((activity) => activity.trim())
-        .filter((activity) => activity.length > 0),
-    })),
   };
 }
 
@@ -390,6 +407,8 @@ function toProfileVariables(input: LocationProfileFormInput) {
   return {
     regionId: input.regionId,
     name: input.name.trim(),
+    isFirstDayEligible: input.isFirstDayEligible,
+    isLastDayEligible: input.isLastDayEligible,
     ...toProfileBody(input),
   };
 }
@@ -418,6 +437,8 @@ export function useLocationCrud() {
       sourceVersionId?: string;
       label: string;
       changeNote?: string;
+      isFirstDayEligible?: boolean;
+      isLastDayEligible?: boolean;
       profile: LocationVersionProfileFormInput;
     }) => {
       const result = await createVersionMutation({
@@ -427,6 +448,8 @@ export function useLocationCrud() {
             sourceVersionId: input.sourceVersionId,
             label: input.label,
             changeNote: input.changeNote,
+            isFirstDayEligible: input.isFirstDayEligible,
+            isLastDayEligible: input.isLastDayEligible,
             profile: toProfileBody(input.profile),
           },
         },

@@ -279,15 +279,17 @@ async function main(): Promise<void> {
 
   const slot08 = await prisma.timeBlock.upsert({
     where: {
-      locationVersionId_orderIndex: {
+      locationVersionId_profile_orderIndex: {
         locationVersionId: dalanVersion.id,
+        profile: 'DEFAULT',
         orderIndex: 0,
       },
     },
-    update: { startTime: '08:00', label: '08:00' },
+    update: { profile: 'DEFAULT', startTime: '08:00', label: '08:00' },
     create: {
       locationId: dalanzadgad.id,
       locationVersionId: dalanVersion.id,
+      profile: 'DEFAULT',
       startTime: '08:00',
       label: '08:00',
       orderIndex: 0,
@@ -295,15 +297,17 @@ async function main(): Promise<void> {
   });
   const slot12 = await prisma.timeBlock.upsert({
     where: {
-      locationVersionId_orderIndex: {
+      locationVersionId_profile_orderIndex: {
         locationVersionId: dalanVersion.id,
+        profile: 'DEFAULT',
         orderIndex: 1,
       },
     },
-    update: { startTime: '12:00', label: '12:00' },
+    update: { profile: 'DEFAULT', startTime: '12:00', label: '12:00' },
     create: {
       locationId: dalanzadgad.id,
       locationVersionId: dalanVersion.id,
+      profile: 'DEFAULT',
       startTime: '12:00',
       label: '12:00',
       orderIndex: 1,
@@ -311,15 +315,17 @@ async function main(): Promise<void> {
   });
   const slot18 = await prisma.timeBlock.upsert({
     where: {
-      locationVersionId_orderIndex: {
+      locationVersionId_profile_orderIndex: {
         locationVersionId: dalanVersion.id,
+        profile: 'DEFAULT',
         orderIndex: 2,
       },
     },
-    update: { startTime: '18:00', label: '18:00' },
+    update: { profile: 'DEFAULT', startTime: '18:00', label: '18:00' },
     create: {
       locationId: dalanzadgad.id,
       locationVersionId: dalanVersion.id,
+      profile: 'DEFAULT',
       startTime: '18:00',
       label: '18:00',
       orderIndex: 2,
@@ -349,14 +355,16 @@ async function main(): Promise<void> {
 
   const segmentSlot08 = await prisma.segmentTimeBlock.upsert({
     where: {
-      segmentId_orderIndex: {
+      segmentId_variant_orderIndex: {
         segmentId: ubToDalanSegment.id,
+        variant: 'basic',
         orderIndex: 0,
       },
     },
-    update: { startTime: '08:00', label: '08:00' },
+    update: { variant: 'basic', startTime: '08:00', label: '08:00' },
     create: {
       segmentId: ubToDalanSegment.id,
+      variant: 'basic',
       startTime: '08:00',
       label: '08:00',
       orderIndex: 0,
@@ -364,14 +372,16 @@ async function main(): Promise<void> {
   });
   const segmentSlot12 = await prisma.segmentTimeBlock.upsert({
     where: {
-      segmentId_orderIndex: {
+      segmentId_variant_orderIndex: {
         segmentId: ubToDalanSegment.id,
+        variant: 'basic',
         orderIndex: 1,
       },
     },
-    update: { startTime: '12:00', label: '12:00' },
+    update: { variant: 'basic', startTime: '12:00', label: '12:00' },
     create: {
       segmentId: ubToDalanSegment.id,
+      variant: 'basic',
       startTime: '12:00',
       label: '12:00',
       orderIndex: 1,
@@ -379,14 +389,16 @@ async function main(): Promise<void> {
   });
   const segmentSlot18 = await prisma.segmentTimeBlock.upsert({
     where: {
-      segmentId_orderIndex: {
+      segmentId_variant_orderIndex: {
         segmentId: ubToDalanSegment.id,
+        variant: 'basic',
         orderIndex: 2,
       },
     },
-    update: { startTime: '18:00', label: '18:00' },
+    update: { variant: 'basic', startTime: '18:00', label: '18:00' },
     create: {
       segmentId: ubToDalanSegment.id,
+      variant: 'basic',
       startTime: '18:00',
       label: '18:00',
       orderIndex: 2,
@@ -458,14 +470,16 @@ async function main(): Promise<void> {
 
   const segmentVersionSlot08 = await prisma.segmentVersionTimeBlock.upsert({
     where: {
-      segmentVersionId_orderIndex: {
+      segmentVersionId_variant_orderIndex: {
         segmentVersionId: ubToDalanDirectVersion.id,
+        variant: 'basic',
         orderIndex: 0,
       },
     },
-    update: { startTime: '08:00', label: '08:00' },
+    update: { variant: 'basic', startTime: '08:00', label: '08:00' },
     create: {
       segmentVersionId: ubToDalanDirectVersion.id,
+      variant: 'basic',
       startTime: '08:00',
       label: '08:00',
       orderIndex: 0,
@@ -473,14 +487,16 @@ async function main(): Promise<void> {
   });
   const segmentVersionSlot12 = await prisma.segmentVersionTimeBlock.upsert({
     where: {
-      segmentVersionId_orderIndex: {
+      segmentVersionId_variant_orderIndex: {
         segmentVersionId: ubToDalanDirectVersion.id,
+        variant: 'basic',
         orderIndex: 1,
       },
     },
-    update: { startTime: '12:00', label: '12:00' },
+    update: { variant: 'basic', startTime: '12:00', label: '12:00' },
     create: {
       segmentVersionId: ubToDalanDirectVersion.id,
+      variant: 'basic',
       startTime: '12:00',
       label: '12:00',
       orderIndex: 1,
@@ -488,14 +504,16 @@ async function main(): Promise<void> {
   });
   const segmentVersionSlot18 = await prisma.segmentVersionTimeBlock.upsert({
     where: {
-      segmentVersionId_orderIndex: {
+      segmentVersionId_variant_orderIndex: {
         segmentVersionId: ubToDalanDirectVersion.id,
+        variant: 'basic',
         orderIndex: 2,
       },
     },
-    update: { startTime: '18:00', label: '18:00' },
+    update: { variant: 'basic', startTime: '18:00', label: '18:00' },
     create: {
       segmentVersionId: ubToDalanDirectVersion.id,
+      variant: 'basic',
       startTime: '18:00',
       label: '18:00',
       orderIndex: 2,
@@ -681,6 +699,7 @@ async function main(): Promise<void> {
         '판초 6개, 모기장 6개, 썰매 6개, 돗자리 2개, 별레이저 1개, 랜턴 1개, 멀티탭 2개, 드라이기 1개, 보드게임 1종, 버너/냄비/팬 set',
       eventCodes: ['A'],
       extraLodgings: [],
+      lodgingSelections: [],
       remark: '',
     },
     create: {
@@ -702,6 +721,7 @@ async function main(): Promise<void> {
         '판초 6개, 모기장 6개, 썰매 6개, 돗자리 2개, 별레이저 1개, 랜턴 1개, 멀티탭 2개, 드라이기 1개, 보드게임 1종, 버너/냄비/팬 set',
       eventCodes: ['A'],
       extraLodgings: [],
+      lodgingSelections: [],
       remark: '',
     },
   });

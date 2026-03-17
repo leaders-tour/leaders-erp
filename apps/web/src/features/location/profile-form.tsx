@@ -25,15 +25,16 @@ const MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
 const DEFAULT_SLOT_TIMES = ['08:00', '12:00', '18:00'] as const;
 
 export type LocationProfileFormValue = LocationProfileFormInput;
+type TimeSlotField = 'firstDayTimeSlots' | 'firstDayEarlyTimeSlots';
 
-function createSlot(startTime: string): LocationProfileFormInput['timeSlots'][number] {
+function createSlot(startTime: string): LocationProfileFormInput['firstDayTimeSlots'][number] {
   return {
     startTime,
     activities: ['', '', '', ''],
   };
 }
 
-function getNextSlotTime(currentSlots: LocationProfileFormInput['timeSlots']): string {
+function getNextSlotTime(currentSlots: LocationProfileFormInput['firstDayTimeSlots']): string {
   const last = currentSlots[currentSlots.length - 1];
   if (!last || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(last.startTime)) {
     return '';
@@ -49,7 +50,10 @@ export function createDefaultLocationProfileFormValue(regionId = ''): LocationPr
   return {
     regionId,
     name: '',
-    timeSlots: DEFAULT_SLOT_TIMES.map((slot) => createSlot(slot)),
+    isFirstDayEligible: false,
+    isLastDayEligible: false,
+    firstDayTimeSlots: DEFAULT_SLOT_TIMES.map((slot) => createSlot(slot)),
+    firstDayEarlyTimeSlots: DEFAULT_SLOT_TIMES.map((slot) => createSlot(slot)),
     lodging: {
       isUnspecified: false,
       name: '여행자 캠프',
@@ -72,6 +76,7 @@ interface LocationProfileFormProps {
   value: LocationProfileFormValue;
   submitting: boolean;
   nameReadOnly?: boolean;
+  eligibilityReadOnly?: boolean;
   onSubmit: (value: LocationProfileFormValue) => Promise<void>;
 }
 
@@ -82,6 +87,7 @@ export function LocationProfileForm({
   value,
   submitting,
   nameReadOnly = false,
+  eligibilityReadOnly = false,
   onSubmit,
 }: LocationProfileFormProps): JSX.Element {
   const { data: regionData } = useQuery<{ regions: Region[] }>(REGIONS_QUERY);
@@ -93,57 +99,57 @@ export function LocationProfileForm({
 
   const regions = useMemo(() => regionData?.regions ?? [], [regionData]);
 
-  const updateSlotTime = (slotIndex: number, slotValue: string) => {
+  const updateSlotTime = (field: TimeSlotField, slotIndex: number, slotValue: string) => {
     setForm((prev) => {
-      const nextSlots = [...prev.timeSlots];
+      const nextSlots = [...prev[field]];
       const target = nextSlots[slotIndex];
       if (!target) {
         return prev;
       }
       nextSlots[slotIndex] = { ...target, startTime: slotValue };
-      return { ...prev, timeSlots: nextSlots };
+      return { ...prev, [field]: nextSlots };
     });
   };
 
-  const addTimeSlot = () => {
+  const addTimeSlot = (field: TimeSlotField) => {
     setForm((prev) => ({
       ...prev,
-      timeSlots: [...prev.timeSlots, createSlot(getNextSlotTime(prev.timeSlots))],
+      [field]: [...prev[field], createSlot(getNextSlotTime(prev[field]))],
     }));
   };
 
-  const addPresetBetween = (beforeTime: string, presetTime: string) => {
+  const addPresetBetween = (field: TimeSlotField, beforeTime: string, presetTime: string) => {
     setForm((prev) => {
-      const insertIndex = prev.timeSlots.findIndex((slot) => slot.startTime === beforeTime);
+      const insertIndex = prev[field].findIndex((slot) => slot.startTime === beforeTime);
       if (insertIndex < 0) {
-        return { ...prev, timeSlots: [...prev.timeSlots, createSlot(presetTime)] };
+        return { ...prev, [field]: [...prev[field], createSlot(presetTime)] };
       }
       return {
         ...prev,
-        timeSlots: [
-          ...prev.timeSlots.slice(0, insertIndex),
+        [field]: [
+          ...prev[field].slice(0, insertIndex),
           createSlot(presetTime),
-          ...prev.timeSlots.slice(insertIndex),
+          ...prev[field].slice(insertIndex),
         ],
       };
     });
   };
 
-  const removeTimeSlot = (slotIndex: number) => {
+  const removeTimeSlot = (field: TimeSlotField, slotIndex: number) => {
     setForm((prev) => {
-      if (prev.timeSlots.length <= 1) {
+      if (prev[field].length <= 1) {
         return prev;
       }
       return {
         ...prev,
-        timeSlots: prev.timeSlots.filter((_, index) => index !== slotIndex),
+        [field]: prev[field].filter((_, index) => index !== slotIndex),
       };
     });
   };
 
-  const updateActivity = (slotIndex: number, activityIndex: number, activityValue: string) => {
+  const updateActivity = (field: TimeSlotField, slotIndex: number, activityIndex: number, activityValue: string) => {
     setForm((prev) => {
-      const nextSlots = [...prev.timeSlots];
+      const nextSlots = [...prev[field]];
       const target = nextSlots[slotIndex];
       if (!target) {
         return prev;
@@ -154,13 +160,13 @@ export function LocationProfileForm({
       }
       nextActivities[activityIndex] = activityValue;
       nextSlots[slotIndex] = { ...target, activities: nextActivities };
-      return { ...prev, timeSlots: nextSlots };
+      return { ...prev, [field]: nextSlots };
     });
   };
 
-  const addActivity = (slotIndex: number) => {
+  const addActivity = (field: TimeSlotField, slotIndex: number) => {
     setForm((prev) => {
-      const nextSlots = [...prev.timeSlots];
+      const nextSlots = [...prev[field]];
       const target = nextSlots[slotIndex];
       if (!target) {
         return prev;
@@ -169,13 +175,13 @@ export function LocationProfileForm({
         ...target,
         activities: [...target.activities, ''],
       };
-      return { ...prev, timeSlots: nextSlots };
+      return { ...prev, [field]: nextSlots };
     });
   };
 
-  const removeActivity = (slotIndex: number, activityIndex: number) => {
+  const removeActivity = (field: TimeSlotField, slotIndex: number, activityIndex: number) => {
     setForm((prev) => {
-      const nextSlots = [...prev.timeSlots];
+      const nextSlots = [...prev[field]];
       const target = nextSlots[slotIndex];
       if (!target || target.activities.length <= 1) {
         return prev;
@@ -184,8 +190,123 @@ export function LocationProfileForm({
         ...target,
         activities: target.activities.filter((_, index) => index !== activityIndex),
       };
-      return { ...prev, timeSlots: nextSlots };
+      return { ...prev, [field]: nextSlots };
     });
+  };
+
+  const renderTimeSlotEditor = (input: {
+    field: TimeSlotField;
+    title: string;
+    description: string;
+    activityLabel: string;
+  }) => {
+    const slots = form[input.field];
+
+    return (
+      <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 self-start">
+        <div className="grid gap-1">
+          <h3 className="text-sm font-semibold text-slate-800">{input.title}</h3>
+          <p className="text-xs text-slate-500">{input.description}</p>
+        </div>
+        <div className="grid gap-3">
+          {slots.map((slot, slotIndex) => (
+            <div key={`${input.field}-${slotIndex}`} className="grid gap-2">
+              <div className="grid gap-3 rounded-xl border border-slate-200 p-3 md:grid-cols-[max-content_minmax(0,1fr)]">
+                <div className="grid gap-2 md:content-start">
+                  <div className="flex h-10 items-center">
+                    <h4 className="text-sm font-semibold text-slate-800">출발 시간</h4>
+                  </div>
+                  <Input
+                    className="w-[110px] border-slate-500 text-lg font-semibold"
+                    value={slot.startTime}
+                    onChange={(event) => updateSlotTime(input.field, slotIndex, event.target.value)}
+                    placeholder="HH:mm"
+                  />
+                </div>
+                <div className="grid gap-2 min-w-0">
+                  <div className="flex h-10 items-center justify-between gap-2">
+                    <h4 className="text-sm font-semibold text-slate-800">{input.activityLabel}</h4>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => removeTimeSlot(input.field, slotIndex)}
+                      disabled={slots.length <= 1}
+                      className="whitespace-nowrap"
+                    >
+                      삭제
+                    </Button>
+                  </div>
+                  <div className="grid gap-2">
+                    {slot.activities.map((activity, activityIndex) => (
+                      <div key={`${input.field}-${slotIndex}-activity-${activityIndex}`} className="flex items-center gap-2 min-w-0">
+                        <Input
+                          value={activity}
+                          onChange={(event) => updateActivity(input.field, slotIndex, activityIndex, event.target.value)}
+                          placeholder="활동 입력"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => removeActivity(input.field, slotIndex, activityIndex)}
+                          disabled={slot.activities.length <= 1}
+                          className="whitespace-nowrap"
+                        >
+                          X
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <Button type="button" variant="outline" onClick={() => addActivity(input.field, slotIndex)} className="whitespace-nowrap">
+                      활동 추가
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {slot.startTime === '08:00' ? (
+                <div className="overflow-x-auto">
+                  <Button type="button" variant="outline" onClick={() => addPresetBetween(input.field, '12:00', '10:00')} className="whitespace-nowrap">
+                    <span aria-hidden="true" className="mr-1">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v5l3 2" />
+                      </svg>
+                    </span>
+                    시간 추가
+                  </Button>
+                </div>
+              ) : null}
+
+              {slot.startTime === '12:00' ? (
+                <div className="overflow-x-auto">
+                  <Button type="button" variant="outline" onClick={() => addPresetBetween(input.field, '18:00', '15:00')} className="whitespace-nowrap">
+                    <span aria-hidden="true" className="mr-1">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v5l3 2" />
+                      </svg>
+                    </span>
+                    시간 추가
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+        <div>
+          <Button type="button" variant="outline" onClick={() => addTimeSlot(input.field)} className="whitespace-nowrap">
+            <span aria-hidden="true" className="mr-1">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+            </span>
+            시간 추가
+          </Button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -230,6 +351,26 @@ export function LocationProfileForm({
                       </button>
                     ))}
                   </div>
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-6 text-sm text-slate-700">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={form.isFirstDayEligible}
+                    disabled={eligibilityReadOnly}
+                    onChange={(event) => setForm((prev) => ({ ...prev, isFirstDayEligible: event.target.checked }))}
+                  />
+                  첫날 가능
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={form.isLastDayEligible}
+                    disabled={eligibilityReadOnly}
+                    onChange={(event) => setForm((prev) => ({ ...prev, isLastDayEligible: event.target.checked }))}
+                  />
+                  마지막날 가능
                 </label>
               </div>
             </div>
@@ -341,108 +482,27 @@ export function LocationProfileForm({
 
           </div>
 
-          <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 self-start">
-            <div className="grid gap-1">
-              <h3 className="text-sm font-semibold text-slate-800">출발일 일정</h3>
-              <p className="text-xs text-slate-500">1일차 출발지 프로필에만 사용되는 시간/일정입니다.</p>
-            </div>
-            <div className="grid gap-3">
-              {form.timeSlots.map((slot, slotIndex) => (
-                <div key={`slot-${slotIndex}`} className="grid gap-2">
-                  <div className="grid gap-3 rounded-xl border border-slate-200 p-3 md:grid-cols-[max-content_minmax(0,1fr)]">
-                    <div className="grid gap-2 md:content-start">
-                      <div className="flex h-10 items-center">
-                        <h4 className="text-sm font-semibold text-slate-800">출발 시간</h4>
-                      </div>
-                      <Input
-                        className="w-[110px] border-slate-500 text-lg font-semibold"
-                        value={slot.startTime}
-                        onChange={(event) => updateSlotTime(slotIndex, event.target.value)}
-                        placeholder="HH:mm"
-                      />
-                    </div>
-                    <div className="grid gap-2 min-w-0">
-                      <div className="flex h-10 items-center justify-between gap-2">
-                        <h4 className="text-sm font-semibold text-slate-800">출발일 일정</h4>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => removeTimeSlot(slotIndex)}
-                          disabled={form.timeSlots.length <= 1}
-                          className="whitespace-nowrap"
-                        >
-                          삭제
-                        </Button>
-                      </div>
-                      <div className="grid gap-2">
-                        {slot.activities.map((activity, activityIndex) => (
-                          <div key={`slot-${slotIndex}-activity-${activityIndex}`} className="flex items-center gap-2 min-w-0">
-                            <Input
-                              value={activity}
-                              onChange={(event) => updateActivity(slotIndex, activityIndex, event.target.value)}
-                              placeholder="활동 입력"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => removeActivity(slotIndex, activityIndex)}
-                              disabled={slot.activities.length <= 1}
-                              className="whitespace-nowrap"
-                            >
-                              X
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="overflow-x-auto">
-                        <Button type="button" variant="outline" onClick={() => addActivity(slotIndex)} className="whitespace-nowrap">
-                          활동 추가
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {slot.startTime === '08:00' ? (
-                    <div className="overflow-x-auto">
-                      <Button type="button" variant="outline" onClick={() => addPresetBetween('12:00', '10:00')} className="whitespace-nowrap">
-                        <span aria-hidden="true" className="mr-1">
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="9" />
-                            <path d="M12 7v5l3 2" />
-                          </svg>
-                        </span>
-                        시간 추가
-                      </Button>
-                    </div>
-                  ) : null}
-
-                  {slot.startTime === '12:00' ? (
-                    <div className="overflow-x-auto">
-                      <Button type="button" variant="outline" onClick={() => addPresetBetween('18:00', '15:00')} className="whitespace-nowrap">
-                        <span aria-hidden="true" className="mr-1">
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="9" />
-                            <path d="M12 7v5l3 2" />
-                          </svg>
-                        </span>
-                        시간 추가
-                      </Button>
-                    </div>
-                  ) : null}
+          <div className="grid gap-3">
+            {form.isFirstDayEligible
+              ? renderTimeSlotEditor({
+                  field: 'firstDayTimeSlots',
+                  title: '1일차 기본 일정',
+                  description: '1일차에 기본/연장 조건으로 들어올 때 사용됩니다.',
+                  activityLabel: '1일차 기본 일정',
+                })
+              : null}
+            {form.isFirstDayEligible
+              ? renderTimeSlotEditor({
+                  field: 'firstDayEarlyTimeSlots',
+                  title: '1일차 얼리 일정',
+                  description: '1일차에 얼리/얼리+연장 조건으로 들어올 때 사용됩니다.',
+                  activityLabel: '1일차 얼리 일정',
+                })
+              : (
+                <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
+                  첫날 가능을 켜면 목적지 전용 일정 입력 영역이 나타납니다.
                 </div>
-              ))}
-            </div>
-            <div>
-              <Button type="button" variant="outline" onClick={addTimeSlot} className="whitespace-nowrap">
-                <span aria-hidden="true" className="mr-1">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="M12 7v5l3 2" />
-                  </svg>
-                </span>
-                시간 추가
-              </Button>
-            </div>
+              )}
           </div>
         </div>
 

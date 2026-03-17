@@ -9,7 +9,6 @@ import {
   type SegmentTimeSlotFormInput,
   type SegmentVersionFormInput,
 } from '../features/segment/hooks';
-import type { Location } from '../generated/graphql';
 
 const LOCATIONS_QUERY = gql`
   query SegmentLocations {
@@ -18,11 +17,22 @@ const LOCATIONS_QUERY = gql`
       regionId
       regionName
       name
+      isFirstDayEligible
+      isLastDayEligible
     }
   }
 `;
 
 const DEFAULT_SLOT_TIMES = ['08:00', '12:00', '18:00'] as const;
+
+interface LocationRow {
+  id: string;
+  regionId: string;
+  regionName: string;
+  name: string;
+  isFirstDayEligible: boolean;
+  isLastDayEligible: boolean;
+}
 
 interface SegmentFormState {
   fromLocationId: string;
@@ -31,6 +41,9 @@ interface SegmentFormState {
   averageTravelHours: string;
   isLongDistance: boolean;
   timeSlots: SegmentTimeSlotFormInput[];
+  earlyTimeSlots: SegmentTimeSlotFormInput[];
+  extendTimeSlots: SegmentTimeSlotFormInput[];
+  earlyExtendTimeSlots: SegmentTimeSlotFormInput[];
   viaVersions: SegmentVersionDraft[];
 }
 
@@ -42,6 +55,9 @@ interface SegmentVersionDraft {
   averageTravelHours: string;
   isLongDistance: boolean;
   timeSlots: SegmentTimeSlotFormInput[];
+  earlyTimeSlots: SegmentTimeSlotFormInput[];
+  extendTimeSlots: SegmentTimeSlotFormInput[];
+  earlyExtendTimeSlots: SegmentTimeSlotFormInput[];
 }
 
 function createTimeSlot(startTime: string): SegmentTimeSlotFormInput {
@@ -68,6 +84,9 @@ function createViaVersionDraft(): SegmentVersionDraft {
     averageTravelHours: '',
     isLongDistance: false,
     timeSlots: createDefaultTimeSlots(),
+    earlyTimeSlots: createDefaultTimeSlots(),
+    extendTimeSlots: createDefaultTimeSlots(),
+    earlyExtendTimeSlots: createDefaultTimeSlots(),
   };
 }
 
@@ -79,6 +98,9 @@ function createEmptyForm(): SegmentFormState {
     averageTravelHours: '',
     isLongDistance: false,
     timeSlots: createDefaultTimeSlots(),
+    earlyTimeSlots: createDefaultTimeSlots(),
+    extendTimeSlots: createDefaultTimeSlots(),
+    earlyExtendTimeSlots: createDefaultTimeSlots(),
     viaVersions: [],
   };
 }
@@ -94,12 +116,36 @@ function getNextSlotTime(timeSlots: SegmentTimeSlotFormInput[]): string {
   return `${String(Math.floor(nextTotalMinutes / 60)).padStart(2, '0')}:${String(nextTotalMinutes % 60).padStart(2, '0')}`;
 }
 
-function toFormTimeSlots(segment: SegmentRow | undefined): SegmentTimeSlotFormInput[] {
-  if (!segment || segment.scheduleTimeBlocks.length === 0) {
+type SegmentScheduleField = 'timeSlots' | 'earlyTimeSlots' | 'extendTimeSlots' | 'earlyExtendTimeSlots';
+
+const SEGMENT_VARIANT_CONFIG: Array<{
+  field: SegmentScheduleField;
+  title: string;
+  description: string;
+}> = [
+  { field: 'timeSlots', title: '기본 일정', description: '기본 연결 일정입니다.' },
+  { field: 'earlyTimeSlots', title: '얼리 일정', description: '첫날 얼리 조건에서 사용하는 연결 일정입니다.' },
+  { field: 'extendTimeSlots', title: '연장 일정', description: '마지막날 연장 조건에서 사용하는 연결 일정입니다.' },
+  { field: 'earlyExtendTimeSlots', title: '얼리+연장 일정', description: '첫날 얼리이면서 마지막날 연장 조건에서 사용하는 연결 일정입니다.' },
+];
+
+function toFormTimeSlots(
+  timeBlocks:
+    | SegmentRow['scheduleTimeBlocks']
+    | SegmentRow['earlyScheduleTimeBlocks']
+    | SegmentRow['extendScheduleTimeBlocks']
+    | SegmentRow['earlyExtendScheduleTimeBlocks']
+    | SegmentRow['versions'][number]['scheduleTimeBlocks']
+    | SegmentRow['versions'][number]['earlyScheduleTimeBlocks']
+    | SegmentRow['versions'][number]['extendScheduleTimeBlocks']
+    | SegmentRow['versions'][number]['earlyExtendScheduleTimeBlocks']
+    | undefined,
+): SegmentTimeSlotFormInput[] {
+  if (!timeBlocks || timeBlocks.length === 0) {
     return createDefaultTimeSlots();
   }
 
-  return segment.scheduleTimeBlocks
+  return timeBlocks
     .slice()
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .map((timeBlock) => ({
@@ -126,20 +172,37 @@ function toViaVersionDrafts(segment: SegmentRow | undefined): SegmentVersionDraf
       averageDistanceKm: String(version.averageDistanceKm),
       averageTravelHours: String(version.averageTravelHours),
       isLongDistance: version.isLongDistance,
-      timeSlots:
-        version.scheduleTimeBlocks.length > 0
-          ? version.scheduleTimeBlocks
-              .slice()
-              .sort((a, b) => a.orderIndex - b.orderIndex)
-              .map((timeBlock) => ({
-                startTime: timeBlock.startTime,
-                activities:
-                  timeBlock.activities.length > 0
-                    ? timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex).map((activity) => activity.description)
-                    : [''],
-              }))
-          : createDefaultTimeSlots(),
+      timeSlots: toFormTimeSlots(version.scheduleTimeBlocks),
+      earlyTimeSlots: toFormTimeSlots(version.earlyScheduleTimeBlocks),
+      extendTimeSlots: toFormTimeSlots(version.extendScheduleTimeBlocks),
+      earlyExtendTimeSlots: toFormTimeSlots(version.earlyExtendScheduleTimeBlocks),
     }));
+}
+
+function buildVariantTimeSlotInput(
+  value: {
+    timeSlots: SegmentTimeSlotFormInput[];
+    earlyTimeSlots: SegmentTimeSlotFormInput[];
+    extendTimeSlots: SegmentTimeSlotFormInput[];
+    earlyExtendTimeSlots: SegmentTimeSlotFormInput[];
+  },
+  input: {
+    includeEarly: boolean;
+    includeExtend: boolean;
+    includeEarlyExtend: boolean;
+  },
+): {
+  timeSlots: SegmentTimeSlotFormInput[];
+  earlyTimeSlots?: SegmentTimeSlotFormInput[];
+  extendTimeSlots?: SegmentTimeSlotFormInput[];
+  earlyExtendTimeSlots?: SegmentTimeSlotFormInput[];
+} {
+  return {
+    timeSlots: value.timeSlots,
+    ...(input.includeEarly ? { earlyTimeSlots: value.earlyTimeSlots } : {}),
+    ...(input.includeExtend ? { extendTimeSlots: value.extendTimeSlots } : {}),
+    ...(input.includeEarlyExtend ? { earlyExtendTimeSlots: value.earlyExtendTimeSlots } : {}),
+  };
 }
 
 function TimeSlotEditor(props: {
@@ -275,7 +338,14 @@ function TimeSlotEditor(props: {
   );
 }
 
-function buildVersionInputs(form: SegmentFormState): SegmentVersionFormInput[] {
+function buildVersionInputs(
+  form: SegmentFormState,
+  input: {
+    includeEarly: boolean;
+    includeExtend: boolean;
+    includeEarlyExtend: boolean;
+  },
+): SegmentVersionFormInput[] {
   return [
     {
       name: 'Direct',
@@ -284,7 +354,7 @@ function buildVersionInputs(form: SegmentFormState): SegmentVersionFormInput[] {
       averageDistanceKm: Number(form.averageDistanceKm),
       averageTravelHours: Number(form.averageTravelHours),
       isLongDistance: form.isLongDistance,
-      timeSlots: form.timeSlots,
+      ...buildVariantTimeSlotInput(form, input),
       isDefault: true,
     },
     ...form.viaVersions.map((version) => ({
@@ -294,19 +364,22 @@ function buildVersionInputs(form: SegmentFormState): SegmentVersionFormInput[] {
       averageDistanceKm: Number(version.averageDistanceKm),
       averageTravelHours: Number(version.averageTravelHours),
       isLongDistance: version.isLongDistance,
-      timeSlots: version.timeSlots,
+      ...buildVariantTimeSlotInput(version, input),
     })),
   ];
 }
 
 function ViaVersionEditor(props: {
   value: SegmentVersionDraft[];
-  locations: Location[];
+  locations: LocationRow[];
   fromLocationId: string;
   toLocationId: string;
+  includeEarly: boolean;
+  includeExtend: boolean;
+  includeEarlyExtend: boolean;
   onChange: (nextValue: SegmentVersionDraft[]) => void;
 }): JSX.Element {
-  const { value, locations, fromLocationId, toLocationId, onChange } = props;
+  const { value, locations, fromLocationId, toLocationId, includeEarly, includeExtend, includeEarlyExtend, onChange } = props;
 
   const candidateLocations = locations.filter((location) => location.id !== fromLocationId && location.id !== toLocationId);
 
@@ -452,6 +525,44 @@ function ViaVersionEditor(props: {
                 )
               }
             />
+            {includeEarly ? (
+              <TimeSlotEditor
+                title="버전 얼리 일정"
+                description="첫날 얼리 조건의 연결 자동 채움에 사용됩니다."
+                value={version.earlyTimeSlots}
+                onChange={(nextTimeSlots) =>
+                  onChange(
+                    value.map((item) => (item.clientId === version.clientId ? { ...item, earlyTimeSlots: nextTimeSlots } : item)),
+                  )
+                }
+              />
+            ) : null}
+            {includeExtend ? (
+              <TimeSlotEditor
+                title="버전 연장 일정"
+                description="마지막날 연장 조건의 연결 자동 채움에 사용됩니다."
+                value={version.extendTimeSlots}
+                onChange={(nextTimeSlots) =>
+                  onChange(
+                    value.map((item) => (item.clientId === version.clientId ? { ...item, extendTimeSlots: nextTimeSlots } : item)),
+                  )
+                }
+              />
+            ) : null}
+            {includeEarlyExtend ? (
+              <TimeSlotEditor
+                title="버전 얼리+연장 일정"
+                description="첫날 얼리이면서 마지막날 연장 조건의 연결 자동 채움에 사용됩니다."
+                value={version.earlyExtendTimeSlots}
+                onChange={(nextTimeSlots) =>
+                  onChange(
+                    value.map((item) =>
+                      item.clientId === version.clientId ? { ...item, earlyExtendTimeSlots: nextTimeSlots } : item,
+                    ),
+                  )
+                }
+              />
+            ) : null}
           </div>
         ))
       )}
@@ -462,7 +573,7 @@ function ViaVersionEditor(props: {
 export function SegmentPage(): JSX.Element {
   const crud = useSegmentCrud();
   const location = useLocation();
-  const { data: locationData, loading: locationsLoading } = useQuery<{ locations: Location[] }>(LOCATIONS_QUERY);
+  const { data: locationData, loading: locationsLoading } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
 
   const [form, setForm] = useState<SegmentFormState>(createEmptyForm);
   const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
@@ -501,6 +612,12 @@ export function SegmentPage(): JSX.Element {
   const selectedToLocation = form.toLocationId ? locationById.get(form.toLocationId) : undefined;
   const selectedEditFromLocation = editForm.fromLocationId ? locationById.get(editForm.fromLocationId) : undefined;
   const selectedEditToLocation = editForm.toLocationId ? locationById.get(editForm.toLocationId) : undefined;
+  const includeCreateEarly = Boolean(selectedFromLocation?.isFirstDayEligible);
+  const includeCreateExtend = Boolean(selectedToLocation?.isLastDayEligible);
+  const includeCreateEarlyExtend = includeCreateEarly && includeCreateExtend;
+  const includeEditEarly = Boolean(selectedEditFromLocation?.isFirstDayEligible);
+  const includeEditExtend = Boolean(selectedEditToLocation?.isLastDayEligible);
+  const includeEditEarlyExtend = includeEditEarly && includeEditExtend;
 
   const canSubmit =
     !!selectedFromLocation &&
@@ -559,8 +676,16 @@ export function SegmentPage(): JSX.Element {
                 averageDistanceKm: Number(form.averageDistanceKm),
                 averageTravelHours: Number(form.averageTravelHours),
                 isLongDistance: form.isLongDistance,
-                timeSlots: form.timeSlots,
-                versions: buildVersionInputs(form),
+                ...buildVariantTimeSlotInput(form, {
+                  includeEarly: includeCreateEarly,
+                  includeExtend: includeCreateExtend,
+                  includeEarlyExtend: includeCreateEarlyExtend,
+                }),
+                versions: buildVersionInputs(form, {
+                  includeEarly: includeCreateEarly,
+                  includeExtend: includeCreateExtend,
+                  includeEarlyExtend: includeCreateEarlyExtend,
+                }),
               });
               setForm(createEmptyForm());
               setFromSearch('');
@@ -688,12 +813,39 @@ export function SegmentPage(): JSX.Element {
             value={form.timeSlots}
             onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
           />
+          {includeCreateEarly ? (
+            <TimeSlotEditor
+              title="Direct 얼리 일정"
+              description="첫날 얼리 조건의 연결 일정입니다."
+              value={form.earlyTimeSlots}
+              onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, earlyTimeSlots: nextTimeSlots }))}
+            />
+          ) : null}
+          {includeCreateExtend ? (
+            <TimeSlotEditor
+              title="Direct 연장 일정"
+              description="마지막날 연장 조건의 연결 일정입니다."
+              value={form.extendTimeSlots}
+              onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
+            />
+          ) : null}
+          {includeCreateEarlyExtend ? (
+            <TimeSlotEditor
+              title="Direct 얼리+연장 일정"
+              description="첫날 얼리이면서 마지막날 연장 조건의 연결 일정입니다."
+              value={form.earlyExtendTimeSlots}
+              onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, earlyExtendTimeSlots: nextTimeSlots }))}
+            />
+          ) : null}
 
           <ViaVersionEditor
             value={form.viaVersions}
             locations={locations}
             fromLocationId={form.fromLocationId}
             toLocationId={form.toLocationId}
+            includeEarly={includeCreateEarly}
+            includeExtend={includeCreateExtend}
+            includeEarlyExtend={includeCreateEarlyExtend}
             onChange={(nextViaVersions) => setForm((prev) => ({ ...prev, viaVersions: nextViaVersions }))}
           />
 
@@ -763,7 +915,10 @@ export function SegmentPage(): JSX.Element {
                         averageDistanceKm: String(row.averageDistanceKm),
                         averageTravelHours: String(row.averageTravelHours),
                         isLongDistance: row.isLongDistance,
-                        timeSlots: toFormTimeSlots(row),
+                        timeSlots: toFormTimeSlots(row.scheduleTimeBlocks),
+                        earlyTimeSlots: toFormTimeSlots(row.earlyScheduleTimeBlocks),
+                        extendTimeSlots: toFormTimeSlots(row.extendScheduleTimeBlocks),
+                        earlyExtendTimeSlots: toFormTimeSlots(row.earlyExtendScheduleTimeBlocks),
                         viaVersions: toViaVersionDrafts(row),
                       });
                       setEditFromSearch(locationById.get(row.fromLocationId)?.name ?? '');
@@ -801,8 +956,16 @@ export function SegmentPage(): JSX.Element {
                   averageDistanceKm: Number(editForm.averageDistanceKm),
                   averageTravelHours: Number(editForm.averageTravelHours),
                   isLongDistance: editForm.isLongDistance,
-                  timeSlots: editForm.timeSlots,
-                  versions: buildVersionInputs(editForm),
+                  ...buildVariantTimeSlotInput(editForm, {
+                    includeEarly: includeEditEarly,
+                    includeExtend: includeEditExtend,
+                    includeEarlyExtend: includeEditEarlyExtend,
+                  }),
+                  versions: buildVersionInputs(editForm, {
+                    includeEarly: includeEditEarly,
+                    includeExtend: includeEditExtend,
+                    includeEarlyExtend: includeEditEarlyExtend,
+                  }),
                 });
                 setEditingSegmentId(null);
                 setEditForm(createEmptyForm());
@@ -931,12 +1094,39 @@ export function SegmentPage(): JSX.Element {
               value={editForm.timeSlots}
               onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
             />
+            {includeEditEarly ? (
+              <TimeSlotEditor
+                title="Direct 얼리 일정"
+                description="첫날 얼리 조건의 연결 일정입니다."
+                value={editForm.earlyTimeSlots}
+                onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, earlyTimeSlots: nextTimeSlots }))}
+              />
+            ) : null}
+            {includeEditExtend ? (
+              <TimeSlotEditor
+                title="Direct 연장 일정"
+                description="마지막날 연장 조건의 연결 일정입니다."
+                value={editForm.extendTimeSlots}
+                onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
+              />
+            ) : null}
+            {includeEditEarlyExtend ? (
+              <TimeSlotEditor
+                title="Direct 얼리+연장 일정"
+                description="첫날 얼리이면서 마지막날 연장 조건의 연결 일정입니다."
+                value={editForm.earlyExtendTimeSlots}
+                onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, earlyExtendTimeSlots: nextTimeSlots }))}
+              />
+            ) : null}
 
             <ViaVersionEditor
               value={editForm.viaVersions}
               locations={locations}
               fromLocationId={editForm.fromLocationId}
               toLocationId={editForm.toLocationId}
+              includeEarly={includeEditEarly}
+              includeExtend={includeEditExtend}
+              includeEarlyExtend={includeEditEarlyExtend}
               onChange={(nextViaVersions) => setEditForm((prev) => ({ ...prev, viaVersions: nextViaVersions }))}
             />
 

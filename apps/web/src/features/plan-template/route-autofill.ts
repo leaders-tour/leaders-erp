@@ -1,13 +1,27 @@
-import type { MealOption } from '../../generated/graphql';
+import type { MealOption, VariantType } from '../../generated/graphql';
 import { toFacilityLabel, toMealLabel } from '../location/display';
 import { getBaseLodgingText } from '../lodging-selection/model';
 import { buildEmptyPlanRow, buildPlaceholderPlanRows, type TemplatePlanRow } from './editor-utils';
+
+export type SegmentScheduleVariant = 'basic' | 'early' | 'extend' | 'earlyExtend';
+type LocationTimeBlockProfile = 'FIRST_DAY' | 'FIRST_DAY_EARLY';
 
 export interface RouteSelection {
   locationId: string;
   locationVersionId: string;
   segmentId?: string;
   segmentVersionId?: string;
+}
+
+interface TimeBlockOption {
+  id: string;
+  startTime: string;
+  orderIndex: number;
+  activities: Array<{
+    id: string;
+    description: string;
+    orderIndex: number;
+  }>;
 }
 
 export interface LocationVersionOption {
@@ -27,16 +41,8 @@ export interface LocationVersionOption {
     lunch: MealOption | null;
     dinner: MealOption | null;
   }>;
-  timeBlocks: Array<{
-    id: string;
-    startTime: string;
-    orderIndex: number;
-    activities: Array<{
-      id: string;
-      description: string;
-      orderIndex: number;
-    }>;
-  }>;
+  firstDayTimeBlocks: TimeBlockOption[];
+  firstDayEarlyTimeBlocks: TimeBlockOption[];
 }
 
 export interface LocationOption {
@@ -44,6 +50,8 @@ export interface LocationOption {
   regionId: string;
   name: string;
   defaultVersionId: string | null;
+  isFirstDayEligible: boolean;
+  isLastDayEligible: boolean;
   variations: LocationVersionOption[];
 }
 
@@ -62,16 +70,10 @@ export interface SegmentVersionOption {
     locationId: string;
     orderIndex: number;
   }>;
-  scheduleTimeBlocks: Array<{
-    id: string;
-    startTime: string;
-    orderIndex: number;
-    activities: Array<{
-      id: string;
-      description: string;
-      orderIndex: number;
-    }>;
-  }>;
+  scheduleTimeBlocks: TimeBlockOption[];
+  earlyScheduleTimeBlocks: TimeBlockOption[];
+  extendScheduleTimeBlocks: TimeBlockOption[];
+  earlyExtendScheduleTimeBlocks: TimeBlockOption[];
 }
 
 export interface SegmentOption {
@@ -83,16 +85,10 @@ export interface SegmentOption {
   averageDistanceKm: number;
   averageTravelHours: number;
   isLongDistance?: boolean;
-  scheduleTimeBlocks: Array<{
-    id: string;
-    startTime: string;
-    orderIndex: number;
-    activities: Array<{
-      id: string;
-      description: string;
-      orderIndex: number;
-    }>;
-  }>;
+  scheduleTimeBlocks: TimeBlockOption[];
+  earlyScheduleTimeBlocks: TimeBlockOption[];
+  extendScheduleTimeBlocks: TimeBlockOption[];
+  earlyExtendScheduleTimeBlocks: TimeBlockOption[];
   versions?: SegmentVersionOption[];
 }
 
@@ -111,23 +107,18 @@ interface ResolvedSegmentVersionOption {
     locationId: string;
     orderIndex: number;
   }>;
-  scheduleTimeBlocks: Array<{
-    id: string;
-    startTime: string;
-    orderIndex: number;
-    activities: Array<{
-      id: string;
-      description: string;
-      orderIndex: number;
-    }>;
-  }>;
+  scheduleTimeBlocks: TimeBlockOption[];
+  earlyScheduleTimeBlocks: TimeBlockOption[];
+  extendScheduleTimeBlocks: TimeBlockOption[];
+  earlyExtendScheduleTimeBlocks: TimeBlockOption[];
 }
 
-export function formatLocationVersion(version: Pick<LocationVersionOption, 'label' | 'versionNumber'> | undefined): string {
-  if (!version) {
-    return '버전 미정';
-  }
-  return `${version.label} (v${version.versionNumber})`;
+function hasEarlyVariant(variantType: VariantType | undefined): boolean {
+  return variantType === 'early' || variantType === 'earlyExtend';
+}
+
+function hasExtendVariant(variantType: VariantType | undefined): boolean {
+  return variantType === 'extend' || variantType === 'earlyExtend';
 }
 
 function formatHours(value: number): string {
@@ -136,6 +127,119 @@ function formatHours(value: number): string {
 
 function formatDistance(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(1)));
+}
+
+function getOrderedTimeBlocks(timeBlocks: TimeBlockOption[]): TimeBlockOption[] {
+  return timeBlocks.slice().sort((a, b) => a.orderIndex - b.orderIndex);
+}
+
+function toTimeCellFromTimeBlocks(
+  timeBlocks: TimeBlockOption[],
+  options?: {
+    firstStartTimeOverride?: string;
+    lastStartTimeOverride?: string;
+  },
+): string {
+  if (timeBlocks.length === 0) {
+    return '';
+  }
+
+  const orderedTimeBlocks = getOrderedTimeBlocks(timeBlocks);
+
+  return orderedTimeBlocks
+    .flatMap((timeBlock, index) => {
+      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
+      const isFirst = index === 0;
+      const isLast = index === orderedTimeBlocks.length - 1;
+      const startTime =
+        (isFirst && options?.firstStartTimeOverride?.trim()) ||
+        (isLast && options?.lastStartTimeOverride?.trim()) ||
+        timeBlock.startTime;
+      if (orderedActivities.length <= 1) {
+        return [startTime];
+      }
+      return [startTime, ...orderedActivities.slice(1).map(() => '-')];
+    })
+    .join('\n');
+}
+
+function toScheduleCellFromTimeBlocks(timeBlocks: TimeBlockOption[]): string {
+  if (timeBlocks.length === 0) {
+    return '';
+  }
+
+  return getOrderedTimeBlocks(timeBlocks)
+    .flatMap((timeBlock) => {
+      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
+      if (orderedActivities.length === 0) {
+        return ['(일정 없음)'];
+      }
+      return orderedActivities.map((activity) => activity.description);
+    })
+    .join('\n');
+}
+
+function buildLegacyDirectVersion(segment: SegmentOption): ResolvedSegmentVersionOption {
+  return {
+    id: `${segment.id}::direct`,
+    segmentId: segment.id,
+    name: 'Direct',
+    kind: 'DIRECT',
+    averageDistanceKm: segment.averageDistanceKm,
+    averageTravelHours: segment.averageTravelHours,
+    isLongDistance: segment.isLongDistance ?? false,
+    sortOrder: 0,
+    isDefault: true,
+    viaLocations: [],
+    scheduleTimeBlocks: segment.scheduleTimeBlocks,
+    earlyScheduleTimeBlocks: segment.earlyScheduleTimeBlocks,
+    extendScheduleTimeBlocks: segment.extendScheduleTimeBlocks,
+    earlyExtendScheduleTimeBlocks: segment.earlyExtendScheduleTimeBlocks,
+  };
+}
+
+function getLocationTimeBlocks(
+  version: LocationVersionOption | undefined,
+  profile: LocationTimeBlockProfile,
+): TimeBlockOption[] {
+  if (!version) {
+    return [];
+  }
+
+  if (profile === 'FIRST_DAY') {
+    return version.firstDayTimeBlocks ?? [];
+  }
+  if (profile === 'FIRST_DAY_EARLY') {
+    return version.firstDayEarlyTimeBlocks ?? [];
+  }
+  return version.firstDayTimeBlocks ?? [];
+}
+
+function getSegmentScheduleTimeBlocks(
+  segmentVersion: ResolvedSegmentVersionOption | undefined,
+  variant: SegmentScheduleVariant,
+): TimeBlockOption[] {
+  if (!segmentVersion) {
+    return [];
+  }
+
+  if (variant === 'early') {
+    return segmentVersion.earlyScheduleTimeBlocks ?? [];
+  }
+  if (variant === 'extend') {
+    return segmentVersion.extendScheduleTimeBlocks ?? [];
+  }
+  if (variant === 'earlyExtend') {
+    return segmentVersion.earlyExtendScheduleTimeBlocks ?? [];
+  }
+  return segmentVersion.scheduleTimeBlocks ?? [];
+}
+
+export function formatLocationVersion(version: Pick<LocationVersionOption, 'label' | 'versionNumber'> | undefined): string {
+  if (!version) {
+    return '버전 미정';
+  }
+  return `${version.label} (v${version.versionNumber})`;
 }
 
 export function formatRouteDestinationCellText(input: {
@@ -153,105 +257,6 @@ export function formatRouteDestinationCellText(input: {
       : '(거리 미정)';
 
   return [input.locationName, travelLine, distanceLine].join('\n');
-}
-
-function toTimeCell(version: LocationVersionOption | undefined): string {
-  if (!version || version.timeBlocks.length === 0) {
-    return '';
-  }
-
-  return version.timeBlocks
-    .slice()
-    .sort((a, b) => a.orderIndex - b.orderIndex)
-    .flatMap((timeBlock) => {
-      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
-      if (orderedActivities.length <= 1) {
-        return [timeBlock.startTime];
-      }
-      return [timeBlock.startTime, ...orderedActivities.slice(1).map(() => '-')];
-    })
-    .join('\n');
-}
-
-function toScheduleCell(version: LocationVersionOption | undefined): string {
-  if (!version || version.timeBlocks.length === 0) {
-    return '';
-  }
-
-  return version.timeBlocks
-    .slice()
-    .sort((a, b) => a.orderIndex - b.orderIndex)
-    .flatMap((timeBlock) => {
-      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
-      if (orderedActivities.length === 0) {
-        return ['(일정 없음)'];
-      }
-      return orderedActivities.map((activity) => activity.description);
-    })
-    .join('\n');
-}
-
-function toSegmentTimeCell(segmentVersion: ResolvedSegmentVersionOption | undefined): string {
-  if (!segmentVersion || segmentVersion.scheduleTimeBlocks.length === 0) {
-    return '';
-  }
-
-  return segmentVersion.scheduleTimeBlocks
-    .slice()
-    .sort((a, b) => a.orderIndex - b.orderIndex)
-    .flatMap((timeBlock) => {
-      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
-      if (orderedActivities.length <= 1) {
-        return [timeBlock.startTime];
-      }
-      return [timeBlock.startTime, ...orderedActivities.slice(1).map(() => '-')];
-    })
-    .join('\n');
-}
-
-function toSegmentScheduleCell(segmentVersion: ResolvedSegmentVersionOption | undefined): string {
-  if (!segmentVersion || segmentVersion.scheduleTimeBlocks.length === 0) {
-    return '';
-  }
-
-  return segmentVersion.scheduleTimeBlocks
-    .slice()
-    .sort((a, b) => a.orderIndex - b.orderIndex)
-    .flatMap((timeBlock) => {
-      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
-      if (orderedActivities.length === 0) {
-        return ['(일정 없음)'];
-      }
-      return orderedActivities.map((activity) => activity.description);
-    })
-    .join('\n');
-}
-
-function toLodgingCell(version: LocationVersionOption | undefined): string {
-  return getBaseLodgingText(version, toFacilityLabel);
-}
-
-function toMealCell(version: LocationVersionOption | undefined): string {
-  const mealSet = version?.mealSets[0];
-  return [`아침 ${toMealLabel(mealSet?.breakfast)}`, `점심 ${toMealLabel(mealSet?.lunch)}`, `저녁 ${toMealLabel(mealSet?.dinner)}`].join(
-    '\n',
-  );
-}
-
-function buildLegacyDirectVersion(segment: SegmentOption): ResolvedSegmentVersionOption {
-  return {
-    id: `${segment.id}::direct`,
-    segmentId: segment.id,
-    name: 'Direct',
-    kind: 'DIRECT',
-    averageDistanceKm: segment.averageDistanceKm,
-    averageTravelHours: segment.averageTravelHours,
-    isLongDistance: segment.isLongDistance ?? false,
-    sortOrder: 0,
-    isDefault: true,
-    viaLocations: [],
-    scheduleTimeBlocks: segment.scheduleTimeBlocks,
-  };
 }
 
 export function getSegmentVersions(segment: SegmentOption | undefined): ResolvedSegmentVersionOption[] {
@@ -330,14 +335,45 @@ export function findSegment(
   return filteredSegments.find((segment) => segment.fromLocationId === fromLocationId && segment.toLocationId === toLocationId);
 }
 
+export function buildFirstDayOptions(filteredLocations: LocationOption[]): LocationOption[] {
+  return filteredLocations.filter((location) => location.isFirstDayEligible);
+}
+
+export function resolveSegmentScheduleVariant(input: {
+  variantType?: VariantType;
+  fromDayIndex: number;
+  toDayIndex: number;
+  totalDays: number;
+}): SegmentScheduleVariant {
+  const sourceContextIsEarly = input.fromDayIndex === 1 && hasEarlyVariant(input.variantType);
+  const targetContextIsExtend = input.toDayIndex === input.totalDays && hasExtendVariant(input.variantType);
+
+  if (sourceContextIsEarly && targetContextIsExtend) {
+    return 'earlyExtend';
+  }
+  if (sourceContextIsEarly) {
+    return 'early';
+  }
+  if (targetContextIsExtend) {
+    return 'extend';
+  }
+  return 'basic';
+}
+
+function hasScheduleForVariant(segment: SegmentOption | undefined, segmentVersionId: string | undefined, variant: SegmentScheduleVariant): boolean {
+  const segmentVersion = resolveSegmentVersion(segment, segmentVersionId);
+  return getSegmentScheduleTimeBlocks(segmentVersion, variant).length > 0;
+}
+
 export function buildNextOptions(input: {
   filteredLocations: LocationOption[];
   filteredSegments: SegmentOption[];
   startLocationId: string;
   selectedRoute: RouteSelection[];
   totalDays: number;
+  variantType?: VariantType;
 }): LocationOption[] {
-  const { filteredLocations, filteredSegments, selectedRoute, startLocationId, totalDays } = input;
+  const { filteredLocations, filteredSegments, selectedRoute, startLocationId, totalDays, variantType } = input;
   if (selectedRoute.length >= totalDays - 1) {
     return [];
   }
@@ -347,8 +383,21 @@ export function buildNextOptions(input: {
     return [];
   }
 
-  const toIds = filteredSegments.filter((segment) => segment.fromLocationId === fromId).map((segment) => segment.toLocationId);
-  return filteredLocations.filter((location) => toIds.includes(location.id));
+  const nextDayIndex = selectedRoute.length + 2;
+  const requiredVariant = resolveSegmentScheduleVariant({
+    variantType,
+    fromDayIndex: nextDayIndex - 1,
+    toDayIndex: nextDayIndex,
+    totalDays,
+  });
+  const isLastDay = nextDayIndex === totalDays;
+
+  const toIds = filteredSegments
+    .filter((segment) => segment.fromLocationId === fromId)
+    .filter((segment) => hasScheduleForVariant(segment, undefined, requiredVariant))
+    .map((segment) => segment.toLocationId);
+
+  return filteredLocations.filter((location) => toIds.includes(location.id) && (!isLastDay || location.isLastDayEligible));
 }
 
 export function buildAutoRowsFromRoute(input: {
@@ -359,6 +408,9 @@ export function buildAutoRowsFromRoute(input: {
   locationById: Map<string, LocationOption>;
   locationVersionById: Map<string, LocationVersionOption>;
   totalDays: number;
+  variantType?: VariantType;
+  firstDayTimeOverride?: string;
+  lastDayTimeOverride?: string;
 }): TemplatePlanRow[] {
   const {
     startLocationId,
@@ -368,6 +420,9 @@ export function buildAutoRowsFromRoute(input: {
     locationById,
     locationVersionById,
     totalDays,
+    variantType,
+    firstDayTimeOverride,
+    lastDayTimeOverride,
   } = input;
   const safeTotalDays = Math.max(2, totalDays);
 
@@ -387,12 +442,23 @@ export function buildAutoRowsFromRoute(input: {
     const segmentVersion = index === 0 ? undefined : resolveSegmentVersion(segment, toStop.segmentVersionId);
     const toLocation = locationById.get(toStop.locationId);
     const toVersion = locationVersionById.get(toStop.locationVersionId);
+    const segmentVariant =
+      index === 0
+        ? 'basic'
+        : resolveSegmentScheduleVariant({
+            variantType,
+            fromDayIndex: dayIndex - 1,
+            toDayIndex: dayIndex,
+            totalDays: safeTotalDays,
+          });
 
     const destinationCellText = formatRouteDestinationCellText({
       locationName: toLocation?.name ?? toStop.locationId,
       averageTravelHours: segmentVersion?.averageTravelHours,
       averageDistanceKm: segmentVersion?.averageDistanceKm,
     });
+
+    const firstDayProfile: LocationTimeBlockProfile = hasEarlyVariant(variantType) ? 'FIRST_DAY_EARLY' : 'FIRST_DAY';
 
     return {
       segmentId: segment?.id,
@@ -401,10 +467,24 @@ export function buildAutoRowsFromRoute(input: {
       locationVersionId: toStop.locationVersionId,
       dateCellText: `${dayIndex}일차`,
       destinationCellText,
-      timeCellText: dayIndex === 1 ? toTimeCell(toVersion) : toSegmentTimeCell(segmentVersion),
-      scheduleCellText: dayIndex === 1 ? toScheduleCell(toVersion) : toSegmentScheduleCell(segmentVersion),
-      lodgingCellText: toLodgingCell(toVersion),
-      mealCellText: toMealCell(toVersion),
+      timeCellText:
+        dayIndex === 1
+          ? toTimeCellFromTimeBlocks(getLocationTimeBlocks(toVersion, firstDayProfile), {
+              firstStartTimeOverride: firstDayTimeOverride,
+            })
+          : toTimeCellFromTimeBlocks(getSegmentScheduleTimeBlocks(segmentVersion, segmentVariant), {
+              lastStartTimeOverride: dayIndex === safeTotalDays ? lastDayTimeOverride : undefined,
+            }),
+      scheduleCellText:
+        dayIndex === 1
+          ? toScheduleCellFromTimeBlocks(getLocationTimeBlocks(toVersion, firstDayProfile))
+          : toScheduleCellFromTimeBlocks(getSegmentScheduleTimeBlocks(segmentVersion, segmentVariant)),
+      lodgingCellText: getBaseLodgingText(toVersion, toFacilityLabel),
+      mealCellText: [
+        `아침 ${toMealLabel(toVersion?.mealSets[0]?.breakfast)}`,
+        `점심 ${toMealLabel(toVersion?.mealSets[0]?.lunch)}`,
+        `저녁 ${toMealLabel(toVersion?.mealSets[0]?.dinner)}`,
+      ].join('\n'),
     };
   });
 

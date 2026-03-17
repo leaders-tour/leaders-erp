@@ -74,8 +74,14 @@ export const locationResolver = {
     variations: (parent: any) => parent.versions ?? [],
     defaultLodgingType: (parent: any) =>
       parent.currentVersion?.defaultLodgingType ?? parent.defaultLodgingType,
-    timeBlocks: (parent: any) => parent.currentVersion?.timeBlocks ?? parent.timeBlocks ?? [],
+    timeBlocks: () => [],
     lodgings: (parent: any) => parent.currentVersion?.lodgings ?? parent.lodgings ?? [],
     mealSets: (parent: any) => parent.currentVersion?.mealSets ?? parent.mealSets ?? [],
+  },
+  LocationVersion: {
+    timeBlocks: () => [],
+    firstDayTimeBlocks: (parent: any) => (parent.timeBlocks ?? []).filter((timeBlock: any) => timeBlock.profile === 'FIRST_DAY'),
+    firstDayEarlyTimeBlocks: (parent: any) =>
+      (parent.timeBlocks ?? []).filter((timeBlock: any) => timeBlock.profile === 'FIRST_DAY_EARLY'),
   },
 };

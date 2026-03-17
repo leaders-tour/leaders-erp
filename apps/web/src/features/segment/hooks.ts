@@ -15,6 +15,40 @@ const LIST = gql`
       isLongDistance
       scheduleTimeBlocks {
         id
+        variant
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
+      earlyScheduleTimeBlocks {
+        id
+        variant
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
+      extendScheduleTimeBlocks {
+        id
+        variant
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
+      earlyExtendScheduleTimeBlocks {
+        id
+        variant
         startTime
         orderIndex
         activities {
@@ -40,6 +74,40 @@ const LIST = gql`
         }
         scheduleTimeBlocks {
           id
+          variant
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+        earlyScheduleTimeBlocks {
+          id
+          variant
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+        extendScheduleTimeBlocks {
+          id
+          variant
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+        earlyExtendScheduleTimeBlocks {
+          id
+          variant
           startTime
           orderIndex
           activities {
@@ -83,6 +151,9 @@ export interface SegmentFormInput {
   averageTravelHours: number;
   isLongDistance: boolean;
   timeSlots: SegmentTimeSlotFormInput[];
+  earlyTimeSlots?: SegmentTimeSlotFormInput[];
+  extendTimeSlots?: SegmentTimeSlotFormInput[];
+  earlyExtendTimeSlots?: SegmentTimeSlotFormInput[];
   versions?: SegmentVersionFormInput[];
 }
 
@@ -100,6 +171,9 @@ export interface SegmentVersionFormInput {
   averageTravelHours: number;
   isLongDistance: boolean;
   timeSlots: SegmentTimeSlotFormInput[];
+  earlyTimeSlots?: SegmentTimeSlotFormInput[];
+  extendTimeSlots?: SegmentTimeSlotFormInput[];
+  earlyExtendTimeSlots?: SegmentTimeSlotFormInput[];
   isDefault?: boolean;
 }
 
@@ -115,6 +189,40 @@ export interface SegmentRow {
   isLongDistance: boolean;
   scheduleTimeBlocks: Array<{
     id: string;
+    variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
+    startTime: string;
+    orderIndex: number;
+    activities: Array<{
+      id: string;
+      description: string;
+      orderIndex: number;
+    }>;
+  }>;
+  earlyScheduleTimeBlocks: Array<{
+    id: string;
+    variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
+    startTime: string;
+    orderIndex: number;
+    activities: Array<{
+      id: string;
+      description: string;
+      orderIndex: number;
+    }>;
+  }>;
+  extendScheduleTimeBlocks: Array<{
+    id: string;
+    variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
+    startTime: string;
+    orderIndex: number;
+    activities: Array<{
+      id: string;
+      description: string;
+      orderIndex: number;
+    }>;
+  }>;
+  earlyExtendScheduleTimeBlocks: Array<{
+    id: string;
+    variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
     startTime: string;
     orderIndex: number;
     activities: Array<{
@@ -140,6 +248,40 @@ export interface SegmentRow {
     }>;
     scheduleTimeBlocks: Array<{
       id: string;
+      variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
+      startTime: string;
+      orderIndex: number;
+      activities: Array<{
+        id: string;
+        description: string;
+        orderIndex: number;
+      }>;
+    }>;
+    earlyScheduleTimeBlocks: Array<{
+      id: string;
+      variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
+      startTime: string;
+      orderIndex: number;
+      activities: Array<{
+        id: string;
+        description: string;
+        orderIndex: number;
+      }>;
+    }>;
+    extendScheduleTimeBlocks: Array<{
+      id: string;
+      variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
+      startTime: string;
+      orderIndex: number;
+      activities: Array<{
+        id: string;
+        description: string;
+        orderIndex: number;
+      }>;
+    }>;
+    earlyExtendScheduleTimeBlocks: Array<{
+      id: string;
+      variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
       startTime: string;
       orderIndex: number;
       activities: Array<{

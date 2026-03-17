@@ -80,24 +80,50 @@ export function LocationVersionDetailPage(): JSX.Element {
         <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
           <div>버전: {versionDisplay}</div>
           <div>지역 스냅샷: {version.regionNameSnapshot}</div>
+          <div>첫날 가능: {version.location.isFirstDayEligible ? 'Y' : 'N'}</div>
+          <div>마지막날 가능: {version.location.isLastDayEligible ? 'Y' : 'N'}</div>
         </div>
       </Card>
 
-      <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold">시간표/일정</h2>
-        <div className="grid gap-2 text-sm">
-          {version.timeBlocks.map((timeBlock) => (
-            <div key={timeBlock.id} className="grid gap-1">
-              {timeBlock.activities.map((activity, index) => (
-                <div key={activity.id} className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 leading-6">
-                  <div>{index === 0 ? timeBlock.startTime : '-'}</div>
-                  <div>{activity.description}</div>
+      {version.location.isFirstDayEligible ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <h2 className="mb-3 text-lg font-semibold">1일차 기본 일정</h2>
+            <div className="grid gap-2 text-sm">
+              {version.firstDayTimeBlocks.map((timeBlock) => (
+                <div key={timeBlock.id} className="grid gap-1">
+                  {timeBlock.activities.map((activity, index) => (
+                    <div key={activity.id} className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 leading-6">
+                      <div>{index === 0 ? timeBlock.startTime : '-'}</div>
+                      <div>{activity.description}</div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
-          ))}
+          </Card>
+          <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <h2 className="mb-3 text-lg font-semibold">1일차 얼리 일정</h2>
+            <div className="grid gap-2 text-sm">
+              {version.firstDayEarlyTimeBlocks.map((timeBlock) => (
+                <div key={timeBlock.id} className="grid gap-1">
+                  {timeBlock.activities.map((activity, index) => (
+                    <div key={activity.id} className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 leading-6">
+                      <div>{index === 0 ? timeBlock.startTime : '-'}</div>
+                      <div>{activity.description}</div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </Card>
         </div>
-      </Card>
+      ) : (
+        <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <h2 className="mb-3 text-lg font-semibold">1일차 일정</h2>
+          <div className="text-sm text-slate-500">첫날 가능 목적지가 아니므로 목적지 전용 일정이 없습니다.</div>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">

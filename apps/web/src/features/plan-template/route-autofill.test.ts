@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { MealOption } from '../../generated/graphql';
+import { MealOption, VariantType } from '../../generated/graphql';
 import type { LocationOption, SegmentOption } from './route-autofill';
-import { buildAutoRowsFromRoute, buildTemplateStopsFromRouteAndRows } from './route-autofill';
+import { buildAutoRowsFromRoute, buildFirstDayOptions, buildNextOptions, buildTemplateStopsFromRouteAndRows } from './route-autofill';
 
 const locationA: LocationOption = {
   id: 'loc-a',
   regionId: 'region-1',
   name: '울란바토르',
   defaultVersionId: 'ver-a',
+  isFirstDayEligible: true,
+  isLastDayEligible: false,
   variations: [
     {
       id: 'ver-a',
@@ -15,12 +17,20 @@ const locationA: LocationOption = {
       label: '기본',
       lodgings: [],
       mealSets: [],
-      timeBlocks: [
+      firstDayTimeBlocks: [
         {
-          id: 'tb-a-1',
+          id: 'tb-a-first',
           startTime: '08:00',
           orderIndex: 0,
-          activities: [{ id: 'act-a-1', description: '출발 준비', orderIndex: 0 }],
+          activities: [{ id: 'act-a-first', description: '첫날 기본 일정', orderIndex: 0 }],
+        },
+      ],
+      firstDayEarlyTimeBlocks: [
+        {
+          id: 'tb-a-early',
+          startTime: '05:00',
+          orderIndex: 0,
+          activities: [{ id: 'act-a-early', description: '첫날 얼리 일정', orderIndex: 0 }],
         },
       ],
     },
@@ -32,6 +42,8 @@ const locationB: LocationOption = {
   regionId: 'region-1',
   name: '달란자드가드',
   defaultVersionId: 'ver-b',
+  isFirstDayEligible: false,
+  isLastDayEligible: false,
   variations: [
     {
       id: 'ver-b',
@@ -54,43 +66,61 @@ const locationB: LocationOption = {
           dinner: MealOption.CampMeal,
         },
       ],
-      timeBlocks: [
-        {
-          id: 'tb-b-1',
-          startTime: '09:00',
-          orderIndex: 0,
-          activities: [{ id: 'act-b-1', description: '현지 산책', orderIndex: 0 }],
-        },
-      ],
+      firstDayTimeBlocks: [],
+      firstDayEarlyTimeBlocks: [],
     },
   ],
 };
 
-const segment: SegmentOption = {
+const locationC: LocationOption = {
+  id: 'loc-c',
+  regionId: 'region-1',
+  name: '고비 사막',
+  defaultVersionId: 'ver-c',
+  isFirstDayEligible: false,
+  isLastDayEligible: true,
+  variations: [
+    {
+      id: 'ver-c',
+      versionNumber: 1,
+      label: '기본',
+      lodgings: [],
+      mealSets: [],
+      firstDayTimeBlocks: [],
+      firstDayEarlyTimeBlocks: [],
+    },
+  ],
+};
+
+const segmentAB: SegmentOption = {
   id: 'segment-ab',
   regionId: 'region-1',
   fromLocationId: 'loc-a',
   toLocationId: 'loc-b',
-  defaultVersionId: 'segment-version-direct',
+  defaultVersionId: 'segment-version-ab',
   averageDistanceKm: 540,
   averageTravelHours: 8.5,
   scheduleTimeBlocks: [
     {
-      id: 'seg-tb-1',
+      id: 'seg-ab-basic',
       startTime: '12:00',
       orderIndex: 0,
-      activities: [{ id: 'seg-act-1', description: '이동 중 점심식사', orderIndex: 0 }],
-    },
-    {
-      id: 'seg-tb-2',
-      startTime: '18:00',
-      orderIndex: 1,
-      activities: [{ id: 'seg-act-2', description: '숙소 도착', orderIndex: 0 }],
+      activities: [{ id: 'seg-ab-basic-act', description: '기본 이동', orderIndex: 0 }],
     },
   ],
+  earlyScheduleTimeBlocks: [
+    {
+      id: 'seg-ab-early',
+      startTime: '06:00',
+      orderIndex: 0,
+      activities: [{ id: 'seg-ab-early-act', description: '얼리 이동', orderIndex: 0 }],
+    },
+  ],
+  extendScheduleTimeBlocks: [],
+  earlyExtendScheduleTimeBlocks: [],
   versions: [
     {
-      id: 'segment-version-direct',
+      id: 'segment-version-ab',
       segmentId: 'segment-ab',
       name: 'Direct',
       kind: 'DIRECT',
@@ -102,61 +132,263 @@ const segment: SegmentOption = {
       viaLocations: [],
       scheduleTimeBlocks: [
         {
-          id: 'segv-tb-1',
+          id: 'segv-ab-basic',
           startTime: '12:00',
           orderIndex: 0,
-          activities: [{ id: 'segv-act-1', description: '이동 중 점심식사', orderIndex: 0 }],
+          activities: [{ id: 'segv-ab-basic-act', description: '기본 이동', orderIndex: 0 }],
         },
+      ],
+      earlyScheduleTimeBlocks: [
         {
-          id: 'segv-tb-2',
-          startTime: '18:00',
-          orderIndex: 1,
-          activities: [{ id: 'segv-act-2', description: '숙소 도착', orderIndex: 0 }],
+          id: 'segv-ab-early',
+          startTime: '06:00',
+          orderIndex: 0,
+          activities: [{ id: 'segv-ab-early-act', description: '얼리 이동', orderIndex: 0 }],
+        },
+      ],
+      extendScheduleTimeBlocks: [],
+      earlyExtendScheduleTimeBlocks: [],
+    },
+  ],
+};
+
+const segmentBC: SegmentOption = {
+  id: 'segment-bc',
+  regionId: 'region-1',
+  fromLocationId: 'loc-b',
+  toLocationId: 'loc-c',
+  defaultVersionId: 'segment-version-bc',
+  averageDistanceKm: 200,
+  averageTravelHours: 4,
+  scheduleTimeBlocks: [
+    {
+      id: 'seg-bc-basic',
+      startTime: '11:00',
+      orderIndex: 0,
+      activities: [{ id: 'seg-bc-basic-act', description: '기본 이동', orderIndex: 0 }],
+    },
+  ],
+  earlyScheduleTimeBlocks: [],
+  extendScheduleTimeBlocks: [
+    {
+      id: 'seg-bc-extend',
+      startTime: '19:00',
+      orderIndex: 0,
+      activities: [{ id: 'seg-bc-extend-act', description: '연장 이동', orderIndex: 0 }],
+    },
+  ],
+  earlyExtendScheduleTimeBlocks: [],
+  versions: [
+    {
+      id: 'segment-version-bc',
+      segmentId: 'segment-bc',
+      name: 'Direct',
+      kind: 'DIRECT',
+      averageDistanceKm: 200,
+      averageTravelHours: 4,
+      isLongDistance: false,
+      sortOrder: 0,
+      isDefault: true,
+      viaLocations: [],
+      scheduleTimeBlocks: [
+        {
+          id: 'segv-bc-basic',
+          startTime: '11:00',
+          orderIndex: 0,
+          activities: [{ id: 'segv-bc-basic-act', description: '기본 이동', orderIndex: 0 }],
+        },
+      ],
+      earlyScheduleTimeBlocks: [],
+      extendScheduleTimeBlocks: [
+        {
+          id: 'segv-bc-extend',
+          startTime: '19:00',
+          orderIndex: 0,
+          activities: [{ id: 'segv-bc-extend-act', description: '연장 이동', orderIndex: 0 }],
+        },
+      ],
+      earlyExtendScheduleTimeBlocks: [],
+    },
+  ],
+};
+
+const segmentAC: SegmentOption = {
+  id: 'segment-ac',
+  regionId: 'region-1',
+  fromLocationId: 'loc-a',
+  toLocationId: 'loc-c',
+  defaultVersionId: 'segment-version-ac',
+  averageDistanceKm: 620,
+  averageTravelHours: 10,
+  scheduleTimeBlocks: [
+    {
+      id: 'seg-ac-basic',
+      startTime: '12:00',
+      orderIndex: 0,
+      activities: [{ id: 'seg-ac-basic-act', description: '기본 장거리 이동', orderIndex: 0 }],
+    },
+  ],
+  earlyScheduleTimeBlocks: [
+    {
+      id: 'seg-ac-early',
+      startTime: '05:30',
+      orderIndex: 0,
+      activities: [{ id: 'seg-ac-early-act', description: '얼리 장거리 이동', orderIndex: 0 }],
+    },
+  ],
+  extendScheduleTimeBlocks: [
+    {
+      id: 'seg-ac-extend',
+      startTime: '20:00',
+      orderIndex: 0,
+      activities: [{ id: 'seg-ac-extend-act', description: '연장 장거리 이동', orderIndex: 0 }],
+    },
+  ],
+  earlyExtendScheduleTimeBlocks: [
+    {
+      id: 'seg-ac-early-extend',
+      startTime: '05:30',
+      orderIndex: 0,
+      activities: [{ id: 'seg-ac-early-extend-act', description: '얼리+연장 이동', orderIndex: 0 }],
+    },
+  ],
+  versions: [
+    {
+      id: 'segment-version-ac',
+      segmentId: 'segment-ac',
+      name: 'Direct',
+      kind: 'DIRECT',
+      averageDistanceKm: 620,
+      averageTravelHours: 10,
+      isLongDistance: false,
+      sortOrder: 0,
+      isDefault: true,
+      viaLocations: [],
+      scheduleTimeBlocks: [
+        {
+          id: 'segv-ac-basic',
+          startTime: '12:00',
+          orderIndex: 0,
+          activities: [{ id: 'segv-ac-basic-act', description: '기본 장거리 이동', orderIndex: 0 }],
+        },
+      ],
+      earlyScheduleTimeBlocks: [
+        {
+          id: 'segv-ac-early',
+          startTime: '05:30',
+          orderIndex: 0,
+          activities: [{ id: 'segv-ac-early-act', description: '얼리 장거리 이동', orderIndex: 0 }],
+        },
+      ],
+      extendScheduleTimeBlocks: [
+        {
+          id: 'segv-ac-extend',
+          startTime: '20:00',
+          orderIndex: 0,
+          activities: [{ id: 'segv-ac-extend-act', description: '연장 장거리 이동', orderIndex: 0 }],
+        },
+      ],
+      earlyExtendScheduleTimeBlocks: [
+        {
+          id: 'segv-ac-early-extend',
+          startTime: '05:30',
+          orderIndex: 0,
+          activities: [{ id: 'segv-ac-early-extend-act', description: '얼리+연장 이동', orderIndex: 0 }],
         },
       ],
     },
   ],
 };
 
+const segmentACWithoutEarly: SegmentOption = {
+  ...segmentAC,
+  earlyScheduleTimeBlocks: [],
+  versions: [
+    {
+      ...segmentAC.versions![0]!,
+      earlyScheduleTimeBlocks: [],
+    },
+  ],
+};
+
 const locationAVersion = locationA.variations[0]!;
 const locationBVersion = locationB.variations[0]!;
+const locationCVersion = locationC.variations[0]!;
 
 describe('route-autofill', () => {
-  it('uses location version schedule on day 1 and segment schedule afterwards', () => {
-    const rows = buildAutoRowsFromRoute({
+  it('limits day 1 candidates to first-day eligible locations', () => {
+    expect(buildFirstDayOptions([locationA, locationB, locationC]).map((location) => location.id)).toEqual(['loc-a']);
+  });
+
+  it('filters day 2 candidates by early schedules when the variant is early', () => {
+    const options = buildNextOptions({
+      filteredLocations: [locationA, locationB, locationC],
+      filteredSegments: [segmentAB, segmentACWithoutEarly],
       startLocationId: locationA.id,
-      startLocationVersionId: 'ver-a',
+      selectedRoute: [],
+      totalDays: 3,
+      variantType: VariantType.Early,
+    });
+
+    expect(options.map((location) => location.id)).toEqual(['loc-b']);
+  });
+
+  it('filters the last day by last-day eligibility and extend schedules', () => {
+    const options = buildNextOptions({
+      filteredLocations: [locationA, locationB, locationC],
+      filteredSegments: [segmentBC],
+      startLocationId: locationA.id,
       selectedRoute: [
         {
           locationId: locationB.id,
           locationVersionId: 'ver-b',
           segmentId: 'segment-ab',
-          segmentVersionId: 'segment-version-direct',
+          segmentVersionId: 'segment-version-ab',
         },
       ],
-      filteredSegments: [segment],
+      totalDays: 3,
+      variantType: VariantType.Extend,
+    });
+
+    expect(options.map((location) => location.id)).toEqual(['loc-c']);
+  });
+
+  it('uses first-day early time blocks and early+extend segment schedules for a 2-day route', () => {
+    const rows = buildAutoRowsFromRoute({
+      startLocationId: locationA.id,
+      startLocationVersionId: 'ver-a',
+      selectedRoute: [
+        {
+          locationId: locationC.id,
+          locationVersionId: 'ver-c',
+          segmentId: 'segment-ac',
+          segmentVersionId: 'segment-version-ac',
+        },
+      ],
+      filteredSegments: [segmentAC],
       locationById: new Map([
         [locationA.id, locationA],
-        [locationB.id, locationB],
+        [locationC.id, locationC],
       ]),
       locationVersionById: new Map([
         ['ver-a', locationAVersion],
-        ['ver-b', locationBVersion],
+        ['ver-c', locationCVersion],
       ]),
       totalDays: 2,
+      variantType: VariantType.EarlyExtend,
+      firstDayTimeOverride: '04:30',
+      lastDayTimeOverride: '22:00',
     });
 
     expect(rows[0]).toMatchObject({
-      segmentId: undefined,
-      timeCellText: '08:00',
-      scheduleCellText: '출발 준비',
+      timeCellText: '04:30',
+      scheduleCellText: '첫날 얼리 일정',
     });
     expect(rows[1]).toMatchObject({
-      segmentId: 'segment-ab',
-      segmentVersionId: 'segment-version-direct',
-      timeCellText: '12:00\n18:00',
-      scheduleCellText: '이동 중 점심식사\n숙소 도착',
-      lodgingCellText: '여행자 캠프\n전기 O\n샤워 O\n인터넷 제한',
+      segmentId: 'segment-ac',
+      segmentVersionId: 'segment-version-ac',
+      timeCellText: '22:00',
+      scheduleCellText: '얼리+연장 이동',
     });
   });
 
@@ -169,7 +401,7 @@ describe('route-autofill', () => {
           locationId: locationB.id,
           locationVersionId: 'ver-b',
           segmentId: 'segment-ab',
-          segmentVersionId: 'segment-version-direct',
+          segmentVersionId: 'segment-version-ab',
         },
       ],
       planRows: [
@@ -185,13 +417,13 @@ describe('route-autofill', () => {
         },
         {
           segmentId: 'segment-ab',
-          segmentVersionId: 'segment-version-direct',
+          segmentVersionId: 'segment-version-ab',
           locationId: locationB.id,
           locationVersionId: 'ver-b',
           dateCellText: '2일차',
           destinationCellText: '달란자드가드',
-          timeCellText: '12:00\n18:00',
-          scheduleCellText: '이동 중 점심식사\n숙소 도착',
+          timeCellText: '12:00',
+          scheduleCellText: '이동 중 점심식사',
           lodgingCellText: '',
           mealCellText: '',
         },
@@ -200,6 +432,6 @@ describe('route-autofill', () => {
 
     expect(stops[0]?.segmentId).toBeUndefined();
     expect(stops[1]?.segmentId).toBe('segment-ab');
-    expect(stops[1]?.segmentVersionId).toBe('segment-version-direct');
+    expect(stops[1]?.segmentVersionId).toBe('segment-version-ab');
   });
 });

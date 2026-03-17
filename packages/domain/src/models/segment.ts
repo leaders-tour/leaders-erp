@@ -14,6 +14,7 @@ export interface Segment {
 }
 
 export type SegmentVersionKind = 'DIRECT' | 'VIA';
+export type SegmentScheduleVariant = 'basic' | 'early' | 'extend' | 'earlyExtend';
 
 export interface SegmentVersion {
   id: string;
@@ -43,6 +44,7 @@ export interface SegmentVersionViaLocation {
 export interface SegmentTimeBlock {
   id: string;
   segmentId: string;
+  variant: SegmentScheduleVariant;
   startTime: string;
   label: string;
   orderIndex: number;
@@ -54,6 +56,7 @@ export interface SegmentTimeBlock {
 export interface SegmentVersionTimeBlock {
   id: string;
   segmentVersionId: string;
+  variant: SegmentScheduleVariant;
   startTime: string;
   label: string;
   orderIndex: number;

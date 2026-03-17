@@ -9,6 +9,9 @@ type Segment {
   averageTravelHours: Float!
   isLongDistance: Boolean!
   scheduleTimeBlocks: [SegmentTimeBlock!]!
+  earlyScheduleTimeBlocks: [SegmentTimeBlock!]!
+  extendScheduleTimeBlocks: [SegmentTimeBlock!]!
+  earlyExtendScheduleTimeBlocks: [SegmentTimeBlock!]!
   versions: [SegmentVersion!]!
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -20,6 +23,13 @@ type Segment {
 enum SegmentVersionKind {
   DIRECT
   VIA
+}
+
+enum SegmentScheduleVariant {
+  basic
+  early
+  extend
+  earlyExtend
 }
 
 type SegmentVersion {
@@ -34,6 +44,9 @@ type SegmentVersion {
   isDefault: Boolean!
   viaLocations: [SegmentVersionViaLocation!]!
   scheduleTimeBlocks: [SegmentVersionTimeBlock!]!
+  earlyScheduleTimeBlocks: [SegmentVersionTimeBlock!]!
+  extendScheduleTimeBlocks: [SegmentVersionTimeBlock!]!
+  earlyExtendScheduleTimeBlocks: [SegmentVersionTimeBlock!]!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -50,6 +63,7 @@ type SegmentVersionViaLocation {
 type SegmentVersionTimeBlock {
   id: ID!
   segmentVersionId: String!
+  variant: SegmentScheduleVariant!
   startTime: String!
   label: String!
   orderIndex: Int!
@@ -72,6 +86,7 @@ type SegmentVersionActivity {
 type SegmentTimeBlock {
   id: ID!
   segmentId: String!
+  variant: SegmentScheduleVariant!
   startTime: String!
   label: String!
   orderIndex: Int!
@@ -105,6 +120,9 @@ input SegmentVersionInput {
   averageTravelHours: Float!
   isLongDistance: Boolean!
   timeSlots: [SegmentTimeSlotInput!]!
+  earlyTimeSlots: [SegmentTimeSlotInput!]
+  extendTimeSlots: [SegmentTimeSlotInput!]
+  earlyExtendTimeSlots: [SegmentTimeSlotInput!]
   isDefault: Boolean
 }
 
@@ -116,6 +134,9 @@ input SegmentCreateInput {
   averageTravelHours: Float!
   isLongDistance: Boolean!
   timeSlots: [SegmentTimeSlotInput!]!
+  earlyTimeSlots: [SegmentTimeSlotInput!]
+  extendTimeSlots: [SegmentTimeSlotInput!]
+  earlyExtendTimeSlots: [SegmentTimeSlotInput!]
   versions: [SegmentVersionInput!]
 }
 
@@ -127,5 +148,8 @@ input SegmentUpdateInput {
   averageTravelHours: Float
   isLongDistance: Boolean
   timeSlots: [SegmentTimeSlotInput!]
+  earlyTimeSlots: [SegmentTimeSlotInput!]
+  extendTimeSlots: [SegmentTimeSlotInput!]
+  earlyExtendTimeSlots: [SegmentTimeSlotInput!]
   versions: [SegmentVersionInput!]
 }
