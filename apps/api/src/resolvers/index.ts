@@ -129,6 +129,7 @@ export const resolvers = {
   PlanVersionMeta: planResolver.PlanVersionMeta,
   PlanVersionPricing: planResolver.PlanVersionPricing,
   Location: locationResolver.Location,
+  LocationVersion: locationResolver.LocationVersion,
   Segment: segmentResolver.Segment,
   SegmentVersion: segmentResolver.SegmentVersion,
   OvernightStay: overnightStayResolver.OvernightStay,

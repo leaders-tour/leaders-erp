@@ -372,20 +372,20 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
   const overnightStayConnections = overnightStayConnectionData?.overnightStayConnections ?? [];
 
   const filteredLocations = useMemo(
-    () => locations.filter((location) => location.regionId === regionId),
+    () => (regionId ? locations.filter((location) => location.regionId === regionId) : []),
     [locations, regionId],
   );
 
   const filteredSegments = useMemo(
-    () => segments.filter((segment) => segment.regionId === regionId),
+    () => (regionId ? segments.filter((segment) => segment.regionId === regionId) : []),
     [segments, regionId],
   );
   const filteredOvernightStays = useMemo(
-    () => overnightStays.filter((overnightStay) => overnightStay.regionId === regionId),
+    () => (regionId ? overnightStays.filter((overnightStay) => overnightStay.regionId === regionId) : []),
     [overnightStays, regionId],
   );
   const filteredOvernightStayConnections = useMemo(
-    () => overnightStayConnections.filter((connection) => connection.regionId === regionId),
+    () => (regionId ? overnightStayConnections.filter((connection) => connection.regionId === regionId) : []),
     [overnightStayConnections, regionId],
   );
 
