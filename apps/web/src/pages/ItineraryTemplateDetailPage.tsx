@@ -48,6 +48,10 @@ interface PlanTemplateStopRow {
   overnightStayDayOrder: number | null;
   overnightStayConnectionId: string | null;
   overnightStayConnectionVersionId: string | null;
+  multiDayBlockId: string | null;
+  multiDayBlockDayOrder: number | null;
+  multiDayBlockConnectionId: string | null;
+  multiDayBlockConnectionVersionId: string | null;
   locationId: string | null;
   locationVersionId: string | null;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
@@ -261,6 +265,10 @@ const PLAN_TEMPLATE_QUERY = gql`
         overnightStayDayOrder
         overnightStayConnectionId
         overnightStayConnectionVersionId
+        multiDayBlockId
+        multiDayBlockDayOrder
+        multiDayBlockConnectionId
+        multiDayBlockConnectionVersionId
         locationId
         locationVersionId
         dateCellText
@@ -281,6 +289,9 @@ const OVERNIGHT_STAYS_QUERY = gql`
       id
       regionId
       locationId
+      blockType
+      startLocationId
+      endLocationId
       name
       title
       isActive
@@ -288,6 +299,7 @@ const OVERNIGHT_STAYS_QUERY = gql`
       days {
         id
         dayOrder
+        displayLocationId
         averageDistanceKm
         averageTravelHours
         movementIntensity
@@ -580,6 +592,10 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
         overnightStayDayOrder: stop.overnightStayDayOrder ?? undefined,
         overnightStayConnectionId: stop.overnightStayConnectionId ?? undefined,
         overnightStayConnectionVersionId: stop.overnightStayConnectionVersionId ?? undefined,
+        multiDayBlockId: stop.multiDayBlockId ?? undefined,
+        multiDayBlockDayOrder: stop.multiDayBlockDayOrder ?? undefined,
+        multiDayBlockConnectionId: stop.multiDayBlockConnectionId ?? undefined,
+        multiDayBlockConnectionVersionId: stop.multiDayBlockConnectionVersionId ?? undefined,
         locationId: stop.locationId ?? undefined,
         locationVersionId: stop.locationVersionId ?? undefined,
         dateCellText: stop.dateCellText,
@@ -631,6 +647,10 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
               overnightStayDayOrder: stop.overnightStayDayOrder,
               overnightStayConnectionId: stop.overnightStayConnectionId,
               overnightStayConnectionVersionId: stop.overnightStayConnectionVersionId,
+              multiDayBlockId: stop.multiDayBlockId,
+              multiDayBlockDayOrder: stop.multiDayBlockDayOrder,
+              multiDayBlockConnectionId: stop.multiDayBlockConnectionId,
+              multiDayBlockConnectionVersionId: stop.multiDayBlockConnectionVersionId,
               locationId: stop.locationId,
               locationVersionId: stop.locationVersionId,
             })),
@@ -649,6 +669,10 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
           overnightStayDayOrder: stop?.overnightStayDayOrder,
           overnightStayConnectionId: stop?.overnightStayConnectionId,
           overnightStayConnectionVersionId: stop?.overnightStayConnectionVersionId,
+          multiDayBlockId: stop?.multiDayBlockId,
+          multiDayBlockDayOrder: stop?.multiDayBlockDayOrder,
+          multiDayBlockConnectionId: stop?.multiDayBlockConnectionId,
+          multiDayBlockConnectionVersionId: stop?.multiDayBlockConnectionVersionId,
           locationId: stop?.locationId,
           locationVersionId: stop?.locationVersionId,
         })),
@@ -946,7 +970,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                   return (
                     <>
                       <div className="text-sm font-medium">
-                        {startDayIndex === endDayIndex ? `${startDayIndex}일차` : `${startDayIndex}~${endDayIndex}일차`} 연박
+                        {startDayIndex === endDayIndex ? `${startDayIndex}일차` : `${startDayIndex}~${endDayIndex}일차`} 블록
                       </div>
                       <div className="mt-1 text-slate-700">
                         <span className="whitespace-pre-line">
@@ -1028,7 +1052,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                       </div>
                       {versions.length > 1 ? (
                         <div className="mt-3 grid gap-2">
-                          <div className="text-xs text-slate-500">연박 다음 연결 버전</div>
+                          <div className="text-xs text-slate-500">블록 다음 연결 버전</div>
                           <div className="flex flex-wrap gap-2">
                             {versions.map((version) => (
                               <button
@@ -1202,10 +1226,10 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                     disabled={formTotalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2}
                     onClick={() => setIsOvernightStayPickerOpen((prev) => !prev)}
                   >
-                    연박 선택하기
+                    연속 일정 블록 선택하기
                   </Button>
                   {formTotalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2 ? (
-                    <span className="text-xs text-slate-500">남은 일수에 맞는 연박만 선택할 수 있습니다.</span>
+                    <span className="text-xs text-slate-500">남은 일수에 맞는 블록만 선택할 수 있습니다.</span>
                   ) : null}
                 </div>
                 {isOvernightStayPickerOpen ? (
@@ -1237,7 +1261,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                   </div>
                 ) : null}
                 {isOvernightStayPickerOpen && overnightStayOptions.length === 0 ? (
-                  <p className="text-xs text-amber-700">선택 가능한 연박이 없습니다.</p>
+                  <p className="text-xs text-amber-700">선택 가능한 연속 일정 블록이 없습니다.</p>
                 ) : null}
               </div>
             </div>

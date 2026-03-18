@@ -419,6 +419,10 @@ type PlanStop {
   planVersionId: String!
   segmentId: String
   segmentVersionId: String
+  multiDayBlockId: String
+  multiDayBlockDayOrder: Int
+  multiDayBlockConnectionId: String
+  multiDayBlockConnectionVersionId: String
   overnightStayId: String
   overnightStayDayOrder: Int
   overnightStayConnectionId: String
@@ -439,6 +443,10 @@ type PlanStop {
 input PlanStopNestedInput {
   segmentId: String
   segmentVersionId: String
+  multiDayBlockId: String
+  multiDayBlockDayOrder: Int
+  multiDayBlockConnectionId: String
+  multiDayBlockConnectionVersionId: String
   overnightStayId: String
   overnightStayDayOrder: Int
   overnightStayConnectionId: String

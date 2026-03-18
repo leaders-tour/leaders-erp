@@ -142,8 +142,19 @@ export class OvernightStayService {
 
     await this.validateRegionAndLocation(parsed.data.regionId, parsed.data.locationId);
 
+    const blockType = parsed.data.blockType ?? 'STAY';
+    const startLocationId = parsed.data.startLocationId ?? parsed.data.locationId;
+    const endLocationId = parsed.data.endLocationId ?? parsed.data.locationId;
+    if (blockType === 'STAY' && startLocationId !== endLocationId) {
+      throw new DomainError('VALIDATION_FAILED', 'STAY block must have startLocationId equal to endLocationId');
+    }
+    if (blockType === 'TRANSFER' && startLocationId === endLocationId) {
+      throw new DomainError('VALIDATION_FAILED', 'TRANSFER block must have startLocationId different from endLocationId');
+    }
+
     const normalizedDays = parsed.data.days.map((day) => ({
       ...day,
+      displayLocationId: day.displayLocationId ?? (blockType === 'STAY' ? parsed.data.locationId : startLocationId),
       movementIntensity: calculateMovementIntensity(day.averageTravelHours),
     }));
 
@@ -153,6 +164,9 @@ export class OvernightStayService {
         data: {
           regionId: parsed.data.regionId,
           locationId: parsed.data.locationId,
+          blockType,
+          startLocationId,
+          endLocationId,
           name: parsed.data.name.trim(),
           sortOrder: parsed.data.sortOrder,
           isActive: parsed.data.isActive,
@@ -183,6 +197,16 @@ export class OvernightStayService {
     const nextLocationId = parsed.data.locationId ?? existing.locationId;
     await this.validateRegionAndLocation(nextRegionId, nextLocationId);
 
+    const blockType = parsed.data.blockType ?? existing.blockType ?? 'STAY';
+    const startLocationId = parsed.data.startLocationId ?? existing.startLocationId ?? nextLocationId;
+    const endLocationId = parsed.data.endLocationId ?? existing.endLocationId ?? nextLocationId;
+    if (blockType === 'STAY' && startLocationId !== endLocationId) {
+      throw new DomainError('VALIDATION_FAILED', 'STAY block must have startLocationId equal to endLocationId');
+    }
+    if (blockType === 'TRANSFER' && startLocationId === endLocationId) {
+      throw new DomainError('VALIDATION_FAILED', 'TRANSFER block must have startLocationId different from endLocationId');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const repository = new OvernightStayRepository(tx);
       await tx.overnightStay.update({
@@ -190,6 +214,9 @@ export class OvernightStayService {
         data: {
           ...(parsed.data.regionId !== undefined ? { regionId: nextRegionId } : {}),
           ...(parsed.data.locationId !== undefined ? { locationId: nextLocationId } : {}),
+          ...(parsed.data.blockType !== undefined ? { blockType } : {}),
+          ...(parsed.data.startLocationId !== undefined ? { startLocationId } : {}),
+          ...(parsed.data.endLocationId !== undefined ? { endLocationId } : {}),
           ...(parsed.data.name !== undefined ? { name: parsed.data.name.trim() } : {}),
           ...(parsed.data.sortOrder !== undefined ? { sortOrder: parsed.data.sortOrder } : {}),
           ...(parsed.data.isActive !== undefined ? { isActive: parsed.data.isActive } : {}),
@@ -201,6 +228,8 @@ export class OvernightStayService {
           id,
           parsed.data.days.map((day) => ({
             ...day,
+            displayLocationId:
+              day.displayLocationId ?? (blockType === 'STAY' ? nextLocationId : existing.startLocationId ?? nextLocationId),
             movementIntensity: calculateMovementIntensity(day.averageTravelHours),
           })),
         );

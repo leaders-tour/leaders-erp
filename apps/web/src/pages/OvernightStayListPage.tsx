@@ -57,10 +57,10 @@ export function OvernightStayListPage(): JSX.Element {
     <section className="grid gap-6">
       <header className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">연박 목록</h1>
-          <p className="mt-1 text-sm text-slate-600">목적지 연박 정의를 조회하고 상세 화면으로 이동합니다.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">연속 일정 블록 목록</h1>
+          <p className="mt-1 text-sm text-slate-600">블록 정의를 조회하고 상세 화면으로 이동합니다.</p>
         </div>
-        <Button onClick={() => navigate('/locations/stays/new')}>연박 생성</Button>
+        <Button onClick={() => navigate('/locations/stays/new')}>블록 생성</Button>
       </header>
 
       <LocationSubNav pathname="/locations/stays" />
@@ -76,7 +76,7 @@ export function OvernightStayListPage(): JSX.Element {
                   <Th>제목</Th>
                   <Th>목적지</Th>
                   <Th>상태</Th>
-                  <Th>연박 일수</Th>
+                  <Th>블록 일수</Th>
                   <Th>요약</Th>
                   <Th>수정</Th>
                 </tr>

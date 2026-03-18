@@ -602,16 +602,19 @@ export class PricingService {
 
     for (let index = 1; index < planStops.length; index += 1) {
       const currentStop = planStops[index];
-      if ((currentStop?.overnightStayDayOrder ?? 0) > 1) {
+      const blockDayOrder = currentStop?.multiDayBlockDayOrder ?? currentStop?.overnightStayDayOrder ?? 0;
+      if (blockDayOrder > 1) {
         continue;
       }
 
-      if (currentStop?.overnightStayConnectionId) {
-        overnightStayConnectionIds.add(currentStop.overnightStayConnectionId);
+      const connectionId = currentStop?.multiDayBlockConnectionId ?? currentStop?.overnightStayConnectionId;
+      if (connectionId) {
+        overnightStayConnectionIds.add(connectionId);
         continue;
       }
 
-      const fromLocationId = planStops[index - 1]?.locationId;
+      const prevStop = planStops[index - 1];
+      const fromLocationId = prevStop?.blockEndLocationId ?? prevStop?.locationId;
       const toLocationId = currentStop?.locationId;
 
       if (!fromLocationId || !toLocationId) {
@@ -674,10 +677,11 @@ export class PricingService {
       return count + (segmentByKey.get(key) ? 1 : 0);
     }, 0);
     const overnightStayConnectionCount = planStops.reduce((count, stop) => {
-      if (!stop.overnightStayConnectionId) {
+      const connectionId = stop.multiDayBlockConnectionId ?? stop.overnightStayConnectionId;
+      if (!connectionId) {
         return count;
       }
-      return count + (overnightStayConnectionById.get(stop.overnightStayConnectionId) ? 1 : 0);
+      return count + (overnightStayConnectionById.get(connectionId) ? 1 : 0);
     }, 0);
 
     return segmentCount + overnightStayConnectionCount;

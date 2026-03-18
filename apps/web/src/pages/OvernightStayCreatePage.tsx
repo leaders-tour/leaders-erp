@@ -1,6 +1,6 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Input } from '@tour/ui';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   calculateMovementIntensityByHours,
   getMovementIntensityMeta,
@@ -26,8 +26,11 @@ interface LocationRow {
   name: string[];
 }
 
+type BlockType = 'STAY' | 'TRANSFER';
+
 interface OvernightStayDayDraft {
   dayOrder: number;
+  displayLocationId: string;
   averageDistanceKm: string;
   averageTravelHours: string;
   scheduleSlots: OvernightStayScheduleSlotInput[];
@@ -62,9 +65,10 @@ const CREATE_OVERNIGHT_STAY_MUTATION = gql`
   }
 `;
 
-function createDayDraft(dayOrder: number): OvernightStayDayDraft {
+function createDayDraft(dayOrder: number, displayLocationId = ''): OvernightStayDayDraft {
   return {
     dayOrder,
+    displayLocationId,
     averageDistanceKm: '0',
     averageTravelHours: '0',
     scheduleSlots: [createOvernightStayScheduleSlot()],
@@ -75,8 +79,11 @@ function createDayDraft(dayOrder: number): OvernightStayDayDraft {
 
 export function OvernightStayCreatePage(): JSX.Element {
   const navigate = useNavigate();
+  const [blockType, setBlockType] = useState<BlockType>('STAY');
   const [regionId, setRegionId] = useState('');
   const [locationId, setLocationId] = useState('');
+  const [startLocationId, setStartLocationId] = useState('');
+  const [endLocationId, setEndLocationId] = useState('');
   const [name, setName] = useState('');
   const [sortOrder, setSortOrder] = useState('0');
   const [isActive, setIsActive] = useState(true);
@@ -100,7 +107,9 @@ export function OvernightStayCreatePage(): JSX.Element {
   };
 
   const addThirdDay = () => {
-    setDays((prev) => (prev.length >= 3 ? prev : [...prev, createDayDraft(3)]));
+    setDays((prev) =>
+      prev.length >= 3 ? prev : [...prev, createDayDraft(3, blockType === 'TRANSFER' ? endLocationId : locationId)],
+    );
   };
 
   const removeThirdDay = () => {
@@ -109,29 +118,59 @@ export function OvernightStayCreatePage(): JSX.Element {
 
   const handleRegionChange = (nextRegionId: string) => {
     setRegionId(nextRegionId);
-    if (!locationId) {
-      return;
-    }
-    const currentLocation = locationById.get(locationId);
-    if (currentLocation && currentLocation.regionId !== nextRegionId) {
+    const clearIfOtherRegion = (id: string) => {
+      const loc = locationById.get(id);
+      return loc && loc.regionId !== nextRegionId;
+    };
+    if (blockType === 'STAY' && locationId && clearIfOtherRegion(locationId)) {
       setLocationId('');
+    }
+    if (blockType === 'TRANSFER') {
+      if (startLocationId && clearIfOtherRegion(startLocationId)) setStartLocationId('');
+      if (endLocationId && clearIfOtherRegion(endLocationId)) setEndLocationId('');
+      setDays((prev) =>
+        prev.map((d) => ({ ...d, displayLocationId: clearIfOtherRegion(d.displayLocationId) ? '' : d.displayLocationId })),
+      );
     }
   };
 
   const handleLocationChange = (nextLocationId: string) => {
     setLocationId(nextLocationId);
     const nextLocation = locationById.get(nextLocationId);
-    if (nextLocation) {
-      setRegionId(nextLocation.regionId);
-    }
+    if (nextLocation) setRegionId(nextLocation.regionId);
   };
+
+  const handleStartLocationChange = (nextId: string) => {
+    setStartLocationId(nextId);
+    const loc = locationById.get(nextId);
+    if (loc) setRegionId(loc.regionId);
+  };
+
+  const handleEndLocationChange = (nextId: string) => {
+    setEndLocationId(nextId);
+    const loc = locationById.get(nextId);
+    if (loc) setRegionId(loc.regionId);
+  };
+
+  useEffect(() => {
+    if (blockType === 'STAY' && locationId) {
+      setDays((prev) => prev.map((d) => ({ ...d, displayLocationId: locationId })));
+    }
+  }, [blockType, locationId]);
+
+  const canSubmit =
+    name.trim() &&
+    (blockType === 'STAY'
+      ? locationId
+      : startLocationId && endLocationId && startLocationId !== endLocationId &&
+        days.every((d) => d.displayLocationId));
 
   return (
     <section className="grid gap-6">
       <header className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">연박 생성</h1>
-          <p className="mt-1 text-sm text-slate-600">기존 목적지 기준으로 2일 또는 3일 연박 데이터를 등록합니다.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">연속 일정 블록 생성</h1>
+          <p className="mt-1 text-sm text-slate-600">체류형(같은 목적지) 또는 이동형(야간열차) 블록을 2~3일로 등록합니다.</p>
         </div>
         <Button variant="outline" onClick={() => navigate('/locations/stays')}>
           목록으로
@@ -142,11 +181,50 @@ export function OvernightStayCreatePage(): JSX.Element {
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-5">
-          <div className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_160px_auto] lg:items-end">
-            <label className="grid gap-1 text-sm lg:col-span-2">
-              <span className="font-medium text-slate-900">연박 이름</span>
+          <div className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-slate-900">블록 이름</span>
               <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="예: 테를지 2일 표준" />
             </label>
+
+            <fieldset className="grid gap-2">
+              <span className="font-medium text-slate-900">블록 타입</span>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="blockType"
+                    checked={blockType === 'STAY'}
+                    onChange={() => {
+                      setBlockType('STAY');
+                      if (startLocationId && !locationId) setLocationId(startLocationId);
+                      setStartLocationId('');
+                      setEndLocationId('');
+                      setDays((prev) => prev.map((d) => ({ ...d, displayLocationId: locationId || d.displayLocationId })));
+                    }}
+                  />
+                  체류형 (같은 목적지에서 2~3일)
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="blockType"
+                    checked={blockType === 'TRANSFER'}
+                    onChange={() => {
+                      setBlockType('TRANSFER');
+                      if (locationId && !startLocationId) {
+                        setStartLocationId(locationId);
+                        setEndLocationId('');
+                        setDays((prev) => prev.map((d, i) => ({ ...d, displayLocationId: i === 0 ? locationId : d.displayLocationId })));
+                      }
+                      setLocationId('');
+                    }}
+                  />
+                  야간열차 (출발지→도착지 이동형)
+                </label>
+              </div>
+            </fieldset>
+
             <label className="grid gap-1 text-sm">
               <span className="font-medium text-slate-900">지역</span>
               <select
@@ -163,37 +241,87 @@ export function OvernightStayCreatePage(): JSX.Element {
               </select>
             </label>
 
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium text-slate-900">목적지</span>
-              <select
-                value={locationId}
-                onChange={(event) => handleLocationChange(event.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2"
-              >
-                <option value="">기존 목적지에서 선택</option>
-                {selectableLocations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {formatLocationNameInline(location.name)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {blockType === 'STAY' && (
+              <label className="grid gap-1 text-sm">
+                <span className="font-medium text-slate-900">목적지</span>
+                <select
+                  value={locationId}
+                  onChange={(event) => handleLocationChange(event.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2"
+                >
+                  <option value="">목적지 선택</option>
+                  {selectableLocations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {formatLocationNameInline(location.name)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
 
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium text-slate-900">정렬 순서</span>
-              <Input type="number" min={0} value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} />
-            </label>
+            {blockType === 'TRANSFER' && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-slate-900">출발 목적지</span>
+                  <select
+                    value={startLocationId}
+                    onChange={(event) => handleStartLocationChange(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2"
+                  >
+                    <option value="">출발지 선택</option>
+                    {selectableLocations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {formatLocationNameInline(location.name)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-slate-900">도착 목적지</span>
+                  <select
+                    value={endLocationId}
+                    onChange={(event) => handleEndLocationChange(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2"
+                  >
+                    <option value="">도착지 선택</option>
+                    {selectableLocations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {formatLocationNameInline(location.name)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
 
-            <label className="flex h-10 items-center gap-2 text-sm">
-              <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
-              활성
-            </label>
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="grid gap-1 text-sm">
+                <span className="font-medium text-slate-900">정렬 순서</span>
+                <Input type="number" min={0} value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} />
+              </label>
+              <label className="flex h-10 items-center gap-2 text-sm">
+                <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
+                활성
+              </label>
+            </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-            <span className="font-medium text-slate-900">선택된 목적지</span>
-            <span className="ml-2">{selectedLocation ? formatLocationNameInline(selectedLocation.name) : '아직 선택되지 않았습니다.'}</span>
-          </div>
+          {blockType === 'STAY' && (
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+              <span className="font-medium text-slate-900">선택된 목적지</span>
+              <span className="ml-2">{selectedLocation ? formatLocationNameInline(selectedLocation.name) : '아직 선택되지 않았습니다.'}</span>
+            </div>
+          )}
+          {blockType === 'TRANSFER' && (startLocationId || endLocationId) && (
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+              <span className="font-medium text-slate-900">경로</span>
+              <span className="ml-2">
+                {startLocationId && locationById.get(startLocationId)?.name ? formatLocationNameInline(locationById.get(startLocationId)!.name) : '?'}
+                {' → '}
+                {endLocationId && locationById.get(endLocationId)?.name ? formatLocationNameInline(locationById.get(endLocationId)!.name) : '?'}
+              </span>
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             {days.length < 3 ? (
@@ -205,7 +333,7 @@ export function OvernightStayCreatePage(): JSX.Element {
                 3일차 제거
               </Button>
             )}
-            <span className="text-xs text-slate-500">연박은 2일 또는 3일까지 설정할 수 있습니다.</span>
+            <span className="text-xs text-slate-500">블록은 2일 또는 3일까지 설정할 수 있습니다.</span>
           </div>
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -216,8 +344,28 @@ export function OvernightStayCreatePage(): JSX.Element {
                 <div key={day.dayOrder} className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div>
                     <h2 className="font-medium text-slate-900">{day.dayOrder}일차</h2>
-                    <p className="mt-1 text-xs text-slate-500">연결 화면과 같은 방식으로 연박 전용 내용을 직접 입력합니다.</p>
+                    <p className="mt-1 text-xs text-slate-500">일차별 표시 목적지와 이동 정보를 입력합니다.</p>
                   </div>
+
+                  {blockType === 'TRANSFER' && (
+                    <label className="grid gap-1 text-sm">
+                      <span className="font-medium text-slate-900">이 일차 표시 목적지</span>
+                      <select
+                        value={day.displayLocationId}
+                        onChange={(event) =>
+                          updateDay(day.dayOrder, 'displayLocationId', event.target.value)
+                        }
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2"
+                      >
+                        <option value="">목적지 선택</option>
+                        {selectableLocations.map((location) => (
+                          <option key={location.id} value={location.id}>
+                            {formatLocationNameInline(location.name)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
 
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <label className="grid gap-1 text-sm">
@@ -302,13 +450,19 @@ export function OvernightStayCreatePage(): JSX.Element {
 
           <div className="flex gap-2">
             <Button
-              disabled={!regionId || !locationId || !name.trim() || loading}
+              disabled={!regionId || !name.trim() || !canSubmit || loading}
               onClick={async () => {
+                const isStay = blockType === 'STAY';
+                const startId = isStay ? locationId : startLocationId;
+                const endId = isStay ? locationId : endLocationId;
                 const result = await createOvernightStay({
                   variables: {
                     input: {
                       regionId,
-                      locationId,
+                      locationId: startId,
+                      blockType,
+                      startLocationId: startId,
+                      endLocationId: endId,
                       name: name.trim(),
                       sortOrder: Number(sortOrder) || 0,
                       isActive,
@@ -319,6 +473,7 @@ export function OvernightStayCreatePage(): JSX.Element {
                           const { timeCellText, scheduleCellText } = serializeOvernightStayScheduleSlots(day.scheduleSlots);
                           return {
                             dayOrder: day.dayOrder,
+                            displayLocationId: isStay ? locationId : day.displayLocationId || startLocationId,
                             averageDistanceKm: Number(day.averageDistanceKm) || 0,
                             averageTravelHours: Number(day.averageTravelHours) || 0,
                             timeCellText,
@@ -336,7 +491,7 @@ export function OvernightStayCreatePage(): JSX.Element {
                 }
               }}
             >
-              {loading ? '생성 중...' : '연박 생성'}
+              {loading ? '생성 중...' : '블록 생성'}
             </Button>
             <Button variant="outline" onClick={() => navigate('/locations/stays')}>
               취소

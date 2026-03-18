@@ -52,7 +52,7 @@ export function LocationSubNav({ pathname }: LocationSubNavProps): JSX.Element {
             : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
         }`}
       >
-        연박 목록
+        연속 일정 블록
       </Link>
       <Link
         to="/locations/stays/connections"
@@ -62,7 +62,7 @@ export function LocationSubNav({ pathname }: LocationSubNavProps): JSX.Element {
             : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
         }`}
       >
-        연박 연결
+        블록 후속 연결
       </Link>
       <Link
         to="/location-guides"

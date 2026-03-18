@@ -22,19 +22,30 @@ function resolveStopMovementIntensity(parent: {
   overnightStayDayOrder?: unknown;
   overnightStayConnection?: { movementIntensity?: unknown } | null;
   overnightStayConnectionVersion?: { movementIntensity?: unknown } | null;
+  multiDayBlock?: { days?: Array<{ dayOrder?: unknown; movementIntensity?: unknown }> } | null;
+  multiDayBlockDayOrder?: unknown;
+  multiDayBlockConnection?: { movementIntensity?: unknown } | null;
+  multiDayBlockConnectionVersion?: { movementIntensity?: unknown } | null;
   locationVersion?: { firstDayMovementIntensity?: unknown } | null;
 }) {
-  const overnightStayDayOrder =
-    typeof parent.overnightStayDayOrder === 'number' ? parent.overnightStayDayOrder : null;
+  const dayOrder =
+    typeof parent.multiDayBlockDayOrder === 'number'
+      ? parent.multiDayBlockDayOrder
+      : typeof parent.overnightStayDayOrder === 'number'
+        ? parent.overnightStayDayOrder
+        : null;
+  const block = parent.multiDayBlock ?? parent.overnightStay;
 
-  if (parent.overnightStay?.days && overnightStayDayOrder !== null) {
-    const matchingDay = parent.overnightStay.days.find((day) => day.dayOrder === overnightStayDayOrder);
+  if (block?.days && dayOrder !== null) {
+    const matchingDay = block.days.find((day) => day.dayOrder === dayOrder);
     if (matchingDay?.movementIntensity) {
       return matchingDay.movementIntensity;
     }
   }
 
   return (
+    parent.multiDayBlockConnectionVersion?.movementIntensity ??
+    parent.multiDayBlockConnection?.movementIntensity ??
     parent.overnightStayConnectionVersion?.movementIntensity ??
     parent.overnightStayConnection?.movementIntensity ??
     parent.segmentVersion?.movementIntensity ??

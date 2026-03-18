@@ -38,6 +38,7 @@ export class OvernightStayRepository {
     overnightStayId: string,
     days: Array<{
       dayOrder: number;
+      displayLocationId: string;
       averageDistanceKm: number;
       averageTravelHours: number;
       movementIntensity: MovementIntensity;
@@ -52,6 +53,7 @@ export class OvernightStayRepository {
       data: days.map((day) => ({
         overnightStayId,
         dayOrder: day.dayOrder,
+        displayLocationId: day.displayLocationId,
         averageDistanceKm: day.averageDistanceKm,
         averageTravelHours: day.averageTravelHours,
         movementIntensity: day.movementIntensity,

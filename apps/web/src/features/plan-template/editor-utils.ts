@@ -5,6 +5,10 @@ export interface TemplatePlanRow {
   overnightStayDayOrder?: number;
   overnightStayConnectionId?: string;
   overnightStayConnectionVersionId?: string;
+  multiDayBlockId?: string;
+  multiDayBlockDayOrder?: number;
+  multiDayBlockConnectionId?: string;
+  multiDayBlockConnectionVersionId?: string;
   locationId?: string;
   locationVersionId?: string;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;

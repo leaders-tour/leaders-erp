@@ -229,8 +229,8 @@ export function OvernightStayConnectionPage(): JSX.Element {
   return (
     <section className="grid gap-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">연박 연결</h1>
-        <p className="mt-1 text-sm text-slate-600">연박 이후에 갈 수 있는 목적지 연결을 관리합니다.</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">블록 후속 연결</h1>
+        <p className="mt-1 text-sm text-slate-600">블록 이후에 갈 수 있는 목적지 연결을 관리합니다.</p>
       </header>
 
       <LocationSubNav pathname="/locations/stays/connections" />
@@ -257,9 +257,9 @@ export function OvernightStayConnectionPage(): JSX.Element {
             </div>
           </div>
           <div className="grid gap-2 text-sm">
-            <span>연박</span>
+            <span>블록</span>
             <select value={fromOvernightStayId} onChange={(event) => setFromOvernightStayId(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2">
-              <option value="">연박 선택</option>
+              <option value="">블록 선택</option>
               {filteredStays.map((stay) => (
                 <option key={stay.id} value={stay.id}>
                   {stay.name || stay.title}
@@ -367,7 +367,7 @@ export function OvernightStayConnectionPage(): JSX.Element {
 
           <div className="flex gap-2">
             <Button disabled={!regionId || !fromOvernightStayId || !toLocationId || creating || updating} onClick={submit}>
-              {editingId ? (updating ? '저장 중...' : '저장') : creating ? '생성 중...' : '연박 연결 생성'}
+              {editingId ? (updating ? '저장 중...' : '저장') : creating ? '생성 중...' : '블록 후속 연결 생성'}
             </Button>
             {editingId ? (
               <Button variant="outline" onClick={resetForm}>
@@ -383,7 +383,7 @@ export function OvernightStayConnectionPage(): JSX.Element {
           <Table className="min-w-[860px] w-full text-sm">
             <thead className="bg-slate-50 text-slate-700">
               <tr>
-                <Th>연박</Th>
+                <Th>블록</Th>
                 <Th>다음 목적지</Th>
                 <Th>거리/시간</Th>
                 <Th>이동강도</Th>
@@ -451,7 +451,7 @@ export function OvernightStayConnectionPage(): JSX.Element {
                         type="button"
                         className="text-red-600 hover:underline"
                         onClick={async () => {
-                          if (!window.confirm('연박 연결을 삭제할까요?')) {
+                          if (!window.confirm('블록 후속 연결을 삭제할까요?')) {
                             return;
                           }
                           await deleteMutation({ variables: { id: row.id } });

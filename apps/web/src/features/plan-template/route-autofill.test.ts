@@ -6,6 +6,7 @@ import {
   buildFirstDayOptions,
   buildNextOptions,
   buildOvernightStayOptions,
+  buildSelectedRouteFromStops,
   buildTemplateStopsFromRouteAndRows,
   resolveSegmentVersionForDate,
 } from './route-autofill';
@@ -381,6 +382,9 @@ const overnightStayB2: OvernightStayOption = {
   id: 'stay-b-2',
   regionId: 'region-1',
   locationId: locationB.id,
+  blockType: 'STAY',
+  startLocationId: locationB.id,
+  endLocationId: locationB.id,
   name: '차강소브라가 2일 표준',
   title: '차강소브라가 연박',
   isActive: true,
@@ -389,6 +393,7 @@ const overnightStayB2: OvernightStayOption = {
     {
       id: 'stay-b-2-day-1',
       dayOrder: 1,
+      displayLocationId: locationB.id,
       averageDistanceKm: 0,
       averageTravelHours: 0,
       timeCellText: '08:00',
@@ -399,6 +404,7 @@ const overnightStayB2: OvernightStayOption = {
     {
       id: 'stay-b-2-day-2',
       dayOrder: 2,
+      displayLocationId: locationB.id,
       averageDistanceKm: 0,
       averageTravelHours: 0,
       timeCellText: '09:00',
@@ -419,6 +425,7 @@ const overnightStayB3: OvernightStayOption = {
     {
       id: 'stay-b-3-day-3',
       dayOrder: 3,
+      displayLocationId: locationB.id,
       averageDistanceKm: 0,
       averageTravelHours: 0,
       timeCellText: '10:00',
@@ -584,6 +591,80 @@ describe('route-autofill', () => {
     });
 
     expect(rows.slice(1, 4).map((row) => row.overnightStayDayOrder)).toEqual([1, 2, 3]);
+  });
+
+  it('STAY block expands rows with multiDayBlock* and displayLocationId-derived locationId', () => {
+    const rows = buildAutoRowsFromRoute({
+      startLocationId: locationA.id,
+      startLocationVersionId: 'ver-a',
+      selectedRoute: [
+        {
+          kind: 'OVERNIGHT_STAY',
+          overnightStayId: overnightStayB2.id,
+          stayLength: 2,
+          locationId: locationB.id,
+          locationVersionId: 'ver-b',
+        },
+      ],
+      filteredSegments: [segmentAB],
+      filteredOvernightStays: [overnightStayB2],
+      locationById: new Map([
+        [locationA.id, locationA],
+        [locationB.id, locationB],
+      ]),
+      locationVersionById: new Map([
+        ['ver-a', locationAVersion],
+        ['ver-b', locationBVersion],
+      ]),
+      totalDays: 3,
+    });
+
+    expect(rows[1]).toMatchObject({
+      multiDayBlockId: overnightStayB2.id,
+      multiDayBlockDayOrder: 1,
+      overnightStayId: overnightStayB2.id,
+      overnightStayDayOrder: 1,
+      locationId: locationB.id,
+      locationVersionId: 'ver-b',
+    });
+    expect(rows[2]).toMatchObject({
+      multiDayBlockId: overnightStayB2.id,
+      multiDayBlockDayOrder: 2,
+      overnightStayId: overnightStayB2.id,
+      overnightStayDayOrder: 2,
+      locationId: locationB.id,
+      locationVersionId: 'ver-b',
+    });
+  });
+
+  it('restores route from stops with only legacy overnightStay* (no multiDayBlock*)', () => {
+    const stops = [
+      { dayIndex: 1, locationId: locationA.id, locationVersionId: 'ver-a' },
+      {
+        dayIndex: 2,
+        overnightStayId: overnightStayB2.id,
+        overnightStayDayOrder: 1,
+        locationId: locationB.id,
+        locationVersionId: 'ver-b',
+      },
+      {
+        dayIndex: 3,
+        overnightStayId: overnightStayB2.id,
+        overnightStayDayOrder: 2,
+        locationId: locationB.id,
+        locationVersionId: 'ver-b',
+      },
+    ];
+    const route = buildSelectedRouteFromStops(stops);
+    expect(route).toHaveLength(2);
+    expect(route[0]).toMatchObject({ kind: 'LOCATION', locationId: locationA.id, locationVersionId: 'ver-a' });
+    expect(route[1]).toMatchObject({
+      kind: 'OVERNIGHT_STAY',
+      overnightStayId: overnightStayB2.id,
+      stayLength: 2,
+      locationId: locationB.id,
+      locationVersionId: 'ver-b',
+    });
   });
 
   it('uses the route date to fill segmentVersionId when auto rows are built', () => {

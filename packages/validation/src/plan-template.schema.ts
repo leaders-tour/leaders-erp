@@ -1,22 +1,35 @@
 import { z } from 'zod';
 
-export const planTemplateStopInputSchema = z.object({
-  dayIndex: z.number().int().min(1).max(13),
-  segmentId: z.string().min(1).optional(),
-  segmentVersionId: z.string().min(1).optional(),
-  overnightStayId: z.string().min(1).optional(),
-  overnightStayDayOrder: z.number().int().min(1).max(3).optional(),
-  overnightStayConnectionId: z.string().min(1).optional(),
-  overnightStayConnectionVersionId: z.string().min(1).optional(),
-  locationId: z.string().min(1).optional(),
-  locationVersionId: z.string().min(1).optional(),
-  dateCellText: z.string(),
-  destinationCellText: z.string(),
-  timeCellText: z.string(),
-  scheduleCellText: z.string(),
-  lodgingCellText: z.string(),
-  mealCellText: z.string(),
-});
+export const planTemplateStopInputSchema = z
+  .object({
+    dayIndex: z.number().int().min(1).max(13),
+    segmentId: z.string().min(1).optional(),
+    segmentVersionId: z.string().min(1).optional(),
+    overnightStayId: z.string().min(1).optional(),
+    overnightStayDayOrder: z.number().int().min(1).max(3).optional(),
+    overnightStayConnectionId: z.string().min(1).optional(),
+    overnightStayConnectionVersionId: z.string().min(1).optional(),
+    multiDayBlockId: z.string().min(1).optional(),
+    multiDayBlockDayOrder: z.number().int().min(1).max(3).optional(),
+    multiDayBlockConnectionId: z.string().min(1).optional(),
+    multiDayBlockConnectionVersionId: z.string().min(1).optional(),
+    locationId: z.string().min(1).optional(),
+    locationVersionId: z.string().min(1).optional(),
+    dateCellText: z.string(),
+    destinationCellText: z.string(),
+    timeCellText: z.string(),
+    scheduleCellText: z.string(),
+    lodgingCellText: z.string(),
+    mealCellText: z.string(),
+  })
+  .transform((raw) => ({
+    ...raw,
+    multiDayBlockId: raw.multiDayBlockId ?? raw.overnightStayId,
+    multiDayBlockDayOrder: raw.multiDayBlockDayOrder ?? raw.overnightStayDayOrder,
+    multiDayBlockConnectionId: raw.multiDayBlockConnectionId ?? raw.overnightStayConnectionId,
+    multiDayBlockConnectionVersionId:
+      raw.multiDayBlockConnectionVersionId ?? raw.overnightStayConnectionVersionId,
+  }));
 
 const planTemplateBaseSchema = z.object({
   name: z.string().min(1).max(120),

@@ -1,13 +1,23 @@
+enum BlockType {
+  STAY
+  TRANSFER
+}
+
 type OvernightStay {
   id: ID!
   regionId: String!
   locationId: String!
+  blockType: BlockType!
+  startLocationId: String!
+  endLocationId: String!
   name: String!
   title: String!
   isActive: Boolean!
   sortOrder: Int!
   region: Region!
   location: Location!
+  startLocation: Location!
+  endLocation: Location!
   days: [OvernightStayDay!]!
   outgoingConnections: [OvernightStayConnection!]!
   createdAt: DateTime!
@@ -18,6 +28,7 @@ type OvernightStayDay {
   id: ID!
   overnightStayId: String!
   dayOrder: Int!
+  displayLocationId: String!
   averageDistanceKm: Float!
   averageTravelHours: Float!
   movementIntensity: MovementIntensity!
@@ -25,6 +36,7 @@ type OvernightStayDay {
   scheduleCellText: String!
   lodgingCellText: String!
   mealCellText: String!
+  displayLocation: Location!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -117,6 +129,7 @@ type OvernightStayConnectionActivity {
 
 input OvernightStayDayInput {
   dayOrder: Int!
+  displayLocationId: String
   averageDistanceKm: Float!
   averageTravelHours: Float!
   timeCellText: String!
@@ -128,6 +141,9 @@ input OvernightStayDayInput {
 input OvernightStayCreateInput {
   regionId: String!
   locationId: String!
+  blockType: BlockType
+  startLocationId: String
+  endLocationId: String
   name: String!
   sortOrder: Int
   isActive: Boolean
@@ -137,6 +153,9 @@ input OvernightStayCreateInput {
 input OvernightStayUpdateInput {
   regionId: String
   locationId: String
+  blockType: BlockType
+  startLocationId: String
+  endLocationId: String
   name: String
   sortOrder: Int
   isActive: Boolean

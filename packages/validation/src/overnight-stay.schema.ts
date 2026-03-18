@@ -1,7 +1,11 @@
 import { z } from 'zod';
 
+export const blockTypeSchema = z.enum(['STAY', 'TRANSFER']);
+export type BlockType = z.infer<typeof blockTypeSchema>;
+
 const overnightStayDayInputSchema = z.object({
   dayOrder: z.number().int().min(1).max(3),
+  displayLocationId: z.string().min(1).optional(),
   averageDistanceKm: z.number().min(0),
   averageTravelHours: z.number().min(0),
   timeCellText: z.string(),
@@ -13,6 +17,9 @@ const overnightStayDayInputSchema = z.object({
 const overnightStayBaseSchema = z.object({
   regionId: z.string().min(1),
   locationId: z.string().min(1),
+  blockType: blockTypeSchema.default('STAY'),
+  startLocationId: z.string().min(1).optional(),
+  endLocationId: z.string().min(1).optional(),
   name: z.string().trim().min(1).max(120),
   sortOrder: z.number().int().min(0).max(100_000).default(0),
   isActive: z.boolean().default(true),

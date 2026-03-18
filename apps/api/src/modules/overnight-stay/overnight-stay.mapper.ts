@@ -3,8 +3,11 @@ import type { Prisma } from '@prisma/client';
 export const overnightStayInclude = {
   region: true,
   location: true,
+  startLocation: true,
+  endLocation: true,
   days: {
     orderBy: { dayOrder: 'asc' },
+    include: { displayLocation: true },
   },
 } satisfies Prisma.OvernightStayInclude;
 

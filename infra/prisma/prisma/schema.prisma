@@ -36,6 +36,11 @@ enum MovementIntensity {
   LEVEL_5
 }
 
+enum BlockType {
+  STAY
+  TRANSFER
+}
+
 enum OverrideTargetType {
   DayPlan
   TimeBlock
@@ -413,6 +418,9 @@ model Location {
   fromSegments Segment[] @relation("FromLocation")
   toSegments   Segment[] @relation("ToLocation")
   overnightStays OvernightStay[]
+  overnightStaysAsStart OvernightStay[] @relation("OvernightStayStartLocation")
+  overnightStaysAsEnd OvernightStay[] @relation("OvernightStayEndLocation")
+  overnightStayDaysAsDisplay OvernightStayDay[] @relation("OvernightStayDayDisplayLocation")
   toOvernightStayConnections OvernightStayConnection[] @relation("OvernightStayConnectionToLocation")
   versions     LocationVersion[] @relation("LocationVersions")
   currentVersion LocationVersion? @relation("CurrentLocationVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
@@ -474,45 +482,57 @@ model LocationVersion {
 }
 
 model OvernightStay {
-  id         String @id @default(uuid(7))
-  regionId   String
-  locationId String
-  name       String
-  isActive   Boolean @default(true)
-  sortOrder  Int @default(0)
+  id              String    @id @default(uuid(7))
+  regionId        String
+  locationId      String
+  blockType      BlockType  @default(STAY)
+  startLocationId String
+  endLocationId   String
+  name            String
+  isActive        Boolean   @default(true)
+  sortOrder       Int       @default(0)
 
-  region Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
-  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  days OvernightStayDay[]
+  region        Region    @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  location      Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  startLocation Location  @relation("OvernightStayStartLocation", fields: [startLocationId], references: [id], onDelete: Cascade)
+  endLocation   Location  @relation("OvernightStayEndLocation", fields: [endLocationId], references: [id], onDelete: Cascade)
+  days          OvernightStayDay[]
   outgoingConnections OvernightStayConnection[]
-  planStops PlanStop[]
+  planStops     PlanStop[]
   planTemplateStops PlanTemplateStop[]
+  planStopsAsMultiDayBlock PlanStop[] @relation("PlanStopMultiDayBlock")
+  planTemplateStopsAsMultiDayBlock PlanTemplateStop[] @relation("PlanTemplateStopMultiDayBlock")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([regionId])
   @@index([locationId])
+  @@index([startLocationId])
+  @@index([endLocationId])
 }
 
 model OvernightStayDay {
-  id                 String @id @default(uuid(7))
+  id                 String  @id @default(uuid(7))
   overnightStayId    String
   dayOrder           Int
+  displayLocationId  String
   averageDistanceKm  Float
   averageTravelHours Float
   movementIntensity  MovementIntensity
-  timeCellText       String @db.Text
-  scheduleCellText   String @db.Text
-  lodgingCellText    String @db.Text
-  mealCellText       String @db.Text
+  timeCellText       String  @db.Text
+  scheduleCellText   String  @db.Text
+  lodgingCellText    String  @db.Text
+  mealCellText       String  @db.Text
 
-  overnightStay OvernightStay @relation(fields: [overnightStayId], references: [id], onDelete: Cascade)
+  overnightStay   OvernightStay @relation(fields: [overnightStayId], references: [id], onDelete: Cascade)
+  displayLocation Location     @relation("OvernightStayDayDisplayLocation", fields: [displayLocationId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([overnightStayId])
+  @@index([displayLocationId])
   @@unique([overnightStayId, dayOrder])
 }
 
@@ -536,6 +556,8 @@ model OvernightStayConnection {
   scheduleTimeBlocks OvernightStayConnectionTimeBlock[]
   planStops PlanStop[]
   planTemplateStops PlanTemplateStop[]
+  planStopsAsMultiDayBlockConnection PlanStop[] @relation("PlanStopMultiDayBlockConnection")
+  planTemplateStopsAsMultiDayBlockConnection PlanTemplateStop[] @relation("PlanTemplateStopMultiDayBlockConnection")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -561,6 +583,8 @@ model OvernightStayConnectionVersion {
   scheduleTimeBlocks OvernightStayConnectionVersionTimeBlock[]
   planStops PlanStop[]
   planTemplateStops PlanTemplateStop[]
+  planStopsAsMultiDayBlockConnectionVersion PlanStop[] @relation("PlanStopMultiDayBlockConnectionVersion")
+  planTemplateStopsAsMultiDayBlockConnectionVersion PlanTemplateStop[] @relation("PlanTemplateStopMultiDayBlockConnectionVersion")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -974,6 +998,10 @@ model PlanTemplateStop {
   overnightStayDayOrder Int?
   overnightStayConnectionId String?
   overnightStayConnectionVersionId String?
+  multiDayBlockId   String?
+  multiDayBlockDayOrder Int?
+  multiDayBlockConnectionId String?
+  multiDayBlockConnectionVersionId String?
   locationId        String?
   locationVersionId String?
   dateCellText      String @db.Text
@@ -989,6 +1017,9 @@ model PlanTemplateStop {
   overnightStay   OvernightStay?  @relation(fields: [overnightStayId], references: [id], onDelete: SetNull)
   overnightStayConnection OvernightStayConnection? @relation(fields: [overnightStayConnectionId], references: [id], onDelete: SetNull)
   overnightStayConnectionVersion OvernightStayConnectionVersion? @relation(fields: [overnightStayConnectionVersionId], references: [id], onDelete: SetNull)
+  multiDayBlock   OvernightStay?  @relation("PlanTemplateStopMultiDayBlock", fields: [multiDayBlockId], references: [id], onDelete: SetNull)
+  multiDayBlockConnection OvernightStayConnection? @relation("PlanTemplateStopMultiDayBlockConnection", fields: [multiDayBlockConnectionId], references: [id], onDelete: SetNull)
+  multiDayBlockConnectionVersion OvernightStayConnectionVersion? @relation("PlanTemplateStopMultiDayBlockConnectionVersion", fields: [multiDayBlockConnectionVersionId], references: [id], onDelete: SetNull)
   location        Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
   locationVersion LocationVersion? @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
 
@@ -1002,6 +1033,9 @@ model PlanTemplateStop {
   @@index([overnightStayId])
   @@index([overnightStayConnectionId])
   @@index([overnightStayConnectionVersionId])
+  @@index([multiDayBlockId])
+  @@index([multiDayBlockConnectionId])
+  @@index([multiDayBlockConnectionVersionId])
   @@index([locationId])
   @@index([locationVersionId])
 }
@@ -1015,6 +1049,10 @@ model PlanStop {
   overnightStayDayOrder Int?
   overnightStayConnectionId String?
   overnightStayConnectionVersionId String?
+  multiDayBlockId     String?
+  multiDayBlockDayOrder Int?
+  multiDayBlockConnectionId String?
+  multiDayBlockConnectionVersionId String?
   locationId          String?
   locationVersionId   String?
   dateCellText        String @db.Text
@@ -1030,6 +1068,9 @@ model PlanStop {
   overnightStay   OvernightStay?  @relation(fields: [overnightStayId], references: [id], onDelete: SetNull)
   overnightStayConnection OvernightStayConnection? @relation(fields: [overnightStayConnectionId], references: [id], onDelete: SetNull)
   overnightStayConnectionVersion OvernightStayConnectionVersion? @relation(fields: [overnightStayConnectionVersionId], references: [id], onDelete: SetNull)
+  multiDayBlock   OvernightStay?  @relation("PlanStopMultiDayBlock", fields: [multiDayBlockId], references: [id], onDelete: SetNull)
+  multiDayBlockConnection OvernightStayConnection? @relation("PlanStopMultiDayBlockConnection", fields: [multiDayBlockConnectionId], references: [id], onDelete: SetNull)
+  multiDayBlockConnectionVersion OvernightStayConnectionVersion? @relation("PlanStopMultiDayBlockConnectionVersion", fields: [multiDayBlockConnectionVersionId], references: [id], onDelete: SetNull)
   location        Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
   locationVersion LocationVersion? @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
 
@@ -1042,6 +1083,9 @@ model PlanStop {
   @@index([overnightStayId])
   @@index([overnightStayConnectionId])
   @@index([overnightStayConnectionVersionId])
+  @@index([multiDayBlockId])
+  @@index([multiDayBlockConnectionId])
+  @@index([multiDayBlockConnectionVersionId])
   @@index([locationId])
   @@index([locationVersionId])
 }

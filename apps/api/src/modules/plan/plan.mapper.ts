@@ -27,13 +27,18 @@ export const planVersionInclude = {
       locationVersion: true,
       overnightStay: {
         include: {
-          days: {
-            orderBy: { dayOrder: 'asc' },
-          },
+          days: { orderBy: { dayOrder: 'asc' } },
         },
       },
       overnightStayConnection: true,
       overnightStayConnectionVersion: true,
+      multiDayBlock: {
+        include: {
+          days: { orderBy: { dayOrder: 'asc' } },
+        },
+      },
+      multiDayBlockConnection: true,
+      multiDayBlockConnectionVersion: true,
     },
     orderBy: { createdAt: 'asc' },
   },

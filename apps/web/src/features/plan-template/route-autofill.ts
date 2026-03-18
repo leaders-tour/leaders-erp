@@ -107,6 +107,7 @@ interface ResolvedSegmentVersionOption {
 export interface OvernightStayDayOption {
   id: string;
   dayOrder: number;
+  displayLocationId?: string;
   averageDistanceKm: number;
   averageTravelHours: number;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
@@ -116,10 +117,15 @@ export interface OvernightStayDayOption {
   mealCellText: string;
 }
 
+export type BlockType = 'STAY' | 'TRANSFER';
+
 export interface OvernightStayOption {
   id: string;
   regionId: string;
   locationId: string;
+  blockType?: BlockType;
+  startLocationId?: string;
+  endLocationId?: string;
   name: string;
   title: string;
   isActive: boolean;
@@ -786,8 +792,18 @@ function buildOvernightStayRows(input: {
   locationVersionId: string;
   startingDayIndex: number;
   totalDays: number;
+  getDefaultVersionIdForLocation?: (locationId: string) => string | undefined;
+  locationById?: Map<string, LocationOption>;
 }): TemplatePlanRow[] {
-  const { overnightStay, location, locationVersionId, startingDayIndex, totalDays } = input;
+  const {
+    overnightStay,
+    location,
+    locationVersionId,
+    startingDayIndex,
+    totalDays,
+    getDefaultVersionIdForLocation,
+    locationById,
+  } = input;
   const rows: TemplatePlanRow[] = [];
   const orderedDays = (overnightStay?.days ?? []).slice().sort((left, right) => left.dayOrder - right.dayOrder);
 
@@ -796,14 +812,24 @@ function buildOvernightStayRows(input: {
     if (dayIndex > totalDays) {
       return;
     }
+    const displayLocationId = overnightStayDay.displayLocationId ?? overnightStay?.locationId;
+    const rowLocationId = displayLocationId ?? overnightStay?.locationId;
+    const rowLocationVersionId =
+      (rowLocationId && getDefaultVersionIdForLocation?.(rowLocationId)) ??
+      (rowLocationId && locationById?.get(rowLocationId)?.defaultVersionId) ??
+      (rowLocationId && locationById?.get(rowLocationId)?.variations?.[0]?.id) ??
+      locationVersionId;
+    const rowLocation = rowLocationId ? locationById?.get(rowLocationId) : location;
     rows.push({
       overnightStayId: overnightStay?.id,
       overnightStayDayOrder: overnightStayDay.dayOrder,
-      locationId: overnightStay?.locationId,
-      locationVersionId,
+      multiDayBlockId: overnightStay?.id,
+      multiDayBlockDayOrder: overnightStayDay.dayOrder,
+      locationId: rowLocationId,
+      locationVersionId: rowLocationVersionId,
       dateCellText: `${dayIndex}일차`,
       destinationCellText: formatRouteDestinationCellText({
-        locationName: location?.name ?? overnightStay?.title ?? overnightStay?.locationId ?? '연박',
+        locationName: rowLocation?.name ?? location?.name ?? overnightStay?.title ?? overnightStay?.locationId ?? '블록',
         averageTravelHours: overnightStayDay?.averageTravelHours,
         averageDistanceKm: overnightStayDay?.averageDistanceKm,
       }),
@@ -901,6 +927,7 @@ export function buildAutoRowsFromRoute(input: {
         locationVersionId: stop.locationVersionId,
         startingDayIndex: nextDayIndex,
         totalDays: safeTotalDays,
+        locationById,
       });
       rows.push(...overnightStayRows);
       nextDayIndex += overnightStayRows.length;
@@ -1010,6 +1037,10 @@ function buildRouteStopsFromSelections(input: {
     | 'overnightStayDayOrder'
     | 'overnightStayConnectionId'
     | 'overnightStayConnectionVersionId'
+    | 'multiDayBlockId'
+    | 'multiDayBlockDayOrder'
+    | 'multiDayBlockConnectionId'
+    | 'multiDayBlockConnectionVersionId'
     | 'locationId'
     | 'locationVersionId'
   >
@@ -1023,6 +1054,10 @@ function buildRouteStopsFromSelections(input: {
       | 'overnightStayDayOrder'
       | 'overnightStayConnectionId'
       | 'overnightStayConnectionVersionId'
+      | 'multiDayBlockId'
+      | 'multiDayBlockDayOrder'
+      | 'multiDayBlockConnectionId'
+      | 'multiDayBlockConnectionVersionId'
       | 'locationId'
       | 'locationVersionId'
     >
@@ -1033,6 +1068,8 @@ function buildRouteStopsFromSelections(input: {
       routeStops.push({
         overnightStayId: stop.overnightStayId,
         overnightStayDayOrder: 1,
+        multiDayBlockId: stop.overnightStayId,
+        multiDayBlockDayOrder: 1,
         locationId: stop.locationId,
         locationVersionId: stop.locationVersionId,
       });
@@ -1040,6 +1077,8 @@ function buildRouteStopsFromSelections(input: {
         routeStops.push({
           overnightStayId: stop.overnightStayId,
           overnightStayDayOrder: dayOrder,
+          multiDayBlockId: stop.overnightStayId,
+          multiDayBlockDayOrder: dayOrder,
           locationId: stop.locationId,
           locationVersionId: stop.locationVersionId,
         });
@@ -1052,6 +1091,8 @@ function buildRouteStopsFromSelections(input: {
       segmentVersionId: stop.segmentVersionId,
       overnightStayConnectionId: stop.overnightStayConnectionId,
       overnightStayConnectionVersionId: stop.overnightStayConnectionVersionId,
+      multiDayBlockConnectionId: stop.overnightStayConnectionId,
+      multiDayBlockConnectionVersionId: stop.overnightStayConnectionVersionId,
       locationId: stop.locationId,
       locationVersionId: stop.locationVersionId,
     });
@@ -1079,8 +1120,13 @@ export function buildTemplateStopsFromRouteAndRows(input: {
       overnightStayConnectionId: routeStop?.overnightStayConnectionId || row.overnightStayConnectionId,
       overnightStayConnectionVersionId:
         routeStop?.overnightStayConnectionVersionId || row.overnightStayConnectionVersionId,
-      locationId: routeStop?.locationId || row.locationId || undefined,
-      locationVersionId: routeStop?.locationVersionId || row.locationVersionId || undefined,
+      multiDayBlockId: routeStop?.multiDayBlockId || row.multiDayBlockId,
+      multiDayBlockDayOrder: routeStop?.multiDayBlockDayOrder ?? row.multiDayBlockDayOrder,
+      multiDayBlockConnectionId: routeStop?.multiDayBlockConnectionId || row.multiDayBlockConnectionId,
+      multiDayBlockConnectionVersionId:
+        routeStop?.multiDayBlockConnectionVersionId || row.multiDayBlockConnectionVersionId,
+      locationId: row.locationId ?? routeStop?.locationId ?? undefined,
+      locationVersionId: row.locationVersionId ?? routeStop?.locationVersionId ?? undefined,
       dateCellText: row.dateCellText,
       destinationCellText: row.destinationCellText,
       timeCellText: row.timeCellText,
@@ -1099,6 +1145,10 @@ export function buildSelectedRouteFromStops(
     overnightStayDayOrder?: number | null;
     overnightStayConnectionId?: string | null;
     overnightStayConnectionVersionId?: string | null;
+    multiDayBlockId?: string | null;
+    multiDayBlockDayOrder?: number | null;
+    multiDayBlockConnectionId?: string | null;
+    multiDayBlockConnectionVersionId?: string | null;
     locationId?: string | null;
     locationVersionId?: string | null;
   }>,
@@ -1111,16 +1161,18 @@ export function buildSelectedRouteFromStops(
       continue;
     }
 
-    if (stop.overnightStayId && stop.overnightStayDayOrder === 1) {
+    const blockId = stop.multiDayBlockId ?? stop.overnightStayId;
+    const dayOrder = stop.multiDayBlockDayOrder ?? stop.overnightStayDayOrder;
+    if (blockId && dayOrder === 1) {
       let stayLength = 1;
       let nextIndex = index + 1;
-      while (stops[nextIndex]?.overnightStayId === stop.overnightStayId) {
+      while ((stops[nextIndex]?.multiDayBlockId ?? stops[nextIndex]?.overnightStayId) === blockId) {
         stayLength += 1;
         nextIndex += 1;
       }
       route.push({
         kind: 'OVERNIGHT_STAY',
-        overnightStayId: stop.overnightStayId,
+        overnightStayId: blockId,
         stayLength,
         locationId: stop.locationId ?? '',
         locationVersionId: stop.locationVersionId ?? '',
@@ -1129,7 +1181,7 @@ export function buildSelectedRouteFromStops(
       continue;
     }
 
-    if (stop.overnightStayId && stop.overnightStayDayOrder && stop.overnightStayDayOrder > 1) {
+    if (blockId && dayOrder != null && dayOrder > 1) {
       continue;
     }
 
