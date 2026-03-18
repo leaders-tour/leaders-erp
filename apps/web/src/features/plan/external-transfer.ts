@@ -3,7 +3,10 @@ export type ExternalTransferDirection = 'PICKUP' | 'DROP';
 export type ExternalTransferPresetCode =
   | 'DROP_ULAANBAATAR_AIRPORT'
   | 'DROP_TERELJ_AIRPORT'
+  | 'DROP_OZHOUSE_AIRPORT'
   | 'PICKUP_AIRPORT_OZHOUSE'
+  | 'PICKUP_AIRPORT_ULAANBAATAR'
+  | 'PICKUP_AIRPORT_TERELJ'
   | 'CUSTOM';
 
 export interface ExternalTransfer {
@@ -65,6 +68,15 @@ export const EXTERNAL_TRANSFER_PRESET_OPTIONS: ExternalTransferPresetOption[] = 
     unitPriceKrw: 150000,
   },
   {
+    code: 'DROP_OZHOUSE_AIRPORT',
+    label: '드랍 · 오즈하우스 → 공항',
+    description: 'OUT 기준 출발 -4시간 30분 / 도착 -3시간',
+    direction: 'DROP',
+    departurePlace: '오즈하우스',
+    arrivalPlace: '공항',
+    unitPriceKrw: 60000,
+  },
+  {
     code: 'PICKUP_AIRPORT_OZHOUSE',
     label: '픽업 · 공항 → 오즈하우스',
     description: 'IN +1시간 후 다음 00/30으로 올림, 도착은 +1시간',
@@ -72,6 +84,24 @@ export const EXTERNAL_TRANSFER_PRESET_OPTIONS: ExternalTransferPresetOption[] = 
     departurePlace: '공항',
     arrivalPlace: '오즈하우스',
     unitPriceKrw: 60000,
+  },
+  {
+    code: 'PICKUP_AIRPORT_ULAANBAATAR',
+    label: '픽업 · 공항 → 울란바토르',
+    description: 'IN +1시간 후 다음 00/30으로 올림, 도착은 +1시간',
+    direction: 'PICKUP',
+    departurePlace: '공항',
+    arrivalPlace: '울란바토르',
+    unitPriceKrw: 100000,
+  },
+  {
+    code: 'PICKUP_AIRPORT_TERELJ',
+    label: '픽업 · 공항 → 테를지',
+    description: 'IN +1시간 후 다음 00/30으로 올림, 도착은 +1시간',
+    direction: 'PICKUP',
+    departurePlace: '공항',
+    arrivalPlace: '테를지',
+    unitPriceKrw: 150000,
   },
   {
     code: 'CUSTOM',
@@ -210,7 +240,11 @@ export function buildExternalTransferFromPreset(
     return base;
   }
 
-  if (presetCode === 'DROP_ULAANBAATAR_AIRPORT' || presetCode === 'DROP_TERELJ_AIRPORT') {
+  if (
+    presetCode === 'DROP_ULAANBAATAR_AIRPORT' ||
+    presetCode === 'DROP_TERELJ_AIRPORT' ||
+    presetCode === 'DROP_OZHOUSE_AIRPORT'
+  ) {
     const departure = shiftUtcDateTime(team.flightOutDate, team.flightOutTime, -270);
     const arrival = shiftUtcDateTime(team.flightOutDate, team.flightOutTime, -180);
     if (!departure || !arrival) {
@@ -225,7 +259,11 @@ export function buildExternalTransferFromPreset(
     };
   }
 
-  if (presetCode === 'PICKUP_AIRPORT_OZHOUSE') {
+  if (
+    presetCode === 'PICKUP_AIRPORT_OZHOUSE' ||
+    presetCode === 'PICKUP_AIRPORT_ULAANBAATAR' ||
+    presetCode === 'PICKUP_AIRPORT_TERELJ'
+  ) {
     const baseDateTime = toUtcDate(team.flightInDate, team.flightInTime);
     if (!baseDateTime) {
       return base;

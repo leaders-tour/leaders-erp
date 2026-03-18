@@ -36,6 +36,18 @@ describe('external-transfer preset rules', () => {
     });
   });
 
+  it('calculates ozhouse drop with same OUT -4:30 / -3:00 rule', () => {
+    expect(buildExternalTransferFromPreset('DROP_OZHOUSE_AIRPORT', 0, teams)).toMatchObject({
+      direction: 'DROP',
+      travelDate: '2026-05-03',
+      departureTime: '21:35',
+      arrivalTime: '23:05',
+      departurePlace: '오즈하우스',
+      arrivalPlace: '공항',
+      unitPriceKrw: 60000,
+    });
+  });
+
   it('rounds pickup departure up to next half-hour after adding one hour', () => {
     expect(buildExternalTransferFromPreset('PICKUP_AIRPORT_OZHOUSE', 0, teams)).toMatchObject({
       direction: 'PICKUP',
@@ -45,6 +57,46 @@ describe('external-transfer preset rules', () => {
       departurePlace: '공항',
       arrivalPlace: '오즈하우스',
       unitPriceKrw: 60000,
+    });
+  });
+
+  it('pickup airport to ulaanbaatar uses same IN+1h rule as airport to ozhouse', () => {
+    expect(buildExternalTransferFromPreset('PICKUP_AIRPORT_ULAANBAATAR', 0, teams)).toMatchObject({
+      direction: 'PICKUP',
+      travelDate: '2026-04-30',
+      departureTime: '01:00',
+      arrivalTime: '02:00',
+      departurePlace: '공항',
+      arrivalPlace: '울란바토르',
+      unitPriceKrw: 100000,
+    });
+  });
+
+  it('pickup airport to terelj uses same IN+1h rule as airport to ozhouse', () => {
+    expect(buildExternalTransferFromPreset('PICKUP_AIRPORT_TERELJ', 1, teams)).toMatchObject({
+      direction: 'PICKUP',
+      travelDate: '2026-04-30',
+      departureTime: '11:30',
+      arrivalTime: '12:30',
+      departurePlace: '공항',
+      arrivalPlace: '테를지',
+      unitPriceKrw: 150000,
+    });
+  });
+
+  it('pickup at :29 rounds to :30, arrival +1h', () => {
+    const teams29 = [{ teamName: 'T', flightInDate: '2026-05-01', flightInTime: '09:29', flightOutDate: '2026-05-05', flightOutTime: '14:00' }];
+    expect(buildExternalTransferFromPreset('PICKUP_AIRPORT_OZHOUSE', 0, teams29)).toMatchObject({
+      departureTime: '10:30',
+      arrivalTime: '11:30',
+    });
+  });
+
+  it('pickup at :31 rounds to next hour, arrival +1h', () => {
+    const teams31 = [{ teamName: 'T', flightInDate: '2026-05-01', flightInTime: '09:31', flightOutDate: '2026-05-05', flightOutTime: '14:00' }];
+    expect(buildExternalTransferFromPreset('PICKUP_AIRPORT_ULAANBAATAR', 0, teams31)).toMatchObject({
+      departureTime: '11:00',
+      arrivalTime: '12:00',
     });
   });
 });
