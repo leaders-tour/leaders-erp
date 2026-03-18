@@ -41,15 +41,29 @@ import {
 } from '../features/plan/pickup-drop';
 import {
   buildAutoRowsFromRoute,
+  buildOvernightStayOptions,
+  buildSelectedRouteFromStops,
   buildFirstDayOptions,
   buildNextOptions,
   findSegment,
+  findOvernightStayConnection,
   formatRouteDestinationCellText,
+  formatOvernightStayConnectionVersionLabel,
   formatSegmentVersionLabel,
+  getConsumedRouteDayCount,
+  getDefaultOvernightStayConnectionVersionId,
   getDefaultSegmentVersionId,
   getDefaultVersionId,
+  getOvernightStayConnectionVersions,
+  getRouteStopEndDayIndex,
+  getRouteStopStartDayIndex,
   getSegmentVersions,
   type LocationOption,
+  type OvernightStayConnectionOption,
+  type OvernightStayOption,
+  type RouteSelection,
+  trimRouteSelectionsToTotalDays,
+  resolveOvernightStayConnectionVersion,
   resolveSegmentVersion,
   type SegmentOption,
 } from '../features/plan-template/route-autofill';
@@ -87,6 +101,10 @@ interface EventOptionRow {
 interface PlanRow {
   segmentId?: string;
   segmentVersionId?: string;
+  overnightStayId?: string;
+  overnightStayDayOrder?: number;
+  overnightStayConnectionId?: string;
+  overnightStayConnectionVersionId?: string;
   locationId?: string;
   locationVersionId?: string;
   lodgingSelectionLevel: LodgingSelectionLevel;
@@ -138,18 +156,15 @@ interface PricingPreviewRow {
   lines: PricingLineRow[];
 }
 
-interface RouteSelection {
-  locationId: string;
-  locationVersionId: string;
-  segmentId?: string;
-  segmentVersionId?: string;
-}
-
 interface PlanTemplateStopRow {
   id: string;
   dayIndex: number;
   segmentId: string | null;
   segmentVersionId: string | null;
+  overnightStayId: string | null;
+  overnightStayDayOrder: number | null;
+  overnightStayConnectionId: string | null;
+  overnightStayConnectionVersionId: string | null;
   locationId: string | null;
   locationVersionId: string | null;
   lodgingSelectionLevel?: LodgingSelectionLevel | null;
@@ -248,6 +263,10 @@ function arePlanRowsEqual(left: PlanRow[], right: PlanRow[]): boolean {
     return (
       row.segmentId === other.segmentId &&
       row.segmentVersionId === other.segmentVersionId &&
+      row.overnightStayId === other.overnightStayId &&
+      row.overnightStayDayOrder === other.overnightStayDayOrder &&
+      row.overnightStayConnectionId === other.overnightStayConnectionId &&
+      row.overnightStayConnectionVersionId === other.overnightStayConnectionVersionId &&
       row.locationId === other.locationId &&
       row.locationVersionId === other.locationVersionId &&
       row.lodgingSelectionLevel === other.lodgingSelectionLevel &&
@@ -478,6 +497,134 @@ const SEGMENTS_QUERY = gql`
   }
 `;
 
+const OVERNIGHT_STAYS_QUERY = gql`
+  query ItineraryOvernightStays {
+    overnightStays {
+      id
+      regionId
+      locationId
+      title
+      isActive
+      sortOrder
+      days {
+        id
+        dayOrder
+        averageDistanceKm
+        averageTravelHours
+        timeCellText
+        scheduleCellText
+        lodgingCellText
+        mealCellText
+      }
+    }
+  }
+`;
+
+const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
+  query ItineraryOvernightStayConnections {
+    overnightStayConnections {
+      id
+      regionId
+      fromOvernightStayId
+      toLocationId
+      defaultVersionId
+      averageDistanceKm
+      averageTravelHours
+      isLongDistance
+      scheduleTimeBlocks {
+        id
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
+      earlyScheduleTimeBlocks {
+        id
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
+      extendScheduleTimeBlocks {
+        id
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
+      earlyExtendScheduleTimeBlocks {
+        id
+        startTime
+        orderIndex
+        activities {
+          id
+          description
+          orderIndex
+        }
+      }
+      versions {
+        id
+        overnightStayConnectionId
+        name
+        averageDistanceKm
+        averageTravelHours
+        isLongDistance
+        sortOrder
+        isDefault
+        scheduleTimeBlocks {
+          id
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+        earlyScheduleTimeBlocks {
+          id
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+        extendScheduleTimeBlocks {
+          id
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+        earlyExtendScheduleTimeBlocks {
+          id
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+      }
+    }
+  }
+`;
+
 const PLAN_TEMPLATES_QUERY = gql`
   query ItineraryBuilderTemplates($regionId: ID, $totalDays: Int, $activeOnly: Boolean) {
     planTemplates(regionId: $regionId, totalDays: $totalDays, activeOnly: $activeOnly) {
@@ -493,6 +640,10 @@ const PLAN_TEMPLATES_QUERY = gql`
         dayIndex
         segmentId
         segmentVersionId
+        overnightStayId
+        overnightStayDayOrder
+        overnightStayConnectionId
+        overnightStayConnectionVersionId
         locationId
         locationVersionId
         dateCellText
@@ -521,6 +672,10 @@ const PLAN_TEMPLATE_QUERY = gql`
         dayIndex
         segmentId
         segmentVersionId
+        overnightStayId
+        overnightStayDayOrder
+        overnightStayConnectionId
+        overnightStayConnectionVersionId
         locationId
         locationVersionId
         dateCellText
@@ -904,6 +1059,10 @@ function sortTemplateStops(stops: PlanTemplateStopRow[]): PlanTemplateStopRow[] 
 function buildDefaultLodgingRow(input: {
   segmentId?: string;
   segmentVersionId?: string;
+  overnightStayId?: string;
+  overnightStayDayOrder?: number;
+  overnightStayConnectionId?: string;
+  overnightStayConnectionVersionId?: string;
   locationId?: string;
   locationVersionId?: string;
   dateCellText: string;
@@ -917,6 +1076,10 @@ function buildDefaultLodgingRow(input: {
   return {
     segmentId: input.segmentId,
     segmentVersionId: input.segmentVersionId,
+    overnightStayId: input.overnightStayId,
+    overnightStayDayOrder: input.overnightStayDayOrder,
+    overnightStayConnectionId: input.overnightStayConnectionId,
+    overnightStayConnectionVersionId: input.overnightStayConnectionVersionId,
     locationId: input.locationId,
     locationVersionId: input.locationVersionId,
     lodgingSelectionLevel: 'LV3',
@@ -1047,6 +1210,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [startLocationId, setStartLocationId] = useState<string>('');
   const [startLocationVersionId, setStartLocationVersionId] = useState<string>('');
   const [selectedRoute, setSelectedRoute] = useState<RouteSelection[]>([]);
+  const [isOvernightStayPickerOpen, setIsOvernightStayPickerOpen] = useState<boolean>(false);
   const [planRows, setPlanRows] = useState<PlanRow[]>([]);
   const [extraLodgingCounts, setExtraLodgingCounts] = useState<number[]>(Array.from({ length: 6 }, () => 0));
   const [extraLodgingsModalState, setExtraLodgingsModalState] = useState<ExtraLodgingsModalState>({
@@ -1112,6 +1276,10 @@ export function ItineraryBuilderPage(): JSX.Element {
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
   const { data: segmentData } = useQuery<{ segments: SegmentRow[] }>(SEGMENTS_QUERY);
+  const { data: overnightStayData } = useQuery<{ overnightStays: OvernightStayOption[] }>(OVERNIGHT_STAYS_QUERY);
+  const { data: overnightStayConnectionData } = useQuery<{ overnightStayConnections: OvernightStayConnectionOption[] }>(
+    OVERNIGHT_STAY_CONNECTIONS_QUERY,
+  );
   const { data: templateListData } = useQuery<{ planTemplates: PlanTemplateRow[] }>(PLAN_TEMPLATES_QUERY, {
     variables: {
       regionId: hasValidContext ? regionId || undefined : undefined,
@@ -1136,6 +1304,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const regions = regionData?.regions ?? [];
   const locations = locationData?.locations ?? [];
   const segments = segmentData?.segments ?? [];
+  const overnightStays = overnightStayData?.overnightStays ?? [];
+  const overnightStayConnections = overnightStayConnectionData?.overnightStayConnections ?? [];
   const planContext = planContextData?.plan ?? null;
   const selectedUserName = userData?.user?.name ?? '';
   const eventOptions = eventData?.events ?? [];
@@ -1219,6 +1389,14 @@ export function ItineraryBuilderPage(): JSX.Element {
   const filteredLocations = useMemo(
     () => locations.filter((location) => location.regionId === regionId),
     [locations, regionId],
+  );
+  const filteredOvernightStays = useMemo(
+    () => overnightStays.filter((overnightStay) => overnightStay.regionId === regionId),
+    [overnightStays, regionId],
+  );
+  const filteredOvernightStayConnections = useMemo(
+    () => overnightStayConnections.filter((connection) => connection.regionId === regionId),
+    [overnightStayConnections, regionId],
   );
   const activeDatePickerAnchorEl = datePickerTarget?.anchorEl ?? null;
   const activeDatePickerValue = useMemo(() => {
@@ -1332,12 +1510,33 @@ export function ItineraryBuilderPage(): JSX.Element {
       buildNextOptions({
         filteredLocations,
         filteredSegments,
+        filteredOvernightStayConnections,
         startLocationId,
         selectedRoute,
         totalDays,
         variantType,
       }),
-    [filteredLocations, filteredSegments, selectedRoute, startLocationId, totalDays, variantType],
+    [
+      filteredLocations,
+      filteredOvernightStayConnections,
+      filteredSegments,
+      selectedRoute,
+      startLocationId,
+      totalDays,
+      variantType,
+    ],
+  );
+
+  const overnightStayOptions = useMemo(
+    () =>
+      buildOvernightStayOptions({
+        filteredOvernightStays,
+        filteredSegments,
+        startLocationId,
+        selectedRoute,
+        totalDays,
+      }),
+    [filteredOvernightStays, filteredSegments, selectedRoute, startLocationId, totalDays],
   );
 
   const autoRows = useMemo((): PlanRow[] => {
@@ -1355,6 +1554,8 @@ export function ItineraryBuilderPage(): JSX.Element {
       startLocationVersionId,
       selectedRoute,
       filteredSegments,
+      filteredOvernightStays,
+      filteredOvernightStayConnections,
       locationById,
       locationVersionById,
       totalDays,
@@ -1367,7 +1568,19 @@ export function ItineraryBuilderPage(): JSX.Element {
       customLodgingId: undefined,
       customLodgingNameSnapshot: null,
     }));
-  }, [filteredSegments, locationById, locationVersionById, selectedRoute, startLocationId, startLocationVersionId, totalDays, transportGroups, variantType]);
+  }, [
+    filteredOvernightStayConnections,
+    filteredOvernightStays,
+    filteredSegments,
+    locationById,
+    locationVersionById,
+    selectedRoute,
+    startLocationId,
+    startLocationVersionId,
+    totalDays,
+    transportGroups,
+    variantType,
+  ]);
 
   useEffect(() => {
     if (skipNextAutoRowsSync) {
@@ -1679,10 +1892,21 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   const hasMissingSegment = useMemo(() => {
     return selectedRoute.some((toStop, index) => {
+      if (toStop.kind === 'OVERNIGHT_STAY') {
+        const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
+        return !filteredSegments.some((segment) => segment.fromLocationId === fromId && segment.toLocationId === toStop.locationId);
+      }
+      const previousStop = selectedRoute[index - 1];
+      if (previousStop?.kind === 'OVERNIGHT_STAY') {
+        return !filteredOvernightStayConnections.some(
+          (connection) =>
+            connection.fromOvernightStayId === previousStop.overnightStayId && connection.toLocationId === toStop.locationId,
+        );
+      }
       const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
       return !filteredSegments.some((segment) => segment.fromLocationId === fromId && segment.toLocationId === toStop.locationId);
     });
-  }, [filteredSegments, selectedRoute, startLocationId]);
+  }, [filteredOvernightStayConnections, filteredSegments, selectedRoute, startLocationId]);
 
   const updateCell = (rowIndex: number, field: keyof PlanRow, value: string): void => {
     setPlanRows((prev) => prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
@@ -1742,6 +1966,10 @@ export function ItineraryBuilderPage(): JSX.Element {
       planRows.map((row) => ({
         segmentId: row.segmentId,
         segmentVersionId: row.segmentVersionId,
+        overnightStayId: row.overnightStayId,
+        overnightStayDayOrder: row.overnightStayDayOrder,
+        overnightStayConnectionId: row.overnightStayConnectionId,
+        overnightStayConnectionVersionId: row.overnightStayConnectionVersionId,
         locationId: row.locationId,
         locationVersionId: row.locationVersionId,
         dateCellText: row.dateCellText,
@@ -1771,18 +1999,28 @@ export function ItineraryBuilderPage(): JSX.Element {
     setStartLocationId(firstStop.locationId ?? '');
     setStartLocationVersionId(firstStop.locationVersionId ?? '');
     setSelectedRoute(
-      orderedStops.slice(1).map((stop) => ({
-        segmentId: stop.segmentId ?? undefined,
-        segmentVersionId: stop.segmentVersionId ?? undefined,
-        locationId: stop.locationId ?? '',
-        locationVersionId: stop.locationVersionId ?? '',
-      })),
+      buildSelectedRouteFromStops(
+        orderedStops.slice(1).map((stop) => ({
+          segmentId: stop.segmentId,
+          segmentVersionId: stop.segmentVersionId,
+          overnightStayId: stop.overnightStayId,
+          overnightStayDayOrder: stop.overnightStayDayOrder,
+          overnightStayConnectionId: stop.overnightStayConnectionId,
+          overnightStayConnectionVersionId: stop.overnightStayConnectionVersionId,
+          locationId: stop.locationId,
+          locationVersionId: stop.locationVersionId,
+        })),
+      ),
     );
     setPlanRows(
       orderedStops.map((stop) =>
         buildDefaultLodgingRow({
           segmentId: stop.segmentId ?? undefined,
           segmentVersionId: stop.segmentVersionId ?? undefined,
+          overnightStayId: stop.overnightStayId ?? undefined,
+          overnightStayDayOrder: stop.overnightStayDayOrder ?? undefined,
+          overnightStayConnectionId: stop.overnightStayConnectionId ?? undefined,
+          overnightStayConnectionVersionId: stop.overnightStayConnectionVersionId ?? undefined,
           locationId: stop.locationId ?? undefined,
           locationVersionId: stop.locationVersionId ?? undefined,
           dateCellText: stop.dateCellText,
@@ -2038,7 +2276,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       (includeRentalItems ? rentalItemsText.trim() : true) &&
       startLocationId &&
       startLocationVersionId &&
-      selectedRoute.length === totalDays - 1 &&
+      1 + getConsumedRouteDayCount(selectedRoute) === totalDays &&
       planRows.length === totalDays &&
       (!isVersionMode ? planTitle.trim() : true),
   );
@@ -2807,7 +3045,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       type="button"
                       onClick={() => {
                         setTotalDays(day);
-                        setSelectedRoute((prev) => prev.slice(0, day - 1));
+                        setSelectedRoute((prev) => trimRouteSelectionsToTotalDays(prev, day));
                       }}
                       className={`rounded-xl border px-3 py-1.5 text-sm ${
                         totalDays === day
@@ -3405,6 +3643,128 @@ export function ItineraryBuilderPage(): JSX.Element {
               {selectedRoute.map((stop, index) => (
                 <div key={`selected-${index + 1}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                   {(() => {
+                    const startDayIndex = getRouteStopStartDayIndex(selectedRoute, index);
+                    const endDayIndex = getRouteStopEndDayIndex(selectedRoute, index);
+
+                    if (stop.kind === 'OVERNIGHT_STAY') {
+                      return (
+                        <>
+                          <div className="text-sm font-medium">
+                            {startDayIndex === endDayIndex ? `${startDayIndex}일차` : `${startDayIndex}~${endDayIndex}일차`} 연박
+                          </div>
+                          <div className="mt-1 text-slate-700">
+                            <span className="whitespace-pre-line">
+                              {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
+                            </span>
+                            {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {(locationById.get(stop.locationId)?.variations ?? []).map((version) => (
+                              <button
+                                key={`route-stay-version-${index}-${version.id}`}
+                                type="button"
+                                onClick={() =>
+                                  setSelectedRoute((prev) =>
+                                    prev.map((item, itemIndex) =>
+                                      itemIndex === index ? { ...item, locationVersionId: version.id } : item,
+                                    ),
+                                  )
+                                }
+                                className={`rounded-lg border px-3 py-1 text-xs ${
+                                  stop.locationVersionId === version.id
+                                    ? 'border-slate-900 bg-slate-900 text-white'
+                                    : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                                }`}
+                              >
+                                {formatLocationVersion(version)}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      );
+                    }
+
+                    const previousStop = selectedRoute[index - 1];
+                    if (previousStop?.kind === 'OVERNIGHT_STAY') {
+                      const connection = findOvernightStayConnection(
+                        filteredOvernightStayConnections,
+                        previousStop.overnightStayId,
+                        stop.locationId,
+                      );
+                      const versions = getOvernightStayConnectionVersions(connection);
+                      const selectedVersion = resolveOvernightStayConnectionVersion(
+                        connection,
+                        stop.overnightStayConnectionVersionId,
+                      );
+
+                      return (
+                        <>
+                          <div className="text-sm font-medium">{startDayIndex}일차</div>
+                          <div className="mt-1 text-slate-700">
+                            <span className="whitespace-pre-line">
+                              {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
+                            </span>
+                            {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {(locationById.get(stop.locationId)?.variations ?? []).map((version) => (
+                              <button
+                                key={`route-version-${index}-${version.id}`}
+                                type="button"
+                                onClick={() =>
+                                  setSelectedRoute((prev) =>
+                                    prev.map((item, itemIndex) =>
+                                      itemIndex === index ? { ...item, locationVersionId: version.id } : item,
+                                    ),
+                                  )
+                                }
+                                className={`rounded-lg border px-3 py-1 text-xs ${
+                                  stop.locationVersionId === version.id
+                                    ? 'border-slate-900 bg-slate-900 text-white'
+                                    : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                                }`}
+                              >
+                                {formatLocationVersion(version)}
+                              </button>
+                            ))}
+                          </div>
+                          {versions.length > 1 ? (
+                            <div className="mt-3 grid gap-2">
+                              <div className="text-xs text-slate-500">연박 다음 연결 버전</div>
+                              <div className="flex flex-wrap gap-2">
+                                {versions.map((version) => (
+                                  <button
+                                    key={`route-overnight-connection-version-${index}-${version.id}`}
+                                    type="button"
+                                    onClick={() =>
+                                      setSelectedRoute((prev) =>
+                                        prev.map((item, itemIndex) =>
+                                          itemIndex === index && item.kind === 'LOCATION'
+                                            ? {
+                                                ...item,
+                                                overnightStayConnectionId: connection?.id,
+                                                overnightStayConnectionVersionId: version.id,
+                                              }
+                                            : item,
+                                        ),
+                                      )
+                                    }
+                                    className={`rounded-lg border px-3 py-1 text-xs ${
+                                      selectedVersion?.id === version.id
+                                        ? 'border-slate-900 bg-slate-900 text-white'
+                                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    {formatOvernightStayConnectionVersionLabel(version)}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                        </>
+                      );
+                    }
+
                     const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
                     const segment = findSegment(filteredSegments, fromId, stop.locationId);
                     const versions = getSegmentVersions(segment);
@@ -3412,102 +3772,170 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                     return (
                       <>
-                  <div className="text-sm font-medium">{index + 2}일차</div>
-                  <div className="mt-1 text-slate-700">
-                    <span className="whitespace-pre-line">{formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}</span>
-                    {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {(locationById.get(stop.locationId)?.variations ?? []).map((version) => (
-                      <button
-                        key={`route-version-${index}-${version.id}`}
-                        type="button"
-                        onClick={() =>
-                          setSelectedRoute((prev) =>
-                            prev.map((item, itemIndex) =>
-                              itemIndex === index ? { ...item, locationVersionId: version.id } : item,
-                            ),
-                          )
-                        }
-                        className={`rounded-lg border px-3 py-1 text-xs ${
-                          stop.locationVersionId === version.id
-                            ? 'border-slate-900 bg-slate-900 text-white'
-                            : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
-                        }`}
-                      >
-                        {formatLocationVersion(version)}
-                      </button>
-                    ))}
-                  </div>
-                  {versions.length > 1 ? (
-                    <div className="mt-3 grid gap-2">
-                      <div className="text-xs text-slate-500">이동 버전</div>
-                      <div className="flex flex-wrap gap-2">
-                        {versions.map((version) => (
-                          <button
-                            key={`route-segment-version-${index}-${version.id}`}
-                            type="button"
-                            onClick={() =>
-                              setSelectedRoute((prev) =>
-                                prev.map((item, itemIndex) =>
-                                  itemIndex === index
-                                    ? {
-                                        ...item,
-                                        segmentId: segment?.id,
-                                        segmentVersionId: version.id,
-                                      }
-                                    : item,
-                                ),
-                              )
-                            }
-                            className={`rounded-lg border px-3 py-1 text-xs ${
-                              selectedVersion?.id === version.id
-                                ? 'border-slate-900 bg-slate-900 text-white'
-                                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
-                            }`}
-                          >
-                        {formatSegmentVersionLabel(version)}
-                      </button>
-                    ))}
-                      </div>
-                    </div>
-                  ) : null}
+                        <div className="text-sm font-medium">{startDayIndex}일차</div>
+                        <div className="mt-1 text-slate-700">
+                          <span className="whitespace-pre-line">
+                            {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
+                          </span>
+                          {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {(locationById.get(stop.locationId)?.variations ?? []).map((version) => (
+                            <button
+                              key={`route-version-${index}-${version.id}`}
+                              type="button"
+                              onClick={() =>
+                                setSelectedRoute((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, locationVersionId: version.id } : item,
+                                  ),
+                                )
+                              }
+                              className={`rounded-lg border px-3 py-1 text-xs ${
+                                stop.locationVersionId === version.id
+                                  ? 'border-slate-900 bg-slate-900 text-white'
+                                  : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              {formatLocationVersion(version)}
+                            </button>
+                          ))}
+                        </div>
+                        {versions.length > 1 ? (
+                          <div className="mt-3 grid gap-2">
+                            <div className="text-xs text-slate-500">이동 버전</div>
+                            <div className="flex flex-wrap gap-2">
+                              {versions.map((version) => (
+                                <button
+                                  key={`route-segment-version-${index}-${version.id}`}
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedRoute((prev) =>
+                                      prev.map((item, itemIndex) =>
+                                        itemIndex === index && item.kind === 'LOCATION'
+                                          ? {
+                                              ...item,
+                                              segmentId: segment?.id,
+                                              segmentVersionId: version.id,
+                                              overnightStayConnectionId: undefined,
+                                              overnightStayConnectionVersionId: undefined,
+                                            }
+                                          : item,
+                                      ),
+                                    )
+                                  }
+                                  className={`rounded-lg border px-3 py-1 text-xs ${
+                                    selectedVersion?.id === version.id
+                                      ? 'border-slate-900 bg-slate-900 text-white'
+                                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                                  }`}
+                                >
+                                  {formatSegmentVersionLabel(version)}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
                       </>
                     );
                   })()}
                 </div>
               ))}
 
-              {startLocationId && startLocationVersionId && selectedRoute.length < totalDays - 1 ? (
+              {startLocationId && startLocationVersionId && 1 + getConsumedRouteDayCount(selectedRoute) < totalDays ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 p-4">
-                  <div className="mb-3 text-sm font-medium">{selectedRoute.length + 2}일차 선택</div>
-                  <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-                    {nextOptions.map((location) => (
-                      <button
-                    key={location.id}
-                    type="button"
-                    onClick={() =>
-                      setSelectedRoute((prev) => {
-                        const fromId = prev.length === 0 ? startLocationId : prev[prev.length - 1]?.locationId ?? '';
-                        const segment = findSegment(filteredSegments, fromId, location.id);
-                        return [
-                          ...prev,
-                          {
-                            locationId: location.id,
-                            locationVersionId: getDefaultVersionId(location),
-                            segmentId: segment?.id,
-                            segmentVersionId: getDefaultSegmentVersionId(segment) || undefined,
-                          },
-                        ];
-                      })
-                    }
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
-                  >
-                    <span className="whitespace-pre-line">{formatLocationNameMultiline(location.name)}</span>
-                      </button>
-                    ))}
+                  <div className="mb-3 text-sm font-medium">{2 + getConsumedRouteDayCount(selectedRoute)}일차 선택</div>
+                  <div className="grid gap-3">
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                      {nextOptions.map((location) => (
+                        <button
+                          key={location.id}
+                          type="button"
+                          onClick={() =>
+                            setSelectedRoute((prev) => {
+                              const lastStop = prev[prev.length - 1];
+                              if (lastStop?.kind === 'OVERNIGHT_STAY') {
+                                const connection = findOvernightStayConnection(
+                                  filteredOvernightStayConnections,
+                                  lastStop.overnightStayId,
+                                  location.id,
+                                );
+                                return [
+                                  ...prev,
+                                  {
+                                    kind: 'LOCATION',
+                                    locationId: location.id,
+                                    locationVersionId: getDefaultVersionId(location),
+                                    overnightStayConnectionId: connection?.id,
+                                    overnightStayConnectionVersionId:
+                                      getDefaultOvernightStayConnectionVersionId(connection) || undefined,
+                                  },
+                                ];
+                              }
+
+                              const fromId = prev.length === 0 ? startLocationId : prev[prev.length - 1]?.locationId ?? '';
+                              const segment = findSegment(filteredSegments, fromId, location.id);
+                              return [
+                                ...prev,
+                                {
+                                  kind: 'LOCATION',
+                                  locationId: location.id,
+                                  locationVersionId: getDefaultVersionId(location),
+                                  segmentId: segment?.id,
+                                  segmentVersionId: getDefaultSegmentVersionId(segment) || undefined,
+                                },
+                              ];
+                            })
+                          }
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
+                        >
+                          <span className="whitespace-pre-line">{formatLocationNameMultiline(location.name)}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {nextOptions.length === 0 ? <p className="text-xs text-amber-700">선택 가능한 다음 목적지가 없습니다.</p> : null}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        disabled={totalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2}
+                        onClick={() => setIsOvernightStayPickerOpen((prev) => !prev)}
+                      >
+                        연박 선택하기
+                      </Button>
+                      {totalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2 ? (
+                        <span className="text-xs text-slate-500">남은 일수가 2일 미만이면 연박을 선택할 수 없습니다.</span>
+                      ) : null}
+                    </div>
+                    {isOvernightStayPickerOpen ? (
+                      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                        {overnightStayOptions.map((overnightStay) => (
+                          <button
+                            key={overnightStay.id}
+                            type="button"
+                            onClick={() => {
+                              const location = locationById.get(overnightStay.locationId);
+                              setSelectedRoute((prev) => [
+                                ...prev,
+                                {
+                                  kind: 'OVERNIGHT_STAY',
+                                  overnightStayId: overnightStay.id,
+                                  locationId: overnightStay.locationId,
+                                  locationVersionId: getDefaultVersionId(location) || '',
+                                },
+                              ]);
+                              setIsOvernightStayPickerOpen(false);
+                            }}
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:bg-slate-100"
+                          >
+                            {overnightStay.title}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    {isOvernightStayPickerOpen && overnightStayOptions.length === 0 ? (
+                      <p className="text-xs text-amber-700">선택 가능한 연박이 없습니다.</p>
+                    ) : null}
                   </div>
-                  {nextOptions.length === 0 ? <p className="text-xs text-amber-700">선택 가능한 다음 목적지가 없습니다.</p> : null}
                 </div>
               ) : null}
 

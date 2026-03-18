@@ -1,6 +1,10 @@
 export interface TemplatePlanRow {
   segmentId?: string;
   segmentVersionId?: string;
+  overnightStayId?: string;
+  overnightStayDayOrder?: number;
+  overnightStayConnectionId?: string;
+  overnightStayConnectionVersionId?: string;
   locationId?: string;
   locationVersionId?: string;
   dateCellText: string;

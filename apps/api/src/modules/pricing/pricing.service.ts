@@ -597,51 +597,89 @@ export class PricingService {
     regionId: string,
     planStops: PricingPlanStopDto[],
   ): Promise<number> {
-    const transitions: Array<{ fromLocationId: string; toLocationId: string }> = [];
+    const segmentTransitions: Array<{ fromLocationId: string; toLocationId: string }> = [];
+    const overnightStayConnectionIds = new Set<string>();
 
     for (let index = 1; index < planStops.length; index += 1) {
+      const currentStop = planStops[index];
+      if (currentStop?.overnightStayDayOrder === 2) {
+        continue;
+      }
+
+      if (currentStop?.overnightStayConnectionId) {
+        overnightStayConnectionIds.add(currentStop.overnightStayConnectionId);
+        continue;
+      }
+
       const fromLocationId = planStops[index - 1]?.locationId;
-      const toLocationId = planStops[index]?.locationId;
+      const toLocationId = currentStop?.locationId;
 
       if (!fromLocationId || !toLocationId) {
         continue;
       }
 
-      transitions.push({ fromLocationId, toLocationId });
-    }
-
-    if (transitions.length === 0) {
-      return 0;
+      segmentTransitions.push({ fromLocationId, toLocationId });
     }
 
     const uniqueTransitions = Array.from(
       new Map(
-        transitions.map((item) => [`${item.fromLocationId}::${item.toLocationId}`, item] as const),
+        segmentTransitions.map((item) => [`${item.fromLocationId}::${item.toLocationId}`, item] as const),
       ).values(),
     );
 
-    const segments = await prisma.segment.findMany({
-      where: {
-        regionId,
-        OR: uniqueTransitions.map((item) => ({
-          fromLocationId: item.fromLocationId,
-          toLocationId: item.toLocationId,
-        })),
-      },
-      select: {
-        fromLocationId: true,
-        toLocationId: true,
-        isLongDistance: true,
-      },
-    });
+    const [segments, overnightStayConnections] = await Promise.all([
+      uniqueTransitions.length > 0
+        ? prisma.segment.findMany({
+            where: {
+              regionId,
+              OR: uniqueTransitions.map((item) => ({
+                fromLocationId: item.fromLocationId,
+                toLocationId: item.toLocationId,
+              })),
+            },
+            select: {
+              fromLocationId: true,
+              toLocationId: true,
+              isLongDistance: true,
+            },
+          })
+        : Promise.resolve([]),
+      overnightStayConnectionIds.size > 0
+        ? prisma.overnightStayConnection.findMany({
+            where: {
+              regionId,
+              id: { in: Array.from(overnightStayConnectionIds) },
+            },
+            select: {
+              id: true,
+              isLongDistance: true,
+            },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    if (segmentTransitions.length === 0 && overnightStayConnections.length === 0) {
+      return 0;
+    }
 
     const segmentByKey = new Map<string, boolean>(
       segments.map((segment) => [`${segment.fromLocationId}::${segment.toLocationId}`, segment.isLongDistance]),
     );
+    const overnightStayConnectionById = new Map<string, boolean>(
+      overnightStayConnections.map((connection) => [connection.id, connection.isLongDistance]),
+    );
 
-    return transitions.reduce((count, transition) => {
+    const segmentCount = segmentTransitions.reduce((count, transition) => {
       const key = `${transition.fromLocationId}::${transition.toLocationId}`;
       return count + (segmentByKey.get(key) ? 1 : 0);
     }, 0);
+    const overnightStayConnectionCount = planStops.reduce((count, stop) => {
+      if (!stop.overnightStayConnectionId) {
+        return count;
+      }
+      return count + (overnightStayConnectionById.get(stop.overnightStayConnectionId) ? 1 : 0);
+    }, 0);
+
+    return segmentCount + overnightStayConnectionCount;
   }
 }

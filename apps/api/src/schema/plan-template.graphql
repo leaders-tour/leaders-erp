@@ -18,6 +18,10 @@ type PlanTemplateStop {
   dayIndex: Int!
   segmentId: String
   segmentVersionId: String
+  overnightStayId: String
+  overnightStayDayOrder: Int
+  overnightStayConnectionId: String
+  overnightStayConnectionVersionId: String
   locationId: String
   locationVersionId: String
   dateCellText: String!
@@ -34,6 +38,10 @@ input PlanTemplateStopNestedInput {
   dayIndex: Int!
   segmentId: String
   segmentVersionId: String
+  overnightStayId: String
+  overnightStayDayOrder: Int
+  overnightStayConnectionId: String
+  overnightStayConnectionVersionId: String
   locationId: String
   locationVersionId: String
   dateCellText: String!

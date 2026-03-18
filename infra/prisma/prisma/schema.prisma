@@ -379,6 +379,8 @@ model Region {
 
   locations Location[]
   segments  Segment[]
+  overnightStays OvernightStay[]
+  overnightStayConnections OvernightStayConnection[]
   plans     Plan[]
   planTemplates PlanTemplate[]
   regionLodgings RegionLodging[]
@@ -402,6 +404,8 @@ model Location {
   region       Region    @relation(fields: [regionId], references: [id], onDelete: Cascade)
   fromSegments Segment[] @relation("FromLocation")
   toSegments   Segment[] @relation("ToLocation")
+  overnightStays OvernightStay[]
+  toOvernightStayConnections OvernightStayConnection[] @relation("OvernightStayConnectionToLocation")
   versions     LocationVersion[] @relation("LocationVersions")
   currentVersion LocationVersion? @relation("CurrentLocationVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
   guide        LocationGuide?
@@ -456,6 +460,132 @@ model LocationVersion {
 
   @@unique([locationId, versionNumber])
   @@index([locationId])
+}
+
+model OvernightStay {
+  id         String @id @default(uuid(7))
+  regionId   String
+  locationId String @unique
+  isActive   Boolean @default(true)
+  sortOrder  Int @default(0)
+
+  region Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  days OvernightStayDay[]
+  outgoingConnections OvernightStayConnection[]
+  planStops PlanStop[]
+  planTemplateStops PlanTemplateStop[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([regionId])
+}
+
+model OvernightStayDay {
+  id                 String @id @default(uuid(7))
+  overnightStayId    String
+  dayOrder           Int
+  averageDistanceKm  Float
+  averageTravelHours Float
+  timeCellText       String @db.Text
+  scheduleCellText   String @db.Text
+  lodgingCellText    String @db.Text
+  mealCellText       String @db.Text
+
+  overnightStay OvernightStay @relation(fields: [overnightStayId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([overnightStayId])
+  @@unique([overnightStayId, dayOrder])
+}
+
+model OvernightStayConnection {
+  id                 String @id @default(uuid(7))
+  regionId           String
+  regionName         String
+  fromOvernightStayId String
+  toLocationId       String
+  defaultVersionId   String?
+  averageDistanceKm  Float
+  averageTravelHours Float
+  isLongDistance     Boolean @default(false)
+
+  region Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  fromOvernightStay OvernightStay @relation(fields: [fromOvernightStayId], references: [id], onDelete: Cascade)
+  toLocation Location @relation("OvernightStayConnectionToLocation", fields: [toLocationId], references: [id])
+  defaultVersion OvernightStayConnectionVersion? @relation("OvernightStayConnectionDefaultVersion", fields: [defaultVersionId], references: [id], onDelete: SetNull)
+  versions OvernightStayConnectionVersion[] @relation("OvernightStayConnectionVersions")
+  scheduleTimeBlocks OvernightStayConnectionTimeBlock[]
+  planStops PlanStop[]
+  planTemplateStops PlanTemplateStop[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([regionId])
+  @@index([defaultVersionId])
+  @@unique([fromOvernightStayId, toLocationId])
+}
+
+model OvernightStayConnectionVersion {
+  id                         String @id @default(uuid(7))
+  overnightStayConnectionId  String
+  name                       String
+  averageDistanceKm          Float
+  averageTravelHours         Float
+  isLongDistance             Boolean @default(false)
+  sortOrder                  Int
+  isDefault                  Boolean @default(false)
+
+  overnightStayConnection OvernightStayConnection @relation("OvernightStayConnectionVersions", fields: [overnightStayConnectionId], references: [id], onDelete: Cascade)
+  defaultForConnections OvernightStayConnection[] @relation("OvernightStayConnectionDefaultVersion")
+  scheduleTimeBlocks OvernightStayConnectionVersionTimeBlock[]
+  planStops PlanStop[]
+  planTemplateStops PlanTemplateStop[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([overnightStayConnectionId])
+  @@unique([overnightStayConnectionId, sortOrder])
+}
+
+model OvernightStayConnectionVersionTimeBlock {
+  id                               String @id @default(uuid(7))
+  overnightStayConnectionVersionId String
+  variant                          SegmentScheduleVariant @default(basic)
+  startTime                        String
+  label                            String
+  orderIndex                       Int
+
+  overnightStayConnectionVersion OvernightStayConnectionVersion @relation(fields: [overnightStayConnectionVersionId], references: [id], onDelete: Cascade)
+  activities OvernightStayConnectionVersionActivity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([overnightStayConnectionVersionId])
+  @@unique([overnightStayConnectionVersionId, variant, orderIndex])
+}
+
+model OvernightStayConnectionVersionActivity {
+  id                                        String @id @default(uuid(7))
+  overnightStayConnectionVersionTimeBlockId String
+  description                               String
+  orderIndex                                Int
+  isOptional                                Boolean @default(false)
+  conditionNote                             String?
+
+  overnightStayConnectionVersionTimeBlock OvernightStayConnectionVersionTimeBlock @relation(fields: [overnightStayConnectionVersionTimeBlockId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([overnightStayConnectionVersionTimeBlockId])
+  @@unique([overnightStayConnectionVersionTimeBlockId, orderIndex])
 }
 
 model Segment {
@@ -820,6 +950,10 @@ model PlanTemplateStop {
   dayIndex          Int
   segmentId         String?
   segmentVersionId  String?
+  overnightStayId   String?
+  overnightStayDayOrder Int?
+  overnightStayConnectionId String?
+  overnightStayConnectionVersionId String?
   locationId        String?
   locationVersionId String?
   dateCellText      String @db.Text
@@ -832,6 +966,9 @@ model PlanTemplateStop {
   planTemplate    PlanTemplate    @relation(fields: [planTemplateId], references: [id], onDelete: Cascade)
   segment         Segment?        @relation(fields: [segmentId], references: [id], onDelete: SetNull)
   segmentVersion  SegmentVersion? @relation(fields: [segmentVersionId], references: [id], onDelete: SetNull)
+  overnightStay   OvernightStay?  @relation(fields: [overnightStayId], references: [id], onDelete: SetNull)
+  overnightStayConnection OvernightStayConnection? @relation(fields: [overnightStayConnectionId], references: [id], onDelete: SetNull)
+  overnightStayConnectionVersion OvernightStayConnectionVersion? @relation(fields: [overnightStayConnectionVersionId], references: [id], onDelete: SetNull)
   location        Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
   locationVersion LocationVersion? @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
 
@@ -842,6 +979,9 @@ model PlanTemplateStop {
   @@index([planTemplateId])
   @@index([segmentId])
   @@index([segmentVersionId])
+  @@index([overnightStayId])
+  @@index([overnightStayConnectionId])
+  @@index([overnightStayConnectionVersionId])
   @@index([locationId])
   @@index([locationVersionId])
 }
@@ -851,6 +991,10 @@ model PlanStop {
   planVersionId       String
   segmentId           String?
   segmentVersionId    String?
+  overnightStayId     String?
+  overnightStayDayOrder Int?
+  overnightStayConnectionId String?
+  overnightStayConnectionVersionId String?
   locationId          String?
   locationVersionId   String?
   dateCellText        String @db.Text
@@ -863,6 +1007,9 @@ model PlanStop {
   planVersion     PlanVersion     @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
   segment         Segment?        @relation(fields: [segmentId], references: [id], onDelete: SetNull)
   segmentVersion  SegmentVersion? @relation(fields: [segmentVersionId], references: [id], onDelete: SetNull)
+  overnightStay   OvernightStay?  @relation(fields: [overnightStayId], references: [id], onDelete: SetNull)
+  overnightStayConnection OvernightStayConnection? @relation(fields: [overnightStayConnectionId], references: [id], onDelete: SetNull)
+  overnightStayConnectionVersion OvernightStayConnectionVersion? @relation(fields: [overnightStayConnectionVersionId], references: [id], onDelete: SetNull)
   location        Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
   locationVersion LocationVersion? @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
 
@@ -872,6 +1019,9 @@ model PlanStop {
   @@index([planVersionId])
   @@index([segmentId])
   @@index([segmentVersionId])
+  @@index([overnightStayId])
+  @@index([overnightStayConnectionId])
+  @@index([overnightStayConnectionVersionId])
   @@index([locationId])
   @@index([locationVersionId])
 }
@@ -1008,6 +1158,41 @@ model SegmentActivity {
 
   @@index([segmentTimeBlockId])
   @@unique([segmentTimeBlockId, orderIndex])
+}
+
+model OvernightStayConnectionTimeBlock {
+  id                       String @id @default(uuid(7))
+  overnightStayConnectionId String
+  variant                  SegmentScheduleVariant @default(basic)
+  startTime                String
+  label                    String
+  orderIndex               Int
+
+  overnightStayConnection OvernightStayConnection @relation(fields: [overnightStayConnectionId], references: [id], onDelete: Cascade)
+  activities OvernightStayConnectionActivity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([overnightStayConnectionId])
+  @@unique([overnightStayConnectionId, variant, orderIndex])
+}
+
+model OvernightStayConnectionActivity {
+  id                             String @id @default(uuid(7))
+  overnightStayConnectionTimeBlockId String
+  description                    String
+  orderIndex                     Int
+  isOptional                     Boolean @default(false)
+  conditionNote                  String?
+
+  overnightStayConnectionTimeBlock OvernightStayConnectionTimeBlock @relation(fields: [overnightStayConnectionTimeBlockId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([overnightStayConnectionTimeBlockId])
+  @@unique([overnightStayConnectionTimeBlockId, orderIndex])
 }
 
 model Override {

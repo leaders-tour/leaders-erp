@@ -2,6 +2,7 @@ export { ActivityService } from '../modules/activity/activity.service';
 export { LodgingService } from '../modules/lodging/lodging.service';
 export { LocationService } from '../modules/location/location.service';
 export { MealSetService } from '../modules/meal-set/meal-set.service';
+export { OvernightStayConnectionService, OvernightStayService } from '../modules/overnight-stay/overnight-stay.service';
 export { OverrideService } from '../modules/override/override.service';
 export { PlanService } from '../modules/plan/plan.service';
 export { RegionService } from '../modules/region/region.service';

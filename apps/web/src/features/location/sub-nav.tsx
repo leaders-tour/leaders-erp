@@ -5,7 +5,10 @@ interface LocationSubNavProps {
 }
 
 function isListContext(pathname: string): boolean {
-  return pathname === '/locations/list' || /^\/locations\/(?!list$|create$|connections$)[^/]+(?:\/edit)?$/.test(pathname);
+  return (
+    pathname === '/locations/list' ||
+    /^\/locations\/(?!list$|create$|connections$|stays$)[^/]+(?:\/edit)?$/.test(pathname)
+  );
 }
 
 export function LocationSubNav({ pathname }: LocationSubNavProps): JSX.Element {
@@ -40,6 +43,26 @@ export function LocationSubNav({ pathname }: LocationSubNavProps): JSX.Element {
         }`}
       >
         목적지 간 연결
+      </Link>
+      <Link
+        to="/locations/stays"
+        className={`rounded-xl px-3 py-1.5 text-sm transition-colors ${
+          pathname === '/locations/stays' || pathname === '/locations/stays/new' || /^\/locations\/stays\/[^/]+$/.test(pathname)
+            ? 'border border-slate-900 bg-slate-900 text-white'
+            : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+        }`}
+      >
+        연박 목록
+      </Link>
+      <Link
+        to="/locations/stays/connections"
+        className={`rounded-xl px-3 py-1.5 text-sm transition-colors ${
+          pathname === '/locations/stays/connections'
+            ? 'border border-slate-900 bg-slate-900 text-white'
+            : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+        }`}
+      >
+        연박 연결
       </Link>
       <Link
         to="/location-guides"

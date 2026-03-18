@@ -334,6 +334,7 @@ describe('route-autofill', () => {
       startLocationId: locationA.id,
       selectedRoute: [
         {
+          kind: 'LOCATION',
           locationId: locationB.id,
           locationVersionId: 'ver-b',
           segmentId: 'segment-ab',
@@ -353,6 +354,7 @@ describe('route-autofill', () => {
       startLocationVersionId: 'ver-a',
       selectedRoute: [
         {
+          kind: 'LOCATION',
           locationId: locationC.id,
           locationVersionId: 'ver-c',
           segmentId: 'segment-ac',
@@ -392,6 +394,7 @@ describe('route-autofill', () => {
       startLocationVersionId: 'ver-a',
       selectedRoute: [
         {
+          kind: 'LOCATION',
           locationId: locationB.id,
           locationVersionId: 'ver-b',
           segmentId: 'segment-ab',

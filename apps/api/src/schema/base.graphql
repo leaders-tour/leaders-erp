@@ -19,6 +19,10 @@ type Query {
   mealSet(id: ID!): MealSet
   segments: [Segment!]!
   segment(id: ID!): Segment
+  overnightStays(regionId: ID, activeOnly: Boolean): [OvernightStay!]!
+  overnightStay(id: ID!): OvernightStay
+  overnightStayConnections(regionId: ID, fromOvernightStayId: ID): [OvernightStayConnection!]!
+  overnightStayConnection(id: ID!): OvernightStayConnection
   plans(userId: ID!): [Plan!]!
   plan(id: ID!): Plan
   planVersions(planId: ID!): [PlanVersion!]!
@@ -73,6 +77,14 @@ type Mutation {
   createSegment(input: SegmentCreateInput!): Segment!
   updateSegment(id: ID!, input: SegmentUpdateInput!): Segment!
   deleteSegment(id: ID!): Boolean!
+
+  createOvernightStay(input: OvernightStayCreateInput!): OvernightStay!
+  updateOvernightStay(id: ID!, input: OvernightStayUpdateInput!): OvernightStay!
+  deleteOvernightStay(id: ID!): Boolean!
+
+  createOvernightStayConnection(input: OvernightStayConnectionCreateInput!): OvernightStayConnection!
+  updateOvernightStayConnection(id: ID!, input: OvernightStayConnectionUpdateInput!): OvernightStayConnection!
+  deleteOvernightStayConnection(id: ID!): Boolean!
 
   createUser(input: UserCreateInput!): User!
   updateUser(id: ID!, input: UserUpdateInput!): User!

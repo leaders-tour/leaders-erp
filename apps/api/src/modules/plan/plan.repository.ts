@@ -344,6 +344,10 @@ export class PlanRepository {
           create: initialVersionData.planStops.map((planStop) => ({
             segmentId: planStop.segmentId,
             segmentVersionId: planStop.segmentVersionId,
+            overnightStayId: planStop.overnightStayId,
+            overnightStayDayOrder: planStop.overnightStayDayOrder,
+            overnightStayConnectionId: planStop.overnightStayConnectionId,
+            overnightStayConnectionVersionId: planStop.overnightStayConnectionVersionId,
             locationId: planStop.locationId,
             locationVersionId: planStop.locationVersionId,
             dateCellText: planStop.dateCellText,
@@ -401,6 +405,10 @@ export class PlanRepository {
           create: versionData.planStops.map((planStop) => ({
             segmentId: planStop.segmentId,
             segmentVersionId: planStop.segmentVersionId,
+            overnightStayId: planStop.overnightStayId,
+            overnightStayDayOrder: planStop.overnightStayDayOrder,
+            overnightStayConnectionId: planStop.overnightStayConnectionId,
+            overnightStayConnectionVersionId: planStop.overnightStayConnectionVersionId,
             locationId: planStop.locationId,
             locationVersionId: planStop.locationVersionId,
             dateCellText: planStop.dateCellText,

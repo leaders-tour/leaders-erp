@@ -6,6 +6,7 @@ export * from './lodging.schema';
 export * from './location.schema';
 export * from './location-guide.schema';
 export * from './meal-set.schema';
+export * from './overnight-stay.schema';
 export * from './override.schema';
 export * from './outreach.schema';
 export * from './plan.schema';

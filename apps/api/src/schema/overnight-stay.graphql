@@ -1,0 +1,184 @@
+type OvernightStay {
+  id: ID!
+  regionId: String!
+  locationId: String!
+  title: String!
+  isActive: Boolean!
+  sortOrder: Int!
+  region: Region!
+  location: Location!
+  days: [OvernightStayDay!]!
+  outgoingConnections: [OvernightStayConnection!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type OvernightStayDay {
+  id: ID!
+  overnightStayId: String!
+  dayOrder: Int!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  timeCellText: String!
+  scheduleCellText: String!
+  lodgingCellText: String!
+  mealCellText: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type OvernightStayConnection {
+  id: ID!
+  regionId: String!
+  regionName: String!
+  fromOvernightStayId: String!
+  toLocationId: String!
+  defaultVersionId: String
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  isLongDistance: Boolean!
+  fromOvernightStay: OvernightStay!
+  toLocation: Location!
+  scheduleTimeBlocks: [OvernightStayConnectionTimeBlock!]!
+  earlyScheduleTimeBlocks: [OvernightStayConnectionTimeBlock!]!
+  extendScheduleTimeBlocks: [OvernightStayConnectionTimeBlock!]!
+  earlyExtendScheduleTimeBlocks: [OvernightStayConnectionTimeBlock!]!
+  versions: [OvernightStayConnectionVersion!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type OvernightStayConnectionVersion {
+  id: ID!
+  overnightStayConnectionId: String!
+  name: String!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  isLongDistance: Boolean!
+  sortOrder: Int!
+  isDefault: Boolean!
+  scheduleTimeBlocks: [OvernightStayConnectionVersionTimeBlock!]!
+  earlyScheduleTimeBlocks: [OvernightStayConnectionVersionTimeBlock!]!
+  extendScheduleTimeBlocks: [OvernightStayConnectionVersionTimeBlock!]!
+  earlyExtendScheduleTimeBlocks: [OvernightStayConnectionVersionTimeBlock!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type OvernightStayConnectionVersionTimeBlock {
+  id: ID!
+  overnightStayConnectionVersionId: String!
+  variant: SegmentScheduleVariant!
+  startTime: String!
+  label: String!
+  orderIndex: Int!
+  activities: [OvernightStayConnectionVersionActivity!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type OvernightStayConnectionVersionActivity {
+  id: ID!
+  overnightStayConnectionVersionTimeBlockId: String!
+  description: String!
+  orderIndex: Int!
+  isOptional: Boolean!
+  conditionNote: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type OvernightStayConnectionTimeBlock {
+  id: ID!
+  overnightStayConnectionId: String!
+  variant: SegmentScheduleVariant!
+  startTime: String!
+  label: String!
+  orderIndex: Int!
+  activities: [OvernightStayConnectionActivity!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type OvernightStayConnectionActivity {
+  id: ID!
+  overnightStayConnectionTimeBlockId: String!
+  description: String!
+  orderIndex: Int!
+  isOptional: Boolean!
+  conditionNote: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input OvernightStayDayInput {
+  dayOrder: Int!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  timeCellText: String!
+  scheduleCellText: String!
+  lodgingCellText: String!
+  mealCellText: String!
+}
+
+input OvernightStayCreateInput {
+  regionId: String!
+  locationId: String!
+  sortOrder: Int
+  isActive: Boolean
+  days: [OvernightStayDayInput!]!
+}
+
+input OvernightStayUpdateInput {
+  regionId: String
+  locationId: String
+  sortOrder: Int
+  isActive: Boolean
+  days: [OvernightStayDayInput!]
+}
+
+input OvernightStayConnectionTimeSlotInput {
+  startTime: String!
+  activities: [String!]!
+}
+
+input OvernightStayConnectionVersionInput {
+  id: String
+  name: String!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  isLongDistance: Boolean!
+  timeSlots: [OvernightStayConnectionTimeSlotInput!]!
+  earlyTimeSlots: [OvernightStayConnectionTimeSlotInput!]
+  extendTimeSlots: [OvernightStayConnectionTimeSlotInput!]
+  earlyExtendTimeSlots: [OvernightStayConnectionTimeSlotInput!]
+  isDefault: Boolean
+}
+
+input OvernightStayConnectionCreateInput {
+  regionId: String!
+  fromOvernightStayId: String!
+  toLocationId: String!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  isLongDistance: Boolean!
+  timeSlots: [OvernightStayConnectionTimeSlotInput!]!
+  earlyTimeSlots: [OvernightStayConnectionTimeSlotInput!]
+  extendTimeSlots: [OvernightStayConnectionTimeSlotInput!]
+  earlyExtendTimeSlots: [OvernightStayConnectionTimeSlotInput!]
+  versions: [OvernightStayConnectionVersionInput!]
+}
+
+input OvernightStayConnectionUpdateInput {
+  regionId: String
+  fromOvernightStayId: String
+  toLocationId: String
+  averageDistanceKm: Float
+  averageTravelHours: Float
+  isLongDistance: Boolean
+  timeSlots: [OvernightStayConnectionTimeSlotInput!]
+  earlyTimeSlots: [OvernightStayConnectionTimeSlotInput!]
+  extendTimeSlots: [OvernightStayConnectionTimeSlotInput!]
+  earlyExtendTimeSlots: [OvernightStayConnectionTimeSlotInput!]
+  versions: [OvernightStayConnectionVersionInput!]
+}

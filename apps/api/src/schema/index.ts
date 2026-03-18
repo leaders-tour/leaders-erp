@@ -16,6 +16,7 @@ const files = [
   'region-lodging.graphql',
   'meal-set.graphql',
   'segment.graphql',
+  'overnight-stay.graphql',
   'plan.graphql',
   'plan-template.graphql',
   'time-block.graphql',

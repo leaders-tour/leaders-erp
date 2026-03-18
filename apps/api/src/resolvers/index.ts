@@ -6,6 +6,7 @@ import { lodgingResolver } from '../modules/lodging/lodging.resolver';
 import { locationGuideResolver } from '../modules/location-guide/location-guide.resolver';
 import { locationResolver } from '../modules/location/location.resolver';
 import { mealSetResolver } from '../modules/meal-set/meal-set.resolver';
+import { overnightStayResolver } from '../modules/overnight-stay/overnight-stay.resolver';
 import { overrideResolver } from '../modules/override/override.resolver';
 import { planResolver } from '../modules/plan/plan.resolver';
 import { planTemplateResolver } from '../modules/plan-template/plan-template.resolver';
@@ -86,6 +87,7 @@ export const resolvers = {
       regionLodgingResolver.Query,
       mealSetResolver.Query,
       segmentResolver.Query,
+      overnightStayResolver.Query,
       planResolver.Query,
       planTemplateResolver.Query,
       timeBlockResolver.Query,
@@ -109,6 +111,7 @@ export const resolvers = {
       regionLodgingResolver.Mutation,
       mealSetResolver.Mutation,
       segmentResolver.Mutation,
+      overnightStayResolver.Mutation,
       planResolver.Mutation,
       planTemplateResolver.Mutation,
       timeBlockResolver.Mutation,
@@ -128,4 +131,7 @@ export const resolvers = {
   Location: locationResolver.Location,
   Segment: segmentResolver.Segment,
   SegmentVersion: segmentResolver.SegmentVersion,
+  OvernightStay: overnightStayResolver.OvernightStay,
+  OvernightStayConnection: overnightStayResolver.OvernightStayConnection,
+  OvernightStayConnectionVersion: overnightStayResolver.OvernightStayConnectionVersion,
 };
