@@ -1024,9 +1024,15 @@ model PlanTemplateStop {
   @@index([locationVersionId])
 }
 
+enum PlanStopRowType {
+  MAIN
+  EXTERNAL_TRANSFER
+}
+
 model PlanStop {
   id                  String @id @default(uuid(7))
   planVersionId       String
+  rowType             PlanStopRowType @default(MAIN)
   segmentId           String?
   segmentVersionId    String?
   multiDayBlockId     String?

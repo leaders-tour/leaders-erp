@@ -1,6 +1,7 @@
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
 import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
 import type { PlanVersionDetail } from '../../plan/hooks';
+import { countMainPlanStopRows } from '../../plan/plan-stop-row';
 import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
 import type { EstimateDocumentData } from '../model/types';
 import {
@@ -42,7 +43,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     mode: 'version',
     isDraft: false,
     planTitle: version.plan.title,
-    page2Title: buildPage2Title(version.plan.region.name, version.planStops.length),
+    page2Title: buildPage2Title(version.plan.region.name, countMainPlanStopRows(version.planStops)),
     page3Title: ESTIMATE_PAGE3_TITLE,
     leaderName: normalizeMultilineText(meta?.leaderName),
     documentNumber: meta?.documentNumber ?? null,
@@ -126,6 +127,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
     movementIntensity: version.movementIntensity ?? null,
     planStops: version.planStops.map((row) => ({
+      rowType: row.rowType ?? 'MAIN',
       locationId: row.locationId ?? null,
       dateCellText: row.dateCellText,
       destinationCellText: row.destinationCellText,

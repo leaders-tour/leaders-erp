@@ -21,6 +21,7 @@ export interface LodgingSelectionPricingInputDto {
 }
 
 export interface PricingPlanStopDto {
+  rowType?: 'MAIN' | 'EXTERNAL_TRANSFER' | null;
   multiDayBlockId?: string;
   multiDayBlockDayOrder?: number;
   multiDayBlockConnectionId?: string;

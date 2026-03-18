@@ -43,6 +43,10 @@ const FIXED_LODGING_SELECTION_AMOUNTS: Record<'LV1' | 'LV2' | 'LV3' | 'LV4', num
 export class PricingService {
   constructor(private readonly prisma: PrismaClient) {}
 
+  private filterMainPlanStops(planStops: PricingPlanStopDto[]): PricingPlanStopDto[] {
+    return planStops.filter((planStop) => planStop.rowType !== 'EXTERNAL_TRANSFER');
+  }
+
   preview(input: PlanPricingPreviewInput): Promise<PricingComputationResult> {
     return this.computeWithPrisma(this.prisma, input);
   }
@@ -89,6 +93,7 @@ export class PricingService {
   }
 
   private async computeWithPrisma(prisma: PrismaLike, input: PricingComputeInput): Promise<PricingComputationResult> {
+    const mainPlanStops = this.filterMainPlanStops(input.planStops);
     const travelStartDate = new Date(input.travelStartDate);
     if (Number.isNaN(travelStartDate.getTime())) {
       throw new DomainError('VALIDATION_FAILED', 'Invalid travelStartDate for pricing');
@@ -96,7 +101,7 @@ export class PricingService {
 
     const [policy, longDistanceSegmentCount, selectedEvents] = await Promise.all([
       this.loadActivePolicy(prisma, travelStartDate),
-      this.countLongDistanceSegments(prisma, input.regionId, input.planStops),
+      this.countLongDistanceSegments(prisma, input.regionId, mainPlanStops),
       input.eventIds.length > 0
         ? prisma.event.findMany({
             where: { id: { in: input.eventIds } },
@@ -270,6 +275,7 @@ export class PricingService {
         regionId: input.regionId,
         variantType: input.variantType,
         totalDays: input.totalDays,
+        planStops: mainPlanStops,
         headcountTotal: input.headcountTotal,
         vehicleType: input.vehicleType,
         travelStartDate: input.travelStartDate,

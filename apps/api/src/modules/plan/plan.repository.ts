@@ -342,6 +342,7 @@ export class PlanRepository {
         },
         planStops: {
           create: initialVersionData.planStops.map((planStop) => ({
+            rowType: planStop.rowType,
             segmentId: planStop.segmentId,
             segmentVersionId: planStop.segmentVersionId,
             multiDayBlockId: planStop.multiDayBlockId ?? undefined,
@@ -403,6 +404,7 @@ export class PlanRepository {
         },
         planStops: {
           create: versionData.planStops.map((planStop) => ({
+            rowType: planStop.rowType,
             segmentId: planStop.segmentId,
             segmentVersionId: planStop.segmentVersionId,
             multiDayBlockId: planStop.multiDayBlockId ?? undefined,

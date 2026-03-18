@@ -31,6 +31,8 @@ import {
   syncExternalTransferWithSelectedTeams,
   type ExternalTransfer,
 } from '../features/plan/external-transfer';
+import { buildMergedPlanStops } from '../features/plan/merge-plan-stops';
+import { isMainPlanStopRow, type PlanStopRowBase, type PlanStopRowType } from '../features/plan/plan-stop-row';
 import {
   DEFAULT_PICKUP_DROP_PLACE_TYPE,
   PICKUP_DROP_PLACE_OPTIONS,
@@ -99,25 +101,16 @@ interface EventOptionRow {
   name: string;
 }
 
-interface PlanRow {
+interface PlanRow extends PlanStopRowBase {
   segmentId?: string;
   segmentVersionId?: string;
   overnightStayId?: string;
   overnightStayDayOrder?: number;
   overnightStayConnectionId?: string;
   overnightStayConnectionVersionId?: string;
-  locationId?: string;
-  locationVersionId?: string;
-  movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
   lodgingSelectionLevel: LodgingSelectionLevel;
   customLodgingId?: string;
   customLodgingNameSnapshot?: string | null;
-  dateCellText: string;
-  destinationCellText: string;
-  timeCellText: string;
-  scheduleCellText: string;
-  lodgingCellText: string;
-  mealCellText: string;
 }
 
 interface ExtraLodgingRow {
@@ -270,6 +263,7 @@ function arePlanRowsEqual(left: PlanRow[], right: PlanRow[]): boolean {
       row.overnightStayDayOrder === other.overnightStayDayOrder &&
       row.overnightStayConnectionId === other.overnightStayConnectionId &&
       row.overnightStayConnectionVersionId === other.overnightStayConnectionVersionId &&
+      row.rowType === other.rowType &&
       row.locationId === other.locationId &&
       row.locationVersionId === other.locationVersionId &&
       row.movementIntensity === other.movementIntensity &&
@@ -873,7 +867,7 @@ function createEstimateDraftSnapshot(input: {
   rentalItemsText: string;
   eventNames: string[];
   remark: string;
-  planStops: PlanRow[];
+  planStops: PlanStopRowBase[];
   pricingPreview: PricingPreviewRow | null;
 }): EstimateBuilderDraftSnapshot {
   return {
@@ -893,8 +887,11 @@ function createEstimateDraftSnapshot(input: {
     rentalItemsText: input.rentalItemsText,
     eventNames: input.eventNames,
     remark: input.remark,
-    movementIntensity: averageMovementIntensity(input.planStops.map((row) => row.movementIntensity)),
+    movementIntensity: averageMovementIntensity(
+      input.planStops.filter((row) => isMainPlanStopRow(row)).map((row) => row.movementIntensity),
+    ),
     planStops: input.planStops.map((row) => ({
+      rowType: row.rowType,
       locationId: row.locationId,
       dateCellText: row.dateCellText,
       destinationCellText: row.destinationCellText,
@@ -1080,6 +1077,7 @@ function sortTemplateStops(stops: PlanTemplateStopRow[]): PlanTemplateStopRow[] 
 }
 
 function buildDefaultLodgingRow(input: {
+  rowType?: PlanStopRowType;
   segmentId?: string;
   segmentVersionId?: string;
   overnightStayId?: string;
@@ -1098,6 +1096,7 @@ function buildDefaultLodgingRow(input: {
   lodgingCellText?: string;
 }): PlanRow {
   return {
+    rowType: input.rowType ?? 'MAIN',
     segmentId: input.segmentId,
     segmentVersionId: input.segmentVersionId,
     overnightStayId: input.overnightStayId,
@@ -1999,6 +1998,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const planStopInputs = useMemo(
     () =>
       planRows.map((row) => ({
+        rowType: row.rowType,
         segmentId: row.segmentId,
         segmentVersionId: row.segmentVersionId,
         overnightStayId: row.overnightStayId,
@@ -2016,6 +2016,22 @@ export function ItineraryBuilderPage(): JSX.Element {
       })),
     [planRows],
   );
+  const mergedPlanStops = useMemo(
+    () => buildMergedPlanStops(planStopInputs, externalTransfers, transportGroups),
+    [externalTransfers, planStopInputs, transportGroups],
+  );
+  const displayPlanRows = useMemo(() => {
+    let mainRowIndex = 0;
+    return buildMergedPlanStops(planRows, externalTransfers, transportGroups).map((row) => {
+      if (row.rowType === 'EXTERNAL_TRANSFER') {
+        return { row, mainRowIndex: null as number | null };
+      }
+
+      const currentMainRowIndex = mainRowIndex;
+      mainRowIndex += 1;
+      return { row, mainRowIndex: currentMainRowIndex };
+    });
+  }, [externalTransfers, planRows, transportGroups]);
 
   const applyTemplate = (template: PlanTemplateRow, withConfirm = true): void => {
     if (withConfirm && !window.confirm(`템플릿 \"${template.name}\"을(를) 현재 빌더에 적용할까요?`)) {
@@ -2256,7 +2272,7 @@ export function ItineraryBuilderPage(): JSX.Element {
           regionId,
           variantType,
           totalDays,
-          planStops: planStopInputs,
+          planStops: mergedPlanStops,
           travelStartDate: toIsoDateTime(travelStartDate),
           headcountTotal,
           transportGroupCount: transportGroups.length,
@@ -2353,7 +2369,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         rentalItemsText: rentalItemsText.trim(),
         eventNames: selectedEventNames,
         remark: remark.trim(),
-        planStops: planRows,
+        planStops: mergedPlanStops,
         pricingPreview,
       }),
     [
@@ -2827,7 +2843,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           })),
                           remark: remark.trim() || undefined,
                         },
-                        planStops: planStopInputs,
+                        planStops: mergedPlanStops,
                         manualAdjustments: normalizedManualAdjustments,
                         manualDepositAmountKrw: normalizedManualDepositAmountKrw,
                       },
@@ -2909,7 +2925,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           })),
                           remark: remark.trim() || undefined,
                         },
-                        planStops: planStopInputs,
+                        planStops: mergedPlanStops,
                         manualAdjustments: normalizedManualAdjustments,
                         manualDepositAmountKrw: normalizedManualDepositAmountKrw,
                       },
@@ -4015,80 +4031,116 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {planRows.map((row, rowIndex) => (
-                  <tr key={`day-row-${rowIndex + 1}`} className="border-t border-slate-200 align-top">
+                {displayPlanRows.map(({ row, mainRowIndex }, rowIndex) => {
+                  const isExternalRow = mainRowIndex === null;
+                  const cellClassName = `w-full resize-none overflow-hidden rounded-xl border border-slate-200 px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
+                    isExternalRow ? 'bg-slate-50 text-slate-500' : 'bg-white'
+                  }`;
+
+                  return (
+                  <tr key={`day-row-${rowIndex + 1}`} className={`border-t border-slate-200 align-top ${isExternalRow ? 'bg-slate-50/60' : ''}`}>
                     <Td>
                       <textarea
                         value={row.dateCellText}
+                        readOnly={isExternalRow}
+                        disabled={isExternalRow}
                         onChange={(event) => {
-                          updateCell(rowIndex, 'dateCellText', event.target.value);
+                          if (mainRowIndex === null) {
+                            return;
+                          }
+                          updateCell(mainRowIndex, 'dateCellText', event.target.value);
                           autoResizeTextarea(event.currentTarget);
                         }}
                         onInput={(event) => autoResizeTextarea(event.currentTarget)}
                         rows={1}
                         data-plan-cell="true"
-                        className="w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                        className={cellClassName}
                       />
                     </Td>
                     <Td>
                       <textarea
                         value={row.destinationCellText}
+                        readOnly={isExternalRow}
+                        disabled={isExternalRow}
                         onChange={(event) => {
-                          updateCell(rowIndex, 'destinationCellText', event.target.value);
+                          if (mainRowIndex === null) {
+                            return;
+                          }
+                          updateCell(mainRowIndex, 'destinationCellText', event.target.value);
                           autoResizeTextarea(event.currentTarget);
                         }}
                         onInput={(event) => autoResizeTextarea(event.currentTarget)}
                         rows={1}
                         data-plan-cell="true"
-                        className="w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                        className={cellClassName}
                       />
                     </Td>
                     <Td>
                       <textarea
                         value={row.timeCellText}
+                        readOnly={isExternalRow}
+                        disabled={isExternalRow}
                         onChange={(event) => {
-                          updateCell(rowIndex, 'timeCellText', event.target.value);
+                          if (mainRowIndex === null) {
+                            return;
+                          }
+                          updateCell(mainRowIndex, 'timeCellText', event.target.value);
                           autoResizeTextarea(event.currentTarget);
                         }}
                         onInput={(event) => autoResizeTextarea(event.currentTarget)}
                         rows={1}
                         data-plan-cell="true"
-                        className="w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                        className={cellClassName}
                       />
                     </Td>
                     <Td>
                       <textarea
                         value={row.scheduleCellText}
+                        readOnly={isExternalRow}
+                        disabled={isExternalRow}
                         onChange={(event) => {
-                          updateCell(rowIndex, 'scheduleCellText', event.target.value);
+                          if (mainRowIndex === null) {
+                            return;
+                          }
+                          updateCell(mainRowIndex, 'scheduleCellText', event.target.value);
                           autoResizeTextarea(event.currentTarget);
                         }}
                         onInput={(event) => autoResizeTextarea(event.currentTarget)}
                         rows={1}
                         data-plan-cell="true"
-                        className="w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                        className={cellClassName}
                       />
                     </Td>
                     <Td>
-                      <div className="min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-5 whitespace-pre-wrap text-slate-900">
+                      <div
+                        className={`min-h-[44px] rounded-xl border border-slate-200 px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
+                          isExternalRow ? 'bg-slate-100 text-slate-500' : 'bg-slate-50 text-slate-900'
+                        }`}
+                      >
                         {row.lodgingCellText || '-'}
                       </div>
                     </Td>
                     <Td>
                       <textarea
                         value={row.mealCellText}
+                        readOnly={isExternalRow}
+                        disabled={isExternalRow}
                         onChange={(event) => {
-                          updateCell(rowIndex, 'mealCellText', event.target.value);
+                          if (mainRowIndex === null) {
+                            return;
+                          }
+                          updateCell(mainRowIndex, 'mealCellText', event.target.value);
                           autoResizeTextarea(event.currentTarget);
                         }}
                         onInput={(event) => autoResizeTextarea(event.currentTarget)}
                         rows={1}
                         data-plan-cell="true"
-                        className="w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap"
+                        className={cellClassName}
                       />
                     </Td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </Table>
           </div>
@@ -4428,7 +4480,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       manualAdjustments: normalizedManualAdjustments,
       manualDepositAmountKrw: normalizedManualDepositAmountKrw,
       selectedRoute,
-      planStops: planStopInputs,
+      planStops: mergedPlanStops,
     }
     : {
         userId,
@@ -4469,7 +4521,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         manualDepositAmountKrw: normalizedManualDepositAmountKrw,
         selectedRoute,
         initialVersion: {
-          planStops: planStopInputs,
+          planStops: mergedPlanStops,
         },
       },
   null,

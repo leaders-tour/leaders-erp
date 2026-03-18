@@ -1,4 +1,6 @@
-export interface TemplatePlanRow {
+import type { PlanStopRowBase } from '../plan/plan-stop-row';
+
+export interface TemplatePlanRow extends PlanStopRowBase {
   segmentId?: string;
   segmentVersionId?: string;
   overnightStayId?: string;
@@ -11,17 +13,11 @@ export interface TemplatePlanRow {
   multiDayBlockConnectionVersionId?: string;
   locationId?: string;
   locationVersionId?: string;
-  movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
-  dateCellText: string;
-  destinationCellText: string;
-  timeCellText: string;
-  scheduleCellText: string;
-  lodgingCellText: string;
-  mealCellText: string;
 }
 
 export function buildEmptyPlanRow(dayIndex: number): TemplatePlanRow {
   return {
+    rowType: 'MAIN',
     dateCellText: `${dayIndex}일차`,
     destinationCellText: '',
     timeCellText: '',

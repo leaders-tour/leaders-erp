@@ -36,6 +36,8 @@ type NormalizedLodgingSelection = LodgingSelectionInput & {
   priceSnapshotKrw: number | null;
 };
 
+type PlanStopRowType = 'MAIN' | 'EXTERNAL_TRANSFER';
+
 export class PlanService {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -72,8 +74,21 @@ export class PlanService {
     }
   }
 
+  private isExternalTransferPlanStop<T extends { rowType?: PlanStopRowType | null }>(planStop: T): boolean {
+    return planStop.rowType === 'EXTERNAL_TRANSFER';
+  }
+
+  private countMainPlanStops<T extends { rowType?: PlanStopRowType | null }>(planStops: T[]): number {
+    return planStops.reduce((count, planStop) => count + (this.isExternalTransferPlanStop(planStop) ? 0 : 1), 0);
+  }
+
+  private filterMainPlanStops<T extends { rowType?: PlanStopRowType | null }>(planStops: T[]): T[] {
+    return planStops.filter((planStop) => !this.isExternalTransferPlanStop(planStop));
+  }
+
   private async normalizePlanStopsWithLocationReferences<
     T extends {
+      rowType?: PlanStopRowType | null;
       segmentId?: string;
       segmentVersionId?: string;
       multiDayBlockId?: string;
@@ -86,9 +101,10 @@ export class PlanService {
   >(
     planStops: T[],
   ): Promise<T[]> {
+    const mainPlanStops = this.filterMainPlanStops(planStops);
     const locationVersionIds = Array.from(
       new Set(
-        planStops
+        mainPlanStops
           .map((planStop) => planStop.locationVersionId)
           .filter((value): value is string => typeof value === 'string' && value.length > 0),
       ),
@@ -130,35 +146,35 @@ export class PlanService {
 
     const segmentIds = Array.from(
       new Set(
-        normalizedStops
+        this.filterMainPlanStops(normalizedStops)
           .map((planStop) => planStop.segmentId)
           .filter((value): value is string => typeof value === 'string' && value.length > 0),
       ),
     );
     const segmentVersionIds = Array.from(
       new Set(
-        normalizedStops
+        this.filterMainPlanStops(normalizedStops)
           .map((planStop) => planStop.segmentVersionId)
           .filter((value): value is string => typeof value === 'string' && value.length > 0),
       ),
     );
     const blockIds = Array.from(
       new Set(
-        normalizedStops
+        this.filterMainPlanStops(normalizedStops)
           .map((planStop) => planStop.multiDayBlockId)
           .filter((value): value is string => typeof value === 'string' && value.length > 0),
       ),
     );
     const connectionIds = Array.from(
       new Set(
-        normalizedStops
+        this.filterMainPlanStops(normalizedStops)
           .map((planStop) => planStop.multiDayBlockConnectionId)
           .filter((value): value is string => typeof value === 'string' && value.length > 0),
       ),
     );
     const connectionVersionIds = Array.from(
       new Set(
-        normalizedStops
+        this.filterMainPlanStops(normalizedStops)
           .map((planStop) => planStop.multiDayBlockConnectionVersionId)
           .filter((value): value is string => typeof value === 'string' && value.length > 0),
       ),
@@ -244,6 +260,24 @@ export class PlanService {
       overnightStayConnectionVersions.map((version) => [version.id, version]),
     );
     for (const [index, planStop] of normalizedStops.entries()) {
+      if (this.isExternalTransferPlanStop(planStop)) {
+        if (
+          planStop.segmentId ||
+          planStop.segmentVersionId ||
+          planStop.multiDayBlockId ||
+          planStop.multiDayBlockDayOrder !== undefined ||
+          planStop.multiDayBlockConnectionId ||
+          planStop.multiDayBlockConnectionVersionId ||
+          planStop.locationVersionId
+        ) {
+          throw new DomainError(
+            'VALIDATION_FAILED',
+            'EXTERNAL_TRANSFER rows cannot include segment, block, or location version references',
+          );
+        }
+        continue;
+      }
+
       if (planStop.segmentVersionId) {
         if (!planStop.segmentId) {
           throw new DomainError('VALIDATION_FAILED', 'segmentVersionId requires segmentId');
@@ -764,8 +798,13 @@ export class PlanService {
       throw createValidationError('Invalid pricing preview input', parsed.error);
     }
 
+    if (this.countMainPlanStops(parsed.data.planStops) !== parsed.data.totalDays) {
+      throw new DomainError('VALIDATION_FAILED', 'totalDays must match the number of MAIN planStops');
+    }
+
     const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.planStops);
-    const planStopsForPricing = await this.enrichPlanStopsWithBlockEndLocationId(normalizedPlanStops);
+    const pricingPlanStops = this.filterMainPlanStops(normalizedPlanStops);
+    const planStopsForPricing = await this.enrichPlanStopsWithBlockEndLocationId(pricingPlanStops);
     const normalizedLodgingSelections = await this.normalizeLodgingSelections(
       parsed.data.regionId,
       parsed.data.totalDays,
@@ -785,8 +824,8 @@ export class PlanService {
       throw createValidationError('Invalid plan input', parsed.error);
     }
 
-    if (parsed.data.initialVersion.planStops.length !== parsed.data.initialVersion.totalDays) {
-      throw new DomainError('VALIDATION_FAILED', 'totalDays must match planStops length');
+    if (this.countMainPlanStops(parsed.data.initialVersion.planStops) !== parsed.data.initialVersion.totalDays) {
+      throw new DomainError('VALIDATION_FAILED', 'totalDays must match the number of MAIN planStops');
     }
 
     const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.initialVersion.planStops);
@@ -812,7 +851,8 @@ export class PlanService {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       parsed.data.initialVersion.planStops = normalizedPlanStops;
       parsed.data.initialVersion.meta.lodgingSelections = normalizedLodgingSelections;
-      const planStopsForPricing = await this.enrichPlanStopsWithBlockEndLocationId(normalizedPlanStops);
+      const pricingPlanStops = this.filterMainPlanStops(normalizedPlanStops);
+      const planStopsForPricing = await this.enrichPlanStopsWithBlockEndLocationId(pricingPlanStops);
       const pricingResult = await new PricingService(this.prisma).computeWithTransaction(tx, {
         regionId: parsed.data.regionId,
         variantType: parsed.data.initialVersion.variantType,
@@ -874,8 +914,8 @@ export class PlanService {
       throw createValidationError('Invalid plan version input', parsed.error);
     }
 
-    if (parsed.data.planStops.length !== parsed.data.totalDays) {
-      throw new DomainError('VALIDATION_FAILED', 'totalDays must match planStops length');
+    if (this.countMainPlanStops(parsed.data.planStops) !== parsed.data.totalDays) {
+      throw new DomainError('VALIDATION_FAILED', 'totalDays must match the number of MAIN planStops');
     }
 
     const plan = await new PlanRepository(this.prisma).findById(parsed.data.planId);
@@ -905,7 +945,8 @@ export class PlanService {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       parsed.data.planStops = normalizedPlanStops;
       parsed.data.meta.lodgingSelections = normalizedLodgingSelections;
-      const planStopsForPricing = await this.enrichPlanStopsWithBlockEndLocationId(normalizedPlanStops);
+      const pricingPlanStops = this.filterMainPlanStops(normalizedPlanStops);
+      const planStopsForPricing = await this.enrichPlanStopsWithBlockEndLocationId(pricingPlanStops);
       const pricingResult = await new PricingService(this.prisma).computeWithTransaction(tx, {
         regionId: plan.regionId,
         variantType: parsed.data.variantType,

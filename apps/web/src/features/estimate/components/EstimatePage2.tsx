@@ -2,6 +2,7 @@ import { ESTIMATE_PAGE2_BRAND, ESTIMATE_PAGE2_FOOTER_NOTICES } from '../model/co
 import type { EstimateDocumentData } from '../model/types';
 import type { CSSProperties } from 'react';
 import { getMovementIntensityMeta } from '../model/movement-intensity';
+import { isExternalTransferPlanStopRow } from '../../plan/plan-stop-row';
 
 interface EstimatePage2Props {
   data: EstimateDocumentData;
@@ -56,7 +57,7 @@ export function EstimatePage2({ data }: EstimatePage2Props): JSX.Element {
           <tbody>
             {data.planStops.map((row, index) => (
               (() => {
-                const intensity = getMovementIntensityMeta(row.movementIntensity);
+                const intensity = isExternalTransferPlanStopRow(row) ? null : getMovementIntensityMeta(row.movementIntensity);
 
                 return (
                   <tr key={`itinerary-row-${index + 1}`}>

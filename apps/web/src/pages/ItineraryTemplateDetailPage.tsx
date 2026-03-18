@@ -586,6 +586,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
       }
 
       return {
+        rowType: 'MAIN',
         segmentId: stop.segmentId ?? undefined,
         segmentVersionId: stop.segmentVersionId ?? undefined,
         overnightStayId: stop.overnightStayId ?? undefined,

@@ -711,6 +711,7 @@ describe('route-autofill', () => {
       ],
       planRows: [
         {
+          rowType: 'MAIN',
           locationId: locationA.id,
           locationVersionId: 'ver-a',
           dateCellText: '1일차',
@@ -721,6 +722,7 @@ describe('route-autofill', () => {
           mealCellText: '',
         },
         {
+          rowType: 'MAIN',
           segmentId: 'segment-ab',
           segmentVersionId: 'segment-version-ab',
           locationId: locationB.id,

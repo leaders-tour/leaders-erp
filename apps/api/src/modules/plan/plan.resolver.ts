@@ -16,6 +16,7 @@ import type {
 } from './plan.types';
 
 function resolveStopMovementIntensity(parent: {
+  rowType?: unknown;
   segment?: { movementIntensity?: unknown } | null;
   segmentVersion?: { movementIntensity?: unknown } | null;
   multiDayBlock?: { days?: Array<{ dayOrder?: unknown; movementIntensity?: unknown }> } | null;
@@ -24,6 +25,10 @@ function resolveStopMovementIntensity(parent: {
   multiDayBlockConnectionVersion?: { movementIntensity?: unknown } | null;
   locationVersion?: { firstDayMovementIntensity?: unknown } | null;
 }) {
+  if (parent.rowType === 'EXTERNAL_TRANSFER') {
+    return null;
+  }
+
   const dayOrder =
     typeof parent.multiDayBlockDayOrder === 'number' ? parent.multiDayBlockDayOrder : null;
   const block = parent.multiDayBlock;

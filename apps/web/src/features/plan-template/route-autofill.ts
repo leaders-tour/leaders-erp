@@ -831,6 +831,7 @@ function buildMultiDayBlockRows(input: {
       locationVersionId;
     const rowLocation = rowLocationId ? locationById?.get(rowLocationId) : location;
     rows.push({
+      rowType: 'MAIN',
       overnightStayId: multiDayBlock?.id,
       overnightStayDayOrder: multiDayBlockDay.dayOrder,
       multiDayBlockId: multiDayBlock?.id,
@@ -896,6 +897,7 @@ export function buildAutoRowsFromRoute(input: {
   const firstDayProfile: LocationTimeBlockProfile = hasEarlyVariant(variantType) ? 'FIRST_DAY_EARLY' : 'FIRST_DAY';
 
   rows.push({
+    rowType: 'MAIN',
     locationId: startLocationId,
     locationVersionId: startLocationVersionId,
     dateCellText: '1일차',
@@ -967,6 +969,7 @@ export function buildAutoRowsFromRoute(input: {
         findMultiDayBlockConnection(filteredMultiDayBlockConnections, previousContext.multiDayBlockId, stop.locationId);
       const connectionVersion = resolveMultiDayBlockConnectionVersion(connection, stop.overnightStayConnectionVersionId);
       rows.push({
+        rowType: 'MAIN',
         overnightStayConnectionId: connection?.id,
         overnightStayConnectionVersionId: connectionVersion?.id,
         multiDayBlockConnectionId: connection?.id,
@@ -1001,6 +1004,7 @@ export function buildAutoRowsFromRoute(input: {
         stop.segmentVersionId,
       );
       rows.push({
+        rowType: 'MAIN',
         segmentId: segment?.id,
         segmentVersionId: segmentVersion?.id,
         locationId: stop.locationId,
@@ -1125,6 +1129,7 @@ export function buildTemplateStopsFromRouteAndRows(input: {
   return input.planRows.map((row, index) => {
     const routeStop = routeStops[index];
     return {
+      rowType: row.rowType,
       dayIndex: index + 1,
       segmentId: routeStop?.segmentId || row.segmentId,
       segmentVersionId: routeStop?.segmentVersionId || row.segmentVersionId,

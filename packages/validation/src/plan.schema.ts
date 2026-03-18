@@ -4,6 +4,7 @@ import { z } from 'zod';
 const vehicleTypes = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
 const placeTypes = ['AIRPORT', 'OZ_HOUSE', 'ULAANBAATAR', 'CUSTOM'] as const;
 const lodgingSelectionLevels = ['LV1', 'LV2', 'LV3', 'LV4', 'CUSTOM'] as const;
+const planStopRowTypes = ['MAIN', 'EXTERNAL_TRANSFER'] as const;
 const dateTimeInputSchema = z.preprocess(
   (value) => (value instanceof Date ? value.toISOString() : value),
   z.string().datetime(),
@@ -11,6 +12,7 @@ const dateTimeInputSchema = z.preprocess(
 
 export const planStopNestedSchema = z
   .object({
+    rowType: z.enum(planStopRowTypes).default('MAIN'),
     segmentId: z.string().min(1).optional(),
     segmentVersionId: z.string().min(1).optional(),
     overnightStayId: z.string().min(1).optional(),
@@ -32,6 +34,7 @@ export const planStopNestedSchema = z
   })
   .transform((raw) => ({
     ...raw,
+    rowType: raw.rowType,
     multiDayBlockId: raw.multiDayBlockId,
     multiDayBlockDayOrder: raw.multiDayBlockDayOrder,
     multiDayBlockConnectionId: raw.multiDayBlockConnectionId,
@@ -85,9 +88,16 @@ const externalTransferDirections = ['PICKUP', 'DROP'] as const;
 const externalTransferPresetCodes = [
   'DROP_ULAANBAATAR_AIRPORT',
   'DROP_TERELJ_AIRPORT',
+  'DROP_OZHOUSE_AIRPORT',
   'PICKUP_AIRPORT_OZHOUSE',
+  'PICKUP_AIRPORT_ULAANBAATAR',
+  'PICKUP_AIRPORT_TERELJ',
   'CUSTOM',
 ] as const;
+
+function countMainPlanStops(planStops: Array<{ rowType?: (typeof planStopRowTypes)[number] }>): number {
+  return planStops.reduce((count, planStop) => count + (planStop.rowType === 'EXTERNAL_TRANSFER' ? 0 : 1), 0);
+}
 
 export const externalTransferInputSchema = z
   .object({
@@ -314,6 +324,14 @@ const planVersionSeedSchema = z
     manualDepositAmountKrw: manualDepositInputSchema.optional(),
   })
   .superRefine((value, ctx) => {
+    if (countMainPlanStops(value.planStops) !== value.totalDays) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'totalDays must match the number of MAIN planStops',
+        path: ['planStops'],
+      });
+    }
+
     value.meta.extraLodgings.forEach((item, index) => {
       if (item.dayIndex > value.totalDays) {
         ctx.addIssue({
@@ -360,6 +378,14 @@ export const planVersionCreateSchema = z
     manualDepositAmountKrw: manualDepositInputSchema.optional(),
   })
   .superRefine((value, ctx) => {
+    if (countMainPlanStops(value.planStops) !== value.totalDays) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'totalDays must match the number of MAIN planStops',
+        path: ['planStops'],
+      });
+    }
+
     value.meta.extraLodgings.forEach((item, index) => {
       if (item.dayIndex > value.totalDays) {
         ctx.addIssue({
@@ -399,6 +425,14 @@ export const planPricingPreviewSchema = z
     manualDepositAmountKrw: manualDepositInputSchema.optional(),
   })
   .superRefine((value, ctx) => {
+    if (countMainPlanStops(value.planStops) !== value.totalDays) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'totalDays must match the number of MAIN planStops',
+        path: ['planStops'],
+      });
+    }
+
     const uniqueEventIds = new Set(value.eventIds);
     if (uniqueEventIds.size !== value.eventIds.length) {
       ctx.addIssue({

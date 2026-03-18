@@ -1,4 +1,5 @@
 import type { ExternalTransfer } from '../../plan/external-transfer';
+import type { PlanStopRowType } from '../../plan/plan-stop-row';
 import type { PickupDropPlaceType } from '../../plan/pickup-drop';
 import type { MovementIntensityValue } from './movement-intensity';
 
@@ -9,6 +10,7 @@ export type EstimateSecurityDepositMode = 'NONE' | 'PER_PERSON' | 'PER_TEAM';
 export type EstimateSecurityDepositScope = '-' | '인당' | '팀당';
 
 export interface EstimatePlanStopRow {
+  rowType: PlanStopRowType;
   locationId?: string | null;
   dateCellText: string;
   destinationCellText: string;

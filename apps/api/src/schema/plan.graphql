@@ -414,9 +414,15 @@ input PlanPricingPreviewInput {
   manualDepositAmountKrw: Int
 }
 
+enum PlanStopRowType {
+  MAIN
+  EXTERNAL_TRANSFER
+}
+
 type PlanStop {
   id: ID!
   planVersionId: String!
+  rowType: PlanStopRowType!
   segmentId: String
   segmentVersionId: String
   multiDayBlockId: String
@@ -437,6 +443,7 @@ type PlanStop {
 }
 
 input PlanStopNestedInput {
+  rowType: PlanStopRowType
   segmentId: String
   segmentVersionId: String
   multiDayBlockId: String

@@ -1,4 +1,5 @@
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
+import { countMainPlanStopRows } from '../../plan/plan-stop-row';
 import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
 import type { EstimateBuilderDraftSnapshot, EstimateDocumentData } from '../model/types';
 import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
@@ -22,7 +23,7 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     mode: 'draft',
     isDraft: true,
     planTitle: snapshot.planTitle,
-    page2Title: buildPage2Title(snapshot.regionName, snapshot.planStops.length),
+    page2Title: buildPage2Title(snapshot.regionName, countMainPlanStopRows(snapshot.planStops)),
     page3Title: ESTIMATE_PAGE3_TITLE,
     leaderName: normalizeMultilineText(snapshot.leaderName),
     documentNumber: null,
