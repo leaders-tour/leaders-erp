@@ -21,9 +21,6 @@ export interface LodgingSelectionPricingInputDto {
 }
 
 export interface PricingPlanStopDto {
-  overnightStayId?: string;
-  overnightStayDayOrder?: number;
-  overnightStayConnectionId?: string;
   multiDayBlockId?: string;
   multiDayBlockDayOrder?: number;
   multiDayBlockConnectionId?: string;

@@ -423,10 +423,6 @@ type PlanStop {
   multiDayBlockDayOrder: Int
   multiDayBlockConnectionId: String
   multiDayBlockConnectionVersionId: String
-  overnightStayId: String
-  overnightStayDayOrder: Int
-  overnightStayConnectionId: String
-  overnightStayConnectionVersionId: String
   locationId: String
   locationVersionId: String
   dateCellText: String!
@@ -447,10 +443,6 @@ input PlanStopNestedInput {
   multiDayBlockDayOrder: Int
   multiDayBlockConnectionId: String
   multiDayBlockConnectionVersionId: String
-  overnightStayId: String
-  overnightStayDayOrder: Int
-  overnightStayConnectionId: String
-  overnightStayConnectionVersionId: String
   locationId: String
   locationVersionId: String
   dateCellText: String!

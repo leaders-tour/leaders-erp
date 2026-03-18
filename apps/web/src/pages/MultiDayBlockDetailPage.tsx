@@ -1,19 +1,20 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Input } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   calculateMovementIntensityByHours,
   getMovementIntensityMeta,
 } from '../features/estimate/model/movement-intensity';
-import { useNavigate } from 'react-router-dom';
 import { formatLocationNameInline } from '../features/location/display';
 import { LocationSubNav } from '../features/location/sub-nav';
 import {
   OvernightStayDaySlotEditor,
   createOvernightStayScheduleSlot,
+  parseOvernightStayScheduleSlots,
   serializeOvernightStayScheduleSlots,
   type OvernightStayScheduleSlotInput,
-} from '../features/overnight-stay/day-slot-editor';
+} from '../features/multi-day-block/day-slot-editor';
 
 interface RegionRow {
   id: string;
@@ -28,6 +29,30 @@ interface LocationRow {
 
 type BlockType = 'STAY' | 'TRANSFER';
 
+interface MultiDayBlockRow {
+  id: string;
+  regionId: string;
+  locationId: string;
+  blockType: BlockType;
+  startLocationId: string;
+  endLocationId: string;
+  name: string;
+  title: string;
+  sortOrder: number;
+  isActive: boolean;
+  days: Array<{
+    id: string;
+    dayOrder: number;
+    displayLocationId?: string;
+    averageDistanceKm: number;
+    averageTravelHours: number;
+    timeCellText: string;
+    scheduleCellText: string;
+    lodgingCellText: string;
+    mealCellText: string;
+  }>;
+}
+
 interface OvernightStayDayDraft {
   dayOrder: number;
   displayLocationId: string;
@@ -39,7 +64,7 @@ interface OvernightStayDayDraft {
 }
 
 const REGIONS_QUERY = gql`
-  query OvernightStayCreateRegions {
+  query OvernightStayDetailRegions {
     regions {
       id
       name
@@ -48,7 +73,7 @@ const REGIONS_QUERY = gql`
 `;
 
 const LOCATIONS_QUERY = gql`
-  query OvernightStayCreateLocations {
+  query OvernightStayDetailLocations {
     locations {
       id
       regionId
@@ -57,11 +82,45 @@ const LOCATIONS_QUERY = gql`
   }
 `;
 
-const CREATE_OVERNIGHT_STAY_MUTATION = gql`
-  mutation CreateOvernightStayPage($input: OvernightStayCreateInput!) {
-    createOvernightStay(input: $input) {
+const OVERNIGHT_STAY_QUERY = gql`
+  query OvernightStayDetailPage($id: ID!) {
+    overnightStay(id: $id) {
+      id
+      regionId
+      locationId
+      blockType
+      startLocationId
+      endLocationId
+      name
+      title
+      sortOrder
+      isActive
+      days {
+        id
+        dayOrder
+        displayLocationId
+        averageDistanceKm
+        averageTravelHours
+        timeCellText
+        scheduleCellText
+        lodgingCellText
+        mealCellText
+      }
+    }
+  }
+`;
+
+const UPDATE_OVERNIGHT_STAY_MUTATION = gql`
+  mutation UpdateOvernightStayPage($id: ID!, $input: OvernightStayUpdateInput!) {
+    updateOvernightStay(id: $id, input: $input) {
       id
     }
+  }
+`;
+
+const DELETE_OVERNIGHT_STAY_MUTATION = gql`
+  mutation DeleteOvernightStayPage($id: ID!) {
+    deleteOvernightStay(id: $id)
   }
 `;
 
@@ -77,8 +136,9 @@ function createDayDraft(dayOrder: number, displayLocationId = ''): OvernightStay
   };
 }
 
-export function OvernightStayCreatePage(): JSX.Element {
+export function MultiDayBlockDetailPage(): JSX.Element {
   const navigate = useNavigate();
+  const { stayId } = useParams<{ stayId: string }>();
   const [blockType, setBlockType] = useState<BlockType>('STAY');
   const [regionId, setRegionId] = useState('');
   const [locationId, setLocationId] = useState('');
@@ -91,16 +151,54 @@ export function OvernightStayCreatePage(): JSX.Element {
 
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
-  const [createOvernightStay, { loading }] = useMutation<{ createOvernightStay: { id: string } }>(
-    CREATE_OVERNIGHT_STAY_MUTATION,
-  );
+  const { data, loading, refetch } = useQuery<{ overnightStay: MultiDayBlockRow | null }>(OVERNIGHT_STAY_QUERY, {
+    variables: { id: stayId },
+    skip: !stayId,
+  });
+  const [updateOvernightStay, { loading: updating }] = useMutation(UPDATE_OVERNIGHT_STAY_MUTATION);
+  const [deleteOvernightStay, { loading: deleting }] = useMutation(DELETE_OVERNIGHT_STAY_MUTATION);
 
   const regions = regionData?.regions ?? [];
   const locations = locationData?.locations ?? [];
+  const overnightStay = data?.overnightStay ?? null;
   const locationById = useMemo(() => new Map(locations.map((location) => [location.id, location])), [locations]);
   const filteredLocations = useMemo(() => locations.filter((location) => location.regionId === regionId), [locations, regionId]);
   const selectableLocations = regionId ? filteredLocations : locations;
   const selectedLocation = locationId ? locationById.get(locationId) ?? null : null;
+
+  useEffect(() => {
+    if (!overnightStay) {
+      return;
+    }
+    setRegionId(overnightStay.regionId);
+    setLocationId(overnightStay.locationId);
+    setBlockType(overnightStay.blockType ?? 'STAY');
+    setStartLocationId(overnightStay.startLocationId ?? overnightStay.locationId);
+    setEndLocationId(overnightStay.endLocationId ?? overnightStay.locationId);
+    setName(overnightStay.name);
+    setSortOrder(String(overnightStay.sortOrder));
+    setIsActive(overnightStay.isActive);
+    setDays(
+      overnightStay.days
+        .slice()
+        .sort((left, right) => left.dayOrder - right.dayOrder)
+        .map((day) => ({
+          dayOrder: day.dayOrder,
+          displayLocationId: day.displayLocationId ?? overnightStay.locationId ?? '',
+          averageDistanceKm: String(day?.averageDistanceKm ?? 0),
+          averageTravelHours: String(day?.averageTravelHours ?? 0),
+          scheduleSlots: parseOvernightStayScheduleSlots(day?.timeCellText ?? '', day?.scheduleCellText ?? ''),
+          lodgingCellText: day?.lodgingCellText ?? '',
+          mealCellText: day?.mealCellText ?? '',
+        })),
+    );
+  }, [overnightStay]);
+
+  useEffect(() => {
+    if (blockType === 'STAY' && locationId) {
+      setDays((prev) => prev.map((d) => ({ ...d, displayLocationId: locationId })));
+    }
+  }, [blockType, locationId]);
 
   const updateDay = (dayOrder: number, field: keyof OvernightStayDayDraft, value: OvernightStayDayDraft[keyof OvernightStayDayDraft]) => {
     setDays((prev) => prev.map((day) => (day.dayOrder === dayOrder ? { ...day, [field]: value } : day)));
@@ -122,9 +220,7 @@ export function OvernightStayCreatePage(): JSX.Element {
       const loc = locationById.get(id);
       return loc && loc.regionId !== nextRegionId;
     };
-    if (blockType === 'STAY' && locationId && clearIfOtherRegion(locationId)) {
-      setLocationId('');
-    }
+    if (blockType === 'STAY' && locationId && clearIfOtherRegion(locationId)) setLocationId('');
     if (blockType === 'TRANSFER') {
       if (startLocationId && clearIfOtherRegion(startLocationId)) setStartLocationId('');
       if (endLocationId && clearIfOtherRegion(endLocationId)) setEndLocationId('');
@@ -152,39 +248,44 @@ export function OvernightStayCreatePage(): JSX.Element {
     if (loc) setRegionId(loc.regionId);
   };
 
-  useEffect(() => {
-    if (blockType === 'STAY' && locationId) {
-      setDays((prev) => prev.map((d) => ({ ...d, displayLocationId: locationId })));
-    }
-  }, [blockType, locationId]);
-
-  const canSubmit =
-    name.trim() &&
+  const canSave =
+    Boolean(regionId && name.trim()) &&
     (blockType === 'STAY'
-      ? locationId
-      : startLocationId && endLocationId && startLocationId !== endLocationId &&
-        days.every((d) => d.displayLocationId));
+      ? Boolean(locationId)
+      : Boolean(startLocationId && endLocationId && startLocationId !== endLocationId && days.every((d) => d.displayLocationId)));
+
+  if (!stayId) {
+    return <section className="py-8 text-sm text-slate-600">잘못된 접근입니다.</section>;
+  }
+
+  if (loading) {
+    return <section className="py-8 text-sm text-slate-600">불러오는 중...</section>;
+  }
+
+  if (!overnightStay) {
+    return <section className="py-8 text-sm text-slate-600">연속 일정 블록을 찾을 수 없습니다.</section>;
+  }
 
   return (
     <section className="grid gap-6">
       <header className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">연속 일정 블록 생성</h1>
-          <p className="mt-1 text-sm text-slate-600">체류형(같은 목적지) 또는 이동형(야간열차) 블록을 2~3일로 등록합니다.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{name || overnightStay.title}</h1>
+          <p className="mt-1 text-sm text-slate-600">블록 일차별 데이터를 수정합니다.</p>
         </div>
         <Button variant="outline" onClick={() => navigate('/locations/stays')}>
           목록으로
         </Button>
       </header>
 
-      <LocationSubNav pathname="/locations/stays/new" />
+      <LocationSubNav pathname={`/locations/stays/${stayId}`} />
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-5">
           <div className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <label className="grid gap-1 text-sm">
               <span className="font-medium text-slate-900">블록 이름</span>
-              <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="예: 테를지 2일 표준" />
+              <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="예: 테를지 3일 확장" />
             </label>
 
             <fieldset className="grid gap-2">
@@ -195,13 +296,7 @@ export function OvernightStayCreatePage(): JSX.Element {
                     type="radio"
                     name="blockType"
                     checked={blockType === 'STAY'}
-                    onChange={() => {
-                      setBlockType('STAY');
-                      if (startLocationId && !locationId) setLocationId(startLocationId);
-                      setStartLocationId('');
-                      setEndLocationId('');
-                      setDays((prev) => prev.map((d) => ({ ...d, displayLocationId: locationId || d.displayLocationId })));
-                    }}
+                    onChange={() => setBlockType('STAY')}
                   />
                   체류형 (같은 목적지에서 2~3일)
                 </label>
@@ -210,15 +305,7 @@ export function OvernightStayCreatePage(): JSX.Element {
                     type="radio"
                     name="blockType"
                     checked={blockType === 'TRANSFER'}
-                    onChange={() => {
-                      setBlockType('TRANSFER');
-                      if (locationId && !startLocationId) {
-                        setStartLocationId(locationId);
-                        setEndLocationId('');
-                        setDays((prev) => prev.map((d, i) => ({ ...d, displayLocationId: i === 0 ? locationId : d.displayLocationId })));
-                      }
-                      setLocationId('');
-                    }}
+                    onChange={() => setBlockType('TRANSFER')}
                   />
                   야간열차 (출발지→도착지 이동형)
                 </label>
@@ -352,9 +439,7 @@ export function OvernightStayCreatePage(): JSX.Element {
                       <span className="font-medium text-slate-900">이 일차 표시 목적지</span>
                       <select
                         value={day.displayLocationId}
-                        onChange={(event) =>
-                          updateDay(day.dayOrder, 'displayLocationId', event.target.value)
-                        }
+                        onChange={(event) => updateDay(day.dayOrder, 'displayLocationId', event.target.value)}
                         className="rounded-xl border border-slate-200 bg-white px-3 py-2"
                       >
                         <option value="">목적지 선택</option>
@@ -450,13 +535,14 @@ export function OvernightStayCreatePage(): JSX.Element {
 
           <div className="flex gap-2">
             <Button
-              disabled={!regionId || !name.trim() || !canSubmit || loading}
+              disabled={!canSave || updating}
               onClick={async () => {
                 const isStay = blockType === 'STAY';
                 const startId = isStay ? locationId : startLocationId;
                 const endId = isStay ? locationId : endLocationId;
-                const result = await createOvernightStay({
+                await updateOvernightStay({
                   variables: {
+                    id: stayId,
                     input: {
                       regionId,
                       locationId: startId,
@@ -485,16 +571,23 @@ export function OvernightStayCreatePage(): JSX.Element {
                     },
                   },
                 });
-                const createdId = result.data?.createOvernightStay.id;
-                if (createdId) {
-                  navigate(`/locations/stays/${createdId}`);
-                }
+                await refetch();
               }}
             >
-              {loading ? '생성 중...' : '블록 생성'}
+              {updating ? '저장 중...' : '저장'}
             </Button>
-            <Button variant="outline" onClick={() => navigate('/locations/stays')}>
-              취소
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={async () => {
+                if (!window.confirm('이 블록을 삭제할까요?')) {
+                  return;
+                }
+                await deleteOvernightStay({ variables: { id: stayId } });
+                navigate('/locations/stays');
+              }}
+            >
+              {deleting ? '삭제 중...' : '삭제'}
             </Button>
           </div>
         </div>

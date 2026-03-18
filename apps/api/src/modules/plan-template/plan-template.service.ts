@@ -25,10 +25,6 @@ export class PlanTemplateService {
       dayIndex: number;
       segmentId?: string;
       segmentVersionId?: string;
-      overnightStayId?: string;
-      overnightStayDayOrder?: number;
-      overnightStayConnectionId?: string;
-      overnightStayConnectionVersionId?: string;
       multiDayBlockId?: string;
       multiDayBlockDayOrder?: number;
       multiDayBlockConnectionId?: string;
@@ -98,21 +94,21 @@ export class PlanTemplateService {
     const blockIds = Array.from(
       new Set(
         normalizedStops
-          .map((planStop) => planStop.multiDayBlockId ?? planStop.overnightStayId)
+          .map((planStop) => planStop.multiDayBlockId)
           .filter((value): value is string => typeof value === 'string' && value.length > 0),
       ),
     );
     const connectionIds = Array.from(
       new Set(
         normalizedStops
-          .map((planStop) => planStop.multiDayBlockConnectionId ?? planStop.overnightStayConnectionId)
+          .map((planStop) => planStop.multiDayBlockConnectionId)
           .filter((value): value is string => typeof value === 'string' && value.length > 0),
       ),
     );
     const connectionVersionIds = Array.from(
       new Set(
         normalizedStops
-          .map((planStop) => planStop.multiDayBlockConnectionVersionId ?? planStop.overnightStayConnectionVersionId)
+          .map((planStop) => planStop.multiDayBlockConnectionVersionId)
           .filter((value): value is string => typeof value === 'string' && value.length > 0),
       ),
     );
@@ -163,7 +159,7 @@ export class PlanTemplateService {
           })
         : [];
     if (overnightStays.length !== blockIds.length) {
-      throw new DomainError('VALIDATION_FAILED', 'One or more multiDayBlockId/overnightStayId values are invalid');
+      throw new DomainError('VALIDATION_FAILED', 'One or more multiDayBlockId values are invalid');
     }
     const blockById = new Map(overnightStays.map((b) => [b.id, b]));
     const blockDayOrdersById = new Map(
@@ -183,7 +179,7 @@ export class PlanTemplateService {
           })
         : [];
     if (overnightStayConnections.length !== connectionIds.length) {
-      throw new DomainError('VALIDATION_FAILED', 'One or more multiDayBlockConnectionId/overnightStayConnectionId values are invalid');
+      throw new DomainError('VALIDATION_FAILED', 'One or more multiDayBlockConnectionId values are invalid');
     }
     const connectionById = new Map(overnightStayConnections.map((c) => [c.id, c]));
     const overnightStayConnectionVersions =
@@ -213,9 +209,8 @@ export class PlanTemplateService {
           throw new DomainError('VALIDATION_FAILED', 'segmentVersionId must belong to segmentId');
         }
       }
-      const connectionVersionId =
-        planStop.multiDayBlockConnectionVersionId ?? planStop.overnightStayConnectionVersionId;
-      const connectionId = planStop.multiDayBlockConnectionId ?? planStop.overnightStayConnectionId;
+      const connectionVersionId = planStop.multiDayBlockConnectionVersionId;
+      const connectionId = planStop.multiDayBlockConnectionId;
       if (connectionVersionId) {
         if (!connectionId) {
           throw new DomainError('VALIDATION_FAILED', 'multiDayBlockConnectionVersionId requires multiDayBlockConnectionId');
@@ -228,8 +223,8 @@ export class PlanTemplateService {
           throw new DomainError('VALIDATION_FAILED', 'multiDayBlockConnectionVersionId must belong to multiDayBlockConnectionId');
         }
       }
-      const blockId = planStop.multiDayBlockId ?? planStop.overnightStayId;
-      const dayOrder = planStop.multiDayBlockDayOrder ?? planStop.overnightStayDayOrder;
+      const blockId = planStop.multiDayBlockId;
+      const dayOrder = planStop.multiDayBlockDayOrder;
       if (dayOrder !== undefined && !blockId) {
         throw new DomainError('VALIDATION_FAILED', 'multiDayBlockDayOrder requires multiDayBlockId');
       }
@@ -264,9 +259,9 @@ export class PlanTemplateService {
         const lastDayOrder = blockDayOrders[blockDayOrders.length - 1];
         const previousStop = orderedStops[index - 1];
         const nextStop = orderedStops[index + 1];
-        const prevBlockId = previousStop?.multiDayBlockId ?? previousStop?.overnightStayId;
-        const nextBlockId = nextStop?.multiDayBlockId ?? nextStop?.overnightStayId;
-        const nextDayOrder = nextStop?.multiDayBlockDayOrder ?? nextStop?.overnightStayDayOrder;
+        const prevBlockId = previousStop?.multiDayBlockId;
+        const nextBlockId = nextStop?.multiDayBlockId;
+        const nextDayOrder = nextStop?.multiDayBlockDayOrder;
 
         if (currentDayOrder === firstDayOrder) {
           if (!nextStop || nextBlockId !== blockId || nextDayOrder !== currentDayOrder + 1) {
@@ -278,7 +273,7 @@ export class PlanTemplateService {
         } else if (
           !previousStop ||
           prevBlockId !== blockId ||
-          (previousStop.multiDayBlockDayOrder ?? previousStop.overnightStayDayOrder) !== currentDayOrder - 1
+          previousStop.multiDayBlockDayOrder !== currentDayOrder - 1
         ) {
           throw new DomainError(
             'VALIDATION_FAILED',
@@ -306,11 +301,11 @@ export class PlanTemplateService {
       }
 
       const previousStop = orderedStops[index - 1];
-      const prevBlockId = previousStop?.multiDayBlockId ?? previousStop?.overnightStayId;
+      const prevBlockId = previousStop?.multiDayBlockId;
       const prevBlockDayOrders = prevBlockId ? blockDayOrdersById.get(prevBlockId) ?? [] : [];
       const previousIsLastBlockDay =
         prevBlockId != null &&
-        (previousStop?.multiDayBlockDayOrder ?? previousStop?.overnightStayDayOrder) ===
+        previousStop?.multiDayBlockDayOrder ===
           prevBlockDayOrders[prevBlockDayOrders.length - 1];
       const currentLocationId = planStop.locationId;
       const previousBlock = prevBlockId ? blockById.get(prevBlockId) : undefined;

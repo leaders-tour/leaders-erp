@@ -32,11 +32,10 @@ export const planStopNestedSchema = z
   })
   .transform((raw) => ({
     ...raw,
-    multiDayBlockId: raw.multiDayBlockId ?? raw.overnightStayId,
-    multiDayBlockDayOrder: raw.multiDayBlockDayOrder ?? raw.overnightStayDayOrder,
-    multiDayBlockConnectionId: raw.multiDayBlockConnectionId ?? raw.overnightStayConnectionId,
-    multiDayBlockConnectionVersionId:
-      raw.multiDayBlockConnectionVersionId ?? raw.overnightStayConnectionVersionId,
+    multiDayBlockId: raw.multiDayBlockId,
+    multiDayBlockDayOrder: raw.multiDayBlockDayOrder,
+    multiDayBlockConnectionId: raw.multiDayBlockConnectionId,
+    multiDayBlockConnectionVersionId: raw.multiDayBlockConnectionVersionId,
   }));
 
 export const extraLodgingInputSchema = z.object({

@@ -28,7 +28,7 @@ const OVERNIGHT_STAYS_QUERY = gql`
   }
 `;
 
-interface OvernightStayRow {
+interface MultiDayBlockRow {
   id: string;
   name: string;
   title: string;
@@ -48,9 +48,9 @@ interface OvernightStayRow {
   }>;
 }
 
-export function OvernightStayListPage(): JSX.Element {
+export function MultiDayBlockListPage(): JSX.Element {
   const navigate = useNavigate();
-  const { data, loading } = useQuery<{ overnightStays: OvernightStayRow[] }>(OVERNIGHT_STAYS_QUERY);
+  const { data, loading } = useQuery<{ overnightStays: MultiDayBlockRow[] }>(OVERNIGHT_STAYS_QUERY);
   const rows = data?.overnightStays ?? [];
 
   return (

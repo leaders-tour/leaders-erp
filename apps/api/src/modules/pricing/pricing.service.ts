@@ -602,12 +602,12 @@ export class PricingService {
 
     for (let index = 1; index < planStops.length; index += 1) {
       const currentStop = planStops[index];
-      const blockDayOrder = currentStop?.multiDayBlockDayOrder ?? currentStop?.overnightStayDayOrder ?? 0;
+      const blockDayOrder = currentStop?.multiDayBlockDayOrder ?? 0;
       if (blockDayOrder > 1) {
         continue;
       }
 
-      const connectionId = currentStop?.multiDayBlockConnectionId ?? currentStop?.overnightStayConnectionId;
+      const connectionId = currentStop?.multiDayBlockConnectionId;
       if (connectionId) {
         overnightStayConnectionIds.add(connectionId);
         continue;
@@ -677,7 +677,7 @@ export class PricingService {
       return count + (segmentByKey.get(key) ? 1 : 0);
     }, 0);
     const overnightStayConnectionCount = planStops.reduce((count, stop) => {
-      const connectionId = stop.multiDayBlockConnectionId ?? stop.overnightStayConnectionId;
+      const connectionId = stop.multiDayBlockConnectionId;
       if (!connectionId) {
         return count;
       }

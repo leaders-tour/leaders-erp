@@ -564,14 +564,14 @@ describe('route-autofill', () => {
     });
   });
 
-  it('expands 3-day overnight stays into 3 rows', () => {
+  it('expands 3-day block into 3 rows', () => {
     const rows = buildAutoRowsFromRoute({
       startLocationId: locationA.id,
       startLocationVersionId: 'ver-a',
       selectedRoute: [
         {
-          kind: 'OVERNIGHT_STAY',
-          overnightStayId: overnightStayB3.id,
+          kind: 'MULTI_DAY_BLOCK',
+          multiDayBlockId: overnightStayB3.id,
           stayLength: 3,
           locationId: locationB.id,
           locationVersionId: 'ver-b',
@@ -599,8 +599,8 @@ describe('route-autofill', () => {
       startLocationVersionId: 'ver-a',
       selectedRoute: [
         {
-          kind: 'OVERNIGHT_STAY',
-          overnightStayId: overnightStayB2.id,
+          kind: 'MULTI_DAY_BLOCK',
+          multiDayBlockId: overnightStayB2.id,
           stayLength: 2,
           locationId: locationB.id,
           locationVersionId: 'ver-b',
@@ -659,8 +659,8 @@ describe('route-autofill', () => {
     expect(route).toHaveLength(2);
     expect(route[0]).toMatchObject({ kind: 'LOCATION', locationId: locationA.id, locationVersionId: 'ver-a' });
     expect(route[1]).toMatchObject({
-      kind: 'OVERNIGHT_STAY',
-      overnightStayId: overnightStayB2.id,
+      kind: 'MULTI_DAY_BLOCK',
+      multiDayBlockId: overnightStayB2.id,
       stayLength: 2,
       locationId: locationB.id,
       locationVersionId: 'ver-b',

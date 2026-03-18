@@ -7,10 +7,6 @@ import type { PlanTemplateCreateDto, PlanTemplateUpdateDto } from './plan-templa
 function resolveStopMovementIntensity(parent: {
   segment?: { movementIntensity?: unknown } | null;
   segmentVersion?: { movementIntensity?: unknown } | null;
-  overnightStay?: { days?: Array<{ dayOrder?: unknown; movementIntensity?: unknown }> } | null;
-  overnightStayDayOrder?: unknown;
-  overnightStayConnection?: { movementIntensity?: unknown } | null;
-  overnightStayConnectionVersion?: { movementIntensity?: unknown } | null;
   multiDayBlock?: { days?: Array<{ dayOrder?: unknown; movementIntensity?: unknown }> } | null;
   multiDayBlockDayOrder?: unknown;
   multiDayBlockConnection?: { movementIntensity?: unknown } | null;
@@ -18,12 +14,8 @@ function resolveStopMovementIntensity(parent: {
   locationVersion?: { firstDayMovementIntensity?: unknown } | null;
 }) {
   const dayOrder =
-    typeof parent.multiDayBlockDayOrder === 'number'
-      ? parent.multiDayBlockDayOrder
-      : typeof parent.overnightStayDayOrder === 'number'
-        ? parent.overnightStayDayOrder
-        : null;
-  const block = parent.multiDayBlock ?? parent.overnightStay;
+    typeof parent.multiDayBlockDayOrder === 'number' ? parent.multiDayBlockDayOrder : null;
+  const block = parent.multiDayBlock;
 
   if (block?.days && dayOrder !== null) {
     const matchingDay = block.days.find((day) => day.dayOrder === dayOrder);
@@ -35,8 +27,6 @@ function resolveStopMovementIntensity(parent: {
   return (
     parent.multiDayBlockConnectionVersion?.movementIntensity ??
     parent.multiDayBlockConnection?.movementIntensity ??
-    parent.overnightStayConnectionVersion?.movementIntensity ??
-    parent.overnightStayConnection?.movementIntensity ??
     parent.segmentVersion?.movementIntensity ??
     parent.segment?.movementIntensity ??
     parent.locationVersion?.firstDayMovementIntensity ??

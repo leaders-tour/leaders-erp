@@ -344,18 +344,10 @@ export class PlanRepository {
           create: initialVersionData.planStops.map((planStop) => ({
             segmentId: planStop.segmentId,
             segmentVersionId: planStop.segmentVersionId,
-            overnightStayId: planStop.overnightStayId ?? planStop.multiDayBlockId ?? undefined,
-            overnightStayDayOrder: planStop.overnightStayDayOrder ?? planStop.multiDayBlockDayOrder ?? undefined,
-            overnightStayConnectionId:
-              planStop.overnightStayConnectionId ?? planStop.multiDayBlockConnectionId ?? undefined,
-            overnightStayConnectionVersionId:
-              planStop.overnightStayConnectionVersionId ?? planStop.multiDayBlockConnectionVersionId ?? undefined,
-            multiDayBlockId: planStop.multiDayBlockId ?? planStop.overnightStayId ?? undefined,
-            multiDayBlockDayOrder: planStop.multiDayBlockDayOrder ?? planStop.overnightStayDayOrder ?? undefined,
-            multiDayBlockConnectionId:
-              planStop.multiDayBlockConnectionId ?? planStop.overnightStayConnectionId ?? undefined,
-            multiDayBlockConnectionVersionId:
-              planStop.multiDayBlockConnectionVersionId ?? planStop.overnightStayConnectionVersionId ?? undefined,
+            multiDayBlockId: planStop.multiDayBlockId ?? undefined,
+            multiDayBlockDayOrder: planStop.multiDayBlockDayOrder ?? undefined,
+            multiDayBlockConnectionId: planStop.multiDayBlockConnectionId ?? undefined,
+            multiDayBlockConnectionVersionId: planStop.multiDayBlockConnectionVersionId ?? undefined,
             locationId: planStop.locationId,
             locationVersionId: planStop.locationVersionId,
             dateCellText: planStop.dateCellText,
@@ -413,18 +405,10 @@ export class PlanRepository {
           create: versionData.planStops.map((planStop) => ({
             segmentId: planStop.segmentId,
             segmentVersionId: planStop.segmentVersionId,
-            overnightStayId: planStop.overnightStayId ?? planStop.multiDayBlockId ?? undefined,
-            overnightStayDayOrder: planStop.overnightStayDayOrder ?? planStop.multiDayBlockDayOrder ?? undefined,
-            overnightStayConnectionId:
-              planStop.overnightStayConnectionId ?? planStop.multiDayBlockConnectionId ?? undefined,
-            overnightStayConnectionVersionId:
-              planStop.overnightStayConnectionVersionId ?? planStop.multiDayBlockConnectionVersionId ?? undefined,
-            multiDayBlockId: planStop.multiDayBlockId ?? planStop.overnightStayId ?? undefined,
-            multiDayBlockDayOrder: planStop.multiDayBlockDayOrder ?? planStop.overnightStayDayOrder ?? undefined,
-            multiDayBlockConnectionId:
-              planStop.multiDayBlockConnectionId ?? planStop.overnightStayConnectionId ?? undefined,
-            multiDayBlockConnectionVersionId:
-              planStop.multiDayBlockConnectionVersionId ?? planStop.overnightStayConnectionVersionId ?? undefined,
+            multiDayBlockId: planStop.multiDayBlockId ?? undefined,
+            multiDayBlockDayOrder: planStop.multiDayBlockDayOrder ?? undefined,
+            multiDayBlockConnectionId: planStop.multiDayBlockConnectionId ?? undefined,
+            multiDayBlockConnectionVersionId: planStop.multiDayBlockConnectionVersionId ?? undefined,
             locationId: planStop.locationId,
             locationVersionId: planStop.locationVersionId,
             dateCellText: planStop.dateCellText,

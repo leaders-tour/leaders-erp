@@ -20,10 +20,10 @@ import { LocationGuidePage } from '../pages/LocationGuidePage';
 import { LocationListPage } from '../pages/LocationListPage';
 import { LocationVersionDetailPage } from '../pages/LocationVersionDetailPage';
 import { LocationVersionEditPage } from '../pages/LocationVersionEditPage';
-import { OvernightStayConnectionPage } from '../pages/OvernightStayConnectionPage';
-import { OvernightStayCreatePage } from '../pages/OvernightStayCreatePage';
-import { OvernightStayDetailPage } from '../pages/OvernightStayDetailPage';
-import { OvernightStayListPage } from '../pages/OvernightStayListPage';
+import { MultiDayBlockConnectionPage } from '../pages/MultiDayBlockConnectionPage';
+import { MultiDayBlockCreatePage } from '../pages/MultiDayBlockCreatePage';
+import { MultiDayBlockDetailPage } from '../pages/MultiDayBlockDetailPage';
+import { MultiDayBlockListPage } from '../pages/MultiDayBlockListPage';
 import { OutreachLeadDetailPage } from '../pages/OutreachLeadDetailPage';
 import { OutreachLeadListPage } from '../pages/OutreachLeadListPage';
 import { PlanDetailPage } from '../pages/PlanDetailPage';
@@ -77,10 +77,10 @@ export const router = createBrowserRouter([
       { path: 'locations/list', element: <LocationListPage /> },
       { path: 'locations/create', element: <LocationCreatePage /> },
       { path: 'location-guides', element: <LocationGuidePage /> },
-      { path: 'locations/stays', element: <OvernightStayListPage /> },
-      { path: 'locations/stays/new', element: <OvernightStayCreatePage /> },
-      { path: 'locations/stays/:stayId', element: <OvernightStayDetailPage /> },
-      { path: 'locations/stays/connections', element: <OvernightStayConnectionPage /> },
+      { path: 'locations/stays', element: <MultiDayBlockListPage /> },
+      { path: 'locations/stays/new', element: <MultiDayBlockCreatePage /> },
+      { path: 'locations/stays/:stayId', element: <MultiDayBlockDetailPage /> },
+      { path: 'locations/stays/connections', element: <MultiDayBlockConnectionPage /> },
       { path: 'locations/:id', element: <LocationDetailPage /> },
       { path: 'locations/:id/edit', element: <LocationEditPage /> },
       { path: 'locations/:locationId/versions/:versionId', element: <LocationVersionDetailPage /> },

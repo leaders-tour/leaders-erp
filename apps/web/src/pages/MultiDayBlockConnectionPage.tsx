@@ -20,7 +20,7 @@ interface LocationRow {
   isLastDayEligible: boolean;
 }
 
-interface OvernightStayRow {
+interface MultiDayBlockRow {
   id: string;
   regionId: string;
   name: string;
@@ -152,7 +152,7 @@ function toTimeSlots(value: TimeSlotDraft[]) {
   }));
 }
 
-export function OvernightStayConnectionPage(): JSX.Element {
+export function MultiDayBlockConnectionPage(): JSX.Element {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [regionId, setRegionId] = useState('');
   const [fromOvernightStayId, setFromOvernightStayId] = useState('');
@@ -165,7 +165,7 @@ export function OvernightStayConnectionPage(): JSX.Element {
 
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData, refetch } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
-  const { data: stayData } = useQuery<{ overnightStays: OvernightStayRow[] }>(OVERNIGHT_STAYS_QUERY);
+  const { data: stayData } = useQuery<{ overnightStays: MultiDayBlockRow[] }>(OVERNIGHT_STAYS_QUERY);
   const { data: connectionData } = useQuery<{ overnightStayConnections: ConnectionRow[] }>(OVERNIGHT_STAY_CONNECTIONS_QUERY);
   const [createMutation, { loading: creating }] = useMutation(CREATE_MUTATION);
   const [updateMutation, { loading: updating }] = useMutation(UPDATE_MUTATION);

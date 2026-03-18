@@ -498,8 +498,6 @@ model OvernightStay {
   endLocation   Location  @relation("OvernightStayEndLocation", fields: [endLocationId], references: [id], onDelete: Cascade)
   days          OvernightStayDay[]
   outgoingConnections OvernightStayConnection[]
-  planStops     PlanStop[]
-  planTemplateStops PlanTemplateStop[]
   planStopsAsMultiDayBlock PlanStop[] @relation("PlanStopMultiDayBlock")
   planTemplateStopsAsMultiDayBlock PlanTemplateStop[] @relation("PlanTemplateStopMultiDayBlock")
 
@@ -554,8 +552,6 @@ model OvernightStayConnection {
   defaultVersion OvernightStayConnectionVersion? @relation("OvernightStayConnectionDefaultVersion", fields: [defaultVersionId], references: [id], onDelete: SetNull)
   versions OvernightStayConnectionVersion[] @relation("OvernightStayConnectionVersions")
   scheduleTimeBlocks OvernightStayConnectionTimeBlock[]
-  planStops PlanStop[]
-  planTemplateStops PlanTemplateStop[]
   planStopsAsMultiDayBlockConnection PlanStop[] @relation("PlanStopMultiDayBlockConnection")
   planTemplateStopsAsMultiDayBlockConnection PlanTemplateStop[] @relation("PlanTemplateStopMultiDayBlockConnection")
 
@@ -581,8 +577,6 @@ model OvernightStayConnectionVersion {
   overnightStayConnection OvernightStayConnection @relation("OvernightStayConnectionVersions", fields: [overnightStayConnectionId], references: [id], onDelete: Cascade)
   defaultForConnections OvernightStayConnection[] @relation("OvernightStayConnectionDefaultVersion")
   scheduleTimeBlocks OvernightStayConnectionVersionTimeBlock[]
-  planStops PlanStop[]
-  planTemplateStops PlanTemplateStop[]
   planStopsAsMultiDayBlockConnectionVersion PlanStop[] @relation("PlanStopMultiDayBlockConnectionVersion")
   planTemplateStopsAsMultiDayBlockConnectionVersion PlanTemplateStop[] @relation("PlanTemplateStopMultiDayBlockConnectionVersion")
 
@@ -994,10 +988,6 @@ model PlanTemplateStop {
   dayIndex          Int
   segmentId         String?
   segmentVersionId  String?
-  overnightStayId   String?
-  overnightStayDayOrder Int?
-  overnightStayConnectionId String?
-  overnightStayConnectionVersionId String?
   multiDayBlockId   String?
   multiDayBlockDayOrder Int?
   multiDayBlockConnectionId String?
@@ -1014,9 +1004,6 @@ model PlanTemplateStop {
   planTemplate    PlanTemplate    @relation(fields: [planTemplateId], references: [id], onDelete: Cascade)
   segment         Segment?        @relation(fields: [segmentId], references: [id], onDelete: SetNull)
   segmentVersion  SegmentVersion? @relation(fields: [segmentVersionId], references: [id], onDelete: SetNull)
-  overnightStay   OvernightStay?  @relation(fields: [overnightStayId], references: [id], onDelete: SetNull)
-  overnightStayConnection OvernightStayConnection? @relation(fields: [overnightStayConnectionId], references: [id], onDelete: SetNull)
-  overnightStayConnectionVersion OvernightStayConnectionVersion? @relation(fields: [overnightStayConnectionVersionId], references: [id], onDelete: SetNull)
   multiDayBlock   OvernightStay?  @relation("PlanTemplateStopMultiDayBlock", fields: [multiDayBlockId], references: [id], onDelete: SetNull)
   multiDayBlockConnection OvernightStayConnection? @relation("PlanTemplateStopMultiDayBlockConnection", fields: [multiDayBlockConnectionId], references: [id], onDelete: SetNull)
   multiDayBlockConnectionVersion OvernightStayConnectionVersion? @relation("PlanTemplateStopMultiDayBlockConnectionVersion", fields: [multiDayBlockConnectionVersionId], references: [id], onDelete: SetNull)
@@ -1030,9 +1017,6 @@ model PlanTemplateStop {
   @@index([planTemplateId])
   @@index([segmentId])
   @@index([segmentVersionId])
-  @@index([overnightStayId])
-  @@index([overnightStayConnectionId])
-  @@index([overnightStayConnectionVersionId])
   @@index([multiDayBlockId])
   @@index([multiDayBlockConnectionId])
   @@index([multiDayBlockConnectionVersionId])
@@ -1045,10 +1029,6 @@ model PlanStop {
   planVersionId       String
   segmentId           String?
   segmentVersionId    String?
-  overnightStayId     String?
-  overnightStayDayOrder Int?
-  overnightStayConnectionId String?
-  overnightStayConnectionVersionId String?
   multiDayBlockId     String?
   multiDayBlockDayOrder Int?
   multiDayBlockConnectionId String?
@@ -1065,9 +1045,6 @@ model PlanStop {
   planVersion     PlanVersion     @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
   segment         Segment?        @relation(fields: [segmentId], references: [id], onDelete: SetNull)
   segmentVersion  SegmentVersion? @relation(fields: [segmentVersionId], references: [id], onDelete: SetNull)
-  overnightStay   OvernightStay?  @relation(fields: [overnightStayId], references: [id], onDelete: SetNull)
-  overnightStayConnection OvernightStayConnection? @relation(fields: [overnightStayConnectionId], references: [id], onDelete: SetNull)
-  overnightStayConnectionVersion OvernightStayConnectionVersion? @relation(fields: [overnightStayConnectionVersionId], references: [id], onDelete: SetNull)
   multiDayBlock   OvernightStay?  @relation("PlanStopMultiDayBlock", fields: [multiDayBlockId], references: [id], onDelete: SetNull)
   multiDayBlockConnection OvernightStayConnection? @relation("PlanStopMultiDayBlockConnection", fields: [multiDayBlockConnectionId], references: [id], onDelete: SetNull)
   multiDayBlockConnectionVersion OvernightStayConnectionVersion? @relation("PlanStopMultiDayBlockConnectionVersion", fields: [multiDayBlockConnectionVersionId], references: [id], onDelete: SetNull)
@@ -1080,9 +1057,6 @@ model PlanStop {
   @@index([planVersionId])
   @@index([segmentId])
   @@index([segmentVersionId])
-  @@index([overnightStayId])
-  @@index([overnightStayConnectionId])
-  @@index([overnightStayConnectionVersionId])
   @@index([multiDayBlockId])
   @@index([multiDayBlockConnectionId])
   @@index([multiDayBlockConnectionVersionId])

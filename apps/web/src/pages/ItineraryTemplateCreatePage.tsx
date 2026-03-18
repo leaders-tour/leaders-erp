@@ -474,8 +474,8 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
     Boolean(startLocationVersionId) &&
     1 + getConsumedRouteDayCount(selectedRoute) === totalDays &&
     selectedRoute.every((stop) =>
-      stop.kind === 'OVERNIGHT_STAY'
-        ? Boolean(stop.overnightStayId && stop.locationId && stop.locationVersionId)
+      stop.kind === 'MULTI_DAY_BLOCK'
+        ? Boolean(stop.multiDayBlockId && stop.locationId && stop.locationVersionId)
         : Boolean(stop.locationId && stop.locationVersionId),
     );
 
@@ -698,7 +698,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                 const startDayIndex = getRouteStopStartDayIndex(selectedRoute, index);
                 const endDayIndex = getRouteStopEndDayIndex(selectedRoute, index);
 
-                if (stop.kind === 'OVERNIGHT_STAY') {
+                if (stop.kind === 'MULTI_DAY_BLOCK') {
                   return (
                     <>
                       <div className="text-sm font-medium">
@@ -737,10 +737,10 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                 }
 
                 const previousStop = selectedRoute[index - 1];
-                if (previousStop?.kind === 'OVERNIGHT_STAY') {
+                if (previousStop?.kind === 'MULTI_DAY_BLOCK') {
                   const connection = findOvernightStayConnection(
                     filteredOvernightStayConnections,
-                    previousStop.overnightStayId,
+                    previousStop.multiDayBlockId,
                     stop.locationId,
                   );
                   const versions = getOvernightStayConnectionVersions(connection);
@@ -906,10 +906,10 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                       onClick={() =>
                         setSelectedRoute((prev) => {
                           const lastStop = prev[prev.length - 1];
-                          if (lastStop?.kind === 'OVERNIGHT_STAY') {
+                          if (lastStop?.kind === 'MULTI_DAY_BLOCK') {
                             const connection = findOvernightStayConnection(
                               filteredOvernightStayConnections,
-                              lastStop.overnightStayId,
+                              lastStop.multiDayBlockId,
                               location.id,
                             );
                             return [
@@ -969,8 +969,8 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                           setSelectedRoute((prev) => [
                             ...prev,
                             {
-                              kind: 'OVERNIGHT_STAY',
-                              overnightStayId: overnightStay.id,
+                              kind: 'MULTI_DAY_BLOCK',
+                              multiDayBlockId: overnightStay.id,
                               stayLength: overnightStay.days.length,
                               locationId: overnightStay.locationId,
                               locationVersionId: getDefaultVersionId(location) || '',

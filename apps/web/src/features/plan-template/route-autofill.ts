@@ -192,6 +192,16 @@ export interface LocationRouteSelection {
   overnightStayConnectionVersionId?: string;
 }
 
+/** 내부 정본: 연속 일정 블록 선택. API 호환용 legacy 필드명은 buildRouteStopsFromSelections에서 처리 */
+export interface MultiDayBlockRouteSelection {
+  kind: 'MULTI_DAY_BLOCK';
+  multiDayBlockId: string;
+  stayLength: number;
+  locationId: string;
+  locationVersionId: string;
+}
+
+/** @deprecated 내부에서는 MultiDayBlockRouteSelection 사용. 복원 fallback 시에만 참고 */
 export interface OvernightStayRouteSelection {
   kind: 'OVERNIGHT_STAY';
   overnightStayId: string;
@@ -200,7 +210,7 @@ export interface OvernightStayRouteSelection {
   locationVersionId: string;
 }
 
-export type RouteSelection = LocationRouteSelection | OvernightStayRouteSelection;
+export type RouteSelection = LocationRouteSelection | MultiDayBlockRouteSelection;
 
 function hasEarlyVariant(variantType: VariantType | undefined): boolean {
   return variantType === 'early' || variantType === 'earlyExtend';
@@ -425,19 +435,19 @@ function getOvernightStayLength(
 
 function getCurrentContext(selectedRoute: RouteSelection[], startLocationId: string):
   | { kind: 'LOCATION'; locationId: string }
-  | { kind: 'OVERNIGHT_STAY'; overnightStayId: string } {
+  | { kind: 'MULTI_DAY_BLOCK'; multiDayBlockId: string } {
   const lastStop = selectedRoute[selectedRoute.length - 1];
   if (!lastStop) {
     return { kind: 'LOCATION', locationId: startLocationId };
   }
-  if (lastStop.kind === 'OVERNIGHT_STAY') {
-    return { kind: 'OVERNIGHT_STAY', overnightStayId: lastStop.overnightStayId };
+  if (lastStop.kind === 'MULTI_DAY_BLOCK') {
+    return { kind: 'MULTI_DAY_BLOCK', multiDayBlockId: lastStop.multiDayBlockId };
   }
   return { kind: 'LOCATION', locationId: lastStop.locationId };
 }
 
 export function getRouteSelectionDaySpan(selection: RouteSelection): number {
-  return selection.kind === 'OVERNIGHT_STAY' ? selection.stayLength : 1;
+  return selection.kind === 'MULTI_DAY_BLOCK' ? selection.stayLength : 1;
 }
 
 export function getConsumedRouteDayCount(selectedRoute: RouteSelection[]): number {
@@ -743,9 +753,9 @@ export function buildNextOptions(input: {
   const isLastDay = nextDayIndex === totalDays;
   const context = getCurrentContext(selectedRoute, startLocationId);
 
-  if (context.kind === 'OVERNIGHT_STAY') {
+  if (context.kind === 'MULTI_DAY_BLOCK') {
     const toIds = filteredOvernightStayConnections
-      .filter((connection) => connection.fromOvernightStayId === context.overnightStayId)
+      .filter((connection) => connection.fromOvernightStayId === context.multiDayBlockId)
       .filter((connection) => hasOvernightStayConnectionScheduleForVariant(connection, undefined, requiredVariant))
       .map((connection) => connection.toLocationId);
 
@@ -770,7 +780,7 @@ export function buildOvernightStayOptions(input: {
   const { filteredOvernightStays, filteredSegments, startLocationId, selectedRoute, totalDays } = input;
   const usedDays = 1 + getConsumedRouteDayCount(selectedRoute);
   const context = getCurrentContext(selectedRoute, startLocationId);
-  if (context.kind === 'OVERNIGHT_STAY') {
+  if (context.kind === 'MULTI_DAY_BLOCK') {
     return [];
   }
 
@@ -907,7 +917,7 @@ export function buildAutoRowsFromRoute(input: {
     ].join('\n'),
   });
 
-  let previousContext: { kind: 'LOCATION'; locationId: string } | { kind: 'OVERNIGHT_STAY'; overnightStayId: string; locationId: string } = {
+  let previousContext: { kind: 'LOCATION'; locationId: string } | { kind: 'MULTI_DAY_BLOCK'; multiDayBlockId: string; locationId: string } = {
     kind: 'LOCATION',
     locationId: startLocationId,
   };
@@ -918,8 +928,8 @@ export function buildAutoRowsFromRoute(input: {
       break;
     }
 
-    if (stop.kind === 'OVERNIGHT_STAY') {
-      const overnightStay = findOvernightStay(filteredOvernightStays, stop.overnightStayId);
+    if (stop.kind === 'MULTI_DAY_BLOCK') {
+      const overnightStay = findOvernightStay(filteredOvernightStays, stop.multiDayBlockId);
       const location = locationById.get(stop.locationId);
       const overnightStayRows = buildOvernightStayRows({
         overnightStay,
@@ -932,8 +942,8 @@ export function buildAutoRowsFromRoute(input: {
       rows.push(...overnightStayRows);
       nextDayIndex += overnightStayRows.length;
       previousContext = {
-        kind: 'OVERNIGHT_STAY',
-        overnightStayId: stop.overnightStayId,
+        kind: 'MULTI_DAY_BLOCK',
+        multiDayBlockId: stop.multiDayBlockId,
         locationId: stop.locationId,
       };
       continue;
@@ -949,16 +959,18 @@ export function buildAutoRowsFromRoute(input: {
       totalDays: safeTotalDays,
     });
 
-    if (previousContext.kind === 'OVERNIGHT_STAY') {
+    if (previousContext.kind === 'MULTI_DAY_BLOCK') {
       const connection =
         (stop.overnightStayConnectionId
           ? filteredOvernightStayConnections.find((item) => item.id === stop.overnightStayConnectionId)
           : undefined) ??
-        findOvernightStayConnection(filteredOvernightStayConnections, previousContext.overnightStayId, stop.locationId);
+        findOvernightStayConnection(filteredOvernightStayConnections, previousContext.multiDayBlockId, stop.locationId);
       const connectionVersion = resolveOvernightStayConnectionVersion(connection, stop.overnightStayConnectionVersionId);
       rows.push({
         overnightStayConnectionId: connection?.id,
         overnightStayConnectionVersionId: connectionVersion?.id,
+        multiDayBlockConnectionId: connection?.id,
+        multiDayBlockConnectionVersionId: connectionVersion?.id,
         locationId: stop.locationId,
         locationVersionId: stop.locationVersionId,
         dateCellText: `${nextDayIndex}일차`,
@@ -1064,20 +1076,21 @@ function buildRouteStopsFromSelections(input: {
   > = [{ locationId: input.startLocationId, locationVersionId: input.startLocationVersionId }];
 
   input.selectedRoute.forEach((stop) => {
-    if (stop.kind === 'OVERNIGHT_STAY') {
+    if (stop.kind === 'MULTI_DAY_BLOCK') {
+      const blockId = stop.multiDayBlockId;
       routeStops.push({
-        overnightStayId: stop.overnightStayId,
+        overnightStayId: blockId,
         overnightStayDayOrder: 1,
-        multiDayBlockId: stop.overnightStayId,
+        multiDayBlockId: blockId,
         multiDayBlockDayOrder: 1,
         locationId: stop.locationId,
         locationVersionId: stop.locationVersionId,
       });
       for (let dayOrder = 2; dayOrder <= stop.stayLength; dayOrder += 1) {
         routeStops.push({
-          overnightStayId: stop.overnightStayId,
+          overnightStayId: blockId,
           overnightStayDayOrder: dayOrder,
-          multiDayBlockId: stop.overnightStayId,
+          multiDayBlockId: blockId,
           multiDayBlockDayOrder: dayOrder,
           locationId: stop.locationId,
           locationVersionId: stop.locationVersionId,
@@ -1171,8 +1184,8 @@ export function buildSelectedRouteFromStops(
         nextIndex += 1;
       }
       route.push({
-        kind: 'OVERNIGHT_STAY',
-        overnightStayId: blockId,
+        kind: 'MULTI_DAY_BLOCK',
+        multiDayBlockId: blockId,
         stayLength,
         locationId: stop.locationId ?? '',
         locationVersionId: stop.locationVersionId ?? '',

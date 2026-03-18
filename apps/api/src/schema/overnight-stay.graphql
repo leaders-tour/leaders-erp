@@ -127,6 +127,130 @@ type OvernightStayConnectionActivity {
   updatedAt: DateTime!
 }
 
+"연속 일정 블록 (공개 계약). 동일 물리 엔티티는 OvernightStay."
+type MultiDayBlock {
+  id: ID!
+  regionId: String!
+  locationId: String!
+  blockType: BlockType!
+  startLocationId: String!
+  endLocationId: String!
+  name: String!
+  title: String!
+  isActive: Boolean!
+  sortOrder: Int!
+  region: Region!
+  location: Location!
+  startLocation: Location!
+  endLocation: Location!
+  days: [MultiDayBlockDay!]!
+  outgoingConnections: [MultiDayBlockConnection!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type MultiDayBlockDay {
+  id: ID!
+  multiDayBlockId: String!
+  dayOrder: Int!
+  displayLocationId: String!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  movementIntensity: MovementIntensity!
+  timeCellText: String!
+  scheduleCellText: String!
+  lodgingCellText: String!
+  mealCellText: String!
+  displayLocation: Location!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type MultiDayBlockConnection {
+  id: ID!
+  regionId: String!
+  regionName: String!
+  fromMultiDayBlockId: String!
+  toLocationId: String!
+  defaultVersionId: String
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  movementIntensity: MovementIntensity!
+  isLongDistance: Boolean!
+  fromMultiDayBlock: MultiDayBlock!
+  toLocation: Location!
+  scheduleTimeBlocks: [OvernightStayConnectionTimeBlock!]!
+  earlyScheduleTimeBlocks: [OvernightStayConnectionTimeBlock!]!
+  extendScheduleTimeBlocks: [OvernightStayConnectionTimeBlock!]!
+  earlyExtendScheduleTimeBlocks: [OvernightStayConnectionTimeBlock!]!
+  versions: [OvernightStayConnectionVersion!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input MultiDayBlockDayInput {
+  dayOrder: Int!
+  displayLocationId: String
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  timeCellText: String!
+  scheduleCellText: String!
+  lodgingCellText: String!
+  mealCellText: String!
+}
+
+input MultiDayBlockCreateInput {
+  regionId: String!
+  locationId: String!
+  blockType: BlockType
+  startLocationId: String
+  endLocationId: String
+  name: String!
+  sortOrder: Int
+  isActive: Boolean
+  days: [MultiDayBlockDayInput!]!
+}
+
+input MultiDayBlockUpdateInput {
+  regionId: String
+  locationId: String
+  blockType: BlockType
+  startLocationId: String
+  endLocationId: String
+  name: String
+  sortOrder: Int
+  isActive: Boolean
+  days: [MultiDayBlockDayInput!]
+}
+
+input MultiDayBlockConnectionCreateInput {
+  regionId: String!
+  fromMultiDayBlockId: String!
+  toLocationId: String!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  isLongDistance: Boolean!
+  timeSlots: [OvernightStayConnectionTimeSlotInput!]!
+  earlyTimeSlots: [OvernightStayConnectionTimeSlotInput!]
+  extendTimeSlots: [OvernightStayConnectionTimeSlotInput!]
+  earlyExtendTimeSlots: [OvernightStayConnectionTimeSlotInput!]
+  versions: [OvernightStayConnectionVersionInput!]
+}
+
+input MultiDayBlockConnectionUpdateInput {
+  regionId: String
+  fromMultiDayBlockId: String
+  toLocationId: String
+  averageDistanceKm: Float
+  averageTravelHours: Float
+  isLongDistance: Boolean
+  timeSlots: [OvernightStayConnectionTimeSlotInput!]
+  earlyTimeSlots: [OvernightStayConnectionTimeSlotInput!]
+  extendTimeSlots: [OvernightStayConnectionTimeSlotInput!]
+  earlyExtendTimeSlots: [OvernightStayConnectionTimeSlotInput!]
+  versions: [OvernightStayConnectionVersionInput!]
+}
+
 input OvernightStayDayInput {
   dayOrder: Int!
   displayLocationId: String

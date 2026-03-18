@@ -1927,15 +1927,15 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   const hasMissingSegment = useMemo(() => {
     return selectedRoute.some((toStop, index) => {
-      if (toStop.kind === 'OVERNIGHT_STAY') {
+      if (toStop.kind === 'MULTI_DAY_BLOCK') {
         const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
         return !filteredSegments.some((segment) => segment.fromLocationId === fromId && segment.toLocationId === toStop.locationId);
       }
       const previousStop = selectedRoute[index - 1];
-      if (previousStop?.kind === 'OVERNIGHT_STAY') {
+      if (previousStop?.kind === 'MULTI_DAY_BLOCK') {
         return !filteredOvernightStayConnections.some(
           (connection) =>
-            connection.fromOvernightStayId === previousStop.overnightStayId && connection.toLocationId === toStop.locationId,
+            connection.fromOvernightStayId === previousStop.multiDayBlockId && connection.toLocationId === toStop.locationId,
         );
       }
       const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
@@ -3682,7 +3682,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                     const startDayIndex = getRouteStopStartDayIndex(selectedRoute, index);
                     const endDayIndex = getRouteStopEndDayIndex(selectedRoute, index);
 
-                    if (stop.kind === 'OVERNIGHT_STAY') {
+                    if (stop.kind === 'MULTI_DAY_BLOCK') {
                       return (
                         <>
                           <div className="text-sm font-medium">
@@ -3721,10 +3721,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                     }
 
                     const previousStop = selectedRoute[index - 1];
-                    if (previousStop?.kind === 'OVERNIGHT_STAY') {
+                    if (previousStop?.kind === 'MULTI_DAY_BLOCK') {
                       const connection = findOvernightStayConnection(
                         filteredOvernightStayConnections,
-                        previousStop.overnightStayId,
+                        previousStop.multiDayBlockId,
                         stop.locationId,
                       );
                       const versions = getOvernightStayConnectionVersions(connection);
@@ -3894,10 +3894,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                           onClick={() =>
                             setSelectedRoute((prev) => {
                               const lastStop = prev[prev.length - 1];
-                              if (lastStop?.kind === 'OVERNIGHT_STAY') {
+                              if (lastStop?.kind === 'MULTI_DAY_BLOCK') {
                                 const connection = findOvernightStayConnection(
                                   filteredOvernightStayConnections,
-                                  lastStop.overnightStayId,
+                                  lastStop.multiDayBlockId,
                                   location.id,
                                 );
                                 return [
@@ -3957,8 +3957,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                               setSelectedRoute((prev) => [
                                 ...prev,
                                 {
-                                  kind: 'OVERNIGHT_STAY',
-                                  overnightStayId: overnightStay.id,
+                                  kind: 'MULTI_DAY_BLOCK',
+                                  multiDayBlockId: overnightStay.id,
                                   stayLength: overnightStay.days.length,
                                   locationId: overnightStay.locationId,
                                   locationVersionId: getDefaultVersionId(location) || '',

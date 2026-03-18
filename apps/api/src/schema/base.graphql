@@ -19,10 +19,18 @@ type Query {
   mealSet(id: ID!): MealSet
   segments: [Segment!]!
   segment(id: ID!): Segment
-  overnightStays(regionId: ID, activeOnly: Boolean): [OvernightStay!]!
-  overnightStay(id: ID!): OvernightStay
-  overnightStayConnections(regionId: ID, fromOvernightStayId: ID): [OvernightStayConnection!]!
-  overnightStayConnection(id: ID!): OvernightStayConnection
+  multiDayBlocks(regionId: ID, activeOnly: Boolean): [MultiDayBlock!]!
+  multiDayBlock(id: ID!): MultiDayBlock
+  multiDayBlockConnections(regionId: ID, fromMultiDayBlockId: ID): [MultiDayBlockConnection!]!
+  multiDayBlockConnection(id: ID!): MultiDayBlockConnection
+  "Deprecated. Use multiDayBlocks."
+  overnightStays(regionId: ID, activeOnly: Boolean): [OvernightStay!]! @deprecated(reason: "Use multiDayBlocks")
+  "Deprecated. Use multiDayBlock."
+  overnightStay(id: ID!): OvernightStay @deprecated(reason: "Use multiDayBlock")
+  "Deprecated. Use multiDayBlockConnections."
+  overnightStayConnections(regionId: ID, fromOvernightStayId: ID): [OvernightStayConnection!]! @deprecated(reason: "Use multiDayBlockConnections")
+  "Deprecated. Use multiDayBlockConnection."
+  overnightStayConnection(id: ID!): OvernightStayConnection @deprecated(reason: "Use multiDayBlockConnection")
   plans(userId: ID!): [Plan!]!
   plan(id: ID!): Plan
   planVersions(planId: ID!): [PlanVersion!]!
@@ -78,13 +86,24 @@ type Mutation {
   updateSegment(id: ID!, input: SegmentUpdateInput!): Segment!
   deleteSegment(id: ID!): Boolean!
 
-  createOvernightStay(input: OvernightStayCreateInput!): OvernightStay!
-  updateOvernightStay(id: ID!, input: OvernightStayUpdateInput!): OvernightStay!
-  deleteOvernightStay(id: ID!): Boolean!
-
-  createOvernightStayConnection(input: OvernightStayConnectionCreateInput!): OvernightStayConnection!
-  updateOvernightStayConnection(id: ID!, input: OvernightStayConnectionUpdateInput!): OvernightStayConnection!
-  deleteOvernightStayConnection(id: ID!): Boolean!
+  createMultiDayBlock(input: MultiDayBlockCreateInput!): MultiDayBlock!
+  updateMultiDayBlock(id: ID!, input: MultiDayBlockUpdateInput!): MultiDayBlock!
+  deleteMultiDayBlock(id: ID!): Boolean!
+  createMultiDayBlockConnection(input: MultiDayBlockConnectionCreateInput!): MultiDayBlockConnection!
+  updateMultiDayBlockConnection(id: ID!, input: MultiDayBlockConnectionUpdateInput!): MultiDayBlockConnection!
+  deleteMultiDayBlockConnection(id: ID!): Boolean!
+  "Deprecated. Use createMultiDayBlock."
+  createOvernightStay(input: OvernightStayCreateInput!): OvernightStay! @deprecated(reason: "Use createMultiDayBlock")
+  "Deprecated. Use updateMultiDayBlock."
+  updateOvernightStay(id: ID!, input: OvernightStayUpdateInput!): OvernightStay! @deprecated(reason: "Use updateMultiDayBlock")
+  "Deprecated. Use deleteMultiDayBlock."
+  deleteOvernightStay(id: ID!): Boolean! @deprecated(reason: "Use deleteMultiDayBlock")
+  "Deprecated. Use createMultiDayBlockConnection."
+  createOvernightStayConnection(input: OvernightStayConnectionCreateInput!): OvernightStayConnection! @deprecated(reason: "Use createMultiDayBlockConnection")
+  "Deprecated. Use updateMultiDayBlockConnection."
+  updateOvernightStayConnection(id: ID!, input: OvernightStayConnectionUpdateInput!): OvernightStayConnection! @deprecated(reason: "Use updateMultiDayBlockConnection")
+  "Deprecated. Use deleteMultiDayBlockConnection."
+  deleteOvernightStayConnection(id: ID!): Boolean! @deprecated(reason: "Use deleteMultiDayBlockConnection")
 
   createUser(input: UserCreateInput!): User!
   updateUser(id: ID!, input: UserUpdateInput!): User!

@@ -24,11 +24,10 @@ export const planTemplateStopInputSchema = z
   })
   .transform((raw) => ({
     ...raw,
-    multiDayBlockId: raw.multiDayBlockId ?? raw.overnightStayId,
-    multiDayBlockDayOrder: raw.multiDayBlockDayOrder ?? raw.overnightStayDayOrder,
-    multiDayBlockConnectionId: raw.multiDayBlockConnectionId ?? raw.overnightStayConnectionId,
-    multiDayBlockConnectionVersionId:
-      raw.multiDayBlockConnectionVersionId ?? raw.overnightStayConnectionVersionId,
+    multiDayBlockId: raw.multiDayBlockId,
+    multiDayBlockDayOrder: raw.multiDayBlockDayOrder,
+    multiDayBlockConnectionId: raw.multiDayBlockConnectionId,
+    multiDayBlockConnectionVersionId: raw.multiDayBlockConnectionVersionId,
   }));
 
 const planTemplateBaseSchema = z.object({
