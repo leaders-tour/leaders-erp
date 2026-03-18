@@ -278,7 +278,7 @@ function TimeSlotEditor(props: {
 
       <div className="grid gap-4">
         {value.map((slot, slotIndex) => (
-          <div key={`${slot.startTime}-${slotIndex}`} className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div key={slotIndex} className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-center justify-between gap-3">
               <label className="grid gap-1 text-sm">
                 <span className="text-slate-700">시작 시간</span>
