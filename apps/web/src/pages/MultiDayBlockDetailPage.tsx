@@ -9,11 +9,11 @@ import {
 import { formatLocationNameInline } from '../features/location/display';
 import { LocationSubNav } from '../features/location/sub-nav';
 import {
-  OvernightStayDaySlotEditor,
-  createOvernightStayScheduleSlot,
-  parseOvernightStayScheduleSlots,
-  serializeOvernightStayScheduleSlots,
-  type OvernightStayScheduleSlotInput,
+  MultiDayBlockDaySlotEditor,
+  createMultiDayBlockScheduleSlot,
+  parseMultiDayBlockScheduleSlots,
+  serializeMultiDayBlockScheduleSlots,
+  type MultiDayBlockScheduleSlotInput,
 } from '../features/multi-day-block/day-slot-editor';
 
 interface RegionRow {
@@ -53,12 +53,12 @@ interface MultiDayBlockRow {
   }>;
 }
 
-interface OvernightStayDayDraft {
+interface MultiDayBlockDayDraft {
   dayOrder: number;
   displayLocationId: string;
   averageDistanceKm: string;
   averageTravelHours: string;
-  scheduleSlots: OvernightStayScheduleSlotInput[];
+  scheduleSlots: MultiDayBlockScheduleSlotInput[];
   lodgingCellText: string;
   mealCellText: string;
 }
@@ -124,13 +124,13 @@ const DELETE_MULTI_DAY_BLOCK_MUTATION = gql`
   }
 `;
 
-function createDayDraft(dayOrder: number, displayLocationId = ''): OvernightStayDayDraft {
+function createDayDraft(dayOrder: number, displayLocationId = ''): MultiDayBlockDayDraft {
   return {
     dayOrder,
     displayLocationId,
     averageDistanceKm: '0',
     averageTravelHours: '0',
-    scheduleSlots: [createOvernightStayScheduleSlot()],
+    scheduleSlots: [createMultiDayBlockScheduleSlot()],
     lodgingCellText: '',
     mealCellText: '',
   };
@@ -147,7 +147,7 @@ export function MultiDayBlockDetailPage(): JSX.Element {
   const [name, setName] = useState('');
   const [sortOrder, setSortOrder] = useState('0');
   const [isActive, setIsActive] = useState(true);
-  const [days, setDays] = useState<OvernightStayDayDraft[]>([createDayDraft(1), createDayDraft(2)]);
+  const [days, setDays] = useState<MultiDayBlockDayDraft[]>([createDayDraft(1), createDayDraft(2)]);
 
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
@@ -187,7 +187,7 @@ export function MultiDayBlockDetailPage(): JSX.Element {
           displayLocationId: day.displayLocationId ?? overnightStay.locationId ?? '',
           averageDistanceKm: String(day?.averageDistanceKm ?? 0),
           averageTravelHours: String(day?.averageTravelHours ?? 0),
-          scheduleSlots: parseOvernightStayScheduleSlots(day?.timeCellText ?? '', day?.scheduleCellText ?? ''),
+          scheduleSlots: parseMultiDayBlockScheduleSlots(day?.timeCellText ?? '', day?.scheduleCellText ?? ''),
           lodgingCellText: day?.lodgingCellText ?? '',
           mealCellText: day?.mealCellText ?? '',
         })),
@@ -200,7 +200,11 @@ export function MultiDayBlockDetailPage(): JSX.Element {
     }
   }, [blockType, locationId]);
 
-  const updateDay = (dayOrder: number, field: keyof OvernightStayDayDraft, value: OvernightStayDayDraft[keyof OvernightStayDayDraft]) => {
+  const updateDay = (
+    dayOrder: number,
+    field: keyof MultiDayBlockDayDraft,
+    value: MultiDayBlockDayDraft[keyof MultiDayBlockDayDraft],
+  ) => {
     setDays((prev) => prev.map((day) => (day.dayOrder === dayOrder ? { ...day, [field]: value } : day)));
   };
 
@@ -502,7 +506,7 @@ export function MultiDayBlockDetailPage(): JSX.Element {
                     </span>
                   </div>
 
-                  <OvernightStayDaySlotEditor
+                  <MultiDayBlockDaySlotEditor
                     title="시간 / 일정"
                     description="시작시간을 추가하고 각 시간대별 활동을 입력합니다."
                     value={day.scheduleSlots}
@@ -556,7 +560,7 @@ export function MultiDayBlockDetailPage(): JSX.Element {
                         .slice()
                         .sort((left, right) => left.dayOrder - right.dayOrder)
                         .map((day) => {
-                          const { timeCellText, scheduleCellText } = serializeOvernightStayScheduleSlots(day.scheduleSlots);
+                          const { timeCellText, scheduleCellText } = serializeMultiDayBlockScheduleSlots(day.scheduleSlots);
                           return {
                             dayOrder: day.dayOrder,
                             displayLocationId: isStay ? locationId : day.displayLocationId || startLocationId,

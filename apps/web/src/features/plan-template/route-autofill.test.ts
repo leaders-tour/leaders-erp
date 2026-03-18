@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { MealOption, VariantType } from '../../generated/graphql';
-import type { LocationOption, OvernightStayOption, SegmentOption } from './route-autofill';
+import type { LocationOption, MultiDayBlockOption, SegmentOption } from './route-autofill';
 import {
   buildAutoRowsFromRoute,
   buildFirstDayOptions,
   buildNextOptions,
-  buildOvernightStayOptions,
+  buildMultiDayBlockOptions,
   buildSelectedRouteFromStops,
   buildTemplateStopsFromRouteAndRows,
   resolveSegmentVersionForDate,
@@ -378,7 +378,7 @@ const locationAVersion = locationA.variations[0]!;
 const locationBVersion = locationB.variations[0]!;
 const locationCVersion = locationC.variations[0]!;
 
-const overnightStayB2: OvernightStayOption = {
+const overnightStayB2: MultiDayBlockOption = {
   id: 'stay-b-2',
   regionId: 'region-1',
   locationId: locationB.id,
@@ -415,7 +415,7 @@ const overnightStayB2: OvernightStayOption = {
   ],
 };
 
-const overnightStayB3: OvernightStayOption = {
+const overnightStayB3: MultiDayBlockOption = {
   ...overnightStayB2,
   id: 'stay-b-3',
   name: '차강소브라가 3일 확장',
@@ -476,8 +476,8 @@ describe('route-autofill', () => {
   });
 
   it('filters overnight stay options by remaining days per stay length', () => {
-    const optionsForTwoDaysLeft = buildOvernightStayOptions({
-      filteredOvernightStays: [overnightStayB2, overnightStayB3],
+    const optionsForTwoDaysLeft = buildMultiDayBlockOptions({
+      filteredMultiDayBlocks: [overnightStayB2, overnightStayB3],
       filteredSegments: [segmentAB],
       startLocationId: locationA.id,
       selectedRoute: [],
@@ -578,7 +578,7 @@ describe('route-autofill', () => {
         },
       ],
       filteredSegments: [segmentAB],
-      filteredOvernightStays: [overnightStayB3],
+      filteredMultiDayBlocks: [overnightStayB3],
       locationById: new Map([
         [locationA.id, locationA],
         [locationB.id, locationB],
@@ -607,7 +607,7 @@ describe('route-autofill', () => {
         },
       ],
       filteredSegments: [segmentAB],
-      filteredOvernightStays: [overnightStayB2],
+      filteredMultiDayBlocks: [overnightStayB2],
       locationById: new Map([
         [locationA.id, locationA],
         [locationB.id, locationB],

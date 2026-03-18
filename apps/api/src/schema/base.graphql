@@ -23,14 +23,6 @@ type Query {
   multiDayBlock(id: ID!): MultiDayBlock
   multiDayBlockConnections(regionId: ID, fromMultiDayBlockId: ID): [MultiDayBlockConnection!]!
   multiDayBlockConnection(id: ID!): MultiDayBlockConnection
-  "Deprecated. Use multiDayBlocks."
-  overnightStays(regionId: ID, activeOnly: Boolean): [OvernightStay!]! @deprecated(reason: "Use multiDayBlocks")
-  "Deprecated. Use multiDayBlock."
-  overnightStay(id: ID!): OvernightStay @deprecated(reason: "Use multiDayBlock")
-  "Deprecated. Use multiDayBlockConnections."
-  overnightStayConnections(regionId: ID, fromOvernightStayId: ID): [OvernightStayConnection!]! @deprecated(reason: "Use multiDayBlockConnections")
-  "Deprecated. Use multiDayBlockConnection."
-  overnightStayConnection(id: ID!): OvernightStayConnection @deprecated(reason: "Use multiDayBlockConnection")
   plans(userId: ID!): [Plan!]!
   plan(id: ID!): Plan
   planVersions(planId: ID!): [PlanVersion!]!
@@ -92,18 +84,6 @@ type Mutation {
   createMultiDayBlockConnection(input: MultiDayBlockConnectionCreateInput!): MultiDayBlockConnection!
   updateMultiDayBlockConnection(id: ID!, input: MultiDayBlockConnectionUpdateInput!): MultiDayBlockConnection!
   deleteMultiDayBlockConnection(id: ID!): Boolean!
-  "Deprecated. Use createMultiDayBlock."
-  createOvernightStay(input: OvernightStayCreateInput!): OvernightStay! @deprecated(reason: "Use createMultiDayBlock")
-  "Deprecated. Use updateMultiDayBlock."
-  updateOvernightStay(id: ID!, input: OvernightStayUpdateInput!): OvernightStay! @deprecated(reason: "Use updateMultiDayBlock")
-  "Deprecated. Use deleteMultiDayBlock."
-  deleteOvernightStay(id: ID!): Boolean! @deprecated(reason: "Use deleteMultiDayBlock")
-  "Deprecated. Use createMultiDayBlockConnection."
-  createOvernightStayConnection(input: OvernightStayConnectionCreateInput!): OvernightStayConnection! @deprecated(reason: "Use createMultiDayBlockConnection")
-  "Deprecated. Use updateMultiDayBlockConnection."
-  updateOvernightStayConnection(id: ID!, input: OvernightStayConnectionUpdateInput!): OvernightStayConnection! @deprecated(reason: "Use updateMultiDayBlockConnection")
-  "Deprecated. Use deleteMultiDayBlockConnection."
-  deleteOvernightStayConnection(id: ID!): Boolean! @deprecated(reason: "Use deleteMultiDayBlockConnection")
 
   createUser(input: UserCreateInput!): User!
   updateUser(id: ID!, input: UserUpdateInput!): User!

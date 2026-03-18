@@ -1,28 +1,28 @@
 import type { MovementIntensity, Prisma, PrismaClient } from '@prisma/client';
-import { overnightStayConnectionInclude, overnightStayInclude } from './overnight-stay.mapper';
+import { multiDayBlockConnectionInclude, multiDayBlockInclude } from './multi-day-block.mapper';
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
-interface OvernightStayListFilter {
+interface MultiDayBlockListFilter {
   regionId?: string;
   activeOnly?: boolean;
 }
 
-interface OvernightStayConnectionListFilter {
+interface MultiDayBlockConnectionListFilter {
   regionId?: string;
-  fromOvernightStayId?: string;
+  fromMultiDayBlockId?: string;
 }
 
-export class OvernightStayRepository {
+export class MultiDayBlockRepository {
   constructor(private readonly prisma: PrismaLike) {}
 
-  findMany(filter: OvernightStayListFilter) {
+  findMany(filter: MultiDayBlockListFilter) {
     return this.prisma.overnightStay.findMany({
       where: {
         ...(filter.regionId ? { regionId: filter.regionId } : {}),
         ...(filter.activeOnly ? { isActive: true } : {}),
       },
-      include: overnightStayInclude,
+      include: multiDayBlockInclude,
       orderBy: [{ sortOrder: 'asc' }, { updatedAt: 'desc' }],
     });
   }
@@ -30,7 +30,7 @@ export class OvernightStayRepository {
   findById(id: string) {
     return this.prisma.overnightStay.findUnique({
       where: { id },
-      include: overnightStayInclude,
+      include: multiDayBlockInclude,
     });
   }
 
@@ -71,16 +71,16 @@ export class OvernightStayRepository {
   }
 }
 
-export class OvernightStayConnectionRepository {
+export class MultiDayBlockConnectionRepository {
   constructor(private readonly prisma: PrismaLike) {}
 
-  findMany(filter: OvernightStayConnectionListFilter) {
+  findMany(filter: MultiDayBlockConnectionListFilter) {
     return this.prisma.overnightStayConnection.findMany({
       where: {
         ...(filter.regionId ? { regionId: filter.regionId } : {}),
-        ...(filter.fromOvernightStayId ? { fromOvernightStayId: filter.fromOvernightStayId } : {}),
+        ...(filter.fromMultiDayBlockId ? { fromOvernightStayId: filter.fromMultiDayBlockId } : {}),
       },
-      include: overnightStayConnectionInclude,
+      include: multiDayBlockConnectionInclude,
       orderBy: [{ createdAt: 'desc' }],
     });
   }
@@ -88,7 +88,7 @@ export class OvernightStayConnectionRepository {
   findById(id: string) {
     return this.prisma.overnightStayConnection.findUnique({
       where: { id },
-      include: overnightStayConnectionInclude,
+      include: multiDayBlockConnectionInclude,
     });
   }
 

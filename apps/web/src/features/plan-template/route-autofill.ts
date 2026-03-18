@@ -104,7 +104,7 @@ interface ResolvedSegmentVersionOption {
   earlyExtendScheduleTimeBlocks: TimeBlockOption[];
 }
 
-export interface OvernightStayDayOption {
+export interface MultiDayBlockDayOption {
   id: string;
   dayOrder: number;
   displayLocationId?: string;
@@ -119,7 +119,7 @@ export interface OvernightStayDayOption {
 
 export type BlockType = 'STAY' | 'TRANSFER';
 
-export interface OvernightStayOption {
+export interface MultiDayBlockOption {
   id: string;
   regionId: string;
   locationId: string;
@@ -130,12 +130,12 @@ export interface OvernightStayOption {
   title: string;
   isActive: boolean;
   sortOrder: number;
-  days: OvernightStayDayOption[];
+  days: MultiDayBlockDayOption[];
 }
 
-export interface OvernightStayConnectionVersionOption {
+export interface MultiDayBlockConnectionVersionOption {
   id: string;
-  overnightStayConnectionId: string;
+  multiDayBlockConnectionId: string;
   name: string;
   averageDistanceKm: number;
   averageTravelHours: number;
@@ -149,7 +149,7 @@ export interface OvernightStayConnectionVersionOption {
   earlyExtendScheduleTimeBlocks: TimeBlockOption[];
 }
 
-export interface OvernightStayConnectionOption {
+export interface MultiDayBlockConnectionOption {
   id: string;
   regionId: string;
   fromMultiDayBlockId: string;
@@ -163,12 +163,12 @@ export interface OvernightStayConnectionOption {
   earlyScheduleTimeBlocks: TimeBlockOption[];
   extendScheduleTimeBlocks: TimeBlockOption[];
   earlyExtendScheduleTimeBlocks: TimeBlockOption[];
-  versions?: OvernightStayConnectionVersionOption[];
+  versions?: MultiDayBlockConnectionVersionOption[];
 }
 
-interface ResolvedOvernightStayConnectionVersionOption {
+interface ResolvedMultiDayBlockConnectionVersionOption {
   id: string;
-  overnightStayConnectionId: string;
+  multiDayBlockConnectionId: string;
   name: string;
   averageDistanceKm: number;
   averageTravelHours: number;
@@ -335,12 +335,12 @@ function buildLegacyDirectVersion(segment: SegmentOption): ResolvedSegmentVersio
   };
 }
 
-function buildLegacyDirectOvernightStayConnectionVersion(
-  connection: OvernightStayConnectionOption,
-): ResolvedOvernightStayConnectionVersionOption {
+function buildLegacyDirectMultiDayBlockConnectionVersion(
+  connection: MultiDayBlockConnectionOption,
+): ResolvedMultiDayBlockConnectionVersionOption {
   return {
     id: `${connection.id}::direct`,
-    overnightStayConnectionId: connection.id,
+    multiDayBlockConnectionId: connection.id,
     name: 'Direct',
     averageDistanceKm: connection.averageDistanceKm,
     averageTravelHours: connection.averageTravelHours,
@@ -392,8 +392,8 @@ function getSegmentScheduleTimeBlocks(
   return segmentVersion.scheduleTimeBlocks ?? [];
 }
 
-function getOvernightStayConnectionScheduleTimeBlocks(
-  connectionVersion: ResolvedOvernightStayConnectionVersionOption | undefined,
+function getMultiDayBlockConnectionScheduleTimeBlocks(
+  connectionVersion: ResolvedMultiDayBlockConnectionVersionOption | undefined,
   variant: SegmentScheduleVariant,
 ): TimeBlockOption[] {
   if (!connectionVersion) {
@@ -412,18 +412,18 @@ function getOvernightStayConnectionScheduleTimeBlocks(
   return connectionVersion.scheduleTimeBlocks ?? [];
 }
 
-function getOvernightStayDay(
-  overnightStay: OvernightStayOption | undefined,
+function getMultiDayBlockDay(
+  multiDayBlock: MultiDayBlockOption | undefined,
   dayOrder: number,
-): OvernightStayDayOption | undefined {
-  return overnightStay?.days.find((day) => day.dayOrder === dayOrder);
+): MultiDayBlockDayOption | undefined {
+  return multiDayBlock?.days.find((day) => day.dayOrder === dayOrder);
 }
 
-function getOvernightStayLength(
-  overnightStay: OvernightStayOption | undefined,
+function getMultiDayBlockLength(
+  multiDayBlock: MultiDayBlockOption | undefined,
   fallbackLength = 2,
 ): number {
-  const dayCount = overnightStay?.days.length ?? fallbackLength;
+  const dayCount = multiDayBlock?.days.length ?? fallbackLength;
   if (dayCount < 2) {
     return 2;
   }
@@ -587,22 +587,22 @@ export function formatSegmentVersionLabel(version: Pick<ResolvedSegmentVersionOp
   return version.name.trim() || 'Direct';
 }
 
-export function getOvernightStayConnectionVersions(
-  connection: OvernightStayConnectionOption | undefined,
-): ResolvedOvernightStayConnectionVersionOption[] {
+export function getMultiDayBlockConnectionVersions(
+  connection: MultiDayBlockConnectionOption | undefined,
+): ResolvedMultiDayBlockConnectionVersionOption[] {
   if (!connection) {
     return [];
   }
 
   if (!connection.versions || connection.versions.length === 0) {
-    return [buildLegacyDirectOvernightStayConnectionVersion(connection)];
+    return [buildLegacyDirectMultiDayBlockConnectionVersion(connection)];
   }
 
   return connection.versions.slice().sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-export function getDefaultOvernightStayConnectionVersionId(
-  connection: OvernightStayConnectionOption | undefined,
+export function getDefaultMultiDayBlockConnectionVersionId(
+  connection: MultiDayBlockConnectionOption | undefined,
 ): string {
   if (!connection) {
     return '';
@@ -610,17 +610,17 @@ export function getDefaultOvernightStayConnectionVersionId(
 
   return (
     connection.defaultVersionId ??
-    getOvernightStayConnectionVersions(connection).find((version) => version.isDefault)?.id ??
-    getOvernightStayConnectionVersions(connection)[0]?.id ??
+    getMultiDayBlockConnectionVersions(connection).find((version) => version.isDefault)?.id ??
+    getMultiDayBlockConnectionVersions(connection)[0]?.id ??
     ''
   );
 }
 
-export function resolveOvernightStayConnectionVersion(
-  connection: OvernightStayConnectionOption | undefined,
+export function resolveMultiDayBlockConnectionVersion(
+  connection: MultiDayBlockConnectionOption | undefined,
   overnightStayConnectionVersionId?: string,
-): ResolvedOvernightStayConnectionVersionOption | undefined {
-  const versions = getOvernightStayConnectionVersions(connection);
+): ResolvedMultiDayBlockConnectionVersionOption | undefined {
+  const versions = getMultiDayBlockConnectionVersions(connection);
   if (versions.length === 0) {
     return undefined;
   }
@@ -632,12 +632,12 @@ export function resolveOvernightStayConnectionVersion(
     }
   }
 
-  const defaultVersionId = getDefaultOvernightStayConnectionVersionId(connection);
+  const defaultVersionId = getDefaultMultiDayBlockConnectionVersionId(connection);
   return versions.find((version) => version.id === defaultVersionId) ?? versions[0];
 }
 
-export function formatOvernightStayConnectionVersionLabel(
-  version: Pick<ResolvedOvernightStayConnectionVersionOption, 'name'>,
+export function formatMultiDayBlockConnectionVersionLabel(
+  version: Pick<ResolvedMultiDayBlockConnectionVersionOption, 'name'>,
 ): string {
   return version.name.trim() || 'Direct';
 }
@@ -657,19 +657,19 @@ export function findSegment(
   return filteredSegments.find((segment) => segment.fromLocationId === fromLocationId && segment.toLocationId === toLocationId);
 }
 
-export function findOvernightStay(
-  filteredOvernightStays: OvernightStayOption[],
-  overnightStayId: string,
-): OvernightStayOption | undefined {
-  return filteredOvernightStays.find((overnightStay) => overnightStay.id === overnightStayId);
+export function findMultiDayBlock(
+  filteredMultiDayBlocks: MultiDayBlockOption[],
+  multiDayBlockId: string,
+): MultiDayBlockOption | undefined {
+  return filteredMultiDayBlocks.find((multiDayBlock) => multiDayBlock.id === multiDayBlockId);
 }
 
-export function findOvernightStayConnection(
-  filteredOvernightStayConnections: OvernightStayConnectionOption[],
+export function findMultiDayBlockConnection(
+  filteredMultiDayBlockConnections: MultiDayBlockConnectionOption[],
   fromMultiDayBlockId: string,
   toLocationId: string,
-): OvernightStayConnectionOption | undefined {
-  return filteredOvernightStayConnections.find(
+): MultiDayBlockConnectionOption | undefined {
+  return filteredMultiDayBlockConnections.find(
     (connection) => connection.fromMultiDayBlockId === fromMultiDayBlockId && connection.toLocationId === toLocationId,
   );
 }
@@ -709,19 +709,19 @@ function hasScheduleForVariant(
   return getSegmentScheduleTimeBlocks(segmentVersion, variant).length > 0;
 }
 
-function hasOvernightStayConnectionScheduleForVariant(
-  connection: OvernightStayConnectionOption | undefined,
+function hasMultiDayBlockConnectionScheduleForVariant(
+  connection: MultiDayBlockConnectionOption | undefined,
   overnightStayConnectionVersionId: string | undefined,
   variant: SegmentScheduleVariant,
 ): boolean {
-  const connectionVersion = resolveOvernightStayConnectionVersion(connection, overnightStayConnectionVersionId);
-  return getOvernightStayConnectionScheduleTimeBlocks(connectionVersion, variant).length > 0;
+  const connectionVersion = resolveMultiDayBlockConnectionVersion(connection, overnightStayConnectionVersionId);
+  return getMultiDayBlockConnectionScheduleTimeBlocks(connectionVersion, variant).length > 0;
 }
 
 export function buildNextOptions(input: {
   filteredLocations: LocationOption[];
   filteredSegments: SegmentOption[];
-  filteredOvernightStayConnections?: OvernightStayConnectionOption[];
+  filteredMultiDayBlockConnections?: MultiDayBlockConnectionOption[];
   startLocationId: string;
   selectedRoute: RouteSelection[];
   totalDays: number;
@@ -731,7 +731,7 @@ export function buildNextOptions(input: {
   const {
     filteredLocations,
     filteredSegments,
-    filteredOvernightStayConnections = [],
+    filteredMultiDayBlockConnections = [],
     selectedRoute,
     startLocationId,
     totalDays,
@@ -754,9 +754,9 @@ export function buildNextOptions(input: {
   const context = getCurrentContext(selectedRoute, startLocationId);
 
   if (context.kind === 'MULTI_DAY_BLOCK') {
-    const toIds = filteredOvernightStayConnections
+    const toIds = filteredMultiDayBlockConnections
       .filter((connection) => connection.fromMultiDayBlockId === context.multiDayBlockId)
-      .filter((connection) => hasOvernightStayConnectionScheduleForVariant(connection, undefined, requiredVariant))
+      .filter((connection) => hasMultiDayBlockConnectionScheduleForVariant(connection, undefined, requiredVariant))
       .map((connection) => connection.toLocationId);
 
     return filteredLocations.filter((location) => toIds.includes(location.id) && (!isLastDay || location.isLastDayEligible));
@@ -770,14 +770,14 @@ export function buildNextOptions(input: {
   return filteredLocations.filter((location) => toIds.includes(location.id) && (!isLastDay || location.isLastDayEligible));
 }
 
-export function buildOvernightStayOptions(input: {
-  filteredOvernightStays: OvernightStayOption[];
+export function buildMultiDayBlockOptions(input: {
+  filteredMultiDayBlocks: MultiDayBlockOption[];
   filteredSegments: SegmentOption[];
   startLocationId: string;
   selectedRoute: RouteSelection[];
   totalDays: number;
-}): OvernightStayOption[] {
-  const { filteredOvernightStays, filteredSegments, startLocationId, selectedRoute, totalDays } = input;
+}): MultiDayBlockOption[] {
+  const { filteredMultiDayBlocks, filteredSegments, startLocationId, selectedRoute, totalDays } = input;
   const usedDays = 1 + getConsumedRouteDayCount(selectedRoute);
   const context = getCurrentContext(selectedRoute, startLocationId);
   if (context.kind === 'MULTI_DAY_BLOCK') {
@@ -788,16 +788,16 @@ export function buildOvernightStayOptions(input: {
     filteredSegments.filter((segment) => segment.fromLocationId === context.locationId).map((segment) => segment.toLocationId),
   );
 
-  return filteredOvernightStays.filter(
-    (overnightStay) =>
-      overnightStay.isActive &&
-      totalDays - usedDays >= getOvernightStayLength(overnightStay) &&
-      reachableLocationIds.has(overnightStay.locationId),
+  return filteredMultiDayBlocks.filter(
+    (multiDayBlock) =>
+      multiDayBlock.isActive &&
+      totalDays - usedDays >= getMultiDayBlockLength(multiDayBlock) &&
+      reachableLocationIds.has(multiDayBlock.locationId),
   );
 }
 
-function buildOvernightStayRows(input: {
-  overnightStay: OvernightStayOption | undefined;
+function buildMultiDayBlockRows(input: {
+  multiDayBlock: MultiDayBlockOption | undefined;
   location: LocationOption | undefined;
   locationVersionId: string;
   startingDayIndex: number;
@@ -806,7 +806,7 @@ function buildOvernightStayRows(input: {
   locationById?: Map<string, LocationOption>;
 }): TemplatePlanRow[] {
   const {
-    overnightStay,
+    multiDayBlock,
     location,
     locationVersionId,
     startingDayIndex,
@@ -815,15 +815,15 @@ function buildOvernightStayRows(input: {
     locationById,
   } = input;
   const rows: TemplatePlanRow[] = [];
-  const orderedDays = (overnightStay?.days ?? []).slice().sort((left, right) => left.dayOrder - right.dayOrder);
+  const orderedDays = (multiDayBlock?.days ?? []).slice().sort((left, right) => left.dayOrder - right.dayOrder);
 
-  orderedDays.forEach((overnightStayDay) => {
-    const dayIndex = startingDayIndex + overnightStayDay.dayOrder - 1;
+  orderedDays.forEach((multiDayBlockDay) => {
+    const dayIndex = startingDayIndex + multiDayBlockDay.dayOrder - 1;
     if (dayIndex > totalDays) {
       return;
     }
-    const displayLocationId = overnightStayDay.displayLocationId ?? overnightStay?.locationId;
-    const rowLocationId = displayLocationId ?? overnightStay?.locationId;
+    const displayLocationId = multiDayBlockDay.displayLocationId ?? multiDayBlock?.locationId;
+    const rowLocationId = displayLocationId ?? multiDayBlock?.locationId;
     const rowLocationVersionId =
       (rowLocationId && getDefaultVersionIdForLocation?.(rowLocationId)) ??
       (rowLocationId && locationById?.get(rowLocationId)?.defaultVersionId) ??
@@ -831,23 +831,23 @@ function buildOvernightStayRows(input: {
       locationVersionId;
     const rowLocation = rowLocationId ? locationById?.get(rowLocationId) : location;
     rows.push({
-      overnightStayId: overnightStay?.id,
-      overnightStayDayOrder: overnightStayDay.dayOrder,
-      multiDayBlockId: overnightStay?.id,
-      multiDayBlockDayOrder: overnightStayDay.dayOrder,
+      overnightStayId: multiDayBlock?.id,
+      overnightStayDayOrder: multiDayBlockDay.dayOrder,
+      multiDayBlockId: multiDayBlock?.id,
+      multiDayBlockDayOrder: multiDayBlockDay.dayOrder,
       locationId: rowLocationId,
       locationVersionId: rowLocationVersionId,
       dateCellText: `${dayIndex}일차`,
       destinationCellText: formatRouteDestinationCellText({
-        locationName: rowLocation?.name ?? location?.name ?? overnightStay?.title ?? overnightStay?.locationId ?? '블록',
-        averageTravelHours: overnightStayDay?.averageTravelHours,
-        averageDistanceKm: overnightStayDay?.averageDistanceKm,
+        locationName: rowLocation?.name ?? location?.name ?? multiDayBlock?.title ?? multiDayBlock?.locationId ?? '블록',
+        averageTravelHours: multiDayBlockDay?.averageTravelHours,
+        averageDistanceKm: multiDayBlockDay?.averageDistanceKm,
       }),
-      movementIntensity: overnightStayDay?.movementIntensity,
-      timeCellText: overnightStayDay?.timeCellText ?? '',
-      scheduleCellText: overnightStayDay?.scheduleCellText ?? '',
-      lodgingCellText: overnightStayDay?.lodgingCellText ?? '',
-      mealCellText: overnightStayDay?.mealCellText ?? '',
+      movementIntensity: multiDayBlockDay?.movementIntensity,
+      timeCellText: multiDayBlockDay?.timeCellText ?? '',
+      scheduleCellText: multiDayBlockDay?.scheduleCellText ?? '',
+      lodgingCellText: multiDayBlockDay?.lodgingCellText ?? '',
+      mealCellText: multiDayBlockDay?.mealCellText ?? '',
     });
   });
 
@@ -859,8 +859,8 @@ export function buildAutoRowsFromRoute(input: {
   startLocationVersionId: string;
   selectedRoute: RouteSelection[];
   filteredSegments: SegmentOption[];
-  filteredOvernightStays?: OvernightStayOption[];
-  filteredOvernightStayConnections?: OvernightStayConnectionOption[];
+  filteredMultiDayBlocks?: MultiDayBlockOption[];
+  filteredMultiDayBlockConnections?: MultiDayBlockConnectionOption[];
   locationById: Map<string, LocationOption>;
   locationVersionById: Map<string, LocationVersionOption>;
   totalDays: number;
@@ -874,8 +874,8 @@ export function buildAutoRowsFromRoute(input: {
     startLocationVersionId,
     selectedRoute,
     filteredSegments,
-    filteredOvernightStays = [],
-    filteredOvernightStayConnections = [],
+    filteredMultiDayBlocks = [],
+    filteredMultiDayBlockConnections = [],
     locationById,
     locationVersionById,
     totalDays,
@@ -929,18 +929,18 @@ export function buildAutoRowsFromRoute(input: {
     }
 
     if (stop.kind === 'MULTI_DAY_BLOCK') {
-      const overnightStay = findOvernightStay(filteredOvernightStays, stop.multiDayBlockId);
+      const multiDayBlock = findMultiDayBlock(filteredMultiDayBlocks, stop.multiDayBlockId);
       const location = locationById.get(stop.locationId);
-      const overnightStayRows = buildOvernightStayRows({
-        overnightStay,
+      const multiDayBlockRows = buildMultiDayBlockRows({
+        multiDayBlock,
         location,
         locationVersionId: stop.locationVersionId,
         startingDayIndex: nextDayIndex,
         totalDays: safeTotalDays,
         locationById,
       });
-      rows.push(...overnightStayRows);
-      nextDayIndex += overnightStayRows.length;
+      rows.push(...multiDayBlockRows);
+      nextDayIndex += multiDayBlockRows.length;
       previousContext = {
         kind: 'MULTI_DAY_BLOCK',
         multiDayBlockId: stop.multiDayBlockId,
@@ -962,10 +962,10 @@ export function buildAutoRowsFromRoute(input: {
     if (previousContext.kind === 'MULTI_DAY_BLOCK') {
       const connection =
         (stop.overnightStayConnectionId
-          ? filteredOvernightStayConnections.find((item) => item.id === stop.overnightStayConnectionId)
+          ? filteredMultiDayBlockConnections.find((item) => item.id === stop.overnightStayConnectionId)
           : undefined) ??
-        findOvernightStayConnection(filteredOvernightStayConnections, previousContext.multiDayBlockId, stop.locationId);
-      const connectionVersion = resolveOvernightStayConnectionVersion(connection, stop.overnightStayConnectionVersionId);
+        findMultiDayBlockConnection(filteredMultiDayBlockConnections, previousContext.multiDayBlockId, stop.locationId);
+      const connectionVersion = resolveMultiDayBlockConnectionVersion(connection, stop.overnightStayConnectionVersionId);
       rows.push({
         overnightStayConnectionId: connection?.id,
         overnightStayConnectionVersionId: connectionVersion?.id,
@@ -980,10 +980,10 @@ export function buildAutoRowsFromRoute(input: {
           averageDistanceKm: connectionVersion?.averageDistanceKm,
         }),
         movementIntensity: connectionVersion?.movementIntensity,
-        timeCellText: toTimeCellFromTimeBlocks(getOvernightStayConnectionScheduleTimeBlocks(connectionVersion, variant), {
+        timeCellText: toTimeCellFromTimeBlocks(getMultiDayBlockConnectionScheduleTimeBlocks(connectionVersion, variant), {
           lastStartTimeOverride: isLastDay ? lastDayTimeOverride : undefined,
         }),
-        scheduleCellText: toScheduleCellFromTimeBlocks(getOvernightStayConnectionScheduleTimeBlocks(connectionVersion, variant)),
+        scheduleCellText: toScheduleCellFromTimeBlocks(getMultiDayBlockConnectionScheduleTimeBlocks(connectionVersion, variant)),
         lodgingCellText: getBaseLodgingText(locationVersion, toFacilityLabel),
         mealCellText: [
           `아침 ${toMealLabel(locationVersion?.mealSets[0]?.breakfast)}`,

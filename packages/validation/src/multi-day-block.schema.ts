@@ -48,7 +48,7 @@ const multiDayBlockConnectionVersionSchema = z.object({
 
 const multiDayBlockConnectionBaseSchema = z.object({
   regionId: z.string().min(1),
-  fromOvernightStayId: z.string().min(1),
+  fromMultiDayBlockId: z.string().min(1),
   toLocationId: z.string().min(1),
   averageDistanceKm: z.number().positive(),
   averageTravelHours: z.number().positive(),

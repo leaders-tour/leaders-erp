@@ -9,13 +9,13 @@ import {
 } from '@tour/validation';
 import { createValidationError, DomainError } from '../../lib/errors';
 import { calculateMovementIntensity } from '../../lib/movement-intensity';
-import { OvernightStayConnectionRepository, OvernightStayRepository } from './overnight-stay.repository';
+import { MultiDayBlockConnectionRepository, MultiDayBlockRepository } from './multi-day-block.repository';
 import type {
-  OvernightStayConnectionCreateDto,
-  OvernightStayConnectionUpdateDto,
-  OvernightStayCreateDto,
-  OvernightStayUpdateDto,
-} from './overnight-stay.types';
+  MultiDayBlockConnectionCreateDto,
+  MultiDayBlockConnectionUpdateDto,
+  MultiDayBlockCreateDto,
+  MultiDayBlockUpdateDto,
+} from './multi-day-block.types';
 
 type SegmentScheduleVariant = 'basic' | 'early' | 'extend' | 'earlyExtend';
 
@@ -24,9 +24,9 @@ interface OvernightStayListFilter {
   activeOnly?: boolean;
 }
 
-interface OvernightStayConnectionListFilter {
+interface MultiDayBlockConnectionListFilter {
   regionId?: string;
-  fromOvernightStayId?: string;
+  fromMultiDayBlockId?: string;
 }
 
 interface NormalizedTimeSlot {
@@ -97,11 +97,11 @@ interface ConnectionTargetLocation {
 
 const SEGMENT_SCHEDULE_VARIANTS: SegmentScheduleVariant[] = ['basic', 'early', 'extend', 'earlyExtend'];
 
-export class OvernightStayService {
-  private readonly repository: OvernightStayRepository;
+export class MultiDayBlockService {
+  private readonly repository: MultiDayBlockRepository;
 
   constructor(private readonly prisma: PrismaClient) {
-    this.repository = new OvernightStayRepository(prisma);
+    this.repository = new MultiDayBlockRepository(prisma);
   }
 
   list(filter: OvernightStayListFilter = {}) {
@@ -134,7 +134,7 @@ export class OvernightStayService {
 
   }
 
-  async create(input: OvernightStayCreateDto) {
+  async create(input: MultiDayBlockCreateDto) {
     const parsed = multiDayBlockCreateSchema.safeParse(input);
     if (!parsed.success) {
       throw createValidationError('Invalid overnight stay input', parsed.error);
@@ -159,7 +159,7 @@ export class OvernightStayService {
     }));
 
     return this.prisma.$transaction(async (tx) => {
-      const repository = new OvernightStayRepository(tx);
+      const repository = new MultiDayBlockRepository(tx);
       const created = await tx.overnightStay.create({
         data: {
           regionId: parsed.data.regionId,
@@ -182,7 +182,7 @@ export class OvernightStayService {
     });
   }
 
-  async update(id: string, input: OvernightStayUpdateDto) {
+  async update(id: string, input: MultiDayBlockUpdateDto) {
     const parsed = multiDayBlockUpdateSchema.safeParse(input);
     if (!parsed.success) {
       throw createValidationError('Invalid overnight stay update input', parsed.error);
@@ -208,7 +208,7 @@ export class OvernightStayService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const repository = new OvernightStayRepository(tx);
+      const repository = new MultiDayBlockRepository(tx);
       await tx.overnightStay.update({
         where: { id },
         data: {
@@ -248,14 +248,14 @@ export class OvernightStayService {
   }
 }
 
-export class OvernightStayConnectionService {
-  private readonly repository: OvernightStayConnectionRepository;
+export class MultiDayBlockConnectionService {
+  private readonly repository: MultiDayBlockConnectionRepository;
 
   constructor(private readonly prisma: PrismaClient) {
-    this.repository = new OvernightStayConnectionRepository(prisma);
+    this.repository = new MultiDayBlockConnectionRepository(prisma);
   }
 
-  list(filter: OvernightStayConnectionListFilter = {}) {
+  list(filter: MultiDayBlockConnectionListFilter = {}) {
     return this.repository.findMany(filter);
   }
 
@@ -396,7 +396,7 @@ export class OvernightStayConnectionService {
     }));
   }
 
-  private hasLegacyDirectUpdates(input: OvernightStayConnectionUpdateDto): boolean {
+  private hasLegacyDirectUpdates(input: MultiDayBlockConnectionUpdateDto): boolean {
     return (
       input.averageDistanceKm !== undefined ||
       input.averageTravelHours !== undefined ||
@@ -426,11 +426,11 @@ export class OvernightStayConnectionService {
 
   private async validateEndpoints(
     regionId: string,
-    fromOvernightStayId: string,
+    fromMultiDayBlockId: string,
     toLocationId: string,
   ): Promise<{ toLocation: ConnectionTargetLocation }> {
     const overnightStay = await this.prisma.overnightStay.findUnique({
-      where: { id: fromOvernightStayId },
+      where: { id: fromMultiDayBlockId },
       select: { id: true, regionId: true },
     });
     if (!overnightStay) {
@@ -670,7 +670,7 @@ export class OvernightStayConnectionService {
     return existingDefaultVersion.id;
   }
 
-  async create(input: OvernightStayConnectionCreateDto) {
+  async create(input: MultiDayBlockConnectionCreateDto) {
     const parsed = multiDayBlockConnectionCreateSchema.safeParse(input);
     if (!parsed.success) {
       throw createValidationError('Invalid overnight stay connection input', parsed.error);
@@ -684,7 +684,7 @@ export class OvernightStayConnectionService {
       throw new DomainError('VALIDATION_FAILED', 'Region not found for overnight stay connection');
     }
 
-    const endpoints = await this.validateEndpoints(parsed.data.regionId, parsed.data.fromOvernightStayId, parsed.data.toLocationId);
+    const endpoints = await this.validateEndpoints(parsed.data.regionId, parsed.data.fromMultiDayBlockId, parsed.data.toLocationId);
 
     const nextVersions = parsed.data.versions
       ? this.normalizeVersionsFromInput(parsed.data.versions)
@@ -697,7 +697,7 @@ export class OvernightStayConnectionService {
         data: {
           regionId: parsed.data.regionId,
           regionName: region.name,
-          fromOvernightStayId: parsed.data.fromOvernightStayId,
+          fromOvernightStayId: parsed.data.fromMultiDayBlockId,
           toLocationId: parsed.data.toLocationId,
           averageDistanceKm: defaultVersion.averageDistanceKm,
           averageTravelHours: defaultVersion.averageTravelHours,
@@ -709,11 +709,11 @@ export class OvernightStayConnectionService {
       const defaultVersionId = await this.replaceAllVersions(tx, created.id, nextVersions);
       await this.syncDefaultMirror(tx, created.id, defaultVersionId, defaultVersion);
 
-      return new OvernightStayConnectionRepository(tx).findById(created.id);
+      return new MultiDayBlockConnectionRepository(tx).findById(created.id);
     });
   }
 
-  async update(id: string, input: OvernightStayConnectionUpdateDto) {
+  async update(id: string, input: MultiDayBlockConnectionUpdateDto) {
     const parsed = multiDayBlockConnectionUpdateSchema.safeParse(input);
     if (!parsed.success) {
       throw createValidationError('Invalid overnight stay connection update input', parsed.error);
@@ -725,7 +725,7 @@ export class OvernightStayConnectionService {
     }
 
     const nextRegionId = parsed.data.regionId ?? existing.regionId;
-    const nextFromOvernightStayId = parsed.data.fromOvernightStayId ?? existing.fromOvernightStayId;
+    const nextFromMultiDayBlockId = parsed.data.fromMultiDayBlockId ?? existing.fromOvernightStayId;
     const nextToLocationId = parsed.data.toLocationId ?? existing.toLocationId;
 
     const region = await this.prisma.region.findUnique({
@@ -736,7 +736,7 @@ export class OvernightStayConnectionService {
       throw new DomainError('VALIDATION_FAILED', 'Region not found for overnight stay connection update');
     }
 
-    const endpoints = await this.validateEndpoints(nextRegionId, nextFromOvernightStayId, nextToLocationId);
+    const endpoints = await this.validateEndpoints(nextRegionId, nextFromMultiDayBlockId, nextToLocationId);
 
     const existingVersions = this.buildVersionsFromExisting(existing as ExistingConnectionLike);
     const hasLegacyDirectUpdates = this.hasLegacyDirectUpdates(parsed.data);
@@ -771,7 +771,7 @@ export class OvernightStayConnectionService {
         where: { id },
         data: {
           ...(parsed.data.regionId !== undefined ? { regionId: nextRegionId, regionName: region.name } : {}),
-          ...(parsed.data.fromOvernightStayId !== undefined ? { fromOvernightStayId: parsed.data.fromOvernightStayId } : {}),
+          ...(parsed.data.fromMultiDayBlockId !== undefined ? { fromOvernightStayId: parsed.data.fromMultiDayBlockId } : {}),
           ...(parsed.data.toLocationId !== undefined ? { toLocationId: parsed.data.toLocationId } : {}),
         },
       });
@@ -785,7 +785,7 @@ export class OvernightStayConnectionService {
         await this.syncDefaultMirror(tx, id, defaultVersionId, defaultVersion);
       } else if (
         parsed.data.regionId !== undefined ||
-        parsed.data.fromOvernightStayId !== undefined ||
+        parsed.data.fromMultiDayBlockId !== undefined ||
         parsed.data.toLocationId !== undefined
       ) {
         await tx.overnightStayConnection.update({
@@ -796,7 +796,7 @@ export class OvernightStayConnectionService {
         });
       }
 
-      return new OvernightStayConnectionRepository(tx).findById(id);
+      return new MultiDayBlockConnectionRepository(tx).findById(id);
     });
   }
 

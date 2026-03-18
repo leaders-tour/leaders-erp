@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 
-export const overnightStayInclude = {
+export const multiDayBlockInclude = {
   region: true,
   location: true,
   startLocation: true,
@@ -11,10 +11,10 @@ export const overnightStayInclude = {
   },
 } satisfies Prisma.OvernightStayInclude;
 
-export const overnightStayConnectionInclude = {
+export const multiDayBlockConnectionInclude = {
   region: true,
   fromOvernightStay: {
-    include: overnightStayInclude,
+    include: multiDayBlockInclude,
   },
   toLocation: true,
   defaultVersion: true,

@@ -42,29 +42,29 @@ import {
 } from '../features/plan/pickup-drop';
 import {
   buildAutoRowsFromRoute,
-  buildOvernightStayOptions,
+  buildMultiDayBlockOptions,
   buildSelectedRouteFromStops,
   buildFirstDayOptions,
   buildNextOptions,
   findSegment,
-  findOvernightStayConnection,
+  findMultiDayBlockConnection,
   formatRouteDestinationCellText,
-  formatOvernightStayConnectionVersionLabel,
+  formatMultiDayBlockConnectionVersionLabel,
   formatSegmentVersionLabel,
   getConsumedRouteDayCount,
-  getDefaultOvernightStayConnectionVersionId,
+  getDefaultMultiDayBlockConnectionVersionId,
   getDefaultVersionId,
-  getOvernightStayConnectionVersions,
+  getMultiDayBlockConnectionVersions,
   getRouteDateForDayIndex,
   getRouteStopEndDayIndex,
   getRouteStopStartDayIndex,
   getSegmentVersions,
   type LocationOption,
-  type OvernightStayConnectionOption,
-  type OvernightStayOption,
+  type MultiDayBlockConnectionOption,
+  type MultiDayBlockOption,
   type RouteSelection,
   trimRouteSelectionsToTotalDays,
-  resolveOvernightStayConnectionVersion,
+  resolveMultiDayBlockConnectionVersion,
   resolveSegmentVersionForDate,
   type SegmentOption,
 } from '../features/plan-template/route-autofill';
@@ -1301,8 +1301,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
   const { data: segmentData } = useQuery<{ segments: SegmentRow[] }>(SEGMENTS_QUERY);
-  const { data: overnightStayData } = useQuery<{ multiDayBlocks: OvernightStayOption[] }>(OVERNIGHT_STAYS_QUERY);
-  const { data: overnightStayConnectionData } = useQuery<{ multiDayBlockConnections: OvernightStayConnectionOption[] }>(
+  const { data: overnightStayData } = useQuery<{ multiDayBlocks: MultiDayBlockOption[] }>(OVERNIGHT_STAYS_QUERY);
+  const { data: overnightStayConnectionData } = useQuery<{ multiDayBlockConnections: MultiDayBlockConnectionOption[] }>(
     OVERNIGHT_STAY_CONNECTIONS_QUERY,
   );
   const { data: templateListData } = useQuery<{ planTemplates: PlanTemplateRow[] }>(PLAN_TEMPLATES_QUERY, {
@@ -1541,7 +1541,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       buildNextOptions({
         filteredLocations,
         filteredSegments,
-        filteredOvernightStayConnections,
+        filteredMultiDayBlockConnections: filteredOvernightStayConnections,
         startLocationId,
         selectedRoute,
         totalDays,
@@ -1562,8 +1562,8 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   const overnightStayOptions = useMemo(
     () =>
-      buildOvernightStayOptions({
-        filteredOvernightStays,
+      buildMultiDayBlockOptions({
+        filteredMultiDayBlocks: filteredOvernightStays,
         filteredSegments,
         startLocationId,
         selectedRoute,
@@ -1587,8 +1587,8 @@ export function ItineraryBuilderPage(): JSX.Element {
       startLocationVersionId,
       selectedRoute,
       filteredSegments,
-      filteredOvernightStays,
-      filteredOvernightStayConnections,
+      filteredMultiDayBlocks: filteredOvernightStays,
+      filteredMultiDayBlockConnections: filteredOvernightStayConnections,
       locationById,
       locationVersionById,
       totalDays,
@@ -3722,13 +3722,13 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                     const previousStop = selectedRoute[index - 1];
                     if (previousStop?.kind === 'MULTI_DAY_BLOCK') {
-                      const connection = findOvernightStayConnection(
+                      const connection = findMultiDayBlockConnection(
                         filteredOvernightStayConnections,
                         previousStop.multiDayBlockId,
                         stop.locationId,
                       );
-                      const versions = getOvernightStayConnectionVersions(connection);
-                      const selectedVersion = resolveOvernightStayConnectionVersion(
+                      const versions = getMultiDayBlockConnectionVersions(connection);
+                      const selectedVersion = resolveMultiDayBlockConnectionVersion(
                         connection,
                         stop.overnightStayConnectionVersionId,
                       );
@@ -3791,7 +3791,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
                                     }`}
                                   >
-                                    {formatOvernightStayConnectionVersionLabel(version)}
+                                    {formatMultiDayBlockConnectionVersionLabel(version)}
                                   </button>
                                 ))}
                               </div>
@@ -3895,7 +3895,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                             setSelectedRoute((prev) => {
                               const lastStop = prev[prev.length - 1];
                               if (lastStop?.kind === 'MULTI_DAY_BLOCK') {
-                                const connection = findOvernightStayConnection(
+                                const connection = findMultiDayBlockConnection(
                                   filteredOvernightStayConnections,
                                   lastStop.multiDayBlockId,
                                   location.id,
@@ -3908,7 +3908,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                     locationVersionId: getDefaultVersionId(location),
                                     overnightStayConnectionId: connection?.id,
                                     overnightStayConnectionVersionId:
-                                      getDefaultOvernightStayConnectionVersionId(connection) || undefined,
+                                      getDefaultMultiDayBlockConnectionVersionId(connection) || undefined,
                                   },
                                 ];
                               }

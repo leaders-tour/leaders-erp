@@ -1,18 +1,18 @@
 import { Button, Input } from '@tour/ui';
 
-export interface OvernightStayScheduleSlotInput {
+export interface MultiDayBlockScheduleSlotInput {
   startTime: string;
   activities: string[];
 }
 
-export function createOvernightStayScheduleSlot(startTime = '08:00'): OvernightStayScheduleSlotInput {
+export function createMultiDayBlockScheduleSlot(startTime = '08:00'): MultiDayBlockScheduleSlotInput {
   return {
     startTime,
     activities: [''],
   };
 }
 
-function getNextSlotTime(timeSlots: OvernightStayScheduleSlotInput[]): string {
+function getNextSlotTime(timeSlots: MultiDayBlockScheduleSlotInput[]): string {
   const last = timeSlots[timeSlots.length - 1];
   if (!last || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(last.startTime)) {
     return '';
@@ -23,7 +23,7 @@ function getNextSlotTime(timeSlots: OvernightStayScheduleSlotInput[]): string {
   return `${String(Math.floor(nextTotalMinutes / 60)).padStart(2, '0')}:${String(nextTotalMinutes % 60).padStart(2, '0')}`;
 }
 
-export function serializeOvernightStayScheduleSlots(value: OvernightStayScheduleSlotInput[]): {
+export function serializeMultiDayBlockScheduleSlots(value: MultiDayBlockScheduleSlotInput[]): {
   timeCellText: string;
   scheduleCellText: string;
 } {
@@ -47,11 +47,14 @@ export function serializeOvernightStayScheduleSlots(value: OvernightStaySchedule
   };
 }
 
-export function parseOvernightStayScheduleSlots(timeCellText: string, scheduleCellText: string): OvernightStayScheduleSlotInput[] {
+export function parseMultiDayBlockScheduleSlots(
+  timeCellText: string,
+  scheduleCellText: string,
+): MultiDayBlockScheduleSlotInput[] {
   const timeLines = timeCellText.split('\n');
   const scheduleLines = scheduleCellText.split('\n');
   const lineCount = Math.max(timeLines.length, scheduleLines.length);
-  const slots: OvernightStayScheduleSlotInput[] = [];
+  const slots: MultiDayBlockScheduleSlotInput[] = [];
 
   for (let index = 0; index < lineCount; index += 1) {
     const timeLine = timeLines[index]?.trim() ?? '';
@@ -80,7 +83,7 @@ export function parseOvernightStayScheduleSlots(timeCellText: string, scheduleCe
   }
 
   if (slots.length === 0) {
-    return [createOvernightStayScheduleSlot()];
+    return [createMultiDayBlockScheduleSlot()];
   }
 
   return slots.map((slot) => ({
@@ -89,16 +92,16 @@ export function parseOvernightStayScheduleSlots(timeCellText: string, scheduleCe
   }));
 }
 
-export function OvernightStayDaySlotEditor(props: {
+export function MultiDayBlockDaySlotEditor(props: {
   title: string;
   description: string;
-  value: OvernightStayScheduleSlotInput[];
-  onChange: (nextValue: OvernightStayScheduleSlotInput[]) => void;
+  value: MultiDayBlockScheduleSlotInput[];
+  onChange: (nextValue: MultiDayBlockScheduleSlotInput[]) => void;
 }): JSX.Element {
   const { title, description, value, onChange } = props;
 
   const addTimeSlot = () => {
-    onChange([...value, createOvernightStayScheduleSlot(getNextSlotTime(value))]);
+    onChange([...value, createMultiDayBlockScheduleSlot(getNextSlotTime(value))]);
   };
 
   const removeTimeSlot = (slotIndex: number) => {
