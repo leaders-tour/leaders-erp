@@ -30,7 +30,7 @@ interface MultiDayBlockRow {
 interface ConnectionRow {
   id: string;
   regionId: string;
-  fromOvernightStayId: string;
+  fromMultiDayBlockId: string;
   toLocationId: string;
   averageDistanceKm: number;
   averageTravelHours: number;
@@ -72,9 +72,9 @@ const REGIONS_QUERY = gql`
   }
 `;
 
-const OVERNIGHT_STAYS_QUERY = gql`
-  query OvernightStayConnectionStays {
-    overnightStays {
+const MULTI_DAY_BLOCKS_QUERY = gql`
+  query MultiDayBlockConnectionBlocks {
+    multiDayBlocks {
       id
       regionId
       name
@@ -83,12 +83,12 @@ const OVERNIGHT_STAYS_QUERY = gql`
   }
 `;
 
-const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
-  query OvernightStayConnectionList {
-    overnightStayConnections {
+const MULTI_DAY_BLOCK_CONNECTIONS_QUERY = gql`
+  query MultiDayBlockConnectionList {
+    multiDayBlockConnections {
       id
       regionId
-      fromOvernightStayId
+      fromMultiDayBlockId
       toLocationId
       averageDistanceKm
       averageTravelHours
@@ -114,24 +114,24 @@ const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
 `;
 
 const CREATE_MUTATION = gql`
-  mutation CreateOvernightStayConnectionPage($input: OvernightStayConnectionCreateInput!) {
-    createOvernightStayConnection(input: $input) {
+  mutation CreateMultiDayBlockConnectionPage($input: MultiDayBlockConnectionCreateInput!) {
+    createMultiDayBlockConnection(input: $input) {
       id
     }
   }
 `;
 
 const UPDATE_MUTATION = gql`
-  mutation UpdateOvernightStayConnectionPage($id: ID!, $input: OvernightStayConnectionUpdateInput!) {
-    updateOvernightStayConnection(id: $id, input: $input) {
+  mutation UpdateMultiDayBlockConnectionPage($id: ID!, $input: MultiDayBlockConnectionUpdateInput!) {
+    updateMultiDayBlockConnection(id: $id, input: $input) {
       id
     }
   }
 `;
 
 const DELETE_MUTATION = gql`
-  mutation DeleteOvernightStayConnectionPage($id: ID!) {
-    deleteOvernightStayConnection(id: $id)
+  mutation DeleteMultiDayBlockConnectionPage($id: ID!) {
+    deleteMultiDayBlockConnection(id: $id)
   }
 `;
 
@@ -155,7 +155,7 @@ function toTimeSlots(value: TimeSlotDraft[]) {
 export function MultiDayBlockConnectionPage(): JSX.Element {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [regionId, setRegionId] = useState('');
-  const [fromOvernightStayId, setFromOvernightStayId] = useState('');
+  const [fromMultiDayBlockId, setFromMultiDayBlockId] = useState('');
   const [toLocationId, setToLocationId] = useState('');
   const [averageDistanceKm, setAverageDistanceKm] = useState('0');
   const [averageTravelHours, setAverageTravelHours] = useState('0');
@@ -165,20 +165,20 @@ export function MultiDayBlockConnectionPage(): JSX.Element {
 
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData, refetch } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
-  const { data: stayData } = useQuery<{ overnightStays: MultiDayBlockRow[] }>(OVERNIGHT_STAYS_QUERY);
-  const { data: connectionData } = useQuery<{ overnightStayConnections: ConnectionRow[] }>(OVERNIGHT_STAY_CONNECTIONS_QUERY);
+  const { data: stayData } = useQuery<{ multiDayBlocks: MultiDayBlockRow[] }>(MULTI_DAY_BLOCKS_QUERY);
+  const { data: connectionData } = useQuery<{ multiDayBlockConnections: ConnectionRow[] }>(MULTI_DAY_BLOCK_CONNECTIONS_QUERY);
   const [createMutation, { loading: creating }] = useMutation(CREATE_MUTATION);
   const [updateMutation, { loading: updating }] = useMutation(UPDATE_MUTATION);
   const [deleteMutation, { loading: deleting }] = useMutation(DELETE_MUTATION);
 
   const regions = regionData?.regions ?? [];
   const locations = locationData?.locations ?? [];
-  const overnightStays = stayData?.overnightStays ?? [];
-  const rows = connectionData?.overnightStayConnections ?? [];
-  const filteredStays = useMemo(() => overnightStays.filter((stay) => stay.regionId === regionId), [overnightStays, regionId]);
+  const multiDayBlocks = stayData?.multiDayBlocks ?? [];
+  const rows = connectionData?.multiDayBlockConnections ?? [];
+  const filteredStays = useMemo(() => multiDayBlocks.filter((stay) => stay.regionId === regionId), [multiDayBlocks, regionId]);
   const filteredLocations = useMemo(() => locations.filter((location) => location.regionId === regionId), [locations, regionId]);
   const locationById = useMemo(() => new Map(locations.map((location) => [location.id, location])), [locations]);
-  const stayById = useMemo(() => new Map(overnightStays.map((stay) => [stay.id, stay])), [overnightStays]);
+  const stayById = useMemo(() => new Map(multiDayBlocks.map((stay) => [stay.id, stay])), [multiDayBlocks]);
   const movementIntensityMeta = useMemo(() => {
     const hours = Number(averageTravelHours);
     if (!Number.isFinite(hours) || hours < 0) {
@@ -190,7 +190,7 @@ export function MultiDayBlockConnectionPage(): JSX.Element {
   const resetForm = () => {
     setEditingId(null);
     setRegionId('');
-    setFromOvernightStayId('');
+    setFromMultiDayBlockId('');
     setToLocationId('');
     setAverageDistanceKm('0');
     setAverageTravelHours('0');
@@ -202,7 +202,7 @@ export function MultiDayBlockConnectionPage(): JSX.Element {
   const submit = async () => {
     const input = {
       regionId,
-      fromOvernightStayId,
+      fromMultiDayBlockId,
       toLocationId,
       averageDistanceKm: Number(averageDistanceKm) || 0,
       averageTravelHours: Number(averageTravelHours) || 0,
@@ -222,7 +222,7 @@ export function MultiDayBlockConnectionPage(): JSX.Element {
 
   const handleRegionSelect = (nextRegionId: string) => {
     setRegionId(nextRegionId);
-    setFromOvernightStayId('');
+    setFromMultiDayBlockId('');
     setToLocationId('');
   };
 
@@ -258,7 +258,7 @@ export function MultiDayBlockConnectionPage(): JSX.Element {
           </div>
           <div className="grid gap-2 text-sm">
             <span>블록</span>
-            <select value={fromOvernightStayId} onChange={(event) => setFromOvernightStayId(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2">
+            <select value={fromMultiDayBlockId} onChange={(event) => setFromMultiDayBlockId(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2">
               <option value="">블록 선택</option>
               {filteredStays.map((stay) => (
                 <option key={stay.id} value={stay.id}>
@@ -366,7 +366,7 @@ export function MultiDayBlockConnectionPage(): JSX.Element {
           </div>
 
           <div className="flex gap-2">
-            <Button disabled={!regionId || !fromOvernightStayId || !toLocationId || creating || updating} onClick={submit}>
+            <Button disabled={!regionId || !fromMultiDayBlockId || !toLocationId || creating || updating} onClick={submit}>
               {editingId ? (updating ? '저장 중...' : '저장') : creating ? '생성 중...' : '블록 후속 연결 생성'}
             </Button>
             {editingId ? (
@@ -394,7 +394,7 @@ export function MultiDayBlockConnectionPage(): JSX.Element {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="border-t border-slate-200">
-                  <Td>{stayById.get(row.fromOvernightStayId)?.name ?? stayById.get(row.fromOvernightStayId)?.title ?? row.fromOvernightStayId}</Td>
+                  <Td>{stayById.get(row.fromMultiDayBlockId)?.name ?? stayById.get(row.fromMultiDayBlockId)?.title ?? row.fromMultiDayBlockId}</Td>
                   <Td>{formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? [row.toLocationId])}</Td>
                   <Td>{row.averageDistanceKm}km / {row.averageTravelHours}h</Td>
                   <Td>
@@ -426,7 +426,7 @@ export function MultiDayBlockConnectionPage(): JSX.Element {
                         onClick={() => {
                           setEditingId(row.id);
                           setRegionId(row.regionId);
-                          setFromOvernightStayId(row.fromOvernightStayId);
+                          setFromMultiDayBlockId(row.fromMultiDayBlockId);
                           setToLocationId(row.toLocationId);
                           setAverageDistanceKm(String(row.averageDistanceKm));
                           setAverageTravelHours(String(row.averageTravelHours));

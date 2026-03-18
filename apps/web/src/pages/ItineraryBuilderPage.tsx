@@ -509,8 +509,8 @@ const SEGMENTS_QUERY = gql`
 `;
 
 const OVERNIGHT_STAYS_QUERY = gql`
-  query ItineraryOvernightStays {
-    overnightStays {
+  query ItineraryMultiDayBlocks {
+    multiDayBlocks {
       id
       regionId
       locationId
@@ -538,11 +538,11 @@ const OVERNIGHT_STAYS_QUERY = gql`
 `;
 
 const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
-  query ItineraryOvernightStayConnections {
-    overnightStayConnections {
+  query ItineraryMultiDayBlockConnections {
+    multiDayBlockConnections {
       id
       regionId
-      fromOvernightStayId
+      fromMultiDayBlockId
       toLocationId
       defaultVersionId
       averageDistanceKm
@@ -1301,8 +1301,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
   const { data: segmentData } = useQuery<{ segments: SegmentRow[] }>(SEGMENTS_QUERY);
-  const { data: overnightStayData } = useQuery<{ overnightStays: OvernightStayOption[] }>(OVERNIGHT_STAYS_QUERY);
-  const { data: overnightStayConnectionData } = useQuery<{ overnightStayConnections: OvernightStayConnectionOption[] }>(
+  const { data: overnightStayData } = useQuery<{ multiDayBlocks: OvernightStayOption[] }>(OVERNIGHT_STAYS_QUERY);
+  const { data: overnightStayConnectionData } = useQuery<{ multiDayBlockConnections: OvernightStayConnectionOption[] }>(
     OVERNIGHT_STAY_CONNECTIONS_QUERY,
   );
   const { data: templateListData } = useQuery<{ planTemplates: PlanTemplateRow[] }>(PLAN_TEMPLATES_QUERY, {
@@ -1329,8 +1329,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const regions = regionData?.regions ?? [];
   const locations = locationData?.locations ?? [];
   const segments = segmentData?.segments ?? [];
-  const overnightStays = overnightStayData?.overnightStays ?? [];
-  const overnightStayConnections = overnightStayConnectionData?.overnightStayConnections ?? [];
+  const overnightStays = overnightStayData?.multiDayBlocks ?? [];
+  const overnightStayConnections = overnightStayConnectionData?.multiDayBlockConnections ?? [];
   const planContext = planContextData?.plan ?? null;
   const selectedUserName = userData?.user?.name ?? '';
   const eventOptions = eventData?.events ?? [];
@@ -1935,7 +1935,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       if (previousStop?.kind === 'MULTI_DAY_BLOCK') {
         return !filteredOvernightStayConnections.some(
           (connection) =>
-            connection.fromOvernightStayId === previousStop.multiDayBlockId && connection.toLocationId === toStop.locationId,
+            connection.fromMultiDayBlockId === previousStop.multiDayBlockId && connection.toLocationId === toStop.locationId,
         );
       }
       const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';

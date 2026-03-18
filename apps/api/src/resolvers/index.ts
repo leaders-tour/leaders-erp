@@ -138,4 +138,9 @@ export const resolvers = {
   MultiDayBlock: overnightStayResolver.MultiDayBlock,
   MultiDayBlockDay: overnightStayResolver.MultiDayBlockDay,
   MultiDayBlockConnection: overnightStayResolver.MultiDayBlockConnection,
+  MultiDayBlockConnectionVersion: overnightStayResolver.MultiDayBlockConnectionVersion,
+  MultiDayBlockConnectionVersionTimeBlock: overnightStayResolver.MultiDayBlockConnectionVersionTimeBlock,
+  MultiDayBlockConnectionVersionActivity: overnightStayResolver.MultiDayBlockConnectionVersionActivity,
+  MultiDayBlockConnectionTimeBlock: overnightStayResolver.MultiDayBlockConnectionTimeBlock,
+  MultiDayBlockConnectionActivity: overnightStayResolver.MultiDayBlockConnectionActivity,
 };

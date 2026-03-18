@@ -57,9 +57,9 @@ const LOCATIONS_QUERY = gql`
   }
 `;
 
-const CREATE_OVERNIGHT_STAY_MUTATION = gql`
-  mutation CreateOvernightStayPage($input: OvernightStayCreateInput!) {
-    createOvernightStay(input: $input) {
+const CREATE_MULTI_DAY_BLOCK_MUTATION = gql`
+  mutation CreateMultiDayBlockPage($input: MultiDayBlockCreateInput!) {
+    createMultiDayBlock(input: $input) {
       id
     }
   }
@@ -91,8 +91,8 @@ export function MultiDayBlockCreatePage(): JSX.Element {
 
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
-  const [createOvernightStay, { loading }] = useMutation<{ createOvernightStay: { id: string } }>(
-    CREATE_OVERNIGHT_STAY_MUTATION,
+  const [createMultiDayBlock, { loading }] = useMutation<{ createMultiDayBlock: { id: string } }>(
+    CREATE_MULTI_DAY_BLOCK_MUTATION,
   );
 
   const regions = regionData?.regions ?? [];
@@ -455,7 +455,7 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                 const isStay = blockType === 'STAY';
                 const startId = isStay ? locationId : startLocationId;
                 const endId = isStay ? locationId : endLocationId;
-                const result = await createOvernightStay({
+                const result = await createMultiDayBlock({
                   variables: {
                     input: {
                       regionId,
@@ -485,7 +485,7 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                     },
                   },
                 });
-                const createdId = result.data?.createOvernightStay.id;
+                const createdId = result.data?.createMultiDayBlock.id;
                 if (createdId) {
                   navigate(`/locations/stays/${createdId}`);
                 }

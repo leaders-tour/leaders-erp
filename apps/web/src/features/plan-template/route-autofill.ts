@@ -152,7 +152,7 @@ export interface OvernightStayConnectionVersionOption {
 export interface OvernightStayConnectionOption {
   id: string;
   regionId: string;
-  fromOvernightStayId: string;
+  fromMultiDayBlockId: string;
   toLocationId: string;
   defaultVersionId?: string | null;
   averageDistanceKm: number;
@@ -666,11 +666,11 @@ export function findOvernightStay(
 
 export function findOvernightStayConnection(
   filteredOvernightStayConnections: OvernightStayConnectionOption[],
-  fromOvernightStayId: string,
+  fromMultiDayBlockId: string,
   toLocationId: string,
 ): OvernightStayConnectionOption | undefined {
   return filteredOvernightStayConnections.find(
-    (connection) => connection.fromOvernightStayId === fromOvernightStayId && connection.toLocationId === toLocationId,
+    (connection) => connection.fromMultiDayBlockId === fromMultiDayBlockId && connection.toLocationId === toLocationId,
   );
 }
 
@@ -755,7 +755,7 @@ export function buildNextOptions(input: {
 
   if (context.kind === 'MULTI_DAY_BLOCK') {
     const toIds = filteredOvernightStayConnections
-      .filter((connection) => connection.fromOvernightStayId === context.multiDayBlockId)
+      .filter((connection) => connection.fromMultiDayBlockId === context.multiDayBlockId)
       .filter((connection) => hasOvernightStayConnectionScheduleForVariant(connection, undefined, requiredVariant))
       .map((connection) => connection.toLocationId);
 

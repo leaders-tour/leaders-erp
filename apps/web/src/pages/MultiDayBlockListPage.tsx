@@ -4,9 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { formatLocationNameInline } from '../features/location/display';
 import { LocationSubNav } from '../features/location/sub-nav';
 
-const OVERNIGHT_STAYS_QUERY = gql`
-  query OvernightStayListPage {
-    overnightStays {
+const MULTI_DAY_BLOCKS_QUERY = gql`
+  query MultiDayBlockListPage {
+    multiDayBlocks {
       id
       name
       title
@@ -50,8 +50,8 @@ interface MultiDayBlockRow {
 
 export function MultiDayBlockListPage(): JSX.Element {
   const navigate = useNavigate();
-  const { data, loading } = useQuery<{ overnightStays: MultiDayBlockRow[] }>(OVERNIGHT_STAYS_QUERY);
-  const rows = data?.overnightStays ?? [];
+  const { data, loading } = useQuery<{ multiDayBlocks: MultiDayBlockRow[] }>(MULTI_DAY_BLOCKS_QUERY);
+  const rows = data?.multiDayBlocks ?? [];
 
   return (
     <section className="grid gap-6">

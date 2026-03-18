@@ -1,11 +1,11 @@
 import type {
-  OvernightStayConnectionCreateInput,
-  OvernightStayConnectionUpdateInput,
-  OvernightStayCreateInput,
-  OvernightStayUpdateInput,
+  MultiDayBlockConnectionCreateInput,
+  MultiDayBlockConnectionUpdateInput,
+  MultiDayBlockCreateInput,
+  MultiDayBlockUpdateInput,
 } from '@tour/validation';
 
-export type OvernightStayCreateDto = OvernightStayCreateInput;
-export type OvernightStayUpdateDto = OvernightStayUpdateInput;
-export type OvernightStayConnectionCreateDto = OvernightStayConnectionCreateInput;
-export type OvernightStayConnectionUpdateDto = OvernightStayConnectionUpdateInput;
+export type OvernightStayCreateDto = MultiDayBlockCreateInput;
+export type OvernightStayUpdateDto = MultiDayBlockUpdateInput;
+export type OvernightStayConnectionCreateDto = MultiDayBlockConnectionCreateInput;
+export type OvernightStayConnectionUpdateDto = MultiDayBlockConnectionUpdateInput;

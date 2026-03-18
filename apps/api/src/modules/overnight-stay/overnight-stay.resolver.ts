@@ -141,6 +141,29 @@ export const overnightStayResolver = {
     earlyExtendScheduleTimeBlocks: (parent: any) =>
       (parent.scheduleTimeBlocks ?? []).filter((tb: any) => tb.variant === 'earlyExtend'),
   },
+  MultiDayBlockConnectionVersion: {
+    multiDayBlockConnectionId: (parent: { overnightStayConnectionId: string }) => parent.overnightStayConnectionId,
+    scheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'basic'),
+    earlyScheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'early'),
+    extendScheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'extend'),
+    earlyExtendScheduleTimeBlocks: (parent: any) =>
+      (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'earlyExtend'),
+  },
+  MultiDayBlockConnectionVersionTimeBlock: {
+    multiDayBlockConnectionVersionId: (parent: { overnightStayConnectionVersionId: string }) =>
+      parent.overnightStayConnectionVersionId,
+  },
+  MultiDayBlockConnectionVersionActivity: {
+    multiDayBlockConnectionVersionTimeBlockId: (parent: { overnightStayConnectionVersionTimeBlockId: string }) =>
+      parent.overnightStayConnectionVersionTimeBlockId,
+  },
+  MultiDayBlockConnectionTimeBlock: {
+    multiDayBlockConnectionId: (parent: { overnightStayConnectionId: string }) => parent.overnightStayConnectionId,
+  },
+  MultiDayBlockConnectionActivity: {
+    multiDayBlockConnectionTimeBlockId: (parent: { overnightStayConnectionTimeBlockId: string }) =>
+      parent.overnightStayConnectionTimeBlockId,
+  },
   OvernightStay: {
     title: (parent: any) => {
       if (typeof parent.name === 'string' && parent.name.trim().length > 0) {
@@ -149,10 +172,10 @@ export const overnightStayResolver = {
       const rawName = parent.location?.name;
       const stayLength = Array.isArray(parent.days) ? parent.days.length : null;
       if (Array.isArray(rawName)) {
-        const suffix = typeof stayLength === 'number' && stayLength > 0 ? ` ${stayLength}일 연박` : ' 연박';
+        const suffix = typeof stayLength === 'number' && stayLength > 0 ? ` ${stayLength}일 블록` : ' 블록';
         return `${rawName.join(' ')}${suffix}`;
       }
-      const suffix = typeof stayLength === 'number' && stayLength > 0 ? ` ${stayLength}일 연박` : ' 연박';
+      const suffix = typeof stayLength === 'number' && stayLength > 0 ? ` ${stayLength}일 블록` : ' 블록';
       return `${String(rawName ?? parent.locationId ?? '').trim()}${suffix}`.trim();
     },
     outgoingConnections: (parent: any, _args: unknown, ctx: AppContext) =>

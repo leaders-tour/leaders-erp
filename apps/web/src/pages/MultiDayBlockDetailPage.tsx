@@ -82,9 +82,9 @@ const LOCATIONS_QUERY = gql`
   }
 `;
 
-const OVERNIGHT_STAY_QUERY = gql`
-  query OvernightStayDetailPage($id: ID!) {
-    overnightStay(id: $id) {
+const MULTI_DAY_BLOCK_QUERY = gql`
+  query MultiDayBlockDetailPage($id: ID!) {
+    multiDayBlock(id: $id) {
       id
       regionId
       locationId
@@ -110,17 +110,17 @@ const OVERNIGHT_STAY_QUERY = gql`
   }
 `;
 
-const UPDATE_OVERNIGHT_STAY_MUTATION = gql`
-  mutation UpdateOvernightStayPage($id: ID!, $input: OvernightStayUpdateInput!) {
-    updateOvernightStay(id: $id, input: $input) {
+const UPDATE_MULTI_DAY_BLOCK_MUTATION = gql`
+  mutation UpdateMultiDayBlockPage($id: ID!, $input: MultiDayBlockUpdateInput!) {
+    updateMultiDayBlock(id: $id, input: $input) {
       id
     }
   }
 `;
 
-const DELETE_OVERNIGHT_STAY_MUTATION = gql`
-  mutation DeleteOvernightStayPage($id: ID!) {
-    deleteOvernightStay(id: $id)
+const DELETE_MULTI_DAY_BLOCK_MUTATION = gql`
+  mutation DeleteMultiDayBlockPage($id: ID!) {
+    deleteMultiDayBlock(id: $id)
   }
 `;
 
@@ -151,16 +151,16 @@ export function MultiDayBlockDetailPage(): JSX.Element {
 
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
-  const { data, loading, refetch } = useQuery<{ overnightStay: MultiDayBlockRow | null }>(OVERNIGHT_STAY_QUERY, {
+  const { data, loading, refetch } = useQuery<{ multiDayBlock: MultiDayBlockRow | null }>(MULTI_DAY_BLOCK_QUERY, {
     variables: { id: stayId },
     skip: !stayId,
   });
-  const [updateOvernightStay, { loading: updating }] = useMutation(UPDATE_OVERNIGHT_STAY_MUTATION);
-  const [deleteOvernightStay, { loading: deleting }] = useMutation(DELETE_OVERNIGHT_STAY_MUTATION);
+  const [updateMultiDayBlock, { loading: updating }] = useMutation(UPDATE_MULTI_DAY_BLOCK_MUTATION);
+  const [deleteMultiDayBlock, { loading: deleting }] = useMutation(DELETE_MULTI_DAY_BLOCK_MUTATION);
 
   const regions = regionData?.regions ?? [];
   const locations = locationData?.locations ?? [];
-  const overnightStay = data?.overnightStay ?? null;
+  const overnightStay = data?.multiDayBlock ?? null;
   const locationById = useMemo(() => new Map(locations.map((location) => [location.id, location])), [locations]);
   const filteredLocations = useMemo(() => locations.filter((location) => location.regionId === regionId), [locations, regionId]);
   const selectableLocations = regionId ? filteredLocations : locations;
@@ -540,7 +540,7 @@ export function MultiDayBlockDetailPage(): JSX.Element {
                 const isStay = blockType === 'STAY';
                 const startId = isStay ? locationId : startLocationId;
                 const endId = isStay ? locationId : endLocationId;
-                await updateOvernightStay({
+                await updateMultiDayBlock({
                   variables: {
                     id: stayId,
                     input: {
@@ -583,7 +583,7 @@ export function MultiDayBlockDetailPage(): JSX.Element {
                 if (!window.confirm('이 블록을 삭제할까요?')) {
                   return;
                 }
-                await deleteOvernightStay({ variables: { id: stayId } });
+                await deleteMultiDayBlock({ variables: { id: stayId } });
                 navigate('/locations/stays');
               }}
             >

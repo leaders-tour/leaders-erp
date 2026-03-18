@@ -179,11 +179,75 @@ type MultiDayBlockConnection {
   isLongDistance: Boolean!
   fromMultiDayBlock: MultiDayBlock!
   toLocation: Location!
-  scheduleTimeBlocks: [OvernightStayConnectionTimeBlock!]!
-  earlyScheduleTimeBlocks: [OvernightStayConnectionTimeBlock!]!
-  extendScheduleTimeBlocks: [OvernightStayConnectionTimeBlock!]!
-  earlyExtendScheduleTimeBlocks: [OvernightStayConnectionTimeBlock!]!
-  versions: [OvernightStayConnectionVersion!]!
+  scheduleTimeBlocks: [MultiDayBlockConnectionTimeBlock!]!
+  earlyScheduleTimeBlocks: [MultiDayBlockConnectionTimeBlock!]!
+  extendScheduleTimeBlocks: [MultiDayBlockConnectionTimeBlock!]!
+  earlyExtendScheduleTimeBlocks: [MultiDayBlockConnectionTimeBlock!]!
+  versions: [MultiDayBlockConnectionVersion!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type MultiDayBlockConnectionVersion {
+  id: ID!
+  multiDayBlockConnectionId: String!
+  name: String!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  movementIntensity: MovementIntensity!
+  isLongDistance: Boolean!
+  sortOrder: Int!
+  isDefault: Boolean!
+  scheduleTimeBlocks: [MultiDayBlockConnectionVersionTimeBlock!]!
+  earlyScheduleTimeBlocks: [MultiDayBlockConnectionVersionTimeBlock!]!
+  extendScheduleTimeBlocks: [MultiDayBlockConnectionVersionTimeBlock!]!
+  earlyExtendScheduleTimeBlocks: [MultiDayBlockConnectionVersionTimeBlock!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type MultiDayBlockConnectionVersionTimeBlock {
+  id: ID!
+  multiDayBlockConnectionVersionId: String!
+  variant: SegmentScheduleVariant!
+  startTime: String!
+  label: String!
+  orderIndex: Int!
+  activities: [MultiDayBlockConnectionVersionActivity!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type MultiDayBlockConnectionVersionActivity {
+  id: ID!
+  multiDayBlockConnectionVersionTimeBlockId: String!
+  description: String!
+  orderIndex: Int!
+  isOptional: Boolean!
+  conditionNote: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type MultiDayBlockConnectionTimeBlock {
+  id: ID!
+  multiDayBlockConnectionId: String!
+  variant: SegmentScheduleVariant!
+  startTime: String!
+  label: String!
+  orderIndex: Int!
+  activities: [MultiDayBlockConnectionActivity!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type MultiDayBlockConnectionActivity {
+  id: ID!
+  multiDayBlockConnectionTimeBlockId: String!
+  description: String!
+  orderIndex: Int!
+  isOptional: Boolean!
+  conditionNote: String
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -230,11 +294,11 @@ input MultiDayBlockConnectionCreateInput {
   averageDistanceKm: Float!
   averageTravelHours: Float!
   isLongDistance: Boolean!
-  timeSlots: [OvernightStayConnectionTimeSlotInput!]!
-  earlyTimeSlots: [OvernightStayConnectionTimeSlotInput!]
-  extendTimeSlots: [OvernightStayConnectionTimeSlotInput!]
-  earlyExtendTimeSlots: [OvernightStayConnectionTimeSlotInput!]
-  versions: [OvernightStayConnectionVersionInput!]
+  timeSlots: [MultiDayBlockConnectionTimeSlotInput!]!
+  earlyTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  extendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  earlyExtendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  versions: [MultiDayBlockConnectionVersionInput!]
 }
 
 input MultiDayBlockConnectionUpdateInput {
@@ -244,11 +308,29 @@ input MultiDayBlockConnectionUpdateInput {
   averageDistanceKm: Float
   averageTravelHours: Float
   isLongDistance: Boolean
-  timeSlots: [OvernightStayConnectionTimeSlotInput!]
-  earlyTimeSlots: [OvernightStayConnectionTimeSlotInput!]
-  extendTimeSlots: [OvernightStayConnectionTimeSlotInput!]
-  earlyExtendTimeSlots: [OvernightStayConnectionTimeSlotInput!]
-  versions: [OvernightStayConnectionVersionInput!]
+  timeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  earlyTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  extendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  earlyExtendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  versions: [MultiDayBlockConnectionVersionInput!]
+}
+
+input MultiDayBlockConnectionTimeSlotInput {
+  startTime: String!
+  activities: [String!]!
+}
+
+input MultiDayBlockConnectionVersionInput {
+  id: String
+  name: String!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  isLongDistance: Boolean!
+  timeSlots: [MultiDayBlockConnectionTimeSlotInput!]!
+  earlyTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  extendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  earlyExtendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  isDefault: Boolean
 }
 
 input OvernightStayDayInput {

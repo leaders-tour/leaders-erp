@@ -1,11 +1,11 @@
 import type { MovementIntensity, Prisma, PrismaClient } from '@prisma/client';
 import {
-  overnightStayConnectionCreateSchema,
-  overnightStayConnectionUpdateSchema,
-  overnightStayCreateSchema,
-  overnightStayUpdateSchema,
-  type OvernightStayConnectionTimeSlotInput,
-  type OvernightStayConnectionVersionInput,
+  multiDayBlockConnectionCreateSchema,
+  multiDayBlockConnectionUpdateSchema,
+  multiDayBlockCreateSchema,
+  multiDayBlockUpdateSchema,
+  type MultiDayBlockConnectionTimeSlotInput,
+  type MultiDayBlockConnectionVersionInput,
 } from '@tour/validation';
 import { createValidationError, DomainError } from '../../lib/errors';
 import { calculateMovementIntensity } from '../../lib/movement-intensity';
@@ -36,10 +36,10 @@ interface NormalizedTimeSlot {
 }
 
 interface VariantTimeSlotMap {
-  basic: OvernightStayConnectionTimeSlotInput[];
-  early?: OvernightStayConnectionTimeSlotInput[];
-  extend?: OvernightStayConnectionTimeSlotInput[];
-  earlyExtend?: OvernightStayConnectionTimeSlotInput[];
+  basic: MultiDayBlockConnectionTimeSlotInput[];
+  early?: MultiDayBlockConnectionTimeSlotInput[];
+  extend?: MultiDayBlockConnectionTimeSlotInput[];
+  earlyExtend?: MultiDayBlockConnectionTimeSlotInput[];
 }
 
 interface NormalizedConnectionVersion {
@@ -135,7 +135,7 @@ export class OvernightStayService {
   }
 
   async create(input: OvernightStayCreateDto) {
-    const parsed = overnightStayCreateSchema.safeParse(input);
+    const parsed = multiDayBlockCreateSchema.safeParse(input);
     if (!parsed.success) {
       throw createValidationError('Invalid overnight stay input', parsed.error);
     }
@@ -183,7 +183,7 @@ export class OvernightStayService {
   }
 
   async update(id: string, input: OvernightStayUpdateDto) {
-    const parsed = overnightStayUpdateSchema.safeParse(input);
+    const parsed = multiDayBlockUpdateSchema.safeParse(input);
     if (!parsed.success) {
       throw createValidationError('Invalid overnight stay update input', parsed.error);
     }
@@ -263,7 +263,7 @@ export class OvernightStayConnectionService {
     return this.repository.findById(id);
   }
 
-  private normalizeTimeSlots(timeSlots: OvernightStayConnectionTimeSlotInput[]): NormalizedTimeSlot[] {
+  private normalizeTimeSlots(timeSlots: MultiDayBlockConnectionTimeSlotInput[]): NormalizedTimeSlot[] {
     return timeSlots.map((slot) => ({
       startTime: slot.startTime,
       label: slot.startTime,
@@ -272,8 +272,8 @@ export class OvernightStayConnectionService {
   }
 
   private cloneTimeSlots(
-    timeSlots: OvernightStayConnectionTimeSlotInput[] | undefined,
-  ): OvernightStayConnectionTimeSlotInput[] | undefined {
+    timeSlots: MultiDayBlockConnectionTimeSlotInput[] | undefined,
+  ): MultiDayBlockConnectionTimeSlotInput[] | undefined {
     if (!timeSlots) {
       return undefined;
     }
@@ -285,10 +285,10 @@ export class OvernightStayConnectionService {
   }
 
   private normalizeVariantTimeSlots(input: {
-    timeSlots: OvernightStayConnectionTimeSlotInput[];
-    earlyTimeSlots?: OvernightStayConnectionTimeSlotInput[];
-    extendTimeSlots?: OvernightStayConnectionTimeSlotInput[];
-    earlyExtendTimeSlots?: OvernightStayConnectionTimeSlotInput[];
+    timeSlots: MultiDayBlockConnectionTimeSlotInput[];
+    earlyTimeSlots?: MultiDayBlockConnectionTimeSlotInput[];
+    extendTimeSlots?: MultiDayBlockConnectionTimeSlotInput[];
+    earlyExtendTimeSlots?: MultiDayBlockConnectionTimeSlotInput[];
   }): VariantTimeSlotMap {
     return {
       basic: this.cloneTimeSlots(input.timeSlots) ?? [],
@@ -303,7 +303,7 @@ export class OvernightStayConnectionService {
       | ExistingConnectionLike['scheduleTimeBlocks']
       | ExistingConnectionLike['versions'][number]['scheduleTimeBlocks'],
     variant: SegmentScheduleVariant,
-  ): OvernightStayConnectionTimeSlotInput[] {
+  ): MultiDayBlockConnectionTimeSlotInput[] {
     return timeBlocks
       .filter((timeBlock) => timeBlock.variant === variant)
       .slice()
@@ -339,10 +339,10 @@ export class OvernightStayConnectionService {
     averageDistanceKm: number;
     averageTravelHours: number;
     isLongDistance: boolean;
-    timeSlots: OvernightStayConnectionTimeSlotInput[];
-    earlyTimeSlots?: OvernightStayConnectionTimeSlotInput[];
-    extendTimeSlots?: OvernightStayConnectionTimeSlotInput[];
-    earlyExtendTimeSlots?: OvernightStayConnectionTimeSlotInput[];
+    timeSlots: MultiDayBlockConnectionTimeSlotInput[];
+    earlyTimeSlots?: MultiDayBlockConnectionTimeSlotInput[];
+    extendTimeSlots?: MultiDayBlockConnectionTimeSlotInput[];
+    earlyExtendTimeSlots?: MultiDayBlockConnectionTimeSlotInput[];
   }): NormalizedConnectionVersion {
     return {
       name: 'Direct',
@@ -384,7 +384,7 @@ export class OvernightStayConnectionService {
     ];
   }
 
-  private normalizeVersionsFromInput(inputVersions: OvernightStayConnectionVersionInput[]): NormalizedConnectionVersion[] {
+  private normalizeVersionsFromInput(inputVersions: MultiDayBlockConnectionVersionInput[]): NormalizedConnectionVersion[] {
     return inputVersions.map((version) => ({
       name: version.name.trim(),
       averageDistanceKm: version.averageDistanceKm,
@@ -671,7 +671,7 @@ export class OvernightStayConnectionService {
   }
 
   async create(input: OvernightStayConnectionCreateDto) {
-    const parsed = overnightStayConnectionCreateSchema.safeParse(input);
+    const parsed = multiDayBlockConnectionCreateSchema.safeParse(input);
     if (!parsed.success) {
       throw createValidationError('Invalid overnight stay connection input', parsed.error);
     }
@@ -714,7 +714,7 @@ export class OvernightStayConnectionService {
   }
 
   async update(id: string, input: OvernightStayConnectionUpdateDto) {
-    const parsed = overnightStayConnectionUpdateSchema.safeParse(input);
+    const parsed = multiDayBlockConnectionUpdateSchema.safeParse(input);
     if (!parsed.success) {
       throw createValidationError('Invalid overnight stay connection update input', parsed.error);
     }

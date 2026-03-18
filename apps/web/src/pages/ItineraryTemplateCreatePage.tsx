@@ -209,8 +209,8 @@ const SEGMENTS_QUERY = gql`
 `;
 
 const OVERNIGHT_STAYS_QUERY = gql`
-  query ItineraryTemplateCreateOvernightStays {
-    overnightStays {
+  query ItineraryTemplateCreateMultiDayBlocks {
+    multiDayBlocks {
       id
       regionId
       locationId
@@ -238,11 +238,11 @@ const OVERNIGHT_STAYS_QUERY = gql`
 `;
 
 const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
-  query ItineraryTemplateCreateOvernightStayConnections {
-    overnightStayConnections {
+  query ItineraryTemplateCreateMultiDayBlockConnections {
+    multiDayBlockConnections {
       id
       regionId
-      fromOvernightStayId
+      fromMultiDayBlockId
       toLocationId
       defaultVersionId
       averageDistanceKm
@@ -370,8 +370,8 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationOption[] }>(LOCATIONS_QUERY);
   const { data: segmentData } = useQuery<{ segments: SegmentOption[] }>(SEGMENTS_QUERY);
-  const { data: overnightStayData } = useQuery<{ overnightStays: OvernightStayOption[] }>(OVERNIGHT_STAYS_QUERY);
-  const { data: overnightStayConnectionData } = useQuery<{ overnightStayConnections: OvernightStayConnectionOption[] }>(
+  const { data: overnightStayData } = useQuery<{ multiDayBlocks: OvernightStayOption[] }>(OVERNIGHT_STAYS_QUERY);
+  const { data: overnightStayConnectionData } = useQuery<{ multiDayBlockConnections: OvernightStayConnectionOption[] }>(
     OVERNIGHT_STAY_CONNECTIONS_QUERY,
   );
   const [createPlanTemplate, { loading: creating }] = useMutation<{ createPlanTemplate: { id: string } }>(
@@ -381,8 +381,8 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
   const regions = regionData?.regions ?? [];
   const locations = locationData?.locations ?? [];
   const segments = segmentData?.segments ?? [];
-  const overnightStays = overnightStayData?.overnightStays ?? [];
-  const overnightStayConnections = overnightStayConnectionData?.overnightStayConnections ?? [];
+  const overnightStays = overnightStayData?.multiDayBlocks ?? [];
+  const overnightStayConnections = overnightStayConnectionData?.multiDayBlockConnections ?? [];
 
   const filteredLocations = useMemo(
     () => (regionId ? locations.filter((location) => location.regionId === regionId) : []),
