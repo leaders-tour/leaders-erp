@@ -7,6 +7,7 @@ import {
   buildNextOptions,
   buildOvernightStayOptions,
   buildTemplateStopsFromRouteAndRows,
+  resolveSegmentVersionForDate,
 } from './route-autofill';
 
 const locationA: LocationOption = {
@@ -320,6 +321,58 @@ const segmentACWithoutEarly: SegmentOption = {
   ],
 };
 
+const segmentABSeasonal: SegmentOption = {
+  ...segmentAB,
+  versions: [
+    {
+      ...segmentAB.versions![0]!,
+      id: 'segment-version-ab-default',
+      isDefault: true,
+    },
+    {
+      ...segmentAB.versions![0]!,
+      id: 'segment-version-ab-jan',
+      name: '1월 특화',
+      isDefault: false,
+      startDate: '2026-01-01T00:00:00.000Z',
+      endDate: '2026-01-31T00:00:00.000Z',
+      scheduleTimeBlocks: [
+        {
+          id: 'segv-ab-jan-basic',
+          startTime: '10:30',
+          orderIndex: 0,
+          activities: [{ id: 'segv-ab-jan-basic-act', description: '1월 이동', orderIndex: 0 }],
+        },
+      ],
+      earlyScheduleTimeBlocks: [
+        {
+          id: 'segv-ab-jan-early',
+          startTime: '05:10',
+          orderIndex: 0,
+          activities: [{ id: 'segv-ab-jan-early-act', description: '1월 얼리 이동', orderIndex: 0 }],
+        },
+      ],
+    },
+    {
+      ...segmentAB.versions![0]!,
+      id: 'segment-version-ab-feb',
+      name: '2월 특화',
+      isDefault: false,
+      startDate: '2026-02-01T00:00:00.000Z',
+      endDate: '2026-02-28T00:00:00.000Z',
+      scheduleTimeBlocks: [
+        {
+          id: 'segv-ab-feb-basic',
+          startTime: '11:30',
+          orderIndex: 0,
+          activities: [{ id: 'segv-ab-feb-basic-act', description: '2월 이동', orderIndex: 0 }],
+        },
+      ],
+      earlyScheduleTimeBlocks: [],
+    },
+  ],
+};
+
 const locationAVersion = locationA.variations[0]!;
 const locationBVersion = locationB.variations[0]!;
 const locationCVersion = locationC.variations[0]!;
@@ -427,6 +480,41 @@ describe('route-autofill', () => {
     expect(optionsForTwoDaysLeft.map((overnightStay) => overnightStay.id)).toEqual(['stay-b-2']);
   });
 
+  it('resolves a date-matched segment version before falling back to default', () => {
+    expect(resolveSegmentVersionForDate(segmentABSeasonal, '2026-01-15')?.id).toBe('segment-version-ab-jan');
+    expect(resolveSegmentVersionForDate(segmentABSeasonal, '2026-02-15')?.id).toBe('segment-version-ab-feb');
+    expect(resolveSegmentVersionForDate(segmentABSeasonal, '2026-03-15')?.id).toBe('segment-version-ab-default');
+  });
+
+  it('keeps an explicitly selected segment version even when the date points to another one', () => {
+    expect(resolveSegmentVersionForDate(segmentABSeasonal, '2026-01-15', 'segment-version-ab-feb')?.id).toBe('segment-version-ab-feb');
+  });
+
+  it('filters day candidates using the date-matched segment version schedule', () => {
+    const januaryOptions = buildNextOptions({
+      filteredLocations: [locationA, locationB, locationC],
+      filteredSegments: [segmentABSeasonal],
+      startLocationId: locationA.id,
+      selectedRoute: [],
+      totalDays: 3,
+      variantType: VariantType.Early,
+      targetDate: '2026-01-02',
+    });
+
+    const februaryOptions = buildNextOptions({
+      filteredLocations: [locationA, locationB, locationC],
+      filteredSegments: [segmentABSeasonal],
+      startLocationId: locationA.id,
+      selectedRoute: [],
+      totalDays: 3,
+      variantType: VariantType.Early,
+      targetDate: '2026-02-02',
+    });
+
+    expect(januaryOptions.map((location) => location.id)).toEqual(['loc-b']);
+    expect(februaryOptions).toEqual([]);
+  });
+
   it('uses first-day early time blocks and early+extend segment schedules for a 2-day route', () => {
     const rows = buildAutoRowsFromRoute({
       startLocationId: locationA.id,
@@ -496,6 +584,35 @@ describe('route-autofill', () => {
     });
 
     expect(rows.slice(1, 4).map((row) => row.overnightStayDayOrder)).toEqual([1, 2, 3]);
+  });
+
+  it('uses the route date to fill segmentVersionId when auto rows are built', () => {
+    const rows = buildAutoRowsFromRoute({
+      startLocationId: locationA.id,
+      startLocationVersionId: 'ver-a',
+      selectedRoute: [
+        {
+          kind: 'LOCATION',
+          locationId: locationB.id,
+          locationVersionId: 'ver-b',
+          segmentId: 'segment-ab',
+        },
+      ],
+      filteredSegments: [segmentABSeasonal],
+      locationById: new Map([
+        [locationA.id, locationA],
+        [locationB.id, locationB],
+      ]),
+      locationVersionById: new Map([
+        ['ver-a', locationAVersion],
+        ['ver-b', locationBVersion],
+      ]),
+      totalDays: 2,
+      travelStartDate: '2026-01-01',
+    });
+
+    expect(rows[1]?.segmentVersionId).toBe('segment-version-ab-jan');
+    expect(rows[1]?.scheduleCellText).toBe('1월 이동');
   });
 
   it('preserves segmentId in template stop payloads for day 2+', () => {

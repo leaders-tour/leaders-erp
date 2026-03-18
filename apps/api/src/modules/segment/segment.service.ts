@@ -5,7 +5,7 @@ import {
   type SegmentTimeSlotInput,
   type SegmentVersionInput,
 } from '@tour/validation';
-import { DomainError } from '../../lib/errors';
+import { createValidationError, DomainError } from '../../lib/errors';
 import { calculateMovementIntensity } from '../../lib/movement-intensity';
 import { SegmentRepository } from './segment.repository';
 import type { SegmentCreateDto, SegmentUpdateDto } from './segment.types';
@@ -31,6 +31,8 @@ interface NormalizedSegmentVersion {
   averageTravelHours: number;
   movementIntensity: MovementIntensity;
   isLongDistance: boolean;
+  startDate: Date | null;
+  endDate: Date | null;
   isDefault: boolean;
   timeSlotsByVariant: VariantTimeSlotMap;
 }
@@ -58,6 +60,8 @@ interface ExistingSegmentLike {
     averageDistanceKm: number;
     averageTravelHours: number;
     isLongDistance: boolean;
+    startDate: Date | null;
+    endDate: Date | null;
     sortOrder: number;
     isDefault: boolean;
     scheduleTimeBlocks: Array<{
@@ -102,6 +106,23 @@ export class SegmentService {
       label: slot.startTime,
       activities: slot.activities.map((activity) => activity.trim()).filter((activity) => activity.length > 0),
     }));
+  }
+
+  private parseDateOnly(value: string | undefined): Date | null {
+    if (!value) {
+      return null;
+    }
+
+    const [yearText, monthText, dayText] = value.split('-');
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
+
+    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+      throw new DomainError('VALIDATION_FAILED', `Invalid date: ${value}`);
+    }
+
+    return new Date(Date.UTC(year, month - 1, day));
   }
 
   private cloneTimeSlots(timeSlots: SegmentTimeSlotInput[] | undefined): SegmentTimeSlotInput[] | undefined {
@@ -181,6 +202,8 @@ export class SegmentService {
       averageTravelHours: input.averageTravelHours,
       movementIntensity: calculateMovementIntensity(input.averageTravelHours),
       isLongDistance: input.isLongDistance,
+      startDate: null,
+      endDate: null,
       isDefault: true,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(input),
     };
@@ -197,6 +220,8 @@ export class SegmentService {
           averageTravelHours: version.averageTravelHours,
           movementIntensity: calculateMovementIntensity(version.averageTravelHours),
           isLongDistance: version.isLongDistance,
+          startDate: version.startDate,
+          endDate: version.endDate,
           isDefault: version.isDefault,
           timeSlotsByVariant: this.mapTimeBlocksToVariantTimeSlots(version.scheduleTimeBlocks),
         }));
@@ -222,6 +247,8 @@ export class SegmentService {
       averageTravelHours: version.averageTravelHours,
       movementIntensity: calculateMovementIntensity(version.averageTravelHours),
       isLongDistance: version.isLongDistance,
+      startDate: this.parseDateOnly(version.startDate),
+      endDate: this.parseDateOnly(version.endDate),
       isDefault: version.isDefault !== false,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(version),
     }));
@@ -311,6 +338,40 @@ export class SegmentService {
     const defaultVersions = versions.filter((version) => version.isDefault);
     if (defaultVersions.length !== 1) {
       throw new DomainError('VALIDATION_FAILED', 'Segment must include exactly one default version');
+    }
+
+    versions.forEach((version) => {
+      const hasStartDate = Boolean(version.startDate);
+      const hasEndDate = Boolean(version.endDate);
+
+      if (hasStartDate !== hasEndDate) {
+        throw new DomainError('VALIDATION_FAILED', `Segment version "${version.name}" must include both startDate and endDate`);
+      }
+
+      if (version.startDate && version.endDate && version.startDate.getTime() > version.endDate.getTime()) {
+        throw new DomainError('VALIDATION_FAILED', `Segment version "${version.name}" has an invalid date range`);
+      }
+
+      if (version.isDefault && (version.startDate || version.endDate)) {
+        throw new DomainError('VALIDATION_FAILED', 'Default segment version cannot have a date range');
+      }
+    });
+
+    const datedVersions = versions
+      .filter((version) => version.startDate && version.endDate)
+      .slice()
+      .sort((left, right) => left.startDate!.getTime() - right.startDate!.getTime());
+
+    for (let index = 1; index < datedVersions.length; index += 1) {
+      const previousVersion = datedVersions[index - 1]!;
+      const currentVersion = datedVersions[index]!;
+
+      if (previousVersion.endDate!.getTime() >= currentVersion.startDate!.getTime()) {
+        throw new DomainError(
+          'VALIDATION_FAILED',
+          `Segment versions "${previousVersion.name}" and "${currentVersion.name}" have overlapping date ranges`,
+        );
+      }
     }
 
     const requiredVariants = this.getRequiredVariants(fromLocation, toLocation);
@@ -441,6 +502,8 @@ export class SegmentService {
           averageTravelHours: version.averageTravelHours,
           movementIntensity: version.movementIntensity,
           isLongDistance: version.isLongDistance,
+          startDate: version.startDate,
+          endDate: version.endDate,
           sortOrder,
           isDefault: version.isDefault,
         },
@@ -480,6 +543,8 @@ export class SegmentService {
           averageTravelHours: defaultVersion.averageTravelHours,
           movementIntensity: defaultVersion.movementIntensity,
           isLongDistance: defaultVersion.isLongDistance,
+          startDate: null,
+          endDate: null,
           sortOrder: 0,
           isDefault: true,
         },
@@ -497,6 +562,8 @@ export class SegmentService {
         averageTravelHours: defaultVersion.averageTravelHours,
         movementIntensity: defaultVersion.movementIntensity,
         isLongDistance: defaultVersion.isLongDistance,
+        startDate: null,
+        endDate: null,
         sortOrder: 0,
         isDefault: true,
       },
@@ -509,7 +576,7 @@ export class SegmentService {
   async create(input: SegmentCreateDto) {
     const parsed = segmentCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid segment input');
+      throw createValidationError('Invalid segment input', parsed.error);
     }
 
     const region = await this.prisma.region.findUnique({
@@ -552,7 +619,7 @@ export class SegmentService {
   async update(id: string, input: SegmentUpdateDto) {
     const parsed = segmentUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid segment update input');
+      throw createValidationError('Invalid segment update input', parsed.error);
     }
 
     const existing = await this.repository.findById(id);

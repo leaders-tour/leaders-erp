@@ -53,9 +53,9 @@ import {
   formatSegmentVersionLabel,
   getConsumedRouteDayCount,
   getDefaultOvernightStayConnectionVersionId,
-  getDefaultSegmentVersionId,
   getDefaultVersionId,
   getOvernightStayConnectionVersions,
+  getRouteDateForDayIndex,
   getRouteStopEndDayIndex,
   getRouteStopStartDayIndex,
   getSegmentVersions,
@@ -65,7 +65,7 @@ import {
   type RouteSelection,
   trimRouteSelectionsToTotalDays,
   resolveOvernightStayConnectionVersion,
-  resolveSegmentVersion,
+  resolveSegmentVersionForDate,
   type SegmentOption,
 } from '../features/plan-template/route-autofill';
 import { ManualAdjustmentsModal, type ManualAdjustmentDraftRow } from '../features/pricing/components/ManualAdjustmentsModal';
@@ -459,6 +459,8 @@ const SEGMENTS_QUERY = gql`
         averageTravelHours
         movementIntensity
         isLongDistance
+        startDate
+        endDate
         sortOrder
         isDefault
         scheduleTimeBlocks {
@@ -1524,6 +1526,12 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   const firstDayOptions = useMemo(() => buildFirstDayOptions(filteredLocations), [filteredLocations]);
 
+  const nextRouteDayIndex = 2 + getConsumedRouteDayCount(selectedRoute);
+  const nextRouteDate = useMemo(
+    () => (travelStartDate ? getRouteDateForDayIndex(travelStartDate, nextRouteDayIndex) : undefined),
+    [nextRouteDayIndex, travelStartDate],
+  );
+
   const nextOptions = useMemo(
     () =>
       buildNextOptions({
@@ -1534,11 +1542,13 @@ export function ItineraryBuilderPage(): JSX.Element {
         selectedRoute,
         totalDays,
         variantType,
+        targetDate: nextRouteDate,
       }),
     [
       filteredLocations,
       filteredOvernightStayConnections,
       filteredSegments,
+      nextRouteDate,
       selectedRoute,
       startLocationId,
       totalDays,
@@ -1579,6 +1589,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       locationVersionById,
       totalDays,
       variantType,
+      travelStartDate,
       firstDayTimeOverride,
       lastDayTimeOverride: finalDropTime || undefined,
     }).map((row) => ({
@@ -1598,6 +1609,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     startLocationVersionId,
     totalDays,
     transportGroups,
+    travelStartDate,
     variantType,
   ]);
 
@@ -3788,7 +3800,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                     const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
                     const segment = findSegment(filteredSegments, fromId, stop.locationId);
                     const versions = getSegmentVersions(segment);
-                    const selectedVersion = resolveSegmentVersion(segment, stop.segmentVersionId);
+                    const selectedVersion = resolveSegmentVersionForDate(
+                      segment,
+                      travelStartDate ? getRouteDateForDayIndex(travelStartDate, startDayIndex) : undefined,
+                      stop.segmentVersionId,
+                    );
 
                     return (
                       <>
@@ -3902,7 +3918,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   locationId: location.id,
                                   locationVersionId: getDefaultVersionId(location),
                                   segmentId: segment?.id,
-                                  segmentVersionId: getDefaultSegmentVersionId(segment) || undefined,
+                                  segmentVersionId: undefined,
                                 },
                               ];
                             })

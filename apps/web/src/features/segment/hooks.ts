@@ -64,6 +64,8 @@ const LIST = gql`
         averageDistanceKm
         averageTravelHours
         isLongDistance
+        startDate
+        endDate
         sortOrder
         isDefault
         scheduleTimeBlocks {
@@ -162,6 +164,8 @@ export interface SegmentVersionFormInput {
   averageDistanceKm: number;
   averageTravelHours: number;
   isLongDistance: boolean;
+  startDate?: string;
+  endDate?: string;
   timeSlots: SegmentTimeSlotFormInput[];
   earlyTimeSlots?: SegmentTimeSlotFormInput[];
   extendTimeSlots?: SegmentTimeSlotFormInput[];
@@ -230,6 +234,8 @@ export interface SegmentRow {
     averageDistanceKm: number;
     averageTravelHours: number;
     isLongDistance: boolean;
+    startDate?: string | null;
+    endDate?: string | null;
     sortOrder: number;
     isDefault: boolean;
     scheduleTimeBlocks: Array<{

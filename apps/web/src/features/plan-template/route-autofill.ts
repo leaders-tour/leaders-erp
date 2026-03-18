@@ -59,6 +59,8 @@ export interface SegmentVersionOption {
   averageTravelHours: number;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
   isLongDistance: boolean;
+  startDate?: string | null;
+  endDate?: string | null;
   sortOrder: number;
   isDefault: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
@@ -92,6 +94,8 @@ interface ResolvedSegmentVersionOption {
   averageTravelHours: number;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
   isLongDistance: boolean;
+  startDate?: string | null;
+  endDate?: string | null;
   sortOrder: number;
   isDefault: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
@@ -208,6 +212,43 @@ function formatDistance(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(1)));
 }
 
+function normalizeDateOnly(value: string): string | undefined {
+  const dateText = value.trim().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateText) ? dateText : undefined;
+}
+
+function isWithinInclusiveDateRange(targetDate: string, startDate?: string | null, endDate?: string | null): boolean {
+  const normalizedStartDate = startDate ? normalizeDateOnly(startDate) : undefined;
+  const normalizedEndDate = endDate ? normalizeDateOnly(endDate) : undefined;
+  if (!normalizedStartDate || !normalizedEndDate) {
+    return false;
+  }
+  return normalizedStartDate <= targetDate && targetDate <= normalizedEndDate;
+}
+
+export function getRouteDateForDayIndex(startDate: string, dayIndex: number): string | undefined {
+  const normalizedStartDate = normalizeDateOnly(startDate);
+  if (!normalizedStartDate || dayIndex < 1) {
+    return undefined;
+  }
+
+  const [yearText, monthText, dayText] = normalizedStartDate.split('-');
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return undefined;
+  }
+
+  const nextDate = new Date(Date.UTC(year, month - 1, day));
+  nextDate.setUTCDate(nextDate.getUTCDate() + (dayIndex - 1));
+
+  const yyyy = nextDate.getUTCFullYear();
+  const mm = String(nextDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(nextDate.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function getOrderedTimeBlocks(timeBlocks: TimeBlockOption[]): TimeBlockOption[] {
   return timeBlocks.slice().sort((a, b) => a.orderIndex - b.orderIndex);
 }
@@ -267,6 +308,8 @@ function buildLegacyDirectVersion(segment: SegmentOption): ResolvedSegmentVersio
     averageTravelHours: segment.averageTravelHours,
     movementIntensity: segment.movementIntensity ?? 'LEVEL_1',
     isLongDistance: segment.isLongDistance ?? false,
+    startDate: undefined,
+    endDate: undefined,
     sortOrder: 0,
     isDefault: true,
     scheduleTimeBlocks: segment.scheduleTimeBlocks,
@@ -492,6 +535,38 @@ export function resolveSegmentVersion(
   return versions.find((version) => version.id === defaultVersionId) ?? versions[0];
 }
 
+export function resolveSegmentVersionForDate(
+  segment: SegmentOption | undefined,
+  targetDate: string | undefined,
+  segmentVersionId?: string,
+): ResolvedSegmentVersionOption | undefined {
+  const versions = getSegmentVersions(segment);
+  if (versions.length === 0) {
+    return undefined;
+  }
+
+  if (segmentVersionId) {
+    const matched = versions.find((version) => version.id === segmentVersionId);
+    if (matched) {
+      return matched;
+    }
+  }
+
+  const normalizedTargetDate = targetDate ? normalizeDateOnly(targetDate) : undefined;
+  if (normalizedTargetDate) {
+    const matchedByDate = versions.find(
+      (version) =>
+        version.isDefault !== true &&
+        isWithinInclusiveDateRange(normalizedTargetDate, version.startDate, version.endDate),
+    );
+    if (matchedByDate) {
+      return matchedByDate;
+    }
+  }
+
+  return resolveSegmentVersion(segment, undefined);
+}
+
 export function formatSegmentVersionLabel(version: Pick<ResolvedSegmentVersionOption, 'name'>): string {
   return version.name.trim() || 'Direct';
 }
@@ -612,8 +687,9 @@ function hasScheduleForVariant(
   segment: SegmentOption | undefined,
   segmentVersionId: string | undefined,
   variant: SegmentScheduleVariant,
+  targetDate?: string,
 ): boolean {
-  const segmentVersion = resolveSegmentVersion(segment, segmentVersionId);
+  const segmentVersion = resolveSegmentVersionForDate(segment, targetDate, segmentVersionId);
   return getSegmentScheduleTimeBlocks(segmentVersion, variant).length > 0;
 }
 
@@ -634,6 +710,7 @@ export function buildNextOptions(input: {
   selectedRoute: RouteSelection[];
   totalDays: number;
   variantType?: VariantType;
+  targetDate?: string;
 }): LocationOption[] {
   const {
     filteredLocations,
@@ -643,6 +720,7 @@ export function buildNextOptions(input: {
     startLocationId,
     totalDays,
     variantType,
+    targetDate,
   } = input;
   const usedDays = 1 + getConsumedRouteDayCount(selectedRoute);
   if (usedDays >= totalDays) {
@@ -670,7 +748,7 @@ export function buildNextOptions(input: {
 
   const toIds = filteredSegments
     .filter((segment) => segment.fromLocationId === context.locationId)
-    .filter((segment) => hasScheduleForVariant(segment, undefined, requiredVariant))
+    .filter((segment) => hasScheduleForVariant(segment, undefined, requiredVariant, targetDate))
     .map((segment) => segment.toLocationId);
 
   return filteredLocations.filter((location) => toIds.includes(location.id) && (!isLastDay || location.isLastDayEligible));
@@ -751,6 +829,7 @@ export function buildAutoRowsFromRoute(input: {
   locationVersionById: Map<string, LocationVersionOption>;
   totalDays: number;
   variantType?: VariantType;
+  travelStartDate?: string;
   firstDayTimeOverride?: string;
   lastDayTimeOverride?: string;
 }): TemplatePlanRow[] {
@@ -765,6 +844,7 @@ export function buildAutoRowsFromRoute(input: {
     locationVersionById,
     totalDays,
     variantType,
+    travelStartDate,
     firstDayTimeOverride,
     lastDayTimeOverride,
   } = input;
@@ -876,7 +956,11 @@ export function buildAutoRowsFromRoute(input: {
       const segment =
         (stop.segmentId ? filteredSegments.find((item) => item.id === stop.segmentId) : undefined) ??
         findSegment(filteredSegments, previousContext.locationId, stop.locationId);
-      const segmentVersion = resolveSegmentVersion(segment, stop.segmentVersionId);
+      const segmentVersion = resolveSegmentVersionForDate(
+        segment,
+        travelStartDate ? getRouteDateForDayIndex(travelStartDate, nextDayIndex) : undefined,
+        stop.segmentVersionId,
+      );
       rows.push({
         segmentId: segment?.id,
         segmentVersionId: segmentVersion?.id,

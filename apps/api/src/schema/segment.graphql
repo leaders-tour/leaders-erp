@@ -44,6 +44,8 @@ type SegmentVersion {
   averageTravelHours: Float!
   movementIntensity: MovementIntensity!
   isLongDistance: Boolean!
+  startDate: DateTime
+  endDate: DateTime
   sortOrder: Int!
   isDefault: Boolean!
   scheduleTimeBlocks: [SegmentVersionTimeBlock!]!
@@ -111,6 +113,8 @@ input SegmentVersionInput {
   averageDistanceKm: Float!
   averageTravelHours: Float!
   isLongDistance: Boolean!
+  startDate: String
+  endDate: String
   timeSlots: [SegmentTimeSlotInput!]!
   earlyTimeSlots: [SegmentTimeSlotInput!]
   extendTimeSlots: [SegmentTimeSlotInput!]

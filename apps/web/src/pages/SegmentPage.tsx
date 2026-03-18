@@ -58,6 +58,8 @@ interface SegmentVersionDraft {
   averageDistanceKm: string;
   averageTravelHours: string;
   isLongDistance: boolean;
+  startDate: string;
+  endDate: string;
   timeSlots: SegmentTimeSlotFormInput[];
   earlyTimeSlots: SegmentTimeSlotFormInput[];
   extendTimeSlots: SegmentTimeSlotFormInput[];
@@ -86,6 +88,8 @@ function createVersionDraft(): SegmentVersionDraft {
     averageDistanceKm: '',
     averageTravelHours: '',
     isLongDistance: false,
+    startDate: '',
+    endDate: '',
     timeSlots: createDefaultTimeSlots(),
     earlyTimeSlots: createDefaultTimeSlots(),
     extendTimeSlots: createDefaultTimeSlots(),
@@ -161,6 +165,8 @@ function toVersionDrafts(segment: SegmentRow | undefined): SegmentVersionDraft[]
       averageDistanceKm: String(version.averageDistanceKm),
       averageTravelHours: String(version.averageTravelHours),
       isLongDistance: version.isLongDistance,
+      startDate: version.startDate?.slice(0, 10) ?? '',
+      endDate: version.endDate?.slice(0, 10) ?? '',
       timeSlots: toFormTimeSlots(version.scheduleTimeBlocks),
       earlyTimeSlots: toFormTimeSlots(version.earlyScheduleTimeBlocks),
       extendTimeSlots: toFormTimeSlots(version.extendScheduleTimeBlocks),
@@ -349,6 +355,8 @@ function buildVersionInputs(
       averageDistanceKm: Number(version.averageDistanceKm),
       averageTravelHours: Number(version.averageTravelHours),
       isLongDistance: version.isLongDistance,
+      ...(version.startDate ? { startDate: version.startDate } : {}),
+      ...(version.endDate ? { endDate: version.endDate } : {}),
       ...buildVariantTimeSlotInput(version, input),
       isDefault: false,
     })),
@@ -447,6 +455,33 @@ function AlternativeVersionEditor(props: {
               </label>
             </div>
 
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="grid gap-2 text-sm">
+                <span className="text-slate-700">적용 시작일</span>
+                <Input
+                  type="date"
+                  value={version.startDate}
+                  onChange={(event) =>
+                    onChange(
+                      value.map((item) => (item.clientId === version.clientId ? { ...item, startDate: event.target.value } : item)),
+                    )
+                  }
+                />
+              </label>
+              <label className="grid gap-2 text-sm">
+                <span className="text-slate-700">적용 종료일</span>
+                <Input
+                  type="date"
+                  value={version.endDate}
+                  onChange={(event) =>
+                    onChange(
+                      value.map((item) => (item.clientId === version.clientId ? { ...item, endDate: event.target.value } : item)),
+                    )
+                  }
+                />
+              </label>
+            </div>
+
             <label className="flex items-center gap-2 text-sm text-slate-800">
               <input
                 type="checkbox"
@@ -535,6 +570,8 @@ export function SegmentPage(): JSX.Element {
   const [editToOpen, setEditToOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const locations = useMemo(() => locationData?.locations ?? [], [locationData]);
   const locationById = useMemo(() => new Map(locations.map((item) => [item.id, item])), [locations]);
@@ -628,6 +665,7 @@ export function SegmentPage(): JSX.Element {
 
             setSubmitting(true);
             try {
+              setErrorMessage(null);
               await crud.createRow({
                 regionId: selectedFromLocation.regionId,
                 fromLocationId: form.fromLocationId,
@@ -651,11 +689,14 @@ export function SegmentPage(): JSX.Element {
               setToSearch('');
               setFromOpen(false);
               setToOpen(false);
+            } catch (error) {
+              setErrorMessage(error instanceof Error ? error.message : '연결 생성에 실패했습니다.');
             } finally {
               setSubmitting(false);
             }
           }}
         >
+          {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
           <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-2">
             <div className="relative grid gap-2">
               <h3 className="text-sm font-semibold text-slate-800">출발지</h3>
@@ -792,6 +833,7 @@ export function SegmentPage(): JSX.Element {
             value={form.timeSlots}
             onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
           />
+          <p className="text-xs text-slate-500">기본 Direct 버전은 상시 적용 버전으로 날짜 범위를 설정하지 않습니다.</p>
           {includeCreateEarly ? (
             <TimeSlotEditor
               title="기본 버전 얼리 일정"
@@ -890,7 +932,12 @@ export function SegmentPage(): JSX.Element {
                     ) : (
                       row.versions.map((version) => (
                         <span key={version.id} className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-600">
-                          {version.name.trim() || 'Direct'}
+                          {[
+                            version.name.trim() || 'Direct',
+                            version.startDate && version.endDate ? `(${version.startDate.slice(0, 10)}~${version.endDate.slice(0, 10)})` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
                         </span>
                       ))
                     )}
@@ -898,30 +945,57 @@ export function SegmentPage(): JSX.Element {
                 </Td>
                 <Td>{row.isLongDistance ? 'Y' : 'N'}</Td>
                 <Td>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setEditingSegmentId(row.id);
-                      setEditForm({
-                        fromLocationId: row.fromLocationId,
-                        toLocationId: row.toLocationId,
-                        averageDistanceKm: String(row.averageDistanceKm),
-                        averageTravelHours: String(row.averageTravelHours),
-                        isLongDistance: row.isLongDistance,
-                        timeSlots: toFormTimeSlots(row.scheduleTimeBlocks),
-                        earlyTimeSlots: toFormTimeSlots(row.earlyScheduleTimeBlocks),
-                        extendTimeSlots: toFormTimeSlots(row.extendScheduleTimeBlocks),
-                        earlyExtendTimeSlots: toFormTimeSlots(row.earlyExtendScheduleTimeBlocks),
-                        versions: toVersionDrafts(row),
-                      });
-                      setEditFromSearch(formatLocationNameInline(locationById.get(row.fromLocationId)?.name ?? row.fromLocationId));
-                      setEditToSearch(formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? row.toLocationId));
-                      setEditFromOpen(false);
-                      setEditToOpen(false);
-                    }}
-                  >
-                    수정
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setErrorMessage(null);
+                        setEditingSegmentId(row.id);
+                        setEditForm({
+                          fromLocationId: row.fromLocationId,
+                          toLocationId: row.toLocationId,
+                          averageDistanceKm: String(row.averageDistanceKm),
+                          averageTravelHours: String(row.averageTravelHours),
+                          isLongDistance: row.isLongDistance,
+                          timeSlots: toFormTimeSlots(row.scheduleTimeBlocks),
+                          earlyTimeSlots: toFormTimeSlots(row.earlyScheduleTimeBlocks),
+                          extendTimeSlots: toFormTimeSlots(row.extendScheduleTimeBlocks),
+                          earlyExtendTimeSlots: toFormTimeSlots(row.earlyExtendScheduleTimeBlocks),
+                          versions: toVersionDrafts(row),
+                        });
+                        setEditFromSearch(formatLocationNameInline(locationById.get(row.fromLocationId)?.name ?? row.fromLocationId));
+                        setEditToSearch(formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? row.toLocationId));
+                        setEditFromOpen(false);
+                        setEditToOpen(false);
+                      }}
+                    >
+                      수정
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={deletingId === row.id}
+                      onClick={async () => {
+                        if (!window.confirm('이 연결을 삭제할까요?')) {
+                          return;
+                        }
+
+                        setDeletingId(row.id);
+                        setErrorMessage(null);
+                        try {
+                          await crud.deleteRow(row.id);
+                          if (editingSegmentId === row.id) {
+                            setEditingSegmentId(null);
+                          }
+                        } catch (error) {
+                          setErrorMessage(error instanceof Error ? error.message : '연결 삭제에 실패했습니다.');
+                        } finally {
+                          setDeletingId(null);
+                        }
+                      }}
+                    >
+                      삭제
+                    </Button>
+                  </div>
                 </Td>
               </tr>
             ))}
@@ -942,6 +1016,7 @@ export function SegmentPage(): JSX.Element {
 
               setUpdating(true);
               try {
+                setErrorMessage(null);
                 await crud.updateRow(editingSegmentId, {
                   regionId: selectedEditFromLocation.regionId,
                   fromLocationId: editForm.fromLocationId,
@@ -966,11 +1041,14 @@ export function SegmentPage(): JSX.Element {
                 setEditToSearch('');
                 setEditFromOpen(false);
                 setEditToOpen(false);
+              } catch (error) {
+                setErrorMessage(error instanceof Error ? error.message : '연결 저장에 실패했습니다.');
               } finally {
                 setUpdating(false);
               }
             }}
           >
+            {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
             <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-2">
               <div className="relative grid gap-2">
                 <h3 className="text-sm font-semibold text-slate-800">출발지</h3>
@@ -1107,6 +1185,7 @@ export function SegmentPage(): JSX.Element {
               value={editForm.timeSlots}
               onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
             />
+            <p className="text-xs text-slate-500">기본 Direct 버전은 상시 적용 버전으로 날짜 범위를 설정하지 않습니다.</p>
             {includeEditEarly ? (
               <TimeSlotEditor
                 title="기본 버전 얼리 일정"

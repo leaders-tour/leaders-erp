@@ -26,6 +26,8 @@ query Segments {
       averageDistanceKm
       averageTravelHours
       isLongDistance
+      startDate
+      endDate
       sortOrder
       isDefault
       scheduleTimeBlocks {
