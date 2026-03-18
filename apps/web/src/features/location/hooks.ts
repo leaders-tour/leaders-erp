@@ -107,6 +107,9 @@ const DETAIL = gql`
         locationNameSnapshot
         regionNameSnapshot
         defaultLodgingType
+        firstDayAverageDistanceKm
+        firstDayAverageTravelHours
+        firstDayMovementIntensity
         createdAt
         updatedAt
       }
@@ -153,6 +156,9 @@ const VERSION_DETAIL = gql`
       locationNameSnapshot
       regionNameSnapshot
       defaultLodgingType
+      firstDayAverageDistanceKm
+      firstDayAverageTravelHours
+      firstDayMovementIntensity
       createdAt
       updatedAt
       location {
@@ -221,6 +227,8 @@ export interface LocationProfileFormInput {
   isLastDayEligible: boolean;
   firstDayTimeSlots: LocationProfileTimeSlotFormInput[];
   firstDayEarlyTimeSlots: LocationProfileTimeSlotFormInput[];
+  firstDayAverageDistanceKm: string;
+  firstDayAverageTravelHours: string;
   lodging: {
     isUnspecified: boolean;
     name: string;
@@ -238,6 +246,8 @@ export interface LocationProfileFormInput {
 export interface LocationVersionProfileFormInput {
   firstDayTimeSlots: LocationProfileTimeSlotFormInput[];
   firstDayEarlyTimeSlots: LocationProfileTimeSlotFormInput[];
+  firstDayAverageDistanceKm: string;
+  firstDayAverageTravelHours: string;
   lodging: {
     isUnspecified: boolean;
     name: string;
@@ -289,6 +299,9 @@ export interface LocationVersionRow {
   locationNameSnapshot: string[];
   regionNameSnapshot: string;
   defaultLodgingType: string;
+  firstDayAverageDistanceKm: number | null;
+  firstDayAverageTravelHours: number | null;
+  firstDayMovementIntensity: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
   createdAt: string;
   updatedAt: string;
   firstDayTimeBlocks: Array<{
@@ -350,6 +363,9 @@ export interface LocationDetailItem extends LocationListRow {
     locationNameSnapshot: string[];
     regionNameSnapshot: string;
     defaultLodgingType: string;
+    firstDayAverageDistanceKm: number | null;
+    firstDayAverageTravelHours: number | null;
+    firstDayMovementIntensity: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
     createdAt: string;
     updatedAt: string;
   }>;
@@ -379,19 +395,23 @@ export interface LocationDetailData {
 }
 
 function toProfileBody(input: LocationVersionProfileFormInput) {
+  const firstDayAverageDistanceKm = input.firstDayAverageDistanceKm.trim();
+  const firstDayAverageTravelHours = input.firstDayAverageTravelHours.trim();
+  const normalizeTimeSlots = (slots: LocationProfileTimeSlotFormInput[]) =>
+    slots
+      .map((slot) => ({
+        startTime: slot.startTime.trim(),
+        activities: slot.activities
+          .map((activity) => activity.trim())
+          .filter((activity) => activity.length > 0),
+      }))
+      .filter((slot) => slot.startTime.length > 0 || slot.activities.length > 0);
+
   return {
-    firstDayTimeSlots: input.firstDayTimeSlots.map((slot) => ({
-      startTime: slot.startTime.trim(),
-      activities: slot.activities
-        .map((activity) => activity.trim())
-        .filter((activity) => activity.length > 0),
-    })),
-    firstDayEarlyTimeSlots: input.firstDayEarlyTimeSlots.map((slot) => ({
-      startTime: slot.startTime.trim(),
-      activities: slot.activities
-        .map((activity) => activity.trim())
-        .filter((activity) => activity.length > 0),
-    })),
+    firstDayTimeSlots: normalizeTimeSlots(input.firstDayTimeSlots),
+    firstDayEarlyTimeSlots: normalizeTimeSlots(input.firstDayEarlyTimeSlots),
+    firstDayAverageDistanceKm: firstDayAverageDistanceKm.length > 0 ? Number(firstDayAverageDistanceKm) : undefined,
+    firstDayAverageTravelHours: firstDayAverageTravelHours.length > 0 ? Number(firstDayAverageTravelHours) : undefined,
     lodging: {
       ...input.lodging,
       name: input.lodging.name.trim(),

@@ -1,3 +1,11 @@
+enum MovementIntensity {
+  LEVEL_1
+  LEVEL_2
+  LEVEL_3
+  LEVEL_4
+  LEVEL_5
+}
+
 type Segment {
   id: ID!
   regionId: String!
@@ -7,6 +15,7 @@ type Segment {
   defaultVersionId: String
   averageDistanceKm: Float!
   averageTravelHours: Float!
+  movementIntensity: MovementIntensity!
   isLongDistance: Boolean!
   scheduleTimeBlocks: [SegmentTimeBlock!]!
   earlyScheduleTimeBlocks: [SegmentTimeBlock!]!
@@ -33,6 +42,7 @@ type SegmentVersion {
   name: String!
   averageDistanceKm: Float!
   averageTravelHours: Float!
+  movementIntensity: MovementIntensity!
   isLongDistance: Boolean!
   sortOrder: Int!
   isDefault: Boolean!

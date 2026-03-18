@@ -21,6 +21,9 @@ const locationA: LocationOption = {
       id: 'ver-a',
       versionNumber: 1,
       label: '기본',
+      firstDayAverageDistanceKm: 35,
+      firstDayAverageTravelHours: 1.5,
+      firstDayMovementIntensity: 'LEVEL_1',
       lodgings: [],
       mealSets: [],
       firstDayTimeBlocks: [
@@ -55,6 +58,9 @@ const locationB: LocationOption = {
       id: 'ver-b',
       versionNumber: 1,
       label: '기본',
+      firstDayAverageDistanceKm: null,
+      firstDayAverageTravelHours: null,
+      firstDayMovementIntensity: null,
       lodgings: [
         {
           id: 'lodging-b',
@@ -90,6 +96,9 @@ const locationC: LocationOption = {
       id: 'ver-c',
       versionNumber: 1,
       label: '기본',
+      firstDayAverageDistanceKm: null,
+      firstDayAverageTravelHours: null,
+      firstDayMovementIntensity: null,
       lodgings: [],
       mealSets: [],
       firstDayTimeBlocks: [],
@@ -447,6 +456,8 @@ describe('route-autofill', () => {
     });
 
     expect(rows[0]).toMatchObject({
+      destinationCellText: '울란바토르\n이동 1.5시간\n(35 km)',
+      movementIntensity: 'LEVEL_1',
       timeCellText: '04:30',
       scheduleCellText: '첫날 얼리 일정',
     });

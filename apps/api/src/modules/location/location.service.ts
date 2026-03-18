@@ -9,6 +9,7 @@ import {
   type LocationProfileMealsInput,
   type LocationProfileTimeSlotInput,
 } from '@tour/validation';
+import { calculateMovementIntensity } from '../../lib/movement-intensity';
 import { DomainError } from '../../lib/errors';
 import { locationInclude, locationVersionInclude } from './location.mapper';
 import { LocationRepository } from './location.repository';
@@ -41,6 +42,8 @@ interface VersionProfilePayload {
   changeNote?: string;
   firstDayTimeSlots?: LocationProfileTimeSlotInput[];
   firstDayEarlyTimeSlots?: LocationProfileTimeSlotInput[];
+  firstDayAverageDistanceKm?: number;
+  firstDayAverageTravelHours?: number;
   lodging: LocationProfileLodgingInput;
   meals: LocationProfileMealsInput;
 }
@@ -48,8 +51,19 @@ interface VersionProfilePayload {
 interface VersionProfileSnapshot {
   firstDayTimeSlots?: LocationProfileTimeSlotInput[];
   firstDayEarlyTimeSlots?: LocationProfileTimeSlotInput[];
+  firstDayAverageDistanceKm?: number;
+  firstDayAverageTravelHours?: number;
   lodging: LocationProfileLodgingInput;
   meals: LocationProfileMealsInput;
+}
+
+function toValidationDetails(error: { issues: Array<{ path: Array<string | number>; message: string }> }): Record<string, string> {
+  return Object.fromEntries(
+    error.issues.map((issue, index) => [
+      issue.path.length > 0 ? issue.path.join('.') : `issue_${index + 1}`,
+      issue.message,
+    ]),
+  );
 }
 
 export class LocationService {
@@ -129,7 +143,10 @@ export class LocationService {
 
   private validateFirstDayProfile(input: {
     isFirstDayEligible: boolean;
-    profile: Pick<VersionProfilePayload, 'firstDayTimeSlots' | 'firstDayEarlyTimeSlots'>;
+    profile: Pick<
+      VersionProfilePayload,
+      'firstDayTimeSlots' | 'firstDayEarlyTimeSlots' | 'firstDayAverageDistanceKm' | 'firstDayAverageTravelHours'
+    >;
   }): void {
     if (!input.isFirstDayEligible) {
       return;
@@ -141,6 +158,14 @@ export class LocationService {
 
     if (!input.profile.firstDayEarlyTimeSlots || input.profile.firstDayEarlyTimeSlots.length === 0) {
       throw new DomainError('VALIDATION_FAILED', 'firstDayEarlyTimeSlots is required when isFirstDayEligible is true');
+    }
+
+    if (typeof input.profile.firstDayAverageDistanceKm !== 'number') {
+      throw new DomainError('VALIDATION_FAILED', 'firstDayAverageDistanceKm is required when isFirstDayEligible is true');
+    }
+
+    if (typeof input.profile.firstDayAverageTravelHours !== 'number') {
+      throw new DomainError('VALIDATION_FAILED', 'firstDayAverageTravelHours is required when isFirstDayEligible is true');
     }
   }
 
@@ -266,6 +291,12 @@ export class LocationService {
         locationNameSnapshot: payload.locationNameSnapshot,
         regionNameSnapshot: payload.regionNameSnapshot,
         defaultLodgingType: normalizedLodging.name,
+        firstDayAverageDistanceKm: payload.isFirstDayEligible ? payload.firstDayAverageDistanceKm ?? null : null,
+        firstDayAverageTravelHours: payload.isFirstDayEligible ? payload.firstDayAverageTravelHours ?? null : null,
+        firstDayMovementIntensity:
+          payload.isFirstDayEligible && typeof payload.firstDayAverageTravelHours === 'number'
+            ? calculateMovementIntensity(payload.firstDayAverageTravelHours)
+            : null,
       },
     });
 
@@ -285,6 +316,8 @@ export class LocationService {
 
   private buildProfileFromVersion(
     sourceVersion: {
+      firstDayAverageDistanceKm?: number | null;
+      firstDayAverageTravelHours?: number | null;
       timeBlocks: Array<{
         profile: TimeBlockProfile;
         startTime: string;
@@ -314,6 +347,8 @@ export class LocationService {
     return {
       firstDayTimeSlots: this.mapTimeBlocksToTimeSlots(sourceVersion.timeBlocks, 'FIRST_DAY'),
       firstDayEarlyTimeSlots: this.mapTimeBlocksToTimeSlots(sourceVersion.timeBlocks, 'FIRST_DAY_EARLY'),
+      firstDayAverageDistanceKm: sourceVersion.firstDayAverageDistanceKm ?? undefined,
+      firstDayAverageTravelHours: sourceVersion.firstDayAverageTravelHours ?? undefined,
       lodging: {
         isUnspecified: primaryLodging?.isUnspecified ?? false,
         name: primaryLodging?.name ?? '여행자 캠프',
@@ -381,7 +416,7 @@ export class LocationService {
   async createProfile(input: LocationProfileCreateDto) {
     const parsed = locationProfileCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid location profile input');
+      throw new DomainError('VALIDATION_FAILED', 'Invalid location profile input', toValidationDetails(parsed.error));
     }
 
     this.validateFirstDayProfile({
@@ -423,6 +458,8 @@ export class LocationService {
         isFirstDayEligible: parsed.data.isFirstDayEligible,
         firstDayTimeSlots: parsed.data.firstDayTimeSlots,
         firstDayEarlyTimeSlots: parsed.data.firstDayEarlyTimeSlots,
+        firstDayAverageDistanceKm: parsed.data.firstDayAverageDistanceKm,
+        firstDayAverageTravelHours: parsed.data.firstDayAverageTravelHours,
         lodging: parsed.data.lodging,
         meals: parsed.data.meals,
       });
@@ -500,6 +537,8 @@ export class LocationService {
         isFirstDayEligible: nextIsFirstDayEligible,
         firstDayTimeSlots: profile.firstDayTimeSlots ? this.cloneTimeSlots(profile.firstDayTimeSlots) : undefined,
         firstDayEarlyTimeSlots: profile.firstDayEarlyTimeSlots ? this.cloneTimeSlots(profile.firstDayEarlyTimeSlots) : undefined,
+        firstDayAverageDistanceKm: profile.firstDayAverageDistanceKm,
+        firstDayAverageTravelHours: profile.firstDayAverageTravelHours,
         lodging: profile.lodging,
         meals: profile.meals,
       });
@@ -584,7 +623,7 @@ export class LocationService {
   async updateProfile(id: string, input: LocationProfileUpdateDto) {
     const parsed = locationProfileUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid location profile update input');
+      throw new DomainError('VALIDATION_FAILED', 'Invalid location profile update input', toValidationDetails(parsed.error));
     }
 
     this.validateFirstDayProfile({
@@ -634,6 +673,12 @@ export class LocationService {
           locationNameSnapshot: normalizedName,
           regionNameSnapshot: region.name,
           defaultLodgingType: normalizedLodging.name,
+          firstDayAverageDistanceKm: parsed.data.isFirstDayEligible ? parsed.data.firstDayAverageDistanceKm ?? null : null,
+          firstDayAverageTravelHours: parsed.data.isFirstDayEligible ? parsed.data.firstDayAverageTravelHours ?? null : null,
+          firstDayMovementIntensity:
+            parsed.data.isFirstDayEligible && typeof parsed.data.firstDayAverageTravelHours === 'number'
+              ? calculateMovementIntensity(parsed.data.firstDayAverageTravelHours)
+              : null,
         },
       });
 

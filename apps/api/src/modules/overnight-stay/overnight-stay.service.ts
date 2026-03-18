@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import type { MovementIntensity, Prisma, PrismaClient } from '@prisma/client';
 import {
   overnightStayConnectionCreateSchema,
   overnightStayConnectionUpdateSchema,
@@ -8,6 +8,7 @@ import {
   type OvernightStayConnectionVersionInput,
 } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
+import { calculateMovementIntensity } from '../../lib/movement-intensity';
 import { OvernightStayConnectionRepository, OvernightStayRepository } from './overnight-stay.repository';
 import type {
   OvernightStayConnectionCreateDto,
@@ -45,6 +46,7 @@ interface NormalizedConnectionVersion {
   name: string;
   averageDistanceKm: number;
   averageTravelHours: number;
+  movementIntensity: MovementIntensity;
   isLongDistance: boolean;
   isDefault: boolean;
   timeSlotsByVariant: VariantTimeSlotMap;
@@ -140,6 +142,11 @@ export class OvernightStayService {
 
     await this.validateRegionAndLocation(parsed.data.regionId, parsed.data.locationId);
 
+    const normalizedDays = parsed.data.days.map((day) => ({
+      ...day,
+      movementIntensity: calculateMovementIntensity(day.averageTravelHours),
+    }));
+
     return this.prisma.$transaction(async (tx) => {
       const repository = new OvernightStayRepository(tx);
       const created = await tx.overnightStay.create({
@@ -152,7 +159,7 @@ export class OvernightStayService {
         },
       });
 
-      await repository.replaceDays(created.id, parsed.data.days);
+      await repository.replaceDays(created.id, normalizedDays);
       const result = await repository.findById(created.id);
       if (!result) {
         throw new DomainError('INTERNAL', 'Failed to load created overnight stay');
@@ -190,7 +197,13 @@ export class OvernightStayService {
       });
 
       if (parsed.data.days) {
-        await repository.replaceDays(id, parsed.data.days);
+        await repository.replaceDays(
+          id,
+          parsed.data.days.map((day) => ({
+            ...day,
+            movementIntensity: calculateMovementIntensity(day.averageTravelHours),
+          })),
+        );
       }
 
       const result = await repository.findById(id);
@@ -306,6 +319,7 @@ export class OvernightStayConnectionService {
       name: 'Direct',
       averageDistanceKm: input.averageDistanceKm,
       averageTravelHours: input.averageTravelHours,
+      movementIntensity: calculateMovementIntensity(input.averageTravelHours),
       isLongDistance: input.isLongDistance,
       isDefault: true,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(input),
@@ -321,6 +335,7 @@ export class OvernightStayConnectionService {
           name: version.name,
           averageDistanceKm: version.averageDistanceKm,
           averageTravelHours: version.averageTravelHours,
+          movementIntensity: calculateMovementIntensity(version.averageTravelHours),
           isLongDistance: version.isLongDistance,
           isDefault: version.isDefault,
           timeSlotsByVariant: this.mapTimeBlocksToVariantTimeSlots(version.scheduleTimeBlocks),
@@ -345,6 +360,7 @@ export class OvernightStayConnectionService {
       name: version.name.trim(),
       averageDistanceKm: version.averageDistanceKm,
       averageTravelHours: version.averageTravelHours,
+      movementIntensity: calculateMovementIntensity(version.averageTravelHours),
       isLongDistance: version.isLongDistance,
       isDefault: version.isDefault !== false,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(version),
@@ -532,6 +548,7 @@ export class OvernightStayConnectionService {
         defaultVersionId,
         averageDistanceKm: defaultVersion.averageDistanceKm,
         averageTravelHours: defaultVersion.averageTravelHours,
+        movementIntensity: defaultVersion.movementIntensity,
         isLongDistance: defaultVersion.isLongDistance,
       },
     });
@@ -557,6 +574,7 @@ export class OvernightStayConnectionService {
           name: version.name,
           averageDistanceKm: version.averageDistanceKm,
           averageTravelHours: version.averageTravelHours,
+          movementIntensity: version.movementIntensity,
           isLongDistance: version.isLongDistance,
           sortOrder,
           isDefault: version.isDefault,
@@ -595,6 +613,7 @@ export class OvernightStayConnectionService {
           name: defaultVersion.name || 'Direct',
           averageDistanceKm: defaultVersion.averageDistanceKm,
           averageTravelHours: defaultVersion.averageTravelHours,
+          movementIntensity: defaultVersion.movementIntensity,
           isLongDistance: defaultVersion.isLongDistance,
           sortOrder: 0,
           isDefault: true,
@@ -611,6 +630,7 @@ export class OvernightStayConnectionService {
         name: existingDefaultVersion.name || defaultVersion.name || 'Direct',
         averageDistanceKm: defaultVersion.averageDistanceKm,
         averageTravelHours: defaultVersion.averageTravelHours,
+        movementIntensity: defaultVersion.movementIntensity,
         isLongDistance: defaultVersion.isLongDistance,
         sortOrder: 0,
         isDefault: true,
@@ -652,6 +672,7 @@ export class OvernightStayConnectionService {
           toLocationId: parsed.data.toLocationId,
           averageDistanceKm: defaultVersion.averageDistanceKm,
           averageTravelHours: defaultVersion.averageTravelHours,
+          movementIntensity: defaultVersion.movementIntensity,
           isLongDistance: defaultVersion.isLongDistance,
         },
       });
@@ -700,6 +721,7 @@ export class OvernightStayConnectionService {
               ...version,
               averageDistanceKm: parsed.data.averageDistanceKm ?? version.averageDistanceKm,
               averageTravelHours: parsed.data.averageTravelHours ?? version.averageTravelHours,
+              movementIntensity: calculateMovementIntensity(parsed.data.averageTravelHours ?? version.averageTravelHours),
               isLongDistance: parsed.data.isLongDistance ?? version.isLongDistance,
               timeSlotsByVariant: {
                 basic: parsed.data.timeSlots ?? version.timeSlotsByVariant.basic,

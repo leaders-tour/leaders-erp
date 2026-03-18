@@ -83,6 +83,9 @@ export function LocationVersionDetailPage(): JSX.Element {
           <div>목적지 스냅샷: {formatLocationNameInline(version.locationNameSnapshot)}</div>
           <div>첫날 가능: {version.location.isFirstDayEligible ? 'Y' : 'N'}</div>
           <div>마지막날 가능: {version.location.isLastDayEligible ? 'Y' : 'N'}</div>
+          <div>첫날 이동거리: {version.firstDayAverageDistanceKm ?? '-'}km</div>
+          <div>첫날 이동시간: {version.firstDayAverageTravelHours ?? '-'}시간</div>
+          <div>첫날 이동강도: {version.firstDayMovementIntensity ?? '-'}</div>
         </div>
       </Card>
 

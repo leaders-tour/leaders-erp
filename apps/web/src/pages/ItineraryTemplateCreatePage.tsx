@@ -60,6 +60,9 @@ const LOCATIONS_QUERY = gql`
         id
         versionNumber
         label
+        firstDayAverageDistanceKm
+        firstDayAverageTravelHours
+        firstDayMovementIntensity
         lodgings {
           id
           name
@@ -108,6 +111,7 @@ const SEGMENTS_QUERY = gql`
       defaultVersionId
       averageDistanceKm
       averageTravelHours
+      movementIntensity
       isLongDistance
       scheduleTimeBlocks {
         id
@@ -155,6 +159,7 @@ const SEGMENTS_QUERY = gql`
         name
         averageDistanceKm
         averageTravelHours
+        movementIntensity
         isLongDistance
         sortOrder
         isDefault
@@ -218,6 +223,7 @@ const OVERNIGHT_STAYS_QUERY = gql`
         dayOrder
         averageDistanceKm
         averageTravelHours
+        movementIntensity
         timeCellText
         scheduleCellText
         lodgingCellText
@@ -237,6 +243,7 @@ const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
       defaultVersionId
       averageDistanceKm
       averageTravelHours
+      movementIntensity
       isLongDistance
       scheduleTimeBlocks {
         id
@@ -284,6 +291,7 @@ const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
         name
         averageDistanceKm
         averageTravelHours
+        movementIntensity
         isLongDistance
         sortOrder
         isDefault

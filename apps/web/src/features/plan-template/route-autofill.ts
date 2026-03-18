@@ -21,6 +21,9 @@ export interface LocationVersionOption {
   id: string;
   versionNumber: number;
   label: string;
+  firstDayAverageDistanceKm?: number | null;
+  firstDayAverageTravelHours?: number | null;
+  firstDayMovementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
   lodgings: Array<{
     id: string;
     name: string;
@@ -54,6 +57,7 @@ export interface SegmentVersionOption {
   name: string;
   averageDistanceKm: number;
   averageTravelHours: number;
+  movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
   isLongDistance: boolean;
   sortOrder: number;
   isDefault: boolean;
@@ -71,6 +75,7 @@ export interface SegmentOption {
   defaultVersionId?: string | null;
   averageDistanceKm: number;
   averageTravelHours: number;
+  movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
   isLongDistance?: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
   earlyScheduleTimeBlocks: TimeBlockOption[];
@@ -85,6 +90,7 @@ interface ResolvedSegmentVersionOption {
   name: string;
   averageDistanceKm: number;
   averageTravelHours: number;
+  movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
   isLongDistance: boolean;
   sortOrder: number;
   isDefault: boolean;
@@ -99,6 +105,7 @@ export interface OvernightStayDayOption {
   dayOrder: number;
   averageDistanceKm: number;
   averageTravelHours: number;
+  movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
   timeCellText: string;
   scheduleCellText: string;
   lodgingCellText: string;
@@ -122,6 +129,7 @@ export interface OvernightStayConnectionVersionOption {
   name: string;
   averageDistanceKm: number;
   averageTravelHours: number;
+  movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
   isLongDistance: boolean;
   sortOrder: number;
   isDefault: boolean;
@@ -139,6 +147,7 @@ export interface OvernightStayConnectionOption {
   defaultVersionId?: string | null;
   averageDistanceKm: number;
   averageTravelHours: number;
+  movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
   isLongDistance?: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
   earlyScheduleTimeBlocks: TimeBlockOption[];
@@ -153,6 +162,7 @@ interface ResolvedOvernightStayConnectionVersionOption {
   name: string;
   averageDistanceKm: number;
   averageTravelHours: number;
+  movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
   isLongDistance: boolean;
   sortOrder: number;
   isDefault: boolean;
@@ -255,6 +265,7 @@ function buildLegacyDirectVersion(segment: SegmentOption): ResolvedSegmentVersio
     name: 'Direct',
     averageDistanceKm: segment.averageDistanceKm,
     averageTravelHours: segment.averageTravelHours,
+    movementIntensity: segment.movementIntensity ?? 'LEVEL_1',
     isLongDistance: segment.isLongDistance ?? false,
     sortOrder: 0,
     isDefault: true,
@@ -274,6 +285,7 @@ function buildLegacyDirectOvernightStayConnectionVersion(
     name: 'Direct',
     averageDistanceKm: connection.averageDistanceKm,
     averageTravelHours: connection.averageTravelHours,
+    movementIntensity: connection.movementIntensity ?? 'LEVEL_1',
     isLongDistance: connection.isLongDistance ?? false,
     sortOrder: 0,
     isDefault: true,
@@ -717,6 +729,7 @@ function buildOvernightStayRows(input: {
         averageTravelHours: overnightStayDay?.averageTravelHours,
         averageDistanceKm: overnightStayDay?.averageDistanceKm,
       }),
+      movementIntensity: overnightStayDay?.movementIntensity,
       timeCellText: overnightStayDay?.timeCellText ?? '',
       scheduleCellText: overnightStayDay?.scheduleCellText ?? '',
       lodgingCellText: overnightStayDay?.lodgingCellText ?? '',
@@ -772,7 +785,10 @@ export function buildAutoRowsFromRoute(input: {
     dateCellText: '1일차',
     destinationCellText: formatRouteDestinationCellText({
       locationName: startLocation?.name ?? startLocationId,
+      averageTravelHours: startVersion?.firstDayAverageTravelHours,
+      averageDistanceKm: startVersion?.firstDayAverageDistanceKm,
     }),
+    movementIntensity: startVersion?.firstDayMovementIntensity ?? null,
     timeCellText: toTimeCellFromTimeBlocks(getLocationTimeBlocks(startVersion, firstDayProfile), {
       firstStartTimeOverride: firstDayTimeOverride,
     }),
@@ -844,6 +860,7 @@ export function buildAutoRowsFromRoute(input: {
           averageTravelHours: connectionVersion?.averageTravelHours,
           averageDistanceKm: connectionVersion?.averageDistanceKm,
         }),
+        movementIntensity: connectionVersion?.movementIntensity,
         timeCellText: toTimeCellFromTimeBlocks(getOvernightStayConnectionScheduleTimeBlocks(connectionVersion, variant), {
           lastStartTimeOverride: isLastDay ? lastDayTimeOverride : undefined,
         }),
@@ -871,6 +888,7 @@ export function buildAutoRowsFromRoute(input: {
           averageTravelHours: segmentVersion?.averageTravelHours,
           averageDistanceKm: segmentVersion?.averageDistanceKm,
         }),
+        movementIntensity: segmentVersion?.movementIntensity,
         timeCellText: toTimeCellFromTimeBlocks(getSegmentScheduleTimeBlocks(segmentVersion, variant), {
           lastStartTimeOverride: isLastDay ? lastDayTimeOverride : undefined,
         }),

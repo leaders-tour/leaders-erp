@@ -29,6 +29,9 @@ type LocationVersion {
   locationNameSnapshot: [String!]!
   regionNameSnapshot: String!
   defaultLodgingType: String!
+  firstDayAverageDistanceKm: Float
+  firstDayAverageTravelHours: Float
+  firstDayMovementIntensity: MovementIntensity
   createdAt: DateTime!
   updatedAt: DateTime!
   location: Location!
@@ -85,6 +88,8 @@ input LocationProfileCreateInput {
   isLastDayEligible: Boolean
   firstDayTimeSlots: [LocationProfileTimeSlotInput!]
   firstDayEarlyTimeSlots: [LocationProfileTimeSlotInput!]
+  firstDayAverageDistanceKm: Float
+  firstDayAverageTravelHours: Float
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
 }
@@ -96,6 +101,8 @@ input LocationProfileUpdateInput {
   isLastDayEligible: Boolean
   firstDayTimeSlots: [LocationProfileTimeSlotInput!]
   firstDayEarlyTimeSlots: [LocationProfileTimeSlotInput!]
+  firstDayAverageDistanceKm: Float
+  firstDayAverageTravelHours: Float
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
 }
@@ -103,6 +110,8 @@ input LocationProfileUpdateInput {
 input LocationVersionProfileInput {
   firstDayTimeSlots: [LocationProfileTimeSlotInput!]
   firstDayEarlyTimeSlots: [LocationProfileTimeSlotInput!]
+  firstDayAverageDistanceKm: Float
+  firstDayAverageTravelHours: Float
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
 }

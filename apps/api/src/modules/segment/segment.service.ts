@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import type { MovementIntensity, Prisma, PrismaClient } from '@prisma/client';
 import {
   segmentCreateSchema,
   segmentUpdateSchema,
@@ -6,6 +6,7 @@ import {
   type SegmentVersionInput,
 } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
+import { calculateMovementIntensity } from '../../lib/movement-intensity';
 import { SegmentRepository } from './segment.repository';
 import type { SegmentCreateDto, SegmentUpdateDto } from './segment.types';
 
@@ -28,6 +29,7 @@ interface NormalizedSegmentVersion {
   name: string;
   averageDistanceKm: number;
   averageTravelHours: number;
+  movementIntensity: MovementIntensity;
   isLongDistance: boolean;
   isDefault: boolean;
   timeSlotsByVariant: VariantTimeSlotMap;
@@ -177,6 +179,7 @@ export class SegmentService {
       name: 'Direct',
       averageDistanceKm: input.averageDistanceKm,
       averageTravelHours: input.averageTravelHours,
+      movementIntensity: calculateMovementIntensity(input.averageTravelHours),
       isLongDistance: input.isLongDistance,
       isDefault: true,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(input),
@@ -192,6 +195,7 @@ export class SegmentService {
           name: version.name,
           averageDistanceKm: version.averageDistanceKm,
           averageTravelHours: version.averageTravelHours,
+          movementIntensity: calculateMovementIntensity(version.averageTravelHours),
           isLongDistance: version.isLongDistance,
           isDefault: version.isDefault,
           timeSlotsByVariant: this.mapTimeBlocksToVariantTimeSlots(version.scheduleTimeBlocks),
@@ -216,6 +220,7 @@ export class SegmentService {
       name: version.name.trim(),
       averageDistanceKm: version.averageDistanceKm,
       averageTravelHours: version.averageTravelHours,
+      movementIntensity: calculateMovementIntensity(version.averageTravelHours),
       isLongDistance: version.isLongDistance,
       isDefault: version.isDefault !== false,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(version),
@@ -408,6 +413,7 @@ export class SegmentService {
         defaultVersionId,
         averageDistanceKm: defaultVersion.averageDistanceKm,
         averageTravelHours: defaultVersion.averageTravelHours,
+        movementIntensity: defaultVersion.movementIntensity,
         isLongDistance: defaultVersion.isLongDistance,
       },
     });
@@ -433,6 +439,7 @@ export class SegmentService {
           name: version.name,
           averageDistanceKm: version.averageDistanceKm,
           averageTravelHours: version.averageTravelHours,
+          movementIntensity: version.movementIntensity,
           isLongDistance: version.isLongDistance,
           sortOrder,
           isDefault: version.isDefault,
@@ -471,6 +478,7 @@ export class SegmentService {
           name: defaultVersion.name || 'Direct',
           averageDistanceKm: defaultVersion.averageDistanceKm,
           averageTravelHours: defaultVersion.averageTravelHours,
+          movementIntensity: defaultVersion.movementIntensity,
           isLongDistance: defaultVersion.isLongDistance,
           sortOrder: 0,
           isDefault: true,
@@ -487,6 +495,7 @@ export class SegmentService {
         name: existingDefaultVersion.name || defaultVersion.name || 'Direct',
         averageDistanceKm: defaultVersion.averageDistanceKm,
         averageTravelHours: defaultVersion.averageTravelHours,
+        movementIntensity: defaultVersion.movementIntensity,
         isLongDistance: defaultVersion.isLongDistance,
         sortOrder: 0,
         isDefault: true,
@@ -528,6 +537,7 @@ export class SegmentService {
           toLocationId: parsed.data.toLocationId,
           averageDistanceKm: defaultVersion.averageDistanceKm,
           averageTravelHours: defaultVersion.averageTravelHours,
+          movementIntensity: defaultVersion.movementIntensity,
           isLongDistance: defaultVersion.isLongDistance,
         },
       });
@@ -576,6 +586,7 @@ export class SegmentService {
               ...version,
               averageDistanceKm: parsed.data.averageDistanceKm ?? version.averageDistanceKm,
               averageTravelHours: parsed.data.averageTravelHours ?? version.averageTravelHours,
+              movementIntensity: calculateMovementIntensity(parsed.data.averageTravelHours ?? version.averageTravelHours),
               isLongDistance: parsed.data.isLongDistance ?? version.isLongDistance,
               timeSlotsByVariant: {
                 basic: parsed.data.timeSlots ?? version.timeSlotsByVariant.basic,

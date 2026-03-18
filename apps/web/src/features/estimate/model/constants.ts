@@ -20,7 +20,6 @@ export const ESTIMATE_PAYMENT = {
 export const ESTIMATE_VALIDITY_DAYS = 7;
 
 export const ESTIMATE_PAGE2_BRAND = 'Leaders Tour';
-export const ESTIMATE_PAGE2_INTENSITY_TEXT = '이동강도: ● (표기 유지용)';
 
 export const ESTIMATE_PAGE2_FOOTER_NOTICES = [
   '몽골 현지 특성상 업체측 사정 및 갑작스런 단수, 정전 등 숙소 또는 액티비티 일정에 일부 차질이 발생할 수 있습니다.',

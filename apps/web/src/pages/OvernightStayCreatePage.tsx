@@ -1,6 +1,10 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Input } from '@tour/ui';
 import { useMemo, useState } from 'react';
+import {
+  calculateMovementIntensityByHours,
+  getMovementIntensityMeta,
+} from '../features/estimate/model/movement-intensity';
 import { useNavigate } from 'react-router-dom';
 import { formatLocationNameInline } from '../features/location/display';
 import { LocationSubNav } from '../features/location/sub-nav';
@@ -235,6 +239,34 @@ export function OvernightStayCreatePage(): JSX.Element {
                         onChange={(event) => updateDay(day.dayOrder, 'averageTravelHours', event.target.value)}
                       />
                     </label>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+                    <span className="font-medium text-slate-900">자동 계산 이동강도</span>
+                    <span className="ml-2">
+                      {(() => {
+                        const hours = Number(day.averageTravelHours);
+                        if (!Number.isFinite(hours) || hours < 0) {
+                          return '-';
+                        }
+                        const meta = getMovementIntensityMeta(calculateMovementIntensityByHours(hours));
+                        if (!meta) {
+                          return '-';
+                        }
+                        return (
+                          <span
+                            className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+                            style={{
+                              backgroundColor: meta.backgroundColor,
+                              borderColor: meta.borderColor,
+                              color: meta.textColor,
+                            }}
+                          >
+                            {meta.label}
+                          </span>
+                        );
+                      })()}
+                    </span>
                   </div>
 
                   <OvernightStayDaySlotEditor

@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
+import type { MovementIntensity, Prisma, PrismaClient } from '@prisma/client';
 import { overnightStayConnectionInclude, overnightStayInclude } from './overnight-stay.mapper';
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
@@ -40,6 +40,7 @@ export class OvernightStayRepository {
       dayOrder: number;
       averageDistanceKm: number;
       averageTravelHours: number;
+      movementIntensity: MovementIntensity;
       timeCellText: string;
       scheduleCellText: string;
       lodgingCellText: string;
@@ -53,6 +54,7 @@ export class OvernightStayRepository {
         dayOrder: day.dayOrder,
         averageDistanceKm: day.averageDistanceKm,
         averageTravelHours: day.averageTravelHours,
+        movementIntensity: day.movementIntensity,
         timeCellText: day.timeCellText,
         scheduleCellText: day.scheduleCellText,
         lodgingCellText: day.lodgingCellText,

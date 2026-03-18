@@ -197,6 +197,11 @@ export function LocationDetailPage(): JSX.Element {
                   <Td>
                     <div>{version.label}</div>
                     <div className="text-xs text-slate-500">v{version.versionNumber}</div>
+                    {version.firstDayAverageDistanceKm !== null || version.firstDayAverageTravelHours !== null ? (
+                      <div className="mt-1 text-xs text-slate-500">
+                        첫날 이동 {version.firstDayAverageDistanceKm ?? '-'}km / {version.firstDayAverageTravelHours ?? '-'}시간
+                      </div>
+                    ) : null}
                   </Td>
                   <Td>{version.changeNote ?? '-'}</Td>
                   <Td>{formatDate(version.createdAt)}</Td>

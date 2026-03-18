@@ -51,6 +51,14 @@ export function LocationVersionEditPage(): JSX.Element {
               { startTime: '12:00', activities: ['', '', '', ''] },
               { startTime: '18:00', activities: ['', '', '', ''] },
             ],
+      firstDayAverageDistanceKm:
+        version.firstDayAverageDistanceKm !== null && version.firstDayAverageDistanceKm !== undefined
+          ? String(version.firstDayAverageDistanceKm)
+          : '',
+      firstDayAverageTravelHours:
+        version.firstDayAverageTravelHours !== null && version.firstDayAverageTravelHours !== undefined
+          ? String(version.firstDayAverageTravelHours)
+          : '',
       lodging: {
         isUnspecified: (version.lodgings[0]?.name ?? '') === '숙소 미지정',
         name: version.lodgings[0]?.name ?? '여행자 캠프',
@@ -170,6 +178,8 @@ export function LocationVersionEditPage(): JSX.Element {
                 profile: {
                   firstDayTimeSlots: next.firstDayTimeSlots,
                   firstDayEarlyTimeSlots: next.firstDayEarlyTimeSlots,
+                  firstDayAverageDistanceKm: next.firstDayAverageDistanceKm,
+                  firstDayAverageTravelHours: next.firstDayAverageTravelHours,
                   lodging: next.lodging,
                   meals: next.meals,
                 },

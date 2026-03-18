@@ -1,5 +1,6 @@
 import type { ExternalTransfer } from '../../plan/external-transfer';
 import type { PickupDropPlaceType } from '../../plan/pickup-drop';
+import type { MovementIntensityValue } from './movement-intensity';
 
 export type EstimateSourceMode = 'version' | 'draft';
 
@@ -11,6 +12,7 @@ export interface EstimatePlanStopRow {
   locationId?: string | null;
   dateCellText: string;
   destinationCellText: string;
+  movementIntensity?: MovementIntensityValue | null;
   timeCellText: string;
   scheduleCellText: string;
   lodgingCellText: string;
@@ -79,6 +81,7 @@ export interface EstimateBuilderDraftSnapshot {
   rentalItemsText: string;
   eventNames: string[];
   remark: string;
+  movementIntensity?: MovementIntensityValue | null;
   planStops: EstimatePlanStopRow[];
   pricing: EstimatePricingSnapshot | null;
 }
@@ -144,6 +147,7 @@ export interface EstimateDocumentData {
   securityDepositUnitKrw: number | null;
   securityDepositScope: EstimateSecurityDepositScope;
   validUntilDate: string | null;
+  movementIntensity?: MovementIntensityValue | null;
   planStops: EstimatePlanStopRow[];
   page3Blocks: EstimateGuideBlock[];
 }

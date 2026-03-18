@@ -2,6 +2,7 @@ import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Input, type ButtonProps } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { MealOption, type Region } from '../../generated/graphql';
+import { getMovementIntensityMeta } from '../estimate/model/movement-intensity';
 import type { FacilityAvailability, LocationProfileFormInput } from './hooks';
 
 const REGIONS_QUERY = gql`
@@ -54,6 +55,8 @@ export function createDefaultLocationProfileFormValue(regionId = ''): LocationPr
     isLastDayEligible: false,
     firstDayTimeSlots: DEFAULT_SLOT_TIMES.map((slot) => createSlot(slot)),
     firstDayEarlyTimeSlots: DEFAULT_SLOT_TIMES.map((slot) => createSlot(slot)),
+    firstDayAverageDistanceKm: '',
+    firstDayAverageTravelHours: '',
     lodging: {
       isUnspecified: false,
       name: '여행자 캠프',
@@ -336,6 +339,26 @@ export function LocationProfileForm({
     );
   };
 
+  const movementIntensityPreview = useMemo(() => {
+    const hours = Number(form.firstDayAverageTravelHours);
+    if (!form.isFirstDayEligible || Number.isNaN(hours) || hours < 0) {
+      return null;
+    }
+    if (hours <= 3) {
+      return getMovementIntensityMeta('LEVEL_1');
+    }
+    if (hours <= 5) {
+      return getMovementIntensityMeta('LEVEL_2');
+    }
+    if (hours <= 7) {
+      return getMovementIntensityMeta('LEVEL_3');
+    }
+    if (hours <= 9) {
+      return getMovementIntensityMeta('LEVEL_4');
+    }
+    return getMovementIntensityMeta('LEVEL_5');
+  }, [form.firstDayAverageTravelHours, form.isFirstDayEligible]);
+
   return (
     <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
       <h2 className="mb-4 text-lg font-semibold tracking-tight">{title}</h2>
@@ -411,7 +434,20 @@ export function LocationProfileForm({
                     type="checkbox"
                     checked={form.isFirstDayEligible}
                     disabled={eligibilityReadOnly}
-                    onChange={(event) => setForm((prev) => ({ ...prev, isFirstDayEligible: event.target.checked }))}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        isFirstDayEligible: event.target.checked,
+                        firstDayTimeSlots:
+                          event.target.checked && prev.firstDayTimeSlots.length === 0
+                            ? DEFAULT_SLOT_TIMES.map((slot) => createSlot(slot))
+                            : prev.firstDayTimeSlots,
+                        firstDayEarlyTimeSlots:
+                          event.target.checked && prev.firstDayEarlyTimeSlots.length === 0
+                            ? DEFAULT_SLOT_TIMES.map((slot) => createSlot(slot))
+                            : prev.firstDayEarlyTimeSlots,
+                      }))
+                    }
                   />
                   첫날 가능
                 </label>
@@ -426,6 +462,36 @@ export function LocationProfileForm({
                 </label>
               </div>
             </div>
+
+            {form.isFirstDayEligible ? (
+              <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+                <div className="grid gap-1">
+                  <h3 className="text-sm font-semibold text-slate-800">첫날 이동 정보</h3>
+                  <p className="text-xs text-slate-500">첫날 목적지 자동 채움에 사용되는 이동거리와 이동시간입니다.</p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">첫날 이동거리(km)</span>
+                    <Input
+                      value={form.firstDayAverageDistanceKm}
+                      onChange={(event) => setForm((prev) => ({ ...prev, firstDayAverageDistanceKm: event.target.value }))}
+                      inputMode="decimal"
+                      placeholder="예: 35"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">첫날 이동시간(시간)</span>
+                    <Input
+                      value={form.firstDayAverageTravelHours}
+                      onChange={(event) => setForm((prev) => ({ ...prev, firstDayAverageTravelHours: event.target.value }))}
+                      inputMode="decimal"
+                      placeholder="예: 1.5"
+                    />
+                  </label>
+                </div>
+                <div className="text-sm text-slate-600">이동강도: {movementIntensityPreview ? movementIntensityPreview.label : '시간 입력 필요'}</div>
+              </div>
+            ) : null}
 
             <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
               <label className="flex items-center gap-2 text-sm text-slate-700">

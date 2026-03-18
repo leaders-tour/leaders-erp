@@ -21,6 +21,20 @@ export const planVersionInclude = {
     },
   },
   planStops: {
+    include: {
+      segment: true,
+      segmentVersion: true,
+      locationVersion: true,
+      overnightStay: {
+        include: {
+          days: {
+            orderBy: { dayOrder: 'asc' },
+          },
+        },
+      },
+      overnightStayConnection: true,
+      overnightStayConnectionVersion: true,
+    },
     orderBy: { createdAt: 'asc' },
   },
   planVersionEvents: {

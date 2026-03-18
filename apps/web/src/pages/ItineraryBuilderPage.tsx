@@ -8,6 +8,7 @@ import { TimePickerModal } from '../components/date-picker/TimePickerModal';
 import { formatTimeTriggerLabel } from '../components/date-picker/time-picker-utils';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
+import { averageMovementIntensity } from '../features/estimate/model/movement-intensity';
 import type { EstimateBuilderDraftSnapshot, EstimatePage1Editor, EstimateTransportGroup } from '../features/estimate/model/types';
 import { useAuth } from '../features/auth/context';
 import { formatLocationNameInline, formatLocationNameMultiline, toFacilityLabel, toMealLabel } from '../features/location/display';
@@ -107,6 +108,7 @@ interface PlanRow {
   overnightStayConnectionVersionId?: string;
   locationId?: string;
   locationVersionId?: string;
+  movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
   lodgingSelectionLevel: LodgingSelectionLevel;
   customLodgingId?: string;
   customLodgingNameSnapshot?: string | null;
@@ -167,6 +169,7 @@ interface PlanTemplateStopRow {
   overnightStayConnectionVersionId: string | null;
   locationId: string | null;
   locationVersionId: string | null;
+  movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
   lodgingSelectionLevel?: LodgingSelectionLevel | null;
   customLodgingId?: string | null;
   customLodgingNameSnapshot?: string | null;
@@ -269,6 +272,7 @@ function arePlanRowsEqual(left: PlanRow[], right: PlanRow[]): boolean {
       row.overnightStayConnectionVersionId === other.overnightStayConnectionVersionId &&
       row.locationId === other.locationId &&
       row.locationVersionId === other.locationVersionId &&
+      row.movementIntensity === other.movementIntensity &&
       row.lodgingSelectionLevel === other.lodgingSelectionLevel &&
       row.customLodgingId === other.customLodgingId &&
       row.customLodgingNameSnapshot === other.customLodgingNameSnapshot &&
@@ -354,6 +358,9 @@ const LOCATIONS_QUERY = gql`
         id
         versionNumber
         label
+        firstDayAverageDistanceKm
+        firstDayAverageTravelHours
+        firstDayMovementIntensity
         lodgings {
           id
           name
@@ -402,6 +409,7 @@ const SEGMENTS_QUERY = gql`
       defaultVersionId
       averageDistanceKm
       averageTravelHours
+      movementIntensity
       isLongDistance
       scheduleTimeBlocks {
         id
@@ -449,6 +457,7 @@ const SEGMENTS_QUERY = gql`
         name
         averageDistanceKm
         averageTravelHours
+        movementIntensity
         isLongDistance
         sortOrder
         isDefault
@@ -512,6 +521,7 @@ const OVERNIGHT_STAYS_QUERY = gql`
         dayOrder
         averageDistanceKm
         averageTravelHours
+        movementIntensity
         timeCellText
         scheduleCellText
         lodgingCellText
@@ -531,6 +541,7 @@ const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
       defaultVersionId
       averageDistanceKm
       averageTravelHours
+      movementIntensity
       isLongDistance
       scheduleTimeBlocks {
         id
@@ -578,6 +589,7 @@ const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
         name
         averageDistanceKm
         averageTravelHours
+        movementIntensity
         isLongDistance
         sortOrder
         isDefault
@@ -649,6 +661,7 @@ const PLAN_TEMPLATES_QUERY = gql`
         locationVersionId
         dateCellText
         destinationCellText
+        movementIntensity
         timeCellText
         scheduleCellText
         lodgingCellText
@@ -681,6 +694,7 @@ const PLAN_TEMPLATE_QUERY = gql`
         locationVersionId
         dateCellText
         destinationCellText
+        movementIntensity
         timeCellText
         scheduleCellText
         lodgingCellText
@@ -873,10 +887,12 @@ function createEstimateDraftSnapshot(input: {
     rentalItemsText: input.rentalItemsText,
     eventNames: input.eventNames,
     remark: input.remark,
+    movementIntensity: averageMovementIntensity(input.planStops.map((row) => row.movementIntensity)),
     planStops: input.planStops.map((row) => ({
       locationId: row.locationId,
       dateCellText: row.dateCellText,
       destinationCellText: row.destinationCellText,
+      movementIntensity: row.movementIntensity ?? null,
       timeCellText: row.timeCellText,
       scheduleCellText: row.scheduleCellText,
       lodgingCellText: row.lodgingCellText,
@@ -1066,6 +1082,7 @@ function buildDefaultLodgingRow(input: {
   overnightStayConnectionVersionId?: string;
   locationId?: string;
   locationVersionId?: string;
+  movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
   dateCellText: string;
   destinationCellText: string;
   timeCellText: string;
@@ -1083,6 +1100,7 @@ function buildDefaultLodgingRow(input: {
     overnightStayConnectionVersionId: input.overnightStayConnectionVersionId,
     locationId: input.locationId,
     locationVersionId: input.locationVersionId,
+    movementIntensity: input.movementIntensity ?? null,
     lodgingSelectionLevel: 'LV3',
     customLodgingId: undefined,
     customLodgingNameSnapshot: null,
@@ -2024,6 +2042,7 @@ export function ItineraryBuilderPage(): JSX.Element {
           overnightStayConnectionVersionId: stop.overnightStayConnectionVersionId ?? undefined,
           locationId: stop.locationId ?? undefined,
           locationVersionId: stop.locationVersionId ?? undefined,
+          movementIntensity: stop.movementIntensity ?? null,
           dateCellText: stop.dateCellText,
           destinationCellText: stop.destinationCellText,
           timeCellText: stop.timeCellText,

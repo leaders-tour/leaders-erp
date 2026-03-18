@@ -49,6 +49,58 @@ describe('location first-day validation', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('requires first-day movement distance and hours when first-day eligibility is true', () => {
+    const result = locationProfileCreateSchema.safeParse({
+      regionId: 'region-1',
+      name: ['울란바토르'],
+      isFirstDayEligible: true,
+      isLastDayEligible: false,
+      firstDayTimeSlots: [{ startTime: '08:00', activities: ['1일차 기본'] }],
+      firstDayEarlyTimeSlots: [{ startTime: '05:00', activities: ['1일차 얼리'] }],
+      lodging: {
+        isUnspecified: false,
+        name: '여행자 캠프',
+        hasElectricity: 'YES',
+        hasShower: 'YES',
+        hasInternet: 'YES',
+      },
+      meals: {
+        breakfast: null,
+        lunch: null,
+        dinner: null,
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts first-day movement distance and hours when first-day eligibility is true', () => {
+    const result = locationProfileCreateSchema.safeParse({
+      regionId: 'region-1',
+      name: ['울란바토르'],
+      isFirstDayEligible: true,
+      isLastDayEligible: false,
+      firstDayTimeSlots: [{ startTime: '08:00', activities: ['1일차 기본'] }],
+      firstDayEarlyTimeSlots: [{ startTime: '05:00', activities: ['1일차 얼리'] }],
+      firstDayAverageDistanceKm: 35,
+      firstDayAverageTravelHours: 1.5,
+      lodging: {
+        isUnspecified: false,
+        name: '여행자 캠프',
+        hasElectricity: 'YES',
+        hasShower: 'YES',
+        hasInternet: 'YES',
+      },
+      meals: {
+        breakfast: null,
+        lunch: null,
+        dinner: null,
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
 });
 
 describe('segment variant validation shape', () => {

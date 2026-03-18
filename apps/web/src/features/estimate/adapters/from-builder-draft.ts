@@ -78,6 +78,7 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     securityDepositUnitKrw: snapshot.pricing?.securityDepositUnitKrw ?? null,
     securityDepositScope: snapshot.pricing ? toSecurityDepositScope(snapshot.pricing.securityDepositMode) : '-',
     validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
+    movementIntensity: snapshot.movementIntensity ?? null,
     planStops: snapshot.planStops,
     page3Blocks: [],
   };

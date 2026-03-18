@@ -28,6 +28,14 @@ enum SegmentScheduleVariant {
   earlyExtend
 }
 
+enum MovementIntensity {
+  LEVEL_1
+  LEVEL_2
+  LEVEL_3
+  LEVEL_4
+  LEVEL_5
+}
+
 enum OverrideTargetType {
   DayPlan
   TimeBlock
@@ -446,6 +454,9 @@ model LocationVersion {
   locationNameSnapshot   Json
   regionNameSnapshot     String
   defaultLodgingType     String
+  firstDayAverageDistanceKm  Float?
+  firstDayAverageTravelHours Float?
+  firstDayMovementIntensity  MovementIntensity?
 
   location      Location         @relation("LocationVersions", fields: [locationId], references: [id], onDelete: Cascade)
   currentForLocations Location[] @relation("CurrentLocationVersion")
@@ -490,6 +501,7 @@ model OvernightStayDay {
   dayOrder           Int
   averageDistanceKm  Float
   averageTravelHours Float
+  movementIntensity  MovementIntensity
   timeCellText       String @db.Text
   scheduleCellText   String @db.Text
   lodgingCellText    String @db.Text
@@ -513,6 +525,7 @@ model OvernightStayConnection {
   defaultVersionId   String?
   averageDistanceKm  Float
   averageTravelHours Float
+  movementIntensity  MovementIntensity
   isLongDistance     Boolean @default(false)
 
   region Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
@@ -538,6 +551,7 @@ model OvernightStayConnectionVersion {
   name                       String
   averageDistanceKm          Float
   averageTravelHours         Float
+  movementIntensity          MovementIntensity
   isLongDistance             Boolean @default(false)
   sortOrder                  Int
   isDefault                  Boolean @default(false)
@@ -599,6 +613,7 @@ model Segment {
   defaultVersionId   String?
   averageDistanceKm  Float
   averageTravelHours Float
+  movementIntensity  MovementIntensity
   isLongDistance     Boolean @default(false)
 
   region       Region   @relation(fields: [regionId], references: [id], onDelete: Cascade)
@@ -624,6 +639,7 @@ model SegmentVersion {
   name               String
   averageDistanceKm  Float
   averageTravelHours Float
+  movementIntensity  MovementIntensity
   isLongDistance     Boolean @default(false)
   sortOrder          Int
   isDefault          Boolean @default(false)

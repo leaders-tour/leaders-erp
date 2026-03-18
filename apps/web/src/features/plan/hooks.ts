@@ -81,6 +81,7 @@ export interface PlanVersionRow {
   variantType: string;
   totalDays: number;
   changeNote: string | null;
+  movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
   createdAt: string;
   updatedAt: string;
   meta?: PlanVersionMetaRow | null;
@@ -248,6 +249,7 @@ export interface PlanVersionDetail extends PlanVersionRow {
     locationVersionId?: string | null;
     dateCellText: string;
     destinationCellText: string;
+    movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
     timeCellText: string;
     scheduleCellText: string;
     lodgingCellText: string;
@@ -338,6 +340,7 @@ const PLANS_BY_USER_QUERY = gql`
         variantType
         totalDays
         changeNote
+        movementIntensity
         createdAt
         updatedAt
       }
@@ -384,6 +387,7 @@ const PLAN_DETAIL_QUERY = gql`
         variantType
         totalDays
         changeNote
+        movementIntensity
         createdAt
         updatedAt
       }
@@ -395,6 +399,7 @@ const PLAN_DETAIL_QUERY = gql`
         variantType
         totalDays
         changeNote
+        movementIntensity
         createdAt
         updatedAt
       }
@@ -412,6 +417,7 @@ const PLAN_VERSIONS_QUERY = gql`
       variantType
       totalDays
       changeNote
+      movementIntensity
       createdAt
       updatedAt
     }
@@ -428,6 +434,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
       variantType
       totalDays
       changeNote
+      movementIntensity
       createdAt
       updatedAt
       plan {
@@ -469,6 +476,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         locationVersionId
         dateCellText
         destinationCellText
+        movementIntensity
         timeCellText
         scheduleCellText
         lodgingCellText

@@ -61,6 +61,7 @@ type PlanVersion {
   plan: Plan!
   parentVersion: PlanVersion
   childVersions: [PlanVersion!]!
+  movementIntensity: MovementIntensity
   meta: PlanVersionMeta
   pricing: PlanVersionPricing
   planStops: [PlanStop!]!
@@ -426,6 +427,7 @@ type PlanStop {
   locationVersionId: String
   dateCellText: String!
   destinationCellText: String!
+  movementIntensity: MovementIntensity
   timeCellText: String!
   scheduleCellText: String!
   lodgingCellText: String!

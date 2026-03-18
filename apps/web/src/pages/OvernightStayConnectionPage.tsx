@@ -1,6 +1,10 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useMemo, useState } from 'react';
+import {
+  calculateMovementIntensityByHours,
+  getMovementIntensityMeta,
+} from '../features/estimate/model/movement-intensity';
 import { formatLocationNameInline } from '../features/location/display';
 import { LocationSubNav } from '../features/location/sub-nav';
 
@@ -175,6 +179,13 @@ export function OvernightStayConnectionPage(): JSX.Element {
   const filteredLocations = useMemo(() => locations.filter((location) => location.regionId === regionId), [locations, regionId]);
   const locationById = useMemo(() => new Map(locations.map((location) => [location.id, location])), [locations]);
   const stayById = useMemo(() => new Map(overnightStays.map((stay) => [stay.id, stay])), [overnightStays]);
+  const movementIntensityMeta = useMemo(() => {
+    const hours = Number(averageTravelHours);
+    if (!Number.isFinite(hours) || hours < 0) {
+      return null;
+    }
+    return getMovementIntensityMeta(calculateMovementIntensityByHours(hours));
+  }, [averageTravelHours]);
 
   const resetForm = () => {
     setEditingId(null);
@@ -282,6 +293,26 @@ export function OvernightStayConnectionPage(): JSX.Element {
             </label>
           </div>
 
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <span className="font-medium text-slate-900">자동 계산 이동강도</span>
+            <span className="ml-2">
+              {movementIntensityMeta ? (
+                <span
+                  className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+                  style={{
+                    backgroundColor: movementIntensityMeta.backgroundColor,
+                    borderColor: movementIntensityMeta.borderColor,
+                    color: movementIntensityMeta.textColor,
+                  }}
+                >
+                  {movementIntensityMeta.label}
+                </span>
+              ) : (
+                '-'
+              )}
+            </span>
+          </div>
+
           <div className="grid gap-2">
             <span className="text-sm font-medium">기본 일정 슬롯</span>
             {timeSlots.map((slot, index) => (
@@ -355,6 +386,7 @@ export function OvernightStayConnectionPage(): JSX.Element {
                 <Th>연박</Th>
                 <Th>다음 목적지</Th>
                 <Th>거리/시간</Th>
+                <Th>이동강도</Th>
                 <Th>연장 가능</Th>
                 <Th>관리</Th>
               </tr>
@@ -365,6 +397,26 @@ export function OvernightStayConnectionPage(): JSX.Element {
                   <Td>{stayById.get(row.fromOvernightStayId)?.name ?? stayById.get(row.fromOvernightStayId)?.title ?? row.fromOvernightStayId}</Td>
                   <Td>{formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? [row.toLocationId])}</Td>
                   <Td>{row.averageDistanceKm}km / {row.averageTravelHours}h</Td>
+                  <Td>
+                    {(() => {
+                      const meta = getMovementIntensityMeta(calculateMovementIntensityByHours(row.averageTravelHours));
+                      if (!meta) {
+                        return '-';
+                      }
+                      return (
+                        <span
+                          className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+                          style={{
+                            backgroundColor: meta.backgroundColor,
+                            borderColor: meta.borderColor,
+                            color: meta.textColor,
+                          }}
+                        >
+                          {meta.label}
+                        </span>
+                      );
+                    })()}
+                  </Td>
                   <Td>{row.extendScheduleTimeBlocks.length > 0 ? 'Y' : 'N'}</Td>
                   <Td>
                     <div className="flex gap-2">

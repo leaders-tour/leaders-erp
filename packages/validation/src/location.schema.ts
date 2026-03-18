@@ -58,6 +58,11 @@ const locationProfileMealsSchema = z.object({
   dinner: z.nativeEnum(MealOption).nullable().optional(),
 });
 
+const firstDayMovementMetaSchema = z.object({
+  firstDayAverageDistanceKm: z.number().min(0).optional(),
+  firstDayAverageTravelHours: z.number().min(0).optional(),
+});
+
 const locationProfileTimeSlotsSchema = z.array(locationProfileTimeSlotSchema).min(1).max(24);
 
 const locationProfileFirstDaySchema = z.object({
@@ -65,6 +70,7 @@ const locationProfileFirstDaySchema = z.object({
   isLastDayEligible: z.boolean().default(false),
   firstDayTimeSlots: locationProfileTimeSlotsSchema.optional(),
   firstDayEarlyTimeSlots: locationProfileTimeSlotsSchema.optional(),
+  ...firstDayMovementMetaSchema.shape,
 });
 
 function validateFirstDaySchedules<
@@ -72,6 +78,8 @@ function validateFirstDaySchedules<
     isFirstDayEligible?: boolean;
     firstDayTimeSlots?: unknown;
     firstDayEarlyTimeSlots?: unknown;
+    firstDayAverageDistanceKm?: unknown;
+    firstDayAverageTravelHours?: unknown;
   },
 >(value: T, ctx: z.RefinementCtx): void {
   if (!value.isFirstDayEligible) {
@@ -93,6 +101,22 @@ function validateFirstDaySchedules<
       path: ['firstDayEarlyTimeSlots'],
     });
   }
+
+  if (typeof value.firstDayAverageDistanceKm !== 'number') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'firstDayAverageDistanceKm is required when isFirstDayEligible is true',
+      path: ['firstDayAverageDistanceKm'],
+    });
+  }
+
+  if (typeof value.firstDayAverageTravelHours !== 'number') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'firstDayAverageTravelHours is required when isFirstDayEligible is true',
+      path: ['firstDayAverageTravelHours'],
+    });
+  }
 }
 
 export const locationProfileCreateSchema = z.object({
@@ -111,6 +135,7 @@ export const locationProfileUpdateSchema = locationProfileCreateSchema;
 export const locationVersionProfileSchema = z.object({
   firstDayTimeSlots: locationProfileTimeSlotsSchema.optional(),
   firstDayEarlyTimeSlots: locationProfileTimeSlotsSchema.optional(),
+  ...firstDayMovementMetaSchema.shape,
   lodging: locationProfileLodgingSchema,
   meals: locationProfileMealsSchema,
 });

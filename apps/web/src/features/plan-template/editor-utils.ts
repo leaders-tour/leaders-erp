@@ -7,6 +7,7 @@ export interface TemplatePlanRow {
   overnightStayConnectionVersionId?: string;
   locationId?: string;
   locationVersionId?: string;
+  movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
   dateCellText: string;
   destinationCellText: string;
   timeCellText: string;

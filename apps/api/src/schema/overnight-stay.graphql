@@ -20,6 +20,7 @@ type OvernightStayDay {
   dayOrder: Int!
   averageDistanceKm: Float!
   averageTravelHours: Float!
+  movementIntensity: MovementIntensity!
   timeCellText: String!
   scheduleCellText: String!
   lodgingCellText: String!
@@ -37,6 +38,7 @@ type OvernightStayConnection {
   defaultVersionId: String
   averageDistanceKm: Float!
   averageTravelHours: Float!
+  movementIntensity: MovementIntensity!
   isLongDistance: Boolean!
   fromOvernightStay: OvernightStay!
   toLocation: Location!
@@ -55,6 +57,7 @@ type OvernightStayConnectionVersion {
   name: String!
   averageDistanceKm: Float!
   averageTravelHours: Float!
+  movementIntensity: MovementIntensity!
   isLongDistance: Boolean!
   sortOrder: Int!
   isDefault: Boolean!

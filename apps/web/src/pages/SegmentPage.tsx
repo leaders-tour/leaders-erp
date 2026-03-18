@@ -2,6 +2,10 @@ import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
 import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import {
+  calculateMovementIntensityByHours,
+  getMovementIntensityMeta,
+} from '../features/estimate/model/movement-intensity';
 import { formatLocationNameInline, includesLocationNameKeyword } from '../features/location/display';
 import { LocationSubNav } from '../features/location/sub-nav';
 import {
@@ -561,6 +565,20 @@ export function SegmentPage(): JSX.Element {
   const includeEditEarly = Boolean(selectedEditFromLocation?.isFirstDayEligible);
   const includeEditExtend = Boolean(selectedEditToLocation?.isLastDayEligible);
   const includeEditEarlyExtend = includeEditEarly && includeEditExtend;
+  const createMovementIntensityMeta = useMemo(() => {
+    const hours = Number(form.averageTravelHours);
+    if (!Number.isFinite(hours) || hours < 0) {
+      return null;
+    }
+    return getMovementIntensityMeta(calculateMovementIntensityByHours(hours));
+  }, [form.averageTravelHours]);
+  const editMovementIntensityMeta = useMemo(() => {
+    const hours = Number(editForm.averageTravelHours);
+    if (!Number.isFinite(hours) || hours < 0) {
+      return null;
+    }
+    return getMovementIntensityMeta(calculateMovementIntensityByHours(hours));
+  }, [editForm.averageTravelHours]);
 
   const canSubmit =
     !!selectedFromLocation &&
@@ -738,6 +756,26 @@ export function SegmentPage(): JSX.Element {
             />
           </div>
 
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+            <span className="font-medium text-slate-900">자동 계산 이동강도</span>
+            <span className="ml-2">
+              {createMovementIntensityMeta ? (
+                <span
+                  className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+                  style={{
+                    backgroundColor: createMovementIntensityMeta.backgroundColor,
+                    borderColor: createMovementIntensityMeta.borderColor,
+                    color: createMovementIntensityMeta.textColor,
+                  }}
+                >
+                  {createMovementIntensityMeta.label}
+                </span>
+              ) : (
+                '-'
+              )}
+            </span>
+          </div>
+
           <label className="flex items-center gap-2 rounded-2xl border border-slate-200 p-4 text-sm text-slate-800">
             <input
               type="checkbox"
@@ -811,6 +849,7 @@ export function SegmentPage(): JSX.Element {
               <Th>도착지</Th>
               <Th>평균거리(km)</Th>
               <Th>평균 이동 시간(시간)</Th>
+              <Th>이동강도</Th>
               <Th>버전</Th>
               <Th>장거리</Th>
               <Th>액션</Th>
@@ -824,6 +863,26 @@ export function SegmentPage(): JSX.Element {
                 <Td>{formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? row.toLocationId)}</Td>
                 <Td>{row.averageDistanceKm}</Td>
                 <Td>{row.averageTravelHours}</Td>
+                <Td>
+                  {(() => {
+                    const meta = getMovementIntensityMeta(calculateMovementIntensityByHours(row.averageTravelHours));
+                    if (!meta) {
+                      return '-';
+                    }
+                    return (
+                      <span
+                        className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+                        style={{
+                          backgroundColor: meta.backgroundColor,
+                          borderColor: meta.borderColor,
+                          color: meta.textColor,
+                        }}
+                      >
+                        {meta.label}
+                      </span>
+                    );
+                  })()}
+                </Td>
                 <Td>
                   <div className="flex flex-wrap gap-1">
                     {row.versions.length === 0 ? (
@@ -1010,6 +1069,26 @@ export function SegmentPage(): JSX.Element {
                 onChange={(event) => setEditForm((prev) => ({ ...prev, averageDistanceKm: event.target.value }))}
                 placeholder="예: 120.5"
               />
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+              <span className="font-medium text-slate-900">자동 계산 이동강도</span>
+              <span className="ml-2">
+                {editMovementIntensityMeta ? (
+                  <span
+                    className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+                    style={{
+                      backgroundColor: editMovementIntensityMeta.backgroundColor,
+                      borderColor: editMovementIntensityMeta.borderColor,
+                      color: editMovementIntensityMeta.textColor,
+                    }}
+                  >
+                    {editMovementIntensityMeta.label}
+                  </span>
+                ) : (
+                  '-'
+                )}
+              </span>
             </div>
 
             <label className="flex items-center gap-2 rounded-2xl border border-slate-200 p-4 text-sm text-slate-800">

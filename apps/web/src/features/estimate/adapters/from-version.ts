@@ -124,10 +124,12 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     securityDepositUnitKrw: pricing?.securityDepositUnitPriceKrw ?? null,
     securityDepositScope: pricing ? toSecurityDepositScope(pricing.securityDepositMode) : '-',
     validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
+    movementIntensity: version.movementIntensity ?? null,
     planStops: version.planStops.map((row) => ({
       locationId: row.locationId ?? null,
       dateCellText: row.dateCellText,
       destinationCellText: row.destinationCellText,
+      movementIntensity: row.movementIntensity ?? null,
       timeCellText: row.timeCellText,
       scheduleCellText: row.scheduleCellText,
       lodgingCellText: row.lodgingCellText,
