@@ -8,6 +8,7 @@ const OVERNIGHT_STAYS_QUERY = gql`
   query OvernightStayListPage {
     overnightStays {
       id
+      name
       title
       locationId
       location {
@@ -29,6 +30,7 @@ const OVERNIGHT_STAYS_QUERY = gql`
 
 interface OvernightStayRow {
   id: string;
+  name: string;
   title: string;
   locationId: string;
   location: {
@@ -74,22 +76,25 @@ export function OvernightStayListPage(): JSX.Element {
                   <Th>제목</Th>
                   <Th>목적지</Th>
                   <Th>상태</Th>
-                  <Th>1일차</Th>
-                  <Th>2일차</Th>
+                  <Th>연박 일수</Th>
+                  <Th>요약</Th>
                   <Th>수정</Th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => {
-                  const day1 = row.days.find((day) => day.dayOrder === 1);
-                  const day2 = row.days.find((day) => day.dayOrder === 2);
+                  const orderedDays = row.days.slice().sort((left, right) => left.dayOrder - right.dayOrder);
                   return (
                     <tr key={row.id} className="border-t border-slate-200 align-top">
-                      <Td>{row.title}</Td>
+                      <Td>{row.name}</Td>
                       <Td>{formatLocationNameInline(row.location.name)}</Td>
                       <Td>{row.isActive ? '활성' : '비활성'}</Td>
-                      <Td>{day1 ? `${day1.averageDistanceKm}km / ${day1.averageTravelHours}h` : '-'}</Td>
-                      <Td>{day2 ? `${day2.averageDistanceKm}km / ${day2.averageTravelHours}h` : '-'}</Td>
+                      <Td>{orderedDays.length}일</Td>
+                      <Td className="whitespace-pre-line">
+                        {orderedDays.length > 0
+                          ? orderedDays.map((day) => `${day.dayOrder}일차 ${day.averageDistanceKm}km / ${day.averageTravelHours}h`).join('\n')
+                          : '-'}
+                      </Td>
                       <Td>
                         <Link to={`/locations/stays/${row.id}`} className="text-blue-700 hover:underline">
                           상세

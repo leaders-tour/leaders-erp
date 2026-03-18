@@ -23,7 +23,7 @@ interface LocationRow {
 }
 
 interface OvernightStayDayDraft {
-  dayOrder: 1 | 2;
+  dayOrder: number;
   averageDistanceKm: string;
   averageTravelHours: string;
   scheduleSlots: OvernightStayScheduleSlotInput[];
@@ -58,7 +58,7 @@ const CREATE_OVERNIGHT_STAY_MUTATION = gql`
   }
 `;
 
-function createDayDraft(dayOrder: 1 | 2): OvernightStayDayDraft {
+function createDayDraft(dayOrder: number): OvernightStayDayDraft {
   return {
     dayOrder,
     averageDistanceKm: '0',
@@ -73,6 +73,7 @@ export function OvernightStayCreatePage(): JSX.Element {
   const navigate = useNavigate();
   const [regionId, setRegionId] = useState('');
   const [locationId, setLocationId] = useState('');
+  const [name, setName] = useState('');
   const [sortOrder, setSortOrder] = useState('0');
   const [isActive, setIsActive] = useState(true);
   const [days, setDays] = useState<OvernightStayDayDraft[]>([createDayDraft(1), createDayDraft(2)]);
@@ -90,8 +91,16 @@ export function OvernightStayCreatePage(): JSX.Element {
   const selectableLocations = regionId ? filteredLocations : locations;
   const selectedLocation = locationId ? locationById.get(locationId) ?? null : null;
 
-  const updateDay = (dayOrder: 1 | 2, field: keyof OvernightStayDayDraft, value: OvernightStayDayDraft[keyof OvernightStayDayDraft]) => {
+  const updateDay = (dayOrder: number, field: keyof OvernightStayDayDraft, value: OvernightStayDayDraft[keyof OvernightStayDayDraft]) => {
     setDays((prev) => prev.map((day) => (day.dayOrder === dayOrder ? { ...day, [field]: value } : day)));
+  };
+
+  const addThirdDay = () => {
+    setDays((prev) => (prev.length >= 3 ? prev : [...prev, createDayDraft(3)]));
+  };
+
+  const removeThirdDay = () => {
+    setDays((prev) => prev.filter((day) => day.dayOrder !== 3));
   };
 
   const handleRegionChange = (nextRegionId: string) => {
@@ -118,7 +127,7 @@ export function OvernightStayCreatePage(): JSX.Element {
       <header className="flex items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">연박 생성</h1>
-          <p className="mt-1 text-sm text-slate-600">기존 목적지 기준으로 2일 연박 데이터를 등록합니다.</p>
+          <p className="mt-1 text-sm text-slate-600">기존 목적지 기준으로 2일 또는 3일 연박 데이터를 등록합니다.</p>
         </div>
         <Button variant="outline" onClick={() => navigate('/locations/stays')}>
           목록으로
@@ -130,6 +139,10 @@ export function OvernightStayCreatePage(): JSX.Element {
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-5">
           <div className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_160px_auto] lg:items-end">
+            <label className="grid gap-1 text-sm lg:col-span-2">
+              <span className="font-medium text-slate-900">연박 이름</span>
+              <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="예: 테를지 2일 표준" />
+            </label>
             <label className="grid gap-1 text-sm">
               <span className="font-medium text-slate-900">지역</span>
               <select
@@ -178,90 +191,110 @@ export function OvernightStayCreatePage(): JSX.Element {
             <span className="ml-2">{selectedLocation ? formatLocationNameInline(selectedLocation.name) : '아직 선택되지 않았습니다.'}</span>
           </div>
 
+          <div className="flex items-center gap-2">
+            {days.length < 3 ? (
+              <Button variant="outline" onClick={addThirdDay}>
+                3일차 추가
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={removeThirdDay}>
+                3일차 제거
+              </Button>
+            )}
+            <span className="text-xs text-slate-500">연박은 2일 또는 3일까지 설정할 수 있습니다.</span>
+          </div>
+
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            {days.map((day) => (
-              <div key={day.dayOrder} className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div>
-                  <h2 className="font-medium text-slate-900">{day.dayOrder}일차</h2>
-                  <p className="mt-1 text-xs text-slate-500">연결 화면과 같은 방식으로 연박 전용 내용을 직접 입력합니다.</p>
-                </div>
+            {days
+              .slice()
+              .sort((left, right) => left.dayOrder - right.dayOrder)
+              .map((day) => (
+                <div key={day.dayOrder} className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <h2 className="font-medium text-slate-900">{day.dayOrder}일차</h2>
+                    <p className="mt-1 text-xs text-slate-500">연결 화면과 같은 방식으로 연박 전용 내용을 직접 입력합니다.</p>
+                  </div>
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <label className="grid gap-1 text-sm">
-                    <span>이동거리(km)</span>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={day.averageDistanceKm}
-                      onChange={(event) => updateDay(day.dayOrder, 'averageDistanceKm', event.target.value)}
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    <span>이동시간(시간)</span>
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.5"
-                      value={day.averageTravelHours}
-                      onChange={(event) => updateDay(day.dayOrder, 'averageTravelHours', event.target.value)}
-                    />
-                  </label>
-                </div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <label className="grid gap-1 text-sm">
+                      <span>이동거리(km)</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={day.averageDistanceKm}
+                        onChange={(event) => updateDay(day.dayOrder, 'averageDistanceKm', event.target.value)}
+                      />
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      <span>이동시간(시간)</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.5"
+                        value={day.averageTravelHours}
+                        onChange={(event) => updateDay(day.dayOrder, 'averageTravelHours', event.target.value)}
+                      />
+                    </label>
+                  </div>
 
-                <OvernightStayDaySlotEditor
-                  title="시간 / 일정"
-                  description="시작시간을 추가하고 각 시간대별 활동을 입력합니다."
-                  value={day.scheduleSlots}
-                  onChange={(nextValue) => updateDay(day.dayOrder, 'scheduleSlots', nextValue)}
-                />
+                  <OvernightStayDaySlotEditor
+                    title="시간 / 일정"
+                    description="시작시간을 추가하고 각 시간대별 활동을 입력합니다."
+                    value={day.scheduleSlots}
+                    onChange={(nextValue) => updateDay(day.dayOrder, 'scheduleSlots', nextValue)}
+                  />
 
-                <div className="grid gap-3">
-                  <label className="grid gap-1 text-sm">
-                    <span>숙소</span>
-                    <textarea
-                      rows={4}
-                      value={day.lodgingCellText}
-                      onChange={(event) => updateDay(day.dayOrder, 'lodgingCellText', event.target.value)}
-                      className="rounded-xl border border-slate-200 px-3 py-2"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    <span>식사</span>
-                    <textarea
-                      rows={4}
-                      value={day.mealCellText}
-                      onChange={(event) => updateDay(day.dayOrder, 'mealCellText', event.target.value)}
-                      className="rounded-xl border border-slate-200 px-3 py-2"
-                    />
-                  </label>
+                  <div className="grid gap-3">
+                    <label className="grid gap-1 text-sm">
+                      <span>숙소</span>
+                      <textarea
+                        rows={4}
+                        value={day.lodgingCellText}
+                        onChange={(event) => updateDay(day.dayOrder, 'lodgingCellText', event.target.value)}
+                        className="rounded-xl border border-slate-200 px-3 py-2"
+                      />
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      <span>식사</span>
+                      <textarea
+                        rows={4}
+                        value={day.mealCellText}
+                        onChange={(event) => updateDay(day.dayOrder, 'mealCellText', event.target.value)}
+                        className="rounded-xl border border-slate-200 px-3 py-2"
+                      />
+                    </label>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
 
           <div className="flex gap-2">
             <Button
-              disabled={!regionId || !locationId || loading}
+              disabled={!regionId || !locationId || !name.trim() || loading}
               onClick={async () => {
                 const result = await createOvernightStay({
                   variables: {
                     input: {
                       regionId,
                       locationId,
+                      name: name.trim(),
                       sortOrder: Number(sortOrder) || 0,
                       isActive,
-                      days: days.map((day) => {
-                        const { timeCellText, scheduleCellText } = serializeOvernightStayScheduleSlots(day.scheduleSlots);
-                        return {
-                          dayOrder: day.dayOrder,
-                          averageDistanceKm: Number(day.averageDistanceKm) || 0,
-                          averageTravelHours: Number(day.averageTravelHours) || 0,
-                          timeCellText,
-                          scheduleCellText,
-                          lodgingCellText: day.lodgingCellText,
-                          mealCellText: day.mealCellText,
-                        };
-                      }),
+                      days: days
+                        .slice()
+                        .sort((left, right) => left.dayOrder - right.dayOrder)
+                        .map((day) => {
+                          const { timeCellText, scheduleCellText } = serializeOvernightStayScheduleSlots(day.scheduleSlots);
+                          return {
+                            dayOrder: day.dayOrder,
+                            averageDistanceKm: Number(day.averageDistanceKm) || 0,
+                            averageTravelHours: Number(day.averageTravelHours) || 0,
+                            timeCellText,
+                            scheduleCellText,
+                            lodgingCellText: day.lodgingCellText,
+                            mealCellText: day.mealCellText,
+                          };
+                        }),
                     },
                   },
                 });

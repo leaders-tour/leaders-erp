@@ -109,6 +109,7 @@ export interface OvernightStayOption {
   id: string;
   regionId: string;
   locationId: string;
+  name: string;
   title: string;
   isActive: boolean;
   sortOrder: number;
@@ -174,6 +175,7 @@ export interface LocationRouteSelection {
 export interface OvernightStayRouteSelection {
   kind: 'OVERNIGHT_STAY';
   overnightStayId: string;
+  stayLength: number;
   locationId: string;
   locationVersionId: string;
 }
@@ -346,6 +348,20 @@ function getOvernightStayDay(
   return overnightStay?.days.find((day) => day.dayOrder === dayOrder);
 }
 
+function getOvernightStayLength(
+  overnightStay: OvernightStayOption | undefined,
+  fallbackLength = 2,
+): number {
+  const dayCount = overnightStay?.days.length ?? fallbackLength;
+  if (dayCount < 2) {
+    return 2;
+  }
+  if (dayCount > 3) {
+    return 3;
+  }
+  return dayCount;
+}
+
 function getCurrentContext(selectedRoute: RouteSelection[], startLocationId: string):
   | { kind: 'LOCATION'; locationId: string }
   | { kind: 'OVERNIGHT_STAY'; overnightStayId: string } {
@@ -360,7 +376,7 @@ function getCurrentContext(selectedRoute: RouteSelection[], startLocationId: str
 }
 
 export function getRouteSelectionDaySpan(selection: RouteSelection): number {
-  return selection.kind === 'OVERNIGHT_STAY' ? 2 : 1;
+  return selection.kind === 'OVERNIGHT_STAY' ? selection.stayLength : 1;
 }
 
 export function getConsumedRouteDayCount(selectedRoute: RouteSelection[]): number {
@@ -657,10 +673,6 @@ export function buildOvernightStayOptions(input: {
 }): OvernightStayOption[] {
   const { filteredOvernightStays, filteredSegments, startLocationId, selectedRoute, totalDays } = input;
   const usedDays = 1 + getConsumedRouteDayCount(selectedRoute);
-  if (totalDays - usedDays < 2) {
-    return [];
-  }
-
   const context = getCurrentContext(selectedRoute, startLocationId);
   if (context.kind === 'OVERNIGHT_STAY') {
     return [];
@@ -671,7 +683,10 @@ export function buildOvernightStayOptions(input: {
   );
 
   return filteredOvernightStays.filter(
-    (overnightStay) => overnightStay.isActive && reachableLocationIds.has(overnightStay.locationId),
+    (overnightStay) =>
+      overnightStay.isActive &&
+      totalDays - usedDays >= getOvernightStayLength(overnightStay) &&
+      reachableLocationIds.has(overnightStay.locationId),
   );
 }
 
@@ -684,16 +699,16 @@ function buildOvernightStayRows(input: {
 }): TemplatePlanRow[] {
   const { overnightStay, location, locationVersionId, startingDayIndex, totalDays } = input;
   const rows: TemplatePlanRow[] = [];
+  const orderedDays = (overnightStay?.days ?? []).slice().sort((left, right) => left.dayOrder - right.dayOrder);
 
-  [1, 2].forEach((dayOrder) => {
-    const dayIndex = startingDayIndex + dayOrder - 1;
+  orderedDays.forEach((overnightStayDay) => {
+    const dayIndex = startingDayIndex + overnightStayDay.dayOrder - 1;
     if (dayIndex > totalDays) {
       return;
     }
-    const overnightStayDay = getOvernightStayDay(overnightStay, dayOrder);
     rows.push({
       overnightStayId: overnightStay?.id,
-      overnightStayDayOrder: dayOrder,
+      overnightStayDayOrder: overnightStayDay.dayOrder,
       locationId: overnightStay?.locationId,
       locationVersionId,
       dateCellText: `${dayIndex}일차`,
@@ -919,12 +934,14 @@ function buildRouteStopsFromSelections(input: {
         locationId: stop.locationId,
         locationVersionId: stop.locationVersionId,
       });
-      routeStops.push({
-        overnightStayId: stop.overnightStayId,
-        overnightStayDayOrder: 2,
-        locationId: stop.locationId,
-        locationVersionId: stop.locationVersionId,
-      });
+      for (let dayOrder = 2; dayOrder <= stop.stayLength; dayOrder += 1) {
+        routeStops.push({
+          overnightStayId: stop.overnightStayId,
+          overnightStayDayOrder: dayOrder,
+          locationId: stop.locationId,
+          locationVersionId: stop.locationVersionId,
+        });
+      }
       return;
     }
 
@@ -993,20 +1010,24 @@ export function buildSelectedRouteFromStops(
     }
 
     if (stop.overnightStayId && stop.overnightStayDayOrder === 1) {
+      let stayLength = 1;
+      let nextIndex = index + 1;
+      while (stops[nextIndex]?.overnightStayId === stop.overnightStayId) {
+        stayLength += 1;
+        nextIndex += 1;
+      }
       route.push({
         kind: 'OVERNIGHT_STAY',
         overnightStayId: stop.overnightStayId,
+        stayLength,
         locationId: stop.locationId ?? '',
         locationVersionId: stop.locationVersionId ?? '',
       });
-      const nextStop = stops[index + 1];
-      if (nextStop?.overnightStayId === stop.overnightStayId && nextStop.overnightStayDayOrder === 2) {
-        index += 1;
-      }
+      index += Math.max(stayLength - 1, 0);
       continue;
     }
 
-    if (stop.overnightStayId && stop.overnightStayDayOrder === 2) {
+    if (stop.overnightStayId && stop.overnightStayDayOrder && stop.overnightStayDayOrder > 1) {
       continue;
     }
 

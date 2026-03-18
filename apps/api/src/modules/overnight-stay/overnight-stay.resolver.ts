@@ -69,11 +69,17 @@ export const overnightStayResolver = {
   },
   OvernightStay: {
     title: (parent: any) => {
-      const rawName = parent.location?.name;
-      if (Array.isArray(rawName)) {
-        return `${rawName.join(' ')} 연박`;
+      if (typeof parent.name === 'string' && parent.name.trim().length > 0) {
+        return parent.name.trim();
       }
-      return `${String(rawName ?? parent.locationId ?? '').trim()} 연박`.trim();
+      const rawName = parent.location?.name;
+      const stayLength = Array.isArray(parent.days) ? parent.days.length : null;
+      if (Array.isArray(rawName)) {
+        const suffix = typeof stayLength === 'number' && stayLength > 0 ? ` ${stayLength}일 연박` : ' 연박';
+        return `${rawName.join(' ')}${suffix}`;
+      }
+      const suffix = typeof stayLength === 'number' && stayLength > 0 ? ` ${stayLength}일 연박` : ' 연박';
+      return `${String(rawName ?? parent.locationId ?? '').trim()}${suffix}`.trim();
     },
     outgoingConnections: (parent: any, _args: unknown, ctx: AppContext) =>
       new OvernightStayConnectionService(ctx.prisma).list({ fromOvernightStayId: parent.id }),

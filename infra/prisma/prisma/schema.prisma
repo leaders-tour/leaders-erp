@@ -465,7 +465,8 @@ model LocationVersion {
 model OvernightStay {
   id         String @id @default(uuid(7))
   regionId   String
-  locationId String @unique
+  locationId String
+  name       String
   isActive   Boolean @default(true)
   sortOrder  Int @default(0)
 
@@ -480,6 +481,7 @@ model OvernightStay {
   updatedAt DateTime @updatedAt
 
   @@index([regionId])
+  @@index([locationId])
 }
 
 model OvernightStayDay {

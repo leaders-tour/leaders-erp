@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const overnightStayDayInputSchema = z.object({
-  dayOrder: z.union([z.literal(1), z.literal(2)]),
+  dayOrder: z.number().int().min(1).max(3),
   averageDistanceKm: z.number().min(0),
   averageTravelHours: z.number().min(0),
   timeCellText: z.string(),
@@ -13,9 +13,10 @@ const overnightStayDayInputSchema = z.object({
 const overnightStayBaseSchema = z.object({
   regionId: z.string().min(1),
   locationId: z.string().min(1),
+  name: z.string().trim().min(1).max(120),
   sortOrder: z.number().int().min(0).max(100_000).default(0),
   isActive: z.boolean().default(true),
-  days: z.array(overnightStayDayInputSchema).length(2),
+  days: z.array(overnightStayDayInputSchema).min(2).max(3),
 });
 
 const overnightStayConnectionTimeSlotSchema = z.object({
@@ -53,11 +54,25 @@ const overnightStayConnectionBaseSchema = z.object({
 });
 
 export const overnightStayCreateSchema = overnightStayBaseSchema.superRefine((value, ctx) => {
-  const dayOrders = new Set(value.days.map((day) => day.dayOrder));
-  if (!dayOrders.has(1) || !dayOrders.has(2)) {
+  const orderedDayOrders = value.days
+    .map((day) => day.dayOrder)
+    .slice()
+    .sort((left, right) => left - right);
+
+  if (new Set(orderedDayOrders).size !== orderedDayOrders.length) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'days must include exactly dayOrder 1 and 2',
+      message: 'days must not contain duplicate dayOrder values',
+      path: ['days'],
+    });
+    return;
+  }
+
+  const expectedDayOrders = Array.from({ length: orderedDayOrders.length }, (_, index) => index + 1);
+  if (orderedDayOrders.some((dayOrder, index) => dayOrder !== expectedDayOrders[index])) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'days must include consecutive dayOrder values starting from 1',
       path: ['days'],
     });
   }
@@ -68,11 +83,25 @@ export const overnightStayUpdateSchema = overnightStayBaseSchema.partial().super
     return;
   }
 
-  const dayOrders = new Set(value.days.map((day) => day.dayOrder));
-  if (!dayOrders.has(1) || !dayOrders.has(2)) {
+  const orderedDayOrders = value.days
+    .map((day) => day.dayOrder)
+    .slice()
+    .sort((left, right) => left - right);
+
+  if (new Set(orderedDayOrders).size !== orderedDayOrders.length) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'days must include exactly dayOrder 1 and 2',
+      message: 'days must not contain duplicate dayOrder values',
+      path: ['days'],
+    });
+    return;
+  }
+
+  const expectedDayOrders = Array.from({ length: orderedDayOrders.length }, (_, index) => index + 1);
+  if (orderedDayOrders.some((dayOrder, index) => dayOrder !== expectedDayOrders[index])) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'days must include consecutive dayOrder values starting from 1',
       path: ['days'],
     });
   }

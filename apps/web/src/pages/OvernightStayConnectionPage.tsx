@@ -19,6 +19,7 @@ interface LocationRow {
 interface OvernightStayRow {
   id: string;
   regionId: string;
+  name: string;
   title: string;
 }
 
@@ -72,6 +73,7 @@ const OVERNIGHT_STAYS_QUERY = gql`
     overnightStays {
       id
       regionId
+      name
       title
     }
   }
@@ -249,7 +251,7 @@ export function OvernightStayConnectionPage(): JSX.Element {
               <option value="">연박 선택</option>
               {filteredStays.map((stay) => (
                 <option key={stay.id} value={stay.id}>
-                  {stay.title}
+                  {stay.name || stay.title}
                 </option>
               ))}
             </select>
@@ -360,7 +362,7 @@ export function OvernightStayConnectionPage(): JSX.Element {
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="border-t border-slate-200">
-                  <Td>{stayById.get(row.fromOvernightStayId)?.title ?? row.fromOvernightStayId}</Td>
+                  <Td>{stayById.get(row.fromOvernightStayId)?.name ?? stayById.get(row.fromOvernightStayId)?.title ?? row.fromOvernightStayId}</Td>
                   <Td>{formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? [row.toLocationId])}</Td>
                   <Td>{row.averageDistanceKm}km / {row.averageTravelHours}h</Td>
                   <Td>{row.extendScheduleTimeBlocks.length > 0 ? 'Y' : 'N'}</Td>

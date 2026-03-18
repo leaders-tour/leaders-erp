@@ -2,6 +2,7 @@ type OvernightStay {
   id: ID!
   regionId: String!
   locationId: String!
+  name: String!
   title: String!
   isActive: Boolean!
   sortOrder: Int!
@@ -124,6 +125,7 @@ input OvernightStayDayInput {
 input OvernightStayCreateInput {
   regionId: String!
   locationId: String!
+  name: String!
   sortOrder: Int
   isActive: Boolean
   days: [OvernightStayDayInput!]!
@@ -132,6 +134,7 @@ input OvernightStayCreateInput {
 input OvernightStayUpdateInput {
   regionId: String
   locationId: String
+  name: String
   sortOrder: Int
   isActive: Boolean
   days: [OvernightStayDayInput!]

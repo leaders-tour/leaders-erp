@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { MealOption, VariantType } from '../../generated/graphql';
-import type { LocationOption, SegmentOption } from './route-autofill';
-import { buildAutoRowsFromRoute, buildFirstDayOptions, buildNextOptions, buildTemplateStopsFromRouteAndRows } from './route-autofill';
+import type { LocationOption, OvernightStayOption, SegmentOption } from './route-autofill';
+import {
+  buildAutoRowsFromRoute,
+  buildFirstDayOptions,
+  buildNextOptions,
+  buildOvernightStayOptions,
+  buildTemplateStopsFromRouteAndRows,
+} from './route-autofill';
 
 const locationA: LocationOption = {
   id: 'loc-a',
@@ -309,6 +315,58 @@ const locationAVersion = locationA.variations[0]!;
 const locationBVersion = locationB.variations[0]!;
 const locationCVersion = locationC.variations[0]!;
 
+const overnightStayB2: OvernightStayOption = {
+  id: 'stay-b-2',
+  regionId: 'region-1',
+  locationId: locationB.id,
+  name: '차강소브라가 2일 표준',
+  title: '차강소브라가 연박',
+  isActive: true,
+  sortOrder: 0,
+  days: [
+    {
+      id: 'stay-b-2-day-1',
+      dayOrder: 1,
+      averageDistanceKm: 0,
+      averageTravelHours: 0,
+      timeCellText: '08:00',
+      scheduleCellText: '연박 1일차',
+      lodgingCellText: '',
+      mealCellText: '',
+    },
+    {
+      id: 'stay-b-2-day-2',
+      dayOrder: 2,
+      averageDistanceKm: 0,
+      averageTravelHours: 0,
+      timeCellText: '09:00',
+      scheduleCellText: '연박 2일차',
+      lodgingCellText: '',
+      mealCellText: '',
+    },
+  ],
+};
+
+const overnightStayB3: OvernightStayOption = {
+  ...overnightStayB2,
+  id: 'stay-b-3',
+  name: '차강소브라가 3일 확장',
+  title: '차강소브라가 3일 연박',
+  days: [
+    ...overnightStayB2.days,
+    {
+      id: 'stay-b-3-day-3',
+      dayOrder: 3,
+      averageDistanceKm: 0,
+      averageTravelHours: 0,
+      timeCellText: '10:00',
+      scheduleCellText: '연박 3일차',
+      lodgingCellText: '',
+      mealCellText: '',
+    },
+  ],
+};
+
 describe('route-autofill', () => {
   it('limits day 1 candidates to first-day eligible locations', () => {
     expect(buildFirstDayOptions([locationA, locationB, locationC]).map((location) => location.id)).toEqual(['loc-a']);
@@ -346,6 +404,18 @@ describe('route-autofill', () => {
     });
 
     expect(options.map((location) => location.id)).toEqual(['loc-c']);
+  });
+
+  it('filters overnight stay options by remaining days per stay length', () => {
+    const optionsForTwoDaysLeft = buildOvernightStayOptions({
+      filteredOvernightStays: [overnightStayB2, overnightStayB3],
+      filteredSegments: [segmentAB],
+      startLocationId: locationA.id,
+      selectedRoute: [],
+      totalDays: 3,
+    });
+
+    expect(optionsForTwoDaysLeft.map((overnightStay) => overnightStay.id)).toEqual(['stay-b-2']);
   });
 
   it('uses first-day early time blocks and early+extend segment schedules for a 2-day route', () => {
@@ -386,6 +456,35 @@ describe('route-autofill', () => {
       timeCellText: '22:00',
       scheduleCellText: '얼리+연장 이동',
     });
+  });
+
+  it('expands 3-day overnight stays into 3 rows', () => {
+    const rows = buildAutoRowsFromRoute({
+      startLocationId: locationA.id,
+      startLocationVersionId: 'ver-a',
+      selectedRoute: [
+        {
+          kind: 'OVERNIGHT_STAY',
+          overnightStayId: overnightStayB3.id,
+          stayLength: 3,
+          locationId: locationB.id,
+          locationVersionId: 'ver-b',
+        },
+      ],
+      filteredSegments: [segmentAB],
+      filteredOvernightStays: [overnightStayB3],
+      locationById: new Map([
+        [locationA.id, locationA],
+        [locationB.id, locationB],
+      ]),
+      locationVersionById: new Map([
+        ['ver-a', locationAVersion],
+        ['ver-b', locationBVersion],
+      ]),
+      totalDays: 4,
+    });
+
+    expect(rows.slice(1, 4).map((row) => row.overnightStayDayOrder)).toEqual([1, 2, 3]);
   });
 
   it('preserves segmentId in template stop payloads for day 2+', () => {

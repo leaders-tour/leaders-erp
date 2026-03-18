@@ -602,7 +602,7 @@ export class PricingService {
 
     for (let index = 1; index < planStops.length; index += 1) {
       const currentStop = planStops[index];
-      if (currentStop?.overnightStayDayOrder === 2) {
+      if ((currentStop?.overnightStayDayOrder ?? 0) > 1) {
         continue;
       }
 

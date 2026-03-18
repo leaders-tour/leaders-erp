@@ -274,6 +274,7 @@ const OVERNIGHT_STAYS_QUERY = gql`
       id
       regionId
       locationId
+      name
       title
       isActive
       sortOrder
@@ -1194,7 +1195,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                     연박 선택하기
                   </Button>
                   {formTotalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2 ? (
-                    <span className="text-xs text-slate-500">남은 일수가 2일 미만이면 연박을 선택할 수 없습니다.</span>
+                    <span className="text-xs text-slate-500">남은 일수에 맞는 연박만 선택할 수 있습니다.</span>
                   ) : null}
                 </div>
                 {isOvernightStayPickerOpen ? (
@@ -1211,6 +1212,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                             {
                               kind: 'OVERNIGHT_STAY',
                               overnightStayId: overnightStay.id,
+                              stayLength: overnightStay.days.length,
                               locationId: overnightStay.locationId,
                               locationVersionId: getDefaultVersionId(location) || '',
                             },

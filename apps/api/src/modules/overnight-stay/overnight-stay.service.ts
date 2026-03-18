@@ -110,7 +110,7 @@ export class OvernightStayService {
     return this.repository.findById(id);
   }
 
-  private async validateRegionAndLocation(regionId: string, locationId: string, excludeId?: string): Promise<void> {
+  private async validateRegionAndLocation(regionId: string, locationId: string): Promise<void> {
     const region = await this.prisma.region.findUnique({
       where: { id: regionId },
       select: { id: true },
@@ -130,13 +130,6 @@ export class OvernightStayService {
       throw new DomainError('VALIDATION_FAILED', 'Overnight stay location must belong to the selected region');
     }
 
-    const existing = await this.prisma.overnightStay.findUnique({
-      where: { locationId },
-      select: { id: true },
-    });
-    if (existing && existing.id !== excludeId) {
-      throw new DomainError('VALIDATION_FAILED', 'An overnight stay already exists for this location');
-    }
   }
 
   async create(input: OvernightStayCreateDto) {
@@ -153,6 +146,7 @@ export class OvernightStayService {
         data: {
           regionId: parsed.data.regionId,
           locationId: parsed.data.locationId,
+          name: parsed.data.name.trim(),
           sortOrder: parsed.data.sortOrder,
           isActive: parsed.data.isActive,
         },
@@ -180,7 +174,7 @@ export class OvernightStayService {
 
     const nextRegionId = parsed.data.regionId ?? existing.regionId;
     const nextLocationId = parsed.data.locationId ?? existing.locationId;
-    await this.validateRegionAndLocation(nextRegionId, nextLocationId, id);
+    await this.validateRegionAndLocation(nextRegionId, nextLocationId);
 
     return this.prisma.$transaction(async (tx) => {
       const repository = new OvernightStayRepository(tx);
@@ -189,6 +183,7 @@ export class OvernightStayService {
         data: {
           ...(parsed.data.regionId !== undefined ? { regionId: nextRegionId } : {}),
           ...(parsed.data.locationId !== undefined ? { locationId: nextLocationId } : {}),
+          ...(parsed.data.name !== undefined ? { name: parsed.data.name.trim() } : {}),
           ...(parsed.data.sortOrder !== undefined ? { sortOrder: parsed.data.sortOrder } : {}),
           ...(parsed.data.isActive !== undefined ? { isActive: parsed.data.isActive } : {}),
         },

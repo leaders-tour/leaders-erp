@@ -5,7 +5,7 @@ export const planTemplateStopInputSchema = z.object({
   segmentId: z.string().min(1).optional(),
   segmentVersionId: z.string().min(1).optional(),
   overnightStayId: z.string().min(1).optional(),
-  overnightStayDayOrder: z.number().int().min(1).max(2).optional(),
+  overnightStayDayOrder: z.number().int().min(1).max(3).optional(),
   overnightStayConnectionId: z.string().min(1).optional(),
   overnightStayConnectionVersionId: z.string().min(1).optional(),
   locationId: z.string().min(1).optional(),
