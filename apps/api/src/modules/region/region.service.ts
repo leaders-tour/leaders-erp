@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import { regionCreateSchema, regionUpdateSchema } from '@tour/validation';
-import { DomainError } from '../../lib/errors';
+import { createValidationError } from '../../lib/errors';
 import { regionInclude } from './region.mapper';
 import { RegionRepository } from './region.repository';
 import type { RegionCreateDto, RegionUpdateDto } from './region.types';
@@ -23,7 +23,7 @@ export class RegionService {
   create(input: RegionCreateDto) {
     const parsed = regionCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid region input');
+      throw createValidationError('Invalid region input', parsed.error);
     }
 
     return this.repository.create(parsed.data);
@@ -32,7 +32,7 @@ export class RegionService {
   async update(id: string, input: RegionUpdateDto) {
     const parsed = regionUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid region update input');
+      throw createValidationError('Invalid region update input', parsed.error);
     }
 
     if (!parsed.data.name) {

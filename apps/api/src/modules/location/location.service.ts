@@ -10,7 +10,7 @@ import {
   type LocationProfileTimeSlotInput,
 } from '@tour/validation';
 import { calculateMovementIntensity } from '../../lib/movement-intensity';
-import { DomainError } from '../../lib/errors';
+import { createValidationError, DomainError } from '../../lib/errors';
 import { locationInclude, locationVersionInclude } from './location.mapper';
 import { LocationRepository } from './location.repository';
 import type {
@@ -55,15 +55,6 @@ interface VersionProfileSnapshot {
   firstDayAverageTravelHours?: number;
   lodging: LocationProfileLodgingInput;
   meals: LocationProfileMealsInput;
-}
-
-function toValidationDetails(error: { issues: Array<{ path: Array<string | number>; message: string }> }): Record<string, string> {
-  return Object.fromEntries(
-    error.issues.map((issue, index) => [
-      issue.path.length > 0 ? issue.path.join('.') : `issue_${index + 1}`,
-      issue.message,
-    ]),
-  );
 }
 
 export class LocationService {
@@ -383,7 +374,7 @@ export class LocationService {
   create(input: LocationCreateDto) {
     const parsed = locationCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid location input');
+      throw createValidationError('Invalid location input', parsed.error);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -416,7 +407,7 @@ export class LocationService {
   async createProfile(input: LocationProfileCreateDto) {
     const parsed = locationProfileCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid location profile input', toValidationDetails(parsed.error));
+      throw createValidationError('Invalid location profile input', parsed.error);
     }
 
     this.validateFirstDayProfile({
@@ -479,7 +470,7 @@ export class LocationService {
   async createVersion(input: LocationVersionCreateDto) {
     const parsed = locationVersionCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid location version input');
+      throw createValidationError('Invalid location version input', parsed.error);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -584,7 +575,7 @@ export class LocationService {
   async update(id: string, input: LocationUpdateDto) {
     const parsed = locationUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid location update input');
+      throw createValidationError('Invalid location update input', parsed.error);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -623,7 +614,7 @@ export class LocationService {
   async updateProfile(id: string, input: LocationProfileUpdateDto) {
     const parsed = locationProfileUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid location profile update input', toValidationDetails(parsed.error));
+      throw createValidationError('Invalid location profile update input', parsed.error);
     }
 
     this.validateFirstDayProfile({

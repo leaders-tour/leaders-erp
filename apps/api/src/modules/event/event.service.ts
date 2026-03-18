@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import { eventCreateSchema, eventUpdateSchema } from '@tour/validation';
-import { DomainError } from '../../lib/errors';
+import { createValidationError, DomainError } from '../../lib/errors';
 import { EventRepository } from './event.repository';
 import type { EventCreateDto, EventUpdateDto } from './event.types';
 
@@ -22,7 +22,7 @@ export class EventService {
   create(input: EventCreateDto) {
     const parsed = eventCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid event input');
+      throw createValidationError('Invalid event input', parsed.error);
     }
 
     return this.repository.create(parsed.data);
@@ -31,7 +31,7 @@ export class EventService {
   update(id: string, input: EventUpdateDto) {
     const parsed = eventUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid event update input');
+      throw createValidationError('Invalid event update input', parsed.error);
     }
 
     return this.repository.update(id, parsed.data);

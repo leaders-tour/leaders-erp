@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import { activityCreateSchema, activityUpdateSchema } from '@tour/validation';
-import { DomainError } from '../../lib/errors';
+import { createValidationError } from '../../lib/errors';
 import { ActivityRepository } from './activity.repository';
 import type { ActivityCreateDto, ActivityUpdateDto } from './activity.types';
 
@@ -22,7 +22,7 @@ export class ActivityService {
   create(input: ActivityCreateDto) {
     const parsed = activityCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid activity input');
+      throw createValidationError('Invalid activity input', parsed.error);
     }
 
     return this.repository.create(parsed.data);
@@ -31,7 +31,7 @@ export class ActivityService {
   update(id: string, input: ActivityUpdateDto) {
     const parsed = activityUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid activity update input');
+      throw createValidationError('Invalid activity update input', parsed.error);
     }
 
     return this.repository.update(id, parsed.data);

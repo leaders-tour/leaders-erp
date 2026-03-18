@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import { regionLodgingCreateSchema, regionLodgingUpdateSchema } from '@tour/validation';
-import { DomainError } from '../../lib/errors';
+import { createValidationError, DomainError } from '../../lib/errors';
 import { RegionLodgingRepository } from './region-lodging.repository';
 import type { RegionLodgingCreateDto, RegionLodgingUpdateDto } from './region-lodging.types';
 
@@ -33,7 +33,7 @@ export class RegionLodgingService {
   async create(input: RegionLodgingCreateDto) {
     const parsed = regionLodgingCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid region lodging input');
+      throw createValidationError('Invalid region lodging input', parsed.error);
     }
 
     await this.ensureRegionExists(parsed.data.regionId);
@@ -48,7 +48,7 @@ export class RegionLodgingService {
   async update(id: string, input: RegionLodgingUpdateDto) {
     const parsed = regionLodgingUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid region lodging update input');
+      throw createValidationError('Invalid region lodging update input', parsed.error);
     }
 
     const existing = await this.repository.findById(id);

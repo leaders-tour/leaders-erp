@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { lodgingCreateSchema, lodgingUpdateSchema } from '@tour/validation';
-import { DomainError } from '../../lib/errors';
+import { createValidationError, DomainError } from '../../lib/errors';
 import { LodgingRepository } from './lodging.repository';
 import type { LodgingCreateDto, LodgingUpdateDto } from './lodging.types';
 
@@ -52,7 +52,7 @@ export class LodgingService {
   async create(input: LodgingCreateDto) {
     const parsed = lodgingCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid lodging input');
+      throw createValidationError('Invalid lodging input', parsed.error);
     }
 
     let locationId = parsed.data.locationId;
@@ -104,7 +104,7 @@ export class LodgingService {
   async update(id: string, input: LodgingUpdateDto) {
     const parsed = lodgingUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid lodging update input');
+      throw createValidationError('Invalid lodging update input', parsed.error);
     }
 
     if (!parsed.data.locationId && !parsed.data.locationVersionId) {

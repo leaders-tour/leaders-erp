@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { locationGuideCreateSchema, locationGuideUpdateSchema } from '@tour/validation';
 import { FileStorageClient, type UploadFile } from '../../lib/file-storage/client';
-import { DomainError } from '../../lib/errors';
+import { createValidationError, DomainError } from '../../lib/errors';
 import { LocationGuideRepository } from './location-guide.repository';
 import type { FileUploadLike, LocationGuideCreateDto, LocationGuideUpdateDto } from './location-guide.types';
 
@@ -28,7 +28,7 @@ export class LocationGuideService {
   async create(input: LocationGuideCreateDto) {
     const parsed = locationGuideCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid location guide input');
+      throw createValidationError('Invalid location guide input', parsed.error);
     }
 
     const locationId = parsed.data.locationId.trim();
@@ -45,7 +45,7 @@ export class LocationGuideService {
   async update(id: string, input: LocationGuideUpdateDto) {
     const parsed = locationGuideUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid location guide update input');
+      throw createValidationError('Invalid location guide update input', parsed.error);
     }
 
     const current = await this.repository.findById(id);

@@ -7,7 +7,7 @@ import {
   type OvernightStayConnectionTimeSlotInput,
   type OvernightStayConnectionVersionInput,
 } from '@tour/validation';
-import { DomainError } from '../../lib/errors';
+import { createValidationError, DomainError } from '../../lib/errors';
 import { calculateMovementIntensity } from '../../lib/movement-intensity';
 import { OvernightStayConnectionRepository, OvernightStayRepository } from './overnight-stay.repository';
 import type {
@@ -137,7 +137,7 @@ export class OvernightStayService {
   async create(input: OvernightStayCreateDto) {
     const parsed = overnightStayCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid overnight stay input');
+      throw createValidationError('Invalid overnight stay input', parsed.error);
     }
 
     await this.validateRegionAndLocation(parsed.data.regionId, parsed.data.locationId);
@@ -171,7 +171,7 @@ export class OvernightStayService {
   async update(id: string, input: OvernightStayUpdateDto) {
     const parsed = overnightStayUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid overnight stay update input');
+      throw createValidationError('Invalid overnight stay update input', parsed.error);
     }
 
     const existing = await this.repository.findById(id);
@@ -644,7 +644,7 @@ export class OvernightStayConnectionService {
   async create(input: OvernightStayConnectionCreateDto) {
     const parsed = overnightStayConnectionCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid overnight stay connection input');
+      throw createValidationError('Invalid overnight stay connection input', parsed.error);
     }
 
     const region = await this.prisma.region.findUnique({
@@ -687,7 +687,7 @@ export class OvernightStayConnectionService {
   async update(id: string, input: OvernightStayConnectionUpdateDto) {
     const parsed = overnightStayConnectionUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid overnight stay connection update input');
+      throw createValidationError('Invalid overnight stay connection update input', parsed.error);
     }
 
     const existing = await this.repository.findById(id);

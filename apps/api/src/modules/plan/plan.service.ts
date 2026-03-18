@@ -12,7 +12,7 @@ import {
   userNoteCreateSchema,
   userUpdateSchema,
 } from '@tour/validation';
-import { DomainError } from '../../lib/errors';
+import { createValidationError, DomainError } from '../../lib/errors';
 import { PricingService } from '../pricing/pricing.service';
 import { PlanRepository } from './plan.repository';
 import type {
@@ -464,7 +464,7 @@ export class PlanService {
   async createUser(input: UserCreateDto) {
     const parsed = userCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid user input');
+      throw createValidationError('Invalid user input', parsed.error);
     }
 
     await this.validateOwnerEmployeeId(parsed.data.ownerEmployeeId);
@@ -474,7 +474,7 @@ export class PlanService {
   async updateUser(id: string, input: UserUpdateDto) {
     const parsed = userUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid user update input');
+      throw createValidationError('Invalid user update input', parsed.error);
     }
 
     const existing = await new PlanRepository(this.prisma).findUserById(id);
@@ -493,7 +493,7 @@ export class PlanService {
   async createUserNote(input: UserNoteCreateDto) {
     const parsed = userNoteCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid user note input');
+      throw createValidationError('Invalid user note input', parsed.error);
     }
 
     const existing = await new PlanRepository(this.prisma).findUserById(parsed.data.userId);
@@ -507,7 +507,7 @@ export class PlanService {
   async listUserDealTodos(input: UserDealTodosQueryDto) {
     const parsed = userDealTodosQuerySchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid user deal todo query');
+      throw createValidationError('Invalid user deal todo query', parsed.error);
     }
 
     const existing = await new PlanRepository(this.prisma).findUserById(parsed.data.userId);
@@ -521,7 +521,7 @@ export class PlanService {
   async updateUserDealTodoStatus(input: UserDealTodoStatusUpdateDto) {
     const parsed = userDealTodoStatusUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid user deal todo status input');
+      throw createValidationError('Invalid user deal todo status input', parsed.error);
     }
 
     const existing = await this.prisma.userDealTodo.findUnique({
@@ -539,7 +539,7 @@ export class PlanService {
   async reorderDealPipeline(input: DealPipelineReorderDto) {
     const parsed = dealPipelineReorderSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid deal pipeline reorder input');
+      throw createValidationError('Invalid deal pipeline reorder input', parsed.error);
     }
 
     const userIds = parsed.data.updates.map((update) => update.userId);
@@ -697,7 +697,7 @@ export class PlanService {
   async previewPricing(input: PlanPricingPreviewDto) {
     const parsed = planPricingPreviewSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid pricing preview input');
+      throw createValidationError('Invalid pricing preview input', parsed.error);
     }
 
     const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.planStops);
@@ -717,7 +717,7 @@ export class PlanService {
   async create(input: PlanCreateDto) {
     const parsed = planCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid plan input');
+      throw createValidationError('Invalid plan input', parsed.error);
     }
 
     if (parsed.data.initialVersion.planStops.length !== parsed.data.initialVersion.totalDays) {
@@ -780,7 +780,7 @@ export class PlanService {
   async update(id: string, input: PlanUpdateDto) {
     const parsed = planUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid plan update input');
+      throw createValidationError('Invalid plan update input', parsed.error);
     }
 
     const existing = await new PlanRepository(this.prisma).findById(id);
@@ -805,7 +805,7 @@ export class PlanService {
   async createVersion(input: PlanVersionCreateDto) {
     const parsed = planVersionCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid plan version input');
+      throw createValidationError('Invalid plan version input', parsed.error);
     }
 
     if (parsed.data.planStops.length !== parsed.data.totalDays) {

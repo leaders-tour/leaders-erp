@@ -397,19 +397,20 @@ export interface LocationDetailData {
 function toProfileBody(input: LocationVersionProfileFormInput) {
   const firstDayAverageDistanceKm = input.firstDayAverageDistanceKm.trim();
   const firstDayAverageTravelHours = input.firstDayAverageTravelHours.trim();
-  const normalizeTimeSlots = (slots: LocationProfileTimeSlotFormInput[]) =>
-    slots
-      .map((slot) => ({
-        startTime: slot.startTime.trim(),
-        activities: slot.activities
-          .map((activity) => activity.trim())
-          .filter((activity) => activity.length > 0),
-      }))
-      .filter((slot) => slot.startTime.length > 0 || slot.activities.length > 0);
 
   return {
-    firstDayTimeSlots: normalizeTimeSlots(input.firstDayTimeSlots),
-    firstDayEarlyTimeSlots: normalizeTimeSlots(input.firstDayEarlyTimeSlots),
+    firstDayTimeSlots: input.firstDayTimeSlots.map((slot) => ({
+      startTime: slot.startTime.trim(),
+      activities: slot.activities
+        .map((activity) => activity.trim())
+        .filter((activity) => activity.length > 0),
+    })),
+    firstDayEarlyTimeSlots: input.firstDayEarlyTimeSlots.map((slot) => ({
+      startTime: slot.startTime.trim(),
+      activities: slot.activities
+        .map((activity) => activity.trim())
+        .filter((activity) => activity.length > 0),
+    })),
     firstDayAverageDistanceKm: firstDayAverageDistanceKm.length > 0 ? Number(firstDayAverageDistanceKm) : undefined,
     firstDayAverageTravelHours: firstDayAverageTravelHours.length > 0 ? Number(firstDayAverageTravelHours) : undefined,
     lodging: {

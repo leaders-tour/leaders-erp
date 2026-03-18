@@ -1,6 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import { timeBlockCreateSchema, timeBlockUpdateSchema } from '@tour/validation';
-import { DomainError } from '../../lib/errors';
+import { createValidationError, DomainError } from '../../lib/errors';
 import { TimeBlockRepository } from './time-block.repository';
 import type { TimeBlockCreateDto, TimeBlockUpdateDto } from './time-block.types';
 
@@ -22,7 +22,7 @@ export class TimeBlockService {
   async create(input: TimeBlockCreateDto) {
     const parsed = timeBlockCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid time block input');
+      throw createValidationError('Invalid time block input', parsed.error);
     }
 
     let locationId = parsed.data.locationId;
@@ -71,7 +71,7 @@ export class TimeBlockService {
   async update(id: string, input: TimeBlockUpdateDto) {
     const parsed = timeBlockUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid time block update input');
+      throw createValidationError('Invalid time block update input', parsed.error);
     }
 
     if (!parsed.data.locationId && !parsed.data.locationVersionId) {

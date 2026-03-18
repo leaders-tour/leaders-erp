@@ -434,20 +434,7 @@ export function LocationProfileForm({
                     type="checkbox"
                     checked={form.isFirstDayEligible}
                     disabled={eligibilityReadOnly}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        isFirstDayEligible: event.target.checked,
-                        firstDayTimeSlots:
-                          event.target.checked && prev.firstDayTimeSlots.length === 0
-                            ? DEFAULT_SLOT_TIMES.map((slot) => createSlot(slot))
-                            : prev.firstDayTimeSlots,
-                        firstDayEarlyTimeSlots:
-                          event.target.checked && prev.firstDayEarlyTimeSlots.length === 0
-                            ? DEFAULT_SLOT_TIMES.map((slot) => createSlot(slot))
-                            : prev.firstDayEarlyTimeSlots,
-                      }))
-                    }
+                    onChange={(event) => setForm((prev) => ({ ...prev, isFirstDayEligible: event.target.checked }))}
                   />
                   첫날 가능
                 </label>

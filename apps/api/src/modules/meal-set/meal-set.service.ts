@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { mealSetCreateSchema, mealSetUpdateSchema } from '@tour/validation';
-import { DomainError } from '../../lib/errors';
+import { createValidationError, DomainError } from '../../lib/errors';
 import { MealSetRepository } from './meal-set.repository';
 import type { MealSetCreateDto, MealSetUpdateDto } from './meal-set.types';
 
@@ -32,7 +32,7 @@ export class MealSetService {
   async create(input: MealSetCreateDto) {
     const parsed = mealSetCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid meal set input');
+      throw createValidationError('Invalid meal set input', parsed.error);
     }
 
     let locationId = parsed.data.locationId;
@@ -84,7 +84,7 @@ export class MealSetService {
   async update(id: string, input: MealSetUpdateDto) {
     const parsed = mealSetUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid meal set update input');
+      throw createValidationError('Invalid meal set update input', parsed.error);
     }
 
     if (!parsed.data.locationId && !parsed.data.locationVersionId) {

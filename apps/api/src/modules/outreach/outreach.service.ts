@@ -1,6 +1,6 @@
 import { CafeLeadStatus, OutreachReviewStatus, type PrismaClient } from '@prisma/client';
 import { outreachDraftEditSchema } from '@tour/validation';
-import { DomainError } from '../../lib/errors';
+import { createValidationError, DomainError } from '../../lib/errors';
 import { OutreachRepository } from './outreach.repository';
 import type { CafeLeadFilterDto, OutreachDraftEditDto } from './outreach.types';
 
@@ -88,7 +88,7 @@ export class OutreachService {
   async editDraftAndApprove(draftId: string, input: OutreachDraftEditDto, reviewerId: string) {
     const parsed = outreachDraftEditSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid outreach draft input');
+      throw createValidationError('Invalid outreach draft input', parsed.error);
     }
 
     await this.getApprovedDraftOrThrow(draftId);

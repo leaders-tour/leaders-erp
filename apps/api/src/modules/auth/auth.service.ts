@@ -19,7 +19,7 @@ import {
   verifyPassword,
   type AuthenticatedEmployee,
 } from '../../lib/auth';
-import { DomainError } from '../../lib/errors';
+import { createValidationError, DomainError } from '../../lib/errors';
 import { AuthRepository } from './auth.repository';
 import type {
   EmployeeCreateDto,
@@ -98,7 +98,7 @@ export class AuthService {
   async login(input: LoginDto, metadata: { res: Response; userAgent?: string | null }) {
     const parsed = loginSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid login input');
+      throw createValidationError('Invalid login input', parsed.error);
     }
 
     const employee = await new AuthRepository(this.prisma).findEmployeeByEmail(parsed.data.email);
@@ -117,7 +117,7 @@ export class AuthService {
   async registerEmployee(input: EmployeeSelfSignupDto, metadata: { res: Response; userAgent?: string | null }) {
     const parsed = employeeSelfSignupSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid employee signup input');
+      throw createValidationError('Invalid employee signup input', parsed.error);
     }
 
     const repository = new AuthRepository(this.prisma);
@@ -186,7 +186,7 @@ export class AuthService {
   async createEmployee(input: EmployeeCreateDto) {
     const parsed = employeeCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid employee input');
+      throw createValidationError('Invalid employee input', parsed.error);
     }
 
     const existing = await new AuthRepository(this.prisma).findEmployeeByEmail(parsed.data.email);
@@ -204,7 +204,7 @@ export class AuthService {
   async updateEmployee(id: string, input: EmployeeUpdateDto) {
     const parsed = employeeUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid employee update input');
+      throw createValidationError('Invalid employee update input', parsed.error);
     }
 
     const existing = await new AuthRepository(this.prisma).findEmployeeForAdminChecks(id);
@@ -226,7 +226,7 @@ export class AuthService {
   async resetEmployeePassword(id: string, input: EmployeePasswordResetDto) {
     const parsed = employeePasswordResetSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid employee password reset input');
+      throw createValidationError('Invalid employee password reset input', parsed.error);
     }
 
     const existing = await new AuthRepository(this.prisma).findEmployeeForAdminChecks(id);

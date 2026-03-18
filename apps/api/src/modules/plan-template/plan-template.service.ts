@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { planTemplateCreateSchema, planTemplateUpdateSchema } from '@tour/validation';
-import { DomainError } from '../../lib/errors';
+import { createValidationError, DomainError } from '../../lib/errors';
 import { PlanTemplateRepository } from './plan-template.repository';
 import type { PlanTemplateCreateDto, PlanTemplateUpdateDto } from './plan-template.types';
 
@@ -392,7 +392,7 @@ export class PlanTemplateService {
   async create(input: PlanTemplateCreateDto) {
     const parsed = planTemplateCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid plan template input');
+      throw createValidationError('Invalid plan template input', parsed.error);
     }
 
     await this.ensureRegionExists(parsed.data.regionId);
@@ -421,7 +421,7 @@ export class PlanTemplateService {
   async update(id: string, input: PlanTemplateUpdateDto) {
     const parsed = planTemplateUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw new DomainError('VALIDATION_FAILED', 'Invalid plan template update input');
+      throw createValidationError('Invalid plan template update input', parsed.error);
     }
 
     const repository = new PlanTemplateRepository(this.prisma);
