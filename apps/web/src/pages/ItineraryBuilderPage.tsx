@@ -3188,10 +3188,10 @@ export function ItineraryBuilderPage(): JSX.Element {
           </Card>
         ) : null}
 
-        <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <h2 className="font-medium">설정</h2>
-            <div className="mt-3 grid gap-3">
+            <h2 className="text-lg font-bold text-slate-900">설정</h2>
+            <div className="mt-4 grid gap-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
               {isVersionMode ? (
                 <label className="grid gap-1 text-sm">
                   <span className="text-xs text-slate-600">변경 메모</span>
@@ -3615,9 +3615,9 @@ export function ItineraryBuilderPage(): JSX.Element {
           </Card>
 
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <h2 className="font-medium">항공 / 픽업 / 드랍</h2>
+            <h2 className="text-lg font-bold text-slate-900">항공 / 픽업 / 드랍</h2>
             <p className="mt-1 text-xs text-slate-600">팀별 이동 정보와 실투어 외 픽드랍을 한 곳에서 설정합니다.</p>
-            <div className="mt-4 grid gap-4">
+            <div className="mt-5 grid gap-5 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-5">
               <div className="grid gap-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs text-slate-600">팀별 항공 / 픽업 / 드랍</span>
@@ -3881,9 +3881,9 @@ export function ItineraryBuilderPage(): JSX.Element {
           </Card>
 
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <h2 className="font-medium">일차별 목적지 선택</h2>
+            <h2 className="text-lg font-bold text-slate-900">일차별 목적지 선택</h2>
             <p className="mt-1 text-xs text-slate-600">이전 일차와 연결 가능한 목적지만 버튼으로 노출됩니다.</p>
-            <div className="mt-3 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
+            <div className="mt-4 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
               <div className="text-xs font-semibold text-slate-700">템플릿 불러오기 (현재 지역/일수)</div>
               <div className="flex flex-wrap items-center gap-2">
                 <select
@@ -3917,7 +3917,7 @@ export function ItineraryBuilderPage(): JSX.Element {
               ) : null}
             </div>
 
-            <div className="mt-4 space-y-4">
+            <div className="mt-4 space-y-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                 <div className="text-sm font-medium">1일차 출발지</div>
                 {startLocationId ? (
@@ -4307,7 +4307,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 p-4">
-            <h2 className="font-medium">일정표 편집기</h2>
+            <h2 className="text-lg font-bold text-slate-900">일정표 편집기</h2>
             <p className="mt-1 text-xs text-slate-600">숙소 셀은 선택값으로 자동 생성되며 식사 셀은 아침/점심/저녁 3칸 입력으로 편집됩니다.</p>
           </div>
 
@@ -4522,9 +4522,9 @@ export function ItineraryBuilderPage(): JSX.Element {
           </div>
         </section>
 
-        <section className="space-y-4">
+        <section className="space-y-5">
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <h2 className="font-medium">금액</h2>
+            <h2 className="text-lg font-bold text-slate-900">금액</h2>
             {pricingPreviewError ? (
               <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
                 {pricingPreviewErrorMessage}
@@ -4749,7 +4749,7 @@ export function ItineraryBuilderPage(): JSX.Element {
               aria-controls="builder-validation-panel"
               onClick={() => setIsValidationOpen((prev) => !prev)}
             >
-              <h2 className="font-medium">검증</h2>
+              <h2 className="text-lg font-bold text-slate-900">검증</h2>
               <span className="text-xs text-slate-500">{isValidationOpen ? '닫기' : '열기'}</span>
             </button>
             {isValidationOpen ? (
@@ -4784,7 +4784,7 @@ export function ItineraryBuilderPage(): JSX.Element {
               aria-controls="builder-payload-preview-panel"
               onClick={() => setIsPayloadPreviewOpen((prev) => !prev)}
             >
-              <h2 className="font-medium">저장 데이터 미리보기</h2>
+              <h2 className="text-lg font-bold text-slate-900">저장 데이터 미리보기</h2>
               <span className="text-xs text-slate-500">{isPayloadPreviewOpen ? '닫기' : '열기'}</span>
             </button>
             {isPayloadPreviewOpen ? (
