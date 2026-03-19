@@ -3619,26 +3619,6 @@ export function ItineraryBuilderPage(): JSX.Element {
               <div className="grid gap-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs text-slate-600">팀별 항공 / 픽업 / 드랍</span>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      const usedHeadcount = transportGroups.reduce((sum, group) => sum + group.headcount, 0);
-                      const remainingHeadcount = Math.max(headcountTotal - usedHeadcount, 0);
-                      setTransportGroups((current) => [
-                        ...current,
-                        createTransportGroupDraft({
-                          index: current.length,
-                          headcount: remainingHeadcount > 0 ? remainingHeadcount : 1,
-                          travelStartDate,
-                          travelEndDate,
-                          flightInTime: '02:45',
-                          flightOutTime: '18:15',
-                        }),
-                      ]);
-                    }}
-                  >
-                    팀 추가
-                  </Button>
                 </div>
 
                 <div className="grid gap-4">
@@ -3848,6 +3828,30 @@ export function ItineraryBuilderPage(): JSX.Element {
                       </div>
                     </div>
                   ))}
+
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const usedHeadcount = transportGroups.reduce((sum, group) => sum + group.headcount, 0);
+                        const remainingHeadcount = Math.max(headcountTotal - usedHeadcount, 0);
+                        setTransportGroups((current) => [
+                          ...current,
+                          createTransportGroupDraft({
+                            index: current.length,
+                            headcount: remainingHeadcount > 0 ? remainingHeadcount : 1,
+                            travelStartDate,
+                            travelEndDate,
+                            flightInTime: '02:45',
+                            flightOutTime: '18:15',
+                          }),
+                        ]);
+                      }}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900"
+                    >
+                      + 팀 추가
+                    </button>
+                  </div>
                 </div>
               </div>
 
