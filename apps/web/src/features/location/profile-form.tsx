@@ -23,12 +23,74 @@ const DEFAULT_SLOT_TIMES = ['08:00', '12:00', '18:00'] as const;
 
 export type LocationProfileFormValue = LocationProfileFormInput;
 type TimeSlotField = 'firstDayTimeSlots' | 'firstDayEarlyTimeSlots';
+type TimeSlotPasteHelperValue = {
+  timeCellText: string;
+  scheduleCellText: string;
+};
 
 function createSlot(startTime: string): LocationProfileFormInput['firstDayTimeSlots'][number] {
   return {
     startTime,
     activities: ['', '', '', ''],
   };
+}
+
+function createEmptyPasteHelperValue(): Record<TimeSlotField, TimeSlotPasteHelperValue> {
+  return {
+    firstDayTimeSlots: {
+      timeCellText: '',
+      scheduleCellText: '',
+    },
+    firstDayEarlyTimeSlots: {
+      timeCellText: '',
+      scheduleCellText: '',
+    },
+  };
+}
+
+function parseLocationProfileTimeSlots(
+  timeCellText: string,
+  scheduleCellText: string,
+): LocationProfileFormInput['firstDayTimeSlots'] {
+  const timeLines = timeCellText.split(/\r?\n/);
+  const scheduleLines = scheduleCellText.split(/\r?\n/);
+  const lineCount = Math.max(timeLines.length, scheduleLines.length);
+  const slots: LocationProfileFormInput['firstDayTimeSlots'] = [];
+
+  for (let index = 0; index < lineCount; index += 1) {
+    const timeLine = timeLines[index]?.trim() ?? '';
+    const scheduleLine = scheduleLines[index] ?? '';
+
+    if (timeLine && timeLine !== '-') {
+      slots.push({
+        startTime: timeLine,
+        activities: [scheduleLine],
+      });
+      continue;
+    }
+
+    const currentSlot = slots[slots.length - 1];
+    if (!currentSlot) {
+      if (scheduleLine.trim()) {
+        slots.push({
+          startTime: '',
+          activities: [scheduleLine],
+        });
+      }
+      continue;
+    }
+
+    currentSlot.activities.push(scheduleLine);
+  }
+
+  if (slots.length === 0) {
+    return [createSlot('')];
+  }
+
+  return slots.map((slot) => ({
+    ...slot,
+    activities: slot.activities.length > 0 ? slot.activities : [''],
+  }));
 }
 
 function getNextSlotTime(currentSlots: LocationProfileFormInput['firstDayTimeSlots']): string {
@@ -93,6 +155,7 @@ export function LocationProfileForm({
 }: LocationProfileFormProps): JSX.Element {
   const { data: regionData } = useQuery<{ regions: Region[] }>(REGIONS_QUERY);
   const [form, setForm] = useState<LocationProfileFormValue>(value);
+  const [pasteHelpers, setPasteHelpers] = useState<Record<TimeSlotField, TimeSlotPasteHelperValue>>(createEmptyPasteHelperValue);
 
   useEffect(() => {
     setForm(value);
@@ -222,6 +285,33 @@ export function LocationProfileForm({
     });
   };
 
+  const updatePasteHelper = (field: TimeSlotField, key: keyof TimeSlotPasteHelperValue, nextValue: string) => {
+    setPasteHelpers((prev) => ({
+      ...prev,
+      [field]: {
+        ...prev[field],
+        [key]: nextValue,
+      },
+    }));
+  };
+
+  const applyPasteHelper = (field: TimeSlotField) => {
+    setForm((prev) => ({
+      ...prev,
+      [field]: parseLocationProfileTimeSlots(pasteHelpers[field].timeCellText, pasteHelpers[field].scheduleCellText),
+    }));
+  };
+
+  const clearPasteHelper = (field: TimeSlotField) => {
+    setPasteHelpers((prev) => ({
+      ...prev,
+      [field]: {
+        timeCellText: '',
+        scheduleCellText: '',
+      },
+    }));
+  };
+
   const renderTimeSlotEditor = (input: {
     field: TimeSlotField;
     title: string;
@@ -235,6 +325,43 @@ export function LocationProfileForm({
         <div className="grid gap-1">
           <h3 className="text-sm font-semibold text-slate-800">{input.title}</h3>
           <p className="text-xs text-slate-500">{input.description}</p>
+        </div>
+        <div className="grid gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
+          <div className="grid gap-1">
+            <h4 className="text-sm font-semibold text-slate-800">입력도우미</h4>
+            <p className="text-xs text-slate-500">미리캔버스에서 복사/붙여넣기 하세요!</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="grid gap-1 text-sm">
+              <span className="text-slate-700">시간</span>
+              <textarea
+                value={pasteHelpers[input.field].timeCellText}
+                onChange={(event) => updatePasteHelper(input.field, 'timeCellText', event.target.value)}
+                rows={8}
+                className="min-h-[168px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                placeholder={'04:00\n08:00\n12:00\n-\n18:00\n-'}
+              />
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span className="text-slate-700">일정</span>
+              <textarea
+                value={pasteHelpers[input.field].scheduleCellText}
+                onChange={(event) => updatePasteHelper(input.field, 'scheduleCellText', event.target.value)}
+                rows={8}
+                className="min-h-[168px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                placeholder={'가이드 접선 후 여행시작 (얼리스타트)\n이동 중 아침식사\n이동 중 점심식사\n이동 중 마유주 체험\n숙소 도착 (저녁식사 및 휴식)\n*마유주체험 (계절에 따라 상이)'}
+              />
+            </label>
+          </div>
+          <p className="text-xs text-slate-500">시간 칸의 `-`는 바로 위 시간에 이어지는 일정으로 인식됩니다.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={() => applyPasteHelper(input.field)} className="whitespace-nowrap">
+              붙여넣기 적용
+            </Button>
+            <Button type="button" variant="outline" onClick={() => clearPasteHelper(input.field)} className="whitespace-nowrap">
+              입력 비우기
+            </Button>
+          </div>
         </div>
         <div className="grid gap-3">
           {slots.map((slot, slotIndex) => (
