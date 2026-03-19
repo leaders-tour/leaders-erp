@@ -22,6 +22,8 @@ const MULTI_DAY_BLOCKS_QUERY = gql`
         dayOrder
         averageDistanceKm
         averageTravelHours
+        timeCellText
+        scheduleCellText
       }
       updatedAt
     }
@@ -45,7 +47,32 @@ interface MultiDayBlockRow {
     dayOrder: number;
     averageDistanceKm: number;
     averageTravelHours: number;
+    timeCellText: string;
+    scheduleCellText: string;
   }>;
+}
+
+function buildScheduleLines(timeCellText: string, scheduleCellText: string): Array<{ time: string; activity: string }> {
+  const timeLines = timeCellText.split('\n');
+  const scheduleLines = scheduleCellText.split('\n');
+  const lineCount = Math.max(timeLines.length, scheduleLines.length);
+  const lines: Array<{ time: string; activity: string }> = [];
+
+  for (let index = 0; index < lineCount; index += 1) {
+    const time = timeLines[index]?.trim() ?? '';
+    const activity = scheduleLines[index]?.trim() ?? '';
+
+    if (!time && !activity) {
+      continue;
+    }
+
+    lines.push({
+      time: time || '-',
+      activity: activity || '-',
+    });
+  }
+
+  return lines;
 }
 
 export function MultiDayBlockListPage(): JSX.Element {
@@ -70,7 +97,7 @@ export function MultiDayBlockListPage(): JSX.Element {
           <div className="py-8 text-sm text-slate-600">불러오는 중...</div>
         ) : (
           <div className="overflow-auto">
-            <Table className="min-w-[860px] w-full text-sm">
+            <Table className="min-w-[1320px] w-full text-sm">
               <thead className="bg-slate-50 text-slate-700">
                 <tr>
                   <Th>제목</Th>
@@ -78,6 +105,7 @@ export function MultiDayBlockListPage(): JSX.Element {
                   <Th>상태</Th>
                   <Th>블록 일수</Th>
                   <Th>요약</Th>
+                  <Th>시간 / 일정</Th>
                   <Th>수정</Th>
                 </tr>
               </thead>
@@ -94,6 +122,32 @@ export function MultiDayBlockListPage(): JSX.Element {
                         {orderedDays.length > 0
                           ? orderedDays.map((day) => `${day.dayOrder}일차 ${day.averageDistanceKm}km / ${day.averageTravelHours}h`).join('\n')
                           : '-'}
+                      </Td>
+                      <Td>
+                        {orderedDays.length > 0 ? (
+                          <div className="grid gap-3 text-sm">
+                            {orderedDays.map((day) => {
+                              const scheduleLines = buildScheduleLines(day.timeCellText, day.scheduleCellText);
+                              return (
+                                <div key={day.id} className="grid gap-1">
+                                  <div className="font-medium text-slate-800">{day.dayOrder}일차</div>
+                                  {scheduleLines.length > 0 ? (
+                                    scheduleLines.map((line, index) => (
+                                      <div key={`${day.id}-${index}`} className="grid grid-cols-[56px_minmax(0,1fr)] gap-2">
+                                        <span className="font-medium text-slate-700">{line.time}</span>
+                                        <span className="whitespace-pre-wrap text-slate-600">{line.activity}</span>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div className="text-slate-400">-</div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-slate-400">-</div>
+                        )}
                       </Td>
                       <Td>
                         <Link to={`/multi-day-blocks/${row.id}`} className="text-blue-700 hover:underline">

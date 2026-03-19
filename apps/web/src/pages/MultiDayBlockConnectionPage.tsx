@@ -152,6 +152,31 @@ function toTimeSlots(value: TimeSlotDraft[]) {
   }));
 }
 
+function buildScheduleLines(
+  timeBlocks: Array<{
+    id: string;
+    startTime: string;
+    activities: Array<{ id: string; description: string }>;
+  }>,
+): Array<{ time: string; activity: string }> {
+  if (timeBlocks.length === 0) {
+    return [];
+  }
+
+  return timeBlocks.flatMap((timeBlock) => {
+    const activities = timeBlock.activities.map((activity) => activity.description.trim()).filter(Boolean);
+
+    if (activities.length === 0) {
+      return [{ time: timeBlock.startTime, activity: '-' }];
+    }
+
+    return activities.map((activity, index) => ({
+      time: index === 0 ? timeBlock.startTime : '-',
+      activity,
+    }));
+  });
+}
+
 export function MultiDayBlockConnectionPage(): JSX.Element {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [regionId, setRegionId] = useState('');
@@ -236,163 +261,177 @@ export function MultiDayBlockConnectionPage(): JSX.Element {
       <MultiDayBlockSubNav pathname="/multi-day-blocks/connections" />
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3">
-          <div className="grid gap-2 text-sm">
-            <span>지역</span>
-            <div className="flex flex-wrap gap-2">
-              {regions.map((region) => (
-                <button
-                  key={region.id}
-                  type="button"
-                  onClick={() => handleRegionSelect(region.id)}
-                  className={`rounded-xl border px-3 py-1.5 text-sm ${
-                    regionId === region.id
-                      ? 'border-slate-900 bg-slate-900 text-white'
-                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {region.name}
-                </button>
-              ))}
+        <div className="grid items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+          <div className="grid gap-4">
+            <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+              <div className="grid gap-2 text-sm">
+                <span>지역</span>
+                <div className="flex flex-wrap gap-2">
+                  {regions.map((region) => (
+                    <button
+                      key={region.id}
+                      type="button"
+                      onClick={() => handleRegionSelect(region.id)}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        regionId === region.id
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {region.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid gap-2 text-sm">
+                <span>블록</span>
+                <select value={fromMultiDayBlockId} onChange={(event) => setFromMultiDayBlockId(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2">
+                  <option value="">블록 선택</option>
+                  {filteredStays.map((stay) => (
+                    <option key={stay.id} value={stay.id}>
+                      {stay.name || stay.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2 text-sm">
+                <span>다음 목적지</span>
+                <select value={toLocationId} onChange={(event) => setToLocationId(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2">
+                  <option value="">목적지 선택</option>
+                  {filteredLocations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {formatLocationNameInline(location.name)}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
-          <div className="grid gap-2 text-sm">
-            <span>블록</span>
-            <select value={fromMultiDayBlockId} onChange={(event) => setFromMultiDayBlockId(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2">
-              <option value="">블록 선택</option>
-              {filteredStays.map((stay) => (
-                <option key={stay.id} value={stay.id}>
-                  {stay.name || stay.title}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid gap-2 text-sm">
-            <span>다음 목적지</span>
-            <select value={toLocationId} onChange={(event) => setToLocationId(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2">
-              <option value="">목적지 선택</option>
-              {filteredLocations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {formatLocationNameInline(location.name)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <label className="grid gap-1 text-sm">
-              <span>거리(km)</span>
-              <input value={averageDistanceKm} onChange={(event) => setAverageDistanceKm(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2" />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span>시간(h)</span>
-              <input value={averageTravelHours} onChange={(event) => setAverageTravelHours(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2" />
-            </label>
-            <label className="flex items-center gap-2 text-sm">
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+              <label className="grid gap-1 rounded-2xl border border-slate-200 p-4 text-sm">
+                <span>거리(km)</span>
+                <input value={averageDistanceKm} onChange={(event) => setAverageDistanceKm(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2" />
+              </label>
+              <label className="grid gap-1 rounded-2xl border border-slate-200 p-4 text-sm">
+                <span>시간(h)</span>
+                <input value={averageTravelHours} onChange={(event) => setAverageTravelHours(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2" />
+              </label>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              <span className="font-medium text-slate-900">자동 계산 이동강도</span>
+              <span className="ml-2">
+                {movementIntensityMeta ? (
+                  <span
+                    className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+                    style={{
+                      backgroundColor: movementIntensityMeta.backgroundColor,
+                      borderColor: movementIntensityMeta.borderColor,
+                      color: movementIntensityMeta.textColor,
+                    }}
+                  >
+                    {movementIntensityMeta.label}
+                  </span>
+                ) : (
+                  '-'
+                )}
+              </span>
+            </div>
+
+            <label className="flex items-center gap-2 rounded-2xl border border-slate-200 p-4 text-sm">
               <input type="checkbox" checked={isLongDistance} onChange={(event) => setIsLongDistance(event.target.checked)} />
               장거리
             </label>
-          </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            <span className="font-medium text-slate-900">자동 계산 이동강도</span>
-            <span className="ml-2">
-              {movementIntensityMeta ? (
-                <span
-                  className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
-                  style={{
-                    backgroundColor: movementIntensityMeta.backgroundColor,
-                    borderColor: movementIntensityMeta.borderColor,
-                    color: movementIntensityMeta.textColor,
-                  }}
-                >
-                  {movementIntensityMeta.label}
-                </span>
-              ) : (
-                '-'
-              )}
-            </span>
-          </div>
-
-          <div className="grid gap-2">
-            <span className="text-sm font-medium">기본 일정 슬롯</span>
-            {timeSlots.map((slot, index) => (
-              <div key={`basic-${index}`} className="grid gap-2 rounded-2xl border border-slate-200 p-3">
-                <input
-                  value={slot.startTime}
-                  onChange={(event) =>
-                    setTimeSlots((prev) => prev.map((item, itemIndex) => (itemIndex === index ? { ...item, startTime: event.target.value } : item)))
-                  }
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                />
-                <textarea
-                  rows={4}
-                  value={slot.activitiesText}
-                  onChange={(event) =>
-                    setTimeSlots((prev) =>
-                      prev.map((item, itemIndex) => (itemIndex === index ? { ...item, activitiesText: event.target.value } : item)),
-                    )
-                  }
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="한 줄에 하나씩 활동 입력"
-                />
-              </div>
-            ))}
-          </div>
-
-          <div className="grid gap-2">
-            <span className="text-sm font-medium">마지막날 연장 슬롯</span>
-            {extendTimeSlots.map((slot, index) => (
-              <div key={`extend-${index}`} className="grid gap-2 rounded-2xl border border-slate-200 p-3">
-                <input
-                  value={slot.startTime}
-                  onChange={(event) =>
-                    setExtendTimeSlots((prev) => prev.map((item, itemIndex) => (itemIndex === index ? { ...item, startTime: event.target.value } : item)))
-                  }
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                />
-                <textarea
-                  rows={4}
-                  value={slot.activitiesText}
-                  onChange={(event) =>
-                    setExtendTimeSlots((prev) =>
-                      prev.map((item, itemIndex) => (itemIndex === index ? { ...item, activitiesText: event.target.value } : item)),
-                    )
-                  }
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="한 줄에 하나씩 활동 입력"
-                />
-              </div>
-            ))}
-          </div>
-
-          <div className="flex gap-2">
-            <Button disabled={!regionId || !fromMultiDayBlockId || !toLocationId || creating || updating} onClick={submit}>
-              {editingId ? (updating ? '저장 중...' : '저장') : creating ? '생성 중...' : '블록 후속 연결 생성'}
-            </Button>
-            {editingId ? (
-              <Button variant="outline" onClick={resetForm}>
-                취소
+            <div className="flex gap-2">
+              <Button disabled={!regionId || !fromMultiDayBlockId || !toLocationId || creating || updating} onClick={submit}>
+                {editingId ? (updating ? '저장 중...' : '저장') : creating ? '생성 중...' : '블록 후속 연결 생성'}
               </Button>
-            ) : null}
+              {editingId ? (
+                <Button variant="outline" onClick={resetForm}>
+                  취소
+                </Button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="grid items-start gap-6 lg:grid-cols-2">
+            <div className="grid gap-2">
+              <span className="text-sm font-medium">기본 일정 슬롯</span>
+              {timeSlots.map((slot, index) => (
+                <div key={`basic-${index}`} className="grid gap-2 rounded-2xl border border-slate-200 p-3">
+                  <input
+                    value={slot.startTime}
+                    onChange={(event) =>
+                      setTimeSlots((prev) => prev.map((item, itemIndex) => (itemIndex === index ? { ...item, startTime: event.target.value } : item)))
+                    }
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  />
+                  <textarea
+                    rows={4}
+                    value={slot.activitiesText}
+                    onChange={(event) =>
+                      setTimeSlots((prev) =>
+                        prev.map((item, itemIndex) => (itemIndex === index ? { ...item, activitiesText: event.target.value } : item)),
+                      )
+                    }
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="한 줄에 하나씩 활동 입력"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="grid gap-2">
+              <span className="text-sm font-medium">마지막날 연장 슬롯</span>
+              {extendTimeSlots.map((slot, index) => (
+                <div key={`extend-${index}`} className="grid gap-2 rounded-2xl border border-slate-200 p-3">
+                  <input
+                    value={slot.startTime}
+                    onChange={(event) =>
+                      setExtendTimeSlots((prev) => prev.map((item, itemIndex) => (itemIndex === index ? { ...item, startTime: event.target.value } : item)))
+                    }
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  />
+                  <textarea
+                    rows={4}
+                    value={slot.activitiesText}
+                    onChange={(event) =>
+                      setExtendTimeSlots((prev) =>
+                        prev.map((item, itemIndex) => (itemIndex === index ? { ...item, activitiesText: event.target.value } : item)),
+                      )
+                    }
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="한 줄에 하나씩 활동 입력"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </Card>
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="overflow-auto">
-          <Table className="min-w-[860px] w-full text-sm">
+          <Table className="min-w-[1240px] w-full text-sm">
             <thead className="bg-slate-50 text-slate-700">
               <tr>
                 <Th>블록</Th>
                 <Th>다음 목적지</Th>
                 <Th>거리/시간</Th>
                 <Th>이동강도</Th>
+                <Th>기본 일정</Th>
+                <Th>연장 일정</Th>
                 <Th>연장 가능</Th>
                 <Th>관리</Th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {rows.map((row) => {
+                const scheduleLines = buildScheduleLines(row.scheduleTimeBlocks);
+                const extendScheduleLines = buildScheduleLines(row.extendScheduleTimeBlocks);
+
+                return (
                 <tr key={row.id} className="border-t border-slate-200">
                   <Td>{stayById.get(row.fromMultiDayBlockId)?.name ?? stayById.get(row.fromMultiDayBlockId)?.title ?? row.fromMultiDayBlockId}</Td>
                   <Td>{formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? [row.toLocationId])}</Td>
@@ -416,6 +455,34 @@ export function MultiDayBlockConnectionPage(): JSX.Element {
                         </span>
                       );
                     })()}
+                  </Td>
+                  <Td>
+                    {scheduleLines.length > 0 ? (
+                      <div className="grid gap-1 text-sm">
+                        {scheduleLines.map((line, index) => (
+                          <div key={`${row.id}-basic-${index}`} className="grid grid-cols-[56px_minmax(0,1fr)] gap-2">
+                            <span className="font-medium text-slate-700">{line.time}</span>
+                            <span className="whitespace-pre-wrap text-slate-600">{line.activity}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-400">-</div>
+                    )}
+                  </Td>
+                  <Td>
+                    {extendScheduleLines.length > 0 ? (
+                      <div className="grid gap-1 text-sm">
+                        {extendScheduleLines.map((line, index) => (
+                          <div key={`${row.id}-extend-${index}`} className="grid grid-cols-[56px_minmax(0,1fr)] gap-2">
+                            <span className="font-medium text-slate-700">{line.time}</span>
+                            <span className="whitespace-pre-wrap text-slate-600">{line.activity}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-400">-</div>
+                    )}
                   </Td>
                   <Td>{row.extendScheduleTimeBlocks.length > 0 ? 'Y' : 'N'}</Td>
                   <Td>
@@ -467,7 +534,8 @@ export function MultiDayBlockConnectionPage(): JSX.Element {
                     </div>
                   </Td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </Table>
         </div>

@@ -208,8 +208,17 @@ export function AppLayout(): JSX.Element {
     location.pathname === path || location.pathname.startsWith(`${path}/`);
   const isFullBleedPage = matchesPath('/itinerary-builder') || matchesPath('/deal-pipeline');
   const isWideLocationProfilePage =
-    location.pathname === '/locations/create' || /^\/locations\/[^/]+\/versions\/[^/]+\/edit$/.test(location.pathname);
-  const pageShellClassName = isFullBleedPage ? 'max-w-none px-0 py-0' : isWideLocationProfilePage ? 'max-w-[1800px]' : undefined;
+    location.pathname === '/locations/create' ||
+    location.pathname === '/connections/create' ||
+    /^\/locations\/[^/]+\/versions\/[^/]+\/edit$/.test(location.pathname);
+  const isWideConnectionListPage = location.pathname === '/connections/list';
+  const pageShellClassName = isFullBleedPage
+    ? 'max-w-none px-0 py-0'
+    : isWideConnectionListPage
+      ? 'max-w-8xl'
+      : isWideLocationProfilePage
+        ? 'max-w-[1800px]'
+        : undefined;
   const isCompactSidebar = isSidebarCollapsed;
 
   const isNavItemActive = (path: string, children?: NavChild[]): boolean => {
