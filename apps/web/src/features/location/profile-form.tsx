@@ -20,6 +20,18 @@ const MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
 ];
 
 const DEFAULT_SLOT_TIMES = ['08:00', '12:00', '18:00'] as const;
+const PASTE_HELPER_PLACEHOLDERS: Record<TimeSlotField, TimeSlotPasteHelperValue> = {
+  firstDayTimeSlots: {
+    timeCellText: '08:00\n12:00\n-\n18:00',
+    scheduleCellText:
+      '가이드 접선 후 여행시작\n이동 중 점심식사\n차강소브라가 도착 / 침식지형 트래킹\n숙소 도착 (저녁식사 및 휴식)',
+  },
+  firstDayEarlyTimeSlots: {
+    timeCellText: '04:00\n-\n-\n08:00\n12:00\n-\n18:00',
+    scheduleCellText:
+      '가이드 접선 후 울란바토르로 이동 (얼리스타트)\n울란바토르 시내 간단투어\n(수흐바타르 광장, 자이승 전승 기념탑)\n아침식사 후 차강소브라가로 출발\n이동 중 점심식사\n차강소브라가 도착 및 투어 (침식지형 트래킹 등)\n숙소 도착 (저녁식사 및 휴식)',
+  },
+};
 
 export type LocationProfileFormValue = LocationProfileFormInput;
 type TimeSlotField = 'firstDayTimeSlots' | 'firstDayEarlyTimeSlots';
@@ -339,7 +351,7 @@ export function LocationProfileForm({
                 onChange={(event) => updatePasteHelper(input.field, 'timeCellText', event.target.value)}
                 rows={8}
                 className="min-h-[168px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                placeholder={'04:00\n08:00\n12:00\n-\n18:00\n-'}
+                placeholder={PASTE_HELPER_PLACEHOLDERS[input.field].timeCellText}
               />
             </label>
             <label className="grid gap-1 text-sm">
@@ -349,7 +361,7 @@ export function LocationProfileForm({
                 onChange={(event) => updatePasteHelper(input.field, 'scheduleCellText', event.target.value)}
                 rows={8}
                 className="min-h-[168px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                placeholder={'가이드 접선 후 여행시작 (얼리스타트)\n이동 중 아침식사\n이동 중 점심식사\n이동 중 마유주 체험\n숙소 도착 (저녁식사 및 휴식)\n*마유주체험 (계절에 따라 상이)'}
+                placeholder={PASTE_HELPER_PLACEHOLDERS[input.field].scheduleCellText}
               />
             </label>
           </div>
