@@ -13,6 +13,21 @@ function fallback(value: string | null | undefined): string {
   return text && text.length > 0 ? text : '-';
 }
 
+function formatMealCellForEstimate(value: string | null | undefined): string {
+  const text = value?.trim();
+  if (!text) {
+    return '-';
+  }
+
+  const formatted = text
+    .split('\n')
+    .map((line) => line.trim().replace(/^(아침|점심|저녁)\s*/, ''))
+    .filter((line) => line.length > 0)
+    .join('\n');
+
+  return formatted || '-';
+}
+
 export function EstimatePage2({ data }: EstimatePage2Props): JSX.Element {
   const rowCount = Math.max(data.planStops.length, 1);
   const tableStyle = {
@@ -91,7 +106,7 @@ export function EstimatePage2({ data }: EstimatePage2Props): JSX.Element {
                       <div className="estimate-itinerary-cell">{fallback(row.lodgingCellText)}</div>
                     </td>
                     <td>
-                      <div className="estimate-itinerary-cell">{fallback(row.mealCellText)}</div>
+                      <div className="estimate-itinerary-cell">{formatMealCellForEstimate(row.mealCellText)}</div>
                     </td>
                   </tr>
                 );

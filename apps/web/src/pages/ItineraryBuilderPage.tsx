@@ -1116,6 +1116,68 @@ function toMealCell(version: LocationVersionRow | undefined): string {
   ].join('\n');
 }
 
+interface MealCellFields {
+  breakfast: string;
+  lunch: string;
+  dinner: string;
+}
+
+function parseMealCellText(value: string | null | undefined): MealCellFields {
+  const result: MealCellFields = {
+    breakfast: '',
+    lunch: '',
+    dinner: '',
+  };
+  const text = value?.trim() ?? '';
+  if (!text || text === '-') {
+    return result;
+  }
+
+  const unlabeled: string[] = [];
+  text.split('\n').forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      return;
+    }
+    const breakfastMatch = /^아침\s*(.*)$/.exec(trimmed);
+    if (breakfastMatch) {
+      result.breakfast = breakfastMatch[1]?.trim() ?? '';
+      return;
+    }
+    const lunchMatch = /^점심\s*(.*)$/.exec(trimmed);
+    if (lunchMatch) {
+      result.lunch = lunchMatch[1]?.trim() ?? '';
+      return;
+    }
+    const dinnerMatch = /^저녁\s*(.*)$/.exec(trimmed);
+    if (dinnerMatch) {
+      result.dinner = dinnerMatch[1]?.trim() ?? '';
+      return;
+    }
+    unlabeled.push(trimmed);
+  });
+
+  if (!result.breakfast && unlabeled[0]) {
+    result.breakfast = unlabeled[0];
+  }
+  if (!result.lunch && unlabeled[1]) {
+    result.lunch = unlabeled[1];
+  }
+  if (!result.dinner && unlabeled[2]) {
+    result.dinner = unlabeled[2];
+  }
+
+  return result;
+}
+
+function toMealCellText(fields: MealCellFields): string {
+  return [
+    fields.breakfast ? `아침 ${fields.breakfast}` : '아침',
+    fields.lunch ? `점심 ${fields.lunch}` : '점심',
+    fields.dinner ? `저녁 ${fields.dinner}` : '저녁',
+  ].join('\n');
+}
+
 function autoResizeTextarea(element: HTMLTextAreaElement): void {
   element.style.height = 'auto';
   element.style.height = `${element.scrollHeight}px`;
@@ -1978,6 +2040,25 @@ export function ItineraryBuilderPage(): JSX.Element {
   const updateCell = (rowIndex: number, field: keyof PlanRow, value: string): void => {
     dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, field));
     setPlanRows((prev) => prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
+  };
+
+  const updateMealCellField = (rowIndex: number, field: keyof MealCellFields, value: string): void => {
+    dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, 'mealCellText'));
+    setPlanRows((prev) =>
+      prev.map((row, index) => {
+        if (index !== rowIndex) {
+          return row;
+        }
+        const nextMealFields = {
+          ...parseMealCellText(row.mealCellText),
+          [field]: value,
+        };
+        return {
+          ...row,
+          mealCellText: toMealCellText(nextMealFields),
+        };
+      }),
+    );
   };
 
   const applyLodgingSelection = (
@@ -4059,7 +4140,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 p-4">
             <h2 className="font-medium">일정표 편집기</h2>
-            <p className="mt-1 text-xs text-slate-600">숙소 셀은 선택값으로 자동 생성되며 나머지 셀은 줄바꿈 포함 자유 편집됩니다.</p>
+            <p className="mt-1 text-xs text-slate-600">숙소 셀은 선택값으로 자동 생성되며 식사 셀은 아침/점심/저녁 3칸 입력으로 편집됩니다.</p>
           </div>
 
           <div className="overflow-auto">
@@ -4077,6 +4158,7 @@ export function ItineraryBuilderPage(): JSX.Element {
               <tbody>
                 {displayPlanRows.map(({ row, mainRowIndex }, rowIndex) => {
                   const isExternalRow = mainRowIndex === null;
+                  const mealFields = parseMealCellText(row.mealCellText);
                   const isTimeCellAffected =
                     mainRowIndex !== null &&
                     validationResults.some((r) =>
@@ -4173,22 +4255,50 @@ export function ItineraryBuilderPage(): JSX.Element {
                       </div>
                     </Td>
                     <Td>
-                      <textarea
-                        value={row.mealCellText}
-                        readOnly={isExternalRow}
-                        disabled={isExternalRow}
-                        onChange={(event) => {
-                          if (mainRowIndex === null) {
-                            return;
-                          }
-                          updateCell(mainRowIndex, 'mealCellText', event.target.value);
-                          autoResizeTextarea(event.currentTarget);
-                        }}
-                        onInput={(event) => autoResizeTextarea(event.currentTarget)}
-                        rows={1}
-                        data-plan-cell="true"
-                        className={cellClassName}
-                      />
+                      {isExternalRow ? (
+                        <div className={`min-h-[44px] rounded-xl border border-slate-200 px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
+                          isExternalRow ? 'bg-slate-100 text-slate-500' : 'bg-white'
+                        }`}>
+                          {row.mealCellText || '-'}
+                        </div>
+                      ) : (
+                        <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-2">
+                          {([
+                            ['breakfast', '아침', mealFields.breakfast],
+                            ['lunch', '점심', mealFields.lunch],
+                            ['dinner', '저녁', mealFields.dinner],
+                          ] as const).map(([field, label, mealValue]) => (
+                            <div key={field} className="grid grid-cols-[40px_minmax(0,1fr)_32px] items-center gap-2 text-sm">
+                              <span className="text-xs text-slate-500">{label}</span>
+                              <input
+                                type="text"
+                                value={mealValue}
+                                onChange={(event) => {
+                                  if (mainRowIndex === null) {
+                                    return;
+                                  }
+                                  updateMealCellField(mainRowIndex, field, event.target.value);
+                                }}
+                                className="min-w-0 rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                                placeholder={`${label} 식사 입력`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (mainRowIndex === null) {
+                                    return;
+                                  }
+                                  updateMealCellField(mainRowIndex, field, 'X');
+                                }}
+                                className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                                aria-label={`${label} 식사를 없음으로 표시`}
+                              >
+                                X
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </Td>
                   </tr>
                   );
