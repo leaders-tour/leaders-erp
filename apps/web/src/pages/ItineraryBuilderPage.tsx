@@ -882,6 +882,11 @@ function buildDefaultRentalItems(total: number): string {
   ].join(', ');
 }
 
+function buildDefaultPlanTitle(leaderName: string): string {
+  const trimmedLeaderName = leaderName.trim();
+  return trimmedLeaderName ? `${trimmedLeaderName} - 여행일정` : '고객명 - 여행일정';
+}
+
 function formatKrw(value: number): string {
   return `${new Intl.NumberFormat('ko-KR').format(value)}원`;
 }
@@ -1382,7 +1387,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [variantType, setVariantType] = useState<VariantType>(VariantType.Basic);
   const [totalDays, setTotalDays] = useState<number>(6);
   const [regionId, setRegionId] = useState<string>('');
-  const [planTitle, setPlanTitle] = useState<string>('신규 여행 일정');
+  const [planTitle, setPlanTitle] = useState<string>(() => buildDefaultPlanTitle(''));
   const [changeNote, setChangeNote] = useState<string>(initialChangeNote);
   const [leaderName, setLeaderName] = useState<string>('');
   const [travelStartDate, setTravelStartDate] = useState<string>('');
@@ -1458,6 +1463,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [homeNewUserName, setHomeNewUserName] = useState<string>('');
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
   const dirtyPlanRowFieldKeysRef = useRef<Set<string>>(new Set());
+  const lastAutoPlanTitleRef = useRef<string>(buildDefaultPlanTitle(''));
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
@@ -1564,6 +1570,18 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
     setLeaderName(trimmedName);
   }, [leaderName, selectedUserName]);
+
+  useEffect(() => {
+    if (isVersionMode) {
+      return;
+    }
+
+    const nextAutoPlanTitle = buildDefaultPlanTitle(leaderName);
+    if (!planTitle.trim() || planTitle === lastAutoPlanTitleRef.current) {
+      setPlanTitle(nextAutoPlanTitle);
+    }
+    lastAutoPlanTitleRef.current = nextAutoPlanTitle;
+  }, [isVersionMode, leaderName, planTitle]);
 
   useEffect(() => {
     if (!routePresetTemplateId) {
@@ -2075,7 +2093,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         !manualDepositInput.trim() &&
         !routePresetTemplateId &&
         !changeNote.trim() &&
-        (isVersionMode || planTitle.trim() === '신규 여행 일정')
+        (isVersionMode || planTitle.trim() === buildDefaultPlanTitle(leaderName))
       ) {
         return;
       }
@@ -2097,6 +2115,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     headcountTotal,
     includeRentalItems,
     isVersionMode,
+    leaderName,
     manualAdjustments,
     manualDepositInput,
     planRows.length,
@@ -3162,18 +3181,6 @@ export function ItineraryBuilderPage(): JSX.Element {
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
             <h2 className="font-medium">설정</h2>
             <div className="mt-3 grid gap-3">
-              {!isVersionMode && hasPlanContext ? (
-                <label className="grid gap-1 text-sm">
-                  <span className="text-xs text-slate-600">제목</span>
-                  <input
-                    value={planTitle}
-                    onChange={(event) => setPlanTitle(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                    placeholder="신규 제목"
-                  />
-                </label>
-              ) : null}
-
               {isVersionMode ? (
                 <label className="grid gap-1 text-sm">
                   <span className="text-xs text-slate-600">변경 메모</span>
@@ -3196,6 +3203,20 @@ export function ItineraryBuilderPage(): JSX.Element {
                   placeholder="고객명을 기준으로 자동 반영"
                 />
               </label>
+
+              {!isVersionMode && hasPlanContext ? (
+                <label className="grid gap-1 text-sm">
+                  <span className="text-xs text-slate-600">
+                    제목 <span className="ml-1 text-slate-400">*우리끼리 구분용</span>
+                  </span>
+                  <input
+                    value={planTitle}
+                    onChange={(event) => setPlanTitle(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    placeholder={buildDefaultPlanTitle(leaderName)}
+                  />
+                </label>
+              ) : null}
 
               <div className="grid gap-1 text-sm">
                 <span className="text-xs text-slate-600">지역</span>
