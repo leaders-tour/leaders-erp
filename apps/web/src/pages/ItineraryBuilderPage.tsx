@@ -3626,10 +3626,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                     <div key={`transport-group-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <div className="mb-3 flex items-center justify-between gap-2">
                         <div>
-                          <p className="text-sm font-semibold text-slate-900">
-                            {transportGroups.length > 1 ? group.teamName || `${index + 1}번 팀` : '이동 정보'}
-                          </p>
-                          <p className="text-xs text-slate-500">항공권과 연동된 픽업/드랍 세트</p>
+                          {transportGroups.length > 1 ? (
+                            <p className="text-sm font-semibold text-slate-900">{group.teamName || `${index + 1}번 팀`}</p>
+                          ) : null}
                         </div>
                         {transportGroups.length > 1 ? (
                           <Button
@@ -3670,6 +3669,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                               />
                             </label>
                           </div>
+                        ) : null}
+
+                        {!travelStartDate && !travelEndDate ? (
+                          <p className="px-1 text-center text-xs font-medium text-emerald-700">여행 기간을 먼저 선택해주면 자동으로 세팅돼요^^</p>
                         ) : null}
 
                         <div className="grid gap-3 md:grid-cols-2">
