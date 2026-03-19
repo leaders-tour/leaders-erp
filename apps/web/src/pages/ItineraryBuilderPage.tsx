@@ -3229,112 +3229,114 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </label>
               ) : null}
 
-              <div className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">지역</span>
-                <div className="flex flex-wrap gap-2">
-                  {regions.map((region) => {
-                    const disabled = isVersionMode && planContext?.regionId !== region.id;
-                    return (
-                      <button
-                        key={region.id}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => {
-                          setRegionId(region.id);
-                          setStartLocationId('');
-                          setStartLocationVersionId('');
-                          setSelectedRoute([]);
-                          dirtyPlanRowFieldKeysRef.current.clear();
-                          setPlanRows([]);
-                        }}
-                        className={`rounded-xl border px-3 py-1.5 text-sm ${
-                          regionId === region.id
-                            ? 'border-slate-900 bg-slate-900 text-white'
-                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                        } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
-                      >
-                        {region.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="grid gap-2 text-sm">
-                <span className="text-xs text-slate-600">인원</span>
-                <div className="grid gap-3">
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const nextTotal = Math.max(1, headcountTotal - 1);
-                        applyHeadcountTotalChange(nextTotal);
-                      }}
-                      disabled={headcountTotal <= 1}
-                      className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                      aria-label="인원 감소"
-                    >
-                      -
-                    </button>
-                    <div className="min-w-0 flex-1 text-center text-base font-semibold text-slate-900">{headcountTotal}명</div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const nextTotal = Math.min(30, headcountTotal + 1);
-                        applyHeadcountTotalChange(nextTotal);
-                      }}
-                      disabled={headcountTotal >= 30}
-                      className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                      aria-label="인원 증가"
-                    >
-                      +
-                    </button>
-                  </div>
-                  <div className="grid gap-2 pt-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-xs text-slate-600">성비 조절</div>
-                      <label className="flex items-center gap-2 text-xs text-slate-600">
-                        <input
-                          type="checkbox"
-                          checked={headcountMale === 0}
-                          onChange={(event) => {
-                            hasEditedHeadcountMaleRef.current = true;
-                            if (event.target.checked) {
-                              setHeadcountMale(0);
-                              return;
-                            }
-                            setHeadcountMale((prev) => (prev === 0 ? 1 : prev));
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-1 text-sm">
+                  <span className="text-xs text-slate-600">지역</span>
+                  <div className="flex flex-wrap gap-2">
+                    {regions.map((region) => {
+                      const disabled = isVersionMode && planContext?.regionId !== region.id;
+                      return (
+                        <button
+                          key={region.id}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => {
+                            setRegionId(region.id);
+                            setStartLocationId('');
+                            setStartLocationVersionId('');
+                            setSelectedRoute([]);
+                            dirtyPlanRowFieldKeysRef.current.clear();
+                            setPlanRows([]);
                           }}
-                        />
-                        남성없음
-                      </label>
+                          className={`rounded-xl border px-3 py-1.5 text-sm ${
+                            regionId === region.id
+                              ? 'border-slate-900 bg-slate-900 text-white'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+                        >
+                          {region.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid gap-2 text-sm">
+                  <span className="text-xs text-slate-600">인원</span>
+                  <div className="grid gap-3">
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextTotal = Math.max(1, headcountTotal - 1);
+                          applyHeadcountTotalChange(nextTotal);
+                        }}
+                        disabled={headcountTotal <= 1}
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="인원 감소"
+                      >
+                        -
+                      </button>
+                      <div className="min-w-0 flex-1 text-center text-base font-semibold text-slate-900">{headcountTotal}명</div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextTotal = Math.min(30, headcountTotal + 1);
+                          applyHeadcountTotalChange(nextTotal);
+                        }}
+                        disabled={headcountTotal >= 30}
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="인원 증가"
+                      >
+                        +
+                      </button>
                     </div>
-                    <div className="flex w-full flex-wrap gap-1">
-                      {Array.from({ length: headcountTotal }, (_, index) => {
-                        const count = index + 1;
-                        const isMaleToken = count <= headcountMale;
-                        return (
-                          <button
-                            key={`male-token-${count}`}
-                            type="button"
-                            onClick={() => {
+                    <div className="grid gap-2 pt-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs text-slate-600">성비 조절</div>
+                        <label className="flex items-center gap-2 text-xs text-slate-600">
+                          <input
+                            type="checkbox"
+                            checked={headcountMale === 0}
+                            onChange={(event) => {
                               hasEditedHeadcountMaleRef.current = true;
-                              setHeadcountMale(count);
+                              if (event.target.checked) {
+                                setHeadcountMale(0);
+                                return;
+                              }
+                              setHeadcountMale((prev) => (prev === 0 ? 1 : prev));
                             }}
-                            className={`h-7 w-7 rounded-full border text-xs ${
-                              isMaleToken
-                                ? 'border-blue-700 bg-blue-600 text-white'
-                                : 'border-pink-200 bg-pink-50 text-pink-700 hover:bg-pink-100'
-                            }`}
-                            title={isMaleToken ? `남 ${count}` : `여 ${count - headcountMale}`}
-                          >
-                            {count}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="text-xs text-slate-600">
-                      남 {headcountMale} / 여 {headcountFemale}
+                          />
+                          남성없음
+                        </label>
+                      </div>
+                      <div className="flex w-full flex-wrap gap-1">
+                        {Array.from({ length: headcountTotal }, (_, index) => {
+                          const count = index + 1;
+                          const isMaleToken = count <= headcountMale;
+                          return (
+                            <button
+                              key={`male-token-${count}`}
+                              type="button"
+                              onClick={() => {
+                                hasEditedHeadcountMaleRef.current = true;
+                                setHeadcountMale(count);
+                              }}
+                              className={`h-7 w-7 rounded-full border text-xs ${
+                                isMaleToken
+                                  ? 'border-blue-700 bg-blue-600 text-white'
+                                  : 'border-pink-200 bg-pink-50 text-pink-700 hover:bg-pink-100'
+                              }`}
+                              title={isMaleToken ? `남 ${count}` : `여 ${count - headcountMale}`}
+                            >
+                              {count}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        남 {headcountMale} / 여 {headcountFemale}
+                      </div>
                     </div>
                   </div>
                 </div>
