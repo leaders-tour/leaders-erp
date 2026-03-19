@@ -3366,49 +3366,51 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </div>
               </div>
 
-              <div className="grid gap-2 text-sm">
-                <span className="text-xs text-slate-600">여행 기간</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <DateInputTrigger
-                    value={travelStartDate}
-                    placeholder="시작일 선택"
-                    onClick={(event) => setDatePickerTarget({ kind: 'travelStartDate', anchorEl: event.currentTarget })}
-                  />
-                  <DateInputTrigger
-                    value={travelEndDate}
-                    placeholder="종료일 선택"
-                    onClick={(event) => setDatePickerTarget({ kind: 'travelEndDate', anchorEl: event.currentTarget })}
-                  />
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-2 text-sm">
+                  <span className="text-xs text-slate-600">여행 기간</span>
+                  <div className="grid gap-2">
+                    <DateInputTrigger
+                      value={travelStartDate}
+                      placeholder="시작일 선택"
+                      onClick={(event) => setDatePickerTarget({ kind: 'travelStartDate', anchorEl: event.currentTarget })}
+                    />
+                    <DateInputTrigger
+                      value={travelEndDate}
+                      placeholder="종료일 선택"
+                      onClick={(event) => setDatePickerTarget({ kind: 'travelEndDate', anchorEl: event.currentTarget })}
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">차량</span>
-                <div className="flex flex-wrap gap-2">
-                  {VEHICLES.map((vehicle) => (
-                    <button
-                      key={vehicle}
-                      type="button"
-                      onClick={() => {
-                        if (vehicle === '하이에이스' && headcountTotal < 3) {
-                          return;
-                        }
-                        setVehicleType(vehicle);
-                      }}
-                      disabled={vehicle === '하이에이스' && headcountTotal < 3}
-                      className={`rounded-xl border px-3 py-1.5 text-sm ${
-                        vehicleType === vehicle
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      } ${vehicle === '하이에이스' && headcountTotal < 3 ? 'cursor-not-allowed opacity-40' : ''}`}
-                    >
-                      {vehicle}
-                    </button>
-                  ))}
+                <div className="grid gap-1 text-sm">
+                  <span className="text-xs text-slate-600">차량</span>
+                  <div className="flex flex-wrap gap-2">
+                    {VEHICLES.map((vehicle) => (
+                      <button
+                        key={vehicle}
+                        type="button"
+                        onClick={() => {
+                          if (vehicle === '하이에이스' && headcountTotal < 3) {
+                            return;
+                          }
+                          setVehicleType(vehicle);
+                        }}
+                        disabled={vehicle === '하이에이스' && headcountTotal < 3}
+                        className={`rounded-xl border px-3 py-1.5 text-sm ${
+                          vehicleType === vehicle
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        } ${vehicle === '하이에이스' && headcountTotal < 3 ? 'cursor-not-allowed opacity-40' : ''}`}
+                      >
+                        {vehicle}
+                      </button>
+                    ))}
+                  </div>
+                  {hasValidation('hiace-headcount') ? (
+                    <p className="text-xs text-rose-700">하이에이스는 3인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.</p>
+                  ) : null}
                 </div>
-                {hasValidation('hiace-headcount') ? (
-                  <p className="text-xs text-rose-700">하이에이스는 3인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.</p>
-                ) : null}
               </div>
 
               <label className="grid gap-1 text-sm">
