@@ -149,7 +149,8 @@ const baseNavItems: NavItem[] = [
     children: [
       { path: '/multi-day-blocks/list', label: '블록 목록' },
       { path: '/multi-day-blocks/create', label: '블록 생성' },
-      { path: '/multi-day-blocks/connections', label: '블록 후속 연결' },
+      { path: '/multi-day-blocks/connections/list', label: '블록 후속 연결 목록' },
+      { path: '/multi-day-blocks/connections/create', label: '블록 후속 연결 생성' },
     ],
   },
   {

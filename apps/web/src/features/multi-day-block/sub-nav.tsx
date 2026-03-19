@@ -32,9 +32,9 @@ export function MultiDayBlockSubNav({ pathname }: MultiDayBlockSubNavProps): JSX
         블록 생성
       </Link>
       <Link
-        to="/multi-day-blocks/connections"
+        to="/multi-day-blocks/connections/list"
         className={`rounded-xl px-3 py-1.5 text-sm transition-colors ${
-          pathname === '/multi-day-blocks/connections'
+          pathname === '/multi-day-blocks/connections/list' || pathname.startsWith('/multi-day-blocks/connections/')
             ? 'border border-slate-900 bg-slate-900 text-white'
             : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
         }`}

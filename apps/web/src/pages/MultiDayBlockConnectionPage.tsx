@@ -177,7 +177,11 @@ function buildScheduleLines(
   });
 }
 
-export function MultiDayBlockConnectionPage(): JSX.Element {
+interface MultiDayBlockConnectionPageProps {
+  mode?: 'all' | 'list' | 'create';
+}
+
+export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConnectionPageProps): JSX.Element {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [regionId, setRegionId] = useState('');
   const [fromMultiDayBlockId, setFromMultiDayBlockId] = useState('');
@@ -251,15 +255,26 @@ export function MultiDayBlockConnectionPage(): JSX.Element {
     setToLocationId('');
   };
 
+  const showCreateSection = mode !== 'list';
+  const showListSection = mode !== 'create';
+  const pageTitle = mode === 'create' ? '블록 후속 연결 생성' : mode === 'list' ? '블록 후속 연결 목록' : '블록 후속 연결';
+  const pageDescription =
+    mode === 'create'
+      ? '블록 이후에 갈 수 있는 목적지 연결을 생성합니다.'
+      : mode === 'list'
+        ? '등록된 블록 후속 연결을 조회하고 수정합니다.'
+        : '블록 이후에 갈 수 있는 목적지 연결을 관리합니다.';
+
   return (
     <section className="grid gap-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">블록 후속 연결</h1>
-        <p className="mt-1 text-sm text-slate-600">블록 이후에 갈 수 있는 목적지 연결을 관리합니다.</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{pageTitle}</h1>
+        <p className="mt-1 text-sm text-slate-600">{pageDescription}</p>
       </header>
 
-      <MultiDayBlockSubNav pathname="/multi-day-blocks/connections" />
+      <MultiDayBlockSubNav pathname={mode === 'create' ? '/multi-day-blocks/connections/create' : mode === 'list' ? '/multi-day-blocks/connections/list' : '/multi-day-blocks/connections'} />
 
+      {showCreateSection ? (
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
           <div className="grid gap-4">
@@ -410,7 +425,9 @@ export function MultiDayBlockConnectionPage(): JSX.Element {
           </div>
         </div>
       </Card>
+      ) : null}
 
+      {showListSection ? (
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="overflow-auto">
           <Table className="min-w-[1240px] w-full text-sm">
@@ -540,6 +557,7 @@ export function MultiDayBlockConnectionPage(): JSX.Element {
           </Table>
         </div>
       </Card>
+      ) : null}
     </section>
   );
 }

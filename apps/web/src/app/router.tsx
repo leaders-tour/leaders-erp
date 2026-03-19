@@ -22,7 +22,8 @@ import { LocationGuidePage } from '../pages/LocationGuidePage';
 import { LocationListPage } from '../pages/LocationListPage';
 import { LocationVersionDetailPage } from '../pages/LocationVersionDetailPage';
 import { LocationVersionEditPage } from '../pages/LocationVersionEditPage';
-import { MultiDayBlockConnectionPage } from '../pages/MultiDayBlockConnectionPage';
+import { MultiDayBlockConnectionCreatePage } from '../pages/MultiDayBlockConnectionCreatePage';
+import { MultiDayBlockConnectionListPage } from '../pages/MultiDayBlockConnectionListPage';
 import { MultiDayBlockCreatePage } from '../pages/MultiDayBlockCreatePage';
 import { MultiDayBlockDetailPage } from '../pages/MultiDayBlockDetailPage';
 import { MultiDayBlockListPage } from '../pages/MultiDayBlockListPage';
@@ -81,7 +82,9 @@ export const router = createBrowserRouter([
       { path: 'multi-day-blocks', element: <Navigate to="/multi-day-blocks/list" replace /> },
       { path: 'multi-day-blocks/list', element: <MultiDayBlockListPage /> },
       { path: 'multi-day-blocks/create', element: <MultiDayBlockCreatePage /> },
-      { path: 'multi-day-blocks/connections', element: <MultiDayBlockConnectionPage /> },
+      { path: 'multi-day-blocks/connections', element: <Navigate to="/multi-day-blocks/connections/list" replace /> },
+      { path: 'multi-day-blocks/connections/list', element: <MultiDayBlockConnectionListPage /> },
+      { path: 'multi-day-blocks/connections/create', element: <MultiDayBlockConnectionCreatePage /> },
       { path: 'multi-day-blocks/:stayId', element: <MultiDayBlockDetailPage /> },
       { path: 'locations', element: <Navigate to="/locations/list" replace /> },
       { path: 'locations/list', element: <LocationListPage /> },
@@ -90,7 +93,7 @@ export const router = createBrowserRouter([
       { path: 'locations/stays', element: <Navigate to="/multi-day-blocks/list" replace /> },
       { path: 'locations/stays/new', element: <Navigate to="/multi-day-blocks/create" replace /> },
       { path: 'locations/stays/:stayId', element: <MultiDayBlockDetailPage /> },
-      { path: 'locations/stays/connections', element: <Navigate to="/multi-day-blocks/connections" replace /> },
+      { path: 'locations/stays/connections', element: <Navigate to="/multi-day-blocks/connections/list" replace /> },
       { path: 'locations/:id', element: <LocationDetailPage /> },
       { path: 'locations/:id/edit', element: <LocationEditPage /> },
       { path: 'locations/:locationId/versions/:versionId', element: <LocationVersionDetailPage /> },
