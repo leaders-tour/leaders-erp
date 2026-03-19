@@ -2976,13 +2976,6 @@ export function ItineraryBuilderPage(): JSX.Element {
         <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">여행 일정 빌더</h1>
-            <p className="mt-1 text-sm text-slate-600">
-              {isTemplateOnlyMode
-                ? '템플릿 수정 모드 (Plan 저장 비활성)'
-                : isVersionMode
-                  ? '기존 버전 기반 새 버전 생성'
-                  : '신규 Plan + 초기 버전 생성'}
-            </p>
           </div>
           <div className="flex gap-2 no-print">
             <Button variant="outline" onClick={() => setIsPreviewEnabled((prev) => !prev)}>
@@ -3515,98 +3508,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </div>
               </div>
 
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div>
-                    <span className="text-xs text-slate-600">숙소 추가</span>
-                    <p className="mt-1 text-xs text-slate-400">일차별 추가 숙소 수량을 모달에서 설정합니다.</p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      {planRows.length === 0
-                        ? '아직 설정할 일차가 없습니다.'
-                        : `적용 일차 ${extraLodgingSummary.activeDayCount}일 · 총 ${extraLodgingSummary.totalCount}개`}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setExtraLodgingsModalState({ open: true })}
-                    disabled={planRows.length === 0}
-                  >
-                    숙소 추가 설정
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid gap-3 text-sm">
-                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div>
-                    <span className="text-xs text-slate-600">숙소 업그레이드</span>
-                    <p className="mt-1 text-xs text-slate-400">버튼을 눌러 일차별 숙소 등급과 지정 숙소를 한 번에 설정합니다.</p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      {planRows.length === 0
-                        ? '아직 설정할 일차가 없습니다.'
-                        : `총 ${planRows.length}일차 · 업그레이드 ${planRows.filter((row) => row.lodgingSelectionLevel !== 'LV3').length}건`}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setLodgingUpgradeModalState({ open: true })}
-                    disabled={planRows.length === 0}
-                  >
-                    숙소 업그레이드 하기
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div>
-                    <span className="text-xs text-slate-600">특식 4종</span>
-                    <p className="mt-1 text-xs text-slate-400">샤브샤브·삼겹살파티·허르헉·샤슬릭을 규칙에 맞게 일차/식사별로 배치합니다.</p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      {planRows.length === 0
-                        ? '아직 설정할 일차가 없습니다.'
-                        : (() => {
-                            const mainRows = planRows.filter((r) => isMainPlanStopRow(r));
-                            const assignments = getAssignmentsFromPlanRows(
-                              mainRows.map((r) => ({
-                                mealCellText: r.mealCellText,
-                                destinationCellText: r.destinationCellText,
-                                scheduleCellText: r.scheduleCellText,
-                              })),
-                            );
-                            const count = new Set(assignments.map((a) => a.specialMeal)).size;
-                            return `4종 중 ${count}종 배치됨`;
-                          })()}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setSpecialMealsModalState({ open: true })}
-                    disabled={planRows.length === 0}
-                  >
-                    특식 배치 설정
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div>
-                    <span className="text-xs text-slate-600">기타 금액</span>
-                    <p className="mt-1 text-xs text-slate-400">추가와 할인을 모달에서 분리해 관리합니다.</p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      추가 {manualAdjustmentSummary.addCount}건 ({formatKrw(manualAdjustmentSummary.addTotal)}) · 할인{' '}
-                      {manualAdjustmentSummary.discountCount}건 ({formatKrw(manualAdjustmentSummary.discountTotal)})
-                    </p>
-                  </div>
-                  <Button variant="outline" onClick={() => setManualAdjustmentsModalState({ open: true })}>
-                    기타 금액 설정
-                  </Button>
-                </div>
-                {hasValidation('invalid-manual-adjustments') ? (
-                  <p className="text-xs text-rose-700">기타 금액은 내용과 0 이상 정수 금액을 함께 입력해주세요.</p>
-                ) : null}
-              </div>
             </div>
           </Card>
 
@@ -3899,7 +3800,10 @@ export function ItineraryBuilderPage(): JSX.Element {
           </Card>
 
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900">일차별 목적지 선택</h2>
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">3</span>
+              <span>일차별 목적지 선택</span>
+            </h2>
             <p className="mt-1 text-xs text-slate-600">이전 일차와 연결 가능한 목적지만 버튼으로 노출됩니다.</p>
             <div className="mt-4 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
               <div className="text-xs font-semibold text-slate-700">템플릿 불러오기 (현재 지역/일수)</div>
@@ -4321,11 +4225,112 @@ export function ItineraryBuilderPage(): JSX.Element {
               ) : null}
             </div>
           </Card>
+
+          <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">4</span>
+              <span>추가 설정</span>
+            </h2>
+            <div className="mt-4 grid gap-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <span className="text-xs text-slate-600">숙소 추가</span>
+                    <p className="mt-1 text-xs text-slate-400">일차별 추가 숙소 수량을 모달에서 설정합니다.</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {planRows.length === 0
+                        ? '아직 설정할 일차가 없습니다.'
+                        : `적용 일차 ${extraLodgingSummary.activeDayCount}일 · 총 ${extraLodgingSummary.totalCount}개`}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setExtraLodgingsModalState({ open: true })}
+                    disabled={planRows.length === 0}
+                  >
+                    숙소 추가 설정
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-3 text-sm">
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <span className="text-xs text-slate-600">숙소 업그레이드</span>
+                    <p className="mt-1 text-xs text-slate-400">버튼을 눌러 일차별 숙소 등급과 지정 숙소를 한 번에 설정합니다.</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {planRows.length === 0
+                        ? '아직 설정할 일차가 없습니다.'
+                        : `총 ${planRows.length}일차 · 업그레이드 ${planRows.filter((row) => row.lodgingSelectionLevel !== 'LV3').length}건`}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setLodgingUpgradeModalState({ open: true })}
+                    disabled={planRows.length === 0}
+                  >
+                    숙소 업그레이드 하기
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <span className="text-xs text-slate-600">특식 4종</span>
+                    <p className="mt-1 text-xs text-slate-400">샤브샤브·삼겹살파티·허르헉·샤슬릭을 규칙에 맞게 일차/식사별로 배치합니다.</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {planRows.length === 0
+                        ? '아직 설정할 일차가 없습니다.'
+                        : (() => {
+                            const mainRows = planRows.filter((r) => isMainPlanStopRow(r));
+                            const assignments = getAssignmentsFromPlanRows(
+                              mainRows.map((r) => ({
+                                mealCellText: r.mealCellText,
+                                destinationCellText: r.destinationCellText,
+                                scheduleCellText: r.scheduleCellText,
+                              })),
+                            );
+                            const count = new Set(assignments.map((a) => a.specialMeal)).size;
+                            return `4종 중 ${count}종 배치됨`;
+                          })()}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setSpecialMealsModalState({ open: true })}
+                    disabled={planRows.length === 0}
+                  >
+                    특식 배치 설정
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <span className="text-xs text-slate-600">기타 금액</span>
+                    <p className="mt-1 text-xs text-slate-400">추가와 할인을 모달에서 분리해 관리합니다.</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      추가 {manualAdjustmentSummary.addCount}건 ({formatKrw(manualAdjustmentSummary.addTotal)}) · 할인{' '}
+                      {manualAdjustmentSummary.discountCount}건 ({formatKrw(manualAdjustmentSummary.discountTotal)})
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={() => setManualAdjustmentsModalState({ open: true })}>
+                    기타 금액 설정
+                  </Button>
+                </div>
+                {hasValidation('invalid-manual-adjustments') ? (
+                  <p className="text-xs text-rose-700">기타 금액은 내용과 0 이상 정수 금액을 함께 입력해주세요.</p>
+                ) : null}
+              </div>
+            </div>
+          </Card>
         </section>
 
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 p-4">
-            <h2 className="text-lg font-bold text-slate-900">일정표 편집기</h2>
+            <h2 className="text-lg font-bold text-slate-900">일정 선택</h2>
             <p className="mt-1 text-xs text-slate-600">숙소 셀은 선택값으로 자동 생성되며 식사 셀은 아침/점심/저녁 3칸 입력으로 편집됩니다.</p>
           </div>
 
