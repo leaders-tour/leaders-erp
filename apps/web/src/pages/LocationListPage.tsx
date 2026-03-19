@@ -5,6 +5,26 @@ import { formatLocationNameMultiline, includesLocationNameKeyword, toFacilityLab
 import { useLocationCrud } from '../features/location/hooks';
 import { LocationSubNav } from '../features/location/sub-nav';
 
+function buildFirstDayScheduleLines(row: ReturnType<typeof useLocationCrud>['rows'][number]): Array<{ time: string; activity: string }> {
+  const blocks = [...(row.defaultVersion?.firstDayTimeBlocks ?? [])].sort((left, right) => left.orderIndex - right.orderIndex);
+
+  return blocks.flatMap((block) => {
+    const activities = [...block.activities]
+      .sort((left, right) => left.orderIndex - right.orderIndex)
+      .map((activity) => activity.description.trim())
+      .filter((activity) => activity.length > 0);
+
+    if (activities.length === 0) {
+      return [{ time: block.startTime, activity: '-' }];
+    }
+
+    return activities.map((activity, index) => ({
+      time: index === 0 ? block.startTime : '-',
+      activity,
+    }));
+  });
+}
+
 export function LocationListPage(): JSX.Element {
   const crud = useLocationCrud();
   const location = useLocation();
@@ -71,12 +91,15 @@ export function LocationListPage(): JSX.Element {
             <tr>
               <Th>목적지</Th>
               <Th>조건</Th>
+              <Th>첫날 일정</Th>
               <Th>숙소</Th>
               <Th>식사</Th>
             </tr>
           </thead>
           <tbody>
             {filteredRows.map((row) => {
+              const firstDayScheduleLines = row.isFirstDayEligible ? buildFirstDayScheduleLines(row) : [];
+
               return (
                 <tr
                   key={row.id}
@@ -108,6 +131,20 @@ export function LocationListPage(): JSX.Element {
                       <div>첫날 가능: {row.isFirstDayEligible ? 'Y' : 'N'}</div>
                       <div>마지막날 가능: {row.isLastDayEligible ? 'Y' : 'N'}</div>
                     </div>
+                  </Td>
+                  <Td>
+                    {firstDayScheduleLines.length > 0 ? (
+                      <div className="grid gap-1 text-sm">
+                        {firstDayScheduleLines.map((line, index) => (
+                          <div key={`${row.id}-first-day-${index}`} className="grid grid-cols-[56px_minmax(0,1fr)] gap-2">
+                            <span className="font-medium text-slate-700">{line.time}</span>
+                            <span className="whitespace-pre-wrap text-slate-600">{line.activity}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-400">-</div>
+                    )}
                   </Td>
                   <Td>
                     <div className="grid gap-1 text-sm">

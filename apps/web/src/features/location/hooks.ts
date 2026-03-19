@@ -18,6 +18,17 @@ const LIST = gql`
         id
         versionNumber
         label
+        firstDayTimeBlocks {
+          id
+          profile
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
       }
       lodgings {
         id
@@ -274,6 +285,17 @@ export interface LocationListRow {
     id: string;
     versionNumber: number;
     label: string;
+    firstDayTimeBlocks: Array<{
+      id: string;
+      profile: 'DEFAULT' | 'FIRST_DAY' | 'FIRST_DAY_EARLY';
+      startTime: string;
+      orderIndex: number;
+      activities: Array<{
+        id: string;
+        description: string;
+        orderIndex: number;
+      }>;
+    }>;
   } | null;
   lodgings: Array<{
     id: string;
