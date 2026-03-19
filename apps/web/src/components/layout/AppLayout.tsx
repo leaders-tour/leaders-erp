@@ -143,6 +143,7 @@ const baseNavItems: NavItem[] = [
 ];
 
 const sidebarCollapsedStorageKey = 'tour-erp:sidebar-collapsed';
+const hiddenNavPaths = new Set(['/deal-pipeline', '/outreach/leads', '/todos/list']);
 
 function roleLabel(role: EmployeeRole): string {
   return role === EmployeeRole.ADMIN ? '관리자' : '일반';
@@ -166,7 +167,11 @@ export function AppLayout(): JSX.Element {
 
     return savedValue === 'true';
   });
-  const navItems = employee?.role === EmployeeRole.ADMIN ? [...baseNavItems, { path: '/admin/employees', label: '직원 관리', icon: AdminIcon }] : baseNavItems;
+  const navItems =
+    (employee?.role === EmployeeRole.ADMIN
+      ? [...baseNavItems, { path: '/admin/employees', label: '직원 관리', icon: AdminIcon }]
+      : baseNavItems
+    ).filter((item) => !hiddenNavPaths.has(item.path));
 
   const matchesPath = (path: string): boolean =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);
