@@ -494,7 +494,7 @@ export function LocationProfileForm({
           void onSubmit(form);
         }}
       >
-        <div className="grid items-start gap-6 lg:grid-cols-2">
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(320px,0.95fr)_minmax(0,1.2fr)_minmax(0,1.2fr)]">
           <div className="grid gap-6">
             <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
               <label className="grid gap-1 text-sm min-w-0">
@@ -697,31 +697,38 @@ export function LocationProfileForm({
 
           </div>
 
-          <div className="grid gap-3">
-            {form.isFirstDayEligible
-              ? renderTimeSlotEditor({
-                  field: 'firstDayTimeSlots',
-                  title: '1일차 기본 일정',
-                  description: '1일차에 기본/얼리 조건으로 들어올 때 사용됩니다.',
-                  activityLabel: '1일차 기본 일정',
-                })
-              : null}
-            {form.isFirstDayEligible
-              ? renderTimeSlotEditor({
-                  field: 'firstDayEarlyTimeSlots',
-                  title: '1일차 얼리 일정',
-                  description: '1일차에 얼리/얼리+연장 조건으로 들어올 때 사용됩니다.',
-                  activityLabel: '1일차 얼리 일정',
-                })
-              : (
-                <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-                  첫날 가능을 켜면 목적지 전용 일정 입력 영역이 나타납니다.
-                </div>
-              )}
+          <div>
+            {form.isFirstDayEligible ? (
+              renderTimeSlotEditor({
+                field: 'firstDayTimeSlots',
+                title: '1일차 기본 일정',
+                description: '1일차에 기본/얼리 조건으로 들어올 때 사용됩니다.',
+                activityLabel: '1일차 기본 일정',
+              })
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
+                첫날 가능을 켜면 1일차 기본 일정 입력 영역이 나타납니다.
+              </div>
+            )}
+          </div>
+
+          <div>
+            {form.isFirstDayEligible ? (
+              renderTimeSlotEditor({
+                field: 'firstDayEarlyTimeSlots',
+                title: '1일차 얼리 일정',
+                description: '1일차에 얼리/얼리+연장 조건으로 들어올 때 사용됩니다.',
+                activityLabel: '1일차 얼리 일정',
+              })
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
+                첫날 가능을 켜면 1일차 얼리 일정 입력 영역이 나타납니다.
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="xl:col-span-3">
           <Button
             type="submit"
             variant={submitVariant}

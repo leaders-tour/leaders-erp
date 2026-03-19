@@ -176,6 +176,9 @@ export function AppLayout(): JSX.Element {
   const matchesPath = (path: string): boolean =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);
   const isFullBleedPage = matchesPath('/itinerary-builder') || matchesPath('/deal-pipeline');
+  const isWideLocationProfilePage =
+    location.pathname === '/locations/create' || /^\/locations\/[^/]+\/versions\/[^/]+\/edit$/.test(location.pathname);
+  const pageShellClassName = isFullBleedPage ? 'max-w-none px-0 py-0' : isWideLocationProfilePage ? 'max-w-[1800px]' : undefined;
   const isCompactSidebar = isSidebarCollapsed;
 
   const isNavItemActive = (path: string, children?: NavChild[]): boolean => {
@@ -397,7 +400,7 @@ export function AppLayout(): JSX.Element {
         </div>
 
         <main>
-          <PageShell className={isFullBleedPage ? 'max-w-none px-0 py-0' : undefined}>
+          <PageShell className={pageShellClassName}>
             <Outlet />
           </PageShell>
         </main>
