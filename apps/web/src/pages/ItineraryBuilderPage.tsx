@@ -3742,9 +3742,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                           </div>
                         </div>
 
-                        <div className="grid gap-3 md:grid-cols-2">
+                        <div className="mt-2 grid gap-3 border-t border-slate-200 pt-4 md:grid-cols-2">
                           <div className="grid gap-2">
-                            <span className="text-xs text-slate-600">픽업 날짜 및 시간</span>
+                            <span className="text-xs text-slate-600">픽업</span>
                             <div className="grid gap-2">
                               <DateInputTrigger
                                 value={group.pickupDate}
@@ -3785,7 +3785,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           </div>
 
                           <div className="grid gap-2">
-                            <span className="text-xs text-slate-600">드랍 날짜 및 시간</span>
+                            <span className="text-xs text-slate-600">드랍</span>
                             <div className="grid gap-2">
                               <DateInputTrigger
                                 value={group.dropDate}
