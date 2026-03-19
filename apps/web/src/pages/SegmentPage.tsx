@@ -151,6 +151,43 @@ function toFormTimeSlots(
     }));
 }
 
+function buildScheduleLines(
+  timeBlocks:
+    | SegmentRow['scheduleTimeBlocks']
+    | SegmentRow['earlyScheduleTimeBlocks']
+    | SegmentRow['extendScheduleTimeBlocks']
+    | SegmentRow['earlyExtendScheduleTimeBlocks']
+    | SegmentRow['versions'][number]['scheduleTimeBlocks']
+    | SegmentRow['versions'][number]['earlyScheduleTimeBlocks']
+    | SegmentRow['versions'][number]['extendScheduleTimeBlocks']
+    | SegmentRow['versions'][number]['earlyExtendScheduleTimeBlocks']
+    | undefined,
+): Array<{ time: string; activity: string }> {
+  if (!timeBlocks || timeBlocks.length === 0) {
+    return [];
+  }
+
+  return timeBlocks
+    .slice()
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .flatMap((timeBlock) => {
+      const activities = timeBlock.activities
+        .slice()
+        .sort((a, b) => a.orderIndex - b.orderIndex)
+        .map((activity) => activity.description.trim())
+        .filter((activity) => activity.length > 0);
+
+      if (activities.length === 0) {
+        return [{ time: timeBlock.startTime, activity: '-' }];
+      }
+
+      return activities.map((activity, index) => ({
+        time: index === 0 ? timeBlock.startTime : '-',
+        activity,
+      }));
+    });
+}
+
 function toVersionDrafts(segment: SegmentRow | undefined): SegmentVersionDraft[] {
   if (!segment || segment.versions.length === 0) {
     return [];
@@ -721,184 +758,206 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
           }}
         >
           {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
-          <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-2">
-            <div className="relative grid gap-2">
-              <h3 className="text-sm font-semibold text-slate-800">출발지</h3>
-              <Input
-                value={fromSearch}
-                onFocus={() => setFromOpen(true)}
-                onBlur={() => setTimeout(() => setFromOpen(false), 120)}
-                onChange={(event) => {
-                  setFromSearch(event.target.value);
-                  setForm((prev) => ({ ...prev, fromLocationId: '' }));
-                  setFromOpen(true);
-                }}
-                placeholder="출발지 검색 또는 선택"
-              />
-              {fromOpen ? (
-                <div className="absolute left-0 right-0 top-[76px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-                  {filteredFromLocations.length === 0 ? (
-                    <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
-                  ) : (
-                    filteredFromLocations.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          setForm((prev) => ({ ...prev, fromLocationId: item.id }));
-                          setFromSearch(formatLocationNameInline(item.name));
-                          setFromOpen(false);
-                        }}
-                        className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
-                      >
-                        {formatLocationNameInline(item.name)} ({item.regionName})
-                      </button>
-                    ))
-                  )}
+          <div className="grid items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+            <div className="grid gap-4">
+              <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-2 xl:grid-cols-1">
+                <div className="relative grid gap-2">
+                  <h3 className="text-sm font-semibold text-slate-800">출발지</h3>
+                  <Input
+                    value={fromSearch}
+                    onFocus={() => setFromOpen(true)}
+                    onBlur={() => setTimeout(() => setFromOpen(false), 120)}
+                    onChange={(event) => {
+                      setFromSearch(event.target.value);
+                      setForm((prev) => ({ ...prev, fromLocationId: '' }));
+                      setFromOpen(true);
+                    }}
+                    placeholder="출발지 검색 또는 선택"
+                  />
+                  {fromOpen ? (
+                    <div className="absolute left-0 right-0 top-[76px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                      {filteredFromLocations.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
+                      ) : (
+                        filteredFromLocations.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              setForm((prev) => ({ ...prev, fromLocationId: item.id }));
+                              setFromSearch(formatLocationNameInline(item.name));
+                              setFromOpen(false);
+                            }}
+                            className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
+                          >
+                            {formatLocationNameInline(item.name)} ({item.regionName})
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
 
-            <div className="relative grid gap-2">
-              <h3 className="text-sm font-semibold text-slate-800">도착지</h3>
-              <Input
-                value={toSearch}
-                onFocus={() => setToOpen(true)}
-                onBlur={() => setTimeout(() => setToOpen(false), 120)}
-                onChange={(event) => {
-                  setToSearch(event.target.value);
-                  setForm((prev) => ({ ...prev, toLocationId: '' }));
-                  setToOpen(true);
-                }}
-                placeholder="도착지 검색 또는 선택"
-              />
-              {toOpen ? (
-                <div className="absolute left-0 right-0 top-[76px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-                  {filteredToLocations.length === 0 ? (
-                    <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
-                  ) : (
-                    filteredToLocations.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          setForm((prev) => ({ ...prev, toLocationId: item.id }));
-                          setToSearch(formatLocationNameInline(item.name));
-                          setToOpen(false);
-                        }}
-                        className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
-                      >
-                        {formatLocationNameInline(item.name)} ({item.regionName})
-                      </button>
-                    ))
-                  )}
+                <div className="relative grid gap-2">
+                  <h3 className="text-sm font-semibold text-slate-800">도착지</h3>
+                  <Input
+                    value={toSearch}
+                    onFocus={() => setToOpen(true)}
+                    onBlur={() => setTimeout(() => setToOpen(false), 120)}
+                    onChange={(event) => {
+                      setToSearch(event.target.value);
+                      setForm((prev) => ({ ...prev, toLocationId: '' }));
+                      setToOpen(true);
+                    }}
+                    placeholder="도착지 검색 또는 선택"
+                  />
+                  {toOpen ? (
+                    <div className="absolute left-0 right-0 top-[76px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                      {filteredToLocations.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
+                      ) : (
+                        filteredToLocations.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              setForm((prev) => ({ ...prev, toLocationId: item.id }));
+                              setToSearch(formatLocationNameInline(item.name));
+                              setToOpen(false);
+                            }}
+                            className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
+                          >
+                            {formatLocationNameInline(item.name)} ({item.regionName})
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
-          </div>
+              </div>
 
-          <div className="grid gap-2 rounded-2xl border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-800">평균 이동 시간(시간)</h3>
-            <Input
-              type="number"
-              min={0.1}
-              step={0.1}
-              value={form.averageTravelHours}
-              onChange={(event) => setForm((prev) => ({ ...prev, averageTravelHours: event.target.value }))}
-              placeholder="예: 3.5"
-            />
-          </div>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+                <div className="grid gap-2 rounded-2xl border border-slate-200 p-4">
+                  <h3 className="text-sm font-semibold text-slate-800">평균 이동 시간(시간)</h3>
+                  <Input
+                    type="number"
+                    min={0.1}
+                    step={0.1}
+                    value={form.averageTravelHours}
+                    onChange={(event) => setForm((prev) => ({ ...prev, averageTravelHours: event.target.value }))}
+                    placeholder="예: 3.5"
+                  />
+                </div>
 
-          <div className="grid gap-2 rounded-2xl border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-800">평균거리(km)</h3>
-            <Input
-              type="number"
-              min={0.1}
-              step={0.1}
-              value={form.averageDistanceKm}
-              onChange={(event) => setForm((prev) => ({ ...prev, averageDistanceKm: event.target.value }))}
-              placeholder="예: 120.5"
-            />
-          </div>
+                <div className="grid gap-2 rounded-2xl border border-slate-200 p-4">
+                  <h3 className="text-sm font-semibold text-slate-800">평균거리(km)</h3>
+                  <Input
+                    type="number"
+                    min={0.1}
+                    step={0.1}
+                    value={form.averageDistanceKm}
+                    onChange={(event) => setForm((prev) => ({ ...prev, averageDistanceKm: event.target.value }))}
+                    placeholder="예: 120.5"
+                  />
+                </div>
+              </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-            <span className="font-medium text-slate-900">자동 계산 이동강도</span>
-            <span className="ml-2">
-              {createMovementIntensityMeta ? (
-                <span
-                  className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
-                  style={{
-                    backgroundColor: createMovementIntensityMeta.backgroundColor,
-                    borderColor: createMovementIntensityMeta.borderColor,
-                    color: createMovementIntensityMeta.textColor,
-                  }}
-                >
-                  {createMovementIntensityMeta.label}
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+                <span className="font-medium text-slate-900">자동 계산 이동강도</span>
+                <span className="ml-2">
+                  {createMovementIntensityMeta ? (
+                    <span
+                      className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+                      style={{
+                        backgroundColor: createMovementIntensityMeta.backgroundColor,
+                        borderColor: createMovementIntensityMeta.borderColor,
+                        color: createMovementIntensityMeta.textColor,
+                      }}
+                    >
+                      {createMovementIntensityMeta.label}
+                    </span>
+                  ) : (
+                    '-'
+                  )}
                 </span>
-              ) : (
-                '-'
-              )}
-            </span>
-          </div>
+              </div>
 
-          <label className="flex items-center gap-2 rounded-2xl border border-slate-200 p-4 text-sm text-slate-800">
-            <input
-              type="checkbox"
-              checked={form.isLongDistance}
-              onChange={(event) => setForm((prev) => ({ ...prev, isLongDistance: event.target.checked }))}
-            />
-            장거리 여행
-            <span className="text-xs text-slate-500">비용 추가 관련 존재, 정확한 기재 바람.</span>
-          </label>
+              <label className="flex items-center gap-2 rounded-2xl border border-slate-200 p-4 text-sm text-slate-800">
+                <input
+                  type="checkbox"
+                  checked={form.isLongDistance}
+                  onChange={(event) => setForm((prev) => ({ ...prev, isLongDistance: event.target.checked }))}
+                />
+                장거리 여행
+                <span className="text-xs text-slate-500">비용 추가 관련 존재, 정확한 기재 바람.</span>
+              </label>
 
-          <TimeSlotEditor
-            title="기본 버전 일정"
-            description="기본 직결 버전의 시간/일정입니다."
-            value={form.timeSlots}
-            onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
-          />
-          <p className="text-xs text-slate-500">기본 Direct 버전은 상시 적용 버전으로 날짜 범위를 설정하지 않습니다.</p>
-          {includeCreateEarly ? (
-            <TimeSlotEditor
-              title="기본 버전 얼리 일정"
-              description="첫날 얼리 조건의 연결 일정입니다."
-              value={form.earlyTimeSlots}
-              onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, earlyTimeSlots: nextTimeSlots }))}
-            />
-          ) : null}
-          {includeCreateExtend ? (
-            <TimeSlotEditor
-              title="기본 버전 연장 일정"
-              description="마지막날 연장 조건의 연결 일정입니다."
-              value={form.extendTimeSlots}
-              onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
-            />
-          ) : null}
-          {includeCreateEarlyExtend ? (
-            <TimeSlotEditor
-              title="기본 버전 얼리+연장 일정"
-              description="첫날 얼리이면서 마지막날 연장 조건의 연결 일정입니다."
-              value={form.earlyExtendTimeSlots}
-              onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, earlyExtendTimeSlots: nextTimeSlots }))}
-            />
-          ) : null}
+              {selectedFromLocation && selectedToLocation && selectedFromLocation.regionId !== selectedToLocation.regionId ? (
+                <p className="text-sm text-red-600">출발지와 도착지는 동일한 지역이어야 합니다.</p>
+              ) : null}
 
-          <AlternativeVersionEditor
-            value={form.versions}
-            includeEarly={includeCreateEarly}
-            includeExtend={includeCreateExtend}
-            includeEarlyExtend={includeCreateEarlyExtend}
-            onChange={(nextVersions) => setForm((prev) => ({ ...prev, versions: nextVersions }))}
-          />
+              <div>
+                <Button type="submit" variant="primary" disabled={!canSubmit || submitting || locationsLoading || crud.loading}>
+                  {submitting ? '생성 중...' : '이동경로 생성'}
+                </Button>
+              </div>
+            </div>
 
-          {selectedFromLocation && selectedToLocation && selectedFromLocation.regionId !== selectedToLocation.regionId ? (
-            <p className="text-sm text-red-600">출발지와 도착지는 동일한 지역이어야 합니다.</p>
-          ) : null}
+            <div className="grid gap-6">
+              <div className="grid items-start gap-6 lg:grid-cols-2">
+                <TimeSlotEditor
+                  title="기본 버전 일정"
+                  description="기본 직결 버전의 시간/일정입니다."
+                  value={form.timeSlots}
+                  onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
+                />
+                {includeCreateEarly ? (
+                  <TimeSlotEditor
+                    title="기본 버전 얼리 일정"
+                    description="첫날 얼리 조건의 연결 일정입니다."
+                    value={form.earlyTimeSlots}
+                    onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, earlyTimeSlots: nextTimeSlots }))}
+                  />
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
+                    얼리 조건이 가능한 출발지/도착지일 때 얼리 일정 입력 영역이 나타납니다.
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">기본 Direct 버전은 상시 적용 버전으로 날짜 범위를 설정하지 않습니다.</p>
+              {(includeCreateExtend || includeCreateEarlyExtend) ? (
+                <div className="grid items-start gap-6 lg:grid-cols-2">
+                  {includeCreateExtend ? (
+                    <TimeSlotEditor
+                      title="기본 버전 연장 일정"
+                      description="마지막날 연장 조건의 연결 일정입니다."
+                      value={form.extendTimeSlots}
+                      onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
+                    />
+                  ) : (
+                    <div />
+                  )}
+                  {includeCreateEarlyExtend ? (
+                    <TimeSlotEditor
+                      title="기본 버전 얼리+연장 일정"
+                      description="첫날 얼리이면서 마지막날 연장 조건의 연결 일정입니다."
+                      value={form.earlyExtendTimeSlots}
+                      onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, earlyExtendTimeSlots: nextTimeSlots }))}
+                    />
+                  ) : (
+                    <div />
+                  )}
+                </div>
+              ) : null}
 
-          <div>
-            <Button type="submit" variant="primary" disabled={!canSubmit || submitting || locationsLoading || crud.loading}>
-              {submitting ? '생성 중...' : '이동경로 생성'}
-            </Button>
+              <AlternativeVersionEditor
+                value={form.versions}
+                includeEarly={includeCreateEarly}
+                includeExtend={includeCreateExtend}
+                includeEarlyExtend={includeCreateEarlyExtend}
+                onChange={(nextVersions) => setForm((prev) => ({ ...prev, versions: nextVersions }))}
+              />
+            </div>
           </div>
         </form>
       </Card>
@@ -935,13 +994,17 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
               <Th>평균거리(km)</Th>
               <Th>평균 이동 시간(시간)</Th>
               <Th>이동강도</Th>
+              <Th>기본 일정</Th>
               <Th>버전</Th>
               <Th>장거리</Th>
               <Th>액션</Th>
             </tr>
           </thead>
           <tbody>
-            {filteredSegmentRows.map((row) => (
+            {filteredSegmentRows.map((row) => {
+              const scheduleLines = buildScheduleLines(row.scheduleTimeBlocks);
+
+              return (
               <tr key={row.id}>
                 <Td>{row.regionName}</Td>
                 <Td>{formatLocationNameInline(locationById.get(row.fromLocationId)?.name ?? row.fromLocationId)}</Td>
@@ -967,6 +1030,20 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                       </span>
                     );
                   })()}
+                </Td>
+                <Td>
+                  {scheduleLines.length > 0 ? (
+                    <div className="grid gap-1 text-sm">
+                      {scheduleLines.map((line, index) => (
+                        <div key={`${row.id}-schedule-${index}`} className="grid grid-cols-[56px_minmax(0,1fr)] gap-2">
+                          <span className="font-medium text-slate-700">{line.time}</span>
+                          <span className="whitespace-pre-wrap text-slate-600">{line.activity}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-slate-400">-</div>
+                  )}
                 </Td>
                 <Td>
                   <div className="flex flex-wrap gap-1">
@@ -1041,7 +1118,8 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                   </div>
                 </Td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </Table>
       </Card>
@@ -1093,198 +1171,220 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
             }}
           >
             {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
-            <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-2">
-              <div className="relative grid gap-2">
-                <h3 className="text-sm font-semibold text-slate-800">출발지</h3>
-                <Input
-                  value={editFromSearch}
-                  onFocus={() => setEditFromOpen(true)}
-                  onBlur={() => setTimeout(() => setEditFromOpen(false), 120)}
-                  onChange={(event) => {
-                    setEditFromSearch(event.target.value);
-                    setEditForm((prev) => ({ ...prev, fromLocationId: '' }));
-                    setEditFromOpen(true);
-                  }}
-                  placeholder="출발지 검색 또는 선택"
-                />
-                {editFromOpen ? (
-                  <div className="absolute left-0 right-0 top-[76px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-                    {filteredFromLocations.length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
-                    ) : (
-                      filteredFromLocations.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => {
-                            setEditForm((prev) => ({ ...prev, fromLocationId: item.id }));
-                            setEditFromSearch(formatLocationNameInline(item.name));
-                            setEditFromOpen(false);
-                          }}
-                          className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
-                        >
-                          {formatLocationNameInline(item.name)} ({item.regionName})
-                        </button>
-                      ))
-                    )}
+            <div className="grid items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+              <div className="grid gap-4">
+                <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-2 xl:grid-cols-1">
+                  <div className="relative grid gap-2">
+                    <h3 className="text-sm font-semibold text-slate-800">출발지</h3>
+                    <Input
+                      value={editFromSearch}
+                      onFocus={() => setEditFromOpen(true)}
+                      onBlur={() => setTimeout(() => setEditFromOpen(false), 120)}
+                      onChange={(event) => {
+                        setEditFromSearch(event.target.value);
+                        setEditForm((prev) => ({ ...prev, fromLocationId: '' }));
+                        setEditFromOpen(true);
+                      }}
+                      placeholder="출발지 검색 또는 선택"
+                    />
+                    {editFromOpen ? (
+                      <div className="absolute left-0 right-0 top-[76px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                        {filteredFromLocations.length === 0 ? (
+                          <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
+                        ) : (
+                          filteredFromLocations.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => {
+                                setEditForm((prev) => ({ ...prev, fromLocationId: item.id }));
+                                setEditFromSearch(formatLocationNameInline(item.name));
+                                setEditFromOpen(false);
+                              }}
+                              className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
+                            >
+                              {formatLocationNameInline(item.name)} ({item.regionName})
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
-              </div>
 
-              <div className="relative grid gap-2">
-                <h3 className="text-sm font-semibold text-slate-800">도착지</h3>
-                <Input
-                  value={editToSearch}
-                  onFocus={() => setEditToOpen(true)}
-                  onBlur={() => setTimeout(() => setEditToOpen(false), 120)}
-                  onChange={(event) => {
-                    setEditToSearch(event.target.value);
-                    setEditForm((prev) => ({ ...prev, toLocationId: '' }));
-                    setEditToOpen(true);
-                  }}
-                  placeholder="도착지 검색 또는 선택"
-                />
-                {editToOpen ? (
-                  <div className="absolute left-0 right-0 top-[76px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-                    {filteredToLocations.length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
-                    ) : (
-                      filteredToLocations.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => {
-                            setEditForm((prev) => ({ ...prev, toLocationId: item.id }));
-                            setEditToSearch(formatLocationNameInline(item.name));
-                            setEditToOpen(false);
-                          }}
-                          className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
-                        >
-                          {formatLocationNameInline(item.name)} ({item.regionName})
-                        </button>
-                      ))
-                    )}
+                  <div className="relative grid gap-2">
+                    <h3 className="text-sm font-semibold text-slate-800">도착지</h3>
+                    <Input
+                      value={editToSearch}
+                      onFocus={() => setEditToOpen(true)}
+                      onBlur={() => setTimeout(() => setEditToOpen(false), 120)}
+                      onChange={(event) => {
+                        setEditToSearch(event.target.value);
+                        setEditForm((prev) => ({ ...prev, toLocationId: '' }));
+                        setEditToOpen(true);
+                      }}
+                      placeholder="도착지 검색 또는 선택"
+                    />
+                    {editToOpen ? (
+                      <div className="absolute left-0 right-0 top-[76px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                        {filteredToLocations.length === 0 ? (
+                          <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
+                        ) : (
+                          filteredToLocations.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => {
+                                setEditForm((prev) => ({ ...prev, toLocationId: item.id }));
+                                setEditToSearch(formatLocationNameInline(item.name));
+                                setEditToOpen(false);
+                              }}
+                              className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
+                            >
+                              {formatLocationNameInline(item.name)} ({item.regionName})
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    ) : null}
                   </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+                  <div className="grid gap-2 rounded-2xl border border-slate-200 p-4">
+                    <h3 className="text-sm font-semibold text-slate-800">평균 이동 시간(시간)</h3>
+                    <Input
+                      type="number"
+                      min={0.1}
+                      step={0.1}
+                      value={editForm.averageTravelHours}
+                      onChange={(event) => setEditForm((prev) => ({ ...prev, averageTravelHours: event.target.value }))}
+                      placeholder="예: 3.5"
+                    />
+                  </div>
+
+                  <div className="grid gap-2 rounded-2xl border border-slate-200 p-4">
+                    <h3 className="text-sm font-semibold text-slate-800">평균거리(km)</h3>
+                    <Input
+                      type="number"
+                      min={0.1}
+                      step={0.1}
+                      value={editForm.averageDistanceKm}
+                      onChange={(event) => setEditForm((prev) => ({ ...prev, averageDistanceKm: event.target.value }))}
+                      placeholder="예: 120.5"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+                  <span className="font-medium text-slate-900">자동 계산 이동강도</span>
+                  <span className="ml-2">
+                    {editMovementIntensityMeta ? (
+                      <span
+                        className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+                        style={{
+                          backgroundColor: editMovementIntensityMeta.backgroundColor,
+                          borderColor: editMovementIntensityMeta.borderColor,
+                          color: editMovementIntensityMeta.textColor,
+                        }}
+                      >
+                        {editMovementIntensityMeta.label}
+                      </span>
+                    ) : (
+                      '-'
+                    )}
+                  </span>
+                </div>
+
+                <label className="flex items-center gap-2 rounded-2xl border border-slate-200 p-4 text-sm text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={editForm.isLongDistance}
+                    onChange={(event) => setEditForm((prev) => ({ ...prev, isLongDistance: event.target.checked }))}
+                  />
+                  장거리 여행
+                  <span className="text-xs text-slate-500">비용 추가 관련 존재, 정확한 기재 바람.</span>
+                </label>
+
+                {selectedEditFromLocation && selectedEditToLocation && selectedEditFromLocation.regionId !== selectedEditToLocation.regionId ? (
+                  <p className="text-sm text-red-600">출발지와 도착지는 동일한 지역이어야 합니다.</p>
                 ) : null}
-              </div>
-            </div>
 
-            <div className="grid gap-2 rounded-2xl border border-slate-200 p-4">
-              <h3 className="text-sm font-semibold text-slate-800">평균 이동 시간(시간)</h3>
-              <Input
-                type="number"
-                min={0.1}
-                step={0.1}
-                value={editForm.averageTravelHours}
-                onChange={(event) => setEditForm((prev) => ({ ...prev, averageTravelHours: event.target.value }))}
-                placeholder="예: 3.5"
-              />
-            </div>
-
-            <div className="grid gap-2 rounded-2xl border border-slate-200 p-4">
-              <h3 className="text-sm font-semibold text-slate-800">평균거리(km)</h3>
-              <Input
-                type="number"
-                min={0.1}
-                step={0.1}
-                value={editForm.averageDistanceKm}
-                onChange={(event) => setEditForm((prev) => ({ ...prev, averageDistanceKm: event.target.value }))}
-                placeholder="예: 120.5"
-              />
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-              <span className="font-medium text-slate-900">자동 계산 이동강도</span>
-              <span className="ml-2">
-                {editMovementIntensityMeta ? (
-                  <span
-                    className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
-                    style={{
-                      backgroundColor: editMovementIntensityMeta.backgroundColor,
-                      borderColor: editMovementIntensityMeta.borderColor,
-                      color: editMovementIntensityMeta.textColor,
+                <div className="flex gap-2">
+                  <Button type="submit" variant="primary" disabled={!canUpdate || updating || locationsLoading || crud.loading}>
+                    {updating ? '저장 중...' : '수정 저장'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingSegmentId(null);
+                      setEditForm(createEmptyForm());
+                      setEditFromSearch('');
+                      setEditToSearch('');
+                      setEditFromOpen(false);
+                      setEditToOpen(false);
                     }}
                   >
-                    {editMovementIntensityMeta.label}
-                  </span>
-                ) : (
-                  '-'
-                )}
-              </span>
-            </div>
+                    취소
+                  </Button>
+                </div>
+              </div>
 
-            <label className="flex items-center gap-2 rounded-2xl border border-slate-200 p-4 text-sm text-slate-800">
-              <input
-                type="checkbox"
-                checked={editForm.isLongDistance}
-                onChange={(event) => setEditForm((prev) => ({ ...prev, isLongDistance: event.target.checked }))}
-              />
-              장거리 여행
-              <span className="text-xs text-slate-500">비용 추가 관련 존재, 정확한 기재 바람.</span>
-            </label>
+              <div className="grid gap-6">
+                <div className="grid items-start gap-6 lg:grid-cols-2">
+                  <TimeSlotEditor
+                    title="기본 버전 일정"
+                    description="기본 직결 버전의 시간/일정입니다."
+                    value={editForm.timeSlots}
+                    onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
+                  />
+                  {includeEditEarly ? (
+                    <TimeSlotEditor
+                      title="기본 버전 얼리 일정"
+                      description="첫날 얼리 조건의 연결 일정입니다."
+                      value={editForm.earlyTimeSlots}
+                      onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, earlyTimeSlots: nextTimeSlots }))}
+                    />
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
+                      얼리 조건이 가능한 출발지/도착지일 때 얼리 일정 입력 영역이 나타납니다.
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500">기본 Direct 버전은 상시 적용 버전으로 날짜 범위를 설정하지 않습니다.</p>
+                {(includeEditExtend || includeEditEarlyExtend) ? (
+                  <div className="grid items-start gap-6 lg:grid-cols-2">
+                    {includeEditExtend ? (
+                      <TimeSlotEditor
+                        title="기본 버전 연장 일정"
+                        description="마지막날 연장 조건의 연결 일정입니다."
+                        value={editForm.extendTimeSlots}
+                        onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
+                      />
+                    ) : (
+                      <div />
+                    )}
+                    {includeEditEarlyExtend ? (
+                      <TimeSlotEditor
+                        title="기본 버전 얼리+연장 일정"
+                        description="첫날 얼리이면서 마지막날 연장 조건의 연결 일정입니다."
+                        value={editForm.earlyExtendTimeSlots}
+                        onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, earlyExtendTimeSlots: nextTimeSlots }))}
+                      />
+                    ) : (
+                      <div />
+                    )}
+                  </div>
+                ) : null}
 
-            <TimeSlotEditor
-              title="기본 버전 일정"
-              description="기본 직결 버전의 시간/일정입니다."
-              value={editForm.timeSlots}
-              onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
-            />
-            <p className="text-xs text-slate-500">기본 Direct 버전은 상시 적용 버전으로 날짜 범위를 설정하지 않습니다.</p>
-            {includeEditEarly ? (
-              <TimeSlotEditor
-                title="기본 버전 얼리 일정"
-                description="첫날 얼리 조건의 연결 일정입니다."
-                value={editForm.earlyTimeSlots}
-                onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, earlyTimeSlots: nextTimeSlots }))}
-              />
-            ) : null}
-            {includeEditExtend ? (
-              <TimeSlotEditor
-                title="기본 버전 연장 일정"
-                description="마지막날 연장 조건의 연결 일정입니다."
-                value={editForm.extendTimeSlots}
-                onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
-              />
-            ) : null}
-            {includeEditEarlyExtend ? (
-              <TimeSlotEditor
-                title="기본 버전 얼리+연장 일정"
-                description="첫날 얼리이면서 마지막날 연장 조건의 연결 일정입니다."
-                value={editForm.earlyExtendTimeSlots}
-                onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, earlyExtendTimeSlots: nextTimeSlots }))}
-              />
-            ) : null}
-
-            <AlternativeVersionEditor
-              value={editForm.versions}
-              includeEarly={includeEditEarly}
-              includeExtend={includeEditExtend}
-              includeEarlyExtend={includeEditEarlyExtend}
-              onChange={(nextVersions) => setEditForm((prev) => ({ ...prev, versions: nextVersions }))}
-            />
-
-            {selectedEditFromLocation && selectedEditToLocation && selectedEditFromLocation.regionId !== selectedEditToLocation.regionId ? (
-              <p className="text-sm text-red-600">출발지와 도착지는 동일한 지역이어야 합니다.</p>
-            ) : null}
-
-            <div className="flex gap-2">
-              <Button type="submit" variant="primary" disabled={!canUpdate || updating || locationsLoading || crud.loading}>
-                {updating ? '저장 중...' : '수정 저장'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setEditingSegmentId(null);
-                  setEditForm(createEmptyForm());
-                  setEditFromSearch('');
-                  setEditToSearch('');
-                  setEditFromOpen(false);
-                  setEditToOpen(false);
-                }}
-              >
-                취소
-              </Button>
+                <AlternativeVersionEditor
+                  value={editForm.versions}
+                  includeEarly={includeEditEarly}
+                  includeExtend={includeEditExtend}
+                  includeEarlyExtend={includeEditEarlyExtend}
+                  onChange={(nextVersions) => setEditForm((prev) => ({ ...prev, versions: nextVersions }))}
+                />
+              </div>
             </div>
           </form>
         </Card>
