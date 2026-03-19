@@ -1,4 +1,4 @@
-import { Button, Card, Table, Td, Th } from '@tour/ui';
+import { Button, Card } from '@tour/ui';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useState } from 'react';
 import { LocationSubNav } from '../features/location/sub-nav';
@@ -14,11 +14,37 @@ function formatDate(value: string): string {
   return date.toLocaleString('ko-KR');
 }
 
-function formatVersionLabel(version: { label: string; versionNumber: number } | null | undefined): string {
-  if (!version) {
-    return '-';
+function buildScheduleLines(
+  timeBlocks:
+    | Array<{
+        id: string;
+        startTime: string;
+        orderIndex: number;
+        activities: Array<{ id: string; description: string; orderIndex: number }>;
+      }>
+    | undefined,
+): Array<{ time: string; activity: string }> {
+  if (!timeBlocks || timeBlocks.length === 0) {
+    return [];
   }
-  return `${version.label} (v${version.versionNumber})`;
+
+  return [...timeBlocks]
+    .sort((left, right) => left.orderIndex - right.orderIndex)
+    .flatMap((timeBlock) => {
+      const activities = [...timeBlock.activities]
+        .sort((left, right) => left.orderIndex - right.orderIndex)
+        .map((activity) => activity.description.trim())
+        .filter((activity) => activity.length > 0);
+
+      if (activities.length === 0) {
+        return [{ time: timeBlock.startTime, activity: '-' }];
+      }
+
+      return activities.map((activity, index) => ({
+        time: index === 0 ? timeBlock.startTime : '-',
+        activity,
+      }));
+    });
 }
 
 export function LocationDetailPage(): JSX.Element {
@@ -70,6 +96,10 @@ export function LocationDetailPage(): JSX.Element {
     .slice(0, 5);
 
   const availableGuides = guideCrud.rows.filter((guide) => !guide.locationId);
+  const firstDayScheduleLines = location.isFirstDayEligible ? buildScheduleLines(location.defaultVersion?.firstDayTimeBlocks) : [];
+  const firstDayEarlyScheduleLines = location.isFirstDayEligible
+    ? buildScheduleLines(location.defaultVersion?.firstDayEarlyTimeBlocks)
+    : [];
 
   return (
     <section className="grid gap-6">
@@ -97,7 +127,7 @@ export function LocationDetailPage(): JSX.Element {
         <h2 className="mb-3 text-lg font-semibold">요약</h2>
         <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
           <div>지역: {location.regionName}</div>
-          <div>기본 버전: {formatVersionLabel(location.defaultVersion)}</div>
+          <div>첫날 가능: {location.isFirstDayEligible ? 'Y' : 'N'}</div>
           <div>생성일: {formatDate(String(location.createdAt))}</div>
           <div>수정일: {formatDate(String(location.updatedAt))}</div>
         </div>
@@ -175,73 +205,45 @@ export function LocationDetailPage(): JSX.Element {
         )}
       </Card>
 
-      <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 p-4">
-          <h2 className="text-lg font-semibold">버전 목록</h2>
+      {location.isFirstDayEligible ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <h2 className="mb-3 text-lg font-semibold">1일차 기본 일정</h2>
+            {firstDayScheduleLines.length === 0 ? (
+              <div className="text-sm text-slate-500">등록된 시간 / 일정 정보가 없습니다.</div>
+            ) : (
+              <div className="grid gap-2 text-sm">
+                {firstDayScheduleLines.map((item, index) => (
+                  <div key={`default-${index}`} className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 leading-6">
+                    <div>{item.time}</div>
+                    <div>{item.activity}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+          <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <h2 className="mb-3 text-lg font-semibold">1일차 얼리 일정</h2>
+            {firstDayEarlyScheduleLines.length === 0 ? (
+              <div className="text-sm text-slate-500">등록된 시간 / 일정 정보가 없습니다.</div>
+            ) : (
+              <div className="grid gap-2 text-sm">
+                {firstDayEarlyScheduleLines.map((item, index) => (
+                  <div key={`early-${index}`} className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 leading-6">
+                    <div>{item.time}</div>
+                    <div>{item.activity}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
-        <Table>
-          <thead>
-            <tr>
-              <Th>버전</Th>
-              <Th>변경 메모</Th>
-              <Th>생성일</Th>
-              <Th>상태</Th>
-              <Th>액션</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {location.variations.map((version) => {
-              const isDefault = location.defaultVersionId === version.id;
-              return (
-                <tr key={version.id}>
-                  <Td>
-                    <div>{version.label}</div>
-                    <div className="text-xs text-slate-500">v{version.versionNumber}</div>
-                    {version.firstDayAverageDistanceKm !== null || version.firstDayAverageTravelHours !== null ? (
-                      <div className="mt-1 text-xs text-slate-500">
-                        첫날 이동 {version.firstDayAverageDistanceKm ?? '-'}km / {version.firstDayAverageTravelHours ?? '-'}시간
-                      </div>
-                    ) : null}
-                  </Td>
-                  <Td>{version.changeNote ?? '-'}</Td>
-                  <Td>{formatDate(version.createdAt)}</Td>
-                  <Td>{isDefault ? '기본' : '-'}</Td>
-                  <Td>
-                    <div className="flex flex-wrap gap-2">
-                      <Link
-                        to={`/locations/${location.id}/versions/${version.id}`}
-                        className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
-                      >
-                        상세
-                      </Link>
-                      <Link
-                        to={`/locations/${location.id}/versions/${version.id}/edit?mode=create`}
-                        className="inline-flex items-center rounded-lg bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
-                      >
-                        새 버전 생성
-                      </Link>
-                      {!isDefault ? (
-                        <Button
-                          variant="outline"
-                          onClick={async () => {
-                            if (!window.confirm(`'${version.label}'를 기본 버전으로 지정할까요?`)) {
-                              return;
-                            }
-                            await crud.setDefaultVersion(location.id, version.id);
-                            await refetch();
-                          }}
-                        >
-                          기본으로 지정
-                        </Button>
-                      ) : null}
-                    </div>
-                  </Td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </Table>
-      </Card>
+      ) : (
+        <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <h2 className="mb-3 text-lg font-semibold">1일차 일정</h2>
+          <div className="text-sm text-slate-500">첫날 가능 목적지가 아니므로 시간 / 일정 정보가 없습니다.</div>
+        </Card>
+      )}
 
       <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="mb-3 flex items-center justify-between gap-3">

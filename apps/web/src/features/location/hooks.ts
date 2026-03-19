@@ -29,6 +29,17 @@ const LIST = gql`
             orderIndex
           }
         }
+        firstDayEarlyTimeBlocks {
+          id
+          profile
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
       }
       lodgings {
         id
@@ -108,6 +119,28 @@ const DETAIL = gql`
         id
         versionNumber
         label
+        firstDayTimeBlocks {
+          id
+          profile
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
+        firstDayEarlyTimeBlocks {
+          id
+          profile
+          startTime
+          orderIndex
+          activities {
+            id
+            description
+            orderIndex
+          }
+        }
       }
       variations {
         id
@@ -286,6 +319,17 @@ export interface LocationListRow {
     versionNumber: number;
     label: string;
     firstDayTimeBlocks: Array<{
+      id: string;
+      profile: 'DEFAULT' | 'FIRST_DAY' | 'FIRST_DAY_EARLY';
+      startTime: string;
+      orderIndex: number;
+      activities: Array<{
+        id: string;
+        description: string;
+        orderIndex: number;
+      }>;
+    }>;
+    firstDayEarlyTimeBlocks: Array<{
       id: string;
       profile: 'DEFAULT' | 'FIRST_DAY' | 'FIRST_DAY_EARLY';
       startTime: string;
