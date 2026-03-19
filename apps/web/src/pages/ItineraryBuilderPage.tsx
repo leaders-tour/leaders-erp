@@ -3232,7 +3232,7 @@ export function ItineraryBuilderPage(): JSX.Element {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="grid gap-1 text-sm">
                   <span className="text-xs text-slate-600">지역</span>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap content-start items-start gap-2">
                     {regions.map((region) => {
                       const disabled = isVersionMode && planContext?.regionId !== region.id;
                       return (
