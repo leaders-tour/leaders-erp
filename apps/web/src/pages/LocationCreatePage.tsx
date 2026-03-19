@@ -22,6 +22,7 @@ export function LocationCreatePage(): JSX.Element {
         title="목적지 생성"
         submitLabel="목적지 생성"
         submitVariant="primary"
+        nameLabel="목적지명"
         value={value}
         submitting={submitting}
         onSubmit={async (next) => {

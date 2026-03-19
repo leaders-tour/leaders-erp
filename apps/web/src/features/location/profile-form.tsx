@@ -74,6 +74,7 @@ interface LocationProfileFormProps {
   submitVariant?: ButtonProps['variant'];
   value: LocationProfileFormValue;
   submitting: boolean;
+  nameLabel?: string;
   nameReadOnly?: boolean;
   eligibilityReadOnly?: boolean;
   onSubmit: (value: LocationProfileFormValue) => Promise<void>;
@@ -85,6 +86,7 @@ export function LocationProfileForm({
   submitVariant,
   value,
   submitting,
+  nameLabel = '도착지',
   nameReadOnly = false,
   eligibilityReadOnly = false,
   onSubmit,
@@ -369,7 +371,7 @@ export function LocationProfileForm({
           <div className="grid gap-6">
             <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
               <label className="grid gap-1 text-sm min-w-0">
-                <span className="text-slate-700">도착지</span>
+                <span className="text-slate-700">{nameLabel}</span>
                 <div className="grid gap-2">
                   {form.name.map((line, index) => (
                     <div key={`location-name-${index}`} className="flex items-center gap-2">
@@ -452,16 +454,7 @@ export function LocationProfileForm({
                   <h3 className="text-sm font-semibold text-slate-800">첫날 이동 정보</h3>
                   <p className="text-xs text-slate-500">첫날 목적지 자동 채움에 사용되는 이동거리와 이동시간입니다.</p>
                 </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label className="grid gap-1 text-sm">
-                    <span className="text-slate-700">첫날 이동거리(km)</span>
-                    <Input
-                      value={form.firstDayAverageDistanceKm}
-                      onChange={(event) => setForm((prev) => ({ ...prev, firstDayAverageDistanceKm: event.target.value }))}
-                      inputMode="decimal"
-                      placeholder="예: 35"
-                    />
-                  </label>
+                <div className="grid gap-3">
                   <label className="grid gap-1 text-sm">
                     <span className="text-slate-700">첫날 이동시간(시간)</span>
                     <Input
@@ -469,6 +462,15 @@ export function LocationProfileForm({
                       onChange={(event) => setForm((prev) => ({ ...prev, firstDayAverageTravelHours: event.target.value }))}
                       inputMode="decimal"
                       placeholder="예: 1.5"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-slate-700">첫날 이동거리(km)</span>
+                    <Input
+                      value={form.firstDayAverageDistanceKm}
+                      onChange={(event) => setForm((prev) => ({ ...prev, firstDayAverageDistanceKm: event.target.value }))}
+                      inputMode="decimal"
+                      placeholder="예: 35"
                     />
                   </label>
                 </div>
@@ -573,7 +575,7 @@ export function LocationProfileForm({
               ? renderTimeSlotEditor({
                   field: 'firstDayTimeSlots',
                   title: '1일차 기본 일정',
-                  description: '1일차에 기본/연장 조건으로 들어올 때 사용됩니다.',
+                  description: '1일차에 기본/얼리 조건으로 들어올 때 사용됩니다.',
                   activityLabel: '1일차 기본 일정',
                 })
               : null}

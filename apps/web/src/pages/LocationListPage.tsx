@@ -93,9 +93,6 @@ export function LocationListPage(): JSX.Element {
                 >
                   <Td>
                     <div className="whitespace-pre-line">{formatLocationNameMultiline(row.name)}</div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      기본 버전: {row.defaultVersion ? `${row.defaultVersion.label} (v${row.defaultVersion.versionNumber})` : '-'}
-                    </div>
                     <div className="mt-2">
                       <Link
                         to={`/locations/${row.id}`}
