@@ -721,7 +721,7 @@ export function LocationProfileForm({
                 renderTimeSlotEditor({
                   field: 'firstDayTimeSlots',
                   title: '1일차 기본 일정',
-                  description: '1일차에 기본/얼리 조건으로 들어올 때 사용됩니다.',
+                  description: '일정빌더에서 1일차를 선택할 때 사용됩니다.',
                   activityLabel: '1일차 기본 일정',
                 })
               ) : (
@@ -736,7 +736,7 @@ export function LocationProfileForm({
                 renderTimeSlotEditor({
                   field: 'firstDayEarlyTimeSlots',
                   title: '1일차 얼리 일정',
-                  description: '1일차에 얼리/얼리+연장 조건으로 들어올 때 사용됩니다.',
+                  description: '일정빌더에서 1일차 얼리일 경우 사용됩니다.',
                   activityLabel: '1일차 얼리 일정',
                 })
               ) : (
