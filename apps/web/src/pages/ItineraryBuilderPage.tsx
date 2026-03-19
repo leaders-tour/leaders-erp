@@ -832,8 +832,8 @@ const VARIANTS = [
 ];
 
 const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
-const FLIGHT_IN_TIME_OPTIONS = ['00:00', '00:50', '02:45', '04:00', '04:30', '05:00'] as const;
-const FLIGHT_OUT_TIME_OPTIONS = ['00:25', '01:55', '02:05', '11:00', '14:50', '18:15', '20:30'] as const;
+const FLIGHT_IN_TIME_OPTIONS = ['00:05', '00:30', '00:50', '02:45', '04:30', '13:20', '17:00', '23:05', '23:30'] as const;
+const FLIGHT_OUT_TIME_OPTIONS = ['00:25', '00:50', '01:30', '01:50', '02:05', '08:40', '13:00', '18:15', '20:30'] as const;
 const PICKUP_DROP_TIME_OPTIONS = ['04:00', '05:00', '08:00', '15:30', '19:00', '21:00', '23:00'] as const;
 const HALF_HOUR_MINUTE_OPTIONS = [0, 30] as const;
 
