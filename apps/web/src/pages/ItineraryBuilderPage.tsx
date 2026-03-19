@@ -3802,7 +3802,7 @@ export function ItineraryBuilderPage(): JSX.Element {
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
             <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">3</span>
-              <span>일차별 목적지 선택</span>
+              <span>일정 선택</span>
             </h2>
             <p className="mt-1 text-xs text-slate-600">이전 일차와 연결 가능한 목적지만 버튼으로 노출됩니다.</p>
             <div className="mt-4 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
@@ -4234,7 +4234,7 @@ export function ItineraryBuilderPage(): JSX.Element {
             <div className="mt-4 grid gap-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
               <div className="grid gap-2 text-sm">
                 <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div>
+                  <div className="min-w-0 w-1/2">
                     <span className="text-xs text-slate-600">숙소 추가</span>
                     <p className="mt-1 text-xs text-slate-400">일차별 추가 숙소 수량을 모달에서 설정합니다.</p>
                     <p className="mt-2 text-xs text-slate-500">
@@ -4245,6 +4245,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                   </div>
                   <Button
                     variant="outline"
+                    className="shrink-0 whitespace-nowrap"
                     onClick={() => setExtraLodgingsModalState({ open: true })}
                     disabled={planRows.length === 0}
                   >
@@ -4255,7 +4256,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
               <div className="grid gap-3 text-sm">
                 <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div>
+                  <div className="min-w-0 w-1/2">
                     <span className="text-xs text-slate-600">숙소 업그레이드</span>
                     <p className="mt-1 text-xs text-slate-400">버튼을 눌러 일차별 숙소 등급과 지정 숙소를 한 번에 설정합니다.</p>
                     <p className="mt-2 text-xs text-slate-500">
@@ -4266,6 +4267,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                   </div>
                   <Button
                     variant="outline"
+                    className="shrink-0 whitespace-nowrap"
                     onClick={() => setLodgingUpgradeModalState({ open: true })}
                     disabled={planRows.length === 0}
                   >
@@ -4276,7 +4278,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
               <div className="grid gap-2 text-sm">
                 <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div>
+                  <div className="min-w-0 w-1/2">
                     <span className="text-xs text-slate-600">특식 4종</span>
                     <p className="mt-1 text-xs text-slate-400">샤브샤브·삼겹살파티·허르헉·샤슬릭을 규칙에 맞게 일차/식사별로 배치합니다.</p>
                     <p className="mt-2 text-xs text-slate-500">
@@ -4298,6 +4300,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                   </div>
                   <Button
                     variant="outline"
+                    className="shrink-0 whitespace-nowrap"
                     onClick={() => setSpecialMealsModalState({ open: true })}
                     disabled={planRows.length === 0}
                   >
@@ -4308,7 +4311,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
               <div className="grid gap-2 text-sm">
                 <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div>
+                  <div className="min-w-0 w-1/2">
                     <span className="text-xs text-slate-600">기타 금액</span>
                     <p className="mt-1 text-xs text-slate-400">추가와 할인을 모달에서 분리해 관리합니다.</p>
                     <p className="mt-2 text-xs text-slate-500">
@@ -4316,7 +4319,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       {manualAdjustmentSummary.discountCount}건 ({formatKrw(manualAdjustmentSummary.discountTotal)})
                     </p>
                   </div>
-                  <Button variant="outline" onClick={() => setManualAdjustmentsModalState({ open: true })}>
+                  <Button variant="outline" className="shrink-0 whitespace-nowrap" onClick={() => setManualAdjustmentsModalState({ open: true })}>
                     기타 금액 설정
                   </Button>
                 </div>
@@ -4330,7 +4333,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 p-4">
-            <h2 className="text-lg font-bold text-slate-900">일정 선택</h2>
+            <h2 className="text-lg font-bold text-slate-900">일정표 편집기</h2>
             <p className="mt-1 text-xs text-slate-600">숙소 셀은 선택값으로 자동 생성되며 식사 셀은 아침/점심/저녁 3칸 입력으로 편집됩니다.</p>
           </div>
 
