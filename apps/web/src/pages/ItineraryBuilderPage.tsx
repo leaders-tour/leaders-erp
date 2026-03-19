@@ -887,6 +887,10 @@ function buildDefaultPlanTitle(leaderName: string): string {
   return trimmedLeaderName ? `${trimmedLeaderName} - 여행일정` : '고객명 - 여행일정';
 }
 
+function buildDefaultMaleHeadcount(total: number): number {
+  return Math.ceil(Math.max(1, total) / 2);
+}
+
 function formatKrw(value: number): string {
   return `${new Intl.NumberFormat('ko-KR').format(value)}원`;
 }
@@ -1393,7 +1397,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [travelStartDate, setTravelStartDate] = useState<string>('');
   const [travelEndDate, setTravelEndDate] = useState<string>('');
   const [headcountTotal, setHeadcountTotal] = useState<number>(6);
-  const [headcountMale, setHeadcountMale] = useState<number>(6);
+  const [headcountMale, setHeadcountMale] = useState<number>(() => buildDefaultMaleHeadcount(6));
   const [vehicleType, setVehicleType] = useState<(typeof VEHICLES)[number]>('스타렉스');
   const [transportGroups, setTransportGroups] = useState<TransportGroupDraft[]>([
     createTransportGroupDraft({
@@ -1464,6 +1468,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
   const dirtyPlanRowFieldKeysRef = useRef<Set<string>>(new Set());
   const lastAutoPlanTitleRef = useRef<string>(buildDefaultPlanTitle(''));
+  const hasEditedHeadcountMaleRef = useRef<boolean>(false);
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
@@ -2063,7 +2068,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         !travelEndDate &&
         totalDays === 6 &&
         headcountTotal === 6 &&
-        headcountMale === 6 &&
+        headcountMale === buildDefaultMaleHeadcount(6) &&
         vehicleType === '스타렉스' &&
         transportGroups.length === 1 &&
         !transportGroups[0]?.flightInDate &&
@@ -2431,6 +2436,12 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
 
   const headcountFemale = headcountTotal - headcountMale;
+  const applyHeadcountTotalChange = (nextTotal: number): void => {
+    setHeadcountTotal(nextTotal);
+    setHeadcountMale((current) =>
+      hasEditedHeadcountMaleRef.current ? Math.min(current, nextTotal) : buildDefaultMaleHeadcount(nextTotal),
+    );
+  };
 
   const canPreviewPricing = useMemo(
     () =>
@@ -2626,10 +2637,10 @@ export function ItineraryBuilderPage(): JSX.Element {
     remarkText: remark,
     onHeadcountTotalChange: (value) => {
       const nextTotal = Math.max(1, value || 1);
-      setHeadcountTotal(nextTotal);
-      setHeadcountMale((current) => Math.min(current, nextTotal));
+      applyHeadcountTotalChange(nextTotal);
     },
     onHeadcountMaleChange: (value) => {
+      hasEditedHeadcountMaleRef.current = true;
       const nextMale = Math.max(0, Math.min(value, headcountTotal));
       setHeadcountMale(nextMale);
     },
@@ -3257,8 +3268,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       type="button"
                       onClick={() => {
                         const nextTotal = Math.max(1, headcountTotal - 1);
-                        setHeadcountTotal(nextTotal);
-                        setHeadcountMale((prev) => Math.min(prev, nextTotal));
+                        applyHeadcountTotalChange(nextTotal);
                       }}
                       disabled={headcountTotal <= 1}
                       className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
@@ -3271,8 +3281,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       type="button"
                       onClick={() => {
                         const nextTotal = Math.min(30, headcountTotal + 1);
-                        setHeadcountTotal(nextTotal);
-                        setHeadcountMale((prev) => Math.min(prev, nextTotal));
+                        applyHeadcountTotalChange(nextTotal);
                       }}
                       disabled={headcountTotal >= 30}
                       className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
@@ -3283,12 +3292,13 @@ export function ItineraryBuilderPage(): JSX.Element {
                   </div>
                   <div className="grid gap-2 pt-1">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="text-xs text-slate-600">남성 토큰 선택 (성비조절)</div>
+                      <div className="text-xs text-slate-600">성비 조절</div>
                       <label className="flex items-center gap-2 text-xs text-slate-600">
                         <input
                           type="checkbox"
                           checked={headcountMale === 0}
                           onChange={(event) => {
+                            hasEditedHeadcountMaleRef.current = true;
                             if (event.target.checked) {
                               setHeadcountMale(0);
                               return;
@@ -3307,7 +3317,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                           <button
                             key={`male-token-${count}`}
                             type="button"
-                            onClick={() => setHeadcountMale(count)}
+                            onClick={() => {
+                              hasEditedHeadcountMaleRef.current = true;
+                              setHeadcountMale(count);
+                            }}
                             className={`h-7 w-7 rounded-full border text-xs ${
                               isMaleToken
                                 ? 'border-blue-700 bg-blue-600 text-white'
