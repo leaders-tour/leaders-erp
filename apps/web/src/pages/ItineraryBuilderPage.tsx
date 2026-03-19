@@ -3430,7 +3430,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                     disabled={!includeRentalItems}
                     onClick={() => setRentalItemsText(buildDefaultRentalItems(headcountTotal))}
                   >
-                    기본값 다시 계산
+                    초기화
                   </Button>
                 </div>
                 <label className="flex items-center gap-2 text-xs text-slate-600">
