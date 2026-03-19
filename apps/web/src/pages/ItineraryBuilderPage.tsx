@@ -3841,6 +3841,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <div className="text-slate-700">
                       <span className="whitespace-pre-line">{formatLocationNameMultiline(locationById.get(startLocationId)?.name ?? startLocationId)}</span>
+                      {(variantType === VariantType.Early || variantType === VariantType.EarlyExtend) && (
+                        <span className="ml-2 text-xs text-amber-700">(얼리 일정)</span>
+                      )}
                     </div>
                     <button
                       type="button"
@@ -3889,6 +3892,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                     const endDayIndex = getRouteStopEndDayIndex(selectedRoute, index);
 
                     if (stop.kind === 'MULTI_DAY_BLOCK') {
+                      const isLastDay = endDayIndex === totalDays;
                       return (
                         <>
                           <div className="text-sm font-medium">
@@ -3898,6 +3902,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                             <span className="whitespace-pre-line">
                               {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
                             </span>
+                            {isLastDay && (variantType === VariantType.Extend || variantType === VariantType.EarlyExtend) && (
+                              <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
+                            )}
                           </div>
                         </>
                       );
@@ -3916,6 +3923,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                         stop.overnightStayConnectionVersionId,
                       );
 
+                      const isLastDay = endDayIndex === totalDays;
                       return (
                         <>
                           <div className="text-sm font-medium">{startDayIndex}일차</div>
@@ -3923,6 +3931,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                             <span className="whitespace-pre-line">
                               {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
                             </span>
+                            {isLastDay && (variantType === VariantType.Extend || variantType === VariantType.EarlyExtend) && (
+                              <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
+                            )}
                           </div>
                           {versions.length > 1 ? (
                             <div className="mt-3 grid gap-2">
@@ -3970,6 +3981,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       stop.segmentVersionId,
                     );
 
+                    const isLastDay = endDayIndex === totalDays;
                     return (
                       <>
                         <div className="text-sm font-medium">{startDayIndex}일차</div>
@@ -3977,6 +3989,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                           <span className="whitespace-pre-line">
                             {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
                           </span>
+                          {isLastDay && (variantType === VariantType.Extend || variantType === VariantType.EarlyExtend) && (
+                            <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
+                          )}
                         </div>
                         {versions.length > 1 ? (
                           <div className="mt-3 grid gap-2">

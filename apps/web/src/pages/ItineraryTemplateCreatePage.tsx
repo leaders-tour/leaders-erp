@@ -2,6 +2,7 @@ import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { VariantType } from '../generated/graphql';
 import { formatLocationNameMultiline } from '../features/location/display';
 import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
 import { getAssignmentsFromPlanRows } from '../features/plan/special-meals';
@@ -354,6 +355,14 @@ const CREATE_PLAN_TEMPLATE_MUTATION = gql`
   }
 `;
 
+const VARIANTS = [
+  { id: VariantType.Basic, label: '기본' },
+  { id: VariantType.Afternoon, label: '오후' },
+  { id: VariantType.Extend, label: '연장' },
+  { id: VariantType.Early, label: '얼리' },
+  { id: VariantType.EarlyExtend, label: '얼리+연장' },
+];
+
 export function ItineraryTemplateCreatePage(): JSX.Element {
   const navigate = useNavigate();
 
@@ -363,6 +372,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
   const [totalDays, setTotalDays] = useState<number>(6);
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [isActive, setIsActive] = useState<boolean>(true);
+  const [variantType, setVariantType] = useState<VariantType>(VariantType.Basic);
   const [startLocationId, setStartLocationId] = useState<string>('');
   const [startLocationVersionId, setStartLocationVersionId] = useState<string>('');
   const [selectedRoute, setSelectedRoute] = useState<RouteSelection[]>([]);
@@ -426,8 +436,9 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
         startLocationId,
         selectedRoute,
         totalDays,
+        variantType,
       }),
-    [filteredLocations, filteredOvernightStayConnections, filteredSegments, selectedRoute, startLocationId, totalDays],
+    [filteredLocations, filteredOvernightStayConnections, filteredSegments, selectedRoute, startLocationId, totalDays, variantType],
   );
 
   const overnightStayOptions = useMemo(
@@ -454,6 +465,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
         locationById,
         locationVersionById,
         totalDays,
+        variantType,
       }),
     [
       filteredOvernightStayConnections,
@@ -465,6 +477,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
       startLocationId,
       startLocationVersionId,
       totalDays,
+      variantType,
     ],
   );
 
@@ -595,6 +608,25 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
             />
           </label>
           <div className="grid gap-1 text-sm">
+            <span className="text-xs text-slate-600">Variant</span>
+            <div className="flex flex-wrap gap-2">
+              {VARIANTS.map((variant) => (
+                <button
+                  key={variant.id}
+                  type="button"
+                  onClick={() => setVariantType(variant.id)}
+                  className={`rounded-xl border px-3 py-1.5 text-sm ${
+                    variantType === variant.id
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {variant.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-1 text-sm">
             <span className="text-xs text-slate-600">상태</span>
             <div className="flex flex-wrap gap-2">
               <button
@@ -637,7 +669,9 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
               <div className="mt-1 flex items-center justify-between gap-2">
                 <div className="text-slate-700">
                   <span className="whitespace-pre-line">{formatLocationNameMultiline(locationById.get(startLocationId)?.name ?? startLocationId)}</span>
-                  {startLocationVersionId ? ` (${formatLocationVersion(locationVersionById.get(startLocationVersionId))})` : ''}
+                  {(variantType === VariantType.Early || variantType === VariantType.EarlyExtend) && (
+                    <span className="ml-2 text-xs text-amber-700">(얼리 일정)</span>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -677,20 +711,26 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
             ) : null}
             {startLocationId ? (
               <div className="mt-3 flex flex-wrap gap-2">
-                {(locationById.get(startLocationId)?.variations ?? []).map((version) => (
-                  <button
-                    key={`start-version-${version.id}`}
-                    type="button"
-                    onClick={() => setStartLocationVersionId(version.id)}
-                    className={`rounded-lg border px-3 py-1 text-xs ${
-                      startLocationVersionId === version.id
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    {formatLocationVersion(version)}
-                  </button>
-                ))}
+                {(locationById.get(startLocationId)?.variations ?? []).map((version) => {
+                  const versionLabel = formatLocationVersion(version);
+                  if (versionLabel === '기본' || !versionLabel) {
+                    return null;
+                  }
+                  return (
+                    <button
+                      key={`start-version-${version.id}`}
+                      type="button"
+                      onClick={() => setStartLocationVersionId(version.id)}
+                      className={`rounded-lg border px-3 py-1 text-xs ${
+                        startLocationVersionId === version.id
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {versionLabel}
+                    </button>
+                  );
+                })}
               </div>
             ) : null}
           </div>
@@ -702,6 +742,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                 const endDayIndex = getRouteStopEndDayIndex(selectedRoute, index);
 
                 if (stop.kind === 'MULTI_DAY_BLOCK') {
+                  const isLastDay = endDayIndex === totalDays;
                   return (
                     <>
                       <div className="text-sm font-medium">
@@ -711,29 +752,37 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                         <span className="whitespace-pre-line">
                           {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
                         </span>
-                        {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
+                        {isLastDay && (variantType === VariantType.Extend || variantType === VariantType.EarlyExtend) && (
+                          <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
+                        )}
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {(locationById.get(stop.locationId)?.variations ?? []).map((version) => (
-                          <button
-                            key={`route-stay-version-${index}-${version.id}`}
-                            type="button"
-                            onClick={() =>
-                              setSelectedRoute((prev) =>
-                                prev.map((item, itemIndex) =>
-                                  itemIndex === index ? { ...item, locationVersionId: version.id } : item,
-                                ),
-                              )
-                            }
-                            className={`rounded-lg border px-3 py-1 text-xs ${
-                              stop.locationVersionId === version.id
-                                ? 'border-slate-900 bg-slate-900 text-white'
-                                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
-                            }`}
-                          >
-                            {formatLocationVersion(version)}
-                          </button>
-                        ))}
+                        {(locationById.get(stop.locationId)?.variations ?? []).map((version) => {
+                          const versionLabel = formatLocationVersion(version);
+                          if (versionLabel === '기본' || !versionLabel) {
+                            return null;
+                          }
+                          return (
+                            <button
+                              key={`route-stay-version-${index}-${version.id}`}
+                              type="button"
+                              onClick={() =>
+                                setSelectedRoute((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, locationVersionId: version.id } : item,
+                                  ),
+                                )
+                              }
+                              className={`rounded-lg border px-3 py-1 text-xs ${
+                                stop.locationVersionId === version.id
+                                  ? 'border-slate-900 bg-slate-900 text-white'
+                                  : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              {versionLabel}
+                            </button>
+                          );
+                        })}
                       </div>
                     </>
                   );
@@ -752,6 +801,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                     stop.overnightStayConnectionVersionId,
                   );
 
+                  const isLastDay = endDayIndex === totalDays;
                   return (
                     <>
                       <div className="text-sm font-medium">{startDayIndex}일차</div>
@@ -759,29 +809,37 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                         <span className="whitespace-pre-line">
                           {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
                         </span>
-                        {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
+                        {isLastDay && (variantType === VariantType.Extend || variantType === VariantType.EarlyExtend) && (
+                          <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
+                        )}
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {(locationById.get(stop.locationId)?.variations ?? []).map((version) => (
-                          <button
-                            key={`route-version-${index}-${version.id}`}
-                            type="button"
-                            onClick={() =>
-                              setSelectedRoute((prev) =>
-                                prev.map((item, itemIndex) =>
-                                  itemIndex === index ? { ...item, locationVersionId: version.id } : item,
-                                ),
-                              )
-                            }
-                            className={`rounded-lg border px-3 py-1 text-xs ${
-                              stop.locationVersionId === version.id
-                                ? 'border-slate-900 bg-slate-900 text-white'
-                                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
-                            }`}
-                          >
-                            {formatLocationVersion(version)}
-                          </button>
-                        ))}
+                        {(locationById.get(stop.locationId)?.variations ?? []).map((version) => {
+                          const versionLabel = formatLocationVersion(version);
+                          if (versionLabel === '기본' || !versionLabel) {
+                            return null;
+                          }
+                          return (
+                            <button
+                              key={`route-version-${index}-${version.id}`}
+                              type="button"
+                              onClick={() =>
+                                setSelectedRoute((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, locationVersionId: version.id } : item,
+                                  ),
+                                )
+                              }
+                              className={`rounded-lg border px-3 py-1 text-xs ${
+                                stop.locationVersionId === version.id
+                                  ? 'border-slate-900 bg-slate-900 text-white'
+                                  : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              {versionLabel}
+                            </button>
+                          );
+                        })}
                       </div>
                       {versions.length > 1 ? (
                         <div className="mt-3 grid gap-2">
@@ -824,6 +882,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                 const segment = findSegment(filteredSegments, fromId, stop.locationId);
                 const versions = getSegmentVersions(segment);
                 const selectedVersion = resolveSegmentVersion(segment, stop.segmentVersionId);
+                const isLastDay = endDayIndex === totalDays;
 
                 return (
                   <>
@@ -832,29 +891,37 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                       <span className="whitespace-pre-line">
                         {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
                       </span>
-                      {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
+                      {isLastDay && (variantType === VariantType.Extend || variantType === VariantType.EarlyExtend) && (
+                        <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
+                      )}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {(locationById.get(stop.locationId)?.variations ?? []).map((version) => (
-                        <button
-                          key={`route-version-${index}-${version.id}`}
-                          type="button"
-                          onClick={() =>
-                            setSelectedRoute((prev) =>
-                              prev.map((item, itemIndex) =>
-                                itemIndex === index ? { ...item, locationVersionId: version.id } : item,
-                              ),
-                            )
-                          }
-                          className={`rounded-lg border px-3 py-1 text-xs ${
-                            stop.locationVersionId === version.id
-                              ? 'border-slate-900 bg-slate-900 text-white'
-                              : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          {formatLocationVersion(version)}
-                        </button>
-                      ))}
+                      {(locationById.get(stop.locationId)?.variations ?? []).map((version) => {
+                        const versionLabel = formatLocationVersion(version);
+                        if (versionLabel === '기본' || !versionLabel) {
+                          return null;
+                        }
+                        return (
+                          <button
+                            key={`route-version-${index}-${version.id}`}
+                            type="button"
+                            onClick={() =>
+                              setSelectedRoute((prev) =>
+                                prev.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, locationVersionId: version.id } : item,
+                                ),
+                              )
+                            }
+                            className={`rounded-lg border px-3 py-1 text-xs ${
+                              stop.locationVersionId === version.id
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            {versionLabel}
+                          </button>
+                        );
+                      })}
                     </div>
                     {versions.length > 1 ? (
                       <div className="mt-3 grid gap-2">
@@ -1063,7 +1130,6 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
             <thead className="bg-slate-50 text-slate-700">
               <tr>
                 <Th>일차</Th>
-                <Th>날짜</Th>
                 <Th>목적지</Th>
                 <Th>시간</Th>
                 <Th>일정</Th>
@@ -1075,14 +1141,6 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
               {planRows.map((row, rowIndex) => (
                 <tr key={`create-row-${rowIndex + 1}`} className="border-t border-slate-200 align-top">
                   <Td>{rowIndex + 1}일차</Td>
-                  <Td>
-                    <textarea
-                      value={row.dateCellText}
-                      rows={2}
-                      onChange={(event) => updateCell(rowIndex, 'dateCellText', event.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                    />
-                  </Td>
                   <Td>
                     <textarea
                       value={row.destinationCellText}

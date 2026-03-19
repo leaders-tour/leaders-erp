@@ -482,7 +482,7 @@ export function formatLocationVersion(version: Pick<LocationVersionOption, 'labe
   if (!version) {
     return '버전 미정';
   }
-  return `${version.label} (v${version.versionNumber})`;
+  return version.label;
 }
 
 export function formatRouteDestinationCellText(input: {
@@ -907,10 +907,12 @@ export function buildAutoRowsFromRoute(input: {
     scheduleCellText: toScheduleCellFromTimeBlocks(getLocationTimeBlocks(startVersion, firstDayProfile)),
     lodgingCellText: getBaseLodgingText(startVersion, toFacilityLabel),
     mealCellText: [
-      `아침 ${toMealLabel(startVersion?.mealSets[0]?.breakfast)}`,
-      `점심 ${toMealLabel(startVersion?.mealSets[0]?.lunch)}`,
-      `저녁 ${toMealLabel(startVersion?.mealSets[0]?.dinner)}`,
-    ].join('\n'),
+      toMealLabel(startVersion?.mealSets[0]?.breakfast),
+      toMealLabel(startVersion?.mealSets[0]?.lunch),
+      toMealLabel(startVersion?.mealSets[0]?.dinner),
+    ]
+      .filter((line) => line.length > 0)
+      .join('\n'),
   });
 
   let previousContext: { kind: 'LOCATION'; locationId: string } | { kind: 'MULTI_DAY_BLOCK'; multiDayBlockId: string; locationId: string } = {
@@ -980,10 +982,12 @@ export function buildAutoRowsFromRoute(input: {
         scheduleCellText: toScheduleCellFromTimeBlocks(getMultiDayBlockConnectionScheduleTimeBlocks(connectionVersion, variant)),
         lodgingCellText: getBaseLodgingText(locationVersion, toFacilityLabel),
         mealCellText: [
-          `아침 ${toMealLabel(locationVersion?.mealSets[0]?.breakfast)}`,
-          `점심 ${toMealLabel(locationVersion?.mealSets[0]?.lunch)}`,
-          `저녁 ${toMealLabel(locationVersion?.mealSets[0]?.dinner)}`,
-        ].join('\n'),
+          toMealLabel(locationVersion?.mealSets[0]?.breakfast),
+          toMealLabel(locationVersion?.mealSets[0]?.lunch),
+          toMealLabel(locationVersion?.mealSets[0]?.dinner),
+        ]
+          .filter((line) => line.length > 0)
+          .join('\n'),
       });
     } else {
       const segment =
@@ -1011,10 +1015,12 @@ export function buildAutoRowsFromRoute(input: {
         scheduleCellText: toScheduleCellFromTimeBlocks(getSegmentScheduleTimeBlocks(segmentVersion, variant)),
         lodgingCellText: getBaseLodgingText(locationVersion, toFacilityLabel),
         mealCellText: [
-          `아침 ${toMealLabel(locationVersion?.mealSets[0]?.breakfast)}`,
-          `점심 ${toMealLabel(locationVersion?.mealSets[0]?.lunch)}`,
-          `저녁 ${toMealLabel(locationVersion?.mealSets[0]?.dinner)}`,
-        ].join('\n'),
+          toMealLabel(locationVersion?.mealSets[0]?.breakfast),
+          toMealLabel(locationVersion?.mealSets[0]?.lunch),
+          toMealLabel(locationVersion?.mealSets[0]?.dinner),
+        ]
+          .filter((line) => line.length > 0)
+          .join('\n'),
       });
     }
 
