@@ -3358,6 +3358,215 @@ export function ItineraryBuilderPage(): JSX.Element {
                 ) : null}
               </div>
 
+              <label className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">
+                  특별요청사항 <span className="ml-1 text-slate-400">*고객에게 노출됩니다</span>
+                </span>
+                <textarea
+                  value={specialNote}
+                  onChange={(event) => setSpecialNote(event.target.value)}
+                  rows={3}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  placeholder="줄바꿈 포함 입력 가능"
+                />
+              </label>
+
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-600">기본 대여물품</span>
+                  <Button
+                    variant="outline"
+                    disabled={!includeRentalItems}
+                    onClick={() => setRentalItemsText(buildDefaultRentalItems(headcountTotal))}
+                  >
+                    기본값 다시 계산
+                  </Button>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={includeRentalItems}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setIncludeRentalItems(checked);
+                      if (!checked) {
+                        setRentalItemsText('');
+                      }
+                    }}
+                  />
+                  기본 물품 포함
+                </label>
+                <textarea
+                  value={rentalItemsText}
+                  onChange={(event) => setRentalItemsText(event.target.value)}
+                  rows={4}
+                  disabled={!includeRentalItems}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">참여 이벤트</span>
+                <div className="flex flex-wrap gap-2">
+                  {eventOptions.map((eventOption) => {
+                    const active = eventIds.includes(eventOption.id);
+                    return (
+                      <button
+                        key={eventOption.id}
+                        type="button"
+                        onClick={() =>
+                          setEventIds((prev) =>
+                            prev.includes(eventOption.id)
+                              ? prev.filter((item) => item !== eventOption.id)
+                              : [...prev, eventOption.id],
+                          )
+                        }
+                        className={`rounded-xl border px-3 py-1.5 text-sm ${
+                          active
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {eventOption.name}
+                      </button>
+                    );
+                  })}
+                  {eventOptions.length === 0 ? <span className="text-xs text-slate-500">진행중 이벤트 없음</span> : null}
+                </div>
+              </div>
+
+              <label className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">
+                  비고 <span className="ml-1 text-slate-400">*고객에게 노출됩니다</span>
+                </span>
+                <textarea
+                  value={remark}
+                  onChange={(event) => setRemark(event.target.value)}
+                  rows={3}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                />
+              </label>
+
+
+              <div className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">Variant</span>
+                <div className="flex flex-wrap gap-2">
+                  {VARIANTS.map((variant) => (
+                    <button
+                      key={variant.id}
+                      type="button"
+                      onClick={() => setVariantType(variant.id)}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        variantType === variant.id
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {variant.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <span className="text-xs text-slate-600">숙소 추가</span>
+                    <p className="mt-1 text-xs text-slate-400">일차별 추가 숙소 수량을 모달에서 설정합니다.</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {planRows.length === 0
+                        ? '아직 설정할 일차가 없습니다.'
+                        : `적용 일차 ${extraLodgingSummary.activeDayCount}일 · 총 ${extraLodgingSummary.totalCount}개`}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setExtraLodgingsModalState({ open: true })}
+                    disabled={planRows.length === 0}
+                  >
+                    숙소 추가 설정
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-3 text-sm">
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <span className="text-xs text-slate-600">숙소 업그레이드</span>
+                    <p className="mt-1 text-xs text-slate-400">버튼을 눌러 일차별 숙소 등급과 지정 숙소를 한 번에 설정합니다.</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {planRows.length === 0
+                        ? '아직 설정할 일차가 없습니다.'
+                        : `총 ${planRows.length}일차 · 업그레이드 ${planRows.filter((row) => row.lodgingSelectionLevel !== 'LV3').length}건`}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setLodgingUpgradeModalState({ open: true })}
+                    disabled={planRows.length === 0}
+                  >
+                    숙소 업그레이드 하기
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <span className="text-xs text-slate-600">특식 4종</span>
+                    <p className="mt-1 text-xs text-slate-400">샤브샤브·삼겹살파티·허르헉·샤슬릭을 규칙에 맞게 일차/식사별로 배치합니다.</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {planRows.length === 0
+                        ? '아직 설정할 일차가 없습니다.'
+                        : (() => {
+                            const mainRows = planRows.filter((r) => isMainPlanStopRow(r));
+                            const assignments = getAssignmentsFromPlanRows(
+                              mainRows.map((r) => ({
+                                mealCellText: r.mealCellText,
+                                destinationCellText: r.destinationCellText,
+                                scheduleCellText: r.scheduleCellText,
+                              })),
+                            );
+                            const count = new Set(assignments.map((a) => a.specialMeal)).size;
+                            return `4종 중 ${count}종 배치됨`;
+                          })()}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setSpecialMealsModalState({ open: true })}
+                    disabled={planRows.length === 0}
+                  >
+                    특식 배치 설정
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <span className="text-xs text-slate-600">기타 금액</span>
+                    <p className="mt-1 text-xs text-slate-400">추가와 할인을 모달에서 분리해 관리합니다.</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      추가 {manualAdjustmentSummary.addCount}건 ({formatKrw(manualAdjustmentSummary.addTotal)}) · 할인{' '}
+                      {manualAdjustmentSummary.discountCount}건 ({formatKrw(manualAdjustmentSummary.discountTotal)})
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={() => setManualAdjustmentsModalState({ open: true })}>
+                    기타 금액 설정
+                  </Button>
+                </div>
+                {hasValidation('invalid-manual-adjustments') ? (
+                  <p className="text-xs text-rose-700">기타 금액은 내용과 0 이상 정수 금액을 함께 입력해주세요.</p>
+                ) : null}
+              </div>
+            </div>
+          </Card>
+
+          <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+            <h2 className="font-medium">항공 / 픽업 / 드랍</h2>
+            <p className="mt-1 text-xs text-slate-600">팀별 이동 정보와 실투어 외 픽드랍을 한 곳에서 설정합니다.</p>
+            <div className="mt-4 grid gap-4">
               <div className="grid gap-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs text-slate-600">팀별 항공 / 픽업 / 드랍</span>
@@ -3616,209 +3825,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                     실투어 외 픽드랍 설정
                   </Button>
                 </div>
-              </div>
-
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">
-                  특별요청사항 <span className="ml-1 text-slate-400">*고객에게 노출됩니다</span>
-                </span>
-                <textarea
-                  value={specialNote}
-                  onChange={(event) => setSpecialNote(event.target.value)}
-                  rows={3}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  placeholder="줄바꿈 포함 입력 가능"
-                />
-              </label>
-
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-600">기본 대여물품</span>
-                  <Button
-                    variant="outline"
-                    disabled={!includeRentalItems}
-                    onClick={() => setRentalItemsText(buildDefaultRentalItems(headcountTotal))}
-                  >
-                    기본값 다시 계산
-                  </Button>
-                </div>
-                <label className="flex items-center gap-2 text-xs text-slate-600">
-                  <input
-                    type="checkbox"
-                    checked={includeRentalItems}
-                    onChange={(event) => {
-                      const checked = event.target.checked;
-                      setIncludeRentalItems(checked);
-                      if (!checked) {
-                        setRentalItemsText('');
-                      }
-                    }}
-                  />
-                  기본 물품 포함
-                </label>
-                <textarea
-                  value={rentalItemsText}
-                  onChange={(event) => setRentalItemsText(event.target.value)}
-                  rows={4}
-                  disabled={!includeRentalItems}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">참여 이벤트</span>
-                <div className="flex flex-wrap gap-2">
-                  {eventOptions.map((eventOption) => {
-                    const active = eventIds.includes(eventOption.id);
-                    return (
-                      <button
-                        key={eventOption.id}
-                        type="button"
-                        onClick={() =>
-                          setEventIds((prev) =>
-                            prev.includes(eventOption.id)
-                              ? prev.filter((item) => item !== eventOption.id)
-                              : [...prev, eventOption.id],
-                          )
-                        }
-                        className={`rounded-xl border px-3 py-1.5 text-sm ${
-                          active
-                            ? 'border-slate-900 bg-slate-900 text-white'
-                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        {eventOption.name}
-                      </button>
-                    );
-                  })}
-                  {eventOptions.length === 0 ? <span className="text-xs text-slate-500">진행중 이벤트 없음</span> : null}
-                </div>
-              </div>
-
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">
-                  비고 <span className="ml-1 text-slate-400">*고객에게 노출됩니다</span>
-                </span>
-                <textarea
-                  value={remark}
-                  onChange={(event) => setRemark(event.target.value)}
-                  rows={3}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                />
-              </label>
-
-
-              <div className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">Variant</span>
-                <div className="flex flex-wrap gap-2">
-                  {VARIANTS.map((variant) => (
-                    <button
-                      key={variant.id}
-                      type="button"
-                      onClick={() => setVariantType(variant.id)}
-                      className={`rounded-xl border px-3 py-1.5 text-sm ${
-                        variantType === variant.id
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {variant.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div>
-                    <span className="text-xs text-slate-600">숙소 추가</span>
-                    <p className="mt-1 text-xs text-slate-400">일차별 추가 숙소 수량을 모달에서 설정합니다.</p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      {planRows.length === 0
-                        ? '아직 설정할 일차가 없습니다.'
-                        : `적용 일차 ${extraLodgingSummary.activeDayCount}일 · 총 ${extraLodgingSummary.totalCount}개`}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setExtraLodgingsModalState({ open: true })}
-                    disabled={planRows.length === 0}
-                  >
-                    숙소 추가 설정
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid gap-3 text-sm">
-                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div>
-                    <span className="text-xs text-slate-600">숙소 업그레이드</span>
-                    <p className="mt-1 text-xs text-slate-400">버튼을 눌러 일차별 숙소 등급과 지정 숙소를 한 번에 설정합니다.</p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      {planRows.length === 0
-                        ? '아직 설정할 일차가 없습니다.'
-                        : `총 ${planRows.length}일차 · 업그레이드 ${planRows.filter((row) => row.lodgingSelectionLevel !== 'LV3').length}건`}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setLodgingUpgradeModalState({ open: true })}
-                    disabled={planRows.length === 0}
-                  >
-                    숙소 업그레이드 하기
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div>
-                    <span className="text-xs text-slate-600">특식 4종</span>
-                    <p className="mt-1 text-xs text-slate-400">샤브샤브·삼겹살파티·허르헉·샤슬릭을 규칙에 맞게 일차/식사별로 배치합니다.</p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      {planRows.length === 0
-                        ? '아직 설정할 일차가 없습니다.'
-                        : (() => {
-                            const mainRows = planRows.filter((r) => isMainPlanStopRow(r));
-                            const assignments = getAssignmentsFromPlanRows(
-                              mainRows.map((r) => ({
-                                mealCellText: r.mealCellText,
-                                destinationCellText: r.destinationCellText,
-                                scheduleCellText: r.scheduleCellText,
-                              })),
-                            );
-                            const count = new Set(assignments.map((a) => a.specialMeal)).size;
-                            return `4종 중 ${count}종 배치됨`;
-                          })()}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setSpecialMealsModalState({ open: true })}
-                    disabled={planRows.length === 0}
-                  >
-                    특식 배치 설정
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div>
-                    <span className="text-xs text-slate-600">기타 금액</span>
-                    <p className="mt-1 text-xs text-slate-400">추가와 할인을 모달에서 분리해 관리합니다.</p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      추가 {manualAdjustmentSummary.addCount}건 ({formatKrw(manualAdjustmentSummary.addTotal)}) · 할인{' '}
-                      {manualAdjustmentSummary.discountCount}건 ({formatKrw(manualAdjustmentSummary.discountTotal)})
-                    </p>
-                  </div>
-                  <Button variant="outline" onClick={() => setManualAdjustmentsModalState({ open: true })}>
-                    기타 금액 설정
-                  </Button>
-                </div>
-                {hasValidation('invalid-manual-adjustments') ? (
-                  <p className="text-xs text-rose-700">기타 금액은 내용과 0 이상 정수 금액을 함께 입력해주세요.</p>
-                ) : null}
               </div>
             </div>
           </Card>
