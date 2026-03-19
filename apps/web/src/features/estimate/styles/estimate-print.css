@@ -75,6 +75,107 @@
 
 .estimate-sheet-page1 {
   padding: var(--estimate-page1-padding);
+  display: flex;
+  flex-direction: column;
+  --estimate-page1-section-title-margin-top: 12px;
+  --estimate-page1-section-title-margin-bottom: 6px;
+  --estimate-page1-subtitle-margin-top: 8px;
+  --estimate-page1-subtitle-margin-bottom: 6px;
+  --estimate-page1-table-cell-padding-y: 6px;
+  --estimate-page1-pricing-font-size: 12px;
+  --estimate-page1-pricing-line-height: 1.4;
+  --estimate-page1-pricing-row-gap: 2px;
+  --estimate-page1-footer-note-margin-top: 12px;
+  --estimate-page1-footer-payment-margin-y: 4px;
+}
+
+.estimate-sheet-page1--dense {
+  --estimate-page1-section-title-margin-top: 10px;
+  --estimate-page1-section-title-margin-bottom: 5px;
+  --estimate-page1-subtitle-margin-top: 6px;
+  --estimate-page1-subtitle-margin-bottom: 4px;
+  --estimate-page1-table-cell-padding-y: 5px;
+  --estimate-page1-pricing-font-size: 11px;
+  --estimate-page1-pricing-line-height: 1.32;
+  --estimate-page1-pricing-row-gap: 1px;
+  --estimate-page1-footer-note-margin-top: 8px;
+  --estimate-page1-footer-payment-margin-y: 3px;
+}
+
+.estimate-sheet-page1--compact {
+  --estimate-page1-section-title-margin-top: 8px;
+  --estimate-page1-section-title-margin-bottom: 4px;
+  --estimate-page1-subtitle-margin-top: 5px;
+  --estimate-page1-subtitle-margin-bottom: 3px;
+  --estimate-page1-table-cell-padding-y: 4px;
+  --estimate-page1-pricing-font-size: 10px;
+  --estimate-page1-pricing-line-height: 1.2;
+  --estimate-page1-pricing-row-gap: 1px;
+  --estimate-page1-footer-note-margin-top: 6px;
+  --estimate-page1-footer-payment-margin-y: 2px;
+}
+
+.estimate-sheet-page1 .estimate-company-grid {
+  margin-top: 8px;
+}
+
+.estimate-sheet-page1--compact .estimate-company-grid {
+  row-gap: 2px;
+}
+
+.estimate-sheet-page1 .estimate-divider {
+  margin: 12px 0;
+}
+
+.estimate-sheet-page1--dense .estimate-divider {
+  margin: 10px 0;
+}
+
+.estimate-sheet-page1--compact .estimate-divider {
+  margin: 8px 0;
+}
+
+.estimate-sheet-page1 .estimate-section-title {
+  margin: var(--estimate-page1-section-title-margin-top) 0 var(--estimate-page1-section-title-margin-bottom);
+}
+
+.estimate-sheet-page1 .estimate-subtitle {
+  margin: var(--estimate-page1-subtitle-margin-top) 0 var(--estimate-page1-subtitle-margin-bottom);
+}
+
+.estimate-sheet-page1 .estimate-table th,
+.estimate-sheet-page1 .estimate-table td {
+  padding-top: var(--estimate-page1-table-cell-padding-y);
+  padding-bottom: var(--estimate-page1-table-cell-padding-y);
+}
+
+.estimate-sheet-page1 .estimate-table-pricing {
+  font-size: var(--estimate-page1-pricing-font-size);
+}
+
+.estimate-pricing-line {
+  line-height: var(--estimate-page1-pricing-line-height);
+  overflow-wrap: anywhere;
+}
+
+.estimate-pricing-line + .estimate-pricing-line {
+  margin-top: var(--estimate-page1-pricing-row-gap);
+}
+
+.estimate-pricing-line--basis {
+  color: #334155;
+}
+
+.estimate-sheet-page1 .estimate-footer-meta {
+  margin-top: auto;
+}
+
+.estimate-sheet-page1 .estimate-single-line-note {
+  margin: var(--estimate-page1-footer-note-margin-top) 0 6px;
+}
+
+.estimate-sheet-page1 .estimate-payment-line {
+  margin: var(--estimate-page1-footer-payment-margin-y) 0;
 }
 
 .estimate-sheet-page2 {

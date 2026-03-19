@@ -329,13 +329,20 @@ function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: 
 export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element {
   const adjustmentLines = data.adjustmentLines;
   const [activeField, setActiveField] = useState<EstimatePage1EditableField | null>(null);
+  const hasLongPricingText = adjustmentLines.some((line) => line.label.length >= 18 || line.formula.length >= 18);
+  const page1DensityClassName =
+    adjustmentLines.length >= 6 || (adjustmentLines.length >= 5 && hasLongPricingText)
+      ? ' estimate-sheet-page1--compact'
+      : adjustmentLines.length >= 4 || hasLongPricingText
+        ? ' estimate-sheet-page1--dense'
+        : '';
   const securityDepositSummary =
     data.securityDepositUnitKrw === null
       ? '-'
       : `${formatCurrency(data.securityDepositUnitKrw)} (${data.securityDepositScope})`;
 
   return (
-    <section className="estimate-sheet estimate-sheet-page1">
+    <section className={`estimate-sheet estimate-sheet-page1${page1DensityClassName}`}>
       <p className="estimate-tagline">{ESTIMATE_TAGLINE}</p>
       <h1 className="estimate-title">{ESTIMATE_TITLE}</h1>
 
@@ -713,7 +720,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 <div>-</div>
               ) : (
                 adjustmentLines.map((line, index) => (
-                  <div key={`adj-${index}`}>
+                  <div key={`adj-${index}`} className="estimate-pricing-line">
                     {line.label} <strong>{formatSignedCurrency(line.amountKrw)}</strong>
                   </div>
                 ))
@@ -723,7 +730,11 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
               {adjustmentLines.length === 0 ? (
                 <div>-</div>
               ) : (
-                adjustmentLines.map((line, index) => <div key={`basis-${index}`}>{line.formula}</div>)
+                adjustmentLines.map((line, index) => (
+                  <div key={`basis-${index}`} className="estimate-pricing-line estimate-pricing-line--basis">
+                    {line.formula}
+                  </div>
+                ))
               )}
             </td>
           </tr>
