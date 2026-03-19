@@ -65,6 +65,7 @@ import {
   getRouteStopEndDayIndex,
   getRouteStopStartDayIndex,
   getSegmentVersions,
+  type LocationVersionOption,
   type LocationOption,
   type MultiDayBlockConnectionOption,
   type MultiDayBlockOption,
@@ -645,7 +646,7 @@ const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
       }
       versions {
         id
-        overnightStayConnectionId
+        multiDayBlockConnectionId
         name
         averageDistanceKm
         averageTravelHours
@@ -713,10 +714,14 @@ const PLAN_TEMPLATES_QUERY = gql`
         dayIndex
         segmentId
         segmentVersionId
-        overnightStayId
-        overnightStayDayOrder
-        overnightStayConnectionId
-        overnightStayConnectionVersionId
+        overnightStayId: multiDayBlockId
+        overnightStayDayOrder: multiDayBlockDayOrder
+        overnightStayConnectionId: multiDayBlockConnectionId
+        overnightStayConnectionVersionId: multiDayBlockConnectionVersionId
+        multiDayBlockId
+        multiDayBlockDayOrder
+        multiDayBlockConnectionId
+        multiDayBlockConnectionVersionId
         locationId
         locationVersionId
         dateCellText
@@ -746,10 +751,14 @@ const PLAN_TEMPLATE_QUERY = gql`
         dayIndex
         segmentId
         segmentVersionId
-        overnightStayId
-        overnightStayDayOrder
-        overnightStayConnectionId
-        overnightStayConnectionVersionId
+        overnightStayId: multiDayBlockId
+        overnightStayDayOrder: multiDayBlockDayOrder
+        overnightStayConnectionId: multiDayBlockConnectionId
+        overnightStayConnectionVersionId: multiDayBlockConnectionVersionId
+        multiDayBlockId
+        multiDayBlockDayOrder
+        multiDayBlockConnectionId
+        multiDayBlockConnectionVersionId
         locationId
         locationVersionId
         dateCellText
@@ -1254,6 +1263,60 @@ function sortTemplateStops(stops: PlanTemplateStopRow[]): PlanTemplateStopRow[] 
   return stops.slice().sort((a, b) => a.dayIndex - b.dayIndex);
 }
 
+function normalizeCellText(value: string | null | undefined): string {
+  return (value ?? '').replace(/\r\n/g, '\n').trim();
+}
+
+function templateUsesEarlyFirstDay(input: {
+  template: PlanTemplateRow;
+  locationById: Map<string, LocationOption>;
+  locationVersionById: Map<string, LocationVersionOption>;
+}): boolean {
+  const orderedStops = sortTemplateStops(input.template.planStops);
+  const firstStop = orderedStops[0];
+  const startLocationId = firstStop?.locationId ?? '';
+  const startLocationVersionId = firstStop?.locationVersionId ?? '';
+  if (!startLocationId || !startLocationVersionId) {
+    return false;
+  }
+
+  const baseRows = buildAutoRowsFromRoute({
+    startLocationId,
+    startLocationVersionId,
+    selectedRoute: [],
+    filteredSegments: [],
+    filteredMultiDayBlocks: [],
+    filteredMultiDayBlockConnections: [],
+    locationById: input.locationById,
+    locationVersionById: input.locationVersionById,
+    totalDays: Math.max(2, input.template.totalDays),
+    variantType: VariantType.Basic,
+  });
+  const earlyRows = buildAutoRowsFromRoute({
+    startLocationId,
+    startLocationVersionId,
+    selectedRoute: [],
+    filteredSegments: [],
+    filteredMultiDayBlocks: [],
+    filteredMultiDayBlockConnections: [],
+    locationById: input.locationById,
+    locationVersionById: input.locationVersionById,
+    totalDays: Math.max(2, input.template.totalDays),
+    variantType: VariantType.Early,
+  });
+
+  const templateTime = normalizeCellText(firstStop?.timeCellText);
+  const templateSchedule = normalizeCellText(firstStop?.scheduleCellText);
+  const basicTime = normalizeCellText(baseRows[0]?.timeCellText);
+  const basicSchedule = normalizeCellText(baseRows[0]?.scheduleCellText);
+  const earlyTime = normalizeCellText(earlyRows[0]?.timeCellText);
+  const earlySchedule = normalizeCellText(earlyRows[0]?.scheduleCellText);
+
+  const matchesEarly = templateTime === earlyTime && templateSchedule === earlySchedule;
+  const matchesBasic = templateTime === basicTime && templateSchedule === basicSchedule;
+  return matchesEarly && !matchesBasic;
+}
+
 function buildDefaultLodgingRow(input: {
   rowType?: PlanStopRowType;
   segmentId?: string;
@@ -1712,6 +1775,16 @@ export function ItineraryBuilderPage(): JSX.Element {
     [segments, regionId],
   );
 
+  const allLocationById = useMemo(() => new Map(locations.map((location) => [location.id, location])), [locations]);
+  const allLocationVersionById = useMemo(
+    () =>
+      new Map(
+        locations.flatMap((location) =>
+          location.variations.map((version) => [version.id, version] as const),
+        ),
+      ),
+    [locations],
+  );
   const locationById = useMemo(() => new Map(filteredLocations.map((location) => [location.id, location])), [filteredLocations]);
   const locationVersionById = useMemo(
     () =>
@@ -2276,6 +2349,20 @@ export function ItineraryBuilderPage(): JSX.Element {
   }, [externalTransfers, planRows, transportGroups]);
 
   const applyTemplate = (template: PlanTemplateRow, withConfirm = true): void => {
+    const builderAllowsEarly =
+      variantType === VariantType.Early || variantType === VariantType.EarlyExtend;
+    if (
+      !builderAllowsEarly &&
+      templateUsesEarlyFirstDay({
+        template,
+        locationById: allLocationById,
+        locationVersionById: allLocationVersionById,
+      })
+    ) {
+      window.alert('이 템플릿은 1일차에 얼리 일정을 사용하고 있습니다. Variant를 얼리 또는 얼리+연장으로 바꾼 뒤 다시 불러와주세요.');
+      return;
+    }
+
     if (withConfirm && !window.confirm(`템플릿 \"${template.name}\"을(를) 현재 빌더에 적용할까요?`)) {
       return;
     }

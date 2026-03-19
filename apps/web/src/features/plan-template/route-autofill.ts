@@ -1124,7 +1124,6 @@ export function buildTemplateStopsFromRouteAndRows(input: {
   return input.planRows.map((row, index) => {
     const routeStop = routeStops[index];
     return {
-      rowType: row.rowType,
       dayIndex: index + 1,
       segmentId: routeStop?.segmentId || row.segmentId,
       segmentVersionId: routeStop?.segmentVersionId || row.segmentVersionId,

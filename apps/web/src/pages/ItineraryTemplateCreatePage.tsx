@@ -294,7 +294,7 @@ const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
       }
       versions {
         id
-        overnightStayConnectionId
+        multiDayBlockConnectionId
         name
         averageDistanceKm
         averageTravelHours

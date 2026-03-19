@@ -263,10 +263,10 @@ const PLAN_TEMPLATE_QUERY = gql`
         dayIndex
         segmentId
         segmentVersionId
-        overnightStayId
-        overnightStayDayOrder
-        overnightStayConnectionId
-        overnightStayConnectionVersionId
+        overnightStayId: multiDayBlockId
+        overnightStayDayOrder: multiDayBlockDayOrder
+        overnightStayConnectionId: multiDayBlockConnectionId
+        overnightStayConnectionVersionId: multiDayBlockConnectionVersionId
         multiDayBlockId
         multiDayBlockDayOrder
         multiDayBlockConnectionId
@@ -368,7 +368,7 @@ const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
       }
       versions {
         id
-        overnightStayConnectionId
+        multiDayBlockConnectionId
         name
         averageDistanceKm
         averageTravelHours
