@@ -191,6 +191,13 @@ export function formatCalculationBasis(unitPriceKrw: number | null, quantity: nu
   return `${formatCurrency(unitPriceKrw)} * ${quantity}`;
 }
 
+export function formatPerPersonCalculationBasis(totalAmountKrw: number | null, headcount: number): string {
+  if (totalAmountKrw === null || headcount <= 0) {
+    return '-';
+  }
+  return `${formatCurrency(totalAmountKrw)}/${headcount}인`;
+}
+
 export function toSecurityDepositScope(mode: EstimateSecurityDepositMode): EstimateSecurityDepositScope {
   if (mode === 'PER_PERSON') {
     return '인당';

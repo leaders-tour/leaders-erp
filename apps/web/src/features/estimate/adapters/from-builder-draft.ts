@@ -7,6 +7,7 @@ import {
   addDays,
   buildPage2Title,
   formatCalculationBasis,
+  formatPerPersonCalculationBasis,
   normalizeMultilineText,
   toSecurityDepositScope,
   todayIsoDate,
@@ -70,7 +71,10 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
       pricingBuckets?.addonLines.map((line) => ({
         label: getPricingLineLabel(line),
         amountKrw: line.amountKrw,
-        formula: formatCalculationBasis(line.unitPriceKrw, line.quantity),
+        formula:
+          line.lineCode === 'MANUAL_ADJUSTMENT'
+            ? formatPerPersonCalculationBasis(line.unitPriceKrw, line.quantity)
+            : formatCalculationBasis(line.unitPriceKrw, line.quantity),
       })) ?? [],
     totalPricePerPersonKrw: snapshot.pricing?.totalAmountKrw ?? null,
     depositPricePerPersonKrw: snapshot.pricing?.depositAmountKrw ?? null,

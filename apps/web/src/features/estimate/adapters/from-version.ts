@@ -10,6 +10,7 @@ import {
   formatExternalPickupDropText,
   formatLegacyExternalTransferText,
   formatCalculationBasis,
+  formatPerPersonCalculationBasis,
   normalizeMultilineText,
   toSecurityDepositScope,
   todayIsoDate,
@@ -116,7 +117,10 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
       pricingBuckets?.addonLines.map((line) => ({
         label: getPricingLineLabel(line),
         amountKrw: line.amountKrw,
-        formula: formatCalculationBasis(line.unitPriceKrw, line.quantity),
+        formula:
+          line.lineCode === 'MANUAL_ADJUSTMENT'
+            ? formatPerPersonCalculationBasis(line.unitPriceKrw, line.quantity)
+            : formatCalculationBasis(line.unitPriceKrw, line.quantity),
       })) ?? [],
     totalPricePerPersonKrw: pricing?.totalAmountKrw ?? null,
     depositPricePerPersonKrw: pricing?.depositAmountKrw ?? null,

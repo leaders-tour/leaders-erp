@@ -886,6 +886,20 @@ function formatKrw(value: number): string {
   return `${new Intl.NumberFormat('ko-KR').format(value)}원`;
 }
 
+function formatPricingLineUnitDisplay(line: PricingLineRow, headcountTotal: number): string {
+  if (line.lineCode === 'MANUAL_ADJUSTMENT' && headcountTotal > 0) {
+    return `${formatKrw(line.unitPriceKrw ?? line.amountKrw)}/${headcountTotal}인`;
+  }
+  return line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-';
+}
+
+function formatPricingLineQuantityDisplay(line: PricingLineRow, headcountTotal: number): string {
+  if (line.lineCode === 'MANUAL_ADJUSTMENT' && headcountTotal > 0) {
+    return `${headcountTotal}인`;
+  }
+  return String(line.quantity);
+}
+
 function cloneExternalTransfer(transfer: ExternalTransfer): ExternalTransfer {
   return {
     ...transfer,
@@ -2227,7 +2241,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         timeCellText: '',
         scheduleCellText: '',
         lodgingCellText: '',
-        mealCellText: '',
+        mealCellText: 'mealCellText' in row ? row.mealCellText : '',
       })),
     [mergedPlanStops],
   );
@@ -4487,8 +4501,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 {pricingBuckets.baseLines.map((line, index) => (
                                   <tr key={`${line.lineCode}-base-${index}`} className="border-t border-slate-200">
                                     <td className="px-2 py-1.5">{getPricingLineLabel(line)}</td>
-                                    <td className="px-2 py-1.5">{line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-'}</td>
-                                    <td className="px-2 py-1.5">{line.quantity}</td>
+                                    <td className="px-2 py-1.5">{formatPricingLineUnitDisplay(line, headcountTotal)}</td>
+                                    <td className="px-2 py-1.5">{formatPricingLineQuantityDisplay(line, headcountTotal)}</td>
                                     <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
                                   </tr>
                                 ))}
@@ -4634,8 +4648,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                           <div className="text-[11px] text-blue-700">{line.description}</div>
                                         ) : null}
                                       </td>
-                                      <td className="px-2 py-1.5">{line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-'}</td>
-                                      <td className="px-2 py-1.5">{line.quantity}</td>
+                                      <td className="px-2 py-1.5">{formatPricingLineUnitDisplay(line, headcountTotal)}</td>
+                                      <td className="px-2 py-1.5">{formatPricingLineQuantityDisplay(line, headcountTotal)}</td>
                                       <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
                                     </tr>
                                   ))}

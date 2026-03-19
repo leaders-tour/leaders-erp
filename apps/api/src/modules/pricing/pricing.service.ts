@@ -232,17 +232,58 @@ export class PricingService {
     }
 
     input.manualAdjustments.forEach((adjustment, index) => {
+      const normalizedAmountKrw =
+        input.headcountTotal > 0 ? Math.round(adjustment.amountKrw / input.headcountTotal) : adjustment.amountKrw;
       lines.push({
         lineCode: 'MANUAL_ADJUSTMENT',
         sourceType: 'MANUAL',
         ruleId: null,
         description: adjustment.description,
         unitPriceKrw: adjustment.amountKrw,
-        quantity: 1,
-        amountKrw: adjustment.amountKrw,
+        quantity: input.headcountTotal > 0 ? input.headcountTotal : 1,
+        amountKrw: normalizedAmountKrw,
         meta: { order: index + 1 },
       });
     });
+
+    // 야간열차 판정: 이동형 멀티데이 블록(TRANSFER) 자동 감지
+    const nightTrainBlockIds = await this.detectNightTrainBlocks(prisma, mainPlanStops);
+    if (nightTrainBlockIds.size > 0) {
+      const NIGHT_TRAIN_FIXED_AMOUNT_PER_TEAM_KRW = 420_000;
+      // 견적서 표시를 위해 인당 금액으로 정규화
+      const normalizedAmountKrw =
+        input.headcountTotal > 0 ? Math.round(NIGHT_TRAIN_FIXED_AMOUNT_PER_TEAM_KRW / input.headcountTotal) : NIGHT_TRAIN_FIXED_AMOUNT_PER_TEAM_KRW;
+      lines.push({
+        lineCode: 'MANUAL_ADJUSTMENT',
+        sourceType: 'RULE',
+        ruleId: null,
+        description: '야간열차',
+        unitPriceKrw: NIGHT_TRAIN_FIXED_AMOUNT_PER_TEAM_KRW,
+        quantity: input.headcountTotal > 0 ? input.headcountTotal : 1,
+        amountKrw: normalizedAmountKrw,
+        meta: { nightTrainBlockIds: Array.from(nightTrainBlockIds) },
+      });
+    }
+
+    // 샤브샤브 누락 할인: mealCellText 전체에서 '샤브샤브' 미포함 시 인당 15,000원 할인
+    const allMealCellTexts = mainPlanStops
+      .map((stop) => stop.mealCellText ?? '')
+      .join(' ');
+    const hasShabushabu = allMealCellTexts.includes('샤브샤브');
+    if (!hasShabushabu) {
+      const SHABUSHABU_DISCOUNT_PER_PERSON_KRW = -15_000;
+      const normalizedDiscountKrw = SHABUSHABU_DISCOUNT_PER_PERSON_KRW;
+      lines.push({
+        lineCode: 'MANUAL_ADJUSTMENT',
+        sourceType: 'RULE',
+        ruleId: null,
+        description: '샤브샤브 누락 할인',
+        unitPriceKrw: SHABUSHABU_DISCOUNT_PER_PERSON_KRW,
+        quantity: input.headcountTotal > 0 ? input.headcountTotal : 1,
+        amountKrw: normalizedDiscountKrw,
+        meta: { reason: 'shabushabu_missing' },
+      });
+    }
 
     const baseAmountKrw = baseRawAmount + baseUpliftAmount;
     const totalAmountKrw = lines.reduce((sum, line) => sum + line.amountKrw, 0);
@@ -313,7 +354,7 @@ export class PricingService {
 
       if (selection.level !== 'CUSTOM') {
         const unitPriceKrw = FIXED_LODGING_SELECTION_AMOUNTS[selection.level];
-        const quantity = headcountTotal;
+        const quantity = 1;
         lines.push({
           lineCode: 'LODGING_SELECTION',
           sourceType: 'MANUAL',
@@ -596,6 +637,33 @@ export class PricingService {
       },
       orderBy: [{ priority: 'desc' }, { effectiveFrom: 'desc' }],
     });
+  }
+
+  private async detectNightTrainBlocks(
+    prisma: PrismaLike,
+    planStops: PricingPlanStopDto[],
+  ): Promise<Set<string>> {
+    const blockIds = Array.from(
+      new Set(
+        planStops
+          .map((stop) => stop.multiDayBlockId)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0),
+      ),
+    );
+    if (blockIds.length === 0) {
+      return new Set();
+    }
+    const blocks = await prisma.overnightStay.findMany({
+      where: { id: { in: blockIds } },
+      select: { id: true, blockType: true },
+    });
+    const nightTrainBlockIds = new Set<string>();
+    blocks.forEach((block) => {
+      if (block.blockType === 'TRANSFER') {
+        nightTrainBlockIds.add(block.id);
+      }
+    });
+    return nightTrainBlockIds;
   }
 
   private async countLongDistanceSegments(

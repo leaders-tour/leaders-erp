@@ -28,6 +28,8 @@ export interface PricingPlanStopDto {
   /** When this stop is the last day of a block, segment from this to next uses this as fromLocationId for long-distance count */
   blockEndLocationId?: string;
   locationId?: string;
+  /** 특식 할인 판정용 (샤브샤브 누락 감지) */
+  mealCellText?: string;
 }
 
 export interface PricingComputeInput {
