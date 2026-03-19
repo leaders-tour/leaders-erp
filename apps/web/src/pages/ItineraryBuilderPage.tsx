@@ -3190,7 +3190,10 @@ export function ItineraryBuilderPage(): JSX.Element {
 
         <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900">설정</h2>
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">1</span>
+              <span>기본정보</span>
+            </h2>
             <div className="mt-4 grid gap-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
               {isVersionMode ? (
                 <label className="grid gap-1 text-sm">
@@ -3608,8 +3611,10 @@ export function ItineraryBuilderPage(): JSX.Element {
           </Card>
 
           <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900">항공 / 픽업 / 드랍</h2>
-            <p className="mt-1 text-xs text-slate-600">팀별 이동 정보와 실투어 외 픽드랍을 한 곳에서 설정합니다.</p>
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">2</span>
+              <span>항공 및 이동</span>
+            </h2>
             <div className="mt-5 grid gap-5 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-5">
               <div className="grid gap-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
