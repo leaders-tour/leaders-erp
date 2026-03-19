@@ -212,8 +212,8 @@ export function AppLayout(): JSX.Element {
     location.pathname === '/locations/create' ||
     location.pathname === '/connections/create' ||
     /^\/locations\/[^/]+\/versions\/[^/]+\/edit$/.test(location.pathname);
-  const isWideMultiDayBlockCreatePage = location.pathname === '/multi-day-blocks/create';
-  const isWideConnectionListPage = location.pathname === '/connections/list';
+  const isWideMultiDayBlockCreatePage = location.pathname === '/multi-day-blocks/create' || location.pathname === '/multi-day-blocks/connections/create';
+  const isWideConnectionListPage = location.pathname === '/connections/list' || location.pathname === '/multi-day-blocks/connections/list';
   const pageShellClassName = isFullBleedPage
     ? 'max-w-none px-0 py-0'
     : isWideConnectionListPage
