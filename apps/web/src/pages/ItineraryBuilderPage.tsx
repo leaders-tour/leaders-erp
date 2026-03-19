@@ -3761,7 +3761,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
               <div className="grid gap-3 text-sm">
                 <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div>
+                  <div className="min-w-0 w-1/2">
                     <span className="text-xs text-slate-600">실투어 외 픽업 / 드랍</span>
                     <p className="mt-1 text-xs text-slate-400">외부 이동 항목 추가, 수정, 삭제를 모달에서 관리합니다.</p>
                     <p className="mt-2 text-xs text-slate-500">
@@ -3774,6 +3774,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                   </div>
                   <Button
                     variant="outline"
+                    className="shrink-0 whitespace-nowrap"
                     onClick={() => {
                       setExternalTransfersDraft(externalTransfers.map(cloneExternalTransfer));
                       setExternalTransfersManagerModalState({ open: true });
