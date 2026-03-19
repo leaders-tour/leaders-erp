@@ -6,7 +6,7 @@ import {
   getMovementIntensityMeta,
 } from '../features/estimate/model/movement-intensity';
 import { formatLocationNameInline } from '../features/location/display';
-import { LocationSubNav } from '../features/location/sub-nav';
+import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
 
 interface RegionRow {
   id: string;
@@ -233,7 +233,7 @@ export function MultiDayBlockConnectionPage(): JSX.Element {
         <p className="mt-1 text-sm text-slate-600">블록 이후에 갈 수 있는 목적지 연결을 관리합니다.</p>
       </header>
 
-      <LocationSubNav pathname="/locations/stays/connections" />
+      <MultiDayBlockSubNav pathname="/multi-day-blocks/connections" />
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3">

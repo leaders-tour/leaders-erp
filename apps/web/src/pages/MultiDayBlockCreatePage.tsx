@@ -7,7 +7,7 @@ import {
 } from '../features/estimate/model/movement-intensity';
 import { useNavigate } from 'react-router-dom';
 import { formatLocationNameInline } from '../features/location/display';
-import { LocationSubNav } from '../features/location/sub-nav';
+import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
 import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
 import { getAssignmentsFromPlanRows } from '../features/plan/special-meals';
 import {
@@ -179,12 +179,12 @@ export function MultiDayBlockCreatePage(): JSX.Element {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">연속 일정 블록 생성</h1>
           <p className="mt-1 text-sm text-slate-600">체류형(같은 목적지) 또는 이동형(야간열차) 블록을 2~3일로 등록합니다.</p>
         </div>
-        <Button variant="outline" onClick={() => navigate('/locations/stays')}>
+        <Button variant="outline" onClick={() => navigate('/multi-day-blocks/list')}>
           목록으로
         </Button>
       </header>
 
-      <LocationSubNav pathname="/locations/stays/new" />
+      <MultiDayBlockSubNav pathname="/multi-day-blocks/create" />
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-5">
@@ -544,13 +544,13 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                 });
                 const createdId = result.data?.createMultiDayBlock.id;
                 if (createdId) {
-                  navigate(`/locations/stays/${createdId}`);
+                  navigate(`/multi-day-blocks/${createdId}`);
                 }
               }}
             >
               {loading ? '생성 중...' : '블록 생성'}
             </Button>
-            <Button variant="outline" onClick={() => navigate('/locations/stays')}>
+            <Button variant="outline" onClick={() => navigate('/multi-day-blocks/list')}>
               취소
             </Button>
           </div>

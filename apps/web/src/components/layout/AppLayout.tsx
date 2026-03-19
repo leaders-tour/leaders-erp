@@ -72,6 +72,14 @@ const ConnectionIcon: NavIcon = ({ className }) => (
   </svg>
 );
 
+const MultiDayBlockIcon: NavIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <rect x="4" y="5" width="16" height="4" rx="1.5" />
+    <rect x="4" y="11" width="16" height="4" rx="1.5" />
+    <rect x="4" y="17" width="16" height="2" rx="1" />
+  </svg>
+);
+
 const RegionIcon: NavIcon = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
     <circle cx="12" cy="12" r="9" />
@@ -122,8 +130,6 @@ const baseNavItems: NavItem[] = [
     children: [
       { path: '/locations/list', label: '목적지 목록' },
       { path: '/locations/create', label: '목적지 생성' },
-      { path: '/locations/stays', label: '연속 일정 블록 목록' },
-      { path: '/locations/stays/connections', label: '블록 후속 연결' },
       { path: '/location-guides', label: '여행지 안내사항' },
     ],
   },
@@ -134,6 +140,16 @@ const baseNavItems: NavItem[] = [
     children: [
       { path: '/connections/list', label: '연결 목록' },
       { path: '/connections/create', label: '연결 생성' },
+    ],
+  },
+  {
+    path: '/multi-day-blocks',
+    label: '연속 일정 블록',
+    icon: MultiDayBlockIcon,
+    children: [
+      { path: '/multi-day-blocks/list', label: '블록 목록' },
+      { path: '/multi-day-blocks/create', label: '블록 생성' },
+      { path: '/multi-day-blocks/connections', label: '블록 후속 연결' },
     ],
   },
   {

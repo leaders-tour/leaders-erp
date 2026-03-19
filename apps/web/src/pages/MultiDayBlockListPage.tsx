@@ -2,7 +2,7 @@ import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { Link, useNavigate } from 'react-router-dom';
 import { formatLocationNameInline } from '../features/location/display';
-import { LocationSubNav } from '../features/location/sub-nav';
+import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
 
 const MULTI_DAY_BLOCKS_QUERY = gql`
   query MultiDayBlockListPage {
@@ -60,10 +60,10 @@ export function MultiDayBlockListPage(): JSX.Element {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">연속 일정 블록 목록</h1>
           <p className="mt-1 text-sm text-slate-600">블록 정의를 조회하고 상세 화면으로 이동합니다.</p>
         </div>
-        <Button onClick={() => navigate('/locations/stays/new')}>블록 생성</Button>
+        <Button onClick={() => navigate('/multi-day-blocks/create')}>블록 생성</Button>
       </header>
 
-      <LocationSubNav pathname="/locations/stays" />
+      <MultiDayBlockSubNav pathname="/multi-day-blocks/list" />
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         {loading ? (
@@ -96,7 +96,7 @@ export function MultiDayBlockListPage(): JSX.Element {
                           : '-'}
                       </Td>
                       <Td>
-                        <Link to={`/locations/stays/${row.id}`} className="text-blue-700 hover:underline">
+                        <Link to={`/multi-day-blocks/${row.id}`} className="text-blue-700 hover:underline">
                           상세
                         </Link>
                       </Td>

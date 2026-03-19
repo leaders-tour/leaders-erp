@@ -7,7 +7,7 @@ import {
   getMovementIntensityMeta,
 } from '../features/estimate/model/movement-intensity';
 import { formatLocationNameInline } from '../features/location/display';
-import { LocationSubNav } from '../features/location/sub-nav';
+import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
 import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
 import { getAssignmentsFromPlanRows } from '../features/plan/special-meals';
 import {
@@ -280,12 +280,12 @@ export function MultiDayBlockDetailPage(): JSX.Element {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{name || overnightStay.title}</h1>
           <p className="mt-1 text-sm text-slate-600">블록 일차별 데이터를 수정합니다.</p>
         </div>
-        <Button variant="outline" onClick={() => navigate('/locations/stays')}>
+        <Button variant="outline" onClick={() => navigate('/multi-day-blocks/list')}>
           목록으로
         </Button>
       </header>
 
-      <LocationSubNav pathname={`/locations/stays/${stayId}`} />
+      <MultiDayBlockSubNav pathname={`/multi-day-blocks/${stayId}`} />
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-5">
@@ -641,7 +641,7 @@ export function MultiDayBlockDetailPage(): JSX.Element {
                   return;
                 }
                 await deleteMultiDayBlock({ variables: { id: stayId } });
-                navigate('/locations/stays');
+                navigate('/multi-day-blocks/list');
               }}
             >
               {deleting ? '삭제 중...' : '삭제'}
