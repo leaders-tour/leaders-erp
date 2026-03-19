@@ -498,6 +498,28 @@ export function LocationProfileForm({
           <div className="grid gap-6">
             <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
               <label className="grid gap-1 text-sm min-w-0">
+                <span className="text-slate-700">지역</span>
+                <div className="flex flex-wrap gap-2">
+                  {regions.map((region) => (
+                    <button
+                      key={region.id}
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, regionId: region.id }))}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        form.regionId === region.id
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {region.name}
+                    </button>
+                  ))}
+                </div>
+              </label>
+            </div>
+
+            <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+              <label className="grid gap-1 text-sm min-w-0">
                 <span className="text-slate-700">{nameLabel}</span>
                 <div className="grid gap-2">
                   {form.name.map((line, index) => (
@@ -526,28 +548,6 @@ export function LocationProfileForm({
                       경유지 추가
                     </Button>
                   </div>
-                </div>
-              </label>
-            </div>
-
-            <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
-              <label className="grid gap-1 text-sm min-w-0">
-                <span className="text-slate-700">지역</span>
-                <div className="flex flex-wrap gap-2">
-                  {regions.map((region) => (
-                    <button
-                      key={region.id}
-                      type="button"
-                      onClick={() => setForm((prev) => ({ ...prev, regionId: region.id }))}
-                      className={`rounded-xl border px-3 py-1.5 text-sm ${
-                        form.regionId === region.id
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {region.name}
-                    </button>
-                  ))}
                 </div>
               </label>
             </div>
