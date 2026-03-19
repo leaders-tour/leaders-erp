@@ -3979,7 +3979,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                         </div>
                         {versions.length > 1 ? (
                           <div className="mt-3 grid gap-2">
-                            <div className="text-xs text-slate-500">이동 버전</div>
+                            <div className="text-xs text-slate-500">시즌 버전</div>
                             <div className="flex flex-wrap gap-2">
                               {versions.map((version) => (
                                 <button
