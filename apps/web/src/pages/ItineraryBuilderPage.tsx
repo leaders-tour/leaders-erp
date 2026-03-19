@@ -926,13 +926,6 @@ function formatSecurityDepositScope(mode: 'NONE' | 'PER_PERSON' | 'PER_TEAM'): s
   return '-';
 }
 
-function formatLocationVersion(version: Pick<LocationVersionRow, 'label' | 'versionNumber'> | undefined): string {
-  if (!version) {
-    return '버전 미정';
-  }
-  return `${version.label} (v${version.versionNumber})`;
-}
-
 function createEstimateDraftSnapshot(input: {
   planTitle: string;
   leaderName: string;
@@ -3847,7 +3840,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <div className="text-slate-700">
                       <span className="whitespace-pre-line">{formatLocationNameMultiline(locationById.get(startLocationId)?.name ?? startLocationId)}</span>
-                      {startLocationVersionId ? ` (${formatLocationVersion(locationVersionById.get(startLocationVersionId))})` : ''}
                     </div>
                     <button
                       type="button"
@@ -3887,24 +3879,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                 {!startLocationId && firstDayOptions.length === 0 ? (
                   <p className="mt-3 text-xs text-amber-700">첫날 가능으로 설정된 목적지가 없습니다.</p>
                 ) : null}
-                {startLocationId ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(locationById.get(startLocationId)?.variations ?? []).map((version) => (
-                      <button
-                        key={`start-version-${version.id}`}
-                        type="button"
-                        onClick={() => setStartLocationVersionId(version.id)}
-                        className={`rounded-lg border px-3 py-1 text-xs ${
-                          startLocationVersionId === version.id
-                            ? 'border-slate-900 bg-slate-900 text-white'
-                            : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
-                        }`}
-                      >
-                        {formatLocationVersion(version)}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
               </div>
 
               {selectedRoute.map((stop, index) => (
@@ -3923,29 +3897,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                             <span className="whitespace-pre-line">
                               {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
                             </span>
-                            {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
-                          </div>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {(locationById.get(stop.locationId)?.variations ?? []).map((version) => (
-                              <button
-                                key={`route-stay-version-${index}-${version.id}`}
-                                type="button"
-                                onClick={() =>
-                                  setSelectedRoute((prev) =>
-                                    prev.map((item, itemIndex) =>
-                                      itemIndex === index ? { ...item, locationVersionId: version.id } : item,
-                                    ),
-                                  )
-                                }
-                                className={`rounded-lg border px-3 py-1 text-xs ${
-                                  stop.locationVersionId === version.id
-                                    ? 'border-slate-900 bg-slate-900 text-white'
-                                    : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
-                                }`}
-                              >
-                                {formatLocationVersion(version)}
-                              </button>
-                            ))}
                           </div>
                         </>
                       );
@@ -3971,29 +3922,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                             <span className="whitespace-pre-line">
                               {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
                             </span>
-                            {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
-                          </div>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {(locationById.get(stop.locationId)?.variations ?? []).map((version) => (
-                              <button
-                                key={`route-version-${index}-${version.id}`}
-                                type="button"
-                                onClick={() =>
-                                  setSelectedRoute((prev) =>
-                                    prev.map((item, itemIndex) =>
-                                      itemIndex === index ? { ...item, locationVersionId: version.id } : item,
-                                    ),
-                                  )
-                                }
-                                className={`rounded-lg border px-3 py-1 text-xs ${
-                                  stop.locationVersionId === version.id
-                                    ? 'border-slate-900 bg-slate-900 text-white'
-                                    : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
-                                }`}
-                              >
-                                {formatLocationVersion(version)}
-                              </button>
-                            ))}
                           </div>
                           {versions.length > 1 ? (
                             <div className="mt-3 grid gap-2">
@@ -4048,29 +3976,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                           <span className="whitespace-pre-line">
                             {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
                           </span>
-                          {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {(locationById.get(stop.locationId)?.variations ?? []).map((version) => (
-                            <button
-                              key={`route-version-${index}-${version.id}`}
-                              type="button"
-                              onClick={() =>
-                                setSelectedRoute((prev) =>
-                                  prev.map((item, itemIndex) =>
-                                    itemIndex === index ? { ...item, locationVersionId: version.id } : item,
-                                  ),
-                                )
-                              }
-                              className={`rounded-lg border px-3 py-1 text-xs ${
-                                stop.locationVersionId === version.id
-                                  ? 'border-slate-900 bg-slate-900 text-white'
-                                  : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
-                              }`}
-                            >
-                              {formatLocationVersion(version)}
-                            </button>
-                          ))}
                         </div>
                         {versions.length > 1 ? (
                           <div className="mt-3 grid gap-2">
