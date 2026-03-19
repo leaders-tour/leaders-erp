@@ -2,6 +2,13 @@ import { useMemo } from 'react';
 import type { ExternalTransfer } from './external-transfer';
 import { isExternalTransferComplete } from './external-transfer';
 import { parseTimeToMinutes } from './pickup-drop';
+import {
+  getAssignmentsFromPlanRows,
+  getShabushabuAllowedCandidates,
+  isSamgyeopsalRecommended,
+  SPECIAL_MEAL_KINDS,
+  type SpecialMealRowContext,
+} from './special-meals';
 import type { MultiDayBlockConnectionOption } from '../plan-template/route-autofill';
 import type { RouteSelection, SegmentOption } from '../plan-template/route-autofill';
 
@@ -111,12 +118,12 @@ function getRequiredXMeals(input: {
   return [];
 }
 
-const REQUIRED_SPECIAL_MEALS = ['샤브샤브', '삼겹살파티', '허르헉', '샤슬릭'];
-
 export interface PlanRowForValidation {
   timeCellText: string;
   mealCellText: string;
   scheduleCellText: string;
+  /** 특식 규칙 검증(샤브샤브 지역 등)용, 있으면 사용 */
+  destinationCellText?: string | null;
 }
 
 export interface TransportGroupForValidation {
@@ -377,17 +384,64 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
       }
     }
 
-    // missing-special-meals (warning) — 특식 4종 중 최소 3종 필요
-    const allMealText = planRows
-      .map((r) => r.mealCellText + '\n' + r.scheduleCellText)
-      .join('\n');
-    const missingMeals = REQUIRED_SPECIAL_MEALS.filter((meal) => !allMealText.includes(meal));
-    if (missingMeals.length > 1) {
+    // 특식 4종 규칙 기반 검증
+    const specialMealRows = planRows.map((r) => ({
+      mealCellText: r.mealCellText,
+      destinationCellText: r.destinationCellText,
+      scheduleCellText: r.scheduleCellText,
+    }));
+    const rowContexts: SpecialMealRowContext[] = [];
+    planRows.forEach((r, dayIndex) => {
+      rowContexts.push(
+        { dayIndex, mealSlot: 'breakfast', destinationCellText: r.destinationCellText, scheduleCellText: r.scheduleCellText },
+        { dayIndex, mealSlot: 'lunch', destinationCellText: r.destinationCellText, scheduleCellText: r.scheduleCellText },
+        { dayIndex, mealSlot: 'dinner', destinationCellText: r.destinationCellText, scheduleCellText: r.scheduleCellText },
+      );
+    });
+    const assignments = getAssignmentsFromPlanRows(specialMealRows);
+    const assignedKinds = new Set(assignments.map((a) => a.specialMeal));
+
+    // missing-special-meals (warning) — 특식 4종 모두 배치 권장
+    const missingMeals = SPECIAL_MEAL_KINDS.filter((k) => !assignedKinds.has(k));
+    if (missingMeals.length > 0) {
       results.push({
         id: 'missing-special-meals',
         severity: 'warning',
-        message: `특식 누락: ${missingMeals.join(', ')} (최소 3종 필요)`,
+        message: `특식 누락: ${missingMeals.join(', ')} (4종 모두 배치를 권장합니다)`,
       });
+    }
+
+    // shabushabu-invalid-placement (error) — 샤브샤브는 울란바토르 저녁만 가능
+    const shabushabuAllowed = getShabushabuAllowedCandidates(rowContexts);
+    const shabushabuAssignment = assignments.find((a) => a.specialMeal === '샤브샤브');
+    if (shabushabuAssignment) {
+      const allowed = shabushabuAllowed.some(
+        (c) => c.dayIndex === shabushabuAssignment.dayIndex && c.mealSlot === shabushabuAssignment.mealSlot,
+      );
+      if (!allowed) {
+        results.push({
+          id: 'shabushabu-invalid-placement',
+          severity: 'error',
+          message: '샤브샤브는 울란바토르 지역 저녁에만 배치할 수 있습니다.',
+          affectedCells: [{ rowIndex: shabushabuAssignment.dayIndex, field: 'mealCellText' }],
+        });
+      }
+    }
+
+    // samgyeopsal-recommendation-deviation (warning) — 삼겹살 추천지 이탈 시 warning만, 저장 차단 안 함
+    const samgyeopsalAssignment = assignments.find((a) => a.specialMeal === '삼겹살파티');
+    if (samgyeopsalAssignment) {
+      const ctx = rowContexts.find(
+        (c) => c.dayIndex === samgyeopsalAssignment.dayIndex && c.mealSlot === samgyeopsalAssignment.mealSlot,
+      );
+      if (ctx && !isSamgyeopsalRecommended(ctx)) {
+        results.push({
+          id: 'samgyeopsal-recommendation-deviation',
+          severity: 'warning',
+          message: '삼겹살파티는 지역별 추천지(바양작, 어르헝폭포, 홉스골 등)에 배치하는 것을 권장합니다.',
+          affectedCells: [{ rowIndex: samgyeopsalAssignment.dayIndex, field: 'mealCellText' }],
+        });
+      }
     }
 
     // last-day-meal-x-rule (warning) — 드랍시간 기준으로 X 처리되어야 하는 식사 확인

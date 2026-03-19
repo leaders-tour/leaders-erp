@@ -8,6 +8,8 @@ import {
 } from '../features/estimate/model/movement-intensity';
 import { formatLocationNameInline } from '../features/location/display';
 import { LocationSubNav } from '../features/location/sub-nav';
+import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
+import { getAssignmentsFromPlanRows } from '../features/plan/special-meals';
 import {
   MultiDayBlockDaySlotEditor,
   createMultiDayBlockScheduleSlot,
@@ -148,6 +150,7 @@ export function MultiDayBlockDetailPage(): JSX.Element {
   const [sortOrder, setSortOrder] = useState('0');
   const [isActive, setIsActive] = useState(true);
   const [days, setDays] = useState<MultiDayBlockDayDraft[]>([createDayDraft(1), createDayDraft(2)]);
+  const [specialMealsModalOpen, setSpecialMealsModalOpen] = useState(false);
 
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
@@ -426,6 +429,56 @@ export function MultiDayBlockDetailPage(): JSX.Element {
             )}
             <span className="text-xs text-slate-500">블록은 2일 또는 3일까지 설정할 수 있습니다.</span>
           </div>
+
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
+            <div>
+              <span className="text-xs text-slate-600">특식 4종</span>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {(() => {
+                  const sortedDays = days.slice().sort((a, b) => a.dayOrder - b.dayOrder);
+                  const assignments = getAssignmentsFromPlanRows(
+                    sortedDays.map((day) => ({
+                      mealCellText: day.mealCellText,
+                      destinationCellText: formatLocationNameInline(
+                        locationById.get(day.displayLocationId || locationId)?.name ?? [],
+                      ),
+                      scheduleCellText: serializeMultiDayBlockScheduleSlots(day.scheduleSlots).scheduleCellText,
+                    })),
+                  );
+                  const count = new Set(assignments.map((a) => a.specialMeal)).size;
+                  return `4종 중 ${count}종 배치됨`;
+                })()}
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => setSpecialMealsModalOpen(true)}>
+              특식 배치 설정
+            </Button>
+          </div>
+          <SpecialMealsModal
+            open={specialMealsModalOpen}
+            rows={days
+              .slice()
+              .sort((a, b) => a.dayOrder - b.dayOrder)
+              .map((day) => ({
+                mealCellText: day.mealCellText,
+                destinationCellText: formatLocationNameInline(
+                  locationById.get(day.displayLocationId || locationId)?.name ?? [],
+                ),
+                scheduleCellText: serializeMultiDayBlockScheduleSlots(day.scheduleSlots).scheduleCellText,
+              }))}
+            onClose={() => setSpecialMealsModalOpen(false)}
+            onSave={(updatedRows) => {
+              const sortedDays = days.slice().sort((a, b) => a.dayOrder - b.dayOrder);
+              setDays((prev) =>
+                prev.map((day) => {
+                  const idx = sortedDays.findIndex((d) => d.dayOrder === day.dayOrder);
+                  const updated = idx >= 0 ? updatedRows[idx] : undefined;
+                  return updated ? { ...day, mealCellText: updated.mealCellText } : day;
+                }),
+              );
+              setSpecialMealsModalOpen(false);
+            }}
+          />
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {days

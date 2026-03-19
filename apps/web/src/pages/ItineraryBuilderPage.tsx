@@ -23,6 +23,8 @@ import {
 } from '../features/lodging-selection/model';
 import { ExternalTransferModal } from '../features/plan/components/ExternalTransferModal';
 import { ExternalTransfersManagerModal } from '../features/plan/components/ExternalTransfersManagerModal';
+import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
+import { getAssignmentsFromPlanRows } from '../features/plan/special-meals';
 import {
   buildDerivedExternalTransferManualAdjustments,
   buildExternalTransferDirectionText,
@@ -224,6 +226,10 @@ interface LodgingSelectionModalState {
 }
 
 interface LodgingUpgradeModalState {
+  open: boolean;
+}
+
+interface SpecialMealsModalState {
   open: boolean;
 }
 
@@ -1426,6 +1432,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     editingIndex: null,
   });
   const [lodgingUpgradeModalState, setLodgingUpgradeModalState] = useState<LodgingUpgradeModalState>({
+    open: false,
+  });
+  const [specialMealsModalState, setSpecialMealsModalState] = useState<SpecialMealsModalState>({
     open: false,
   });
   const [lodgingSelectionModalState, setLodgingSelectionModalState] = useState<LodgingSelectionModalState>({
@@ -3750,6 +3759,38 @@ export function ItineraryBuilderPage(): JSX.Element {
               <div className="grid gap-2 text-sm">
                 <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div>
+                    <span className="text-xs text-slate-600">특식 4종</span>
+                    <p className="mt-1 text-xs text-slate-400">샤브샤브·삼겹살파티·허르헉·샤슬릭을 규칙에 맞게 일차/식사별로 배치합니다.</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {planRows.length === 0
+                        ? '아직 설정할 일차가 없습니다.'
+                        : (() => {
+                            const mainRows = planRows.filter((r) => isMainPlanStopRow(r));
+                            const assignments = getAssignmentsFromPlanRows(
+                              mainRows.map((r) => ({
+                                mealCellText: r.mealCellText,
+                                destinationCellText: r.destinationCellText,
+                                scheduleCellText: r.scheduleCellText,
+                              })),
+                            );
+                            const count = new Set(assignments.map((a) => a.specialMeal)).size;
+                            return `4종 중 ${count}종 배치됨`;
+                          })()}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setSpecialMealsModalState({ open: true })}
+                    disabled={planRows.length === 0}
+                  >
+                    특식 배치 설정
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-2 text-sm">
+                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
                     <span className="text-xs text-slate-600">기타 금액</span>
                     <p className="mt-1 text-xs text-slate-400">추가와 할인을 모달에서 분리해 관리합니다.</p>
                     <p className="mt-2 text-xs text-slate-500">
@@ -4886,6 +4927,34 @@ export function ItineraryBuilderPage(): JSX.Element {
               rowIndex,
             })
           }
+        />
+
+        <SpecialMealsModal
+          open={specialMealsModalState.open}
+          rows={planRows
+            .filter((r) => isMainPlanStopRow(r))
+            .map((r) => ({
+              mealCellText: r.mealCellText,
+              destinationCellText: r.destinationCellText,
+              scheduleCellText: r.scheduleCellText,
+            }))}
+          onClose={() => setSpecialMealsModalState({ open: false })}
+          onSave={(updatedRows) => {
+            const mainIndices = planRows
+              .map((r, i) => (isMainPlanStopRow(r) ? i : -1))
+              .filter((i) => i >= 0);
+            mainIndices.forEach((rowIndex) => {
+              dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, 'mealCellText'));
+            });
+            setPlanRows((prev) =>
+              prev.map((row, i) => {
+                const j = mainIndices.indexOf(i);
+                if (j < 0) return row;
+                const updated = updatedRows[j];
+                return updated ? { ...row, mealCellText: updated.mealCellText } : row;
+              }),
+            );
+          }}
         />
 
         <ExtraLodgingsModal

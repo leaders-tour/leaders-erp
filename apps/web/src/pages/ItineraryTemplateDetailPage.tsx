@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { buildEmptyPlanRow, type TemplatePlanRow } from '../features/plan-template/editor-utils';
 import { formatLocationNameMultiline } from '../features/location/display';
+import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
+import { getAssignmentsFromPlanRows } from '../features/plan/special-meals';
 import {
   buildAutoRowsFromRoute,
   buildSelectedRouteFromStops,
@@ -449,6 +451,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
   const [selectedRoute, setSelectedRoute] = useState<RouteSelection[]>([]);
   const [isOvernightStayPickerOpen, setIsOvernightStayPickerOpen] = useState<boolean>(false);
   const [planRows, setPlanRows] = useState<TemplatePlanRow[]>([]);
+  const [specialMealsModalOpen, setSpecialMealsModalOpen] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string>('');
   const [routeRecoveryMessage, setRouteRecoveryMessage] = useState<string>('');
   const [skipNextAutoRowsSync, setSkipNextAutoRowsSync] = useState<boolean>(false);
@@ -1287,7 +1290,51 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900">일차별 본문 편집</h2>
         <p className="mt-1 text-xs text-slate-600">루트 변경 시 아래 본문은 자동으로 다시 채워집니다.</p>
-
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
+          <div>
+            <span className="text-xs text-slate-600">특식 4종</span>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {planRows.length === 0
+                ? '일차를 채운 뒤 설정하세요.'
+                : (() => {
+                    const assignments = getAssignmentsFromPlanRows(
+                      planRows.map((r) => ({
+                        mealCellText: r.mealCellText,
+                        destinationCellText: r.destinationCellText,
+                        scheduleCellText: r.scheduleCellText,
+                      })),
+                    );
+                    const count = new Set(assignments.map((a) => a.specialMeal)).size;
+                    return `4종 중 ${count}종 배치됨`;
+                  })()}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setSpecialMealsModalOpen(true)}
+            disabled={planRows.length === 0}
+          >
+            특식 배치 설정
+          </Button>
+        </div>
+        <SpecialMealsModal
+          open={specialMealsModalOpen}
+          rows={planRows.map((r) => ({
+            mealCellText: r.mealCellText,
+            destinationCellText: r.destinationCellText,
+            scheduleCellText: r.scheduleCellText,
+          }))}
+          onClose={() => setSpecialMealsModalOpen(false)}
+          onSave={(updatedRows) => {
+            setPlanRows((prev) =>
+              prev.map((row, i) => {
+                const updated = updatedRows[i];
+                return updated ? { ...row, mealCellText: updated.mealCellText } : row;
+              }),
+            );
+            setSpecialMealsModalOpen(false);
+          }}
+        />
         <div className="mt-3 overflow-auto">
           <Table className="min-w-[1280px] w-full text-sm">
             <thead className="bg-slate-50 text-slate-700">
