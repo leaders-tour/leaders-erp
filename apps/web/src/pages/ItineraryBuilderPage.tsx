@@ -1,6 +1,6 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
-import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DatePickerModal } from '../components/date-picker/DatePickerModal';
 import { formatDateTriggerLabel, getCurrentLocalYear } from '../components/date-picker/date-picker-utils';
@@ -31,6 +31,7 @@ import {
   syncExternalTransferWithSelectedTeams,
   type ExternalTransfer,
 } from '../features/plan/external-transfer';
+import { useBuilderValidation } from '../features/plan/builder-validation';
 import { buildMergedPlanStops } from '../features/plan/merge-plan-stops';
 import { isMainPlanStopRow, type PlanStopRowBase, type PlanStopRowType } from '../features/plan/plan-stop-row';
 import {
@@ -277,6 +278,58 @@ function arePlanRowsEqual(left: PlanRow[], right: PlanRow[]): boolean {
       row.lodgingCellText === other.lodgingCellText &&
       row.mealCellText === other.mealCellText
     );
+  });
+}
+
+const PRESERVED_PLAN_ROW_FIELDS: Array<keyof PlanRow> = [
+  'dateCellText',
+  'destinationCellText',
+  'timeCellText',
+  'scheduleCellText',
+  'mealCellText',
+  'lodgingSelectionLevel',
+  'customLodgingId',
+  'customLodgingNameSnapshot',
+  'lodgingCellText',
+];
+
+function getDirtyPlanRowFieldKey(rowIndex: number, field: keyof PlanRow): string {
+  return `${rowIndex}:${field}`;
+}
+
+function isSamePlanRowSource(left: PlanRow | undefined, right: PlanRow | undefined): boolean {
+  if (!left || !right) {
+    return false;
+  }
+
+  return (
+    left.segmentId === right.segmentId &&
+    left.segmentVersionId === right.segmentVersionId &&
+    left.overnightStayId === right.overnightStayId &&
+    left.overnightStayDayOrder === right.overnightStayDayOrder &&
+    left.overnightStayConnectionId === right.overnightStayConnectionId &&
+    left.overnightStayConnectionVersionId === right.overnightStayConnectionVersionId &&
+    left.rowType === right.rowType &&
+    left.locationId === right.locationId &&
+    left.locationVersionId === right.locationVersionId &&
+    left.movementIntensity === right.movementIntensity
+  );
+}
+
+function mergeAutoRowsWithDirtyValues(current: PlanRow[], autoRows: PlanRow[], dirtyFieldKeys: Set<string>): PlanRow[] {
+  return autoRows.map((autoRow, rowIndex) => {
+    const currentRow = current[rowIndex];
+    if (!currentRow || !isSamePlanRowSource(currentRow, autoRow)) {
+      return autoRow;
+    }
+
+    const mergedRow = { ...autoRow };
+    for (const field of PRESERVED_PLAN_ROW_FIELDS) {
+      if (dirtyFieldKeys.has(getDirtyPlanRowFieldKey(rowIndex, field))) {
+        (mergedRow as Record<string, unknown>)[field] = currentRow[field];
+      }
+    }
+    return mergedRow;
   });
 }
 
@@ -998,9 +1051,6 @@ function toSegmentTimeCell(
         }>;
       }
     | undefined,
-  options?: {
-    lastStartTimeOverride?: string;
-  },
 ): string {
   if (!segmentVersion || segmentVersion.scheduleTimeBlocks.length === 0) {
     return '';
@@ -1010,17 +1060,16 @@ function toSegmentTimeCell(
     .slice()
     .sort((a, b) => a.orderIndex - b.orderIndex);
 
-  return orderedTimeBlocks.flatMap((timeBlock, index) => {
+  return orderedTimeBlocks
+    .flatMap((timeBlock) => {
       const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
-      const startTime =
-        index === orderedTimeBlocks.length - 1 && options?.lastStartTimeOverride?.trim()
-          ? options.lastStartTimeOverride.trim()
-          : timeBlock.startTime;
+      const startTime = timeBlock.startTime;
       if (orderedActivities.length <= 1) {
         return [startTime];
       }
       return [startTime, ...orderedActivities.slice(1).map(() => '-')];
-    }).join('\n');
+    })
+    .join('\n');
 }
 
 function toSegmentScheduleCell(
@@ -1278,6 +1327,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   });
   const [homeNewUserName, setHomeNewUserName] = useState<string>('');
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
+  const dirtyPlanRowFieldKeysRef = useRef<Set<string>>(new Set());
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
@@ -1577,7 +1627,6 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
 
     const firstPickupTime = transportGroups[0]?.pickupTime?.trim() ?? '';
-    const finalDropTime = transportGroups[0]?.dropTime?.trim() ?? '';
     const firstDayTimeOverride =
       (variantType === VariantType.Early || variantType === VariantType.EarlyExtend) && firstPickupTime ? firstPickupTime : undefined;
 
@@ -1594,7 +1643,6 @@ export function ItineraryBuilderPage(): JSX.Element {
       variantType,
       travelStartDate,
       firstDayTimeOverride,
-      lastDayTimeOverride: finalDropTime || undefined,
     }).map((row) => ({
       ...row,
       lodgingSelectionLevel: 'LV3',
@@ -1621,7 +1669,10 @@ export function ItineraryBuilderPage(): JSX.Element {
       setSkipNextAutoRowsSync(false);
       return;
     }
-    setPlanRows((current) => (arePlanRowsEqual(current, autoRows) ? current : autoRows));
+    setPlanRows((current) => {
+      const nextRows = mergeAutoRowsWithDirtyValues(current, autoRows, dirtyPlanRowFieldKeysRef.current);
+      return arePlanRowsEqual(current, nextRows) ? current : nextRows;
+    });
   }, [autoRows, skipNextAutoRowsSync]);
 
   useEffect(() => {
@@ -1924,25 +1975,8 @@ export function ItineraryBuilderPage(): JSX.Element {
     vehicleType,
   ]);
 
-  const hasMissingSegment = useMemo(() => {
-    return selectedRoute.some((toStop, index) => {
-      if (toStop.kind === 'MULTI_DAY_BLOCK') {
-        const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
-        return !filteredSegments.some((segment) => segment.fromLocationId === fromId && segment.toLocationId === toStop.locationId);
-      }
-      const previousStop = selectedRoute[index - 1];
-      if (previousStop?.kind === 'MULTI_DAY_BLOCK') {
-        return !filteredOvernightStayConnections.some(
-          (connection) =>
-            connection.fromMultiDayBlockId === previousStop.multiDayBlockId && connection.toLocationId === toStop.locationId,
-        );
-      }
-      const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
-      return !filteredSegments.some((segment) => segment.fromLocationId === fromId && segment.toLocationId === toStop.locationId);
-    });
-  }, [filteredOvernightStayConnections, filteredSegments, selectedRoute, startLocationId]);
-
   const updateCell = (rowIndex: number, field: keyof PlanRow, value: string): void => {
+    dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, field));
     setPlanRows((prev) => prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
   };
 
@@ -1951,6 +1985,10 @@ export function ItineraryBuilderPage(): JSX.Element {
     level: LodgingSelectionLevel,
     customLodging?: RegionLodgingOption | null,
   ): void => {
+    dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, 'lodgingSelectionLevel'));
+    dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, 'customLodgingId'));
+    dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, 'customLodgingNameSnapshot'));
+    dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, 'lodgingCellText'));
     setPlanRows((prev) =>
       prev.map((row, index) => {
         if (index !== rowIndex) {
@@ -2020,6 +2058,33 @@ export function ItineraryBuilderPage(): JSX.Element {
     () => buildMergedPlanStops(planStopInputs, externalTransfers, transportGroups),
     [externalTransfers, planStopInputs, transportGroups],
   );
+  const pricingPreviewPlanStops = useMemo(
+    () =>
+      mergedPlanStops.map((row) => ({
+        rowType: row.rowType,
+        segmentId: 'segmentId' in row ? row.segmentId : undefined,
+        segmentVersionId: 'segmentVersionId' in row ? row.segmentVersionId : undefined,
+        overnightStayId: 'overnightStayId' in row ? row.overnightStayId : undefined,
+        overnightStayDayOrder: 'overnightStayDayOrder' in row ? row.overnightStayDayOrder : undefined,
+        overnightStayConnectionId: 'overnightStayConnectionId' in row ? row.overnightStayConnectionId : undefined,
+        overnightStayConnectionVersionId:
+          'overnightStayConnectionVersionId' in row ? row.overnightStayConnectionVersionId : undefined,
+        multiDayBlockId: 'multiDayBlockId' in row ? row.multiDayBlockId : undefined,
+        multiDayBlockDayOrder: 'multiDayBlockDayOrder' in row ? row.multiDayBlockDayOrder : undefined,
+        multiDayBlockConnectionId: 'multiDayBlockConnectionId' in row ? row.multiDayBlockConnectionId : undefined,
+        multiDayBlockConnectionVersionId:
+          'multiDayBlockConnectionVersionId' in row ? row.multiDayBlockConnectionVersionId : undefined,
+        locationId: row.locationId,
+        locationVersionId: 'locationVersionId' in row ? row.locationVersionId : undefined,
+        dateCellText: '',
+        destinationCellText: '',
+        timeCellText: '',
+        scheduleCellText: '',
+        lodgingCellText: '',
+        mealCellText: '',
+      })),
+    [mergedPlanStops],
+  );
   const displayPlanRows = useMemo(() => {
     let mainRowIndex = 0;
     return buildMergedPlanStops(planRows, externalTransfers, transportGroups).map((row) => {
@@ -2044,6 +2109,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       return;
     }
 
+    dirtyPlanRowFieldKeysRef.current.clear();
     setSkipNextAutoRowsSync(true);
     setRegionId(template.regionId);
     setTotalDays(template.totalDays);
@@ -2140,17 +2206,6 @@ export function ItineraryBuilderPage(): JSX.Element {
     [externalTransferManualAdjustments, manualAdjustments],
   );
 
-  const hasInvalidManualAdjustments = manualAdjustments.some((item) => {
-    const description = item.description.trim();
-    const amountText = item.amountKrw.trim();
-
-    if (description.length === 0 && amountText.length === 0) {
-      return false;
-    }
-
-    return description.length === 0 || amountText.length === 0 || !Number.isInteger(Number(item.amountKrw)) || Number(item.amountKrw) < 0;
-  });
-
   const manualAdjustmentSummary = useMemo(() => {
     const validRows = manualAdjustments
       .map((item) => ({
@@ -2168,10 +2223,6 @@ export function ItineraryBuilderPage(): JSX.Element {
 
     return { addCount, discountCount, addTotal, discountTotal };
   }, [manualAdjustments]);
-
-  const hasInvalidLodgingSelections = lodgingSelections.some(
-    (item) => item.level === 'CUSTOM' && (!item.customLodgingId || item.customLodgingId.trim().length === 0),
-  );
 
   const normalizedManualDepositAmountKrw = useMemo(() => {
     if (!hasEditedManualDeposit) {
@@ -2191,23 +2242,6 @@ export function ItineraryBuilderPage(): JSX.Element {
     return value;
   }, [hasEditedManualDeposit, manualDepositInput]);
 
-  const hasInvalidManualDepositInput = useMemo(() => {
-    if (!hasEditedManualDeposit) {
-      return false;
-    }
-
-    const text = manualDepositInput.trim();
-    if (text.length === 0) {
-      return false;
-    }
-
-    const value = Number(text);
-    return !Number.isInteger(value) || value < 0;
-  }, [hasEditedManualDeposit, manualDepositInput]);
-  const hasInvalidExternalTransfers = useMemo(
-    () => externalTransfers.some((transfer) => !isExternalTransferComplete(transfer)),
-    [externalTransfers],
-  );
   const draftExternalPickupText = useMemo(
     () => buildExternalTransferDirectionText(externalTransfersDraft, transportGroups, 'PICKUP'),
     [externalTransfersDraft, transportGroups],
@@ -2218,49 +2252,35 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
 
   const headcountFemale = headcountTotal - headcountMale;
-  const hasValidDateRange = Boolean(travelStartDate && travelEndDate) && travelStartDate <= travelEndDate;
-  const hasValidHeadcount = headcountTotal > 0 && headcountMale >= 0 && headcountFemale >= 0 && headcountMale <= headcountTotal;
-  const hasHiaceHeadcountViolation = vehicleType === '하이에이스' && headcountTotal < 3;
-  const transportGroupHeadcountTotal = useMemo(
-    () => transportGroups.reduce((sum, group) => sum + group.headcount, 0),
-    [transportGroups],
-  );
-  const hasInvalidTransportGroups = useMemo(
-    () =>
-      transportGroups.length === 0 ||
-      transportGroups.some(
-        (group) =>
-          group.teamName.trim().length === 0 ||
-          group.headcount < 1 ||
-          !group.flightInDate ||
-          !group.flightInTime.trim() ||
-          !group.flightOutDate ||
-          !group.flightOutTime.trim() ||
-          !group.pickupDate ||
-          !group.pickupTime.trim() ||
-          !group.dropDate ||
-          !group.dropTime.trim(),
-      ) ||
-      transportGroupHeadcountTotal !== headcountTotal,
-    [headcountTotal, transportGroupHeadcountTotal, transportGroups],
-  );
-  const hasMissingCustomPlaceText = useMemo(
-    () =>
-      transportGroups.some(
-        (group) =>
-          (group.pickupPlaceType === 'CUSTOM' && group.pickupPlaceCustomText.trim().length === 0) ||
-          (group.dropPlaceType === 'CUSTOM' && group.dropPlaceCustomText.trim().length === 0),
-      ),
-    [transportGroups],
-  );
 
-  const canPreviewPricing = Boolean(
-    regionId &&
-      travelStartDate &&
-      !hasInvalidManualAdjustments &&
-      !hasInvalidLodgingSelections &&
-      !hasInvalidExternalTransfers &&
-      !hasHiaceHeadcountViolation,
+  const canPreviewPricing = useMemo(
+    () =>
+      Boolean(
+        regionId &&
+          travelStartDate &&
+          !manualAdjustments.some(
+            (item) => {
+              const d = item.description.trim();
+              const a = item.amountKrw.trim();
+              if (d.length === 0 && a.length === 0) return false;
+              return d.length === 0 || a.length === 0 || !Number.isInteger(Number(item.amountKrw)) || Number(item.amountKrw) < 0;
+            },
+          ) &&
+          !lodgingSelections.some(
+            (item) => item.level === 'CUSTOM' && (!item.customLodgingId || item.customLodgingId.trim().length === 0),
+          ) &&
+          !externalTransfers.some((t) => !isExternalTransferComplete(t)) &&
+          (vehicleType !== '하이에이스' || headcountTotal >= 3),
+      ),
+    [
+      regionId,
+      travelStartDate,
+      manualAdjustments,
+      lodgingSelections,
+      externalTransfers,
+      vehicleType,
+      headcountTotal,
+    ],
   );
 
   const { data: pricingPreviewData, previousData: pricingPreviewPreviousData, error: pricingPreviewError } = useQuery<{ planPricingPreview: PricingPreviewRow }>(
@@ -2272,7 +2292,7 @@ export function ItineraryBuilderPage(): JSX.Element {
           regionId,
           variantType,
           totalDays,
-          planStops: mergedPlanStops,
+          planStops: pricingPreviewPlanStops,
           travelStartDate: toIsoDateTime(travelStartDate),
           headcountTotal,
           transportGroupCount: transportGroups.length,
@@ -2289,6 +2309,29 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
 
   const pricingPreview = pricingPreviewData?.planPricingPreview ?? pricingPreviewPreviousData?.planPricingPreview ?? null;
+
+  const validationResults = useBuilderValidation({
+    planRows,
+    selectedRoute,
+    startLocationId,
+    filteredSegments,
+    filteredOvernightStayConnections,
+    transportGroups,
+    headcountTotal,
+    headcountMale,
+    vehicleType,
+    travelStartDate,
+    travelEndDate,
+    manualAdjustments,
+    lodgingSelections,
+    externalTransfers,
+    hasEditedManualDeposit,
+    manualDepositInput,
+    pricingPreview,
+  });
+  const validationErrors = validationResults.filter((r) => r.severity === 'error');
+  const hasValidation = (id: string) => validationResults.some((r) => r.id === id);
+
   const pricingBuckets = useMemo(
     () =>
       pricingPreview
@@ -2316,15 +2359,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     hasPlanContext &&
       regionId &&
       leaderName.trim() &&
-      hasValidDateRange &&
-      hasValidHeadcount &&
-      !hasInvalidTransportGroups &&
-      !hasHiaceHeadcountViolation &&
-      !hasInvalidManualAdjustments &&
-      !hasInvalidLodgingSelections &&
-      !hasInvalidExternalTransfers &&
-      !hasInvalidManualDepositInput &&
-      !hasMissingCustomPlaceText &&
+      validationErrors.length === 0 &&
       (includeRentalItems ? rentalItemsText.trim() : true) &&
       startLocationId &&
       startLocationVersionId &&
@@ -2766,7 +2801,13 @@ export function ItineraryBuilderPage(): JSX.Element {
             <Button variant="outline" onClick={openEstimatePdf}>
               견적서 PDF
             </Button>
-            <Button variant="outline" onClick={() => setPlanRows(autoRows)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                dirtyPlanRowFieldKeysRef.current.clear();
+                setPlanRows(autoRows);
+              }}
+            >
               자동값 다시 채우기
             </Button>
             <Button
@@ -3011,6 +3052,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           setStartLocationId('');
                           setStartLocationVersionId('');
                           setSelectedRoute([]);
+                          dirtyPlanRowFieldKeysRef.current.clear();
                           setPlanRows([]);
                         }}
                         className={`rounded-xl border px-3 py-1.5 text-sm ${
@@ -3151,7 +3193,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                     </button>
                   ))}
                 </div>
-                {hasHiaceHeadcountViolation ? (
+                {hasValidation('hiace-headcount') ? (
                   <p className="text-xs text-rose-700">하이에이스는 3인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.</p>
                 ) : null}
               </div>
@@ -3582,7 +3624,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                     기타 금액 설정
                   </Button>
                 </div>
-                {hasInvalidManualAdjustments ? (
+                {hasValidation('invalid-manual-adjustments') ? (
                   <p className="text-xs text-rose-700">기타 금액은 내용과 0 이상 정수 금액을 함께 입력해주세요.</p>
                 ) : null}
               </div>
@@ -3641,6 +3683,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                         setStartLocationId('');
                         setStartLocationVersionId('');
                         setSelectedRoute([]);
+                        dirtyPlanRowFieldKeysRef.current.clear();
                         setPlanRows([]);
                       }}
                       className="text-xs text-slate-500 underline"
@@ -4001,6 +4044,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                   type="button"
                   onClick={() => {
                     setSelectedRoute([]);
+                    dirtyPlanRowFieldKeysRef.current.clear();
                     setPlanRows([]);
                   }}
                   className="text-xs text-red-500 underline"
@@ -4033,9 +4077,17 @@ export function ItineraryBuilderPage(): JSX.Element {
               <tbody>
                 {displayPlanRows.map(({ row, mainRowIndex }, rowIndex) => {
                   const isExternalRow = mainRowIndex === null;
+                  const isTimeCellAffected =
+                    mainRowIndex !== null &&
+                    validationResults.some((r) =>
+                      r.affectedCells?.some((c) => c.rowIndex === mainRowIndex && c.field === 'timeCellText'),
+                    );
                   const cellClassName = `w-full resize-none overflow-hidden rounded-xl border border-slate-200 px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
                     isExternalRow ? 'bg-slate-50 text-slate-500' : 'bg-white'
                   }`;
+                  const timeCellClassName = isTimeCellAffected
+                    ? `${cellClassName} border-rose-400 bg-rose-50`
+                    : cellClassName;
 
                   return (
                   <tr key={`day-row-${rowIndex + 1}`} className={`border-t border-slate-200 align-top ${isExternalRow ? 'bg-slate-50/60' : ''}`}>
@@ -4090,7 +4142,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                         onInput={(event) => autoResizeTextarea(event.currentTarget)}
                         rows={1}
                         data-plan-cell="true"
-                        className={cellClassName}
+                        className={timeCellClassName}
                       />
                     </Td>
                     <Td>
@@ -4272,7 +4324,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                               className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs"
                               placeholder="자동 계산값 사용 시 비워두기"
                             />
-                            {hasInvalidManualDepositInput ? (
+                            {hasValidation('invalid-manual-deposit') ? (
                               <p className="text-rose-600">예약금은 0 이상의 정수만 입력 가능합니다.</p>
                             ) : null}
                           </div>
@@ -4378,45 +4430,24 @@ export function ItineraryBuilderPage(): JSX.Element {
             </button>
             {isValidationOpen ? (
               <div id="builder-validation-panel" className="mt-3 space-y-2 text-sm">
-                {hasMissingSegment ? (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                    일부 구간 템플릿이 없습니다. Segment 데이터를 보강해주세요.
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">현재 구간 커버리지 정상</div>
-                )}
-
                 <div className="rounded-2xl border border-slate-200 bg-white p-3">편집 행 수: {planRows.length}</div>
-                {hasHiaceHeadcountViolation ? (
-                  <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
-                    하이에이스는 3인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.
+                {validationResults.length === 0 ? (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">
+                    모든 검증 통과
                   </div>
                 ) : null}
-                {hasInvalidManualAdjustments ? (
-                  <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
-                    기타금액 항목의 내용/금액을 확인해주세요.
+                {validationResults.map((result) => (
+                  <div
+                    key={result.id}
+                    className={`rounded-2xl border p-3 ${
+                      result.severity === 'error'
+                        ? 'border-rose-200 bg-rose-50 text-rose-900'
+                        : 'border-amber-200 bg-amber-50 text-amber-900'
+                    }`}
+                  >
+                    {result.message}
                   </div>
-                ) : null}
-                {hasInvalidManualDepositInput ? (
-                  <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
-                    예약금 수동 입력값을 확인해주세요.
-                  </div>
-                ) : null}
-                {hasInvalidExternalTransfers ? (
-                  <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
-                    실투어 외 외부 이동 항목의 날짜, 시간, 장소, 팀 선택, 금액을 확인해주세요.
-                  </div>
-                ) : null}
-                {hasInvalidTransportGroups ? (
-                  <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
-                    팀별 항공/픽업/드랍 세트의 팀명, 인원, 날짜/시간을 확인해주세요. 팀 인원 합계는 총 인원과 같아야 합니다.
-                  </div>
-                ) : null}
-                {hasMissingCustomPlaceText ? (
-                  <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-rose-900">
-                    직접입력 장소를 선택한 항목의 장소명을 입력해주세요.
-                  </div>
-                ) : null}
+                ))}
               </div>
             ) : null}
           </Card>

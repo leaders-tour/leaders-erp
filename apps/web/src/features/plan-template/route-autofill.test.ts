@@ -547,7 +547,6 @@ describe('route-autofill', () => {
       totalDays: 2,
       variantType: VariantType.EarlyExtend,
       firstDayTimeOverride: '04:30',
-      lastDayTimeOverride: '22:00',
     });
 
     expect(rows[0]).toMatchObject({
@@ -559,7 +558,7 @@ describe('route-autofill', () => {
     expect(rows[1]).toMatchObject({
       segmentId: 'segment-ac',
       segmentVersionId: 'segment-version-ac',
-      timeCellText: '22:00',
+      timeCellText: '05:30',
       scheduleCellText: '얼리+연장 이동',
     });
   });

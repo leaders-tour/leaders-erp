@@ -273,7 +273,6 @@ function toTimeCellFromTimeBlocks(
   timeBlocks: TimeBlockOption[],
   options?: {
     firstStartTimeOverride?: string;
-    lastStartTimeOverride?: string;
   },
 ): string {
   if (timeBlocks.length === 0) {
@@ -286,11 +285,8 @@ function toTimeCellFromTimeBlocks(
     .flatMap((timeBlock, index) => {
       const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
       const isFirst = index === 0;
-      const isLast = index === orderedTimeBlocks.length - 1;
       const startTime =
-        (isFirst && options?.firstStartTimeOverride?.trim()) ||
-        (isLast && options?.lastStartTimeOverride?.trim()) ||
-        timeBlock.startTime;
+        (isFirst && options?.firstStartTimeOverride?.trim()) || timeBlock.startTime;
       if (orderedActivities.length <= 1) {
         return [startTime];
       }
@@ -868,7 +864,6 @@ export function buildAutoRowsFromRoute(input: {
   variantType?: VariantType;
   travelStartDate?: string;
   firstDayTimeOverride?: string;
-  lastDayTimeOverride?: string;
 }): TemplatePlanRow[] {
   const {
     startLocationId,
@@ -883,7 +878,6 @@ export function buildAutoRowsFromRoute(input: {
     variantType,
     travelStartDate,
     firstDayTimeOverride,
-    lastDayTimeOverride,
   } = input;
   const safeTotalDays = Math.max(2, totalDays);
 
@@ -953,7 +947,6 @@ export function buildAutoRowsFromRoute(input: {
 
     const location = locationById.get(stop.locationId);
     const locationVersion = locationVersionById.get(stop.locationVersionId);
-    const isLastDay = nextDayIndex === safeTotalDays;
     const variant = resolveSegmentScheduleVariant({
       variantType,
       fromDayIndex: nextDayIndex - 1,
@@ -983,9 +976,7 @@ export function buildAutoRowsFromRoute(input: {
           averageDistanceKm: connectionVersion?.averageDistanceKm,
         }),
         movementIntensity: connectionVersion?.movementIntensity,
-        timeCellText: toTimeCellFromTimeBlocks(getMultiDayBlockConnectionScheduleTimeBlocks(connectionVersion, variant), {
-          lastStartTimeOverride: isLastDay ? lastDayTimeOverride : undefined,
-        }),
+        timeCellText: toTimeCellFromTimeBlocks(getMultiDayBlockConnectionScheduleTimeBlocks(connectionVersion, variant)),
         scheduleCellText: toScheduleCellFromTimeBlocks(getMultiDayBlockConnectionScheduleTimeBlocks(connectionVersion, variant)),
         lodgingCellText: getBaseLodgingText(locationVersion, toFacilityLabel),
         mealCellText: [
@@ -1016,9 +1007,7 @@ export function buildAutoRowsFromRoute(input: {
           averageDistanceKm: segmentVersion?.averageDistanceKm,
         }),
         movementIntensity: segmentVersion?.movementIntensity,
-        timeCellText: toTimeCellFromTimeBlocks(getSegmentScheduleTimeBlocks(segmentVersion, variant), {
-          lastStartTimeOverride: isLastDay ? lastDayTimeOverride : undefined,
-        }),
+        timeCellText: toTimeCellFromTimeBlocks(getSegmentScheduleTimeBlocks(segmentVersion, variant)),
         scheduleCellText: toScheduleCellFromTimeBlocks(getSegmentScheduleTimeBlocks(segmentVersion, variant)),
         lodgingCellText: getBaseLodgingText(locationVersion, toFacilityLabel),
         mealCellText: [
