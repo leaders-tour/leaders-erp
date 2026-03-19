@@ -246,7 +246,7 @@ export function LocationDetailPage(): JSX.Element {
       <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">연결경로</h2>
-          <Link to="/locations/connections" className="text-sm text-blue-700 hover:underline">
+          <Link to="/connections/list" className="text-sm text-blue-700 hover:underline">
             더보기
           </Link>
         </div>

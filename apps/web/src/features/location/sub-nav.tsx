@@ -35,16 +35,6 @@ export function LocationSubNav({ pathname }: LocationSubNavProps): JSX.Element {
         목적지 생성
       </Link>
       <Link
-        to="/locations/connections"
-        className={`rounded-xl px-3 py-1.5 text-sm transition-colors ${
-          pathname === '/locations/connections'
-            ? 'border border-slate-900 bg-slate-900 text-white'
-            : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-        }`}
-      >
-        목적지 간 연결
-      </Link>
-      <Link
         to="/locations/stays"
         className={`rounded-xl px-3 py-1.5 text-sm transition-colors ${
           pathname === '/locations/stays' || pathname === '/locations/stays/new' || /^\/locations\/stays\/[^/]+$/.test(pathname)

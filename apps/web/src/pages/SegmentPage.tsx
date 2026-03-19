@@ -7,13 +7,13 @@ import {
   getMovementIntensityMeta,
 } from '../features/estimate/model/movement-intensity';
 import { formatLocationNameInline, includesLocationNameKeyword } from '../features/location/display';
-import { LocationSubNav } from '../features/location/sub-nav';
 import {
   useSegmentCrud,
   type SegmentRow,
   type SegmentTimeSlotFormInput,
   type SegmentVersionFormInput,
 } from '../features/segment/hooks';
+import { ConnectionSubNav } from '../features/segment/sub-nav';
 
 const LOCATIONS_QUERY = gql`
   query SegmentLocations {
@@ -552,7 +552,11 @@ function AlternativeVersionEditor(props: {
   );
 }
 
-export function SegmentPage(): JSX.Element {
+interface SegmentPageProps {
+  mode?: 'all' | 'list' | 'create';
+}
+
+export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const crud = useSegmentCrud();
   const location = useLocation();
   const { data: locationData, loading: locationsLoading } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
@@ -644,15 +648,25 @@ export function SegmentPage(): JSX.Element {
         Number(version.averageDistanceKm) > 0 &&
         Number(version.averageTravelHours) > 0,
     );
+  const showCreateSection = mode !== 'list';
+  const showListSection = mode !== 'create';
+  const pageTitle = mode === 'create' ? '연결 생성' : mode === 'list' ? '연결 목록' : '연결 관리';
+  const pageDescription =
+    mode === 'create'
+      ? '출발지와 도착지 사이의 연결과 연결별 이동 일정을 생성합니다.'
+      : mode === 'list'
+        ? '등록된 출발지-도착지 연결과 연결별 이동 일정을 조회하고 수정합니다.'
+        : '출발지-도착지 연결과 연결별 이동 일정을 함께 관리합니다.';
 
   return (
     <section className="grid gap-6">
       <header className="grid gap-3">
-        <LocationSubNav pathname={location.pathname} />
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">목적지 간 연결</h1>
-        <p className="mt-1 text-sm text-slate-600">출발지-도착지 연결과 연결별 이동 일정을 함께 관리합니다.</p>
+        <ConnectionSubNav pathname={location.pathname} />
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{pageTitle}</h1>
+        <p className="mt-1 text-sm text-slate-600">{pageDescription}</p>
       </header>
 
+      {showCreateSection ? (
       <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
         <h2 className="mb-4 text-lg font-semibold tracking-tight">연결 생성</h2>
         <form
@@ -878,7 +892,9 @@ export function SegmentPage(): JSX.Element {
           </div>
         </form>
       </Card>
+      ) : null}
 
+      {showListSection ? (
       <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 p-4">
           <h2 className="text-lg font-semibold tracking-tight">연결 목록</h2>
@@ -1002,8 +1018,9 @@ export function SegmentPage(): JSX.Element {
           </tbody>
         </Table>
       </Card>
+      ) : null}
 
-      {editingSegmentId ? (
+      {showListSection && editingSegmentId ? (
         <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
           <h2 className="mb-4 text-lg font-semibold tracking-tight">연결 수정</h2>
           <form

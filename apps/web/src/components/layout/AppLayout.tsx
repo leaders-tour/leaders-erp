@@ -65,6 +65,13 @@ const LocationIcon: NavIcon = ({ className }) => (
   </svg>
 );
 
+const ConnectionIcon: NavIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h8M8 17h8" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="m13 4 3 3-3 3M11 14l-3 3 3 3" />
+  </svg>
+);
+
 const RegionIcon: NavIcon = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
     <circle cx="12" cy="12" r="9" />
@@ -115,10 +122,18 @@ const baseNavItems: NavItem[] = [
     children: [
       { path: '/locations/list', label: '목적지 목록' },
       { path: '/locations/create', label: '목적지 생성' },
-      { path: '/locations/connections', label: '목적지 간 연결' },
       { path: '/locations/stays', label: '연속 일정 블록 목록' },
       { path: '/locations/stays/connections', label: '블록 후속 연결' },
       { path: '/location-guides', label: '여행지 안내사항' },
+    ],
+  },
+  {
+    path: '/connections',
+    label: '연결',
+    icon: ConnectionIcon,
+    children: [
+      { path: '/connections/list', label: '연결 목록' },
+      { path: '/connections/create', label: '연결 생성' },
     ],
   },
   {

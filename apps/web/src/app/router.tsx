@@ -1,6 +1,8 @@
 import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { RedirectAuthenticated, RequireAdmin, RequireAuth } from './auth-guards';
 import { AppLayout } from '../components/layout/AppLayout';
+import { ConnectionCreatePage } from '../pages/ConnectionCreatePage';
+import { ConnectionListPage } from '../pages/ConnectionListPage';
 import { CustomerCreatePage } from '../pages/CustomerCreatePage';
 import { CustomerPage } from '../pages/CustomerPage';
 import { CustomerPlansPage } from '../pages/CustomerPlansPage';
@@ -73,6 +75,9 @@ export const router = createBrowserRouter([
       { path: 'events', element: <Navigate to="/events/list" replace /> },
       { path: 'events/list', element: <EventPage /> },
       { path: 'events/create', element: <EventPage /> },
+      { path: 'connections', element: <Navigate to="/connections/list" replace /> },
+      { path: 'connections/list', element: <ConnectionListPage /> },
+      { path: 'connections/create', element: <ConnectionCreatePage /> },
       { path: 'locations', element: <Navigate to="/locations/list" replace /> },
       { path: 'locations/list', element: <LocationListPage /> },
       { path: 'locations/create', element: <LocationCreatePage /> },
@@ -85,8 +90,8 @@ export const router = createBrowserRouter([
       { path: 'locations/:id/edit', element: <LocationEditPage /> },
       { path: 'locations/:locationId/versions/:versionId', element: <LocationVersionDetailPage /> },
       { path: 'locations/:locationId/versions/:versionId/edit', element: <LocationVersionEditPage /> },
-      { path: 'locations/connections', element: <SegmentPage /> },
-      { path: 'segments', element: <Navigate to="/locations/connections" replace /> },
+      { path: 'locations/connections', element: <Navigate to="/connections/list" replace /> },
+      { path: 'segments', element: <Navigate to="/connections/list" replace /> },
       {
         path: 'admin/employees',
         element: (
