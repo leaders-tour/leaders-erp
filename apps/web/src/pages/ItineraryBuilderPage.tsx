@@ -3426,67 +3426,69 @@ export function ItineraryBuilderPage(): JSX.Element {
                 />
               </label>
 
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-600">기본 대여물품</span>
-                  <Button
-                    variant="outline"
-                    disabled={!includeRentalItems}
-                    onClick={() => setRentalItemsText(buildDefaultRentalItems(headcountTotal))}
-                  >
-                    초기화
-                  </Button>
-                </div>
-                <label className="flex items-center gap-2 text-xs text-slate-600">
-                  <input
-                    type="checkbox"
-                    checked={includeRentalItems}
-                    onChange={(event) => {
-                      const checked = event.target.checked;
-                      setIncludeRentalItems(checked);
-                      if (!checked) {
-                        setRentalItemsText('');
-                      }
-                    }}
-                  />
-                  기본 물품 포함
-                </label>
-                <textarea
-                  value={rentalItemsText}
-                  onChange={(event) => setRentalItemsText(event.target.value)}
-                  rows={4}
-                  disabled={!includeRentalItems}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">참여 이벤트</span>
-                <div className="flex flex-wrap gap-2">
-                  {eventOptions.map((eventOption) => {
-                    const active = eventIds.includes(eventOption.id);
-                    return (
-                      <button
-                        key={eventOption.id}
-                        type="button"
-                        onClick={() =>
-                          setEventIds((prev) =>
-                            prev.includes(eventOption.id)
-                              ? prev.filter((item) => item !== eventOption.id)
-                              : [...prev, eventOption.id],
-                          )
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-600">기본 대여물품</span>
+                    <Button
+                      variant="outline"
+                      disabled={!includeRentalItems}
+                      onClick={() => setRentalItemsText(buildDefaultRentalItems(headcountTotal))}
+                    >
+                      초기화
+                    </Button>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={includeRentalItems}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setIncludeRentalItems(checked);
+                        if (!checked) {
+                          setRentalItemsText('');
                         }
-                        className={`rounded-xl border px-3 py-1.5 text-sm ${
-                          active
-                            ? 'border-slate-900 bg-slate-900 text-white'
-                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        {eventOption.name}
-                      </button>
-                    );
-                  })}
-                  {eventOptions.length === 0 ? <span className="text-xs text-slate-500">진행중 이벤트 없음</span> : null}
+                      }}
+                    />
+                    기본 물품 포함
+                  </label>
+                  <textarea
+                    value={rentalItemsText}
+                    onChange={(event) => setRentalItemsText(event.target.value)}
+                    rows={4}
+                    disabled={!includeRentalItems}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+
+                <div className="grid gap-1 text-sm">
+                  <span className="text-xs text-slate-600">참여 이벤트</span>
+                  <div className="flex flex-wrap gap-2">
+                    {eventOptions.map((eventOption) => {
+                      const active = eventIds.includes(eventOption.id);
+                      return (
+                        <button
+                          key={eventOption.id}
+                          type="button"
+                          onClick={() =>
+                            setEventIds((prev) =>
+                              prev.includes(eventOption.id)
+                                ? prev.filter((item) => item !== eventOption.id)
+                                : [...prev, eventOption.id],
+                            )
+                          }
+                          className={`rounded-xl border px-3 py-1.5 text-sm ${
+                            active
+                              ? 'border-slate-900 bg-slate-900 text-white'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {eventOption.name}
+                        </button>
+                      );
+                    })}
+                    {eventOptions.length === 0 ? <span className="text-xs text-slate-500">진행중 이벤트 없음</span> : null}
+                  </div>
                 </div>
               </div>
 
