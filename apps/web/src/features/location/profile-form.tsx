@@ -553,25 +553,31 @@ export function LocationProfileForm({
             </div>
 
             <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
-              <div className="flex flex-wrap gap-6 text-sm text-slate-700">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={form.isFirstDayEligible}
-                    disabled={eligibilityReadOnly}
-                    onChange={(event) => setForm((prev) => ({ ...prev, isFirstDayEligible: event.target.checked }))}
-                  />
-                  첫날 가능
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={form.isLastDayEligible}
-                    disabled={eligibilityReadOnly}
-                    onChange={(event) => setForm((prev) => ({ ...prev, isLastDayEligible: event.target.checked }))}
-                  />
-                  마지막날 가능
-                </label>
+              <div className="grid gap-4 text-sm text-slate-700">
+                <div className="grid gap-1">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={form.isFirstDayEligible}
+                      disabled={eligibilityReadOnly}
+                      onChange={(event) => setForm((prev) => ({ ...prev, isFirstDayEligible: event.target.checked }))}
+                    />
+                    첫날 가능
+                  </label>
+                  <p className="text-xs text-slate-500">여행일정중 첫날이 될 수 있다면 체크해주세요</p>
+                </div>
+                <div className="grid gap-1">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={form.isLastDayEligible}
+                      disabled={eligibilityReadOnly}
+                      onChange={(event) => setForm((prev) => ({ ...prev, isLastDayEligible: event.target.checked }))}
+                    />
+                    마지막날 가능
+                  </label>
+                  <p className="text-xs text-slate-500">여행일정중 마지막날이 될 수 있다면 체크해주세요</p>
+                </div>
               </div>
             </div>
 
