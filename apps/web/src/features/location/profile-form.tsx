@@ -17,10 +17,6 @@ const REGIONS_QUERY = gql`
 const MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
   { value: MealOption.CampMeal, label: '캠프식' },
   { value: MealOption.LocalRestaurant, label: '현지식당' },
-  { value: MealOption.PorkParty, label: '삼겹살파티' },
-  { value: MealOption.Horhog, label: '허르헉' },
-  { value: MealOption.Shashlik, label: '샤슬릭' },
-  { value: MealOption.ShabuShabu, label: '샤브샤브' },
 ];
 
 const DEFAULT_SLOT_TIMES = ['08:00', '12:00', '18:00'] as const;
@@ -547,21 +543,6 @@ export function LocationProfileForm({
                 <label key={field} className="grid gap-1 text-sm">
                   <span className="text-slate-700">{field === 'breakfast' ? '아침' : field === 'lunch' ? '점심' : '저녁'}</span>
                   <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant={form.meals[field] === null ? 'default' : 'outline'}
-                      onClick={() =>
-                        setForm((prev) => ({
-                          ...prev,
-                          meals: {
-                            ...prev.meals,
-                            [field]: null,
-                          },
-                        }))
-                      }
-                    >
-                      선택 안 함
-                    </Button>
                     {MEAL_OPTIONS.map((option) => (
                       <Button
                         key={option.value}
