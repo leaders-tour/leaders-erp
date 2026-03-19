@@ -1757,6 +1757,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       lodgingSelectionLevel: 'LV3',
       customLodgingId: undefined,
       customLodgingNameSnapshot: null,
+      lodgingCellText: index === rows.length - 1 ? '숙소미포함' : row.lodgingCellText,
       mealCellText:
         index === rows.length - 1
           ? adjustLastDayMealCellText(row.mealCellText, {
