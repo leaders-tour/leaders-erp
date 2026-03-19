@@ -39,6 +39,7 @@ import {
   PICKUP_DROP_PLACE_OPTIONS,
   getRecommendedDropSchedule,
   getRecommendedPickupTime,
+  parseTimeToMinutes,
   resolveAutoVariantType,
   normalizePickupDropCustomText,
   type PickupDropPlaceType,
@@ -1172,10 +1173,54 @@ function parseMealCellText(value: string | null | undefined): MealCellFields {
 
 function toMealCellText(fields: MealCellFields): string {
   return [
-    fields.breakfast ? `아침 ${fields.breakfast}` : '아침',
-    fields.lunch ? `점심 ${fields.lunch}` : '점심',
-    fields.dinner ? `저녁 ${fields.dinner}` : '저녁',
-  ].join('\n');
+    fields.breakfast ? `아침 ${fields.breakfast}` : '',
+    fields.lunch ? `점심 ${fields.lunch}` : '',
+    fields.dinner ? `저녁 ${fields.dinner}` : '',
+  ]
+    .filter((line) => line.length > 0)
+    .join('\n');
+}
+
+function adjustLastDayMealCellText(value: string, input: {
+  travelEndDate: string;
+  dropDate: string;
+  dropTime: string;
+}): string {
+  const { travelEndDate, dropDate, dropTime } = input;
+  const fields = parseMealCellText(value);
+  const minutes = parseTimeToMinutes(dropTime);
+  if (minutes === null) {
+    return value;
+  }
+
+  if (!travelEndDate || !dropDate) {
+    if (minutes < 11 * 60) {
+      return toMealCellText({ breakfast: 'X', lunch: 'X', dinner: 'X' });
+    }
+    if (minutes < 14 * 60) {
+      return toMealCellText({ ...fields, lunch: 'X', dinner: 'X' });
+    }
+    if (minutes < 19 * 60) {
+      return toMealCellText({ ...fields, dinner: 'X' });
+    }
+    return value;
+  }
+
+  if (dropDate > travelEndDate) {
+    return value;
+  }
+
+  if (minutes < 11 * 60) {
+    return toMealCellText({ breakfast: 'X', lunch: 'X', dinner: 'X' });
+  }
+  if (minutes < 14 * 60) {
+    return toMealCellText({ ...fields, lunch: 'X', dinner: 'X' });
+  }
+  if (minutes < 19 * 60) {
+    return toMealCellText({ ...fields, dinner: 'X' });
+  }
+
+  return value;
 }
 
 function autoResizeTextarea(element: HTMLTextAreaElement): void {
@@ -1689,6 +1734,8 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
 
     const firstPickupTime = transportGroups[0]?.pickupTime?.trim() ?? '';
+    const dropDate = transportGroups[0]?.dropDate?.trim() ?? '';
+    const dropTime = transportGroups[0]?.dropTime?.trim() ?? '';
     const firstDayTimeOverride =
       (variantType === VariantType.Early || variantType === VariantType.EarlyExtend) && firstPickupTime ? firstPickupTime : undefined;
 
@@ -1705,11 +1752,19 @@ export function ItineraryBuilderPage(): JSX.Element {
       variantType,
       travelStartDate,
       firstDayTimeOverride,
-    }).map((row) => ({
+    }).map((row, index, rows) => ({
       ...row,
       lodgingSelectionLevel: 'LV3',
       customLodgingId: undefined,
       customLodgingNameSnapshot: null,
+      mealCellText:
+        index === rows.length - 1
+          ? adjustLastDayMealCellText(row.mealCellText, {
+              travelEndDate,
+              dropDate,
+              dropTime,
+            })
+          : row.mealCellText,
     }));
   }, [
     filteredOvernightStayConnections,
