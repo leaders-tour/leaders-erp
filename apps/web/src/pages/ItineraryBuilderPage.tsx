@@ -3836,6 +3836,7 @@ export function ItineraryBuilderPage(): JSX.Element {
             <div className="mt-4 space-y-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                 <div className="text-sm font-medium">1일차 출발지</div>
+                <p className="mt-1 text-xs text-slate-500">목적지중 첫날 가능 목적지만 나열됩니다</p>
                 {startLocationId ? (
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <div className="text-slate-700">
