@@ -4215,17 +4215,38 @@ export function ItineraryBuilderPage(): JSX.Element {
                 {displayPlanRows.map(({ row, mainRowIndex }, rowIndex) => {
                   const isExternalRow = mainRowIndex === null;
                   const mealFields = parseMealCellText(row.mealCellText);
-                  const isTimeCellAffected =
+                  const timeCellValidation =
                     mainRowIndex !== null &&
-                    validationResults.some((r) =>
+                    validationResults.find((r) =>
                       r.affectedCells?.some((c) => c.rowIndex === mainRowIndex && c.field === 'timeCellText'),
                     );
+                  const mealCellValidation =
+                    mainRowIndex !== null &&
+                    validationResults.find((r) =>
+                      r.affectedCells?.some((c) => c.rowIndex === mainRowIndex && c.field === 'mealCellText'),
+                    );
+                  const isTimeCellAffected = Boolean(timeCellValidation);
+                  const isMealCellAffected = Boolean(mealCellValidation);
                   const cellClassName = `w-full resize-none overflow-hidden rounded-xl border border-slate-200 px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
                     isExternalRow ? 'bg-slate-50 text-slate-500' : 'bg-white'
                   }`;
                   const timeCellClassName = isTimeCellAffected
                     ? `${cellClassName} border-rose-400 bg-rose-50`
                     : cellClassName;
+                  const mealCellWrapperClassName = `grid gap-2 rounded-xl border p-2 ${
+                    isMealCellAffected ? 'border-amber-400 bg-amber-50' : 'border-slate-200 bg-white'
+                  }`;
+                  const mealLabelClassName = `text-xs ${isMealCellAffected ? 'text-amber-900' : 'text-slate-500'}`;
+                  const mealInputClassName = `min-w-0 rounded-lg border px-2 py-1.5 text-sm outline-none transition ${
+                    isMealCellAffected
+                      ? 'border-amber-300 bg-amber-50 text-amber-950 focus:border-amber-500'
+                      : 'border-slate-200 text-slate-900 focus:border-slate-400'
+                  }`;
+                  const mealXButtonClassName = `rounded-lg border px-2 py-1.5 text-xs font-medium transition ${
+                    isMealCellAffected
+                      ? 'border-amber-300 bg-amber-100 text-amber-950 hover:bg-amber-200'
+                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`;
 
                   return (
                   <tr key={`day-row-${rowIndex + 1}`} className={`border-t border-slate-200 align-top ${isExternalRow ? 'bg-slate-50/60' : ''}`}>
@@ -4266,22 +4287,29 @@ export function ItineraryBuilderPage(): JSX.Element {
                       />
                     </Td>
                     <Td>
-                      <textarea
-                        value={row.timeCellText}
-                        readOnly={isExternalRow}
-                        disabled={isExternalRow}
-                        onChange={(event) => {
-                          if (mainRowIndex === null) {
-                            return;
-                          }
-                          updateCell(mainRowIndex, 'timeCellText', event.target.value);
-                          autoResizeTextarea(event.currentTarget);
-                        }}
-                        onInput={(event) => autoResizeTextarea(event.currentTarget)}
-                        rows={1}
-                        data-plan-cell="true"
-                        className={timeCellClassName}
-                      />
+                      <div className="space-y-1">
+                        <textarea
+                          value={row.timeCellText}
+                          readOnly={isExternalRow}
+                          disabled={isExternalRow}
+                          onChange={(event) => {
+                            if (mainRowIndex === null) {
+                              return;
+                            }
+                            updateCell(mainRowIndex, 'timeCellText', event.target.value);
+                            autoResizeTextarea(event.currentTarget);
+                          }}
+                          onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                          rows={1}
+                          data-plan-cell="true"
+                          className={timeCellClassName}
+                        />
+                        {isTimeCellAffected && timeCellValidation ? (
+                          <p className="px-1 text-xs leading-4 text-rose-700">
+                            시간 확인 필요: {timeCellValidation.message}
+                          </p>
+                        ) : null}
+                      </div>
                     </Td>
                     <Td>
                       <textarea
@@ -4312,47 +4340,65 @@ export function ItineraryBuilderPage(): JSX.Element {
                     </Td>
                     <Td>
                       {isExternalRow ? (
-                        <div className={`min-h-[44px] rounded-xl border border-slate-200 px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
-                          isExternalRow ? 'bg-slate-100 text-slate-500' : 'bg-white'
-                        }`}>
-                          {row.mealCellText || '-'}
+                        <div className="space-y-1">
+                          <div className={`min-h-[44px] rounded-xl border px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
+                            isMealCellAffected
+                              ? 'border-amber-400 bg-amber-50 text-amber-950'
+                              : isExternalRow
+                                ? 'border-slate-200 bg-slate-100 text-slate-500'
+                                : 'border-slate-200 bg-white'
+                          }`}>
+                            {row.mealCellText || '-'}
+                          </div>
+                          {isMealCellAffected && mealCellValidation ? (
+                            <p className="px-1 text-xs leading-4 text-amber-900">
+                              식사 확인 필요: {mealCellValidation.message}
+                            </p>
+                          ) : null}
                         </div>
                       ) : (
-                        <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-2">
-                          {([
-                            ['breakfast', '아침', mealFields.breakfast],
-                            ['lunch', '점심', mealFields.lunch],
-                            ['dinner', '저녁', mealFields.dinner],
-                          ] as const).map(([field, label, mealValue]) => (
-                            <div key={field} className="grid grid-cols-[40px_minmax(0,1fr)_32px] items-center gap-2 text-sm">
-                              <span className="text-xs text-slate-500">{label}</span>
-                              <input
-                                type="text"
-                                value={mealValue}
-                                onChange={(event) => {
-                                  if (mainRowIndex === null) {
-                                    return;
-                                  }
-                                  updateMealCellField(mainRowIndex, field, event.target.value);
-                                }}
-                                className="min-w-0 rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-                                placeholder={`${label} 식사 입력`}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (mainRowIndex === null) {
-                                    return;
-                                  }
-                                  updateMealCellField(mainRowIndex, field, 'X');
-                                }}
-                                className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
-                                aria-label={`${label} 식사를 없음으로 표시`}
-                              >
-                                X
-                              </button>
-                            </div>
-                          ))}
+                        <div className="space-y-1">
+                          <div className={mealCellWrapperClassName}>
+                            {([
+                              ['breakfast', '아침', mealFields.breakfast],
+                              ['lunch', '점심', mealFields.lunch],
+                              ['dinner', '저녁', mealFields.dinner],
+                            ] as const).map(([field, label, mealValue]) => (
+                              <div key={field} className="grid grid-cols-[40px_minmax(0,1fr)_32px] items-center gap-2 text-sm">
+                                <span className={mealLabelClassName}>{label}</span>
+                                <input
+                                  type="text"
+                                  value={mealValue}
+                                  onChange={(event) => {
+                                    if (mainRowIndex === null) {
+                                      return;
+                                    }
+                                    updateMealCellField(mainRowIndex, field, event.target.value);
+                                  }}
+                                  className={mealInputClassName}
+                                  placeholder={`${label} 식사 입력`}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (mainRowIndex === null) {
+                                      return;
+                                    }
+                                    updateMealCellField(mainRowIndex, field, 'X');
+                                  }}
+                                  className={mealXButtonClassName}
+                                  aria-label={`${label} 식사를 없음으로 표시`}
+                                >
+                                  X
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          {isMealCellAffected && mealCellValidation ? (
+                            <p className="px-1 text-xs leading-4 text-amber-900">
+                              식사 확인 필요: {mealCellValidation.message}
+                            </p>
+                          ) : null}
                         </div>
                       )}
                     </Td>

@@ -16,6 +16,12 @@ export interface ValidationResult {
 
 const HH_MM_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
+interface MealCellFields {
+  breakfast: string;
+  lunch: string;
+  dinner: string;
+}
+
 function extractLastTimeFromCellText(timeCellText: string | null | undefined): string | null {
   const text = timeCellText?.trim() ?? '';
   if (!text) return null;
@@ -27,6 +33,82 @@ function extractLastTimeFromCellText(timeCellText: string | null | undefined): s
     }
   }
   return null;
+}
+
+function parseMealCellText(value: string | null | undefined): MealCellFields {
+  const result: MealCellFields = {
+    breakfast: '',
+    lunch: '',
+    dinner: '',
+  };
+  const text = value?.trim() ?? '';
+  if (!text || text === '-') {
+    return result;
+  }
+
+  const unlabeled: string[] = [];
+  text.split('\n').forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      return;
+    }
+    const breakfastMatch = /^아침\s*(.*)$/.exec(trimmed);
+    if (breakfastMatch) {
+      result.breakfast = breakfastMatch[1]?.trim() ?? '';
+      return;
+    }
+    const lunchMatch = /^점심\s*(.*)$/.exec(trimmed);
+    if (lunchMatch) {
+      result.lunch = lunchMatch[1]?.trim() ?? '';
+      return;
+    }
+    const dinnerMatch = /^저녁\s*(.*)$/.exec(trimmed);
+    if (dinnerMatch) {
+      result.dinner = dinnerMatch[1]?.trim() ?? '';
+      return;
+    }
+    unlabeled.push(trimmed);
+  });
+
+  if (!result.breakfast && unlabeled[0]) {
+    result.breakfast = unlabeled[0];
+  }
+  if (!result.lunch && unlabeled[1]) {
+    result.lunch = unlabeled[1];
+  }
+  if (!result.dinner && unlabeled[2]) {
+    result.dinner = unlabeled[2];
+  }
+
+  return result;
+}
+
+function getRequiredXMeals(input: {
+  travelEndDate: string;
+  dropDate: string;
+  dropTime: string;
+}): Array<keyof MealCellFields> {
+  const { travelEndDate, dropDate, dropTime } = input;
+  const minutes = parseTimeToMinutes(dropTime);
+  if (minutes === null) {
+    return [];
+  }
+
+  if (travelEndDate && dropDate && dropDate > travelEndDate) {
+    return [];
+  }
+
+  if (minutes < 11 * 60) {
+    return ['breakfast', 'lunch', 'dinner'];
+  }
+  if (minutes < 14 * 60) {
+    return ['lunch', 'dinner'];
+  }
+  if (minutes < 19 * 60) {
+    return ['dinner'];
+  }
+
+  return [];
 }
 
 const REQUIRED_SPECIAL_MEALS = ['샤브샤브', '삼겹살파티', '허르헉', '샤슬릭'];
@@ -306,6 +388,42 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
         severity: 'warning',
         message: `특식 누락: ${missingMeals.join(', ')} (최소 3종 필요)`,
       });
+    }
+
+    // last-day-meal-x-rule (warning) — 드랍시간 기준으로 X 처리되어야 하는 식사 확인
+    if (planRows.length > 0 && transportGroups[0]) {
+      const lastRowIndex = planRows.length - 1;
+      const lastRow = planRows[lastRowIndex];
+      const requiredXMeals = getRequiredXMeals({
+        travelEndDate,
+        dropDate: transportGroups[0].dropDate?.trim() ?? '',
+        dropTime: transportGroups[0].dropTime?.trim() ?? '',
+      });
+      if (requiredXMeals.length > 0) {
+        const mealFields = parseMealCellText(lastRow?.mealCellText);
+        const invalidMeals = requiredXMeals.filter((mealKey) => {
+          const value = mealFields[mealKey].trim().toUpperCase();
+          return value !== 'X';
+        });
+        if (invalidMeals.length > 0) {
+          const labels = invalidMeals.map((mealKey) => {
+            switch (mealKey) {
+              case 'breakfast':
+                return '아침';
+              case 'lunch':
+                return '점심';
+              case 'dinner':
+                return '저녁';
+            }
+          });
+          results.push({
+            id: 'last-day-meal-x-rule',
+            severity: 'warning',
+            message: `마지막 날 드랍시간 기준으로 ${labels.join(', ')} 식사는 X로 표시되어야 합니다.`,
+            affectedCells: [{ rowIndex: lastRowIndex, field: 'mealCellText' }],
+          });
+        }
+      }
     }
 
     return results;
