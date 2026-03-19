@@ -576,9 +576,19 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const [updating, setUpdating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<string>('ALL');
 
   const locations = useMemo(() => locationData?.locations ?? [], [locationData]);
   const locationById = useMemo(() => new Map(locations.map((item) => [item.id, item])), [locations]);
+  const regions = useMemo(() => {
+    return Array.from(new Set(crud.rows.map((row) => row.regionName))).sort((a, b) => a.localeCompare(b, 'ko'));
+  }, [crud.rows]);
+  const filteredSegmentRows = useMemo(() => {
+    if (selectedRegion === 'ALL') {
+      return crud.rows;
+    }
+    return crud.rows.filter((row) => row.regionName === selectedRegion);
+  }, [crud.rows, selectedRegion]);
 
   const filteredFromLocations = useMemo(() => {
     const keyword = fromSearch.trim().toLowerCase();
@@ -897,7 +907,24 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
       {showListSection ? (
       <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 p-4">
-          <h2 className="text-lg font-semibold tracking-tight">연결 목록</h2>
+          <div className="grid gap-3">
+            <h2 className="text-lg font-semibold tracking-tight">연결 목록</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant={selectedRegion === 'ALL' ? 'default' : 'outline'} onClick={() => setSelectedRegion('ALL')}>
+                전체
+              </Button>
+              {regions.map((regionName) => (
+                <Button
+                  key={regionName}
+                  type="button"
+                  variant={selectedRegion === regionName ? 'default' : 'outline'}
+                  onClick={() => setSelectedRegion(regionName)}
+                >
+                  {regionName}
+                </Button>
+              ))}
+            </div>
+          </div>
         </div>
         <Table>
           <thead>
@@ -914,7 +941,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
             </tr>
           </thead>
           <tbody>
-            {crud.rows.map((row) => (
+            {filteredSegmentRows.map((row) => (
               <tr key={row.id}>
                 <Td>{row.regionName}</Td>
                 <Td>{formatLocationNameInline(locationById.get(row.fromLocationId)?.name ?? row.fromLocationId)}</Td>
