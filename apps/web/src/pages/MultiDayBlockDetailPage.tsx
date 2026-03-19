@@ -305,7 +305,7 @@ export function MultiDayBlockDetailPage(): JSX.Element {
                     checked={blockType === 'STAY'}
                     onChange={() => setBlockType('STAY')}
                   />
-                  체류형 (같은 목적지에서 2~3일)
+                  연박 (같은 목적지에서 2~3일)
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                   <input

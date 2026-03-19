@@ -1070,7 +1070,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
               <div className="grid items-start gap-6 xl:grid-cols-2">
                 <div>
                   <TimeSlotEditor
-                    title="기본 버전 일정"
+                    title="기본 연결"
                     description="기본 직결 버전의 시간/일정입니다."
                     value={form.timeSlots}
                     onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
@@ -1079,7 +1079,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 <div>
                   {includeCreateEarly ? (
                     <TimeSlotEditor
-                      title="기본 버전 얼리 일정"
+                      title="출발지가 얼리일 때"
                       description="첫날 얼리 조건의 연결 일정입니다."
                       value={form.earlyTimeSlots}
                       onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, earlyTimeSlots: nextTimeSlots }))}
@@ -1095,7 +1095,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                     <div>
                       {includeCreateExtend ? (
                         <TimeSlotEditor
-                          title="기본 버전 연장 일정"
+                          title="도착지가 연장일 때"
                           description="마지막날 연장 조건의 연결 일정입니다."
                           value={form.extendTimeSlots}
                           onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}

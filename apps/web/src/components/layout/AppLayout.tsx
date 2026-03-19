@@ -211,12 +211,13 @@ export function AppLayout(): JSX.Element {
     location.pathname === '/locations/create' ||
     location.pathname === '/connections/create' ||
     /^\/locations\/[^/]+\/versions\/[^/]+\/edit$/.test(location.pathname);
+  const isWideMultiDayBlockCreatePage = location.pathname === '/multi-day-blocks/create';
   const isWideConnectionListPage = location.pathname === '/connections/list';
   const pageShellClassName = isFullBleedPage
     ? 'max-w-none px-0 py-0'
     : isWideConnectionListPage
       ? 'max-w-8xl'
-      : isWideLocationProfilePage
+      : isWideLocationProfilePage || isWideMultiDayBlockCreatePage
         ? 'max-w-[1800px]'
         : undefined;
   const isCompactSidebar = isSidebarCollapsed;

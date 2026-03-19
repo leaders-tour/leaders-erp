@@ -1,9 +1,15 @@
 import { Button, Input } from '@tour/ui';
+import { useState } from 'react';
 
 export interface MultiDayBlockScheduleSlotInput {
   startTime: string;
   activities: string[];
 }
+
+const PASTE_HELPER_PLACEHOLDERS = {
+  timeCellText: '08:00\n12:00\n-\n18:00',
+  scheduleCellText: '가이드 접선 후 여행시작\n이동 중 점심식사\n차강소브라가 도착 / 침식지형 트래킹\n숙소 도착 (저녁식사 및 휴식)',
+};
 
 export function createMultiDayBlockScheduleSlot(startTime = '08:00'): MultiDayBlockScheduleSlotInput {
   return {
@@ -99,6 +105,7 @@ export function MultiDayBlockDaySlotEditor(props: {
   onChange: (nextValue: MultiDayBlockScheduleSlotInput[]) => void;
 }): JSX.Element {
   const { title, description, value, onChange } = props;
+  const [pasteHelper, setPasteHelper] = useState({ timeCellText: '', scheduleCellText: '' });
 
   const addTimeSlot = () => {
     onChange([...value, createMultiDayBlockScheduleSlot(getNextSlotTime(value))]);
@@ -162,60 +169,128 @@ export function MultiDayBlockDaySlotEditor(props: {
     onChange(nextSlots);
   };
 
+  const applyPasteHelper = () => {
+    const parsed = parseMultiDayBlockScheduleSlots(pasteHelper.timeCellText, pasteHelper.scheduleCellText);
+    if (parsed.length > 0) {
+      onChange(parsed);
+    }
+  };
+
+  const clearPasteHelper = () => {
+    setPasteHelper({ timeCellText: '', scheduleCellText: '' });
+  };
+
   return (
-    <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
-          <p className="text-xs text-slate-500">{description}</p>
-        </div>
-        <Button type="button" variant="outline" onClick={addTimeSlot}>
-          시작시간 추가
-        </Button>
+    <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 self-start">
+      <div className="grid gap-1">
+        <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
+        <p className="text-xs text-slate-500">{description}</p>
       </div>
-
-      <div className="grid gap-4">
+      <div className="grid gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
+        <div className="grid gap-1">
+          <h4 className="text-sm font-semibold text-slate-800">입력도우미</h4>
+          <p className="text-xs text-slate-500">미리캔버스에서 복사/붙여넣기 하세요!</p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="grid gap-1 text-sm">
+            <span className="text-slate-700">시간</span>
+            <textarea
+              value={pasteHelper.timeCellText}
+              onChange={(event) => setPasteHelper((prev) => ({ ...prev, timeCellText: event.target.value }))}
+              rows={8}
+              className="min-h-[168px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+              placeholder={PASTE_HELPER_PLACEHOLDERS.timeCellText}
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span className="text-slate-700">일정</span>
+            <textarea
+              value={pasteHelper.scheduleCellText}
+              onChange={(event) => setPasteHelper((prev) => ({ ...prev, scheduleCellText: event.target.value }))}
+              rows={8}
+              className="min-h-[168px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+              placeholder={PASTE_HELPER_PLACEHOLDERS.scheduleCellText}
+            />
+          </label>
+        </div>
+        <p className="text-xs text-slate-500">시간 칸의 `-`는 바로 위 시간에 이어지는 일정으로 인식됩니다.</p>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" onClick={applyPasteHelper} className="whitespace-nowrap">
+            붙여넣기 적용
+          </Button>
+          <Button type="button" variant="outline" onClick={clearPasteHelper} className="whitespace-nowrap">
+            입력 비우기
+          </Button>
+        </div>
+      </div>
+      <div className="grid gap-3">
         {value.map((slot, slotIndex) => (
-          <div key={`${slot.startTime}-${slotIndex}`} className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <label className="grid gap-1 text-sm">
-                <span className="text-slate-700">시작시간</span>
-                <Input value={slot.startTime} onChange={(event) => updateSlotTime(slotIndex, event.target.value)} placeholder="08:00" />
-              </label>
-              <Button type="button" variant="outline" onClick={() => removeTimeSlot(slotIndex)} disabled={value.length <= 1}>
-                시작시간 삭제
-              </Button>
-            </div>
-
-            <div className="grid gap-2">
-              {slot.activities.map((activity, activityIndex) => (
-                <div key={`${slotIndex}-${activityIndex}`} className="flex items-start gap-2">
-                  <textarea
-                    value={activity}
-                    onChange={(event) => updateActivity(slotIndex, activityIndex, event.target.value)}
-                    rows={2}
-                    className="min-h-[72px] flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                    placeholder="활동 내용을 입력하세요"
-                  />
+          <div key={`${slot.startTime}-${slotIndex}`} className="grid gap-2">
+            <div className="grid gap-3 rounded-xl border border-slate-200 p-3 md:grid-cols-[max-content_minmax(0,1fr)]">
+              <div className="grid gap-2 md:content-start">
+                <div className="flex h-10 items-center">
+                  <h4 className="text-sm font-semibold text-slate-800">출발 시간</h4>
+                </div>
+                <Input
+                  className="w-[110px] border-slate-500 text-lg font-semibold"
+                  value={slot.startTime}
+                  onChange={(event) => updateSlotTime(slotIndex, event.target.value)}
+                  placeholder="HH:mm"
+                />
+              </div>
+              <div className="grid gap-2 min-w-0">
+                <div className="flex h-10 items-center justify-between gap-2">
+                  <h4 className="text-sm font-semibold text-slate-800">활동</h4>
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => removeActivity(slotIndex, activityIndex)}
-                    disabled={slot.activities.length <= 1}
+                    onClick={() => removeTimeSlot(slotIndex)}
+                    disabled={value.length <= 1}
+                    className="whitespace-nowrap"
                   >
                     삭제
                   </Button>
                 </div>
-              ))}
-            </div>
-
-            <div>
-              <Button type="button" variant="outline" onClick={() => addActivity(slotIndex)}>
-                활동 추가
-              </Button>
+                <div className="grid gap-2">
+                  {slot.activities.map((activity, activityIndex) => (
+                    <div key={`${slotIndex}-${activityIndex}`} className="flex items-center gap-2 min-w-0">
+                      <Input
+                        value={activity}
+                        onChange={(event) => updateActivity(slotIndex, activityIndex, event.target.value)}
+                        placeholder="활동 입력"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => removeActivity(slotIndex, activityIndex)}
+                        disabled={slot.activities.length <= 1}
+                        className="whitespace-nowrap"
+                      >
+                        X
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="overflow-x-auto">
+                  <Button type="button" variant="outline" onClick={() => addActivity(slotIndex)} className="whitespace-nowrap">
+                    활동 추가
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         ))}
+      </div>
+      <div>
+        <Button type="button" variant="outline" onClick={addTimeSlot} className="whitespace-nowrap">
+          <span aria-hidden="true" className="mr-1">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3 2" />
+            </svg>
+          </span>
+          시간 추가
+        </Button>
       </div>
     </div>
   );

@@ -16,6 +16,13 @@ import {
   serializeMultiDayBlockScheduleSlots,
   type MultiDayBlockScheduleSlotInput,
 } from '../features/multi-day-block/day-slot-editor';
+import { MealOption } from '../generated/graphql';
+import type { FacilityAvailability } from '../features/location/hooks';
+
+const MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
+  { value: MealOption.CampMeal, label: '캠프식' },
+  { value: MealOption.LocalRestaurant, label: '현지식당' },
+];
 
 interface RegionRow {
   id: string;
@@ -36,8 +43,18 @@ interface MultiDayBlockDayDraft {
   averageDistanceKm: string;
   averageTravelHours: string;
   scheduleSlots: MultiDayBlockScheduleSlotInput[];
-  lodgingCellText: string;
-  mealCellText: string;
+  lodging: {
+    isUnspecified: boolean;
+    name: string;
+    hasElectricity: FacilityAvailability;
+    hasShower: FacilityAvailability;
+    hasInternet: FacilityAvailability;
+  };
+  meals: {
+    breakfast: MealOption | null;
+    lunch: MealOption | null;
+    dinner: MealOption | null;
+  };
 }
 
 const REGIONS_QUERY = gql`
@@ -74,9 +91,54 @@ function createDayDraft(dayOrder: number, displayLocationId = ''): MultiDayBlock
     averageDistanceKm: '0',
     averageTravelHours: '0',
     scheduleSlots: [createMultiDayBlockScheduleSlot()],
-    lodgingCellText: '',
-    mealCellText: '',
+    lodging: {
+      isUnspecified: false,
+      name: '여행자 캠프',
+      hasElectricity: 'YES',
+      hasShower: 'YES',
+      hasInternet: 'YES',
+    },
+    meals: {
+      breakfast: null,
+      lunch: null,
+      dinner: null,
+    },
   };
+}
+
+function serializeLodging(lodging: MultiDayBlockDayDraft['lodging']): string {
+  if (lodging.isUnspecified) {
+    return '';
+  }
+  const parts: string[] = [lodging.name.trim()];
+  const facilities: string[] = [];
+  if (lodging.hasElectricity === 'YES') facilities.push('전기');
+  else if (lodging.hasElectricity === 'LIMITED') facilities.push('전기(제한)');
+  if (lodging.hasShower === 'YES') facilities.push('샤워');
+  else if (lodging.hasShower === 'LIMITED') facilities.push('샤워(제한)');
+  if (lodging.hasInternet === 'YES') facilities.push('인터넷');
+  else if (lodging.hasInternet === 'LIMITED') facilities.push('인터넷(제한)');
+  if (facilities.length > 0) {
+    parts.push(facilities.join(', '));
+  }
+  return parts.join('\n');
+}
+
+function serializeMeals(meals: MultiDayBlockDayDraft['meals']): string {
+  const parts: string[] = [];
+  if (meals.breakfast) {
+    const label = MEAL_OPTIONS.find((opt) => opt.value === meals.breakfast)?.label ?? '';
+    parts.push(`아침: ${label}`);
+  }
+  if (meals.lunch) {
+    const label = MEAL_OPTIONS.find((opt) => opt.value === meals.lunch)?.label ?? '';
+    parts.push(`점심: ${label}`);
+  }
+  if (meals.dinner) {
+    const label = MEAL_OPTIONS.find((opt) => opt.value === meals.dinner)?.label ?? '';
+    parts.push(`저녁: ${label}`);
+  }
+  return parts.join('\n');
 }
 
 export function MultiDayBlockCreatePage(): JSX.Element {
@@ -87,7 +149,6 @@ export function MultiDayBlockCreatePage(): JSX.Element {
   const [startLocationId, setStartLocationId] = useState('');
   const [endLocationId, setEndLocationId] = useState('');
   const [name, setName] = useState('');
-  const [sortOrder, setSortOrder] = useState('0');
   const [isActive, setIsActive] = useState(true);
   const [days, setDays] = useState<MultiDayBlockDayDraft[]>([createDayDraft(1), createDayDraft(2)]);
   const [specialMealsModalOpen, setSpecialMealsModalOpen] = useState(false);
@@ -177,7 +238,7 @@ export function MultiDayBlockCreatePage(): JSX.Element {
       <header className="flex items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">연속 일정 블록 생성</h1>
-          <p className="mt-1 text-sm text-slate-600">체류형(같은 목적지) 또는 이동형(야간열차) 블록을 2~3일로 등록합니다.</p>
+          <p className="mt-1 text-sm text-slate-600">연박(같은 목적지) 또는 이동형(야간열차) 블록을 2~3일로 등록합니다.</p>
         </div>
         <Button variant="outline" onClick={() => navigate('/multi-day-blocks/list')}>
           목록으로
@@ -187,213 +248,279 @@ export function MultiDayBlockCreatePage(): JSX.Element {
       <MultiDayBlockSubNav pathname="/multi-day-blocks/create" />
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-5">
-          <div className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium text-slate-900">블록 이름</span>
-              <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="예: 테를지 2일 표준" />
-            </label>
+        <div className="grid items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+          <div className="grid gap-4">
+            <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+              <label className="grid gap-1 text-sm">
+                <span className="font-medium text-slate-900">블록 이름</span>
+                <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="예: 테를지 2일 표준" />
+              </label>
 
-            <fieldset className="grid gap-2">
-              <span className="font-medium text-slate-900">블록 타입</span>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="blockType"
-                    checked={blockType === 'STAY'}
-                    onChange={() => {
-                      setBlockType('STAY');
-                      if (startLocationId && !locationId) setLocationId(startLocationId);
-                      setStartLocationId('');
-                      setEndLocationId('');
-                      setDays((prev) => prev.map((d) => ({ ...d, displayLocationId: locationId || d.displayLocationId })));
-                    }}
-                  />
-                  체류형 (같은 목적지에서 2~3일)
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="blockType"
-                    checked={blockType === 'TRANSFER'}
-                    onChange={() => {
-                      setBlockType('TRANSFER');
-                      if (locationId && !startLocationId) {
-                        setStartLocationId(locationId);
+              <fieldset className="grid gap-2">
+                <span className="font-medium text-slate-900">블록 타입</span>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="blockType"
+                      checked={blockType === 'STAY'}
+                      onChange={() => {
+                        setBlockType('STAY');
+                        if (startLocationId && !locationId) setLocationId(startLocationId);
+                        setStartLocationId('');
                         setEndLocationId('');
-                        setDays((prev) => prev.map((d, i) => ({ ...d, displayLocationId: i === 0 ? locationId : d.displayLocationId })));
-                      }
-                      setLocationId('');
-                    }}
-                  />
-                  야간열차 (출발지→도착지 이동형)
-                </label>
-              </div>
-            </fieldset>
+                        setDays((prev) => prev.map((d) => ({ ...d, displayLocationId: locationId || d.displayLocationId })));
+                      }}
+                    />
+                    연박 (같은 목적지에서 2~3일)
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="blockType"
+                      checked={blockType === 'TRANSFER'}
+                      onChange={() => {
+                        setBlockType('TRANSFER');
+                        if (locationId && !startLocationId) {
+                          setStartLocationId(locationId);
+                          setEndLocationId('');
+                          setDays((prev) => prev.map((d, i) => ({ ...d, displayLocationId: i === 0 ? locationId : d.displayLocationId })));
+                        }
+                        setLocationId('');
+                      }}
+                    />
+                    야간열차 (출발지→도착지 이동형)
+                  </label>
+                </div>
+              </fieldset>
 
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium text-slate-900">지역</span>
-              <select
-                value={regionId}
-                onChange={(event) => handleRegionChange(event.target.value)}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2"
-              >
-                <option value="">전체 지역</option>
-                {regions.map((region) => (
-                  <option key={region.id} value={region.id}>
-                    {region.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <label className="grid gap-1 text-sm min-w-0">
+                <span className="font-medium text-slate-900">지역</span>
+                <div className="flex flex-wrap gap-2">
+                  {regions.map((region) => (
+                    <button
+                      key={region.id}
+                      type="button"
+                      onClick={() => handleRegionChange(region.id)}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        regionId === region.id
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {region.name}
+                    </button>
+                  ))}
+                </div>
+              </label>
+
+              {blockType === 'STAY' && (
+                <label className="grid gap-1 text-sm">
+                  <span className="font-medium text-slate-900">목적지</span>
+                  <select
+                    value={locationId}
+                    onChange={(event) => handleLocationChange(event.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2"
+                  >
+                    <option value="">목적지 선택</option>
+                    {selectableLocations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {formatLocationNameInline(location.name)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              {blockType === 'TRANSFER' && (
+                <div className="grid gap-3">
+                  <label className="grid gap-1 text-sm">
+                    <span className="font-medium text-slate-900">출발 목적지</span>
+                    <select
+                      value={startLocationId}
+                      onChange={(event) => handleStartLocationChange(event.target.value)}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2"
+                    >
+                      <option value="">출발지 선택</option>
+                      {selectableLocations.map((location) => (
+                        <option key={location.id} value={location.id}>
+                          {formatLocationNameInline(location.name)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    <span className="font-medium text-slate-900">도착 목적지</span>
+                    <select
+                      value={endLocationId}
+                      onChange={(event) => handleEndLocationChange(event.target.value)}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2"
+                    >
+                      <option value="">도착지 선택</option>
+                      {selectableLocations.map((location) => (
+                        <option key={location.id} value={location.id}>
+                          {formatLocationNameInline(location.name)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
+
+            </div>
 
             {blockType === 'STAY' && (
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium text-slate-900">목적지</span>
-                <select
-                  value={locationId}
-                  onChange={(event) => handleLocationChange(event.target.value)}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2"
-                >
-                  <option value="">목적지 선택</option>
-                  {selectableLocations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {formatLocationNameInline(location.name)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+                <span className="font-medium text-slate-900">선택된 목적지</span>
+                <span className="ml-2">{selectedLocation ? formatLocationNameInline(selectedLocation.name) : '아직 선택되지 않았습니다.'}</span>
+              </div>
             )}
-
-            {blockType === 'TRANSFER' && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="grid gap-1 text-sm">
-                  <span className="font-medium text-slate-900">출발 목적지</span>
-                  <select
-                    value={startLocationId}
-                    onChange={(event) => handleStartLocationChange(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2"
-                  >
-                    <option value="">출발지 선택</option>
-                    {selectableLocations.map((location) => (
-                      <option key={location.id} value={location.id}>
-                        {formatLocationNameInline(location.name)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-1 text-sm">
-                  <span className="font-medium text-slate-900">도착 목적지</span>
-                  <select
-                    value={endLocationId}
-                    onChange={(event) => handleEndLocationChange(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2"
-                  >
-                    <option value="">도착지 선택</option>
-                    {selectableLocations.map((location) => (
-                      <option key={location.id} value={location.id}>
-                        {formatLocationNameInline(location.name)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+            {blockType === 'TRANSFER' && (startLocationId || endLocationId) && (
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+                <span className="font-medium text-slate-900">경로</span>
+                <span className="ml-2">
+                  {startLocationId && locationById.get(startLocationId)?.name ? formatLocationNameInline(locationById.get(startLocationId)!.name) : '?'}
+                  {' → '}
+                  {endLocationId && locationById.get(endLocationId)?.name ? formatLocationNameInline(locationById.get(endLocationId)!.name) : '?'}
+                </span>
               </div>
             )}
 
-            <div className="flex flex-wrap items-center gap-4">
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium text-slate-900">정렬 순서</span>
-                <Input type="number" min={0} value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} />
-              </label>
-              <label className="flex h-10 items-center gap-2 text-sm">
-                <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
-                활성
-              </label>
+            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 p-4">
+              {days.length < 3 ? (
+                <Button variant="outline" onClick={addThirdDay}>
+                  3일차 추가
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={removeThirdDay}>
+                  3일차 제거
+                </Button>
+              )}
+              <span className="text-xs text-slate-500">블록은 2일 또는 3일까지 설정할 수 있습니다.</span>
             </div>
-          </div>
 
-          {blockType === 'STAY' && (
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-              <span className="font-medium text-slate-900">선택된 목적지</span>
-              <span className="ml-2">{selectedLocation ? formatLocationNameInline(selectedLocation.name) : '아직 선택되지 않았습니다.'}</span>
-            </div>
-          )}
-          {blockType === 'TRANSFER' && (startLocationId || endLocationId) && (
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-              <span className="font-medium text-slate-900">경로</span>
-              <span className="ml-2">
-                {startLocationId && locationById.get(startLocationId)?.name ? formatLocationNameInline(locationById.get(startLocationId)!.name) : '?'}
-                {' → '}
-                {endLocationId && locationById.get(endLocationId)?.name ? formatLocationNameInline(locationById.get(endLocationId)!.name) : '?'}
-              </span>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2">
-            {days.length < 3 ? (
-              <Button variant="outline" onClick={addThirdDay}>
-                3일차 추가
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
+              <div>
+                <span className="text-xs text-slate-600">특식 4종</span>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {(() => {
+                    const sortedDays = days.slice().sort((a, b) => a.dayOrder - b.dayOrder);
+                    const assignments = getAssignmentsFromPlanRows(
+                      sortedDays.map((day) => ({
+                        mealCellText: serializeMeals(day.meals),
+                        destinationCellText: formatLocationNameInline(
+                          locationById.get(day.displayLocationId || locationId)?.name ?? [],
+                        ),
+                        scheduleCellText: serializeMultiDayBlockScheduleSlots(day.scheduleSlots).scheduleCellText,
+                      })),
+                    );
+                    const count = new Set(assignments.map((a) => a.specialMeal)).size;
+                    return `4종 중 ${count}종 배치됨`;
+                  })()}
+                </p>
+              </div>
+              <Button variant="outline" onClick={() => setSpecialMealsModalOpen(true)}>
+                특식 배치 설정
               </Button>
-            ) : (
-              <Button variant="outline" onClick={removeThirdDay}>
-                3일차 제거
-              </Button>
-            )}
-            <span className="text-xs text-slate-500">블록은 2일 또는 3일까지 설정할 수 있습니다.</span>
-          </div>
-
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
-            <div>
-              <span className="text-xs text-slate-600">특식 4종</span>
-              <p className="mt-0.5 text-xs text-slate-500">
-                {(() => {
-                  const sortedDays = days.slice().sort((a, b) => a.dayOrder - b.dayOrder);
-                  const assignments = getAssignmentsFromPlanRows(
-                    sortedDays.map((day) => ({
-                      mealCellText: day.mealCellText,
-                      destinationCellText: formatLocationNameInline(
-                        locationById.get(day.displayLocationId || locationId)?.name ?? [],
-                      ),
-                      scheduleCellText: serializeMultiDayBlockScheduleSlots(day.scheduleSlots).scheduleCellText,
-                    })),
-                  );
-                  const count = new Set(assignments.map((a) => a.specialMeal)).size;
-                  return `4종 중 ${count}종 배치됨`;
-                })()}
-              </p>
             </div>
-            <Button variant="outline" onClick={() => setSpecialMealsModalOpen(true)}>
-              특식 배치 설정
-            </Button>
-          </div>
-          <SpecialMealsModal
-            open={specialMealsModalOpen}
-            rows={days
-              .slice()
-              .sort((a, b) => a.dayOrder - b.dayOrder)
-              .map((day) => ({
-                mealCellText: day.mealCellText,
-                destinationCellText: formatLocationNameInline(
-                  locationById.get(day.displayLocationId || locationId)?.name ?? [],
-                ),
-                scheduleCellText: serializeMultiDayBlockScheduleSlots(day.scheduleSlots).scheduleCellText,
-              }))}
-            onClose={() => setSpecialMealsModalOpen(false)}
-            onSave={(updatedRows) => {
-              const sortedDays = days.slice().sort((a, b) => a.dayOrder - b.dayOrder);
-              setDays((prev) =>
-                prev.map((day) => {
-                  const idx = sortedDays.findIndex((d) => d.dayOrder === day.dayOrder);
-                  const updated = idx >= 0 ? updatedRows[idx] : undefined;
-                  return updated ? { ...day, mealCellText: updated.mealCellText } : day;
-                }),
-              );
-              setSpecialMealsModalOpen(false);
-            }}
-          />
+            <SpecialMealsModal
+              open={specialMealsModalOpen}
+              rows={days
+                .slice()
+                .sort((a, b) => a.dayOrder - b.dayOrder)
+                .map((day) => ({
+                  mealCellText: serializeMeals(day.meals),
+                  destinationCellText: formatLocationNameInline(
+                    locationById.get(day.displayLocationId || locationId)?.name ?? [],
+                  ),
+                  scheduleCellText: serializeMultiDayBlockScheduleSlots(day.scheduleSlots).scheduleCellText,
+                }))}
+              onClose={() => setSpecialMealsModalOpen(false)}
+              onSave={(updatedRows) => {
+                const sortedDays = days.slice().sort((a, b) => a.dayOrder - b.dayOrder);
+                setDays((prev) =>
+                  prev.map((day) => {
+                    const idx = sortedDays.findIndex((d) => d.dayOrder === day.dayOrder);
+                    const updated = idx >= 0 ? updatedRows[idx] : undefined;
+                    if (!updated) return day;
+                    // Parse mealCellText back to meals structure
+                    const mealLines = updated.mealCellText.split('\n');
+                    const meals = {
+                      breakfast: null as MealOption | null,
+                      lunch: null as MealOption | null,
+                      dinner: null as MealOption | null,
+                    };
+                    for (const line of mealLines) {
+                      const match = line.match(/^(아침|점심|저녁):\s*(.+)$/);
+                      if (match) {
+                        const [, mealType, label] = match;
+                        const option = MEAL_OPTIONS.find((opt) => opt.label === label);
+                        if (option) {
+                          if (mealType === '아침') meals.breakfast = option.value;
+                          else if (mealType === '점심') meals.lunch = option.value;
+                          else if (mealType === '저녁') meals.dinner = option.value;
+                        }
+                      }
+                    }
+                    return { ...day, meals };
+                  }),
+                );
+                setSpecialMealsModalOpen(false);
+              }}
+            />
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="flex gap-2">
+              <Button
+                disabled={!regionId || !name.trim() || !canSubmit || loading}
+                onClick={async () => {
+                  const isStay = blockType === 'STAY';
+                  const startId = isStay ? locationId : startLocationId;
+                  const endId = isStay ? locationId : endLocationId;
+                  const result = await createMultiDayBlock({
+                    variables: {
+                      input: {
+                        regionId,
+                        locationId: startId,
+                        blockType,
+                        startLocationId: startId,
+                        endLocationId: endId,
+                        name: name.trim(),
+                        sortOrder: 0,
+                        isActive,
+                        days: days
+                          .slice()
+                          .sort((left, right) => left.dayOrder - right.dayOrder)
+                          .map((day) => {
+                            const { timeCellText, scheduleCellText } = serializeMultiDayBlockScheduleSlots(day.scheduleSlots);
+                            return {
+                              dayOrder: day.dayOrder,
+                              displayLocationId: isStay ? locationId : day.displayLocationId || startLocationId,
+                              averageDistanceKm: Number(day.averageDistanceKm) || 0,
+                              averageTravelHours: Number(day.averageTravelHours) || 0,
+                              timeCellText,
+                              scheduleCellText,
+                              lodgingCellText: serializeLodging(day.lodging),
+                              mealCellText: serializeMeals(day.meals),
+                            };
+                          }),
+                      },
+                    },
+                  });
+                  const createdId = result.data?.createMultiDayBlock.id;
+                  if (createdId) {
+                    navigate(`/multi-day-blocks/${createdId}`);
+                  }
+                }}
+              >
+                {loading ? '생성 중...' : '블록 생성'}
+              </Button>
+              <Button variant="outline" onClick={() => navigate('/multi-day-blocks/list')}>
+                취소
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid items-start gap-6 lg:grid-cols-2">
             {days
               .slice()
               .sort((left, right) => left.dayOrder - right.dayOrder)
@@ -424,17 +551,8 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                     </label>
                   )}
 
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <label className="grid gap-1 text-sm">
-                      <span>이동거리(km)</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={day.averageDistanceKm}
-                        onChange={(event) => updateDay(day.dayOrder, 'averageDistanceKm', event.target.value)}
-                      />
-                    </label>
-                    <label className="grid gap-1 text-sm">
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+                    <label className="grid gap-1 rounded-2xl border border-slate-200 p-4 text-sm">
                       <span>이동시간(시간)</span>
                       <Input
                         type="number"
@@ -442,6 +560,15 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                         step="0.5"
                         value={day.averageTravelHours}
                         onChange={(event) => updateDay(day.dayOrder, 'averageTravelHours', event.target.value)}
+                      />
+                    </label>
+                    <label className="grid gap-1 rounded-2xl border border-slate-200 p-4 text-sm">
+                      <span>이동거리(km)</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={day.averageDistanceKm}
+                        onChange={(event) => updateDay(day.dayOrder, 'averageDistanceKm', event.target.value)}
                       />
                     </label>
                   </div>
@@ -481,78 +608,94 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                     onChange={(nextValue) => updateDay(day.dayOrder, 'scheduleSlots', nextValue)}
                   />
 
-                  <div className="grid gap-3">
-                    <label className="grid gap-1 text-sm">
-                      <span>숙소</span>
-                      <textarea
-                        rows={4}
-                        value={day.lodgingCellText}
-                        onChange={(event) => updateDay(day.dayOrder, 'lodgingCellText', event.target.value)}
-                        className="rounded-xl border border-slate-200 px-3 py-2"
+                  <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={day.lodging.isUnspecified}
+                        onChange={(event) =>
+                          updateDay(day.dayOrder, 'lodging', {
+                            ...day.lodging,
+                            isUnspecified: event.target.checked,
+                          })
+                        }
                       />
+                      숙소 미지정
                     </label>
                     <label className="grid gap-1 text-sm">
-                      <span>식사</span>
-                      <textarea
-                        rows={4}
-                        value={day.mealCellText}
-                        onChange={(event) => updateDay(day.dayOrder, 'mealCellText', event.target.value)}
-                        className="rounded-xl border border-slate-200 px-3 py-2"
+                      <span className="text-slate-700">숙소명</span>
+                      <Input
+                        value={day.lodging.name}
+                        onChange={(event) =>
+                          updateDay(day.dayOrder, 'lodging', {
+                            ...day.lodging,
+                            name: event.target.value,
+                          })
+                        }
+                        disabled={day.lodging.isUnspecified}
                       />
                     </label>
+                    <div className="grid gap-3 text-sm text-slate-700">
+                      {([
+                        ['hasElectricity', '전기'],
+                        ['hasShower', '샤워'],
+                        ['hasInternet', '인터넷'],
+                      ] as const).map(([field, label]) => (
+                        <div key={field} className="flex items-center gap-3">
+                          <span className="w-16 shrink-0">{label}</span>
+                          <div className="flex gap-2">
+                            {([
+                              ['YES', '예'],
+                              ['LIMITED', '제한'],
+                              ['NO', '아니오'],
+                            ] as const).map(([state, stateLabel]) => (
+                              <Button
+                                key={state}
+                                type="button"
+                                variant={day.lodging[field] === state ? 'default' : 'outline'}
+                                disabled={day.lodging.isUnspecified}
+                                onClick={() =>
+                                  updateDay(day.dayOrder, 'lodging', {
+                                    ...day.lodging,
+                                    [field]: state as FacilityAvailability,
+                                  })
+                                }
+                              >
+                                {stateLabel}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+                    {(['breakfast', 'lunch', 'dinner'] as const).map((field) => (
+                      <label key={field} className="grid gap-1 text-sm">
+                        <span className="text-slate-700">{field === 'breakfast' ? '아침' : field === 'lunch' ? '점심' : '저녁'}</span>
+                        <div className="flex flex-wrap gap-2">
+                          {MEAL_OPTIONS.map((option) => (
+                            <Button
+                              key={option.value}
+                              type="button"
+                              variant={day.meals[field] === option.value ? 'default' : 'outline'}
+                              onClick={() =>
+                                updateDay(day.dayOrder, 'meals', {
+                                  ...day.meals,
+                                  [field]: day.meals[field] === option.value ? null : option.value,
+                                })
+                              }
+                            >
+                              {option.label}
+                            </Button>
+                          ))}
+                        </div>
+                      </label>
+                    ))}
                   </div>
                 </div>
               ))}
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              disabled={!regionId || !name.trim() || !canSubmit || loading}
-              onClick={async () => {
-                const isStay = blockType === 'STAY';
-                const startId = isStay ? locationId : startLocationId;
-                const endId = isStay ? locationId : endLocationId;
-                const result = await createMultiDayBlock({
-                  variables: {
-                    input: {
-                      regionId,
-                      locationId: startId,
-                      blockType,
-                      startLocationId: startId,
-                      endLocationId: endId,
-                      name: name.trim(),
-                      sortOrder: Number(sortOrder) || 0,
-                      isActive,
-                      days: days
-                        .slice()
-                        .sort((left, right) => left.dayOrder - right.dayOrder)
-                        .map((day) => {
-                          const { timeCellText, scheduleCellText } = serializeMultiDayBlockScheduleSlots(day.scheduleSlots);
-                          return {
-                            dayOrder: day.dayOrder,
-                            displayLocationId: isStay ? locationId : day.displayLocationId || startLocationId,
-                            averageDistanceKm: Number(day.averageDistanceKm) || 0,
-                            averageTravelHours: Number(day.averageTravelHours) || 0,
-                            timeCellText,
-                            scheduleCellText,
-                            lodgingCellText: day.lodgingCellText,
-                            mealCellText: day.mealCellText,
-                          };
-                        }),
-                    },
-                  },
-                });
-                const createdId = result.data?.createMultiDayBlock.id;
-                if (createdId) {
-                  navigate(`/multi-day-blocks/${createdId}`);
-                }
-              }}
-            >
-              {loading ? '생성 중...' : '블록 생성'}
-            </Button>
-            <Button variant="outline" onClick={() => navigate('/multi-day-blocks/list')}>
-              취소
-            </Button>
           </div>
         </div>
       </Card>
