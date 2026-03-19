@@ -3413,19 +3413,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </div>
               </div>
 
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">
-                  특별요청사항 <span className="ml-1 text-slate-400">*고객에게 노출됩니다</span>
-                </span>
-                <textarea
-                  value={specialNote}
-                  onChange={(event) => setSpecialNote(event.target.value)}
-                  rows={3}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  placeholder="줄바꿈 포함 입력 가능"
-                />
-              </label>
-
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="grid gap-2 text-sm">
                   <div className="flex items-center justify-between">
@@ -3883,6 +3870,19 @@ export function ItineraryBuilderPage(): JSX.Element {
                   </Button>
                 </div>
               </div>
+
+              <label className="grid gap-1 text-sm">
+                <span className="text-xs text-slate-600">
+                  특이사항 <span className="ml-1 text-slate-400">*고객에게 노출됩니다</span>
+                </span>
+                <textarea
+                  value={specialNote}
+                  onChange={(event) => setSpecialNote(event.target.value)}
+                  rows={3}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  placeholder="줄바꿈 포함 입력 가능"
+                />
+              </label>
             </div>
           </Card>
 
