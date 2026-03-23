@@ -1,6 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { VariantType } from '../../generated/graphql';
-import { isEarlyPickupTime, isExtendDropTime, resolveAutoVariantType } from './pickup-drop';
+import {
+  getRecommendedPickupTime,
+  isEarlyPickupTime,
+  isExtendDropTime,
+  resolveAutoVariantType,
+} from './pickup-drop';
+
+describe('getRecommendedPickupTime', () => {
+  it('uses 04:30 pickup when IN is 04:30', () => {
+    expect(getRecommendedPickupTime('04:30')).toBe('04:30');
+  });
+
+  it('keeps 05:00 for other early-morning IN in 04:00–05:00', () => {
+    expect(getRecommendedPickupTime('04:00')).toBe('05:00');
+    expect(getRecommendedPickupTime('04:45')).toBe('05:00');
+  });
+});
 
 describe('pickup-drop variant automation', () => {
   it('treats pickup 04:00-05:00 as early', () => {

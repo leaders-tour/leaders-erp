@@ -121,6 +121,9 @@ export function getRecommendedPickupTime(flightInTime: string | null | undefined
   if (minutes !== null && minutes < 4 * 60) {
     return '04:00';
   }
+  if (minutes !== null && minutes === 4 * 60 + 30) {
+    return '04:30';
+  }
   if (minutes !== null && minutes >= 4 * 60 && minutes <= 5 * 60) {
     return '05:00';
   }

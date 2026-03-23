@@ -1,3 +1,5 @@
+import { parseTimeToMinutes } from './pickup-drop';
+
 export type ExternalTransferDirection = 'PICKUP' | 'DROP';
 
 export type ExternalTransferPresetCode =
@@ -79,7 +81,7 @@ export const EXTERNAL_TRANSFER_PRESET_OPTIONS: ExternalTransferPresetOption[] = 
   {
     code: 'PICKUP_AIRPORT_OZHOUSE',
     label: '픽업 · 공항 → 오즈하우스',
-    description: 'IN +1시간 후 다음 00/30으로 올림, 도착은 +1시간',
+    description: 'IN +1시간 후 다음 00/30으로 올림(04:30 IN은 04:30 동일), 도착은 +1시간',
     direction: 'PICKUP',
     departurePlace: '공항',
     arrivalPlace: '오즈하우스',
@@ -88,7 +90,7 @@ export const EXTERNAL_TRANSFER_PRESET_OPTIONS: ExternalTransferPresetOption[] = 
   {
     code: 'PICKUP_AIRPORT_ULAANBAATAR',
     label: '픽업 · 공항 → 울란바토르',
-    description: 'IN +1시간 후 다음 00/30으로 올림, 도착은 +1시간',
+    description: 'IN +1시간 후 다음 00/30으로 올림(04:30 IN은 04:30 동일), 도착은 +1시간',
     direction: 'PICKUP',
     departurePlace: '공항',
     arrivalPlace: '울란바토르',
@@ -97,7 +99,7 @@ export const EXTERNAL_TRANSFER_PRESET_OPTIONS: ExternalTransferPresetOption[] = 
   {
     code: 'PICKUP_AIRPORT_TERELJ',
     label: '픽업 · 공항 → 테를지',
-    description: 'IN +1시간 후 다음 00/30으로 올림, 도착은 +1시간',
+    description: 'IN +1시간 후 다음 00/30으로 올림(04:30 IN은 04:30 동일), 도착은 +1시간',
     direction: 'PICKUP',
     departurePlace: '공항',
     arrivalPlace: '테를지',
@@ -267,6 +269,17 @@ export function buildExternalTransferFromPreset(
     const baseDateTime = toUtcDate(team.flightInDate, team.flightInTime);
     if (!baseDateTime) {
       return base;
+    }
+
+    const inMinutes = parseTimeToMinutes(team.flightInTime);
+    if (inMinutes === 4 * 60 + 30) {
+      const arrival = new Date(baseDateTime.getTime() + 60 * 60_000);
+      return {
+        ...base,
+        travelDate: formatIsoDate(baseDateTime),
+        departureTime: formatTime(baseDateTime),
+        arrivalTime: formatTime(arrival),
+      };
     }
 
     const roundedDeparture = ceilToHalfHour(new Date(baseDateTime.getTime() + 60 * 60_000));

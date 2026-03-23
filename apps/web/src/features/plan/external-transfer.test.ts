@@ -99,6 +99,17 @@ describe('external-transfer preset rules', () => {
       arrivalTime: '12:00',
     });
   });
+
+  it('04:30 IN uses same-time airport departure, arrival +1h', () => {
+    const teams0430 = [
+      { teamName: 'T', flightInDate: '2026-05-01', flightInTime: '04:30', flightOutDate: '2026-05-05', flightOutTime: '14:00' },
+    ];
+    expect(buildExternalTransferFromPreset('PICKUP_AIRPORT_OZHOUSE', 0, teams0430)).toMatchObject({
+      travelDate: '2026-05-01',
+      departureTime: '04:30',
+      arrivalTime: '05:30',
+    });
+  });
 });
 
 describe('external-transfer formatting', () => {
