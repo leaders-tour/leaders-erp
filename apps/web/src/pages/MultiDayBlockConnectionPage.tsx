@@ -466,8 +466,20 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                   : '/multi-day-blocks/connections'
           }
         />
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{pageTitle}</h1>
-        <p className="mt-1 text-sm text-slate-600">{pageDescription}</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{pageTitle}</h1>
+            <p className="mt-1 text-sm text-slate-600">{pageDescription}</p>
+          </div>
+          {mode === 'list' ? (
+            <Link
+              to="/multi-day-blocks/connections/create"
+              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              블록 후속 연결 생성
+            </Link>
+          ) : null}
+        </div>
       </header>
 
       {showCreateSection ? (

@@ -1,6 +1,6 @@
-import { Button, Card } from '@tour/ui';
+import { Card } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { CustomerSelector, PlanListPanel } from '../features/plan/components';
 import { usePlansByUser, useUsers } from '../features/plan/hooks';
 
@@ -41,9 +41,12 @@ export function CustomerPage(): JSX.Element {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">고객</h1>
           <p className="mt-1 text-sm text-slate-600">고객별 일정과 버전 이력을 탐색합니다.</p>
         </div>
-        <Button variant="primary" onClick={() => navigate('/customers/create')}>
+        <Link
+          to="/customers/create"
+          className="inline-flex shrink-0 items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
           고객 생성
-        </Button>
+        </Link>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">

@@ -1,7 +1,7 @@
 import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
 import { useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   calculateMovementIntensityByHours,
   getMovementIntensityMeta,
@@ -874,8 +874,20 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     <section className="grid gap-6">
       <header className="grid gap-3">
         <ConnectionSubNav pathname={location.pathname} />
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{pageTitle}</h1>
-        <p className="mt-1 text-sm text-slate-600">{pageDescription}</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{pageTitle}</h1>
+            <p className="mt-1 text-sm text-slate-600">{pageDescription}</p>
+          </div>
+          {mode === 'list' ? (
+            <Link
+              to="/connections/create"
+              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              연결 생성
+            </Link>
+          ) : null}
+        </div>
       </header>
 
       {showCreateSection ? (

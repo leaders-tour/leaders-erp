@@ -1,6 +1,6 @@
 import { Button, Card, SectionHeader } from '@tour/ui';
 import { useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { SimpleTable, type TableColumn } from '../components/data-table/SimpleTable';
 import { SimpleForm, type FormFieldConfig } from '../components/form/SimpleForm';
@@ -90,9 +90,12 @@ export function EventPage(): JSX.Element {
               이벤트 목록
             </Button>
           ) : (
-            <Button variant="primary" onClick={() => navigate('/events/create')}>
+            <Link
+              to="/events/create"
+              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
               이벤트 생성
-            </Button>
+            </Link>
           )
         }
       />

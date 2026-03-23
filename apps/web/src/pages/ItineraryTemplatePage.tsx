@@ -1,7 +1,7 @@
 import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 interface RegionRow {
   id: string;
@@ -135,9 +135,12 @@ export function ItineraryTemplatePage(): JSX.Element {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">일정 템플릿</h1>
           <p className="mt-1 text-sm text-slate-600">목록에서 템플릿을 선택하면 하단에 본문 요약이 표시됩니다.</p>
         </div>
-        <Button variant="primary" onClick={() => navigate('/itinerary-templates/new')}>
+        <Link
+          to="/itinerary-templates/new"
+          className="inline-flex shrink-0 items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
           신규 템플릿 생성
-        </Button>
+        </Link>
       </header>
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">

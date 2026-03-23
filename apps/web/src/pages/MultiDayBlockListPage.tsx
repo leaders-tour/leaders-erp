@@ -1,6 +1,6 @@
 import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { formatLocationNameInline } from '../features/location/display';
 import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
 
@@ -96,7 +96,12 @@ export function MultiDayBlockListPage(): JSX.Element {
             블록 정의를 조회하고 상세 화면으로 이동합니다.
           </p>
         </div>
-        <Button onClick={() => navigate('/multi-day-blocks/create')}>블록 생성</Button>
+        <Link
+          to="/multi-day-blocks/create"
+          className="inline-flex shrink-0 items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          블록 생성
+        </Link>
       </header>
 
       <MultiDayBlockSubNav pathname="/multi-day-blocks/list" />
