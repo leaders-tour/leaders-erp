@@ -1,4 +1,6 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
+import { useAuth } from '../auth/context';
+import { GRAPHQL_URL } from '../../lib/graphql-endpoint';
 
 const LIST = gql`
   query LocationGuides {
@@ -97,13 +99,12 @@ export interface LocationGuideFormInput {
   locationId: string;
 }
 
-const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL ?? 'http://localhost:4000/graphql';
-
 async function runUploadMutation(
   query: string,
   variables: Record<string, unknown>,
   files: File[],
   mapPathFactory: (index: number) => string,
+  accessToken: string | null,
 ) {
   const operations = {
     query,
@@ -125,8 +126,10 @@ async function runUploadMutation(
   const response = await fetch(GRAPHQL_URL, {
     method: 'POST',
     body: formData,
+    credentials: 'include',
     headers: {
       'apollo-require-preflight': 'true',
+      ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
     },
   });
   const json = (await response.json()) as {
@@ -142,6 +145,7 @@ async function runUploadMutation(
 }
 
 export function useLocationGuideCrud() {
+  const { ensureAccessToken } = useAuth();
   const { data, loading, refetch } = useQuery<{ locationGuides: LocationGuideRow[] }>(LIST);
   const { data: locationData } = useQuery<{ locations: GuideLocationOption[] }>(LOCATIONS);
 
@@ -157,6 +161,7 @@ export function useLocationGuideCrud() {
       if (!input.images || input.images.length === 0) {
         throw new Error('At least one image is required');
       }
+      const accessToken = await ensureAccessToken();
       await runUploadMutation(
         CREATE_MUTATION,
         {
@@ -169,11 +174,13 @@ export function useLocationGuideCrud() {
         },
         input.images,
         (index) => `variables.input.images.${index}`,
+        accessToken,
       );
       await refetch();
     },
     updateRow: async (id: string, input: LocationGuideFormInput) => {
       const files = input.images ?? [];
+      const accessToken = await ensureAccessToken();
       const updateInput: {
         title: string;
         description: string;
@@ -186,7 +193,13 @@ export function useLocationGuideCrud() {
         updateInput.images = files.map(() => null);
       }
 
-      await runUploadMutation(UPDATE_MUTATION, { id, input: updateInput }, files, (index) => `variables.input.images.${index}`);
+      await runUploadMutation(
+        UPDATE_MUTATION,
+        { id, input: updateInput },
+        files,
+        (index) => `variables.input.images.${index}`,
+        accessToken,
+      );
       await refetch();
     },
     deleteRow: async (id: string) => {
