@@ -6,6 +6,7 @@ import { buildExternalTransferDirectionText } from '../features/plan/external-tr
 import { usePlanVersionDetail, useSetCurrentPlanVersion } from '../features/plan/hooks';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
 import { toVariantLabel } from '../features/plan/variant-label';
+import { mergeLodgingSelectionDisplayLines } from '../features/pricing/merge-lodging-selection-display';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
@@ -47,6 +48,9 @@ export function PlanVersionDetailPage(): JSX.Element {
   const pricingBuckets = version.pricing
     ? buildPricingViewBuckets(version.pricing.lines, version.pricing.totalAmountKrw)
     : null;
+  const pricingDisplayAddonLines = pricingBuckets
+    ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines)
+    : [];
   const transportGroups = version.meta?.transportGroups ?? [];
   const flightInText =
     transportGroups.length > 0
@@ -250,16 +254,20 @@ export function PlanVersionDetailPage(): JSX.Element {
                           </tr>
                         </thead>
                         <tbody>
-                          {pricingBuckets.addonLines.map((line) => (
+                          {pricingDisplayAddonLines.map((line) => (
                             <tr key={line.id ?? `${line.lineCode}-${line.description ?? ''}`} className="border-b border-slate-100">
                               <td className="py-2 pr-3">
                                 {getPricingLineLabel(line)}
-                                {line.description && line.lineCode !== 'MANUAL_ADJUSTMENT' ? (
+                                {line.description &&
+                                line.lineCode !== 'MANUAL_ADJUSTMENT' &&
+                                line.lineCode !== 'LODGING_SELECTION' ? (
                                   <div className="text-[11px] text-slate-500">{line.description}</div>
                                 ) : null}
                               </td>
                               <td className="py-2 pr-3">{line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-'}</td>
-                              <td className="py-2 pr-3">{line.quantity}</td>
+                              <td className="py-2 pr-3">
+                                {line.quantityDisplaySuffix === '박' ? `${line.quantity}박` : line.quantity}
+                              </td>
                               <td className="py-2">{formatKrw(line.amountKrw)}</td>
                             </tr>
                           ))}
@@ -341,7 +349,7 @@ export function PlanVersionDetailPage(): JSX.Element {
                           </tr>
                         </thead>
                         <tbody>
-                          {pricingBuckets.addonLines.map((line) => (
+                          {pricingDisplayAddonLines.map((line) => (
                             <tr key={`customer-addon-${line.id ?? `${line.lineCode}-${line.amountKrw}`}`} className="border-t border-blue-100">
                               <td className="px-2 py-1.5">{getPricingLineLabel(line)}</td>
                               <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>

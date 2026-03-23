@@ -1,3 +1,4 @@
+import { mergeLodgingSelectionDisplayLines } from '../../pricing/merge-lodging-selection-display';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
 import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
 import type { PlanVersionDetail } from '../../plan/hooks';
@@ -10,6 +11,7 @@ import {
   formatExternalPickupDropText,
   formatLegacyExternalTransferText,
   formatCalculationBasis,
+  formatCalculationBasisNights,
   formatPerPersonCalculationBasis,
   normalizeMultilineText,
   toSecurityDepositScope,
@@ -114,14 +116,16 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     remarkText: normalizeMultilineText(meta?.remark),
     basePricePerPersonKrw: pricing?.baseAmountKrw ?? null,
     adjustmentLines:
-      pricingBuckets?.addonLines.map((line) => ({
+      (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []).map((line) => ({
         label: getPricingLineLabel(line),
         amountKrw: line.amountKrw,
         formula:
           line.lineCode === 'MANUAL_ADJUSTMENT'
             ? formatPerPersonCalculationBasis(line.unitPriceKrw, line.quantity)
-            : formatCalculationBasis(line.unitPriceKrw, line.quantity),
-      })) ?? [],
+            : line.quantityDisplaySuffix === '박'
+              ? formatCalculationBasisNights(line.unitPriceKrw, line.quantity)
+              : formatCalculationBasis(line.unitPriceKrw, line.quantity),
+      })),
     totalPricePerPersonKrw: pricing?.totalAmountKrw ?? null,
     depositPricePerPersonKrw: pricing?.depositAmountKrw ?? null,
     balancePricePerPersonKrw: pricing?.balanceAmountKrw ?? null,

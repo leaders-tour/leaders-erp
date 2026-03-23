@@ -191,6 +191,14 @@ export function formatCalculationBasis(unitPriceKrw: number | null, quantity: nu
   return `${formatCurrency(unitPriceKrw)} * ${quantity}`;
 }
 
+export function formatCalculationBasisNights(unitPriceKrw: number | null, nights: number): string {
+  if (unitPriceKrw === null) {
+    return nights > 0 ? `${nights}박` : '-';
+  }
+
+  return `${formatCurrency(unitPriceKrw)} * ${nights}박`;
+}
+
 export function formatPerPersonCalculationBasis(totalAmountKrw: number | null, headcount: number): string {
   if (totalAmountKrw === null || headcount <= 0) {
     return '-';

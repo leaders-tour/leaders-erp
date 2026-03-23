@@ -94,6 +94,7 @@ import {
   ManualAdjustmentsModal,
   type ManualAdjustmentDraftRow,
 } from '../features/pricing/components/ManualAdjustmentsModal';
+import { mergeLodgingSelectionDisplayLines } from '../features/pricing/merge-lodging-selection-display';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 import { VariantType } from '../generated/graphql';
 
@@ -151,6 +152,7 @@ interface PricingLineRow {
   unitPriceKrw: number | null;
   quantity: number;
   amountKrw: number;
+  quantityDisplaySuffix?: '박';
 }
 
 interface PricingPreviewRow {
@@ -964,6 +966,9 @@ function formatPricingLineUnitDisplay(line: PricingLineRow, headcountTotal: numb
 function formatPricingLineQuantityDisplay(line: PricingLineRow, headcountTotal: number): string {
   if (line.lineCode === 'MANUAL_ADJUSTMENT' && headcountTotal > 0) {
     return `${headcountTotal}인`;
+  }
+  if (line.quantityDisplaySuffix === '박') {
+    return `${line.quantity}박`;
   }
   return String(line.quantity);
 }
@@ -2928,6 +2933,10 @@ export function ItineraryBuilderPage(): JSX.Element {
         ? buildPricingViewBuckets(pricingPreview.lines, pricingPreview.totalAmountKrw)
         : null,
     [pricingPreview],
+  );
+  const pricingDisplayAddonLines = useMemo(
+    () => (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []),
+    [pricingBuckets],
   );
   const pricingPreviewErrorMessage =
     pricingPreviewError?.graphQLErrors?.[0]?.message ??
@@ -5362,7 +5371,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {pricingBuckets.addonLines.map((line, index) => (
+                                    {pricingDisplayAddonLines.map((line, index) => (
                                       <tr
                                         key={`${line.lineCode}-addon-${index}`}
                                         className="border-t border-slate-200"
@@ -5370,7 +5379,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         <td className="px-2 py-1.5">
                                           {getPricingLineLabel(line)}
                                           {line.description &&
-                                          line.lineCode !== 'MANUAL_ADJUSTMENT' ? (
+                                          line.lineCode !== 'MANUAL_ADJUSTMENT' &&
+                                          line.lineCode !== 'LODGING_SELECTION' ? (
                                             <div className="text-[11px] text-slate-500">
                                               {line.description}
                                             </div>
@@ -5381,7 +5391,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                                             ? formatKrw(line.unitPriceKrw)
                                             : '-'}
                                         </td>
-                                        <td className="px-2 py-1.5">{line.quantity}</td>
+                                        <td className="px-2 py-1.5">
+                                          {formatPricingLineQuantityDisplay(line, headcountTotal)}
+                                        </td>
                                         <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
                                       </tr>
                                     ))}
@@ -5502,7 +5514,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {pricingBuckets.addonLines.map((line, index) => (
+                                      {pricingDisplayAddonLines.map((line, index) => (
                                         <tr
                                           key={`${line.lineCode}-customer-addon-${index}`}
                                           className="border-t border-blue-100"
@@ -5510,7 +5522,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                           <td className="px-2 py-1.5">
                                             {getPricingLineLabel(line)}
                                             {line.description &&
-                                            line.lineCode !== 'MANUAL_ADJUSTMENT' ? (
+                                            line.lineCode !== 'MANUAL_ADJUSTMENT' &&
+                                            line.lineCode !== 'LODGING_SELECTION' ? (
                                               <div className="text-[11px] text-blue-700">
                                                 {line.description}
                                               </div>

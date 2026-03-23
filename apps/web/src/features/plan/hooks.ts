@@ -185,6 +185,8 @@ export interface PlanPricingLineRow {
   unitPriceKrw: number | null;
   quantity: number;
   amountKrw: number;
+  /** Display-only: merged lodging lines show quantity as "N박". */
+  quantityDisplaySuffix?: '박';
 }
 
 export interface PlanVersionPricingRow {

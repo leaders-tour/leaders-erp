@@ -1,3 +1,4 @@
+import { mergeLodgingSelectionDisplayLines } from '../../pricing/merge-lodging-selection-display';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
 import { countMainPlanStopRows } from '../../plan/plan-stop-row';
 import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
@@ -7,6 +8,7 @@ import {
   addDays,
   buildPage2Title,
   formatCalculationBasis,
+  formatCalculationBasisNights,
   formatPerPersonCalculationBasis,
   normalizeMultilineText,
   toSecurityDepositScope,
@@ -68,14 +70,16 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     remarkText: normalizeMultilineText(snapshot.remark),
     basePricePerPersonKrw: snapshot.pricing?.baseAmountKrw ?? null,
     adjustmentLines:
-      pricingBuckets?.addonLines.map((line) => ({
+      (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []).map((line) => ({
         label: getPricingLineLabel(line),
         amountKrw: line.amountKrw,
         formula:
           line.lineCode === 'MANUAL_ADJUSTMENT'
             ? formatPerPersonCalculationBasis(line.unitPriceKrw, line.quantity)
-            : formatCalculationBasis(line.unitPriceKrw, line.quantity),
-      })) ?? [],
+            : line.quantityDisplaySuffix === '박'
+              ? formatCalculationBasisNights(line.unitPriceKrw, line.quantity)
+              : formatCalculationBasis(line.unitPriceKrw, line.quantity),
+      })),
     totalPricePerPersonKrw: snapshot.pricing?.totalAmountKrw ?? null,
     depositPricePerPersonKrw: snapshot.pricing?.depositAmountKrw ?? null,
     balancePricePerPersonKrw: snapshot.pricing?.balanceAmountKrw ?? null,
