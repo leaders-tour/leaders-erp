@@ -163,20 +163,24 @@ export function MultiDayBlockListPage(): JSX.Element {
                       </Td>
                       <Td>
                         <div className="flex gap-2">
-                          <Link
-                            to={`/multi-day-blocks/${row.id}`}
-                            className="text-blue-700 hover:underline"
-                            onClick={(event) => event.stopPropagation()}
+                          <Button
+                            variant="outline"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              navigate(`/multi-day-blocks/${row.id}`);
+                            }}
                           >
                             상세
-                          </Link>
-                          <Link
-                            to={`/multi-day-blocks/${row.id}/edit`}
-                            className="text-blue-700 hover:underline"
-                            onClick={(event) => event.stopPropagation()}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              navigate(`/multi-day-blocks/${row.id}/edit`);
+                            }}
                           >
                             수정
-                          </Link>
+                          </Button>
                         </div>
                       </Td>
                     </tr>

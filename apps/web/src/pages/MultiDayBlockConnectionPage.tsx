@@ -1608,13 +1608,15 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                     <Td>{row.isLongDistance ? 'Y' : 'N'}</Td>
                     <Td>
                       <div className="flex gap-2">
-                        <Link
-                          to={`/multi-day-blocks/connections/${row.id}`}
-                          className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
-                          onClick={(event) => event.stopPropagation()}
+                        <Button
+                          variant="outline"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            navigate(`/multi-day-blocks/connections/${row.id}`);
+                          }}
                         >
                           상세
-                        </Link>
+                        </Button>
                         <Button
                           variant="outline"
                           onClick={(event) => {
