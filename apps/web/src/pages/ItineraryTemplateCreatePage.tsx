@@ -501,6 +501,17 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
     setPlanRows((prev) => prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
   };
 
+  const handleVariantChange = (nextVariantType: VariantType): void => {
+    if (nextVariantType === variantType) {
+      return;
+    }
+    setVariantType(nextVariantType);
+    if (selectedRoute.length > 0) {
+      setSelectedRoute([]);
+    }
+    setIsOvernightStayPickerOpen(false);
+  };
+
   return (
     <section className="grid gap-6">
       <header className="flex items-end justify-between gap-3">
@@ -589,16 +600,6 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
             </div>
           </div>
           <label className="grid gap-1 text-sm">
-            <span className="text-xs text-slate-600">정렬 순서</span>
-            <input
-              type="number"
-              min={0}
-              value={sortOrder}
-              onChange={(event) => setSortOrder(Math.max(0, Number(event.target.value) || 0))}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="grid gap-1 text-sm">
             <span className="text-xs text-slate-600">설명</span>
             <textarea
               value={description}
@@ -614,7 +615,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                 <button
                   key={variant.id}
                   type="button"
-                  onClick={() => setVariantType(variant.id)}
+                  onClick={() => handleVariantChange(variant.id)}
                   className={`rounded-xl border px-3 py-1.5 text-sm ${
                     variantType === variant.id
                       ? 'border-slate-900 bg-slate-900 text-white'
