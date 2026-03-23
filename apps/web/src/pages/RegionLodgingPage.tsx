@@ -316,31 +316,27 @@ export function RegionLodgingPage(): JSX.Element {
         <Table>
           <thead>
             <tr>
-              <Th>ID</Th>
               <Th>지역</Th>
               <Th>숙소명</Th>
               <Th>가격 구분</Th>
               <Th>가격</Th>
-              <Th>정렬순서</Th>
               <Th>액션</Th>
             </tr>
           </thead>
           <tbody>
             {crud.rows.length === 0 ? (
               <tr>
-                <Td className="text-slate-500" colSpan={7}>
+                <Td className="text-slate-500" colSpan={5}>
                   데이터가 없습니다.
                 </Td>
               </tr>
             ) : (
               crud.rows.map((row) => (
                 <tr key={row.id}>
-                  <Td>{row.id}</Td>
                   <Td>{row.region?.name ?? regionNameById.get(row.regionId) ?? row.regionId}</Td>
                   <Td>{row.name}</Td>
                   <Td>{formatPriceType(row)}</Td>
                   <Td>{formatPriceValue(row)}</Td>
-                  <Td>{row.sortOrder}</Td>
                   <Td>
                     <div className="flex gap-2">
                       <Button
