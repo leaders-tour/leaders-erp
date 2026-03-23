@@ -411,7 +411,7 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
       });
     }
 
-    // shabushabu-invalid-placement (error) — 샤브샤브는 울란바토르 저녁만 가능
+    // shabushabu-invalid-placement (error) — 샤브샤브는 울란바토르가 드러나는 일차의 식사에만 가능
     const shabushabuAllowed = getShabushabuAllowedCandidates(rowContexts);
     const shabushabuAssignment = assignments.find((a) => a.specialMeal === '샤브샤브');
     if (shabushabuAssignment) {
@@ -422,7 +422,7 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
         results.push({
           id: 'shabushabu-invalid-placement',
           severity: 'error',
-          message: '샤브샤브는 울란바토르 지역 저녁에만 배치할 수 있습니다.',
+          message: '샤브샤브는 울란바토르 지역 일정이 있는 날의 아침·점심·저녁 중 한 곳에 배치할 수 있습니다.',
           affectedCells: [{ rowIndex: shabushabuAssignment.dayIndex, field: 'mealCellText' }],
         });
       }

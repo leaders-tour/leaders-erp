@@ -95,6 +95,9 @@ function getDefaultMealSlotForSpecialMeal(
   if ((specialMeal === '삼겹살파티' || specialMeal === '허르헉') && allowedSlots.includes('dinner')) {
     return 'dinner';
   }
+  if (specialMeal === '샤브샤브' && allowedSlots.includes('dinner')) {
+    return 'dinner';
+  }
   if (specialMeal === '샤슬릭' && allowedSlots.includes('lunch')) {
     return 'lunch';
   }
@@ -264,7 +267,9 @@ export function SpecialMealsModal({
                     })}
                   </div>
                   <div className="mt-3 text-xs text-slate-500">
-                    {activeMeal === '샤브샤브' ? '샤브샤브는 울란바토르 저녁만 선택할 수 있습니다.' : null}
+                    {activeMeal === '샤브샤브'
+                      ? '샤브샤브는 울란바토르 지정이 있는 일차에서 아침·점심·저녁 중 선택할 수 있습니다.'
+                      : null}
                     {activeMeal === '삼겹살파티' ? '삼겹살파티는 추천 목적지를 우선 표시합니다.' : null}
                   </div>
                 </div>

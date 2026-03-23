@@ -157,25 +157,21 @@ export function isUlaanbaatarRow(ctx: SpecialMealRowContext): boolean {
   return includesLocationNameKeyword(getRowCombinedText(ctx), '울란바토르');
 }
 
-// --- 샤브샤브: hard constraint (울란바토르 + 저녁만) ---
+// --- 샤브샤브: hard constraint (울란바토르 지역 행 — 식사 슬롯은 아침·점심·저녁 모두) ---
 
 const SHABUSHABU_REGION_KEYWORD = '울란바토르';
 
-/** 샤브샤브 배치 가능 후보만 필터 (울란바토르 지역의 저녁만) */
+/** 샤브샤브 배치 가능 후보만 필터 (울란바토르가 목적지/일정에 드러나는 행의 모든 식사 슬롯) */
 export function getShabushabuAllowedCandidates(
   rowContexts: SpecialMealRowContext[],
 ): SpecialMealRowContext[] {
-  return rowContexts.filter(
-    (ctx) =>
-      ctx.mealSlot === 'dinner' && includesLocationNameKeyword(getRowCombinedText(ctx), SHABUSHABU_REGION_KEYWORD),
+  return rowContexts.filter((ctx) =>
+    includesLocationNameKeyword(getRowCombinedText(ctx), SHABUSHABU_REGION_KEYWORD),
   );
 }
 
 export function isShabushabuAllowed(ctx: SpecialMealRowContext): boolean {
-  return (
-    ctx.mealSlot === 'dinner' &&
-    includesLocationNameKeyword(getRowCombinedText(ctx), SHABUSHABU_REGION_KEYWORD)
-  );
+  return includesLocationNameKeyword(getRowCombinedText(ctx), SHABUSHABU_REGION_KEYWORD);
 }
 
 // --- 삼겹살파티: soft recommendation (지역별 우선 추천지) ---
