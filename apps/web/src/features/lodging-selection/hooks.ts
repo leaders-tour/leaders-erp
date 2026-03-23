@@ -62,7 +62,6 @@ export interface RegionLodgingFormInput {
   name: string;
   pricePerPersonKrw?: number | null;
   pricePerTeamKrw?: number | null;
-  sortOrder: number;
 }
 
 function normalizeNullableNumber(value: number | null | undefined): number | null {
@@ -84,7 +83,6 @@ export function useRegionLodgingCrud() {
         name: input.name.trim(),
         pricePerPersonKrw: normalizeNullableNumber(input.pricePerPersonKrw),
         pricePerTeamKrw: normalizeNullableNumber(input.pricePerTeamKrw),
-        sortOrder: input.sortOrder,
       },
     }),
     toUpdateVariables: (id, input) => ({
@@ -94,7 +92,6 @@ export function useRegionLodgingCrud() {
         name: input.name.trim(),
         pricePerPersonKrw: normalizeNullableNumber(input.pricePerPersonKrw),
         pricePerTeamKrw: normalizeNullableNumber(input.pricePerTeamKrw),
-        sortOrder: input.sortOrder,
       },
     }),
   });

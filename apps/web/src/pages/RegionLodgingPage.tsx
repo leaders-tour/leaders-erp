@@ -39,7 +39,6 @@ interface RegionLodgingFormState {
   name: string;
   priceMode: RegionLodgingPriceMode;
   priceValue: string;
-  sortOrder: string;
 }
 
 function createEmptyForm(regionId = ''): RegionLodgingFormState {
@@ -48,7 +47,6 @@ function createEmptyForm(regionId = ''): RegionLodgingFormState {
     name: '',
     priceMode: 'PER_PERSON',
     priceValue: '',
-    sortOrder: '0',
   };
 }
 
@@ -62,7 +60,6 @@ function toFormState(row: RegionLodgingRow): RegionLodgingFormState {
     name: row.name,
     priceMode,
     priceValue,
-    sortOrder: String(row.sortOrder),
   };
 }
 
@@ -94,15 +91,10 @@ function validateForm(form: RegionLodgingFormState): string | null {
   }
 
   const priceValue = parseOptionalInt(form.priceValue);
-  const sortOrder = parseOptionalInt(form.sortOrder);
   const priceModeLabel = getPriceModeLabel(form.priceMode);
 
   if (form.priceValue.trim() && priceValue == null) {
     return `${priceModeLabel}은 0 이상의 정수로 입력해 주세요.`;
-  }
-
-  if (sortOrder == null) {
-    return '정렬순서는 0 이상의 정수로 입력해 주세요.';
   }
 
   if (priceValue == null) {
@@ -183,7 +175,6 @@ export function RegionLodgingPage(): JSX.Element {
               name: form.name.trim(),
               pricePerPersonKrw: form.priceMode === 'PER_PERSON' ? parseOptionalInt(form.priceValue) : null,
               pricePerTeamKrw: form.priceMode === 'PER_TEAM' ? parseOptionalInt(form.priceValue) : null,
-              sortOrder: parseOptionalInt(form.sortOrder) ?? 0,
             };
 
             setSubmitting(true);
@@ -234,20 +225,10 @@ export function RegionLodgingPage(): JSX.Element {
             )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4">
             <label className="grid gap-2 text-sm">
               <span className="text-slate-700">숙소명</span>
               <Input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} />
-            </label>
-            <label className="grid gap-2 text-sm">
-              <span className="text-slate-700">정렬순서</span>
-              <Input
-                type="number"
-                min={0}
-                step={1}
-                value={form.sortOrder}
-                onChange={(event) => setForm((prev) => ({ ...prev, sortOrder: event.target.value }))}
-              />
             </label>
           </div>
 
