@@ -686,6 +686,12 @@ export function LocationProfileForm({
             </div>
 
             <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+              <div className="grid gap-1">
+                <h3 className="text-sm font-semibold text-slate-800">식사</h3>
+                <p className="text-xs text-slate-500">
+                  특식은 견적서를 만들 때 배정합니다. 특식이 없을 때를 가정하고 넣어주세요.
+                </p>
+              </div>
               {(['breakfast', 'lunch', 'dinner'] as const).map((field) => (
                 <label key={field} className="grid gap-1 text-sm">
                   <span className="text-slate-700">{field === 'breakfast' ? '아침' : field === 'lunch' ? '점심' : '저녁'}</span>
