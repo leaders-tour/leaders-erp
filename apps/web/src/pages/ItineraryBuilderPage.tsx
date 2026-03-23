@@ -3,15 +3,27 @@ import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DatePickerModal } from '../components/date-picker/DatePickerModal';
-import { formatDateTriggerLabel, getCurrentLocalYear } from '../components/date-picker/date-picker-utils';
+import {
+  formatDateTriggerLabel,
+  getCurrentLocalYear,
+} from '../components/date-picker/date-picker-utils';
 import { TimePickerModal } from '../components/date-picker/TimePickerModal';
 import { formatTimeTriggerLabel } from '../components/date-picker/time-picker-utils';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
 import { averageMovementIntensity } from '../features/estimate/model/movement-intensity';
-import type { EstimateBuilderDraftSnapshot, EstimatePage1Editor, EstimateTransportGroup } from '../features/estimate/model/types';
+import type {
+  EstimateBuilderDraftSnapshot,
+  EstimatePage1Editor,
+  EstimateTransportGroup,
+} from '../features/estimate/model/types';
 import { useAuth } from '../features/auth/context';
-import { formatLocationNameInline, formatLocationNameMultiline, toFacilityLabel, toMealLabel } from '../features/location/display';
+import {
+  formatLocationNameInline,
+  formatLocationNameMultiline,
+  toFacilityLabel,
+  toMealLabel,
+} from '../features/location/display';
 import { LodgingUpgradeModal } from '../features/lodging-selection/components/LodgingUpgradeModal';
 import { RegionLodgingSelectModal } from '../features/lodging-selection/components/RegionLodgingSelectModal';
 import { ExtraLodgingsModal } from '../features/pricing/components/ExtraLodgingsModal';
@@ -35,7 +47,11 @@ import {
 } from '../features/plan/external-transfer';
 import { useBuilderValidation } from '../features/plan/builder-validation';
 import { buildMergedPlanStops } from '../features/plan/merge-plan-stops';
-import { isMainPlanStopRow, type PlanStopRowBase, type PlanStopRowType } from '../features/plan/plan-stop-row';
+import {
+  isMainPlanStopRow,
+  type PlanStopRowBase,
+  type PlanStopRowType,
+} from '../features/plan/plan-stop-row';
 import {
   DEFAULT_PICKUP_DROP_PLACE_TYPE,
   PICKUP_DROP_PLACE_OPTIONS,
@@ -54,7 +70,6 @@ import {
   buildNextOptions,
   findSegment,
   findMultiDayBlockConnection,
-  formatRouteDestinationCellText,
   formatMultiDayBlockConnectionVersionLabel,
   formatSegmentVersionLabel,
   getConsumedRouteDayCount,
@@ -75,9 +90,12 @@ import {
   resolveSegmentVersionForDate,
   type SegmentOption,
 } from '../features/plan-template/route-autofill';
-import { ManualAdjustmentsModal, type ManualAdjustmentDraftRow } from '../features/pricing/components/ManualAdjustmentsModal';
+import {
+  ManualAdjustmentsModal,
+  type ManualAdjustmentDraftRow,
+} from '../features/pricing/components/ManualAdjustmentsModal';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
-import { MealOption, VariantType } from '../generated/graphql';
+import { VariantType } from '../generated/graphql';
 
 interface RegionRow {
   id: string;
@@ -324,7 +342,11 @@ function isSamePlanRowSource(left: PlanRow | undefined, right: PlanRow | undefin
   );
 }
 
-function mergeAutoRowsWithDirtyValues(current: PlanRow[], autoRows: PlanRow[], dirtyFieldKeys: Set<string>): PlanRow[] {
+function mergeAutoRowsWithDirtyValues(
+  current: PlanRow[],
+  autoRows: PlanRow[],
+  dirtyFieldKeys: Set<string>,
+): PlanRow[] {
   return autoRows.map((autoRow, rowIndex) => {
     const currentRow = current[rowIndex];
     if (!currentRow || !isSamePlanRowSource(currentRow, autoRow)) {
@@ -841,9 +863,37 @@ const VARIANTS = [
 ];
 
 const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
-const FLIGHT_IN_TIME_OPTIONS = ['00:05', '00:30', '00:50', '02:45', '04:30', '13:20', '17:00', '23:05', '23:30'] as const;
-const FLIGHT_OUT_TIME_OPTIONS = ['00:25', '00:50', '01:30', '01:50', '02:05', '08:40', '13:00', '18:15', '20:30'] as const;
-const PICKUP_DROP_TIME_OPTIONS = ['04:00', '05:00', '08:00', '15:30', '19:00', '21:00', '23:00'] as const;
+const FLIGHT_IN_TIME_OPTIONS = [
+  '00:05',
+  '00:30',
+  '00:50',
+  '02:45',
+  '04:30',
+  '13:20',
+  '17:00',
+  '23:05',
+  '23:30',
+] as const;
+const FLIGHT_OUT_TIME_OPTIONS = [
+  '00:25',
+  '00:50',
+  '01:30',
+  '01:50',
+  '02:05',
+  '08:40',
+  '13:00',
+  '18:15',
+  '20:30',
+] as const;
+const PICKUP_DROP_TIME_OPTIONS = [
+  '04:00',
+  '05:00',
+  '08:00',
+  '15:30',
+  '19:00',
+  '21:00',
+  '23:00',
+] as const;
 const HALF_HOUR_MINUTE_OPTIONS = [0, 30] as const;
 
 function toIsoDateTime(value: string): string {
@@ -1094,7 +1144,9 @@ function toSegmentTimeCell(
 
   return orderedTimeBlocks
     .flatMap((timeBlock) => {
-      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
+      const orderedActivities = timeBlock.activities
+        .slice()
+        .sort((a, b) => a.orderIndex - b.orderIndex);
       const startTime = timeBlock.startTime;
       if (orderedActivities.length <= 1) {
         return [startTime];
@@ -1126,7 +1178,9 @@ function toSegmentScheduleCell(
     .slice()
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .flatMap((timeBlock) => {
-      const orderedActivities = timeBlock.activities.slice().sort((a, b) => a.orderIndex - b.orderIndex);
+      const orderedActivities = timeBlock.activities
+        .slice()
+        .sort((a, b) => a.orderIndex - b.orderIndex);
       if (orderedActivities.length === 0) {
         return ['(일정 없음)'];
       }
@@ -1212,11 +1266,14 @@ function toMealCellText(fields: MealCellFields): string {
     .join('\n');
 }
 
-function adjustLastDayMealCellText(value: string, input: {
-  travelEndDate: string;
-  dropDate: string;
-  dropTime: string;
-}): string {
+function adjustLastDayMealCellText(
+  value: string,
+  input: {
+    travelEndDate: string;
+    dropDate: string;
+    dropTime: string;
+  },
+): string {
   const { travelEndDate, dropDate, dropTime } = input;
   const fields = parseMealCellText(value);
   const minutes = parseTimeToMinutes(dropTime);
@@ -1355,12 +1412,19 @@ function buildDefaultLodgingRow(input: {
     timeCellText: input.timeCellText,
     scheduleCellText: input.scheduleCellText,
     lodgingCellText:
-      input.lodgingCellText ?? buildLodgingCellText({ level: 'LV3', baseLodgingName: input.baseLodgingName }),
+      input.lodgingCellText ??
+      buildLodgingCellText({ level: 'LV3', baseLodgingName: input.baseLodgingName }),
     mealCellText: input.mealCellText,
   };
 }
 
-function PlaceField({ label, placeType, customText, onPlaceTypeChange, onCustomTextChange }: PlaceFieldProps): JSX.Element {
+function PlaceField({
+  label,
+  placeType,
+  customText,
+  onPlaceTypeChange,
+  onCustomTextChange,
+}: PlaceFieldProps): JSX.Element {
   return (
     <div className="grid gap-2 text-sm">
       <span className="text-xs text-slate-600">{label}</span>
@@ -1404,7 +1468,9 @@ function DateInputTrigger({
       className="flex min-h-10 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm transition hover:bg-slate-50"
       aria-haspopup="dialog"
     >
-      <span className={value ? 'text-slate-900' : 'text-slate-400'}>{formatDateTriggerLabel(value) || placeholder}</span>
+      <span className={value ? 'text-slate-900' : 'text-slate-400'}>
+        {formatDateTriggerLabel(value) || placeholder}
+      </span>
       <span className="text-xs text-slate-500">열기</span>
     </button>
   );
@@ -1422,7 +1488,9 @@ function TimeInputTrigger({
       className="flex min-h-10 items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm transition hover:bg-slate-50"
       aria-haspopup="dialog"
     >
-      <span className={value ? 'text-slate-900' : 'text-slate-400'}>{formatTimeTriggerLabel(value) || placeholder}</span>
+      <span className={value ? 'text-slate-900' : 'text-slate-400'}>
+        {formatTimeTriggerLabel(value) || placeholder}
+      </span>
       <span className="text-xs text-slate-500">열기</span>
     </button>
   );
@@ -1477,14 +1545,17 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [selectedRoute, setSelectedRoute] = useState<RouteSelection[]>([]);
   const [isOvernightStayPickerOpen, setIsOvernightStayPickerOpen] = useState<boolean>(false);
   const [planRows, setPlanRows] = useState<PlanRow[]>([]);
-  const [extraLodgingCounts, setExtraLodgingCounts] = useState<number[]>(Array.from({ length: 6 }, () => 0));
+  const [extraLodgingCounts, setExtraLodgingCounts] = useState<number[]>(
+    Array.from({ length: 6 }, () => 0),
+  );
   const [extraLodgingsModalState, setExtraLodgingsModalState] = useState<ExtraLodgingsModalState>({
     open: false,
   });
   const [manualAdjustments, setManualAdjustments] = useState<ManualAdjustmentRow[]>([]);
-  const [manualAdjustmentsModalState, setManualAdjustmentsModalState] = useState<ManualAdjustmentsModalState>({
-    open: false,
-  });
+  const [manualAdjustmentsModalState, setManualAdjustmentsModalState] =
+    useState<ManualAdjustmentsModalState>({
+      open: false,
+    });
   const [externalTransfersManagerModalState, setExternalTransfersManagerModalState] =
     useState<ExternalTransfersManagerModalState>({
       open: false,
@@ -1502,24 +1573,29 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [homeSelectedUserId, setHomeSelectedUserId] = useState<string>('');
   const [homeSelectedUserName, setHomeSelectedUserName] = useState<string>('');
   const [homeSelectedTemplateId, setHomeSelectedTemplateId] = useState<string>('');
+  const [homeTemplateRegionId, setHomeTemplateRegionId] = useState<string>('');
+  const [homeTemplateTotalDays, setHomeTemplateTotalDays] = useState<number>(0);
   const [homeEntryMode, setHomeEntryMode] = useState<'new' | 'existing' | null>(null);
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState<boolean>(false);
   const [datePickerTarget, setDatePickerTarget] = useState<DatePickerTarget | null>(null);
   const [timePickerTarget, setTimePickerTarget] = useState<TimePickerTarget | null>(null);
-  const [externalTransferModalState, setExternalTransferModalState] = useState<ExternalTransferModalState>({
-    open: false,
-    editingIndex: null,
-  });
-  const [lodgingUpgradeModalState, setLodgingUpgradeModalState] = useState<LodgingUpgradeModalState>({
-    open: false,
-  });
+  const [externalTransferModalState, setExternalTransferModalState] =
+    useState<ExternalTransferModalState>({
+      open: false,
+      editingIndex: null,
+    });
+  const [lodgingUpgradeModalState, setLodgingUpgradeModalState] =
+    useState<LodgingUpgradeModalState>({
+      open: false,
+    });
   const [specialMealsModalState, setSpecialMealsModalState] = useState<SpecialMealsModalState>({
     open: false,
   });
-  const [lodgingSelectionModalState, setLodgingSelectionModalState] = useState<LodgingSelectionModalState>({
-    open: false,
-    rowIndex: null,
-  });
+  const [lodgingSelectionModalState, setLodgingSelectionModalState] =
+    useState<LodgingSelectionModalState>({
+      open: false,
+      rowIndex: null,
+    });
   const [homeNewUserName, setHomeNewUserName] = useState<string>('');
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
   const dirtyPlanRowFieldKeysRef = useRef<Set<string>>(new Set());
@@ -1537,38 +1613,53 @@ export function ItineraryBuilderPage(): JSX.Element {
   const { data: eventData } = useQuery<{ events: EventOptionRow[] }>(EVENTS_QUERY, {
     variables: { activeOnly: true },
   });
-  const { data: regionLodgingData } = useQuery<{ regionLodgings: RegionLodgingOption[] }>(REGION_LODGINGS_QUERY, {
-    variables: {
-      regionId: regionId || undefined,
-      activeOnly: true,
+  const { data: regionLodgingData } = useQuery<{ regionLodgings: RegionLodgingOption[] }>(
+    REGION_LODGINGS_QUERY,
+    {
+      variables: {
+        regionId: regionId || undefined,
+        activeOnly: true,
+      },
+      skip: !regionId,
     },
-    skip: !regionId,
-  });
+  );
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
   const { data: segmentData } = useQuery<{ segments: SegmentRow[] }>(SEGMENTS_QUERY);
-  const { data: overnightStayData } = useQuery<{ multiDayBlocks: MultiDayBlockOption[] }>(OVERNIGHT_STAYS_QUERY);
-  const { data: overnightStayConnectionData } = useQuery<{ multiDayBlockConnections: MultiDayBlockConnectionOption[] }>(
-    OVERNIGHT_STAY_CONNECTIONS_QUERY,
+  const { data: overnightStayData } = useQuery<{ multiDayBlocks: MultiDayBlockOption[] }>(
+    OVERNIGHT_STAYS_QUERY,
   );
-  const { data: templateListData } = useQuery<{ planTemplates: PlanTemplateRow[] }>(PLAN_TEMPLATES_QUERY, {
-    variables: {
-      regionId: hasValidContext ? regionId || undefined : undefined,
-      totalDays: hasValidContext ? totalDays : undefined,
-      activeOnly: true,
+  const { data: overnightStayConnectionData } = useQuery<{
+    multiDayBlockConnections: MultiDayBlockConnectionOption[];
+  }>(OVERNIGHT_STAY_CONNECTIONS_QUERY);
+  const { data: templateListData } = useQuery<{ planTemplates: PlanTemplateRow[] }>(
+    PLAN_TEMPLATES_QUERY,
+    {
+      variables: {
+        regionId: hasValidContext ? regionId || undefined : undefined,
+        totalDays: hasValidContext ? totalDays : undefined,
+        activeOnly: true,
+      },
+      skip: hasValidContext ? !regionId : false,
     },
-    skip: hasValidContext ? !regionId : false,
-  });
-  const { data: templateByIdData } = useQuery<{ planTemplate: PlanTemplateRow | null }>(PLAN_TEMPLATE_QUERY, {
-    variables: { id: initialTemplateId },
-    skip: !initialTemplateId,
-  });
+  );
+  const { data: templateByIdData } = useQuery<{ planTemplate: PlanTemplateRow | null }>(
+    PLAN_TEMPLATE_QUERY,
+    {
+      variables: { id: initialTemplateId },
+      skip: !initialTemplateId,
+    },
+  );
 
-  const [createPlan, { loading: creatingPlan }] = useMutation<{ createPlan: { id: string } }>(CREATE_PLAN_MUTATION);
+  const [createPlan, { loading: creatingPlan }] = useMutation<{ createPlan: { id: string } }>(
+    CREATE_PLAN_MUTATION,
+  );
   const [createPlanVersion, { loading: creatingVersion }] = useMutation<{
     createPlanVersion: { id: string; versionNumber: number };
   }>(CREATE_PLAN_VERSION_MUTATION);
-  const [createUser, { loading: creatingUser }] = useMutation<{ createUser: UserRow }>(CREATE_USER_MUTATION);
+  const [createUser, { loading: creatingUser }] = useMutation<{ createUser: UserRow }>(
+    CREATE_USER_MUTATION,
+  );
 
   const creating = creatingPlan || creatingVersion;
 
@@ -1600,13 +1691,26 @@ export function ItineraryBuilderPage(): JSX.Element {
     });
   }, [activeTemplateRows, templateById]);
 
+  const homeTemplateOptions = useMemo(() => {
+    return templateOptions.filter((template) => {
+      if (!template.isActive) {
+        return false;
+      }
+      if (homeTemplateRegionId && template.regionId !== homeTemplateRegionId) {
+        return false;
+      }
+      if (homeTemplateTotalDays > 0 && template.totalDays !== homeTemplateTotalDays) {
+        return false;
+      }
+      return true;
+    });
+  }, [homeTemplateRegionId, homeTemplateTotalDays, templateOptions]);
+
   const routePresetOptions = useMemo(
     () =>
       templateOptions.filter(
         (template) =>
-          template.isActive &&
-          template.regionId === regionId &&
-          template.totalDays === totalDays,
+          template.isActive && template.regionId === regionId && template.totalDays === totalDays,
       ),
     [regionId, templateOptions, totalDays],
   );
@@ -1654,6 +1758,15 @@ export function ItineraryBuilderPage(): JSX.Element {
   }, [routePresetOptions, routePresetTemplateId]);
 
   useEffect(() => {
+    if (!homeSelectedTemplateId) {
+      return;
+    }
+    if (!homeTemplateOptions.some((template) => template.id === homeSelectedTemplateId)) {
+      setHomeSelectedTemplateId('');
+    }
+  }, [homeSelectedTemplateId, homeTemplateOptions]);
+
+  useEffect(() => {
     setExternalTransfers((current) =>
       current.map((transfer) =>
         syncExternalTransferWithSelectedTeams(
@@ -1674,11 +1787,15 @@ export function ItineraryBuilderPage(): JSX.Element {
     [locations, regionId],
   );
   const filteredOvernightStays = useMemo(
-    () => (regionId ? overnightStays.filter((overnightStay) => overnightStay.regionId === regionId) : []),
+    () =>
+      regionId ? overnightStays.filter((overnightStay) => overnightStay.regionId === regionId) : [],
     [overnightStays, regionId],
   );
   const filteredOvernightStayConnections = useMemo(
-    () => (regionId ? overnightStayConnections.filter((connection) => connection.regionId === regionId) : []),
+    () =>
+      regionId
+        ? overnightStayConnections.filter((connection) => connection.regionId === regionId)
+        : [],
     [overnightStayConnections, regionId],
   );
   const activeDatePickerAnchorEl = datePickerTarget?.anchorEl ?? null;
@@ -1775,7 +1892,10 @@ export function ItineraryBuilderPage(): JSX.Element {
     [segments, regionId],
   );
 
-  const allLocationById = useMemo(() => new Map(locations.map((location) => [location.id, location])), [locations]);
+  const allLocationById = useMemo(
+    () => new Map(locations.map((location) => [location.id, location])),
+    [locations],
+  );
   const allLocationVersionById = useMemo(
     () =>
       new Map(
@@ -1785,7 +1905,10 @@ export function ItineraryBuilderPage(): JSX.Element {
       ),
     [locations],
   );
-  const locationById = useMemo(() => new Map(filteredLocations.map((location) => [location.id, location])), [filteredLocations]);
+  const locationById = useMemo(
+    () => new Map(filteredLocations.map((location) => [location.id, location])),
+    [filteredLocations],
+  );
   const locationVersionById = useMemo(
     () =>
       new Map(
@@ -1796,11 +1919,15 @@ export function ItineraryBuilderPage(): JSX.Element {
     [filteredLocations],
   );
 
-  const firstDayOptions = useMemo(() => buildFirstDayOptions(filteredLocations), [filteredLocations]);
+  const firstDayOptions = useMemo(
+    () => buildFirstDayOptions(filteredLocations),
+    [filteredLocations],
+  );
 
   const nextRouteDayIndex = 2 + getConsumedRouteDayCount(selectedRoute);
   const nextRouteDate = useMemo(
-    () => (travelStartDate ? getRouteDateForDayIndex(travelStartDate, nextRouteDayIndex) : undefined),
+    () =>
+      travelStartDate ? getRouteDateForDayIndex(travelStartDate, nextRouteDayIndex) : undefined,
     [nextRouteDayIndex, travelStartDate],
   );
 
@@ -1849,7 +1976,10 @@ export function ItineraryBuilderPage(): JSX.Element {
     const dropDate = transportGroups[0]?.dropDate?.trim() ?? '';
     const dropTime = transportGroups[0]?.dropTime?.trim() ?? '';
     const firstDayTimeOverride =
-      (variantType === VariantType.Early || variantType === VariantType.EarlyExtend) && firstPickupTime ? firstPickupTime : undefined;
+      (variantType === VariantType.Early || variantType === VariantType.EarlyExtend) &&
+      firstPickupTime
+        ? firstPickupTime
+        : undefined;
 
     return buildAutoRowsFromRoute({
       startLocationId,
@@ -1900,13 +2030,19 @@ export function ItineraryBuilderPage(): JSX.Element {
       return;
     }
     setPlanRows((current) => {
-      const nextRows = mergeAutoRowsWithDirtyValues(current, autoRows, dirtyPlanRowFieldKeysRef.current);
+      const nextRows = mergeAutoRowsWithDirtyValues(
+        current,
+        autoRows,
+        dirtyPlanRowFieldKeysRef.current,
+      );
       return arePlanRowsEqual(current, nextRows) ? current : nextRows;
     });
   }, [autoRows, skipNextAutoRowsSync]);
 
   useEffect(() => {
-    setExtraLodgingCounts((prev) => Array.from({ length: totalDays }, (_, index) => prev[index] ?? 0));
+    setExtraLodgingCounts((prev) =>
+      Array.from({ length: totalDays }, (_, index) => prev[index] ?? 0),
+    );
   }, [totalDays]);
 
   useEffect(() => {
@@ -1945,7 +2081,9 @@ export function ItineraryBuilderPage(): JSX.Element {
             if (!nextGroup.pickupDate.trim() && nextGroup.flightInDate.trim()) {
               nextGroup.pickupDate = nextGroup.flightInDate;
             }
-            nextGroup.pickupTime = getRecommendedPickupTime(typeof value === 'string' ? value : group.flightInTime);
+            nextGroup.pickupTime = getRecommendedPickupTime(
+              typeof value === 'string' ? value : group.flightInTime,
+            );
           }
         }
 
@@ -2067,7 +2205,10 @@ export function ItineraryBuilderPage(): JSX.Element {
         if (!group.flightOutDate && travelEndDate) {
           nextGroup.flightOutDate = travelEndDate;
           if (!group.hasEditedDrop) {
-            const recommendedDrop = getRecommendedDropSchedule(travelEndDate, nextGroup.flightOutTime);
+            const recommendedDrop = getRecommendedDropSchedule(
+              travelEndDate,
+              nextGroup.flightOutTime,
+            );
             nextGroup.dropDate = recommendedDrop.date;
             nextGroup.dropTime = recommendedDrop.time;
           }
@@ -2208,10 +2349,16 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   const updateCell = (rowIndex: number, field: keyof PlanRow, value: string): void => {
     dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, field));
-    setPlanRows((prev) => prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
+    setPlanRows((prev) =>
+      prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)),
+    );
   };
 
-  const updateMealCellField = (rowIndex: number, field: keyof MealCellFields, value: string): void => {
+  const updateMealCellField = (
+    rowIndex: number,
+    field: keyof MealCellFields,
+    value: string,
+  ): void => {
     dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, 'mealCellText'));
     setPlanRows((prev) =>
       prev.map((row, index) => {
@@ -2235,9 +2382,13 @@ export function ItineraryBuilderPage(): JSX.Element {
     level: LodgingSelectionLevel,
     customLodging?: RegionLodgingOption | null,
   ): void => {
-    dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, 'lodgingSelectionLevel'));
+    dirtyPlanRowFieldKeysRef.current.add(
+      getDirtyPlanRowFieldKey(rowIndex, 'lodgingSelectionLevel'),
+    );
     dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, 'customLodgingId'));
-    dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, 'customLodgingNameSnapshot'));
+    dirtyPlanRowFieldKeysRef.current.add(
+      getDirtyPlanRowFieldKey(rowIndex, 'customLodgingNameSnapshot'),
+    );
     dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, 'lodgingCellText'));
     setPlanRows((prev) =>
       prev.map((row, index) => {
@@ -2245,13 +2396,17 @@ export function ItineraryBuilderPage(): JSX.Element {
           return row;
         }
 
-        const baseLodgingName = toLodgingCell(row.locationVersionId ? locationVersionById.get(row.locationVersionId) : undefined);
-        const customLodgingName = level === 'CUSTOM' ? (customLodging?.name ?? row.customLodgingNameSnapshot ?? '') : null;
+        const baseLodgingName = toLodgingCell(
+          row.locationVersionId ? locationVersionById.get(row.locationVersionId) : undefined,
+        );
+        const customLodgingName =
+          level === 'CUSTOM' ? (customLodging?.name ?? row.customLodgingNameSnapshot ?? '') : null;
 
         return {
           ...row,
           lodgingSelectionLevel: level,
-          customLodgingId: level === 'CUSTOM' ? (customLodging?.id ?? row.customLodgingId) : undefined,
+          customLodgingId:
+            level === 'CUSTOM' ? (customLodging?.id ?? row.customLodgingId) : undefined,
           customLodgingNameSnapshot: customLodgingName,
           lodgingCellText: buildLodgingCellText({
             level,
@@ -2276,7 +2431,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     () =>
       planRows.map((row, index) => ({
         dayIndex: index + 1,
-        locationLabel: formatLocationNameInline(locationById.get(row.locationId ?? '')?.name ?? row.locationId ?? '목적지 미정'),
+        locationLabel: formatLocationNameInline(
+          locationById.get(row.locationId ?? '')?.name ?? row.locationId ?? '목적지 미정',
+        ),
         lodgingSelectionLevel: row.lodgingSelectionLevel,
         lodgingCellText: row.lodgingCellText,
         customLodgingId: row.customLodgingId,
@@ -2315,15 +2472,23 @@ export function ItineraryBuilderPage(): JSX.Element {
         segmentId: 'segmentId' in row ? row.segmentId : undefined,
         segmentVersionId: 'segmentVersionId' in row ? row.segmentVersionId : undefined,
         overnightStayId: 'overnightStayId' in row ? row.overnightStayId : undefined,
-        overnightStayDayOrder: 'overnightStayDayOrder' in row ? row.overnightStayDayOrder : undefined,
-        overnightStayConnectionId: 'overnightStayConnectionId' in row ? row.overnightStayConnectionId : undefined,
+        overnightStayDayOrder:
+          'overnightStayDayOrder' in row ? row.overnightStayDayOrder : undefined,
+        overnightStayConnectionId:
+          'overnightStayConnectionId' in row ? row.overnightStayConnectionId : undefined,
         overnightStayConnectionVersionId:
-          'overnightStayConnectionVersionId' in row ? row.overnightStayConnectionVersionId : undefined,
+          'overnightStayConnectionVersionId' in row
+            ? row.overnightStayConnectionVersionId
+            : undefined,
         multiDayBlockId: 'multiDayBlockId' in row ? row.multiDayBlockId : undefined,
-        multiDayBlockDayOrder: 'multiDayBlockDayOrder' in row ? row.multiDayBlockDayOrder : undefined,
-        multiDayBlockConnectionId: 'multiDayBlockConnectionId' in row ? row.multiDayBlockConnectionId : undefined,
+        multiDayBlockDayOrder:
+          'multiDayBlockDayOrder' in row ? row.multiDayBlockDayOrder : undefined,
+        multiDayBlockConnectionId:
+          'multiDayBlockConnectionId' in row ? row.multiDayBlockConnectionId : undefined,
         multiDayBlockConnectionVersionId:
-          'multiDayBlockConnectionVersionId' in row ? row.multiDayBlockConnectionVersionId : undefined,
+          'multiDayBlockConnectionVersionId' in row
+            ? row.multiDayBlockConnectionVersionId
+            : undefined,
         locationId: row.locationId,
         locationVersionId: 'locationVersionId' in row ? row.locationVersionId : undefined,
         dateCellText: '',
@@ -2359,11 +2524,16 @@ export function ItineraryBuilderPage(): JSX.Element {
         locationVersionById: allLocationVersionById,
       })
     ) {
-      window.alert('이 템플릿은 1일차에 얼리 일정을 사용하고 있습니다. Variant를 얼리 또는 얼리+연장으로 바꾼 뒤 다시 불러와주세요.');
+      window.alert(
+        '이 템플릿은 1일차에 얼리 일정을 사용하고 있습니다. Variant를 얼리 또는 얼리+연장으로 바꾼 뒤 다시 불러와주세요.',
+      );
       return;
     }
 
-    if (withConfirm && !window.confirm(`템플릿 \"${template.name}\"을(를) 현재 빌더에 적용할까요?`)) {
+    if (
+      withConfirm &&
+      !window.confirm(`템플릿 \"${template.name}\"을(를) 현재 빌더에 적용할까요?`)
+    ) {
       return;
     }
 
@@ -2451,22 +2621,21 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
 
   const normalizedManualAdjustments = useMemo(
-    () =>
-      [
-        ...manualAdjustments
-          .map((item) => ({
-            kind: item.kind,
-            description: item.description.trim(),
-            amountText: item.amountKrw.trim(),
-            amountKrw: Math.abs(Number(item.amountKrw)),
-          }))
-          .filter((item) => item.description.length > 0 && item.amountText.length > 0)
-          .map((item) => ({
-            description: item.description,
-            amountKrw: item.kind === 'DISCOUNT' ? -item.amountKrw : item.amountKrw,
-          })),
-        ...externalTransferManualAdjustments,
-      ],
+    () => [
+      ...manualAdjustments
+        .map((item) => ({
+          kind: item.kind,
+          description: item.description.trim(),
+          amountText: item.amountKrw.trim(),
+          amountKrw: Math.abs(Number(item.amountKrw)),
+        }))
+        .filter((item) => item.description.length > 0 && item.amountText.length > 0)
+        .map((item) => ({
+          description: item.description,
+          amountKrw: item.kind === 'DISCOUNT' ? -item.amountKrw : item.amountKrw,
+        })),
+      ...externalTransferManualAdjustments,
+    ],
     [externalTransferManualAdjustments, manualAdjustments],
   );
 
@@ -2478,12 +2647,21 @@ export function ItineraryBuilderPage(): JSX.Element {
         amountText: item.amountKrw.trim(),
         amountKrw: Math.abs(Number(item.amountKrw)),
       }))
-      .filter((item) => item.description.length > 0 && item.amountText.length > 0 && Number.isInteger(item.amountKrw));
+      .filter(
+        (item) =>
+          item.description.length > 0 &&
+          item.amountText.length > 0 &&
+          Number.isInteger(item.amountKrw),
+      );
 
     const addCount = validRows.filter((item) => item.kind === 'ADD').length;
     const discountCount = validRows.filter((item) => item.kind === 'DISCOUNT').length;
-    const addTotal = validRows.filter((item) => item.kind === 'ADD').reduce((sum, item) => sum + item.amountKrw, 0);
-    const discountTotal = validRows.filter((item) => item.kind === 'DISCOUNT').reduce((sum, item) => sum + item.amountKrw, 0);
+    const addTotal = validRows
+      .filter((item) => item.kind === 'ADD')
+      .reduce((sum, item) => sum + item.amountKrw, 0);
+    const discountTotal = validRows
+      .filter((item) => item.kind === 'DISCOUNT')
+      .reduce((sum, item) => sum + item.amountKrw, 0);
 
     return { addCount, discountCount, addTotal, discountTotal };
   }, [manualAdjustments]);
@@ -2519,7 +2697,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   const applyHeadcountTotalChange = (nextTotal: number): void => {
     setHeadcountTotal(nextTotal);
     setHeadcountMale((current) =>
-      hasEditedHeadcountMaleRef.current ? Math.min(current, nextTotal) : buildDefaultMaleHeadcount(nextTotal),
+      hasEditedHeadcountMaleRef.current
+        ? Math.min(current, nextTotal)
+        : buildDefaultMaleHeadcount(nextTotal),
     );
   };
 
@@ -2527,20 +2707,25 @@ export function ItineraryBuilderPage(): JSX.Element {
     () =>
       Boolean(
         regionId &&
-          travelStartDate &&
-          !manualAdjustments.some(
-            (item) => {
-              const d = item.description.trim();
-              const a = item.amountKrw.trim();
-              if (d.length === 0 && a.length === 0) return false;
-              return d.length === 0 || a.length === 0 || !Number.isInteger(Number(item.amountKrw)) || Number(item.amountKrw) < 0;
-            },
-          ) &&
-          !lodgingSelections.some(
-            (item) => item.level === 'CUSTOM' && (!item.customLodgingId || item.customLodgingId.trim().length === 0),
-          ) &&
-          !externalTransfers.some((t) => !isExternalTransferComplete(t)) &&
-          (vehicleType !== '하이에이스' || headcountTotal >= 3),
+        travelStartDate &&
+        !manualAdjustments.some((item) => {
+          const d = item.description.trim();
+          const a = item.amountKrw.trim();
+          if (d.length === 0 && a.length === 0) return false;
+          return (
+            d.length === 0 ||
+            a.length === 0 ||
+            !Number.isInteger(Number(item.amountKrw)) ||
+            Number(item.amountKrw) < 0
+          );
+        }) &&
+        !lodgingSelections.some(
+          (item) =>
+            item.level === 'CUSTOM' &&
+            (!item.customLodgingId || item.customLodgingId.trim().length === 0),
+        ) &&
+        !externalTransfers.some((t) => !isExternalTransferComplete(t)) &&
+        (vehicleType !== '하이에이스' || headcountTotal >= 3),
       ),
     [
       regionId,
@@ -2553,32 +2738,36 @@ export function ItineraryBuilderPage(): JSX.Element {
     ],
   );
 
-  const { data: pricingPreviewData, previousData: pricingPreviewPreviousData, error: pricingPreviewError } = useQuery<{ planPricingPreview: PricingPreviewRow }>(
-    PLAN_PRICING_PREVIEW_QUERY,
-    {
-      skip: !canPreviewPricing,
-      variables: {
-        input: {
-          regionId,
-          variantType,
-          totalDays,
-          planStops: pricingPreviewPlanStops,
-          travelStartDate: toIsoDateTime(travelStartDate),
-          headcountTotal,
-          transportGroupCount: transportGroups.length,
-          vehicleType,
-          includeRentalItems,
-          eventIds,
-          extraLodgings,
-          lodgingSelections,
-          manualAdjustments: normalizedManualAdjustments,
-          manualDepositAmountKrw: normalizedManualDepositAmountKrw,
-        },
+  const {
+    data: pricingPreviewData,
+    previousData: pricingPreviewPreviousData,
+    error: pricingPreviewError,
+  } = useQuery<{ planPricingPreview: PricingPreviewRow }>(PLAN_PRICING_PREVIEW_QUERY, {
+    skip: !canPreviewPricing,
+    variables: {
+      input: {
+        regionId,
+        variantType,
+        totalDays,
+        planStops: pricingPreviewPlanStops,
+        travelStartDate: toIsoDateTime(travelStartDate),
+        headcountTotal,
+        transportGroupCount: transportGroups.length,
+        vehicleType,
+        includeRentalItems,
+        eventIds,
+        extraLodgings,
+        lodgingSelections,
+        manualAdjustments: normalizedManualAdjustments,
+        manualDepositAmountKrw: normalizedManualDepositAmountKrw,
       },
     },
-  );
+  });
 
-  const pricingPreview = pricingPreviewData?.planPricingPreview ?? pricingPreviewPreviousData?.planPricingPreview ?? null;
+  const pricingPreview =
+    pricingPreviewData?.planPricingPreview ??
+    pricingPreviewPreviousData?.planPricingPreview ??
+    null;
 
   const validationResults = useBuilderValidation({
     planRows,
@@ -2610,7 +2799,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     [pricingPreview],
   );
   const pricingPreviewErrorMessage =
-    pricingPreviewError?.graphQLErrors?.[0]?.message ?? pricingPreviewError?.message ?? '금액 미리보기 계산 중 오류가 발생했습니다.';
+    pricingPreviewError?.graphQLErrors?.[0]?.message ??
+    pricingPreviewError?.message ??
+    '금액 미리보기 계산 중 오류가 발생했습니다.';
 
   useEffect(() => {
     if (!pricingPreview || hasEditedManualDeposit) {
@@ -2627,15 +2818,15 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   const canCreate = Boolean(
     hasPlanContext &&
-      regionId &&
-      leaderName.trim() &&
-      validationErrors.length === 0 &&
-      (includeRentalItems ? rentalItemsText.trim() : true) &&
-      startLocationId &&
-      startLocationVersionId &&
-      1 + getConsumedRouteDayCount(selectedRoute) === totalDays &&
-      planRows.length === totalDays &&
-      (!isVersionMode ? planTitle.trim() : true),
+    regionId &&
+    leaderName.trim() &&
+    validationErrors.length === 0 &&
+    (includeRentalItems ? rentalItemsText.trim() : true) &&
+    startLocationId &&
+    startLocationVersionId &&
+    1 + getConsumedRouteDayCount(selectedRoute) === totalDays &&
+    planRows.length === totalDays &&
+    (!isVersionMode ? planTitle.trim() : true),
   );
 
   const effectivePlanTitle = isVersionMode && planContext ? planContext.title : planTitle;
@@ -2698,10 +2889,16 @@ export function ItineraryBuilderPage(): JSX.Element {
       pricingPreview,
     ],
   );
-  const { data: previewEstimateData, guidesLoading: previewGuidesLoading } = useBuilderEstimatePreview(estimateDraftSnapshot);
-  const handlePreviewTransportGroupFieldChange: EstimatePage1Editor['onTransportGroupFieldChange'] = (index, field, value) => {
-    updateTransportGroup(index, field as keyof TransportGroupDraft, value as TransportGroupDraft[keyof TransportGroupDraft]);
-  };
+  const { data: previewEstimateData, guidesLoading: previewGuidesLoading } =
+    useBuilderEstimatePreview(estimateDraftSnapshot);
+  const handlePreviewTransportGroupFieldChange: EstimatePage1Editor['onTransportGroupFieldChange'] =
+    (index, field, value) => {
+      updateTransportGroup(
+        index,
+        field as keyof TransportGroupDraft,
+        value as TransportGroupDraft[keyof TransportGroupDraft],
+      );
+    };
   const previewPage1Editor: EstimatePage1Editor = {
     headcountTotal,
     headcountMale,
@@ -2711,7 +2908,10 @@ export function ItineraryBuilderPage(): JSX.Element {
     vehicleOptions: VEHICLES,
     transportGroups: normalizedTransportGroups,
     eventIds,
-    eventOptions: eventOptions.map((eventOption) => ({ id: eventOption.id, name: eventOption.name })),
+    eventOptions: eventOptions.map((eventOption) => ({
+      id: eventOption.id,
+      name: eventOption.name,
+    })),
     specialNoteText: specialNote,
     rentalItemsText,
     remarkText: remark,
@@ -2748,9 +2948,13 @@ export function ItineraryBuilderPage(): JSX.Element {
       ]);
     },
     onRemoveTransportGroup: (index) =>
-      setTransportGroups((current) => (current.length <= 1 ? current : current.filter((_, groupIndex) => groupIndex !== index))),
+      setTransportGroups((current) =>
+        current.length <= 1 ? current : current.filter((_, groupIndex) => groupIndex !== index),
+      ),
     onToggleEventId: (value) =>
-      setEventIds((current) => (current.includes(value) ? current.filter((id) => id !== value) : [...current, value])),
+      setEventIds((current) =>
+        current.includes(value) ? current.filter((id) => id !== value) : [...current, value],
+      ),
     onSpecialNoteTextChange: setSpecialNote,
     onRentalItemsTextChange: (value) => {
       setIncludeRentalItems(true);
@@ -2781,7 +2985,9 @@ export function ItineraryBuilderPage(): JSX.Element {
       <section className="mx-auto grid max-w-7xl gap-6 px-6 py-8">
         <header>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">시작하기</h1>
-          <p className="mt-1 text-sm text-slate-600">아래에서 고객 유형을 선택하면 다음 단계가 열립니다.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            아래에서 고객 유형을 선택하면 다음 단계가 열립니다.
+          </p>
         </header>
 
         <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -2799,11 +3005,15 @@ export function ItineraryBuilderPage(): JSX.Element {
               <div className="flex h-full flex-col justify-between">
                 <div>
                   <p className="text-lg font-semibold">신규 고객</p>
-                  <p className={`mt-2 text-sm ${homeEntryMode === 'new' ? 'text-slate-100' : 'text-slate-600'}`}>
+                  <p
+                    className={`mt-2 text-sm ${homeEntryMode === 'new' ? 'text-slate-100' : 'text-slate-600'}`}
+                  >
                     고객을 새로 생성하고 일정 제작을 시작합니다.
                   </p>
                 </div>
-                <div className={`text-xs font-medium ${homeEntryMode === 'new' ? 'text-slate-100' : 'text-slate-500'}`}>
+                <div
+                  className={`text-xs font-medium ${homeEntryMode === 'new' ? 'text-slate-100' : 'text-slate-500'}`}
+                >
                   선택
                 </div>
               </div>
@@ -2816,7 +3026,9 @@ export function ItineraryBuilderPage(): JSX.Element {
               <div className="flex h-full flex-col justify-between">
                 <div>
                   <p className="text-lg font-semibold">기존 고객</p>
-                  <p className="mt-2 text-sm text-slate-600">고객 페이지로 이동해 기존 고객을 선택합니다.</p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    고객 페이지로 이동해 기존 고객을 선택합니다.
+                  </p>
                 </div>
                 <div className="text-xs font-medium text-slate-500">고객 페이지로 이동</div>
               </div>
@@ -2862,11 +3074,14 @@ export function ItineraryBuilderPage(): JSX.Element {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-2xl border border-slate-200 bg-white p-4">
                     <h3 className="text-sm font-semibold text-slate-900">빈 페이지 선택</h3>
-                    <p className="mt-1 text-xs text-slate-600">템플릿 없이 새 일정 빌더를 바로 시작합니다.</p>
                     <div className="mt-3">
                       <Button
                         disabled={!homeSelectedUserId}
-                        onClick={() => navigate(`/itinerary-builder?userId=${encodeURIComponent(homeSelectedUserId)}`)}
+                        onClick={() =>
+                          navigate(
+                            `/itinerary-builder?userId=${encodeURIComponent(homeSelectedUserId)}`,
+                          )
+                        }
                       >
                         빈 페이지로 시작
                       </Button>
@@ -2875,9 +3090,74 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                   <div className="rounded-2xl border border-slate-200 bg-white p-4">
                     <h3 className="text-sm font-semibold text-slate-900">템플릿에서 선택</h3>
-                    <p className="mt-1 text-xs text-slate-600">템플릿을 먼저 선택한 뒤 빌더를 시작합니다.</p>
+
+                    <div className="mt-3 grid gap-3">
+                      <div className="grid gap-1 text-sm">
+                        <span className="text-xs text-slate-600">지역</span>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setHomeTemplateRegionId('')}
+                            className={`rounded-xl border px-3 py-1.5 text-sm ${
+                              homeTemplateRegionId === ''
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            전체
+                          </button>
+                          {regions.map((region) => (
+                            <button
+                              key={`home-template-region-${region.id}`}
+                              type="button"
+                              onClick={() => setHomeTemplateRegionId(region.id)}
+                              className={`rounded-xl border px-3 py-1.5 text-sm ${
+                                homeTemplateRegionId === region.id
+                                  ? 'border-slate-900 bg-slate-900 text-white'
+                                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              {region.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="grid gap-1 text-sm">
+                        <span className="text-xs text-slate-600">일수</span>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setHomeTemplateTotalDays(0)}
+                            className={`rounded-xl border px-3 py-1.5 text-sm ${
+                              homeTemplateTotalDays === 0
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            전체
+                          </button>
+                          {Array.from({ length: 12 }, (_, idx) => idx + 2).map((day) => (
+                            <button
+                              key={`home-template-day-${day}`}
+                              type="button"
+                              onClick={() => setHomeTemplateTotalDays(day)}
+                              className={`rounded-xl border px-3 py-1.5 text-sm ${
+                                homeTemplateTotalDays === day
+                                  ? 'border-slate-900 bg-slate-900 text-white'
+                                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              {day}일
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                     <div className="mt-3 max-h-48 space-y-2 overflow-auto rounded-xl border border-slate-200 bg-white p-2">
-                      {templateOptions.map((template) => (
+                      <p className="px-1 text-xs text-slate-500">
+                        총 {homeTemplateOptions.length}개의 템플릿
+                      </p>
+                      {homeTemplateOptions.map((template) => (
                         <div
                           key={`home-template-${template.id}`}
                           className={`flex items-center justify-between rounded-lg border px-2 py-1.5 ${
@@ -2892,13 +3172,18 @@ export function ItineraryBuilderPage(): JSX.Element {
                               {template.totalDays}일 · {template.isActive ? '활성' : '비활성'}
                             </div>
                           </div>
-                          <Button variant="outline" onClick={() => setHomeSelectedTemplateId(template.id)}>
+                          <Button
+                            variant="outline"
+                            onClick={() => setHomeSelectedTemplateId(template.id)}
+                          >
                             선택
                           </Button>
                         </div>
                       ))}
-                      {templateOptions.length === 0 ? (
-                        <p className="px-1 py-2 text-xs text-slate-500">선택 가능한 템플릿이 없습니다.</p>
+                      {homeTemplateOptions.length === 0 ? (
+                        <p className="px-1 py-2 text-xs text-slate-500">
+                          선택한 조건에 맞는 템플릿이 없습니다.
+                        </p>
                       ) : null}
                     </div>
                     <div className="mt-3">
@@ -2924,7 +3209,9 @@ export function ItineraryBuilderPage(): JSX.Element {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
             <Card className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-5 shadow-xl">
               <h3 className="text-lg font-semibold text-slate-900">고객 생성</h3>
-              <p className="mt-1 text-sm text-slate-600">새 고객을 등록하면 바로 신규 고객 시작에 사용됩니다.</p>
+              <p className="mt-1 text-sm text-slate-600">
+                새 고객을 등록하면 바로 신규 고객 시작에 사용됩니다.
+              </p>
 
               <div className="mt-4 grid gap-2">
                 <label className="grid gap-1 text-sm">
@@ -2936,7 +3223,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                     placeholder="고객명 입력"
                   />
                 </label>
-                {homeCreateUserError ? <p className="text-xs text-rose-700">{homeCreateUserError}</p> : null}
+                {homeCreateUserError ? (
+                  <p className="text-xs text-rose-700">{homeCreateUserError}</p>
+                ) : null}
               </div>
 
               <div className="mt-5 flex justify-end gap-2">
@@ -2977,7 +3266,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                       setHomeCreateUserError('');
                       setIsCreateUserModalOpen(false);
                     } catch (error) {
-                      const message = error instanceof Error ? error.message : '고객 생성에 실패했습니다.';
+                      const message =
+                        error instanceof Error ? error.message : '고객 생성에 실패했습니다.';
                       setHomeCreateUserError(message);
                     }
                   }}
@@ -3007,7 +3297,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   }
 
   return (
-    <div className={`min-h-screen text-slate-900 ${isPreviewEnabled ? 'lg:h-screen lg:min-h-0' : ''}`}>
+    <div
+      className={`min-h-screen text-slate-900 ${isPreviewEnabled ? 'lg:h-screen lg:min-h-0' : ''}`}
+    >
       <div className="border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
         <div className="flex items-center gap-2">
           {isPreviewEnabled ? (
@@ -3034,7 +3326,11 @@ export function ItineraryBuilderPage(): JSX.Element {
           ) : (
             <div className="flex-1 text-sm font-medium text-slate-700">빌더 전용 보기</div>
           )}
-          <Button variant="outline" className="shrink-0" onClick={() => setIsPreviewEnabled((prev) => !prev)}>
+          <Button
+            variant="outline"
+            className="shrink-0"
+            onClick={() => setIsPreviewEnabled((prev) => !prev)}
+          >
             {isPreviewEnabled ? '미리보기 끄기' : '미리보기 켜기'}
           </Button>
         </div>
@@ -3045,7 +3341,9 @@ export function ItineraryBuilderPage(): JSX.Element {
           className={`${
             !isPreviewEnabled || activePane === 'builder' ? 'block' : 'hidden'
           } bg-slate-50 ${
-            isPreviewEnabled ? 'border-b border-slate-200 lg:block lg:h-full lg:overflow-y-auto lg:border-b-0 lg:border-r' : ''
+            isPreviewEnabled
+              ? 'border-b border-slate-200 lg:block lg:h-full lg:overflow-y-auto lg:border-b-0 lg:border-r'
+              : ''
           }`}
         >
           <div
@@ -3053,1897 +3351,2221 @@ export function ItineraryBuilderPage(): JSX.Element {
               isPreviewEnabled ? 'lg:px-8' : 'mx-auto max-w-7xl lg:px-6'
             }`}
           >
-        <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">여행 일정 빌더</h1>
-          </div>
-          <div className="flex gap-2 no-print">
-            <Button variant="outline" onClick={() => setIsPreviewEnabled((prev) => !prev)}>
-              {isPreviewEnabled ? '미리보기 끄기' : '미리보기 켜기'}
-            </Button>
-            <Button variant="outline" onClick={openEstimatePdf}>
-              견적서 PDF
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                dirtyPlanRowFieldKeysRef.current.clear();
-                setPlanRows(autoRows);
-              }}
-            >
-              자동값 다시 채우기
-            </Button>
-            <Button
-              variant="primary"
-              disabled={!canCreate || creating}
-              onClick={async () => {
-                if (!canCreate) {
-                  return;
-                }
+            <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight">여행 일정 빌더</h1>
+              </div>
+              <div className="flex gap-2 no-print">
+                <Button variant="outline" onClick={() => setIsPreviewEnabled((prev) => !prev)}>
+                  {isPreviewEnabled ? '미리보기 끄기' : '미리보기 켜기'}
+                </Button>
+                <Button variant="outline" onClick={openEstimatePdf}>
+                  견적서 PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    dirtyPlanRowFieldKeysRef.current.clear();
+                    setPlanRows(autoRows);
+                  }}
+                >
+                  자동값 다시 채우기
+                </Button>
+                <Button
+                  variant="primary"
+                  disabled={!canCreate || creating}
+                  onClick={async () => {
+                    if (!canCreate) {
+                      return;
+                    }
 
-                if (isVersionMode) {
-                  const result = await createPlanVersion({
-                    variables: {
-                      input: {
-                        planId,
-                        parentVersionId,
-                        variantType,
-                        totalDays,
-                        changeNote: changeNote.trim() || undefined,
-                        meta: {
-                          leaderName: leaderName.trim(),
-                          travelStartDate: toIsoDateTime(travelStartDate),
-                          travelEndDate: toIsoDateTime(travelEndDate),
-                          headcountTotal,
-                          headcountMale,
-                          headcountFemale,
-                          vehicleType,
-                          flightInTime: primaryTransportGroup?.flightInTime ?? '02:45',
-                          flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:15',
-                          pickupDate: primaryTransportGroup?.pickupDate ? toIsoDateTime(primaryTransportGroup.pickupDate) : undefined,
-                          pickupTime: primaryTransportGroup?.pickupTime.trim() || undefined,
-                          dropDate: primaryTransportGroup?.dropDate ? toIsoDateTime(primaryTransportGroup.dropDate) : undefined,
-                          dropTime: primaryTransportGroup?.dropTime.trim() || undefined,
-                          pickupPlaceType: primaryTransportGroup?.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                          pickupPlaceCustomText: normalizePickupDropCustomText(
-                            primaryTransportGroup?.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                            primaryTransportGroup?.pickupPlaceCustomText,
-                          ),
-                          dropPlaceType: primaryTransportGroup?.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                          dropPlaceCustomText: normalizePickupDropCustomText(
-                            primaryTransportGroup?.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                            primaryTransportGroup?.dropPlaceCustomText,
-                          ),
-                          pickupDropNote: undefined,
-                          externalPickupDropNote: undefined,
-                          externalTransfers: externalTransfers.map((transfer) => ({
-                            ...transfer,
-                            travelDate: toIsoDateTime(transfer.travelDate),
-                          })),
-                          specialNote: specialNote.trim() || undefined,
-                          includeRentalItems,
-                          rentalItemsText,
-                          eventIds,
-                          extraLodgings,
-                          lodgingSelections,
-                          transportGroups: normalizedTransportGroups.map((group) => ({
-                            teamName: group.teamName.trim(),
-                            headcount: group.headcount,
-                            flightInDate: toIsoDateTime(group.flightInDate),
-                            flightInTime: group.flightInTime.trim(),
-                            flightOutDate: toIsoDateTime(group.flightOutDate),
-                            flightOutTime: group.flightOutTime.trim(),
-                            pickupDate: group.pickupDate ? toIsoDateTime(group.pickupDate) : undefined,
-                            pickupTime: group.pickupTime.trim() || undefined,
-                            pickupPlaceType: group.pickupPlaceType,
-                            pickupPlaceCustomText: normalizePickupDropCustomText(
-                              group.pickupPlaceType,
-                              group.pickupPlaceCustomText,
-                            ),
-                            dropDate: group.dropDate ? toIsoDateTime(group.dropDate) : undefined,
-                            dropTime: group.dropTime.trim() || undefined,
-                            dropPlaceType: group.dropPlaceType,
-                            dropPlaceCustomText: normalizePickupDropCustomText(group.dropPlaceType, group.dropPlaceCustomText),
-                          })),
-                          remark: remark.trim() || undefined,
+                    if (isVersionMode) {
+                      const result = await createPlanVersion({
+                        variables: {
+                          input: {
+                            planId,
+                            parentVersionId,
+                            variantType,
+                            totalDays,
+                            changeNote: changeNote.trim() || undefined,
+                            meta: {
+                              leaderName: leaderName.trim(),
+                              travelStartDate: toIsoDateTime(travelStartDate),
+                              travelEndDate: toIsoDateTime(travelEndDate),
+                              headcountTotal,
+                              headcountMale,
+                              headcountFemale,
+                              vehicleType,
+                              flightInTime: primaryTransportGroup?.flightInTime ?? '02:45',
+                              flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:15',
+                              pickupDate: primaryTransportGroup?.pickupDate
+                                ? toIsoDateTime(primaryTransportGroup.pickupDate)
+                                : undefined,
+                              pickupTime: primaryTransportGroup?.pickupTime.trim() || undefined,
+                              dropDate: primaryTransportGroup?.dropDate
+                                ? toIsoDateTime(primaryTransportGroup.dropDate)
+                                : undefined,
+                              dropTime: primaryTransportGroup?.dropTime.trim() || undefined,
+                              pickupPlaceType:
+                                primaryTransportGroup?.pickupPlaceType ??
+                                DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                              pickupPlaceCustomText: normalizePickupDropCustomText(
+                                primaryTransportGroup?.pickupPlaceType ??
+                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                                primaryTransportGroup?.pickupPlaceCustomText,
+                              ),
+                              dropPlaceType:
+                                primaryTransportGroup?.dropPlaceType ??
+                                DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                              dropPlaceCustomText: normalizePickupDropCustomText(
+                                primaryTransportGroup?.dropPlaceType ??
+                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                                primaryTransportGroup?.dropPlaceCustomText,
+                              ),
+                              pickupDropNote: undefined,
+                              externalPickupDropNote: undefined,
+                              externalTransfers: externalTransfers.map((transfer) => ({
+                                ...transfer,
+                                travelDate: toIsoDateTime(transfer.travelDate),
+                              })),
+                              specialNote: specialNote.trim() || undefined,
+                              includeRentalItems,
+                              rentalItemsText,
+                              eventIds,
+                              extraLodgings,
+                              lodgingSelections,
+                              transportGroups: normalizedTransportGroups.map((group) => ({
+                                teamName: group.teamName.trim(),
+                                headcount: group.headcount,
+                                flightInDate: toIsoDateTime(group.flightInDate),
+                                flightInTime: group.flightInTime.trim(),
+                                flightOutDate: toIsoDateTime(group.flightOutDate),
+                                flightOutTime: group.flightOutTime.trim(),
+                                pickupDate: group.pickupDate
+                                  ? toIsoDateTime(group.pickupDate)
+                                  : undefined,
+                                pickupTime: group.pickupTime.trim() || undefined,
+                                pickupPlaceType: group.pickupPlaceType,
+                                pickupPlaceCustomText: normalizePickupDropCustomText(
+                                  group.pickupPlaceType,
+                                  group.pickupPlaceCustomText,
+                                ),
+                                dropDate: group.dropDate
+                                  ? toIsoDateTime(group.dropDate)
+                                  : undefined,
+                                dropTime: group.dropTime.trim() || undefined,
+                                dropPlaceType: group.dropPlaceType,
+                                dropPlaceCustomText: normalizePickupDropCustomText(
+                                  group.dropPlaceType,
+                                  group.dropPlaceCustomText,
+                                ),
+                              })),
+                              remark: remark.trim() || undefined,
+                            },
+                            planStops: mergedPlanStops,
+                            manualAdjustments: normalizedManualAdjustments,
+                            manualDepositAmountKrw: normalizedManualDepositAmountKrw,
+                          },
                         },
-                        planStops: mergedPlanStops,
-                        manualAdjustments: normalizedManualAdjustments,
-                        manualDepositAmountKrw: normalizedManualDepositAmountKrw,
-                      },
-                    },
-                  });
+                      });
 
-                  const createdVersionId = result.data?.createPlanVersion.id ?? '';
-                  setCreatedId(createdVersionId);
-                  if (createdVersionId) {
-                    navigate(`/plans/${planId}/versions/${createdVersionId}`);
-                  }
-                  return;
-                }
+                      const createdVersionId = result.data?.createPlanVersion.id ?? '';
+                      setCreatedId(createdVersionId);
+                      if (createdVersionId) {
+                        navigate(`/plans/${planId}/versions/${createdVersionId}`);
+                      }
+                      return;
+                    }
 
-                const result = await createPlan({
-                  variables: {
-                    input: {
-                      userId,
-                      regionId,
-                      title: planTitle,
-                      initialVersion: {
-                        variantType,
-                        totalDays,
-                        changeNote: undefined,
-                        meta: {
-                          leaderName: leaderName.trim(),
-                          travelStartDate: toIsoDateTime(travelStartDate),
-                          travelEndDate: toIsoDateTime(travelEndDate),
-                          headcountTotal,
-                          headcountMale,
-                          headcountFemale,
-                          vehicleType,
-                          flightInTime: primaryTransportGroup?.flightInTime ?? '02:45',
-                          flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:15',
-                          pickupDate: primaryTransportGroup?.pickupDate ? toIsoDateTime(primaryTransportGroup.pickupDate) : undefined,
-                          pickupTime: primaryTransportGroup?.pickupTime.trim() || undefined,
-                          dropDate: primaryTransportGroup?.dropDate ? toIsoDateTime(primaryTransportGroup.dropDate) : undefined,
-                          dropTime: primaryTransportGroup?.dropTime.trim() || undefined,
-                          pickupPlaceType: primaryTransportGroup?.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                          pickupPlaceCustomText: normalizePickupDropCustomText(
-                            primaryTransportGroup?.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                            primaryTransportGroup?.pickupPlaceCustomText,
-                          ),
-                          dropPlaceType: primaryTransportGroup?.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                          dropPlaceCustomText: normalizePickupDropCustomText(
-                            primaryTransportGroup?.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                            primaryTransportGroup?.dropPlaceCustomText,
-                          ),
-                          pickupDropNote: undefined,
-                          externalPickupDropNote: undefined,
-                          externalTransfers: externalTransfers.map((transfer) => ({
-                            ...transfer,
-                            travelDate: toIsoDateTime(transfer.travelDate),
-                          })),
-                          specialNote: specialNote.trim() || undefined,
-                          includeRentalItems,
-                          rentalItemsText,
-                          eventIds,
-                          extraLodgings,
-                          lodgingSelections,
-                          transportGroups: normalizedTransportGroups.map((group) => ({
-                            teamName: group.teamName.trim(),
-                            headcount: group.headcount,
-                            flightInDate: toIsoDateTime(group.flightInDate),
-                            flightInTime: group.flightInTime.trim(),
-                            flightOutDate: toIsoDateTime(group.flightOutDate),
-                            flightOutTime: group.flightOutTime.trim(),
-                            pickupDate: group.pickupDate ? toIsoDateTime(group.pickupDate) : undefined,
-                            pickupTime: group.pickupTime.trim() || undefined,
-                            pickupPlaceType: group.pickupPlaceType,
-                            pickupPlaceCustomText: normalizePickupDropCustomText(
-                              group.pickupPlaceType,
-                              group.pickupPlaceCustomText,
-                            ),
-                            dropDate: group.dropDate ? toIsoDateTime(group.dropDate) : undefined,
-                            dropTime: group.dropTime.trim() || undefined,
-                            dropPlaceType: group.dropPlaceType,
-                            dropPlaceCustomText: normalizePickupDropCustomText(group.dropPlaceType, group.dropPlaceCustomText),
-                          })),
-                          remark: remark.trim() || undefined,
+                    const result = await createPlan({
+                      variables: {
+                        input: {
+                          userId,
+                          regionId,
+                          title: planTitle,
+                          initialVersion: {
+                            variantType,
+                            totalDays,
+                            changeNote: undefined,
+                            meta: {
+                              leaderName: leaderName.trim(),
+                              travelStartDate: toIsoDateTime(travelStartDate),
+                              travelEndDate: toIsoDateTime(travelEndDate),
+                              headcountTotal,
+                              headcountMale,
+                              headcountFemale,
+                              vehicleType,
+                              flightInTime: primaryTransportGroup?.flightInTime ?? '02:45',
+                              flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:15',
+                              pickupDate: primaryTransportGroup?.pickupDate
+                                ? toIsoDateTime(primaryTransportGroup.pickupDate)
+                                : undefined,
+                              pickupTime: primaryTransportGroup?.pickupTime.trim() || undefined,
+                              dropDate: primaryTransportGroup?.dropDate
+                                ? toIsoDateTime(primaryTransportGroup.dropDate)
+                                : undefined,
+                              dropTime: primaryTransportGroup?.dropTime.trim() || undefined,
+                              pickupPlaceType:
+                                primaryTransportGroup?.pickupPlaceType ??
+                                DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                              pickupPlaceCustomText: normalizePickupDropCustomText(
+                                primaryTransportGroup?.pickupPlaceType ??
+                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                                primaryTransportGroup?.pickupPlaceCustomText,
+                              ),
+                              dropPlaceType:
+                                primaryTransportGroup?.dropPlaceType ??
+                                DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                              dropPlaceCustomText: normalizePickupDropCustomText(
+                                primaryTransportGroup?.dropPlaceType ??
+                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                                primaryTransportGroup?.dropPlaceCustomText,
+                              ),
+                              pickupDropNote: undefined,
+                              externalPickupDropNote: undefined,
+                              externalTransfers: externalTransfers.map((transfer) => ({
+                                ...transfer,
+                                travelDate: toIsoDateTime(transfer.travelDate),
+                              })),
+                              specialNote: specialNote.trim() || undefined,
+                              includeRentalItems,
+                              rentalItemsText,
+                              eventIds,
+                              extraLodgings,
+                              lodgingSelections,
+                              transportGroups: normalizedTransportGroups.map((group) => ({
+                                teamName: group.teamName.trim(),
+                                headcount: group.headcount,
+                                flightInDate: toIsoDateTime(group.flightInDate),
+                                flightInTime: group.flightInTime.trim(),
+                                flightOutDate: toIsoDateTime(group.flightOutDate),
+                                flightOutTime: group.flightOutTime.trim(),
+                                pickupDate: group.pickupDate
+                                  ? toIsoDateTime(group.pickupDate)
+                                  : undefined,
+                                pickupTime: group.pickupTime.trim() || undefined,
+                                pickupPlaceType: group.pickupPlaceType,
+                                pickupPlaceCustomText: normalizePickupDropCustomText(
+                                  group.pickupPlaceType,
+                                  group.pickupPlaceCustomText,
+                                ),
+                                dropDate: group.dropDate
+                                  ? toIsoDateTime(group.dropDate)
+                                  : undefined,
+                                dropTime: group.dropTime.trim() || undefined,
+                                dropPlaceType: group.dropPlaceType,
+                                dropPlaceCustomText: normalizePickupDropCustomText(
+                                  group.dropPlaceType,
+                                  group.dropPlaceCustomText,
+                                ),
+                              })),
+                              remark: remark.trim() || undefined,
+                            },
+                            planStops: mergedPlanStops,
+                            manualAdjustments: normalizedManualAdjustments,
+                            manualDepositAmountKrw: normalizedManualDepositAmountKrw,
+                          },
                         },
-                        planStops: mergedPlanStops,
-                        manualAdjustments: normalizedManualAdjustments,
-                        manualDepositAmountKrw: normalizedManualDepositAmountKrw,
                       },
-                    },
-                  },
-                });
+                    });
 
-                const createdPlanId = result.data?.createPlan.id ?? '';
-                setCreatedId(createdPlanId);
-                if (createdPlanId) {
-                  navigate(`/plans/${createdPlanId}`);
-                }
-              }}
-            >
-              {creating ? '저장 중...' : isVersionMode ? '새 버전 생성' : 'Plan 생성'}
-            </Button>
-          </div>
-        </header>
+                    const createdPlanId = result.data?.createPlan.id ?? '';
+                    setCreatedId(createdPlanId);
+                    if (createdPlanId) {
+                      navigate(`/plans/${createdPlanId}`);
+                    }
+                  }}
+                >
+                  {creating ? '저장 중...' : isVersionMode ? '새 버전 생성' : 'Plan 생성'}
+                </Button>
+              </div>
+            </header>
 
-        {createdId ? (
-          <Card>
-            <p className="text-sm text-emerald-700">생성 완료: {createdId}</p>
-          </Card>
-        ) : null}
+            {createdId ? (
+              <Card>
+                <p className="text-sm text-emerald-700">생성 완료: {createdId}</p>
+              </Card>
+            ) : null}
 
-        {isTemplateOnlyMode ? (
-          <Card className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-            템플릿으로 진입한 상태입니다. Plan 생성은 고객 컨텍스트에서만 가능합니다.
-          </Card>
-        ) : null}
+            {isTemplateOnlyMode ? (
+              <Card className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+                템플릿으로 진입한 상태입니다. Plan 생성은 고객 컨텍스트에서만 가능합니다.
+              </Card>
+            ) : null}
 
-        <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">1</span>
-              <span>기본정보</span>
-            </h2>
-            <div className="mt-4 grid gap-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
-              {isVersionMode ? (
-                <label className="grid gap-1 text-sm">
-                  <span className="text-xs text-slate-600">변경 메모</span>
-                  <input
-                    value={changeNote}
-                    onChange={(event) => setChangeNote(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                    placeholder="예: 숙소 동선 개선"
-                  />
-                </label>
-              ) : null}
-
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">대표자명</span>
-                <input
-                  value={leaderName}
-                  readOnly
-                  disabled
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
-                  placeholder="고객명을 기준으로 자동 반영"
-                />
-              </label>
-
-              {!isVersionMode && hasPlanContext ? (
-                <label className="grid gap-1 text-sm">
-                  <span className="text-xs text-slate-600">
-                    제목 <span className="ml-1 text-slate-400">*우리끼리 구분용</span>
+            <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
+                    1
                   </span>
-                  <input
-                    value={planTitle}
-                    onChange={(event) => setPlanTitle(event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                    placeholder={buildDefaultPlanTitle(leaderName)}
-                  />
-                </label>
-              ) : null}
+                  <span>기본정보</span>
+                </h2>
+                <div className="mt-4 grid gap-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
+                  {isVersionMode ? (
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-xs text-slate-600">변경 메모</span>
+                      <input
+                        value={changeNote}
+                        onChange={(event) => setChangeNote(event.target.value)}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                        placeholder="예: 숙소 동선 개선"
+                      />
+                    </label>
+                  ) : null}
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="grid gap-1 text-sm">
-                  <span className="text-xs text-slate-600">지역</span>
-                  <div className="flex flex-wrap content-start items-start gap-2">
-                    {regions.map((region) => {
-                      const disabled = isVersionMode && planContext?.regionId !== region.id;
-                      return (
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-xs text-slate-600">대표자명</span>
+                    <input
+                      value={leaderName}
+                      readOnly
+                      disabled
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
+                      placeholder="고객명을 기준으로 자동 반영"
+                    />
+                  </label>
+
+                  {!isVersionMode && hasPlanContext ? (
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-xs text-slate-600">
+                        제목 <span className="ml-1 text-slate-400">*우리끼리 구분용</span>
+                      </span>
+                      <input
+                        value={planTitle}
+                        onChange={(event) => setPlanTitle(event.target.value)}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                        placeholder={buildDefaultPlanTitle(leaderName)}
+                      />
+                    </label>
+                  ) : null}
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-1 text-sm">
+                      <span className="text-xs text-slate-600">지역</span>
+                      <div className="flex flex-wrap content-start items-start gap-2">
+                        {regions.map((region) => {
+                          const disabled = isVersionMode && planContext?.regionId !== region.id;
+                          return (
+                            <button
+                              key={region.id}
+                              type="button"
+                              disabled={disabled}
+                              onClick={() => {
+                                setRegionId(region.id);
+                                setStartLocationId('');
+                                setStartLocationVersionId('');
+                                setSelectedRoute([]);
+                                dirtyPlanRowFieldKeysRef.current.clear();
+                                setPlanRows([]);
+                              }}
+                              className={`rounded-xl border px-3 py-1.5 text-sm ${
+                                regionId === region.id
+                                  ? 'border-slate-900 bg-slate-900 text-white'
+                                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                              } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+                            >
+                              {region.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2 text-sm">
+                      <span className="text-xs text-slate-600">인원</span>
+                      <div className="grid gap-3">
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextTotal = Math.max(1, headcountTotal - 1);
+                              applyHeadcountTotalChange(nextTotal);
+                            }}
+                            disabled={headcountTotal <= 1}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            aria-label="인원 감소"
+                          >
+                            -
+                          </button>
+                          <div className="min-w-0 flex-1 text-center text-base font-semibold text-slate-900">
+                            {headcountTotal}명
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextTotal = Math.min(30, headcountTotal + 1);
+                              applyHeadcountTotalChange(nextTotal);
+                            }}
+                            disabled={headcountTotal >= 30}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            aria-label="인원 증가"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <div className="grid gap-2 pt-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-xs text-slate-600">성비 조절</div>
+                            <label className="flex items-center gap-2 text-xs text-slate-600">
+                              <input
+                                type="checkbox"
+                                checked={headcountMale === 0}
+                                onChange={(event) => {
+                                  hasEditedHeadcountMaleRef.current = true;
+                                  if (event.target.checked) {
+                                    setHeadcountMale(0);
+                                    return;
+                                  }
+                                  setHeadcountMale((prev) => (prev === 0 ? 1 : prev));
+                                }}
+                              />
+                              남성없음
+                            </label>
+                          </div>
+                          <div className="flex w-full flex-wrap gap-1">
+                            {Array.from({ length: headcountTotal }, (_, index) => {
+                              const count = index + 1;
+                              const isMaleToken = count <= headcountMale;
+                              return (
+                                <button
+                                  key={`male-token-${count}`}
+                                  type="button"
+                                  onClick={() => {
+                                    hasEditedHeadcountMaleRef.current = true;
+                                    setHeadcountMale(count);
+                                  }}
+                                  className={`h-7 w-7 rounded-full border text-xs ${
+                                    isMaleToken
+                                      ? 'border-blue-700 bg-blue-600 text-white'
+                                      : 'border-pink-200 bg-pink-50 text-pink-700 hover:bg-pink-100'
+                                  }`}
+                                  title={
+                                    isMaleToken ? `남 ${count}` : `여 ${count - headcountMale}`
+                                  }
+                                >
+                                  {count}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="text-xs text-slate-600">
+                            남 {headcountMale} / 여 {headcountFemale}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-1 text-sm">
+                    <span className="text-xs text-slate-600">일수</span>
+                    <div className="flex flex-wrap gap-2">
+                      {Array.from({ length: 12 }, (_, idx) => idx + 2).map((day) => (
                         <button
-                          key={region.id}
+                          key={day}
                           type="button"
-                          disabled={disabled}
                           onClick={() => {
-                            setRegionId(region.id);
+                            setTotalDays(day);
+                            setSelectedRoute((prev) => trimRouteSelectionsToTotalDays(prev, day));
+                          }}
+                          className={`rounded-xl border px-3 py-1.5 text-sm ${
+                            totalDays === day
+                              ? 'border-slate-900 bg-slate-900 text-white'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {day}일
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2 text-sm">
+                      <span className="text-xs text-slate-600">여행 기간</span>
+                      <div className="grid gap-2">
+                        <DateInputTrigger
+                          value={travelStartDate}
+                          placeholder="시작일 선택"
+                          onClick={(event) =>
+                            setDatePickerTarget({
+                              kind: 'travelStartDate',
+                              anchorEl: event.currentTarget,
+                            })
+                          }
+                        />
+                        <DateInputTrigger
+                          value={travelEndDate}
+                          placeholder="종료일 선택"
+                          onClick={(event) =>
+                            setDatePickerTarget({
+                              kind: 'travelEndDate',
+                              anchorEl: event.currentTarget,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-1 text-sm">
+                      <span className="text-xs text-slate-600">차량</span>
+                      <div className="flex flex-wrap gap-2">
+                        {VEHICLES.map((vehicle) => (
+                          <button
+                            key={vehicle}
+                            type="button"
+                            onClick={() => {
+                              if (vehicle === '하이에이스' && headcountTotal < 3) {
+                                return;
+                              }
+                              setVehicleType(vehicle);
+                            }}
+                            disabled={vehicle === '하이에이스' && headcountTotal < 3}
+                            className={`rounded-xl border px-3 py-1.5 text-sm ${
+                              vehicleType === vehicle
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                            } ${vehicle === '하이에이스' && headcountTotal < 3 ? 'cursor-not-allowed opacity-40' : ''}`}
+                          >
+                            {vehicle}
+                          </button>
+                        ))}
+                      </div>
+                      {hasValidation('hiace-headcount') ? (
+                        <p className="text-xs text-rose-700">
+                          하이에이스는 3인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-600">기본 대여물품</span>
+                        <Button
+                          variant="outline"
+                          disabled={!includeRentalItems}
+                          onClick={() =>
+                            setRentalItemsText(buildDefaultRentalItems(headcountTotal))
+                          }
+                        >
+                          초기화
+                        </Button>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={includeRentalItems}
+                          onChange={(event) => {
+                            const checked = event.target.checked;
+                            setIncludeRentalItems(checked);
+                            if (!checked) {
+                              setRentalItemsText('');
+                            }
+                          }}
+                        />
+                        기본 물품 포함
+                      </label>
+                      <textarea
+                        value={rentalItemsText}
+                        onChange={(event) => setRentalItemsText(event.target.value)}
+                        rows={4}
+                        disabled={!includeRentalItems}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                      />
+                    </div>
+
+                    <div className="grid gap-1 text-sm">
+                      <span className="text-xs text-slate-600">참여 이벤트</span>
+                      <div className="flex flex-wrap gap-2">
+                        {eventOptions.map((eventOption) => {
+                          const active = eventIds.includes(eventOption.id);
+                          return (
+                            <button
+                              key={eventOption.id}
+                              type="button"
+                              onClick={() =>
+                                setEventIds((prev) =>
+                                  prev.includes(eventOption.id)
+                                    ? prev.filter((item) => item !== eventOption.id)
+                                    : [...prev, eventOption.id],
+                                )
+                              }
+                              className={`rounded-xl border px-3 py-1.5 text-sm ${
+                                active
+                                  ? 'border-slate-900 bg-slate-900 text-white'
+                                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              {eventOption.name}
+                            </button>
+                          );
+                        })}
+                        {eventOptions.length === 0 ? (
+                          <span className="text-xs text-slate-500">진행중 이벤트 없음</span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-xs text-slate-600">
+                      비고 <span className="ml-1 text-slate-400">*고객에게 노출됩니다</span>
+                    </span>
+                    <textarea
+                      value={remark}
+                      onChange={(event) => setRemark(event.target.value)}
+                      rows={3}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    />
+                  </label>
+
+                  <div className="grid gap-1 text-sm">
+                    <span className="text-xs text-slate-600">Variant</span>
+                    <div className="flex flex-wrap gap-2">
+                      {VARIANTS.map((variant) => (
+                        <button
+                          key={variant.id}
+                          type="button"
+                          onClick={() => setVariantType(variant.id)}
+                          className={`rounded-xl border px-3 py-1.5 text-sm ${
+                            variantType === variant.id
+                              ? 'border-slate-900 bg-slate-900 text-white'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {variant.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
+                    2
+                  </span>
+                  <span>항공 및 이동</span>
+                </h2>
+                <div className="mt-5 grid gap-5 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-5">
+                  <div className="grid gap-3 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-slate-600">팀별 항공 / 픽업 / 드랍</span>
+                    </div>
+
+                    <div className="grid gap-4">
+                      {transportGroups.map((group, index) => (
+                        <div
+                          key={`transport-group-${index}`}
+                          className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                        >
+                          <div className="mb-3 flex items-center justify-between gap-2">
+                            <div>
+                              {transportGroups.length > 1 ? (
+                                <p className="text-sm font-semibold text-slate-900">
+                                  {group.teamName || `${index + 1}번 팀`}
+                                </p>
+                              ) : null}
+                            </div>
+                            {transportGroups.length > 1 ? (
+                              <Button
+                                variant="outline"
+                                disabled={transportGroups.length <= 1}
+                                onClick={() =>
+                                  setTransportGroups((current) =>
+                                    current.length <= 1
+                                      ? current
+                                      : current.filter((_, groupIndex) => groupIndex !== index),
+                                  )
+                                }
+                              >
+                                삭제
+                              </Button>
+                            ) : null}
+                          </div>
+
+                          <div className="grid gap-3">
+                            {transportGroups.length > 1 ? (
+                              <div className="grid gap-2 md:grid-cols-2">
+                                <label className="grid gap-1">
+                                  <span className="text-xs text-slate-600">팀명</span>
+                                  <input
+                                    value={group.teamName}
+                                    onChange={(event) =>
+                                      updateTransportGroup(index, 'teamName', event.target.value)
+                                    }
+                                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                  />
+                                </label>
+                                <label className="grid gap-1">
+                                  <span className="text-xs text-slate-600">인원</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    value={group.headcount}
+                                    onChange={(event) =>
+                                      updateTransportGroup(
+                                        index,
+                                        'headcount',
+                                        Math.max(1, Number(event.target.value) || 1),
+                                      )
+                                    }
+                                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                  />
+                                </label>
+                              </div>
+                            ) : null}
+
+                            {!travelStartDate && !travelEndDate ? (
+                              <p className="px-1 text-center text-xs font-medium text-emerald-700">
+                                여행 기간을 먼저 선택해주면 자동으로 세팅돼요^^
+                              </p>
+                            ) : null}
+
+                            <div className="grid gap-3 md:grid-cols-2">
+                              <div className="grid gap-2">
+                                <span className="text-xs text-slate-600">항공권 IN</span>
+                                <div className="grid gap-2">
+                                  <DateInputTrigger
+                                    value={group.flightInDate}
+                                    onClick={(event) =>
+                                      setDatePickerTarget({
+                                        kind: 'flightInDate',
+                                        index,
+                                        anchorEl: event.currentTarget,
+                                      })
+                                    }
+                                  />
+                                  <TimeInputTrigger
+                                    value={group.flightInTime}
+                                    onClick={(event) =>
+                                      setTimePickerTarget({
+                                        kind: 'flightInTime',
+                                        index,
+                                        anchorEl: event.currentTarget,
+                                      })
+                                    }
+                                  />
+                                  <div className="flex flex-wrap gap-2">
+                                    {FLIGHT_IN_TIME_OPTIONS.map((time) => (
+                                      <button
+                                        key={`builder-flight-in-${index}-${time}`}
+                                        type="button"
+                                        onClick={() =>
+                                          updateTransportGroup(index, 'flightInTime', time)
+                                        }
+                                        className={`rounded-xl border px-3 py-1.5 text-xs transition ${
+                                          group.flightInTime === time
+                                            ? 'border-slate-900 bg-slate-900 text-white'
+                                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                        }`}
+                                      >
+                                        {time}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="grid gap-2">
+                                <span className="text-xs text-slate-600">항공권 OUT</span>
+                                <div className="grid gap-2">
+                                  <DateInputTrigger
+                                    value={group.flightOutDate}
+                                    onClick={(event) =>
+                                      setDatePickerTarget({
+                                        kind: 'flightOutDate',
+                                        index,
+                                        anchorEl: event.currentTarget,
+                                      })
+                                    }
+                                  />
+                                  <TimeInputTrigger
+                                    value={group.flightOutTime}
+                                    onClick={(event) =>
+                                      setTimePickerTarget({
+                                        kind: 'flightOutTime',
+                                        index,
+                                        anchorEl: event.currentTarget,
+                                      })
+                                    }
+                                  />
+                                  <div className="flex flex-wrap gap-2">
+                                    {FLIGHT_OUT_TIME_OPTIONS.map((time) => (
+                                      <button
+                                        key={`builder-flight-out-${index}-${time}`}
+                                        type="button"
+                                        onClick={() =>
+                                          updateTransportGroup(index, 'flightOutTime', time)
+                                        }
+                                        className={`rounded-xl border px-3 py-1.5 text-xs transition ${
+                                          group.flightOutTime === time
+                                            ? 'border-slate-900 bg-slate-900 text-white'
+                                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                        }`}
+                                      >
+                                        {time}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="mt-2 grid gap-3 border-t border-slate-200 pt-4 md:grid-cols-2">
+                              <div className="grid gap-2">
+                                <span className="text-xs text-slate-600">픽업</span>
+                                <div className="grid gap-2">
+                                  <DateInputTrigger
+                                    value={group.pickupDate}
+                                    onClick={(event) =>
+                                      setDatePickerTarget({
+                                        kind: 'pickupDate',
+                                        index,
+                                        anchorEl: event.currentTarget,
+                                      })
+                                    }
+                                  />
+                                  <TimeInputTrigger
+                                    value={group.pickupTime}
+                                    onClick={(event) =>
+                                      setTimePickerTarget({
+                                        kind: 'pickupTime',
+                                        index,
+                                        anchorEl: event.currentTarget,
+                                      })
+                                    }
+                                  />
+                                  <div className="flex flex-wrap gap-2">
+                                    {PICKUP_DROP_TIME_OPTIONS.map((time) => (
+                                      <button
+                                        key={`builder-pickup-${index}-${time}`}
+                                        type="button"
+                                        onClick={() =>
+                                          updateTransportGroup(index, 'pickupTime', time)
+                                        }
+                                        className={`rounded-xl border px-3 py-1.5 text-xs transition ${
+                                          group.pickupTime === time
+                                            ? 'border-slate-900 bg-slate-900 text-white'
+                                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                        }`}
+                                      >
+                                        {time}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <PlaceField
+                                  label="픽업 장소"
+                                  placeType={group.pickupPlaceType}
+                                  customText={group.pickupPlaceCustomText}
+                                  onPlaceTypeChange={(value) =>
+                                    updateTransportGroup(index, 'pickupPlaceType', value)
+                                  }
+                                  onCustomTextChange={(value) =>
+                                    updateTransportGroup(index, 'pickupPlaceCustomText', value)
+                                  }
+                                />
+                              </div>
+
+                              <div className="grid gap-2">
+                                <span className="text-xs text-slate-600">드랍</span>
+                                <div className="grid gap-2">
+                                  <DateInputTrigger
+                                    value={group.dropDate}
+                                    onClick={(event) =>
+                                      setDatePickerTarget({
+                                        kind: 'dropDate',
+                                        index,
+                                        anchorEl: event.currentTarget,
+                                      })
+                                    }
+                                  />
+                                  <TimeInputTrigger
+                                    value={group.dropTime}
+                                    onClick={(event) =>
+                                      setTimePickerTarget({
+                                        kind: 'dropTime',
+                                        index,
+                                        anchorEl: event.currentTarget,
+                                      })
+                                    }
+                                  />
+                                  <div className="flex flex-wrap gap-2">
+                                    {PICKUP_DROP_TIME_OPTIONS.map((time) => (
+                                      <button
+                                        key={`builder-drop-${index}-${time}`}
+                                        type="button"
+                                        onClick={() =>
+                                          updateTransportGroup(index, 'dropTime', time)
+                                        }
+                                        className={`rounded-xl border px-3 py-1.5 text-xs transition ${
+                                          group.dropTime === time
+                                            ? 'border-slate-900 bg-slate-900 text-white'
+                                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                        }`}
+                                      >
+                                        {time}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <PlaceField
+                                  label="드랍 장소"
+                                  placeType={group.dropPlaceType}
+                                  customText={group.dropPlaceCustomText}
+                                  onPlaceTypeChange={(value) =>
+                                    updateTransportGroup(index, 'dropPlaceType', value)
+                                  }
+                                  onCustomTextChange={(value) =>
+                                    updateTransportGroup(index, 'dropPlaceCustomText', value)
+                                  }
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const usedHeadcount = transportGroups.reduce(
+                              (sum, group) => sum + group.headcount,
+                              0,
+                            );
+                            const remainingHeadcount = Math.max(headcountTotal - usedHeadcount, 0);
+                            setTransportGroups((current) => [
+                              ...current,
+                              createTransportGroupDraft({
+                                index: current.length,
+                                headcount: remainingHeadcount > 0 ? remainingHeadcount : 1,
+                                travelStartDate,
+                                travelEndDate,
+                                flightInTime: '02:45',
+                                flightOutTime: '18:15',
+                              }),
+                            ]);
+                          }}
+                          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900"
+                        >
+                          + 팀 추가
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 text-sm">
+                    <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="min-w-0 w-1/2">
+                        <span className="text-xs text-slate-600">실투어 외 픽업 / 드랍</span>
+                        <p className="mt-1 text-xs text-slate-400">
+                          외부 이동 항목 추가, 수정, 삭제를 모달에서 관리합니다.
+                        </p>
+                        <p className="mt-2 text-xs text-slate-500">
+                          {externalTransfers.length === 0
+                            ? '아직 추가된 외부 이동 항목이 없습니다.'
+                            : `${externalTransfers.length}건 · 픽업 ${externalTransfers.filter((item) => item.direction === 'PICKUP').length}건 · 드랍 ${
+                                externalTransfers.filter((item) => item.direction === 'DROP').length
+                              }건`}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="shrink-0 whitespace-nowrap"
+                        onClick={() => {
+                          setExternalTransfersDraft(externalTransfers.map(cloneExternalTransfer));
+                          setExternalTransfersManagerModalState({ open: true });
+                        }}
+                      >
+                        실투어 외 픽드랍 설정
+                      </Button>
+                    </div>
+                  </div>
+
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-xs text-slate-600">
+                      특이사항 <span className="ml-1 text-slate-400">*고객에게 노출됩니다</span>
+                    </span>
+                    <textarea
+                      value={specialNote}
+                      onChange={(event) => setSpecialNote(event.target.value)}
+                      rows={3}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                      placeholder="줄바꿈 포함 입력 가능"
+                    />
+                  </label>
+                </div>
+              </Card>
+
+              <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
+                    3
+                  </span>
+                  <span>일정 선택</span>
+                </h2>
+                <p className="mt-1 text-xs text-slate-600">
+                  이전 일차와 연결 가능한 목적지만 버튼으로 노출됩니다.
+                </p>
+                <div className="mt-4 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
+                  <div className="text-xs font-semibold text-slate-700">
+                    템플릿 불러오기 (현재 지역/일수)
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={routePresetTemplateId}
+                      onChange={(event) => setRoutePresetTemplateId(event.target.value)}
+                      disabled={!regionId || totalDays <= 0 || routePresetOptions.length === 0}
+                      className="min-w-[260px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100"
+                    >
+                      <option value="">템플릿 선택</option>
+                      {routePresetOptions.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      variant="outline"
+                      disabled={
+                        !regionId ||
+                        totalDays <= 0 ||
+                        routePresetOptions.length === 0 ||
+                        !routePresetSelected
+                      }
+                      onClick={() => {
+                        if (!routePresetSelected) {
+                          return;
+                        }
+                        applyTemplate(routePresetSelected, true);
+                      }}
+                    >
+                      불러오기
+                    </Button>
+                  </div>
+                  {regionId && totalDays > 0 && routePresetOptions.length === 0 ? (
+                    <p className="text-xs text-slate-500">
+                      선택 가능한 템플릿이 없습니다. 지역과 일수를 확인하세요.
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="mt-4 space-y-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="text-sm font-medium">1일차 출발지</div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      목적지중 첫날 가능 목적지만 나열됩니다
+                    </p>
+                    {startLocationId ? (
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <div className="text-slate-700">
+                          <span className="whitespace-pre-line">
+                            {formatLocationNameMultiline(
+                              locationById.get(startLocationId)?.name ?? startLocationId,
+                            )}
+                          </span>
+                          {(variantType === VariantType.Early ||
+                            variantType === VariantType.EarlyExtend) && (
+                            <span className="ml-2 text-xs text-amber-700">(얼리 일정)</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
                             setStartLocationId('');
                             setStartLocationVersionId('');
                             setSelectedRoute([]);
                             dirtyPlanRowFieldKeysRef.current.clear();
                             setPlanRows([]);
                           }}
-                          className={`rounded-xl border px-3 py-1.5 text-sm ${
-                            regionId === region.id
-                              ? 'border-slate-900 bg-slate-900 text-white'
-                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                          } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+                          className="text-xs text-slate-500 underline"
                         >
-                          {region.name}
+                          변경
                         </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="grid gap-2 text-sm">
-                  <span className="text-xs text-slate-600">인원</span>
-                  <div className="grid gap-3">
-                    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nextTotal = Math.max(1, headcountTotal - 1);
-                          applyHeadcountTotalChange(nextTotal);
-                        }}
-                        disabled={headcountTotal <= 1}
-                        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        aria-label="인원 감소"
-                      >
-                        -
-                      </button>
-                      <div className="min-w-0 flex-1 text-center text-base font-semibold text-slate-900">{headcountTotal}명</div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nextTotal = Math.min(30, headcountTotal + 1);
-                          applyHeadcountTotalChange(nextTotal);
-                        }}
-                        disabled={headcountTotal >= 30}
-                        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        aria-label="인원 증가"
-                      >
-                        +
-                      </button>
-                    </div>
-                    <div className="grid gap-2 pt-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs text-slate-600">성비 조절</div>
-                        <label className="flex items-center gap-2 text-xs text-slate-600">
-                          <input
-                            type="checkbox"
-                            checked={headcountMale === 0}
-                            onChange={(event) => {
-                              hasEditedHeadcountMaleRef.current = true;
-                              if (event.target.checked) {
-                                setHeadcountMale(0);
-                                return;
-                              }
-                              setHeadcountMale((prev) => (prev === 0 ? 1 : prev));
-                            }}
-                          />
-                          남성없음
-                        </label>
                       </div>
-                      <div className="flex w-full flex-wrap gap-1">
-                        {Array.from({ length: headcountTotal }, (_, index) => {
-                          const count = index + 1;
-                          const isMaleToken = count <= headcountMale;
-                          return (
-                            <button
-                              key={`male-token-${count}`}
-                              type="button"
-                              onClick={() => {
-                                hasEditedHeadcountMaleRef.current = true;
-                                setHeadcountMale(count);
-                              }}
-                              className={`h-7 w-7 rounded-full border text-xs ${
-                                isMaleToken
-                                  ? 'border-blue-700 bg-blue-600 text-white'
-                                  : 'border-pink-200 bg-pink-50 text-pink-700 hover:bg-pink-100'
-                              }`}
-                              title={isMaleToken ? `남 ${count}` : `여 ${count - headcountMale}`}
-                            >
-                              {count}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="text-xs text-slate-600">
-                        남 {headcountMale} / 여 {headcountFemale}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-
-              <div className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">일수</span>
-                <div className="flex flex-wrap gap-2">
-                  {Array.from({ length: 12 }, (_, idx) => idx + 2).map((day) => (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => {
-                        setTotalDays(day);
-                        setSelectedRoute((prev) => trimRouteSelectionsToTotalDays(prev, day));
-                      }}
-                      className={`rounded-xl border px-3 py-1.5 text-sm ${
-                        totalDays === day
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {day}일
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="grid gap-2 text-sm">
-                  <span className="text-xs text-slate-600">여행 기간</span>
-                  <div className="grid gap-2">
-                    <DateInputTrigger
-                      value={travelStartDate}
-                      placeholder="시작일 선택"
-                      onClick={(event) => setDatePickerTarget({ kind: 'travelStartDate', anchorEl: event.currentTarget })}
-                    />
-                    <DateInputTrigger
-                      value={travelEndDate}
-                      placeholder="종료일 선택"
-                      onClick={(event) => setDatePickerTarget({ kind: 'travelEndDate', anchorEl: event.currentTarget })}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-1 text-sm">
-                  <span className="text-xs text-slate-600">차량</span>
-                  <div className="flex flex-wrap gap-2">
-                    {VEHICLES.map((vehicle) => (
-                      <button
-                        key={vehicle}
-                        type="button"
-                        onClick={() => {
-                          if (vehicle === '하이에이스' && headcountTotal < 3) {
-                            return;
-                          }
-                          setVehicleType(vehicle);
-                        }}
-                        disabled={vehicle === '하이에이스' && headcountTotal < 3}
-                        className={`rounded-xl border px-3 py-1.5 text-sm ${
-                          vehicleType === vehicle
-                            ? 'border-slate-900 bg-slate-900 text-white'
-                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                        } ${vehicle === '하이에이스' && headcountTotal < 3 ? 'cursor-not-allowed opacity-40' : ''}`}
-                      >
-                        {vehicle}
-                      </button>
-                    ))}
-                  </div>
-                  {hasValidation('hiace-headcount') ? (
-                    <p className="text-xs text-rose-700">하이에이스는 3인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.</p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="grid gap-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-600">기본 대여물품</span>
-                    <Button
-                      variant="outline"
-                      disabled={!includeRentalItems}
-                      onClick={() => setRentalItemsText(buildDefaultRentalItems(headcountTotal))}
-                    >
-                      초기화
-                    </Button>
-                  </div>
-                  <label className="flex items-center gap-2 text-xs text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={includeRentalItems}
-                      onChange={(event) => {
-                        const checked = event.target.checked;
-                        setIncludeRentalItems(checked);
-                        if (!checked) {
-                          setRentalItemsText('');
-                        }
-                      }}
-                    />
-                    기본 물품 포함
-                  </label>
-                  <textarea
-                    value={rentalItemsText}
-                    onChange={(event) => setRentalItemsText(event.target.value)}
-                    rows={4}
-                    disabled={!includeRentalItems}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  />
-                </div>
-
-                <div className="grid gap-1 text-sm">
-                  <span className="text-xs text-slate-600">참여 이벤트</span>
-                  <div className="flex flex-wrap gap-2">
-                    {eventOptions.map((eventOption) => {
-                      const active = eventIds.includes(eventOption.id);
-                      return (
-                        <button
-                          key={eventOption.id}
-                          type="button"
-                          onClick={() =>
-                            setEventIds((prev) =>
-                              prev.includes(eventOption.id)
-                                ? prev.filter((item) => item !== eventOption.id)
-                                : [...prev, eventOption.id],
-                            )
-                          }
-                          className={`rounded-xl border px-3 py-1.5 text-sm ${
-                            active
-                              ? 'border-slate-900 bg-slate-900 text-white'
-                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                          }`}
-                        >
-                          {eventOption.name}
-                        </button>
-                      );
-                    })}
-                    {eventOptions.length === 0 ? <span className="text-xs text-slate-500">진행중 이벤트 없음</span> : null}
-                  </div>
-                </div>
-              </div>
-
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">
-                  비고 <span className="ml-1 text-slate-400">*고객에게 노출됩니다</span>
-                </span>
-                <textarea
-                  value={remark}
-                  onChange={(event) => setRemark(event.target.value)}
-                  rows={3}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                />
-              </label>
-
-
-              <div className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">Variant</span>
-                <div className="flex flex-wrap gap-2">
-                  {VARIANTS.map((variant) => (
-                    <button
-                      key={variant.id}
-                      type="button"
-                      onClick={() => setVariantType(variant.id)}
-                      className={`rounded-xl border px-3 py-1.5 text-sm ${
-                        variantType === variant.id
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {variant.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-          </Card>
-
-          <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">2</span>
-              <span>항공 및 이동</span>
-            </h2>
-            <div className="mt-5 grid gap-5 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-5">
-              <div className="grid gap-3 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-slate-600">팀별 항공 / 픽업 / 드랍</span>
-                </div>
-
-                <div className="grid gap-4">
-                  {transportGroups.map((group, index) => (
-                    <div key={`transport-group-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <div className="mb-3 flex items-center justify-between gap-2">
-                        <div>
-                          {transportGroups.length > 1 ? (
-                            <p className="text-sm font-semibold text-slate-900">{group.teamName || `${index + 1}번 팀`}</p>
-                          ) : null}
-                        </div>
-                        {transportGroups.length > 1 ? (
-                          <Button
-                            variant="outline"
-                            disabled={transportGroups.length <= 1}
-                            onClick={() =>
-                              setTransportGroups((current) =>
-                                current.length <= 1 ? current : current.filter((_, groupIndex) => groupIndex !== index),
-                              )
-                            }
-                          >
-                            삭제
-                          </Button>
-                        ) : null}
-                      </div>
-
-                      <div className="grid gap-3">
-                        {transportGroups.length > 1 ? (
-                          <div className="grid gap-2 md:grid-cols-2">
-                            <label className="grid gap-1">
-                              <span className="text-xs text-slate-600">팀명</span>
-                              <input
-                                value={group.teamName}
-                                onChange={(event) => updateTransportGroup(index, 'teamName', event.target.value)}
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                              />
-                            </label>
-                            <label className="grid gap-1">
-                              <span className="text-xs text-slate-600">인원</span>
-                              <input
-                                type="number"
-                                min={1}
-                                value={group.headcount}
-                                onChange={(event) =>
-                                  updateTransportGroup(index, 'headcount', Math.max(1, Number(event.target.value) || 1))
-                                }
-                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                              />
-                            </label>
-                          </div>
-                        ) : null}
-
-                        {!travelStartDate && !travelEndDate ? (
-                          <p className="px-1 text-center text-xs font-medium text-emerald-700">여행 기간을 먼저 선택해주면 자동으로 세팅돼요^^</p>
-                        ) : null}
-
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <div className="grid gap-2">
-                            <span className="text-xs text-slate-600">항공권 IN</span>
-                            <div className="grid gap-2">
-                              <DateInputTrigger
-                                value={group.flightInDate}
-                                onClick={(event) =>
-                                  setDatePickerTarget({ kind: 'flightInDate', index, anchorEl: event.currentTarget })
-                                }
-                              />
-                              <TimeInputTrigger
-                                value={group.flightInTime}
-                                onClick={(event) =>
-                                  setTimePickerTarget({ kind: 'flightInTime', index, anchorEl: event.currentTarget })
-                                }
-                              />
-                              <div className="flex flex-wrap gap-2">
-                                {FLIGHT_IN_TIME_OPTIONS.map((time) => (
-                                  <button
-                                    key={`builder-flight-in-${index}-${time}`}
-                                    type="button"
-                                    onClick={() => updateTransportGroup(index, 'flightInTime', time)}
-                                    className={`rounded-xl border px-3 py-1.5 text-xs transition ${
-                                      group.flightInTime === time
-                                        ? 'border-slate-900 bg-slate-900 text-white'
-                                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                                    }`}
-                                  >
-                                    {time}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="grid gap-2">
-                            <span className="text-xs text-slate-600">항공권 OUT</span>
-                            <div className="grid gap-2">
-                              <DateInputTrigger
-                                value={group.flightOutDate}
-                                onClick={(event) =>
-                                  setDatePickerTarget({ kind: 'flightOutDate', index, anchorEl: event.currentTarget })
-                                }
-                              />
-                              <TimeInputTrigger
-                                value={group.flightOutTime}
-                                onClick={(event) =>
-                                  setTimePickerTarget({ kind: 'flightOutTime', index, anchorEl: event.currentTarget })
-                                }
-                              />
-                              <div className="flex flex-wrap gap-2">
-                                {FLIGHT_OUT_TIME_OPTIONS.map((time) => (
-                                  <button
-                                    key={`builder-flight-out-${index}-${time}`}
-                                    type="button"
-                                    onClick={() => updateTransportGroup(index, 'flightOutTime', time)}
-                                    className={`rounded-xl border px-3 py-1.5 text-xs transition ${
-                                      group.flightOutTime === time
-                                        ? 'border-slate-900 bg-slate-900 text-white'
-                                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                                    }`}
-                                  >
-                                    {time}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-2 grid gap-3 border-t border-slate-200 pt-4 md:grid-cols-2">
-                          <div className="grid gap-2">
-                            <span className="text-xs text-slate-600">픽업</span>
-                            <div className="grid gap-2">
-                              <DateInputTrigger
-                                value={group.pickupDate}
-                                onClick={(event) =>
-                                  setDatePickerTarget({ kind: 'pickupDate', index, anchorEl: event.currentTarget })
-                                }
-                              />
-                              <TimeInputTrigger
-                                value={group.pickupTime}
-                                onClick={(event) =>
-                                  setTimePickerTarget({ kind: 'pickupTime', index, anchorEl: event.currentTarget })
-                                }
-                              />
-                              <div className="flex flex-wrap gap-2">
-                                {PICKUP_DROP_TIME_OPTIONS.map((time) => (
-                                  <button
-                                    key={`builder-pickup-${index}-${time}`}
-                                    type="button"
-                                    onClick={() => updateTransportGroup(index, 'pickupTime', time)}
-                                    className={`rounded-xl border px-3 py-1.5 text-xs transition ${
-                                      group.pickupTime === time
-                                        ? 'border-slate-900 bg-slate-900 text-white'
-                                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                                    }`}
-                                  >
-                                    {time}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                            <PlaceField
-                              label="픽업 장소"
-                              placeType={group.pickupPlaceType}
-                              customText={group.pickupPlaceCustomText}
-                              onPlaceTypeChange={(value) => updateTransportGroup(index, 'pickupPlaceType', value)}
-                              onCustomTextChange={(value) => updateTransportGroup(index, 'pickupPlaceCustomText', value)}
-                            />
-                          </div>
-
-                          <div className="grid gap-2">
-                            <span className="text-xs text-slate-600">드랍</span>
-                            <div className="grid gap-2">
-                              <DateInputTrigger
-                                value={group.dropDate}
-                                onClick={(event) =>
-                                  setDatePickerTarget({ kind: 'dropDate', index, anchorEl: event.currentTarget })
-                                }
-                              />
-                              <TimeInputTrigger
-                                value={group.dropTime}
-                                onClick={(event) =>
-                                  setTimePickerTarget({ kind: 'dropTime', index, anchorEl: event.currentTarget })
-                                }
-                              />
-                              <div className="flex flex-wrap gap-2">
-                                {PICKUP_DROP_TIME_OPTIONS.map((time) => (
-                                  <button
-                                    key={`builder-drop-${index}-${time}`}
-                                    type="button"
-                                    onClick={() => updateTransportGroup(index, 'dropTime', time)}
-                                    className={`rounded-xl border px-3 py-1.5 text-xs transition ${
-                                      group.dropTime === time
-                                        ? 'border-slate-900 bg-slate-900 text-white'
-                                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                                    }`}
-                                  >
-                                    {time}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                            <PlaceField
-                              label="드랍 장소"
-                              placeType={group.dropPlaceType}
-                              customText={group.dropPlaceCustomText}
-                              onPlaceTypeChange={(value) => updateTransportGroup(index, 'dropPlaceType', value)}
-                              onCustomTextChange={(value) => updateTransportGroup(index, 'dropPlaceCustomText', value)}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  <div className="pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const usedHeadcount = transportGroups.reduce((sum, group) => sum + group.headcount, 0);
-                        const remainingHeadcount = Math.max(headcountTotal - usedHeadcount, 0);
-                        setTransportGroups((current) => [
-                          ...current,
-                          createTransportGroupDraft({
-                            index: current.length,
-                            headcount: remainingHeadcount > 0 ? remainingHeadcount : 1,
-                            travelStartDate,
-                            travelEndDate,
-                            flightInTime: '02:45',
-                            flightOutTime: '18:15',
-                          }),
-                        ]);
-                      }}
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900"
-                    >
-                      + 팀 추가
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-3 text-sm">
-                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="min-w-0 w-1/2">
-                    <span className="text-xs text-slate-600">실투어 외 픽업 / 드랍</span>
-                    <p className="mt-1 text-xs text-slate-400">외부 이동 항목 추가, 수정, 삭제를 모달에서 관리합니다.</p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      {externalTransfers.length === 0
-                        ? '아직 추가된 외부 이동 항목이 없습니다.'
-                        : `${externalTransfers.length}건 · 픽업 ${externalTransfers.filter((item) => item.direction === 'PICKUP').length}건 · 드랍 ${
-                            externalTransfers.filter((item) => item.direction === 'DROP').length
-                          }건`}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="shrink-0 whitespace-nowrap"
-                    onClick={() => {
-                      setExternalTransfersDraft(externalTransfers.map(cloneExternalTransfer));
-                      setExternalTransfersManagerModalState({ open: true });
-                    }}
-                  >
-                    실투어 외 픽드랍 설정
-                  </Button>
-                </div>
-              </div>
-
-              <label className="grid gap-1 text-sm">
-                <span className="text-xs text-slate-600">
-                  특이사항 <span className="ml-1 text-slate-400">*고객에게 노출됩니다</span>
-                </span>
-                <textarea
-                  value={specialNote}
-                  onChange={(event) => setSpecialNote(event.target.value)}
-                  rows={3}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  placeholder="줄바꿈 포함 입력 가능"
-                />
-              </label>
-            </div>
-          </Card>
-
-          <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">3</span>
-              <span>일정 선택</span>
-            </h2>
-            <p className="mt-1 text-xs text-slate-600">이전 일차와 연결 가능한 목적지만 버튼으로 노출됩니다.</p>
-            <div className="mt-4 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
-              <div className="text-xs font-semibold text-slate-700">템플릿 불러오기 (현재 지역/일수)</div>
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  value={routePresetTemplateId}
-                  onChange={(event) => setRoutePresetTemplateId(event.target.value)}
-                  disabled={!regionId || totalDays <= 0 || routePresetOptions.length === 0}
-                  className="min-w-[260px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100"
-                >
-                  <option value="">템플릿 선택</option>
-                  {routePresetOptions.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.name}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  variant="outline"
-                  disabled={!regionId || totalDays <= 0 || routePresetOptions.length === 0 || !routePresetSelected}
-                  onClick={() => {
-                    if (!routePresetSelected) {
-                      return;
-                    }
-                    applyTemplate(routePresetSelected, true);
-                  }}
-                >
-                  불러오기
-                </Button>
-              </div>
-              {regionId && totalDays > 0 && routePresetOptions.length === 0 ? (
-                <p className="text-xs text-slate-500">선택 가능한 템플릿이 없습니다. 지역과 일수를 확인하세요.</p>
-              ) : null}
-            </div>
-
-            <div className="mt-4 space-y-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <div className="text-sm font-medium">1일차 출발지</div>
-                <p className="mt-1 text-xs text-slate-500">목적지중 첫날 가능 목적지만 나열됩니다</p>
-                {startLocationId ? (
-                  <div className="mt-1 flex items-center justify-between gap-2">
-                    <div className="text-slate-700">
-                      <span className="whitespace-pre-line">{formatLocationNameMultiline(locationById.get(startLocationId)?.name ?? startLocationId)}</span>
-                      {(variantType === VariantType.Early || variantType === VariantType.EarlyExtend) && (
-                        <span className="ml-2 text-xs text-amber-700">(얼리 일정)</span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStartLocationId('');
-                        setStartLocationVersionId('');
-                        setSelectedRoute([]);
-                        dirtyPlanRowFieldKeysRef.current.clear();
-                        setPlanRows([]);
-                      }}
-                      className="text-xs text-slate-500 underline"
-                    >
-                      변경
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mt-1 text-xs text-slate-500">출발지를 선택해주세요.</div>
-                )}
-                {!startLocationId ? (
-                  <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
-                    {firstDayOptions.map((location) => (
-                      <button
-                        key={`start-${location.id}`}
-                        type="button"
-                        onClick={() => {
-                          setStartLocationId(location.id);
-                          setStartLocationVersionId(getDefaultVersionId(location));
-                          setSelectedRoute([]);
-                        }}
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
-                      >
-                        <span className="whitespace-pre-line">{formatLocationNameMultiline(location.name)}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-                {!startLocationId && firstDayOptions.length === 0 ? (
-                  <p className="mt-3 text-xs text-amber-700">첫날 가능으로 설정된 목적지가 없습니다.</p>
-                ) : null}
-              </div>
-
-              {selectedRoute.map((stop, index) => (
-                <div key={`selected-${index + 1}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                  {(() => {
-                    const startDayIndex = getRouteStopStartDayIndex(selectedRoute, index);
-                    const endDayIndex = getRouteStopEndDayIndex(selectedRoute, index);
-
-                    if (stop.kind === 'MULTI_DAY_BLOCK') {
-                      const isLastDay = endDayIndex === totalDays;
-                      return (
-                        <>
-                          <div className="text-sm font-medium">
-                            {startDayIndex === endDayIndex ? `${startDayIndex}일차` : `${startDayIndex}~${endDayIndex}일차`} 블록
-                          </div>
-                          <div className="mt-1 text-slate-700">
-                            <span className="whitespace-pre-line">
-                              {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
-                            </span>
-                            {isLastDay && (variantType === VariantType.Extend || variantType === VariantType.EarlyExtend) && (
-                              <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
-                            )}
-                          </div>
-                        </>
-                      );
-                    }
-
-                    const previousStop = selectedRoute[index - 1];
-                    if (previousStop?.kind === 'MULTI_DAY_BLOCK') {
-                      const connection = findMultiDayBlockConnection(
-                        filteredOvernightStayConnections,
-                        previousStop.multiDayBlockId,
-                        stop.locationId,
-                      );
-                      const versions = getMultiDayBlockConnectionVersions(connection);
-                      const selectedVersion = resolveMultiDayBlockConnectionVersion(
-                        connection,
-                        stop.overnightStayConnectionVersionId,
-                      );
-
-                      const isLastDay = endDayIndex === totalDays;
-                      return (
-                        <>
-                          <div className="text-sm font-medium">{startDayIndex}일차</div>
-                          <div className="mt-1 text-slate-700">
-                            <span className="whitespace-pre-line">
-                              {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
-                            </span>
-                            {isLastDay && (variantType === VariantType.Extend || variantType === VariantType.EarlyExtend) && (
-                              <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
-                            )}
-                          </div>
-                          {versions.length > 1 ? (
-                            <div className="mt-3 grid gap-2">
-                              <div className="text-xs text-slate-500">블록 다음 연결 버전</div>
-                              <div className="flex flex-wrap gap-2">
-                                {versions.map((version) => (
-                                  <button
-                                    key={`route-overnight-connection-version-${index}-${version.id}`}
-                                    type="button"
-                                    onClick={() =>
-                                      setSelectedRoute((prev) =>
-                                        prev.map((item, itemIndex) =>
-                                          itemIndex === index && item.kind === 'LOCATION'
-                                            ? {
-                                                ...item,
-                                                overnightStayConnectionId: connection?.id,
-                                                overnightStayConnectionVersionId: version.id,
-                                              }
-                                            : item,
-                                        ),
-                                      )
-                                    }
-                                    className={`rounded-lg border px-3 py-1 text-xs ${
-                                      selectedVersion?.id === version.id
-                                        ? 'border-slate-900 bg-slate-900 text-white'
-                                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
-                                    }`}
-                                  >
-                                    {formatMultiDayBlockConnectionVersionLabel(version)}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ) : null}
-                        </>
-                      );
-                    }
-
-                    const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
-                    const segment = findSegment(filteredSegments, fromId, stop.locationId);
-                    const versions = getSegmentVersions(segment);
-                    const selectedVersion = resolveSegmentVersionForDate(
-                      segment,
-                      travelStartDate ? getRouteDateForDayIndex(travelStartDate, startDayIndex) : undefined,
-                      stop.segmentVersionId,
-                    );
-
-                    const isLastDay = endDayIndex === totalDays;
-                    return (
-                      <>
-                        <div className="text-sm font-medium">{startDayIndex}일차</div>
-                        <div className="mt-1 text-slate-700">
-                          <span className="whitespace-pre-line">
-                            {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
-                          </span>
-                          {isLastDay && (variantType === VariantType.Extend || variantType === VariantType.EarlyExtend) && (
-                            <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
-                          )}
-                        </div>
-                        {versions.length > 1 ? (
-                          <div className="mt-3 grid gap-2">
-                            <div className="text-xs text-slate-500">시즌 버전</div>
-                            <div className="flex flex-wrap gap-2">
-                              {versions.map((version) => (
-                                <button
-                                  key={`route-segment-version-${index}-${version.id}`}
-                                  type="button"
-                                  onClick={() =>
-                                    setSelectedRoute((prev) =>
-                                      prev.map((item, itemIndex) =>
-                                        itemIndex === index && item.kind === 'LOCATION'
-                                          ? {
-                                              ...item,
-                                              segmentId: segment?.id,
-                                              segmentVersionId: version.id,
-                                              overnightStayConnectionId: undefined,
-                                              overnightStayConnectionVersionId: undefined,
-                                            }
-                                          : item,
-                                      ),
-                                    )
-                                  }
-                                  className={`rounded-lg border px-3 py-1 text-xs ${
-                                    selectedVersion?.id === version.id
-                                      ? 'border-slate-900 bg-slate-900 text-white'
-                                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
-                                  }`}
-                                >
-                                  {formatSegmentVersionLabel(version)}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        ) : null}
-                      </>
-                    );
-                  })()}
-                </div>
-              ))}
-
-              {startLocationId && startLocationVersionId && 1 + getConsumedRouteDayCount(selectedRoute) < totalDays ? (
-                <div className="rounded-2xl border border-dashed border-slate-300 p-4">
-                  <div className="mb-3 text-sm font-medium">{2 + getConsumedRouteDayCount(selectedRoute)}일차 선택</div>
-                  <div className="grid gap-3">
-                    <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-                      {nextOptions.map((location) => (
-                        <button
-                          key={location.id}
-                          type="button"
-                          onClick={() =>
-                            setSelectedRoute((prev) => {
-                              const lastStop = prev[prev.length - 1];
-                              if (lastStop?.kind === 'MULTI_DAY_BLOCK') {
-                                const connection = findMultiDayBlockConnection(
-                                  filteredOvernightStayConnections,
-                                  lastStop.multiDayBlockId,
-                                  location.id,
-                                );
-                                return [
-                                  ...prev,
-                                  {
-                                    kind: 'LOCATION',
-                                    locationId: location.id,
-                                    locationVersionId: getDefaultVersionId(location),
-                                    overnightStayConnectionId: connection?.id,
-                                    overnightStayConnectionVersionId:
-                                      getDefaultMultiDayBlockConnectionVersionId(connection) || undefined,
-                                  },
-                                ];
-                              }
-
-                              const fromId = prev.length === 0 ? startLocationId : prev[prev.length - 1]?.locationId ?? '';
-                              const segment = findSegment(filteredSegments, fromId, location.id);
-                              return [
-                                ...prev,
-                                {
-                                  kind: 'LOCATION',
-                                  locationId: location.id,
-                                  locationVersionId: getDefaultVersionId(location),
-                                  segmentId: segment?.id,
-                                  segmentVersionId: undefined,
-                                },
-                              ];
-                            })
-                          }
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
-                        >
-                          <span className="whitespace-pre-line">{formatLocationNameMultiline(location.name)}</span>
-                        </button>
-                      ))}
-                    </div>
-                    {nextOptions.length === 0 ? <p className="text-xs text-amber-700">선택 가능한 다음 목적지가 없습니다.</p> : null}
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        disabled={totalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2}
-                        onClick={() => setIsOvernightStayPickerOpen((prev) => !prev)}
-                      >
-                        블록 선택하기
-                      </Button>
-                      {totalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2 ? (
-                        <span className="text-xs text-slate-500">남은 일수에 맞는 블록만 선택할 수 있습니다.</span>
-                      ) : null}
-                    </div>
-                    {isOvernightStayPickerOpen ? (
-                      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-                        {overnightStayOptions.map((overnightStay) => (
+                    ) : (
+                      <div className="mt-1 text-xs text-slate-500">출발지를 선택해주세요.</div>
+                    )}
+                    {!startLocationId ? (
+                      <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
+                        {firstDayOptions.map((location) => (
                           <button
-                            key={overnightStay.id}
+                            key={`start-${location.id}`}
                             type="button"
                             onClick={() => {
-                              const location = locationById.get(overnightStay.locationId);
-                              setSelectedRoute((prev) => [
-                                ...prev,
-                                {
-                                  kind: 'MULTI_DAY_BLOCK',
-                                  multiDayBlockId: overnightStay.id,
-                                  stayLength: overnightStay.days.length,
-                                  locationId: overnightStay.locationId,
-                                  locationVersionId: getDefaultVersionId(location) || '',
-                                },
-                              ]);
-                              setIsOvernightStayPickerOpen(false);
+                              setStartLocationId(location.id);
+                              setStartLocationVersionId(getDefaultVersionId(location));
+                              setSelectedRoute([]);
                             }}
-                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:bg-slate-100"
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
                           >
-                            {overnightStay.title}
+                            <span className="whitespace-pre-line">
+                              {formatLocationNameMultiline(location.name)}
+                            </span>
                           </button>
                         ))}
                       </div>
                     ) : null}
-                    {isOvernightStayPickerOpen && overnightStayOptions.length === 0 ? (
-                      <p className="text-xs text-amber-700">선택 가능한 블록이 없습니다.</p>
+                    {!startLocationId && firstDayOptions.length === 0 ? (
+                      <p className="mt-3 text-xs text-amber-700">
+                        첫날 가능으로 설정된 목적지가 없습니다.
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {selectedRoute.map((stop, index) => (
+                    <div
+                      key={`selected-${index + 1}`}
+                      className="rounded-2xl border border-slate-200 bg-slate-50 p-3"
+                    >
+                      {(() => {
+                        const startDayIndex = getRouteStopStartDayIndex(selectedRoute, index);
+                        const endDayIndex = getRouteStopEndDayIndex(selectedRoute, index);
+
+                        if (stop.kind === 'MULTI_DAY_BLOCK') {
+                          const isLastDay = endDayIndex === totalDays;
+                          return (
+                            <>
+                              <div className="text-sm font-medium">
+                                {startDayIndex === endDayIndex
+                                  ? `${startDayIndex}일차`
+                                  : `${startDayIndex}~${endDayIndex}일차`}{' '}
+                                블록
+                              </div>
+                              <div className="mt-1 text-slate-700">
+                                <span className="whitespace-pre-line">
+                                  {formatLocationNameMultiline(
+                                    locationById.get(stop.locationId)?.name ?? stop.locationId,
+                                  )}
+                                </span>
+                                {isLastDay &&
+                                  (variantType === VariantType.Extend ||
+                                    variantType === VariantType.EarlyExtend) && (
+                                    <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
+                                  )}
+                              </div>
+                            </>
+                          );
+                        }
+
+                        const previousStop = selectedRoute[index - 1];
+                        if (previousStop?.kind === 'MULTI_DAY_BLOCK') {
+                          const connection = findMultiDayBlockConnection(
+                            filteredOvernightStayConnections,
+                            previousStop.multiDayBlockId,
+                            stop.locationId,
+                          );
+                          const versions = getMultiDayBlockConnectionVersions(connection);
+                          const selectedVersion = resolveMultiDayBlockConnectionVersion(
+                            connection,
+                            stop.overnightStayConnectionVersionId,
+                          );
+
+                          const isLastDay = endDayIndex === totalDays;
+                          return (
+                            <>
+                              <div className="text-sm font-medium">{startDayIndex}일차</div>
+                              <div className="mt-1 text-slate-700">
+                                <span className="whitespace-pre-line">
+                                  {formatLocationNameMultiline(
+                                    locationById.get(stop.locationId)?.name ?? stop.locationId,
+                                  )}
+                                </span>
+                                {isLastDay &&
+                                  (variantType === VariantType.Extend ||
+                                    variantType === VariantType.EarlyExtend) && (
+                                    <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
+                                  )}
+                              </div>
+                              {versions.length > 1 ? (
+                                <div className="mt-3 grid gap-2">
+                                  <div className="text-xs text-slate-500">블록 다음 연결 버전</div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {versions.map((version) => (
+                                      <button
+                                        key={`route-overnight-connection-version-${index}-${version.id}`}
+                                        type="button"
+                                        onClick={() =>
+                                          setSelectedRoute((prev) =>
+                                            prev.map((item, itemIndex) =>
+                                              itemIndex === index && item.kind === 'LOCATION'
+                                                ? {
+                                                    ...item,
+                                                    overnightStayConnectionId: connection?.id,
+                                                    overnightStayConnectionVersionId: version.id,
+                                                  }
+                                                : item,
+                                            ),
+                                          )
+                                        }
+                                        className={`rounded-lg border px-3 py-1 text-xs ${
+                                          selectedVersion?.id === version.id
+                                            ? 'border-slate-900 bg-slate-900 text-white'
+                                            : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                                        }`}
+                                      >
+                                        {formatMultiDayBlockConnectionVersionLabel(version)}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </>
+                          );
+                        }
+
+                        const fromId =
+                          index === 0
+                            ? startLocationId
+                            : (selectedRoute[index - 1]?.locationId ?? '');
+                        const segment = findSegment(filteredSegments, fromId, stop.locationId);
+                        const versions = getSegmentVersions(segment);
+                        const selectedVersion = resolveSegmentVersionForDate(
+                          segment,
+                          travelStartDate
+                            ? getRouteDateForDayIndex(travelStartDate, startDayIndex)
+                            : undefined,
+                          stop.segmentVersionId,
+                        );
+
+                        const isLastDay = endDayIndex === totalDays;
+                        return (
+                          <>
+                            <div className="text-sm font-medium">{startDayIndex}일차</div>
+                            <div className="mt-1 text-slate-700">
+                              <span className="whitespace-pre-line">
+                                {formatLocationNameMultiline(
+                                  locationById.get(stop.locationId)?.name ?? stop.locationId,
+                                )}
+                              </span>
+                              {isLastDay &&
+                                (variantType === VariantType.Extend ||
+                                  variantType === VariantType.EarlyExtend) && (
+                                  <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
+                                )}
+                            </div>
+                            {versions.length > 1 ? (
+                              <div className="mt-3 grid gap-2">
+                                <div className="text-xs text-slate-500">시즌 버전</div>
+                                <div className="flex flex-wrap gap-2">
+                                  {versions.map((version) => (
+                                    <button
+                                      key={`route-segment-version-${index}-${version.id}`}
+                                      type="button"
+                                      onClick={() =>
+                                        setSelectedRoute((prev) =>
+                                          prev.map((item, itemIndex) =>
+                                            itemIndex === index && item.kind === 'LOCATION'
+                                              ? {
+                                                  ...item,
+                                                  segmentId: segment?.id,
+                                                  segmentVersionId: version.id,
+                                                  overnightStayConnectionId: undefined,
+                                                  overnightStayConnectionVersionId: undefined,
+                                                }
+                                              : item,
+                                          ),
+                                        )
+                                      }
+                                      className={`rounded-lg border px-3 py-1 text-xs ${
+                                        selectedVersion?.id === version.id
+                                          ? 'border-slate-900 bg-slate-900 text-white'
+                                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                                      }`}
+                                    >
+                                      {formatSegmentVersionLabel(version)}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  ))}
+
+                  {startLocationId &&
+                  startLocationVersionId &&
+                  1 + getConsumedRouteDayCount(selectedRoute) < totalDays ? (
+                    <div className="rounded-2xl border border-dashed border-slate-300 p-4">
+                      <div className="mb-3 text-sm font-medium">
+                        {2 + getConsumedRouteDayCount(selectedRoute)}일차 선택
+                      </div>
+                      <div className="grid gap-3">
+                        <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                          {nextOptions.map((location) => (
+                            <button
+                              key={location.id}
+                              type="button"
+                              onClick={() =>
+                                setSelectedRoute((prev) => {
+                                  const lastStop = prev[prev.length - 1];
+                                  if (lastStop?.kind === 'MULTI_DAY_BLOCK') {
+                                    const connection = findMultiDayBlockConnection(
+                                      filteredOvernightStayConnections,
+                                      lastStop.multiDayBlockId,
+                                      location.id,
+                                    );
+                                    return [
+                                      ...prev,
+                                      {
+                                        kind: 'LOCATION',
+                                        locationId: location.id,
+                                        locationVersionId: getDefaultVersionId(location),
+                                        overnightStayConnectionId: connection?.id,
+                                        overnightStayConnectionVersionId:
+                                          getDefaultMultiDayBlockConnectionVersionId(connection) ||
+                                          undefined,
+                                      },
+                                    ];
+                                  }
+
+                                  const fromId =
+                                    prev.length === 0
+                                      ? startLocationId
+                                      : (prev[prev.length - 1]?.locationId ?? '');
+                                  const segment = findSegment(
+                                    filteredSegments,
+                                    fromId,
+                                    location.id,
+                                  );
+                                  return [
+                                    ...prev,
+                                    {
+                                      kind: 'LOCATION',
+                                      locationId: location.id,
+                                      locationVersionId: getDefaultVersionId(location),
+                                      segmentId: segment?.id,
+                                      segmentVersionId: undefined,
+                                    },
+                                  ];
+                                })
+                              }
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
+                            >
+                              <span className="whitespace-pre-line">
+                                {formatLocationNameMultiline(location.name)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                        {nextOptions.length === 0 ? (
+                          <p className="text-xs text-amber-700">
+                            선택 가능한 다음 목적지가 없습니다.
+                          </p>
+                        ) : null}
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            disabled={totalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2}
+                            onClick={() => setIsOvernightStayPickerOpen((prev) => !prev)}
+                          >
+                            블록 선택하기
+                          </Button>
+                          {totalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2 ? (
+                            <span className="text-xs text-slate-500">
+                              남은 일수에 맞는 블록만 선택할 수 있습니다.
+                            </span>
+                          ) : null}
+                        </div>
+                        {isOvernightStayPickerOpen ? (
+                          <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                            {overnightStayOptions.map((overnightStay) => (
+                              <button
+                                key={overnightStay.id}
+                                type="button"
+                                onClick={() => {
+                                  const location = locationById.get(overnightStay.locationId);
+                                  setSelectedRoute((prev) => [
+                                    ...prev,
+                                    {
+                                      kind: 'MULTI_DAY_BLOCK',
+                                      multiDayBlockId: overnightStay.id,
+                                      stayLength: overnightStay.days.length,
+                                      locationId: overnightStay.locationId,
+                                      locationVersionId: getDefaultVersionId(location) || '',
+                                    },
+                                  ]);
+                                  setIsOvernightStayPickerOpen(false);
+                                }}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:bg-slate-100"
+                              >
+                                {overnightStay.title}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                        {isOvernightStayPickerOpen && overnightStayOptions.length === 0 ? (
+                          <p className="text-xs text-amber-700">선택 가능한 블록이 없습니다.</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {selectedRoute.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedRoute([]);
+                        dirtyPlanRowFieldKeysRef.current.clear();
+                        setPlanRows([]);
+                      }}
+                      className="text-xs text-red-500 underline"
+                    >
+                      전체 루트 초기화
+                    </button>
+                  ) : null}
+                </div>
+              </Card>
+
+              <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
+                    4
+                  </span>
+                  <span>추가 설정</span>
+                </h2>
+                <div className="mt-4 grid gap-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
+                  <div className="grid gap-2 text-sm">
+                    <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="min-w-0 w-1/2">
+                        <span className="text-xs text-slate-600">숙소 추가</span>
+                        <p className="mt-1 text-xs text-slate-400">
+                          일차별 추가 숙소 수량을 모달에서 설정합니다.
+                        </p>
+                        <p className="mt-2 text-xs text-slate-500">
+                          {planRows.length === 0
+                            ? '아직 설정할 일차가 없습니다.'
+                            : `적용 일차 ${extraLodgingSummary.activeDayCount}일 · 총 ${extraLodgingSummary.totalCount}개`}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="shrink-0 whitespace-nowrap"
+                        onClick={() => setExtraLodgingsModalState({ open: true })}
+                        disabled={planRows.length === 0}
+                      >
+                        숙소 추가 설정
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 text-sm">
+                    <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="min-w-0 w-1/2">
+                        <span className="text-xs text-slate-600">숙소 업그레이드</span>
+                        <p className="mt-1 text-xs text-slate-400">
+                          버튼을 눌러 일차별 숙소 등급과 지정 숙소를 한 번에 설정합니다.
+                        </p>
+                        <p className="mt-2 text-xs text-slate-500">
+                          {planRows.length === 0
+                            ? '아직 설정할 일차가 없습니다.'
+                            : `총 ${planRows.length}일차 · 업그레이드 ${planRows.filter((row) => row.lodgingSelectionLevel !== 'LV3').length}건`}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="shrink-0 whitespace-nowrap"
+                        onClick={() => setLodgingUpgradeModalState({ open: true })}
+                        disabled={planRows.length === 0}
+                      >
+                        숙소 업그레이드 하기
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2 text-sm">
+                    <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="min-w-0 w-1/2">
+                        <span className="text-xs text-slate-600">특식 4종</span>
+                        <p className="mt-1 text-xs text-slate-400">
+                          샤브샤브·삼겹살파티·허르헉·샤슬릭을 규칙에 맞게 일차/식사별로 배치합니다.
+                        </p>
+                        <p className="mt-2 text-xs text-slate-500">
+                          {planRows.length === 0
+                            ? '아직 설정할 일차가 없습니다.'
+                            : (() => {
+                                const mainRows = planRows.filter((r) => isMainPlanStopRow(r));
+                                const assignments = getAssignmentsFromPlanRows(
+                                  mainRows.map((r) => ({
+                                    mealCellText: r.mealCellText,
+                                    destinationCellText: r.destinationCellText,
+                                    scheduleCellText: r.scheduleCellText,
+                                  })),
+                                );
+                                const count = new Set(assignments.map((a) => a.specialMeal)).size;
+                                return `4종 중 ${count}종 배치됨`;
+                              })()}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="shrink-0 whitespace-nowrap"
+                        onClick={() => setSpecialMealsModalState({ open: true })}
+                        disabled={planRows.length === 0}
+                      >
+                        특식 배치 설정
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2 text-sm">
+                    <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="min-w-0 w-1/2">
+                        <span className="text-xs text-slate-600">기타 금액</span>
+                        <p className="mt-1 text-xs text-slate-400">
+                          추가와 할인을 모달에서 분리해 관리합니다.
+                        </p>
+                        <p className="mt-2 text-xs text-slate-500">
+                          추가 {manualAdjustmentSummary.addCount}건 (
+                          {formatKrw(manualAdjustmentSummary.addTotal)}) · 할인{' '}
+                          {manualAdjustmentSummary.discountCount}건 (
+                          {formatKrw(manualAdjustmentSummary.discountTotal)})
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="shrink-0 whitespace-nowrap"
+                        onClick={() => setManualAdjustmentsModalState({ open: true })}
+                      >
+                        기타 금액 설정
+                      </Button>
+                    </div>
+                    {hasValidation('invalid-manual-adjustments') ? (
+                      <p className="text-xs text-rose-700">
+                        기타 금액은 내용과 0 이상 정수 금액을 함께 입력해주세요.
+                      </p>
                     ) : null}
                   </div>
                 </div>
-              ) : null}
+              </Card>
+            </section>
 
-              {selectedRoute.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedRoute([]);
-                    dirtyPlanRowFieldKeysRef.current.clear();
-                    setPlanRows([]);
-                  }}
-                  className="text-xs text-red-500 underline"
-                >
-                  전체 루트 초기화
-                </button>
-              ) : null}
-            </div>
-          </Card>
-
-          <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">4</span>
-              <span>추가 설정</span>
-            </h2>
-            <div className="mt-4 grid gap-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="min-w-0 w-1/2">
-                    <span className="text-xs text-slate-600">숙소 추가</span>
-                    <p className="mt-1 text-xs text-slate-400">일차별 추가 숙소 수량을 모달에서 설정합니다.</p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      {planRows.length === 0
-                        ? '아직 설정할 일차가 없습니다.'
-                        : `적용 일차 ${extraLodgingSummary.activeDayCount}일 · 총 ${extraLodgingSummary.totalCount}개`}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="shrink-0 whitespace-nowrap"
-                    onClick={() => setExtraLodgingsModalState({ open: true })}
-                    disabled={planRows.length === 0}
-                  >
-                    숙소 추가 설정
-                  </Button>
-                </div>
+            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 p-4">
+                <h2 className="text-lg font-bold text-slate-900">일정표 편집기</h2>
+                <p className="mt-1 text-xs text-slate-600">
+                  숙소 셀은 선택값으로 자동 생성되며 식사 셀은 아침/점심/저녁 3칸 입력으로
+                  편집됩니다.
+                </p>
               </div>
 
-              <div className="grid gap-3 text-sm">
-                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="min-w-0 w-1/2">
-                    <span className="text-xs text-slate-600">숙소 업그레이드</span>
-                    <p className="mt-1 text-xs text-slate-400">버튼을 눌러 일차별 숙소 등급과 지정 숙소를 한 번에 설정합니다.</p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      {planRows.length === 0
-                        ? '아직 설정할 일차가 없습니다.'
-                        : `총 ${planRows.length}일차 · 업그레이드 ${planRows.filter((row) => row.lodgingSelectionLevel !== 'LV3').length}건`}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="shrink-0 whitespace-nowrap"
-                    onClick={() => setLodgingUpgradeModalState({ open: true })}
-                    disabled={planRows.length === 0}
-                  >
-                    숙소 업그레이드 하기
-                  </Button>
-                </div>
-              </div>
+              <div className="overflow-auto">
+                <Table className="min-w-[1280px] w-full text-sm">
+                  <thead className="bg-slate-50 text-slate-700">
+                    <tr>
+                      <Th className="w-[110px]">날짜</Th>
+                      <Th className="w-[240px]">목적지</Th>
+                      <Th className="w-[180px]">시간</Th>
+                      <Th className="w-[280px]">일정</Th>
+                      <Th className="w-[220px]">숙소</Th>
+                      <Th className="w-[220px]">식사</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayPlanRows.map(({ row, mainRowIndex }, rowIndex) => {
+                      const isExternalRow = mainRowIndex === null;
+                      const mealFields = parseMealCellText(row.mealCellText);
+                      const timeCellValidation =
+                        mainRowIndex !== null &&
+                        validationResults.find((r) =>
+                          r.affectedCells?.some(
+                            (c) => c.rowIndex === mainRowIndex && c.field === 'timeCellText',
+                          ),
+                        );
+                      const mealCellValidation =
+                        mainRowIndex !== null &&
+                        validationResults.find((r) =>
+                          r.affectedCells?.some(
+                            (c) => c.rowIndex === mainRowIndex && c.field === 'mealCellText',
+                          ),
+                        );
+                      const isTimeCellAffected = Boolean(timeCellValidation);
+                      const isMealCellAffected = Boolean(mealCellValidation);
+                      const cellClassName = `w-full resize-none overflow-hidden rounded-xl border border-slate-200 px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
+                        isExternalRow ? 'bg-slate-50 text-slate-500' : 'bg-white'
+                      }`;
+                      const timeCellClassName = isTimeCellAffected
+                        ? `${cellClassName} border-rose-400 bg-rose-50`
+                        : cellClassName;
+                      const mealCellWrapperClassName = `grid gap-2 rounded-xl border p-2 ${
+                        isMealCellAffected
+                          ? 'border-amber-400 bg-amber-50'
+                          : 'border-slate-200 bg-white'
+                      }`;
+                      const mealLabelClassName = `text-xs ${isMealCellAffected ? 'text-amber-900' : 'text-slate-500'}`;
+                      const mealInputClassName = `min-w-0 rounded-lg border px-2 py-1.5 text-sm outline-none transition ${
+                        isMealCellAffected
+                          ? 'border-amber-300 bg-amber-50 text-amber-950 focus:border-amber-500'
+                          : 'border-slate-200 text-slate-900 focus:border-slate-400'
+                      }`;
+                      const mealXButtonClassName = `rounded-lg border px-2 py-1.5 text-xs font-medium transition ${
+                        isMealCellAffected
+                          ? 'border-amber-300 bg-amber-100 text-amber-950 hover:bg-amber-200'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`;
 
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="min-w-0 w-1/2">
-                    <span className="text-xs text-slate-600">특식 4종</span>
-                    <p className="mt-1 text-xs text-slate-400">샤브샤브·삼겹살파티·허르헉·샤슬릭을 규칙에 맞게 일차/식사별로 배치합니다.</p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      {planRows.length === 0
-                        ? '아직 설정할 일차가 없습니다.'
-                        : (() => {
-                            const mainRows = planRows.filter((r) => isMainPlanStopRow(r));
-                            const assignments = getAssignmentsFromPlanRows(
-                              mainRows.map((r) => ({
-                                mealCellText: r.mealCellText,
-                                destinationCellText: r.destinationCellText,
-                                scheduleCellText: r.scheduleCellText,
-                              })),
-                            );
-                            const count = new Set(assignments.map((a) => a.specialMeal)).size;
-                            return `4종 중 ${count}종 배치됨`;
-                          })()}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="shrink-0 whitespace-nowrap"
-                    onClick={() => setSpecialMealsModalState({ open: true })}
-                    disabled={planRows.length === 0}
-                  >
-                    특식 배치 설정
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid gap-2 text-sm">
-                <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="min-w-0 w-1/2">
-                    <span className="text-xs text-slate-600">기타 금액</span>
-                    <p className="mt-1 text-xs text-slate-400">추가와 할인을 모달에서 분리해 관리합니다.</p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      추가 {manualAdjustmentSummary.addCount}건 ({formatKrw(manualAdjustmentSummary.addTotal)}) · 할인{' '}
-                      {manualAdjustmentSummary.discountCount}건 ({formatKrw(manualAdjustmentSummary.discountTotal)})
-                    </p>
-                  </div>
-                  <Button variant="outline" className="shrink-0 whitespace-nowrap" onClick={() => setManualAdjustmentsModalState({ open: true })}>
-                    기타 금액 설정
-                  </Button>
-                </div>
-                {hasValidation('invalid-manual-adjustments') ? (
-                  <p className="text-xs text-rose-700">기타 금액은 내용과 0 이상 정수 금액을 함께 입력해주세요.</p>
-                ) : null}
-              </div>
-            </div>
-          </Card>
-        </section>
-
-        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 p-4">
-            <h2 className="text-lg font-bold text-slate-900">일정표 편집기</h2>
-            <p className="mt-1 text-xs text-slate-600">숙소 셀은 선택값으로 자동 생성되며 식사 셀은 아침/점심/저녁 3칸 입력으로 편집됩니다.</p>
-          </div>
-
-          <div className="overflow-auto">
-            <Table className="min-w-[1280px] w-full text-sm">
-              <thead className="bg-slate-50 text-slate-700">
-                <tr>
-                  <Th className="w-[110px]">날짜</Th>
-                  <Th className="w-[240px]">목적지</Th>
-                  <Th className="w-[180px]">시간</Th>
-                  <Th className="w-[280px]">일정</Th>
-                  <Th className="w-[220px]">숙소</Th>
-                  <Th className="w-[220px]">식사</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayPlanRows.map(({ row, mainRowIndex }, rowIndex) => {
-                  const isExternalRow = mainRowIndex === null;
-                  const mealFields = parseMealCellText(row.mealCellText);
-                  const timeCellValidation =
-                    mainRowIndex !== null &&
-                    validationResults.find((r) =>
-                      r.affectedCells?.some((c) => c.rowIndex === mainRowIndex && c.field === 'timeCellText'),
-                    );
-                  const mealCellValidation =
-                    mainRowIndex !== null &&
-                    validationResults.find((r) =>
-                      r.affectedCells?.some((c) => c.rowIndex === mainRowIndex && c.field === 'mealCellText'),
-                    );
-                  const isTimeCellAffected = Boolean(timeCellValidation);
-                  const isMealCellAffected = Boolean(mealCellValidation);
-                  const cellClassName = `w-full resize-none overflow-hidden rounded-xl border border-slate-200 px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
-                    isExternalRow ? 'bg-slate-50 text-slate-500' : 'bg-white'
-                  }`;
-                  const timeCellClassName = isTimeCellAffected
-                    ? `${cellClassName} border-rose-400 bg-rose-50`
-                    : cellClassName;
-                  const mealCellWrapperClassName = `grid gap-2 rounded-xl border p-2 ${
-                    isMealCellAffected ? 'border-amber-400 bg-amber-50' : 'border-slate-200 bg-white'
-                  }`;
-                  const mealLabelClassName = `text-xs ${isMealCellAffected ? 'text-amber-900' : 'text-slate-500'}`;
-                  const mealInputClassName = `min-w-0 rounded-lg border px-2 py-1.5 text-sm outline-none transition ${
-                    isMealCellAffected
-                      ? 'border-amber-300 bg-amber-50 text-amber-950 focus:border-amber-500'
-                      : 'border-slate-200 text-slate-900 focus:border-slate-400'
-                  }`;
-                  const mealXButtonClassName = `rounded-lg border px-2 py-1.5 text-xs font-medium transition ${
-                    isMealCellAffected
-                      ? 'border-amber-300 bg-amber-100 text-amber-950 hover:bg-amber-200'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`;
-
-                  return (
-                  <tr key={`day-row-${rowIndex + 1}`} className={`border-t border-slate-200 align-top ${isExternalRow ? 'bg-slate-50/60' : ''}`}>
-                    <Td>
-                      <textarea
-                        value={row.dateCellText}
-                        readOnly={isExternalRow}
-                        disabled={isExternalRow}
-                        onChange={(event) => {
-                          if (mainRowIndex === null) {
-                            return;
-                          }
-                          updateCell(mainRowIndex, 'dateCellText', event.target.value);
-                          autoResizeTextarea(event.currentTarget);
-                        }}
-                        onInput={(event) => autoResizeTextarea(event.currentTarget)}
-                        rows={1}
-                        data-plan-cell="true"
-                        className={cellClassName}
-                      />
-                    </Td>
-                    <Td>
-                      <textarea
-                        value={row.destinationCellText}
-                        readOnly={isExternalRow}
-                        disabled={isExternalRow}
-                        onChange={(event) => {
-                          if (mainRowIndex === null) {
-                            return;
-                          }
-                          updateCell(mainRowIndex, 'destinationCellText', event.target.value);
-                          autoResizeTextarea(event.currentTarget);
-                        }}
-                        onInput={(event) => autoResizeTextarea(event.currentTarget)}
-                        rows={1}
-                        data-plan-cell="true"
-                        className={cellClassName}
-                      />
-                    </Td>
-                    <Td>
-                      <div className="space-y-1">
-                        <textarea
-                          value={row.timeCellText}
-                          readOnly={isExternalRow}
-                          disabled={isExternalRow}
-                          onChange={(event) => {
-                            if (mainRowIndex === null) {
-                              return;
-                            }
-                            updateCell(mainRowIndex, 'timeCellText', event.target.value);
-                            autoResizeTextarea(event.currentTarget);
-                          }}
-                          onInput={(event) => autoResizeTextarea(event.currentTarget)}
-                          rows={1}
-                          data-plan-cell="true"
-                          className={timeCellClassName}
-                        />
-                        {isTimeCellAffected && timeCellValidation ? (
-                          <p className="px-1 text-xs leading-4 text-rose-700">
-                            시간 확인 필요: {timeCellValidation.message}
-                          </p>
-                        ) : null}
-                      </div>
-                    </Td>
-                    <Td>
-                      <textarea
-                        value={row.scheduleCellText}
-                        readOnly={isExternalRow}
-                        disabled={isExternalRow}
-                        onChange={(event) => {
-                          if (mainRowIndex === null) {
-                            return;
-                          }
-                          updateCell(mainRowIndex, 'scheduleCellText', event.target.value);
-                          autoResizeTextarea(event.currentTarget);
-                        }}
-                        onInput={(event) => autoResizeTextarea(event.currentTarget)}
-                        rows={1}
-                        data-plan-cell="true"
-                        className={cellClassName}
-                      />
-                    </Td>
-                    <Td>
-                      <div
-                        className={`min-h-[44px] rounded-xl border border-slate-200 px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
-                          isExternalRow ? 'bg-slate-100 text-slate-500' : 'bg-slate-50 text-slate-900'
-                        }`}
-                      >
-                        {row.lodgingCellText || '-'}
-                      </div>
-                    </Td>
-                    <Td>
-                      {isExternalRow ? (
-                        <div className="space-y-1">
-                          <div className={`min-h-[44px] rounded-xl border px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
-                            isMealCellAffected
-                              ? 'border-amber-400 bg-amber-50 text-amber-950'
-                              : isExternalRow
-                                ? 'border-slate-200 bg-slate-100 text-slate-500'
-                                : 'border-slate-200 bg-white'
-                          }`}>
-                            {row.mealCellText || '-'}
-                          </div>
-                          {isMealCellAffected && mealCellValidation ? (
-                            <p className="px-1 text-xs leading-4 text-amber-900">
-                              식사 확인 필요: {mealCellValidation.message}
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          <div className={mealCellWrapperClassName}>
-                            {([
-                              ['breakfast', '아침', mealFields.breakfast],
-                              ['lunch', '점심', mealFields.lunch],
-                              ['dinner', '저녁', mealFields.dinner],
-                            ] as const).map(([field, label, mealValue]) => (
-                              <div key={field} className="grid grid-cols-[40px_minmax(0,1fr)_32px] items-center gap-2 text-sm">
-                                <span className={mealLabelClassName}>{label}</span>
-                                <input
-                                  type="text"
-                                  value={mealValue}
-                                  onChange={(event) => {
-                                    if (mainRowIndex === null) {
-                                      return;
-                                    }
-                                    updateMealCellField(mainRowIndex, field, event.target.value);
-                                  }}
-                                  className={mealInputClassName}
-                                  placeholder={`${label} 식사 입력`}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (mainRowIndex === null) {
-                                      return;
-                                    }
-                                    updateMealCellField(mainRowIndex, field, 'X');
-                                  }}
-                                  className={mealXButtonClassName}
-                                  aria-label={`${label} 식사를 없음으로 표시`}
-                                >
-                                  X
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                          {isMealCellAffected && mealCellValidation ? (
-                            <p className="px-1 text-xs leading-4 text-amber-900">
-                              식사 확인 필요: {mealCellValidation.message}
-                            </p>
-                          ) : null}
-                        </div>
-                      )}
-                    </Td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </Table>
-          </div>
-        </section>
-
-        <section className="space-y-5">
-          <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900">금액</h2>
-            {pricingPreviewError ? (
-              <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
-                {pricingPreviewErrorMessage}
-              </div>
-            ) : null}
-            {!pricingPreview ? (
-              <p className="mt-3 text-sm text-slate-500">요건이 충족되면 금액이 자동 계산됩니다.</p>
-            ) : (
-              <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-                {pricingBuckets ? (
-                  <>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      <h3 className="text-sm font-semibold text-slate-900">직원 확인용</h3>
-
-                      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                        <div className="font-medium text-slate-900">기본금 {formatKrw(pricingBuckets.baseTotal)}</div>
-                        {pricingBuckets.baseLines.length === 0 ? (
-                          <p className="mt-2 text-xs text-slate-500">기본금 항목이 없습니다.</p>
-                        ) : (
-                          <div className="mt-2 max-h-[220px] overflow-auto rounded-lg border border-slate-200">
-                            <table className="min-w-full text-xs">
-                              <thead className="bg-slate-50 text-slate-600">
-                                <tr>
-                                  <th className="px-2 py-2 text-left">항목</th>
-                                  <th className="px-2 py-2 text-left">가격</th>
-                                  <th className="px-2 py-2 text-left">개수</th>
-                                  <th className="px-2 py-2 text-left">금액</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {pricingBuckets.baseLines.map((line, index) => (
-                                  <tr key={`${line.lineCode}-base-${index}`} className="border-t border-slate-200">
-                                    <td className="px-2 py-1.5">{getPricingLineLabel(line)}</td>
-                                    <td className="px-2 py-1.5">{formatPricingLineUnitDisplay(line, headcountTotal)}</td>
-                                    <td className="px-2 py-1.5">{formatPricingLineQuantityDisplay(line, headcountTotal)}</td>
-                                    <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                        <div className="font-medium text-slate-900">추가금 {formatKrw(pricingBuckets.addonTotal)}</div>
-                        {pricingBuckets.addonLines.length === 0 ? (
-                          <p className="mt-2 text-xs text-slate-500">추가금 항목이 없습니다.</p>
-                        ) : (
-                          <div className="mt-2 max-h-[220px] overflow-auto rounded-lg border border-slate-200">
-                            <table className="min-w-full text-xs">
-                              <thead className="bg-slate-50 text-slate-600">
-                                <tr>
-                                  <th className="px-2 py-2 text-left">항목</th>
-                                  <th className="px-2 py-2 text-left">가격</th>
-                                  <th className="px-2 py-2 text-left">개수</th>
-                                  <th className="px-2 py-2 text-left">금액</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {pricingBuckets.addonLines.map((line, index) => (
-                                  <tr key={`${line.lineCode}-addon-${index}`} className="border-t border-slate-200">
-                                    <td className="px-2 py-1.5">
-                                      {getPricingLineLabel(line)}
-                                      {line.description && line.lineCode !== 'MANUAL_ADJUSTMENT' ? (
-                                        <div className="text-[11px] text-slate-500">{line.description}</div>
-                                      ) : null}
-                                    </td>
-                                    <td className="px-2 py-1.5">{line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-'}</td>
-                                    <td className="px-2 py-1.5">{line.quantity}</td>
-                                    <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                        <div className="font-medium text-slate-900">보증금 {formatKrw(pricingPreview.securityDepositAmountKrw)}</div>
-                        <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
-                          <table className="min-w-full text-xs">
-                            <thead className="bg-slate-50 text-slate-600">
-                              <tr>
-                                <th className="px-2 py-2 text-left">항목</th>
-                                <th className="px-2 py-2 text-left">기준</th>
-                                <th className="px-2 py-2 text-left">금액</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr className="border-t border-slate-200">
-                                <td className="px-2 py-1.5">
-                                  {pricingPreview.securityDepositEvent ? `이벤트(${pricingPreview.securityDepositEvent.name})` : '기본 물품'}
-                                </td>
-                                <td className="px-2 py-1.5">
-                                  {pricingPreview.securityDepositMode === 'NONE'
-                                    ? '-'
-                                    : `${formatKrw(pricingPreview.securityDepositUnitPriceKrw)}(${formatSecurityDepositScope(pricingPreview.securityDepositMode)}) x ${pricingPreview.securityDepositQuantity}`}
-                                </td>
-                                <td className="px-2 py-1.5">{formatKrw(pricingPreview.securityDepositAmountKrw)}</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                          <div className="font-medium text-slate-900">예약금/잔금</div>
-                          <div className="mt-2 grid gap-1 text-xs text-slate-600">
-                            <span>예약금 직접수정</span>
-                            <input
-                              type="number"
-                              min={0}
-                              step={1}
-                              value={manualDepositInput}
+                      return (
+                        <tr
+                          key={`day-row-${rowIndex + 1}`}
+                          className={`border-t border-slate-200 align-top ${isExternalRow ? 'bg-slate-50/60' : ''}`}
+                        >
+                          <Td>
+                            <textarea
+                              value={row.dateCellText}
+                              readOnly={isExternalRow}
+                              disabled={isExternalRow}
                               onChange={(event) => {
-                                setHasEditedManualDeposit(true);
-                                setManualDepositInput(event.target.value);
+                                if (mainRowIndex === null) {
+                                  return;
+                                }
+                                updateCell(mainRowIndex, 'dateCellText', event.target.value);
+                                autoResizeTextarea(event.currentTarget);
                               }}
-                              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs"
-                              placeholder="자동 계산값 사용 시 비워두기"
+                              onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                              rows={1}
+                              data-plan-cell="true"
+                              className={cellClassName}
                             />
-                            {hasValidation('invalid-manual-deposit') ? (
-                              <p className="text-rose-600">예약금은 0 이상의 정수만 입력 가능합니다.</p>
-                            ) : null}
-                          </div>
-                          <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
-                            <table className="min-w-full text-xs">
-                            <thead className="bg-slate-50 text-slate-600">
-                              <tr>
-                                <th className="px-2 py-2 text-left">항목</th>
-                                <th className="px-2 py-2 text-left">금액</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr className="border-t border-slate-200">
-                                <td className="px-2 py-1.5">예약금</td>
-                                <td className="px-2 py-1.5">{formatKrw(pricingPreview.depositAmountKrw)}</td>
-                              </tr>
-                              <tr className="border-t border-slate-200">
-                                <td className="px-2 py-1.5">잔금</td>
-                                <td className="px-2 py-1.5">{formatKrw(pricingPreview.balanceAmountKrw)}</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
+                          </Td>
+                          <Td>
+                            <textarea
+                              value={row.destinationCellText}
+                              readOnly={isExternalRow}
+                              disabled={isExternalRow}
+                              onChange={(event) => {
+                                if (mainRowIndex === null) {
+                                  return;
+                                }
+                                updateCell(mainRowIndex, 'destinationCellText', event.target.value);
+                                autoResizeTextarea(event.currentTarget);
+                              }}
+                              onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                              rows={1}
+                              data-plan-cell="true"
+                              className={cellClassName}
+                            />
+                          </Td>
+                          <Td>
+                            <div className="space-y-1">
+                              <textarea
+                                value={row.timeCellText}
+                                readOnly={isExternalRow}
+                                disabled={isExternalRow}
+                                onChange={(event) => {
+                                  if (mainRowIndex === null) {
+                                    return;
+                                  }
+                                  updateCell(mainRowIndex, 'timeCellText', event.target.value);
+                                  autoResizeTextarea(event.currentTarget);
+                                }}
+                                onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                                rows={1}
+                                data-plan-cell="true"
+                                className={timeCellClassName}
+                              />
+                              {isTimeCellAffected && timeCellValidation ? (
+                                <p className="px-1 text-xs leading-4 text-rose-700">
+                                  시간 확인 필요: {timeCellValidation.message}
+                                </p>
+                              ) : null}
+                            </div>
+                          </Td>
+                          <Td>
+                            <textarea
+                              value={row.scheduleCellText}
+                              readOnly={isExternalRow}
+                              disabled={isExternalRow}
+                              onChange={(event) => {
+                                if (mainRowIndex === null) {
+                                  return;
+                                }
+                                updateCell(mainRowIndex, 'scheduleCellText', event.target.value);
+                                autoResizeTextarea(event.currentTarget);
+                              }}
+                              onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                              rows={1}
+                              data-plan-cell="true"
+                              className={cellClassName}
+                            />
+                          </Td>
+                          <Td>
+                            <div
+                              className={`min-h-[44px] rounded-xl border border-slate-200 px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
+                                isExternalRow
+                                  ? 'bg-slate-100 text-slate-500'
+                                  : 'bg-slate-50 text-slate-900'
+                              }`}
+                            >
+                              {row.lodgingCellText || '-'}
+                            </div>
+                          </Td>
+                          <Td>
+                            {isExternalRow ? (
+                              <div className="space-y-1">
+                                <div
+                                  className={`min-h-[44px] rounded-xl border px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
+                                    isMealCellAffected
+                                      ? 'border-amber-400 bg-amber-50 text-amber-950'
+                                      : isExternalRow
+                                        ? 'border-slate-200 bg-slate-100 text-slate-500'
+                                        : 'border-slate-200 bg-white'
+                                  }`}
+                                >
+                                  {row.mealCellText || '-'}
+                                </div>
+                                {isMealCellAffected && mealCellValidation ? (
+                                  <p className="px-1 text-xs leading-4 text-amber-900">
+                                    식사 확인 필요: {mealCellValidation.message}
+                                  </p>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <div className="space-y-1">
+                                <div className={mealCellWrapperClassName}>
+                                  {(
+                                    [
+                                      ['breakfast', '아침', mealFields.breakfast],
+                                      ['lunch', '점심', mealFields.lunch],
+                                      ['dinner', '저녁', mealFields.dinner],
+                                    ] as const
+                                  ).map(([field, label, mealValue]) => (
+                                    <div
+                                      key={field}
+                                      className="grid grid-cols-[40px_minmax(0,1fr)_32px] items-center gap-2 text-sm"
+                                    >
+                                      <span className={mealLabelClassName}>{label}</span>
+                                      <input
+                                        type="text"
+                                        value={mealValue}
+                                        onChange={(event) => {
+                                          if (mainRowIndex === null) {
+                                            return;
+                                          }
+                                          updateMealCellField(
+                                            mainRowIndex,
+                                            field,
+                                            event.target.value,
+                                          );
+                                        }}
+                                        className={mealInputClassName}
+                                        placeholder={`${label} 식사 입력`}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (mainRowIndex === null) {
+                                            return;
+                                          }
+                                          updateMealCellField(mainRowIndex, field, 'X');
+                                        }}
+                                        className={mealXButtonClassName}
+                                        aria-label={`${label} 식사를 없음으로 표시`}
+                                      >
+                                        X
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                                {isMealCellAffected && mealCellValidation ? (
+                                  <p className="px-1 text-xs leading-4 text-amber-900">
+                                    식사 확인 필요: {mealCellValidation.message}
+                                  </p>
+                                ) : null}
+                              </div>
+                            )}
+                          </Td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </Table>
+              </div>
+            </section>
 
-                    <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3">
-                      <h3 className="text-sm font-semibold text-blue-900">고객 안내용</h3>
-                      <div className="mt-2 grid gap-2 text-blue-900">
-                        <div className="rounded-xl border border-blue-200 bg-white p-3">
-                          <div className="font-medium text-slate-900">기본금 {formatKrw(pricingBuckets.baseTotal)}</div>
-                        </div>
-                        <div className="rounded-xl border border-blue-200 bg-white p-3">
-                          <div className="font-medium text-slate-900">추가금 {formatKrw(pricingBuckets.addonTotal)}</div>
-                          {pricingBuckets.addonLines.length === 0 ? (
-                            <p className="mt-2 text-xs text-blue-700">추가금 항목이 없습니다.</p>
-                          ) : (
-                            <div className="mt-2 max-h-[180px] overflow-auto rounded-lg border border-blue-200 bg-white">
+            <section className="space-y-5">
+              <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+                <h2 className="text-lg font-bold text-slate-900">금액</h2>
+                {pricingPreviewError ? (
+                  <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+                    {pricingPreviewErrorMessage}
+                  </div>
+                ) : null}
+                {!pricingPreview ? (
+                  <p className="mt-3 text-sm text-slate-500">
+                    요건이 충족되면 금액이 자동 계산됩니다.
+                  </p>
+                ) : (
+                  <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                    {pricingBuckets ? (
+                      <>
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                          <h3 className="text-sm font-semibold text-slate-900">직원 확인용</h3>
+
+                          <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                            <div className="font-medium text-slate-900">
+                              기본금 {formatKrw(pricingBuckets.baseTotal)}
+                            </div>
+                            {pricingBuckets.baseLines.length === 0 ? (
+                              <p className="mt-2 text-xs text-slate-500">기본금 항목이 없습니다.</p>
+                            ) : (
+                              <div className="mt-2 max-h-[220px] overflow-auto rounded-lg border border-slate-200">
+                                <table className="min-w-full text-xs">
+                                  <thead className="bg-slate-50 text-slate-600">
+                                    <tr>
+                                      <th className="px-2 py-2 text-left">항목</th>
+                                      <th className="px-2 py-2 text-left">가격</th>
+                                      <th className="px-2 py-2 text-left">개수</th>
+                                      <th className="px-2 py-2 text-left">금액</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {pricingBuckets.baseLines.map((line, index) => (
+                                      <tr
+                                        key={`${line.lineCode}-base-${index}`}
+                                        className="border-t border-slate-200"
+                                      >
+                                        <td className="px-2 py-1.5">{getPricingLineLabel(line)}</td>
+                                        <td className="px-2 py-1.5">
+                                          {formatPricingLineUnitDisplay(line, headcountTotal)}
+                                        </td>
+                                        <td className="px-2 py-1.5">
+                                          {formatPricingLineQuantityDisplay(line, headcountTotal)}
+                                        </td>
+                                        <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                            <div className="font-medium text-slate-900">
+                              추가금 {formatKrw(pricingBuckets.addonTotal)}
+                            </div>
+                            {pricingBuckets.addonLines.length === 0 ? (
+                              <p className="mt-2 text-xs text-slate-500">추가금 항목이 없습니다.</p>
+                            ) : (
+                              <div className="mt-2 max-h-[220px] overflow-auto rounded-lg border border-slate-200">
+                                <table className="min-w-full text-xs">
+                                  <thead className="bg-slate-50 text-slate-600">
+                                    <tr>
+                                      <th className="px-2 py-2 text-left">항목</th>
+                                      <th className="px-2 py-2 text-left">가격</th>
+                                      <th className="px-2 py-2 text-left">개수</th>
+                                      <th className="px-2 py-2 text-left">금액</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {pricingBuckets.addonLines.map((line, index) => (
+                                      <tr
+                                        key={`${line.lineCode}-addon-${index}`}
+                                        className="border-t border-slate-200"
+                                      >
+                                        <td className="px-2 py-1.5">
+                                          {getPricingLineLabel(line)}
+                                          {line.description &&
+                                          line.lineCode !== 'MANUAL_ADJUSTMENT' ? (
+                                            <div className="text-[11px] text-slate-500">
+                                              {line.description}
+                                            </div>
+                                          ) : null}
+                                        </td>
+                                        <td className="px-2 py-1.5">
+                                          {line.unitPriceKrw !== null
+                                            ? formatKrw(line.unitPriceKrw)
+                                            : '-'}
+                                        </td>
+                                        <td className="px-2 py-1.5">{line.quantity}</td>
+                                        <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                            <div className="font-medium text-slate-900">
+                              보증금 {formatKrw(pricingPreview.securityDepositAmountKrw)}
+                            </div>
+                            <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
                               <table className="min-w-full text-xs">
-                                <thead className="bg-blue-50 text-blue-900">
+                                <thead className="bg-slate-50 text-slate-600">
                                   <tr>
                                     <th className="px-2 py-2 text-left">항목</th>
-                                    <th className="px-2 py-2 text-left">가격</th>
-                                    <th className="px-2 py-2 text-left">개수</th>
+                                    <th className="px-2 py-2 text-left">기준</th>
                                     <th className="px-2 py-2 text-left">금액</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {pricingBuckets.addonLines.map((line, index) => (
-                                    <tr key={`${line.lineCode}-customer-addon-${index}`} className="border-t border-blue-100">
-                                      <td className="px-2 py-1.5">
-                                        {getPricingLineLabel(line)}
-                                        {line.description && line.lineCode !== 'MANUAL_ADJUSTMENT' ? (
-                                          <div className="text-[11px] text-blue-700">{line.description}</div>
-                                        ) : null}
-                                      </td>
-                                      <td className="px-2 py-1.5">{formatPricingLineUnitDisplay(line, headcountTotal)}</td>
-                                      <td className="px-2 py-1.5">{formatPricingLineQuantityDisplay(line, headcountTotal)}</td>
-                                      <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
-                                    </tr>
-                                  ))}
+                                  <tr className="border-t border-slate-200">
+                                    <td className="px-2 py-1.5">
+                                      {pricingPreview.securityDepositEvent
+                                        ? `이벤트(${pricingPreview.securityDepositEvent.name})`
+                                        : '기본 물품'}
+                                    </td>
+                                    <td className="px-2 py-1.5">
+                                      {pricingPreview.securityDepositMode === 'NONE'
+                                        ? '-'
+                                        : `${formatKrw(pricingPreview.securityDepositUnitPriceKrw)}(${formatSecurityDepositScope(pricingPreview.securityDepositMode)}) x ${pricingPreview.securityDepositQuantity}`}
+                                    </td>
+                                    <td className="px-2 py-1.5">
+                                      {formatKrw(pricingPreview.securityDepositAmountKrw)}
+                                    </td>
+                                  </tr>
                                 </tbody>
                               </table>
                             </div>
-                          )}
-                        </div>
-                        <div className="mt-1 overflow-hidden rounded-lg border border-blue-200 bg-white">
-                          <div className="grid grid-cols-4 bg-slate-100 text-center text-[11px] font-medium text-slate-600">
-                            <div className="border-r border-slate-200 px-2 py-2">총액(1인)</div>
-                            <div className="border-r border-slate-200 px-2 py-2">예약금(1인)</div>
-                            <div className="border-r border-slate-200 px-2 py-2">잔금(1인)</div>
-                            <div className="px-2 py-2">보증금(팀당/인당)</div>
                           </div>
-                          <div className="grid grid-cols-4 text-center text-sm text-slate-900">
-                            <div className="border-r border-slate-200 px-2 py-4 font-semibold">{formatKrw(pricingBuckets.grandTotal)}</div>
-                            <div className="border-r border-slate-200 px-2 py-4">{formatKrw(pricingPreview.depositAmountKrw)}</div>
-                            <div className="border-r border-slate-200 px-2 py-4">{formatKrw(pricingPreview.balanceAmountKrw)}</div>
-                            <div className="px-2 py-4">
-                              {pricingPreview.securityDepositMode === 'NONE'
-                                ? formatKrw(0)
-                                : `${formatKrw(pricingPreview.securityDepositUnitPriceKrw)} (${formatSecurityDepositScope(pricingPreview.securityDepositMode)})`}
+
+                          <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                            <div className="font-medium text-slate-900">예약금/잔금</div>
+                            <div className="mt-2 grid gap-1 text-xs text-slate-600">
+                              <span>예약금 직접수정</span>
+                              <input
+                                type="number"
+                                min={0}
+                                step={1}
+                                value={manualDepositInput}
+                                onChange={(event) => {
+                                  setHasEditedManualDeposit(true);
+                                  setManualDepositInput(event.target.value);
+                                }}
+                                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs"
+                                placeholder="자동 계산값 사용 시 비워두기"
+                              />
+                              {hasValidation('invalid-manual-deposit') ? (
+                                <p className="text-rose-600">
+                                  예약금은 0 이상의 정수만 입력 가능합니다.
+                                </p>
+                              ) : null}
+                            </div>
+                            <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
+                              <table className="min-w-full text-xs">
+                                <thead className="bg-slate-50 text-slate-600">
+                                  <tr>
+                                    <th className="px-2 py-2 text-left">항목</th>
+                                    <th className="px-2 py-2 text-left">금액</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr className="border-t border-slate-200">
+                                    <td className="px-2 py-1.5">예약금</td>
+                                    <td className="px-2 py-1.5">
+                                      {formatKrw(pricingPreview.depositAmountKrw)}
+                                    </td>
+                                  </tr>
+                                  <tr className="border-t border-slate-200">
+                                    <td className="px-2 py-1.5">잔금</td>
+                                    <td className="px-2 py-1.5">
+                                      {formatKrw(pricingPreview.balanceAmountKrw)}
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
                             </div>
                           </div>
                         </div>
-                      </div>
+
+                        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3">
+                          <h3 className="text-sm font-semibold text-blue-900">고객 안내용</h3>
+                          <div className="mt-2 grid gap-2 text-blue-900">
+                            <div className="rounded-xl border border-blue-200 bg-white p-3">
+                              <div className="font-medium text-slate-900">
+                                기본금 {formatKrw(pricingBuckets.baseTotal)}
+                              </div>
+                            </div>
+                            <div className="rounded-xl border border-blue-200 bg-white p-3">
+                              <div className="font-medium text-slate-900">
+                                추가금 {formatKrw(pricingBuckets.addonTotal)}
+                              </div>
+                              {pricingBuckets.addonLines.length === 0 ? (
+                                <p className="mt-2 text-xs text-blue-700">
+                                  추가금 항목이 없습니다.
+                                </p>
+                              ) : (
+                                <div className="mt-2 max-h-[180px] overflow-auto rounded-lg border border-blue-200 bg-white">
+                                  <table className="min-w-full text-xs">
+                                    <thead className="bg-blue-50 text-blue-900">
+                                      <tr>
+                                        <th className="px-2 py-2 text-left">항목</th>
+                                        <th className="px-2 py-2 text-left">가격</th>
+                                        <th className="px-2 py-2 text-left">개수</th>
+                                        <th className="px-2 py-2 text-left">금액</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {pricingBuckets.addonLines.map((line, index) => (
+                                        <tr
+                                          key={`${line.lineCode}-customer-addon-${index}`}
+                                          className="border-t border-blue-100"
+                                        >
+                                          <td className="px-2 py-1.5">
+                                            {getPricingLineLabel(line)}
+                                            {line.description &&
+                                            line.lineCode !== 'MANUAL_ADJUSTMENT' ? (
+                                              <div className="text-[11px] text-blue-700">
+                                                {line.description}
+                                              </div>
+                                            ) : null}
+                                          </td>
+                                          <td className="px-2 py-1.5">
+                                            {formatPricingLineUnitDisplay(line, headcountTotal)}
+                                          </td>
+                                          <td className="px-2 py-1.5">
+                                            {formatPricingLineQuantityDisplay(line, headcountTotal)}
+                                          </td>
+                                          <td className="px-2 py-1.5">
+                                            {formatKrw(line.amountKrw)}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                            <div className="mt-1 overflow-hidden rounded-lg border border-blue-200 bg-white">
+                              <div className="grid grid-cols-4 bg-slate-100 text-center text-[11px] font-medium text-slate-600">
+                                <div className="border-r border-slate-200 px-2 py-2">총액(1인)</div>
+                                <div className="border-r border-slate-200 px-2 py-2">
+                                  예약금(1인)
+                                </div>
+                                <div className="border-r border-slate-200 px-2 py-2">잔금(1인)</div>
+                                <div className="px-2 py-2">보증금(팀당/인당)</div>
+                              </div>
+                              <div className="grid grid-cols-4 text-center text-sm text-slate-900">
+                                <div className="border-r border-slate-200 px-2 py-4 font-semibold">
+                                  {formatKrw(pricingBuckets.grandTotal)}
+                                </div>
+                                <div className="border-r border-slate-200 px-2 py-4">
+                                  {formatKrw(pricingPreview.depositAmountKrw)}
+                                </div>
+                                <div className="border-r border-slate-200 px-2 py-4">
+                                  {formatKrw(pricingPreview.balanceAmountKrw)}
+                                </div>
+                                <div className="px-2 py-4">
+                                  {pricingPreview.securityDepositMode === 'NONE'
+                                    ? formatKrw(0)
+                                    : `${formatKrw(pricingPreview.securityDepositUnitPriceKrw)} (${formatSecurityDepositScope(pricingPreview.securityDepositMode)})`}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
+                )}
+              </Card>
+
+              <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between text-left"
+                  aria-expanded={isValidationOpen}
+                  aria-controls="builder-validation-panel"
+                  onClick={() => setIsValidationOpen((prev) => !prev)}
+                >
+                  <h2 className="text-lg font-bold text-slate-900">검증</h2>
+                  <span className="text-xs text-slate-500">
+                    {isValidationOpen ? '닫기' : '열기'}
+                  </span>
+                </button>
+                {isValidationOpen ? (
+                  <div id="builder-validation-panel" className="mt-3 space-y-2 text-sm">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                      편집 행 수: {planRows.length}
                     </div>
+                    {validationResults.length === 0 ? (
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">
+                        모든 검증 통과
+                      </div>
+                    ) : null}
+                    {validationResults.map((result) => (
+                      <div
+                        key={result.id}
+                        className={`rounded-2xl border p-3 ${
+                          result.severity === 'error'
+                            ? 'border-rose-200 bg-rose-50 text-rose-900'
+                            : 'border-amber-200 bg-amber-50 text-amber-900'
+                        }`}
+                      >
+                        {result.message}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </Card>
+
+              <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between text-left"
+                  aria-expanded={isPayloadPreviewOpen}
+                  aria-controls="builder-payload-preview-panel"
+                  onClick={() => setIsPayloadPreviewOpen((prev) => !prev)}
+                >
+                  <h2 className="text-lg font-bold text-slate-900">저장 데이터 미리보기</h2>
+                  <span className="text-xs text-slate-500">
+                    {isPayloadPreviewOpen ? '닫기' : '열기'}
+                  </span>
+                </button>
+                {isPayloadPreviewOpen ? (
+                  <>
+                    <p className="mt-1 text-xs text-slate-600">
+                      저장 시 서버로 전달되는 요약입니다.
+                    </p>
+                    <pre
+                      id="builder-payload-preview-panel"
+                      className="mt-3 max-h-[280px] overflow-auto rounded-2xl bg-slate-900 p-3 text-xs leading-5 text-slate-100"
+                    >
+                      {JSON.stringify(
+                        isVersionMode
+                          ? {
+                              userId,
+                              planId,
+                              parentVersionId,
+                              regionId,
+                              variantType,
+                              totalDays,
+                              changeNote,
+                              meta: {
+                                leaderName,
+                                travelStartDate,
+                                travelEndDate,
+                                headcountTotal,
+                                headcountMale,
+                                headcountFemale,
+                                vehicleType,
+                                flightInTime: primaryTransportGroup?.flightInTime ?? '',
+                                flightOutTime: primaryTransportGroup?.flightOutTime ?? '',
+                                pickupDate: primaryTransportGroup?.pickupDate ?? '',
+                                pickupTime: primaryTransportGroup?.pickupTime ?? '',
+                                pickupPlaceType:
+                                  primaryTransportGroup?.pickupPlaceType ??
+                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                                pickupPlaceCustomText:
+                                  primaryTransportGroup?.pickupPlaceCustomText ?? '',
+                                dropDate: primaryTransportGroup?.dropDate ?? '',
+                                dropTime: primaryTransportGroup?.dropTime ?? '',
+                                dropPlaceType:
+                                  primaryTransportGroup?.dropPlaceType ??
+                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                                dropPlaceCustomText:
+                                  primaryTransportGroup?.dropPlaceCustomText ?? '',
+                                externalTransfers,
+                                transportGroups: normalizedTransportGroups,
+                                specialNote,
+                                includeRentalItems,
+                                rentalItemsText,
+                                eventIds,
+                                extraLodgings,
+                                lodgingSelections,
+                                remark,
+                              },
+                              manualAdjustments: normalizedManualAdjustments,
+                              manualDepositAmountKrw: normalizedManualDepositAmountKrw,
+                              selectedRoute,
+                              planStops: mergedPlanStops,
+                            }
+                          : {
+                              userId,
+                              regionId,
+                              title: planTitle,
+                              variantType,
+                              totalDays,
+                              changeNote,
+                              meta: {
+                                leaderName,
+                                travelStartDate,
+                                travelEndDate,
+                                headcountTotal,
+                                headcountMale,
+                                headcountFemale,
+                                vehicleType,
+                                flightInTime: primaryTransportGroup?.flightInTime ?? '',
+                                flightOutTime: primaryTransportGroup?.flightOutTime ?? '',
+                                pickupDate: primaryTransportGroup?.pickupDate ?? '',
+                                pickupTime: primaryTransportGroup?.pickupTime ?? '',
+                                pickupPlaceType:
+                                  primaryTransportGroup?.pickupPlaceType ??
+                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                                pickupPlaceCustomText:
+                                  primaryTransportGroup?.pickupPlaceCustomText ?? '',
+                                dropDate: primaryTransportGroup?.dropDate ?? '',
+                                dropTime: primaryTransportGroup?.dropTime ?? '',
+                                dropPlaceType:
+                                  primaryTransportGroup?.dropPlaceType ??
+                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                                dropPlaceCustomText:
+                                  primaryTransportGroup?.dropPlaceCustomText ?? '',
+                                externalTransfers,
+                                transportGroups: normalizedTransportGroups,
+                                specialNote,
+                                includeRentalItems,
+                                rentalItemsText,
+                                eventIds,
+                                extraLodgings,
+                                lodgingSelections,
+                                remark,
+                              },
+                              manualAdjustments: normalizedManualAdjustments,
+                              manualDepositAmountKrw: normalizedManualDepositAmountKrw,
+                              selectedRoute,
+                              initialVersion: {
+                                planStops: mergedPlanStops,
+                              },
+                            },
+                        null,
+                        2,
+                      )}
+                    </pre>
                   </>
                 ) : null}
-              </div>
-            )}
-          </Card>
-
-          <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <button
-              type="button"
-              className="flex w-full items-center justify-between text-left"
-              aria-expanded={isValidationOpen}
-              aria-controls="builder-validation-panel"
-              onClick={() => setIsValidationOpen((prev) => !prev)}
-            >
-              <h2 className="text-lg font-bold text-slate-900">검증</h2>
-              <span className="text-xs text-slate-500">{isValidationOpen ? '닫기' : '열기'}</span>
-            </button>
-            {isValidationOpen ? (
-              <div id="builder-validation-panel" className="mt-3 space-y-2 text-sm">
-                <div className="rounded-2xl border border-slate-200 bg-white p-3">편집 행 수: {planRows.length}</div>
-                {validationResults.length === 0 ? (
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">
-                    모든 검증 통과
-                  </div>
-                ) : null}
-                {validationResults.map((result) => (
-                  <div
-                    key={result.id}
-                    className={`rounded-2xl border p-3 ${
-                      result.severity === 'error'
-                        ? 'border-rose-200 bg-rose-50 text-rose-900'
-                        : 'border-amber-200 bg-amber-50 text-amber-900'
-                    }`}
-                  >
-                    {result.message}
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </Card>
-
-          <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-            <button
-              type="button"
-              className="flex w-full items-center justify-between text-left"
-              aria-expanded={isPayloadPreviewOpen}
-              aria-controls="builder-payload-preview-panel"
-              onClick={() => setIsPayloadPreviewOpen((prev) => !prev)}
-            >
-              <h2 className="text-lg font-bold text-slate-900">저장 데이터 미리보기</h2>
-              <span className="text-xs text-slate-500">{isPayloadPreviewOpen ? '닫기' : '열기'}</span>
-            </button>
-            {isPayloadPreviewOpen ? (
-              <>
-                <p className="mt-1 text-xs text-slate-600">저장 시 서버로 전달되는 요약입니다.</p>
-                <pre
-                  id="builder-payload-preview-panel"
-                  className="mt-3 max-h-[280px] overflow-auto rounded-2xl bg-slate-900 p-3 text-xs leading-5 text-slate-100"
-                >
-{JSON.stringify(
-  isVersionMode
-    ? {
-        userId,
-        planId,
-      parentVersionId,
-      regionId,
-      variantType,
-      totalDays,
-      changeNote,
-      meta: {
-        leaderName,
-        travelStartDate,
-        travelEndDate,
-        headcountTotal,
-        headcountMale,
-        headcountFemale,
-        vehicleType,
-        flightInTime: primaryTransportGroup?.flightInTime ?? '',
-        flightOutTime: primaryTransportGroup?.flightOutTime ?? '',
-        pickupDate: primaryTransportGroup?.pickupDate ?? '',
-        pickupTime: primaryTransportGroup?.pickupTime ?? '',
-        pickupPlaceType: primaryTransportGroup?.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
-        pickupPlaceCustomText: primaryTransportGroup?.pickupPlaceCustomText ?? '',
-        dropDate: primaryTransportGroup?.dropDate ?? '',
-        dropTime: primaryTransportGroup?.dropTime ?? '',
-        dropPlaceType: primaryTransportGroup?.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
-        dropPlaceCustomText: primaryTransportGroup?.dropPlaceCustomText ?? '',
-        externalTransfers,
-        transportGroups: normalizedTransportGroups,
-        specialNote,
-        includeRentalItems,
-        rentalItemsText,
-        eventIds,
-        extraLodgings,
-        lodgingSelections,
-        remark,
-      },
-      manualAdjustments: normalizedManualAdjustments,
-      manualDepositAmountKrw: normalizedManualDepositAmountKrw,
-      selectedRoute,
-      planStops: mergedPlanStops,
-    }
-    : {
-        userId,
-        regionId,
-        title: planTitle,
-        variantType,
-        totalDays,
-        changeNote,
-        meta: {
-          leaderName,
-          travelStartDate,
-          travelEndDate,
-          headcountTotal,
-          headcountMale,
-          headcountFemale,
-          vehicleType,
-          flightInTime: primaryTransportGroup?.flightInTime ?? '',
-          flightOutTime: primaryTransportGroup?.flightOutTime ?? '',
-          pickupDate: primaryTransportGroup?.pickupDate ?? '',
-          pickupTime: primaryTransportGroup?.pickupTime ?? '',
-          pickupPlaceType: primaryTransportGroup?.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
-          pickupPlaceCustomText: primaryTransportGroup?.pickupPlaceCustomText ?? '',
-          dropDate: primaryTransportGroup?.dropDate ?? '',
-          dropTime: primaryTransportGroup?.dropTime ?? '',
-          dropPlaceType: primaryTransportGroup?.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
-          dropPlaceCustomText: primaryTransportGroup?.dropPlaceCustomText ?? '',
-          externalTransfers,
-          transportGroups: normalizedTransportGroups,
-          specialNote,
-          includeRentalItems,
-          rentalItemsText,
-          eventIds,
-          extraLodgings,
-          lodgingSelections,
-          remark,
-        },
-        manualAdjustments: normalizedManualAdjustments,
-        manualDepositAmountKrw: normalizedManualDepositAmountKrw,
-        selectedRoute,
-        initialVersion: {
-          planStops: mergedPlanStops,
-        },
-      },
-  null,
-  2,
-)}
-                </pre>
-              </>
-            ) : null}
-          </Card>
-        </section>
+              </Card>
+            </section>
           </div>
         </div>
 
         {isPreviewEnabled ? (
-          <aside className={`${activePane === 'preview' ? 'block' : 'hidden'} bg-slate-100/80 lg:block lg:h-full lg:overflow-y-auto`}>
+          <aside
+            className={`${activePane === 'preview' ? 'block' : 'hidden'} bg-slate-100/80 lg:block lg:h-full lg:overflow-y-auto`}
+          >
             <div className="p-4 sm:p-6 lg:sticky lg:top-0 lg:p-6">
               <div className="estimate-preview-panel rounded-[28px] border border-slate-200 bg-white/90 p-4 shadow-xl backdrop-blur sm:p-5">
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
-                    <h2 className="text-base font-semibold text-slate-900">실시간 견적서 미리보기</h2>
-                    <p className="mt-1 text-xs text-slate-600">좌측 입력값이 우측 문서에 바로 반영됩니다.</p>
+                    <h2 className="text-base font-semibold text-slate-900">
+                      실시간 견적서 미리보기
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-600">
+                      좌측 입력값이 우측 문서에 바로 반영됩니다.
+                    </p>
                   </div>
                   <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600">
                     {previewGuidesLoading ? '여행지 안내 동기화 중' : '실시간 반영'}
                   </div>
                 </div>
 
-              {previewEstimateData ? (
-                <div className="estimate-preview-frame">
-                    <EstimateDocument data={previewEstimateData} viewMode="screen-preview" page1Editor={previewPage1Editor} />
-                </div>
-              ) : (
+                {previewEstimateData ? (
+                  <div className="estimate-preview-frame">
+                    <EstimateDocument
+                      data={previewEstimateData}
+                      viewMode="screen-preview"
+                      page1Editor={previewPage1Editor}
+                    />
+                  </div>
+                ) : (
                   <Card className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
                     미리보기 데이터를 준비 중입니다...
                   </Card>
@@ -4989,7 +5611,9 @@ export function ItineraryBuilderPage(): JSX.Element {
             })
           }
           onRemove={(index) =>
-            setExternalTransfersDraft((current) => current.filter((_item, transferIndex) => transferIndex !== index))
+            setExternalTransfersDraft((current) =>
+              current.filter((_item, transferIndex) => transferIndex !== index),
+            )
           }
         />
 
@@ -4998,7 +5622,8 @@ export function ItineraryBuilderPage(): JSX.Element {
           transportGroups={transportGroups}
           initialValue={
             externalTransferModalState.editingIndex !== null
-              ? externalTransfersDraft[externalTransferModalState.editingIndex] ?? buildEmptyExternalTransfer()
+              ? (externalTransfersDraft[externalTransferModalState.editingIndex] ??
+                buildEmptyExternalTransfer())
               : null
           }
           onClose={() =>
@@ -5013,7 +5638,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                 return [...current, value];
               }
 
-              return current.map((item, index) => (index === externalTransferModalState.editingIndex ? value : item));
+              return current.map((item, index) =>
+                index === externalTransferModalState.editingIndex ? value : item,
+              );
             });
             setExternalTransferModalState({
               open: false,
@@ -5050,7 +5677,9 @@ export function ItineraryBuilderPage(): JSX.Element {
               .map((r, i) => (isMainPlanStopRow(r) ? i : -1))
               .filter((i) => i >= 0);
             mainIndices.forEach((rowIndex) => {
-              dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, 'mealCellText'));
+              dirtyPlanRowFieldKeysRef.current.add(
+                getDirtyPlanRowFieldKey(rowIndex, 'mealCellText'),
+              );
             });
             setPlanRows((prev) =>
               prev.map((row, i) => {
@@ -5100,11 +5729,15 @@ export function ItineraryBuilderPage(): JSX.Element {
 
         <RegionLodgingSelectModal
           open={lodgingSelectionModalState.open}
-          dayIndex={lodgingSelectionModalState.rowIndex !== null ? lodgingSelectionModalState.rowIndex + 1 : null}
+          dayIndex={
+            lodgingSelectionModalState.rowIndex !== null
+              ? lodgingSelectionModalState.rowIndex + 1
+              : null
+          }
           lodgings={regionLodgings}
           initialSelectedId={
             lodgingSelectionModalState.rowIndex !== null
-              ? planRows[lodgingSelectionModalState.rowIndex]?.customLodgingId ?? null
+              ? (planRows[lodgingSelectionModalState.rowIndex]?.customLodgingId ?? null)
               : null
           }
           onClose={() =>
