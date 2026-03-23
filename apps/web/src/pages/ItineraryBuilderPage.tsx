@@ -2730,6 +2730,11 @@ export function ItineraryBuilderPage(): JSX.Element {
     [extraLodgings],
   );
 
+  const extraLodgingDayLabels = useMemo(
+    () => planRows.filter((r) => isMainPlanStopRow(r)).map((r) => r.destinationCellText.trim()),
+    [planRows],
+  );
+
   const externalTransferManualAdjustments = useMemo(
     () => buildDerivedExternalTransferManualAdjustments(externalTransfers, transportGroups),
     [externalTransfers, transportGroups],
@@ -4976,7 +4981,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                       <div className="min-w-0 w-1/2">
                         <span className="text-xs text-slate-600">숙소 추가</span>
                         <p className="mt-1 text-xs text-slate-400">
-                          일차별 추가 숙소 수량을 모달에서 설정합니다.
+                          버튼을 눌러 모달에서 일차별 추가 숙소 수량을 한 화면에 모아 확인·수정합니다.
+                          전 일차 동일 값 일괄 적용도 가능합니다.
                         </p>
                         <p className="mt-2 text-xs text-slate-500">
                           {planRows.length === 0
@@ -5876,12 +5882,14 @@ export function ItineraryBuilderPage(): JSX.Element {
         <ExtraLodgingsModal
           open={extraLodgingsModalState.open}
           counts={extraLodgingCounts}
+          dayLabels={extraLodgingDayLabels}
           onClose={() => setExtraLodgingsModalState({ open: false })}
           onChangeCount={(index, nextValue) =>
             setExtraLodgingCounts((prev) =>
               prev.map((value, valueIndex) => (valueIndex === index ? nextValue : value)),
             )
           }
+          onApplyUniform={(value) => setExtraLodgingCounts((prev) => prev.map(() => value))}
         />
 
         <ManualAdjustmentsModal
