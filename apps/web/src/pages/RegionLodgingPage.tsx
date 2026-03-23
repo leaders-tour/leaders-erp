@@ -225,9 +225,11 @@ export function RegionLodgingPage(): JSX.Element {
             )}
           </div>
 
-          <div className="grid gap-4">
+          <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+            <div className="grid gap-1">
+              <h3 className="text-sm font-semibold text-slate-800">숙소명</h3>
+            </div>
             <label className="grid gap-2 text-sm">
-              <span className="text-slate-700">숙소명</span>
               <Input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} />
             </label>
           </div>
