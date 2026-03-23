@@ -97,6 +97,7 @@ function EditableCell({
 interface TransportGroupEditorProps {
   groups: EstimateTransportGroup[];
   mode: 'flightIn' | 'flightOut' | 'pickup' | 'drop';
+  headcountTotal: number;
   onFieldChange: EstimatePage1Editor['onTransportGroupFieldChange'];
   onAdd: () => void;
   onRemove: (index: number) => void;
@@ -155,7 +156,14 @@ function FlightTimeButtonGroup({ options, value, onChange }: FlightTimeButtonGro
   );
 }
 
-function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: TransportGroupEditorProps): JSX.Element {
+function TransportGroupEditor({
+  groups,
+  mode,
+  headcountTotal,
+  onFieldChange,
+  onAdd,
+  onRemove,
+}: TransportGroupEditorProps): JSX.Element {
   const showGroupMeta = groups.length > 1;
   const title =
     mode === 'flightIn'
@@ -171,7 +179,7 @@ function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: 
       {groups.map((group, index) => (
         <div key={`${title}-${index}`} className="rounded-xl border border-slate-200 bg-white p-3">
           {showGroupMeta ? (
-            <div className="mb-2 grid gap-2 md:grid-cols-[1fr_100px_auto]">
+            <div className="mb-2 grid gap-2 md:grid-cols-[1fr_minmax(11rem,1fr)_auto]">
               <input
                 autoFocus={index === 0}
                 type="text"
@@ -180,14 +188,32 @@ function TransportGroupEditor({ groups, mode, onFieldChange, onAdd, onRemove }: 
                 placeholder="팀명"
                 className="estimate-editable-input"
               />
-              <input
-                type="number"
-                min={1}
-                value={group.headcount}
-                onChange={(event) => onFieldChange(index, 'headcount', Math.max(1, Number(event.target.value) || 1))}
-                placeholder="인원"
-                className="estimate-editable-input"
-              />
+              <div className="grid min-w-0 gap-1">
+                <span className="text-[10px] font-medium text-slate-500 md:hidden">인원</span>
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5 sm:gap-3 sm:px-3 sm:py-2">
+                  <button
+                    type="button"
+                    onClick={() => onFieldChange(index, 'headcount', group.headcount - 1)}
+                    disabled={group.headcount <= 1}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="팀 인원 감소"
+                  >
+                    -
+                  </button>
+                  <div className="min-w-0 flex-1 text-center text-sm font-semibold text-slate-900 sm:text-base">
+                    {group.headcount}명
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onFieldChange(index, 'headcount', group.headcount + 1)}
+                    disabled={group.headcount >= headcountTotal - (groups.length - 1)}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label="팀 인원 증가"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
               <button
                 type="button"
                 disabled={groups.length <= 1}
@@ -476,6 +502,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 <TransportGroupEditor
                   groups={editor?.transportGroups ?? []}
                   mode="flightIn"
+                  headcountTotal={editor?.headcountTotal ?? 1}
                   onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
                   onAdd={() => editor?.onAddTransportGroup()}
                   onRemove={(index) => editor?.onRemoveTransportGroup(index)}
@@ -501,6 +528,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 <TransportGroupEditor
                   groups={editor?.transportGroups ?? []}
                   mode="flightOut"
+                  headcountTotal={editor?.headcountTotal ?? 1}
                   onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
                   onAdd={() => editor?.onAddTransportGroup()}
                   onRemove={(index) => editor?.onRemoveTransportGroup(index)}
@@ -533,6 +561,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 <TransportGroupEditor
                   groups={editor?.transportGroups ?? []}
                   mode="pickup"
+                  headcountTotal={editor?.headcountTotal ?? 1}
                   onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
                   onAdd={() => editor?.onAddTransportGroup()}
                   onRemove={(index) => editor?.onRemoveTransportGroup(index)}
@@ -563,6 +592,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 <TransportGroupEditor
                   groups={editor?.transportGroups ?? []}
                   mode="drop"
+                  headcountTotal={editor?.headcountTotal ?? 1}
                   onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
                   onAdd={() => editor?.onAddTransportGroup()}
                   onRemove={(index) => editor?.onRemoveTransportGroup(index)}

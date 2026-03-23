@@ -1120,6 +1120,112 @@ function createTransportGroupDraft(input: {
   };
 }
 
+/** 팀당 최소 1명을 유지하면서 total을 teamCount팀에 나눕니다. 합은 항상 total과 같습니다. total < teamCount이면 null. */
+function distributeHeadcountTotalAcrossTeams(total: number, teamCount: number): number[] | null {
+  if (teamCount < 1) {
+    return [];
+  }
+  if (total < teamCount) {
+    return null;
+  }
+  const afterMin = total - teamCount;
+  const base = Math.floor(afterMin / teamCount);
+  const rem = afterMin % teamCount;
+  return Array.from({ length: teamCount }, (_, i) => 1 + base + (i < rem ? 1 : 0));
+}
+
+function buildTransportGroupsAfterAddTeam(
+  current: TransportGroupDraft[],
+  headcountTotal: number,
+  travelStartDate: string,
+  travelEndDate: string,
+): TransportGroupDraft[] | null {
+  const newLen = current.length + 1;
+  if (headcountTotal < newLen) {
+    return null;
+  }
+
+  const usedHeadcount = current.reduce((sum, group) => sum + group.headcount, 0);
+  const remainingHeadcount = Math.max(headcountTotal - usedHeadcount, 0);
+
+  if (remainingHeadcount > 0) {
+    return [
+      ...current,
+      createTransportGroupDraft({
+        index: current.length,
+        headcount: remainingHeadcount,
+        travelStartDate,
+        travelEndDate,
+        flightInTime: '02:45',
+        flightOutTime: '18:15',
+      }),
+    ];
+  }
+
+  const counts = distributeHeadcountTotalAcrossTeams(headcountTotal, newLen);
+  if (!counts) {
+    return null;
+  }
+
+  return [
+    ...current.map((group, index) => ({ ...group, headcount: counts[index]! })),
+    createTransportGroupDraft({
+      index: current.length,
+      headcount: counts[current.length]!,
+      travelStartDate,
+      travelEndDate,
+      flightInTime: '02:45',
+      flightOutTime: '18:15',
+    }),
+  ];
+}
+
+/** 다팀일 때 한 팀 인원을 바꾸면, 나머지 팀에 (전체 − 해당 팀)을 균등 분배해 합이 headcountTotal과 맞춘다. */
+function applyPartitionHeadcountOnTeamEdit(
+  groups: TransportGroupDraft[],
+  editIndex: number,
+  requestedHeadcount: number,
+  headcountTotal: number,
+): TransportGroupDraft[] {
+  const n = groups.length;
+  if (n <= 1) {
+    return groups.map((g, i) =>
+      i === editIndex ? { ...g, headcount: Math.max(1, requestedHeadcount) } : g,
+    );
+  }
+
+  const maxForEdited = headcountTotal - (n - 1);
+  const safeRequested = Math.max(1, requestedHeadcount);
+
+  if (maxForEdited < 1) {
+    const all = distributeHeadcountTotalAcrossTeams(headcountTotal, n);
+    if (!all) {
+      return groups;
+    }
+    return groups.map((g, i) => ({ ...g, headcount: all[i]! }));
+  }
+
+  const clamped = Math.min(maxForEdited, safeRequested);
+
+  const remaining = headcountTotal - clamped;
+  const subCounts = distributeHeadcountTotalAcrossTeams(remaining, n - 1);
+  if (!subCounts) {
+    const all = distributeHeadcountTotalAcrossTeams(headcountTotal, n);
+    if (!all) {
+      return groups;
+    }
+    return groups.map((g, i) => ({ ...g, headcount: all[i]! }));
+  }
+
+  let subIdx = 0;
+  return groups.map((g, i) => {
+    if (i === editIndex) {
+      return { ...g, headcount: clamped };
+    }
+    return { ...g, headcount: subCounts[subIdx++]! };
+  });
+}
+
 function toSegmentTimeCell(
   segmentVersion:
     | {
@@ -2058,6 +2164,14 @@ export function ItineraryBuilderPage(): JSX.Element {
     field: K,
     value: TransportGroupDraft[K],
   ): void => {
+    if (field === 'headcount') {
+      setTransportGroups((current) => {
+        const raw = typeof value === 'number' && Number.isFinite(value) ? value : 1;
+        return applyPartitionHeadcountOnTeamEdit(current, index, raw, headcountTotal);
+      });
+      return;
+    }
+
     setTransportGroups((current) =>
       current.map((group, groupIndex) => {
         if (groupIndex !== index) {
@@ -2934,19 +3048,14 @@ export function ItineraryBuilderPage(): JSX.Element {
     },
     onTransportGroupFieldChange: handlePreviewTransportGroupFieldChange,
     onAddTransportGroup: () => {
-      const usedHeadcount = transportGroups.reduce((sum, group) => sum + group.headcount, 0);
-      const remainingHeadcount = Math.max(headcountTotal - usedHeadcount, 0);
-      setTransportGroups((current) => [
-        ...current,
-        createTransportGroupDraft({
-          index: current.length,
-          headcount: remainingHeadcount > 0 ? remainingHeadcount : 1,
-          travelStartDate,
-          travelEndDate,
-          flightInTime: '02:45',
-          flightOutTime: '18:15',
-        }),
-      ]);
+      setTransportGroups((current) => {
+        const next = buildTransportGroupsAfterAddTeam(current, headcountTotal, travelStartDate, travelEndDate);
+        if (!next) {
+          window.alert('전체 인원은 팀 수 이상이어야 합니다. 인원을 늘리거나 팀을 줄여 주세요.');
+          return current;
+        }
+        return next;
+      });
     },
     onRemoveTransportGroup: (index) =>
       setTransportGroups((current) =>
@@ -4002,22 +4111,39 @@ export function ItineraryBuilderPage(): JSX.Element {
                                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                                   />
                                 </label>
-                                <label className="grid gap-1">
+                                <div className="grid gap-1">
                                   <span className="text-xs text-slate-600">인원</span>
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    value={group.headcount}
-                                    onChange={(event) =>
-                                      updateTransportGroup(
-                                        index,
-                                        'headcount',
-                                        Math.max(1, Number(event.target.value) || 1),
-                                      )
-                                    }
-                                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                                  />
-                                </label>
+                                  <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        updateTransportGroup(index, 'headcount', group.headcount - 1)
+                                      }
+                                      disabled={group.headcount <= 1}
+                                      className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                      aria-label={`${group.teamName || `${index + 1}번 팀`} 인원 감소`}
+                                    >
+                                      -
+                                    </button>
+                                    <div className="min-w-0 flex-1 text-center text-base font-semibold text-slate-900">
+                                      {group.headcount}명
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        updateTransportGroup(index, 'headcount', group.headcount + 1)
+                                      }
+                                      disabled={
+                                        group.headcount >=
+                                        headcountTotal - (transportGroups.length - 1)
+                                      }
+                                      className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                      aria-label={`${group.teamName || `${index + 1}번 팀`} 인원 증가`}
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
                             ) : null}
 
@@ -4235,25 +4361,30 @@ export function ItineraryBuilderPage(): JSX.Element {
                       <div className="pt-1">
                         <button
                           type="button"
+                          disabled={transportGroups.length >= headcountTotal}
+                          title={
+                            transportGroups.length >= headcountTotal
+                              ? '팀당 최소 1명이므로, 더 추가하려면 전체 인원을 늘려 주세요.'
+                              : undefined
+                          }
                           onClick={() => {
-                            const usedHeadcount = transportGroups.reduce(
-                              (sum, group) => sum + group.headcount,
-                              0,
-                            );
-                            const remainingHeadcount = Math.max(headcountTotal - usedHeadcount, 0);
-                            setTransportGroups((current) => [
-                              ...current,
-                              createTransportGroupDraft({
-                                index: current.length,
-                                headcount: remainingHeadcount > 0 ? remainingHeadcount : 1,
+                            setTransportGroups((current) => {
+                              const next = buildTransportGroupsAfterAddTeam(
+                                current,
+                                headcountTotal,
                                 travelStartDate,
                                 travelEndDate,
-                                flightInTime: '02:45',
-                                flightOutTime: '18:15',
-                              }),
-                            ]);
+                              );
+                              if (!next) {
+                                window.alert(
+                                  '전체 인원은 팀 수 이상이어야 합니다. 인원을 늘리거나 팀을 줄여 주세요.',
+                                );
+                                return current;
+                              }
+                              return next;
+                            });
                           }}
-                          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900"
+                          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           + 팀 추가
                         </button>
@@ -4781,30 +4912,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                   <span>추가 설정</span>
                 </h2>
                 <div className="mt-4 grid gap-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
-                  <div className="grid gap-2 text-sm">
-                    <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <div className="min-w-0 w-1/2">
-                        <span className="text-xs text-slate-600">숙소 추가</span>
-                        <p className="mt-1 text-xs text-slate-400">
-                          일차별 추가 숙소 수량을 모달에서 설정합니다.
-                        </p>
-                        <p className="mt-2 text-xs text-slate-500">
-                          {planRows.length === 0
-                            ? '아직 설정할 일차가 없습니다.'
-                            : `적용 일차 ${extraLodgingSummary.activeDayCount}일 · 총 ${extraLodgingSummary.totalCount}개`}
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        className="shrink-0 whitespace-nowrap"
-                        onClick={() => setExtraLodgingsModalState({ open: true })}
-                        disabled={planRows.length === 0}
-                      >
-                        숙소 추가 설정
-                      </Button>
-                    </div>
-                  </div>
-
                   <div className="grid gap-3 text-sm">
                     <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <div className="min-w-0 w-1/2">
@@ -4860,6 +4967,30 @@ export function ItineraryBuilderPage(): JSX.Element {
                         disabled={planRows.length === 0}
                       >
                         특식 배치 설정
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2 text-sm">
+                    <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="min-w-0 w-1/2">
+                        <span className="text-xs text-slate-600">숙소 추가</span>
+                        <p className="mt-1 text-xs text-slate-400">
+                          일차별 추가 숙소 수량을 모달에서 설정합니다.
+                        </p>
+                        <p className="mt-2 text-xs text-slate-500">
+                          {planRows.length === 0
+                            ? '아직 설정할 일차가 없습니다.'
+                            : `적용 일차 ${extraLodgingSummary.activeDayCount}일 · 총 ${extraLodgingSummary.totalCount}개`}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="shrink-0 whitespace-nowrap"
+                        onClick={() => setExtraLodgingsModalState({ open: true })}
+                        disabled={planRows.length === 0}
+                      >
+                        숙소 추가 설정
                       </Button>
                     </div>
                   </div>
