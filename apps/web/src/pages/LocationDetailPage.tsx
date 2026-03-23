@@ -263,7 +263,7 @@ export function LocationDetailPage(): JSX.Element {
                   <Link to={`/locations/${item.targetLocationId}`} className="text-slate-800 hover:underline">
                     {item.targetLocationName}
                   </Link>
-                  <div className="text-slate-600">{item.distanceKm}km / {item.travelHours}시간</div>
+                  <div className="text-slate-600">{item.distanceKm}km / {item.travelHours}h</div>
                 </div>
               ))
             )}
@@ -279,7 +279,7 @@ export function LocationDetailPage(): JSX.Element {
                   <Link to={`/locations/${item.targetLocationId}`} className="text-slate-800 hover:underline">
                     {item.targetLocationName}
                   </Link>
-                  <div className="text-slate-600">{item.distanceKm}km / {item.travelHours}시간</div>
+                  <div className="text-slate-600">{item.distanceKm}km / {item.travelHours}h</div>
                 </div>
               ))
             )}

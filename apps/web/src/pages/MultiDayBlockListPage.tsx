@@ -1,6 +1,6 @@
 import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { formatLocationNameInline } from '../features/location/display';
 import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
 
@@ -52,7 +52,10 @@ interface MultiDayBlockRow {
   }>;
 }
 
-function buildScheduleLines(timeCellText: string, scheduleCellText: string): Array<{ time: string; activity: string }> {
+function buildScheduleLines(
+  timeCellText: string,
+  scheduleCellText: string,
+): Array<{ time: string; activity: string }> {
   const timeLines = timeCellText.split('\n');
   const scheduleLines = scheduleCellText.split('\n');
   const lineCount = Math.max(timeLines.length, scheduleLines.length);
@@ -77,15 +80,21 @@ function buildScheduleLines(timeCellText: string, scheduleCellText: string): Arr
 
 export function MultiDayBlockListPage(): JSX.Element {
   const navigate = useNavigate();
-  const { data, loading } = useQuery<{ multiDayBlocks: MultiDayBlockRow[] }>(MULTI_DAY_BLOCKS_QUERY);
+  const { data, loading } = useQuery<{ multiDayBlocks: MultiDayBlockRow[] }>(
+    MULTI_DAY_BLOCKS_QUERY,
+  );
   const rows = data?.multiDayBlocks ?? [];
 
   return (
     <section className="grid gap-6">
       <header className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">연속 일정 블록 목록</h1>
-          <p className="mt-1 text-sm text-slate-600">블록 정의를 조회하고 상세 화면으로 이동합니다.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+            연속 일정 블록 목록
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">
+            블록 정의를 조회하고 상세 화면으로 이동합니다.
+          </p>
         </div>
         <Button onClick={() => navigate('/multi-day-blocks/create')}>블록 생성</Button>
       </header>
@@ -111,7 +120,9 @@ export function MultiDayBlockListPage(): JSX.Element {
               </thead>
               <tbody>
                 {rows.map((row) => {
-                  const orderedDays = row.days.slice().sort((left, right) => left.dayOrder - right.dayOrder);
+                  const orderedDays = row.days
+                    .slice()
+                    .sort((left, right) => left.dayOrder - right.dayOrder);
                   return (
                     <tr
                       key={row.id}
@@ -132,22 +143,39 @@ export function MultiDayBlockListPage(): JSX.Element {
                       <Td>{orderedDays.length}일</Td>
                       <Td className="whitespace-pre-line">
                         {orderedDays.length > 0
-                          ? orderedDays.map((day) => `${day.dayOrder}일차 ${day.averageDistanceKm}km / ${day.averageTravelHours}h`).join('\n')
+                          ? orderedDays
+                              .map(
+                                (day) =>
+                                  `${day.dayOrder}일차 ${day.averageDistanceKm}km / ${day.averageTravelHours}h`,
+                              )
+                              .join('\n')
                           : '-'}
                       </Td>
                       <Td>
                         {orderedDays.length > 0 ? (
                           <div className="grid gap-3 text-sm">
                             {orderedDays.map((day) => {
-                              const scheduleLines = buildScheduleLines(day.timeCellText, day.scheduleCellText);
+                              const scheduleLines = buildScheduleLines(
+                                day.timeCellText,
+                                day.scheduleCellText,
+                              );
                               return (
                                 <div key={day.id} className="grid gap-1">
-                                  <div className="font-medium text-slate-800">{day.dayOrder}일차</div>
+                                  <div className="font-medium text-slate-800">
+                                    {day.dayOrder}일차
+                                  </div>
                                   {scheduleLines.length > 0 ? (
                                     scheduleLines.map((line, index) => (
-                                      <div key={`${day.id}-${index}`} className="grid grid-cols-[56px_minmax(0,1fr)] gap-2">
-                                        <span className="font-medium text-slate-700">{line.time}</span>
-                                        <span className="whitespace-pre-wrap text-slate-600">{line.activity}</span>
+                                      <div
+                                        key={`${day.id}-${index}`}
+                                        className="grid grid-cols-[56px_minmax(0,1fr)] gap-2"
+                                      >
+                                        <span className="font-medium text-slate-700">
+                                          {line.time}
+                                        </span>
+                                        <span className="whitespace-pre-wrap text-slate-600">
+                                          {line.activity}
+                                        </span>
                                       </div>
                                     ))
                                   ) : (

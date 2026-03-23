@@ -248,7 +248,7 @@ export function MultiDayBlockConnectionDetailPage(): JSX.Element {
             )}
           </div>
           <div>평균거리: {connection.averageDistanceKm}km</div>
-          <div>평균 이동시간: {connection.averageTravelHours}시간</div>
+          <div>평균 이동시간: {connection.averageTravelHours}h</div>
           <div className="md:col-span-2">
             이동강도:{' '}
             {movementIntensityMeta ? (

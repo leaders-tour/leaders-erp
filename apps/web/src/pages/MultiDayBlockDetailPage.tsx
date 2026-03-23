@@ -200,7 +200,7 @@ export function MultiDayBlockDetailPage(): JSX.Element {
               <div className="mt-4 grid gap-2 text-sm text-slate-700">
                 <div>표시 목적지: {displayLocation}</div>
                 <div>이동거리: {day.averageDistanceKm}km</div>
-                <div>이동시간: {day.averageTravelHours}시간</div>
+                <div>이동시간: {day.averageTravelHours}h</div>
                 <div>
                   이동강도:{' '}
                   {movementMeta ? (

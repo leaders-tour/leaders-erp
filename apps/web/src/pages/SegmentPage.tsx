@@ -1183,8 +1183,8 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 <Td>{row.regionName}</Td>
                 <Td>{formatLocationNameInline(locationById.get(row.fromLocationId)?.name ?? row.fromLocationId)}</Td>
                 <Td>{formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? row.toLocationId)}</Td>
-                <Td>{row.averageDistanceKm}</Td>
-                <Td>{row.averageTravelHours}</Td>
+                <Td>{row.averageDistanceKm}km</Td>
+                <Td>{row.averageTravelHours}h</Td>
                 <Td>
                   {(() => {
                     const meta = getMovementIntensityMeta(calculateMovementIntensityByHours(row.averageTravelHours));

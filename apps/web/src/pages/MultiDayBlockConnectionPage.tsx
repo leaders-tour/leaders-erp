@@ -1555,8 +1555,8 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                     <Td>{region?.name ?? '-'}</Td>
                     <Td>{stayById.get(row.fromMultiDayBlockId)?.name ?? stayById.get(row.fromMultiDayBlockId)?.title ?? row.fromMultiDayBlockId}</Td>
                     <Td>{formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? [row.toLocationId])}</Td>
-                    <Td>{row.averageDistanceKm}</Td>
-                    <Td>{row.averageTravelHours}</Td>
+                    <Td>{row.averageDistanceKm}km</Td>
+                    <Td>{row.averageTravelHours}h</Td>
                     <Td>
                       {(() => {
                         const meta = getMovementIntensityMeta(calculateMovementIntensityByHours(row.averageTravelHours));
