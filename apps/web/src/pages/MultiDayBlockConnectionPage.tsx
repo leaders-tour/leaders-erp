@@ -1,6 +1,7 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   calculateMovementIntensityByHours,
   getMovementIntensityMeta,
@@ -234,10 +235,12 @@ function buildScheduleLines(
 }
 
 interface MultiDayBlockConnectionPageProps {
-  mode?: 'all' | 'list' | 'create';
+  mode?: 'all' | 'list' | 'create' | 'edit';
 }
 
 export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConnectionPageProps): JSX.Element {
+  const navigate = useNavigate();
+  const { connectionId } = useParams<{ connectionId: string }>();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [regionId, setRegionId] = useState('');
   const [fromMultiDayBlockId, setFromMultiDayBlockId] = useState('');
@@ -255,10 +258,12 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
   const [timeSlotsPasteHelper, setTimeSlotsPasteHelper] = useState<TimeSlotPasteHelperValue>(createEmptyPasteHelperValue());
   const [extendTimeSlotsPasteHelper, setExtendTimeSlotsPasteHelper] = useState<TimeSlotPasteHelperValue>(createEmptyPasteHelperValue());
 
-  const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
-  const { data: locationData, refetch } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
-  const { data: stayData } = useQuery<{ multiDayBlocks: MultiDayBlockRow[] }>(MULTI_DAY_BLOCKS_QUERY);
-  const { data: connectionData } = useQuery<{ multiDayBlockConnections: ConnectionRow[] }>(MULTI_DAY_BLOCK_CONNECTIONS_QUERY);
+  const { data: regionData, loading: regionLoading } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
+  const { data: locationData, loading: locationLoading } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
+  const { data: stayData, loading: stayLoading } = useQuery<{ multiDayBlocks: MultiDayBlockRow[] }>(MULTI_DAY_BLOCKS_QUERY);
+  const { data: connectionData, loading: connectionLoading, refetch: refetchConnections } = useQuery<{
+    multiDayBlockConnections: ConnectionRow[];
+  }>(MULTI_DAY_BLOCK_CONNECTIONS_QUERY);
   const [createMutation, { loading: creating }] = useMutation(CREATE_MUTATION);
   const [updateMutation, { loading: updating }] = useMutation(UPDATE_MUTATION);
   const [deleteMutation, { loading: deleting }] = useMutation(DELETE_MUTATION);
@@ -313,6 +318,40 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
     }
     return getMovementIntensityMeta(calculateMovementIntensityByHours(hours));
   }, [averageTravelHours]);
+  const isEditMode = mode === 'edit';
+  const isLoading = regionLoading || locationLoading || stayLoading || connectionLoading;
+  const editingRow = useMemo(
+    () => (isEditMode && connectionId ? rows.find((row) => row.id === connectionId) ?? null : null),
+    [connectionId, isEditMode, rows],
+  );
+
+  const applyRowToForm = (row: ConnectionRow) => {
+    setEditingId(row.id);
+    setRegionId(row.regionId);
+    setFromMultiDayBlockId(row.fromMultiDayBlockId);
+    setToLocationId(row.toLocationId);
+    setAverageDistanceKm(String(row.averageDistanceKm));
+    setAverageTravelHours(String(row.averageTravelHours));
+    setIsLongDistance(row.isLongDistance);
+    setTimeSlots(
+      row.scheduleTimeBlocks.map((slot) => ({
+        startTime: slot.startTime,
+        activities: slot.activities.map((activity) => activity.description).length > 0
+          ? slot.activities.map((activity) => activity.description)
+          : [''],
+      })),
+    );
+    setExtendTimeSlots(
+      row.extendScheduleTimeBlocks.map((slot) => ({
+        startTime: slot.startTime,
+        activities: slot.activities.map((activity) => activity.description).length > 0
+          ? slot.activities.map((activity) => activity.description)
+          : [''],
+      })),
+    );
+    setBlockSearch(stayById.get(row.fromMultiDayBlockId)?.name || stayById.get(row.fromMultiDayBlockId)?.title || '');
+    setLocationSearch(formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? []));
+  };
 
   const resetForm = () => {
     setEditingId(null);
@@ -332,6 +371,13 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
     setExtendTimeSlotsPasteHelper(createEmptyPasteHelperValue());
   };
 
+  useEffect(() => {
+    if (!editingRow) {
+      return;
+    }
+    applyRowToForm(editingRow);
+  }, [editingRow]);
+
   const submit = async () => {
     const input = {
       regionId,
@@ -346,10 +392,15 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
 
     if (editingId) {
       await updateMutation({ variables: { id: editingId, input } });
+      await refetchConnections();
+      if (isEditMode) {
+        navigate(`/multi-day-blocks/connections/${editingId}`);
+        return;
+      }
     } else {
       await createMutation({ variables: { input } });
     }
-    await refetch();
+    await refetchConnections();
     resetForm();
   };
 
@@ -361,23 +412,60 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
     setLocationSearch('');
   };
 
-  const showCreateSection = mode !== 'list';
-  const showListSection = mode !== 'create';
-  const pageTitle = mode === 'create' ? '블록 후속 연결 생성' : mode === 'list' ? '블록 후속 연결 목록' : '블록 후속 연결';
+  const showCreateSection = mode === 'create' || mode === 'all';
+  const showListSection = mode === 'list' || mode === 'all';
+  const showEditSection = isEditMode;
+  const pageTitle =
+    mode === 'create'
+      ? '블록 후속 연결 생성'
+      : mode === 'list'
+        ? '블록 후속 연결 목록'
+        : mode === 'edit'
+          ? '블록 후속 연결 수정'
+          : '블록 후속 연결';
   const pageDescription =
     mode === 'create'
       ? '블록 이후에 갈 수 있는 목적지 연결을 생성합니다.'
       : mode === 'list'
-        ? '등록된 블록 후속 연결을 조회하고 수정합니다.'
-        : '블록 이후에 갈 수 있는 목적지 연결을 관리합니다.';
+        ? '등록된 블록 후속 연결을 조회합니다.'
+        : mode === 'edit'
+          ? '기존 블록 후속 연결 정보를 수정합니다.'
+          : '블록 이후에 갈 수 있는 목적지 연결을 관리합니다.';
 
   const selectedBlock = fromMultiDayBlockId ? stayById.get(fromMultiDayBlockId) : null;
   const selectedLocation = toLocationId ? locationById.get(toLocationId) : null;
 
+  if (isEditMode && isLoading) {
+    return <section className="py-8 text-sm text-slate-600">불러오는 중...</section>;
+  }
+
+  if (isEditMode && !editingRow) {
+    return (
+      <section className="grid gap-4 py-8">
+        <h1 className="text-xl font-semibold text-slate-900">연결 정보를 찾을 수 없습니다.</h1>
+        <div>
+          <Link to="/multi-day-blocks/connections/list" className="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-sm text-white">
+            목록으로 이동
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="grid gap-6">
       <header className="grid gap-3">
-        <MultiDayBlockSubNav pathname={mode === 'create' ? '/multi-day-blocks/connections/create' : mode === 'list' ? '/multi-day-blocks/connections/list' : '/multi-day-blocks/connections'} />
+        <MultiDayBlockSubNav
+          pathname={
+            mode === 'create'
+              ? '/multi-day-blocks/connections/create'
+              : mode === 'list'
+                ? '/multi-day-blocks/connections/list'
+                : mode === 'edit' && editingId
+                  ? `/multi-day-blocks/connections/${editingId}/edit`
+                  : '/multi-day-blocks/connections'
+          }
+        />
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{pageTitle}</h1>
         <p className="mt-1 text-sm text-slate-600">{pageDescription}</p>
       </header>
@@ -890,7 +978,7 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
       </Card>
       ) : null}
 
-      {showListSection && editingId ? (
+      {showEditSection ? (
         <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
           <h2 className="mb-4 text-lg font-semibold tracking-tight">블록 후속 연결 수정</h2>
           <form
@@ -1061,7 +1149,12 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                   <Button type="submit" variant="primary" disabled={!regionId || !fromMultiDayBlockId || !toLocationId || updating}>
                     {updating ? '저장 중...' : '저장'}
                   </Button>
-                  <Button type="button" variant="outline" onClick={resetForm} className="ml-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate(editingId ? `/multi-day-blocks/connections/${editingId}` : '/multi-day-blocks/connections/list')}
+                    className="ml-2"
+                  >
                     취소
                   </Button>
                 </div>
@@ -1446,7 +1539,19 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                 const extendScheduleLines = buildScheduleLines(row.extendScheduleTimeBlocks);
 
                 return (
-                  <tr key={row.id} className="align-top">
+                  <tr
+                    key={row.id}
+                    role="button"
+                    tabIndex={0}
+                    className="align-top cursor-pointer hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    onClick={() => navigate(`/multi-day-blocks/connections/${row.id}`)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        navigate(`/multi-day-blocks/connections/${row.id}`);
+                      }
+                    }}
+                  >
                     <Td>{region?.name ?? '-'}</Td>
                     <Td>{stayById.get(row.fromMultiDayBlockId)?.name ?? stayById.get(row.fromMultiDayBlockId)?.title ?? row.fromMultiDayBlockId}</Td>
                     <Td>{formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? [row.toLocationId])}</Td>
@@ -1503,34 +1608,18 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                     <Td>{row.isLongDistance ? 'Y' : 'N'}</Td>
                     <Td>
                       <div className="flex gap-2">
+                        <Link
+                          to={`/multi-day-blocks/connections/${row.id}`}
+                          className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          상세
+                        </Link>
                         <Button
                           variant="outline"
-                          onClick={() => {
-                            setEditingId(row.id);
-                            setRegionId(row.regionId);
-                            setFromMultiDayBlockId(row.fromMultiDayBlockId);
-                            setToLocationId(row.toLocationId);
-                            setAverageDistanceKm(String(row.averageDistanceKm));
-                            setAverageTravelHours(String(row.averageTravelHours));
-                            setIsLongDistance(row.isLongDistance);
-                            setTimeSlots(
-                              row.scheduleTimeBlocks.map((slot) => ({
-                                startTime: slot.startTime,
-                                activities: slot.activities.map((activity) => activity.description).length > 0
-                                  ? slot.activities.map((activity) => activity.description)
-                                  : [''],
-                              })),
-                            );
-                            setExtendTimeSlots(
-                              row.extendScheduleTimeBlocks.map((slot) => ({
-                                startTime: slot.startTime,
-                                activities: slot.activities.map((activity) => activity.description).length > 0
-                                  ? slot.activities.map((activity) => activity.description)
-                                  : [''],
-                              })),
-                            );
-                            setBlockSearch(stayById.get(row.fromMultiDayBlockId)?.name || stayById.get(row.fromMultiDayBlockId)?.title || '');
-                            setLocationSearch(formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? []));
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            navigate(`/multi-day-blocks/connections/${row.id}/edit`);
                           }}
                         >
                           수정
@@ -1538,12 +1627,13 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                         <Button
                           variant="outline"
                           disabled={deleting}
-                          onClick={async () => {
+                          onClick={async (event) => {
+                            event.stopPropagation();
                             if (!window.confirm('블록 후속 연결을 삭제할까요?')) {
                               return;
                             }
                             await deleteMutation({ variables: { id: row.id } });
-                            await refetch();
+                            await refetchConnections();
                             if (editingId === row.id) {
                               resetForm();
                             }

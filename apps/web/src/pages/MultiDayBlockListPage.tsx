@@ -113,7 +113,19 @@ export function MultiDayBlockListPage(): JSX.Element {
                 {rows.map((row) => {
                   const orderedDays = row.days.slice().sort((left, right) => left.dayOrder - right.dayOrder);
                   return (
-                    <tr key={row.id} className="border-t border-slate-200 align-top">
+                    <tr
+                      key={row.id}
+                      role="button"
+                      tabIndex={0}
+                      className="border-t border-slate-200 align-top cursor-pointer hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                      onClick={() => navigate(`/multi-day-blocks/${row.id}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          navigate(`/multi-day-blocks/${row.id}`);
+                        }
+                      }}
+                    >
                       <Td>{row.name}</Td>
                       <Td>{formatLocationNameInline(row.location.name)}</Td>
                       <Td>{row.isActive ? '활성' : '비활성'}</Td>
@@ -150,9 +162,22 @@ export function MultiDayBlockListPage(): JSX.Element {
                         )}
                       </Td>
                       <Td>
-                        <Link to={`/multi-day-blocks/${row.id}`} className="text-blue-700 hover:underline">
-                          상세
-                        </Link>
+                        <div className="flex gap-2">
+                          <Link
+                            to={`/multi-day-blocks/${row.id}`}
+                            className="text-blue-700 hover:underline"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            상세
+                          </Link>
+                          <Link
+                            to={`/multi-day-blocks/${row.id}/edit`}
+                            className="text-blue-700 hover:underline"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            수정
+                          </Link>
+                        </div>
                       </Td>
                     </tr>
                   );

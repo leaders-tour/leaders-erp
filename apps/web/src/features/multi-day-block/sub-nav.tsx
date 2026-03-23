@@ -5,7 +5,7 @@ interface MultiDayBlockSubNavProps {
 }
 
 function isListContext(pathname: string): boolean {
-  return pathname === '/multi-day-blocks/list' || /^\/multi-day-blocks\/[^/]+$/.test(pathname);
+  return pathname === '/multi-day-blocks/list' || /^\/multi-day-blocks\/[^/]+(?:\/edit)?$/.test(pathname);
 }
 
 export function MultiDayBlockSubNav({ pathname }: MultiDayBlockSubNavProps): JSX.Element {
