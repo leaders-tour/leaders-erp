@@ -197,7 +197,7 @@ export class SegmentService {
     earlyExtendTimeSlots?: SegmentTimeSlotInput[];
   }): NormalizedSegmentVersion {
     return {
-      name: 'Direct',
+      name: '기본',
       averageDistanceKm: input.averageDistanceKm,
       averageTravelHours: input.averageTravelHours,
       movementIntensity: calculateMovementIntensity(input.averageTravelHours),
@@ -538,7 +538,7 @@ export class SegmentService {
       const createdVersion = await tx.segmentVersion.create({
         data: {
           segmentId,
-          name: defaultVersion.name || 'Direct',
+          name: defaultVersion.name || '기본',
           averageDistanceKm: defaultVersion.averageDistanceKm,
           averageTravelHours: defaultVersion.averageTravelHours,
           movementIntensity: defaultVersion.movementIntensity,
@@ -557,7 +557,7 @@ export class SegmentService {
     await tx.segmentVersion.update({
       where: { id: existingDefaultVersion.id },
       data: {
-        name: existingDefaultVersion.name || defaultVersion.name || 'Direct',
+        name: existingDefaultVersion.name || defaultVersion.name || '기본',
         averageDistanceKm: defaultVersion.averageDistanceKm,
         averageTravelHours: defaultVersion.averageTravelHours,
         movementIntensity: defaultVersion.movementIntensity,

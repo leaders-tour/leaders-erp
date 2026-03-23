@@ -315,7 +315,7 @@ function buildLegacyDirectVersion(segment: SegmentOption): ResolvedSegmentVersio
   return {
     id: `${segment.id}::direct`,
     segmentId: segment.id,
-    name: 'Direct',
+    name: '기본',
     averageDistanceKm: segment.averageDistanceKm,
     averageTravelHours: segment.averageTravelHours,
     movementIntensity: segment.movementIntensity ?? 'LEVEL_1',
@@ -337,7 +337,7 @@ function buildLegacyDirectMultiDayBlockConnectionVersion(
   return {
     id: `${connection.id}::direct`,
     multiDayBlockConnectionId: connection.id,
-    name: 'Direct',
+    name: '기본',
     averageDistanceKm: connection.averageDistanceKm,
     averageTravelHours: connection.averageTravelHours,
     movementIntensity: connection.movementIntensity ?? 'LEVEL_1',
@@ -580,7 +580,7 @@ export function resolveSegmentVersionForDate(
 }
 
 export function formatSegmentVersionLabel(version: Pick<ResolvedSegmentVersionOption, 'name'>): string {
-  return version.name.trim() || 'Direct';
+  return version.name.trim() || '기본';
 }
 
 export function getMultiDayBlockConnectionVersions(
@@ -635,7 +635,7 @@ export function resolveMultiDayBlockConnectionVersion(
 export function formatMultiDayBlockConnectionVersionLabel(
   version: Pick<ResolvedMultiDayBlockConnectionVersionOption, 'name'>,
 ): string {
-  return version.name.trim() || 'Direct';
+  return version.name.trim() || '기본';
 }
 
 export function getDefaultVersionId(location: LocationOption | undefined): string {

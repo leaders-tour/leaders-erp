@@ -139,7 +139,7 @@ const segmentAB: SegmentOption = {
     {
       id: 'segment-version-ab',
       segmentId: 'segment-ab',
-      name: 'Direct',
+      name: '기본',
       averageDistanceKm: 540,
       averageTravelHours: 8.5,
       isLongDistance: false,
@@ -197,7 +197,7 @@ const segmentBC: SegmentOption = {
     {
       id: 'segment-version-bc',
       segmentId: 'segment-bc',
-      name: 'Direct',
+      name: '기본',
       averageDistanceKm: 200,
       averageTravelHours: 4,
       isLongDistance: false,
@@ -269,7 +269,7 @@ const segmentAC: SegmentOption = {
     {
       id: 'segment-version-ac',
       segmentId: 'segment-ac',
-      name: 'Direct',
+      name: '기본',
       averageDistanceKm: 620,
       averageTravelHours: 10,
       isLongDistance: false,

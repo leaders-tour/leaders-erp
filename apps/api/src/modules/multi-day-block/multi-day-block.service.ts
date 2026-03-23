@@ -345,7 +345,7 @@ export class MultiDayBlockConnectionService {
     earlyExtendTimeSlots?: MultiDayBlockConnectionTimeSlotInput[];
   }): NormalizedConnectionVersion {
     return {
-      name: 'Direct',
+      name: '기본',
       averageDistanceKm: input.averageDistanceKm,
       averageTravelHours: input.averageTravelHours,
       movementIntensity: calculateMovementIntensity(input.averageTravelHours),
@@ -639,7 +639,7 @@ export class MultiDayBlockConnectionService {
       const createdVersion = await tx.overnightStayConnectionVersion.create({
         data: {
           overnightStayConnectionId,
-          name: defaultVersion.name || 'Direct',
+          name: defaultVersion.name || '기본',
           averageDistanceKm: defaultVersion.averageDistanceKm,
           averageTravelHours: defaultVersion.averageTravelHours,
           movementIntensity: defaultVersion.movementIntensity,
@@ -656,7 +656,7 @@ export class MultiDayBlockConnectionService {
     await tx.overnightStayConnectionVersion.update({
       where: { id: existingDefaultVersion.id },
       data: {
-        name: existingDefaultVersion.name || defaultVersion.name || 'Direct',
+        name: existingDefaultVersion.name || defaultVersion.name || '기본',
         averageDistanceKm: defaultVersion.averageDistanceKm,
         averageTravelHours: defaultVersion.averageTravelHours,
         movementIntensity: defaultVersion.movementIntensity,

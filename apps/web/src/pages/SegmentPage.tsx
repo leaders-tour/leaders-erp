@@ -545,7 +545,7 @@ function buildVersionInputs(
 ): SegmentVersionFormInput[] {
   return [
     {
-      name: 'Direct',
+      name: '기본',
       averageDistanceKm: Number(form.averageDistanceKm),
       averageTravelHours: Number(form.averageTravelHours),
       isLongDistance: form.isLongDistance,
@@ -1222,12 +1222,12 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 <Td>
                   <div className="flex flex-wrap gap-1">
                     {row.versions.length === 0 ? (
-                      <span className="text-xs text-slate-500">Direct</span>
+                      <span className="text-xs text-slate-500">기본</span>
                     ) : (
                       row.versions.map((version) => (
                         <span key={version.id} className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-600">
                           {[
-                            version.name.trim() || 'Direct',
+                            version.name.trim() || '기본',
                             version.startDate && version.endDate ? `(${version.startDate.slice(0, 10)}~${version.endDate.slice(0, 10)})` : null,
                           ]
                             .filter(Boolean)
@@ -1525,7 +1525,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-slate-500">기본 Direct 버전은 상시 적용 버전으로 날짜 범위를 설정하지 않습니다.</p>
+                <p className="text-xs text-slate-500">기본 버전은 상시 적용 버전으로 날짜 범위를 설정하지 않습니다.</p>
                 {(includeEditExtend || includeEditEarlyExtend) ? (
                   <div className="grid items-start gap-6 lg:grid-cols-2">
                     {includeEditExtend ? (

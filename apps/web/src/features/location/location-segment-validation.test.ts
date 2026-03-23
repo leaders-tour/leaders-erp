@@ -118,7 +118,7 @@ describe('segment variant validation shape', () => {
       earlyExtendTimeSlots: [{ startTime: '05:00', activities: ['얼리+연장'] }],
       versions: [
         {
-          name: 'Direct',
+          name: '기본',
           averageDistanceKm: 10,
           averageTravelHours: 1,
           isLongDistance: false,
