@@ -9,7 +9,11 @@ import { useNavigate } from 'react-router-dom';
 import { formatLocationNameInline } from '../features/location/display';
 import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
 import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
-import { getAssignmentsFromPlanRows } from '../features/plan/special-meals';
+import {
+  getAssignmentsFromPlanRows,
+  SPECIAL_MEAL_KINDS,
+  type SpecialMealKind,
+} from '../features/plan/special-meals';
 import {
   MultiDayBlockDaySlotEditor,
   createMultiDayBlockScheduleSlot,
@@ -19,10 +23,19 @@ import {
 import { MealOption } from '../generated/graphql';
 import type { FacilityAvailability } from '../features/location/hooks';
 
-const MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
+type MealChoice = MealOption | SpecialMealKind;
+
+const REGULAR_MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
   { value: MealOption.CampMeal, label: '캠프식' },
   { value: MealOption.LocalRestaurant, label: '현지식당' },
 ];
+
+const SPECIAL_MEAL_OPTIONS: Array<{ value: SpecialMealKind; label: string }> = SPECIAL_MEAL_KINDS.map(
+  (value) => ({
+    value,
+    label: value,
+  }),
+);
 
 interface RegionRow {
   id: string;
@@ -51,9 +64,9 @@ interface MultiDayBlockDayDraft {
     hasInternet: FacilityAvailability;
   };
   meals: {
-    breakfast: MealOption | null;
-    lunch: MealOption | null;
-    dinner: MealOption | null;
+    breakfast: MealChoice | null;
+    lunch: MealChoice | null;
+    dinner: MealChoice | null;
   };
 }
 
@@ -125,17 +138,27 @@ function serializeLodging(lodging: MultiDayBlockDayDraft['lodging']): string {
 }
 
 function serializeMeals(meals: MultiDayBlockDayDraft['meals']): string {
+  const getMealChoiceLabel = (value: MealChoice | null): string => {
+    if (!value) {
+      return '';
+    }
+    if (SPECIAL_MEAL_KINDS.includes(value as SpecialMealKind)) {
+      return value;
+    }
+    return REGULAR_MEAL_OPTIONS.find((opt) => opt.value === value)?.label ?? '';
+  };
+
   const parts: string[] = [];
   if (meals.breakfast) {
-    const label = MEAL_OPTIONS.find((opt) => opt.value === meals.breakfast)?.label ?? '';
+    const label = getMealChoiceLabel(meals.breakfast);
     parts.push(`아침: ${label}`);
   }
   if (meals.lunch) {
-    const label = MEAL_OPTIONS.find((opt) => opt.value === meals.lunch)?.label ?? '';
+    const label = getMealChoiceLabel(meals.lunch);
     parts.push(`점심: ${label}`);
   }
   if (meals.dinner) {
-    const label = MEAL_OPTIONS.find((opt) => opt.value === meals.dinner)?.label ?? '';
+    const label = getMealChoiceLabel(meals.dinner);
     parts.push(`저녁: ${label}`);
   }
   return parts.join('\n');
@@ -446,19 +469,22 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                     // Parse mealCellText back to meals structure
                     const mealLines = updated.mealCellText.split('\n');
                     const meals = {
-                      breakfast: null as MealOption | null,
-                      lunch: null as MealOption | null,
-                      dinner: null as MealOption | null,
+                      breakfast: null as MealChoice | null,
+                      lunch: null as MealChoice | null,
+                      dinner: null as MealChoice | null,
                     };
                     for (const line of mealLines) {
                       const match = line.match(/^(아침|점심|저녁):\s*(.+)$/);
                       if (match) {
                         const [, mealType, label] = match;
-                        const option = MEAL_OPTIONS.find((opt) => opt.label === label);
+                        const option =
+                          REGULAR_MEAL_OPTIONS.find((opt) => opt.label === label)?.value ??
+                          SPECIAL_MEAL_OPTIONS.find((opt) => opt.label === label)?.value ??
+                          null;
                         if (option) {
-                          if (mealType === '아침') meals.breakfast = option.value;
-                          else if (mealType === '점심') meals.lunch = option.value;
-                          else if (mealType === '저녁') meals.dinner = option.value;
+                          if (mealType === '아침') meals.breakfast = option;
+                          else if (mealType === '점심') meals.lunch = option;
+                          else if (mealType === '저녁') meals.dinner = option;
                         }
                       }
                     }
@@ -675,7 +701,7 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                       <label key={field} className="grid gap-1 text-sm">
                         <span className="text-slate-700">{field === 'breakfast' ? '아침' : field === 'lunch' ? '점심' : '저녁'}</span>
                         <div className="flex flex-wrap gap-2">
-                          {MEAL_OPTIONS.map((option) => (
+                          {REGULAR_MEAL_OPTIONS.map((option) => (
                             <Button
                               key={option.value}
                               type="button"
@@ -690,6 +716,26 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                               {option.label}
                             </Button>
                           ))}
+                        </div>
+                        <div className="mt-1">
+                          <div className="mb-2 text-xs text-slate-500">특식 4종</div>
+                          <div className="flex flex-wrap gap-2">
+                            {SPECIAL_MEAL_OPTIONS.map((option) => (
+                              <Button
+                                key={option.value}
+                                type="button"
+                                variant={day.meals[field] === option.value ? 'default' : 'outline'}
+                                onClick={() =>
+                                  updateDay(day.dayOrder, 'meals', {
+                                    ...day.meals,
+                                    [field]: day.meals[field] === option.value ? null : option.value,
+                                  })
+                                }
+                              >
+                                {option.label}
+                              </Button>
+                            ))}
+                          </div>
                         </div>
                       </label>
                     ))}
