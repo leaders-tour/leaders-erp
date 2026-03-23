@@ -8,12 +8,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { formatLocationNameInline } from '../features/location/display';
 import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
-import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
-import {
-  getAssignmentsFromPlanRows,
-  SPECIAL_MEAL_KINDS,
-  type SpecialMealKind,
-} from '../features/plan/special-meals';
 import {
   MultiDayBlockDaySlotEditor,
   createMultiDayBlockScheduleSlot,
@@ -23,19 +17,10 @@ import {
 import { MealOption } from '../generated/graphql';
 import type { FacilityAvailability } from '../features/location/hooks';
 
-type MealChoice = MealOption | SpecialMealKind;
-
 const REGULAR_MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
   { value: MealOption.CampMeal, label: '캠프식' },
   { value: MealOption.LocalRestaurant, label: '현지식당' },
 ];
-
-const SPECIAL_MEAL_OPTIONS: Array<{ value: SpecialMealKind; label: string }> = SPECIAL_MEAL_KINDS.map(
-  (value) => ({
-    value,
-    label: value,
-  }),
-);
 
 interface RegionRow {
   id: string;
@@ -64,9 +49,9 @@ interface MultiDayBlockDayDraft {
     hasInternet: FacilityAvailability;
   };
   meals: {
-    breakfast: MealChoice | null;
-    lunch: MealChoice | null;
-    dinner: MealChoice | null;
+    breakfast: MealOption | null;
+    lunch: MealOption | null;
+    dinner: MealOption | null;
   };
 }
 
@@ -138,28 +123,18 @@ function serializeLodging(lodging: MultiDayBlockDayDraft['lodging']): string {
 }
 
 function serializeMeals(meals: MultiDayBlockDayDraft['meals']): string {
-  const getMealChoiceLabel = (value: MealChoice | null): string => {
-    if (!value) {
-      return '';
-    }
-    if (SPECIAL_MEAL_KINDS.includes(value as SpecialMealKind)) {
-      return value;
-    }
-    return REGULAR_MEAL_OPTIONS.find((opt) => opt.value === value)?.label ?? '';
-  };
+  const getLabel = (value: MealOption | null): string =>
+    value ? (REGULAR_MEAL_OPTIONS.find((opt) => opt.value === value)?.label ?? '') : '';
 
   const parts: string[] = [];
   if (meals.breakfast) {
-    const label = getMealChoiceLabel(meals.breakfast);
-    parts.push(`아침: ${label}`);
+    parts.push(`아침: ${getLabel(meals.breakfast)}`);
   }
   if (meals.lunch) {
-    const label = getMealChoiceLabel(meals.lunch);
-    parts.push(`점심: ${label}`);
+    parts.push(`점심: ${getLabel(meals.lunch)}`);
   }
   if (meals.dinner) {
-    const label = getMealChoiceLabel(meals.dinner);
-    parts.push(`저녁: ${label}`);
+    parts.push(`저녁: ${getLabel(meals.dinner)}`);
   }
   return parts.join('\n');
 }
@@ -174,7 +149,6 @@ export function MultiDayBlockCreatePage(): JSX.Element {
   const [name, setName] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [days, setDays] = useState<MultiDayBlockDayDraft[]>([createDayDraft(1), createDayDraft(2)]);
-  const [specialMealsModalOpen, setSpecialMealsModalOpen] = useState(false);
 
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
@@ -422,79 +396,6 @@ export function MultiDayBlockCreatePage(): JSX.Element {
               <span className="text-xs text-slate-500">블록은 2일 또는 3일까지 설정할 수 있습니다.</span>
             </div>
 
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
-              <div>
-                <span className="text-xs text-slate-600">특식 4종</span>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  {(() => {
-                    const sortedDays = days.slice().sort((a, b) => a.dayOrder - b.dayOrder);
-                    const assignments = getAssignmentsFromPlanRows(
-                      sortedDays.map((day) => ({
-                        mealCellText: serializeMeals(day.meals),
-                        destinationCellText: formatLocationNameInline(
-                          locationById.get(day.displayLocationId || locationId)?.name ?? [],
-                        ),
-                        scheduleCellText: serializeMultiDayBlockScheduleSlots(day.scheduleSlots).scheduleCellText,
-                      })),
-                    );
-                    const count = new Set(assignments.map((a) => a.specialMeal)).size;
-                    return `4종 중 ${count}종 배치됨`;
-                  })()}
-                </p>
-              </div>
-              <Button variant="outline" onClick={() => setSpecialMealsModalOpen(true)}>
-                특식 배치 설정
-              </Button>
-            </div>
-            <SpecialMealsModal
-              open={specialMealsModalOpen}
-              rows={days
-                .slice()
-                .sort((a, b) => a.dayOrder - b.dayOrder)
-                .map((day) => ({
-                  mealCellText: serializeMeals(day.meals),
-                  destinationCellText: formatLocationNameInline(
-                    locationById.get(day.displayLocationId || locationId)?.name ?? [],
-                  ),
-                  scheduleCellText: serializeMultiDayBlockScheduleSlots(day.scheduleSlots).scheduleCellText,
-                }))}
-              onClose={() => setSpecialMealsModalOpen(false)}
-              onSave={(updatedRows) => {
-                const sortedDays = days.slice().sort((a, b) => a.dayOrder - b.dayOrder);
-                setDays((prev) =>
-                  prev.map((day) => {
-                    const idx = sortedDays.findIndex((d) => d.dayOrder === day.dayOrder);
-                    const updated = idx >= 0 ? updatedRows[idx] : undefined;
-                    if (!updated) return day;
-                    // Parse mealCellText back to meals structure
-                    const mealLines = updated.mealCellText.split('\n');
-                    const meals = {
-                      breakfast: null as MealChoice | null,
-                      lunch: null as MealChoice | null,
-                      dinner: null as MealChoice | null,
-                    };
-                    for (const line of mealLines) {
-                      const match = line.match(/^(아침|점심|저녁):\s*(.+)$/);
-                      if (match) {
-                        const [, mealType, label] = match;
-                        const option =
-                          REGULAR_MEAL_OPTIONS.find((opt) => opt.label === label)?.value ??
-                          SPECIAL_MEAL_OPTIONS.find((opt) => opt.label === label)?.value ??
-                          null;
-                        if (option) {
-                          if (mealType === '아침') meals.breakfast = option;
-                          else if (mealType === '점심') meals.lunch = option;
-                          else if (mealType === '저녁') meals.dinner = option;
-                        }
-                      }
-                    }
-                    return { ...day, meals };
-                  }),
-                );
-                setSpecialMealsModalOpen(false);
-              }}
-            />
-
             <div className="flex gap-2">
               <Button
                 disabled={!regionId || !name.trim() || !canSubmit || loading}
@@ -716,26 +617,6 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                               {option.label}
                             </Button>
                           ))}
-                        </div>
-                        <div className="mt-1">
-                          <div className="mb-2 text-xs text-slate-500">특식 4종</div>
-                          <div className="flex flex-wrap gap-2">
-                            {SPECIAL_MEAL_OPTIONS.map((option) => (
-                              <Button
-                                key={option.value}
-                                type="button"
-                                variant={day.meals[field] === option.value ? 'default' : 'outline'}
-                                onClick={() =>
-                                  updateDay(day.dayOrder, 'meals', {
-                                    ...day.meals,
-                                    [field]: day.meals[field] === option.value ? null : option.value,
-                                  })
-                                }
-                              >
-                                {option.label}
-                              </Button>
-                            ))}
-                          </div>
                         </div>
                       </label>
                     ))}
