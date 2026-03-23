@@ -40,7 +40,7 @@ export class RegionLodgingService {
     return this.repository.create({
       ...parsed.data,
       name: parsed.data.name.trim(),
-      isActive: parsed.data.isActive ?? true,
+      isActive: true,
       sortOrder: parsed.data.sortOrder ?? 0,
     });
   }
@@ -63,6 +63,7 @@ export class RegionLodgingService {
     return this.repository.update(id, {
       ...parsed.data,
       ...(parsed.data.name !== undefined ? { name: parsed.data.name.trim() } : {}),
+      isActive: true,
     });
   }
 

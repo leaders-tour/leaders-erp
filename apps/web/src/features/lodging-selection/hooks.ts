@@ -60,10 +60,8 @@ const REMOVE = gql`
 export interface RegionLodgingFormInput {
   regionId: string;
   name: string;
-  priceKrw?: number | null;
   pricePerPersonKrw?: number | null;
   pricePerTeamKrw?: number | null;
-  isActive: boolean;
   sortOrder: number;
 }
 
@@ -84,10 +82,8 @@ export function useRegionLodgingCrud() {
       input: {
         regionId: input.regionId.trim(),
         name: input.name.trim(),
-        priceKrw: normalizeNullableNumber(input.priceKrw),
         pricePerPersonKrw: normalizeNullableNumber(input.pricePerPersonKrw),
         pricePerTeamKrw: normalizeNullableNumber(input.pricePerTeamKrw),
-        isActive: input.isActive,
         sortOrder: input.sortOrder,
       },
     }),
@@ -96,10 +92,8 @@ export function useRegionLodgingCrud() {
       input: {
         regionId: input.regionId.trim(),
         name: input.name.trim(),
-        priceKrw: normalizeNullableNumber(input.priceKrw),
         pricePerPersonKrw: normalizeNullableNumber(input.pricePerPersonKrw),
         pricePerTeamKrw: normalizeNullableNumber(input.pricePerTeamKrw),
-        isActive: input.isActive,
         sortOrder: input.sortOrder,
       },
     }),

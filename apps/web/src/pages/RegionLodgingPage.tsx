@@ -32,13 +32,13 @@ type RegionLodgingRow = {
   } | null;
 };
 
+type RegionLodgingPriceMode = 'PER_PERSON' | 'PER_TEAM';
+
 interface RegionLodgingFormState {
   regionId: string;
   name: string;
-  priceKrw: string;
-  pricePerPersonKrw: string;
-  pricePerTeamKrw: string;
-  isActive: boolean;
+  priceMode: RegionLodgingPriceMode;
+  priceValue: string;
   sortOrder: string;
 }
 
@@ -46,22 +46,22 @@ function createEmptyForm(regionId = ''): RegionLodgingFormState {
   return {
     regionId,
     name: '',
-    priceKrw: '',
-    pricePerPersonKrw: '',
-    pricePerTeamKrw: '',
-    isActive: true,
+    priceMode: 'PER_PERSON',
+    priceValue: '',
     sortOrder: '0',
   };
 }
 
 function toFormState(row: RegionLodgingRow): RegionLodgingFormState {
+  const priceMode: RegionLodgingPriceMode = row.pricePerPersonKrw != null ? 'PER_PERSON' : 'PER_TEAM';
+  const priceValue =
+    row.pricePerPersonKrw != null ? String(row.pricePerPersonKrw) : row.pricePerTeamKrw != null ? String(row.pricePerTeamKrw) : '';
+
   return {
     regionId: row.regionId,
     name: row.name,
-    priceKrw: row.priceKrw == null ? '' : String(row.priceKrw),
-    pricePerPersonKrw: row.pricePerPersonKrw == null ? '' : String(row.pricePerPersonKrw),
-    pricePerTeamKrw: row.pricePerTeamKrw == null ? '' : String(row.pricePerTeamKrw),
-    isActive: row.isActive,
+    priceMode,
+    priceValue,
     sortOrder: String(row.sortOrder),
   };
 }
@@ -80,6 +80,10 @@ function parseOptionalInt(value: string): number | undefined {
   return parsed;
 }
 
+function getPriceModeLabel(priceMode: RegionLodgingPriceMode): string {
+  return priceMode === 'PER_PERSON' ? '인당 가격' : '팀당 가격';
+}
+
 function validateForm(form: RegionLodgingFormState): string | null {
   if (!form.regionId) {
     return '지역을 선택해 주세요.';
@@ -89,33 +93,20 @@ function validateForm(form: RegionLodgingFormState): string | null {
     return '숙소명을 입력해 주세요.';
   }
 
-  const priceKrw = parseOptionalInt(form.priceKrw);
-  const pricePerPersonKrw = parseOptionalInt(form.pricePerPersonKrw);
-  const pricePerTeamKrw = parseOptionalInt(form.pricePerTeamKrw);
+  const priceValue = parseOptionalInt(form.priceValue);
   const sortOrder = parseOptionalInt(form.sortOrder);
+  const priceModeLabel = getPriceModeLabel(form.priceMode);
 
-  if (form.priceKrw.trim() && priceKrw == null) {
-    return '가격은 0 이상의 정수로 입력해 주세요.';
-  }
-
-  if (form.pricePerPersonKrw.trim() && pricePerPersonKrw == null) {
-    return '인당 가격은 0 이상의 정수로 입력해 주세요.';
-  }
-
-  if (form.pricePerTeamKrw.trim() && pricePerTeamKrw == null) {
-    return '팀당 가격은 0 이상의 정수로 입력해 주세요.';
+  if (form.priceValue.trim() && priceValue == null) {
+    return `${priceModeLabel}은 0 이상의 정수로 입력해 주세요.`;
   }
 
   if (sortOrder == null) {
     return '정렬순서는 0 이상의 정수로 입력해 주세요.';
   }
 
-  if (pricePerPersonKrw != null && pricePerTeamKrw != null) {
-    return '인당 가격과 팀당 가격은 동시에 입력할 수 없습니다.';
-  }
-
-  if (priceKrw == null && pricePerPersonKrw == null && pricePerTeamKrw == null) {
-    return '가격 또는 인당 가격 또는 팀당 가격 중 하나는 필요합니다.';
+  if (priceValue == null) {
+    return `${priceModeLabel}을 입력해 주세요.`;
   }
 
   return null;
@@ -127,6 +118,32 @@ function formatNumber(value: number | null | undefined): string {
   }
 
   return new Intl.NumberFormat('ko-KR').format(value);
+}
+
+function formatPriceType(row: Pick<RegionLodgingRow, 'priceKrw' | 'pricePerPersonKrw' | 'pricePerTeamKrw'>): string {
+  if (row.pricePerPersonKrw != null) {
+    return '인당';
+  }
+  if (row.pricePerTeamKrw != null) {
+    return '팀당';
+  }
+  if (row.priceKrw != null) {
+    return '기존 총액';
+  }
+  return '-';
+}
+
+function formatPriceValue(row: Pick<RegionLodgingRow, 'priceKrw' | 'pricePerPersonKrw' | 'pricePerTeamKrw'>): string {
+  if (row.pricePerPersonKrw != null) {
+    return formatNumber(row.pricePerPersonKrw);
+  }
+  if (row.pricePerTeamKrw != null) {
+    return formatNumber(row.pricePerTeamKrw);
+  }
+  if (row.priceKrw != null) {
+    return formatNumber(row.priceKrw);
+  }
+  return '-';
 }
 
 export function RegionLodgingPage(): JSX.Element {
@@ -164,10 +181,8 @@ export function RegionLodgingPage(): JSX.Element {
             const payload = {
               regionId: form.regionId,
               name: form.name.trim(),
-              priceKrw: parseOptionalInt(form.priceKrw),
-              pricePerPersonKrw: parseOptionalInt(form.pricePerPersonKrw),
-              pricePerTeamKrw: parseOptionalInt(form.pricePerTeamKrw),
-              isActive: form.isActive,
+              pricePerPersonKrw: form.priceMode === 'PER_PERSON' ? parseOptionalInt(form.priceValue) : null,
+              pricePerTeamKrw: form.priceMode === 'PER_TEAM' ? parseOptionalInt(form.priceValue) : null,
               sortOrder: parseOptionalInt(form.sortOrder) ?? 0,
             };
 
@@ -236,56 +251,37 @@ export function RegionLodgingPage(): JSX.Element {
             </label>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <label className="grid gap-2 text-sm">
-              <span className="text-slate-700">가격</span>
-              <Input
-                type="number"
-                min={0}
-                step={1}
-                value={form.priceKrw}
-                onChange={(event) => setForm((prev) => ({ ...prev, priceKrw: event.target.value }))}
-              />
-              <span className="text-xs text-slate-500">인당/팀당이 비어 있을 때만 사용됩니다.</span>
-            </label>
-            <label className="grid gap-2 text-sm">
-              <span className="text-slate-700">인당 가격</span>
-              <Input
-                type="number"
-                min={0}
-                step={1}
-                value={form.pricePerPersonKrw}
-                onChange={(event) => setForm((prev) => ({ ...prev, pricePerPersonKrw: event.target.value }))}
-              />
-            </label>
-            <label className="grid gap-2 text-sm">
-              <span className="text-slate-700">팀당 가격</span>
-              <Input
-                type="number"
-                min={0}
-                step={1}
-                value={form.pricePerTeamKrw}
-                onChange={(event) => setForm((prev) => ({ ...prev, pricePerTeamKrw: event.target.value }))}
-              />
-            </label>
-          </div>
-
           <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
             <div className="grid gap-1">
-              <h3 className="text-sm font-semibold text-slate-800">노출 여부</h3>
+              <h3 className="text-sm font-semibold text-slate-800">가격 설정</h3>
+              <p className="text-xs text-slate-500">먼저 가격 유형을 고른 뒤 금액을 입력합니다.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant={form.isActive ? 'default' : 'outline'} onClick={() => setForm((prev) => ({ ...prev, isActive: true }))}>
-                ON
+              <Button
+                type="button"
+                variant={form.priceMode === 'PER_PERSON' ? 'default' : 'outline'}
+                onClick={() => setForm((prev) => ({ ...prev, priceMode: 'PER_PERSON' }))}
+              >
+                인당 가격
               </Button>
               <Button
                 type="button"
-                variant={!form.isActive ? 'default' : 'outline'}
-                onClick={() => setForm((prev) => ({ ...prev, isActive: false }))}
+                variant={form.priceMode === 'PER_TEAM' ? 'default' : 'outline'}
+                onClick={() => setForm((prev) => ({ ...prev, priceMode: 'PER_TEAM' }))}
               >
-                OFF
+                팀당 가격
               </Button>
             </div>
+            <label className="grid gap-2 text-sm md:max-w-sm">
+              <span className="text-slate-700">{getPriceModeLabel(form.priceMode)}</span>
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                value={form.priceValue}
+                onChange={(event) => setForm((prev) => ({ ...prev, priceValue: event.target.value }))}
+              />
+            </label>
           </div>
 
           <div className="flex gap-2">
@@ -323,18 +319,16 @@ export function RegionLodgingPage(): JSX.Element {
               <Th>ID</Th>
               <Th>지역</Th>
               <Th>숙소명</Th>
+              <Th>가격 구분</Th>
               <Th>가격</Th>
-              <Th>인당 가격</Th>
-              <Th>팀당 가격</Th>
               <Th>정렬순서</Th>
-              <Th>노출</Th>
               <Th>액션</Th>
             </tr>
           </thead>
           <tbody>
             {crud.rows.length === 0 ? (
               <tr>
-                <Td className="text-slate-500" colSpan={9}>
+                <Td className="text-slate-500" colSpan={7}>
                   데이터가 없습니다.
                 </Td>
               </tr>
@@ -344,11 +338,9 @@ export function RegionLodgingPage(): JSX.Element {
                   <Td>{row.id}</Td>
                   <Td>{row.region?.name ?? regionNameById.get(row.regionId) ?? row.regionId}</Td>
                   <Td>{row.name}</Td>
-                  <Td>{formatNumber(row.priceKrw)}</Td>
-                  <Td>{formatNumber(row.pricePerPersonKrw)}</Td>
-                  <Td>{formatNumber(row.pricePerTeamKrw)}</Td>
+                  <Td>{formatPriceType(row)}</Td>
+                  <Td>{formatPriceValue(row)}</Td>
                   <Td>{row.sortOrder}</Td>
-                  <Td>{row.isActive ? 'ON' : 'OFF'}</Td>
                   <Td>
                     <div className="flex gap-2">
                       <Button

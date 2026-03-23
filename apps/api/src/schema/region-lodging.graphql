@@ -15,19 +15,15 @@ type RegionLodging {
 input RegionLodgingCreateInput {
   regionId: String!
   name: String!
-  priceKrw: Int
   pricePerPersonKrw: Int
   pricePerTeamKrw: Int
-  isActive: Boolean
   sortOrder: Int
 }
 
 input RegionLodgingUpdateInput {
   regionId: String
   name: String
-  priceKrw: Int
   pricePerPersonKrw: Int
   pricePerTeamKrw: Int
-  isActive: Boolean
   sortOrder: Int
 }

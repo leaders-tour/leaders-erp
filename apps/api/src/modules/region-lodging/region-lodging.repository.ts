@@ -25,14 +25,14 @@ export class RegionLodgingRepository {
     });
   }
 
-  create(data: RegionLodgingCreateDto) {
+  create(data: RegionLodgingCreateDto & { isActive: boolean }) {
     return this.prisma.regionLodging.create({
       data,
       include: regionLodgingInclude,
     });
   }
 
-  update(id: string, data: RegionLodgingUpdateDto) {
+  update(id: string, data: RegionLodgingUpdateDto & { isActive?: boolean }) {
     return this.prisma.regionLodging.update({
       where: { id },
       data,
