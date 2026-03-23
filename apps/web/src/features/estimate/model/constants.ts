@@ -17,7 +17,7 @@ export const ESTIMATE_PAYMENT = {
   bankOwner: '김영웅(리더스투어)',
 } as const;
 
-export const ESTIMATE_VALIDITY_DAYS = 7;
+export const ESTIMATE_VALIDITY_DAYS = 14;
 
 export const ESTIMATE_PAGE2_BRAND = 'Leaders Tour';
 
