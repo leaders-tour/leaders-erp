@@ -2815,6 +2815,17 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   const headcountFemale = headcountTotal - headcountMale;
   const applyHeadcountTotalChange = (nextTotal: number): void => {
+    const previousTotal = headcountTotal;
+    setRentalItemsText((currentText) => {
+      if (!includeRentalItems) {
+        return currentText;
+      }
+      const prevDefault = buildDefaultRentalItems(previousTotal);
+      if (currentText.trim() === prevDefault.trim()) {
+        return buildDefaultRentalItems(nextTotal);
+      }
+      return currentText;
+    });
     setHeadcountTotal(nextTotal);
     setHeadcountMale((current) =>
       hasEditedHeadcountMaleRef.current
