@@ -2590,37 +2590,45 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
   const pricingPreviewPlanStops = useMemo(
     () =>
-      mergedPlanStops.map((row) => ({
-        rowType: row.rowType,
-        segmentId: 'segmentId' in row ? row.segmentId : undefined,
-        segmentVersionId: 'segmentVersionId' in row ? row.segmentVersionId : undefined,
-        overnightStayId: 'overnightStayId' in row ? row.overnightStayId : undefined,
-        overnightStayDayOrder:
-          'overnightStayDayOrder' in row ? row.overnightStayDayOrder : undefined,
-        overnightStayConnectionId:
-          'overnightStayConnectionId' in row ? row.overnightStayConnectionId : undefined,
-        overnightStayConnectionVersionId:
+      mergedPlanStops.map((row) => {
+        const overnightStayId = 'overnightStayId' in row ? row.overnightStayId : undefined;
+        const overnightStayDayOrder =
+          'overnightStayDayOrder' in row ? row.overnightStayDayOrder : undefined;
+        const overnightStayConnectionId =
+          'overnightStayConnectionId' in row ? row.overnightStayConnectionId : undefined;
+        const overnightStayConnectionVersionId =
           'overnightStayConnectionVersionId' in row
             ? row.overnightStayConnectionVersionId
-            : undefined,
-        multiDayBlockId: 'multiDayBlockId' in row ? row.multiDayBlockId : undefined,
-        multiDayBlockDayOrder:
-          'multiDayBlockDayOrder' in row ? row.multiDayBlockDayOrder : undefined,
-        multiDayBlockConnectionId:
-          'multiDayBlockConnectionId' in row ? row.multiDayBlockConnectionId : undefined,
-        multiDayBlockConnectionVersionId:
-          'multiDayBlockConnectionVersionId' in row
-            ? row.multiDayBlockConnectionVersionId
-            : undefined,
-        locationId: row.locationId,
-        locationVersionId: 'locationVersionId' in row ? row.locationVersionId : undefined,
-        dateCellText: '',
-        destinationCellText: '',
-        timeCellText: '',
-        scheduleCellText: '',
-        lodgingCellText: '',
-        mealCellText: 'mealCellText' in row ? row.mealCellText : '',
-      })),
+            : undefined;
+
+        return {
+          rowType: row.rowType,
+          segmentId: 'segmentId' in row ? row.segmentId : undefined,
+          segmentVersionId: 'segmentVersionId' in row ? row.segmentVersionId : undefined,
+          multiDayBlockId:
+            'multiDayBlockId' in row ? row.multiDayBlockId : overnightStayId ?? undefined,
+          multiDayBlockDayOrder:
+            'multiDayBlockDayOrder' in row
+              ? row.multiDayBlockDayOrder
+              : overnightStayDayOrder ?? undefined,
+          multiDayBlockConnectionId:
+            'multiDayBlockConnectionId' in row
+              ? row.multiDayBlockConnectionId
+              : overnightStayConnectionId ?? undefined,
+          multiDayBlockConnectionVersionId:
+            'multiDayBlockConnectionVersionId' in row
+              ? row.multiDayBlockConnectionVersionId
+              : overnightStayConnectionVersionId ?? undefined,
+          locationId: row.locationId,
+          locationVersionId: 'locationVersionId' in row ? row.locationVersionId : undefined,
+          dateCellText: '',
+          destinationCellText: '',
+          timeCellText: '',
+          scheduleCellText: '',
+          lodgingCellText: '',
+          mealCellText: 'mealCellText' in row ? row.mealCellText : '',
+        };
+      }),
     [mergedPlanStops],
   );
   const displayPlanRows = useMemo(() => {
