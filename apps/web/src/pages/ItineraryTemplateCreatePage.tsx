@@ -660,12 +660,20 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
         </Card>
 
         <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">
-          <h2 className="font-medium">일차별 목적지 선택 (순차 선택)</h2>
-          <p className="mt-1 text-xs text-slate-600">루트 변경 시 본문이 전체 재생성됩니다.</p>
+          <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
+              3
+            </span>
+            <span>일정 선택</span>
+          </h2>
+          <p className="mt-1 text-xs text-slate-600">
+            이전 일차와 연결 가능한 목적지만 버튼으로 노출됩니다.
+          </p>
 
-          <div className="mt-4 space-y-4">
+          <div className="mt-4 space-y-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
             <div className="text-sm font-medium">1일차 출발지</div>
+            <p className="mt-1 text-xs text-slate-500">목적지중 첫날 가능 목적지만 나열됩니다</p>
             {startLocationId ? (
               <div className="mt-1 flex items-center justify-between gap-2">
                 <div className="text-slate-700">
@@ -680,6 +688,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                     setStartLocationId('');
                     setStartLocationVersionId('');
                     setSelectedRoute([]);
+                    setIsOvernightStayPickerOpen(false);
                   }}
                   className="text-xs text-slate-500 underline"
                 >
@@ -699,6 +708,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                       setStartLocationId(location.id);
                       setStartLocationVersionId(getDefaultVersionId(location));
                       setSelectedRoute([]);
+                      setIsOvernightStayPickerOpen(false);
                     }}
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
                   >
@@ -736,8 +746,29 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
             ) : null}
           </div>
 
-          {selectedRoute.map((stop, index) => (
-            <div key={`selected-${index + 1}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          {selectedRoute.map((stop, index) => {
+            const isLastSelectedStop = index === selectedRoute.length - 1;
+            return (
+            <div
+              key={`selected-${index + 1}`}
+              className={`relative rounded-2xl border border-slate-200 bg-slate-50 p-3 ${
+                isLastSelectedStop ? 'pr-11' : ''
+              }`}
+            >
+              {isLastSelectedStop ? (
+                <button
+                  type="button"
+                  aria-label="이 일정 선택 취소"
+                  title="이 일정 선택 취소"
+                  onClick={() => {
+                    setSelectedRoute((prev) => (prev.length === 0 ? prev : prev.slice(0, -1)));
+                    setIsOvernightStayPickerOpen(false);
+                  }}
+                  className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full text-lg leading-none text-slate-500 transition hover:bg-slate-200 hover:text-slate-800"
+                >
+                  ×
+                </button>
+              ) : null}
               {(() => {
                 const startDayIndex = getRouteStopStartDayIndex(selectedRoute, index);
                 const endDayIndex = getRouteStopEndDayIndex(selectedRoute, index);
@@ -963,7 +994,8 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                 );
               })()}
             </div>
-          ))}
+            );
+          })}
 
           {startLocationId && startLocationVersionId && 1 + getConsumedRouteDayCount(selectedRoute) < totalDays ? (
             <div className="rounded-2xl border border-dashed border-slate-300 p-4">
@@ -1016,58 +1048,87 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                     </button>
                   ))}
                 </div>
-                {nextOptions.length === 0 ? <p className="text-xs text-amber-700">선택 가능한 다음 목적지가 없습니다.</p> : null}
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    disabled={totalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2}
-                    onClick={() => setIsOvernightStayPickerOpen((prev) => !prev)}
-                  >
-                    연속 일정 블록 선택하기
-                  </Button>
-                  {totalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2 ? (
-                    <span className="text-xs text-slate-500">남은 일수에 맞는 블록만 선택할 수 있습니다.</span>
-                  ) : null}
-                </div>
-                {isOvernightStayPickerOpen ? (
-                  <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-                    {overnightStayOptions.map((overnightStay) => (
-                      <button
-                        key={overnightStay.id}
-                        type="button"
-                        onClick={() => {
-                          const location = locationById.get(overnightStay.locationId);
-                          setSelectedRoute((prev) => [
-                            ...prev,
-                            {
-                              kind: 'MULTI_DAY_BLOCK',
-                              multiDayBlockId: overnightStay.id,
-                              stayLength: overnightStay.days.length,
-                              locationId: overnightStay.locationId,
-                              locationVersionId: getDefaultVersionId(location) || '',
-                            },
-                          ]);
-                          setIsOvernightStayPickerOpen(false);
-                        }}
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm hover:bg-slate-100"
+                {nextOptions.length === 0 ? (
+                  <p className="text-xs text-amber-700">선택 가능한 다음 목적지가 없습니다.</p>
+                ) : null}
+                <div
+                  className="mt-3 border-t border-slate-200 pt-4"
+                  role="group"
+                  aria-label="연속 일정 블록 선택"
+                >
+                  {!isOvernightStayPickerOpen ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        disabled={totalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2}
+                        onClick={() => setIsOvernightStayPickerOpen(true)}
                       >
-                        {overnightStay.title}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-                {isOvernightStayPickerOpen && overnightStayOptions.length === 0 ? (
-                  <p className="text-xs text-amber-700">선택 가능한 연속 일정 블록이 없습니다.</p>
-                ) : null}
+                        연박/기차 추가
+                      </Button>
+                      {totalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2 ? (
+                        <span className="text-xs text-slate-500">
+                          남은 일수에 맞는 블록만 선택할 수 있습니다.
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 text-xs font-semibold text-slate-700">연속 일정 블록</div>
+                        <button
+                          type="button"
+                          onClick={() => setIsOvernightStayPickerOpen(false)}
+                          className="shrink-0 text-xs text-slate-500 underline"
+                        >
+                          접기
+                        </button>
+                      </div>
+                      {overnightStayOptions.length > 0 ? (
+                        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 md:grid-cols-3">
+                          {overnightStayOptions.map((overnightStay) => (
+                            <button
+                              key={overnightStay.id}
+                              type="button"
+                              onClick={() => {
+                                const location = locationById.get(overnightStay.locationId);
+                                setSelectedRoute((prev) => [
+                                  ...prev,
+                                  {
+                                    kind: 'MULTI_DAY_BLOCK',
+                                    multiDayBlockId: overnightStay.id,
+                                    stayLength: overnightStay.days.length,
+                                    locationId: overnightStay.locationId,
+                                    locationVersionId: getDefaultVersionId(location) || '',
+                                  },
+                                ]);
+                                setIsOvernightStayPickerOpen(false);
+                              }}
+                              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm hover:bg-slate-100"
+                            >
+                              {overnightStay.title}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-amber-700">
+                          선택 가능한 블록이 없습니다.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ) : null}
 
-          {selectedRoute.length > 0 ? (
+          {startLocationId || selectedRoute.length > 0 ? (
             <button
               type="button"
               onClick={() => {
+                setStartLocationId('');
+                setStartLocationVersionId('');
                 setSelectedRoute([]);
+                setIsOvernightStayPickerOpen(false);
               }}
               className="text-xs text-red-500 underline"
             >
