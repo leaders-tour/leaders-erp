@@ -9,6 +9,7 @@ const files = [
   'base.graphql',
   'scalars.graphql',
   'auth.graphql',
+  'consultation.graphql',
   'region.graphql',
   'location.graphql',
   'location-guide.graphql',

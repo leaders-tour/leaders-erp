@@ -11,6 +11,7 @@ import { overrideResolver } from '../modules/override/override.resolver';
 import { planResolver } from '../modules/plan/plan.resolver';
 import { planTemplateResolver } from '../modules/plan-template/plan-template.resolver';
 import { outreachResolver } from '../modules/outreach/outreach.resolver';
+import { consultationResolver } from '../modules/consultation/consultation.resolver';
 import { regionResolver } from '../modules/region/region.resolver';
 import { regionLodgingResolver } from '../modules/region-lodging/region-lodging.resolver';
 import { segmentResolver } from '../modules/segment/segment.resolver';
@@ -104,6 +105,7 @@ export const resolvers = {
   Mutation: protectSection(
     mergeSection(
       authResolver.Mutation,
+      consultationResolver.Mutation,
       regionResolver.Mutation,
       locationResolver.Mutation,
       locationGuideResolver.Mutation,

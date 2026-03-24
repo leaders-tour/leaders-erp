@@ -1,0 +1,26 @@
+mutation ExtractConsultationForm($rawText: String!) {
+  extractConsultationForm(rawText: $rawText) {
+    leaderName
+    headcountTotal
+    headcountMale
+    headcountFemale
+    regionId
+    regionName
+    travelStartDate
+    travelEndDate
+    totalDays
+    vehicleType
+    flightInDate
+    flightInTime
+    flightOutDate
+    flightOutTime
+    movementIntensity
+    lodgingLevel
+    specialNote
+    remark
+    warnings
+    recommendedTemplateId
+    recommendedTemplateName
+    recommendedTemplateReason
+  }
+}

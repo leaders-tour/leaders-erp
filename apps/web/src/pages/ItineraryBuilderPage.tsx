@@ -1,6 +1,6 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DatePickerModal } from '../components/date-picker/DatePickerModal';
 import {
@@ -33,6 +33,7 @@ import {
   type LodgingSelectionLevel,
   type RegionLodgingOption,
 } from '../features/lodging-selection/model';
+import { ConsultationPasteModal } from '../features/plan/components/ConsultationPasteModal';
 import { ExternalTransferModal } from '../features/plan/components/ExternalTransferModal';
 import { ExternalTransfersManagerModal } from '../features/plan/components/ExternalTransfersManagerModal';
 import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
@@ -97,6 +98,7 @@ import {
 import { mergeLodgingSelectionDisplayLines } from '../features/pricing/merge-lodging-selection-display';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 import { VariantType } from '../generated/graphql';
+import type { ConsultationDraft } from '../generated/graphql';
 
 interface RegionRow {
   id: string;
@@ -1690,6 +1692,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState<boolean>(false);
   const [datePickerTarget, setDatePickerTarget] = useState<DatePickerTarget | null>(null);
   const [timePickerTarget, setTimePickerTarget] = useState<TimePickerTarget | null>(null);
+  const [isConsultationPasteModalOpen, setIsConsultationPasteModalOpen] = useState<boolean>(false);
   const [externalTransferModalState, setExternalTransferModalState] =
     useState<ExternalTransferModalState>({
       open: false,
@@ -1710,6 +1713,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [homeNewUserName, setHomeNewUserName] = useState<string>('');
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
   const dirtyPlanRowFieldKeysRef = useRef<Set<string>>(new Set());
+  const pendingConsultationTemplateApplyIdRef = useRef<string | null>(null);
   const lastAutoPlanTitleRef = useRef<string>(buildDefaultPlanTitle(''));
   const hasEditedHeadcountMaleRef = useRef<boolean>(false);
 
@@ -2839,6 +2843,73 @@ export function ItineraryBuilderPage(): JSX.Element {
     );
   };
 
+  const handleConsultationApply = useCallback(
+    (draft: ConsultationDraft) => {
+      setLeaderName(draft.leaderName);
+      applyHeadcountTotalChange(Math.max(1, Math.min(30, draft.headcountTotal)));
+      hasEditedHeadcountMaleRef.current = true;
+      setHeadcountMale(Math.max(0, Math.min(draft.headcountMale, draft.headcountTotal)));
+      const regionIdValue = draft.regionId ?? null;
+      if (regionIdValue) {
+        setRegionId(regionIdValue);
+        setStartLocationId('');
+        setStartLocationVersionId('');
+        setSelectedRoute([]);
+        dirtyPlanRowFieldKeysRef.current.clear();
+        setPlanRows([]);
+        setIsMultiDayBlockSectionOpen(false);
+      }
+      setTravelStartDate(draft.travelStartDate);
+      setTravelEndDate(draft.travelEndDate);
+      setTotalDays(Math.max(2, Math.min(12, draft.totalDays)));
+      setSelectedRoute((prev) => trimRouteSelectionsToTotalDays(prev, draft.totalDays));
+      const vehicle = draft.vehicleType && VEHICLES.includes(draft.vehicleType as (typeof VEHICLES)[number])
+        ? (draft.vehicleType as (typeof VEHICLES)[number])
+        : '스타렉스';
+      setVehicleType(vehicle);
+      setSpecialNote(draft.specialNote);
+      setRemark(draft.remark);
+      const primaryGroup = createTransportGroupDraft({
+        index: 0,
+        headcount: draft.headcountTotal,
+        travelStartDate: draft.travelStartDate,
+        travelEndDate: draft.travelEndDate,
+        flightInTime: draft.flightInTime ?? '02:45',
+        flightOutTime: draft.flightOutTime ?? '18:15',
+      });
+      setTransportGroups([
+        {
+          ...primaryGroup,
+          flightInDate: draft.flightInDate ?? draft.travelStartDate ?? primaryGroup.flightInDate,
+          flightOutDate: draft.flightOutDate ?? draft.travelEndDate ?? primaryGroup.flightOutDate,
+          pickupDate: draft.travelStartDate || primaryGroup.pickupDate,
+          dropDate: draft.travelEndDate || primaryGroup.dropDate,
+        },
+      ]);
+      const recTemplateId = draft.recommendedTemplateId ?? null;
+      if (recTemplateId) {
+        setRoutePresetTemplateId(recTemplateId);
+        pendingConsultationTemplateApplyIdRef.current = recTemplateId;
+      } else {
+        pendingConsultationTemplateApplyIdRef.current = null;
+      }
+    },
+    [applyHeadcountTotalChange],
+  );
+
+  useEffect(() => {
+    const id = pendingConsultationTemplateApplyIdRef.current;
+    if (!id) {
+      return;
+    }
+    const template = routePresetOptions.find((t) => t.id === id);
+    if (!template) {
+      return;
+    }
+    pendingConsultationTemplateApplyIdRef.current = null;
+    applyTemplate(template, false);
+  }, [routePresetOptions, applyTemplate]);
+
   const canPreviewPricing = useMemo(
     () =>
       Boolean(
@@ -3505,6 +3576,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                   }}
                 >
                   자동값 다시 채우기
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsConsultationPasteModalOpen(true)}
+                >
+                  상담 붙여넣기
                 </Button>
                 <Button
                   variant="primary"
@@ -5977,6 +6054,11 @@ export function ItineraryBuilderPage(): JSX.Element {
           }}
         />
 
+        <ConsultationPasteModal
+          open={isConsultationPasteModalOpen}
+          onClose={() => setIsConsultationPasteModalOpen(false)}
+          onApply={handleConsultationApply}
+        />
         <DatePickerModal
           open={datePickerTarget !== null}
           value={activeDatePickerValue}

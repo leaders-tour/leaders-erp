@@ -1,0 +1,29 @@
+type ConsultationDraft {
+  leaderName: String!
+  headcountTotal: Int!
+  headcountMale: Int!
+  headcountFemale: Int!
+  regionId: ID
+  regionName: String
+  travelStartDate: String!
+  travelEndDate: String!
+  totalDays: Int!
+  vehicleType: String
+  flightInDate: String
+  flightInTime: String
+  flightOutDate: String
+  flightOutTime: String
+  movementIntensity: String
+  lodgingLevel: String
+  specialNote: String!
+  remark: String!
+  warnings: [String!]!
+  recommendedTemplateId: ID
+  recommendedTemplateName: String
+  recommendedTemplateReason: String
+}
+
+extend type Mutation {
+  """상담 폼 응답(붙여넣기 텍스트)에서 빌더 초안 추출"""
+  extractConsultationForm(rawText: String!): ConsultationDraft!
+}
