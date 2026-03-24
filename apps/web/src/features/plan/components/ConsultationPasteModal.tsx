@@ -89,8 +89,31 @@ export function ConsultationPasteModal({
           ) : null}
 
           {!draft ? (
-            <Button onClick={handleExtract} disabled={loading || !rawText.trim()}>
-              {loading ? '추출 중...' : '추출'}
+            <Button
+              onClick={handleExtract}
+              disabled={loading || !rawText.trim()}
+              aria-busy={loading}
+            >
+              {loading ? (
+                <span className="inline-flex items-center justify-center gap-2">
+                  <span
+                    className="relative inline-flex h-4 w-4 shrink-0"
+                    aria-hidden
+                  >
+                    <span className="absolute inset-0 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  </span>
+                  <span className="inline-flex items-baseline gap-0.5">
+                    생각중
+                    <span className="inline-flex translate-y-px gap-px">
+                      <span className="inline-block h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
+                      <span className="inline-block h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:150ms]" />
+                      <span className="inline-block h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:300ms]" />
+                    </span>
+                  </span>
+                </span>
+              ) : (
+                '추출'
+              )}
             </Button>
           ) : (
             <>
