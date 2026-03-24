@@ -1044,10 +1044,6 @@ function buildRouteStopsFromSelections(input: {
     TemplatePlanRow,
     | 'segmentId'
     | 'segmentVersionId'
-    | 'overnightStayId'
-    | 'overnightStayDayOrder'
-    | 'overnightStayConnectionId'
-    | 'overnightStayConnectionVersionId'
     | 'multiDayBlockId'
     | 'multiDayBlockDayOrder'
     | 'multiDayBlockConnectionId'
@@ -1061,10 +1057,6 @@ function buildRouteStopsFromSelections(input: {
       TemplatePlanRow,
       | 'segmentId'
       | 'segmentVersionId'
-      | 'overnightStayId'
-      | 'overnightStayDayOrder'
-      | 'overnightStayConnectionId'
-      | 'overnightStayConnectionVersionId'
       | 'multiDayBlockId'
       | 'multiDayBlockDayOrder'
       | 'multiDayBlockConnectionId'
@@ -1078,8 +1070,6 @@ function buildRouteStopsFromSelections(input: {
     if (stop.kind === 'MULTI_DAY_BLOCK') {
       const blockId = stop.multiDayBlockId;
       routeStops.push({
-        overnightStayId: blockId,
-        overnightStayDayOrder: 1,
         multiDayBlockId: blockId,
         multiDayBlockDayOrder: 1,
         locationId: stop.locationId,
@@ -1087,8 +1077,6 @@ function buildRouteStopsFromSelections(input: {
       });
       for (let dayOrder = 2; dayOrder <= stop.stayLength; dayOrder += 1) {
         routeStops.push({
-          overnightStayId: blockId,
-          overnightStayDayOrder: dayOrder,
           multiDayBlockId: blockId,
           multiDayBlockDayOrder: dayOrder,
           locationId: stop.locationId,
@@ -1101,8 +1089,6 @@ function buildRouteStopsFromSelections(input: {
     routeStops.push({
       segmentId: stop.segmentId,
       segmentVersionId: stop.segmentVersionId,
-      overnightStayConnectionId: stop.overnightStayConnectionId,
-      overnightStayConnectionVersionId: stop.overnightStayConnectionVersionId,
       multiDayBlockConnectionId: stop.overnightStayConnectionId,
       multiDayBlockConnectionVersionId: stop.overnightStayConnectionVersionId,
       locationId: stop.locationId,
@@ -1127,11 +1113,6 @@ export function buildTemplateStopsFromRouteAndRows(input: {
       dayIndex: index + 1,
       segmentId: routeStop?.segmentId || row.segmentId,
       segmentVersionId: routeStop?.segmentVersionId || row.segmentVersionId,
-      overnightStayId: routeStop?.overnightStayId || row.overnightStayId,
-      overnightStayDayOrder: routeStop?.overnightStayDayOrder || row.overnightStayDayOrder,
-      overnightStayConnectionId: routeStop?.overnightStayConnectionId || row.overnightStayConnectionId,
-      overnightStayConnectionVersionId:
-        routeStop?.overnightStayConnectionVersionId || row.overnightStayConnectionVersionId,
       multiDayBlockId: routeStop?.multiDayBlockId || row.multiDayBlockId,
       multiDayBlockDayOrder: routeStop?.multiDayBlockDayOrder ?? row.multiDayBlockDayOrder,
       multiDayBlockConnectionId: routeStop?.multiDayBlockConnectionId || row.multiDayBlockConnectionId,

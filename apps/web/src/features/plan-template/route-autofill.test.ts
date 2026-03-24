@@ -739,5 +739,119 @@ describe('route-autofill', () => {
     expect(stops[0]?.segmentId).toBeUndefined();
     expect(stops[1]?.segmentId).toBe('segment-ab');
     expect(stops[1]?.segmentVersionId).toBe('segment-version-ab');
+    expect(stops[1]).toMatchObject({
+      multiDayBlockId: undefined,
+      multiDayBlockDayOrder: undefined,
+      multiDayBlockConnectionId: undefined,
+      multiDayBlockConnectionVersionId: undefined,
+    });
+    expect(stops[1]).not.toHaveProperty('overnightStayId');
+    expect(stops[1]).not.toHaveProperty('overnightStayDayOrder');
+    expect(stops[1]).not.toHaveProperty('overnightStayConnectionId');
+    expect(stops[1]).not.toHaveProperty('overnightStayConnectionVersionId');
+  });
+
+  it('uses only multiDayBlock* fields in template stop payloads', () => {
+    const stops = buildTemplateStopsFromRouteAndRows({
+      startLocationId: locationA.id,
+      startLocationVersionId: 'ver-a',
+      selectedRoute: [
+        {
+          kind: 'MULTI_DAY_BLOCK',
+          multiDayBlockId: overnightStayB2.id,
+          stayLength: 2,
+          locationId: locationB.id,
+          locationVersionId: 'ver-b',
+        },
+        {
+          kind: 'LOCATION',
+          locationId: locationC.id,
+          locationVersionId: 'ver-c',
+          segmentId: 'segment-bc',
+          segmentVersionId: 'segment-version-bc',
+          overnightStayConnectionId: 'connection-bc',
+          overnightStayConnectionVersionId: 'connection-version-bc',
+        },
+      ],
+      planRows: [
+        {
+          rowType: 'MAIN',
+          locationId: locationA.id,
+          locationVersionId: 'ver-a',
+          dateCellText: '1일차',
+          destinationCellText: '울란바토르',
+          timeCellText: '08:00',
+          scheduleCellText: '출발 준비',
+          lodgingCellText: '',
+          mealCellText: '',
+        },
+        {
+          rowType: 'MAIN',
+          multiDayBlockId: overnightStayB2.id,
+          multiDayBlockDayOrder: 1,
+          overnightStayId: overnightStayB2.id,
+          overnightStayDayOrder: 1,
+          locationId: locationB.id,
+          locationVersionId: 'ver-b',
+          dateCellText: '2일차',
+          destinationCellText: '테를지',
+          timeCellText: '09:00',
+          scheduleCellText: '블록 1일차',
+          lodgingCellText: '',
+          mealCellText: '',
+        },
+        {
+          rowType: 'MAIN',
+          multiDayBlockId: overnightStayB2.id,
+          multiDayBlockDayOrder: 2,
+          overnightStayId: overnightStayB2.id,
+          overnightStayDayOrder: 2,
+          locationId: locationB.id,
+          locationVersionId: 'ver-b',
+          dateCellText: '3일차',
+          destinationCellText: '테를지',
+          timeCellText: '10:00',
+          scheduleCellText: '블록 2일차',
+          lodgingCellText: '',
+          mealCellText: '',
+        },
+        {
+          rowType: 'MAIN',
+          segmentId: 'segment-bc',
+          segmentVersionId: 'segment-version-bc',
+          multiDayBlockConnectionId: 'connection-bc',
+          multiDayBlockConnectionVersionId: 'connection-version-bc',
+          overnightStayConnectionId: 'connection-bc',
+          overnightStayConnectionVersionId: 'connection-version-bc',
+          locationId: locationC.id,
+          locationVersionId: 'ver-c',
+          dateCellText: '4일차',
+          destinationCellText: '차강소브라가',
+          timeCellText: '11:00',
+          scheduleCellText: '이동',
+          lodgingCellText: '',
+          mealCellText: '',
+        },
+      ],
+    });
+
+    expect(stops[1]).toMatchObject({
+      multiDayBlockId: overnightStayB2.id,
+      multiDayBlockDayOrder: 1,
+    });
+    expect(stops[2]).toMatchObject({
+      multiDayBlockId: overnightStayB2.id,
+      multiDayBlockDayOrder: 2,
+    });
+    expect(stops[3]).toMatchObject({
+      multiDayBlockConnectionId: 'connection-bc',
+      multiDayBlockConnectionVersionId: 'connection-version-bc',
+    });
+    for (const stop of stops.slice(1)) {
+      expect(stop).not.toHaveProperty('overnightStayId');
+      expect(stop).not.toHaveProperty('overnightStayDayOrder');
+      expect(stop).not.toHaveProperty('overnightStayConnectionId');
+      expect(stop).not.toHaveProperty('overnightStayConnectionVersionId');
+    }
   });
 });
