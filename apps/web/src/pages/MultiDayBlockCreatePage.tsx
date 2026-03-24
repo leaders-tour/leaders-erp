@@ -149,6 +149,7 @@ export function MultiDayBlockCreatePage(): JSX.Element {
   const [name, setName] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [days, setDays] = useState<MultiDayBlockDayDraft[]>([createDayDraft(1), createDayDraft(2)]);
+  const [daySlotPasteHelperResetNonce, setDaySlotPasteHelperResetNonce] = useState(0);
 
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
@@ -436,6 +437,8 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                   const createdId = result.data?.createMultiDayBlock.id;
                   if (createdId) {
                     navigate(`/multi-day-blocks/${createdId}`);
+                  } else {
+                    setDaySlotPasteHelperResetNonce((n) => n + 1);
                   }
                 }}
               >
@@ -532,6 +535,7 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                     title="시간 / 일정"
                     description="시작시간을 추가하고 각 시간대별 활동을 입력합니다."
                     value={day.scheduleSlots}
+                    pasteHelperResetNonce={daySlotPasteHelperResetNonce}
                     onChange={(nextValue) => updateDay(day.dayOrder, 'scheduleSlots', nextValue)}
                   />
 

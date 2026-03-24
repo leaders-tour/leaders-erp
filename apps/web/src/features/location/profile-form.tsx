@@ -503,7 +503,14 @@ export function LocationProfileForm({
         className="grid gap-6"
         onSubmit={(event) => {
           event.preventDefault();
-          void onSubmit(form);
+          void (async () => {
+            try {
+              await onSubmit(form);
+              setPasteHelpers(createEmptyPasteHelperValue());
+            } catch {
+              /* 오류는 상위 onSubmit/CRUD에서 처리 */
+            }
+          })();
         }}
       >
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(320px,360px)_minmax(0,1fr)]">

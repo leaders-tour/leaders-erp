@@ -1,6 +1,6 @@
 import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   calculateMovementIntensityByHours,
@@ -300,9 +300,18 @@ function TimeSlotEditor(props: {
   description: string;
   value: SegmentTimeSlotFormInput[];
   onChange: (nextValue: SegmentTimeSlotFormInput[]) => void;
+  /** 0보다 커질 때마다 입력도우미(붙여넣기 영역)를 비웁니다. 저장·생성 성공 후 부모가 증가시킵니다. */
+  pasteHelperResetNonce?: number;
 }): JSX.Element {
-  const { title, description, value, onChange } = props;
+  const { title, description, value, onChange, pasteHelperResetNonce = 0 } = props;
   const [pasteHelper, setPasteHelper] = useState<TimeSlotPasteHelperValue>(createEmptyPasteHelperValue);
+
+  useEffect(() => {
+    if (pasteHelperResetNonce <= 0) {
+      return;
+    }
+    setPasteHelper(createEmptyPasteHelperValue());
+  }, [pasteHelperResetNonce]);
 
   const updateSlotTime = (slotIndex: number, startTime: string) => {
     const nextSlots = [...value];
@@ -571,8 +580,9 @@ function AlternativeVersionEditor(props: {
   includeExtend: boolean;
   includeEarlyExtend: boolean;
   onChange: (nextValue: SegmentVersionDraft[]) => void;
+  pasteHelperResetNonce?: number;
 }): JSX.Element {
-  const { value, includeEarly, includeExtend, includeEarlyExtend, onChange } = props;
+  const { value, includeEarly, includeExtend, includeEarlyExtend, onChange, pasteHelperResetNonce } = props;
 
   return (
     <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
@@ -703,6 +713,7 @@ function AlternativeVersionEditor(props: {
               title="버전 일정"
               description="선택된 대안 버전의 시간/일정 자동 채움에 사용됩니다."
               value={version.timeSlots}
+              pasteHelperResetNonce={pasteHelperResetNonce}
               onChange={(nextTimeSlots) =>
                 onChange(
                   value.map((item) => (item.clientId === version.clientId ? { ...item, timeSlots: nextTimeSlots } : item)),
@@ -714,6 +725,7 @@ function AlternativeVersionEditor(props: {
                 title="버전 얼리 일정"
                 description="첫날 얼리 조건의 연결 자동 채움에 사용됩니다."
                 value={version.earlyTimeSlots}
+                pasteHelperResetNonce={pasteHelperResetNonce}
                 onChange={(nextTimeSlots) =>
                   onChange(
                     value.map((item) => (item.clientId === version.clientId ? { ...item, earlyTimeSlots: nextTimeSlots } : item)),
@@ -726,6 +738,7 @@ function AlternativeVersionEditor(props: {
                 title="버전 연장 일정"
                 description="마지막날 연장 조건의 연결 자동 채움에 사용됩니다."
                 value={version.extendTimeSlots}
+                pasteHelperResetNonce={pasteHelperResetNonce}
                 onChange={(nextTimeSlots) =>
                   onChange(
                     value.map((item) => (item.clientId === version.clientId ? { ...item, extendTimeSlots: nextTimeSlots } : item)),
@@ -738,6 +751,7 @@ function AlternativeVersionEditor(props: {
                 title="버전 얼리+연장 일정"
                 description="첫날 얼리이면서 마지막날 연장 조건의 연결 자동 채움에 사용됩니다."
                 value={version.earlyExtendTimeSlots}
+                pasteHelperResetNonce={pasteHelperResetNonce}
                 onChange={(nextTimeSlots) =>
                   onChange(
                     value.map((item) =>
@@ -779,6 +793,8 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<string>('ALL');
+  const [createPasteHelperResetNonce, setCreatePasteHelperResetNonce] = useState(0);
+  const [editPasteHelperResetNonce, setEditPasteHelperResetNonce] = useState(0);
 
   const locations = useMemo(() => locationData?.locations ?? [], [locationData]);
   const locationById = useMemo(() => new Map(locations.map((item) => [item.id, item])), [locations]);
@@ -923,6 +939,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 }),
               });
               setForm(createEmptyForm());
+              setCreatePasteHelperResetNonce((n) => n + 1);
               setFromSearch('');
               setToSearch('');
               setFromOpen(false);
@@ -1085,6 +1102,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                     title="기본 연결"
                     description="기본 직결 버전의 시간/일정입니다."
                     value={form.timeSlots}
+                    pasteHelperResetNonce={createPasteHelperResetNonce}
                     onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
                   />
                 </div>
@@ -1094,6 +1112,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                       title="출발지가 얼리일 때"
                       description="첫날 얼리 조건의 연결 일정입니다."
                       value={form.earlyTimeSlots}
+                      pasteHelperResetNonce={createPasteHelperResetNonce}
                       onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, earlyTimeSlots: nextTimeSlots }))}
                     />
                   ) : (
@@ -1110,6 +1129,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                           title="도착지가 연장일 때"
                           description="마지막날 연장 조건의 연결 일정입니다."
                           value={form.extendTimeSlots}
+                          pasteHelperResetNonce={createPasteHelperResetNonce}
                           onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
                         />
                       ) : (
@@ -1124,6 +1144,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                           title="기본 버전 얼리+연장 일정"
                           description="첫날 얼리이면서 마지막날 연장 조건의 연결 일정입니다."
                           value={form.earlyExtendTimeSlots}
+                          pasteHelperResetNonce={createPasteHelperResetNonce}
                           onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, earlyExtendTimeSlots: nextTimeSlots }))}
                         />
                       ) : (
@@ -1141,6 +1162,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 includeEarly={includeCreateEarly}
                 includeExtend={includeCreateExtend}
                 includeEarlyExtend={includeCreateEarlyExtend}
+                pasteHelperResetNonce={createPasteHelperResetNonce}
                 onChange={(nextVersions) => setForm((prev) => ({ ...prev, versions: nextVersions }))}
               />
             </div>
@@ -1345,6 +1367,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 });
                 setEditingSegmentId(null);
                 setEditForm(createEmptyForm());
+                setEditPasteHelperResetNonce((n) => n + 1);
                 setEditFromSearch('');
                 setEditToSearch('');
                 setEditFromOpen(false);
@@ -1522,6 +1545,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                     title="기본 버전 일정"
                     description="기본 직결 버전의 시간/일정입니다."
                     value={editForm.timeSlots}
+                    pasteHelperResetNonce={editPasteHelperResetNonce}
                     onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
                   />
                   {includeEditEarly ? (
@@ -1529,6 +1553,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                       title="기본 버전 얼리 일정"
                       description="첫날 얼리 조건의 연결 일정입니다."
                       value={editForm.earlyTimeSlots}
+                      pasteHelperResetNonce={editPasteHelperResetNonce}
                       onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, earlyTimeSlots: nextTimeSlots }))}
                     />
                   ) : (
@@ -1545,6 +1570,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                         title="기본 버전 연장 일정"
                         description="마지막날 연장 조건의 연결 일정입니다."
                         value={editForm.extendTimeSlots}
+                        pasteHelperResetNonce={editPasteHelperResetNonce}
                         onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
                       />
                     ) : (
@@ -1555,6 +1581,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                         title="기본 버전 얼리+연장 일정"
                         description="첫날 얼리이면서 마지막날 연장 조건의 연결 일정입니다."
                         value={editForm.earlyExtendTimeSlots}
+                        pasteHelperResetNonce={editPasteHelperResetNonce}
                         onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, earlyExtendTimeSlots: nextTimeSlots }))}
                       />
                     ) : (
@@ -1568,6 +1595,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                   includeEarly={includeEditEarly}
                   includeExtend={includeEditExtend}
                   includeEarlyExtend={includeEditEarlyExtend}
+                  pasteHelperResetNonce={editPasteHelperResetNonce}
                   onChange={(nextVersions) => setEditForm((prev) => ({ ...prev, versions: nextVersions }))}
                 />
               </div>

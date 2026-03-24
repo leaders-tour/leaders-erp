@@ -1,5 +1,5 @@
 import { Button, Input } from '@tour/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export interface MultiDayBlockScheduleSlotInput {
   startTime: string;
@@ -103,9 +103,18 @@ export function MultiDayBlockDaySlotEditor(props: {
   description: string;
   value: MultiDayBlockScheduleSlotInput[];
   onChange: (nextValue: MultiDayBlockScheduleSlotInput[]) => void;
+  /** 0보다 커질 때마다 입력도우미를 비웁니다. */
+  pasteHelperResetNonce?: number;
 }): JSX.Element {
-  const { title, description, value, onChange } = props;
+  const { title, description, value, onChange, pasteHelperResetNonce = 0 } = props;
   const [pasteHelper, setPasteHelper] = useState({ timeCellText: '', scheduleCellText: '' });
+
+  useEffect(() => {
+    if (pasteHelperResetNonce <= 0) {
+      return;
+    }
+    setPasteHelper({ timeCellText: '', scheduleCellText: '' });
+  }, [pasteHelperResetNonce]);
 
   const addTimeSlot = () => {
     onChange([...value, createMultiDayBlockScheduleSlot(getNextSlotTime(value))]);

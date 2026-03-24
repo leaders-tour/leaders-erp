@@ -168,7 +168,7 @@ export function LocationVersionEditPage(): JSX.Element {
               const nextLabel = versionLabel.trim();
               if (!nextLabel) {
                 window.alert('버전 이름을 입력해주세요.');
-                return;
+                throw new Error('버전 이름이 필요합니다.');
               }
               const created = await crud.createVersion({
                 locationId,

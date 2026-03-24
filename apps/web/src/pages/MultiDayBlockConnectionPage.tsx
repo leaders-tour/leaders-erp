@@ -392,7 +392,11 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
 
     if (editingId) {
       await updateMutation({ variables: { id: editingId, input } });
-      await refetchConnections();
+      try {
+        await refetchConnections();
+      } catch {
+        /* 목록 갱신 실패는 무시(상세로 이동 시 재조회) */
+      }
       if (isEditMode) {
         navigate(`/multi-day-blocks/connections/${editingId}`);
         return;
@@ -400,8 +404,13 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
     } else {
       await createMutation({ variables: { input } });
     }
-    await refetchConnections();
+
     resetForm();
+    try {
+      await refetchConnections();
+    } catch {
+      /* 생성·수정 후 폼은 이미 초기화됨 */
+    }
   };
 
   const handleRegionSelect = (nextRegionId: string) => {
