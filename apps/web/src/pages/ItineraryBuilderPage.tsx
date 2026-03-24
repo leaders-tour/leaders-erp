@@ -3588,6 +3588,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                 <Button
                   variant="outline"
                   onClick={() => setIsConsultationPasteModalOpen(true)}
+                  className="border-violet-600 bg-violet-600 font-medium text-white shadow-sm hover:border-violet-700 hover:bg-violet-700"
                 >
                   상담 붙여넣기
                 </Button>
