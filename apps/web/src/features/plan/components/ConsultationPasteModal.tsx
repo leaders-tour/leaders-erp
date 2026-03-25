@@ -20,11 +20,14 @@ export function ConsultationPasteModal({
   const [rawText, setRawText] = useState('');
   const [draft, setDraft] = useState<ConsultationDraft | null>(null);
 
-  const [extract, { loading, error }] = useMutation(ExtractConsultationFormDocument, {
-    onCompleted(data) {
-      setDraft(data.extractConsultationForm);
+  const [extract, { loading, error, reset: resetExtractMutation }] = useMutation(
+    ExtractConsultationFormDocument,
+    {
+      onCompleted(data) {
+        setDraft(data.extractConsultationForm);
+      },
     },
-  });
+  );
 
   const handleExtract = useCallback(() => {
     if (!rawText.trim()) return;
@@ -36,34 +39,41 @@ export function ConsultationPasteModal({
     if (draft) {
       onApply(draft);
       onClose();
-      setRawText('');
-      setDraft(null);
     }
   }, [draft, onApply, onClose]);
 
   const handleClose = useCallback(() => {
     onClose();
+  }, [onClose]);
+
+  const handleNewPaste = useCallback(() => {
+    resetExtractMutation();
     setRawText('');
     setDraft(null);
-  }, [onClose]);
+  }, [resetExtractMutation]);
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <Card className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 p-4">
-          <h2 className="text-lg font-bold text-slate-900">상담 내용 붙여넣기</h2>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="rounded-lg p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-            aria-label="닫기"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+        <div className="flex items-center gap-3 border-b border-slate-200 p-4">
+          <h2 className="min-w-0 flex-1 text-lg font-bold text-slate-900">상담 내용 붙여넣기</h2>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button type="button" variant="outline" className="text-sm" onClick={handleNewPaste}>
+              초기화
+            </Button>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="rounded-lg p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              aria-label="닫기"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
