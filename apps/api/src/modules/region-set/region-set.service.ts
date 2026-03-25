@@ -14,8 +14,28 @@ type Db = PrismaClient | Prisma.TransactionClient;
 export class RegionSetService {
   constructor(private readonly prisma: PrismaClient) {}
 
-  list(includeInactive = false) {
-    return this.prisma.regionSet.findMany({
+  /**
+   * 단일 지역 세트(아이템 1개)를 복합 세트보다 먼저 노출한다. 그 안에서는 이름·id 순.
+   */
+  private sortRegionSetsForDisplay<
+    T extends { id: string; name: string; items: readonly unknown[] },
+  >(rows: T[]): T[] {
+    return [...rows].sort((a, b) => {
+      const aSingleton = a.items.length === 1 ? 0 : 1;
+      const bSingleton = b.items.length === 1 ? 0 : 1;
+      if (aSingleton !== bSingleton) {
+        return aSingleton - bSingleton;
+      }
+      const byName = a.name.localeCompare(b.name, 'ko');
+      if (byName !== 0) {
+        return byName;
+      }
+      return a.id.localeCompare(b.id);
+    });
+  }
+
+  async list(includeInactive = false) {
+    const rows = await this.prisma.regionSet.findMany({
       where: {
         deletedAt: null,
         ...(includeInactive ? {} : { isActive: true }),
@@ -23,6 +43,7 @@ export class RegionSetService {
       include: regionSetListInclude,
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
     });
+    return this.sortRegionSetsForDisplay(rows);
   }
 
   get(id: string) {
