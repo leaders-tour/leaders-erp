@@ -807,42 +807,27 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
               >
                 미선택
               </button>
-              {regionSets.map((set) => {
-                const memberLabel = [...set.items]
-                  .sort((a, b) => a.sortOrder - b.sortOrder)
-                  .map((item) => item.region.name)
-                  .join(' · ');
-                return (
-                  <button
-                    key={set.id}
-                    type="button"
-                    onClick={() => {
-                      setIsAutoRowsSyncEnabled(true);
-                      setFormRegionSetId(set.id);
-                      setStartLocationId('');
-                      setStartLocationVersionId('');
-                      setSelectedRoute([]);
-                      setRouteRecoveryMessage('');
-                    }}
-                    className={`rounded-xl border px-3 py-1.5 text-left text-sm ${
-                      formRegionSetId === set.id
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="block font-medium">{set.name}</span>
-                    {set.items.length > 1 ? (
-                      <span
-                        className={`mt-0.5 block text-[10px] leading-tight ${
-                          formRegionSetId === set.id ? 'text-slate-200' : 'text-slate-500'
-                        }`}
-                      >
-                        {memberLabel}
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
+              {regionSets.map((set) => (
+                <button
+                  key={set.id}
+                  type="button"
+                  onClick={() => {
+                    setIsAutoRowsSyncEnabled(true);
+                    setFormRegionSetId(set.id);
+                    setStartLocationId('');
+                    setStartLocationVersionId('');
+                    setSelectedRoute([]);
+                    setRouteRecoveryMessage('');
+                  }}
+                  className={`rounded-xl border px-3 py-1.5 text-left text-sm font-medium ${
+                    formRegionSetId === set.id
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {set.name}
+                </button>
+              ))}
             </div>
           </div>
           <div className="grid gap-1 text-sm">
