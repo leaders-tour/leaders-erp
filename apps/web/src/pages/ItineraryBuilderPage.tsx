@@ -5385,7 +5385,21 @@ export function ItineraryBuilderPage(): JSX.Element {
 
             <section className="space-y-5">
               <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-                <h2 className="text-lg font-bold text-slate-900">금액</h2>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="text-lg font-bold text-slate-900">금액</h2>
+                  <Button
+                    variant="outline"
+                    className="shrink-0 whitespace-nowrap"
+                    onClick={() => setManualAdjustmentsModalState({ open: true })}
+                  >
+                    기타 금액 설정
+                  </Button>
+                </div>
+                {hasValidation('invalid-manual-adjustments') ? (
+                  <p className="mt-2 text-xs text-rose-700">
+                    기타 금액은 내용과 0 이상 정수 금액을 함께 입력해주세요.
+                  </p>
+                ) : null}
                 {pricingPreviewError ? (
                   <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
                     {pricingPreviewErrorMessage}
