@@ -666,7 +666,7 @@ export class PricingService {
 
   private async countLongDistanceSegments(
     prisma: PrismaLike,
-    regionIds: string[],
+    _regionIds: string[],
     planStops: PricingPlanStopDto[],
   ): Promise<number> {
     const segmentTransitions: Array<{ fromLocationId: string; toLocationId: string }> = [];
@@ -702,9 +702,6 @@ export class PricingService {
       ).values(),
     );
 
-    const regionFilter =
-      regionIds.length === 1 ? { regionId: regionIds[0]! } : { regionId: { in: regionIds } };
-
     const [segments, overnightStayConnections] = await Promise.all([
       uniqueTransitions.length > 0
         ? prisma.segment.findMany({
@@ -724,7 +721,6 @@ export class PricingService {
       overnightStayConnectionIds.size > 0
         ? prisma.overnightStayConnection.findMany({
             where: {
-              ...regionFilter,
               id: { in: Array.from(overnightStayConnectionIds) },
             },
             select: {

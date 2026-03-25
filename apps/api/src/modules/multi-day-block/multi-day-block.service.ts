@@ -425,19 +425,15 @@ export class MultiDayBlockConnectionService {
   }
 
   private async validateEndpoints(
-    regionId: string,
     fromMultiDayBlockId: string,
     toLocationId: string,
-  ): Promise<{ toLocation: ConnectionTargetLocation }> {
+  ): Promise<{ fromBlockRegionId: string; toLocation: ConnectionTargetLocation }> {
     const overnightStay = await this.prisma.overnightStay.findUnique({
       where: { id: fromMultiDayBlockId },
       select: { id: true, regionId: true },
     });
     if (!overnightStay) {
       throw new DomainError('VALIDATION_FAILED', 'Overnight stay not found for connection');
-    }
-    if (overnightStay.regionId !== regionId) {
-      throw new DomainError('VALIDATION_FAILED', 'Overnight stay must belong to the selected region');
     }
 
     const toLocation = await this.prisma.location.findUnique({
@@ -447,11 +443,27 @@ export class MultiDayBlockConnectionService {
     if (!toLocation) {
       throw new DomainError('VALIDATION_FAILED', 'Connection destination location not found');
     }
-    if (toLocation.regionId !== regionId) {
-      throw new DomainError('VALIDATION_FAILED', 'Connection destination must belong to the selected region');
+
+    return { fromBlockRegionId: overnightStay.regionId, toLocation };
+  }
+
+  private async resolveOwningConnectionRegion(
+    inputRegionId: string | undefined,
+    fromBlockRegionId: string,
+  ): Promise<{ id: string; name: string }> {
+    if (inputRegionId && inputRegionId !== fromBlockRegionId) {
+      throw new DomainError('VALIDATION_FAILED', 'Connection regionId must match the source overnight stay region');
     }
 
-    return { toLocation };
+    const region = await this.prisma.region.findUnique({
+      where: { id: fromBlockRegionId },
+      select: { id: true, name: true },
+    });
+    if (!region) {
+      throw new DomainError('VALIDATION_FAILED', 'Region not found for overnight stay connection');
+    }
+
+    return region;
   }
 
   private assertRequiredVariantSchedules(
@@ -676,15 +688,8 @@ export class MultiDayBlockConnectionService {
       throw createValidationError('Invalid overnight stay connection input', parsed.error);
     }
 
-    const region = await this.prisma.region.findUnique({
-      where: { id: parsed.data.regionId },
-      select: { name: true },
-    });
-    if (!region) {
-      throw new DomainError('VALIDATION_FAILED', 'Region not found for overnight stay connection');
-    }
-
-    const endpoints = await this.validateEndpoints(parsed.data.regionId, parsed.data.fromMultiDayBlockId, parsed.data.toLocationId);
+    const endpoints = await this.validateEndpoints(parsed.data.fromMultiDayBlockId, parsed.data.toLocationId);
+    const owningRegion = await this.resolveOwningConnectionRegion(parsed.data.regionId, endpoints.fromBlockRegionId);
 
     const nextVersions = parsed.data.versions
       ? this.normalizeVersionsFromInput(parsed.data.versions)
@@ -695,8 +700,8 @@ export class MultiDayBlockConnectionService {
     return this.prisma.$transaction(async (tx) => {
       const created = await tx.overnightStayConnection.create({
         data: {
-          regionId: parsed.data.regionId,
-          regionName: region.name,
+          regionId: owningRegion.id,
+          regionName: owningRegion.name,
           fromOvernightStayId: parsed.data.fromMultiDayBlockId,
           toLocationId: parsed.data.toLocationId,
           averageDistanceKm: defaultVersion.averageDistanceKm,
@@ -724,19 +729,11 @@ export class MultiDayBlockConnectionService {
       throw new DomainError('NOT_FOUND', 'Overnight stay connection not found');
     }
 
-    const nextRegionId = parsed.data.regionId ?? existing.regionId;
     const nextFromMultiDayBlockId = parsed.data.fromMultiDayBlockId ?? existing.fromOvernightStayId;
     const nextToLocationId = parsed.data.toLocationId ?? existing.toLocationId;
 
-    const region = await this.prisma.region.findUnique({
-      where: { id: nextRegionId },
-      select: { name: true },
-    });
-    if (!region) {
-      throw new DomainError('VALIDATION_FAILED', 'Region not found for overnight stay connection update');
-    }
-
-    const endpoints = await this.validateEndpoints(nextRegionId, nextFromMultiDayBlockId, nextToLocationId);
+    const endpoints = await this.validateEndpoints(nextFromMultiDayBlockId, nextToLocationId);
+    const owningRegion = await this.resolveOwningConnectionRegion(parsed.data.regionId, endpoints.fromBlockRegionId);
 
     const existingVersions = this.buildVersionsFromExisting(existing as ExistingConnectionLike);
     const hasLegacyDirectUpdates = this.hasLegacyDirectUpdates(parsed.data);
@@ -765,12 +762,16 @@ export class MultiDayBlockConnectionService {
 
     await this.validateVersions(endpoints.toLocation, nextVersions);
     const defaultVersion = this.getDefaultVersion(nextVersions);
+    const shouldSyncOwningRegion =
+      parsed.data.regionId !== undefined ||
+      parsed.data.fromMultiDayBlockId !== undefined ||
+      existing.regionId !== owningRegion.id;
 
     return this.prisma.$transaction(async (tx) => {
       await tx.overnightStayConnection.update({
         where: { id },
         data: {
-          ...(parsed.data.regionId !== undefined ? { regionId: nextRegionId, regionName: region.name } : {}),
+          ...(shouldSyncOwningRegion ? { regionId: owningRegion.id, regionName: owningRegion.name } : {}),
           ...(parsed.data.fromMultiDayBlockId !== undefined ? { fromOvernightStayId: parsed.data.fromMultiDayBlockId } : {}),
           ...(parsed.data.toLocationId !== undefined ? { toLocationId: parsed.data.toLocationId } : {}),
         },

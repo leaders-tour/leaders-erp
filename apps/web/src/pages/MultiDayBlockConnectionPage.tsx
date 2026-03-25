@@ -271,11 +271,14 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
   const locations = locationData?.locations ?? [];
   const multiDayBlocks = stayData?.multiDayBlocks ?? [];
   const rows = connectionData?.multiDayBlockConnections ?? [];
-  const filteredStays = useMemo(() => multiDayBlocks.filter((stay) => stay.regionId === regionId), [multiDayBlocks, regionId]);
-  const filteredLocations = useMemo(() => locations.filter((location) => location.regionId === regionId), [locations, regionId]);
+  const filteredStays = useMemo(
+    () => (regionId ? multiDayBlocks.filter((stay) => stay.regionId === regionId) : multiDayBlocks),
+    [multiDayBlocks, regionId],
+  );
   const locationById = useMemo(() => new Map(locations.map((location) => [location.id, location])), [locations]);
   const stayById = useMemo(() => new Map(multiDayBlocks.map((stay) => [stay.id, stay])), [multiDayBlocks]);
   const regions = regionData?.regions ?? [];
+  const regionNameById = useMemo(() => new Map(regions.map((r) => [r.id, r.name] as const)), [regions]);
   const regionNames = useMemo(() => {
     return Array.from(new Set(rows.map((row) => {
       const region = regions.find((r) => r.id === row.regionId);
@@ -303,14 +306,14 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
   }, [filteredStays, blockSearch]);
   const filteredLocationOptions = useMemo(() => {
     if (!locationSearch.trim()) {
-      return filteredLocations;
+      return locations;
     }
     const searchLower = locationSearch.toLowerCase();
-    return filteredLocations.filter((location) => {
+    return locations.filter((location) => {
       const name = formatLocationNameInline(location.name).toLowerCase();
       return name.includes(searchLower);
     });
-  }, [filteredLocations, locationSearch]);
+  }, [locations, locationSearch]);
   const movementIntensityMeta = useMemo(() => {
     const hours = Number(averageTravelHours);
     if (!Number.isFinite(hours) || hours < 0) {
@@ -379,8 +382,14 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
   }, [editingRow]);
 
   const submit = async () => {
+    const fromBlock = stayById.get(fromMultiDayBlockId);
+    const effectiveRegionId = fromBlock?.regionId;
+    if (!effectiveRegionId) {
+      return;
+    }
+
     const input = {
-      regionId,
+      regionId: effectiveRegionId,
       fromMultiDayBlockId,
       toLocationId,
       averageDistanceKm: Number(averageDistanceKm) || 0,
@@ -498,7 +507,7 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
           className="grid gap-4"
           onSubmit={async (event) => {
             event.preventDefault();
-            if (!regionId || !fromMultiDayBlockId || !toLocationId) {
+            if (!fromMultiDayBlockId || !toLocationId) {
               return;
             }
             await submit();
@@ -508,8 +517,20 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
             <div className="grid gap-6">
               <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
                 <label className="grid gap-1 text-sm min-w-0">
-                  <span className="text-slate-700">지역</span>
+                  <span className="text-slate-700">지역 (블록 목록만 필터)</span>
+                  <p className="text-xs text-slate-500">저장 시 출발 블록이 속한 지역이 연결의 지역으로 쓰입니다. 다음 목적지는 다른 지역도 선택할 수 있습니다.</p>
                   <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleRegionSelect('')}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        regionId === ''
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      전체
+                    </button>
                     {regions.map((region) => (
                       <button
                         key={region.id}
@@ -542,9 +563,8 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                         setBlockOpen(true);
                       }}
                       placeholder="블록 검색 또는 선택"
-                      disabled={!regionId}
                     />
-                    {blockOpen && regionId ? (
+                    {blockOpen ? (
                       <div className="absolute left-0 right-0 top-[44px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
                         {filteredBlockOptions.length === 0 ? (
                           <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
@@ -555,12 +575,13 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                               type="button"
                               onClick={() => {
                                 setFromMultiDayBlockId(stay.id);
+                                setRegionId(stay.regionId);
                                 setBlockSearch(stay.name || stay.title);
                                 setBlockOpen(false);
                               }}
                               className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                             >
-                              {stay.name || stay.title}
+                              {stay.name || stay.title} ({regionNameById.get(stay.regionId) ?? '—'})
                             </button>
                           ))
                         )}
@@ -584,9 +605,8 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                         setLocationOpen(true);
                       }}
                       placeholder="목적지 검색 또는 선택"
-                      disabled={!regionId}
                     />
-                    {locationOpen && regionId ? (
+                    {locationOpen ? (
                       <div className="absolute left-0 right-0 top-[44px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
                         {filteredLocationOptions.length === 0 ? (
                           <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
@@ -602,7 +622,7 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                               }}
                               className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                             >
-                              {formatLocationNameInline(location.name)}
+                              {formatLocationNameInline(location.name)} ({regionNameById.get(location.regionId) ?? '—'})
                             </button>
                           ))
                         )}
@@ -611,6 +631,12 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                   </div>
                 </label>
               </div>
+
+              {selectedBlock && selectedLocation && selectedBlock.regionId !== selectedLocation.regionId ? (
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                  <p className="text-sm text-blue-700">다른 지역 목적지도 선택할 수 있으며, 저장되는 연결 지역은 출발 블록 소속 지역에 맞춰집니다.</p>
+                </div>
+              ) : null}
 
               <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
                 <div className="grid gap-1">
@@ -659,7 +685,7 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
               </div>
 
               <div>
-                <Button type="submit" variant="primary" disabled={!regionId || !fromMultiDayBlockId || !toLocationId || creating}>
+                <Button type="submit" variant="primary" disabled={!fromMultiDayBlockId || !toLocationId || creating}>
                   {creating ? '생성 중...' : '블록 후속 연결 생성'}
                 </Button>
               </div>
@@ -1006,7 +1032,7 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
             className="grid gap-4"
             onSubmit={async (event) => {
               event.preventDefault();
-              if (!regionId || !fromMultiDayBlockId || !toLocationId) {
+              if (!fromMultiDayBlockId || !toLocationId) {
                 return;
               }
               await submit();
@@ -1016,8 +1042,20 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
               <div className="grid gap-6">
                 <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
                   <label className="grid gap-1 text-sm min-w-0">
-                    <span className="text-slate-700">지역</span>
+                    <span className="text-slate-700">지역 (블록 목록만 필터)</span>
+                    <p className="text-xs text-slate-500">저장 시 출발 블록이 속한 지역이 연결의 지역으로 쓰입니다. 다음 목적지는 다른 지역도 선택할 수 있습니다.</p>
                     <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleRegionSelect('')}
+                        className={`rounded-xl border px-3 py-1.5 text-sm ${
+                          regionId === ''
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        전체
+                      </button>
                       {regions.map((region) => (
                         <button
                           key={region.id}
@@ -1050,9 +1088,8 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                           setBlockOpen(true);
                         }}
                         placeholder="블록 검색 또는 선택"
-                        disabled={!regionId}
                       />
-                      {blockOpen && regionId ? (
+                      {blockOpen ? (
                         <div className="absolute left-0 right-0 top-[44px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
                           {filteredBlockOptions.length === 0 ? (
                             <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
@@ -1063,12 +1100,13 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                                 type="button"
                                 onClick={() => {
                                   setFromMultiDayBlockId(stay.id);
+                                  setRegionId(stay.regionId);
                                   setBlockSearch(stay.name || stay.title);
                                   setBlockOpen(false);
                                 }}
                                 className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                               >
-                                {stay.name || stay.title}
+                                {stay.name || stay.title} ({regionNameById.get(stay.regionId) ?? '—'})
                               </button>
                             ))
                           )}
@@ -1092,9 +1130,8 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                           setLocationOpen(true);
                         }}
                         placeholder="목적지 검색 또는 선택"
-                        disabled={!regionId}
                       />
-                      {locationOpen && regionId ? (
+                      {locationOpen ? (
                         <div className="absolute left-0 right-0 top-[44px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
                           {filteredLocationOptions.length === 0 ? (
                             <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
@@ -1110,7 +1147,7 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                                 }}
                                 className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                               >
-                                {formatLocationNameInline(location.name)}
+                                {formatLocationNameInline(location.name)} ({regionNameById.get(location.regionId) ?? '—'})
                               </button>
                             ))
                           )}
@@ -1119,6 +1156,12 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                     </div>
                   </label>
                 </div>
+
+                {selectedBlock && selectedLocation && selectedBlock.regionId !== selectedLocation.regionId ? (
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                    <p className="text-sm text-blue-700">다른 지역 목적지도 선택할 수 있으며, 저장되는 연결 지역은 출발 블록 소속 지역에 맞춰집니다.</p>
+                  </div>
+                ) : null}
 
                 <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
                   <div className="grid gap-1">
@@ -1167,7 +1210,7 @@ export function MultiDayBlockConnectionPage({ mode = 'all' }: MultiDayBlockConne
                 </div>
 
                 <div>
-                  <Button type="submit" variant="primary" disabled={!regionId || !fromMultiDayBlockId || !toLocationId || updating}>
+                  <Button type="submit" variant="primary" disabled={!fromMultiDayBlockId || !toLocationId || updating}>
                     {updating ? '저장 중...' : '저장'}
                   </Button>
                   <Button
