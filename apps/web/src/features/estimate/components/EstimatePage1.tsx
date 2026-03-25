@@ -352,6 +352,62 @@ function TransportGroupEditor({
   );
 }
 
+function blankIfDash(value: string): string {
+  return value === '-' ? '' : value;
+}
+
+function formatTravelPeriodCompact(startDate: string | null | undefined, endDate: string | null | undefined): string {
+  const travelPeriod = formatTravelPeriod(startDate, endDate);
+  if (travelPeriod === '-') {
+    return '';
+  }
+
+  const firstParenIndex = travelPeriod.indexOf(' (');
+  if (firstParenIndex < 0) {
+    return travelPeriod;
+  }
+
+  return `${travelPeriod.slice(0, firstParenIndex)}\n${travelPeriod.slice(firstParenIndex + 1)}`;
+}
+
+function formatHeadcountTotalOnly(total: number | null | undefined): string {
+  return total === null || total === undefined ? '' : `${total}인`;
+}
+
+function formatHeadcountGenderOnly(male: number | null | undefined, female: number | null | undefined): string {
+  if (male === null || male === undefined || female === null || female === undefined) {
+    return '';
+  }
+
+  return `남 ${male} / 여 ${female}`;
+}
+
+function EstimatePage1LogoMark(): JSX.Element {
+  return (
+    <svg
+      className="estimate-page1-logo-mark"
+      viewBox="0 0 220 92"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M18 50C18 28.5 38.7 12 61.8 12C71.4 12 80.2 14.7 87.7 19.2C95.9 11.8 108.2 7 122 7C138.1 7 152.1 13.5 159.5 23.2C164.4 20.7 170 19.3 176 19.3C194.2 19.3 209 31.2 209 45.8C209 60.5 194.2 72.3 176 72.3H61.4C37.5 72.3 18 62.5 18 50Z"
+        fill="white"
+      />
+      <path d="M58 60L81 34L98 47L118 23L150 47L168 38L183 52H58Z" fill="#25543B" />
+      <path d="M42 61L50 44L58 61H42Z" fill="#25543B" />
+      <rect x="48" y="61" width="3" height="9" fill="#25543B" />
+      <path d="M55 61L65 39L75 61H55Z" fill="#25543B" />
+      <rect x="63" y="61" width="3" height="10" fill="#25543B" />
+      <path
+        d="M182.6 18.4L186.8 24.4L194 21.7L188.9 28.1L193.6 34.6L186.2 32.1L181.3 38.3L181.8 30.5L174.3 27.8L182 25.5L182.6 18.4Z"
+        fill="#25543B"
+      />
+    </svg>
+  );
+}
+
 export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element {
   const adjustmentLines = data.adjustmentLines;
   const [activeField, setActiveField] = useState<EstimatePage1EditableField | null>(null);
@@ -364,445 +420,446 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
         : '';
   const securityDepositSummary =
     data.securityDepositUnitKrw === null
-      ? '-'
+      ? ''
       : `${formatCurrency(data.securityDepositUnitKrw)} (${data.securityDepositScope})`;
+  const travelPeriodCompact = formatTravelPeriodCompact(data.travelStartDate, data.travelEndDate);
+  const headcountTotalText = formatHeadcountTotalOnly(data.headcountTotal);
+  const headcountGenderText = formatHeadcountGenderOnly(data.headcountMale, data.headcountFemale);
+  const flightInText = blankIfDash(
+    data.transportGroups.length > 0
+      ? formatTransportFlightText(data.transportGroups, 'IN')
+      : formatFlightText(data.flightInDate, data.flightInTime),
+  );
+  const flightOutText = blankIfDash(
+    data.transportGroups.length > 0
+      ? formatTransportFlightText(data.transportGroups, 'OUT')
+      : formatFlightText(data.flightOutDate, data.flightOutTime),
+  );
+  const pickupText = blankIfDash(
+    data.transportGroups.length > 0
+      ? formatTransportPickupDropText(data.transportGroups, 'pickup')
+      : formatPickupDropDisplay(data.pickupDate, data.pickupTime, data.pickupPlaceType, data.pickupPlaceCustomText),
+  );
+  const dropText = blankIfDash(
+    data.transportGroups.length > 0
+      ? formatTransportPickupDropText(data.transportGroups, 'drop')
+      : formatPickupDropDisplay(data.dropDate, data.dropTime, data.dropPlaceType, data.dropPlaceCustomText),
+  );
+  const documentNumberText = data.documentNumber?.trim() ?? '';
 
   return (
     <section className={`estimate-sheet estimate-sheet-page1${page1DensityClassName}`}>
-      <p className="estimate-tagline">{ESTIMATE_TAGLINE}</p>
-      <h1 className="estimate-title">{ESTIMATE_TITLE}</h1>
+      <header className="estimate-page1-hero">
+        <div className="estimate-page1-hero-copy">
+          <div className="estimate-page1-hero-title-row">
+            <div className="estimate-page1-hero-headline">
+              <p className="estimate-tagline estimate-page1-tagline">{ESTIMATE_TAGLINE}</p>
+              <h1 className="estimate-title estimate-page1-title">{ESTIMATE_TITLE}</h1>
+            </div>
+            <div className="estimate-page1-hero-brand">
+              <EstimatePage1LogoMark />
+            </div>
+          </div>
 
-      <div className="estimate-company-grid">
-        <div>사업자 등록번호: {ESTIMATE_COMPANY.businessNumber}</div>
-        <div>인스타그램: {ESTIMATE_COMPANY.instagram}</div>
-        <div>네이버플레이스: {ESTIMATE_COMPANY.naverPlace}</div>
-        <div>카카오톡 채널: {ESTIMATE_COMPANY.kakaoChannel}</div>
-      </div>
+          <div className="estimate-page1-company-meta">
+            <div className="estimate-page1-company-meta-group">
+              <div>사업자 등록번호 {ESTIMATE_COMPANY.businessNumber}</div>
+              <div>네이버플레이스 {ESTIMATE_COMPANY.naverPlace}</div>
+            </div>
+            <div className="estimate-page1-company-meta-group estimate-page1-company-meta-group--right">
+              <div>@ {ESTIMATE_COMPANY.instagram.replace(/^@/, '')}</div>
+              <div>카카오톡 채널 {ESTIMATE_COMPANY.kakaoChannel}</div>
+            </div>
+          </div>
+        </div>
+      </header>
 
-      <hr className="estimate-divider" />
-
-      <h2 className="estimate-section-title">1) 기본 정보</h2>
-      <table className="estimate-table">
-        <tbody>
-          <tr>
-            <th>대표자명</th>
-            <td>{fallback(data.leaderName)}</td>
-            <th>문서번호</th>
-            <td>{data.documentNumber ?? '미발급(저장 후 자동 생성)'}</td>
-          </tr>
-          <tr>
-            <th>여행지</th>
-            <td>{fallback(data.destinationName)}</td>
-            <th>인원</th>
-            <EditableCell
-              field="headcount"
-              activeField={activeField}
-              editor={editor}
-              displayValue={formatHeadcount(data.headcountTotal, data.headcountMale, data.headcountFemale)}
-              input={
-                <div className="estimate-editable-grid">
-                  <label className="estimate-editable-meta">
-                    <span>총 인원</span>
-                    <input
-                      autoFocus
-                      type="number"
-                      min={1}
-                      value={editor?.headcountTotal ?? 1}
-                      onChange={(event) => editor?.onHeadcountTotalChange(Math.max(1, Number(event.target.value) || 1))}
-                      className="estimate-editable-input"
-                    />
-                  </label>
-                  <div className="estimate-editable-meta">
-                    <span>남성 인원</span>
-                    <div className="estimate-editable-token-grid">
-                      {Array.from({ length: (editor?.headcountTotal ?? 0) + 1 }, (_unused, count) => (
-                        <button
-                          key={`male-count-${count}`}
-                          type="button"
-                          className={`estimate-editable-token ${editor?.headcountMale === count ? 'estimate-editable-token--active' : ''}`}
-                          onClick={() => editor?.onHeadcountMaleChange(count)}
-                        >
-                          {count}
-                        </button>
-                      ))}
+      <div className="estimate-page1-body">
+        <table className="estimate-table estimate-page1-table estimate-page1-table--primary">
+          <colgroup>
+            <col className="estimate-page1-col-label" />
+            <col className="estimate-page1-col-primary-value" />
+            <col className="estimate-page1-col-primary-value" />
+            <col className="estimate-page1-col-primary-value" />
+            <col className="estimate-page1-col-label" />
+            <col className="estimate-page1-col-secondary-value" />
+            <col className="estimate-page1-col-label" />
+            <col className="estimate-page1-col-secondary-value" />
+          </colgroup>
+          <tbody>
+            <tr>
+              <th>대표자명</th>
+              <td colSpan={3}>{blankIfDash(fallback(data.leaderName))}</td>
+              <th>문서번호</th>
+              <td colSpan={3}>{documentNumberText}</td>
+            </tr>
+            <tr>
+              <th>여행지</th>
+              <td colSpan={3}>{blankIfDash(fallback(data.destinationName))}</td>
+              <th>인원</th>
+              <EditableCell
+                field="headcount"
+                activeField={activeField}
+                editor={editor}
+                displayValue={headcountTotalText}
+                input={
+                  <div className="estimate-editable-grid">
+                    <label className="estimate-editable-meta">
+                      <span>총 인원</span>
+                      <input
+                        autoFocus
+                        type="number"
+                        min={1}
+                        value={editor?.headcountTotal ?? 1}
+                        onChange={(event) => editor?.onHeadcountTotalChange(Math.max(1, Number(event.target.value) || 1))}
+                        className="estimate-editable-input"
+                      />
+                    </label>
+                    <div className="estimate-editable-meta">
+                      <span>남성 인원</span>
+                      <div className="estimate-editable-token-grid">
+                        {Array.from({ length: (editor?.headcountTotal ?? 0) + 1 }, (_unused, count) => (
+                          <button
+                            key={`male-count-${count}`}
+                            type="button"
+                            className={`estimate-editable-token ${editor?.headcountMale === count ? 'estimate-editable-token--active' : ''}`}
+                            onClick={() => editor?.onHeadcountMaleChange(count)}
+                          >
+                            {count}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              }
-              onActivate={setActiveField}
-              onDeactivate={() => setActiveField(null)}
-            />
-          </tr>
-          <tr>
-            <th>여행 기간</th>
-            <EditableCell
-              field="travelPeriod"
-              activeField={activeField}
-              editor={editor}
-              displayValue={formatTravelPeriod(data.travelStartDate, data.travelEndDate)}
-              input={
-                <div className="estimate-editable-grid">
-                  <input
-                    autoFocus
-                    type="date"
-                    value={editor?.travelStartDate ?? ''}
-                    onChange={(event) => editor?.onTravelStartDateChange(event.target.value)}
-                    className="estimate-editable-input"
-                  />
-                  <input
-                    type="date"
-                    value={editor?.travelEndDate ?? ''}
-                    onChange={(event) => editor?.onTravelEndDateChange(event.target.value)}
-                    className="estimate-editable-input"
-                  />
-                </div>
-              }
-              onActivate={setActiveField}
-              onDeactivate={() => setActiveField(null)}
-            />
-            <th>차량</th>
-            <EditableCell
-              field="vehicleType"
-              activeField={activeField}
-              editor={editor}
-              displayValue={fallback(data.vehicleType)}
-              input={
-                <select
-                  autoFocus
-                  value={editor?.vehicleType ?? ''}
-                  onChange={(event) => editor?.onVehicleTypeChange(event.target.value)}
-                  className="estimate-editable-input"
-                >
-                  {editor?.vehicleOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              }
-              onActivate={setActiveField}
-              onDeactivate={() => setActiveField(null)}
-            />
-          </tr>
-          <tr>
-            <th>항공권 IN</th>
-            <EditableCell
-              field="flightInTime"
-              activeField={activeField}
-              editor={editor}
-              displayValue={
-                <span className="whitespace-pre-wrap">
-                  {data.transportGroups.length > 0
-                    ? formatTransportFlightText(data.transportGroups, 'IN')
-                    : formatFlightText(data.flightInDate, data.flightInTime)}
-                </span>
-              }
-              multiline
-              input={
-                <TransportGroupEditor
-                  groups={editor?.transportGroups ?? []}
-                  mode="flightIn"
-                  headcountTotal={editor?.headcountTotal ?? 1}
-                  onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
-                  onAdd={() => editor?.onAddTransportGroup()}
-                  onRemove={(index) => editor?.onRemoveTransportGroup(index)}
-                />
-              }
-              onActivate={setActiveField}
-              onDeactivate={() => setActiveField(null)}
-            />
-            <th>항공권 OUT</th>
-            <EditableCell
-              field="flightOutTime"
-              activeField={activeField}
-              editor={editor}
-              displayValue={
-                <span className="whitespace-pre-wrap">
-                  {data.transportGroups.length > 0
-                    ? formatTransportFlightText(data.transportGroups, 'OUT')
-                    : formatFlightText(data.flightOutDate, data.flightOutTime)}
-                </span>
-              }
-              multiline
-              input={
-                <TransportGroupEditor
-                  groups={editor?.transportGroups ?? []}
-                  mode="flightOut"
-                  headcountTotal={editor?.headcountTotal ?? 1}
-                  onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
-                  onAdd={() => editor?.onAddTransportGroup()}
-                  onRemove={(index) => editor?.onRemoveTransportGroup(index)}
-                />
-              }
-              onActivate={setActiveField}
-              onDeactivate={() => setActiveField(null)}
-            />
-          </tr>
-          <tr>
-            <th>픽업</th>
-            <EditableCell
-              field="pickupDate"
-              activeField={activeField}
-              editor={editor}
-              displayValue={
-                <span className="whitespace-pre-wrap">
-                  {data.transportGroups.length > 0
-                    ? formatTransportPickupDropText(data.transportGroups, 'pickup')
-                    : formatPickupDropDisplay(
-                        data.pickupDate,
-                        data.pickupTime,
-                        data.pickupPlaceType,
-                        data.pickupPlaceCustomText,
-                      )}
-                </span>
-              }
-              multiline
-              input={
-                <TransportGroupEditor
-                  groups={editor?.transportGroups ?? []}
-                  mode="pickup"
-                  headcountTotal={editor?.headcountTotal ?? 1}
-                  onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
-                  onAdd={() => editor?.onAddTransportGroup()}
-                  onRemove={(index) => editor?.onRemoveTransportGroup(index)}
-                />
-              }
-              onActivate={setActiveField}
-              onDeactivate={() => setActiveField(null)}
-            />
-            <th>드랍</th>
-            <EditableCell
-              field="dropDate"
-              activeField={activeField}
-              editor={editor}
-              displayValue={
-                <span className="whitespace-pre-wrap">
-                  {data.transportGroups.length > 0
-                    ? formatTransportPickupDropText(data.transportGroups, 'drop')
-                    : formatPickupDropDisplay(
-                        data.dropDate,
-                        data.dropTime,
-                        data.dropPlaceType,
-                        data.dropPlaceCustomText,
-                      )}
-                </span>
-              }
-              multiline
-              input={
-                <TransportGroupEditor
-                  groups={editor?.transportGroups ?? []}
-                  mode="drop"
-                  headcountTotal={editor?.headcountTotal ?? 1}
-                  onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
-                  onAdd={() => editor?.onAddTransportGroup()}
-                  onRemove={(index) => editor?.onRemoveTransportGroup(index)}
-                />
-              }
-              onActivate={setActiveField}
-              onDeactivate={() => setActiveField(null)}
-            />
-          </tr>
-          <tr>
-            <th>실투어 외 픽업</th>
-            <td className="whitespace-pre-wrap">{fallback(data.externalPickupText)}</td>
-            <th>실투어 외 드랍</th>
-            <td className="whitespace-pre-wrap">{fallback(data.externalDropText)}</td>
-          </tr>
-          <tr>
-            <th>특이사항</th>
-            <EditableCell
-              field="specialNoteText"
-              activeField={activeField}
-              editor={editor}
-              displayValue={fallback(data.specialNoteText)}
-              multiline
-              className="pre-line"
-              colSpan={3}
-              input={
-                <textarea
-                  autoFocus
-                  rows={3}
-                  value={editor?.specialNoteText ?? ''}
-                  onChange={(event) => editor?.onSpecialNoteTextChange(event.target.value)}
-                  className="estimate-editable-input estimate-editable-textarea"
-                />
-              }
-              onActivate={setActiveField}
-              onDeactivate={() => setActiveField(null)}
-            />
-          </tr>
-        </tbody>
-      </table>
-
-      <h2 className="estimate-section-title">2) 제공 / 준비 항목</h2>
-      <table className="estimate-table">
-        <tbody>
-          <tr>
-            <th>기본 대여물품</th>
-            <EditableCell
-              field="rentalItemsText"
-              activeField={activeField}
-              editor={editor}
-              displayValue={fallback(data.rentalItemsText)}
-              multiline
-              className="pre-line"
-              input={
-                <textarea
-                  autoFocus
-                  rows={4}
-                  value={editor?.rentalItemsText ?? ''}
-                  onChange={(event) => editor?.onRentalItemsTextChange(event.target.value)}
-                  className="estimate-editable-input estimate-editable-textarea"
-                />
-              }
-              onActivate={setActiveField}
-              onDeactivate={() => setActiveField(null)}
-            />
-            <th>참여 이벤트</th>
-            <EditableCell
-              field="eventIds"
-              activeField={activeField}
-              editor={editor}
-              displayValue={fallback(data.eventText)}
-              multiline
-              className="pre-line"
-              input={
-                <div className="estimate-editable-grid">
-                  <div className="estimate-editable-chip-list">
-                    {editor?.eventOptions.map((eventOption) => {
-                      const active = editor.eventIds.includes(eventOption.id);
-                      return (
-                        <button
-                          key={eventOption.id}
-                          type="button"
-                          className={`estimate-editable-chip ${active ? 'estimate-editable-chip--active' : ''}`}
-                          onClick={() => editor.onToggleEventId(eventOption.id)}
-                        >
-                          {eventOption.name}
-                        </button>
-                      );
-                    })}
-                    {editor?.eventOptions.length === 0 ? <span className="estimate-editable-empty">진행중 이벤트 없음</span> : null}
-                  </div>
-                </div>
-              }
-              onActivate={setActiveField}
-              onDeactivate={() => setActiveField(null)}
-            />
-          </tr>
-        </tbody>
-      </table>
-
-      <h2 className="estimate-section-title">3) 비고</h2>
-      <table className="estimate-table">
-        <tbody>
-          <tr>
-            <th>비고</th>
-            <td className="pre-line" colSpan={3}>
-              {editor ? (
-                activeField === 'remarkText' ? (
-                  <div
-                    className="estimate-editable-shell estimate-editable-shell--active"
-                    onBlurCapture={(event: FocusEvent<HTMLDivElement>) => {
-                      const nextTarget = event.relatedTarget;
-                      if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
-                        return;
-                      }
-                      setActiveField(null);
-                    }}
-                  >
-                    <textarea
+                }
+                onActivate={setActiveField}
+                onDeactivate={() => setActiveField(null)}
+              />
+              <th>인 (남/여)</th>
+              <td>{headcountGenderText}</td>
+            </tr>
+            <tr>
+              <th>여행 기간</th>
+              <EditableCell
+                field="travelPeriod"
+                activeField={activeField}
+                editor={editor}
+                displayValue={<span className="whitespace-pre-line">{travelPeriodCompact}</span>}
+                input={
+                  <div className="estimate-editable-grid">
+                    <input
                       autoFocus
-                      rows={4}
-                      value={editor.remarkText}
-                      onChange={(event) => editor.onRemarkTextChange(event.target.value)}
-                      className="estimate-editable-input estimate-editable-textarea"
+                      type="date"
+                      value={editor?.travelStartDate ?? ''}
+                      onChange={(event) => editor?.onTravelStartDateChange(event.target.value)}
+                      className="estimate-editable-input"
+                    />
+                    <input
+                      type="date"
+                      value={editor?.travelEndDate ?? ''}
+                      onChange={(event) => editor?.onTravelEndDateChange(event.target.value)}
+                      className="estimate-editable-input"
                     />
                   </div>
+                }
+                className="estimate-page1-preline-cell"
+                colSpan={3}
+                multiline
+                onActivate={setActiveField}
+                onDeactivate={() => setActiveField(null)}
+              />
+              <th>차량</th>
+              <EditableCell
+                field="vehicleType"
+                activeField={activeField}
+                editor={editor}
+                displayValue={fallback(data.vehicleType)}
+                input={
+                  <select
+                    autoFocus
+                    value={editor?.vehicleType ?? ''}
+                    onChange={(event) => editor?.onVehicleTypeChange(event.target.value)}
+                    className="estimate-editable-input"
+                  >
+                    {editor?.vehicleOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                }
+                colSpan={3}
+                onActivate={setActiveField}
+                onDeactivate={() => setActiveField(null)}
+              />
+            </tr>
+          </tbody>
+        </table>
+
+        <table className="estimate-table estimate-page1-table">
+          <colgroup>
+            <col className="estimate-page1-col-section-label" />
+            <col className="estimate-page1-col-section-value" />
+            <col className="estimate-page1-col-section-label" />
+            <col className="estimate-page1-col-section-value" />
+          </colgroup>
+          <tbody>
+            <tr>
+              <th>항공권 IN</th>
+              <EditableCell
+                field="flightInTime"
+                activeField={activeField}
+                editor={editor}
+                displayValue={<span className="whitespace-pre-wrap">{flightInText}</span>}
+                multiline
+                input={
+                  <TransportGroupEditor
+                    groups={editor?.transportGroups ?? []}
+                    mode="flightIn"
+                    headcountTotal={editor?.headcountTotal ?? 1}
+                    onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
+                    onAdd={() => editor?.onAddTransportGroup()}
+                    onRemove={(index) => editor?.onRemoveTransportGroup(index)}
+                  />
+                }
+                className="estimate-page1-preline-cell"
+                onActivate={setActiveField}
+                onDeactivate={() => setActiveField(null)}
+              />
+              <th>항공권 OUT</th>
+              <EditableCell
+                field="flightOutTime"
+                activeField={activeField}
+                editor={editor}
+                displayValue={<span className="whitespace-pre-wrap">{flightOutText}</span>}
+                multiline
+                input={
+                  <TransportGroupEditor
+                    groups={editor?.transportGroups ?? []}
+                    mode="flightOut"
+                    headcountTotal={editor?.headcountTotal ?? 1}
+                    onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
+                    onAdd={() => editor?.onAddTransportGroup()}
+                    onRemove={(index) => editor?.onRemoveTransportGroup(index)}
+                  />
+                }
+                className="estimate-page1-preline-cell"
+                onActivate={setActiveField}
+                onDeactivate={() => setActiveField(null)}
+              />
+            </tr>
+            <tr>
+              <th>픽업</th>
+              <EditableCell
+                field="pickupDate"
+                activeField={activeField}
+                editor={editor}
+                displayValue={<span className="whitespace-pre-wrap">{pickupText}</span>}
+                multiline
+                input={
+                  <TransportGroupEditor
+                    groups={editor?.transportGroups ?? []}
+                    mode="pickup"
+                    headcountTotal={editor?.headcountTotal ?? 1}
+                    onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
+                    onAdd={() => editor?.onAddTransportGroup()}
+                    onRemove={(index) => editor?.onRemoveTransportGroup(index)}
+                  />
+                }
+                className="estimate-page1-preline-cell"
+                onActivate={setActiveField}
+                onDeactivate={() => setActiveField(null)}
+              />
+              <th>드랍</th>
+              <EditableCell
+                field="dropDate"
+                activeField={activeField}
+                editor={editor}
+                displayValue={<span className="whitespace-pre-wrap">{dropText}</span>}
+                multiline
+                input={
+                  <TransportGroupEditor
+                    groups={editor?.transportGroups ?? []}
+                    mode="drop"
+                    headcountTotal={editor?.headcountTotal ?? 1}
+                    onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
+                    onAdd={() => editor?.onAddTransportGroup()}
+                    onRemove={(index) => editor?.onRemoveTransportGroup(index)}
+                  />
+                }
+                className="estimate-page1-preline-cell"
+                onActivate={setActiveField}
+                onDeactivate={() => setActiveField(null)}
+              />
+            </tr>
+            <tr>
+              <th>실투어 외 픽드랍</th>
+              <td className="estimate-page1-preline-cell">{fallback(data.externalPickupDropText)}</td>
+              <th>특이사항</th>
+              <EditableCell
+                field="specialNoteText"
+                activeField={activeField}
+                editor={editor}
+                displayValue={fallback(data.specialNoteText)}
+                multiline
+                className="estimate-page1-preline-cell"
+                input={
+                  <textarea
+                    autoFocus
+                    rows={3}
+                    value={editor?.specialNoteText ?? ''}
+                    onChange={(event) => editor?.onSpecialNoteTextChange(event.target.value)}
+                    className="estimate-editable-input estimate-editable-textarea"
+                  />
+                }
+                onActivate={setActiveField}
+                onDeactivate={() => setActiveField(null)}
+              />
+            </tr>
+            <tr>
+              <th>기본 대여물품</th>
+              <EditableCell
+                field="rentalItemsText"
+                activeField={activeField}
+                editor={editor}
+                displayValue={fallback(data.rentalItemsText)}
+                multiline
+                className="estimate-page1-preline-cell"
+                input={
+                  <textarea
+                    autoFocus
+                    rows={4}
+                    value={editor?.rentalItemsText ?? ''}
+                    onChange={(event) => editor?.onRentalItemsTextChange(event.target.value)}
+                    className="estimate-editable-input estimate-editable-textarea"
+                  />
+                }
+                onActivate={setActiveField}
+                onDeactivate={() => setActiveField(null)}
+              />
+              <th>참여 이벤트</th>
+              <EditableCell
+                field="eventIds"
+                activeField={activeField}
+                editor={editor}
+                displayValue={fallback(data.eventText)}
+                multiline
+                className="estimate-page1-preline-cell"
+                input={
+                  <div className="estimate-editable-grid">
+                    <div className="estimate-editable-chip-list">
+                      {editor?.eventOptions.map((eventOption) => {
+                        const active = editor.eventIds.includes(eventOption.id);
+                        return (
+                          <button
+                            key={eventOption.id}
+                            type="button"
+                            className={`estimate-editable-chip ${active ? 'estimate-editable-chip--active' : ''}`}
+                            onClick={() => editor.onToggleEventId(eventOption.id)}
+                          >
+                            {eventOption.name}
+                          </button>
+                        );
+                      })}
+                      {editor?.eventOptions.length === 0 ? <span className="estimate-editable-empty">진행중 이벤트 없음</span> : null}
+                    </div>
+                  </div>
+                }
+                onActivate={setActiveField}
+                onDeactivate={() => setActiveField(null)}
+              />
+            </tr>
+            <tr>
+              <th>비고</th>
+              <EditableCell
+                field="remarkText"
+                activeField={activeField}
+                editor={editor}
+                displayValue={fallback(data.remarkText)}
+                multiline
+                className="estimate-page1-preline-cell"
+                colSpan={3}
+                input={
+                  <textarea
+                    autoFocus
+                    rows={4}
+                    value={editor?.remarkText ?? ''}
+                    onChange={(event) => editor?.onRemarkTextChange(event.target.value)}
+                    className="estimate-editable-input estimate-editable-textarea"
+                  />
+                }
+                onActivate={setActiveField}
+                onDeactivate={() => setActiveField(null)}
+              />
+            </tr>
+          </tbody>
+        </table>
+
+        <table className="estimate-table estimate-page1-table estimate-page1-table--pricing">
+          <colgroup>
+            <col className="estimate-page1-col-pricing-base" />
+            <col className="estimate-page1-col-pricing-detail" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>기본금 (1인)</th>
+              <th>추가 및 할인 사항</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="estimate-page1-price-cell estimate-page1-price-cell--base">{blankIfDash(formatCurrency(data.basePricePerPersonKrw))}</td>
+              <td className="estimate-page1-price-cell estimate-page1-price-cell--details">
+                {adjustmentLines.length === 0 ? (
+                  <div className="estimate-page1-price-placeholder" />
                 ) : (
-                  <button type="button" className="estimate-editable-trigger" onClick={() => setActiveField('remarkText')}>
-                    <span className="estimate-editable-content estimate-editable-content--multiline">{fallback(data.remarkText)}</span>
-                  </button>
-                )
-              ) : (
-                fallback(data.remarkText)
-              )}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                  adjustmentLines.map((line, index) => (
+                    <div key={`adj-${index}`} className="estimate-page1-price-line">
+                      <div className="estimate-page1-price-line-main">
+                        <span>{line.label}</span>
+                        <strong>{formatSignedCurrency(line.amountKrw)}</strong>
+                      </div>
+                      <div className="estimate-page1-price-line-basis">{line.formula}</div>
+                    </div>
+                  ))
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-      <h2 className="estimate-section-title">4) 가격 상세</h2>
-      <p className="estimate-subtitle">기본금 / 추가 및 할인 사항</p>
-      <table className="estimate-table estimate-table-pricing">
-        <thead>
-          <tr>
-            <th>기본금 (1인)</th>
-            <th>추가 및 할인 사항</th>
-            <th>계산 기준</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td className="align-top text-right emphasis">{formatCurrency(data.basePricePerPersonKrw)}</td>
-            <td className="align-top">
-              {adjustmentLines.length === 0 ? (
-                <div>-</div>
-              ) : (
-                adjustmentLines.map((line, index) => (
-                  <div key={`adj-${index}`} className="estimate-pricing-line">
-                    {line.label} <strong>{formatSignedCurrency(line.amountKrw)}</strong>
-                  </div>
-                ))
-              )}
-            </td>
-            <td className="align-top">
-              {adjustmentLines.length === 0 ? (
-                <div>-</div>
-              ) : (
-                adjustmentLines.map((line, index) => (
-                  <div key={`basis-${index}`} className="estimate-pricing-line estimate-pricing-line--basis">
-                    {line.formula}
-                  </div>
-                ))
-              )}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+        <table className="estimate-table estimate-page1-table estimate-page1-table--summary">
+          <thead>
+            <tr>
+              <th>총액 (1인)</th>
+              <th>예약금 (1인)</th>
+              <th>잔금 (1인)</th>
+              <th>대여 물품 보증금</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="emphasis">{blankIfDash(formatCurrency(data.totalPricePerPersonKrw))}</td>
+              <td className="emphasis">{blankIfDash(formatCurrency(data.depositPricePerPersonKrw))}</td>
+              <td className="emphasis">{blankIfDash(formatCurrency(data.balancePricePerPersonKrw))}</td>
+              <td className="emphasis">{securityDepositSummary}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-      <h2 className="estimate-section-title">5) 결제 요약</h2>
-      <table className="estimate-table estimate-table-summary">
-        <thead>
-          <tr>
-            <th>총액 (1인)</th>
-            <th>예약금 (1인)</th>
-            <th>잔금 (1인)</th>
-            <th>대여 물품 보증금</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td className="text-right emphasis">{formatCurrency(data.totalPricePerPersonKrw)}</td>
-            <td className="text-right emphasis">{formatCurrency(data.depositPricePerPersonKrw)}</td>
-            <td className="text-right emphasis">{formatCurrency(data.balancePricePerPersonKrw)}</td>
-            <td className="text-right emphasis">{securityDepositSummary}</td>
-          </tr>
-        </tbody>
-      </table>
+      <p className="estimate-page1-validity-note">
+        견적서 내 금액은 모두 1인 기준 견적입니다. 해당 견적은 {formatDateKorean(data.validUntilDate)}까지 유효합니다.
+      </p>
 
-      <div className="estimate-footer-meta">
-        <p className="estimate-single-line-note">
-          견적서 내 금액은 모두 1인 기준 견적입니다. 해당 견적은 {formatDateKorean(data.validUntilDate)}까지 유효합니다.
-        </p>
-
-        <p className="estimate-payment-line">
+      <div className="estimate-page1-payment-bar">
+        <span>
           [결제 방식] 예약금, 보증금 : {ESTIMATE_PAYMENT.reservationAndDepositMethod} / 잔금 : {ESTIMATE_PAYMENT.balanceMethod} [
           {ESTIMATE_PAYMENT.vatText}]
-        </p>
-        <p className="estimate-payment-line">
+        </span>
+        <span>
           [입금 계좌] {ESTIMATE_PAYMENT.bankAccount} {ESTIMATE_PAYMENT.bankName} {ESTIMATE_PAYMENT.bankOwner}
-        </p>
+        </span>
       </div>
     </section>
   );

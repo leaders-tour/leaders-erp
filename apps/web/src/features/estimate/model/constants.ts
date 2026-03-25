@@ -1,4 +1,4 @@
-export const ESTIMATE_TITLE = '리더스 투어 맞춤견적서';
+export const ESTIMATE_TITLE = '리더스투어 맞춤견적서';
 export const ESTIMATE_TAGLINE = 'Walk New Paths, Write Your Own Story';
 
 export const ESTIMATE_COMPANY = {
