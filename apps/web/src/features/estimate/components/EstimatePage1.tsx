@@ -1,4 +1,4 @@
-import { useState, type FocusEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type FocusEvent, type ReactNode } from 'react';
 import { PICKUP_DROP_PLACE_OPTIONS, formatPickupDropDisplay, type PickupDropPlaceType } from '../../plan/pickup-drop';
 import { ESTIMATE_COMPANY, ESTIMATE_PAYMENT, ESTIMATE_TAGLINE, ESTIMATE_TITLE } from '../model/constants';
 import type { EstimateDocumentData, EstimatePage1EditableField, EstimatePage1Editor, EstimateTransportGroup } from '../model/types';
@@ -356,6 +356,8 @@ function blankIfDash(value: string): string {
   return value === '-' ? '' : value;
 }
 
+const MIN_ESTIMATE_PAGE1_FIT_SCALE = 0.72;
+
 function formatTravelPeriodCompact(startDate: string | null | undefined, endDate: string | null | undefined): string {
   const travelPeriod = formatTravelPeriod(startDate, endDate);
   if (travelPeriod === '-') {
@@ -399,6 +401,11 @@ function EstimatePage1LogoMark(): JSX.Element {
 export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element {
   const adjustmentLines = data.adjustmentLines;
   const [activeField, setActiveField] = useState<EstimatePage1EditableField | null>(null);
+  const pageRef = useRef<HTMLElement | null>(null);
+  const heroRef = useRef<HTMLElement | null>(null);
+  const bodyShellRef = useRef<HTMLDivElement | null>(null);
+  const bodyFitRef = useRef<HTMLDivElement | null>(null);
+  const footerRef = useRef<HTMLDivElement | null>(null);
   const hasLongPricingText = adjustmentLines.some((line) => line.label.length >= 18 || line.formula.length >= 18);
   const page1DensityClassName =
     adjustmentLines.length >= 6 || (adjustmentLines.length >= 5 && hasLongPricingText)
@@ -434,9 +441,108 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
   );
   const documentNumberText = data.documentNumber?.trim() ?? '';
 
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const pageElement = pageRef.current;
+    const heroElement = heroRef.current;
+    const bodyShellElement = bodyShellRef.current;
+    const bodyFitElement = bodyFitRef.current;
+    const footerElement = footerRef.current;
+
+    if (!pageElement || !heroElement || !bodyShellElement || !bodyFitElement || !footerElement) {
+      return undefined;
+    }
+
+    let animationFrameId = 0;
+
+    const setScale = (value: number) => {
+      const nextValue = value.toFixed(4);
+      if (pageElement.style.getPropertyValue('--estimate-page1-fit-scale') !== nextValue) {
+        pageElement.style.setProperty('--estimate-page1-fit-scale', nextValue);
+      }
+    };
+
+    const measureContentHeight = (scale: number): number => {
+      setScale(scale);
+      return bodyFitElement.scrollHeight;
+    };
+
+    const recalcScale = () => {
+      const availableHeight = bodyShellElement.clientHeight;
+      if (availableHeight <= 0) {
+        setScale(1);
+        return;
+      }
+
+      const fitsInSlot = (height: number) => height <= availableHeight + 1;
+      const naturalHeight = measureContentHeight(1);
+
+      if (fitsInSlot(naturalHeight)) {
+        setScale(1);
+        return;
+      }
+
+      const minimumHeight = measureContentHeight(MIN_ESTIMATE_PAGE1_FIT_SCALE);
+      if (!fitsInSlot(minimumHeight)) {
+        setScale(MIN_ESTIMATE_PAGE1_FIT_SCALE);
+        return;
+      }
+
+      let low = MIN_ESTIMATE_PAGE1_FIT_SCALE;
+      let high = 1;
+      let best = low;
+
+      for (let index = 0; index < 8; index += 1) {
+        const mid = (low + high) / 2;
+        if (fitsInSlot(measureContentHeight(mid))) {
+          best = mid;
+          low = mid;
+        } else {
+          high = mid;
+        }
+      }
+
+      setScale(best);
+    };
+
+    const scheduleRecalc = () => {
+      window.cancelAnimationFrame(animationFrameId);
+      animationFrameId = window.requestAnimationFrame(recalcScale);
+    };
+
+    scheduleRecalc();
+
+    const resizeObserver = new ResizeObserver(() => {
+      scheduleRecalc();
+    });
+
+    resizeObserver.observe(pageElement);
+    resizeObserver.observe(heroElement);
+    resizeObserver.observe(bodyShellElement);
+    resizeObserver.observe(footerElement);
+
+    window.addEventListener('resize', scheduleRecalc);
+    window.addEventListener('beforeprint', recalcScale);
+    window.addEventListener('afterprint', scheduleRecalc);
+    void document.fonts?.ready.then(() => {
+      scheduleRecalc();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', scheduleRecalc);
+      window.removeEventListener('beforeprint', recalcScale);
+      window.removeEventListener('afterprint', scheduleRecalc);
+    };
+  }, [activeField, adjustmentLines, data, page1DensityClassName]);
+
   return (
-    <section className={`estimate-sheet estimate-sheet-page1${page1DensityClassName}`}>
-      <header className="estimate-page1-hero">
+    <section ref={pageRef} className={`estimate-sheet estimate-sheet-page1${page1DensityClassName}`}>
+      <header ref={heroRef} className="estimate-page1-hero">
         <div className="estimate-page1-hero-copy">
           <div className="estimate-page1-hero-title-row">
             <div className="estimate-page1-hero-headline">
@@ -461,8 +567,9 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
         </div>
       </header>
 
-      <div className="estimate-page1-body">
-        <table className="estimate-table estimate-page1-table estimate-page1-table--main">
+      <div ref={bodyShellRef} className="estimate-page1-body-shell">
+        <div ref={bodyFitRef} className="estimate-page1-body">
+          <table className="estimate-table estimate-page1-table estimate-page1-table--main">
           <colgroup>
             <col className="estimate-page1-col-4-label" />
             <col className="estimate-page1-col-4-value" />
@@ -771,9 +878,9 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
               />
             </tr>
           </tbody>
-        </table>
+          </table>
 
-        <table className="estimate-table estimate-page1-table estimate-page1-table--pricing">
+          <table className="estimate-table estimate-page1-table estimate-page1-table--pricing">
           <colgroup>
             <col className="estimate-page1-col-pricing-base" />
             <col className="estimate-page1-col-pricing-detail" />
@@ -804,10 +911,10 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
               </td>
             </tr>
           </tbody>
-        </table>
+          </table>
 
-        <div className="estimate-page1-summary-block">
-          <table className="estimate-table estimate-page1-table estimate-page1-table--summary">
+          <div className="estimate-page1-summary-block">
+            <table className="estimate-table estimate-page1-table estimate-page1-table--summary">
             <thead>
               <tr>
                 <th>총액 (1인)</th>
@@ -824,14 +931,15 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 <td className="emphasis">{securityDepositSummary}</td>
               </tr>
             </tbody>
-          </table>
-          <p className="estimate-page1-validity-note">
-            견적서 내 금액은 모두 1인 기준 견적입니다. 해당 견적은 {formatDateKorean(data.validUntilDate)}까지 유효합니다.
-          </p>
+            </table>
+            <p className="estimate-page1-validity-note">
+              견적서 내 금액은 모두 1인 기준 견적입니다. 해당 견적은 {formatDateKorean(data.validUntilDate)}까지 유효합니다.
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="estimate-page1-payment-bar">
+      <div ref={footerRef} className="estimate-page1-payment-bar">
         <div className="estimate-page1-company-meta estimate-page1-payment-bar-meta">
           <div className="estimate-page1-company-meta-group">
             <div>

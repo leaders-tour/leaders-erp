@@ -59,9 +59,9 @@
   height: 100%;
 }
 
-/* 벤치마크 비율: 전체 높이 1123px 대비 히어로(초록) 약 270px → 미리보기에서만 동일 비율 적용 */
+/* 벤치마크 비율: 전체 높이 1123px 대비 히어로(초록) — 미리보기에서만 고정 비율 */
 .estimate-document--preview .estimate-sheet-page1 {
-  --estimate-page1-preview-hero-height: calc(100% * 270 / 1123);
+  --estimate-page1-preview-hero-height: calc(100% * 254 / 1123);
 }
 
 .estimate-document--preview .estimate-sheet-page1 .estimate-page1-hero {
@@ -97,62 +97,76 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  --estimate-page1-hero-padding-y: 13mm;
+  height: 297mm;
+  --estimate-page1-fit-scale: 1;
+  --estimate-page1-hero-padding-y: 11mm;
   --estimate-page1-hero-padding-x: 11mm;
   --estimate-page1-body-padding-x: 11mm;
   --estimate-page1-body-padding-top: 5.5mm;
   --estimate-page1-body-gap: 0;
-  --estimate-page1-table-cell-padding-y: 6px;
-  --estimate-page1-table-cell-padding-x: 8px;
-  --estimate-page1-main-even-row-min-height: 52px;
+  --estimate-page1-table-cell-padding-y-base: 6px;
+  --estimate-page1-table-cell-padding-x-base: 8px;
+  --estimate-page1-table-cell-padding-y: calc(var(--estimate-page1-table-cell-padding-y-base) * var(--estimate-page1-fit-scale));
+  --estimate-page1-table-cell-padding-x: calc(var(--estimate-page1-table-cell-padding-x-base) * var(--estimate-page1-fit-scale));
+  --estimate-page1-main-even-row-min-height-base: 52px;
+  --estimate-page1-main-even-row-min-height: calc(var(--estimate-page1-main-even-row-min-height-base) * var(--estimate-page1-fit-scale));
   /* tbody 사이 전용 간격 행 높이 */
-  --estimate-page1-tbody-gap: 5px;
+  --estimate-page1-tbody-gap-base: 5px;
+  --estimate-page1-tbody-gap: calc(var(--estimate-page1-tbody-gap-base) * var(--estimate-page1-fit-scale));
   --estimate-page1-table-border-width: 0.5px;
   --estimate-page1-table-border-emphasis: 2px;
+  --estimate-page1-table-font-size: calc(11px * var(--estimate-page1-fit-scale));
+  --estimate-page1-small-font-size: calc(10px * var(--estimate-page1-fit-scale));
+  --estimate-page1-summary-font-size: calc(12px * var(--estimate-page1-fit-scale));
+  --estimate-page1-cell-min-height: calc(34px * var(--estimate-page1-fit-scale));
+  --estimate-page1-main-cell-min-height: calc(40px * var(--estimate-page1-fit-scale));
   /* 비고 textarea rows=4 분량 — 비고 행·기본금 thead 라벨에 동일 적용 */
   --estimate-page1-remark-block-min-height: calc(
-    4 * 1.35em + 2 * var(--estimate-page1-table-cell-padding-y) + 10px
+    4 * 1.35em + 2 * var(--estimate-page1-table-cell-padding-y) + calc(10px * var(--estimate-page1-fit-scale))
   );
   /* 총액 요약: collapse 표에서 td min-height 무시됨 → tr·패딩으로 높이 확보 */
+  --estimate-page1-summary-row-min-height-base: 52px;
   --estimate-page1-summary-row-min-height: max(
-    52px,
+    calc(var(--estimate-page1-summary-row-min-height-base) * var(--estimate-page1-fit-scale)),
     var(--estimate-page1-remark-block-min-height)
   );
-  --estimate-page1-price-placeholder-height: 68px;
+  --estimate-page1-price-placeholder-height-base: 68px;
+  --estimate-page1-price-placeholder-height: calc(var(--estimate-page1-price-placeholder-height-base) * var(--estimate-page1-fit-scale));
   --estimate-page1-summary-width: 82%;
-  --estimate-page1-summary-validity-gap: 4px;
-  --estimate-page1-body-padding-bottom: 58px;
+  --estimate-page1-summary-validity-gap-base: 4px;
+  --estimate-page1-summary-validity-gap: calc(var(--estimate-page1-summary-validity-gap-base) * var(--estimate-page1-fit-scale));
+  --estimate-page1-body-padding-bottom: 12px;
   --estimate-page1-footer-padding-y: 8px;
   /* 결제·입금 2줄(히어로 메타와 동일 12px) 수용 */
   --estimate-page1-footer-bar-min-height: 36px;
 }
 
 .estimate-sheet-page1--dense {
-  --estimate-page1-hero-padding-y: 12mm;
+  --estimate-page1-hero-padding-y: 11mm;
   --estimate-page1-body-padding-top: 4.5mm;
-  --estimate-page1-table-cell-padding-y: 5px;
-  --estimate-page1-table-cell-padding-x: 7px;
-  --estimate-page1-main-even-row-min-height: 50px;
-  --estimate-page1-tbody-gap: 5px;
+  --estimate-page1-table-cell-padding-y-base: 5px;
+  --estimate-page1-table-cell-padding-x-base: 7px;
+  --estimate-page1-main-even-row-min-height-base: 50px;
+  --estimate-page1-tbody-gap-base: 5px;
   --estimate-page1-table-border-width: 0.5px;
   --estimate-page1-table-border-emphasis: 2px;
-  --estimate-page1-price-placeholder-height: 58px;
-  --estimate-page1-body-padding-bottom: 54px;
+  --estimate-page1-price-placeholder-height-base: 58px;
+  --estimate-page1-body-padding-bottom: 10px;
   --estimate-page1-footer-padding-y: 7px;
   --estimate-page1-footer-bar-min-height: 34px;
 }
 
 .estimate-sheet-page1--compact {
-  --estimate-page1-hero-padding-y: 10.5mm;
+  --estimate-page1-hero-padding-y: 9.5mm;
   --estimate-page1-body-padding-top: 3.5mm;
-  --estimate-page1-table-cell-padding-y: 4px;
-  --estimate-page1-table-cell-padding-x: 6px;
-  --estimate-page1-main-even-row-min-height: 48px;
-  --estimate-page1-tbody-gap: 5px;
+  --estimate-page1-table-cell-padding-y-base: 4px;
+  --estimate-page1-table-cell-padding-x-base: 6px;
+  --estimate-page1-main-even-row-min-height-base: 48px;
+  --estimate-page1-tbody-gap-base: 5px;
   --estimate-page1-table-border-width: 0.5px;
   --estimate-page1-table-border-emphasis: 2px;
-  --estimate-page1-price-placeholder-height: 46px;
-  --estimate-page1-body-padding-bottom: 50px;
+  --estimate-page1-price-placeholder-height-base: 46px;
+  --estimate-page1-body-padding-bottom: 8px;
   --estimate-page1-footer-padding-y: 6px;
   --estimate-page1-footer-bar-min-height: 32px;
 }
@@ -288,10 +302,11 @@
 
 .estimate-page1-hero {
   display: flex;
+  flex-shrink: 0;
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-end;
-  padding: var(--estimate-page1-hero-padding-y) var(--estimate-page1-hero-padding-x) 9mm;
+  padding: var(--estimate-page1-hero-padding-y) var(--estimate-page1-hero-padding-x) 8mm;
   background: #274736;
   color: #fff;
 }
@@ -370,10 +385,19 @@
   display: block;
 }
 
+.estimate-page1-body-shell {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .estimate-page1-body {
   display: flex;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   flex-direction: column;
+  width: 100%;
+  min-height: 0;
   gap: var(--estimate-page1-body-gap);
   padding: var(--estimate-page1-body-padding-top) var(--estimate-page1-body-padding-x) var(--estimate-page1-body-padding-bottom);
 }
@@ -381,7 +405,7 @@
 .estimate-page1-table {
   margin-top: 0;
   border-top: var(--estimate-page1-table-border-width, 0.5px) solid #d1d5db;
-  font-size: 11px;
+  font-size: var(--estimate-page1-table-font-size);
 }
 
 /* 메인 표: 테이블 박스 상단선 제거 → 첫 행(대표자명) 셀 위로 진회색 강조선만 */
@@ -441,7 +465,7 @@
   border-left: none;
   border-right: none;
   padding: var(--estimate-page1-table-cell-padding-y) var(--estimate-page1-table-cell-padding-x);
-  min-height: 34px;
+  min-height: var(--estimate-page1-cell-min-height);
   vertical-align: middle;
   color: #2b2621;
 }
@@ -482,7 +506,7 @@
 .estimate-page1-table--main td,
 .estimate-page1-table--main th {
   box-sizing: border-box;
-  min-height: 40px;
+  min-height: var(--estimate-page1-main-cell-min-height);
   text-align: center;
 }
 
@@ -568,8 +592,8 @@
 
 .estimate-page1-price-cell {
   vertical-align: top;
-  padding-top: 12px;
-  padding-bottom: 12px;
+  padding-top: calc(12px * var(--estimate-page1-fit-scale));
+  padding-bottom: calc(12px * var(--estimate-page1-fit-scale));
 }
 
 .estimate-page1-price-cell--base {
@@ -590,20 +614,20 @@
 }
 
 .estimate-page1-price-line + .estimate-page1-price-line {
-  margin-top: 6px;
+  margin-top: calc(6px * var(--estimate-page1-fit-scale));
 }
 
 .estimate-page1-price-line-main {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: calc(12px * var(--estimate-page1-fit-scale));
 }
 
 .estimate-page1-price-line-basis {
-  margin-top: 2px;
+  margin-top: calc(2px * var(--estimate-page1-fit-scale));
   color: #6b645b;
-  font-size: 10px;
+  font-size: var(--estimate-page1-small-font-size);
 }
 
 .estimate-page1-summary-block {
@@ -652,7 +676,7 @@
 .estimate-page1-table--summary tbody td {
   vertical-align: middle;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--estimate-page1-summary-font-size);
   /* thead와의 경계 가로선(상단) 제거 */
   border-top: none;
   padding-top: max(
@@ -669,18 +693,15 @@
   margin: 0;
   padding: 0;
   color: #817a72;
-  font-size: 10px;
+  font-size: var(--estimate-page1-small-font-size);
   line-height: 1.35;
   text-align: right;
   white-space: normal;
 }
 
 .estimate-page1-payment-bar {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: stretch;
   min-height: var(--estimate-page1-footer-bar-min-height);
