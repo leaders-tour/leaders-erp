@@ -709,7 +709,6 @@ export class PricingService {
       uniqueTransitions.length > 0
         ? prisma.segment.findMany({
             where: {
-              ...regionFilter,
               OR: uniqueTransitions.map((item) => ({
                 fromLocationId: item.fromLocationId,
                 toLocationId: item.toLocationId,

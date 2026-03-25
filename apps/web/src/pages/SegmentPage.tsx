@@ -852,7 +852,6 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const canSubmit =
     !!selectedFromLocation &&
     !!selectedToLocation &&
-    selectedFromLocation.regionId === selectedToLocation.regionId &&
     form.fromLocationId !== form.toLocationId &&
     Number(form.averageDistanceKm) > 0 &&
     Number(form.averageTravelHours) > 0 &&
@@ -866,7 +865,6 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const canUpdate =
     !!selectedEditFromLocation &&
     !!selectedEditToLocation &&
-    selectedEditFromLocation.regionId === selectedEditToLocation.regionId &&
     editForm.fromLocationId !== editForm.toLocationId &&
     Number(editForm.averageDistanceKm) > 0 &&
     Number(editForm.averageTravelHours) > 0 &&
@@ -1083,8 +1081,8 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
               </div>
 
               {selectedFromLocation && selectedToLocation && selectedFromLocation.regionId !== selectedToLocation.regionId ? (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
-                  <p className="text-sm text-red-600">출발지와 도착지는 동일한 지역이어야 합니다.</p>
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                  <p className="text-sm text-blue-700">다른 지역 간 연결도 만들 수 있으며, 저장 지역은 출발지 기준으로 맞춰집니다.</p>
                 </div>
               ) : null}
 
@@ -1515,7 +1513,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 </label>
 
                 {selectedEditFromLocation && selectedEditToLocation && selectedEditFromLocation.regionId !== selectedEditToLocation.regionId ? (
-                  <p className="text-sm text-red-600">출발지와 도착지는 동일한 지역이어야 합니다.</p>
+                  <p className="text-sm text-blue-700">다른 지역 간 연결도 저장할 수 있으며, 저장 지역은 출발지 기준으로 맞춰집니다.</p>
                 ) : null}
 
                 <div className="flex gap-2">

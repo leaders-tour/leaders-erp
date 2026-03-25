@@ -289,10 +289,13 @@ export class SegmentService {
   }
 
   private async validateLocations(
-    regionId: string,
     fromLocationId: string,
     toLocationId: string,
   ): Promise<{ fromLocation: SegmentEndpointLocation; toLocation: SegmentEndpointLocation }> {
+    if (fromLocationId === toLocationId) {
+      throw new DomainError('VALIDATION_FAILED', 'fromLocationId and toLocationId must be different');
+    }
+
     const locations = await this.prisma.location.findMany({
       where: { id: { in: [fromLocationId, toLocationId] } },
       select: { id: true, regionId: true, isFirstDayEligible: true, isLastDayEligible: true },
@@ -309,11 +312,26 @@ export class SegmentService {
       throw new DomainError('VALIDATION_FAILED', 'Segment locations not found');
     }
 
-    if (fromLocation.regionId !== regionId || toLocation.regionId !== regionId) {
-      throw new DomainError('VALIDATION_FAILED', 'Segment locations must belong to the selected region');
+    return { fromLocation, toLocation };
+  }
+
+  private async resolveOwningRegion(
+    inputRegionId: string | undefined,
+    fromLocation: SegmentEndpointLocation,
+  ): Promise<{ id: string; name: string }> {
+    if (inputRegionId && inputRegionId !== fromLocation.regionId) {
+      throw new DomainError('VALIDATION_FAILED', 'Segment regionId must match the departure location region');
     }
 
-    return { fromLocation, toLocation };
+    const region = await this.prisma.region.findUnique({
+      where: { id: fromLocation.regionId },
+      select: { id: true, name: true },
+    });
+    if (!region) {
+      throw new DomainError('VALIDATION_FAILED', 'Region not found for segment');
+    }
+
+    return region;
   }
 
   private assertRequiredVariantSchedules(
@@ -579,15 +597,8 @@ export class SegmentService {
       throw createValidationError('Invalid segment input', parsed.error);
     }
 
-    const region = await this.prisma.region.findUnique({
-      where: { id: parsed.data.regionId },
-      select: { name: true },
-    });
-    if (!region) {
-      throw new DomainError('VALIDATION_FAILED', 'Region not found for segment');
-    }
-
-    const endpoints = await this.validateLocations(parsed.data.regionId, parsed.data.fromLocationId, parsed.data.toLocationId);
+    const endpoints = await this.validateLocations(parsed.data.fromLocationId, parsed.data.toLocationId);
+    const owningRegion = await this.resolveOwningRegion(parsed.data.regionId, endpoints.fromLocation);
 
     const nextVersions = parsed.data.versions
       ? this.normalizeVersionsFromInput(parsed.data.versions)
@@ -598,8 +609,8 @@ export class SegmentService {
     return this.prisma.$transaction(async (tx) => {
       const created = await tx.segment.create({
         data: {
-          regionId: parsed.data.regionId,
-          regionName: region.name,
+          regionId: owningRegion.id,
+          regionName: owningRegion.name,
           fromLocationId: parsed.data.fromLocationId,
           toLocationId: parsed.data.toLocationId,
           averageDistanceKm: defaultVersion.averageDistanceKm,
@@ -627,19 +638,10 @@ export class SegmentService {
       throw new DomainError('NOT_FOUND', 'Segment not found');
     }
 
-    const nextRegionId = parsed.data.regionId ?? existing.regionId;
     const nextFromLocationId = parsed.data.fromLocationId ?? existing.fromLocationId;
     const nextToLocationId = parsed.data.toLocationId ?? existing.toLocationId;
-
-    const region = await this.prisma.region.findUnique({
-      where: { id: nextRegionId },
-      select: { name: true },
-    });
-    if (!region) {
-      throw new DomainError('VALIDATION_FAILED', 'Region not found for segment update');
-    }
-
-    const endpoints = await this.validateLocations(nextRegionId, nextFromLocationId, nextToLocationId);
+    const endpoints = await this.validateLocations(nextFromLocationId, nextToLocationId);
+    const owningRegion = await this.resolveOwningRegion(parsed.data.regionId, endpoints.fromLocation);
 
     const existingVersions = this.buildVersionsFromExisting(existing as ExistingSegmentLike);
     const hasLegacyDirectUpdates = this.hasLegacyDirectUpdates(parsed.data);
@@ -668,12 +670,16 @@ export class SegmentService {
 
     await this.validateVersions(endpoints.fromLocation, endpoints.toLocation, nextVersions);
     const defaultVersion = this.getDefaultVersion(nextVersions);
+    const shouldSyncOwningRegion =
+      parsed.data.regionId !== undefined ||
+      parsed.data.fromLocationId !== undefined ||
+      existing.regionId !== owningRegion.id;
 
     return this.prisma.$transaction(async (tx) => {
       await tx.segment.update({
         where: { id },
         data: {
-          ...(parsed.data.regionId !== undefined ? { regionId: nextRegionId, regionName: region.name } : {}),
+          ...(shouldSyncOwningRegion ? { regionId: owningRegion.id, regionName: owningRegion.name } : {}),
           ...(parsed.data.fromLocationId !== undefined ? { fromLocationId: parsed.data.fromLocationId } : {}),
           ...(parsed.data.toLocationId !== undefined ? { toLocationId: parsed.data.toLocationId } : {}),
         },

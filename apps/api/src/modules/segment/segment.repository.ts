@@ -7,7 +7,15 @@ export class SegmentRepository {
 
   findMany(filter?: { regionIds?: string[] }) {
     return this.prisma.segment.findMany({
-      where: filter?.regionIds?.length ? { regionId: { in: filter.regionIds } } : undefined,
+      where: filter?.regionIds?.length
+        ? {
+            OR: [
+              { regionId: { in: filter.regionIds } },
+              { fromLocation: { regionId: { in: filter.regionIds } } },
+              { toLocation: { regionId: { in: filter.regionIds } } },
+            ],
+          }
+        : undefined,
       include: segmentInclude,
       orderBy: { createdAt: 'desc' },
     });
