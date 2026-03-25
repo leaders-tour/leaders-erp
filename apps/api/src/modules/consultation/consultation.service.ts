@@ -6,6 +6,10 @@ import {
   type ConsultationExtraction,
 } from '@tour/validation';
 import { buildExtractionPrompt } from './consultation.prompt';
+import {
+  applyYearlessSlashDateFallback,
+  formatReferenceDateKst,
+} from './consultation-yearless-dates';
 import { buildTemplateRecommendationPrompt } from './consultation.template-prompt';
 
 /** gpt-4o-mini: Input $0.15/M, Output $0.60/M — 상담 추출용으로 충분하고 비용 효율적 */
@@ -108,7 +112,8 @@ export class ConsultationService {
       throw new Error('OPENAI_API_KEY is not configured');
     }
 
-    const prompt = buildExtractionPrompt(rawText);
+    const referenceDateIso = formatReferenceDateKst();
+    const prompt = buildExtractionPrompt(rawText, referenceDateIso);
     const response = await this.openai.chat.completions.create({
       model: DEFAULT_MODEL,
       messages: [{ role: 'user', content: prompt }],
@@ -117,7 +122,8 @@ export class ConsultationService {
 
     const content = response.choices[0]?.message?.content ?? '';
     const parsed = extractJsonObject(content) as unknown;
-    return consultationExtractionSchema.parse(parsed);
+    const extraction = consultationExtractionSchema.parse(parsed);
+    return applyYearlessSlashDateFallback(rawText, extraction, referenceDateIso);
   }
 
   async toDraft(rawText: string): Promise<ConsultationDraft> {
@@ -151,8 +157,18 @@ export class ConsultationService {
       warnings.push(`지역 "${extraction.destinationPreference.rawText}" 매칭 실패. 수동 선택 필요.`);
     }
 
-    const startDate = extraction.tourDates.startDate ?? '';
-    const endDate = extraction.tourDates.endDate ?? '';
+    const inbound = extraction.flightOrBorder?.inbound;
+    const outbound = extraction.flightOrBorder?.outbound;
+
+    let startDate = extraction.tourDates.startDate?.trim() ?? '';
+    let endDate = extraction.tourDates.endDate?.trim() ?? '';
+    if (!startDate && inbound?.date?.trim()) {
+      startDate = inbound.date.trim();
+    }
+    if (!endDate && outbound?.date?.trim()) {
+      endDate = outbound.date.trim();
+    }
+
     const totalDays =
       startDate && endDate
         ? Math.max(
@@ -174,9 +190,6 @@ export class ConsultationService {
     if (!vehicleType && extraction.vehicle.wantsVehicle && mentioned.length > 0) {
       vehicleType = '스타렉스';
     }
-
-    const inbound = extraction.flightOrBorder?.inbound;
-    const outbound = extraction.flightOrBorder?.outbound;
     const flightInDate = (inbound?.date ?? startDate) || null;
     const flightOutDate = (outbound?.date ?? endDate) || null;
     const rawInTime = inbound?.time ?? null;
