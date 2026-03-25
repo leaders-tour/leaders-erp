@@ -12,7 +12,7 @@ import {
   formatLegacyExternalTransferText,
   formatCalculationBasis,
   formatCalculationBasisNights,
-  formatPerPersonCalculationBasis,
+  formatManualAdjustmentLineFormula,
   normalizeMultilineText,
   toSecurityDepositScope,
   todayIsoDate,
@@ -121,7 +121,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
         amountKrw: line.amountKrw,
         formula:
           line.lineCode === 'MANUAL_ADJUSTMENT'
-            ? formatPerPersonCalculationBasis(line.unitPriceKrw, line.quantity)
+            ? formatManualAdjustmentLineFormula(line)
             : line.quantityDisplaySuffix === '박'
               ? formatCalculationBasisNights(line.unitPriceKrw, line.quantity)
               : formatCalculationBasis(line.unitPriceKrw, line.quantity),

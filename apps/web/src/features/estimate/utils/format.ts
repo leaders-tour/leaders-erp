@@ -206,6 +206,18 @@ export function formatPerPersonCalculationBasis(totalAmountKrw: number | null, h
   return `${formatCurrency(totalAmountKrw)}/${headcount}인`;
 }
 
+/** 모달·유도 입력 기타 금액은 일괄(`MANUAL`), 야간열차·샤브샤브 등은 인당 표기(`RULE`). */
+export function formatManualAdjustmentLineFormula(line: {
+  sourceType: string;
+  unitPriceKrw: number | null;
+  quantity: number;
+}): string {
+  if (line.sourceType === 'MANUAL') {
+    return formatCalculationBasis(line.unitPriceKrw, line.quantity);
+  }
+  return formatPerPersonCalculationBasis(line.unitPriceKrw, line.quantity);
+}
+
 export function toSecurityDepositScope(mode: EstimateSecurityDepositMode): EstimateSecurityDepositScope {
   if (mode === 'PER_PERSON') {
     return '인당';

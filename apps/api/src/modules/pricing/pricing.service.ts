@@ -232,16 +232,14 @@ export class PricingService {
     }
 
     input.manualAdjustments.forEach((adjustment, index) => {
-      const normalizedAmountKrw =
-        input.headcountTotal > 0 ? Math.round(adjustment.amountKrw / input.headcountTotal) : adjustment.amountKrw;
       lines.push({
         lineCode: 'MANUAL_ADJUSTMENT',
         sourceType: 'MANUAL',
         ruleId: null,
         description: adjustment.description,
         unitPriceKrw: adjustment.amountKrw,
-        quantity: input.headcountTotal > 0 ? input.headcountTotal : 1,
-        amountKrw: normalizedAmountKrw,
+        quantity: 1,
+        amountKrw: adjustment.amountKrw,
         meta: { order: index + 1 },
       });
     });
