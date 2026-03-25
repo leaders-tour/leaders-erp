@@ -370,18 +370,6 @@ function formatTravelPeriodCompact(startDate: string | null | undefined, endDate
   return `${travelPeriod.slice(0, firstParenIndex)}\n${travelPeriod.slice(firstParenIndex + 1)}`;
 }
 
-function formatHeadcountTotalOnly(total: number | null | undefined): string {
-  return total === null || total === undefined ? '' : `${total}인`;
-}
-
-function formatHeadcountGenderOnly(male: number | null | undefined, female: number | null | undefined): string {
-  if (male === null || male === undefined || female === null || female === undefined) {
-    return '';
-  }
-
-  return `남 ${male} / 여 ${female}`;
-}
-
 function EstimatePage1LogoMark(): JSX.Element {
   return (
     <svg
@@ -423,8 +411,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
       ? ''
       : `${formatCurrency(data.securityDepositUnitKrw)} (${data.securityDepositScope})`;
   const travelPeriodCompact = formatTravelPeriodCompact(data.travelStartDate, data.travelEndDate);
-  const headcountTotalText = formatHeadcountTotalOnly(data.headcountTotal);
-  const headcountGenderText = formatHeadcountGenderOnly(data.headcountMale, data.headcountFemale);
+  const headcountDisplay = blankIfDash(formatHeadcount(data.headcountTotal, data.headcountMale, data.headcountFemale));
   const flightInText = blankIfDash(
     data.transportGroups.length > 0
       ? formatTransportFlightText(data.transportGroups, 'IN')
@@ -475,33 +462,29 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
       </header>
 
       <div className="estimate-page1-body">
-        <table className="estimate-table estimate-page1-table estimate-page1-table--primary">
+        <table className="estimate-table estimate-page1-table estimate-page1-table--main">
           <colgroup>
-            <col className="estimate-page1-col-label" />
-            <col className="estimate-page1-col-primary-value" />
-            <col className="estimate-page1-col-primary-value" />
-            <col className="estimate-page1-col-primary-value" />
-            <col className="estimate-page1-col-label" />
-            <col className="estimate-page1-col-secondary-value" />
-            <col className="estimate-page1-col-label" />
-            <col className="estimate-page1-col-secondary-value" />
+            <col className="estimate-page1-col-4-label" />
+            <col className="estimate-page1-col-4-value" />
+            <col className="estimate-page1-col-4-label" />
+            <col className="estimate-page1-col-4-value" />
           </colgroup>
-          <tbody>
-            <tr>
+          <tbody className="estimate-page1-tbody--basic">
+            <tr className="estimate-page1-tr--even-height">
               <th>대표자명</th>
-              <td colSpan={3}>{blankIfDash(fallback(data.leaderName))}</td>
+              <td>{blankIfDash(fallback(data.leaderName))}</td>
               <th>문서번호</th>
-              <td colSpan={3}>{documentNumberText}</td>
+              <td>{documentNumberText}</td>
             </tr>
-            <tr>
+            <tr className="estimate-page1-tr--even-height">
               <th>여행지</th>
-              <td colSpan={3}>{blankIfDash(fallback(data.destinationName))}</td>
+              <td>{blankIfDash(fallback(data.destinationName))}</td>
               <th>인원</th>
               <EditableCell
                 field="headcount"
                 activeField={activeField}
                 editor={editor}
-                displayValue={headcountTotalText}
+                displayValue={headcountDisplay}
                 input={
                   <div className="estimate-editable-grid">
                     <label className="estimate-editable-meta">
@@ -535,10 +518,8 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 onActivate={setActiveField}
                 onDeactivate={() => setActiveField(null)}
               />
-              <th>인 (남/여)</th>
-              <td>{headcountGenderText}</td>
             </tr>
-            <tr>
+            <tr className="estimate-page1-tr--even-height">
               <th>여행 기간</th>
               <EditableCell
                 field="travelPeriod"
@@ -563,7 +544,6 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                   </div>
                 }
                 className="estimate-page1-preline-cell"
-                colSpan={3}
                 multiline
                 onActivate={setActiveField}
                 onDeactivate={() => setActiveField(null)}
@@ -588,23 +568,16 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                     ))}
                   </select>
                 }
-                colSpan={3}
                 onActivate={setActiveField}
                 onDeactivate={() => setActiveField(null)}
               />
             </tr>
           </tbody>
-        </table>
-
-        <table className="estimate-table estimate-page1-table">
-          <colgroup>
-            <col className="estimate-page1-col-section-label" />
-            <col className="estimate-page1-col-section-value" />
-            <col className="estimate-page1-col-section-label" />
-            <col className="estimate-page1-col-section-value" />
-          </colgroup>
-          <tbody>
-            <tr>
+          <tbody className="estimate-page1-tbody--logistics">
+            <tr className="estimate-page1-tr--tbody-gap" aria-hidden="true">
+              <td colSpan={4} />
+            </tr>
+            <tr className="estimate-page1-tr--even-height">
               <th>항공권 IN</th>
               <EditableCell
                 field="flightInTime"
@@ -648,7 +621,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 onDeactivate={() => setActiveField(null)}
               />
             </tr>
-            <tr>
+            <tr className="estimate-page1-tr--even-height">
               <th>픽업</th>
               <EditableCell
                 field="pickupDate"
@@ -715,6 +688,11 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 onActivate={setActiveField}
                 onDeactivate={() => setActiveField(null)}
               />
+            </tr>
+          </tbody>
+          <tbody className="estimate-page1-tbody--extras">
+            <tr className="estimate-page1-tr--tbody-gap" aria-hidden="true">
+              <td colSpan={4} />
             </tr>
             <tr>
               <th>기본 대여물품</th>
@@ -828,38 +806,45 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
           </tbody>
         </table>
 
-        <table className="estimate-table estimate-page1-table estimate-page1-table--summary">
-          <thead>
-            <tr>
-              <th>총액 (1인)</th>
-              <th>예약금 (1인)</th>
-              <th>잔금 (1인)</th>
-              <th>대여 물품 보증금</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td className="emphasis">{blankIfDash(formatCurrency(data.totalPricePerPersonKrw))}</td>
-              <td className="emphasis">{blankIfDash(formatCurrency(data.depositPricePerPersonKrw))}</td>
-              <td className="emphasis">{blankIfDash(formatCurrency(data.balancePricePerPersonKrw))}</td>
-              <td className="emphasis">{securityDepositSummary}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="estimate-page1-summary-block">
+          <table className="estimate-table estimate-page1-table estimate-page1-table--summary">
+            <thead>
+              <tr>
+                <th>총액 (1인)</th>
+                <th>예약금 (1인)</th>
+                <th>잔금 (1인)</th>
+                <th>대여 물품 보증금</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="emphasis">{blankIfDash(formatCurrency(data.totalPricePerPersonKrw))}</td>
+                <td className="emphasis">{blankIfDash(formatCurrency(data.depositPricePerPersonKrw))}</td>
+                <td className="emphasis">{blankIfDash(formatCurrency(data.balancePricePerPersonKrw))}</td>
+                <td className="emphasis">{securityDepositSummary}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="estimate-page1-validity-note">
+            견적서 내 금액은 모두 1인 기준 견적입니다. 해당 견적은 {formatDateKorean(data.validUntilDate)}까지 유효합니다.
+          </p>
+        </div>
       </div>
 
-      <p className="estimate-page1-validity-note">
-        견적서 내 금액은 모두 1인 기준 견적입니다. 해당 견적은 {formatDateKorean(data.validUntilDate)}까지 유효합니다.
-      </p>
-
       <div className="estimate-page1-payment-bar">
-        <span>
-          [결제 방식] 예약금, 보증금 : {ESTIMATE_PAYMENT.reservationAndDepositMethod} / 잔금 : {ESTIMATE_PAYMENT.balanceMethod} [
-          {ESTIMATE_PAYMENT.vatText}]
-        </span>
-        <span>
-          [입금 계좌] {ESTIMATE_PAYMENT.bankAccount} {ESTIMATE_PAYMENT.bankName} {ESTIMATE_PAYMENT.bankOwner}
-        </span>
+        <div className="estimate-page1-company-meta estimate-page1-payment-bar-meta">
+          <div className="estimate-page1-company-meta-group">
+            <div>
+              결제 방식 예약금, 보증금 : {ESTIMATE_PAYMENT.reservationAndDepositMethod} / 잔금 : {ESTIMATE_PAYMENT.balanceMethod}{' '}
+              ({ESTIMATE_PAYMENT.vatText})
+            </div>
+          </div>
+          <div className="estimate-page1-company-meta-group estimate-page1-company-meta-group--right">
+            <div>
+              입금 계좌 {ESTIMATE_PAYMENT.bankAccount} {ESTIMATE_PAYMENT.bankName} {ESTIMATE_PAYMENT.bankOwner}
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
