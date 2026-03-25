@@ -20,12 +20,12 @@ import type {
 type SegmentScheduleVariant = 'basic' | 'early' | 'extend' | 'earlyExtend';
 
 interface OvernightStayListFilter {
-  regionId?: string;
+  regionIds?: string[];
   activeOnly?: boolean;
 }
 
 interface MultiDayBlockConnectionListFilter {
-  regionId?: string;
+  regionIds?: string[];
   fromMultiDayBlockId?: string;
 }
 

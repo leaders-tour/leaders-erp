@@ -21,32 +21,4 @@ export class RegionRepository {
     return this.prisma.region.update({ where: { id }, data, include: regionInclude });
   }
 
-  async delete(id: string): Promise<boolean> {
-    if ('$transaction' in this.prisma) {
-      await this.prisma.$transaction(async (tx) => {
-        const locations = await tx.location.findMany({
-          where: { regionId: id },
-          select: { id: true },
-        });
-        const locationIds = locations.map((location) => location.id);
-
-        await tx.segment.deleteMany({
-          where: {
-            OR: [
-              { regionId: id },
-              ...(locationIds.length > 0
-                ? [{ fromLocationId: { in: locationIds } }, { toLocationId: { in: locationIds } }]
-                : []),
-            ],
-          },
-        });
-
-        await tx.location.deleteMany({ where: { regionId: id } });
-        await tx.region.delete({ where: { id } });
-      });
-    } else {
-      await this.prisma.region.delete({ where: { id } });
-    }
-    return true;
-  }
 }

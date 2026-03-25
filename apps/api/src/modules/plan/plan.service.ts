@@ -13,6 +13,7 @@ import {
   userUpdateSchema,
 } from '@tour/validation';
 import { createValidationError, DomainError } from '../../lib/errors';
+import { resolveRegionSetRegionIds } from '../../lib/resolve-region-set';
 import { PricingService } from '../pricing/pricing.service';
 import { PlanRepository } from './plan.repository';
 import type {
@@ -668,7 +669,7 @@ export class PlanService {
   }
 
   private async normalizeLodgingSelections(
-    regionId: string,
+    regionIds: string[],
     totalDays: number,
     lodgingSelections: LodgingSelectionInput[],
   ): Promise<NormalizedLodgingSelection[]> {
@@ -689,7 +690,7 @@ export class PlanService {
         ? await this.prisma.regionLodging.findMany({
             where: {
               id: { in: customLodgingIds },
-              regionId,
+              regionId: regionIds.length === 1 ? regionIds[0]! : { in: regionIds },
             },
             select: {
               id: true,
@@ -802,19 +803,47 @@ export class PlanService {
       throw new DomainError('VALIDATION_FAILED', 'totalDays must match the number of MAIN planStops');
     }
 
+    const regionIds = await resolveRegionSetRegionIds(this.prisma, parsed.data.regionSetId);
     const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.planStops);
     const pricingPlanStops = this.filterMainPlanStops(normalizedPlanStops);
     const planStopsForPricing = await this.enrichPlanStopsWithBlockEndLocationId(pricingPlanStops);
     const normalizedLodgingSelections = await this.normalizeLodgingSelections(
-      parsed.data.regionId,
+      regionIds,
       parsed.data.totalDays,
       parsed.data.lodgingSelections,
     );
 
+    const {
+      regionSetId,
+      variantType,
+      totalDays,
+      travelStartDate,
+      headcountTotal,
+      transportGroupCount,
+      vehicleType,
+      includeRentalItems,
+      eventIds,
+      extraLodgings,
+      manualAdjustments,
+      manualDepositAmountKrw,
+    } = parsed.data;
+
     return new PricingService(this.prisma).preview({
-      ...parsed.data,
+      regionSetId,
+      regionIds,
+      variantType,
+      totalDays,
       planStops: planStopsForPricing,
+      travelStartDate,
+      headcountTotal,
+      transportGroupCount,
+      vehicleType,
+      includeRentalItems,
+      eventIds,
+      extraLodgings,
       lodgingSelections: normalizedLodgingSelections,
+      manualAdjustments,
+      manualDepositAmountKrw,
     });
   }
 
@@ -828,24 +857,25 @@ export class PlanService {
       throw new DomainError('VALIDATION_FAILED', 'totalDays must match the number of MAIN planStops');
     }
 
+    const regionIds = await resolveRegionSetRegionIds(this.prisma, parsed.data.regionSetId);
     const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.initialVersion.planStops);
     const normalizedLodgingSelections = await this.normalizeLodgingSelections(
-      parsed.data.regionId,
+      regionIds,
       parsed.data.initialVersion.totalDays,
       parsed.data.initialVersion.meta.lodgingSelections,
     );
     await this.validateEventIds(parsed.data.initialVersion.meta.eventIds);
 
-    const [user, region] = await Promise.all([
+    const [user, regionSet] = await Promise.all([
       this.prisma.user.findUnique({ where: { id: parsed.data.userId }, select: { id: true } }),
-      this.prisma.region.findUnique({ where: { id: parsed.data.regionId }, select: { id: true } }),
+      this.prisma.regionSet.findUnique({ where: { id: parsed.data.regionSetId }, select: { id: true } }),
     ]);
 
     if (!user) {
       throw new DomainError('NOT_FOUND', 'User not found');
     }
-    if (!region) {
-      throw new DomainError('NOT_FOUND', 'Region not found');
+    if (!regionSet) {
+      throw new DomainError('NOT_FOUND', 'Region set not found');
     }
 
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -854,7 +884,8 @@ export class PlanService {
       const pricingPlanStops = this.filterMainPlanStops(normalizedPlanStops);
       const planStopsForPricing = await this.enrichPlanStopsWithBlockEndLocationId(pricingPlanStops);
       const pricingResult = await new PricingService(this.prisma).computeWithTransaction(tx, {
-        regionId: parsed.data.regionId,
+        regionSetId: parsed.data.regionSetId,
+        regionIds,
         variantType: parsed.data.initialVersion.variantType,
         totalDays: parsed.data.initialVersion.totalDays,
         planStops: planStopsForPricing,
@@ -923,9 +954,10 @@ export class PlanService {
       throw new DomainError('NOT_FOUND', 'Plan not found');
     }
 
+    const regionIds = await resolveRegionSetRegionIds(this.prisma, plan.regionSetId);
     const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.planStops);
     const normalizedLodgingSelections = await this.normalizeLodgingSelections(
-      plan.regionId,
+      regionIds,
       parsed.data.totalDays,
       parsed.data.meta.lodgingSelections,
     );
@@ -948,7 +980,8 @@ export class PlanService {
       const pricingPlanStops = this.filterMainPlanStops(normalizedPlanStops);
       const planStopsForPricing = await this.enrichPlanStopsWithBlockEndLocationId(pricingPlanStops);
       const pricingResult = await new PricingService(this.prisma).computeWithTransaction(tx, {
-        regionId: plan.regionId,
+        regionSetId: plan.regionSetId,
+        regionIds,
         variantType: parsed.data.variantType,
         totalDays: parsed.data.totalDays,
         planStops: planStopsForPricing,

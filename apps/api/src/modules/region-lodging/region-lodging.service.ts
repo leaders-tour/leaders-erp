@@ -11,7 +11,7 @@ export class RegionLodgingService {
     this.repository = new RegionLodgingRepository(prisma);
   }
 
-  list(filter: { regionId?: string; activeOnly?: boolean } = {}) {
+  list(filter: { regionIds?: string[]; activeOnly?: boolean } = {}) {
     return this.repository.findMany(filter);
   }
 

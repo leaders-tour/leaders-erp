@@ -110,10 +110,25 @@ type LocationRow = LocationOption;
 type LocationVersionRow = LocationOption['variations'][number];
 type SegmentRow = SegmentOption;
 
+interface RegionSetItemRow {
+  id: string;
+  regionId: string;
+  sortOrder: number;
+  region: RegionRow;
+}
+
+interface RegionSetRow {
+  id: string;
+  signature: string;
+  name: string;
+  isActive: boolean;
+  items: RegionSetItemRow[];
+}
+
 interface PlanContextRow {
   id: string;
   userId: string;
-  regionId: string;
+  regionSetId: string;
   title: string;
   currentVersionId: string | null;
 }
@@ -206,7 +221,7 @@ interface PlanTemplateRow {
   id: string;
   name: string;
   description: string | null;
-  regionId: string;
+  regionSetId: string;
   totalDays: number;
   sortOrder: number;
   isActive: boolean;
@@ -368,11 +383,22 @@ function mergeAutoRowsWithDirtyValues(
   });
 }
 
-const REGIONS_QUERY = gql`
-  query ItineraryRegions {
-    regions {
+const REGION_SETS_QUERY = gql`
+  query ItineraryRegionSets($includeInactive: Boolean) {
+    regionSets(includeInactive: $includeInactive) {
       id
+      signature
       name
+      isActive
+      items {
+        id
+        regionId
+        sortOrder
+        region {
+          id
+          name
+        }
+      }
     }
   }
 `;
@@ -382,7 +408,7 @@ const PLAN_CONTEXT_QUERY = gql`
     plan(id: $id) {
       id
       userId
-      regionId
+      regionSetId
       title
       currentVersionId
     }
@@ -408,8 +434,8 @@ const EVENTS_QUERY = gql`
 `;
 
 const REGION_LODGINGS_QUERY = gql`
-  query BuilderRegionLodgings($regionId: ID, $activeOnly: Boolean) {
-    regionLodgings(regionId: $regionId, activeOnly: $activeOnly) {
+  query BuilderRegionLodgings($regionSetId: ID, $activeOnly: Boolean) {
+    regionLodgings(regionSetId: $regionSetId, activeOnly: $activeOnly) {
       id
       regionId
       name
@@ -423,8 +449,8 @@ const REGION_LODGINGS_QUERY = gql`
 `;
 
 const LOCATIONS_QUERY = gql`
-  query ItineraryLocations {
-    locations {
+  query ItineraryLocations($regionSetId: ID) {
+    locations(regionSetId: $regionSetId) {
       id
       regionId
       name
@@ -483,8 +509,8 @@ const LOCATIONS_QUERY = gql`
 `;
 
 const SEGMENTS_QUERY = gql`
-  query ItinerarySegments {
-    segments {
+  query ItinerarySegments($regionSetId: ID) {
+    segments(regionSetId: $regionSetId) {
       id
       regionId
       fromLocationId
@@ -592,8 +618,8 @@ const SEGMENTS_QUERY = gql`
 `;
 
 const OVERNIGHT_STAYS_QUERY = gql`
-  query ItineraryMultiDayBlocks {
-    multiDayBlocks {
+  query ItineraryMultiDayBlocks($regionSetId: ID) {
+    multiDayBlocks(regionSetId: $regionSetId) {
       id
       regionId
       locationId
@@ -621,8 +647,8 @@ const OVERNIGHT_STAYS_QUERY = gql`
 `;
 
 const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
-  query ItineraryMultiDayBlockConnections {
-    multiDayBlockConnections {
+  query ItineraryMultiDayBlockConnections($regionSetId: ID) {
+    multiDayBlockConnections(regionSetId: $regionSetId) {
       id
       regionId
       fromMultiDayBlockId
@@ -728,12 +754,12 @@ const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
 `;
 
 const PLAN_TEMPLATES_QUERY = gql`
-  query ItineraryBuilderTemplates($regionId: ID, $totalDays: Int, $activeOnly: Boolean) {
-    planTemplates(regionId: $regionId, totalDays: $totalDays, activeOnly: $activeOnly) {
+  query ItineraryBuilderTemplates($regionSetId: ID, $totalDays: Int, $activeOnly: Boolean) {
+    planTemplates(regionSetId: $regionSetId, totalDays: $totalDays, activeOnly: $activeOnly) {
       id
       name
       description
-      regionId
+      regionSetId
       totalDays
       sortOrder
       isActive
@@ -770,7 +796,7 @@ const PLAN_TEMPLATE_QUERY = gql`
       id
       name
       description
-      regionId
+      regionSetId
       totalDays
       sortOrder
       isActive
@@ -1629,7 +1655,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   const [variantType, setVariantType] = useState<VariantType>(VariantType.Basic);
   const [totalDays, setTotalDays] = useState<number>(6);
-  const [regionId, setRegionId] = useState<string>('');
+  const [regionSetId, setRegionSetId] = useState<string>('');
   const [planTitle, setPlanTitle] = useState<string>(() => buildDefaultPlanTitle(''));
   const [changeNote, setChangeNote] = useState<string>(initialChangeNote);
   const [leaderName, setLeaderName] = useState<string>('');
@@ -1688,7 +1714,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [homeSelectedUserId, setHomeSelectedUserId] = useState<string>('');
   const [homeSelectedUserName, setHomeSelectedUserName] = useState<string>('');
   const [homeSelectedTemplateId, setHomeSelectedTemplateId] = useState<string>('');
-  const [homeTemplateRegionId, setHomeTemplateRegionId] = useState<string>('');
+  const [homeTemplateRegionSetId, setHomeTemplateRegionSetId] = useState<string>('');
   const [homeTemplateTotalDays, setHomeTemplateTotalDays] = useState<number>(0);
   const [homeEntryMode, setHomeEntryMode] = useState<'new' | 'existing' | null>(null);
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState<boolean>(false);
@@ -1734,30 +1760,45 @@ export function ItineraryBuilderPage(): JSX.Element {
     REGION_LODGINGS_QUERY,
     {
       variables: {
-        regionId: regionId || undefined,
+        regionSetId: regionSetId || undefined,
         activeOnly: true,
       },
-      skip: !regionId,
+      skip: !regionSetId,
     },
   );
-  const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
-  const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
-  const { data: segmentData } = useQuery<{ segments: SegmentRow[] }>(SEGMENTS_QUERY);
+  const { data: regionSetData } = useQuery<{ regionSets: RegionSetRow[] }>(REGION_SETS_QUERY, {
+    variables: { includeInactive: true },
+  });
+  const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY, {
+    variables: { regionSetId: regionSetId || undefined },
+    skip: !regionSetId,
+  });
+  const { data: segmentData } = useQuery<{ segments: SegmentRow[] }>(SEGMENTS_QUERY, {
+    variables: { regionSetId: regionSetId || undefined },
+    skip: !regionSetId,
+  });
   const { data: overnightStayData } = useQuery<{ multiDayBlocks: MultiDayBlockOption[] }>(
     OVERNIGHT_STAYS_QUERY,
+    {
+      variables: { regionSetId: regionSetId || undefined },
+      skip: !regionSetId,
+    },
   );
   const { data: overnightStayConnectionData } = useQuery<{
     multiDayBlockConnections: MultiDayBlockConnectionOption[];
-  }>(OVERNIGHT_STAY_CONNECTIONS_QUERY);
+  }>(OVERNIGHT_STAY_CONNECTIONS_QUERY, {
+    variables: { regionSetId: regionSetId || undefined },
+    skip: !regionSetId,
+  });
   const { data: templateListData } = useQuery<{ planTemplates: PlanTemplateRow[] }>(
     PLAN_TEMPLATES_QUERY,
     {
       variables: {
-        regionId: hasValidContext ? regionId || undefined : undefined,
+        regionSetId: hasValidContext ? regionSetId || undefined : undefined,
         totalDays: hasValidContext ? totalDays : undefined,
         activeOnly: true,
       },
-      skip: hasValidContext ? !regionId : false,
+      skip: hasValidContext ? !regionSetId : false,
     },
   );
   const { data: templateByIdData } = useQuery<{ planTemplate: PlanTemplateRow | null }>(
@@ -1780,7 +1821,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   const creating = creatingPlan || creatingVersion;
 
-  const regions = regionData?.regions ?? [];
+  const regionSets = regionSetData?.regionSets ?? [];
   const locations = locationData?.locations ?? [];
   const segments = segmentData?.segments ?? [];
   const overnightStays = overnightStayData?.multiDayBlocks ?? [];
@@ -1813,7 +1854,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       if (!template.isActive) {
         return false;
       }
-      if (homeTemplateRegionId && template.regionId !== homeTemplateRegionId) {
+      if (homeTemplateRegionSetId && template.regionSetId !== homeTemplateRegionSetId) {
         return false;
       }
       if (homeTemplateTotalDays > 0 && template.totalDays !== homeTemplateTotalDays) {
@@ -1821,15 +1862,17 @@ export function ItineraryBuilderPage(): JSX.Element {
       }
       return true;
     });
-  }, [homeTemplateRegionId, homeTemplateTotalDays, templateOptions]);
+  }, [homeTemplateRegionSetId, homeTemplateTotalDays, templateOptions]);
 
   const routePresetOptions = useMemo(
     () =>
       templateOptions.filter(
         (template) =>
-          template.isActive && template.regionId === regionId && template.totalDays === totalDays,
+          template.isActive &&
+          template.regionSetId === regionSetId &&
+          template.totalDays === totalDays,
       ),
-    [regionId, templateOptions, totalDays],
+    [regionSetId, templateOptions, totalDays],
   );
 
   const routePresetSelected = useMemo(
@@ -1842,7 +1885,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       return;
     }
 
-    setRegionId(planContext.regionId);
+    setRegionSetId(planContext.regionSetId);
   }, [isVersionMode, planContext]);
 
   useEffect(() => {
@@ -1899,22 +1942,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     );
   }, [transportGroups]);
 
-  const filteredLocations = useMemo(
-    () => (regionId ? locations.filter((location) => location.regionId === regionId) : []),
-    [locations, regionId],
-  );
-  const filteredOvernightStays = useMemo(
-    () =>
-      regionId ? overnightStays.filter((overnightStay) => overnightStay.regionId === regionId) : [],
-    [overnightStays, regionId],
-  );
-  const filteredOvernightStayConnections = useMemo(
-    () =>
-      regionId
-        ? overnightStayConnections.filter((connection) => connection.regionId === regionId)
-        : [],
-    [overnightStayConnections, regionId],
-  );
+  const filteredLocations = locations;
+  const filteredOvernightStays = overnightStays;
+  const filteredOvernightStayConnections = overnightStayConnections;
   const activeDatePickerAnchorEl = datePickerTarget?.anchorEl ?? null;
   const activeDatePickerValue = useMemo(() => {
     if (!datePickerTarget) {
@@ -2004,10 +2034,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
   }, [timePickerTarget]);
 
-  const filteredSegments = useMemo(
-    () => (regionId ? segments.filter((segment) => segment.regionId === regionId) : []),
-    [segments, regionId],
-  );
+  const filteredSegments = segments;
 
   const allLocationById = useMemo(
     () => new Map(locations.map((location) => [location.id, location])),
@@ -2395,7 +2422,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
     const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
       if (
-        !regionId &&
+        !regionSetId &&
         !travelStartDate &&
         !travelEndDate &&
         totalDays === 6 &&
@@ -2457,7 +2484,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     manualDepositInput,
     planRows.length,
     planTitle,
-    regionId,
+    regionSetId,
     remark,
     rentalItemsText,
     routePresetTemplateId,
@@ -2678,7 +2705,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
     dirtyPlanRowFieldKeysRef.current.clear();
     setSkipNextAutoRowsSync(true);
-    setRegionId(template.regionId);
+    setRegionSetId(template.regionSetId);
     setTotalDays(template.totalDays);
     setStartLocationId(firstStop.locationId ?? '');
     setStartLocationVersionId(firstStop.locationVersionId ?? '');
@@ -2859,9 +2886,9 @@ export function ItineraryBuilderPage(): JSX.Element {
       applyHeadcountTotalChange(Math.max(1, Math.min(30, draft.headcountTotal)));
       hasEditedHeadcountMaleRef.current = true;
       setHeadcountMale(Math.max(0, Math.min(draft.headcountMale, draft.headcountTotal)));
-      const regionIdValue = draft.regionId ?? null;
-      if (regionIdValue) {
-        setRegionId(regionIdValue);
+      const nextRegionSetId = draft.regionSetId ?? null;
+      if (nextRegionSetId) {
+        setRegionSetId(nextRegionSetId);
         setStartLocationId('');
         setStartLocationVersionId('');
         setSelectedRoute([]);
@@ -2923,7 +2950,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const canPreviewPricing = useMemo(
     () =>
       Boolean(
-        regionId &&
+        regionSetId &&
         travelStartDate &&
         !manualAdjustments.some((item) => {
           const d = item.description.trim();
@@ -2945,7 +2972,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         (vehicleType !== '하이에이스' || headcountTotal >= 3),
       ),
     [
-      regionId,
+      regionSetId,
       travelStartDate,
       manualAdjustments,
       lodgingSelections,
@@ -2963,7 +2990,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     skip: !canPreviewPricing,
     variables: {
       input: {
-        regionId,
+        regionSetId,
         variantType,
         totalDays,
         planStops: pricingPreviewPlanStops,
@@ -3039,7 +3066,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   const canCreate = Boolean(
     hasPlanContext &&
-    regionId &&
+    regionSetId &&
     leaderName.trim() &&
     validationErrors.length === 0 &&
     (includeRentalItems ? rentalItemsText.trim() : true) &&
@@ -3059,8 +3086,8 @@ export function ItineraryBuilderPage(): JSX.Element {
     [eventIds, eventOptions],
   );
   const previewRegionName = useMemo(
-    () => regions.find((region) => region.id === regionId)?.name ?? '',
-    [regionId, regions],
+    () => regionSets.find((set) => set.id === regionSetId)?.name ?? '',
+    [regionSetId, regionSets],
   );
   const normalizedTransportGroups = useMemo(
     () => transportGroups.map((group) => toEstimateTransportGroup(group)),
@@ -3309,33 +3336,35 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                     <div className="mt-3 grid gap-3">
                       <div className="grid gap-1 text-sm">
-                        <span className="text-xs text-slate-600">지역</span>
+                        <span className="text-xs text-slate-600">지역 세트</span>
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={() => setHomeTemplateRegionId('')}
+                            onClick={() => setHomeTemplateRegionSetId('')}
                             className={`rounded-xl border px-3 py-1.5 text-sm ${
-                              homeTemplateRegionId === ''
+                              homeTemplateRegionSetId === ''
                                 ? 'border-slate-900 bg-slate-900 text-white'
                                 : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                             }`}
                           >
                             전체
                           </button>
-                          {regions.map((region) => (
-                            <button
-                              key={`home-template-region-${region.id}`}
-                              type="button"
-                              onClick={() => setHomeTemplateRegionId(region.id)}
-                              className={`rounded-xl border px-3 py-1.5 text-sm ${
-                                homeTemplateRegionId === region.id
-                                  ? 'border-slate-900 bg-slate-900 text-white'
-                                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                              }`}
-                            >
-                              {region.name}
-                            </button>
-                          ))}
+                          {regionSets
+                            .filter((set) => set.isActive)
+                            .map((set) => (
+                              <button
+                                key={`home-template-region-set-${set.id}`}
+                                type="button"
+                                onClick={() => setHomeTemplateRegionSetId(set.id)}
+                                className={`rounded-xl border px-3 py-1.5 text-sm ${
+                                  homeTemplateRegionSetId === set.id
+                                    ? 'border-slate-900 bg-slate-900 text-white'
+                                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                }`}
+                              >
+                                {set.name}
+                              </button>
+                            ))}
                         </div>
                       </div>
                       <div className="grid gap-1 text-sm">
@@ -3704,7 +3733,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       variables: {
                         input: {
                           userId,
-                          regionId,
+                          regionSetId,
                           title: planTitle,
                           initialVersion: {
                             variantType,
@@ -3864,17 +3893,22 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="grid gap-1 text-sm">
-                      <span className="text-xs text-slate-600">지역</span>
+                      <span className="text-xs text-slate-600">지역 세트</span>
                       <div className="flex flex-wrap content-start items-start gap-2">
-                        {regions.map((region) => {
-                          const disabled = isVersionMode && planContext?.regionId !== region.id;
+                        {regionSets.map((set) => {
+                          const disabled =
+                            isVersionMode && planContext?.regionSetId !== set.id;
+                          const memberLabel = [...set.items]
+                            .sort((a, b) => a.sortOrder - b.sortOrder)
+                            .map((item) => item.region.name)
+                            .join(' · ');
                           return (
                             <button
-                              key={region.id}
+                              key={set.id}
                               type="button"
                               disabled={disabled}
                               onClick={() => {
-                                setRegionId(region.id);
+                                setRegionSetId(set.id);
                                 setStartLocationId('');
                                 setStartLocationVersionId('');
                                 setSelectedRoute([]);
@@ -3882,13 +3916,22 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 setPlanRows([]);
                                 setIsMultiDayBlockSectionOpen(false);
                               }}
-                              className={`rounded-xl border px-3 py-1.5 text-sm ${
-                                regionId === region.id
+                              className={`rounded-xl border px-3 py-1.5 text-left text-sm ${
+                                regionSetId === set.id
                                   ? 'border-slate-900 bg-slate-900 text-white'
                                   : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                               } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
                             >
-                              {region.name}
+                              <span className="block font-medium">{set.name}</span>
+                              {set.items.length > 1 ? (
+                                <span
+                                  className={`mt-0.5 block text-[10px] leading-tight ${
+                                    regionSetId === set.id ? 'text-slate-200' : 'text-slate-500'
+                                  }`}
+                                >
+                                  {memberLabel}
+                                </span>
+                              ) : null}
                             </button>
                           );
                         })}
@@ -4560,13 +4603,13 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </p>
                 <div className="mt-4 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
                   <div className="text-xs font-semibold text-slate-700">
-                    템플릿 불러오기 (현재 지역/일수)
+                    템플릿 불러오기 (현재 지역 세트/일수)
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <select
                       value={routePresetTemplateId}
                       onChange={(event) => setRoutePresetTemplateId(event.target.value)}
-                      disabled={!regionId || totalDays <= 0 || routePresetOptions.length === 0}
+                      disabled={!regionSetId || totalDays <= 0 || routePresetOptions.length === 0}
                       className="min-w-[260px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100"
                     >
                       <option value="">템플릿 선택</option>
@@ -4579,7 +4622,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                     <Button
                       variant="outline"
                       disabled={
-                        !regionId ||
+                        !regionSetId ||
                         totalDays <= 0 ||
                         routePresetOptions.length === 0 ||
                         !routePresetSelected
@@ -4594,9 +4637,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                       불러오기
                     </Button>
                   </div>
-                  {regionId && totalDays > 0 && routePresetOptions.length === 0 ? (
+                  {regionSetId && totalDays > 0 && routePresetOptions.length === 0 ? (
                     <p className="text-xs text-slate-500">
-                      선택 가능한 템플릿이 없습니다. 지역과 일수를 확인하세요.
+                      선택 가능한 템플릿이 없습니다. 지역 세트와 일수를 확인하세요.
                     </p>
                   ) : null}
                 </div>
@@ -5748,7 +5791,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                               userId,
                               planId,
                               parentVersionId,
-                              regionId,
+                              regionSetId,
                               variantType,
                               totalDays,
                               changeNote,
@@ -5793,7 +5836,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                             }
                           : {
                               userId,
-                              regionId,
+                              regionSetId,
                               title: planTitle,
                               variantType,
                               totalDays,

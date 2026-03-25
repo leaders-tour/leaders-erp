@@ -130,6 +130,7 @@ const baseNavItems: NavItem[] = [
     children: [
       { path: '/regions/list', label: '지역 목록' },
       { path: '/regions/create', label: '지역 생성' },
+      { path: '/regions/sets', label: '지역 세트' },
       { path: '/regions/lodgings', label: '지역 숙소' },
     ],
   },

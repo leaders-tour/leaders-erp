@@ -9,7 +9,6 @@ import type {
   PrismaClient,
 } from '@prisma/client';
 import type { VariantType } from '@tour/domain';
-import type { PlanPricingPreviewInput } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
 import type {
   LodgingSelectionPricingInputDto,
@@ -47,7 +46,7 @@ export class PricingService {
     return planStops.filter((planStop) => planStop.rowType !== 'EXTERNAL_TRANSFER');
   }
 
-  preview(input: PlanPricingPreviewInput): Promise<PricingComputationResult> {
+  preview(input: PricingComputeInput): Promise<PricingComputationResult> {
     return this.computeWithPrisma(this.prisma, input);
   }
 
@@ -101,7 +100,7 @@ export class PricingService {
 
     const [policy, longDistanceSegmentCount, selectedEvents] = await Promise.all([
       this.loadActivePolicy(prisma, travelStartDate),
-      this.countLongDistanceSegments(prisma, input.regionId, mainPlanStops),
+      this.countLongDistanceSegments(prisma, input.regionIds, mainPlanStops),
       input.eventIds.length > 0
         ? prisma.event.findMany({
             where: { id: { in: input.eventIds } },
@@ -311,7 +310,8 @@ export class PricingService {
       extraLodgingCount,
       lines,
       inputSnapshot: {
-        regionId: input.regionId,
+        regionSetId: input.regionSetId,
+        regionIds: input.regionIds,
         variantType: input.variantType,
         totalDays: input.totalDays,
         planStops: mainPlanStops,
@@ -666,7 +666,7 @@ export class PricingService {
 
   private async countLongDistanceSegments(
     prisma: PrismaLike,
-    regionId: string,
+    regionIds: string[],
     planStops: PricingPlanStopDto[],
   ): Promise<number> {
     const segmentTransitions: Array<{ fromLocationId: string; toLocationId: string }> = [];
@@ -702,11 +702,14 @@ export class PricingService {
       ).values(),
     );
 
+    const regionFilter =
+      regionIds.length === 1 ? { regionId: regionIds[0]! } : { regionId: { in: regionIds } };
+
     const [segments, overnightStayConnections] = await Promise.all([
       uniqueTransitions.length > 0
         ? prisma.segment.findMany({
             where: {
-              regionId,
+              ...regionFilter,
               OR: uniqueTransitions.map((item) => ({
                 fromLocationId: item.fromLocationId,
                 toLocationId: item.toLocationId,
@@ -722,7 +725,7 @@ export class PricingService {
       overnightStayConnectionIds.size > 0
         ? prisma.overnightStayConnection.findMany({
             where: {
-              regionId,
+              ...regionFilter,
               id: { in: Array.from(overnightStayConnectionIds) },
             },
             select: {

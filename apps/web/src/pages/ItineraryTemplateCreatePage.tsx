@@ -36,23 +36,35 @@ import {
 } from '../features/plan-template/route-autofill';
 import type { TemplatePlanRow } from '../features/plan-template/editor-utils';
 
-interface RegionRow {
+interface RegionSetRow {
   id: string;
   name: string;
+  isActive: boolean;
+  items: Array<{ id: string; regionId: string; sortOrder: number; region: { id: string; name: string } }>;
 }
 
-const REGIONS_QUERY = gql`
-  query ItineraryTemplateCreateRegions {
-    regions {
+const REGION_SETS_QUERY = gql`
+  query ItineraryTemplateCreateRegionSets($includeInactive: Boolean) {
+    regionSets(includeInactive: $includeInactive) {
       id
       name
+      isActive
+      items {
+        id
+        regionId
+        sortOrder
+        region {
+          id
+          name
+        }
+      }
     }
   }
 `;
 
 const LOCATIONS_QUERY = gql`
-  query ItineraryTemplateCreateLocations {
-    locations {
+  query ItineraryTemplateCreateLocations($regionSetId: ID) {
+    locations(regionSetId: $regionSetId) {
       id
       regionId
       name
@@ -106,8 +118,8 @@ const LOCATIONS_QUERY = gql`
 `;
 
 const SEGMENTS_QUERY = gql`
-  query ItineraryTemplateCreateSegments {
-    segments {
+  query ItineraryTemplateCreateSegments($regionSetId: ID) {
+    segments(regionSetId: $regionSetId) {
       id
       regionId
       fromLocationId
@@ -213,8 +225,8 @@ const SEGMENTS_QUERY = gql`
 `;
 
 const OVERNIGHT_STAYS_QUERY = gql`
-  query ItineraryTemplateCreateMultiDayBlocks {
-    multiDayBlocks {
+  query ItineraryTemplateCreateMultiDayBlocks($regionSetId: ID) {
+    multiDayBlocks(regionSetId: $regionSetId) {
       id
       regionId
       locationId
@@ -242,8 +254,8 @@ const OVERNIGHT_STAYS_QUERY = gql`
 `;
 
 const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
-  query ItineraryTemplateCreateMultiDayBlockConnections {
-    multiDayBlockConnections {
+  query ItineraryTemplateCreateMultiDayBlockConnections($regionSetId: ID) {
+    multiDayBlockConnections(regionSetId: $regionSetId) {
       id
       regionId
       fromMultiDayBlockId
@@ -369,7 +381,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
 
   const [name, setName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
-  const [regionId, setRegionId] = useState<string>('');
+  const [regionSetId, setRegionSetId] = useState<string>('');
   const [totalDays, setTotalDays] = useState<number>(6);
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [isActive, setIsActive] = useState<boolean>(true);
@@ -381,40 +393,42 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
   const [planRows, setPlanRows] = useState<TemplatePlanRow[]>([]);
   const [specialMealsModalOpen, setSpecialMealsModalOpen] = useState(false);
 
-  const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
-  const { data: locationData } = useQuery<{ locations: LocationOption[] }>(LOCATIONS_QUERY);
-  const { data: segmentData } = useQuery<{ segments: SegmentOption[] }>(SEGMENTS_QUERY);
-  const { data: overnightStayData } = useQuery<{ multiDayBlocks: MultiDayBlockOption[] }>(OVERNIGHT_STAYS_QUERY);
+  const { data: regionSetData } = useQuery<{ regionSets: RegionSetRow[] }>(REGION_SETS_QUERY, {
+    variables: { includeInactive: false },
+  });
+  const { data: locationData } = useQuery<{ locations: LocationOption[] }>(LOCATIONS_QUERY, {
+    variables: { regionSetId: regionSetId || undefined },
+    skip: !regionSetId,
+  });
+  const { data: segmentData } = useQuery<{ segments: SegmentOption[] }>(SEGMENTS_QUERY, {
+    variables: { regionSetId: regionSetId || undefined },
+    skip: !regionSetId,
+  });
+  const { data: overnightStayData } = useQuery<{ multiDayBlocks: MultiDayBlockOption[] }>(OVERNIGHT_STAYS_QUERY, {
+    variables: { regionSetId: regionSetId || undefined },
+    skip: !regionSetId,
+  });
   const { data: overnightStayConnectionData } = useQuery<{ multiDayBlockConnections: MultiDayBlockConnectionOption[] }>(
     OVERNIGHT_STAY_CONNECTIONS_QUERY,
+    {
+      variables: { regionSetId: regionSetId || undefined },
+      skip: !regionSetId,
+    },
   );
   const [createPlanTemplate, { loading: creating }] = useMutation<{ createPlanTemplate: { id: string } }>(
     CREATE_PLAN_TEMPLATE_MUTATION,
   );
 
-  const regions = regionData?.regions ?? [];
+  const regionSets = regionSetData?.regionSets ?? [];
   const locations = locationData?.locations ?? [];
   const segments = segmentData?.segments ?? [];
   const overnightStays = overnightStayData?.multiDayBlocks ?? [];
   const overnightStayConnections = overnightStayConnectionData?.multiDayBlockConnections ?? [];
 
-  const filteredLocations = useMemo(
-    () => (regionId ? locations.filter((location) => location.regionId === regionId) : []),
-    [locations, regionId],
-  );
-
-  const filteredSegments = useMemo(
-    () => (regionId ? segments.filter((segment) => segment.regionId === regionId) : []),
-    [segments, regionId],
-  );
-  const filteredOvernightStays = useMemo(
-    () => (regionId ? overnightStays.filter((overnightStay) => overnightStay.regionId === regionId) : []),
-    [overnightStays, regionId],
-  );
-  const filteredOvernightStayConnections = useMemo(
-    () => (regionId ? overnightStayConnections.filter((connection) => connection.regionId === regionId) : []),
-    [overnightStayConnections, regionId],
-  );
+  const filteredLocations = locations;
+  const filteredSegments = segments;
+  const filteredOvernightStays = overnightStays;
+  const filteredOvernightStayConnections = overnightStayConnections;
 
   const locationById = useMemo(() => new Map(filteredLocations.map((location) => [location.id, location])), [filteredLocations]);
   const locationVersionById = useMemo(
@@ -496,7 +510,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
         : Boolean(stop.locationId && stop.locationVersionId),
     );
 
-  const canSave = Boolean(name.trim() && regionId && hasCompleteRoute && planRows.length === totalDays);
+  const canSave = Boolean(name.trim() && regionSetId && hasCompleteRoute && planRows.length === totalDays);
 
   const updateCell = (rowIndex: number, field: keyof TemplatePlanRow, value: string): void => {
     setPlanRows((prev) => prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
@@ -539,43 +553,58 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
             />
           </label>
           <div className="grid gap-1 text-sm">
-            <span className="text-xs text-slate-600">지역</span>
+            <span className="text-xs text-slate-600">지역 세트</span>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => {
-                  setRegionId('');
+                  setRegionSetId('');
                   setStartLocationId('');
                   setStartLocationVersionId('');
                   setSelectedRoute([]);
                 }}
                 className={`rounded-xl border px-3 py-1.5 text-sm ${
-                  regionId === ''
+                  regionSetId === ''
                     ? 'border-slate-900 bg-slate-900 text-white'
                     : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 미선택
               </button>
-              {regions.map((region) => (
-                <button
-                  key={region.id}
-                  type="button"
-                  onClick={() => {
-                    setRegionId(region.id);
-                    setStartLocationId('');
-                    setStartLocationVersionId('');
-                    setSelectedRoute([]);
-                  }}
-                  className={`rounded-xl border px-3 py-1.5 text-sm ${
-                    regionId === region.id
-                      ? 'border-slate-900 bg-slate-900 text-white'
-                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {region.name}
-                </button>
-              ))}
+              {regionSets.map((set) => {
+                const memberLabel = [...set.items]
+                  .sort((a, b) => a.sortOrder - b.sortOrder)
+                  .map((item) => item.region.name)
+                  .join(' · ');
+                return (
+                  <button
+                    key={set.id}
+                    type="button"
+                    onClick={() => {
+                      setRegionSetId(set.id);
+                      setStartLocationId('');
+                      setStartLocationVersionId('');
+                      setSelectedRoute([]);
+                    }}
+                    className={`rounded-xl border px-3 py-1.5 text-left text-sm ${
+                      regionSetId === set.id
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="block font-medium">{set.name}</span>
+                    {set.items.length > 1 ? (
+                      <span
+                        className={`mt-0.5 block text-[10px] leading-tight ${
+                          regionSetId === set.id ? 'text-slate-200' : 'text-slate-500'
+                        }`}
+                      >
+                        {memberLabel}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div className="grid gap-1 text-sm">
@@ -1264,7 +1293,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                   input: {
                     name: name.trim(),
                     description: description.trim() || undefined,
-                    regionId,
+                    regionSetId,
                     totalDays,
                     sortOrder,
                     isActive,

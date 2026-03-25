@@ -92,8 +92,8 @@ export class SegmentService {
     this.repository = new SegmentRepository(prisma);
   }
 
-  list() {
-    return this.repository.findMany();
+  list(filter?: { regionIds?: string[] }) {
+    return this.repository.findMany(filter);
   }
 
   get(id: string) {

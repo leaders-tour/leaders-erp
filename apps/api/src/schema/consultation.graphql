@@ -3,7 +3,7 @@ type ConsultationDraft {
   headcountTotal: Int!
   headcountMale: Int!
   headcountFemale: Int!
-  regionId: ID
+  regionSetId: ID
   regionName: String
   travelStartDate: String!
   travelEndDate: String!

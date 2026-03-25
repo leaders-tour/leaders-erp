@@ -217,7 +217,7 @@ export interface PlanVersionPricingRow {
 export interface PlanRow {
   id: string;
   userId: string;
-  regionId: string;
+  regionSetId: string;
   title: string;
   currentVersionId: string | null;
   createdAt: string;
@@ -227,7 +227,7 @@ export interface PlanRow {
 
 export interface PlanDetail extends PlanRow {
   user: UserRow;
-  region: {
+  regionSet: {
     id: string;
     name: string;
   };
@@ -237,7 +237,7 @@ export interface PlanDetail extends PlanRow {
 export interface PlanVersionDetail extends PlanVersionRow {
   plan: PlanRow & {
     user: UserRow;
-    region: {
+    regionSet: {
       id: string;
       name: string;
     };
@@ -330,7 +330,7 @@ const PLANS_BY_USER_QUERY = gql`
     plans(userId: $userId) {
       id
       userId
-      regionId
+      regionSetId
       title
       currentVersionId
       createdAt
@@ -356,7 +356,7 @@ const PLAN_DETAIL_QUERY = gql`
     plan(id: $id) {
       id
       userId
-      regionId
+      regionSetId
       title
       currentVersionId
       createdAt
@@ -378,7 +378,7 @@ const PLAN_DETAIL_QUERY = gql`
         createdAt
         updatedAt
       }
-      region {
+      regionSet {
         id
         name
       }
@@ -443,7 +443,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
       plan {
         id
         userId
-        regionId
+        regionSetId
         title
         currentVersionId
         createdAt
@@ -465,7 +465,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
           createdAt
           updatedAt
         }
-        region {
+        regionSet {
           id
           name
         }

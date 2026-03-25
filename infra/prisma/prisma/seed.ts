@@ -2,7 +2,14 @@ import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { EmployeeRole, FacilityAvailability, MealOption, PrismaClient, VariantType } from '@prisma/client';
+import {
+  EmployeeRole,
+  FacilityAvailability,
+  MealOption,
+  MovementIntensity,
+  PrismaClient,
+  VariantType,
+} from '@prisma/client';
 
 const envFilePath = path.resolve(process.cwd(), '.env');
 if (existsSync(envFilePath)) {
@@ -83,6 +90,23 @@ async function main(): Promise<void> {
       name: '고비',
       description: '고비 권역 기본 데이터',
     },
+  });
+
+  await prisma.regionSet.upsert({
+    where: { id: gobi.id },
+    update: { name: gobi.name },
+    create: {
+      id: gobi.id,
+      signature: gobi.id,
+      name: gobi.name,
+      items: {
+        create: [{ regionId: gobi.id, sortOrder: 0 }],
+      },
+    },
+  });
+  await prisma.region.update({
+    where: { id: gobi.id },
+    data: { defaultRegionSetId: gobi.id },
   });
 
   const ub = await prisma.location.upsert({
@@ -186,6 +210,7 @@ async function main(): Promise<void> {
       toLocationId: dalanzadgad.id,
       averageDistanceKm: 540,
       averageTravelHours: 8.5,
+      movementIntensity: MovementIntensity.LEVEL_3,
       isLongDistance: true,
     },
   });
@@ -201,6 +226,7 @@ async function main(): Promise<void> {
       name: 'Direct',
       averageDistanceKm: 540,
       averageTravelHours: 8.5,
+      movementIntensity: MovementIntensity.LEVEL_3,
       isLongDistance: true,
       isDefault: true,
     },
@@ -209,6 +235,7 @@ async function main(): Promise<void> {
       name: 'Direct',
       averageDistanceKm: 540,
       averageTravelHours: 8.5,
+      movementIntensity: MovementIntensity.LEVEL_3,
       isLongDistance: true,
       sortOrder: 0,
       isDefault: true,
@@ -636,14 +663,14 @@ async function main(): Promise<void> {
     where: { id: 'seed_plan_gobi_basic' },
     update: {
       userId: defaultUser.id,
-      regionId: gobi.id,
+      regionSetId: gobi.id,
       title: '고비 기본 일정',
       documentNumberBase: '260101001',
     },
     create: {
       id: 'seed_plan_gobi_basic',
       userId: defaultUser.id,
-      regionId: gobi.id,
+      regionSetId: gobi.id,
       title: '고비 기본 일정',
       documentNumberBase: '260101001',
     },

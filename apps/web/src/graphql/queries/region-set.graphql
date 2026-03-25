@@ -1,0 +1,51 @@
+query RegionSets {
+  regionSets {
+    id
+    signature
+    name
+    isActive
+    items {
+      id
+      regionId
+      sortOrder
+      region {
+        id
+        name
+      }
+    }
+  }
+}
+
+query RegionSetsForAdmin($includeInactive: Boolean) {
+  regionSets(includeInactive: $includeInactive) {
+    id
+    signature
+    name
+    isActive
+    deletedAt
+    items {
+      id
+      regionId
+      sortOrder
+      region {
+        id
+        name
+      }
+    }
+  }
+}
+
+mutation CreateRegionSet($input: RegionSetCreateInput!) {
+  createRegionSet(input: $input) {
+    id
+    signature
+    name
+    items {
+      regionId
+      region {
+        id
+        name
+      }
+    }
+  }
+}

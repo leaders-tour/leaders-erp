@@ -1,4 +1,5 @@
 import type { AppContext } from '../../context';
+import { resolveRegionSetRegionIds } from '../../lib/resolve-region-set';
 import { RegionLodgingService } from './region-lodging.service';
 import type { RegionLodgingCreateDto, RegionLodgingUpdateDto } from './region-lodging.types';
 
@@ -7,7 +8,7 @@ interface IdArgs {
 }
 
 interface RegionLodgingsArgs {
-  regionId?: string;
+  regionSetId?: string | null;
   activeOnly?: boolean;
 }
 
@@ -22,8 +23,13 @@ interface RegionLodgingUpdateArgs {
 
 export const regionLodgingResolver = {
   Query: {
-    regionLodgings: (_parent: unknown, args: RegionLodgingsArgs, ctx: AppContext) =>
-      new RegionLodgingService(ctx.prisma).list(args),
+    regionLodgings: async (_parent: unknown, args: RegionLodgingsArgs, ctx: AppContext) => {
+      if (!args.regionSetId) {
+        return new RegionLodgingService(ctx.prisma).list({ activeOnly: args.activeOnly });
+      }
+      const regionIds = await resolveRegionSetRegionIds(ctx.prisma, args.regionSetId);
+      return new RegionLodgingService(ctx.prisma).list({ regionIds, activeOnly: args.activeOnly });
+    },
     regionLodging: (_parent: unknown, args: IdArgs, ctx: AppContext) => new RegionLodgingService(ctx.prisma).get(args.id),
   },
   Mutation: {

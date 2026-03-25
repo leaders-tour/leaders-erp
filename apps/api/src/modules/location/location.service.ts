@@ -394,8 +394,8 @@ export class LocationService {
     return { primaryMealSet, earlyMealSet };
   }
 
-  list() {
-    return this.repository.findMany();
+  list(filter?: { regionIds?: string[] }) {
+    return this.repository.findMany(filter);
   }
 
   get(id: string) {

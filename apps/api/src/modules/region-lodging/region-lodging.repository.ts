@@ -7,10 +7,10 @@ type PrismaLike = PrismaClient | Prisma.TransactionClient;
 export class RegionLodgingRepository {
   constructor(private readonly prisma: PrismaLike) {}
 
-  findMany(filter: { regionId?: string; activeOnly?: boolean } = {}) {
+  findMany(filter: { regionIds?: string[]; activeOnly?: boolean } = {}) {
     return this.prisma.regionLodging.findMany({
       where: {
-        ...(filter.regionId ? { regionId: filter.regionId } : {}),
+        ...(filter.regionIds?.length ? { regionId: { in: filter.regionIds } } : {}),
         ...(filter.activeOnly ? { isActive: true } : {}),
       },
       include: regionLodgingInclude,

@@ -1,4 +1,5 @@
 import type { AppContext } from '../../context';
+import { planInclude } from '../plan/plan.mapper';
 import { RegionService } from './region.service';
 import type { RegionCreateDto, RegionUpdateDto } from './region.types';
 
@@ -16,6 +17,14 @@ interface RegionUpdateArgs {
 }
 
 export const regionResolver = {
+  Region: {
+    plans: async (parent: { id: string }, _args: unknown, ctx: AppContext) =>
+      ctx.prisma.plan.findMany({
+        where: { regionSet: { items: { some: { regionId: parent.id } } } },
+        include: planInclude,
+        orderBy: { createdAt: 'desc' },
+      }),
+  },
   Query: {
     regions: (_parent: unknown, _args: unknown, ctx: AppContext) => new RegionService(ctx.prisma).list(),
     region: (_parent: unknown, args: RegionArgs, ctx: AppContext) => new RegionService(ctx.prisma).get(args.id),

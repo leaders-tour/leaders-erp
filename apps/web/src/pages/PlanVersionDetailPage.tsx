@@ -102,7 +102,7 @@ export function PlanVersionDetailPage(): JSX.Element {
             {version.plan.title} · v{version.versionNumber}
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            고객: {version.plan.user.name} · 지역: {version.plan.region.name}
+            고객: {version.plan.user.name} · 지역 세트: {version.plan.regionSet.name}
           </p>
         </div>
         <div className="flex gap-2">

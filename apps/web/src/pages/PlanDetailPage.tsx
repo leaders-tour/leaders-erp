@@ -48,7 +48,7 @@ export function PlanDetailPage(): JSX.Element {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{plan.title}</h1>
             <p className="mt-1 text-sm text-slate-600">
-              고객: {plan.user.name} · 지역: {plan.region.name}
+              고객: {plan.user.name} · 지역 세트: {plan.regionSet.name}
             </p>
           </div>
           <div className="flex gap-2">
@@ -137,7 +137,7 @@ export function PlanDetailPage(): JSX.Element {
           <div className="mt-3 grid gap-2 text-sm text-slate-700">
             <div>Plan ID: {plan.id}</div>
             <div>Owner User ID: {plan.userId}</div>
-            <div>Region ID: {plan.regionId}</div>
+            <div>RegionSet ID: {plan.regionSetId}</div>
             <div>생성일: {new Date(plan.createdAt).toLocaleString('ko-KR')}</div>
             <div>수정일: {new Date(plan.updatedAt).toLocaleString('ko-KR')}</div>
           </div>

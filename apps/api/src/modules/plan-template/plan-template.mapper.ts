@@ -1,7 +1,8 @@
 import type { Prisma } from '@prisma/client';
+import { regionSetGraphInclude } from '../region-set/region-set.mapper';
 
 export const planTemplateInclude = {
-  region: true,
+  regionSet: { include: regionSetGraphInclude },
   planStops: {
     include: {
       segment: true,

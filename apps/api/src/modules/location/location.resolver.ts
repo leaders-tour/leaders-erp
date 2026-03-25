@@ -1,4 +1,5 @@
 import type { AppContext } from '../../context';
+import { resolveRegionSetRegionIds } from '../../lib/resolve-region-set';
 import { LocationService } from './location.service';
 import type {
   LocationCreateDto,
@@ -10,6 +11,10 @@ import type {
 
 interface LocationArgs {
   id: string;
+}
+
+interface LocationsArgs {
+  regionSetId?: string | null;
 }
 
 interface LocationCreateArgs {
@@ -45,7 +50,13 @@ interface SetDefaultLocationVersionArgs {
 
 export const locationResolver = {
   Query: {
-    locations: (_parent: unknown, _args: unknown, ctx: AppContext) => new LocationService(ctx.prisma).list(),
+    locations: async (_parent: unknown, args: LocationsArgs, ctx: AppContext) => {
+      if (!args.regionSetId) {
+        return new LocationService(ctx.prisma).list();
+      }
+      const regionIds = await resolveRegionSetRegionIds(ctx.prisma, args.regionSetId);
+      return new LocationService(ctx.prisma).list({ regionIds });
+    },
     location: (_parent: unknown, args: LocationArgs, ctx: AppContext) => new LocationService(ctx.prisma).get(args.id),
     locationVariations: (_parent: unknown, args: LocationVariationsArgs, ctx: AppContext) =>
       new LocationService(ctx.prisma).listVersions(args.locationId),

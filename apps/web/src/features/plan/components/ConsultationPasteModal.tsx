@@ -183,8 +183,8 @@ export function ConsultationPasteModal({
                   <p className="mt-1 text-sm font-semibold text-slate-900">
                     {draft.recommendedTemplateName?.trim()
                       ? draft.recommendedTemplateName
-                      : draft.regionId
-                        ? '해당 지역·일수에 맞는 활성 템플릿 없음 또는 미선택'
+                      : draft.regionSetId
+                        ? '해당 지역 세트·일수에 맞는 활성 템플릿 없음 또는 미선택'
                         : '-'}
                   </p>
                   {draft.recommendedTemplateReason?.trim() ? (

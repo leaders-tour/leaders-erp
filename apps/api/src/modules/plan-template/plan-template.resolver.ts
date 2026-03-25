@@ -49,7 +49,7 @@ interface PlanTemplateArgs {
 }
 
 interface PlanTemplatesArgs {
-  regionId?: string;
+  regionSetId?: string | null;
   totalDays?: number;
   activeOnly?: boolean;
 }
@@ -67,7 +67,7 @@ export const planTemplateResolver = {
   Query: {
     planTemplates: (_parent: unknown, args: PlanTemplatesArgs, ctx: AppContext) =>
       new PlanTemplateService(ctx.prisma).list({
-        regionId: args.regionId,
+        regionSetId: args.regionSetId ?? undefined,
         totalDays: args.totalDays,
         activeOnly: args.activeOnly,
       }),
