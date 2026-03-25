@@ -390,16 +390,53 @@ model Region {
   name        String
   description String?
 
+  defaultRegionSetId String?  @unique
+  defaultRegionSet   RegionSet? @relation("RegionDefaultRegionSet", fields: [defaultRegionSetId], references: [id], onDelete: Restrict)
+
   locations Location[]
   segments  Segment[]
   overnightStays OvernightStay[]
   overnightStayConnections OvernightStayConnection[]
-  plans     Plan[]
-  planTemplates PlanTemplate[]
+  regionSetItems RegionSetItem[]
   regionLodgings RegionLodging[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model RegionSet {
+  id        String    @id @default(uuid(7))
+  signature String    @unique
+  name      String
+  isActive  Boolean   @default(true)
+  deletedAt DateTime?
+
+  items            RegionSetItem[]
+  defaultForRegion Region?         @relation("RegionDefaultRegionSet")
+  plans            Plan[]
+  planTemplates    PlanTemplate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, deletedAt])
+}
+
+model RegionSetItem {
+  id          String @id @default(uuid(7))
+  regionSetId String
+  regionId    String
+  sortOrder   Int
+
+  regionSet RegionSet @relation(fields: [regionSetId], references: [id], onDelete: Cascade)
+  region    Region    @relation(fields: [regionId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([regionSetId, regionId])
+  @@index([regionSetId])
+  @@index([regionId])
 }
 
 model Location {
@@ -715,13 +752,13 @@ model SegmentVersionActivity {
 model Plan {
   id               String  @id @default(uuid(7))
   userId           String
-  regionId         String
+  regionSetId      String
   title            String
   documentNumberBase String @unique
   currentVersionId String?
 
   user           User          @relation(fields: [userId], references: [id])
-  region         Region        @relation(fields: [regionId], references: [id])
+  regionSet      RegionSet     @relation(fields: [regionSetId], references: [id], onDelete: Restrict)
   versions       PlanVersion[] @relation("PlanVersions")
   currentVersion PlanVersion?  @relation("CurrentPlanVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
 
@@ -729,7 +766,7 @@ model Plan {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
-  @@index([regionId])
+  @@index([regionSetId])
   @@index([currentVersionId])
 }
 
@@ -968,18 +1005,18 @@ model PlanTemplate {
   id          String  @id @default(uuid(7))
   name        String
   description String? @db.Text
-  regionId    String
+  regionSetId String
   totalDays   Int
   sortOrder   Int     @default(0)
   isActive    Boolean @default(true)
 
-  region Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  regionSet RegionSet @relation(fields: [regionSetId], references: [id], onDelete: Cascade)
   planStops PlanTemplateStop[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([regionId, totalDays, isActive, sortOrder])
+  @@index([regionSetId, totalDays, isActive, sortOrder])
 }
 
 model PlanTemplateStop {

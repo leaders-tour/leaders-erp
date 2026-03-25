@@ -3,11 +3,6 @@ import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
-interface RegionRow {
-  id: string;
-  name: string;
-}
-
 interface PlanTemplateStopRow {
   id: string;
   dayIndex: number;
@@ -22,7 +17,8 @@ interface PlanTemplateStopRow {
 interface PlanTemplateRow {
   id: string;
   name: string;
-  regionId: string;
+  regionSetId: string;
+  regionSet: { id: string; name: string };
   totalDays: number;
   sortOrder: number;
   isActive: boolean;
@@ -33,21 +29,26 @@ interface PlanTemplateDetailRow extends PlanTemplateRow {
   planStops: PlanTemplateStopRow[];
 }
 
-const REGIONS_QUERY = gql`
-  query ItineraryTemplateRegions {
-    regions {
+const REGION_SETS_QUERY = gql`
+  query ItineraryTemplateRegionSets($includeInactive: Boolean) {
+    regionSets(includeInactive: $includeInactive) {
       id
       name
+      isActive
     }
   }
 `;
 
 const PLAN_TEMPLATES_QUERY = gql`
-  query ItineraryTemplates($regionId: ID, $totalDays: Int, $activeOnly: Boolean) {
-    planTemplates(regionId: $regionId, totalDays: $totalDays, activeOnly: $activeOnly) {
+  query ItineraryTemplates($regionSetId: ID, $totalDays: Int, $activeOnly: Boolean) {
+    planTemplates(regionSetId: $regionSetId, totalDays: $totalDays, activeOnly: $activeOnly) {
       id
       name
-      regionId
+      regionSetId
+      regionSet {
+        id
+        name
+      }
       totalDays
       sortOrder
       isActive
@@ -61,7 +62,11 @@ const PLAN_TEMPLATE_QUERY = gql`
     planTemplate(id: $id) {
       id
       name
-      regionId
+      regionSetId
+      regionSet {
+        id
+        name
+      }
       totalDays
       sortOrder
       isActive
@@ -84,17 +89,19 @@ export function ItineraryTemplatePage(): JSX.Element {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialSelectedTemplateId = searchParams.get('selectedTemplateId') ?? '';
-  const [regionFilter, setRegionFilter] = useState<string>('');
+  const [regionSetFilter, setRegionSetFilter] = useState<string>('');
   const [dayFilter, setDayFilter] = useState<string>(initialSelectedTemplateId ? 'all' : '6');
   const [activeOnly, setActiveOnly] = useState<boolean>(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initialSelectedTemplateId);
 
-  const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
+  const { data: regionSetData } = useQuery<{
+    regionSets: Array<{ id: string; name: string; isActive: boolean }>;
+  }>(REGION_SETS_QUERY, { variables: { includeInactive: false } });
 
   const totalDaysFilter = dayFilter === 'all' ? undefined : Number(dayFilter);
   const { data: templateData, loading } = useQuery<{ planTemplates: PlanTemplateRow[] }>(PLAN_TEMPLATES_QUERY, {
     variables: {
-      regionId: regionFilter || undefined,
+      regionSetId: regionSetFilter || undefined,
       totalDays: totalDaysFilter,
       activeOnly,
     },
@@ -107,7 +114,7 @@ export function ItineraryTemplatePage(): JSX.Element {
     skip: !selectedTemplateId,
   });
 
-  const regions = regionData?.regions ?? [];
+  const regionSetsForFilter = regionSetData?.regionSets ?? [];
   const templates = templateData?.planTemplates ?? [];
   const selectedTemplate = selectedTemplateData?.planTemplate ?? null;
   const orderedStops = useMemo(
@@ -125,8 +132,6 @@ export function ItineraryTemplatePage(): JSX.Element {
       setSelectedTemplateId(templates[0]?.id ?? '');
     }
   }, [selectedTemplateId, templates]);
-
-  const regionNameById = useMemo(() => new Map(regions.map((region) => [region.id, region.name])), [regions]);
 
   return (
     <section className="grid gap-6">
@@ -147,31 +152,31 @@ export function ItineraryTemplatePage(): JSX.Element {
         <h2 className="text-sm font-semibold text-slate-900">필터</h2>
         <div className="mt-3 grid gap-4">
           <div className="grid gap-1 text-sm">
-            <span className="text-xs text-slate-600">지역</span>
+            <span className="text-xs text-slate-600">지역 세트</span>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setRegionFilter('')}
+                onClick={() => setRegionSetFilter('')}
                 className={`rounded-xl border px-3 py-1.5 text-sm ${
-                  regionFilter === ''
+                  regionSetFilter === ''
                     ? 'border-slate-900 bg-slate-900 text-white'
                     : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 전체
               </button>
-              {regions.map((region) => (
+              {regionSetsForFilter.map((set) => (
                 <button
-                  key={region.id}
+                  key={set.id}
                   type="button"
-                  onClick={() => setRegionFilter(region.id)}
+                  onClick={() => setRegionSetFilter(set.id)}
                   className={`rounded-xl border px-3 py-1.5 text-sm ${
-                    regionFilter === region.id
+                    regionSetFilter === set.id
                       ? 'border-slate-900 bg-slate-900 text-white'
                       : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  {region.name}
+                  {set.name}
                 </button>
               ))}
             </div>
@@ -227,7 +232,7 @@ export function ItineraryTemplatePage(): JSX.Element {
             <thead className="bg-slate-50 text-slate-700">
               <tr>
                 <Th>이름</Th>
-                <Th>지역</Th>
+                <Th>지역 세트</Th>
                 <Th>일수</Th>
                 <Th>상태</Th>
                 <Th>정렬</Th>
@@ -255,7 +260,7 @@ export function ItineraryTemplatePage(): JSX.Element {
                     }`}
                   >
                     <Td>{template.name}</Td>
-                    <Td>{regionNameById.get(template.regionId) ?? template.regionId}</Td>
+                    <Td>{template.regionSet.name}</Td>
                     <Td>{template.totalDays}일</Td>
                     <Td>
                       <span className="inline-flex items-center gap-2">

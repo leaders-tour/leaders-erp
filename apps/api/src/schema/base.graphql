@@ -5,7 +5,7 @@ type Query {
   health: String!
   regions: [Region!]!
   region(id: ID!): Region
-  locations: [Location!]!
+  locations(regionSetId: ID): [Location!]!
   location(id: ID!): Location
   locationVariations(locationId: ID!): [LocationVersion!]!
   locationVariation(id: ID!): LocationVersion
@@ -13,22 +13,22 @@ type Query {
   locationGuide(id: ID!): LocationGuide
   lodgings: [Lodging!]!
   lodging(id: ID!): Lodging
-  regionLodgings(regionId: ID, activeOnly: Boolean): [RegionLodging!]!
+  regionLodgings(regionSetId: ID, activeOnly: Boolean): [RegionLodging!]!
   regionLodging(id: ID!): RegionLodging
   mealSets: [MealSet!]!
   mealSet(id: ID!): MealSet
-  segments: [Segment!]!
+  segments(regionSetId: ID): [Segment!]!
   segment(id: ID!): Segment
-  multiDayBlocks(regionId: ID, activeOnly: Boolean): [MultiDayBlock!]!
+  multiDayBlocks(regionSetId: ID, activeOnly: Boolean): [MultiDayBlock!]!
   multiDayBlock(id: ID!): MultiDayBlock
-  multiDayBlockConnections(regionId: ID, fromMultiDayBlockId: ID): [MultiDayBlockConnection!]!
+  multiDayBlockConnections(regionSetId: ID, fromMultiDayBlockId: ID): [MultiDayBlockConnection!]!
   multiDayBlockConnection(id: ID!): MultiDayBlockConnection
   plans(userId: ID!): [Plan!]!
   plan(id: ID!): Plan
   planVersions(planId: ID!): [PlanVersion!]!
   planVersion(id: ID!): PlanVersion
   planPricingPreview(input: PlanPricingPreviewInput!): PlanPricingPreview!
-  planTemplates(regionId: ID, totalDays: Int, activeOnly: Boolean): [PlanTemplate!]!
+  planTemplates(regionSetId: ID, totalDays: Int, activeOnly: Boolean): [PlanTemplate!]!
   planTemplate(id: ID!): PlanTemplate
   users: [User!]!
   user(id: ID!): User

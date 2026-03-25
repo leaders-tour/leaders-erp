@@ -11,6 +11,7 @@ const files = [
   'auth.graphql',
   'consultation.graphql',
   'region.graphql',
+  'region-set.graphql',
   'location.graphql',
   'location-guide.graphql',
   'lodging.graphql',

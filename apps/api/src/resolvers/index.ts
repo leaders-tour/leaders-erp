@@ -13,6 +13,7 @@ import { planTemplateResolver } from '../modules/plan-template/plan-template.res
 import { outreachResolver } from '../modules/outreach/outreach.resolver';
 import { consultationResolver } from '../modules/consultation/consultation.resolver';
 import { regionResolver } from '../modules/region/region.resolver';
+import { regionSetResolver } from '../modules/region-set/region-set.resolver';
 import { regionLodgingResolver } from '../modules/region-lodging/region-lodging.resolver';
 import { segmentResolver } from '../modules/segment/segment.resolver';
 import { timeBlockResolver } from '../modules/time-block/time-block.resolver';
@@ -82,6 +83,7 @@ export const resolvers = {
     mergeSection(
       authResolver.Query,
       regionResolver.Query,
+      regionSetResolver.Query,
       locationResolver.Query,
       locationGuideResolver.Query,
       lodgingResolver.Query,
@@ -107,6 +109,7 @@ export const resolvers = {
       authResolver.Mutation,
       consultationResolver.Mutation,
       regionResolver.Mutation,
+      regionSetResolver.Mutation,
       locationResolver.Mutation,
       locationGuideResolver.Mutation,
       lodgingResolver.Mutation,
@@ -125,6 +128,7 @@ export const resolvers = {
     ['login', 'registerEmployee', 'refreshAccessToken', 'logout'],
   ),
   User: mergeSection(planResolver.User ?? {}),
+  Region: mergeSection(regionResolver.Region ?? {}),
   CafeLead: outreachResolver.CafeLead,
   OutreachDraft: outreachResolver.OutreachDraft,
   CafeLeadNeeds: outreachResolver.CafeLeadNeeds,

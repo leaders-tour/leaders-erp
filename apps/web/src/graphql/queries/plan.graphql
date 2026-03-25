@@ -2,7 +2,7 @@ query Plans($userId: ID!) {
   plans(userId: $userId) {
     id
     userId
-    regionId
+    regionSetId
     title
     currentVersionId
   }

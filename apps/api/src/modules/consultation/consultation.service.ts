@@ -59,7 +59,7 @@ export interface ConsultationDraft {
   headcountTotal: number;
   headcountMale: number;
   headcountFemale: number;
-  regionId: string | null;
+  regionSetId: string | null;
   regionName: string | null;
   travelStartDate: string;
   travelEndDate: string;
@@ -151,7 +151,7 @@ export class ConsultationService {
     }
 
     const region = await this.resolveRegion(extraction.destinationPreference.rawText);
-    const regionId = region?.id ?? null;
+    const regionSetId = region?.defaultRegionSetId ?? null;
     const regionName = (region?.name ?? extraction.destinationPreference.rawText) || null;
     if (!region && extraction.destinationPreference.rawText?.trim()) {
       warnings.push(`지역 "${extraction.destinationPreference.rawText}" 매칭 실패. 수동 선택 필요.`);
@@ -215,7 +215,7 @@ export class ConsultationService {
       headcountTotal: total,
       headcountMale: finalMale,
       headcountFemale: finalFemale,
-      regionId,
+      regionSetId,
       regionName,
       travelStartDate: startDate,
       travelEndDate: endDate,
@@ -237,11 +237,11 @@ export class ConsultationService {
   }
 
   private async listActiveTemplateCandidates(
-    regionId: string,
+    regionSetId: string,
     totalDays: number,
   ): Promise<Array<{ id: string; name: string; description: string | null }>> {
     return this.prisma.planTemplate.findMany({
-      where: { regionId, totalDays, isActive: true },
+      where: { regionSetId, totalDays, isActive: true },
       select: { id: true, name: true, description: true },
       orderBy: [{ sortOrder: 'asc' }, { updatedAt: 'desc' }],
     });
@@ -261,11 +261,11 @@ export class ConsultationService {
       recommendedTemplateName: null,
       recommendedTemplateReason: null,
     };
-    if (!base.regionId || base.totalDays < 1) {
+    if (!base.regionSetId || base.totalDays < 1) {
       return empty;
     }
 
-    const candidates = await this.listActiveTemplateCandidates(base.regionId, base.totalDays);
+    const candidates = await this.listActiveTemplateCandidates(base.regionSetId, base.totalDays);
     if (candidates.length === 0) {
       return empty;
     }
@@ -329,12 +329,14 @@ export class ConsultationService {
     }
   }
 
-  private async resolveRegion(keyword: string): Promise<{ id: string; name: string } | null> {
+  private async resolveRegion(
+    keyword: string,
+  ): Promise<{ id: string; name: string; defaultRegionSetId: string | null } | null> {
     const k = keyword?.trim();
     if (!k) return null;
 
     const regions = await this.prisma.region.findMany({
-      select: { id: true, name: true },
+      select: { id: true, name: true, defaultRegionSetId: true },
     });
 
     const lower = k.toLowerCase();

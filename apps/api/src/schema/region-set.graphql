@@ -1,0 +1,39 @@
+type RegionSetItem {
+  id: ID!
+  regionSetId: String!
+  regionId: String!
+  sortOrder: Int!
+  region: Region!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type RegionSet {
+  id: ID!
+  signature: String!
+  name: String!
+  isActive: Boolean!
+  deletedAt: DateTime
+  items: [RegionSetItem!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+extend type Region {
+  defaultRegionSetId: ID
+  defaultRegionSet: RegionSet
+}
+
+input RegionSetCreateInput {
+  regionIds: [ID!]!
+}
+
+extend type Query {
+  regionSets(includeInactive: Boolean): [RegionSet!]!
+  regionSet(id: ID!): RegionSet
+}
+
+extend type Mutation {
+  createRegionSet(input: RegionSetCreateInput!): RegionSet!
+  softDeleteRegionSet(id: ID!): Boolean!
+}

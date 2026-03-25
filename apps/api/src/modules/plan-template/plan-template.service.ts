@@ -1,11 +1,12 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { planTemplateCreateSchema, planTemplateUpdateSchema } from '@tour/validation';
 import { createValidationError, DomainError } from '../../lib/errors';
+import { resolveRegionSetRegionIds } from '../../lib/resolve-region-set';
 import { PlanTemplateRepository } from './plan-template.repository';
 import type { PlanTemplateCreateDto, PlanTemplateUpdateDto } from './plan-template.types';
 
 interface PlanTemplateListFilter {
-  regionId?: string;
+  regionSetId?: string;
   totalDays?: number;
   activeOnly?: boolean;
 }
@@ -13,10 +14,10 @@ interface PlanTemplateListFilter {
 export class PlanTemplateService {
   constructor(private readonly prisma: PrismaClient) {}
 
-  private async ensureRegionExists(regionId: string): Promise<void> {
-    const region = await this.prisma.region.findUnique({ where: { id: regionId }, select: { id: true } });
-    if (!region) {
-      throw new DomainError('NOT_FOUND', 'Region not found');
+  private async ensureRegionSetExists(regionSetId: string): Promise<void> {
+    const set = await this.prisma.regionSet.findUnique({ where: { id: regionSetId }, select: { id: true } });
+    if (!set) {
+      throw new DomainError('NOT_FOUND', 'Region set not found');
     }
   }
 
@@ -424,7 +425,8 @@ export class PlanTemplateService {
       throw createValidationError('Invalid plan template input', parsed.error);
     }
 
-    await this.ensureRegionExists(parsed.data.regionId);
+    await this.ensureRegionSetExists(parsed.data.regionSetId);
+    await resolveRegionSetRegionIds(this.prisma, parsed.data.regionSetId);
 
     const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.planStops);
     this.validatePlanStopsAgainstTotalDays(normalizedPlanStops, parsed.data.totalDays);
@@ -459,8 +461,9 @@ export class PlanTemplateService {
       throw new DomainError('NOT_FOUND', 'Plan template not found');
     }
 
-    if (parsed.data.regionId) {
-      await this.ensureRegionExists(parsed.data.regionId);
+    if (parsed.data.regionSetId) {
+      await this.ensureRegionSetExists(parsed.data.regionSetId);
+      await resolveRegionSetRegionIds(this.prisma, parsed.data.regionSetId);
     }
 
     const nextTotalDays = parsed.data.totalDays ?? existing.totalDays;
@@ -478,7 +481,7 @@ export class PlanTemplateService {
       await txRepository.update(id, {
         ...(parsed.data.name !== undefined ? { name: parsed.data.name.trim() } : {}),
         ...(parsed.data.description !== undefined ? { description: parsed.data.description.trim() } : {}),
-        ...(parsed.data.regionId !== undefined ? { regionId: parsed.data.regionId } : {}),
+        ...(parsed.data.regionSetId !== undefined ? { regionSetId: parsed.data.regionSetId } : {}),
         ...(parsed.data.totalDays !== undefined ? { totalDays: parsed.data.totalDays } : {}),
         ...(parsed.data.sortOrder !== undefined ? { sortOrder: parsed.data.sortOrder } : {}),
         ...(parsed.data.isActive !== undefined ? { isActive: parsed.data.isActive } : {}),

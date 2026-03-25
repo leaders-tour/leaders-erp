@@ -37,6 +37,7 @@ import { PlanVersionDetailPage } from '../pages/PlanVersionDetailPage';
 import { RegionCreatePage } from '../pages/RegionCreatePage';
 import { RegionLodgingPage } from '../pages/RegionLodgingPage';
 import { RegionListPage } from '../pages/RegionListPage';
+import { RegionSetAdminPage } from '../pages/RegionSetAdminPage';
 import { SegmentPage } from '../pages/SegmentPage';
 import { TodoListPage } from '../pages/TodoListPage';
 
@@ -76,6 +77,7 @@ export const router = createBrowserRouter([
       { path: 'regions/list', element: <RegionListPage /> },
       { path: 'regions/create', element: <RegionCreatePage /> },
       { path: 'regions/lodgings', element: <RegionLodgingPage /> },
+      { path: 'regions/sets', element: <RegionSetAdminPage /> },
       { path: 'events', element: <Navigate to="/events/list" replace /> },
       { path: 'events/list', element: <EventPage /> },
       { path: 'events/create', element: <EventPage /> },

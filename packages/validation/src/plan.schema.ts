@@ -355,7 +355,7 @@ const planVersionSeedSchema = z
 
 export const planCreateSchema = z.object({
   userId: z.string().min(1),
-  regionId: z.string().min(1),
+  regionSetId: z.string().min(1),
   title: z.string().min(1).max(200),
   initialVersion: planVersionSeedSchema,
 });
@@ -409,7 +409,7 @@ export const planVersionCreateSchema = z
 
 export const planPricingPreviewSchema = z
   .object({
-    regionId: z.string().min(1),
+    regionSetId: z.string().min(1),
     variantType: z.nativeEnum(VariantType),
     totalDays: z.number().int().min(2).max(13),
     planStops: z.array(planStopNestedSchema),

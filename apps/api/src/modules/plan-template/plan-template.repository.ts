@@ -5,7 +5,7 @@ import type { PlanTemplateCreateDto, PlanTemplateUpdateDto } from './plan-templa
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
 interface PlanTemplateListFilter {
-  regionId?: string;
+  regionSetId?: string;
   totalDays?: number;
   activeOnly?: boolean;
 }
@@ -16,7 +16,7 @@ export class PlanTemplateRepository {
   findMany(filter: PlanTemplateListFilter) {
     return this.prisma.planTemplate.findMany({
       where: {
-        ...(filter.regionId ? { regionId: filter.regionId } : {}),
+        ...(filter.regionSetId ? { regionSetId: filter.regionSetId } : {}),
         ...(typeof filter.totalDays === 'number' ? { totalDays: filter.totalDays } : {}),
         ...(filter.activeOnly ? { isActive: true } : {}),
       },
@@ -34,7 +34,7 @@ export class PlanTemplateRepository {
       data: {
         name: data.name,
         description: data.description,
-        regionId: data.regionId,
+        regionSetId: data.regionSetId,
         totalDays: data.totalDays,
         sortOrder: data.sortOrder,
         isActive: data.isActive,

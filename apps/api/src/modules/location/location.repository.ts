@@ -5,8 +5,12 @@ import type { LocationCreateDto, LocationUpdateDto } from './location.types';
 export class LocationRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  findMany() {
-    return this.prisma.location.findMany({ include: locationInclude, orderBy: { createdAt: 'desc' } });
+  findMany(filter?: { regionIds?: string[] }) {
+    return this.prisma.location.findMany({
+      where: filter?.regionIds?.length ? { regionId: { in: filter.regionIds } } : undefined,
+      include: locationInclude,
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   findById(id: string) {

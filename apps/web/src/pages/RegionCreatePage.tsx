@@ -34,6 +34,16 @@ export function RegionCreatePage(): JSX.Element {
           >
             지역 생성
           </Link>
+          <Link
+            to="/regions/sets"
+            className={`rounded-xl px-3 py-1.5 text-sm transition-colors ${
+              location.pathname === '/regions/sets'
+                ? 'border border-slate-900 bg-slate-900 text-white'
+                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            지역 세트
+          </Link>
         </div>
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">지역 생성</h1>
       </header>

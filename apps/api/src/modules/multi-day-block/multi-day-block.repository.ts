@@ -4,12 +4,12 @@ import { multiDayBlockConnectionInclude, multiDayBlockInclude } from './multi-da
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
 interface MultiDayBlockListFilter {
-  regionId?: string;
+  regionIds?: string[];
   activeOnly?: boolean;
 }
 
 interface MultiDayBlockConnectionListFilter {
-  regionId?: string;
+  regionIds?: string[];
   fromMultiDayBlockId?: string;
 }
 
@@ -19,7 +19,7 @@ export class MultiDayBlockRepository {
   findMany(filter: MultiDayBlockListFilter) {
     return this.prisma.overnightStay.findMany({
       where: {
-        ...(filter.regionId ? { regionId: filter.regionId } : {}),
+        ...(filter.regionIds?.length ? { regionId: { in: filter.regionIds } } : {}),
         ...(filter.activeOnly ? { isActive: true } : {}),
       },
       include: multiDayBlockInclude,
@@ -77,7 +77,15 @@ export class MultiDayBlockConnectionRepository {
   findMany(filter: MultiDayBlockConnectionListFilter) {
     return this.prisma.overnightStayConnection.findMany({
       where: {
-        ...(filter.regionId ? { regionId: filter.regionId } : {}),
+        ...(filter.regionIds?.length
+          ? {
+              OR: [
+                { regionId: { in: filter.regionIds } },
+                { fromOvernightStay: { regionId: { in: filter.regionIds } } },
+                { toLocation: { regionId: { in: filter.regionIds } } },
+              ],
+            }
+          : {}),
         ...(filter.fromMultiDayBlockId ? { fromOvernightStayId: filter.fromMultiDayBlockId } : {}),
       },
       include: multiDayBlockConnectionInclude,

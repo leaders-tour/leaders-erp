@@ -33,7 +33,7 @@ export const planTemplateStopInputSchema = z
 const planTemplateBaseSchema = z.object({
   name: z.string().min(1).max(120),
   description: z.string().max(5000).optional(),
-  regionId: z.string().min(1),
+  regionSetId: z.string().min(1),
   totalDays: z.number().int().min(2).max(13),
   sortOrder: z.number().int().min(0).max(100_000).default(0),
   isActive: z.boolean().default(true),
@@ -76,7 +76,7 @@ export const planTemplateUpdateSchema = z
   .object({
     name: z.string().min(1).max(120).optional(),
     description: z.string().max(5000).optional(),
-    regionId: z.string().min(1).optional(),
+    regionSetId: z.string().min(1).optional(),
     totalDays: z.number().int().min(2).max(13).optional(),
     sortOrder: z.number().int().min(0).max(100_000).optional(),
     isActive: z.boolean().optional(),

@@ -2,11 +2,11 @@ type PlanTemplate {
   id: ID!
   name: String!
   description: String
-  regionId: String!
+  regionSetId: String!
   totalDays: Int!
   sortOrder: Int!
   isActive: Boolean!
-  region: Region!
+  regionSet: RegionSet!
   movementIntensity: MovementIntensity
   planStops: [PlanTemplateStop!]!
   createdAt: DateTime!
@@ -57,7 +57,7 @@ input PlanTemplateStopNestedInput {
 input PlanTemplateCreateInput {
   name: String!
   description: String
-  regionId: ID!
+  regionSetId: ID!
   totalDays: Int!
   sortOrder: Int
   isActive: Boolean
@@ -67,7 +67,7 @@ input PlanTemplateCreateInput {
 input PlanTemplateUpdateInput {
   name: String
   description: String
-  regionId: ID
+  regionSetId: ID
   totalDays: Int
   sortOrder: Int
   isActive: Boolean

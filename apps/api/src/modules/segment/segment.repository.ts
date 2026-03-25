@@ -5,8 +5,20 @@ type PrismaLike = PrismaClient | Prisma.TransactionClient;
 export class SegmentRepository {
   constructor(private readonly prisma: PrismaLike) {}
 
-  findMany() {
-    return this.prisma.segment.findMany({ include: segmentInclude, orderBy: { createdAt: 'desc' } });
+  findMany(filter?: { regionIds?: string[] }) {
+    return this.prisma.segment.findMany({
+      where: filter?.regionIds?.length
+        ? {
+            OR: [
+              { regionId: { in: filter.regionIds } },
+              { fromLocation: { regionId: { in: filter.regionIds } } },
+              { toLocation: { regionId: { in: filter.regionIds } } },
+            ],
+          }
+        : undefined,
+      include: segmentInclude,
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   findById(id: string) {

@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import { regionSetGraphInclude } from '../region-set/region-set.mapper';
 
 export const planVersionInclude = {
   parentVersion: true,
@@ -52,7 +53,7 @@ export const planInclude = {
       ownerEmployee: true,
     },
   },
-  region: true,
+  regionSet: { include: regionSetGraphInclude },
   currentVersion: {
     include: planVersionInclude,
   },

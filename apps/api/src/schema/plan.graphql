@@ -37,13 +37,13 @@ type UserDealTodo {
 type Plan {
   id: ID!
   userId: String!
-  regionId: String!
+  regionSetId: String!
   title: String!
   currentVersionId: String
   createdAt: DateTime!
   updatedAt: DateTime!
   user: User!
-  region: Region!
+  regionSet: RegionSet!
   currentVersion: PlanVersion
   versions: [PlanVersion!]!
 }
@@ -282,7 +282,7 @@ enum DealTodoStatus {
 
 input PlanCreateInput {
   userId: String!
-  regionId: String!
+  regionSetId: String!
   title: String!
   initialVersion: PlanVersionSeedInput!
 }
@@ -399,7 +399,7 @@ input ManualAdjustmentInput {
 }
 
 input PlanPricingPreviewInput {
-  regionId: String!
+  regionSetId: String!
   variantType: VariantType!
   totalDays: Int!
   planStops: [PlanStopNestedInput!]!

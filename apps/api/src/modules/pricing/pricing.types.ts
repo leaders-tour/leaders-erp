@@ -33,7 +33,10 @@ export interface PricingPlanStopDto {
 }
 
 export interface PricingComputeInput {
-  regionId: string;
+  /** Optional, stored on pricing snapshot for traceability. */
+  regionSetId?: string;
+  /** All region ids included in the active region set (for segment / connection lookups). */
+  regionIds: string[];
   variantType: DomainVariantType;
   totalDays: number;
   planStops: PricingPlanStopDto[];

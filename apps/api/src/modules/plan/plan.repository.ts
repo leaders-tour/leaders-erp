@@ -290,14 +290,14 @@ export class PlanRepository {
   findVersionById(id: string) {
     return this.prisma.planVersion.findUnique({
       where: { id },
-      include: { ...planVersionInclude, plan: { include: { user: { include: { ownerEmployee: true } }, region: true } } },
+      include: { ...planVersionInclude, plan: { include: planInclude } },
     });
   }
 
   findVersionsByPlan(planId: string) {
     return this.prisma.planVersion.findMany({
       where: { planId },
-      include: { ...planVersionInclude, plan: { include: { user: { include: { ownerEmployee: true } }, region: true } } },
+      include: { ...planVersionInclude, plan: { include: planInclude } },
       orderBy: { versionNumber: 'desc' },
     });
   }
@@ -422,7 +422,7 @@ export class PlanRepository {
           })),
         },
       },
-      include: { ...planVersionInclude, plan: { include: { user: { include: { ownerEmployee: true } }, region: true } } },
+      include: { ...planVersionInclude, plan: { include: planInclude } },
     });
 
     await this.prisma.plan.update({

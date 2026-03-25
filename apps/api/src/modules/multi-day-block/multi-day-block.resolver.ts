@@ -1,4 +1,5 @@
 import type { AppContext } from '../../context';
+import { resolveRegionSetRegionIds } from '../../lib/resolve-region-set';
 import { MultiDayBlockConnectionService, MultiDayBlockService } from './multi-day-block.service';
 import type {
   MultiDayBlockConnectionCreateDto,
@@ -12,7 +13,7 @@ interface EntityArgs {
 }
 
 interface MultiDayBlockListArgs {
-  regionId?: string;
+  regionSetId?: string | null;
   activeOnly?: boolean;
 }
 
@@ -35,21 +36,33 @@ interface MultiDayBlockConnectionUpdateArgs {
 }
 
 interface MultiDayBlockConnectionListArgs {
-  regionId?: string;
+  regionSetId?: string | null;
   fromMultiDayBlockId?: string;
 }
 
 export const multiDayBlockResolver = {
   Query: {
-    multiDayBlocks: (_parent: unknown, args: MultiDayBlockListArgs, ctx: AppContext) =>
-      new MultiDayBlockService(ctx.prisma).list({ regionId: args.regionId, activeOnly: args.activeOnly }),
+    multiDayBlocks: async (_parent: unknown, args: MultiDayBlockListArgs, ctx: AppContext) => {
+      if (!args.regionSetId) {
+        return new MultiDayBlockService(ctx.prisma).list({ activeOnly: args.activeOnly });
+      }
+      const regionIds = await resolveRegionSetRegionIds(ctx.prisma, args.regionSetId);
+      return new MultiDayBlockService(ctx.prisma).list({ regionIds, activeOnly: args.activeOnly });
+    },
     multiDayBlock: (_parent: unknown, args: EntityArgs, ctx: AppContext) =>
       new MultiDayBlockService(ctx.prisma).get(args.id),
-    multiDayBlockConnections: (_parent: unknown, args: MultiDayBlockConnectionListArgs, ctx: AppContext) =>
-      new MultiDayBlockConnectionService(ctx.prisma).list({
-        regionId: args.regionId,
+    multiDayBlockConnections: async (_parent: unknown, args: MultiDayBlockConnectionListArgs, ctx: AppContext) => {
+      if (!args.regionSetId) {
+        return new MultiDayBlockConnectionService(ctx.prisma).list({
+          fromMultiDayBlockId: args.fromMultiDayBlockId,
+        });
+      }
+      const regionIds = await resolveRegionSetRegionIds(ctx.prisma, args.regionSetId);
+      return new MultiDayBlockConnectionService(ctx.prisma).list({
+        regionIds,
         fromMultiDayBlockId: args.fromMultiDayBlockId,
-      }),
+      });
+    },
     multiDayBlockConnection: (_parent: unknown, args: EntityArgs, ctx: AppContext) =>
       new MultiDayBlockConnectionService(ctx.prisma).get(args.id),
   },

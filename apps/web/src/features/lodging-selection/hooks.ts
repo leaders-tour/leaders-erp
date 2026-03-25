@@ -17,8 +17,8 @@ interface RegionLodgingRow {
 }
 
 const LIST = gql`
-  query RegionLodgings($regionId: ID, $activeOnly: Boolean) {
-    regionLodgings(regionId: $regionId, activeOnly: $activeOnly) {
+  query RegionLodgings($regionSetId: ID, $activeOnly: Boolean) {
+    regionLodgings(regionSetId: $regionSetId, activeOnly: $activeOnly) {
       id
       regionId
       name

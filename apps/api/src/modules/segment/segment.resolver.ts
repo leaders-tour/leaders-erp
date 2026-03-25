@@ -1,9 +1,14 @@
 import type { AppContext } from '../../context';
+import { resolveRegionSetRegionIds } from '../../lib/resolve-region-set';
 import { SegmentService } from './segment.service';
 import type { SegmentCreateDto, SegmentUpdateDto } from './segment.types';
 
 interface SegmentArgs {
   id: string;
+}
+
+interface SegmentsArgs {
+  regionSetId?: string | null;
 }
 
 interface SegmentCreateArgs {
@@ -17,7 +22,13 @@ interface SegmentUpdateArgs {
 
 export const segmentResolver = {
   Query: {
-    segments: (_parent: unknown, _args: unknown, ctx: AppContext) => new SegmentService(ctx.prisma).list(),
+    segments: async (_parent: unknown, args: SegmentsArgs, ctx: AppContext) => {
+      if (!args.regionSetId) {
+        return new SegmentService(ctx.prisma).list();
+      }
+      const regionIds = await resolveRegionSetRegionIds(ctx.prisma, args.regionSetId);
+      return new SegmentService(ctx.prisma).list({ regionIds });
+    },
     segment: (_parent: unknown, args: SegmentArgs, ctx: AppContext) => new SegmentService(ctx.prisma).get(args.id),
   },
   Mutation: {
