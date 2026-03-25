@@ -124,6 +124,16 @@ const baseNavItems: NavItem[] = [
     ],
   },
   {
+    path: '/regions',
+    label: '지역',
+    icon: RegionIcon,
+    children: [
+      { path: '/regions/list', label: '지역 목록' },
+      { path: '/regions/create', label: '지역 생성' },
+      { path: '/regions/lodgings', label: '지역 숙소' },
+    ],
+  },
+  {
     path: '/locations',
     label: '목적지',
     icon: LocationIcon,
@@ -151,16 +161,6 @@ const baseNavItems: NavItem[] = [
       { path: '/multi-day-blocks/create', label: '블록 생성' },
       { path: '/multi-day-blocks/connections/list', label: '블록 후속 연결 목록' },
       { path: '/multi-day-blocks/connections/create', label: '블록 후속 연결 생성' },
-    ],
-  },
-  {
-    path: '/regions',
-    label: '지역',
-    icon: RegionIcon,
-    children: [
-      { path: '/regions/list', label: '지역 목록' },
-      { path: '/regions/create', label: '지역 생성' },
-      { path: '/regions/lodgings', label: '지역 숙소' },
     ],
   },
   {
