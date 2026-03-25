@@ -125,6 +125,8 @@ export const locationProfileCreateSchema = z.object({
   ...locationProfileFirstDaySchema.shape,
   lodging: locationProfileLodgingSchema,
   meals: locationProfileMealsSchema,
+  /** 1일차 얼리 식사. 생략 시 서버에서 일반 meals와 동일하게 저장 */
+  mealsEarly: locationProfileMealsSchema.optional(),
 }).superRefine((value, ctx) => {
   validateLocationName(value.name, ctx);
   validateFirstDaySchedules(value, ctx);
@@ -138,6 +140,7 @@ export const locationVersionProfileSchema = z.object({
   ...firstDayMovementMetaSchema.shape,
   lodging: locationProfileLodgingSchema,
   meals: locationProfileMealsSchema,
+  mealsEarly: locationProfileMealsSchema.optional(),
 });
 
 export const locationVersionCreateSchema = z.object({

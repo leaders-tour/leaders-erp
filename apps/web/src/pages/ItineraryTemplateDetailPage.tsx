@@ -111,6 +111,7 @@ const LOCATIONS_QUERY = gql`
         }
         mealSets {
           id
+          setName
           breakfast
           lunch
           dinner

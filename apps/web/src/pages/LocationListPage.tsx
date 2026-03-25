@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { formatLocationNameMultiline, includesLocationNameKeyword, toFacilityLabel, toMealLabel } from '../features/location/display';
 import { useLocationCrud } from '../features/location/hooks';
+import { mealsEarlyDiffersFromRegular, mealsFromVersionMealSets } from '../features/location/location-version-meals';
 import { LocationSubNav } from '../features/location/sub-nav';
 
 function buildFirstDayScheduleLines(row: ReturnType<typeof useLocationCrud>['rows'][number]): Array<{ time: string; activity: string }> {
@@ -155,11 +156,38 @@ export function LocationListPage(): JSX.Element {
                     </div>
                   </Td>
                   <Td>
-                    <div className="grid gap-1 text-sm">
-                      <div>아침 {toMealLabel(row.mealSets[0]?.breakfast)}</div>
-                      <div>점심 {toMealLabel(row.mealSets[0]?.lunch)}</div>
-                      <div>저녁 {toMealLabel(row.mealSets[0]?.dinner)}</div>
-                    </div>
+                    {(() => {
+                      const { meals, mealsEarly } = mealsFromVersionMealSets(row.mealSets);
+                      const earlyDiffers = row.isFirstDayEligible && mealsEarlyDiffersFromRegular(meals, mealsEarly);
+                      return (
+                        <div className="grid gap-1 text-sm">
+                          {row.isFirstDayEligible ? (
+                            <>
+                              <div className="text-xs font-semibold text-slate-600">1일차 일반</div>
+                              <div>아침 {toMealLabel(meals.breakfast)}</div>
+                              <div>점심 {toMealLabel(meals.lunch)}</div>
+                              <div>저녁 {toMealLabel(meals.dinner)}</div>
+                              <div className="mt-1 text-xs font-semibold text-slate-600">1일차 얼리</div>
+                              {earlyDiffers ? (
+                                <>
+                                  <div>아침 {toMealLabel(mealsEarly.breakfast)}</div>
+                                  <div>점심 {toMealLabel(mealsEarly.lunch)}</div>
+                                  <div>저녁 {toMealLabel(mealsEarly.dinner)}</div>
+                                </>
+                              ) : (
+                                <div className="text-slate-500">일반과 동일</div>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <div>아침 {toMealLabel(meals.breakfast)}</div>
+                              <div>점심 {toMealLabel(meals.lunch)}</div>
+                              <div>저녁 {toMealLabel(meals.dinner)}</div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </Td>
                 </tr>
               );

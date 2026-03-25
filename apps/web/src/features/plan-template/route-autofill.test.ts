@@ -1,3 +1,4 @@
+import { LOCATION_MEAL_SET_FIRST_DAY, LOCATION_MEAL_SET_FIRST_DAY_EARLY } from '@tour/domain';
 import { describe, expect, it } from 'vitest';
 import { MealOption, VariantType } from '../../generated/graphql';
 import type { LocationOption, MultiDayBlockOption, SegmentOption } from './route-autofill';
@@ -27,7 +28,22 @@ const locationA: LocationOption = {
       firstDayAverageTravelHours: 1.5,
       firstDayMovementIntensity: 'LEVEL_1',
       lodgings: [],
-      mealSets: [],
+      mealSets: [
+        {
+          id: 'meal-a-default',
+          setName: LOCATION_MEAL_SET_FIRST_DAY,
+          breakfast: MealOption.CampMeal,
+          lunch: MealOption.LocalRestaurant,
+          dinner: MealOption.CampMeal,
+        },
+        {
+          id: 'meal-a-early',
+          setName: LOCATION_MEAL_SET_FIRST_DAY_EARLY,
+          breakfast: MealOption.CampMeal,
+          lunch: MealOption.CampMeal,
+          dinner: MealOption.LocalRestaurant,
+        },
+      ],
       firstDayTimeBlocks: [
         {
           id: 'tb-a-first',
@@ -75,6 +91,7 @@ const locationB: LocationOption = {
       mealSets: [
         {
           id: 'meal-b',
+          setName: LOCATION_MEAL_SET_FIRST_DAY,
           breakfast: MealOption.CampMeal,
           lunch: MealOption.LocalRestaurant,
           dinner: MealOption.CampMeal,
@@ -520,6 +537,24 @@ describe('route-autofill', () => {
 
     expect(januaryOptions.map((location) => location.id)).toEqual(['loc-b']);
     expect(februaryOptions).toEqual([]);
+  });
+
+  it('uses first-day early meal set when variant is Early', () => {
+    const baseArgs = {
+      startLocationId: locationA.id,
+      startLocationVersionId: 'ver-a',
+      selectedRoute: [],
+      filteredSegments: [],
+      locationById: new Map([[locationA.id, locationA]]),
+      locationVersionById: new Map([['ver-a', locationAVersion]]),
+      totalDays: 2,
+    };
+
+    const basic = buildAutoRowsFromRoute({ ...baseArgs, variantType: VariantType.Basic });
+    const early = buildAutoRowsFromRoute({ ...baseArgs, variantType: VariantType.Early });
+
+    expect(basic[0]?.mealCellText).toBe('캠프식\n현지식당\n캠프식');
+    expect(early[0]?.mealCellText).toBe('캠프식\n캠프식\n현지식당');
   });
 
   it('uses first-day early time blocks and early+extend segment schedules for a 2-day route', () => {

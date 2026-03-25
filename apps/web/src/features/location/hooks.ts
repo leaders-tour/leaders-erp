@@ -50,6 +50,7 @@ const LIST = gql`
       }
       mealSets {
         id
+        setName
         breakfast
         lunch
         dinner
@@ -166,6 +167,7 @@ const DETAIL = gql`
       }
       mealSets {
         id
+        setName
         breakfast
         lunch
         dinner
@@ -245,6 +247,7 @@ const VERSION_DETAIL = gql`
       }
       mealSets {
         id
+        setName
         breakfast
         lunch
         dinner
@@ -285,6 +288,11 @@ export interface LocationProfileFormInput {
     lunch: MealOption | null;
     dinner: MealOption | null;
   };
+  mealsEarly: {
+    breakfast: MealOption | null;
+    lunch: MealOption | null;
+    dinner: MealOption | null;
+  };
 }
 
 export interface LocationVersionProfileFormInput {
@@ -300,6 +308,11 @@ export interface LocationVersionProfileFormInput {
     hasInternet: FacilityAvailability;
   };
   meals: {
+    breakfast: MealOption | null;
+    lunch: MealOption | null;
+    dinner: MealOption | null;
+  };
+  mealsEarly: {
     breakfast: MealOption | null;
     lunch: MealOption | null;
     dinner: MealOption | null;
@@ -350,6 +363,7 @@ export interface LocationListRow {
   }>;
   mealSets: Array<{
     id: string;
+    setName: string;
     breakfast: MealOption | null;
     lunch: MealOption | null;
     dinner: MealOption | null;
@@ -401,6 +415,7 @@ export interface LocationVersionRow {
   }>;
   mealSets: Array<{
     id: string;
+    setName: string;
     breakfast: MealOption | null;
     lunch: MealOption | null;
     dinner: MealOption | null;
@@ -487,6 +502,11 @@ function toProfileBody(input: LocationVersionProfileFormInput) {
       breakfast: input.meals.breakfast ?? null,
       lunch: input.meals.lunch ?? null,
       dinner: input.meals.dinner ?? null,
+    },
+    mealsEarly: {
+      breakfast: input.mealsEarly.breakfast ?? null,
+      lunch: input.mealsEarly.lunch ?? null,
+      dinner: input.mealsEarly.dinner ?? null,
     },
   };
 }

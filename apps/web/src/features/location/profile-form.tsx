@@ -19,6 +19,23 @@ const MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
   { value: MealOption.LocalRestaurant, label: '현지식당' },
 ];
 
+/** 얼리 식사가 비어 있으면 폼에서 현지식당이 선택된 것처럼 보이게 기본값 적용 */
+function coerceMealsEarlyForForm(
+  partial: LocationProfileFormInput['mealsEarly'] | undefined,
+): LocationProfileFormInput['mealsEarly'] {
+  const breakfast = partial?.breakfast ?? null;
+  const lunch = partial?.lunch ?? null;
+  const dinner = partial?.dinner ?? null;
+  if (breakfast == null && lunch == null && dinner == null) {
+    return {
+      breakfast: MealOption.LocalRestaurant,
+      lunch: MealOption.LocalRestaurant,
+      dinner: MealOption.LocalRestaurant,
+    };
+  }
+  return { breakfast, lunch, dinner };
+}
+
 const DEFAULT_SLOT_TIMES = ['08:00', '12:00', '18:00'] as const;
 const PASTE_HELPER_PLACEHOLDERS: Record<TimeSlotField, TimeSlotPasteHelperValue> = {
   firstDayTimeSlots: {
@@ -139,6 +156,7 @@ export function createDefaultLocationProfileFormValue(regionId = ''): LocationPr
       lunch: null,
       dinner: null,
     },
+    mealsEarly: coerceMealsEarlyForForm(undefined),
   };
 }
 
@@ -166,11 +184,17 @@ export function LocationProfileForm({
   onSubmit,
 }: LocationProfileFormProps): JSX.Element {
   const { data: regionData } = useQuery<{ regions: Region[] }>(REGIONS_QUERY);
-  const [form, setForm] = useState<LocationProfileFormValue>(value);
+  const [form, setForm] = useState<LocationProfileFormValue>(() => ({
+    ...value,
+    mealsEarly: coerceMealsEarlyForForm(value.mealsEarly),
+  }));
   const [pasteHelpers, setPasteHelpers] = useState<Record<TimeSlotField, TimeSlotPasteHelperValue>>(createEmptyPasteHelperValue);
 
   useEffect(() => {
-    setForm(value);
+    setForm({
+      ...value,
+      mealsEarly: coerceMealsEarlyForForm(value.mealsEarly),
+    });
   }, [value]);
 
   const regions = useMemo(() => regionData?.regions ?? [], [regionData]);
@@ -579,7 +603,19 @@ export function LocationProfileForm({
                       type="checkbox"
                       checked={form.isFirstDayEligible}
                       disabled={eligibilityReadOnly}
-                      onChange={(event) => setForm((prev) => ({ ...prev, isFirstDayEligible: event.target.checked }))}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setForm((prev) => {
+                          if (!checked) {
+                            return { ...prev, isFirstDayEligible: false };
+                          }
+                          return {
+                            ...prev,
+                            isFirstDayEligible: true,
+                            mealsEarly: coerceMealsEarlyForForm(prev.mealsEarly),
+                          };
+                        });
+                      }}
                     />
                     첫날 가능
                   </label>
@@ -694,9 +730,12 @@ export function LocationProfileForm({
 
             <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
               <div className="grid gap-1">
-                <h3 className="text-sm font-semibold text-slate-800">식사</h3>
+                <h3 className="text-sm font-semibold text-slate-800">
+                  {form.isFirstDayEligible ? '1일차 일반 식사' : '식사'}
+                </h3>
                 <p className="text-xs text-slate-500">
                   특식은 견적서를 만들 때 배정합니다. 특식이 없을 때를 가정하고 넣어주세요.
+                  {form.isFirstDayEligible ? ' 일정빌더에서 1일차 기본 변형일 때 사용됩니다.' : ''}
                 </p>
               </div>
               {(['breakfast', 'lunch', 'dinner'] as const).map((field) => (
@@ -725,6 +764,42 @@ export function LocationProfileForm({
                 </label>
               ))}
             </div>
+
+            {form.isFirstDayEligible ? (
+              <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+                <div className="grid gap-1">
+                  <h3 className="text-sm font-semibold text-slate-800">1일차 얼리 식사</h3>
+                  <p className="text-xs text-slate-500">
+                    일정빌더에서 1일차 얼리(이른 픽업) 변형일 때 사용됩니다. 각 끼니를 고르지 않으면 해당 끼니는 일반 1일차 식사와 같게 저장됩니다.
+                  </p>
+                </div>
+                {(['breakfast', 'lunch', 'dinner'] as const).map((field) => (
+                  <label key={`early-${field}`} className="grid gap-1 text-sm">
+                    <span className="text-slate-700">{field === 'breakfast' ? '아침' : field === 'lunch' ? '점심' : '저녁'}</span>
+                    <div className="flex flex-wrap gap-2">
+                      {MEAL_OPTIONS.map((option) => (
+                        <Button
+                          key={option.value}
+                          type="button"
+                          variant={form.mealsEarly[field] === option.value ? 'default' : 'outline'}
+                          onClick={() =>
+                            setForm((prev) => ({
+                              ...prev,
+                              mealsEarly: {
+                                ...prev.mealsEarly,
+                                [field]: option.value,
+                              },
+                            }))
+                          }
+                        >
+                          {option.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            ) : null}
 
           </div>
 

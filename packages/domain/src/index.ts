@@ -1,6 +1,7 @@
 export * from './enums/cafe-lead-status';
 export * from './enums/cafe-source-type';
 export * from './enums/meal-option';
+export * from './constants/location-meal-set';
 export * from './enums/variant-type';
 export * from './enums/override-target-type';
 export * from './enums/deal-stage';

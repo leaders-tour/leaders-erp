@@ -92,6 +92,7 @@ input LocationProfileCreateInput {
   firstDayAverageTravelHours: Float
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
+  mealsEarly: LocationProfileMealsInput
 }
 
 input LocationProfileUpdateInput {
@@ -105,6 +106,7 @@ input LocationProfileUpdateInput {
   firstDayAverageTravelHours: Float
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
+  mealsEarly: LocationProfileMealsInput
 }
 
 input LocationVersionProfileInput {
@@ -114,6 +116,7 @@ input LocationVersionProfileInput {
   firstDayAverageTravelHours: Float
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
+  mealsEarly: LocationProfileMealsInput
 }
 
 input LocationVersionCreateInput {

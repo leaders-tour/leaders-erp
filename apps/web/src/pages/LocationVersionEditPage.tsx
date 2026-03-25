@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { LocationProfileForm, createDefaultLocationProfileFormValue } from '../features/location/profile-form';
 import { formatLocationNameInline } from '../features/location/display';
 import { useLocationCrud, useLocationVersionDetail } from '../features/location/hooks';
+import { mealsFromVersionMealSets } from '../features/location/location-version-meals';
 
 export function LocationVersionEditPage(): JSX.Element {
   const navigate = useNavigate();
@@ -66,11 +67,7 @@ export function LocationVersionEditPage(): JSX.Element {
         hasShower: version.lodgings[0]?.hasShower ?? 'NO',
         hasInternet: version.lodgings[0]?.hasInternet ?? 'NO',
       },
-      meals: {
-        breakfast: version.mealSets[0]?.breakfast ?? null,
-        lunch: version.mealSets[0]?.lunch ?? null,
-        dinner: version.mealSets[0]?.dinner ?? null,
-      },
+      ...mealsFromVersionMealSets(version.mealSets),
     });
     if (isCreateMode) {
       setVersionLabel(version.label);
@@ -182,6 +179,7 @@ export function LocationVersionEditPage(): JSX.Element {
                   firstDayAverageTravelHours: next.firstDayAverageTravelHours,
                   lodging: next.lodging,
                   meals: next.meals,
+                  mealsEarly: next.mealsEarly,
                 },
               });
               if (created?.id) {

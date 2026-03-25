@@ -1,3 +1,4 @@
+import { pickDefaultLocationMealSet, pickFirstDayMealSetByProfile } from '@tour/domain';
 import type { MealOption, VariantType } from '../../generated/graphql';
 import { formatLocationNameMultiline, toFacilityLabel, toMealLabel } from '../location/display';
 import { getBaseLodgingText } from '../lodging-selection/model';
@@ -33,6 +34,7 @@ export interface LocationVersionOption {
   }>;
   mealSets: Array<{
     id: string;
+    setName: string;
     breakfast: MealOption | null;
     lunch: MealOption | null;
     dinner: MealOption | null;
@@ -906,13 +908,16 @@ export function buildAutoRowsFromRoute(input: {
     }),
     scheduleCellText: toScheduleCellFromTimeBlocks(getLocationTimeBlocks(startVersion, firstDayProfile)),
     lodgingCellText: getBaseLodgingText(startVersion, toFacilityLabel),
-    mealCellText: [
-      toMealLabel(startVersion?.mealSets[0]?.breakfast),
-      toMealLabel(startVersion?.mealSets[0]?.lunch),
-      toMealLabel(startVersion?.mealSets[0]?.dinner),
-    ]
-      .filter((line) => line.length > 0)
-      .join('\n'),
+    mealCellText: (() => {
+      const set = pickFirstDayMealSetByProfile(startVersion?.mealSets ?? [], firstDayProfile);
+      return [
+        toMealLabel((set?.breakfast ?? null) as MealOption | null),
+        toMealLabel((set?.lunch ?? null) as MealOption | null),
+        toMealLabel((set?.dinner ?? null) as MealOption | null),
+      ]
+        .filter((line) => line.length > 0)
+        .join('\n');
+    })(),
   });
 
   let previousContext: { kind: 'LOCATION'; locationId: string } | { kind: 'MULTI_DAY_BLOCK'; multiDayBlockId: string; locationId: string } = {
@@ -981,13 +986,16 @@ export function buildAutoRowsFromRoute(input: {
         timeCellText: toTimeCellFromTimeBlocks(getMultiDayBlockConnectionScheduleTimeBlocks(connectionVersion, variant)),
         scheduleCellText: toScheduleCellFromTimeBlocks(getMultiDayBlockConnectionScheduleTimeBlocks(connectionVersion, variant)),
         lodgingCellText: getBaseLodgingText(locationVersion, toFacilityLabel),
-        mealCellText: [
-          toMealLabel(locationVersion?.mealSets[0]?.breakfast),
-          toMealLabel(locationVersion?.mealSets[0]?.lunch),
-          toMealLabel(locationVersion?.mealSets[0]?.dinner),
-        ]
-          .filter((line) => line.length > 0)
-          .join('\n'),
+        mealCellText: (() => {
+          const set = pickDefaultLocationMealSet(locationVersion?.mealSets ?? []);
+          return [
+            toMealLabel((set?.breakfast ?? null) as MealOption | null),
+            toMealLabel((set?.lunch ?? null) as MealOption | null),
+            toMealLabel((set?.dinner ?? null) as MealOption | null),
+          ]
+            .filter((line) => line.length > 0)
+            .join('\n');
+        })(),
       });
     } else {
       const segment =
@@ -1014,13 +1022,16 @@ export function buildAutoRowsFromRoute(input: {
         timeCellText: toTimeCellFromTimeBlocks(getSegmentScheduleTimeBlocks(segmentVersion, variant)),
         scheduleCellText: toScheduleCellFromTimeBlocks(getSegmentScheduleTimeBlocks(segmentVersion, variant)),
         lodgingCellText: getBaseLodgingText(locationVersion, toFacilityLabel),
-        mealCellText: [
-          toMealLabel(locationVersion?.mealSets[0]?.breakfast),
-          toMealLabel(locationVersion?.mealSets[0]?.lunch),
-          toMealLabel(locationVersion?.mealSets[0]?.dinner),
-        ]
-          .filter((line) => line.length > 0)
-          .join('\n'),
+        mealCellText: (() => {
+          const set = pickDefaultLocationMealSet(locationVersion?.mealSets ?? []);
+          return [
+            toMealLabel((set?.breakfast ?? null) as MealOption | null),
+            toMealLabel((set?.lunch ?? null) as MealOption | null),
+            toMealLabel((set?.dinner ?? null) as MealOption | null),
+          ]
+            .filter((line) => line.length > 0)
+            .join('\n');
+        })(),
       });
     }
 

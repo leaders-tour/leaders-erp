@@ -1,4 +1,5 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
+import { pickDefaultLocationMealSet } from '@tour/domain';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -97,7 +98,7 @@ import {
 } from '../features/pricing/components/ManualAdjustmentsModal';
 import { mergeLodgingSelectionDisplayLines } from '../features/pricing/merge-lodging-selection-display';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
-import { VariantType } from '../generated/graphql';
+import { MealOption, VariantType } from '../generated/graphql';
 import type { ConsultationDraft } from '../generated/graphql';
 
 interface RegionRow {
@@ -451,6 +452,7 @@ const LOCATIONS_QUERY = gql`
         }
         mealSets {
           id
+          setName
           breakfast
           lunch
           dinner
@@ -1307,11 +1309,11 @@ function toLodgingCell(version: LocationVersionRow | undefined): string {
 }
 
 function toMealCell(version: LocationVersionRow | undefined): string {
-  const mealSet = version?.mealSets[0];
+  const mealSet = pickDefaultLocationMealSet(version?.mealSets ?? []);
   return [
-    `아침 ${toMealLabel(mealSet?.breakfast)}`,
-    `점심 ${toMealLabel(mealSet?.lunch)}`,
-    `저녁 ${toMealLabel(mealSet?.dinner)}`,
+    `아침 ${toMealLabel((mealSet?.breakfast ?? null) as MealOption | null)}`,
+    `점심 ${toMealLabel((mealSet?.lunch ?? null) as MealOption | null)}`,
+    `저녁 ${toMealLabel((mealSet?.dinner ?? null) as MealOption | null)}`,
   ].join('\n');
 }
 

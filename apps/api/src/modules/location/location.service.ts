@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { LOCATION_MEAL_SET_FIRST_DAY, LOCATION_MEAL_SET_FIRST_DAY_EARLY } from '@tour/domain';
 import {
   locationCreateSchema,
   locationProfileCreateSchema,
@@ -46,6 +47,7 @@ interface VersionProfilePayload {
   firstDayAverageTravelHours?: number;
   lodging: LocationProfileLodgingInput;
   meals: LocationProfileMealsInput;
+  mealsEarly?: LocationProfileMealsInput;
 }
 
 interface VersionProfileSnapshot {
@@ -55,6 +57,7 @@ interface VersionProfileSnapshot {
   firstDayAverageTravelHours?: number;
   lodging: LocationProfileLodgingInput;
   meals: LocationProfileMealsInput;
+  mealsEarly?: LocationProfileMealsInput;
 }
 
 export class LocationService {
@@ -210,6 +213,7 @@ export class LocationService {
       firstDayEarlyTimeSlots?: LocationProfileTimeSlotInput[];
       lodging: LocationProfileLodgingInput;
       meals: LocationProfileMealsInput;
+      mealsEarly?: LocationProfileMealsInput;
     },
   ): Promise<void> {
     const normalizedLodging = this.normalizeLodging(input.lodging);
@@ -259,12 +263,28 @@ export class LocationService {
         locationId: input.locationId,
         locationVersionId: input.locationVersionId,
         locationNameSnapshot: input.locationNameSnapshot,
-        setName: '기본 세트',
+        setName: LOCATION_MEAL_SET_FIRST_DAY,
         breakfast: input.meals.breakfast ?? null,
         lunch: input.meals.lunch ?? null,
         dinner: input.meals.dinner ?? null,
       },
     });
+
+    if (input.isFirstDayEligible) {
+      const base = input.meals;
+      const earlySrc = input.mealsEarly;
+      await tx.mealSet.create({
+        data: {
+          locationId: input.locationId,
+          locationVersionId: input.locationVersionId,
+          locationNameSnapshot: input.locationNameSnapshot,
+          setName: LOCATION_MEAL_SET_FIRST_DAY_EARLY,
+          breakfast: earlySrc?.breakfast ?? base.breakfast ?? null,
+          lunch: earlySrc?.lunch ?? base.lunch ?? null,
+          dinner: earlySrc?.dinner ?? base.dinner ?? null,
+        },
+      });
+    }
   }
 
   private async createVersionWithProfile(
@@ -300,6 +320,7 @@ export class LocationService {
       firstDayEarlyTimeSlots: payload.firstDayEarlyTimeSlots,
       lodging: payload.lodging,
       meals: payload.meals,
+      mealsEarly: payload.mealsEarly,
     });
 
     return locationVersion;
@@ -326,6 +347,7 @@ export class LocationService {
         hasInternet: FacilityAvailability;
       }>;
       mealSets: Array<{
+        setName: string;
         breakfast: unknown;
         lunch: unknown;
         dinner: unknown;
@@ -333,7 +355,7 @@ export class LocationService {
     },
   ): VersionProfileSnapshot {
     const primaryLodging = sourceVersion.lodgings[0];
-    const primaryMealSet = sourceVersion.mealSets[0];
+    const { primaryMealSet, earlyMealSet } = this.resolveMealSetsFromVersion(sourceVersion.mealSets);
 
     return {
       firstDayTimeSlots: this.mapTimeBlocksToTimeSlots(sourceVersion.timeBlocks, 'FIRST_DAY'),
@@ -352,7 +374,24 @@ export class LocationService {
         lunch: (primaryMealSet?.lunch ?? null) as LocationProfileMealsInput['lunch'],
         dinner: (primaryMealSet?.dinner ?? null) as LocationProfileMealsInput['dinner'],
       },
+      mealsEarly: {
+        breakfast: (earlyMealSet?.breakfast ?? primaryMealSet?.breakfast ?? null) as LocationProfileMealsInput['breakfast'],
+        lunch: (earlyMealSet?.lunch ?? primaryMealSet?.lunch ?? null) as LocationProfileMealsInput['lunch'],
+        dinner: (earlyMealSet?.dinner ?? primaryMealSet?.dinner ?? null) as LocationProfileMealsInput['dinner'],
+      },
     };
+  }
+
+  private resolveMealSetsFromVersion(
+    mealSets: Array<{ setName: string; breakfast: unknown; lunch: unknown; dinner: unknown }>,
+  ): {
+    primaryMealSet: (typeof mealSets)[number] | undefined;
+    earlyMealSet: (typeof mealSets)[number] | undefined;
+  } {
+    const primaryMealSet =
+      mealSets.find((m) => m.setName === LOCATION_MEAL_SET_FIRST_DAY) ?? mealSets[0];
+    const earlyMealSet = mealSets.find((m) => m.setName === LOCATION_MEAL_SET_FIRST_DAY_EARLY);
+    return { primaryMealSet, earlyMealSet };
   }
 
   list() {
@@ -453,6 +492,7 @@ export class LocationService {
         firstDayAverageTravelHours: parsed.data.firstDayAverageTravelHours,
         lodging: parsed.data.lodging,
         meals: parsed.data.meals,
+        mealsEarly: parsed.data.mealsEarly,
       });
 
       await tx.location.update({
@@ -532,6 +572,7 @@ export class LocationService {
         firstDayAverageTravelHours: profile.firstDayAverageTravelHours,
         lodging: profile.lodging,
         meals: profile.meals,
+        mealsEarly: profile.mealsEarly,
       });
 
       if (
@@ -682,6 +723,7 @@ export class LocationService {
         firstDayEarlyTimeSlots: parsed.data.firstDayEarlyTimeSlots,
         lodging: parsed.data.lodging,
         meals: parsed.data.meals,
+        mealsEarly: parsed.data.mealsEarly,
       });
 
       const location = await tx.location.findUnique({
