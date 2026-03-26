@@ -897,22 +897,46 @@
   border-color: #94a3b8;
 }
 
+.estimate-itinerary-header {
+  margin-bottom: 4px;
+}
+
+.estimate-itinerary-header-logo {
+  display: block;
+  width: 240px;
+  max-width: 100%;
+  height: auto;
+  margin: 0;
+  user-select: none;
+}
+
+.estimate-itinerary-header-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .estimate-itinerary-title {
   margin: 0;
-  font-size: 22px;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 30px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.estimate-itinerary-brand {
-  margin: 8px 0 0;
-  font-size: 12px;
-}
-
 .estimate-itinerary-intensity {
-  margin: 2px 0 10px;
-  font-size: 12px;
+  margin: 0 0 2px auto;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: flex-center;
+  gap: 6px;
+  text-align: center;
+  font-size: 24px;
   font-weight: 600;
+  line-height: 0.9;
+  white-space: nowrap;
 }
 
 .estimate-itinerary-table-wrap {
@@ -985,7 +1009,7 @@
 
 .estimate-itinerary-table th:nth-child(1),
 .estimate-itinerary-table td:nth-child(1) {
-  width: 9%;
+  width: 5%;
 }
 
 .estimate-itinerary-table-date-col,
@@ -1021,7 +1045,7 @@
 
 .estimate-itinerary-table th:nth-child(4),
 .estimate-itinerary-table td:nth-child(4) {
-  width: 32%;
+  width: 36%;
 }
 
 .estimate-itinerary-table th:nth-child(5),
@@ -1036,14 +1060,24 @@
 
 .estimate-itinerary-footer {
   margin: 10px 0 0;
-  padding-left: 16px;
+  padding-left: 0;
+  list-style: none;
   font-size: 10px;
   line-height: 1.3;
   flex-shrink: 0;
 }
 
 .estimate-itinerary-footer li {
+  position: relative;
   margin: 3px 0;
+  padding-left: 10px;
+}
+
+.estimate-itinerary-footer li::before {
+  content: '*';
+  position: absolute;
+  left: 0;
+  top: 0;
 }
 
 .estimate-itinerary-cell {
@@ -1064,22 +1098,21 @@
   width: 100%;
 }
 
-.estimate-movement-intensity-badge {
+.estimate-movement-intensity-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: fit-content;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.2;
-  white-space: nowrap;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 
-.estimate-movement-intensity-badge--inline {
+.estimate-movement-intensity-chip--inline {
   vertical-align: middle;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
 }
 
 .estimate-sheet-guides {

@@ -2604,6 +2604,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         overnightStayConnectionVersionId: row.overnightStayConnectionVersionId,
         locationId: row.locationId,
         locationVersionId: row.locationVersionId,
+        movementIntensity: row.movementIntensity ?? null,
         dateCellText: row.dateCellText,
         destinationCellText: row.destinationCellText,
         timeCellText: row.timeCellText,
