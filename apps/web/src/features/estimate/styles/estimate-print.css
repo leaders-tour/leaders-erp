@@ -106,13 +106,21 @@
   --estimate-page1-body-gap: 0;
   --estimate-page1-table-cell-padding-y-base: 6px;
   --estimate-page1-table-cell-padding-x-base: 8px;
-  --estimate-page1-table-cell-padding-y: calc(var(--estimate-page1-table-cell-padding-y-base) * var(--estimate-page1-fit-scale));
-  --estimate-page1-table-cell-padding-x: calc(var(--estimate-page1-table-cell-padding-x-base) * var(--estimate-page1-fit-scale));
+  --estimate-page1-table-cell-padding-y: calc(
+    var(--estimate-page1-table-cell-padding-y-base) * var(--estimate-page1-fit-scale)
+  );
+  --estimate-page1-table-cell-padding-x: calc(
+    var(--estimate-page1-table-cell-padding-x-base) * var(--estimate-page1-fit-scale)
+  );
   --estimate-page1-main-even-row-min-height-base: 52px;
-  --estimate-page1-main-even-row-min-height: calc(var(--estimate-page1-main-even-row-min-height-base) * var(--estimate-page1-fit-scale));
+  --estimate-page1-main-even-row-min-height: calc(
+    var(--estimate-page1-main-even-row-min-height-base) * var(--estimate-page1-fit-scale)
+  );
   /* tbody 사이 전용 간격 행 높이 */
   --estimate-page1-tbody-gap-base: 5px;
-  --estimate-page1-tbody-gap: calc(var(--estimate-page1-tbody-gap-base) * var(--estimate-page1-fit-scale));
+  --estimate-page1-tbody-gap: calc(
+    var(--estimate-page1-tbody-gap-base) * var(--estimate-page1-fit-scale)
+  );
   --estimate-page1-table-border-width: 0.5px;
   --estimate-page1-table-border-emphasis: 2px;
   --estimate-page1-table-font-size: calc(11px * var(--estimate-page1-fit-scale));
@@ -122,7 +130,8 @@
   --estimate-page1-main-cell-min-height: calc(40px * var(--estimate-page1-fit-scale));
   /* 비고 textarea rows=4 분량 — 비고 행·기본금 thead 라벨에 동일 적용 */
   --estimate-page1-remark-block-min-height: calc(
-    4 * 1.35em + 2 * var(--estimate-page1-table-cell-padding-y) + calc(10px * var(--estimate-page1-fit-scale))
+    4 * 1.35em + 2 * var(--estimate-page1-table-cell-padding-y) +
+      calc(10px * var(--estimate-page1-fit-scale))
   );
   /* 총액 요약: collapse 표에서 td min-height 무시됨 → tr·패딩으로 높이 확보 */
   --estimate-page1-summary-row-min-height-base: 52px;
@@ -131,10 +140,14 @@
     var(--estimate-page1-remark-block-min-height)
   );
   --estimate-page1-price-placeholder-height-base: 68px;
-  --estimate-page1-price-placeholder-height: calc(var(--estimate-page1-price-placeholder-height-base) * var(--estimate-page1-fit-scale));
+  --estimate-page1-price-placeholder-height: calc(
+    var(--estimate-page1-price-placeholder-height-base) * var(--estimate-page1-fit-scale)
+  );
   --estimate-page1-summary-width: 82%;
   --estimate-page1-summary-validity-gap-base: 4px;
-  --estimate-page1-summary-validity-gap: calc(var(--estimate-page1-summary-validity-gap-base) * var(--estimate-page1-fit-scale));
+  --estimate-page1-summary-validity-gap: calc(
+    var(--estimate-page1-summary-validity-gap-base) * var(--estimate-page1-fit-scale)
+  );
   --estimate-page1-body-padding-bottom: 12px;
   --estimate-page1-footer-padding-y: 8px;
   /* 결제·입금 2줄(히어로 메타와 동일 12px) 수용 */
@@ -401,7 +414,8 @@
   width: 100%;
   min-height: 0;
   gap: var(--estimate-page1-body-gap);
-  padding: var(--estimate-page1-body-padding-top) var(--estimate-page1-body-padding-x) var(--estimate-page1-body-padding-bottom);
+  padding: var(--estimate-page1-body-padding-top) var(--estimate-page1-body-padding-x)
+    var(--estimate-page1-body-padding-bottom);
 }
 
 .estimate-page1-table {
@@ -423,20 +437,23 @@
 /* 여행 기간·차량 행 아래: 진회색 구분선 */
 .estimate-page1-table--main tbody.estimate-page1-tbody--basic tr:last-child > th,
 .estimate-page1-table--main tbody.estimate-page1-tbody--basic tr:last-child > td {
-  border-bottom: var(--estimate-page1-table-border-width, 0.5px) solid var(--estimate-border-emphasis);
+  border-bottom: var(--estimate-page1-table-border-width, 0.5px) solid
+    var(--estimate-border-emphasis);
 }
 
 /* 실투어 외 픽드랍·특이사항 행 아래: 진회색 구분선 */
 .estimate-page1-table--main tbody.estimate-page1-tbody--logistics tr:last-child > th,
 .estimate-page1-table--main tbody.estimate-page1-tbody--logistics tr:last-child > td {
-  border-bottom: var(--estimate-page1-table-border-width, 0.5px) solid var(--estimate-border-emphasis);
+  border-bottom: var(--estimate-page1-table-border-width, 0.5px) solid
+    var(--estimate-border-emphasis);
 }
 
 /* 비고 행: 비고 본문(4줄)과 동일 최소 높이 + 아래 진회색 구분선 */
 .estimate-page1-table--main tbody.estimate-page1-tbody--extras tr:last-child > th,
 .estimate-page1-table--main tbody.estimate-page1-tbody--extras tr:last-child > td {
   min-height: var(--estimate-page1-remark-block-min-height);
-  border-bottom: var(--estimate-page1-table-border-width, 0.5px) solid var(--estimate-border-emphasis);
+  border-bottom: var(--estimate-page1-table-border-width, 0.5px) solid
+    var(--estimate-border-emphasis);
 }
 
 .estimate-page1-table + .estimate-page1-table {
@@ -563,8 +580,16 @@
 }
 
 /* 항공권 첫 행 위: 일반 표 이중선 색 */
-.estimate-page1-table--main tbody.estimate-page1-tbody--logistics tr.estimate-page1-tr--tbody-gap + tr > th,
-.estimate-page1-table--main tbody.estimate-page1-tbody--logistics tr.estimate-page1-tr--tbody-gap + tr > td {
+.estimate-page1-table--main
+  tbody.estimate-page1-tbody--logistics
+  tr.estimate-page1-tr--tbody-gap
+  + tr
+  > th,
+.estimate-page1-table--main
+  tbody.estimate-page1-tbody--logistics
+  tr.estimate-page1-tr--tbody-gap
+  + tr
+  > td {
   border-top: var(--estimate-page1-table-border-emphasis, 2px) double #d1d5db;
 }
 
@@ -791,7 +816,9 @@
 .estimate-document--preview .estimate-editable-trigger {
   border-radius: 8px;
   padding: 6px;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .estimate-document--preview .estimate-editable-trigger:hover {
@@ -897,10 +924,45 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+  position: relative;
+  isolation: isolate;
+  background: #fff;
+}
+
+.estimate-itinerary-table-wrap::before {
+  content: '';
+  position: absolute;
+  top: 2mm;
+  left: 2mm;
+  width: 90mm;
+  height: 110mm;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url('/estimate/page2-foot-print-watermark.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.estimate-itinerary-table-wrap::after {
+  content: '';
+  position: absolute;
+  right: 2mm;
+  bottom: 2mm;
+  width: 102mm;
+  height: 124mm;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url('/estimate/page2-foot-print-watermark.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
 }
 
 .estimate-itinerary-table {
   --itinerary-row-count: 1;
+  position: relative;
+  z-index: 1;
   height: 100%;
   font-size: 10px;
   table-layout: fixed;
@@ -1112,27 +1174,39 @@
   object-fit: cover;
 }
 
-.estimate-guide-item:not(.estimate-guide-item--reverse) .estimate-guide-images .estimate-guide-image:nth-child(1) {
+.estimate-guide-item:not(.estimate-guide-item--reverse)
+  .estimate-guide-images
+  .estimate-guide-image:nth-child(1) {
   grid-column: 2;
 }
 
-.estimate-guide-item:not(.estimate-guide-item--reverse) .estimate-guide-images .estimate-guide-image:nth-child(2) {
+.estimate-guide-item:not(.estimate-guide-item--reverse)
+  .estimate-guide-images
+  .estimate-guide-image:nth-child(2) {
   grid-column: 3;
 }
 
-.estimate-guide-item.estimate-guide-item--reverse .estimate-guide-images .estimate-guide-image:nth-child(1) {
+.estimate-guide-item.estimate-guide-item--reverse
+  .estimate-guide-images
+  .estimate-guide-image:nth-child(1) {
   grid-column: 1;
 }
 
-.estimate-guide-item.estimate-guide-item--reverse .estimate-guide-images .estimate-guide-image:nth-child(2) {
+.estimate-guide-item.estimate-guide-item--reverse
+  .estimate-guide-images
+  .estimate-guide-image:nth-child(2) {
   grid-column: 2;
 }
 
-.estimate-guide-item:not(.estimate-guide-item--reverse) .estimate-guide-images .estimate-guide-image:only-child {
+.estimate-guide-item:not(.estimate-guide-item--reverse)
+  .estimate-guide-images
+  .estimate-guide-image:only-child {
   grid-column: 2;
 }
 
-.estimate-guide-item.estimate-guide-item--reverse .estimate-guide-images .estimate-guide-image:only-child {
+.estimate-guide-item.estimate-guide-item--reverse
+  .estimate-guide-images
+  .estimate-guide-image:only-child {
   grid-column: 1;
 }
 
@@ -1145,6 +1219,23 @@
   border-radius: 8px;
   font-size: 12px;
   color: #64748b;
+}
+
+.estimate-sheet-full-page-image {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: #fff;
+  overflow: hidden;
+}
+
+.estimate-full-page-image {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  object-fit: contain;
+  object-position: top center;
+  user-select: none;
 }
 
 .estimate-sheet-intensity {
@@ -1411,9 +1502,15 @@
   }
 
   .estimate-sheet-intensity,
-  .estimate-sheet-policy {
+  .estimate-sheet-policy,
+  .estimate-sheet-full-page-image {
     height: 297mm;
     overflow: hidden;
+  }
+
+  .estimate-sheet-page4.estimate-sheet-full-page-image,
+  .estimate-sheet-page5.estimate-sheet-full-page-image {
+    padding: 0;
   }
 
   .estimate-sheet-page4.estimate-sheet-intensity {

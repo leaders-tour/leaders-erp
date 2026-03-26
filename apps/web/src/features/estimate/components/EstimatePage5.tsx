@@ -1,4 +1,5 @@
 import {
+  ESTIMATE_PAGE5_FULL_PAGE_IMAGE_SRC,
   ESTIMATE_PAGE5_HEADER_TAGLINE,
   ESTIMATE_PAGE5_HEADER_TITLE,
   ESTIMATE_PAGE5_NOTICES,
@@ -6,6 +7,22 @@ import {
 } from '../model/constants';
 
 export function EstimatePage5(): JSX.Element {
+  if (ESTIMATE_PAGE5_FULL_PAGE_IMAGE_SRC) {
+    return (
+      <section
+        className="estimate-sheet estimate-sheet-page5 estimate-sheet-full-page-image"
+        aria-label={ESTIMATE_PAGE5_HEADER_TITLE}
+      >
+        <img
+          className="estimate-full-page-image"
+          src={ESTIMATE_PAGE5_FULL_PAGE_IMAGE_SRC}
+          alt=""
+          draggable={false}
+        />
+      </section>
+    );
+  }
+
   return (
     <section className="estimate-sheet estimate-sheet-page5 estimate-sheet-policy">
       <header className="estimate-policy-header">

@@ -1,11 +1,28 @@
 import {
   ESTIMATE_PAGE4_BRAND,
   ESTIMATE_PAGE4_FOOTNOTE,
+  ESTIMATE_PAGE4_FULL_PAGE_IMAGE_SRC,
   ESTIMATE_PAGE4_LEVELS,
   ESTIMATE_PAGE4_TITLE,
 } from '../model/constants';
 
 export function EstimatePage4(): JSX.Element {
+  if (ESTIMATE_PAGE4_FULL_PAGE_IMAGE_SRC) {
+    return (
+      <section
+        className="estimate-sheet estimate-sheet-page4 estimate-sheet-full-page-image"
+        aria-label={ESTIMATE_PAGE4_TITLE}
+      >
+        <img
+          className="estimate-full-page-image"
+          src={ESTIMATE_PAGE4_FULL_PAGE_IMAGE_SRC}
+          alt=""
+          draggable={false}
+        />
+      </section>
+    );
+  }
+
   return (
     <section className="estimate-sheet estimate-sheet-page4 estimate-sheet-intensity">
       <header className="estimate-intensity-header">

@@ -72,6 +72,17 @@ export const ESTIMATE_PAGE4_LEVELS = [
 
 export const ESTIMATE_PAGE4_FOOTNOTE = '※ 이동강도 4-5는 가능하다면 1~2일 일정 추가를 권장드립니다.';
 
+/**
+ * A4 통페이지 이미지(`public` 기준 절대 경로, 예: `/estimate/page4-full.png`).
+ * null이면 위 `ESTIMATE_PAGE4_*` 텍스트·보드 레이아웃을 그대로 사용합니다.
+ */
+export const ESTIMATE_PAGE4_FULL_PAGE_IMAGE_SRC: string | null = '/estimate/page4.png';
+
+/**
+ * 5페이지 안내사항도 동일. null이면 표·유의사항 HTML 레이아웃 유지.
+ */
+export const ESTIMATE_PAGE5_FULL_PAGE_IMAGE_SRC: string | null = null;
+
 export const ESTIMATE_PAGE5_HEADER_TITLE = '리더스투어 안내사항';
 export const ESTIMATE_PAGE5_HEADER_TAGLINE = 'Walk New Paths, Write Your Own Story';
 
