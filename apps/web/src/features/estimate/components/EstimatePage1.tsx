@@ -374,27 +374,14 @@ function formatTravelPeriodCompact(startDate: string | null | undefined, endDate
 
 function EstimatePage1LogoMark(): JSX.Element {
   return (
-    <svg
+    <img
       className="estimate-page1-logo-mark"
-      viewBox="0 0 220 92"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <path
-        d="M18 50C18 28.5 38.7 12 61.8 12C71.4 12 80.2 14.7 87.7 19.2C95.9 11.8 108.2 7 122 7C138.1 7 152.1 13.5 159.5 23.2C164.4 20.7 170 19.3 176 19.3C194.2 19.3 209 31.2 209 45.8C209 60.5 194.2 72.3 176 72.3H61.4C37.5 72.3 18 62.5 18 50Z"
-        fill="white"
-      />
-      <path d="M58 60L81 34L98 47L118 23L150 47L168 38L183 52H58Z" fill="#25543B" />
-      <path d="M42 61L50 44L58 61H42Z" fill="#25543B" />
-      <rect x="48" y="61" width="3" height="9" fill="#25543B" />
-      <path d="M55 61L65 39L75 61H55Z" fill="#25543B" />
-      <rect x="63" y="61" width="3" height="10" fill="#25543B" />
-      <path
-        d="M182.6 18.4L186.8 24.4L194 21.7L188.9 28.1L193.6 34.6L186.2 32.1L181.3 38.3L181.8 30.5L174.3 27.8L182 25.5L182.6 18.4Z"
-        fill="#25543B"
-      />
-    </svg>
+      src="/estimate/page1-hero-logo.png"
+      alt="Leaders Tour"
+      width={220}
+      height={92}
+      decoding="async"
+    />
   );
 }
 

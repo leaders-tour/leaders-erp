@@ -381,8 +381,10 @@
 
 .estimate-page1-logo-mark {
   width: 168px;
+  max-width: 100%;
   height: auto;
   display: block;
+  object-fit: contain;
 }
 
 .estimate-page1-body-shell {
