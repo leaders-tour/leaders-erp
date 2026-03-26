@@ -995,7 +995,9 @@
 }
 
 .estimate-itinerary-table th {
-  background: #f8fafc;
+  background: var(--estimate-page2-header-bg, #6f8ca6);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 .estimate-itinerary-table td {

@@ -56,11 +56,30 @@ function getMovementIntensityChipColor(value: MovementIntensityValue | null | un
 }
 
 const DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR = '#111111';
+const DEFAULT_PAGE2_HEADER_BG_COLOR = '#6f8ca6';
+
+function getPage2HeaderBgColor(destinationName: string | null | undefined): string {
+  const normalized = destinationName?.replace(/\s+/g, '') ?? '';
+
+  const matches = [
+    { key: '자브항', color: '#6d8aa3' },
+    { key: '고비', color: '#9d7f62' },
+    { key: '홉스골', color: '#1c384f' },
+    { key: '중부', color: '#5d6e3e' },
+  ].filter((item) => normalized.includes(item.key));
+
+  if (matches.length !== 1) {
+    return DEFAULT_PAGE2_HEADER_BG_COLOR;
+  }
+
+  return matches[0]?.color ?? DEFAULT_PAGE2_HEADER_BG_COLOR;
+}
 
 export function EstimatePage2({ data }: EstimatePage2Props): JSX.Element {
   const rowCount = Math.max(data.planStops.length, 1);
   const tableStyle = {
     '--itinerary-row-count': String(rowCount),
+    '--estimate-page2-header-bg': getPage2HeaderBgColor(data.destinationName),
   } as CSSProperties;
   const overallIntensity = getMovementIntensityMeta(data.movementIntensity);
   const overallIntensityColor =
