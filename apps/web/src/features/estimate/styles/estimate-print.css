@@ -17,8 +17,6 @@
   --estimate-page1-padding: 12mm;
   --estimate-page2-padding: 14mm;
   --estimate-page3-padding: 14mm;
-  --estimate-page4-padding: 10mm 10mm 8mm;
-  --estimate-page5-padding: 0;
 }
 
 .estimate-preview-frame {
@@ -35,8 +33,6 @@
   --estimate-page1-padding: clamp(16px, 3.2vw, 32px);
   --estimate-page2-padding: clamp(16px, 3.2vw, 32px);
   --estimate-page3-padding: clamp(16px, 3.2vw, 32px);
-  --estimate-page4-padding: clamp(16px, 3vw, 30px) clamp(16px, 3vw, 30px) clamp(12px, 2.4vw, 24px);
-  --estimate-page5-padding: 0;
 }
 
 .estimate-document--preview .estimate-page-break {
@@ -53,8 +49,7 @@
 .estimate-document--preview .estimate-sheet-page1,
 .estimate-document--preview .estimate-sheet-page2,
 .estimate-document--preview .estimate-sheet-page3,
-.estimate-document--preview .estimate-sheet-page4,
-.estimate-document--preview .estimate-sheet-page5 {
+.estimate-document--preview .estimate-sheet-page-image {
   box-sizing: border-box;
   height: 100%;
 }
@@ -993,6 +988,27 @@
   width: 9%;
 }
 
+.estimate-itinerary-table-date-col,
+.estimate-itinerary-table td:nth-child(1) {
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+.estimate-itinerary-table-date-col {
+  white-space: nowrap;
+  line-height: 1.25;
+  letter-spacing: normal;
+}
+
+.estimate-itinerary-cell--date {
+  margin: 0 auto;
+  width: auto;
+  white-space: pre-line;
+  word-break: keep-all;
+  line-height: 1;
+  letter-spacing: 0.08em;
+}
+
 .estimate-itinerary-table th:nth-child(2),
 .estimate-itinerary-table td:nth-child(2) {
   width: 20%;
@@ -1238,187 +1254,6 @@
   user-select: none;
 }
 
-.estimate-sheet-intensity {
-  height: 297mm;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(233, 241, 251, 0.92) 0%,
-      rgba(255, 255, 255, 0.92) 62%,
-      rgba(234, 240, 250, 0.95) 100%
-    ),
-    radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.95), rgba(244, 248, 252, 0.7));
-  overflow: hidden;
-}
-
-.estimate-intensity-header {
-  margin-bottom: 8px;
-}
-
-.estimate-intensity-brand {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--estimate-ink-strong);
-}
-
-.estimate-intensity-title {
-  margin: 2px 0 0;
-  font-size: 58px;
-  line-height: 1;
-  font-weight: 900;
-  color: var(--estimate-ink-strong);
-  letter-spacing: -0.03em;
-}
-
-.estimate-intensity-board {
-  background: rgba(248, 250, 252, 0.84);
-  border: 1px solid #cbd5e1;
-  padding: 6px 10px;
-}
-
-.estimate-intensity-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
-  gap: 10px;
-  padding: 7px 4px;
-  border-bottom: 1px solid #94a3b8;
-}
-
-.estimate-intensity-row:last-child {
-  border-bottom: 0;
-}
-
-.estimate-intensity-main ul,
-.estimate-intensity-recommend ul {
-  margin: 6px 0 0;
-  padding-left: 16px;
-  font-size: 11px;
-  line-height: 1.3;
-}
-
-.estimate-intensity-main li,
-.estimate-intensity-recommend li {
-  margin: 2px 0;
-}
-
-.estimate-intensity-row-title {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.estimate-intensity-row-title h2 {
-  margin: 0;
-  font-size: 34px;
-  line-height: 1.05;
-  font-weight: 900;
-}
-
-.estimate-intensity-dot {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  flex-shrink: 0;
-}
-
-.estimate-intensity-summary {
-  margin: 6px 0 0;
-  font-size: 11px;
-}
-
-.estimate-intensity-recommend {
-  border-left: 1px solid #94a3b8;
-  padding-left: 10px;
-}
-
-.estimate-intensity-recommend h3 {
-  margin: 0;
-  font-size: 20px;
-  line-height: 1.1;
-  font-weight: 900;
-  color: var(--estimate-ink-strong);
-}
-
-.estimate-intensity-footnote {
-  margin: 7px 0 0;
-  text-align: center;
-  font-size: 17px;
-  font-weight: 700;
-  background: #fff9db;
-  border: 1px solid #f59f00;
-  padding: 3px 6px;
-}
-
-.estimate-sheet-policy {
-  height: 297mm;
-  overflow: hidden;
-  background: #ffffff;
-  color: var(--estimate-ink);
-}
-
-.estimate-policy-header {
-  background: #dfdbcf;
-  padding: 12mm 10mm 8mm;
-  border-bottom: 1px solid #9ca3af;
-}
-
-.estimate-policy-tagline {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.estimate-policy-title {
-  margin: 2px 0 8px;
-  font-size: 54px;
-  line-height: 1;
-  font-weight: 800;
-}
-
-.estimate-policy-company {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px 16px;
-  font-size: 11px;
-}
-
-.estimate-policy-company div:nth-child(2n) {
-  text-align: right;
-}
-
-.estimate-policy-table {
-  width: calc(100% - 16mm);
-  margin: 8mm auto 0;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-.estimate-policy-table th,
-.estimate-policy-table td {
-  border: 1px solid #9ca3af;
-  padding: 6px 8px;
-  vertical-align: top;
-}
-
-.estimate-policy-table th {
-  width: 22%;
-  text-align: center;
-  background: #f3f4f6;
-  font-size: 15px;
-  font-weight: 700;
-  vertical-align: middle;
-}
-
-.estimate-policy-table td {
-  font-size: 10.5px;
-  line-height: 1.33;
-}
-
-.estimate-policy-table td p {
-  margin: 1px 0;
-}
-
 @page {
   size: A4;
   margin: 0;
@@ -1483,14 +1318,6 @@
     padding: var(--estimate-page3-padding);
   }
 
-  .estimate-sheet-page4 {
-    padding: var(--estimate-page4-padding);
-  }
-
-  .estimate-sheet-page5 {
-    padding: var(--estimate-page5-padding);
-  }
-
   .estimate-sheet-itinerary {
     height: 297mm;
     overflow: hidden;
@@ -1501,27 +1328,9 @@
     overflow: hidden;
   }
 
-  .estimate-sheet-intensity,
-  .estimate-sheet-policy,
   .estimate-sheet-full-page-image {
     height: 297mm;
     overflow: hidden;
-  }
-
-  .estimate-sheet-page4.estimate-sheet-full-page-image,
-  .estimate-sheet-page5.estimate-sheet-full-page-image {
-    padding: 0;
-  }
-
-  .estimate-sheet-page4.estimate-sheet-intensity {
-    background:
-      linear-gradient(
-        180deg,
-        rgba(233, 241, 251, 0.92) 0%,
-        rgba(255, 255, 255, 0.92) 62%,
-        rgba(234, 240, 250, 0.95) 100%
-      ),
-      radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.95), rgba(244, 248, 252, 0.7));
   }
 
   .estimate-page-break {
