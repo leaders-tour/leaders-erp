@@ -397,21 +397,17 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
     variables: { includeInactive: false },
   });
   const { data: locationData } = useQuery<{ locations: LocationOption[] }>(LOCATIONS_QUERY, {
-    variables: { regionSetId: regionSetId || undefined },
     skip: !regionSetId,
   });
   const { data: segmentData } = useQuery<{ segments: SegmentOption[] }>(SEGMENTS_QUERY, {
-    variables: { regionSetId: regionSetId || undefined },
     skip: !regionSetId,
   });
   const { data: overnightStayData } = useQuery<{ multiDayBlocks: MultiDayBlockOption[] }>(OVERNIGHT_STAYS_QUERY, {
-    variables: { regionSetId: regionSetId || undefined },
     skip: !regionSetId,
   });
   const { data: overnightStayConnectionData } = useQuery<{ multiDayBlockConnections: MultiDayBlockConnectionOption[] }>(
     OVERNIGHT_STAY_CONNECTIONS_QUERY,
     {
-      variables: { regionSetId: regionSetId || undefined },
       skip: !regionSetId,
     },
   );
@@ -424,6 +420,17 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
   const segments = segmentData?.segments ?? [];
   const overnightStays = overnightStayData?.multiDayBlocks ?? [];
   const overnightStayConnections = overnightStayConnectionData?.multiDayBlockConnections ?? [];
+  const selectedRegionIds = useMemo(
+    () =>
+      new Set(
+        (regionSets.find((set) => set.id === regionSetId)?.items ?? []).map((item) => item.regionId),
+      ),
+    [regionSetId, regionSets],
+  );
+  const firstDayScopedLocations = useMemo(
+    () => locations.filter((location) => selectedRegionIds.has(location.regionId)),
+    [locations, selectedRegionIds],
+  );
 
   const filteredLocations = locations;
   const filteredSegments = segments;
@@ -440,7 +447,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
       ),
     [filteredLocations],
   );
-  const firstDayOptions = useMemo(() => buildFirstDayOptions(filteredLocations), [filteredLocations]);
+  const firstDayOptions = useMemo(() => buildFirstDayOptions(firstDayScopedLocations), [firstDayScopedLocations]);
 
   const nextOptions = useMemo(
     () =>

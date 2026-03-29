@@ -1770,24 +1770,20 @@ export function ItineraryBuilderPage(): JSX.Element {
     variables: { includeInactive: true },
   });
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY, {
-    variables: { regionSetId: regionSetId || undefined },
     skip: !regionSetId,
   });
   const { data: segmentData } = useQuery<{ segments: SegmentRow[] }>(SEGMENTS_QUERY, {
-    variables: { regionSetId: regionSetId || undefined },
     skip: !regionSetId,
   });
   const { data: overnightStayData } = useQuery<{ multiDayBlocks: MultiDayBlockOption[] }>(
     OVERNIGHT_STAYS_QUERY,
     {
-      variables: { regionSetId: regionSetId || undefined },
       skip: !regionSetId,
     },
   );
   const { data: overnightStayConnectionData } = useQuery<{
     multiDayBlockConnections: MultiDayBlockConnectionOption[];
   }>(OVERNIGHT_STAY_CONNECTIONS_QUERY, {
-    variables: { regionSetId: regionSetId || undefined },
     skip: !regionSetId,
   });
   const { data: templateListData } = useQuery<{ planTemplates: PlanTemplateRow[] }>(
@@ -1832,6 +1828,17 @@ export function ItineraryBuilderPage(): JSX.Element {
   const regionLodgings = regionLodgingData?.regionLodgings ?? [];
   const activeTemplateRows = templateListData?.planTemplates ?? [];
   const templateById = templateByIdData?.planTemplate ?? null;
+  const selectedRegionIds = useMemo(
+    () =>
+      new Set(
+        (regionSets.find((set) => set.id === regionSetId)?.items ?? []).map((item) => item.regionId),
+      ),
+    [regionSetId, regionSets],
+  );
+  const firstDayScopedLocations = useMemo(
+    () => locations.filter((location) => selectedRegionIds.has(location.regionId)),
+    [locations, selectedRegionIds],
+  );
 
   const templateOptions = useMemo(() => {
     const deduped = new Map<string, PlanTemplateRow>();
@@ -2064,8 +2071,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
 
   const firstDayOptions = useMemo(
-    () => buildFirstDayOptions(filteredLocations),
-    [filteredLocations],
+    () => buildFirstDayOptions(firstDayScopedLocations),
+    [firstDayScopedLocations],
   );
 
   const nextRouteDayIndex = 2 + getConsumedRouteDayCount(selectedRoute);
