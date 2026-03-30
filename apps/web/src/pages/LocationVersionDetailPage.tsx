@@ -70,7 +70,7 @@ export function LocationVersionDetailPage(): JSX.Element {
               to={`/locations/${locationId}/versions/${version.id}/edit`}
               className="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-sm text-white"
             >
-              기본 버전 수정
+              수정
             </Link>
           )}
         </div>

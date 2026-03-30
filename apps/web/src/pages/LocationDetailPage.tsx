@@ -117,7 +117,7 @@ export function LocationDetailPage(): JSX.Element {
               to={`/locations/${location.id}/versions/${location.defaultVersionId}/edit`}
               className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
-              기본 버전 수정
+              수정
             </Link>
           ) : null}
         </div>

@@ -191,7 +191,7 @@ export function LocationVersionEditPage(): JSX.Element {
             }
 
             await crud.updateProfile(locationId, next);
-            navigate(`/locations/${locationId}/versions/${version.id}`);
+            navigate(`/locations/${locationId}`);
           } finally {
             setSubmitting(false);
           }
