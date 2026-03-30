@@ -4,6 +4,9 @@ const config: Config = {
   content: ['./index.html', './src/**/*.{ts,tsx}', '../../packages/ui/src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      maxWidth: {
+        '8xl': '96rem',
+      },
       colors: {
         primary: {
           50: '#eff6ff',

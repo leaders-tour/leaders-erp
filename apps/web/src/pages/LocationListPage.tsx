@@ -7,8 +7,22 @@ import { useLocationCrud } from '../features/location/hooks';
 import { mealsEarlyDiffersFromRegular, mealsFromVersionMealSets } from '../features/location/location-version-meals';
 import { LocationSubNav } from '../features/location/sub-nav';
 
-function buildFirstDayScheduleLines(row: ReturnType<typeof useLocationCrud>['rows'][number]): Array<{ time: string; activity: string }> {
-  const blocks = [...(row.defaultVersion?.firstDayTimeBlocks ?? [])].sort((left, right) => left.orderIndex - right.orderIndex);
+type LocationListRow = ReturnType<typeof useLocationCrud>['rows'][number];
+
+function buildFirstDayScheduleLinesFromBlocks(
+  timeBlocks:
+    | Array<{
+        startTime: string;
+        orderIndex: number;
+        activities: Array<{ description: string; orderIndex: number }>;
+      }>
+    | undefined,
+): Array<{ time: string; activity: string }> {
+  if (!timeBlocks || timeBlocks.length === 0) {
+    return [];
+  }
+
+  const blocks = [...timeBlocks].sort((left, right) => left.orderIndex - right.orderIndex);
 
   return blocks.flatMap((block) => {
     const activities = [...block.activities]
@@ -27,6 +41,14 @@ function buildFirstDayScheduleLines(row: ReturnType<typeof useLocationCrud>['row
   });
 }
 
+function buildFirstDayScheduleLines(row: LocationListRow): Array<{ time: string; activity: string }> {
+  return buildFirstDayScheduleLinesFromBlocks(row.defaultVersion?.firstDayTimeBlocks);
+}
+
+function buildFirstDayEarlyScheduleLines(row: LocationListRow): Array<{ time: string; activity: string }> {
+  return buildFirstDayScheduleLinesFromBlocks(row.defaultVersion?.firstDayEarlyTimeBlocks);
+}
+
 export function LocationListPage(): JSX.Element {
   const crud = useLocationCrud();
   const location = useLocation();
@@ -35,6 +57,7 @@ export function LocationListPage(): JSX.Element {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [rowDeleteError, setRowDeleteError] = useState<{ rowId: string; message: string } | null>(null);
+  const [scheduleDetailRowId, setScheduleDetailRowId] = useState<string | null>(null);
 
   const regions = useMemo(() => {
     return Array.from(new Set(crud.rows.map((row) => row.regionName))).sort((a, b) => a.localeCompare(b, 'ko'));
@@ -48,6 +71,8 @@ export function LocationListPage(): JSX.Element {
     }
     return byRegion.filter((row) => includesLocationNameKeyword(row.name, keyword));
   }, [crud.rows, searchKeyword, selectedRegion]);
+
+  const scheduleDetailRow = scheduleDetailRowId ? crud.rows.find((row) => row.id === scheduleDetailRowId) : null;
 
   return (
     <section className="grid gap-6">
@@ -134,18 +159,32 @@ export function LocationListPage(): JSX.Element {
                     </div>
                   </Td>
                   <Td>
-                    {firstDayScheduleLines.length > 0 ? (
-                      <div className="grid gap-1 text-sm">
-                        {firstDayScheduleLines.map((line, index) => (
-                          <div key={`${row.id}-first-day-${index}`} className="grid grid-cols-[56px_minmax(0,1fr)] gap-2">
-                            <span className="font-medium text-slate-700">{line.time}</span>
-                            <span className="whitespace-pre-wrap text-slate-600">{line.activity}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-sm text-slate-400">-</div>
-                    )}
+                    <div className="grid gap-2">
+                      {firstDayScheduleLines.length > 0 ? (
+                        <div className="grid gap-1 text-sm">
+                          {firstDayScheduleLines.map((line, index) => (
+                            <div key={`${row.id}-first-day-${index}`} className="grid grid-cols-[56px_minmax(0,1fr)] gap-2">
+                              <span className="font-medium text-slate-700">{line.time}</span>
+                              <span className="whitespace-pre-wrap text-slate-600">{line.activity}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-slate-400">-</div>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-fit text-xs"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setScheduleDetailRowId(row.id);
+                        }}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      >
+                        일정 보기
+                      </Button>
+                    </div>
                   </Td>
                   <Td>
                     <div className="grid gap-1 text-sm">
@@ -244,6 +283,67 @@ export function LocationListPage(): JSX.Element {
           </tbody>
         </Table>
       </Card>
+
+      {scheduleDetailRow ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setScheduleDetailRowId(null);
+            }
+          }}
+        >
+          <Card className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+              <h2 className="text-lg font-semibold text-slate-900">
+                <span className="whitespace-pre-line">{formatLocationNameMultiline(scheduleDetailRow.name)}</span> · 첫날 일정
+              </h2>
+              <Button type="button" variant="outline" onClick={() => setScheduleDetailRowId(null)}>
+                닫기
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              {!scheduleDetailRow.isFirstDayEligible ? (
+                <p className="text-sm text-slate-600">첫날 가능 목적지가 아니므로 1일차 일정이 없습니다.</p>
+              ) : (
+                <div className="grid gap-6">
+                  <div>
+                    <h3 className="mb-3 text-base font-semibold text-slate-900">1일차 기본 일정</h3>
+                    {buildFirstDayScheduleLines(scheduleDetailRow).length === 0 ? (
+                      <div className="text-sm text-slate-500">등록된 시간 / 일정 정보가 없습니다.</div>
+                    ) : (
+                      <div className="grid gap-2 text-sm">
+                        {buildFirstDayScheduleLines(scheduleDetailRow).map((item, index) => (
+                          <div key={`modal-default-${index}`} className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 leading-6">
+                            <div>{item.time}</div>
+                            <div className="whitespace-pre-wrap">{item.activity}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="mb-3 text-base font-semibold text-slate-900">1일차 얼리 일정</h3>
+                    {buildFirstDayEarlyScheduleLines(scheduleDetailRow).length === 0 ? (
+                      <div className="text-sm text-slate-500">등록된 시간 / 일정 정보가 없습니다.</div>
+                    ) : (
+                      <div className="grid gap-2 text-sm">
+                        {buildFirstDayEarlyScheduleLines(scheduleDetailRow).map((item, index) => (
+                          <div key={`modal-early-${index}`} className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 leading-6">
+                            <div>{item.time}</div>
+                            <div className="whitespace-pre-wrap">{item.activity}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </section>
   );
 }

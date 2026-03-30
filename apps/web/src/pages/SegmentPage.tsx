@@ -1371,8 +1371,44 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
       ) : null}
 
       {showListSection && editingSegmentId ? (
-        <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold tracking-tight">연결 수정</h2>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setEditingSegmentId(null);
+              setEditForm(createEmptyForm());
+              setEditFromSearch('');
+              setEditToSearch('');
+              setEditFromOpen(false);
+              setEditToOpen(false);
+              setErrorMessage(null);
+            }
+          }}
+        >
+          <Card
+            className="flex max-h-[90vh] w-full max-w-8xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+              <h2 className="text-lg font-semibold text-slate-900">연결 수정</h2>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditingSegmentId(null);
+                  setEditForm(createEmptyForm());
+                  setEditFromSearch('');
+                  setEditToSearch('');
+                  setEditFromOpen(false);
+                  setEditToOpen(false);
+                  setErrorMessage(null);
+                }}
+              >
+                닫기
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
           <form
             className="grid gap-4"
             onSubmit={async (event) => {
@@ -1434,7 +1470,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                       placeholder="출발지 검색 또는 선택"
                     />
                     {editFromOpen ? (
-                      <div className="absolute left-0 right-0 top-[76px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                      <div className="absolute left-0 right-0 top-[76px] z-[100] max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
                         {filteredFromLocations.length === 0 ? (
                           <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
                         ) : (
@@ -1471,7 +1507,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                       placeholder="도착지 검색 또는 선택"
                     />
                     {editToOpen ? (
-                      <div className="absolute left-0 right-0 top-[76px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                      <div className="absolute left-0 right-0 top-[76px] z-[100] max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
                         {filteredToLocations.length === 0 ? (
                           <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
                         ) : (
@@ -1569,6 +1605,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                       setEditToSearch('');
                       setEditFromOpen(false);
                       setEditToOpen(false);
+                      setErrorMessage(null);
                     }}
                   >
                     취소
@@ -1638,7 +1675,9 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
               </div>
             </div>
           </form>
-        </Card>
+            </div>
+          </Card>
+        </div>
       ) : null}
     </section>
   );

@@ -218,7 +218,7 @@ export function AppLayout(): JSX.Element {
   const pageShellClassName = isFullBleedPage
     ? 'max-w-none px-0 py-0'
     : isWideConnectionListPage
-      ? 'max-w-8xl'
+      ? 'max-w-none'
       : isWideLocationProfilePage || isWideMultiDayBlockCreatePage
         ? 'max-w-[1800px]'
         : undefined;

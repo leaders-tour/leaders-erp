@@ -2,9 +2,13 @@ import { Button, Card } from '@tour/ui';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useState } from 'react';
 import { LocationSubNav } from '../features/location/sub-nav';
-import { formatLocationNameInline, formatLocationNameMultiline } from '../features/location/display';
+import {
+  formatLocationNameInline,
+  formatLocationNameMultiline,
+} from '../features/location/display';
 import { useLocationGuideCrud } from '../features/location-guide/hooks';
-import { useLocationCrud, useLocationDetail } from '../features/location/hooks';
+import { LocationVersionEditPanel } from '../features/location/location-version-edit-panel';
+import { useLocationDetail } from '../features/location/hooks';
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -50,10 +54,10 @@ function buildScheduleLines(
 export function LocationDetailPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
   const locationPath = useLocation();
-  const crud = useLocationCrud();
   const { location, segments, loading, refetch } = useLocationDetail(id);
   const guideCrud = useLocationGuideCrud();
   const [selectedGuideId, setSelectedGuideId] = useState('');
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   if (loading) {
     return <section className="py-8 text-sm text-slate-600">불러오는 중...</section>;
@@ -65,7 +69,10 @@ export function LocationDetailPage(): JSX.Element {
         <h1 className="text-xl font-semibold text-slate-900">목적지를 찾을 수 없습니다.</h1>
         <p className="text-sm text-slate-600">요청한 ID에 해당하는 목적지가 존재하지 않습니다.</p>
         <div>
-          <Link to="/locations/list" className="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-sm text-white">
+          <Link
+            to="/locations/list"
+            className="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-sm text-white"
+          >
             목록으로 이동
           </Link>
         </div>
@@ -96,7 +103,9 @@ export function LocationDetailPage(): JSX.Element {
     .slice(0, 5);
 
   const availableGuides = guideCrud.rows.filter((guide) => !guide.locationId);
-  const firstDayScheduleLines = location.isFirstDayEligible ? buildScheduleLines(location.defaultVersion?.firstDayTimeBlocks) : [];
+  const firstDayScheduleLines = location.isFirstDayEligible
+    ? buildScheduleLines(location.defaultVersion?.firstDayTimeBlocks)
+    : [];
   const firstDayEarlyScheduleLines = location.isFirstDayEligible
     ? buildScheduleLines(location.defaultVersion?.firstDayEarlyTimeBlocks)
     : [];
@@ -108,17 +117,16 @@ export function LocationDetailPage(): JSX.Element {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-              <span className="whitespace-pre-line">{formatLocationNameMultiline(location.name)}</span>
+              <span className="whitespace-pre-line">
+                {formatLocationNameMultiline(location.name)}
+              </span>
             </h1>
             <p className="mt-1 text-sm text-slate-600">목적지 상세 정보</p>
           </div>
           {location.defaultVersionId ? (
-            <Link
-              to={`/locations/${location.id}/versions/${location.defaultVersionId}/edit`}
-              className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
+            <Button type="button" variant="primary" onClick={() => setEditModalOpen(true)}>
               수정
-            </Link>
+            </Button>
           ) : null}
         </div>
       </header>
@@ -214,7 +222,10 @@ export function LocationDetailPage(): JSX.Element {
             ) : (
               <div className="grid gap-2 text-sm">
                 {firstDayScheduleLines.map((item, index) => (
-                  <div key={`default-${index}`} className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 leading-6">
+                  <div
+                    key={`default-${index}`}
+                    className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 leading-6"
+                  >
                     <div>{item.time}</div>
                     <div>{item.activity}</div>
                   </div>
@@ -229,7 +240,10 @@ export function LocationDetailPage(): JSX.Element {
             ) : (
               <div className="grid gap-2 text-sm">
                 {firstDayEarlyScheduleLines.map((item, index) => (
-                  <div key={`early-${index}`} className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 leading-6">
+                  <div
+                    key={`early-${index}`}
+                    className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 leading-6"
+                  >
                     <div>{item.time}</div>
                     <div>{item.activity}</div>
                   </div>
@@ -241,7 +255,9 @@ export function LocationDetailPage(): JSX.Element {
       ) : (
         <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
           <h2 className="mb-3 text-lg font-semibold">1일차 일정</h2>
-          <div className="text-sm text-slate-500">첫날 가능 목적지가 아니므로 시간 / 일정 정보가 없습니다.</div>
+          <div className="text-sm text-slate-500">
+            첫날 가능 목적지가 아니므로 시간 / 일정 정보가 없습니다.
+          </div>
         </Card>
       )}
 
@@ -259,11 +275,19 @@ export function LocationDetailPage(): JSX.Element {
               <div className="text-sm text-slate-500">출발 연결 정보 없음</div>
             ) : (
               fromSegments.map((item) => (
-                <div key={item.segmentId} className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-sm">
-                  <Link to={`/locations/${item.targetLocationId}`} className="text-slate-800 hover:underline">
+                <div
+                  key={item.segmentId}
+                  className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <Link
+                    to={`/locations/${item.targetLocationId}`}
+                    className="text-slate-800 hover:underline"
+                  >
                     {item.targetLocationName}
                   </Link>
-                  <div className="text-slate-600">{item.distanceKm}km / {item.travelHours}h</div>
+                  <div className="text-slate-600">
+                    {item.distanceKm}km / {item.travelHours}h
+                  </div>
                 </div>
               ))
             )}
@@ -275,17 +299,57 @@ export function LocationDetailPage(): JSX.Element {
               <div className="text-sm text-slate-500">도착 연결 정보 없음</div>
             ) : (
               toSegments.map((item) => (
-                <div key={item.segmentId} className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-sm">
-                  <Link to={`/locations/${item.targetLocationId}`} className="text-slate-800 hover:underline">
+                <div
+                  key={item.segmentId}
+                  className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <Link
+                    to={`/locations/${item.targetLocationId}`}
+                    className="text-slate-800 hover:underline"
+                  >
                     {item.targetLocationName}
                   </Link>
-                  <div className="text-slate-600">{item.distanceKm}km / {item.travelHours}h</div>
+                  <div className="text-slate-600">
+                    {item.distanceKm}km / {item.travelHours}h
+                  </div>
                 </div>
               ))
             )}
           </div>
         </div>
       </Card>
+
+      {editModalOpen && location.defaultVersionId ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setEditModalOpen(false);
+            }
+          }}
+        >
+          <Card className="flex max-h-[90vh] w-full max-w-8xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+              <h2 className="text-lg font-semibold text-slate-900">목적지 수정</h2>
+              <Button type="button" variant="outline" onClick={() => setEditModalOpen(false)}>
+                닫기
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <LocationVersionEditPanel
+                locationId={location.id}
+                versionId={location.defaultVersionId}
+                isCreateMode={false}
+                onProfileSaved={() => {
+                  void refetch();
+                  setEditModalOpen(false);
+                }}
+              />
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -1,14 +1,25 @@
 import { Button, Card } from '@tour/ui';
+import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { formatLocationNameInline, formatLocationNameMultiline, toFacilityLabel, toMealLabel } from '../features/location/display';
+import {
+  formatLocationNameInline,
+  formatLocationNameMultiline,
+  toFacilityLabel,
+  toMealLabel,
+} from '../features/location/display';
+import { LocationVersionEditPanel } from '../features/location/location-version-edit-panel';
 import { useLocationCrud, useLocationVersionDetail } from '../features/location/hooks';
-import { mealsEarlyDiffersFromRegular, mealsFromVersionMealSets } from '../features/location/location-version-meals';
+import {
+  mealsEarlyDiffersFromRegular,
+  mealsFromVersionMealSets,
+} from '../features/location/location-version-meals';
 
 export function LocationVersionDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { locationId, versionId } = useParams<{ locationId: string; versionId: string }>();
   const { version, loading, refetch } = useLocationVersionDetail(versionId);
   const crud = useLocationCrud();
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   if (loading) {
     return <section className="py-8 text-sm text-slate-600">불러오는 중...</section>;
@@ -33,10 +44,14 @@ export function LocationVersionDetailPage(): JSX.Element {
       <header className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            <span className="whitespace-pre-line">{formatLocationNameMultiline(version.locationNameSnapshot)}</span> · {versionDisplay}
+            <span className="whitespace-pre-line">
+              {formatLocationNameMultiline(version.locationNameSnapshot)}
+            </span>{' '}
+            · {versionDisplay}
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            {isDefault ? '기본 버전' : '선택 버전'} {version.changeNote ? `· ${version.changeNote}` : ''}
+            {isDefault ? '기본 버전' : '선택 버전'}{' '}
+            {version.changeNote ? `· ${version.changeNote}` : ''}
           </p>
         </div>
         <div className="flex gap-2">
@@ -66,12 +81,9 @@ export function LocationVersionDetailPage(): JSX.Element {
               기본 버전으로 지정
             </Button>
           ) : (
-            <Link
-              to={`/locations/${locationId}/versions/${version.id}/edit`}
-              className="inline-flex items-center rounded-xl bg-slate-900 px-4 py-2 text-sm text-white"
-            >
+            <Button type="button" variant="default" onClick={() => setEditModalOpen(true)}>
               수정
-            </Link>
+            </Button>
           )}
         </div>
       </header>
@@ -98,7 +110,10 @@ export function LocationVersionDetailPage(): JSX.Element {
               {version.firstDayTimeBlocks.map((timeBlock) => (
                 <div key={timeBlock.id} className="grid gap-1">
                   {timeBlock.activities.map((activity, index) => (
-                    <div key={activity.id} className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 leading-6">
+                    <div
+                      key={activity.id}
+                      className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 leading-6"
+                    >
                       <div>{index === 0 ? timeBlock.startTime : '-'}</div>
                       <div>{activity.description}</div>
                     </div>
@@ -113,7 +128,10 @@ export function LocationVersionDetailPage(): JSX.Element {
               {version.firstDayEarlyTimeBlocks.map((timeBlock) => (
                 <div key={timeBlock.id} className="grid gap-1">
                   {timeBlock.activities.map((activity, index) => (
-                    <div key={activity.id} className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 leading-6">
+                    <div
+                      key={activity.id}
+                      className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 leading-6"
+                    >
                       <div>{index === 0 ? timeBlock.startTime : '-'}</div>
                       <div>{activity.description}</div>
                     </div>
@@ -126,7 +144,9 @@ export function LocationVersionDetailPage(): JSX.Element {
       ) : (
         <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
           <h2 className="mb-3 text-lg font-semibold">1일차 일정</h2>
-          <div className="text-sm text-slate-500">첫날 가능 목적지가 아니므로 목적지 전용 일정이 없습니다.</div>
+          <div className="text-sm text-slate-500">
+            첫날 가능 목적지가 아니므로 목적지 전용 일정이 없습니다.
+          </div>
         </Card>
       )}
 
@@ -145,7 +165,8 @@ export function LocationVersionDetailPage(): JSX.Element {
           {(() => {
             const { meals, mealsEarly } = mealsFromVersionMealSets(version.mealSets);
             const earlyDiffers =
-              version.location.isFirstDayEligible && mealsEarlyDiffersFromRegular(meals, mealsEarly);
+              version.location.isFirstDayEligible &&
+              mealsEarlyDiffersFromRegular(meals, mealsEarly);
             return version.location.isFirstDayEligible ? (
               <div className="grid gap-3 text-sm">
                 <div>
@@ -178,6 +199,37 @@ export function LocationVersionDetailPage(): JSX.Element {
         </Card>
       </div>
 
+      {editModalOpen && isDefault ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setEditModalOpen(false);
+            }
+          }}
+        >
+          <Card className="flex max-h-[90vh] w-full max-w-8xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+              <h2 className="text-lg font-semibold text-slate-900">목적지 수정</h2>
+              <Button type="button" variant="outline" onClick={() => setEditModalOpen(false)}>
+                닫기
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <LocationVersionEditPanel
+                locationId={locationId}
+                versionId={version.id}
+                isCreateMode={false}
+                onProfileSaved={() => {
+                  void refetch();
+                  setEditModalOpen(false);
+                }}
+              />
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </section>
   );
 }
