@@ -233,7 +233,7 @@ export function LocationListPage(): JSX.Element {
                   </tr>
                   {deleteErrorForRow ? (
                     <tr className="bg-rose-50/80">
-                      <Td colSpan={7} className="border-b border-rose-100 py-2.5 text-sm text-rose-700">
+                      <Td colSpan={7} className="border-b border-rose-100 py-2.5 text-sm whitespace-pre-line text-rose-700">
                         {deleteErrorForRow}
                       </Td>
                     </tr>

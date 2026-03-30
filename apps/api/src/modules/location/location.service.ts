@@ -757,11 +757,15 @@ export class LocationService {
 
     const blockingEntries = this.getDeleteBlockingEntries(summary);
     if (blockingEntries.length > 0) {
+      const bulletLines = blockingEntries.map((entry) => `- ${entry.label} ${entry.count}건`);
+      const message = [
+        '다른 데이터에서 사용 중인 목적지는 삭제할 수 없습니다.',
+        ...bulletLines,
+        '를 먼저 정리해주세요.',
+      ].join('\n');
       throw new DomainError(
         'VALIDATION_FAILED',
-        `다른 데이터에서 사용 중인 목적지는 삭제할 수 없습니다. ${blockingEntries
-          .map((entry) => `${entry.label} ${entry.count}건`)
-          .join(', ')}을(를) 먼저 정리해주세요.`,
+        message,
         Object.fromEntries(blockingEntries.map((entry) => [entry.label, String(entry.count)])),
       );
     }
