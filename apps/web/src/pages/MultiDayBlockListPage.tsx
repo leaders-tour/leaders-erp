@@ -1,7 +1,9 @@
 import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { formatLocationNameInline } from '../features/location/display';
+import { MultiDayBlockEditPanel } from '../features/multi-day-block/multi-day-block-edit-panel';
 import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
 
 const MULTI_DAY_BLOCKS_QUERY = gql`
@@ -80,7 +82,8 @@ function buildScheduleLines(
 
 export function MultiDayBlockListPage(): JSX.Element {
   const navigate = useNavigate();
-  const { data, loading } = useQuery<{ multiDayBlocks: MultiDayBlockRow[] }>(
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const { data, loading, refetch } = useQuery<{ multiDayBlocks: MultiDayBlockRow[] }>(
     MULTI_DAY_BLOCKS_QUERY,
   );
   const rows = data?.multiDayBlocks ?? [];
@@ -209,7 +212,7 @@ export function MultiDayBlockListPage(): JSX.Element {
                             variant="outline"
                             onClick={(event) => {
                               event.stopPropagation();
-                              navigate(`/multi-day-blocks/${row.id}/edit`);
+                              setEditingBlockId(row.id);
                             }}
                           >
                             수정
@@ -224,6 +227,44 @@ export function MultiDayBlockListPage(): JSX.Element {
           </div>
         )}
       </Card>
+
+      {editingBlockId ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setEditingBlockId(null);
+            }
+          }}
+        >
+          <Card
+            className="flex max-h-[90vh] w-full max-w-8xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+              <h2 className="text-lg font-semibold text-slate-900">연속 일정 블록 수정</h2>
+              <Button type="button" variant="outline" onClick={() => setEditingBlockId(null)}>
+                닫기
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <MultiDayBlockEditPanel
+                blockId={editingBlockId}
+                onSaved={() => {
+                  void refetch();
+                  setEditingBlockId(null);
+                }}
+                onDeleted={() => {
+                  void refetch();
+                  setEditingBlockId(null);
+                }}
+                onClose={() => setEditingBlockId(null)}
+              />
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -1,11 +1,13 @@
 import { gql, useQuery } from '@apollo/client';
 import { Button, Card } from '@tour/ui';
+import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   calculateMovementIntensityByHours,
   getMovementIntensityMeta,
 } from '../features/estimate/model/movement-intensity';
 import { formatLocationNameInline } from '../features/location/display';
+import { MultiDayBlockEditPanel } from '../features/multi-day-block/multi-day-block-edit-panel';
 import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
 
 interface LocationRow {
@@ -103,10 +105,11 @@ export function MultiDayBlockDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { stayId } = useParams<{ stayId: string }>();
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
-  const { data, loading } = useQuery<{ multiDayBlock: MultiDayBlockRow | null }>(MULTI_DAY_BLOCK_QUERY, {
+  const { data, loading, refetch } = useQuery<{ multiDayBlock: MultiDayBlockRow | null }>(MULTI_DAY_BLOCK_QUERY, {
     variables: { id: stayId },
     skip: !stayId,
   });
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   const locations = locationData?.locations ?? [];
   const locationById = new Map(locations.map((location) => [location.id, location]));
@@ -151,12 +154,9 @@ export function MultiDayBlockDetailPage(): JSX.Element {
             <Button variant="outline" onClick={() => navigate('/multi-day-blocks/list')}>
               목록으로
             </Button>
-            <Link
-              to={`/multi-day-blocks/${stayId}/edit`}
-              className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
+            <Button type="button" variant="primary" onClick={() => setEditModalOpen(true)}>
               수정
-            </Link>
+            </Button>
           </div>
         </div>
       </header>
@@ -255,6 +255,43 @@ export function MultiDayBlockDetailPage(): JSX.Element {
           );
         })}
       </div>
+
+      {editModalOpen && stayId ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setEditModalOpen(false);
+            }
+          }}
+        >
+          <Card
+            className="flex max-h-[90vh] w-full max-w-8xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+              <h2 className="text-lg font-semibold text-slate-900">연속 일정 블록 수정</h2>
+              <Button type="button" variant="outline" onClick={() => setEditModalOpen(false)}>
+                닫기
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <MultiDayBlockEditPanel
+                blockId={stayId}
+                onSaved={() => {
+                  void refetch();
+                  setEditModalOpen(false);
+                }}
+                onDeleted={() => {
+                  navigate('/multi-day-blocks/list');
+                }}
+                onClose={() => setEditModalOpen(false)}
+              />
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </section>
   );
 }
