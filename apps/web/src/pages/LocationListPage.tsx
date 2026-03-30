@@ -93,6 +93,7 @@ export function LocationListPage(): JSX.Element {
         <Table>
           <thead>
             <tr>
+              <Th>지역</Th>
               <Th>목적지</Th>
               <Th>조건</Th>
               <Th>첫날 일정</Th>
@@ -119,6 +120,9 @@ export function LocationListPage(): JSX.Element {
                     }
                   }}
                 >
+                  <Td>
+                    <span className="text-sm text-slate-700">{row.regionName?.trim() ? row.regionName : '-'}</span>
+                  </Td>
                   <Td>
                     <div className="whitespace-pre-line">{formatLocationNameMultiline(row.name)}</div>
                   </Td>
