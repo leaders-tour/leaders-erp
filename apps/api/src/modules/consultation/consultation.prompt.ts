@@ -24,7 +24,7 @@ const JSON_SCHEMA = `
     "inbound": { "date": "YYYY-MM-DD" | null, "time": "HH:mm" | null } | null,
     "outbound": { "date": "YYYY-MM-DD" | null, "time": "HH:mm" | null } | null
   },
-  "movementIntensity": { "level1to5": 1|2|3|4|5 | null, "rawLabel": string },
+  "movementIntensity": { "level1to5": 1|2|3|4|5 | null, "rawLabel": string | null },
   "lodgingPreference": { "rawText": string, "suggestedLevel": "LV1"|"LV2"|"LV3"|"LV4" | null },
   "vehicle": { "wantsVehicle": boolean | null, "mentionedTypes": string[] },
   "specialRequests": string | null
@@ -32,6 +32,7 @@ const JSON_SCHEMA = `
 `;
 
 const ENUM_HINTS = `
+- movementIntensity: 원문에 해당 없으면 level1to5·rawLabel 모두 null. rawLabel은 원문에 나온 표현(있을 때만).
 - movementIntensity.level1to5: "매우 여유"=1, "여유"=2, "보통"=3, "높음"=4, "매우 높음"=5
 - lodgingPreference.suggestedLevel: "캠핑"/"LV1"→LV1, "전통게르"/"게르"→LV2, "여행자캠프"/"일반게르"/"게르게스트하우스"→LV3, "디럭스"/"호텔"/"독채"/"팬션"→LV4
 - vehicle.mentionedTypes: "스타렉스","푸르공","벨파이어","하이에이스" 등 언급된 차량명 배열

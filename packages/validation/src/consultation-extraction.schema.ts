@@ -38,7 +38,7 @@ export const consultationExtractionSchema = z.object({
   }),
   movementIntensity: z.object({
     level1to5: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).nullable(),
-    rawLabel: z.string(),
+    rawLabel: z.string().nullable(),
   }),
   lodgingPreference: z.object({
     rawText: z.string(),
