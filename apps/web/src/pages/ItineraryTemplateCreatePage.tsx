@@ -377,17 +377,20 @@ const VARIANTS = [
 ];
 
 function buildSuggestedTemplateTitle(
+  regionSetName: string | undefined,
   locationName: LocationOption['name'] | undefined,
   totalDays: number,
   variantType: VariantType,
 ): string {
-  const firstLine = normalizeLocationNameLines(locationName)[0] ?? '';
-  if (!firstLine) {
+  const fromLocation = normalizeLocationNameLines(locationName)[0] ?? '';
+  const fromSet = regionSetName?.trim() ?? '';
+  const place = fromLocation || fromSet;
+  if (!place) {
     return '';
   }
   const variantLabel = VARIANTS.find((v) => v.id === variantType)?.label ?? '';
   const nights = totalDays - 1;
-  return `${firstLine} ${nights}박${totalDays}일 ${variantLabel}`;
+  return `${place} ${nights}박${totalDays}일 ${variantLabel}`;
 }
 
 export function ItineraryTemplateCreatePage(): JSX.Element {
@@ -464,6 +467,11 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
   );
   const firstDayOptions = useMemo(() => buildFirstDayOptions(firstDayScopedLocations), [firstDayScopedLocations]);
 
+  const selectedRegionSetName = useMemo(
+    () => regionSets.find((set) => set.id === regionSetId)?.name,
+    [regionSetId, regionSets],
+  );
+
   const nextOptions = useMemo(
     () =>
       buildNextOptions({
@@ -492,8 +500,13 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
 
   const suggestedTemplateTitle = useMemo(
     () =>
-      buildSuggestedTemplateTitle(locationById.get(startLocationId)?.name, totalDays, variantType),
-    [locationById, startLocationId, totalDays, variantType],
+      buildSuggestedTemplateTitle(
+        selectedRegionSetName,
+        startLocationId ? locationById.get(startLocationId)?.name : undefined,
+        totalDays,
+        variantType,
+      ),
+    [locationById, selectedRegionSetName, startLocationId, totalDays, variantType],
   );
 
   useEffect(() => {
@@ -706,7 +719,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                 setName(event.target.value);
               }}
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-              placeholder="출발지·일수·Variant 선택 시 자동 채움"
+              placeholder="지역 세트부터 반영 · 출발지 선택 시 앞부분이 목적지명으로 바뀜"
             />
           </label>
           </div>

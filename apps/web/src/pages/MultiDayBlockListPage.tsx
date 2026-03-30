@@ -1,10 +1,16 @@
-import { gql, useQuery } from '@apollo/client';
+import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { formatLocationNameInline } from '../features/location/display';
 import { MultiDayBlockEditPanel } from '../features/multi-day-block/multi-day-block-edit-panel';
 import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
+
+const DELETE_MULTI_DAY_BLOCK_MUTATION = gql`
+  mutation DeleteMultiDayBlockFromList($id: ID!) {
+    deleteMultiDayBlock(id: $id)
+  }
+`;
 
 const MULTI_DAY_BLOCKS_QUERY = gql`
   query MultiDayBlockListPage {
@@ -83,9 +89,12 @@ function buildScheduleLines(
 export function MultiDayBlockListPage(): JSX.Element {
   const navigate = useNavigate();
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [rowDeleteError, setRowDeleteError] = useState<{ rowId: string; message: string } | null>(null);
   const { data, loading, refetch } = useQuery<{ multiDayBlocks: MultiDayBlockRow[] }>(
     MULTI_DAY_BLOCKS_QUERY,
   );
+  const [deleteMultiDayBlock] = useMutation(DELETE_MULTI_DAY_BLOCK_MUTATION);
   const rows = data?.multiDayBlocks ?? [];
 
   return (
@@ -123,7 +132,7 @@ export function MultiDayBlockListPage(): JSX.Element {
                   <Th>블록 일수</Th>
                   <Th>요약</Th>
                   <Th>시간 / 일정</Th>
-                  <Th>수정</Th>
+                  <Th>액션</Th>
                 </tr>
               </thead>
               <tbody>
@@ -131,95 +140,140 @@ export function MultiDayBlockListPage(): JSX.Element {
                   const orderedDays = row.days
                     .slice()
                     .sort((left, right) => left.dayOrder - right.dayOrder);
+                  const deleteErrorForRow = rowDeleteError?.rowId === row.id ? rowDeleteError.message : null;
                   return (
-                    <tr
-                      key={row.id}
-                      role="button"
-                      tabIndex={0}
-                      className="border-t border-slate-200 align-top cursor-pointer hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                      onClick={() => navigate(`/multi-day-blocks/${row.id}`)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          navigate(`/multi-day-blocks/${row.id}`);
-                        }
-                      }}
-                    >
-                      <Td>{row.name}</Td>
-                      <Td>{formatLocationNameInline(row.location.name)}</Td>
-                      <Td>{row.isActive ? '활성' : '비활성'}</Td>
-                      <Td>{orderedDays.length}일</Td>
-                      <Td className="whitespace-pre-line">
-                        {orderedDays.length > 0
-                          ? orderedDays
-                              .map(
-                                (day) =>
-                                  `${day.dayOrder}일차 ${day.averageDistanceKm}km / ${day.averageTravelHours}h`,
-                              )
-                              .join('\n')
-                          : '-'}
-                      </Td>
-                      <Td>
-                        {orderedDays.length > 0 ? (
-                          <div className="grid gap-3 text-sm">
-                            {orderedDays.map((day) => {
-                              const scheduleLines = buildScheduleLines(
-                                day.timeCellText,
-                                day.scheduleCellText,
-                              );
-                              return (
-                                <div key={day.id} className="grid gap-1">
-                                  <div className="font-medium text-slate-800">
-                                    {day.dayOrder}일차
+                    <Fragment key={row.id}>
+                      <tr
+                        role="button"
+                        tabIndex={0}
+                        className="border-t border-slate-200 align-top cursor-pointer hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                        onClick={() => navigate(`/multi-day-blocks/${row.id}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            navigate(`/multi-day-blocks/${row.id}`);
+                          }
+                        }}
+                      >
+                        <Td>{row.name}</Td>
+                        <Td>{formatLocationNameInline(row.location.name)}</Td>
+                        <Td>{row.isActive ? '활성' : '비활성'}</Td>
+                        <Td>{orderedDays.length}일</Td>
+                        <Td className="whitespace-pre-line">
+                          {orderedDays.length > 0
+                            ? orderedDays
+                                .map(
+                                  (day) =>
+                                    `${day.dayOrder}일차 ${day.averageDistanceKm}km / ${day.averageTravelHours}h`,
+                                )
+                                .join('\n')
+                            : '-'}
+                        </Td>
+                        <Td>
+                          {orderedDays.length > 0 ? (
+                            <div className="grid gap-3 text-sm">
+                              {orderedDays.map((day) => {
+                                const scheduleLines = buildScheduleLines(
+                                  day.timeCellText,
+                                  day.scheduleCellText,
+                                );
+                                return (
+                                  <div key={day.id} className="grid gap-1">
+                                    <div className="font-medium text-slate-800">
+                                      {day.dayOrder}일차
+                                    </div>
+                                    {scheduleLines.length > 0 ? (
+                                      scheduleLines.map((line, index) => (
+                                        <div
+                                          key={`${day.id}-${index}`}
+                                          className="grid grid-cols-[56px_minmax(0,1fr)] gap-2"
+                                        >
+                                          <span className="font-medium text-slate-700">
+                                            {line.time}
+                                          </span>
+                                          <span className="whitespace-pre-wrap text-slate-600">
+                                            {line.activity}
+                                          </span>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div className="text-slate-400">-</div>
+                                    )}
                                   </div>
-                                  {scheduleLines.length > 0 ? (
-                                    scheduleLines.map((line, index) => (
-                                      <div
-                                        key={`${day.id}-${index}`}
-                                        className="grid grid-cols-[56px_minmax(0,1fr)] gap-2"
-                                      >
-                                        <span className="font-medium text-slate-700">
-                                          {line.time}
-                                        </span>
-                                        <span className="whitespace-pre-wrap text-slate-600">
-                                          {line.activity}
-                                        </span>
-                                      </div>
-                                    ))
-                                  ) : (
-                                    <div className="text-slate-400">-</div>
-                                  )}
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-slate-400">-</div>
+                          )}
+                        </Td>
+                        <Td>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                navigate(`/multi-day-blocks/${row.id}`);
+                              }}
+                            >
+                              상세
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setEditingBlockId(row.id);
+                              }}
+                            >
+                              수정
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={deletingId === row.id}
+                              onClick={async (event) => {
+                                event.stopPropagation();
+                                if (!window.confirm(`'${row.name}' 블록을 삭제할까요?`)) {
+                                  return;
+                                }
+                                setDeletingId(row.id);
+                                setRowDeleteError(null);
+                                try {
+                                  await deleteMultiDayBlock({ variables: { id: row.id } });
+                                  if (editingBlockId === row.id) {
+                                    setEditingBlockId(null);
+                                  }
+                                  await refetch();
+                                } catch (error) {
+                                  setRowDeleteError({
+                                    rowId: row.id,
+                                    message:
+                                      error instanceof Error
+                                        ? error.message
+                                        : '블록 삭제에 실패했습니다.',
+                                  });
+                                } finally {
+                                  setDeletingId((current) => (current === row.id ? null : current));
+                                }
+                              }}
+                              onKeyDown={(event) => event.stopPropagation()}
+                            >
+                              {deletingId === row.id ? '삭제 중...' : '삭제'}
+                            </Button>
                           </div>
-                        ) : (
-                          <div className="text-sm text-slate-400">-</div>
-                        )}
-                      </Td>
-                      <Td>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              navigate(`/multi-day-blocks/${row.id}`);
-                            }}
+                        </Td>
+                      </tr>
+                      {deleteErrorForRow ? (
+                        <tr className="bg-rose-50/80">
+                          <Td
+                            colSpan={7}
+                            className="border-b border-rose-100 py-2.5 text-sm whitespace-pre-line text-rose-700"
                           >
-                            상세
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setEditingBlockId(row.id);
-                            }}
-                          >
-                            수정
-                          </Button>
-                        </div>
-                      </Td>
-                    </tr>
+                            {deleteErrorForRow}
+                          </Td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
                   );
                 })}
               </tbody>
