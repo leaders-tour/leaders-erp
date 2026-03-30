@@ -98,6 +98,7 @@ export function LocationListPage(): JSX.Element {
               <Th>첫날 일정</Th>
               <Th>숙소</Th>
               <Th>식사</Th>
+              <Th>액션</Th>
             </tr>
           </thead>
           <tbody>
@@ -120,42 +121,6 @@ export function LocationListPage(): JSX.Element {
                 >
                   <Td>
                     <div className="whitespace-pre-line">{formatLocationNameMultiline(row.name)}</div>
-                    <div className="mt-2">
-                      <div className="flex flex-wrap gap-2">
-                        <Link
-                          to={`/locations/${row.id}`}
-                          className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
-                          onClick={(event) => event.stopPropagation()}
-                          onKeyDown={(event) => event.stopPropagation()}
-                        >
-                          상세
-                        </Link>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          disabled={deletingId === row.id}
-                          onClick={async (event) => {
-                            event.stopPropagation();
-                            if (!window.confirm(`'${formatLocationNameMultiline(row.name)}' 목적지를 삭제할까요?`)) {
-                              return;
-                            }
-
-                            setDeletingId(row.id);
-                            setErrorMessage(null);
-                            try {
-                              await crud.deleteRow(row.id);
-                            } catch (error) {
-                              setErrorMessage(error instanceof Error ? error.message : '목적지 삭제에 실패했습니다.');
-                            } finally {
-                              setDeletingId((current) => (current === row.id ? null : current));
-                            }
-                          }}
-                          onKeyDown={(event) => event.stopPropagation()}
-                        >
-                          {deletingId === row.id ? '삭제 중...' : '삭제'}
-                        </Button>
-                      </div>
-                    </div>
                   </Td>
                   <Td>
                     <div className="grid gap-1 text-sm">
@@ -218,6 +183,44 @@ export function LocationListPage(): JSX.Element {
                         </div>
                       );
                     })()}
+                  </Td>
+                  <Td>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          navigate(`/locations/${row.id}`);
+                        }}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      >
+                        상세
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={deletingId === row.id}
+                        onClick={async (event) => {
+                          event.stopPropagation();
+                          if (!window.confirm(`'${formatLocationNameMultiline(row.name)}' 목적지를 삭제할까요?`)) {
+                            return;
+                          }
+
+                          setDeletingId(row.id);
+                          setErrorMessage(null);
+                          try {
+                            await crud.deleteRow(row.id);
+                          } catch (error) {
+                            setErrorMessage(error instanceof Error ? error.message : '목적지 삭제에 실패했습니다.');
+                          } finally {
+                            setDeletingId((current) => (current === row.id ? null : current));
+                          }
+                        }}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      >
+                        {deletingId === row.id ? '삭제 중...' : '삭제'}
+                      </Button>
+                    </div>
                   </Td>
                 </tr>
               );
