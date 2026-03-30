@@ -3,7 +3,7 @@ import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { VariantType } from '../generated/graphql';
-import { formatLocationNameMultiline } from '../features/location/display';
+import { formatLocationNameMultiline, normalizeLocationNameLines } from '../features/location/display';
 import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
 import { getAssignmentsFromPlanRows } from '../features/plan/special-meals';
 import {
@@ -376,10 +376,25 @@ const VARIANTS = [
   { id: VariantType.EarlyExtend, label: '얼리+연장' },
 ];
 
+function buildSuggestedTemplateTitle(
+  locationName: LocationOption['name'] | undefined,
+  totalDays: number,
+  variantType: VariantType,
+): string {
+  const firstLine = normalizeLocationNameLines(locationName)[0] ?? '';
+  if (!firstLine) {
+    return '';
+  }
+  const variantLabel = VARIANTS.find((v) => v.id === variantType)?.label ?? '';
+  const nights = totalDays - 1;
+  return `${firstLine} ${nights}박${totalDays}일 ${variantLabel}`;
+}
+
 export function ItineraryTemplateCreatePage(): JSX.Element {
   const navigate = useNavigate();
 
   const [name, setName] = useState<string>('');
+  const [nameManuallyEdited, setNameManuallyEdited] = useState<boolean>(false);
   const [description, setDescription] = useState<string>('');
   const [regionSetId, setRegionSetId] = useState<string>('');
   const [totalDays, setTotalDays] = useState<number>(6);
@@ -475,6 +490,19 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
     [filteredOvernightStays, filteredSegments, selectedRoute, startLocationId, totalDays],
   );
 
+  const suggestedTemplateTitle = useMemo(
+    () =>
+      buildSuggestedTemplateTitle(locationById.get(startLocationId)?.name, totalDays, variantType),
+    [locationById, startLocationId, totalDays, variantType],
+  );
+
+  useEffect(() => {
+    if (nameManuallyEdited) {
+      return;
+    }
+    setName(suggestedTemplateTitle);
+  }, [nameManuallyEdited, suggestedTemplateTitle]);
+
   const autoRows = useMemo(
     () =>
       buildAutoRowsFromRoute({
@@ -550,15 +578,6 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
         <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="font-medium">설정</h2>
           <div className="mt-3 grid gap-3">
-          <label className="grid gap-1 text-sm">
-            <span className="text-xs text-slate-600">이름</span>
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-              placeholder="예: 고비 6일 D"
-            />
-          </label>
           <div className="grid gap-1 text-sm">
             <span className="text-xs text-slate-600">지역 세트</span>
             <div className="flex flex-wrap gap-2">
@@ -678,6 +697,18 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
               </button>
             </div>
           </div>
+          <label className="grid gap-1 text-sm">
+            <span className="text-xs text-slate-600">제목</span>
+            <input
+              value={name}
+              onChange={(event) => {
+                setNameManuallyEdited(true);
+                setName(event.target.value);
+              }}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+              placeholder="출발지·일수·Variant 선택 시 자동 채움"
+            />
+          </label>
           </div>
         </Card>
 
