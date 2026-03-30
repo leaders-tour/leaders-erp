@@ -2,6 +2,16 @@ import type { PrismaClient } from '@prisma/client';
 import { locationInclude, locationVersionInclude } from './location.mapper';
 import type { LocationCreateDto, LocationUpdateDto } from './location.types';
 
+export interface LocationDeleteDependencySummary {
+  fromSegments: number;
+  toSegments: number;
+  overnightStays: number;
+  overnightStaysAsStart: number;
+  overnightStaysAsEnd: number;
+  overnightStayDaysAsDisplay: number;
+  toOvernightStayConnections: number;
+}
+
 export class LocationRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -15,6 +25,31 @@ export class LocationRepository {
 
   findById(id: string) {
     return this.prisma.location.findUnique({ where: { id }, include: locationInclude });
+  }
+
+  async findDeleteDependencySummary(id: string): Promise<LocationDeleteDependencySummary | null> {
+    const row = await this.prisma.location.findUnique({
+      where: { id },
+      select: {
+        _count: {
+          select: {
+            fromSegments: true,
+            toSegments: true,
+            overnightStays: true,
+            overnightStaysAsStart: true,
+            overnightStaysAsEnd: true,
+            overnightStayDaysAsDisplay: true,
+            toOvernightStayConnections: true,
+          },
+        },
+      },
+    });
+
+    if (!row) {
+      return null;
+    }
+
+    return row._count;
   }
 
   findVersionsByLocation(locationId: string) {

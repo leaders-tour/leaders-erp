@@ -13,7 +13,7 @@ import {
 import { calculateMovementIntensity } from '../../lib/movement-intensity';
 import { createValidationError, DomainError } from '../../lib/errors';
 import { locationInclude, locationVersionInclude } from './location.mapper';
-import { LocationRepository } from './location.repository';
+import { LocationRepository, type LocationDeleteDependencySummary } from './location.repository';
 import type {
   LocationCreateDto,
   LocationProfileCreateDto,
@@ -737,7 +737,35 @@ export class LocationService {
     });
   }
 
-  delete(id: string) {
+  private getDeleteBlockingEntries(summary: LocationDeleteDependencySummary): Array<{ label: string; count: number }> {
+    return [
+      { label: '연결(Segment) 출발지', count: summary.fromSegments },
+      { label: '연결(Segment) 도착지', count: summary.toSegments },
+      { label: '연속 일정 블록 목적지', count: summary.overnightStays },
+      { label: '연속 일정 블록 시작점', count: summary.overnightStaysAsStart },
+      { label: '연속 일정 블록 종료점', count: summary.overnightStaysAsEnd },
+      { label: '연속 일정 블록 일차 표시 목적지', count: summary.overnightStayDaysAsDisplay },
+      { label: '블록 후속 연결 도착지', count: summary.toOvernightStayConnections },
+    ].filter((entry) => entry.count > 0);
+  }
+
+  async delete(id: string) {
+    const summary = await this.repository.findDeleteDependencySummary(id);
+    if (!summary) {
+      throw new DomainError('NOT_FOUND', 'Location not found');
+    }
+
+    const blockingEntries = this.getDeleteBlockingEntries(summary);
+    if (blockingEntries.length > 0) {
+      throw new DomainError(
+        'VALIDATION_FAILED',
+        `다른 데이터에서 사용 중인 목적지는 삭제할 수 없습니다. ${blockingEntries
+          .map((entry) => `${entry.label} ${entry.count}건`)
+          .join(', ')}을(를) 먼저 정리해주세요.`,
+        Object.fromEntries(blockingEntries.map((entry) => [entry.label, String(entry.count)])),
+      );
+    }
+
     return this.repository.delete(id);
   }
 }

@@ -1,8 +1,23 @@
-import { gql, useMutation, useQuery } from '@apollo/client';
+import { ApolloError, gql, useMutation, useQuery } from '@apollo/client';
 import type { MealOption } from '../../generated/graphql';
 import { normalizeLocationNameLines } from './display';
 
 export type FacilityAvailability = 'YES' | 'LIMITED' | 'NO';
+
+function toMutationErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApolloError) {
+    const graphQlMessage = error.graphQLErrors[0]?.message?.trim();
+    if (graphQlMessage) {
+      return graphQlMessage;
+    }
+  }
+
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return fallback;
+}
 
 const LIST = gql`
   query Locations {
@@ -581,8 +596,12 @@ export function useLocationCrud() {
       await refetch();
     },
     deleteRow: async (id: string) => {
-      await deleteMutation({ variables: { id } });
-      await refetch();
+      try {
+        await deleteMutation({ variables: { id } });
+        await refetch();
+      } catch (error) {
+        throw new Error(toMutationErrorMessage(error, '목적지 삭제에 실패했습니다.'));
+      }
     },
   };
 }

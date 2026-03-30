@@ -32,6 +32,8 @@ export function LocationListPage(): JSX.Element {
   const navigate = useNavigate();
   const [selectedRegion, setSelectedRegion] = useState<string>('ALL');
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const regions = useMemo(() => {
     return Array.from(new Set(crud.rows.map((row) => row.regionName))).sort((a, b) => a.localeCompare(b, 'ko'));
@@ -87,6 +89,7 @@ export function LocationListPage(): JSX.Element {
             </div>
           </div>
         </div>
+        {errorMessage ? <div className="border-b border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorMessage}</div> : null}
         <Table>
           <thead>
             <tr>
@@ -118,13 +121,40 @@ export function LocationListPage(): JSX.Element {
                   <Td>
                     <div className="whitespace-pre-line">{formatLocationNameMultiline(row.name)}</div>
                     <div className="mt-2">
-                      <Link
-                        to={`/locations/${row.id}`}
-                        className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        상세
-                      </Link>
+                      <div className="flex flex-wrap gap-2">
+                        <Link
+                          to={`/locations/${row.id}`}
+                          className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-50"
+                          onClick={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => event.stopPropagation()}
+                        >
+                          상세
+                        </Link>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          disabled={deletingId === row.id}
+                          onClick={async (event) => {
+                            event.stopPropagation();
+                            if (!window.confirm(`'${formatLocationNameMultiline(row.name)}' 목적지를 삭제할까요?`)) {
+                              return;
+                            }
+
+                            setDeletingId(row.id);
+                            setErrorMessage(null);
+                            try {
+                              await crud.deleteRow(row.id);
+                            } catch (error) {
+                              setErrorMessage(error instanceof Error ? error.message : '목적지 삭제에 실패했습니다.');
+                            } finally {
+                              setDeletingId((current) => (current === row.id ? null : current));
+                            }
+                          }}
+                          onKeyDown={(event) => event.stopPropagation()}
+                        >
+                          {deletingId === row.id ? '삭제 중...' : '삭제'}
+                        </Button>
+                      </div>
                     </div>
                   </Td>
                   <Td>
