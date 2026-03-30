@@ -1,5 +1,5 @@
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { formatLocationNameMultiline, includesLocationNameKeyword, toFacilityLabel, toMealLabel } from '../features/location/display';
 import { RegionNameChip } from '../features/region/region-name-chip';
@@ -34,7 +34,7 @@ export function LocationListPage(): JSX.Element {
   const [selectedRegion, setSelectedRegion] = useState<string>('ALL');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [rowDeleteError, setRowDeleteError] = useState<{ rowId: string; message: string } | null>(null);
 
   const regions = useMemo(() => {
     return Array.from(new Set(crud.rows.map((row) => row.regionName))).sort((a, b) => a.localeCompare(b, 'ko'));
@@ -90,7 +90,6 @@ export function LocationListPage(): JSX.Element {
             </div>
           </div>
         </div>
-        {errorMessage ? <div className="border-b border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errorMessage}</div> : null}
         <Table>
           <thead>
             <tr>
@@ -106,21 +105,22 @@ export function LocationListPage(): JSX.Element {
           <tbody>
             {filteredRows.map((row) => {
               const firstDayScheduleLines = row.isFirstDayEligible ? buildFirstDayScheduleLines(row) : [];
+              const deleteErrorForRow = rowDeleteError?.rowId === row.id ? rowDeleteError.message : null;
 
               return (
-                <tr
-                  key={row.id}
-                  role="button"
-                  tabIndex={0}
-                  className="cursor-pointer hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                  onClick={() => navigate(`/locations/${row.id}`)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      navigate(`/locations/${row.id}`);
-                    }
-                  }}
-                >
+                <Fragment key={row.id}>
+                  <tr
+                    role="button"
+                    tabIndex={0}
+                    className="cursor-pointer hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    onClick={() => navigate(`/locations/${row.id}`)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        navigate(`/locations/${row.id}`);
+                      }
+                    }}
+                  >
                   <Td>
                     <RegionNameChip name={row.regionName} />
                   </Td>
@@ -212,11 +212,14 @@ export function LocationListPage(): JSX.Element {
                           }
 
                           setDeletingId(row.id);
-                          setErrorMessage(null);
+                          setRowDeleteError(null);
                           try {
                             await crud.deleteRow(row.id);
                           } catch (error) {
-                            setErrorMessage(error instanceof Error ? error.message : '목적지 삭제에 실패했습니다.');
+                            setRowDeleteError({
+                              rowId: row.id,
+                              message: error instanceof Error ? error.message : '목적지 삭제에 실패했습니다.',
+                            });
                           } finally {
                             setDeletingId((current) => (current === row.id ? null : current));
                           }
@@ -227,7 +230,15 @@ export function LocationListPage(): JSX.Element {
                       </Button>
                     </div>
                   </Td>
-                </tr>
+                  </tr>
+                  {deleteErrorForRow ? (
+                    <tr className="bg-rose-50/80">
+                      <Td colSpan={7} className="border-b border-rose-100 py-2.5 text-sm text-rose-700">
+                        {deleteErrorForRow}
+                      </Td>
+                    </tr>
+                  ) : null}
+                </Fragment>
               );
             })}
           </tbody>
