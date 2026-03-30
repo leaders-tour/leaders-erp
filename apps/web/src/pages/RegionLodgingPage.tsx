@@ -333,7 +333,7 @@ export function RegionLodgingPage(): JSX.Element {
                         수정
                       </Button>
                       <Button
-                        variant="destructive"
+                        variant="outline"
                         onClick={async () => {
                           if (!window.confirm('이 지역 숙소를 삭제할까요?')) {
                             return;
