@@ -737,6 +737,11 @@ export function LocationProfileForm({
                   특식은 견적서를 만들 때 배정합니다. 특식이 없을 때를 가정하고 넣어주세요.
                   {form.isFirstDayEligible ? ' 일정빌더에서 1일차 기본 변형일 때 사용됩니다.' : ''}
                 </p>
+                {form.isFirstDayEligible ? (
+                  <p className="text-xs text-slate-500">
+                    1일차 기본(얼리 아님)에서는 아침을 하지 않는 경우가 많습니다. 해당이면 아침은 없음을 선택하면 됩니다.
+                  </p>
+                ) : null}
               </div>
               {(['breakfast', 'lunch', 'dinner'] as const).map((field) => (
                 <div key={field} className="grid gap-1 text-sm">
@@ -760,6 +765,21 @@ export function LocationProfileForm({
                         {option.label}
                       </Button>
                     ))}
+                    <Button
+                      type="button"
+                      variant={form.meals[field] == null ? 'default' : 'outline'}
+                      onClick={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          meals: {
+                            ...prev.meals,
+                            [field]: null,
+                          },
+                        }))
+                      }
+                    >
+                      없음
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -795,6 +815,21 @@ export function LocationProfileForm({
                           {option.label}
                         </Button>
                       ))}
+                      <Button
+                        type="button"
+                        variant={form.mealsEarly[field] == null ? 'default' : 'outline'}
+                        onClick={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            mealsEarly: {
+                              ...prev.mealsEarly,
+                              [field]: null,
+                            },
+                          }))
+                        }
+                      >
+                        없음
+                      </Button>
                     </div>
                   </div>
                 ))}
