@@ -2,6 +2,7 @@ import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { formatLocationNameMultiline, includesLocationNameKeyword, toFacilityLabel, toMealLabel } from '../features/location/display';
+import { RegionNameChip } from '../features/region/region-name-chip';
 import { useLocationCrud } from '../features/location/hooks';
 import { mealsEarlyDiffersFromRegular, mealsFromVersionMealSets } from '../features/location/location-version-meals';
 import { LocationSubNav } from '../features/location/sub-nav';
@@ -121,7 +122,7 @@ export function LocationListPage(): JSX.Element {
                   }}
                 >
                   <Td>
-                    <span className="text-sm text-slate-700">{row.regionName?.trim() ? row.regionName : '-'}</span>
+                    <RegionNameChip name={row.regionName} />
                   </Td>
                   <Td>
                     <div className="whitespace-pre-line">{formatLocationNameMultiline(row.name)}</div>

@@ -13,6 +13,7 @@ import {
   type SegmentTimeSlotFormInput,
   type SegmentVersionFormInput,
 } from '../features/segment/hooks';
+import { RegionNameChip } from '../features/region/region-name-chip';
 import { ConnectionSubNav } from '../features/segment/sub-nav';
 
 const LOCATIONS_QUERY = gql`
@@ -793,6 +794,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<string>('ALL');
+  const [searchKeyword, setSearchKeyword] = useState('');
   const [createPasteHelperResetNonce, setCreatePasteHelperResetNonce] = useState(0);
   const [editPasteHelperResetNonce, setEditPasteHelperResetNonce] = useState(0);
 
@@ -802,11 +804,37 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     return Array.from(new Set(crud.rows.map((row) => row.regionName))).sort((a, b) => a.localeCompare(b, 'ko'));
   }, [crud.rows]);
   const filteredSegmentRows = useMemo(() => {
-    if (selectedRegion === 'ALL') {
-      return crud.rows;
+    const byRegion =
+      selectedRegion === 'ALL' ? crud.rows : crud.rows.filter((row) => row.regionName === selectedRegion);
+    const keyword = searchKeyword.trim().toLowerCase();
+    if (!keyword) {
+      return byRegion;
     }
-    return crud.rows.filter((row) => row.regionName === selectedRegion);
-  }, [crud.rows, selectedRegion]);
+    return byRegion.filter((row) => {
+      if (row.regionName.toLowerCase().includes(keyword)) {
+        return true;
+      }
+      const from = locationById.get(row.fromLocationId);
+      const to = locationById.get(row.toLocationId);
+      if (from && includesLocationNameKeyword(from.name, keyword)) {
+        return true;
+      }
+      if (to && includesLocationNameKeyword(to.name, keyword)) {
+        return true;
+      }
+      if (row.fromLocationId.toLowerCase().includes(keyword) || row.toLocationId.toLowerCase().includes(keyword)) {
+        return true;
+      }
+      return row.versions.some((v) => {
+        if (v.name.toLowerCase().includes(keyword)) {
+          return true;
+        }
+        const start = v.startDate?.slice(0, 10) ?? '';
+        const end = v.endDate?.slice(0, 10) ?? '';
+        return start.includes(keyword) || end.includes(keyword);
+      });
+    });
+  }, [crud.rows, selectedRegion, searchKeyword, locationById]);
 
   const filteredFromLocations = useMemo(() => {
     const keyword = fromSearch.trim().toLowerCase();
@@ -1174,20 +1202,29 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
         <div className="border-b border-slate-200 p-4">
           <div className="grid gap-3">
             <h2 className="text-lg font-semibold tracking-tight">연결 목록</h2>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant={selectedRegion === 'ALL' ? 'default' : 'outline'} onClick={() => setSelectedRegion('ALL')}>
-                전체
-              </Button>
-              {regions.map((regionName) => (
-                <Button
-                  key={regionName}
-                  type="button"
-                  variant={selectedRegion === regionName ? 'default' : 'outline'}
-                  onClick={() => setSelectedRegion(regionName)}
-                >
-                  {regionName}
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant={selectedRegion === 'ALL' ? 'default' : 'outline'} onClick={() => setSelectedRegion('ALL')}>
+                  전체
                 </Button>
-              ))}
+                {regions.map((regionName) => (
+                  <Button
+                    key={regionName}
+                    type="button"
+                    variant={selectedRegion === regionName ? 'default' : 'outline'}
+                    onClick={() => setSelectedRegion(regionName)}
+                  >
+                    {regionName}
+                  </Button>
+                ))}
+              </div>
+              <div className="w-full md:w-[280px]">
+                <Input
+                  value={searchKeyword}
+                  onChange={(event) => setSearchKeyword(event.target.value)}
+                  placeholder="출발지·도착지·지역 검색"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1212,7 +1249,9 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
 
               return (
               <tr key={row.id}>
-                <Td>{row.regionName}</Td>
+                <Td>
+                  <RegionNameChip name={row.regionName} />
+                </Td>
                 <Td>{formatLocationNameInline(locationById.get(row.fromLocationId)?.name ?? row.fromLocationId)}</Td>
                 <Td>{formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? row.toLocationId)}</Td>
                 <Td>{row.averageDistanceKm}km</Td>
