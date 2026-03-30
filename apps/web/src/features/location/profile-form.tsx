@@ -739,7 +739,7 @@ export function LocationProfileForm({
                 </p>
               </div>
               {(['breakfast', 'lunch', 'dinner'] as const).map((field) => (
-                <label key={field} className="grid gap-1 text-sm">
+                <div key={field} className="grid gap-1 text-sm">
                   <span className="text-slate-700">{field === 'breakfast' ? '아침' : field === 'lunch' ? '점심' : '저녁'}</span>
                   <div className="flex flex-wrap gap-2">
                     {MEAL_OPTIONS.map((option) => (
@@ -761,7 +761,7 @@ export function LocationProfileForm({
                       </Button>
                     ))}
                   </div>
-                </label>
+                </div>
               ))}
             </div>
 
@@ -774,7 +774,7 @@ export function LocationProfileForm({
                   </p>
                 </div>
                 {(['breakfast', 'lunch', 'dinner'] as const).map((field) => (
-                  <label key={`early-${field}`} className="grid gap-1 text-sm">
+                  <div key={`early-${field}`} className="grid gap-1 text-sm">
                     <span className="text-slate-700">{field === 'breakfast' ? '아침' : field === 'lunch' ? '점심' : '저녁'}</span>
                     <div className="flex flex-wrap gap-2">
                       {MEAL_OPTIONS.map((option) => (
@@ -796,7 +796,7 @@ export function LocationProfileForm({
                         </Button>
                       ))}
                     </div>
-                  </label>
+                  </div>
                 ))}
               </div>
             ) : null}
