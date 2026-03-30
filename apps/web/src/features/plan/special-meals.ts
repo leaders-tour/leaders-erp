@@ -54,17 +54,17 @@ export function parseMealCellText(value: string | null | undefined): MealCellFie
   text.split('\n').forEach((line) => {
     const trimmed = line.trim();
     if (!trimmed) return;
-    const breakfastMatch = /^아침\s*(.*)$/.exec(trimmed);
+    const breakfastMatch = /^아침\s*[:：]?\s*(.*)$/.exec(trimmed);
     if (breakfastMatch) {
       result.breakfast = breakfastMatch[1]?.trim() ?? '';
       return;
     }
-    const lunchMatch = /^점심\s*(.*)$/.exec(trimmed);
+    const lunchMatch = /^점심\s*[:：]?\s*(.*)$/.exec(trimmed);
     if (lunchMatch) {
       result.lunch = lunchMatch[1]?.trim() ?? '';
       return;
     }
-    const dinnerMatch = /^저녁\s*(.*)$/.exec(trimmed);
+    const dinnerMatch = /^저녁\s*[:：]?\s*(.*)$/.exec(trimmed);
     if (dinnerMatch) {
       result.dinner = dinnerMatch[1]?.trim() ?? '';
       return;

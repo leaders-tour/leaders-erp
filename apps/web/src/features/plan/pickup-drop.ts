@@ -116,6 +116,35 @@ function shouldUsePreviousDayLateNightDrop(minutes: number): boolean {
   return minutes > 2 * 60 && minutes < 6 * 60;
 }
 
+/** 울란바토르 마지막일 기본 투어 종료 시각(드랍 상한 계산에 사용). */
+export const DEFAULT_TRAVEL_END_TIME = '19:00';
+
+function isEarlyMorningOutForDropExtension(minutes: number): boolean {
+  return minutes - 3 * 60 < 0 || shouldUsePreviousDayLateNightDrop(minutes);
+}
+
+function computeLegacyDropScheduleFromFlightOut(
+  normalizedFlightOutDate: string,
+  flightOutTime: string | null | undefined,
+): { date: string; time: string } {
+  const minutes = parseTimeToMinutes(flightOutTime);
+  if (minutes === null) {
+    return { date: normalizedFlightOutDate, time: '19:00' };
+  }
+
+  if (isEarlyMorningOutForDropExtension(minutes)) {
+    return {
+      date: shiftDate(normalizedFlightOutDate, -1) ?? normalizedFlightOutDate,
+      time: '23:00',
+    };
+  }
+
+  return {
+    date: normalizedFlightOutDate,
+    time: formatMinutesAsTime(roundMinutesToHalfHour(minutes - 3 * 60)) ?? '19:00',
+  };
+}
+
 export function getRecommendedPickupTime(flightInTime: string | null | undefined): string {
   const minutes = parseTimeToMinutes(flightInTime);
   if (minutes !== null && minutes < 4 * 60) {
@@ -128,6 +157,28 @@ export function getRecommendedPickupTime(flightInTime: string | null | undefined
     return '05:00';
   }
   return '08:00';
+}
+
+export function getRecommendedPickupSchedule(
+  flightInDate: string | null | undefined,
+  flightInTime: string | null | undefined,
+  travelStartDate?: string | null | undefined,
+): { date: string; time: string } {
+  const normalizedIn = flightInDate?.trim() ?? '';
+  if (normalizedIn.length === 0) {
+    return {
+      date: '',
+      time: getRecommendedPickupTime(flightInTime),
+    };
+  }
+
+  const normalizedStart = travelStartDate?.trim() ?? '';
+  const time = getRecommendedPickupTime(flightInTime);
+  if (normalizedStart.length === 0 || normalizedIn >= normalizedStart) {
+    return { date: normalizedIn, time };
+  }
+
+  return { date: normalizedStart, time };
 }
 
 export function isEarlyPickupTime(value: string | null | undefined): boolean {
@@ -168,7 +219,7 @@ export function getRecommendedDropTime(flightOutTime: string | null | undefined)
     return '19:00';
   }
 
-  if (minutes - 3 * 60 < 0 || shouldUsePreviousDayLateNightDrop(minutes)) {
+  if (isEarlyMorningOutForDropExtension(minutes)) {
     return '23:00';
   }
 
@@ -178,6 +229,7 @@ export function getRecommendedDropTime(flightOutTime: string | null | undefined)
 export function getRecommendedDropSchedule(
   flightOutDate: string | null | undefined,
   flightOutTime: string | null | undefined,
+  travelEndDate?: string | null | undefined,
 ): { date: string; time: string } {
   const normalizedDate = flightOutDate?.trim() ?? '';
   if (normalizedDate.length === 0) {
@@ -187,24 +239,25 @@ export function getRecommendedDropSchedule(
     };
   }
 
+  const normalizedEnd = travelEndDate?.trim() ?? '';
+  if (normalizedEnd.length === 0 || normalizedDate <= normalizedEnd) {
+    return computeLegacyDropScheduleFromFlightOut(normalizedDate, flightOutTime);
+  }
+
   const minutes = parseTimeToMinutes(flightOutTime);
   if (minutes === null) {
-    return {
-      date: normalizedDate,
-      time: '19:00',
-    };
+    return { date: normalizedEnd, time: '19:00' };
   }
 
-  if (minutes - 3 * 60 < 0 || shouldUsePreviousDayLateNightDrop(minutes)) {
-    return {
-      date: shiftDate(normalizedDate, -1) ?? normalizedDate,
-      time: '23:00',
-    };
+  if (isEarlyMorningOutForDropExtension(minutes)) {
+    return { date: normalizedEnd, time: '23:00' };
   }
 
+  const endMinutes = parseTimeToMinutes(DEFAULT_TRAVEL_END_TIME);
+  const baseDropMinutes = (endMinutes ?? 19 * 60) - 3 * 60;
   return {
-    date: normalizedDate,
-    time: formatMinutesAsTime(roundMinutesToHalfHour(minutes - 3 * 60)) ?? '19:00',
+    date: normalizedEnd,
+    time: formatMinutesAsTime(roundMinutesToHalfHour(baseDropMinutes)) ?? '16:00',
   };
 }
 

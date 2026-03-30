@@ -128,13 +128,13 @@ function serializeMeals(meals: MultiDayBlockDayDraft['meals']): string {
 
   const parts: string[] = [];
   if (meals.breakfast) {
-    parts.push(`아침: ${getLabel(meals.breakfast)}`);
+    parts.push(`아침 ${getLabel(meals.breakfast)}`);
   }
   if (meals.lunch) {
-    parts.push(`점심: ${getLabel(meals.lunch)}`);
+    parts.push(`점심 ${getLabel(meals.lunch)}`);
   }
   if (meals.dinner) {
-    parts.push(`저녁: ${getLabel(meals.dinner)}`);
+    parts.push(`저녁 ${getLabel(meals.dinner)}`);
   }
   return parts.join('\n');
 }

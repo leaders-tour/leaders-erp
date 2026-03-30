@@ -58,7 +58,7 @@ import {
   DEFAULT_PICKUP_DROP_PLACE_TYPE,
   PICKUP_DROP_PLACE_OPTIONS,
   getRecommendedDropSchedule,
-  getRecommendedPickupTime,
+  getRecommendedPickupSchedule,
   parseTimeToMinutes,
   resolveAutoVariantType,
   normalizePickupDropCustomText,
@@ -1132,8 +1132,16 @@ function createTransportGroupDraft(input: {
   flightInTime: string;
   flightOutTime: string;
 }): TransportGroupDraft {
-  const pickupDate = input.travelStartDate;
-  const recommendedDrop = getRecommendedDropSchedule(input.travelEndDate, input.flightOutTime);
+  const recommendedPickup = getRecommendedPickupSchedule(
+    input.travelStartDate,
+    input.flightInTime,
+    input.travelStartDate,
+  );
+  const recommendedDrop = getRecommendedDropSchedule(
+    input.travelEndDate,
+    input.flightOutTime,
+    input.travelEndDate,
+  );
 
   return {
     teamName: getTransportGroupTeamName(input.index),
@@ -1142,8 +1150,8 @@ function createTransportGroupDraft(input: {
     flightInTime: input.flightInTime,
     flightOutDate: input.travelEndDate,
     flightOutTime: input.flightOutTime,
-    pickupDate,
-    pickupTime: pickupDate ? getRecommendedPickupTime(input.flightInTime) : '',
+    pickupDate: recommendedPickup.date,
+    pickupTime: recommendedPickup.date ? recommendedPickup.time : '',
     pickupPlaceType: DEFAULT_PICKUP_DROP_PLACE_TYPE,
     pickupPlaceCustomText: '',
     dropDate: recommendedDrop.date,
@@ -1366,17 +1374,17 @@ function parseMealCellText(value: string | null | undefined): MealCellFields {
     if (!trimmed) {
       return;
     }
-    const breakfastMatch = /^아침\s*(.*)$/.exec(trimmed);
+    const breakfastMatch = /^아침\s*[:：]?\s*(.*)$/.exec(trimmed);
     if (breakfastMatch) {
       result.breakfast = breakfastMatch[1]?.trim() ?? '';
       return;
     }
-    const lunchMatch = /^점심\s*(.*)$/.exec(trimmed);
+    const lunchMatch = /^점심\s*[:：]?\s*(.*)$/.exec(trimmed);
     if (lunchMatch) {
       result.lunch = lunchMatch[1]?.trim() ?? '';
       return;
     }
-    const dinnerMatch = /^저녁\s*(.*)$/.exec(trimmed);
+    const dinnerMatch = /^저녁\s*[:：]?\s*(.*)$/.exec(trimmed);
     if (dinnerMatch) {
       result.dinner = dinnerMatch[1]?.trim() ?? '';
       return;
@@ -2228,21 +2236,28 @@ export function ItineraryBuilderPage(): JSX.Element {
         if (field === 'flightInDate') {
           if (!group.hasEditedPickup) {
             const nextFlightInDate = typeof value === 'string' ? value : group.flightInDate;
-            nextGroup.pickupDate = nextFlightInDate;
+            const recommendedPickup = getRecommendedPickupSchedule(
+              nextFlightInDate,
+              nextGroup.flightInTime,
+              travelStartDate,
+            );
+            nextGroup.pickupDate = recommendedPickup.date;
             if (!nextGroup.pickupTime.trim()) {
-              nextGroup.pickupTime = getRecommendedPickupTime(nextGroup.flightInTime);
+              nextGroup.pickupTime = recommendedPickup.time;
             }
           }
         }
 
         if (field === 'flightInTime') {
           if (!group.hasEditedPickup) {
-            if (!nextGroup.pickupDate.trim() && nextGroup.flightInDate.trim()) {
-              nextGroup.pickupDate = nextGroup.flightInDate;
-            }
-            nextGroup.pickupTime = getRecommendedPickupTime(
-              typeof value === 'string' ? value : group.flightInTime,
+            const nextFlightInTime = typeof value === 'string' ? value : group.flightInTime;
+            const recommendedPickup = getRecommendedPickupSchedule(
+              nextGroup.flightInDate,
+              nextFlightInTime,
+              travelStartDate,
             );
+            nextGroup.pickupDate = recommendedPickup.date;
+            nextGroup.pickupTime = recommendedPickup.time;
           }
         }
 
@@ -2251,6 +2266,7 @@ export function ItineraryBuilderPage(): JSX.Element {
             const recommendedDrop = getRecommendedDropSchedule(
               typeof value === 'string' ? value : group.flightOutDate,
               nextGroup.flightOutTime,
+              travelEndDate,
             );
             nextGroup.dropDate = recommendedDrop.date;
             nextGroup.dropTime = recommendedDrop.time;
@@ -2262,6 +2278,7 @@ export function ItineraryBuilderPage(): JSX.Element {
             const recommendedDrop = getRecommendedDropSchedule(
               nextGroup.flightOutDate,
               typeof value === 'string' ? value : group.flightOutTime,
+              travelEndDate,
             );
             nextGroup.dropDate = recommendedDrop.date;
             nextGroup.dropTime = recommendedDrop.time;
@@ -2349,15 +2366,25 @@ export function ItineraryBuilderPage(): JSX.Element {
         if (!group.flightInDate && travelStartDate) {
           nextGroup.flightInDate = travelStartDate;
           if (!group.hasEditedPickup) {
-            nextGroup.pickupDate = travelStartDate;
+            const recommendedPickup = getRecommendedPickupSchedule(
+              travelStartDate,
+              nextGroup.flightInTime,
+              travelStartDate,
+            );
+            nextGroup.pickupDate = recommendedPickup.date;
             if (!nextGroup.pickupTime.trim()) {
-              nextGroup.pickupTime = getRecommendedPickupTime(nextGroup.flightInTime);
+              nextGroup.pickupTime = recommendedPickup.time;
             }
           }
         } else if (!group.hasEditedPickup && !group.pickupDate && group.flightInDate) {
-          nextGroup.pickupDate = group.flightInDate;
+          const recommendedPickup = getRecommendedPickupSchedule(
+            group.flightInDate,
+            nextGroup.flightInTime,
+            travelStartDate,
+          );
+          nextGroup.pickupDate = recommendedPickup.date;
           if (!nextGroup.pickupTime.trim()) {
-            nextGroup.pickupTime = getRecommendedPickupTime(nextGroup.flightInTime);
+            nextGroup.pickupTime = recommendedPickup.time;
           }
         }
 
@@ -2367,6 +2394,7 @@ export function ItineraryBuilderPage(): JSX.Element {
             const recommendedDrop = getRecommendedDropSchedule(
               travelEndDate,
               nextGroup.flightOutTime,
+              travelEndDate,
             );
             nextGroup.dropDate = recommendedDrop.date;
             nextGroup.dropTime = recommendedDrop.time;
