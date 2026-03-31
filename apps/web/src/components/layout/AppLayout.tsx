@@ -132,6 +132,7 @@ const baseNavItems: NavItem[] = [
       { path: '/regions/create', label: '지역 생성' },
       { path: '/regions/sets', label: '지역 세트' },
       { path: '/regions/lodgings', label: '지역 숙소' },
+      { path: '/settings/special-meal-destination-rules', label: '특식 여행지 규칙' },
     ],
   },
   {

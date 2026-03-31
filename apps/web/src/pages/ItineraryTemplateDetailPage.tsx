@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { buildEmptyPlanRow, type TemplatePlanRow } from '../features/plan-template/editor-utils';
 import { formatLocationNameMultiline } from '../features/location/display';
 import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
+import { useSpecialMealDestinationRules } from '../features/plan/hooks/use-special-meal-destination-rules';
 import { getAssignmentsFromPlanRows } from '../features/plan/special-meals';
 import {
   buildAutoRowsFromRoute,
@@ -465,6 +466,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
   const [isOvernightStayPickerOpen, setIsOvernightStayPickerOpen] = useState<boolean>(false);
   const [planRows, setPlanRows] = useState<TemplatePlanRow[]>([]);
   const [specialMealsModalOpen, setSpecialMealsModalOpen] = useState(false);
+  const { rules: specialMealDestinationRules } = useSpecialMealDestinationRules();
   const [saveMessage, setSaveMessage] = useState<string>('');
   const [routeRecoveryMessage, setRouteRecoveryMessage] = useState<string>('');
   const [skipNextAutoRowsSync, setSkipNextAutoRowsSync] = useState<boolean>(false);
@@ -1401,6 +1403,7 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
             destinationCellText: r.destinationCellText,
             scheduleCellText: r.scheduleCellText,
           }))}
+          specialMealDestinationRules={specialMealDestinationRules}
           onClose={() => setSpecialMealsModalOpen(false)}
           onSave={(updatedRows) => {
             setPlanRows((prev) =>

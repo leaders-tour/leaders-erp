@@ -105,6 +105,9 @@ importers:
       '@tour/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@tour/validation':
+        specifier: workspace:*
+        version: link:../../packages/validation
       graphql:
         specifier: ^16.9.0
         version: 16.12.0

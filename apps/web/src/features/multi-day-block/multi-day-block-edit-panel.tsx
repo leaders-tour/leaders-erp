@@ -8,6 +8,7 @@ import {
 } from '../estimate/model/movement-intensity';
 import { formatLocationNameInline } from '../location/display';
 import { SpecialMealsModal } from '../plan/components/SpecialMealsModal';
+import { useSpecialMealDestinationRules } from '../plan/hooks/use-special-meal-destination-rules';
 import { getAssignmentsFromPlanRows } from '../plan/special-meals';
 import {
   MultiDayBlockDaySlotEditor,
@@ -156,6 +157,7 @@ export function MultiDayBlockEditPanel({ blockId, onSaved, onDeleted, onClose }:
   const [isActive, setIsActive] = useState(true);
   const [days, setDays] = useState<MultiDayBlockDayDraft[]>([createDayDraft(1), createDayDraft(2)]);
   const [specialMealsModalOpen, setSpecialMealsModalOpen] = useState(false);
+  const { rules: specialMealDestinationRules } = useSpecialMealDestinationRules();
 
   const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
@@ -569,6 +571,7 @@ export function MultiDayBlockEditPanel({ blockId, onSaved, onDeleted, onClose }:
               destinationCellText: formatLocationNameInline(locationById.get(day.displayLocationId || locationId)?.name ?? []),
               scheduleCellText: serializeMultiDayBlockScheduleSlots(day.scheduleSlots).scheduleCellText,
             }))}
+            specialMealDestinationRules={specialMealDestinationRules}
             onClose={() => setSpecialMealsModalOpen(false)}
             onSave={(updatedRows) => {
               setDays((prev) =>

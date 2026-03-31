@@ -16,6 +16,7 @@ import { regionResolver } from '../modules/region/region.resolver';
 import { regionSetResolver } from '../modules/region-set/region-set.resolver';
 import { regionLodgingResolver } from '../modules/region-lodging/region-lodging.resolver';
 import { segmentResolver } from '../modules/segment/segment.resolver';
+import { specialMealDestinationRulesResolver } from '../modules/special-meal-destination-rules/special-meal-destination-rules.resolver';
 import { timeBlockResolver } from '../modules/time-block/time-block.resolver';
 import { requireEmployee } from '../lib/auth-guards';
 
@@ -98,6 +99,7 @@ export const resolvers = {
       eventResolver.Query,
       overrideResolver.Query,
       outreachResolver.Query,
+      specialMealDestinationRulesResolver.Query,
       {
         health: () => 'ok',
       },
@@ -124,6 +126,7 @@ export const resolvers = {
       eventResolver.Mutation,
       overrideResolver.Mutation,
       outreachResolver.Mutation,
+      specialMealDestinationRulesResolver.Mutation,
     ),
     ['login', 'registerEmployee', 'refreshAccessToken', 'logout'],
   ),
@@ -146,4 +149,5 @@ export const resolvers = {
   MultiDayBlockConnectionVersionActivity: multiDayBlockResolver.MultiDayBlockConnectionVersionActivity,
   MultiDayBlockConnectionTimeBlock: multiDayBlockResolver.MultiDayBlockConnectionTimeBlock,
   MultiDayBlockConnectionActivity: multiDayBlockResolver.MultiDayBlockConnectionActivity,
+  SpecialMealDestinationRules: specialMealDestinationRulesResolver.SpecialMealDestinationRules,
 };

@@ -1,0 +1,26 @@
+query SpecialMealDestinationRulesQuery {
+  specialMealDestinationRules {
+    shabushabuLocationIds
+    shabushabuLocations {
+      id
+      name
+    }
+    samgyeopsalRegionKeywordMap {
+      keyword
+      regionLabel
+    }
+    samgyeopsalPriorityByRegion {
+      regionLabel
+      orderedLocationKeywords
+    }
+    shashlikRegionKeywordMap {
+      keyword
+      regionLabel
+    }
+    shashlikPriorityByRegion {
+      regionLabel
+      orderedLocationKeywords
+    }
+    updatedAt
+  }
+}

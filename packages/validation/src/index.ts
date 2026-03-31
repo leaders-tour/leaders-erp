@@ -17,5 +17,6 @@ export * from './region.schema';
 export * from './region-set.schema';
 export * from './region-lodging.schema';
 export * from './segment.schema';
+export * from './special-meal-destination-rules.schema';
 export * from './time-block.schema';
 export * from './user.schema';

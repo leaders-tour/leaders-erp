@@ -1291,3 +1291,12 @@ model Override {
 
   @@index([planVersionId])
 }
+
+/// 특식(샤브/삼겹/샤슬릭) 허용·추천 키워드 규칙 단일 행 (id = default)
+model SpecialMealDestinationRules {
+  id      String @id
+  payload Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

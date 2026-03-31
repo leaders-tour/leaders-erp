@@ -48,6 +48,7 @@ import {
   type ExternalTransfer,
 } from '../features/plan/external-transfer';
 import { useBuilderValidation } from '../features/plan/builder-validation';
+import { useSpecialMealDestinationRules } from '../features/plan/hooks/use-special-meal-destination-rules';
 import { buildMergedPlanStops } from '../features/plan/merge-plan-stops';
 import {
   isMainPlanStopRow,
@@ -1753,6 +1754,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const lastAutoPlanTitleRef = useRef<string>(buildDefaultPlanTitle(''));
   const hasEditedHeadcountMaleRef = useRef<boolean>(false);
 
+  const { rules: specialMealDestinationRules } = useSpecialMealDestinationRules();
+
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
     skip: !isVersionMode,
@@ -3067,6 +3070,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     hasEditedManualDeposit,
     manualDepositInput,
     pricingPreview,
+    specialMealDestinationRules,
   });
   const validationErrors = validationResults.filter((r) => r.severity === 'error');
   const hasValidation = (id: string) => validationResults.some((r) => r.id === id);
@@ -6048,6 +6052,7 @@ export function ItineraryBuilderPage(): JSX.Element {
               destinationCellText: r.destinationCellText,
               scheduleCellText: r.scheduleCellText,
             }))}
+          specialMealDestinationRules={specialMealDestinationRules}
           onClose={() => setSpecialMealsModalState({ open: false })}
           onSave={(updatedRows) => {
             const mainIndices = planRows

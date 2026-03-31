@@ -3,10 +3,14 @@ import type { ExternalTransfer } from './external-transfer';
 import { isExternalTransferComplete } from './external-transfer';
 import { parseTimeToMinutes } from './pickup-drop';
 import {
+  DEFAULT_SPECIAL_MEAL_DESTINATION_RULES,
+  formatSamgyeopsalRecommendationHint,
+  formatShabushabuAllowedSummary,
   getAssignmentsFromPlanRows,
   getShabushabuAllowedCandidates,
   isSamgyeopsalRecommended,
   SPECIAL_MEAL_KINDS,
+  type SpecialMealDestinationRules,
   type SpecialMealRowContext,
 } from './special-meals';
 import type { MultiDayBlockConnectionOption } from '../plan-template/route-autofill';
@@ -176,6 +180,8 @@ export interface BuilderValidationInput {
   hasEditedManualDeposit: boolean;
   manualDepositInput: string;
   pricingPreview: PricingPreviewForValidation | null;
+  /** 서버/캐시에서 로드한 특식 여행지 규칙(없으면 기본 상수) */
+  specialMealDestinationRules?: SpecialMealDestinationRules;
 }
 
 export function useBuilderValidation(input: BuilderValidationInput): ValidationResult[] {
@@ -199,7 +205,10 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
       hasEditedManualDeposit,
       manualDepositInput,
       pricingPreview,
+      specialMealDestinationRules: specialMealRulesInput,
     } = input;
+
+    const specialMealDestinationRules = specialMealRulesInput ?? DEFAULT_SPECIAL_MEAL_DESTINATION_RULES;
 
     const headcountFemale = headcountTotal - headcountMale;
 
@@ -411,34 +420,36 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
       });
     }
 
-    // shabushabu-invalid-placement (error) — 샤브샤브는 울란바토르가 드러나는 일차의 식사에만 가능
-    const shabushabuAllowed = getShabushabuAllowedCandidates(rowContexts);
+    // shabushabu-invalid-placement (error)
+    const shabushabuAllowed = getShabushabuAllowedCandidates(rowContexts, specialMealDestinationRules);
     const shabushabuAssignment = assignments.find((a) => a.specialMeal === '샤브샤브');
     if (shabushabuAssignment) {
       const allowed = shabushabuAllowed.some(
         (c) => c.dayIndex === shabushabuAssignment.dayIndex && c.mealSlot === shabushabuAssignment.mealSlot,
       );
       if (!allowed) {
+        const locHint = formatShabushabuAllowedSummary(specialMealDestinationRules);
         results.push({
           id: 'shabushabu-invalid-placement',
           severity: 'error',
-          message: '샤브샤브는 울란바토르 지역 일정이 있는 날의 아침·점심·저녁 중 한 곳에 배치할 수 있습니다.',
+          message: `샤브샤브는 설정된 허용 목적지 이름이 목적지·일정에 보이는 날의 식사에만 배치할 수 있습니다. (허용: ${locHint})`,
           affectedCells: [{ rowIndex: shabushabuAssignment.dayIndex, field: 'mealCellText' }],
         });
       }
     }
 
-    // samgyeopsal-recommendation-deviation (warning) — 삼겹살 추천지 이탈 시 warning만, 저장 차단 안 함
+    // samgyeopsal-recommendation-deviation (warning)
     const samgyeopsalAssignment = assignments.find((a) => a.specialMeal === '삼겹살파티');
     if (samgyeopsalAssignment) {
       const ctx = rowContexts.find(
         (c) => c.dayIndex === samgyeopsalAssignment.dayIndex && c.mealSlot === samgyeopsalAssignment.mealSlot,
       );
-      if (ctx && !isSamgyeopsalRecommended(ctx)) {
+      if (ctx && !isSamgyeopsalRecommended(ctx, specialMealDestinationRules)) {
+        const recoHint = formatSamgyeopsalRecommendationHint(specialMealDestinationRules);
         results.push({
           id: 'samgyeopsal-recommendation-deviation',
           severity: 'warning',
-          message: '삼겹살파티는 지역별 추천지(바양작, 어르헝폭포, 홉스골 등)에 배치하는 것을 권장합니다.',
+          message: `삼겹살파티는 설정된 지역별 추천지에 배치하는 것을 권장합니다. (예: ${recoHint})`,
           affectedCells: [{ rowIndex: samgyeopsalAssignment.dayIndex, field: 'mealCellText' }],
         });
       }
@@ -499,5 +510,6 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
     input.hasEditedManualDeposit,
     input.manualDepositInput,
     input.pricingPreview,
+    input.specialMealDestinationRules,
   ]);
 }

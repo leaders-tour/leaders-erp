@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { VariantType } from '../generated/graphql';
 import { formatLocationNameMultiline, normalizeLocationNameLines } from '../features/location/display';
 import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
+import { useSpecialMealDestinationRules } from '../features/plan/hooks/use-special-meal-destination-rules';
 import { getAssignmentsFromPlanRows } from '../features/plan/special-meals';
 import {
   buildAutoRowsFromRoute,
@@ -410,6 +411,8 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
   const [isOvernightStayPickerOpen, setIsOvernightStayPickerOpen] = useState<boolean>(false);
   const [planRows, setPlanRows] = useState<TemplatePlanRow[]>([]);
   const [specialMealsModalOpen, setSpecialMealsModalOpen] = useState(false);
+
+  const { rules: specialMealDestinationRules } = useSpecialMealDestinationRules();
 
   const { data: regionSetData } = useQuery<{ regionSets: RegionSetRow[] }>(REGION_SETS_QUERY, {
     variables: { includeInactive: false },
@@ -1242,6 +1245,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
             destinationCellText: r.destinationCellText,
             scheduleCellText: r.scheduleCellText,
           }))}
+          specialMealDestinationRules={specialMealDestinationRules}
           onClose={() => setSpecialMealsModalOpen(false)}
           onSave={(updatedRows) => {
             setPlanRows((prev) =>

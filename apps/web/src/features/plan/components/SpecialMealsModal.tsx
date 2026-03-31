@@ -8,10 +8,13 @@ import { Button, Card } from '@tour/ui';
 import {
   applySpecialMealSelections,
   buildSpecialMealOriginalSlotValues,
+  DEFAULT_SPECIAL_MEAL_DESTINATION_RULES,
+  formatShabushabuAllowedSummary,
   getSamgyeopsalRecommendationRank,
-  isShashlikRecommended,
+  getShashlikRecommendationRank,
   type MealSlot,
   type PlanRowForSpecialMeals,
+  type SpecialMealDestinationRules,
   type SpecialMealOriginalSlotValues,
   type SpecialMealKind,
   type SpecialMealRowContext,
@@ -27,6 +30,7 @@ export interface SpecialMealsModalProps {
   rows: PlanRowForSpecialMeals[];
   onClose: () => void;
   onSave: (updatedRows: PlanRowForSpecialMeals[]) => void;
+  specialMealDestinationRules?: SpecialMealDestinationRules;
 }
 
 type SelectionValue = {
@@ -76,13 +80,16 @@ function getAllowedMealSlots(
   specialMeal: SpecialMealKind,
   row: PlanRowForSpecialMeals | undefined,
   dayIndex: number,
+  rules: SpecialMealDestinationRules,
 ): MealSlot[] {
   if (!row) {
     return [];
   }
 
   if (specialMeal === '샤브샤브') {
-    return (MEAL_SLOTS as readonly MealSlot[]).filter((slot) => isShabushabuAllowed(toRowContext(row, dayIndex, slot)));
+    return (MEAL_SLOTS as readonly MealSlot[]).filter((slot) =>
+      isShabushabuAllowed(toRowContext(row, dayIndex, slot), rules),
+    );
   }
 
   return [...MEAL_SLOTS];
@@ -109,7 +116,10 @@ export function SpecialMealsModal({
   rows,
   onClose,
   onSave,
+  specialMealDestinationRules: rulesProp,
 }: SpecialMealsModalProps): JSX.Element | null {
+  const specialMealDestinationRules = rulesProp ?? DEFAULT_SPECIAL_MEAL_DESTINATION_RULES;
+
   const [draftSelections, setDraftSelections] = useState<SelectionMap>(EMPTY_SELECTIONS);
   const [activeMeal, setActiveMeal] = useState<SpecialMealKind>('샤브샤브');
   const [originalSlotValues, setOriginalSlotValues] = useState<SpecialMealOriginalSlotValues>({});
@@ -130,21 +140,25 @@ export function SpecialMealsModal({
   const selectedDayIndex = activeSelection?.dayIndex ?? null;
   const selectedDayRow = selectedDayIndex !== null ? rows[selectedDayIndex] : undefined;
   const allowedSlotsForSelectedDay =
-    selectedDayIndex !== null ? getAllowedMealSlots(activeMeal, selectedDayRow, selectedDayIndex) : [];
+    selectedDayIndex !== null
+      ? getAllowedMealSlots(activeMeal, selectedDayRow, selectedDayIndex, specialMealDestinationRules)
+      : [];
 
   const dayOptions = useMemo(
     () =>
       rows.map((row, dayIndex) => {
-        const allowedSlots = getAllowedMealSlots(activeMeal, row, dayIndex);
+        const allowedSlots = getAllowedMealSlots(activeMeal, row, dayIndex, specialMealDestinationRules);
         const rowContext = toRowContext(row, dayIndex, 'dinner');
         const recommendationRank =
-          activeMeal === '삼겹살파티' ? getSamgyeopsalRecommendationRank(rowContext) : null;
-        const isRecommended =
           activeMeal === '삼겹살파티'
-            ? recommendationRank !== null
+            ? getSamgyeopsalRecommendationRank(rowContext, specialMealDestinationRules)
             : activeMeal === '샤슬릭'
-              ? isShashlikRecommended(rowContext)
-              : false;
+              ? getShashlikRecommendationRank(rowContext, specialMealDestinationRules)
+              : null;
+        const isRecommended =
+          activeMeal === '삼겹살파티' || activeMeal === '샤슬릭'
+            ? recommendationRank !== null
+            : false;
         return {
           dayIndex,
           destinationLabel: getDestinationLabel(row.destinationCellText),
@@ -154,15 +168,17 @@ export function SpecialMealsModal({
           isRecommended,
         };
       }),
-    [activeMeal, rows],
+    [activeMeal, rows, specialMealDestinationRules],
   );
 
   const isCurrentSelectionInvalid =
     activeSelection !== null &&
-    !getAllowedMealSlots(activeMeal, rows[activeSelection.dayIndex], activeSelection.dayIndex).includes(activeSelection.mealSlot);
+    !getAllowedMealSlots(activeMeal, rows[activeSelection.dayIndex], activeSelection.dayIndex, specialMealDestinationRules).includes(
+      activeSelection.mealSlot,
+    );
 
   const handleSelectDay = (dayIndex: number): void => {
-    const allowedSlots = getAllowedMealSlots(activeMeal, rows[dayIndex], dayIndex);
+    const allowedSlots = getAllowedMealSlots(activeMeal, rows[dayIndex], dayIndex, specialMealDestinationRules);
     if (allowedSlots.length === 0) {
       return;
     }
@@ -182,7 +198,12 @@ export function SpecialMealsModal({
     if (selectedDayIndex === null) {
       return;
     }
-    const allowedSlots = getAllowedMealSlots(activeMeal, rows[selectedDayIndex], selectedDayIndex);
+    const allowedSlots = getAllowedMealSlots(
+      activeMeal,
+      rows[selectedDayIndex],
+      selectedDayIndex,
+      specialMealDestinationRules,
+    );
     if (!allowedSlots.includes(mealSlot)) {
       return;
     }
@@ -268,9 +289,10 @@ export function SpecialMealsModal({
                   </div>
                   <div className="mt-3 text-xs text-slate-500">
                     {activeMeal === '샤브샤브'
-                      ? '샤브샤브는 울란바토르 지정이 있는 일차에서 아침·점심·저녁 중 선택할 수 있습니다.'
+                      ? `샤브 허용 목적지(이름이 일정·목적지 칸과 맞아야 함): ${formatShabushabuAllowedSummary(specialMealDestinationRules)}`
                       : null}
                     {activeMeal === '삼겹살파티' ? '삼겹살파티는 추천 목적지를 우선 표시합니다.' : null}
+                    {activeMeal === '샤슬릭' ? '샤슬릭은 설정한 키워드·지역별 추천 순서를 반영합니다.' : null}
                   </div>
                 </div>
 

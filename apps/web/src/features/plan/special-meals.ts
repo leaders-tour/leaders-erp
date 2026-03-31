@@ -3,6 +3,10 @@
  * 일정빌더/템플릿/멀티데이블록에서 공통 사용.
  */
 
+import {
+  SPECIAL_MEAL_DESTINATION_RULES_DEFAULT,
+  type SpecialMealDestinationRulesPayload,
+} from '@tour/validation';
 import { includesLocationNameKeyword } from '../location/display';
 
 // --- 상수 ---
@@ -157,98 +161,186 @@ export function isUlaanbaatarRow(ctx: SpecialMealRowContext): boolean {
   return includesLocationNameKeyword(getRowCombinedText(ctx), '울란바토르');
 }
 
-// --- 샤브샤브: hard constraint (울란바토르 지역 행 — 식사 슬롯은 아침·점심·저녁 모두) ---
+/** GraphQL에서 채운 목적지 이름 줄(일정 셀 텍스트와 부분 일치) */
+export type SpecialMealDestinationRules = SpecialMealDestinationRulesPayload & {
+  shabushabuResolvedNameLines?: string[][];
+};
 
-const SHABUSHABU_REGION_KEYWORD = '울란바토르';
+/** 설정 미로드·테스트용 기본 규칙 (@tour/validation과 동일) */
+export const DEFAULT_SPECIAL_MEAL_DESTINATION_RULES = SPECIAL_MEAL_DESTINATION_RULES_DEFAULT;
 
-/** 샤브샤브 배치 가능 후보만 필터 (울란바토르가 목적지/일정에 드러나는 행의 모든 식사 슬롯) */
-export function getShabushabuAllowedCandidates(
-  rowContexts: SpecialMealRowContext[],
-): SpecialMealRowContext[] {
-  return rowContexts.filter((ctx) =>
-    includesLocationNameKeyword(getRowCombinedText(ctx), SHABUSHABU_REGION_KEYWORD),
-  );
+export function formatShabushabuAllowedSummary(rules: SpecialMealDestinationRules): string {
+  if (rules.shabushabuLocationIds.length === 0) {
+    return '허용 목적지 없음';
+  }
+  const lines = rules.shabushabuResolvedNameLines;
+  if (lines && lines.length > 0) {
+    const labels = lines
+      .map((l) => l.map((s) => s.trim()).filter(Boolean).join(' / '))
+      .filter(Boolean);
+    return labels.length > 0 ? labels.join(', ') : '목적지 이름을 불러오는 중…';
+  }
+  return `등록된 목적지 ${rules.shabushabuLocationIds.length}곳 (이름 로딩 대기)`;
 }
 
-export function isShabushabuAllowed(ctx: SpecialMealRowContext): boolean {
-  return includesLocationNameKeyword(getRowCombinedText(ctx), SHABUSHABU_REGION_KEYWORD);
+// --- 샤브샤브: hard constraint (규칙에 등록된 Location 이름이 목적지/일정에 보이는 행) ---
+
+/** 샤브샤브 배치 가능 후보 */
+export function getShabushabuAllowedCandidates(
+  rowContexts: SpecialMealRowContext[],
+  rules: SpecialMealDestinationRules = SPECIAL_MEAL_DESTINATION_RULES_DEFAULT,
+): SpecialMealRowContext[] {
+  if (rules.shabushabuLocationIds.length === 0) {
+    return [];
+  }
+  return rowContexts.filter((ctx) => isShabushabuAllowed(ctx, rules));
+}
+
+export function isShabushabuAllowed(
+  ctx: SpecialMealRowContext,
+  rules: SpecialMealDestinationRules = SPECIAL_MEAL_DESTINATION_RULES_DEFAULT,
+): boolean {
+  if (rules.shabushabuLocationIds.length === 0) {
+    return false;
+  }
+  const resolved = rules.shabushabuResolvedNameLines;
+  if (!resolved || resolved.length === 0) {
+    return false;
+  }
+  const blob = getRowCombinedText(ctx);
+  return resolved.some((nameLines) =>
+    nameLines.some((line) => {
+      const t = line.trim();
+      return t.length > 0 && includesLocationNameKeyword(blob, t);
+    }),
+  );
 }
 
 // --- 삼겹살파티: soft recommendation (지역별 우선 추천지) ---
 
-/** 지역 키워드 → 해당 지역으로 인식할 문자열 */
-const REGION_KEYWORDS: Record<string, string> = {
-  고비사막: '고비사막',
-  고비: '고비사막',
-  바양작: '고비사막',
-  차강소브라가: '고비사막',
-  박가츠린촐로: '고비사막',
-  욜린암: '고비사막',
-  중부: '중부',
-  어르헝폭포: '중부',
-  어기호수: '중부',
-  쳉헤르온천: '중부',
-  홉스골: '홉스골',
-  차강노르: '홉스골',
-};
-
-/** 지역별 삼겹살 추천지 우선순위 (이름 일부 매칭) */
-const SAMGYEOPSAL_PRIORITY: Record<string, string[]> = {
-  고비사막: ['바양작', '차강소브라가', '박가츠린촐로'],
-  중부: ['어르헝폭포', '어기호수', '쳉헤르온천'],
-  홉스골: ['홉스골', '차강노르'],
-};
-
-const SHASHLIK_RECOMMENDED_KEYWORDS = ['테를지', '울란바토르'] as const;
-
-function inferRegion(ctx: SpecialMealRowContext): string | null {
+function inferRegion(
+  ctx: SpecialMealRowContext,
+  rules: SpecialMealDestinationRules,
+): string | null {
   const text = getRowCombinedText(ctx).toLowerCase();
-  for (const [keyword, region] of Object.entries(REGION_KEYWORDS)) {
-    if (text.includes(keyword.toLowerCase())) return region;
+  for (const { keyword, regionLabel } of rules.samgyeopsalRegionKeywordMap) {
+    if (text.includes(keyword.toLowerCase())) {
+      return regionLabel;
+    }
   }
   return null;
 }
 
-function getLocationPriorityInRegion(region: string): string[] {
-  return SAMGYEOPSAL_PRIORITY[region] ?? [];
+function getLocationPriorityInRegion(
+  region: string,
+  rules: SpecialMealDestinationRules,
+): string[] {
+  const block = rules.samgyeopsalPriorityByRegion.find((p) => p.regionLabel === region);
+  return block?.orderedLocationKeywords ?? [];
 }
 
-export function getSamgyeopsalRecommendationRank(ctx: SpecialMealRowContext): number | null {
-  const region = inferRegion(ctx);
+export function getSamgyeopsalRecommendationRank(
+  ctx: SpecialMealRowContext,
+  rules: SpecialMealDestinationRules = SPECIAL_MEAL_DESTINATION_RULES_DEFAULT,
+): number | null {
+  const region = inferRegion(ctx, rules);
   if (!region) {
     return null;
   }
-  const priorityList = getLocationPriorityInRegion(region);
+  const priorityList = getLocationPriorityInRegion(region, rules);
   const text = getRowCombinedText(ctx).toLowerCase();
   const index = priorityList.findIndex((loc) => text.includes(loc.toLowerCase()));
   return index >= 0 ? index + 1 : null;
 }
 
-/** 삼겹살파티 추천 순서로 정렬 (추천지가 있으면 상단, 없으면 자유 배치 허용) */
+/** 삼겹살파티 추천 순서로 정렬 */
 export function getSamgyeopsalRecommendedCandidates(
   rowContexts: SpecialMealRowContext[],
+  rules: SpecialMealDestinationRules = SPECIAL_MEAL_DESTINATION_RULES_DEFAULT,
 ): SpecialMealRowContext[] {
   const withScore = rowContexts.map((ctx) => {
-    const region = inferRegion(ctx);
+    const region = inferRegion(ctx, rules);
     const text = getRowCombinedText(ctx).toLowerCase();
-    const priorityList = region ? getLocationPriorityInRegion(region) : [];
+    const priorityList = region ? getLocationPriorityInRegion(region, rules) : [];
     let order = priorityList.length;
     const idx = priorityList.findIndex((loc) => text.includes(loc.toLowerCase()));
-    if (idx >= 0) order = idx;
-    return { ctx, region, order };
+    if (idx >= 0) {
+      order = idx;
+    }
+    return { ctx, order };
   });
   withScore.sort((a, b) => a.order - b.order);
   return withScore.map((x) => x.ctx);
 }
 
-/** 해당 후보가 삼겹살 추천지인지 */
-export function isSamgyeopsalRecommended(ctx: SpecialMealRowContext): boolean {
-  return getSamgyeopsalRecommendationRank(ctx) !== null;
+export function isSamgyeopsalRecommended(
+  ctx: SpecialMealRowContext,
+  rules: SpecialMealDestinationRules = SPECIAL_MEAL_DESTINATION_RULES_DEFAULT,
+): boolean {
+  return getSamgyeopsalRecommendationRank(ctx, rules) !== null;
 }
 
-export function isShashlikRecommended(ctx: SpecialMealRowContext): boolean {
+function inferShashlikRegion(
+  ctx: SpecialMealRowContext,
+  rules: SpecialMealDestinationRules,
+): string | null {
   const text = getRowCombinedText(ctx).toLowerCase();
-  return SHASHLIK_RECOMMENDED_KEYWORDS.some((keyword) => text.includes(keyword.toLowerCase()));
+  for (const { keyword, regionLabel } of rules.shashlikRegionKeywordMap) {
+    if (text.includes(keyword.toLowerCase())) {
+      return regionLabel;
+    }
+  }
+  return null;
+}
+
+function getShashlikLocationPriorityInRegion(region: string, rules: SpecialMealDestinationRules): string[] {
+  const block = rules.shashlikPriorityByRegion.find((p) => p.regionLabel === region);
+  return block?.orderedLocationKeywords ?? [];
+}
+
+export function getShashlikRecommendationRank(
+  ctx: SpecialMealRowContext,
+  rules: SpecialMealDestinationRules = SPECIAL_MEAL_DESTINATION_RULES_DEFAULT,
+): number | null {
+  const region = inferShashlikRegion(ctx, rules);
+  if (!region) {
+    return null;
+  }
+  const priorityList = getShashlikLocationPriorityInRegion(region, rules);
+  const text = getRowCombinedText(ctx).toLowerCase();
+  const index = priorityList.findIndex((loc) => text.includes(loc.toLowerCase()));
+  return index >= 0 ? index + 1 : null;
+}
+
+export function isShashlikRecommended(
+  ctx: SpecialMealRowContext,
+  rules: SpecialMealDestinationRules = SPECIAL_MEAL_DESTINATION_RULES_DEFAULT,
+): boolean {
+  return getShashlikRecommendationRank(ctx, rules) !== null;
+}
+
+/** 삼겹살 검증 안내용 */
+export function formatSamgyeopsalRecommendationHint(rules: SpecialMealDestinationRules): string {
+  const flat = rules.samgyeopsalPriorityByRegion.flatMap((p) => p.orderedLocationKeywords);
+  const unique = [...new Set(flat)];
+  if (unique.length === 0) {
+    return '설정된 추천지 없음';
+  }
+  const head = unique.slice(0, 6);
+  const tail = unique.length > 6 ? ` 외 ${unique.length - 6}곳` : '';
+  return head.join(', ') + tail;
+}
+
+/** 샤슬릭 검증·안내용 */
+export function formatShashlikRecommendationHint(rules: SpecialMealDestinationRules): string {
+  const flat = rules.shashlikPriorityByRegion.flatMap((p) => p.orderedLocationKeywords);
+  const unique = [...new Set(flat)];
+  if (unique.length === 0) {
+    return '설정된 추천지 없음';
+  }
+  const head = unique.slice(0, 6);
+  const tail = unique.length > 6 ? ` 외 ${unique.length - 6}곳` : '';
+  return head.join(', ') + tail;
 }
 
 // --- mealCellText에 특식 배치 반영 ---

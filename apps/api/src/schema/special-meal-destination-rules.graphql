@@ -1,0 +1,45 @@
+type SpecialMealKeywordRegionPair {
+  keyword: String!
+  regionLabel: String!
+}
+
+type SpecialMealRegionPriority {
+  regionLabel: String!
+  orderedLocationKeywords: [String!]!
+}
+
+type SpecialMealDestinationRules {
+  shabushabuLocationIds: [ID!]!
+  shabushabuLocations: [Location!]!
+  samgyeopsalRegionKeywordMap: [SpecialMealKeywordRegionPair!]!
+  samgyeopsalPriorityByRegion: [SpecialMealRegionPriority!]!
+  shashlikRegionKeywordMap: [SpecialMealKeywordRegionPair!]!
+  shashlikPriorityByRegion: [SpecialMealRegionPriority!]!
+  updatedAt: DateTime!
+}
+
+input SpecialMealKeywordRegionPairInput {
+  keyword: String!
+  regionLabel: String!
+}
+
+input SpecialMealRegionPriorityInput {
+  regionLabel: String!
+  orderedLocationKeywords: [String!]!
+}
+
+input SpecialMealDestinationRulesInput {
+  shabushabuLocationIds: [ID!]!
+  samgyeopsalRegionKeywordMap: [SpecialMealKeywordRegionPairInput!]!
+  samgyeopsalPriorityByRegion: [SpecialMealRegionPriorityInput!]!
+  shashlikRegionKeywordMap: [SpecialMealKeywordRegionPairInput!]!
+  shashlikPriorityByRegion: [SpecialMealRegionPriorityInput!]!
+}
+
+extend type Query {
+  specialMealDestinationRules: SpecialMealDestinationRules!
+}
+
+extend type Mutation {
+  updateSpecialMealDestinationRules(input: SpecialMealDestinationRulesInput!): SpecialMealDestinationRules!
+}
