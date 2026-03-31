@@ -188,7 +188,7 @@ export function formatCalculationBasis(unitPriceKrw: number | null, quantity: nu
     return quantity > 0 ? `${quantity}회` : '-';
   }
 
-  return `${formatCurrency(unitPriceKrw)} * ${quantity}`;
+  return `${formatCurrency(unitPriceKrw)}*${quantity}`;
 }
 
 export function formatCalculationBasisNights(unitPriceKrw: number | null, nights: number): string {
@@ -196,7 +196,7 @@ export function formatCalculationBasisNights(unitPriceKrw: number | null, nights
     return nights > 0 ? `${nights}박` : '-';
   }
 
-  return `${formatCurrency(unitPriceKrw)} * ${nights}박`;
+  return `${formatCurrency(unitPriceKrw)}*${nights}박`;
 }
 
 export function formatPerPersonCalculationBasis(totalAmountKrw: number | null, headcount: number): string {

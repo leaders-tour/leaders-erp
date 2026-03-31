@@ -623,7 +623,8 @@
   font-weight: 700;
 }
 
-.estimate-page1-price-cell--details {
+/* .estimate-table td 기본이 text-align: center 이라 상세 열만 덮어씀 */
+.estimate-table td.estimate-page1-price-cell--details {
   text-align: left;
 }
 
@@ -632,6 +633,15 @@
 }
 
 .estimate-page1-price-line {
+  display: grid;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  /* 좌 여백 | 가운데(항목·금액) | 산식 — 가운데 열 비율을 크게 해 얼리 등이 셀 중앙에 가깝게 */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: calc(10px * var(--estimate-page1-fit-scale));
   line-height: 1.35;
 }
 
@@ -639,17 +649,34 @@
   margin-top: calc(6px * var(--estimate-page1-fit-scale));
 }
 
-.estimate-page1-price-line-main {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: calc(12px * var(--estimate-page1-fit-scale));
+.estimate-page1-price-line-gutter {
+  min-width: 0;
 }
 
-.estimate-page1-price-line-basis {
-  margin-top: calc(2px * var(--estimate-page1-fit-scale));
+.estimate-page1-price-line-lead {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.2em;
+  min-width: 0;
+  justify-self: center;
+  text-align: center;
+}
+
+.estimate-page1-price-line-label {
+  min-width: 0;
+}
+
+.estimate-page1-price-line-amount {
+  font-weight: 700;
+}
+
+.estimate-page1-price-line-formula {
+  justify-self: end;
   color: #6b645b;
   font-size: var(--estimate-page1-small-font-size);
+  white-space: nowrap;
 }
 
 .estimate-page1-summary-block {

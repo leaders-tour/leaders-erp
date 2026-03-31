@@ -907,11 +907,14 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 ) : (
                   adjustmentLines.map((line, index) => (
                     <div key={`adj-${index}`} className="estimate-page1-price-line">
-                      <div className="estimate-page1-price-line-main">
-                        <span>{line.label}</span>
-                        <strong>{formatSignedCurrency(line.amountKrw)}</strong>
-                      </div>
-                      <div className="estimate-page1-price-line-basis">{line.formula}</div>
+                      <span className="estimate-page1-price-line-gutter" aria-hidden="true" />
+                      <span className="estimate-page1-price-line-lead">
+                        <span className="estimate-page1-price-line-label">{line.label}</span>
+                        <strong className="estimate-page1-price-line-amount">
+                          {formatSignedCurrency(line.amountKrw)}
+                        </strong>
+                      </span>
+                      <span className="estimate-page1-price-line-formula">{line.formula}</span>
                     </div>
                   ))
                 )}
