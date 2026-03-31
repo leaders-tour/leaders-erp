@@ -27,6 +27,26 @@ function fallback(value: string | null | undefined): string {
   return text && text.length > 0 ? text : '-';
 }
 
+const VEHICLE_PURGONG_PHOTO_NOTE = '*푸르공 사진촬영 가능';
+
+function vehicleTypeShowsPurgongPhotoNote(vehicleType: string | null | undefined): boolean {
+  const v = vehicleType?.trim();
+  return v === '스타렉스' || v === '하이에이스';
+}
+
+function VehicleTypeCellDisplay({ vehicleType }: { vehicleType: string | null | undefined }): JSX.Element {
+  const main = fallback(vehicleType);
+  if (main === '-' || !vehicleTypeShowsPurgongPhotoNote(vehicleType)) {
+    return <>{main}</>;
+  }
+  return (
+    <span className="inline-flex flex-col items-center gap-0.5 text-center text-inherit">
+      <span className="block font-semibold leading-tight">{main}</span>
+      <span className="block text-[0.8125em] leading-snug text-inherit">{VEHICLE_PURGONG_PHOTO_NOTE}</span>
+    </span>
+  );
+}
+
 interface EditableCellProps {
   field: EstimatePage1EditableField;
   activeField: EstimatePage1EditableField | null;
@@ -647,7 +667,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 field="vehicleType"
                 activeField={activeField}
                 editor={editor}
-                displayValue={fallback(data.vehicleType)}
+                displayValue={<VehicleTypeCellDisplay vehicleType={data.vehicleType} />}
                 input={
                   <select
                     autoFocus
