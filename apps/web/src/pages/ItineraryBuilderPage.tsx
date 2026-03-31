@@ -988,14 +988,14 @@ function formatKrw(value: number): string {
 }
 
 function formatPricingLineUnitDisplay(line: PricingLineRow, headcountTotal: number): string {
-  if (line.lineCode === 'MANUAL_ADJUSTMENT' && line.sourceType === 'RULE' && headcountTotal > 0) {
+  if (line.lineCode === 'MANUAL_ADJUSTMENT' && line.sourceType === 'RULE' && line.quantity > 1 && headcountTotal > 0) {
     return `${formatKrw(line.unitPriceKrw ?? line.amountKrw)}/${headcountTotal}인`;
   }
   return line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-';
 }
 
 function formatPricingLineQuantityDisplay(line: PricingLineRow, headcountTotal: number): string {
-  if (line.lineCode === 'MANUAL_ADJUSTMENT' && line.sourceType === 'RULE' && headcountTotal > 0) {
+  if (line.lineCode === 'MANUAL_ADJUSTMENT' && line.sourceType === 'RULE' && line.quantity > 1 && headcountTotal > 0) {
     return `${headcountTotal}인`;
   }
   if (line.quantityDisplaySuffix === '박') {
