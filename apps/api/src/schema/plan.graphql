@@ -453,6 +453,7 @@ input PlanStopNestedInput {
   multiDayBlockConnectionVersionId: String
   locationId: String
   locationVersionId: String
+  movementIntensity: MovementIntensity
   dateCellText: String!
   destinationCellText: String!
   timeCellText: String!

@@ -5,6 +5,7 @@ const vehicleTypes = ['스타렉스', '푸르공', '벨파이어', '하이에이
 const placeTypes = ['AIRPORT', 'OZ_HOUSE', 'ULAANBAATAR', 'CUSTOM'] as const;
 const lodgingSelectionLevels = ['LV1', 'LV2', 'LV3', 'LV4', 'CUSTOM'] as const;
 const planStopRowTypes = ['MAIN', 'EXTERNAL_TRANSFER'] as const;
+const movementIntensityLevels = ['LEVEL_1', 'LEVEL_2', 'LEVEL_3', 'LEVEL_4', 'LEVEL_5'] as const;
 const dateTimeInputSchema = z.preprocess(
   (value) => (value instanceof Date ? value.toISOString() : value),
   z.string().datetime(),
@@ -25,6 +26,7 @@ export const planStopNestedSchema = z
     multiDayBlockConnectionVersionId: z.string().min(1).optional(),
     locationId: z.string().min(1).optional(),
     locationVersionId: z.string().min(1).optional(),
+    movementIntensity: z.enum(movementIntensityLevels).nullable().optional(),
     dateCellText: z.string(),
     destinationCellText: z.string(),
     timeCellText: z.string(),

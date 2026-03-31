@@ -1,0 +1,28 @@
+---
+description: Keep GraphQL input SDL, validation schema, payload builders, and codegen in sync
+alwaysApply: true
+---
+
+# GraphQL Input Contract Sync
+
+When changing GraphQL mutation/query input contracts, never update only one layer.
+
+- If an input type changes in `apps/api/src/schema/**/*.graphql`, update the matching Zod schema in `packages/validation/src/**/*.ts`.
+- Also update every payload builder or caller that sends that input, especially pages like `apps/web/src/pages/ItineraryBuilderPage.tsx`.
+- Regenerate web GraphQL types after schema/document changes: `pnpm --filter @tour/web codegen` or the web build script.
+- Before finishing, verify the contract with typechecks:
+  - `pnpm --filter @tour/api typecheck`
+  - `pnpm --filter @tour/validation typecheck`
+  - `pnpm --filter @tour/web typecheck`
+
+Checklist for GraphQL input changes:
+
+- [ ] GraphQL SDL updated
+- [ ] Zod schema updated
+- [ ] Related payload builders/callers updated
+- [ ] Web codegen regenerated
+- [ ] Typechecks run
+
+Example:
+
+- If `PlanStopNestedInput` adds or removes a field in `apps/api/src/schema/plan.graphql`, also update `packages/validation/src/plan.schema.ts` and the request payloads built in `apps/web/src/pages/ItineraryBuilderPage.tsx`.
