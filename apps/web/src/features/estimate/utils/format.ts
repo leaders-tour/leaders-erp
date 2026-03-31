@@ -206,13 +206,13 @@ export function formatPerPersonCalculationBasis(totalAmountKrw: number | null, h
   return `${formatCurrency(totalAmountKrw)}/${headcount}인`;
 }
 
-/** 모달·유도 입력 기타 금액은 일괄(`MANUAL`), 야간열차·샤브샤브 등은 인당 표기(`RULE`). */
+/** 수동 조정은 기본적으로 곱셈식으로 표기하고, RULE 중 인원 수가 있는 항목만 인당 표기한다. */
 export function formatManualAdjustmentLineFormula(line: {
   sourceType: string;
   unitPriceKrw: number | null;
   quantity: number;
 }): string {
-  if (line.sourceType === 'MANUAL') {
+  if (line.sourceType === 'MANUAL' || line.quantity <= 1) {
     return formatCalculationBasis(line.unitPriceKrw, line.quantity);
   }
   return formatPerPersonCalculationBasis(line.unitPriceKrw, line.quantity);

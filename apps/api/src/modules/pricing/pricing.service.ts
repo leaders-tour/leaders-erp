@@ -262,22 +262,21 @@ export class PricingService {
       });
     }
 
-    // 샤브샤브 누락 할인: mealCellText 전체에서 '샤브샤브' 미포함 시 인당 15,000원 할인
+    // 샤브샤브 누락 할인: mealCellText 전체에서 '샤브샤브' 미포함 시 15,000원 일괄 할인
     const allMealCellTexts = mainPlanStops
       .map((stop) => stop.mealCellText ?? '')
       .join(' ');
     const hasShabushabu = allMealCellTexts.includes('샤브샤브');
     if (!hasShabushabu) {
-      const SHABUSHABU_DISCOUNT_PER_PERSON_KRW = -15_000;
-      const normalizedDiscountKrw = SHABUSHABU_DISCOUNT_PER_PERSON_KRW;
+      const SHABUSHABU_DISCOUNT_KRW = -15_000;
       lines.push({
         lineCode: 'MANUAL_ADJUSTMENT',
         sourceType: 'RULE',
         ruleId: null,
         description: '샤브샤브 누락 할인',
-        unitPriceKrw: SHABUSHABU_DISCOUNT_PER_PERSON_KRW,
-        quantity: input.headcountTotal > 0 ? input.headcountTotal : 1,
-        amountKrw: normalizedDiscountKrw,
+        unitPriceKrw: SHABUSHABU_DISCOUNT_KRW,
+        quantity: 1,
+        amountKrw: SHABUSHABU_DISCOUNT_KRW,
         meta: { reason: 'shabushabu_missing' },
       });
     }
