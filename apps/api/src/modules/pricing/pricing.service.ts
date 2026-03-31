@@ -368,15 +368,56 @@ export class PricingService {
 
       const price = selection.priceSnapshotKrw ?? 0;
       const pricingMode = selection.pricingModeSnapshot ?? 'FLAT';
-      const quantity = pricingMode === 'PER_PERSON' ? headcountTotal : pricingMode === 'PER_TEAM' ? transportGroupCount : 1;
+
+      if (pricingMode === 'PER_PERSON') {
+        lines.push({
+          lineCode: 'LODGING_SELECTION',
+          sourceType: 'MANUAL',
+          ruleId: null,
+          description: `${selection.dayIndex}일차 숙소지정: ${selection.customLodgingNameSnapshot ?? '-'}`,
+          unitPriceKrw: price,
+          quantity: 1,
+          amountKrw: price,
+          meta: {
+            dayIndex: selection.dayIndex,
+            level: selection.level,
+            customLodgingId: selection.customLodgingId ?? null,
+            pricingModeSnapshot: pricingMode,
+          },
+        });
+        return;
+      }
+
+      if (pricingMode === 'PER_TEAM') {
+        const teamTotalKrw = price * transportGroupCount;
+        const perPersonKrw =
+          headcountTotal > 0 ? Math.round(teamTotalKrw / headcountTotal) : teamTotalKrw;
+        lines.push({
+          lineCode: 'LODGING_SELECTION',
+          sourceType: 'MANUAL',
+          ruleId: null,
+          description: `${selection.dayIndex}일차 숙소지정: ${selection.customLodgingNameSnapshot ?? '-'}`,
+          unitPriceKrw: perPersonKrw,
+          quantity: 1,
+          amountKrw: perPersonKrw,
+          meta: {
+            dayIndex: selection.dayIndex,
+            level: selection.level,
+            customLodgingId: selection.customLodgingId ?? null,
+            pricingModeSnapshot: pricingMode,
+          },
+        });
+        return;
+      }
+
       lines.push({
         lineCode: 'LODGING_SELECTION',
         sourceType: 'MANUAL',
         ruleId: null,
         description: `${selection.dayIndex}일차 숙소지정: ${selection.customLodgingNameSnapshot ?? '-'}`,
         unitPriceKrw: price,
-        quantity,
-        amountKrw: price * quantity,
+        quantity: 1,
+        amountKrw: price,
         meta: {
           dayIndex: selection.dayIndex,
           level: selection.level,
