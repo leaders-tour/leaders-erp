@@ -19,6 +19,7 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
   const pricingBuckets = snapshot.pricing
     ? buildPricingViewBuckets(snapshot.pricing.lines, snapshot.pricing.totalAmountKrw)
     : null;
+  const basePricePerPersonKrw = pricingBuckets?.baseTotal ?? snapshot.pricing?.baseAmountKrw ?? null;
   const externalPickupText = buildExternalTransferDirectionText(snapshot.externalTransfers, snapshot.transportGroups, 'PICKUP');
   const externalDropText = buildExternalTransferDirectionText(snapshot.externalTransfers, snapshot.transportGroups, 'DROP');
 
@@ -68,7 +69,7 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     rentalItemsText: snapshot.includeRentalItems ? normalizeMultilineText(snapshot.rentalItemsText) : '-',
     eventText: snapshot.eventNames.length > 0 ? snapshot.eventNames.join(' / ') : '-',
     remarkText: normalizeMultilineText(snapshot.remark),
-    basePricePerPersonKrw: snapshot.pricing?.baseAmountKrw ?? null,
+    basePricePerPersonKrw,
     adjustmentLines:
       (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []).map((line) => ({
         label: getPricingLineLabel(line),

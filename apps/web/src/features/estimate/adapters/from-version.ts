@@ -22,6 +22,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
   const meta = version.meta;
   const pricing = version.pricing;
   const pricingBuckets = pricing ? buildPricingViewBuckets(pricing.lines, pricing.totalAmountKrw) : null;
+  const basePricePerPersonKrw = pricingBuckets?.baseTotal ?? pricing?.baseAmountKrw ?? null;
   const externalTransfers = meta?.externalTransfers ?? [];
   const externalPickupTextFromTransfers = buildExternalTransferDirectionText(externalTransfers, meta?.transportGroups, 'PICKUP');
   const externalDropTextFromTransfers = buildExternalTransferDirectionText(externalTransfers, meta?.transportGroups, 'DROP');
@@ -114,7 +115,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     rentalItemsText: meta?.includeRentalItems ? normalizeMultilineText(meta.rentalItemsText) : '-',
     eventText: meta?.events.length ? meta.events.map((event) => event.name).join(' / ') : '-',
     remarkText: normalizeMultilineText(meta?.remark),
-    basePricePerPersonKrw: pricing?.baseAmountKrw ?? null,
+    basePricePerPersonKrw,
     adjustmentLines:
       (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []).map((line) => ({
         label: getPricingLineLabel(line),
