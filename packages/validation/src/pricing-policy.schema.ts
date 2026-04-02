@@ -169,22 +169,18 @@ export const pricingRuleCreateSchema = pricingRuleWithPolicySchema.superRefine(v
 export const pricingRuleUpdateSchema = pricingRuleBaseSchema.partial().superRefine(validateRuleInput);
 
 export const pricingPolicyCreateSchema = z.object({
-  code: z.string().min(1).max(50),
   name: z.string().min(1).max(100),
   status: z.enum(pricingPolicyStatuses).default('ACTIVE'),
   effectiveFrom: dateTimeInputSchema,
   effectiveTo: dateTimeInputSchema.nullable().optional(),
-  priority: z.number().int().min(0).max(10_000).default(0),
 });
 
 export const pricingPolicyUpdateSchema = pricingPolicyCreateSchema.partial();
 
 export const pricingPolicyDuplicateSchema = z.object({
-  code: z.string().min(1).max(50),
   name: z.string().min(1).max(100),
   effectiveFrom: dateTimeInputSchema.optional(),
   effectiveTo: dateTimeInputSchema.nullable().optional(),
-  priority: z.number().int().min(0).max(10_000).optional(),
   status: z.enum(pricingPolicyStatuses).optional(),
 });
 

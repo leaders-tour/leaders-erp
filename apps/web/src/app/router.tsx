@@ -30,7 +30,8 @@ import { OutreachLeadDetailPage } from '../pages/OutreachLeadDetailPage';
 import { OutreachLeadListPage } from '../pages/OutreachLeadListPage';
 import { PlanDetailPage } from '../pages/PlanDetailPage';
 import { PlanVersionDetailPage } from '../pages/PlanVersionDetailPage';
-import { PricingPolicyPage } from '../pages/PricingPolicyPage';
+import { PricingPoliciesPage } from '../pages/PricingPoliciesPage';
+import { PricingPolicyRulesPage } from '../pages/PricingPolicyRulesPage';
 import { RegionCreatePage } from '../pages/RegionCreatePage';
 import { RegionLodgingPage } from '../pages/RegionLodgingPage';
 import { RegionListPage } from '../pages/RegionListPage';
@@ -113,7 +114,15 @@ export const router = createBrowserRouter([
         path: 'admin/pricing-policies',
         element: (
           <RequireAdmin>
-            <PricingPolicyPage />
+            <PricingPoliciesPage />
+          </RequireAdmin>
+        ),
+      },
+      {
+        path: 'admin/pricing-policies/:policyId/rules',
+        element: (
+          <RequireAdmin>
+            <PricingPolicyRulesPage />
           </RequireAdmin>
         ),
       },

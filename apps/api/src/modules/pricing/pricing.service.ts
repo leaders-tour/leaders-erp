@@ -932,7 +932,7 @@ export class PricingService {
         effectiveFrom: { lte: travelStartDate },
         OR: [{ effectiveTo: null }, { effectiveTo: { gte: travelStartDate } }],
       },
-      orderBy: [{ priority: 'desc' }, { effectiveFrom: 'desc' }],
+      orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
     });
   }
 

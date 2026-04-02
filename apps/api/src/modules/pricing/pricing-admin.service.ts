@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import {
   pricingPolicyCreateSchema,
   pricingPolicyDuplicateSchema,
@@ -78,13 +79,18 @@ function resolveLegacyCalcType(ruleType: PricingRuleTypeValue) {
   return ruleType === 'PERCENT_UPLIFT' ? 'PERCENT_OF_LINE' : 'AMOUNT';
 }
 
+/** DB 유일 제약용. 운영 식별은 GraphQL id·name 을 사용합니다. */
+function generatedPricingPolicyCode(): string {
+  return `pol_${randomUUID().replace(/-/g, '')}`;
+}
+
 export class PricingAdminService {
   constructor(private readonly prisma: PrismaClient) {}
 
   listPolicies() {
     return this.prisma.pricingPolicy.findMany({
       include: pricingPolicyInclude,
-      orderBy: [{ priority: 'desc' }, { effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ effectiveFrom: 'desc' }, { createdAt: 'desc' }],
     });
   }
 
@@ -102,12 +108,11 @@ export class PricingAdminService {
     }
     return this.prisma.pricingPolicy.create({
       data: {
-        code: parsed.data.code.trim(),
+        code: generatedPricingPolicyCode(),
         name: parsed.data.name.trim(),
         status: parsed.data.status,
         effectiveFrom: new Date(parsed.data.effectiveFrom),
         effectiveTo: parsed.data.effectiveTo ? new Date(parsed.data.effectiveTo) : null,
-        priority: parsed.data.priority,
       },
       include: pricingPolicyInclude,
     });
@@ -125,14 +130,12 @@ export class PricingAdminService {
     return this.prisma.pricingPolicy.update({
       where: { id },
       data: {
-        ...(parsed.data.code !== undefined ? { code: parsed.data.code.trim() } : {}),
         ...(parsed.data.name !== undefined ? { name: parsed.data.name.trim() } : {}),
         ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
         ...(parsed.data.effectiveFrom !== undefined ? { effectiveFrom: new Date(parsed.data.effectiveFrom) } : {}),
         ...(parsed.data.effectiveTo !== undefined
           ? { effectiveTo: parsed.data.effectiveTo ? new Date(parsed.data.effectiveTo) : null }
           : {}),
-        ...(parsed.data.priority !== undefined ? { priority: parsed.data.priority } : {}),
       },
       include: pricingPolicyInclude,
     });
@@ -165,7 +168,7 @@ export class PricingAdminService {
     const sourceRules = (source.rules ?? []) as unknown as PricingRuleAdminRecord[];
     return this.prisma.pricingPolicy.create({
       data: {
-        code: parsed.data.code.trim(),
+        code: generatedPricingPolicyCode(),
         name: parsed.data.name.trim(),
         status: parsed.data.status ?? source.status,
         effectiveFrom: parsed.data.effectiveFrom ? new Date(parsed.data.effectiveFrom) : source.effectiveFrom,
@@ -175,7 +178,6 @@ export class PricingAdminService {
               ? new Date(parsed.data.effectiveTo)
               : null
             : source.effectiveTo,
-        priority: parsed.data.priority ?? source.priority,
         rules: {
           create: sourceRules.map((rule) => ({
             ruleType: rule.ruleType,

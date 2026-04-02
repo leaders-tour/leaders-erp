@@ -1,11 +1,11 @@
 type PricingPolicy {
   id: ID!
+  """내부 DB 유일키(자동 생성). 클라이언트 식별·표시는 id·name을 사용합니다."""
   code: String!
   name: String!
   status: PricingPolicyStatus!
   effectiveFrom: DateTime!
   effectiveTo: DateTime
-  priority: Int!
   rules: [PricingRule!]!
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -47,30 +47,24 @@ type PricingRule {
 }
 
 input PricingPolicyCreateInput {
-  code: String!
   name: String!
   status: PricingPolicyStatus
   effectiveFrom: DateTime!
   effectiveTo: DateTime
-  priority: Int
 }
 
 input PricingPolicyUpdateInput {
-  code: String
   name: String
   status: PricingPolicyStatus
   effectiveFrom: DateTime
   effectiveTo: DateTime
-  priority: Int
 }
 
 input PricingPolicyDuplicateInput {
-  code: String!
   name: String!
   status: PricingPolicyStatus
   effectiveFrom: DateTime
   effectiveTo: DateTime
-  priority: Int
 }
 
 input PricingRuleCreateInput {

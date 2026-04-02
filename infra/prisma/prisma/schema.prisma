@@ -958,7 +958,6 @@ model PricingPolicy {
   status        PricingPolicyStatus @default(ACTIVE)
   effectiveFrom DateTime
   effectiveTo   DateTime?
-  priority      Int                 @default(0)
 
   rules               PricingRule[]
   planVersionPricings PlanVersionPricing[]
@@ -967,7 +966,6 @@ model PricingPolicy {
   updatedAt DateTime @updatedAt
 
   @@index([status, effectiveFrom, effectiveTo])
-  @@index([priority])
 }
 
 model PricingRule {
