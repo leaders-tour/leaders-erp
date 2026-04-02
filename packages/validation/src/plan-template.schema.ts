@@ -7,8 +7,6 @@ export const planTemplateStopInputSchema = z
     segmentVersionId: z.string().min(1).optional(),
     overnightStayId: z.string().min(1).optional(),
     overnightStayDayOrder: z.number().int().min(1).max(3).optional(),
-    overnightStayConnectionId: z.string().min(1).optional(),
-    overnightStayConnectionVersionId: z.string().min(1).optional(),
     multiDayBlockId: z.string().min(1).optional(),
     multiDayBlockDayOrder: z.number().int().min(1).max(3).optional(),
     multiDayBlockConnectionId: z.string().min(1).optional(),

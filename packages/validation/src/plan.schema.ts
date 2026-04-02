@@ -6,6 +6,8 @@ const placeTypes = ['AIRPORT', 'OZ_HOUSE', 'ULAANBAATAR', 'CUSTOM'] as const;
 const lodgingSelectionLevels = ['LV1', 'LV2', 'LV3', 'LV4', 'CUSTOM'] as const;
 const planStopRowTypes = ['MAIN', 'EXTERNAL_TRANSFER'] as const;
 const movementIntensityLevels = ['LEVEL_1', 'LEVEL_2', 'LEVEL_3', 'LEVEL_4', 'LEVEL_5'] as const;
+const pricingChargeScopes = ['TEAM', 'PER_PERSON'] as const;
+const pricingPersonModes = ['SINGLE', 'PER_DAY', 'PER_NIGHT'] as const;
 const dateTimeInputSchema = z.preprocess(
   (value) => (value instanceof Date ? value.toISOString() : value),
   z.string().datetime(),
@@ -18,8 +20,6 @@ export const planStopNestedSchema = z
     segmentVersionId: z.string().min(1).optional(),
     overnightStayId: z.string().min(1).optional(),
     overnightStayDayOrder: z.number().int().min(1).max(3).optional(),
-    overnightStayConnectionId: z.string().min(1).optional(),
-    overnightStayConnectionVersionId: z.string().min(1).optional(),
     multiDayBlockId: z.string().min(1).optional(),
     multiDayBlockDayOrder: z.number().int().min(1).max(3).optional(),
     multiDayBlockConnectionId: z.string().min(1).optional(),
@@ -48,10 +48,63 @@ export const extraLodgingInputSchema = z.object({
   lodgingCount: z.number().int().min(0).max(10),
 });
 
-export const manualAdjustmentInputSchema = z.object({
-  description: z.string().min(1).max(200),
-  amountKrw: z.number().int().min(-1_000_000_000).max(1_000_000_000),
-});
+export const manualAdjustmentInputSchema = z
+  .object({
+    kind: z.enum(['ADD', 'DISCOUNT']),
+    title: z.string().min(1).max(200),
+    chargeScope: z.enum(pricingChargeScopes),
+    personMode: z.enum(pricingPersonModes).nullable().optional(),
+    countValue: z.number().int().min(1).max(30).nullable().optional(),
+    amountKrw: z.number().int().min(0).max(1_000_000_000),
+    customDisplayText: z.string().min(1).max(500).nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.chargeScope === 'TEAM') {
+      if (value.personMode != null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'personMode must be empty when chargeScope is TEAM',
+          path: ['personMode'],
+        });
+      }
+      if (value.countValue != null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'countValue must be empty when chargeScope is TEAM',
+          path: ['countValue'],
+        });
+      }
+      return;
+    }
+
+    if (value.personMode == null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'personMode is required when chargeScope is PER_PERSON',
+        path: ['personMode'],
+      });
+      return;
+    }
+
+    if (value.personMode === 'SINGLE') {
+      if (value.countValue != null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'countValue must be empty when personMode is SINGLE',
+          path: ['countValue'],
+        });
+      }
+      return;
+    }
+
+    if (value.countValue == null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'countValue is required when personMode is PER_DAY or PER_NIGHT',
+        path: ['countValue'],
+      });
+    }
+  });
 
 export const lodgingSelectionInputSchema = z
   .object({
@@ -418,11 +471,13 @@ export const planPricingPreviewSchema = z
     travelStartDate: dateTimeInputSchema,
     headcountTotal: z.number().int().min(1).max(100),
     transportGroupCount: z.number().int().min(1).max(100),
+    transportGroups: z.array(planVersionTransportGroupInputSchema).default([]),
     vehicleType: z.enum(vehicleTypes),
     includeRentalItems: z.boolean().default(true),
     eventIds: z.array(z.string().min(1)).default([]),
     extraLodgings: z.array(extraLodgingInputSchema).default([]),
     lodgingSelections: z.array(lodgingSelectionInputSchema).default([]),
+    externalTransfers: z.array(externalTransferInputSchema).default([]),
     manualAdjustments: z.array(manualAdjustmentInputSchema).default([]),
     manualDepositAmountKrw: manualDepositInputSchema.optional(),
   })

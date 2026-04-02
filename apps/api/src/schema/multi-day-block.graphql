@@ -1,24 +1,15 @@
-enum BlockType {
-  STAY
-  TRANSFER
-}
-
 "연속 일정 블록 (공개 계약). 동일 물리 엔티티는 기존 OvernightStay 모델을 사용한다."
 type MultiDayBlock {
   id: ID!
   regionId: String!
   locationId: String!
-  blockType: BlockType!
-  startLocationId: String!
-  endLocationId: String!
   name: String!
   title: String!
+  isNightTrain: Boolean!
   isActive: Boolean!
   sortOrder: Int!
   region: Region!
   location: Location!
-  startLocation: Location!
-  endLocation: Location!
   days: [MultiDayBlockDay!]!
   outgoingConnections: [MultiDayBlockConnection!]!
   createdAt: DateTime!
@@ -130,7 +121,7 @@ type MultiDayBlockConnectionActivity {
 
 input MultiDayBlockDayInput {
   dayOrder: Int!
-  displayLocationId: String
+  displayLocationId: String!
   averageDistanceKm: Float!
   averageTravelHours: Float!
   timeCellText: String!
@@ -141,11 +132,8 @@ input MultiDayBlockDayInput {
 
 input MultiDayBlockCreateInput {
   regionId: String!
-  locationId: String!
-  blockType: BlockType
-  startLocationId: String
-  endLocationId: String
   name: String!
+  isNightTrain: Boolean
   sortOrder: Int
   isActive: Boolean
   days: [MultiDayBlockDayInput!]!
@@ -153,14 +141,29 @@ input MultiDayBlockCreateInput {
 
 input MultiDayBlockUpdateInput {
   regionId: String
-  locationId: String
-  blockType: BlockType
-  startLocationId: String
-  endLocationId: String
   name: String
+  isNightTrain: Boolean
   sortOrder: Int
   isActive: Boolean
   days: [MultiDayBlockDayInput!]
+}
+
+input MultiDayBlockConnectionTimeSlotInput {
+  startTime: String!
+  activities: [String!]!
+}
+
+input MultiDayBlockConnectionVersionInput {
+  id: String
+  name: String!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  isLongDistance: Boolean!
+  timeSlots: [MultiDayBlockConnectionTimeSlotInput!]!
+  earlyTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  extendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  earlyExtendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  isDefault: Boolean
 }
 
 input MultiDayBlockConnectionCreateInput {
@@ -189,22 +192,4 @@ input MultiDayBlockConnectionUpdateInput {
   extendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
   earlyExtendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
   versions: [MultiDayBlockConnectionVersionInput!]
-}
-
-input MultiDayBlockConnectionTimeSlotInput {
-  startTime: String!
-  activities: [String!]!
-}
-
-input MultiDayBlockConnectionVersionInput {
-  id: String
-  name: String!
-  averageDistanceKm: Float!
-  averageTravelHours: Float!
-  isLongDistance: Boolean!
-  timeSlots: [MultiDayBlockConnectionTimeSlotInput!]!
-  earlyTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
-  extendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
-  earlyExtendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
-  isDefault: Boolean
 }

@@ -13,8 +13,6 @@ export const planTemplateInclude = {
           days: { orderBy: { dayOrder: 'asc' } },
         },
       },
-      multiDayBlockConnection: true,
-      multiDayBlockConnectionVersion: true,
     },
     orderBy: { dayIndex: 'asc' },
   },

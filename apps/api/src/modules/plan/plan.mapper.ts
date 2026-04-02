@@ -31,8 +31,6 @@ export const planVersionInclude = {
           days: { orderBy: { dayOrder: 'asc' } },
         },
       },
-      multiDayBlockConnection: true,
-      multiDayBlockConnectionVersion: true,
     },
     orderBy: { createdAt: 'asc' },
   },

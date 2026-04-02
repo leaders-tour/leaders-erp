@@ -119,15 +119,11 @@ export interface MultiDayBlockDayOption {
   mealCellText: string;
 }
 
-export type BlockType = 'STAY' | 'TRANSFER';
-
 export interface MultiDayBlockOption {
   id: string;
   regionId: string;
   locationId: string;
-  blockType?: BlockType;
-  startLocationId?: string;
-  endLocationId?: string;
+  isNightTrain?: boolean;
   name: string;
   title: string;
   isActive: boolean;
@@ -190,8 +186,8 @@ export interface LocationRouteSelection {
   locationVersionId: string;
   segmentId?: string;
   segmentVersionId?: string;
-  overnightStayConnectionId?: string;
-  overnightStayConnectionVersionId?: string;
+  multiDayBlockConnectionId?: string;
+  multiDayBlockConnectionVersionId?: string;
 }
 
 /** 내부 정본: 연속 일정 블록 선택. API 호환용 legacy 필드명은 buildRouteStopsFromSelections에서 처리 */
@@ -433,13 +429,17 @@ function getMultiDayBlockLength(
 
 function getCurrentContext(selectedRoute: RouteSelection[], startLocationId: string):
   | { kind: 'LOCATION'; locationId: string }
-  | { kind: 'MULTI_DAY_BLOCK'; multiDayBlockId: string } {
+  | { kind: 'MULTI_DAY_BLOCK'; multiDayBlockId: string; locationId: string } {
   const lastStop = selectedRoute[selectedRoute.length - 1];
   if (!lastStop) {
     return { kind: 'LOCATION', locationId: startLocationId };
   }
   if (lastStop.kind === 'MULTI_DAY_BLOCK') {
-    return { kind: 'MULTI_DAY_BLOCK', multiDayBlockId: lastStop.multiDayBlockId };
+    return {
+      kind: 'MULTI_DAY_BLOCK',
+      multiDayBlockId: lastStop.multiDayBlockId,
+      locationId: lastStop.locationId,
+    };
   }
   return { kind: 'LOCATION', locationId: lastStop.locationId };
 }
@@ -616,15 +616,15 @@ export function getDefaultMultiDayBlockConnectionVersionId(
 
 export function resolveMultiDayBlockConnectionVersion(
   connection: MultiDayBlockConnectionOption | undefined,
-  overnightStayConnectionVersionId?: string,
+  multiDayBlockConnectionVersionId?: string,
 ): ResolvedMultiDayBlockConnectionVersionOption | undefined {
   const versions = getMultiDayBlockConnectionVersions(connection);
   if (versions.length === 0) {
     return undefined;
   }
 
-  if (overnightStayConnectionVersionId) {
-    const matched = versions.find((version) => version.id === overnightStayConnectionVersionId);
+  if (multiDayBlockConnectionVersionId) {
+    const matched = versions.find((version) => version.id === multiDayBlockConnectionVersionId);
     if (matched) {
       return matched;
     }
@@ -709,10 +709,10 @@ function hasScheduleForVariant(
 
 function hasMultiDayBlockConnectionScheduleForVariant(
   connection: MultiDayBlockConnectionOption | undefined,
-  overnightStayConnectionVersionId: string | undefined,
+  multiDayBlockConnectionVersionId: string | undefined,
   variant: SegmentScheduleVariant,
 ): boolean {
-  const connectionVersion = resolveMultiDayBlockConnectionVersion(connection, overnightStayConnectionVersionId);
+  const connectionVersion = resolveMultiDayBlockConnectionVersion(connection, multiDayBlockConnectionVersionId);
   return getMultiDayBlockConnectionScheduleTimeBlocks(connectionVersion, variant).length > 0;
 }
 
@@ -782,15 +782,10 @@ export function buildMultiDayBlockOptions(input: {
     return [];
   }
 
-  const reachableLocationIds = new Set(
-    filteredSegments.filter((segment) => segment.fromLocationId === context.locationId).map((segment) => segment.toLocationId),
-  );
-
   return filteredMultiDayBlocks.filter(
     (multiDayBlock) =>
       multiDayBlock.isActive &&
-      totalDays - usedDays >= getMultiDayBlockLength(multiDayBlock) &&
-      reachableLocationIds.has(multiDayBlock.locationId),
+      totalDays - usedDays >= getMultiDayBlockLength(multiDayBlock),
   );
 }
 
@@ -963,15 +958,13 @@ export function buildAutoRowsFromRoute(input: {
 
     if (previousContext.kind === 'MULTI_DAY_BLOCK') {
       const connection =
-        (stop.overnightStayConnectionId
-          ? filteredMultiDayBlockConnections.find((item) => item.id === stop.overnightStayConnectionId)
+        (stop.multiDayBlockConnectionId
+          ? filteredMultiDayBlockConnections.find((item) => item.id === stop.multiDayBlockConnectionId)
           : undefined) ??
         findMultiDayBlockConnection(filteredMultiDayBlockConnections, previousContext.multiDayBlockId, stop.locationId);
-      const connectionVersion = resolveMultiDayBlockConnectionVersion(connection, stop.overnightStayConnectionVersionId);
+      const connectionVersion = resolveMultiDayBlockConnectionVersion(connection, stop.multiDayBlockConnectionVersionId);
       rows.push({
         rowType: 'MAIN',
-        overnightStayConnectionId: connection?.id,
-        overnightStayConnectionVersionId: connectionVersion?.id,
         multiDayBlockConnectionId: connection?.id,
         multiDayBlockConnectionVersionId: connectionVersion?.id,
         locationId: stop.locationId,
@@ -1100,8 +1093,8 @@ function buildRouteStopsFromSelections(input: {
     routeStops.push({
       segmentId: stop.segmentId,
       segmentVersionId: stop.segmentVersionId,
-      multiDayBlockConnectionId: stop.overnightStayConnectionId,
-      multiDayBlockConnectionVersionId: stop.overnightStayConnectionVersionId,
+      multiDayBlockConnectionId: stop.multiDayBlockConnectionId,
+      multiDayBlockConnectionVersionId: stop.multiDayBlockConnectionVersionId,
       locationId: stop.locationId,
       locationVersionId: stop.locationVersionId,
     });
@@ -1147,8 +1140,6 @@ export function buildSelectedRouteFromStops(
     segmentVersionId?: string | null;
     overnightStayId?: string | null;
     overnightStayDayOrder?: number | null;
-    overnightStayConnectionId?: string | null;
-    overnightStayConnectionVersionId?: string | null;
     multiDayBlockId?: string | null;
     multiDayBlockDayOrder?: number | null;
     multiDayBlockConnectionId?: string | null;
@@ -1174,12 +1165,13 @@ export function buildSelectedRouteFromStops(
         stayLength += 1;
         nextIndex += 1;
       }
+      const lastBlockStop = stops[Math.max(nextIndex - 1, index)] ?? stop;
       route.push({
         kind: 'MULTI_DAY_BLOCK',
         multiDayBlockId: blockId,
         stayLength,
-        locationId: stop.locationId ?? '',
-        locationVersionId: stop.locationVersionId ?? '',
+        locationId: lastBlockStop.locationId ?? stop.locationId ?? '',
+        locationVersionId: lastBlockStop.locationVersionId ?? stop.locationVersionId ?? '',
       });
       index += Math.max(stayLength - 1, 0);
       continue;
@@ -1195,8 +1187,8 @@ export function buildSelectedRouteFromStops(
       locationVersionId: stop.locationVersionId ?? '',
       segmentId: stop.segmentId ?? undefined,
       segmentVersionId: stop.segmentVersionId ?? undefined,
-      overnightStayConnectionId: stop.overnightStayConnectionId ?? undefined,
-      overnightStayConnectionVersionId: stop.overnightStayConnectionVersionId ?? undefined,
+      multiDayBlockConnectionId: stop.multiDayBlockConnectionId ?? undefined,
+      multiDayBlockConnectionVersionId: stop.multiDayBlockConnectionVersionId ?? undefined,
     });
   }
 

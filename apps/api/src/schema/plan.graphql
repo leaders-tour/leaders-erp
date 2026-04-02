@@ -222,6 +222,7 @@ type PlanPricingPreview {
 
 type PlanPricingLine {
   id: ID
+  ruleType: PricingRuleType
   lineCode: PricingLineCode!
   sourceType: PricingLineSourceType!
   description: String
@@ -229,6 +230,21 @@ type PlanPricingLine {
   unitPriceKrw: Int
   quantity: Int!
   amountKrw: Int!
+  displayBasis: PricingDisplayBasis
+  displayLabel: String
+  displayUnitAmountKrw: Int
+  displayCount: Int
+  displayDivisorPerson: Int
+  displayText: String
+}
+
+enum PricingDisplayBasis {
+  TEAM_DIV_PERSON
+  PER_NIGHT
+  PER_DAY
+  PER_PERSON_SINGLE
+  PERCENT
+  CUSTOM
 }
 
 enum PricingLineCode {
@@ -394,8 +410,18 @@ input ExtraLodgingInput {
 }
 
 input ManualAdjustmentInput {
-  description: String!
+  kind: ManualAdjustmentKind!
+  title: String!
+  chargeScope: PricingChargeScope!
+  personMode: PricingPersonMode
+  countValue: Int
   amountKrw: Int!
+  customDisplayText: String
+}
+
+enum ManualAdjustmentKind {
+  ADD
+  DISCOUNT
 }
 
 input PlanPricingPreviewInput {
@@ -406,11 +432,13 @@ input PlanPricingPreviewInput {
   travelStartDate: DateTime!
   headcountTotal: Int!
   transportGroupCount: Int!
+  transportGroups: [PlanVersionTransportGroupInput!]
   vehicleType: String!
   includeRentalItems: Boolean!
   eventIds: [ID!]!
   extraLodgings: [ExtraLodgingInput!]
   lodgingSelections: [LodgingSelectionInput!]
+  externalTransfers: [ExternalTransferInput!]
   manualAdjustments: [ManualAdjustmentInput!]
   manualDepositAmountKrw: Int
 }

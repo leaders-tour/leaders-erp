@@ -10,6 +10,7 @@ import { getAssignmentsFromPlanRows } from '../features/plan/special-meals';
 import {
   buildAutoRowsFromRoute,
   buildFirstDayOptions,
+  type MultiDayBlockConnectionOption,
   buildNextOptions,
   buildMultiDayBlockOptions,
   getConsumedRouteDayCount,
@@ -17,21 +18,15 @@ import {
   getRouteStopStartDayIndex,
   buildTemplateStopsFromRouteAndRows,
   findSegment,
-  findMultiDayBlockConnection,
-  formatMultiDayBlockConnectionVersionLabel,
   formatSegmentVersionLabel,
   formatLocationVersion,
-  getDefaultMultiDayBlockConnectionVersionId,
   getDefaultSegmentVersionId,
   getDefaultVersionId,
-  getMultiDayBlockConnectionVersions,
   getSegmentVersions,
   type LocationOption,
-  type MultiDayBlockConnectionOption,
   type MultiDayBlockOption,
   type RouteSelection,
   trimRouteSelectionsToTotalDays,
-  resolveMultiDayBlockConnectionVersion,
   resolveSegmentVersion,
   type SegmentOption,
 } from '../features/plan-template/route-autofill';
@@ -231,11 +226,9 @@ const OVERNIGHT_STAYS_QUERY = gql`
       id
       regionId
       locationId
-      blockType
-      startLocationId
-      endLocationId
       name
       title
+      isNightTrain
       isActive
       sortOrder
       days {
@@ -254,7 +247,7 @@ const OVERNIGHT_STAYS_QUERY = gql`
   }
 `;
 
-const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
+const MULTI_DAY_BLOCK_CONNECTIONS_QUERY = gql`
   query ItineraryTemplateCreateMultiDayBlockConnections($regionSetId: ID) {
     multiDayBlockConnections(regionSetId: $regionSetId) {
       id
@@ -427,7 +420,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
     skip: !regionSetId,
   });
   const { data: overnightStayConnectionData } = useQuery<{ multiDayBlockConnections: MultiDayBlockConnectionOption[] }>(
-    OVERNIGHT_STAY_CONNECTIONS_QUERY,
+    MULTI_DAY_BLOCK_CONNECTIONS_QUERY,
     {
       skip: !regionSetId,
     },
@@ -534,8 +527,8 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
         variantType,
       }),
     [
-      filteredOvernightStayConnections,
       filteredOvernightStays,
+      filteredOvernightStayConnections,
       filteredSegments,
       locationById,
       locationVersionById,
@@ -891,16 +884,13 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
 
                 const previousStop = selectedRoute[index - 1];
                 if (previousStop?.kind === 'MULTI_DAY_BLOCK') {
-                  const connection = findMultiDayBlockConnection(
-                    filteredOvernightStayConnections,
-                    previousStop.multiDayBlockId,
+                  const segment = findSegment(
+                    filteredSegments,
+                    previousStop.locationId,
                     stop.locationId,
                   );
-                  const versions = getMultiDayBlockConnectionVersions(connection);
-                  const selectedVersion = resolveMultiDayBlockConnectionVersion(
-                    connection,
-                    stop.overnightStayConnectionVersionId,
-                  );
+                  const versions = getSegmentVersions(segment);
+                  const selectedVersion = resolveSegmentVersion(segment, stop.segmentVersionId);
 
                   const isLastDay = endDayIndex === totalDays;
                   return (
@@ -944,11 +934,11 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                       </div>
                       {versions.length > 1 ? (
                         <div className="mt-3 grid gap-2">
-                          <div className="text-xs text-slate-500">블록 다음 연결 버전</div>
+                          <div className="text-xs text-slate-500">시즌 버전</div>
                           <div className="flex flex-wrap gap-2">
                             {versions.map((version) => (
                               <button
-                                key={`route-overnight-connection-version-${index}-${version.id}`}
+                                key={`route-post-block-segment-version-${index}-${version.id}`}
                                 type="button"
                                 onClick={() =>
                                   setSelectedRoute((prev) =>
@@ -956,8 +946,8 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                                       itemIndex === index && item.kind === 'LOCATION'
                                         ? {
                                             ...item,
-                                            overnightStayConnectionId: connection?.id,
-                                            overnightStayConnectionVersionId: version.id,
+                                            segmentId: segment?.id,
+                                            segmentVersionId: version.id,
                                           }
                                         : item,
                                     ),
@@ -969,7 +959,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                                     : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
                                 }`}
                               >
-                                {formatMultiDayBlockConnectionVersionLabel(version)}
+                                {formatSegmentVersionLabel(version)}
                               </button>
                             ))}
                           </div>
@@ -1040,8 +1030,6 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                                           ...item,
                                           segmentId: segment?.id,
                                           segmentVersionId: version.id,
-                                          overnightStayConnectionId: undefined,
-                                          overnightStayConnectionVersionId: undefined,
                                         }
                                       : item,
                                   ),
@@ -1079,9 +1067,9 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                         setSelectedRoute((prev) => {
                           const lastStop = prev[prev.length - 1];
                           if (lastStop?.kind === 'MULTI_DAY_BLOCK') {
-                            const connection = findMultiDayBlockConnection(
-                              filteredOvernightStayConnections,
-                              lastStop.multiDayBlockId,
+                            const segment = findSegment(
+                              filteredSegments,
+                              lastStop.locationId,
                               location.id,
                             );
                             return [
@@ -1090,9 +1078,8 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                                 kind: 'LOCATION',
                                 locationId: location.id,
                                 locationVersionId: getDefaultVersionId(location),
-                                overnightStayConnectionId: connection?.id,
-                                overnightStayConnectionVersionId:
-                                  getDefaultMultiDayBlockConnectionVersionId(connection) || undefined,
+                                segmentId: segment?.id,
+                                segmentVersionId: getDefaultSegmentVersionId(segment) || undefined,
                               },
                             ];
                           }
@@ -1159,14 +1146,17 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                               key={overnightStay.id}
                               type="button"
                               onClick={() => {
-                                const location = locationById.get(overnightStay.locationId);
+                                const sortedDays = overnightStay.days.slice().sort((left, right) => left.dayOrder - right.dayOrder);
+                                const lastDay = sortedDays[sortedDays.length - 1];
+                                const lastLocationId = lastDay?.displayLocationId ?? overnightStay.locationId;
+                                const location = locationById.get(lastLocationId);
                                 setSelectedRoute((prev) => [
                                   ...prev,
                                   {
                                     kind: 'MULTI_DAY_BLOCK',
                                     multiDayBlockId: overnightStay.id,
                                     stayLength: overnightStay.days.length,
-                                    locationId: overnightStay.locationId,
+                                    locationId: lastLocationId,
                                     locationVersionId: getDefaultVersionId(location) || '',
                                   },
                                 ]);

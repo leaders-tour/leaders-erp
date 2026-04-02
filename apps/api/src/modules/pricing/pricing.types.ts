@@ -25,6 +25,7 @@ export interface PricingPlanStopDto {
   multiDayBlockId?: string;
   multiDayBlockDayOrder?: number;
   multiDayBlockConnectionId?: string;
+  multiDayBlockConnectionVersionId?: string;
   /** When this stop is the last day of a block, segment from this to next uses this as fromLocationId for long-distance count */
   blockEndLocationId?: string;
   locationId?: string;

@@ -29,6 +29,18 @@ interface MultiDayBlockConnectionListFilter {
   fromMultiDayBlockId?: string;
 }
 
+type NormalizedBlockDay = {
+  dayOrder: number;
+  displayLocationId: string;
+  averageDistanceKm: number;
+  averageTravelHours: number;
+  movementIntensity: ReturnType<typeof calculateMovementIntensity>;
+  timeCellText: string;
+  scheduleCellText: string;
+  lodgingCellText: string;
+  mealCellText: string;
+};
+
 interface NormalizedTimeSlot {
   startTime: string;
   label: string;
@@ -112,62 +124,87 @@ export class MultiDayBlockService {
     return this.repository.findById(id);
   }
 
-  private async validateRegionAndLocation(regionId: string, locationId: string): Promise<void> {
+  private async validateRegionAndDayLocations(regionId: string, dayLocationIds: string[]): Promise<void> {
     const region = await this.prisma.region.findUnique({
       where: { id: regionId },
       select: { id: true },
     });
     if (!region) {
-      throw new DomainError('VALIDATION_FAILED', 'Region not found for overnight stay');
+      throw new DomainError('VALIDATION_FAILED', 'Region not found for multi-day block');
     }
 
-    const location = await this.prisma.location.findUnique({
-      where: { id: locationId },
+    const uniqueLocationIds = Array.from(new Set(dayLocationIds));
+    const locations = await this.prisma.location.findMany({
+      where: { id: { in: uniqueLocationIds } },
       select: { id: true, regionId: true },
     });
-    if (!location) {
-      throw new DomainError('VALIDATION_FAILED', 'Location not found for overnight stay');
+    if (locations.length !== uniqueLocationIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'One or more day locations are invalid');
     }
-    if (location.regionId !== regionId) {
-      throw new DomainError('VALIDATION_FAILED', 'Overnight stay location must belong to the selected region');
+    if (locations.some((location) => location.regionId !== regionId)) {
+      throw new DomainError('VALIDATION_FAILED', 'All block day locations must belong to the selected region');
     }
+  }
 
+  private normalizeDays(
+    days: Array<{
+      dayOrder: number;
+      displayLocationId: string;
+      averageDistanceKm: number;
+      averageTravelHours: number;
+      timeCellText: string;
+      scheduleCellText: string;
+      lodgingCellText: string;
+      mealCellText: string;
+    }>,
+  ): NormalizedBlockDay[] {
+    return days
+      .slice()
+      .sort((left, right) => left.dayOrder - right.dayOrder)
+      .map((day) => ({
+        ...day,
+        movementIntensity: calculateMovementIntensity(day.averageTravelHours),
+      }));
+  }
+
+  private deriveLegacyLocationFields(days: NormalizedBlockDay[]) {
+    const firstDay = days[0];
+    const lastDay = days[days.length - 1];
+    if (!firstDay || !lastDay) {
+      throw new DomainError('VALIDATION_FAILED', 'Multi-day block requires at least one day');
+    }
+    return {
+      locationId: firstDay.displayLocationId,
+      startLocationId: firstDay.displayLocationId,
+      endLocationId: lastDay.displayLocationId,
+    };
   }
 
   async create(input: MultiDayBlockCreateDto) {
     const parsed = multiDayBlockCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw createValidationError('Invalid overnight stay input', parsed.error);
+      throw createValidationError('Invalid multi-day block input', parsed.error);
     }
 
-    await this.validateRegionAndLocation(parsed.data.regionId, parsed.data.locationId);
-
-    const blockType = parsed.data.blockType ?? 'STAY';
-    const startLocationId = parsed.data.startLocationId ?? parsed.data.locationId;
-    const endLocationId = parsed.data.endLocationId ?? parsed.data.locationId;
-    if (blockType === 'STAY' && startLocationId !== endLocationId) {
-      throw new DomainError('VALIDATION_FAILED', 'STAY block must have startLocationId equal to endLocationId');
-    }
-    if (blockType === 'TRANSFER' && startLocationId === endLocationId) {
-      throw new DomainError('VALIDATION_FAILED', 'TRANSFER block must have startLocationId different from endLocationId');
-    }
-
-    const normalizedDays = parsed.data.days.map((day) => ({
-      ...day,
-      displayLocationId: day.displayLocationId ?? (blockType === 'STAY' ? parsed.data.locationId : startLocationId),
-      movementIntensity: calculateMovementIntensity(day.averageTravelHours),
-    }));
+    const normalizedDays = this.normalizeDays(parsed.data.days);
+    await this.validateRegionAndDayLocations(
+      parsed.data.regionId,
+      normalizedDays.map((day) => day.displayLocationId),
+    );
+    const legacyLocations = this.deriveLegacyLocationFields(normalizedDays);
+    const isNightTrain = parsed.data.isNightTrain ?? false;
 
     return this.prisma.$transaction(async (tx) => {
       const repository = new MultiDayBlockRepository(tx);
       const created = await tx.overnightStay.create({
         data: {
           regionId: parsed.data.regionId,
-          locationId: parsed.data.locationId,
-          blockType,
-          startLocationId,
-          endLocationId,
+          locationId: legacyLocations.locationId,
+          blockType: isNightTrain ? 'TRANSFER' : 'STAY',
+          startLocationId: legacyLocations.startLocationId,
+          endLocationId: legacyLocations.endLocationId,
           name: parsed.data.name.trim(),
+          isNightTrain,
           sortOrder: parsed.data.sortOrder,
           isActive: parsed.data.isActive,
         },
@@ -176,7 +213,7 @@ export class MultiDayBlockService {
       await repository.replaceDays(created.id, normalizedDays);
       const result = await repository.findById(created.id);
       if (!result) {
-        throw new DomainError('INTERNAL', 'Failed to load created overnight stay');
+        throw new DomainError('INTERNAL', 'Failed to load created multi-day block');
       }
       return result;
     });
@@ -185,59 +222,62 @@ export class MultiDayBlockService {
   async update(id: string, input: MultiDayBlockUpdateDto) {
     const parsed = multiDayBlockUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw createValidationError('Invalid overnight stay update input', parsed.error);
+      throw createValidationError('Invalid multi-day block update input', parsed.error);
     }
 
     const existing = await this.repository.findById(id);
     if (!existing) {
-      throw new DomainError('NOT_FOUND', 'Overnight stay not found');
+      throw new DomainError('NOT_FOUND', 'Multi-day block not found');
     }
+
+    const normalizedDays = parsed.data.days
+      ? this.normalizeDays(parsed.data.days)
+      : this.normalizeDays(
+          existing.days.map((day) => ({
+            dayOrder: day.dayOrder,
+            displayLocationId: day.displayLocationId,
+            averageDistanceKm: day.averageDistanceKm,
+            averageTravelHours: day.averageTravelHours,
+            timeCellText: day.timeCellText,
+            scheduleCellText: day.scheduleCellText,
+            lodgingCellText: day.lodgingCellText,
+            mealCellText: day.mealCellText,
+          })),
+        );
 
     const nextRegionId = parsed.data.regionId ?? existing.regionId;
-    const nextLocationId = parsed.data.locationId ?? existing.locationId;
-    await this.validateRegionAndLocation(nextRegionId, nextLocationId);
+    await this.validateRegionAndDayLocations(
+      nextRegionId,
+      normalizedDays.map((day) => day.displayLocationId),
+    );
 
-    const blockType = parsed.data.blockType ?? existing.blockType ?? 'STAY';
-    const startLocationId = parsed.data.startLocationId ?? existing.startLocationId ?? nextLocationId;
-    const endLocationId = parsed.data.endLocationId ?? existing.endLocationId ?? nextLocationId;
-    if (blockType === 'STAY' && startLocationId !== endLocationId) {
-      throw new DomainError('VALIDATION_FAILED', 'STAY block must have startLocationId equal to endLocationId');
-    }
-    if (blockType === 'TRANSFER' && startLocationId === endLocationId) {
-      throw new DomainError('VALIDATION_FAILED', 'TRANSFER block must have startLocationId different from endLocationId');
-    }
+    const legacyLocations = this.deriveLegacyLocationFields(normalizedDays);
+    const isNightTrain = parsed.data.isNightTrain ?? existing.isNightTrain ?? existing.blockType === 'TRANSFER';
 
     return this.prisma.$transaction(async (tx) => {
       const repository = new MultiDayBlockRepository(tx);
       await tx.overnightStay.update({
         where: { id },
         data: {
-          ...(parsed.data.regionId !== undefined ? { regionId: nextRegionId } : {}),
-          ...(parsed.data.locationId !== undefined ? { locationId: nextLocationId } : {}),
-          ...(parsed.data.blockType !== undefined ? { blockType } : {}),
-          ...(parsed.data.startLocationId !== undefined ? { startLocationId } : {}),
-          ...(parsed.data.endLocationId !== undefined ? { endLocationId } : {}),
+          regionId: nextRegionId,
+          locationId: legacyLocations.locationId,
+          blockType: isNightTrain ? 'TRANSFER' : 'STAY',
+          startLocationId: legacyLocations.startLocationId,
+          endLocationId: legacyLocations.endLocationId,
           ...(parsed.data.name !== undefined ? { name: parsed.data.name.trim() } : {}),
+          isNightTrain,
           ...(parsed.data.sortOrder !== undefined ? { sortOrder: parsed.data.sortOrder } : {}),
           ...(parsed.data.isActive !== undefined ? { isActive: parsed.data.isActive } : {}),
         },
       });
 
       if (parsed.data.days) {
-        await repository.replaceDays(
-          id,
-          parsed.data.days.map((day) => ({
-            ...day,
-            displayLocationId:
-              day.displayLocationId ?? (blockType === 'STAY' ? nextLocationId : existing.startLocationId ?? nextLocationId),
-            movementIntensity: calculateMovementIntensity(day.averageTravelHours),
-          })),
-        );
+        await repository.replaceDays(id, normalizedDays);
       }
 
       const result = await repository.findById(id);
       if (!result) {
-        throw new DomainError('INTERNAL', 'Failed to load updated overnight stay');
+        throw new DomainError('INTERNAL', 'Failed to load updated multi-day block');
       }
       return result;
     });
@@ -433,7 +473,7 @@ export class MultiDayBlockConnectionService {
       select: { id: true, regionId: true },
     });
     if (!overnightStay) {
-      throw new DomainError('VALIDATION_FAILED', 'Overnight stay not found for connection');
+      throw new DomainError('VALIDATION_FAILED', 'Multi-day block not found for connection');
     }
 
     const toLocation = await this.prisma.location.findUnique({
@@ -452,7 +492,7 @@ export class MultiDayBlockConnectionService {
     fromBlockRegionId: string,
   ): Promise<{ id: string; name: string }> {
     if (inputRegionId && inputRegionId !== fromBlockRegionId) {
-      throw new DomainError('VALIDATION_FAILED', 'Connection regionId must match the source overnight stay region');
+      throw new DomainError('VALIDATION_FAILED', 'Connection regionId must match the source multi-day block region');
     }
 
     const region = await this.prisma.region.findUnique({
@@ -460,7 +500,7 @@ export class MultiDayBlockConnectionService {
       select: { id: true, name: true },
     });
     if (!region) {
-      throw new DomainError('VALIDATION_FAILED', 'Region not found for overnight stay connection');
+      throw new DomainError('VALIDATION_FAILED', 'Region not found for multi-day block connection');
     }
 
     return region;
@@ -475,7 +515,7 @@ export class MultiDayBlockConnectionService {
     requiredVariants.forEach((variant) => {
       const timeSlots = version.timeSlotsByVariant[variant];
       if (!timeSlots || timeSlots.length === 0) {
-        throw new DomainError('VALIDATION_FAILED', `Overnight stay connection version "${versionLabel}" requires ${variant} schedules`);
+        throw new DomainError('VALIDATION_FAILED', `Multi-day block connection version "${versionLabel}" requires ${variant} schedules`);
       }
     });
   }
@@ -486,7 +526,7 @@ export class MultiDayBlockConnectionService {
   ): Promise<void> {
     const defaultVersions = versions.filter((version) => version.isDefault);
     if (defaultVersions.length !== 1) {
-      throw new DomainError('VALIDATION_FAILED', 'Overnight stay connection must include exactly one default version');
+      throw new DomainError('VALIDATION_FAILED', 'Multi-day block connection must include exactly one default version');
     }
 
     const requiredVariants = this.getRequiredVariants(toLocation);
@@ -685,7 +725,7 @@ export class MultiDayBlockConnectionService {
   async create(input: MultiDayBlockConnectionCreateDto) {
     const parsed = multiDayBlockConnectionCreateSchema.safeParse(input);
     if (!parsed.success) {
-      throw createValidationError('Invalid overnight stay connection input', parsed.error);
+      throw createValidationError('Invalid multi-day block connection input', parsed.error);
     }
 
     const endpoints = await this.validateEndpoints(parsed.data.fromMultiDayBlockId, parsed.data.toLocationId);
@@ -721,12 +761,12 @@ export class MultiDayBlockConnectionService {
   async update(id: string, input: MultiDayBlockConnectionUpdateDto) {
     const parsed = multiDayBlockConnectionUpdateSchema.safeParse(input);
     if (!parsed.success) {
-      throw createValidationError('Invalid overnight stay connection update input', parsed.error);
+      throw createValidationError('Invalid multi-day block connection update input', parsed.error);
     }
 
     const existing = await this.repository.findById(id);
     if (!existing) {
-      throw new DomainError('NOT_FOUND', 'Overnight stay connection not found');
+      throw new DomainError('NOT_FOUND', 'Multi-day block connection not found');
     }
 
     const nextFromMultiDayBlockId = parsed.data.fromMultiDayBlockId ?? existing.fromOvernightStayId;

@@ -5,8 +5,6 @@ export interface TemplatePlanRow extends PlanStopRowBase {
   segmentVersionId?: string;
   overnightStayId?: string;
   overnightStayDayOrder?: number;
-  overnightStayConnectionId?: string;
-  overnightStayConnectionVersionId?: string;
   multiDayBlockId?: string;
   multiDayBlockDayOrder?: number;
   multiDayBlockConnectionId?: string;

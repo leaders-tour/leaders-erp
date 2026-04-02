@@ -40,7 +40,6 @@ import { ExternalTransfersManagerModal } from '../features/plan/components/Exter
 import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
 import { getAssignmentsFromPlanRows } from '../features/plan/special-meals';
 import {
-  buildDerivedExternalTransferManualAdjustments,
   buildExternalTransferDirectionText,
   buildEmptyExternalTransfer,
   isExternalTransferComplete,
@@ -72,13 +71,9 @@ import {
   buildFirstDayOptions,
   buildNextOptions,
   findSegment,
-  findMultiDayBlockConnection,
-  formatMultiDayBlockConnectionVersionLabel,
   formatSegmentVersionLabel,
   getConsumedRouteDayCount,
-  getDefaultMultiDayBlockConnectionVersionId,
   getDefaultVersionId,
-  getMultiDayBlockConnectionVersions,
   getRouteDateForDayIndex,
   getRouteStopEndDayIndex,
   getRouteStopStartDayIndex,
@@ -89,7 +84,6 @@ import {
   type MultiDayBlockOption,
   type RouteSelection,
   trimRouteSelectionsToTotalDays,
-  resolveMultiDayBlockConnectionVersion,
   resolveSegmentVersionForDate,
   type SegmentOption,
 } from '../features/plan-template/route-autofill';
@@ -149,8 +143,10 @@ interface PlanRow extends PlanStopRowBase {
   segmentVersionId?: string;
   overnightStayId?: string;
   overnightStayDayOrder?: number;
-  overnightStayConnectionId?: string;
-  overnightStayConnectionVersionId?: string;
+  multiDayBlockId?: string;
+  multiDayBlockDayOrder?: number;
+  multiDayBlockConnectionId?: string;
+  multiDayBlockConnectionVersionId?: string;
   lodgingSelectionLevel: LodgingSelectionLevel;
   customLodgingId?: string;
   customLodgingNameSnapshot?: string | null;
@@ -163,7 +159,105 @@ interface ExtraLodgingRow {
 
 type ManualAdjustmentRow = ManualAdjustmentDraftRow;
 
+function createManualAdjustmentDraft(kind: 'ADD' | 'DISCOUNT'): ManualAdjustmentRow {
+  return {
+    kind,
+    title: '',
+    chargeScope: 'PER_PERSON',
+    personMode: 'SINGLE',
+    countValue: '',
+    amountKrw: '',
+    customDisplayText: '',
+  };
+}
+
+function parsePositiveIntString(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return null;
+  }
+  return parsed;
+}
+
+function isManualAdjustmentRowBlank(row: ManualAdjustmentRow): boolean {
+  return (
+    row.title.trim().length === 0 &&
+    row.amountKrw.trim().length === 0 &&
+    row.customDisplayText.trim().length === 0 &&
+    row.countValue.trim().length === 0
+  );
+}
+
+function isManualAdjustmentRowValid(row: ManualAdjustmentRow): boolean {
+  if (isManualAdjustmentRowBlank(row)) {
+    return true;
+  }
+
+  const title = row.title.trim();
+  const amount = parsePositiveIntString(row.amountKrw);
+  if (title.length === 0 || amount === null) {
+    return false;
+  }
+
+  if (row.chargeScope === 'TEAM') {
+    return true;
+  }
+
+  if (row.personMode === 'SINGLE') {
+    return true;
+  }
+
+  const countValue = parsePositiveIntString(row.countValue);
+  return countValue !== null && countValue >= 1;
+}
+
+function toManualAdjustmentInput(row: ManualAdjustmentRow) {
+  if (isManualAdjustmentRowBlank(row) || !isManualAdjustmentRowValid(row)) {
+    return null;
+  }
+
+  const amountKrw = parsePositiveIntString(row.amountKrw);
+  if (amountKrw === null) {
+    return null;
+  }
+
+  const countValue =
+    row.chargeScope === 'PER_PERSON' && (row.personMode === 'PER_DAY' || row.personMode === 'PER_NIGHT')
+      ? parsePositiveIntString(row.countValue)
+      : null;
+
+  return {
+    kind: row.kind,
+    title: row.title.trim(),
+    chargeScope: row.chargeScope,
+    personMode: row.chargeScope === 'TEAM' ? null : row.personMode,
+    countValue,
+    amountKrw,
+    customDisplayText: row.customDisplayText.trim() || null,
+  };
+}
+
+function getManualAdjustmentSignedTotal(row: ManualAdjustmentRow): number | null {
+  const normalized = toManualAdjustmentInput(row);
+  if (!normalized) {
+    return null;
+  }
+  const sign = normalized.kind === 'DISCOUNT' ? -1 : 1;
+  const count =
+    normalized.chargeScope === 'TEAM'
+      ? 1
+      : normalized.personMode === 'PER_DAY' || normalized.personMode === 'PER_NIGHT'
+        ? normalized.countValue ?? 1
+        : 1;
+  return sign * normalized.amountKrw * count;
+}
+
 interface PricingLineRow {
+  ruleType?: string | null;
   lineCode: string;
   sourceType: 'RULE' | 'MANUAL';
   description: string | null;
@@ -171,6 +265,12 @@ interface PricingLineRow {
   unitPriceKrw: number | null;
   quantity: number;
   amountKrw: number;
+  displayBasis?: string | null;
+  displayLabel?: string | null;
+  displayUnitAmountKrw?: number | null;
+  displayCount?: number | null;
+  displayDivisorPerson?: number | null;
+  displayText?: string | null;
   quantityDisplaySuffix?: '박';
 }
 
@@ -202,8 +302,10 @@ interface PlanTemplateStopRow {
   segmentVersionId: string | null;
   overnightStayId: string | null;
   overnightStayDayOrder: number | null;
-  overnightStayConnectionId: string | null;
-  overnightStayConnectionVersionId: string | null;
+  multiDayBlockId: string | null;
+  multiDayBlockDayOrder: number | null;
+  multiDayBlockConnectionId: string | null;
+  multiDayBlockConnectionVersionId: string | null;
   locationId: string | null;
   locationVersionId: string | null;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
@@ -309,8 +411,6 @@ function arePlanRowsEqual(left: PlanRow[], right: PlanRow[]): boolean {
       row.segmentVersionId === other.segmentVersionId &&
       row.overnightStayId === other.overnightStayId &&
       row.overnightStayDayOrder === other.overnightStayDayOrder &&
-      row.overnightStayConnectionId === other.overnightStayConnectionId &&
-      row.overnightStayConnectionVersionId === other.overnightStayConnectionVersionId &&
       row.rowType === other.rowType &&
       row.locationId === other.locationId &&
       row.locationVersionId === other.locationVersionId &&
@@ -354,8 +454,10 @@ function isSamePlanRowSource(left: PlanRow | undefined, right: PlanRow | undefin
     left.segmentVersionId === right.segmentVersionId &&
     left.overnightStayId === right.overnightStayId &&
     left.overnightStayDayOrder === right.overnightStayDayOrder &&
-    left.overnightStayConnectionId === right.overnightStayConnectionId &&
-    left.overnightStayConnectionVersionId === right.overnightStayConnectionVersionId &&
+    left.multiDayBlockId === right.multiDayBlockId &&
+    left.multiDayBlockDayOrder === right.multiDayBlockDayOrder &&
+    left.multiDayBlockConnectionId === right.multiDayBlockConnectionId &&
+    left.multiDayBlockConnectionVersionId === right.multiDayBlockConnectionVersionId &&
     left.rowType === right.rowType &&
     left.locationId === right.locationId &&
     left.locationVersionId === right.locationVersionId &&
@@ -624,11 +726,9 @@ const OVERNIGHT_STAYS_QUERY = gql`
       id
       regionId
       locationId
-      blockType
-      startLocationId
-      endLocationId
       name
       title
+      isNightTrain
       isActive
       sortOrder
       days {
@@ -647,7 +747,7 @@ const OVERNIGHT_STAYS_QUERY = gql`
   }
 `;
 
-const OVERNIGHT_STAY_CONNECTIONS_QUERY = gql`
+const MULTI_DAY_BLOCK_CONNECTIONS_QUERY = gql`
   query ItineraryMultiDayBlockConnections($regionSetId: ID) {
     multiDayBlockConnections(regionSetId: $regionSetId) {
       id
@@ -771,8 +871,6 @@ const PLAN_TEMPLATES_QUERY = gql`
         segmentVersionId
         overnightStayId: multiDayBlockId
         overnightStayDayOrder: multiDayBlockDayOrder
-        overnightStayConnectionId: multiDayBlockConnectionId
-        overnightStayConnectionVersionId: multiDayBlockConnectionVersionId
         multiDayBlockId
         multiDayBlockDayOrder
         multiDayBlockConnectionId
@@ -808,8 +906,6 @@ const PLAN_TEMPLATE_QUERY = gql`
         segmentVersionId
         overnightStayId: multiDayBlockId
         overnightStayDayOrder: multiDayBlockDayOrder
-        overnightStayConnectionId: multiDayBlockConnectionId
-        overnightStayConnectionVersionId: multiDayBlockConnectionVersionId
         multiDayBlockId
         multiDayBlockDayOrder
         multiDayBlockConnectionId
@@ -875,6 +971,7 @@ const PLAN_PRICING_PREVIEW_QUERY = gql`
       longDistanceSegmentCount
       extraLodgingCount
       lines {
+        ruleType
         lineCode
         sourceType
         description
@@ -882,6 +979,12 @@ const PLAN_PRICING_PREVIEW_QUERY = gql`
         unitPriceKrw
         quantity
         amountKrw
+        displayBasis
+        displayLabel
+        displayUnitAmountKrw
+        displayCount
+        displayDivisorPerson
+        displayText
       }
     }
   }
@@ -1088,6 +1191,12 @@ function createEstimateDraftSnapshot(input: {
             unitPriceKrw: line.unitPriceKrw,
             quantity: line.quantity,
             amountKrw: line.amountKrw,
+            displayBasis: line.displayBasis,
+            displayLabel: line.displayLabel,
+            displayUnitAmountKrw: line.displayUnitAmountKrw,
+            displayCount: line.displayCount,
+            displayDivisorPerson: line.displayDivisorPerson,
+            displayText: line.displayText,
           })),
         }
       : null,
@@ -1530,8 +1639,10 @@ function buildDefaultLodgingRow(input: {
   segmentVersionId?: string;
   overnightStayId?: string;
   overnightStayDayOrder?: number;
-  overnightStayConnectionId?: string;
-  overnightStayConnectionVersionId?: string;
+  multiDayBlockId?: string;
+  multiDayBlockDayOrder?: number;
+  multiDayBlockConnectionId?: string;
+  multiDayBlockConnectionVersionId?: string;
   locationId?: string;
   locationVersionId?: string;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
@@ -1549,8 +1660,10 @@ function buildDefaultLodgingRow(input: {
     segmentVersionId: input.segmentVersionId,
     overnightStayId: input.overnightStayId,
     overnightStayDayOrder: input.overnightStayDayOrder,
-    overnightStayConnectionId: input.overnightStayConnectionId,
-    overnightStayConnectionVersionId: input.overnightStayConnectionVersionId,
+    multiDayBlockId: input.multiDayBlockId,
+    multiDayBlockDayOrder: input.multiDayBlockDayOrder,
+    multiDayBlockConnectionId: input.multiDayBlockConnectionId,
+    multiDayBlockConnectionVersionId: input.multiDayBlockConnectionVersionId,
     locationId: input.locationId,
     locationVersionId: input.locationVersionId,
     movementIntensity: input.movementIntensity ?? null,
@@ -1792,11 +1905,12 @@ export function ItineraryBuilderPage(): JSX.Element {
       skip: !regionSetId,
     },
   );
-  const { data: overnightStayConnectionData } = useQuery<{
-    multiDayBlockConnections: MultiDayBlockConnectionOption[];
-  }>(OVERNIGHT_STAY_CONNECTIONS_QUERY, {
-    skip: !regionSetId,
-  });
+  const { data: overnightStayConnectionData } = useQuery<{ multiDayBlockConnections: MultiDayBlockConnectionOption[] }>(
+    MULTI_DAY_BLOCK_CONNECTIONS_QUERY,
+    {
+      skip: !regionSetId,
+    },
+  );
   const { data: templateListData } = useQuery<{ planTemplates: PlanTemplateRow[] }>(
     PLAN_TEMPLATES_QUERY,
     {
@@ -2172,8 +2286,8 @@ export function ItineraryBuilderPage(): JSX.Element {
           : row.mealCellText,
     }));
   }, [
-    filteredOvernightStayConnections,
     filteredOvernightStays,
+    filteredOvernightStayConnections,
     filteredSegments,
     locationById,
     locationVersionById,
@@ -2638,8 +2752,10 @@ export function ItineraryBuilderPage(): JSX.Element {
         segmentVersionId: row.segmentVersionId,
         overnightStayId: row.overnightStayId,
         overnightStayDayOrder: row.overnightStayDayOrder,
-        overnightStayConnectionId: row.overnightStayConnectionId,
-        overnightStayConnectionVersionId: row.overnightStayConnectionVersionId,
+        multiDayBlockId: row.multiDayBlockId,
+        multiDayBlockDayOrder: row.multiDayBlockDayOrder,
+        multiDayBlockConnectionId: row.multiDayBlockConnectionId,
+        multiDayBlockConnectionVersionId: row.multiDayBlockConnectionVersionId,
         locationId: row.locationId,
         locationVersionId: row.locationVersionId,
         movementIntensity: row.movementIntensity ?? null,
@@ -2662,12 +2778,6 @@ export function ItineraryBuilderPage(): JSX.Element {
         const overnightStayId = 'overnightStayId' in row ? row.overnightStayId : undefined;
         const overnightStayDayOrder =
           'overnightStayDayOrder' in row ? row.overnightStayDayOrder : undefined;
-        const overnightStayConnectionId =
-          'overnightStayConnectionId' in row ? row.overnightStayConnectionId : undefined;
-        const overnightStayConnectionVersionId =
-          'overnightStayConnectionVersionId' in row
-            ? row.overnightStayConnectionVersionId
-            : undefined;
 
         return {
           rowType: row.rowType,
@@ -2680,13 +2790,9 @@ export function ItineraryBuilderPage(): JSX.Element {
               ? row.multiDayBlockDayOrder
               : overnightStayDayOrder ?? undefined,
           multiDayBlockConnectionId:
-            'multiDayBlockConnectionId' in row
-              ? row.multiDayBlockConnectionId
-              : overnightStayConnectionId ?? undefined,
+            'multiDayBlockConnectionId' in row ? row.multiDayBlockConnectionId : undefined,
           multiDayBlockConnectionVersionId:
-            'multiDayBlockConnectionVersionId' in row
-              ? row.multiDayBlockConnectionVersionId
-              : overnightStayConnectionVersionId ?? undefined,
+            'multiDayBlockConnectionVersionId' in row ? row.multiDayBlockConnectionVersionId : undefined,
           locationId: row.locationId,
           locationVersionId: 'locationVersionId' in row ? row.locationVersionId : undefined,
           dateCellText: '',
@@ -2755,8 +2861,10 @@ export function ItineraryBuilderPage(): JSX.Element {
           segmentVersionId: stop.segmentVersionId,
           overnightStayId: stop.overnightStayId,
           overnightStayDayOrder: stop.overnightStayDayOrder,
-          overnightStayConnectionId: stop.overnightStayConnectionId,
-          overnightStayConnectionVersionId: stop.overnightStayConnectionVersionId,
+          multiDayBlockId: stop.multiDayBlockId,
+          multiDayBlockDayOrder: stop.multiDayBlockDayOrder,
+          multiDayBlockConnectionId: stop.multiDayBlockConnectionId,
+          multiDayBlockConnectionVersionId: stop.multiDayBlockConnectionVersionId,
           locationId: stop.locationId,
           locationVersionId: stop.locationVersionId,
         })),
@@ -2770,8 +2878,10 @@ export function ItineraryBuilderPage(): JSX.Element {
           segmentVersionId: stop.segmentVersionId ?? undefined,
           overnightStayId: stop.overnightStayId ?? undefined,
           overnightStayDayOrder: stop.overnightStayDayOrder ?? undefined,
-          overnightStayConnectionId: stop.overnightStayConnectionId ?? undefined,
-          overnightStayConnectionVersionId: stop.overnightStayConnectionVersionId ?? undefined,
+          multiDayBlockId: stop.multiDayBlockId ?? undefined,
+          multiDayBlockDayOrder: stop.multiDayBlockDayOrder ?? undefined,
+          multiDayBlockConnectionId: stop.multiDayBlockConnectionId ?? undefined,
+          multiDayBlockConnectionVersionId: stop.multiDayBlockConnectionVersionId ?? undefined,
           locationId: stop.locationId ?? undefined,
           locationVersionId: stop.locationVersionId ?? undefined,
           movementIntensity: stop.movementIntensity ?? null,
@@ -2820,53 +2930,27 @@ export function ItineraryBuilderPage(): JSX.Element {
     [planRows],
   );
 
-  const externalTransferManualAdjustments = useMemo(
-    () => buildDerivedExternalTransferManualAdjustments(externalTransfers, transportGroups),
-    [externalTransfers, transportGroups],
-  );
-
   const normalizedManualAdjustments = useMemo(
-    () => [
-      ...manualAdjustments
-        .map((item) => ({
-          kind: item.kind,
-          description: item.description.trim(),
-          amountText: item.amountKrw.trim(),
-          amountKrw: Math.abs(Number(item.amountKrw)),
-        }))
-        .filter((item) => item.description.length > 0 && item.amountText.length > 0)
-        .map((item) => ({
-          description: item.description,
-          amountKrw: item.kind === 'DISCOUNT' ? -item.amountKrw : item.amountKrw,
-        })),
-      ...externalTransferManualAdjustments,
-    ],
-    [externalTransferManualAdjustments, manualAdjustments],
+    () => manualAdjustments.map(toManualAdjustmentInput).filter((item): item is NonNullable<ReturnType<typeof toManualAdjustmentInput>> => item !== null),
+    [manualAdjustments],
   );
 
   const manualAdjustmentSummary = useMemo(() => {
     const validRows = manualAdjustments
       .map((item) => ({
         kind: item.kind,
-        description: item.description.trim(),
-        amountText: item.amountKrw.trim(),
-        amountKrw: Math.abs(Number(item.amountKrw)),
+        signedTotal: getManualAdjustmentSignedTotal(item),
       }))
-      .filter(
-        (item) =>
-          item.description.length > 0 &&
-          item.amountText.length > 0 &&
-          Number.isInteger(item.amountKrw),
-      );
+      .filter((item): item is { kind: 'ADD' | 'DISCOUNT'; signedTotal: number } => item.signedTotal !== null);
 
     const addCount = validRows.filter((item) => item.kind === 'ADD').length;
     const discountCount = validRows.filter((item) => item.kind === 'DISCOUNT').length;
     const addTotal = validRows
       .filter((item) => item.kind === 'ADD')
-      .reduce((sum, item) => sum + item.amountKrw, 0);
+      .reduce((sum, item) => sum + Math.abs(item.signedTotal), 0);
     const discountTotal = validRows
       .filter((item) => item.kind === 'DISCOUNT')
-      .reduce((sum, item) => sum + item.amountKrw, 0);
+      .reduce((sum, item) => sum + Math.abs(item.signedTotal), 0);
 
     return { addCount, discountCount, addTotal, discountTotal };
   }, [manualAdjustments]);
@@ -2991,17 +3075,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       Boolean(
         regionSetId &&
         travelStartDate &&
-        !manualAdjustments.some((item) => {
-          const d = item.description.trim();
-          const a = item.amountKrw.trim();
-          if (d.length === 0 && a.length === 0) return false;
-          return (
-            d.length === 0 ||
-            a.length === 0 ||
-            !Number.isInteger(Number(item.amountKrw)) ||
-            Number(item.amountKrw) < 0
-          );
-        }) &&
+        !manualAdjustments.some((item) => !isManualAdjustmentRowValid(item)) &&
         !lodgingSelections.some(
           (item) =>
             item.level === 'CUSTOM' &&
@@ -3036,11 +3110,13 @@ export function ItineraryBuilderPage(): JSX.Element {
         travelStartDate: toIsoDateTime(travelStartDate),
         headcountTotal,
         transportGroupCount: transportGroups.length,
+        transportGroups,
         vehicleType,
         includeRentalItems,
         eventIds,
         extraLodgings,
         lodgingSelections,
+        externalTransfers,
         manualAdjustments: normalizedManualAdjustments,
         manualDepositAmountKrw: normalizedManualDepositAmountKrw,
       },
@@ -3057,7 +3133,6 @@ export function ItineraryBuilderPage(): JSX.Element {
     selectedRoute,
     startLocationId,
     filteredSegments,
-    filteredOvernightStayConnections,
     transportGroups,
     headcountTotal,
     headcountMale,
@@ -4775,9 +4850,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                               </div>
                               <div className="mt-1 text-slate-700">
                                 <span className="whitespace-pre-line">
-                                  {formatLocationNameMultiline(
-                                    locationById.get(stop.locationId)?.name ?? stop.locationId,
-                                  )}
+                                  {filteredOvernightStays.find((item) => item.id === stop.multiDayBlockId)?.title ??
+                                    formatLocationNameMultiline(
+                                      locationById.get(stop.locationId)?.name ?? stop.locationId,
+                                    )}
                                 </span>
                                 {isLastDay &&
                                   (variantType === VariantType.Extend ||
@@ -4791,15 +4867,18 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                         const previousStop = selectedRoute[index - 1];
                         if (previousStop?.kind === 'MULTI_DAY_BLOCK') {
-                          const connection = findMultiDayBlockConnection(
-                            filteredOvernightStayConnections,
-                            previousStop.multiDayBlockId,
+                          const segment = findSegment(
+                            filteredSegments,
+                            previousStop.locationId,
                             stop.locationId,
                           );
-                          const versions = getMultiDayBlockConnectionVersions(connection);
-                          const selectedVersion = resolveMultiDayBlockConnectionVersion(
-                            connection,
-                            stop.overnightStayConnectionVersionId,
+                          const versions = getSegmentVersions(segment);
+                          const selectedVersion = resolveSegmentVersionForDate(
+                            segment,
+                            travelStartDate
+                              ? getRouteDateForDayIndex(travelStartDate, startDayIndex)
+                              : undefined,
+                            stop.segmentVersionId,
                           );
 
                           const isLastDay = endDayIndex === totalDays;
@@ -4820,11 +4899,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                               </div>
                               {versions.length > 1 ? (
                                 <div className="mt-3 grid gap-2">
-                                  <div className="text-xs text-slate-500">블록 다음 연결 버전</div>
+                                  <div className="text-xs text-slate-500">시즌 버전</div>
                                   <div className="flex flex-wrap gap-2">
                                     {versions.map((version) => (
                                       <button
-                                        key={`route-overnight-connection-version-${index}-${version.id}`}
+                                        key={`route-post-block-segment-version-${index}-${version.id}`}
                                         type="button"
                                         onClick={() =>
                                           setSelectedRoute((prev) =>
@@ -4832,8 +4911,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                               itemIndex === index && item.kind === 'LOCATION'
                                                 ? {
                                                     ...item,
-                                                    overnightStayConnectionId: connection?.id,
-                                                    overnightStayConnectionVersionId: version.id,
+                                                    segmentId: segment?.id,
+                                                    segmentVersionId: version.id,
                                                   }
                                                 : item,
                                             ),
@@ -4845,7 +4924,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                             : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
                                         }`}
                                       >
-                                        {formatMultiDayBlockConnectionVersionLabel(version)}
+                                        {formatSegmentVersionLabel(version)}
                                       </button>
                                     ))}
                                   </div>
@@ -4901,8 +4980,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                                                   ...item,
                                                   segmentId: segment?.id,
                                                   segmentVersionId: version.id,
-                                                  overnightStayConnectionId: undefined,
-                                                  overnightStayConnectionVersionId: undefined,
                                                 }
                                               : item,
                                           ),
@@ -4944,9 +5021,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 setSelectedRoute((prev) => {
                                   const lastStop = prev[prev.length - 1];
                                   if (lastStop?.kind === 'MULTI_DAY_BLOCK') {
-                                    const connection = findMultiDayBlockConnection(
-                                      filteredOvernightStayConnections,
-                                      lastStop.multiDayBlockId,
+                                    const segment = findSegment(
+                                      filteredSegments,
+                                      lastStop.locationId,
                                       location.id,
                                     );
                                     return [
@@ -4955,10 +5032,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         kind: 'LOCATION',
                                         locationId: location.id,
                                         locationVersionId: getDefaultVersionId(location),
-                                        overnightStayConnectionId: connection?.id,
-                                        overnightStayConnectionVersionId:
-                                          getDefaultMultiDayBlockConnectionVersionId(connection) ||
-                                          undefined,
+                                        segmentId: segment?.id,
+                                        segmentVersionId: undefined,
                                       },
                                     ];
                                   }
@@ -5036,14 +5111,17 @@ export function ItineraryBuilderPage(): JSX.Element {
                                       key={overnightStay.id}
                                       type="button"
                                       onClick={() => {
-                                        const location = locationById.get(overnightStay.locationId);
+                                        const sortedDays = overnightStay.days.slice().sort((left, right) => left.dayOrder - right.dayOrder);
+                                        const lastDay = sortedDays[sortedDays.length - 1];
+                                        const lastLocationId = lastDay?.displayLocationId ?? overnightStay.locationId;
+                                        const location = locationById.get(lastLocationId);
                                         setSelectedRoute((prev) => [
                                           ...prev,
                                           {
                                             kind: 'MULTI_DAY_BLOCK',
                                             multiDayBlockId: overnightStay.id,
                                             stayLength: overnightStay.days.length,
-                                            locationId: overnightStay.locationId,
+                                            locationId: lastLocationId,
                                             locationVersionId: getDefaultVersionId(location) || '',
                                           },
                                         ]);
@@ -5201,7 +5279,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                     </div>
                     {hasValidation('invalid-manual-adjustments') ? (
                       <p className="text-xs text-rose-700">
-                        기타 금액은 내용과 0 이상 정수 금액을 함께 입력해주세요.
+                        기타 금액은 제목, 금액, 팀당/인당 기준과 필요한 일수·박수를 확인해주세요.
                       </p>
                     ) : null}
                   </div>
@@ -6094,16 +6172,12 @@ export function ItineraryBuilderPage(): JSX.Element {
           onAddRow={(kind) =>
             setManualAdjustments((prev) => [
               ...prev,
-              {
-                kind,
-                description: '',
-                amountKrw: '0',
-              },
+              createManualAdjustmentDraft(kind),
             ])
           }
-          onUpdateRow={(index, field, value) =>
+          onUpdateRow={(index, nextRow) =>
             setManualAdjustments((prev) =>
-              prev.map((row, rowIndex) => (rowIndex === index ? { ...row, [field]: value } : row)),
+              prev.map((row, rowIndex) => (rowIndex === index ? nextRow : row)),
             )
           }
           onRemoveRow={(index) =>

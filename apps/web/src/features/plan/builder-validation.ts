@@ -13,7 +13,6 @@ import {
   type SpecialMealDestinationRules,
   type SpecialMealRowContext,
 } from './special-meals';
-import type { MultiDayBlockConnectionOption } from '../plan-template/route-autofill';
 import type { RouteSelection, SegmentOption } from '../plan-template/route-autofill';
 
 export type ValidationSeverity = 'error' | 'warning';
@@ -153,9 +152,12 @@ export interface LodgingSelectionForValidation {
 }
 
 export interface ManualAdjustmentForValidation {
-  description: string;
+  title: string;
   amountKrw: string;
   kind: string;
+  chargeScope: string;
+  personMode?: string | null;
+  countValue?: string;
 }
 
 export interface PricingPreviewForValidation {
@@ -167,7 +169,6 @@ export interface BuilderValidationInput {
   selectedRoute: RouteSelection[];
   startLocationId: string | null;
   filteredSegments: SegmentOption[];
-  filteredOvernightStayConnections: MultiDayBlockConnectionOption[];
   transportGroups: TransportGroupForValidation[];
   headcountTotal: number;
   headcountMale: number;
@@ -192,7 +193,6 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
       selectedRoute,
       startLocationId,
       filteredSegments,
-      filteredOvernightStayConnections,
       transportGroups,
       headcountTotal,
       headcountMale,
@@ -271,15 +271,20 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
 
     // invalid-manual-adjustments (error)
     const hasInvalidManualAdjustments = manualAdjustments.some((item) => {
-      const description = item.description.trim();
+      const title = item.title.trim();
       const amountText = item.amountKrw.trim();
-      if (description.length === 0 && amountText.length === 0) return false;
-      return (
-        description.length === 0 ||
-        amountText.length === 0 ||
-        !Number.isInteger(Number(item.amountKrw)) ||
-        Number(item.amountKrw) < 0
-      );
+      const countText = item.countValue?.trim() ?? '';
+      const isBlank = title.length === 0 && amountText.length === 0 && countText.length === 0;
+      if (isBlank) return false;
+      if (title.length === 0 || amountText.length === 0) return true;
+      if (!Number.isInteger(Number(item.amountKrw)) || Number(item.amountKrw) < 0) return true;
+      if (item.chargeScope === 'TEAM') {
+        return false;
+      }
+      if (item.personMode === 'PER_DAY' || item.personMode === 'PER_NIGHT') {
+        return countText.length === 0 || !Number.isInteger(Number(countText)) || Number(countText) < 1;
+      }
+      return false;
     });
     if (hasInvalidManualAdjustments) {
       results.push({
@@ -341,18 +346,7 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
     // missing-segment (warning)
     const hasMissingSegment = selectedRoute.some((toStop, index) => {
       if (toStop.kind === 'MULTI_DAY_BLOCK') {
-        const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
-        return !filteredSegments.some(
-          (seg) => seg.fromLocationId === fromId && seg.toLocationId === toStop.locationId,
-        );
-      }
-      const previousStop = selectedRoute[index - 1];
-      if (previousStop?.kind === 'MULTI_DAY_BLOCK') {
-        return !filteredOvernightStayConnections.some(
-          (conn) =>
-            conn.fromMultiDayBlockId === previousStop.multiDayBlockId &&
-            conn.toLocationId === toStop.locationId,
-        );
+        return false;
       }
       const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
       return !filteredSegments.some(
@@ -497,7 +491,6 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
     input.selectedRoute,
     input.startLocationId,
     input.filteredSegments,
-    input.filteredOvernightStayConnections,
     input.transportGroups,
     input.headcountTotal,
     input.headcountMale,

@@ -73,28 +73,10 @@ export const multiDayBlockResolver = {
       new MultiDayBlockService(ctx.prisma).update(args.id, args.input),
     deleteMultiDayBlock: (_parent: unknown, args: EntityArgs, ctx: AppContext) =>
       new MultiDayBlockService(ctx.prisma).delete(args.id),
-    createMultiDayBlockConnection: (
-      _parent: unknown,
-      args: { input: Record<string, unknown> & { fromMultiDayBlockId: string } },
-      ctx: AppContext,
-    ) => {
-      const { fromMultiDayBlockId, ...rest } = args.input;
-      return new MultiDayBlockConnectionService(ctx.prisma).create({
-        ...rest,
-        fromMultiDayBlockId,
-      } as MultiDayBlockConnectionCreateDto);
-    },
-    updateMultiDayBlockConnection: (
-      _parent: unknown,
-      args: { id: string; input: Record<string, unknown> & { fromMultiDayBlockId?: string } },
-      ctx: AppContext,
-    ) => {
-      const { fromMultiDayBlockId, ...rest } = args.input;
-      return new MultiDayBlockConnectionService(ctx.prisma).update(args.id, {
-        ...rest,
-        ...(fromMultiDayBlockId !== undefined && { fromMultiDayBlockId }),
-      } as MultiDayBlockConnectionUpdateDto);
-    },
+    createMultiDayBlockConnection: (_parent: unknown, args: MultiDayBlockConnectionCreateArgs, ctx: AppContext) =>
+      new MultiDayBlockConnectionService(ctx.prisma).create(args.input),
+    updateMultiDayBlockConnection: (_parent: unknown, args: MultiDayBlockConnectionUpdateArgs, ctx: AppContext) =>
+      new MultiDayBlockConnectionService(ctx.prisma).update(args.id, args.input),
     deleteMultiDayBlockConnection: (_parent: unknown, args: EntityArgs, ctx: AppContext) =>
       new MultiDayBlockConnectionService(ctx.prisma).delete(args.id),
   },
@@ -120,11 +102,11 @@ export const multiDayBlockResolver = {
     fromMultiDayBlockId: (parent: { fromOvernightStayId: string }) => parent.fromOvernightStayId,
     fromMultiDayBlock: (parent: any, _args: unknown, ctx: AppContext) =>
       new MultiDayBlockService(ctx.prisma).get(parent.fromOvernightStayId),
-    scheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((tb: any) => tb.variant === 'basic'),
-    earlyScheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((tb: any) => tb.variant === 'early'),
-    extendScheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((tb: any) => tb.variant === 'extend'),
+    scheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'basic'),
+    earlyScheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'early'),
+    extendScheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'extend'),
     earlyExtendScheduleTimeBlocks: (parent: any) =>
-      (parent.scheduleTimeBlocks ?? []).filter((tb: any) => tb.variant === 'earlyExtend'),
+      (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'earlyExtend'),
   },
   MultiDayBlockConnectionVersion: {
     multiDayBlockConnectionId: (parent: { overnightStayConnectionId: string }) => parent.overnightStayConnectionId,

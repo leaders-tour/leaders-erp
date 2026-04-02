@@ -161,8 +161,6 @@ const baseNavItems: NavItem[] = [
     children: [
       { path: '/multi-day-blocks/list', label: '블록 목록' },
       { path: '/multi-day-blocks/create', label: '블록 생성' },
-      { path: '/multi-day-blocks/connections/list', label: '블록 후속 연결 목록' },
-      { path: '/multi-day-blocks/connections/create', label: '블록 후속 연결 생성' },
     ],
   },
   {
@@ -203,7 +201,11 @@ export function AppLayout(): JSX.Element {
   });
   const navItems =
     (employee?.role === EmployeeRole.ADMIN
-      ? [...baseNavItems, { path: '/admin/employees', label: '직원 관리', icon: AdminIcon }]
+      ? [
+          ...baseNavItems,
+          { path: '/admin/pricing-policies', label: '가격 정책', icon: AdminIcon },
+          { path: '/admin/employees', label: '직원 관리', icon: AdminIcon },
+        ]
       : baseNavItems
     ).filter((item) => !hiddenNavPaths.has(item.path));
 
@@ -214,8 +216,8 @@ export function AppLayout(): JSX.Element {
     location.pathname === '/locations/create' ||
     location.pathname === '/connections/create' ||
     /^\/locations\/[^/]+\/versions\/[^/]+\/edit$/.test(location.pathname);
-  const isWideMultiDayBlockCreatePage = location.pathname === '/multi-day-blocks/create' || location.pathname === '/multi-day-blocks/connections/create';
-  const isWideConnectionListPage = location.pathname === '/connections/list' || location.pathname === '/multi-day-blocks/connections/list';
+  const isWideMultiDayBlockCreatePage = location.pathname === '/multi-day-blocks/create';
+  const isWideConnectionListPage = location.pathname === '/connections/list';
   const pageShellClassName = isFullBleedPage
     ? 'max-w-none px-0 py-0'
     : isWideConnectionListPage

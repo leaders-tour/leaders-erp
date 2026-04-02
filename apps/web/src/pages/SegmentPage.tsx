@@ -9,6 +9,7 @@ import {
 import { formatLocationNameInline, includesLocationNameKeyword } from '../features/location/display';
 import {
   useSegmentCrud,
+  type ConnectionSourceType,
   type SegmentRow,
   type SegmentTimeSlotFormInput,
   type SegmentVersionFormInput,
@@ -25,6 +26,20 @@ const LOCATIONS_QUERY = gql`
       name
       isFirstDayEligible
       isLastDayEligible
+    }
+  }
+`;
+
+const MULTI_DAY_BLOCKS_QUERY = gql`
+  query SegmentMultiDayBlocks {
+    multiDayBlocks(activeOnly: true) {
+      id
+      title
+      regionId
+      region {
+        id
+        name
+      }
     }
   }
 `;
@@ -49,8 +64,20 @@ interface LocationRow {
   isLastDayEligible: boolean;
 }
 
+interface MultiDayBlockRow {
+  id: string;
+  title: string;
+  regionId: string;
+  region: {
+    id: string;
+    name: string;
+  };
+}
+
 interface SegmentFormState {
+  sourceType: ConnectionSourceType;
   fromLocationId: string;
+  fromMultiDayBlockId: string;
   toLocationId: string;
   averageDistanceKm: string;
   averageTravelHours: string;
@@ -116,7 +143,9 @@ function createVersionDraft(): SegmentVersionDraft {
 
 function createEmptyForm(): SegmentFormState {
   return {
+    sourceType: 'LOCATION',
     fromLocationId: '',
+    fromMultiDayBlockId: '',
     toLocationId: '',
     averageDistanceKm: '',
     averageTravelHours: '',
@@ -127,6 +156,16 @@ function createEmptyForm(): SegmentFormState {
     earlyExtendTimeSlots: createDefaultTimeSlots(),
     versions: [],
   };
+}
+
+function formatFromSourceLabel(input: {
+  row: Pick<SegmentRow, 'sourceType' | 'fromLocationId' | 'fromMultiDayBlockTitle' | 'fromMultiDayBlockId'>;
+  locationById: Map<string, LocationRow>;
+}): string {
+  if (input.row.sourceType === 'MULTI_DAY_BLOCK') {
+    return input.row.fromMultiDayBlockTitle ?? input.row.fromMultiDayBlockId ?? '-';
+  }
+  return formatLocationNameInline(input.locationById.get(input.row.fromLocationId ?? '')?.name ?? [input.row.fromLocationId ?? '-']);
 }
 
 function getNextSlotTime(timeSlots: SegmentTimeSlotFormInput[]): string {
@@ -777,6 +816,8 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const crud = useSegmentCrud();
   const location = useLocation();
   const { data: locationData, loading: locationsLoading } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
+  const { data: multiDayBlockData, loading: multiDayBlocksLoading } =
+    useQuery<{ multiDayBlocks: MultiDayBlockRow[] }>(MULTI_DAY_BLOCKS_QUERY);
 
   const [form, setForm] = useState<SegmentFormState>(createEmptyForm);
   const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
@@ -799,7 +840,9 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const [editPasteHelperResetNonce, setEditPasteHelperResetNonce] = useState(0);
 
   const locations = useMemo(() => locationData?.locations ?? [], [locationData]);
+  const multiDayBlocks = useMemo(() => multiDayBlockData?.multiDayBlocks ?? [], [multiDayBlockData]);
   const locationById = useMemo(() => new Map(locations.map((item) => [item.id, item])), [locations]);
+  const multiDayBlockById = useMemo(() => new Map(multiDayBlocks.map((item) => [item.id, item])), [multiDayBlocks]);
   const regions = useMemo(() => {
     return Array.from(new Set(crud.rows.map((row) => row.regionName))).sort((a, b) => a.localeCompare(b, 'ko'));
   }, [crud.rows]);
@@ -814,15 +857,23 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
       if (row.regionName.toLowerCase().includes(keyword)) {
         return true;
       }
-      const from = locationById.get(row.fromLocationId);
+      const from = row.sourceType === 'LOCATION' ? locationById.get(row.fromLocationId ?? '') : undefined;
+      const fromBlockTitle = row.fromMultiDayBlockTitle?.toLowerCase() ?? '';
       const to = locationById.get(row.toLocationId);
       if (from && includesLocationNameKeyword(from.name, keyword)) {
+        return true;
+      }
+      if (fromBlockTitle.includes(keyword)) {
         return true;
       }
       if (to && includesLocationNameKeyword(to.name, keyword)) {
         return true;
       }
-      if (row.fromLocationId.toLowerCase().includes(keyword) || row.toLocationId.toLowerCase().includes(keyword)) {
+      if (
+        (row.fromLocationId ?? '').toLowerCase().includes(keyword) ||
+        (row.fromMultiDayBlockId ?? '').toLowerCase().includes(keyword) ||
+        row.toLocationId.toLowerCase().includes(keyword)
+      ) {
         return true;
       }
       return row.versions.some((v) => {
@@ -844,6 +895,14 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     return locations.filter((item) => includesLocationNameKeyword(item.name, keyword));
   }, [locations, fromSearch]);
 
+  const filteredFromMultiDayBlocks = useMemo(() => {
+    const keyword = fromSearch.trim().toLowerCase();
+    if (!keyword) {
+      return multiDayBlocks;
+    }
+    return multiDayBlocks.filter((item) => item.title.toLowerCase().includes(keyword));
+  }, [multiDayBlocks, fromSearch]);
+
   const filteredToLocations = useMemo(() => {
     const keyword = toSearch.trim().toLowerCase();
     if (!keyword) {
@@ -853,13 +912,15 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   }, [locations, toSearch]);
 
   const selectedFromLocation = form.fromLocationId ? locationById.get(form.fromLocationId) : undefined;
+  const selectedFromMultiDayBlock = form.fromMultiDayBlockId ? multiDayBlockById.get(form.fromMultiDayBlockId) : undefined;
   const selectedToLocation = form.toLocationId ? locationById.get(form.toLocationId) : undefined;
   const selectedEditFromLocation = editForm.fromLocationId ? locationById.get(editForm.fromLocationId) : undefined;
+  const selectedEditFromMultiDayBlock = editForm.fromMultiDayBlockId ? multiDayBlockById.get(editForm.fromMultiDayBlockId) : undefined;
   const selectedEditToLocation = editForm.toLocationId ? locationById.get(editForm.toLocationId) : undefined;
-  const includeCreateEarly = Boolean(selectedFromLocation?.isFirstDayEligible);
+  const includeCreateEarly = form.sourceType === 'LOCATION' && Boolean(selectedFromLocation?.isFirstDayEligible);
   const includeCreateExtend = Boolean(selectedToLocation?.isLastDayEligible);
   const includeCreateEarlyExtend = includeCreateEarly && includeCreateExtend;
-  const includeEditEarly = Boolean(selectedEditFromLocation?.isFirstDayEligible);
+  const includeEditEarly = editForm.sourceType === 'LOCATION' && Boolean(selectedEditFromLocation?.isFirstDayEligible);
   const includeEditExtend = Boolean(selectedEditToLocation?.isLastDayEligible);
   const includeEditEarlyExtend = includeEditEarly && includeEditExtend;
   const createMovementIntensityMeta = useMemo(() => {
@@ -877,10 +938,13 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     return getMovementIntensityMeta(calculateMovementIntensityByHours(hours));
   }, [editForm.averageTravelHours]);
 
+  const hasCreateSource = form.sourceType === 'LOCATION' ? Boolean(selectedFromLocation) : Boolean(selectedFromMultiDayBlock);
+  const hasEditSource = editForm.sourceType === 'LOCATION' ? Boolean(selectedEditFromLocation) : Boolean(selectedEditFromMultiDayBlock);
+
   const canSubmit =
-    !!selectedFromLocation &&
+    hasCreateSource &&
     !!selectedToLocation &&
-    form.fromLocationId !== form.toLocationId &&
+    (form.sourceType === 'MULTI_DAY_BLOCK' || form.fromLocationId !== form.toLocationId) &&
     Number(form.averageDistanceKm) > 0 &&
     Number(form.averageTravelHours) > 0 &&
     form.versions.every(
@@ -891,9 +955,9 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     );
 
   const canUpdate =
-    !!selectedEditFromLocation &&
+    hasEditSource &&
     !!selectedEditToLocation &&
-    editForm.fromLocationId !== editForm.toLocationId &&
+    (editForm.sourceType === 'MULTI_DAY_BLOCK' || editForm.fromLocationId !== editForm.toLocationId) &&
     Number(editForm.averageDistanceKm) > 0 &&
     Number(editForm.averageTravelHours) > 0 &&
     editForm.versions.every(
@@ -907,10 +971,10 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const pageTitle = mode === 'create' ? '연결 생성' : mode === 'list' ? '연결 목록' : '연결 관리';
   const pageDescription =
     mode === 'create'
-      ? '출발지와 도착지 사이의 연결과 연결별 이동 일정을 생성합니다.'
+      ? '목적지 또는 블록에서 출발해 목적지로 도착하는 연결과 이동 일정을 생성합니다.'
       : mode === 'list'
-        ? '등록된 출발지-도착지 연결과 연결별 이동 일정을 조회하고 수정합니다.'
-        : '출발지-도착지 연결과 연결별 이동 일정을 함께 관리합니다.';
+        ? '등록된 목적지/블록 출발 연결과 연결별 이동 일정을 조회하고 수정합니다.'
+        : '목적지/블록 출발 연결과 연결별 이동 일정을 함께 관리합니다.';
 
   return (
     <section className="grid gap-6">
@@ -939,7 +1003,11 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
           className="grid gap-4"
           onSubmit={async (event) => {
             event.preventDefault();
-            if (!canSubmit || !selectedFromLocation || !selectedToLocation) {
+            if (
+              !canSubmit ||
+              !selectedToLocation ||
+              (form.sourceType === 'LOCATION' ? !selectedFromLocation : !selectedFromMultiDayBlock)
+            ) {
               return;
             }
 
@@ -947,8 +1015,10 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
             try {
               setErrorMessage(null);
               await crud.createRow({
-                regionId: selectedFromLocation.regionId,
-                fromLocationId: form.fromLocationId,
+                sourceType: form.sourceType,
+                regionId: form.sourceType === 'LOCATION' ? selectedFromLocation!.regionId : selectedFromMultiDayBlock!.regionId,
+                fromLocationId: form.sourceType === 'LOCATION' ? form.fromLocationId : undefined,
+                fromMultiDayBlockId: form.sourceType === 'MULTI_DAY_BLOCK' ? form.fromMultiDayBlockId : undefined,
                 toLocationId: form.toLocationId,
                 averageDistanceKm: Number(form.averageDistanceKm),
                 averageTravelHours: Number(form.averageTravelHours),
@@ -981,6 +1051,33 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(320px,360px)_minmax(0,1fr)]">
             <div className="grid gap-6">
               <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+                <div className="grid gap-2 text-sm">
+                  <span className="text-slate-700">출발지 유형</span>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={form.sourceType === 'LOCATION' ? 'default' : 'outline'}
+                      onClick={() => {
+                        setForm((prev) => ({ ...prev, sourceType: 'LOCATION', fromMultiDayBlockId: '', fromLocationId: '' }));
+                        setFromSearch('');
+                        setFromOpen(false);
+                      }}
+                    >
+                      목적지
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={form.sourceType === 'MULTI_DAY_BLOCK' ? 'default' : 'outline'}
+                      onClick={() => {
+                        setForm((prev) => ({ ...prev, sourceType: 'MULTI_DAY_BLOCK', fromLocationId: '', fromMultiDayBlockId: '' }));
+                        setFromSearch('');
+                        setFromOpen(false);
+                      }}
+                    >
+                      블록
+                    </Button>
+                  </div>
+                </div>
                 <label className="grid gap-1 text-sm min-w-0">
                   <span className="text-slate-700">출발지</span>
                   <div className="relative">
@@ -990,30 +1087,49 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                       onBlur={() => setTimeout(() => setFromOpen(false), 120)}
                       onChange={(event) => {
                         setFromSearch(event.target.value);
-                        setForm((prev) => ({ ...prev, fromLocationId: '' }));
+                        setForm((prev) => ({
+                          ...prev,
+                          fromLocationId: prev.sourceType === 'LOCATION' ? '' : prev.fromLocationId,
+                          fromMultiDayBlockId: prev.sourceType === 'MULTI_DAY_BLOCK' ? '' : prev.fromMultiDayBlockId,
+                        }));
                         setFromOpen(true);
                       }}
-                      placeholder="출발지 검색 또는 선택"
+                      placeholder={form.sourceType === 'LOCATION' ? '출발 목적지 검색 또는 선택' : '출발 블록 검색 또는 선택'}
                     />
                     {fromOpen ? (
                       <div className="absolute left-0 right-0 top-[44px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-                        {filteredFromLocations.length === 0 ? (
+                        {(form.sourceType === 'LOCATION' ? filteredFromLocations.length === 0 : filteredFromMultiDayBlocks.length === 0) ? (
                           <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
                         ) : (
-                          filteredFromLocations.map((item) => (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => {
-                                setForm((prev) => ({ ...prev, fromLocationId: item.id }));
-                                setFromSearch(formatLocationNameInline(item.name));
-                                setFromOpen(false);
-                              }}
-                              className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
-                            >
-                              {formatLocationNameInline(item.name)} ({item.regionName})
-                            </button>
-                          ))
+                          form.sourceType === 'LOCATION'
+                            ? filteredFromLocations.map((item) => (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setForm((prev) => ({ ...prev, fromLocationId: item.id }));
+                                    setFromSearch(formatLocationNameInline(item.name));
+                                    setFromOpen(false);
+                                  }}
+                                  className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
+                                >
+                                  {formatLocationNameInline(item.name)} ({item.regionName})
+                                </button>
+                              ))
+                            : filteredFromMultiDayBlocks.map((item) => (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setForm((prev) => ({ ...prev, fromMultiDayBlockId: item.id }));
+                                    setFromSearch(item.title);
+                                    setFromOpen(false);
+                                  }}
+                                  className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
+                                >
+                                  {item.title} ({item.region.name})
+                                </button>
+                              ))
                         )}
                       </div>
                     ) : null}
@@ -1108,14 +1224,21 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 </label>
               </div>
 
-              {selectedFromLocation && selectedToLocation && selectedFromLocation.regionId !== selectedToLocation.regionId ? (
+              {(form.sourceType === 'LOCATION' ? selectedFromLocation?.regionId : selectedFromMultiDayBlock?.regionId) &&
+              selectedToLocation &&
+              (form.sourceType === 'LOCATION' ? selectedFromLocation?.regionId : selectedFromMultiDayBlock?.regionId) !==
+                selectedToLocation.regionId ? (
                 <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
                   <p className="text-sm text-blue-700">다른 지역 간 연결도 만들 수 있으며, 저장 지역은 출발지 기준으로 맞춰집니다.</p>
                 </div>
               ) : null}
 
               <div>
-                <Button type="submit" variant="primary" disabled={!canSubmit || submitting || locationsLoading || crud.loading}>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={!canSubmit || submitting || locationsLoading || multiDayBlocksLoading || crud.loading}
+                >
                   {submitting ? '생성 중...' : '연결 생성'}
                 </Button>
               </div>
@@ -1252,7 +1375,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 <Td>
                   <RegionNameChip name={row.regionName} />
                 </Td>
-                <Td>{formatLocationNameInline(locationById.get(row.fromLocationId)?.name ?? row.fromLocationId)}</Td>
+                <Td>{formatFromSourceLabel({ row, locationById })}</Td>
                 <Td>{formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? row.toLocationId)}</Td>
                 <Td>{row.averageDistanceKm}km</Td>
                 <Td>{row.averageTravelHours}h</Td>
@@ -1317,7 +1440,9 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                         setErrorMessage(null);
                         setEditingSegmentId(row.id);
                         setEditForm({
-                          fromLocationId: row.fromLocationId,
+                          sourceType: row.sourceType,
+                          fromLocationId: row.fromLocationId ?? '',
+                          fromMultiDayBlockId: row.fromMultiDayBlockId ?? '',
                           toLocationId: row.toLocationId,
                           averageDistanceKm: String(row.averageDistanceKm),
                           averageTravelHours: String(row.averageTravelHours),
@@ -1328,7 +1453,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                           earlyExtendTimeSlots: toFormTimeSlots(row.earlyExtendScheduleTimeBlocks),
                           versions: toVersionDrafts(row),
                         });
-                        setEditFromSearch(formatLocationNameInline(locationById.get(row.fromLocationId)?.name ?? row.fromLocationId));
+                        setEditFromSearch(formatFromSourceLabel({ row, locationById }));
                         setEditToSearch(formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? row.toLocationId));
                         setEditFromOpen(false);
                         setEditToOpen(false);
@@ -1413,7 +1538,12 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
             className="grid gap-4"
             onSubmit={async (event) => {
               event.preventDefault();
-              if (!canUpdate || !selectedEditFromLocation || !selectedEditToLocation || !editingSegmentId) {
+              if (
+                !canUpdate ||
+                !selectedEditToLocation ||
+                !editingSegmentId ||
+                (editForm.sourceType === 'LOCATION' ? !selectedEditFromLocation : !selectedEditFromMultiDayBlock)
+              ) {
                 return;
               }
 
@@ -1421,8 +1551,11 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
               try {
                 setErrorMessage(null);
                 await crud.updateRow(editingSegmentId, {
-                  regionId: selectedEditFromLocation.regionId,
-                  fromLocationId: editForm.fromLocationId,
+                  sourceType: editForm.sourceType,
+                  regionId:
+                    editForm.sourceType === 'LOCATION' ? selectedEditFromLocation!.regionId : selectedEditFromMultiDayBlock!.regionId,
+                  fromLocationId: editForm.sourceType === 'LOCATION' ? editForm.fromLocationId : undefined,
+                  fromMultiDayBlockId: editForm.sourceType === 'MULTI_DAY_BLOCK' ? editForm.fromMultiDayBlockId : undefined,
                   toLocationId: editForm.toLocationId,
                   averageDistanceKm: Number(editForm.averageDistanceKm),
                   averageTravelHours: Number(editForm.averageTravelHours),
@@ -1456,6 +1589,33 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
             <div className="grid items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
               <div className="grid gap-4">
                 <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-2 xl:grid-cols-1">
+                  <div className="grid gap-2 text-sm">
+                    <span className="text-slate-700">출발지 유형</span>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={editForm.sourceType === 'LOCATION' ? 'default' : 'outline'}
+                        onClick={() => {
+                          setEditForm((prev) => ({ ...prev, sourceType: 'LOCATION', fromMultiDayBlockId: '', fromLocationId: '' }));
+                          setEditFromSearch('');
+                          setEditFromOpen(false);
+                        }}
+                      >
+                        목적지
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={editForm.sourceType === 'MULTI_DAY_BLOCK' ? 'default' : 'outline'}
+                        onClick={() => {
+                          setEditForm((prev) => ({ ...prev, sourceType: 'MULTI_DAY_BLOCK', fromLocationId: '', fromMultiDayBlockId: '' }));
+                          setEditFromSearch('');
+                          setEditFromOpen(false);
+                        }}
+                      >
+                        블록
+                      </Button>
+                    </div>
+                  </div>
                   <div className="relative grid gap-2">
                     <h3 className="text-sm font-semibold text-slate-800">출발지</h3>
                     <Input
@@ -1464,30 +1624,49 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                       onBlur={() => setTimeout(() => setEditFromOpen(false), 120)}
                       onChange={(event) => {
                         setEditFromSearch(event.target.value);
-                        setEditForm((prev) => ({ ...prev, fromLocationId: '' }));
+                        setEditForm((prev) => ({
+                          ...prev,
+                          fromLocationId: prev.sourceType === 'LOCATION' ? '' : prev.fromLocationId,
+                          fromMultiDayBlockId: prev.sourceType === 'MULTI_DAY_BLOCK' ? '' : prev.fromMultiDayBlockId,
+                        }));
                         setEditFromOpen(true);
                       }}
-                      placeholder="출발지 검색 또는 선택"
+                      placeholder={editForm.sourceType === 'LOCATION' ? '출발 목적지 검색 또는 선택' : '출발 블록 검색 또는 선택'}
                     />
                     {editFromOpen ? (
                       <div className="absolute left-0 right-0 top-[76px] z-[100] max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-                        {filteredFromLocations.length === 0 ? (
+                        {(editForm.sourceType === 'LOCATION' ? filteredFromLocations.length === 0 : filteredFromMultiDayBlocks.length === 0) ? (
                           <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
                         ) : (
-                          filteredFromLocations.map((item) => (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => {
-                                setEditForm((prev) => ({ ...prev, fromLocationId: item.id }));
-                                setEditFromSearch(formatLocationNameInline(item.name));
-                                setEditFromOpen(false);
-                              }}
-                              className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
-                            >
-                              {formatLocationNameInline(item.name)} ({item.regionName})
-                            </button>
-                          ))
+                          editForm.sourceType === 'LOCATION'
+                            ? filteredFromLocations.map((item) => (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setEditForm((prev) => ({ ...prev, fromLocationId: item.id }));
+                                    setEditFromSearch(formatLocationNameInline(item.name));
+                                    setEditFromOpen(false);
+                                  }}
+                                  className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
+                                >
+                                  {formatLocationNameInline(item.name)} ({item.regionName})
+                                </button>
+                              ))
+                            : filteredFromMultiDayBlocks.map((item) => (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setEditForm((prev) => ({ ...prev, fromMultiDayBlockId: item.id }));
+                                    setEditFromSearch(item.title);
+                                    setEditFromOpen(false);
+                                  }}
+                                  className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
+                                >
+                                  {item.title} ({item.region.name})
+                                </button>
+                              ))
                         )}
                       </div>
                     ) : null}
@@ -1587,12 +1766,19 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                   <span className="text-xs text-slate-500">비용 추가 관련 존재, 정확한 기재 바람.</span>
                 </label>
 
-                {selectedEditFromLocation && selectedEditToLocation && selectedEditFromLocation.regionId !== selectedEditToLocation.regionId ? (
+                {(editForm.sourceType === 'LOCATION' ? selectedEditFromLocation?.regionId : selectedEditFromMultiDayBlock?.regionId) &&
+                selectedEditToLocation &&
+                (editForm.sourceType === 'LOCATION' ? selectedEditFromLocation?.regionId : selectedEditFromMultiDayBlock?.regionId) !==
+                  selectedEditToLocation.regionId ? (
                   <p className="text-sm text-blue-700">다른 지역 간 연결도 저장할 수 있으며, 저장 지역은 출발지 기준으로 맞춰집니다.</p>
                 ) : null}
 
                 <div className="flex gap-2">
-                  <Button type="submit" variant="primary" disabled={!canUpdate || updating || locationsLoading || crud.loading}>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={!canUpdate || updating || locationsLoading || multiDayBlocksLoading || crud.loading}
+                  >
                     {updating ? '저장 중...' : '수정 저장'}
                   </Button>
                   <Button

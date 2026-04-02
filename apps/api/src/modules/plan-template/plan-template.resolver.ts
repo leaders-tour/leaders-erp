@@ -9,8 +9,6 @@ function resolveStopMovementIntensity(parent: {
   segmentVersion?: { movementIntensity?: unknown } | null;
   multiDayBlock?: { days?: Array<{ dayOrder?: unknown; movementIntensity?: unknown }> } | null;
   multiDayBlockDayOrder?: unknown;
-  multiDayBlockConnection?: { movementIntensity?: unknown } | null;
-  multiDayBlockConnectionVersion?: { movementIntensity?: unknown } | null;
   locationVersion?: { firstDayMovementIntensity?: unknown } | null;
 }) {
   const dayOrder =
@@ -25,8 +23,6 @@ function resolveStopMovementIntensity(parent: {
   }
 
   return (
-    parent.multiDayBlockConnectionVersion?.movementIntensity ??
-    parent.multiDayBlockConnection?.movementIntensity ??
     parent.segmentVersion?.movementIntensity ??
     parent.segment?.movementIntensity ??
     parent.locationVersion?.firstDayMovementIntensity ??

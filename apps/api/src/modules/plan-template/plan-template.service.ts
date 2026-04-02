@@ -99,14 +99,14 @@ export class PlanTemplateService {
           .filter((value): value is string => typeof value === 'string' && value.length > 0),
       ),
     );
-    const connectionIds = Array.from(
+    const blockConnectionIds = Array.from(
       new Set(
         normalizedStops
           .map((planStop) => planStop.multiDayBlockConnectionId)
           .filter((value): value is string => typeof value === 'string' && value.length > 0),
       ),
     );
-    const connectionVersionIds = Array.from(
+    const blockConnectionVersionIds = Array.from(
       new Set(
         normalizedStops
           .map((planStop) => planStop.multiDayBlockConnectionVersionId)
@@ -117,8 +117,8 @@ export class PlanTemplateService {
       segmentIds.length === 0 &&
       segmentVersionIds.length === 0 &&
       blockIds.length === 0 &&
-      connectionIds.length === 0 &&
-      connectionVersionIds.length === 0
+      blockConnectionIds.length === 0 &&
+      blockConnectionVersionIds.length === 0
     ) {
       return normalizedStops;
     }
@@ -162,6 +162,30 @@ export class PlanTemplateService {
     if (overnightStays.length !== blockIds.length) {
       throw new DomainError('VALIDATION_FAILED', 'One or more multiDayBlockId values are invalid');
     }
+    const blockConnections =
+      blockConnectionIds.length > 0
+        ? await this.prisma.overnightStayConnection.findMany({
+            where: { id: { in: blockConnectionIds } },
+            select: { id: true, fromOvernightStayId: true, toLocationId: true },
+          })
+        : [];
+    if (blockConnections.length !== blockConnectionIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'One or more multiDayBlockConnectionId values are invalid');
+    }
+    const blockConnectionById = new Map(blockConnections.map((connection) => [connection.id, connection]));
+    const blockConnectionVersions =
+      blockConnectionVersionIds.length > 0
+        ? await this.prisma.overnightStayConnectionVersion.findMany({
+            where: { id: { in: blockConnectionVersionIds } },
+            select: { id: true, overnightStayConnectionId: true },
+          })
+        : [];
+    if (blockConnectionVersions.length !== blockConnectionVersionIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'One or more multiDayBlockConnectionVersionId values are invalid');
+    }
+    const blockConnectionVersionById = new Map(
+      blockConnectionVersions.map((version) => [version.id, version]),
+    );
     const blockById = new Map(overnightStays.map((b) => [b.id, b]));
     const blockDayOrdersById = new Map(
       overnightStays.map((b) => [
@@ -171,30 +195,6 @@ export class PlanTemplateService {
     );
     const blockDayDisplayLocationByIdAndOrder = new Map(
       overnightStays.flatMap((b) => b.days.map((d) => [`${b.id}:${d.dayOrder}`, d.displayLocationId])),
-    );
-    const overnightStayConnections =
-      connectionIds.length > 0
-        ? await this.prisma.overnightStayConnection.findMany({
-            where: { id: { in: connectionIds } },
-            select: { id: true, fromOvernightStayId: true, toLocationId: true },
-          })
-        : [];
-    if (overnightStayConnections.length !== connectionIds.length) {
-      throw new DomainError('VALIDATION_FAILED', 'One or more multiDayBlockConnectionId values are invalid');
-    }
-    const connectionById = new Map(overnightStayConnections.map((c) => [c.id, c]));
-    const overnightStayConnectionVersions =
-      connectionVersionIds.length > 0
-        ? await this.prisma.overnightStayConnectionVersion.findMany({
-            where: { id: { in: connectionVersionIds } },
-            select: { id: true, overnightStayConnectionId: true },
-          })
-        : [];
-    if (overnightStayConnectionVersions.length !== connectionVersionIds.length) {
-      throw new DomainError('VALIDATION_FAILED', 'One or more overnightStayConnectionVersionId values are invalid');
-    }
-    const overnightStayConnectionVersionById = new Map(
-      overnightStayConnectionVersions.map((version) => [version.id, version]),
     );
     const orderedStops = normalizedStops.slice().sort((a, b) => a.dayIndex - b.dayIndex);
     for (const [index, planStop] of orderedStops.entries()) {
@@ -210,18 +210,19 @@ export class PlanTemplateService {
           throw new DomainError('VALIDATION_FAILED', 'segmentVersionId must belong to segmentId');
         }
       }
-      const connectionVersionId = planStop.multiDayBlockConnectionVersionId;
-      const connectionId = planStop.multiDayBlockConnectionId;
-      if (connectionVersionId) {
-        if (!connectionId) {
+      if (planStop.multiDayBlockConnectionVersionId) {
+        if (!planStop.multiDayBlockConnectionId) {
           throw new DomainError('VALIDATION_FAILED', 'multiDayBlockConnectionVersionId requires multiDayBlockConnectionId');
         }
-        const connVersion = overnightStayConnectionVersionById.get(connectionVersionId);
-        if (!connVersion) {
-          throw new DomainError('VALIDATION_FAILED', 'One or more overnightStayConnectionVersionId values are invalid');
+        const connectionVersion = blockConnectionVersionById.get(planStop.multiDayBlockConnectionVersionId);
+        if (!connectionVersion) {
+          throw new DomainError('VALIDATION_FAILED', 'One or more multiDayBlockConnectionVersionId values are invalid');
         }
-        if (connVersion.overnightStayConnectionId !== connectionId) {
-          throw new DomainError('VALIDATION_FAILED', 'multiDayBlockConnectionVersionId must belong to multiDayBlockConnectionId');
+        if (connectionVersion.overnightStayConnectionId !== planStop.multiDayBlockConnectionId) {
+          throw new DomainError(
+            'VALIDATION_FAILED',
+            'multiDayBlockConnectionVersionId must belong to multiDayBlockConnectionId',
+          );
         }
       }
       const blockId = planStop.multiDayBlockId;
@@ -246,10 +247,16 @@ export class PlanTemplateService {
         if (dayOrder === undefined || !blockDayOrders.includes(dayOrder)) {
           throw new DomainError('VALIDATION_FAILED', 'multiDayBlockDayOrder must match the block days');
         }
-        if (planStop.segmentId || planStop.segmentVersionId || connectionId || connectionVersionId) {
+        if (planStop.segmentId || planStop.segmentVersionId) {
           throw new DomainError(
             'VALIDATION_FAILED',
-            'Block day stops cannot include segment or block connection references',
+            'Block day stops cannot include segment references',
+          );
+        }
+        if (planStop.multiDayBlockConnectionId || planStop.multiDayBlockConnectionVersionId) {
+          throw new DomainError(
+            'VALIDATION_FAILED',
+            'Block day stops cannot include block connection references',
           );
         }
         if (index === 0) {
@@ -292,11 +299,13 @@ export class PlanTemplateService {
         continue;
       }
       if (index === 0) {
-        if (planStop.segmentId || planStop.segmentVersionId) {
-          throw new DomainError('VALIDATION_FAILED', 'segmentId is not allowed on the first stop');
-        }
-        if (connectionId || connectionVersionId) {
-          throw new DomainError('VALIDATION_FAILED', 'Block connection is not allowed on the first stop');
+        if (
+          planStop.segmentId ||
+          planStop.segmentVersionId ||
+          planStop.multiDayBlockConnectionId ||
+          planStop.multiDayBlockConnectionVersionId
+        ) {
+          throw new DomainError('VALIDATION_FAILED', 'movement references are not allowed on the first stop');
         }
         continue;
       }
@@ -309,72 +318,43 @@ export class PlanTemplateService {
         previousStop?.multiDayBlockDayOrder ===
           prevBlockDayOrders[prevBlockDayOrders.length - 1];
       const currentLocationId = planStop.locationId;
-      const previousBlock = prevBlockId ? blockById.get(prevBlockId) : undefined;
-      const previousLocationId = previousIsLastBlockDay && previousBlock
-        ? previousBlock.endLocationId
-        : previousStop?.locationId;
-
-      if (connectionId) {
-        if (!previousIsLastBlockDay) {
+      const previousLocationId = previousStop?.locationId;
+      if (previousIsLastBlockDay) {
+        if (!planStop.multiDayBlockConnectionId) {
           throw new DomainError(
             'VALIDATION_FAILED',
-            'Block connection requires the previous stop to be the last block day',
+            'The stop after the last block day requires multiDayBlockConnectionId',
           );
         }
         if (planStop.segmentId || planStop.segmentVersionId) {
-          throw new DomainError('VALIDATION_FAILED', 'Block connection cannot be combined with segmentId');
-        }
-        const conn = connectionById.get(connectionId);
-        if (!conn) {
-          throw new DomainError('VALIDATION_FAILED', 'One or more block connection values are invalid');
+          throw new DomainError(
+            'VALIDATION_FAILED',
+            'The stop after the last block day must not include segment references',
+          );
         }
         if (!currentLocationId) {
-          throw new DomainError('VALIDATION_FAILED', 'Block connection requires locationId');
-        }
-        if (conn.fromOvernightStayId !== prevBlockId || conn.toLocationId !== currentLocationId) {
           throw new DomainError(
             'VALIDATION_FAILED',
-            'Block connection must match the previous block and current stop location',
+            'The stop after the last block day requires a destination locationId',
+          );
+        }
+        const blockConnection = blockConnectionById.get(planStop.multiDayBlockConnectionId);
+        if (!blockConnection) {
+          throw new DomainError('VALIDATION_FAILED', 'One or more multiDayBlockConnectionId values are invalid');
+        }
+        if (blockConnection.fromOvernightStayId !== prevBlockId || blockConnection.toLocationId !== currentLocationId) {
+          throw new DomainError(
+            'VALIDATION_FAILED',
+            'multiDayBlockConnectionId must match the previous block and current stop location',
           );
         }
         continue;
       }
-      if (connectionVersionId) {
-        throw new DomainError('VALIDATION_FAILED', 'Block connection version requires block connection');
-      }
-      if (previousIsLastBlockDay) {
-        let segmentFromEnd =
-          previousBlock && currentLocationId
-            ? segments.find(
-                (s) => s.fromLocationId === previousBlock.endLocationId && s.toLocationId === currentLocationId,
-              )
-            : undefined;
-        if (!segmentFromEnd && previousBlock && currentLocationId) {
-          segmentFromEnd = await this.prisma.segment.findFirst({
-            where: {
-              fromLocationId: previousBlock.endLocationId,
-              toLocationId: currentLocationId,
-            },
-            select: { id: true, fromLocationId: true, toLocationId: true },
-          }) ?? undefined;
-        }
-        if (!segmentFromEnd) {
-          throw new DomainError(
-            'VALIDATION_FAILED',
-            'The stop after the last block day requires a block connection or a segment from the block end location',
-          );
-        }
-        if (!planStop.segmentId) {
-          continue;
-        }
-        const segment = segmentById.get(planStop.segmentId);
-        if (!segment) {
-          throw new DomainError('VALIDATION_FAILED', 'One or more segmentId values are invalid');
-        }
-        if (segment.id !== segmentFromEnd.id) {
-          throw new DomainError('VALIDATION_FAILED', 'segmentId must match the segment from block end to current location');
-        }
-        continue;
+      if (planStop.multiDayBlockConnectionId || planStop.multiDayBlockConnectionVersionId) {
+        throw new DomainError(
+          'VALIDATION_FAILED',
+          'multiDayBlockConnectionId is only allowed on the stop immediately after the last block day',
+        );
       }
       if (!planStop.segmentId) {
         continue;

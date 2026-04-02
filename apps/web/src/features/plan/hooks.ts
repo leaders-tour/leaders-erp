@@ -178,6 +178,7 @@ export interface PlanVersionMetaRow {
 
 export interface PlanPricingLineRow {
   id?: string | null;
+  ruleType?: string | null;
   lineCode: string;
   sourceType: string;
   description: string | null;
@@ -185,6 +186,12 @@ export interface PlanPricingLineRow {
   unitPriceKrw: number | null;
   quantity: number;
   amountKrw: number;
+  displayBasis?: string | null;
+  displayLabel?: string | null;
+  displayUnitAmountKrw?: number | null;
+  displayCount?: number | null;
+  displayDivisorPerson?: number | null;
+  displayText?: string | null;
   /** Display-only: merged lodging lines show quantity as "N박". */
   quantityDisplaySuffix?: '박';
 }
@@ -248,6 +255,10 @@ export interface PlanVersionDetail extends PlanVersionRow {
     rowType?: 'MAIN' | 'EXTERNAL_TRANSFER' | null;
     segmentId?: string | null;
     segmentVersionId?: string | null;
+    multiDayBlockId?: string | null;
+    multiDayBlockDayOrder?: number | null;
+    multiDayBlockConnectionId?: string | null;
+    multiDayBlockConnectionVersionId?: string | null;
     locationId?: string | null;
     locationVersionId?: string | null;
     dateCellText: string;
@@ -476,6 +487,10 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         rowType
         segmentId
         segmentVersionId
+        multiDayBlockId
+        multiDayBlockDayOrder
+        multiDayBlockConnectionId
+        multiDayBlockConnectionVersionId
         locationId
         locationVersionId
         dateCellText
@@ -598,6 +613,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         updatedAt
         lines {
           id
+            ruleType
           lineCode
           sourceType
           description
@@ -605,6 +621,12 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
           unitPriceKrw
           quantity
           amountKrw
+          displayBasis
+          displayLabel
+          displayUnitAmountKrw
+          displayCount
+          displayDivisorPerson
+          displayText
         }
       }
     }

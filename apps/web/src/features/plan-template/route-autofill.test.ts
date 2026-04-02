@@ -399,9 +399,7 @@ const overnightStayB2: MultiDayBlockOption = {
   id: 'stay-b-2',
   regionId: 'region-1',
   locationId: locationB.id,
-  blockType: 'STAY',
-  startLocationId: locationB.id,
-  endLocationId: locationB.id,
+  isNightTrain: false,
   name: '차강소브라가 2일 표준',
   title: '차강소브라가 연박',
   isActive: true,
@@ -777,13 +775,9 @@ describe('route-autofill', () => {
     expect(stops[1]).toMatchObject({
       multiDayBlockId: undefined,
       multiDayBlockDayOrder: undefined,
-      multiDayBlockConnectionId: undefined,
-      multiDayBlockConnectionVersionId: undefined,
     });
     expect(stops[1]).not.toHaveProperty('overnightStayId');
     expect(stops[1]).not.toHaveProperty('overnightStayDayOrder');
-    expect(stops[1]).not.toHaveProperty('overnightStayConnectionId');
-    expect(stops[1]).not.toHaveProperty('overnightStayConnectionVersionId');
   });
 
   it('uses only multiDayBlock* fields in template stop payloads', () => {
@@ -804,8 +798,6 @@ describe('route-autofill', () => {
           locationVersionId: 'ver-c',
           segmentId: 'segment-bc',
           segmentVersionId: 'segment-version-bc',
-          overnightStayConnectionId: 'connection-bc',
-          overnightStayConnectionVersionId: 'connection-version-bc',
         },
       ],
       planRows: [
@@ -854,10 +846,6 @@ describe('route-autofill', () => {
           rowType: 'MAIN',
           segmentId: 'segment-bc',
           segmentVersionId: 'segment-version-bc',
-          multiDayBlockConnectionId: 'connection-bc',
-          multiDayBlockConnectionVersionId: 'connection-version-bc',
-          overnightStayConnectionId: 'connection-bc',
-          overnightStayConnectionVersionId: 'connection-version-bc',
           locationId: locationC.id,
           locationVersionId: 'ver-c',
           dateCellText: '4일차',
@@ -878,15 +866,9 @@ describe('route-autofill', () => {
       multiDayBlockId: overnightStayB2.id,
       multiDayBlockDayOrder: 2,
     });
-    expect(stops[3]).toMatchObject({
-      multiDayBlockConnectionId: 'connection-bc',
-      multiDayBlockConnectionVersionId: 'connection-version-bc',
-    });
     for (const stop of stops.slice(1)) {
       expect(stop).not.toHaveProperty('overnightStayId');
       expect(stop).not.toHaveProperty('overnightStayDayOrder');
-      expect(stop).not.toHaveProperty('overnightStayConnectionId');
-      expect(stop).not.toHaveProperty('overnightStayConnectionVersionId');
     }
   });
 });

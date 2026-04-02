@@ -21,6 +21,7 @@ const files = [
   'special-meal-destination-rules.graphql',
   'multi-day-block.graphql',
   'plan.graphql',
+  'pricing.graphql',
   'plan-template.graphql',
   'time-block.graphql',
   'activity.graphql',

@@ -28,6 +28,8 @@ type Query {
   planVersions(planId: ID!): [PlanVersion!]!
   planVersion(id: ID!): PlanVersion
   planPricingPreview(input: PlanPricingPreviewInput!): PlanPricingPreview!
+  pricingPolicies: [PricingPolicy!]!
+  pricingPolicy(id: ID!): PricingPolicy
   planTemplates(regionSetId: ID, totalDays: Int, activeOnly: Boolean): [PlanTemplate!]!
   planTemplate(id: ID!): PlanTemplate
   users: [User!]!
@@ -97,6 +99,13 @@ type Mutation {
   createPlanVersion(input: PlanVersionCreateInput!): PlanVersion!
   setCurrentPlanVersion(planId: ID!, versionId: ID!): Plan!
   deletePlan(id: ID!): Boolean!
+  createPricingPolicy(input: PricingPolicyCreateInput!): PricingPolicy!
+  updatePricingPolicy(id: ID!, input: PricingPolicyUpdateInput!): PricingPolicy!
+  deletePricingPolicy(id: ID!): Boolean!
+  duplicatePricingPolicy(id: ID!, input: PricingPolicyDuplicateInput!): PricingPolicy!
+  createPricingRule(input: PricingRuleCreateInput!): PricingRule!
+  updatePricingRule(id: ID!, input: PricingRuleUpdateInput!): PricingRule!
+  deletePricingRule(id: ID!): Boolean!
 
   createPlanTemplate(input: PlanTemplateCreateInput!): PlanTemplate!
   updatePlanTemplate(id: ID!, input: PlanTemplateUpdateInput!): PlanTemplate!

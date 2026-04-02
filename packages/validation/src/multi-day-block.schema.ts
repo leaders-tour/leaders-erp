@@ -1,11 +1,8 @@
 import { z } from 'zod';
 
-export const blockTypeSchema = z.enum(['STAY', 'TRANSFER']);
-export type BlockType = z.infer<typeof blockTypeSchema>;
-
 const multiDayBlockDayInputSchema = z.object({
   dayOrder: z.number().int().min(1).max(3),
-  displayLocationId: z.string().min(1).optional(),
+  displayLocationId: z.string().min(1),
   averageDistanceKm: z.number().min(0),
   averageTravelHours: z.number().min(0),
   timeCellText: z.string(),
@@ -16,11 +13,8 @@ const multiDayBlockDayInputSchema = z.object({
 
 const multiDayBlockBaseSchema = z.object({
   regionId: z.string().min(1),
-  locationId: z.string().min(1),
-  blockType: blockTypeSchema.default('STAY'),
-  startLocationId: z.string().min(1).optional(),
-  endLocationId: z.string().min(1).optional(),
   name: z.string().trim().min(1).max(120),
+  isNightTrain: z.boolean().default(false),
   sortOrder: z.number().int().min(0).max(100_000).default(0),
   isActive: z.boolean().default(true),
   days: z.array(multiDayBlockDayInputSchema).min(2).max(3),
@@ -128,12 +122,17 @@ function validateDefaultVersions(
   }
 }
 
-export const multiDayBlockConnectionCreateSchema = multiDayBlockConnectionBaseSchema.superRefine((value, ctx) => {
-  if (!value.versions) {
-    return;
-  }
-  validateDefaultVersions(value.versions, ctx);
-});
+export const multiDayBlockConnectionCreateSchema = multiDayBlockConnectionBaseSchema
+  .refine((value) => value.fromMultiDayBlockId !== value.toLocationId, {
+    message: 'fromMultiDayBlockId and toLocationId must be different',
+    path: ['toLocationId'],
+  })
+  .superRefine((value, ctx) => {
+    if (!value.versions) {
+      return;
+    }
+    validateDefaultVersions(value.versions, ctx);
+  });
 
 export const multiDayBlockConnectionUpdateSchema = multiDayBlockConnectionBaseSchema.partial().superRefine((value, ctx) => {
   if (!value.versions) {

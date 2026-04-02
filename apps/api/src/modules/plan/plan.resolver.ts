@@ -21,8 +21,6 @@ function resolveStopMovementIntensity(parent: {
   segmentVersion?: { movementIntensity?: unknown } | null;
   multiDayBlock?: { days?: Array<{ dayOrder?: unknown; movementIntensity?: unknown }> } | null;
   multiDayBlockDayOrder?: unknown;
-  multiDayBlockConnection?: { movementIntensity?: unknown } | null;
-  multiDayBlockConnectionVersion?: { movementIntensity?: unknown } | null;
   locationVersion?: { firstDayMovementIntensity?: unknown } | null;
 }) {
   if (parent.rowType === 'EXTERNAL_TRANSFER') {
@@ -41,8 +39,6 @@ function resolveStopMovementIntensity(parent: {
   }
 
   return (
-    parent.multiDayBlockConnectionVersion?.movementIntensity ??
-    parent.multiDayBlockConnection?.movementIntensity ??
     parent.segmentVersion?.movementIntensity ??
     parent.segment?.movementIntensity ??
     parent.locationVersion?.firstDayMovementIntensity ??
@@ -177,6 +173,39 @@ export const planResolver = {
         orderBy: [{ event: { sortOrder: 'asc' } }, { createdAt: 'asc' }],
       });
       return rows.map((row) => row.event);
+    },
+  },
+  PlanPricingLine: {
+    ruleType: (parent: Record<string, unknown>) => parent.ruleType ?? null,
+    displayBasis: (parent: Record<string, unknown>) => {
+      if (parent.displayBasis != null) return parent.displayBasis;
+      const display = parent.display as { basis?: unknown } | undefined;
+      return display?.basis ?? null;
+    },
+    displayLabel: (parent: Record<string, unknown>) => {
+      if (parent.displayLabel != null) return parent.displayLabel;
+      const display = parent.display as { label?: unknown } | undefined;
+      return display?.label ?? null;
+    },
+    displayUnitAmountKrw: (parent: Record<string, unknown>) => {
+      if (parent.displayUnitAmountKrw != null) return parent.displayUnitAmountKrw;
+      const display = parent.display as { unitAmountKrw?: unknown } | undefined;
+      return display?.unitAmountKrw ?? null;
+    },
+    displayCount: (parent: Record<string, unknown>) => {
+      if (parent.displayCount != null) return parent.displayCount;
+      const display = parent.display as { count?: unknown } | undefined;
+      return display?.count ?? null;
+    },
+    displayDivisorPerson: (parent: Record<string, unknown>) => {
+      if (parent.displayDivisorPerson != null) return parent.displayDivisorPerson;
+      const display = parent.display as { divisorPerson?: unknown } | undefined;
+      return display?.divisorPerson ?? null;
+    },
+    displayText: (parent: Record<string, unknown>) => {
+      if (parent.displayText != null) return parent.displayText;
+      const display = parent.display as { text?: unknown } | undefined;
+      return display?.text ?? null;
     },
   },
   PlanVersionPricing: {

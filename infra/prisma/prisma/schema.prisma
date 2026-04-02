@@ -87,6 +87,7 @@ enum PricingCalcType {
 
 enum PricingQuantitySource {
   ONE
+  HEADCOUNT
   TOTAL_DAYS
   LONG_DISTANCE_SEGMENT_COUNT
   SUM_EXTRA_LODGING_COUNTS
@@ -95,6 +96,50 @@ enum PricingQuantitySource {
 enum PricingLineSourceType {
   RULE
   MANUAL
+}
+
+enum PricingChargeScope {
+  TEAM
+  PER_PERSON
+}
+
+enum PricingPersonMode {
+  SINGLE
+  PER_DAY
+  PER_NIGHT
+}
+
+enum PricingRuleType {
+  BASE
+  PERCENT_UPLIFT
+  CONDITIONAL_ADDON
+  AUTO_EXCEPTION
+  MANUAL
+}
+
+enum PricingTimeBand {
+  DAWN
+  MORNING
+  AFTERNOON
+  EVENING
+  NIGHT
+}
+
+enum PricingExternalTransferMode {
+  ANY
+  PICKUP_ONLY
+  DROP_ONLY
+  BOTH
+}
+
+/// 견적·빌더 표시용: 계산 단가/수량과 별개로 오른쪽 산식을 만든다.
+enum PricingDisplayBasis {
+  TEAM_DIV_PERSON
+  PER_NIGHT
+  PER_DAY
+  PER_PERSON_SINGLE
+  PERCENT
+  CUSTOM
 }
 
 enum SecurityDepositMode {
@@ -526,6 +571,7 @@ model OvernightStay {
   startLocationId String
   endLocationId   String
   name            String
+  isNightTrain    Boolean   @default(false)
   isActive        Boolean   @default(true)
   sortOrder       Int       @default(0)
 
@@ -927,6 +973,8 @@ model PricingPolicy {
 model PricingRule {
   id             String               @id @default(uuid(7))
   policyId       String
+  ruleType       PricingRuleType
+  title          String               @db.VarChar(191)
   lineCode       PricingLineCode
   calcType       PricingCalcType
   targetLineCode PricingLineCode?
@@ -937,8 +985,20 @@ model PricingRule {
   headcountMax   Int?
   dayMin         Int?
   dayMax         Int?
+  travelDateFrom DateTime?
+  travelDateTo   DateTime?
   vehicleType    String?
   variantTypes   Json?
+  flightInTimeBand PricingTimeBand?
+  flightOutTimeBand PricingTimeBand?
+  pickupPlaceType String?             @db.VarChar(50)
+  dropPlaceType   String?             @db.VarChar(50)
+  externalTransferMode PricingExternalTransferMode?
+  externalTransferMinCount Int?
+  displayLabelOverride String?        @db.VarChar(191)
+  chargeScope    PricingChargeScope?
+  personMode     PricingPersonMode?
+  customDisplayText String?           @db.Text
   isEnabled      Boolean              @default(true)
   sortOrder      Int                  @default(0)
 
@@ -948,6 +1008,7 @@ model PricingRule {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([policyId, ruleType, isEnabled, sortOrder])
   @@index([policyId, lineCode, isEnabled, sortOrder])
 }
 
@@ -983,6 +1044,7 @@ model PlanVersionPricing {
 model PlanVersionPricingLine {
   id                   String                @id @default(uuid(7))
   planVersionPricingId String
+  ruleType             PricingRuleType?
   lineCode             PricingLineCode
   sourceType           PricingLineSourceType
   ruleId               String?
@@ -991,6 +1053,12 @@ model PlanVersionPricingLine {
   quantity             Int
   amountKrw            Int
   meta                 Json?
+  displayBasis         PricingDisplayBasis?
+  displayLabel         String?               @db.VarChar(191)
+  displayUnitAmountKrw Int?
+  displayCount         Int?
+  displayDivisorPerson Int?
+  displayText          String?               @db.Text
 
   planVersionPricing PlanVersionPricing @relation(fields: [planVersionPricingId], references: [id], onDelete: Cascade)
   rule               PricingRule?       @relation(fields: [ruleId], references: [id], onDelete: SetNull)

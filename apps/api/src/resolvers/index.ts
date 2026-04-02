@@ -12,6 +12,7 @@ import { planResolver } from '../modules/plan/plan.resolver';
 import { planTemplateResolver } from '../modules/plan-template/plan-template.resolver';
 import { outreachResolver } from '../modules/outreach/outreach.resolver';
 import { consultationResolver } from '../modules/consultation/consultation.resolver';
+import { pricingResolver } from '../modules/pricing/pricing.resolver';
 import { regionResolver } from '../modules/region/region.resolver';
 import { regionSetResolver } from '../modules/region-set/region-set.resolver';
 import { regionLodgingResolver } from '../modules/region-lodging/region-lodging.resolver';
@@ -93,6 +94,7 @@ export const resolvers = {
       segmentResolver.Query,
       multiDayBlockResolver.Query,
       planResolver.Query,
+      pricingResolver.Query,
       planTemplateResolver.Query,
       timeBlockResolver.Query,
       activityResolver.Query,
@@ -120,6 +122,7 @@ export const resolvers = {
       segmentResolver.Mutation,
       multiDayBlockResolver.Mutation,
       planResolver.Mutation,
+      pricingResolver.Mutation,
       planTemplateResolver.Mutation,
       timeBlockResolver.Mutation,
       activityResolver.Mutation,
@@ -136,7 +139,10 @@ export const resolvers = {
   OutreachDraft: outreachResolver.OutreachDraft,
   CafeLeadNeeds: outreachResolver.CafeLeadNeeds,
   PlanVersionMeta: planResolver.PlanVersionMeta,
+  PlanPricingLine: planResolver.PlanPricingLine,
   PlanVersionPricing: planResolver.PlanVersionPricing,
+  PricingPolicy: pricingResolver.PricingPolicy,
+  PricingRule: pricingResolver.PricingRule,
   Location: locationResolver.Location,
   LocationVersion: locationResolver.LocationVersion,
   Segment: segmentResolver.Segment,

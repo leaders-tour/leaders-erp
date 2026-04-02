@@ -15,17 +15,13 @@ interface LocationRow {
   name: string[];
 }
 
-type BlockType = 'STAY' | 'TRANSFER';
-
 interface MultiDayBlockRow {
   id: string;
   regionId: string;
   locationId: string;
-  blockType: BlockType;
-  startLocationId: string;
-  endLocationId: string;
   name: string;
   title: string;
+  isNightTrain: boolean;
   sortOrder: number;
   isActive: boolean;
   days: Array<{
@@ -56,11 +52,9 @@ const MULTI_DAY_BLOCK_QUERY = gql`
       id
       regionId
       locationId
-      blockType
-      startLocationId
-      endLocationId
       name
       title
+      isNightTrain
       sortOrder
       isActive
       days {
@@ -138,8 +132,6 @@ export function MultiDayBlockDetailPage(): JSX.Element {
 
   const orderedDays = block.days.slice().sort((left, right) => left.dayOrder - right.dayOrder);
   const baseLocation = block.locationId ? locationById.get(block.locationId) : null;
-  const startLocation = block.startLocationId ? locationById.get(block.startLocationId) : null;
-  const endLocation = block.endLocationId ? locationById.get(block.endLocationId) : null;
 
   return (
     <section className="grid gap-6">
@@ -164,18 +156,11 @@ export function MultiDayBlockDetailPage(): JSX.Element {
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-lg font-semibold">요약</h2>
         <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
-          <div>블록 타입: {block.blockType === 'TRANSFER' ? '야간열차' : '연박'}</div>
+          <div>야간열차 적용: {block.isNightTrain ? '예' : '아니오'}</div>
           <div>상태: {block.isActive ? '활성' : '비활성'}</div>
           <div>정렬 순서: {block.sortOrder}</div>
           <div>일수: {orderedDays.length}일</div>
-          {block.blockType === 'STAY' ? (
-            <div className="md:col-span-2">목적지: {formatLocationNameInline(baseLocation?.name ?? [block.locationId])}</div>
-          ) : (
-            <div className="md:col-span-2">
-              경로: {formatLocationNameInline(startLocation?.name ?? [block.startLocationId])} {'→'}{' '}
-              {formatLocationNameInline(endLocation?.name ?? [block.endLocationId])}
-            </div>
-          )}
+          <div className="md:col-span-2">대표 목적지: {formatLocationNameInline(baseLocation?.name ?? [block.locationId])}</div>
         </div>
       </Card>
 
@@ -184,9 +169,7 @@ export function MultiDayBlockDetailPage(): JSX.Element {
           const displayLocation =
             day.displayLocationId && locationById.get(day.displayLocationId)
               ? formatLocationNameInline(locationById.get(day.displayLocationId)!.name)
-              : block.blockType === 'STAY'
-                ? formatLocationNameInline(baseLocation?.name ?? [block.locationId])
-                : '-';
+              : formatLocationNameInline(baseLocation?.name ?? [block.locationId]);
           const movementMeta = getMovementIntensityMeta(calculateMovementIntensityByHours(day.averageTravelHours));
           const scheduleLines = buildScheduleLines(day.timeCellText, day.scheduleCellText);
 
