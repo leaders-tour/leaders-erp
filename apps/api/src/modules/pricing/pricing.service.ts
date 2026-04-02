@@ -3,8 +3,6 @@ import type {
   PricingCalcType,
   PricingLineCode,
   PricingPolicy,
-  PricingQuantitySource,
-  PricingRule,
   Prisma,
   PrismaClient,
 } from '@prisma/client';
@@ -15,8 +13,11 @@ import type {
   PricingComputationResult,
   PricingComputeInput,
   PricingComputedLine,
+  PricingComputedLineDraft,
   PricingPlanStopDto,
+  PricingRuleTypeValue,
 } from './pricing.types';
+import { buildPricingLineDisplay } from './pricing-line-display';
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
@@ -25,8 +26,48 @@ type ComputeContext = {
   totalDays: number;
   headcountTotal: number;
   vehicleType: string;
+  travelStartDate: Date;
+  transportGroups: PricingComputeInput['transportGroups'];
+  externalTransfers: PricingComputeInput['externalTransfers'];
   longDistanceSegmentCount: number;
   extraLodgingCount: number;
+};
+
+type PricingQuantitySourceValue =
+  | 'ONE'
+  | 'HEADCOUNT'
+  | 'TOTAL_DAYS'
+  | 'LONG_DISTANCE_SEGMENT_COUNT'
+  | 'SUM_EXTRA_LODGING_COUNTS';
+
+type PricingRuleRecord = {
+  id: string;
+  ruleType: PricingRuleTypeValue | null;
+  title: string | null;
+  lineCode: PricingLineCode;
+  calcType: PricingCalcType;
+  targetLineCode: PricingLineCode | null;
+  amountKrw: number | null;
+  percentBps: number | null;
+  quantitySource: PricingQuantitySourceValue;
+  headcountMin: number | null;
+  headcountMax: number | null;
+  dayMin: number | null;
+  dayMax: number | null;
+  travelDateFrom: Date | null;
+  travelDateTo: Date | null;
+  vehicleType: string | null;
+  variantTypes: Prisma.JsonValue;
+  flightInTimeBand: 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' | null;
+  flightOutTimeBand: 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' | null;
+  pickupPlaceType: string | null;
+  dropPlaceType: string | null;
+  externalTransferMode: 'ANY' | 'PICKUP_ONLY' | 'DROP_ONLY' | 'BOTH' | null;
+  externalTransferMinCount: number | null;
+  displayLabelOverride: string | null;
+  chargeScope: 'TEAM' | 'PER_PERSON' | null;
+  personMode: 'SINGLE' | 'PER_DAY' | 'PER_NIGHT' | null;
+  customDisplayText: string | null;
 };
 
 const HIACE = '하이에이스';
@@ -77,6 +118,7 @@ export class PricingService {
         inputSnapshot: result.inputSnapshot as Prisma.InputJsonValue,
         lines: {
           create: result.lines.map((line) => ({
+            ruleType: line.ruleType,
             lineCode: line.lineCode,
             sourceType: line.sourceType,
             ruleId: line.ruleId,
@@ -85,6 +127,12 @@ export class PricingService {
             quantity: line.quantity,
             amountKrw: line.amountKrw,
             meta: line.meta as Prisma.InputJsonValue | undefined,
+            displayBasis: line.display.basis,
+            displayLabel: line.display.label,
+            displayUnitAmountKrw: line.display.unitAmountKrw,
+            displayCount: line.display.count,
+            displayDivisorPerson: line.display.divisorPerson,
+            displayText: line.display.text,
           })),
         },
       },
@@ -116,10 +164,10 @@ export class PricingService {
       throw new DomainError('VALIDATION_FAILED', 'One or more eventIds are invalid');
     }
 
-    const rules = await prisma.pricingRule.findMany({
+    const rules = (await prisma.pricingRule.findMany({
       where: { policyId: policy.id, isEnabled: true },
       orderBy: { sortOrder: 'asc' },
-    });
+    })) as PricingRuleRecord[];
 
     const extraLodgingCount = input.extraLodgings.reduce((sum, item) => sum + item.lodgingCount, 0);
 
@@ -128,44 +176,51 @@ export class PricingService {
       totalDays: input.totalDays,
       headcountTotal: input.headcountTotal,
       vehicleType: input.vehicleType,
+      travelStartDate,
+      transportGroups: input.transportGroups,
+      externalTransfers: input.externalTransfers,
       longDistanceSegmentCount,
       extraLodgingCount,
     };
 
-    const lines: PricingComputedLine[] = [];
+    if (context.vehicleType === HIACE && context.headcountTotal < 3) {
+      throw new DomainError('VALIDATION_FAILED', '하이에이스 차량은 3인 이상부터 선택할 수 있습니다.');
+    }
 
-    const baseRule = this.findRequiredAmountRule(rules, 'BASE', context);
+    const lines: PricingComputedLineDraft[] = [];
+
+    const baseRule = this.findBaseRule(rules, context);
     const baseUnitPrice = this.ensureAmount(baseRule);
     const baseQuantity = this.resolveQuantity(baseRule.quantitySource, context);
     const baseRawAmount = baseUnitPrice * baseQuantity;
 
     lines.push({
+      ruleType: 'BASE',
       lineCode: 'BASE',
       sourceType: 'RULE',
       ruleId: baseRule.id,
-      description: null,
+      description: baseRule.title,
       unitPriceKrw: baseUnitPrice,
       quantity: baseQuantity,
       amountKrw: baseRawAmount,
-      meta: null,
+      meta: this.buildRuleMeta(baseRule),
     });
 
     let baseUpliftAmount = 0;
-    const baseUplift5Pct = this.buildOptionalPercentLine(rules, 'BASE_UPLIFT_5PLUS_5PCT', 'BASE', context, baseRawAmount);
-    if (baseUplift5Pct) {
-      baseUpliftAmount += baseUplift5Pct.amountKrw;
-      lines.push(baseUplift5Pct);
-    }
-    const baseUplift10Pct = this.buildOptionalPercentLine(rules, 'BASE_UPLIFT_5PLUS_10PCT', 'BASE', context, baseRawAmount);
-    if (baseUplift10Pct) {
-      baseUpliftAmount += baseUplift10Pct.amountKrw;
-      lines.push(baseUplift10Pct);
-    }
+    this.findPercentUpliftRules(rules, context).forEach((rule) => {
+      const upliftLine = this.buildPercentUpliftLine(rule, baseRawAmount);
+      if (!upliftLine) {
+        return;
+      }
+      baseUpliftAmount += upliftLine.amountKrw;
+      lines.push(upliftLine);
+    });
 
     if (context.longDistanceSegmentCount > 0) {
       const unitPrice = Math.ceil((LONG_DISTANCE_BASE_POOL_KRW / context.headcountTotal) / 1000) * 1000;
       const quantity = context.longDistanceSegmentCount;
       lines.push({
+        ruleType: 'AUTO_EXCEPTION',
         lineCode: 'LONG_DISTANCE',
         sourceType: 'RULE',
         ruleId: null,
@@ -180,66 +235,41 @@ export class PricingService {
       });
     }
 
-    if (context.vehicleType === HIACE) {
-      if (context.headcountTotal < 3) {
-        throw new DomainError('VALIDATION_FAILED', '하이에이스 차량은 3인 이상부터 선택할 수 있습니다.');
+    this.findConditionalAddonRules(rules, context).forEach((rule) => {
+      const addonLine = this.buildConditionalAddonLine(rule, context);
+      if (addonLine) {
+        lines.push(addonLine);
       }
-
-      if (context.headcountTotal <= 6) {
-        const hiaceRule = this.findRequiredAmountRule(rules, 'HIACE', context);
-        const unitPrice = this.ensureAmount(hiaceRule);
-        const quantity = this.resolveQuantity(hiaceRule.quantitySource, context);
-        lines.push({
-          lineCode: 'HIACE',
-          sourceType: 'RULE',
-          ruleId: hiaceRule.id,
-          description: null,
-          unitPriceKrw: unitPrice,
-          quantity,
-          amountKrw: unitPrice * quantity,
-          meta: null,
-        });
-      }
-    }
-
-    if (context.extraLodgingCount > 0) {
-      const extraLodgingRule = this.findRequiredAmountRule(rules, 'EXTRA_LODGING', context);
-      const unitPrice = this.ensureAmount(extraLodgingRule);
-      const quantity = this.resolveQuantity(extraLodgingRule.quantitySource, context);
-      lines.push({
-        lineCode: 'EXTRA_LODGING',
-        sourceType: 'RULE',
-        ruleId: extraLodgingRule.id,
-        description: null,
-        unitPriceKrw: unitPrice,
-        quantity,
-        amountKrw: unitPrice * quantity,
-        meta: { extraLodgingCount: context.extraLodgingCount },
-      });
-    }
+    });
 
     this.buildLodgingSelectionLines(input.lodgingSelections, input.headcountTotal, input.transportGroupCount).forEach((line) => {
       lines.push(line);
     });
 
-    if (this.shouldApplyEarly(input.variantType)) {
-      lines.push(this.buildTripFlatLine(rules, 'EARLY', context));
-    }
-
-    if (this.shouldApplyExtend(input.variantType)) {
-      lines.push(this.buildTripFlatLine(rules, 'EXTEND', context));
-    }
-
     input.manualAdjustments.forEach((adjustment, index) => {
+      const sign = adjustment.kind === 'DISCOUNT' ? -1 : 1;
+      const normalizedCount =
+        adjustment.chargeScope === 'TEAM'
+          ? 1
+          : adjustment.personMode === 'PER_DAY' || adjustment.personMode === 'PER_NIGHT'
+            ? adjustment.countValue ?? 1
+            : 1;
+      const signedUnitAmountKrw = sign * adjustment.amountKrw;
       lines.push({
+        ruleType: 'MANUAL',
         lineCode: 'MANUAL_ADJUSTMENT',
         sourceType: 'MANUAL',
         ruleId: null,
-        description: adjustment.description,
-        unitPriceKrw: adjustment.amountKrw,
-        quantity: 1,
-        amountKrw: adjustment.amountKrw,
-        meta: { order: index + 1 },
+        description: adjustment.title,
+        unitPriceKrw: signedUnitAmountKrw,
+        quantity: normalizedCount,
+        amountKrw: signedUnitAmountKrw * normalizedCount,
+        meta: {
+          order: index + 1,
+          chargeScope: adjustment.chargeScope,
+          personMode: adjustment.personMode ?? null,
+          customDisplayText: adjustment.customDisplayText ?? null,
+        },
       });
     });
 
@@ -247,17 +277,15 @@ export class PricingService {
     const nightTrainBlockIds = await this.detectNightTrainBlocks(prisma, mainPlanStops);
     if (nightTrainBlockIds.size > 0) {
       const NIGHT_TRAIN_FIXED_AMOUNT_PER_TEAM_KRW = 420_000;
-      // 견적서 표시를 위해 인당 금액으로 정규화
-      const normalizedAmountKrw =
-        input.headcountTotal > 0 ? Math.round(NIGHT_TRAIN_FIXED_AMOUNT_PER_TEAM_KRW / input.headcountTotal) : NIGHT_TRAIN_FIXED_AMOUNT_PER_TEAM_KRW;
       lines.push({
+        ruleType: 'AUTO_EXCEPTION',
         lineCode: 'MANUAL_ADJUSTMENT',
         sourceType: 'RULE',
         ruleId: null,
         description: '야간열차',
         unitPriceKrw: NIGHT_TRAIN_FIXED_AMOUNT_PER_TEAM_KRW,
-        quantity: input.headcountTotal > 0 ? input.headcountTotal : 1,
-        amountKrw: normalizedAmountKrw,
+        quantity: 1,
+        amountKrw: NIGHT_TRAIN_FIXED_AMOUNT_PER_TEAM_KRW,
         meta: { nightTrainBlockIds: Array.from(nightTrainBlockIds) },
       });
     }
@@ -270,6 +298,7 @@ export class PricingService {
     if (!hasShabushabu) {
       const SHABUSHABU_DISCOUNT_KRW = -15_000;
       lines.push({
+        ruleType: 'CONDITIONAL_ADDON',
         lineCode: 'MANUAL_ADJUSTMENT',
         sourceType: 'RULE',
         ruleId: null,
@@ -281,8 +310,16 @@ export class PricingService {
       });
     }
 
+    const linesWithDisplay: PricingComputedLine[] = lines.map((line) => ({
+      ...line,
+      display: buildPricingLineDisplay(line, {
+        headcountTotal: input.headcountTotal,
+        totalDays: input.totalDays,
+      }),
+    }));
+
     const baseAmountKrw = baseRawAmount + baseUpliftAmount;
-    const totalAmountKrw = lines.reduce((sum, line) => sum + line.amountKrw, 0);
+    const totalAmountKrw = linesWithDisplay.reduce((sum, line) => sum + line.amountKrw, 0);
     const addonAmountKrw = totalAmountKrw - baseAmountKrw;
     const { depositAmountKrw, balanceAmountKrw } = this.computeDepositAndBalance(totalAmountKrw, input.manualDepositAmountKrw);
     const securityDeposit = this.computeSecurityDeposit({
@@ -307,7 +344,7 @@ export class PricingService {
       securityDepositEvent: securityDeposit.event,
       longDistanceSegmentCount,
       extraLodgingCount,
-      lines,
+      lines: linesWithDisplay,
       inputSnapshot: {
         regionSetId: input.regionSetId,
         regionIds: input.regionIds,
@@ -322,6 +359,8 @@ export class PricingService {
         extraLodgings: input.extraLodgings,
         lodgingSelections: input.lodgingSelections,
         transportGroupCount: input.transportGroupCount,
+        transportGroups: input.transportGroups,
+        externalTransfers: input.externalTransfers,
         manualAdjustments: input.manualAdjustments,
         manualDepositAmountKrw: input.manualDepositAmountKrw ?? null,
         includeRentalItems: input.includeRentalItems,
@@ -341,8 +380,8 @@ export class PricingService {
     lodgingSelections: LodgingSelectionPricingInputDto[],
     headcountTotal: number,
     transportGroupCount: number,
-  ): PricingComputedLine[] {
-    const lines: PricingComputedLine[] = [];
+  ): PricingComputedLineDraft[] {
+    const lines: PricingComputedLineDraft[] = [];
 
     lodgingSelections.forEach((selection) => {
       if (selection.level === 'LV3') {
@@ -353,6 +392,7 @@ export class PricingService {
         const unitPriceKrw = FIXED_LODGING_SELECTION_AMOUNTS[selection.level];
         const quantity = 1;
         lines.push({
+          ruleType: 'CONDITIONAL_ADDON',
           lineCode: 'LODGING_SELECTION',
           sourceType: 'MANUAL',
           ruleId: null,
@@ -370,6 +410,7 @@ export class PricingService {
 
       if (pricingMode === 'PER_PERSON') {
         lines.push({
+          ruleType: 'CONDITIONAL_ADDON',
           lineCode: 'LODGING_SELECTION',
           sourceType: 'MANUAL',
           ruleId: null,
@@ -382,6 +423,8 @@ export class PricingService {
             level: selection.level,
             customLodgingId: selection.customLodgingId ?? null,
             pricingModeSnapshot: pricingMode,
+            chargeScope: 'PER_PERSON',
+            personMode: 'SINGLE',
           },
         });
         return;
@@ -392,6 +435,7 @@ export class PricingService {
         const perPersonKrw =
           headcountTotal > 0 ? Math.round(teamTotalKrw / headcountTotal) : teamTotalKrw;
         lines.push({
+          ruleType: 'CONDITIONAL_ADDON',
           lineCode: 'LODGING_SELECTION',
           sourceType: 'MANUAL',
           ruleId: null,
@@ -404,12 +448,14 @@ export class PricingService {
             level: selection.level,
             customLodgingId: selection.customLodgingId ?? null,
             pricingModeSnapshot: pricingMode,
+            chargeScope: 'TEAM',
           },
         });
         return;
       }
 
       lines.push({
+        ruleType: 'CONDITIONAL_ADDON',
         lineCode: 'LODGING_SELECTION',
         sourceType: 'MANUAL',
         ruleId: null,
@@ -485,15 +531,16 @@ export class PricingService {
   }
 
   private buildTripFlatLine(
-    rules: PricingRule[],
+    rules: PricingRuleRecord[],
     lineCode: PricingLineCode,
     context: ComputeContext,
-  ): PricingComputedLine {
+  ): PricingComputedLineDraft {
     const rule = this.findRequiredAmountRule(rules, lineCode, context);
     const unitPrice = this.ensureAmount(rule);
     const quantity = this.resolveQuantity(rule.quantitySource, context);
 
     return {
+      ruleType: 'CONDITIONAL_ADDON',
       lineCode,
       sourceType: 'RULE',
       ruleId: rule.id,
@@ -501,7 +548,92 @@ export class PricingService {
       unitPriceKrw: unitPrice,
       quantity,
       amountKrw: unitPrice * quantity,
-      meta: null,
+      meta: this.buildRuleMeta(rule),
+    };
+  }
+
+  private buildRuleMeta(rule: PricingRuleRecord, extra: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      ruleType: this.getEffectiveRuleType(rule),
+      title: rule.title,
+      ...(rule.displayLabelOverride ? { displayLabelOverride: rule.displayLabelOverride } : {}),
+      ...(rule.chargeScope ? { chargeScope: rule.chargeScope } : {}),
+      ...(rule.personMode ? { personMode: rule.personMode } : {}),
+      ...(rule.customDisplayText ? { customDisplayText: rule.customDisplayText } : {}),
+      ...extra,
+    };
+  }
+
+  private getEffectiveRuleType(rule: Pick<PricingRuleRecord, 'ruleType' | 'lineCode'>): PricingRuleTypeValue {
+    if (rule.ruleType) {
+      return rule.ruleType;
+    }
+    switch (rule.lineCode) {
+      case 'BASE':
+        return 'BASE';
+      case 'BASE_UPLIFT_5PLUS_5PCT':
+      case 'BASE_UPLIFT_5PLUS_10PCT':
+        return 'PERCENT_UPLIFT';
+      case 'LONG_DISTANCE':
+        return 'AUTO_EXCEPTION';
+      case 'MANUAL_ADJUSTMENT':
+        return 'MANUAL';
+      default:
+        return 'CONDITIONAL_ADDON';
+    }
+  }
+
+  private findBaseRule(rules: PricingRuleRecord[], context: ComputeContext): PricingRuleRecord {
+    const matched = rules.find((rule) => this.getEffectiveRuleType(rule) === 'BASE' && this.matchesRule(rule, context));
+    if (!matched) {
+      throw new DomainError('VALIDATION_FAILED', 'No pricing rule found for BASE');
+    }
+    return matched;
+  }
+
+  private findPercentUpliftRules(rules: PricingRuleRecord[], context: ComputeContext): PricingRuleRecord[] {
+    return rules.filter((rule) => this.getEffectiveRuleType(rule) === 'PERCENT_UPLIFT' && this.matchesRule(rule, context));
+  }
+
+  private buildPercentUpliftLine(rule: PricingRuleRecord, baseAmountKrw: number): PricingComputedLineDraft | null {
+    const percentBps = this.ensurePercent(rule);
+    const upliftAmount = Math.round((baseAmountKrw * percentBps) / 10_000);
+    if (upliftAmount === 0) {
+      return null;
+    }
+    return {
+      ruleType: 'PERCENT_UPLIFT',
+      lineCode: rule.lineCode,
+      sourceType: 'RULE',
+      ruleId: rule.id,
+      description: rule.title,
+      unitPriceKrw: null,
+      quantity: 1,
+      amountKrw: upliftAmount,
+      meta: this.buildRuleMeta(rule, { percentBps }),
+    };
+  }
+
+  private findConditionalAddonRules(rules: PricingRuleRecord[], context: ComputeContext): PricingRuleRecord[] {
+    return rules.filter((rule) => this.getEffectiveRuleType(rule) === 'CONDITIONAL_ADDON' && this.matchesRule(rule, context));
+  }
+
+  private buildConditionalAddonLine(rule: PricingRuleRecord, context: ComputeContext): PricingComputedLineDraft | null {
+    const unitPrice = this.ensureAmount(rule);
+    const quantity = this.resolveQuantity(rule.quantitySource, context);
+    if (quantity <= 0) {
+      return null;
+    }
+    return {
+      ruleType: 'CONDITIONAL_ADDON',
+      lineCode: rule.lineCode,
+      sourceType: 'RULE',
+      ruleId: rule.id,
+      description: rule.title,
+      unitPriceKrw: unitPrice,
+      quantity,
+      amountKrw: unitPrice * quantity,
+      meta: this.buildRuleMeta(rule),
     };
   }
 
@@ -544,24 +676,26 @@ export class PricingService {
     return { depositAmountKrw, balanceAmountKrw };
   }
 
-  private ensureAmount(rule: PricingRule): number {
+  private ensureAmount(rule: PricingRuleRecord): number {
     if (rule.amountKrw === null) {
       throw new DomainError('VALIDATION_FAILED', `Missing amountKrw for pricing rule ${rule.id}`);
     }
     return rule.amountKrw;
   }
 
-  private ensurePercent(rule: PricingRule): number {
+  private ensurePercent(rule: PricingRuleRecord): number {
     if (rule.percentBps === null) {
       throw new DomainError('VALIDATION_FAILED', `Missing percentBps for pricing rule ${rule.id}`);
     }
     return rule.percentBps;
   }
 
-  private resolveQuantity(source: PricingQuantitySource, context: ComputeContext): number {
+  private resolveQuantity(source: PricingQuantitySourceValue, context: ComputeContext): number {
     switch (source) {
       case 'ONE':
         return 1;
+      case 'HEADCOUNT':
+        return context.headcountTotal;
       case 'TOTAL_DAYS':
         return context.totalDays;
       case 'LONG_DISTANCE_SEGMENT_COUNT':
@@ -573,7 +707,7 @@ export class PricingService {
     }
   }
 
-  private findRequiredAmountRule(rules: PricingRule[], lineCode: PricingLineCode, context: ComputeContext): PricingRule {
+  private findRequiredAmountRule(rules: PricingRuleRecord[], lineCode: PricingLineCode, context: ComputeContext): PricingRuleRecord {
     const matched = this.findMatchingRule(rules, lineCode, 'AMOUNT', context);
     if (!matched) {
       throw new DomainError('VALIDATION_FAILED', `No pricing rule found for ${lineCode}`);
@@ -582,11 +716,11 @@ export class PricingService {
   }
 
   private findOptionalPercentRule(
-    rules: PricingRule[],
+    rules: PricingRuleRecord[],
     lineCode: PricingLineCode,
     targetLineCode: PricingLineCode,
     context: ComputeContext,
-  ): PricingRule | null {
+  ): PricingRuleRecord | null {
     return (
       rules.find(
         (rule) =>
@@ -599,12 +733,12 @@ export class PricingService {
   }
 
   private buildOptionalPercentLine(
-    rules: PricingRule[],
+    rules: PricingRuleRecord[],
     lineCode: PricingLineCode,
     targetLineCode: PricingLineCode,
     context: ComputeContext,
     baseAmountKrw: number,
-  ): PricingComputedLine | null {
+  ): PricingComputedLineDraft | null {
     const rule = this.findOptionalPercentRule(rules, lineCode, targetLineCode, context);
     if (!rule) {
       return null;
@@ -617,6 +751,7 @@ export class PricingService {
     }
 
     return {
+      ruleType: 'PERCENT_UPLIFT',
       lineCode,
       sourceType: 'RULE',
       ruleId: rule.id,
@@ -624,20 +759,20 @@ export class PricingService {
       unitPriceKrw: null,
       quantity: 1,
       amountKrw: upliftAmount,
-      meta: { percentBps },
+      meta: this.buildRuleMeta(rule, { percentBps }),
     };
   }
 
   private findMatchingRule(
-    rules: PricingRule[],
+    rules: PricingRuleRecord[],
     lineCode: PricingLineCode,
     calcType: PricingCalcType,
     context: ComputeContext,
-  ): PricingRule | null {
+  ): PricingRuleRecord | null {
     return rules.find((rule) => rule.lineCode === lineCode && rule.calcType === calcType && this.matchesRule(rule, context)) ?? null;
   }
 
-  private matchesRule(rule: PricingRule, context: ComputeContext): boolean {
+  private matchesRule(rule: PricingRuleRecord, context: ComputeContext): boolean {
     if (rule.headcountMin !== null && context.headcountTotal < rule.headcountMin) {
       return false;
     }
@@ -650,11 +785,132 @@ export class PricingService {
     if (rule.dayMax !== null && context.totalDays > rule.dayMax) {
       return false;
     }
+    if (rule.travelDateFrom !== null && context.travelStartDate < rule.travelDateFrom) {
+      return false;
+    }
+    if (rule.travelDateTo !== null && context.travelStartDate > rule.travelDateTo) {
+      return false;
+    }
     if (rule.vehicleType !== null && context.vehicleType !== rule.vehicleType) {
       return false;
     }
     if (rule.variantTypes && !this.matchesVariantTypes(rule.variantTypes, context.variantType)) {
       return false;
+    }
+    if (!this.matchesFlightConditions(rule, context)) {
+      return false;
+    }
+    if (!this.matchesExternalTransferCondition(rule, context)) {
+      return false;
+    }
+    if (!this.matchesLegacyRuleFallback(rule, context)) {
+      return false;
+    }
+    return true;
+  }
+
+  private matchesFlightConditions(rule: PricingRuleRecord, context: ComputeContext): boolean {
+    if (
+      rule.flightInTimeBand === null &&
+      rule.flightOutTimeBand === null &&
+      rule.pickupPlaceType === null &&
+      rule.dropPlaceType === null
+    ) {
+      return true;
+    }
+
+    return context.transportGroups.some((group) => {
+      if (rule.flightInTimeBand !== null && !this.matchesTimeBand(group.flightInTime, rule.flightInTimeBand)) {
+        return false;
+      }
+      if (rule.flightOutTimeBand !== null && !this.matchesTimeBand(group.flightOutTime, rule.flightOutTimeBand)) {
+        return false;
+      }
+      if (rule.pickupPlaceType !== null && (group.pickupPlaceType ?? null) !== rule.pickupPlaceType) {
+        return false;
+      }
+      if (rule.dropPlaceType !== null && (group.dropPlaceType ?? null) !== rule.dropPlaceType) {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  private matchesExternalTransferCondition(rule: PricingRuleRecord, context: ComputeContext): boolean {
+    if (rule.externalTransferMode === null) {
+      return true;
+    }
+
+    const pickupCount = context.externalTransfers.filter((item) => item.direction === 'PICKUP').length;
+    const dropCount = context.externalTransfers.filter((item) => item.direction === 'DROP').length;
+    const matchedCount =
+      rule.externalTransferMode === 'PICKUP_ONLY'
+        ? pickupCount
+        : rule.externalTransferMode === 'DROP_ONLY'
+          ? dropCount
+          : rule.externalTransferMode === 'BOTH'
+            ? Math.min(pickupCount, dropCount)
+            : pickupCount + dropCount;
+
+    if (rule.externalTransferMode === 'BOTH' && (pickupCount === 0 || dropCount === 0)) {
+      return false;
+    }
+    if ((rule.externalTransferMode === 'PICKUP_ONLY' && pickupCount === 0) || (rule.externalTransferMode === 'DROP_ONLY' && dropCount === 0)) {
+      return false;
+    }
+    if (rule.externalTransferMode === 'ANY' && pickupCount + dropCount === 0) {
+      return false;
+    }
+    if (rule.externalTransferMinCount !== null && matchedCount < rule.externalTransferMinCount) {
+      return false;
+    }
+    return true;
+  }
+
+  private matchesTimeBand(time: string | null | undefined, band: PricingRuleRecord['flightInTimeBand']): boolean {
+    if (!band) {
+      return true;
+    }
+    const minutes = this.parseTimeToMinutes(time);
+    if (minutes === null) {
+      return false;
+    }
+    if (minutes < 5 * 60) {
+      return band === 'DAWN';
+    }
+    if (minutes < 12 * 60) {
+      return band === 'MORNING';
+    }
+    if (minutes < 18 * 60) {
+      return band === 'AFTERNOON';
+    }
+    if (minutes < 22 * 60) {
+      return band === 'EVENING';
+    }
+    return band === 'NIGHT';
+  }
+
+  private parseTimeToMinutes(value: string | null | undefined): number | null {
+    const trimmed = value?.trim() ?? '';
+    const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(trimmed);
+    if (!match) {
+      return null;
+    }
+    return Number(match[1]) * 60 + Number(match[2]);
+  }
+
+  private matchesLegacyRuleFallback(rule: PricingRuleRecord, context: ComputeContext): boolean {
+    if (this.getEffectiveRuleType(rule) !== 'CONDITIONAL_ADDON') {
+      return true;
+    }
+    if (rule.lineCode === 'HIACE' && rule.vehicleType === null) {
+      return context.vehicleType === HIACE && context.headcountTotal >= 3 && context.headcountTotal <= 6;
+    }
+    if (rule.lineCode === 'EARLY' && (!rule.variantTypes || (Array.isArray(rule.variantTypes) && rule.variantTypes.length === 0))) {
+      return this.shouldApplyEarly(context.variantType);
+    }
+    if (rule.lineCode === 'EXTEND' && (!rule.variantTypes || (Array.isArray(rule.variantTypes) && rule.variantTypes.length === 0))) {
+      return this.shouldApplyExtend(context.variantType);
     }
     return true;
   }
@@ -662,6 +918,9 @@ export class PricingService {
   private matchesVariantTypes(value: Prisma.JsonValue, variantType: VariantType): boolean {
     if (!Array.isArray(value)) {
       return false;
+    }
+    if (value.length === 0) {
+      return true;
     }
     return value.some((item) => typeof item === 'string' && item === variantType);
   }
@@ -693,11 +952,11 @@ export class PricingService {
     }
     const blocks = await prisma.overnightStay.findMany({
       where: { id: { in: blockIds } },
-      select: { id: true, blockType: true },
+      select: { id: true, blockType: true, isNightTrain: true },
     });
     const nightTrainBlockIds = new Set<string>();
     blocks.forEach((block) => {
-      if (block.blockType === 'TRANSFER') {
+      if (block.isNightTrain || block.blockType === 'TRANSFER') {
         nightTrainBlockIds.add(block.id);
       }
     });
@@ -710,7 +969,7 @@ export class PricingService {
     planStops: PricingPlanStopDto[],
   ): Promise<number> {
     const segmentTransitions: Array<{ fromLocationId: string; toLocationId: string }> = [];
-    const overnightStayConnectionIds = new Set<string>();
+    const blockConnectionIds = new Set<string>();
 
     for (let index = 1; index < planStops.length; index += 1) {
       const currentStop = planStops[index];
@@ -719,17 +978,16 @@ export class PricingService {
         continue;
       }
 
-      const connectionId = currentStop?.multiDayBlockConnectionId;
-      if (connectionId) {
-        overnightStayConnectionIds.add(connectionId);
-        continue;
-      }
-
       const prevStop = planStops[index - 1];
       const fromLocationId = prevStop?.blockEndLocationId ?? prevStop?.locationId;
       const toLocationId = currentStop?.locationId;
 
       if (!fromLocationId || !toLocationId) {
+        continue;
+      }
+
+      if (currentStop?.multiDayBlockConnectionId) {
+        blockConnectionIds.add(currentStop.multiDayBlockConnectionId);
         continue;
       }
 
@@ -742,9 +1000,9 @@ export class PricingService {
       ).values(),
     );
 
-    const [segments, overnightStayConnections] = await Promise.all([
+    const segments =
       uniqueTransitions.length > 0
-        ? prisma.segment.findMany({
+        ? await prisma.segment.findMany({
             where: {
               OR: uniqueTransitions.map((item) => ({
                 fromLocationId: item.fromLocationId,
@@ -757,43 +1015,29 @@ export class PricingService {
               isLongDistance: true,
             },
           })
-        : Promise.resolve([]),
-      overnightStayConnectionIds.size > 0
-        ? prisma.overnightStayConnection.findMany({
-            where: {
-              id: { in: Array.from(overnightStayConnectionIds) },
-            },
-            select: {
-              id: true,
-              isLongDistance: true,
-            },
-          })
-        : Promise.resolve([]),
-    ]);
-
-    if (segmentTransitions.length === 0 && overnightStayConnections.length === 0) {
-      return 0;
-    }
+        : [];
 
     const segmentByKey = new Map<string, boolean>(
       segments.map((segment) => [`${segment.fromLocationId}::${segment.toLocationId}`, segment.isLongDistance]),
     );
-    const overnightStayConnectionById = new Map<string, boolean>(
-      overnightStayConnections.map((connection) => [connection.id, connection.isLongDistance]),
-    );
-
-    const segmentCount = segmentTransitions.reduce((count, transition) => {
+    const longDistanceSegmentCount = segmentTransitions.reduce((count, transition) => {
       const key = `${transition.fromLocationId}::${transition.toLocationId}`;
       return count + (segmentByKey.get(key) ? 1 : 0);
     }, 0);
-    const overnightStayConnectionCount = planStops.reduce((count, stop) => {
-      const connectionId = stop.multiDayBlockConnectionId;
-      if (!connectionId) {
-        return count;
-      }
-      return count + (overnightStayConnectionById.get(connectionId) ? 1 : 0);
-    }, 0);
 
-    return segmentCount + overnightStayConnectionCount;
+    if (blockConnectionIds.size === 0) {
+      return longDistanceSegmentCount;
+    }
+
+    const blockConnections = await prisma.overnightStayConnection.findMany({
+      where: { id: { in: Array.from(blockConnectionIds) } },
+      select: { id: true, isLongDistance: true },
+    });
+    const longDistanceBlockConnectionCount = blockConnections.reduce(
+      (count, connection) => count + (connection.isLongDistance ? 1 : 0),
+      0,
+    );
+
+    return longDistanceSegmentCount + longDistanceBlockConnectionCount;
   }
 }

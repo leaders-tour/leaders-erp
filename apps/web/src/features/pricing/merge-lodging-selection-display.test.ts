@@ -42,6 +42,9 @@ describe('mergeLodgingSelectionDisplayLines', () => {
       quantity: 2,
       amountKrw: 100_000,
       quantityDisplaySuffix: '박',
+      displayBasis: 'PER_NIGHT',
+      displayUnitAmountKrw: 50_000,
+      displayCount: 2,
     });
     expect(merged[2]).toMatchObject({ lineCode: 'EARLY', amountKrw: 40_000 });
   });
@@ -58,7 +61,12 @@ describe('mergeLodgingSelectionDisplayLines', () => {
     expect(merged).toHaveLength(1);
     const row = merged[0];
     expect(row).toBeDefined();
-    expect(row).toMatchObject({ description: '3일차 LV4' });
+    expect(row).toMatchObject({
+      description: '3일차 LV4',
+      displayBasis: 'PER_NIGHT',
+      displayUnitAmountKrw: 50_000,
+      displayCount: 1,
+    });
     expect(row?.quantityDisplaySuffix).toBeUndefined();
   });
 

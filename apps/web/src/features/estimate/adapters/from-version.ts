@@ -5,14 +5,12 @@ import type { PlanVersionDetail } from '../../plan/hooks';
 import { countMainPlanStopRows } from '../../plan/plan-stop-row';
 import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
 import type { EstimateDocumentData } from '../model/types';
+import { formatPricingDetailFormula } from '../../pricing/pricing-line-presenter';
 import {
   addDays,
   buildPage2Title,
   formatExternalPickupDropText,
   formatLegacyExternalTransferText,
-  formatCalculationBasis,
-  formatCalculationBasisNights,
-  formatManualAdjustmentLineFormula,
   normalizeMultilineText,
   toSecurityDepositScope,
   todayIsoDate,
@@ -42,6 +40,10 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
   );
   const externalPickupText = externalPickupTextFromTransfers !== '-' ? externalPickupTextFromTransfers : legacyExternalPickupText;
   const externalDropText = externalDropTextFromTransfers !== '-' ? externalDropTextFromTransfers : legacyExternalDropText;
+  const pricingCtx = {
+    headcountTotal: meta?.headcountTotal ?? 0,
+    totalDays: countMainPlanStopRows(version.planStops),
+  };
 
   return {
     mode: 'version',
@@ -120,12 +122,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
       (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []).map((line) => ({
         label: getPricingLineLabel(line),
         amountKrw: line.amountKrw,
-        formula:
-          line.lineCode === 'MANUAL_ADJUSTMENT'
-            ? formatManualAdjustmentLineFormula(line)
-            : line.quantityDisplaySuffix === '박'
-              ? formatCalculationBasisNights(line.unitPriceKrw, line.quantity)
-              : formatCalculationBasis(line.unitPriceKrw, line.quantity),
+        formula: formatPricingDetailFormula(line, pricingCtx),
       })),
     totalPricePerPersonKrw: pricing?.totalAmountKrw ?? null,
     depositPricePerPersonKrw: pricing?.depositAmountKrw ?? null,

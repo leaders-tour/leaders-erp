@@ -30,12 +30,19 @@ export interface EstimateGuideBlock {
 }
 
 export interface EstimatePricingLineSnapshot {
+  ruleType?: string | null;
   lineCode: string;
   sourceType: string;
   description: string | null;
   unitPriceKrw: number | null;
   quantity: number;
   amountKrw: number;
+  displayBasis?: string | null;
+  displayLabel?: string | null;
+  displayUnitAmountKrw?: number | null;
+  displayCount?: number | null;
+  displayDivisorPerson?: number | null;
+  displayText?: string | null;
 }
 
 export interface EstimatePricingSnapshot {

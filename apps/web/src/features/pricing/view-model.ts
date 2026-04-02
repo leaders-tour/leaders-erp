@@ -1,10 +1,18 @@
 export interface PricingViewLine {
+  ruleType?: string | null;
   lineCode: string;
   sourceType: string;
   description: string | null;
   unitPriceKrw: number | null;
   quantity: number;
   amountKrw: number;
+  /** API·스냅샷에서 내려온 표시 메타 (없으면 presenter가 추론) */
+  displayBasis?: string | null;
+  displayLabel?: string | null;
+  displayUnitAmountKrw?: number | null;
+  displayCount?: number | null;
+  displayDivisorPerson?: number | null;
+  displayText?: string | null;
 }
 
 export interface PricingViewBuckets<TLine extends PricingViewLine> {
@@ -15,6 +23,7 @@ export interface PricingViewBuckets<TLine extends PricingViewLine> {
   grandTotal: number;
 }
 
+const BASE_RULE_TYPES = new Set(['BASE', 'PERCENT_UPLIFT']);
 const BASE_LINE_CODES = new Set(['BASE', 'BASE_UPLIFT_5PLUS_5PCT', 'BASE_UPLIFT_5PLUS_10PCT', 'LONG_DISTANCE']);
 
 const LINE_CODE_LABELS: Record<string, string> = {
@@ -38,6 +47,10 @@ export function buildPricingViewBuckets<TLine extends PricingViewLine>(
   const addonLines: TLine[] = [];
 
   lines.forEach((line) => {
+    if (line.ruleType && BASE_RULE_TYPES.has(line.ruleType)) {
+      baseLines.push(line);
+      return;
+    }
     if (BASE_LINE_CODES.has(line.lineCode)) {
       baseLines.push(line);
       return;
@@ -57,7 +70,13 @@ export function buildPricingViewBuckets<TLine extends PricingViewLine>(
   };
 }
 
-export function getPricingLineLabel(line: Pick<PricingViewLine, 'lineCode' | 'description' | 'quantity'>): string {
+export function getPricingLineLabel(
+  line: Pick<PricingViewLine, 'lineCode' | 'description' | 'quantity' | 'displayLabel'>,
+): string {
+  const displayLabel = line.displayLabel?.trim();
+  if (displayLabel) {
+    return displayLabel;
+  }
   if (line.lineCode === 'MANUAL_ADJUSTMENT' || line.lineCode === 'LODGING_SELECTION') {
     const custom = line.description?.trim();
     if (custom) {

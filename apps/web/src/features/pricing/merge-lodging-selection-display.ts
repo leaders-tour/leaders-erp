@@ -91,7 +91,15 @@ export function mergeLodgingSelectionDisplayLines<T extends PricingViewLine>(
     }
 
     if (group.members.length === 1) {
-      result.push(line);
+      result.push({
+        ...line,
+        displayBasis: 'PER_NIGHT',
+        displayUnitAmountKrw: line.unitPriceKrw,
+        displayCount: 1,
+        displayDivisorPerson: null,
+        displayText: null,
+        displayLabel: null,
+      } as T & PricingLineDisplayExtensions);
       continue;
     }
 
@@ -109,6 +117,12 @@ export function mergeLodgingSelectionDisplayLines<T extends PricingViewLine>(
       quantity: nights,
       amountKrw,
       quantityDisplaySuffix: '박',
+      displayBasis: 'PER_NIGHT',
+      displayUnitAmountKrw: first.unitPriceKrw,
+      displayCount: nights,
+      displayDivisorPerson: null,
+      displayText: null,
+      displayLabel: null,
     } as T & PricingLineDisplayExtensions);
   }
 

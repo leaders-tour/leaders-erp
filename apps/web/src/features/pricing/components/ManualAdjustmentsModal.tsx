@@ -1,9 +1,13 @@
-import { Button, Card } from '@tour/ui';
+import { Button, Card, Input } from '@tour/ui';
 
 export interface ManualAdjustmentDraftRow {
   kind: 'ADD' | 'DISCOUNT';
-  description: string;
+  title: string;
+  chargeScope: 'TEAM' | 'PER_PERSON';
+  personMode: 'SINGLE' | 'PER_DAY' | 'PER_NIGHT';
+  countValue: string;
   amountKrw: string;
+  customDisplayText: string;
 }
 
 interface ManualAdjustmentsModalProps {
@@ -11,7 +15,7 @@ interface ManualAdjustmentsModalProps {
   rows: ManualAdjustmentDraftRow[];
   onClose: () => void;
   onAddRow: (kind: 'ADD' | 'DISCOUNT') => void;
-  onUpdateRow: (index: number, field: 'description' | 'amountKrw', value: string) => void;
+  onUpdateRow: (index: number, nextRow: ManualAdjustmentDraftRow) => void;
   onRemoveRow: (index: number) => void;
 }
 
@@ -43,6 +47,97 @@ export function ManualAdjustmentsModal({
     .map((row, index) => ({ ...row, index }))
     .filter((row) => row.kind === 'DISCOUNT');
 
+  const renderRow = (row: ManualAdjustmentDraftRow & { index: number }) => {
+    const update = (patch: Partial<ManualAdjustmentDraftRow>) => onUpdateRow(row.index, { ...row, ...patch });
+    const isPerPerson = row.chargeScope === 'PER_PERSON';
+    const needsCount = row.personMode === 'PER_DAY' || row.personMode === 'PER_NIGHT';
+
+    return (
+      <div key={`${row.kind}-${row.index}`} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="grid gap-2 md:grid-cols-2">
+          <label className="grid gap-1 text-sm">
+            <span className="text-slate-700">제목</span>
+            <Input value={row.title} onChange={(event) => update({ title: event.target.value })} placeholder="내용" />
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span className="text-slate-700">금액</span>
+            <Input
+              type="number"
+              min={0}
+              value={row.amountKrw}
+              onChange={(event) => update({ amountKrw: event.target.value })}
+              placeholder="금액"
+            />
+          </label>
+        </div>
+
+        <div className="grid gap-2">
+          <span className="text-sm text-slate-700">과금 기준</span>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant={row.chargeScope === 'TEAM' ? 'default' : 'outline'}
+              onClick={() => update({ chargeScope: 'TEAM', personMode: 'SINGLE', countValue: '' })}
+            >
+              팀당
+            </Button>
+            <Button
+              type="button"
+              variant={row.chargeScope === 'PER_PERSON' ? 'default' : 'outline'}
+              onClick={() => update({ chargeScope: 'PER_PERSON', personMode: row.personMode || 'SINGLE' })}
+            >
+              인당
+            </Button>
+          </div>
+        </div>
+
+        {isPerPerson ? (
+          <div className="grid gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+            <span className="text-sm text-slate-700">인당 세부 기준</span>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant={row.personMode === 'SINGLE' ? 'default' : 'outline'} onClick={() => update({ personMode: 'SINGLE', countValue: '' })}>
+                1인 단수
+              </Button>
+              <Button type="button" variant={row.personMode === 'PER_DAY' ? 'default' : 'outline'} onClick={() => update({ personMode: 'PER_DAY', countValue: row.countValue || '1' })}>
+                일 복수
+              </Button>
+              <Button type="button" variant={row.personMode === 'PER_NIGHT' ? 'default' : 'outline'} onClick={() => update({ personMode: 'PER_NIGHT', countValue: row.countValue || '1' })}>
+                박 복수
+              </Button>
+            </div>
+            {needsCount ? (
+              <label className="grid gap-1 text-sm md:max-w-xs">
+                <span className="text-slate-700">{row.personMode === 'PER_DAY' ? '일수' : '박수'}</span>
+                <Input
+                  type="number"
+                  min={1}
+                  value={row.countValue}
+                  onChange={(event) => update({ countValue: event.target.value })}
+                  placeholder={row.personMode === 'PER_DAY' ? '일수' : '박수'}
+                />
+              </label>
+            ) : null}
+          </div>
+        ) : null}
+
+        <label className="grid gap-1 text-sm">
+          <span className="text-slate-700">오른쪽 표기 커스텀 (선택)</span>
+          <Input
+            value={row.customDisplayText}
+            onChange={(event) => update({ customDisplayText: event.target.value })}
+            placeholder="비워두면 팀당/인당/일/박 기준으로 자동 표기"
+          />
+        </label>
+
+        <div className="flex justify-end">
+          <Button variant="destructive" onClick={() => onRemoveRow(row.index)}>
+            삭제
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <div className="fixed inset-0 z-50 bg-slate-900/20 backdrop-blur-[1px]" onClick={onClose} aria-hidden="true" />
@@ -73,27 +168,7 @@ export function ManualAdjustmentsModal({
                       추가 항목이 없습니다.
                     </div>
                   ) : (
-                    additions.map((row) => (
-                      <div key={`manual-add-${row.index}`} className="grid grid-cols-[1fr_140px_auto] gap-2">
-                        <input
-                          value={row.description}
-                          onChange={(event) => onUpdateRow(row.index, 'description', event.target.value)}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                          placeholder="내용"
-                        />
-                        <input
-                          type="number"
-                          min={0}
-                          value={row.amountKrw}
-                          onChange={(event) => onUpdateRow(row.index, 'amountKrw', event.target.value)}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                          placeholder="금액"
-                        />
-                        <Button variant="destructive" onClick={() => onRemoveRow(row.index)}>
-                          삭제
-                        </Button>
-                      </div>
-                    ))
+                    additions.map(renderRow)
                   )}
                 </div>
               </div>
@@ -111,27 +186,7 @@ export function ManualAdjustmentsModal({
                       할인 항목이 없습니다.
                     </div>
                   ) : (
-                    discounts.map((row) => (
-                      <div key={`manual-discount-${row.index}`} className="grid grid-cols-[1fr_140px_auto] gap-2">
-                        <input
-                          value={row.description}
-                          onChange={(event) => onUpdateRow(row.index, 'description', event.target.value)}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                          placeholder="내용"
-                        />
-                        <input
-                          type="number"
-                          min={0}
-                          value={row.amountKrw}
-                          onChange={(event) => onUpdateRow(row.index, 'amountKrw', event.target.value)}
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                          placeholder="금액"
-                        />
-                        <Button variant="destructive" onClick={() => onRemoveRow(row.index)}>
-                          삭제
-                        </Button>
-                      </div>
-                    ))
+                    discounts.map(renderRow)
                   )}
                 </div>
               </div>

@@ -4,16 +4,8 @@ import { countMainPlanStopRows } from '../../plan/plan-stop-row';
 import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
 import type { EstimateBuilderDraftSnapshot, EstimateDocumentData } from '../model/types';
 import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
-import {
-  addDays,
-  buildPage2Title,
-  formatCalculationBasis,
-  formatCalculationBasisNights,
-  formatManualAdjustmentLineFormula,
-  normalizeMultilineText,
-  toSecurityDepositScope,
-  todayIsoDate,
-} from '../utils/format';
+import { formatPricingDetailFormula } from '../../pricing/pricing-line-presenter';
+import { addDays, buildPage2Title, normalizeMultilineText, toSecurityDepositScope, todayIsoDate } from '../utils/format';
 
 export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): EstimateDocumentData {
   const pricingBuckets = snapshot.pricing
@@ -22,6 +14,10 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
   const basePricePerPersonKrw = pricingBuckets?.baseTotal ?? snapshot.pricing?.baseAmountKrw ?? null;
   const externalPickupText = buildExternalTransferDirectionText(snapshot.externalTransfers, snapshot.transportGroups, 'PICKUP');
   const externalDropText = buildExternalTransferDirectionText(snapshot.externalTransfers, snapshot.transportGroups, 'DROP');
+  const pricingCtx = {
+    headcountTotal: Number.isFinite(snapshot.headcountTotal) ? snapshot.headcountTotal : 0,
+    totalDays: countMainPlanStopRows(snapshot.planStops),
+  };
 
   return {
     mode: 'draft',
@@ -74,12 +70,7 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
       (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []).map((line) => ({
         label: getPricingLineLabel(line),
         amountKrw: line.amountKrw,
-        formula:
-          line.lineCode === 'MANUAL_ADJUSTMENT'
-            ? formatManualAdjustmentLineFormula(line)
-            : line.quantityDisplaySuffix === '박'
-              ? formatCalculationBasisNights(line.unitPriceKrw, line.quantity)
-              : formatCalculationBasis(line.unitPriceKrw, line.quantity),
+        formula: formatPricingDetailFormula(line, pricingCtx),
       })),
     totalPricePerPersonKrw: snapshot.pricing?.totalAmountKrw ?? null,
     depositPricePerPersonKrw: snapshot.pricing?.depositAmountKrw ?? null,

@@ -7,8 +7,13 @@ export interface ExtraLodgingInputDto {
 }
 
 export interface ManualAdjustmentInputDto {
-  description: string;
+  kind: 'ADD' | 'DISCOUNT';
+  title: string;
+  chargeScope: 'TEAM' | 'PER_PERSON';
+  personMode?: 'SINGLE' | 'PER_DAY' | 'PER_NIGHT' | null;
+  countValue?: number | null;
   amountKrw: number;
+  customDisplayText?: string | null;
 }
 
 export interface LodgingSelectionPricingInputDto {
@@ -18,6 +23,35 @@ export interface LodgingSelectionPricingInputDto {
   customLodgingNameSnapshot?: string | null;
   pricingModeSnapshot?: 'PER_PERSON' | 'PER_TEAM' | 'FLAT' | null;
   priceSnapshotKrw?: number | null;
+}
+
+export interface TransportGroupPricingInputDto {
+  teamName: string;
+  headcount: number;
+  flightInDate: string;
+  flightInTime: string;
+  flightOutDate: string;
+  flightOutTime: string;
+  pickupDate?: string | null;
+  pickupTime?: string | null;
+  pickupPlaceType?: string | null;
+  pickupPlaceCustomText?: string | null;
+  dropDate?: string | null;
+  dropTime?: string | null;
+  dropPlaceType?: string | null;
+  dropPlaceCustomText?: string | null;
+}
+
+export interface ExternalTransferPricingInputDto {
+  direction: 'PICKUP' | 'DROP';
+  presetCode: string;
+  travelDate: string;
+  departureTime: string;
+  arrivalTime: string;
+  departurePlace: string;
+  arrivalPlace: string;
+  selectedTeamOrderIndexes: number[];
+  unitPriceKrw: number;
 }
 
 export interface PricingPlanStopDto {
@@ -45,6 +79,8 @@ export interface PricingComputeInput {
   headcountTotal: number;
   vehicleType: string;
   transportGroupCount: number;
+  transportGroups: TransportGroupPricingInputDto[];
+  externalTransfers: ExternalTransferPricingInputDto[];
   includeRentalItems: boolean;
   eventIds: string[];
   extraLodgings: ExtraLodgingInputDto[];
@@ -53,7 +89,28 @@ export interface PricingComputeInput {
   manualDepositAmountKrw?: number;
 }
 
+export type PricingDisplayBasis =
+  | 'TEAM_DIV_PERSON'
+  | 'PER_NIGHT'
+  | 'PER_DAY'
+  | 'PER_PERSON_SINGLE'
+  | 'PERCENT'
+  | 'CUSTOM';
+
+export type PricingRuleTypeValue = 'BASE' | 'PERCENT_UPLIFT' | 'CONDITIONAL_ADDON' | 'AUTO_EXCEPTION' | 'MANUAL';
+
+/** 표시 전용: 계산 필드와 분리된 견적/빌더 오른쪽 산식 기준 */
+export interface PricingLineDisplay {
+  basis: PricingDisplayBasis;
+  label: string | null;
+  unitAmountKrw: number | null;
+  count: number | null;
+  divisorPerson: number | null;
+  text: string | null;
+}
+
 export interface PricingComputedLine {
+  ruleType: PricingRuleTypeValue;
   lineCode: PricingLineCode;
   sourceType: PricingLineSourceType;
   ruleId: string | null;
@@ -62,7 +119,11 @@ export interface PricingComputedLine {
   quantity: number;
   amountKrw: number;
   meta: Record<string, unknown> | null;
+  display: PricingLineDisplay;
 }
+
+/** display 부착 전 계산 단계 */
+export type PricingComputedLineDraft = Omit<PricingComputedLine, 'display'>;
 
 export interface PricingComputationResult {
   policyId: string;

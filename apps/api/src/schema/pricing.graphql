@@ -1,0 +1,183 @@
+type PricingPolicy {
+  id: ID!
+  code: String!
+  name: String!
+  status: PricingPolicyStatus!
+  effectiveFrom: DateTime!
+  effectiveTo: DateTime
+  priority: Int!
+  rules: [PricingRule!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type PricingRule {
+  id: ID!
+  policyId: String!
+  ruleType: PricingRuleType!
+  title: String!
+  lineCode: PricingLineCode!
+  calcType: PricingCalcType!
+  targetLineCode: PricingLineCode
+  amountKrw: Int
+  percentBps: Int
+  quantitySource: PricingQuantitySource!
+  headcountMin: Int
+  headcountMax: Int
+  dayMin: Int
+  dayMax: Int
+  travelDateFrom: DateTime
+  travelDateTo: DateTime
+  vehicleType: String
+  variantTypes: [VariantType!]!
+  flightInTimeBand: PricingTimeBand
+  flightOutTimeBand: PricingTimeBand
+  pickupPlaceType: PlaceType
+  dropPlaceType: PlaceType
+  externalTransferMode: PricingExternalTransferMode
+  externalTransferMinCount: Int
+  displayLabelOverride: String
+  chargeScope: PricingChargeScope
+  personMode: PricingPersonMode
+  customDisplayText: String
+  isEnabled: Boolean!
+  sortOrder: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input PricingPolicyCreateInput {
+  code: String!
+  name: String!
+  status: PricingPolicyStatus
+  effectiveFrom: DateTime!
+  effectiveTo: DateTime
+  priority: Int
+}
+
+input PricingPolicyUpdateInput {
+  code: String
+  name: String
+  status: PricingPolicyStatus
+  effectiveFrom: DateTime
+  effectiveTo: DateTime
+  priority: Int
+}
+
+input PricingPolicyDuplicateInput {
+  code: String!
+  name: String!
+  status: PricingPolicyStatus
+  effectiveFrom: DateTime
+  effectiveTo: DateTime
+  priority: Int
+}
+
+input PricingRuleCreateInput {
+  policyId: ID!
+  ruleType: PricingRuleType!
+  title: String!
+  amountKrw: Int
+  percentBps: Int
+  quantitySource: PricingQuantitySource!
+  headcountMin: Int
+  headcountMax: Int
+  dayMin: Int
+  dayMax: Int
+  travelDateFrom: DateTime
+  travelDateTo: DateTime
+  vehicleType: String
+  variantTypes: [VariantType!]
+  flightInTimeBand: PricingTimeBand
+  flightOutTimeBand: PricingTimeBand
+  pickupPlaceType: PlaceType
+  dropPlaceType: PlaceType
+  externalTransferMode: PricingExternalTransferMode
+  externalTransferMinCount: Int
+  displayLabelOverride: String
+  chargeScope: PricingChargeScope
+  personMode: PricingPersonMode
+  customDisplayText: String
+  isEnabled: Boolean
+  sortOrder: Int
+}
+
+input PricingRuleUpdateInput {
+  ruleType: PricingRuleType
+  title: String
+  amountKrw: Int
+  percentBps: Int
+  quantitySource: PricingQuantitySource
+  headcountMin: Int
+  headcountMax: Int
+  dayMin: Int
+  dayMax: Int
+  travelDateFrom: DateTime
+  travelDateTo: DateTime
+  vehicleType: String
+  variantTypes: [VariantType!]
+  flightInTimeBand: PricingTimeBand
+  flightOutTimeBand: PricingTimeBand
+  pickupPlaceType: PlaceType
+  dropPlaceType: PlaceType
+  externalTransferMode: PricingExternalTransferMode
+  externalTransferMinCount: Int
+  displayLabelOverride: String
+  chargeScope: PricingChargeScope
+  personMode: PricingPersonMode
+  customDisplayText: String
+  isEnabled: Boolean
+  sortOrder: Int
+}
+
+enum PricingPolicyStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PricingCalcType {
+  AMOUNT
+  PERCENT_OF_LINE
+}
+
+enum PricingRuleType {
+  BASE
+  PERCENT_UPLIFT
+  CONDITIONAL_ADDON
+  AUTO_EXCEPTION
+  MANUAL
+}
+
+enum PricingQuantitySource {
+  ONE
+  HEADCOUNT
+  TOTAL_DAYS
+  LONG_DISTANCE_SEGMENT_COUNT
+  SUM_EXTRA_LODGING_COUNTS
+}
+
+enum PricingChargeScope {
+  TEAM
+  PER_PERSON
+}
+
+enum PricingPersonMode {
+  SINGLE
+  PER_DAY
+  PER_NIGHT
+}
+
+enum PricingTimeBand {
+  DAWN
+  MORNING
+  AFTERNOON
+  EVENING
+  NIGHT
+}
+
+enum PricingExternalTransferMode {
+  ANY
+  PICKUP_ONLY
+  DROP_ONLY
+  BOTH
+}
