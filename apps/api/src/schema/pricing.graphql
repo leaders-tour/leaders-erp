@@ -36,7 +36,6 @@ type PricingRule {
   dropPlaceType: PlaceType
   externalTransferMode: PricingExternalTransferMode
   externalTransferMinCount: Int
-  displayLabelOverride: String
   chargeScope: PricingChargeScope
   personMode: PricingPersonMode
   customDisplayText: String
@@ -88,7 +87,6 @@ input PricingRuleCreateInput {
   dropPlaceType: PlaceType
   externalTransferMode: PricingExternalTransferMode
   externalTransferMinCount: Int
-  displayLabelOverride: String
   chargeScope: PricingChargeScope
   personMode: PricingPersonMode
   customDisplayText: String
@@ -116,7 +114,6 @@ input PricingRuleUpdateInput {
   dropPlaceType: PlaceType
   externalTransferMode: PricingExternalTransferMode
   externalTransferMinCount: Int
-  displayLabelOverride: String
   chargeScope: PricingChargeScope
   personMode: PricingPersonMode
   customDisplayText: String

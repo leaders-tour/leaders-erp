@@ -3095,6 +3095,12 @@ export function ItineraryBuilderPage(): JSX.Element {
     ],
   );
 
+  const normalizedTransportGroups = useMemo(
+    () => transportGroups.map((group) => toEstimateTransportGroup(group)),
+    [transportGroups],
+  );
+  const primaryTransportGroup = normalizedTransportGroups[0];
+
   const {
     data: pricingPreviewData,
     previousData: pricingPreviewPreviousData,
@@ -3109,8 +3115,8 @@ export function ItineraryBuilderPage(): JSX.Element {
         planStops: pricingPreviewPlanStops,
         travelStartDate: toIsoDateTime(travelStartDate),
         headcountTotal,
-        transportGroupCount: transportGroups.length,
-        transportGroups,
+        transportGroupCount: normalizedTransportGroups.length,
+        transportGroups: normalizedTransportGroups,
         vehicleType,
         includeRentalItems,
         eventIds,
@@ -3204,11 +3210,6 @@ export function ItineraryBuilderPage(): JSX.Element {
     () => regionSets.find((set) => set.id === regionSetId)?.name ?? '',
     [regionSetId, regionSets],
   );
-  const normalizedTransportGroups = useMemo(
-    () => transportGroups.map((group) => toEstimateTransportGroup(group)),
-    [transportGroups],
-  );
-  const primaryTransportGroup = normalizedTransportGroups[0];
   const estimateDraftSnapshot = useMemo<EstimateBuilderDraftSnapshot>(
     () =>
       createEstimateDraftSnapshot({

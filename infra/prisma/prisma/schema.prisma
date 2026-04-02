@@ -993,7 +993,6 @@ model PricingRule {
   dropPlaceType   String?             @db.VarChar(50)
   externalTransferMode PricingExternalTransferMode?
   externalTransferMinCount Int?
-  displayLabelOverride String?        @db.VarChar(191)
   chargeScope    PricingChargeScope?
   personMode     PricingPersonMode?
   customDisplayText String?           @db.Text

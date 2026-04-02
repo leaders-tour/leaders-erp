@@ -87,14 +87,6 @@ export function PricingRuleFormFields({
           </label>
         )}
         <label className="grid gap-1 text-sm">
-          <span>표시 라벨</span>
-          <Input
-            value={ruleForm.displayLabelOverride}
-            onChange={(event) => setRuleForm((prev) => ({ ...prev, displayLabelOverride: event.target.value }))}
-            placeholder="비워두면 제목 사용"
-          />
-        </label>
-        <label className="grid gap-1 text-sm">
           <span>인원 최소</span>
           <Input
             type="number"

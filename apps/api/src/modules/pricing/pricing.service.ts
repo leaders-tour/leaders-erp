@@ -64,7 +64,6 @@ type PricingRuleRecord = {
   dropPlaceType: string | null;
   externalTransferMode: 'ANY' | 'PICKUP_ONLY' | 'DROP_ONLY' | 'BOTH' | null;
   externalTransferMinCount: number | null;
-  displayLabelOverride: string | null;
   chargeScope: 'TEAM' | 'PER_PERSON' | null;
   personMode: 'SINGLE' | 'PER_DAY' | 'PER_NIGHT' | null;
   customDisplayText: string | null;
@@ -556,7 +555,6 @@ export class PricingService {
     return {
       ruleType: this.getEffectiveRuleType(rule),
       title: rule.title,
-      ...(rule.displayLabelOverride ? { displayLabelOverride: rule.displayLabelOverride } : {}),
       ...(rule.chargeScope ? { chargeScope: rule.chargeScope } : {}),
       ...(rule.personMode ? { personMode: rule.personMode } : {}),
       ...(rule.customDisplayText ? { customDisplayText: rule.customDisplayText } : {}),

@@ -18,10 +18,6 @@ function configuredDisplayFromMeta(
     return null;
   }
 
-  const displayLabelOverride =
-    'displayLabelOverride' in meta && typeof meta.displayLabelOverride === 'string' && meta.displayLabelOverride.trim().length > 0
-      ? meta.displayLabelOverride.trim()
-      : null;
   const customDisplayText =
     'customDisplayText' in meta && typeof meta.customDisplayText === 'string' && meta.customDisplayText.trim().length > 0
       ? meta.customDisplayText.trim()
@@ -48,50 +44,36 @@ function configuredDisplayFromMeta(
 
   if (ruleType === 'PERCENT_UPLIFT' && percentBps !== null) {
     return emptyDisplay('PERCENT', {
-      label: displayLabelOverride,
       text: `기본금의 ${percentBps / 100}%`,
     });
   }
 
   if (customDisplayText) {
     return emptyDisplay('CUSTOM', {
-      label: displayLabelOverride,
       text: customDisplayText,
     });
   }
 
   if (chargeScope === 'TEAM') {
-    return emptyDisplay('TEAM_DIV_PERSON', {
-      label: displayLabelOverride,
-    });
+    return emptyDisplay('TEAM_DIV_PERSON');
   }
 
   if (chargeScope === 'PER_PERSON') {
     if (personMode === 'PER_DAY') {
       return emptyDisplay('PER_DAY', {
-        label: displayLabelOverride,
         unitAmountKrw: line.unitPriceKrw,
         count: line.quantity,
       });
     }
     if (personMode === 'PER_NIGHT') {
       return emptyDisplay('PER_NIGHT', {
-        label: displayLabelOverride,
         unitAmountKrw: line.unitPriceKrw,
         count: line.quantity,
       });
     }
     return emptyDisplay('PER_PERSON_SINGLE', {
-      label: displayLabelOverride,
       unitAmountKrw: line.unitPriceKrw ?? line.amountKrw,
       count: 1,
-    });
-  }
-
-  if (displayLabelOverride) {
-    return emptyDisplay('CUSTOM', {
-      label: displayLabelOverride,
-      text: formatKrwNumber(line.amountKrw),
     });
   }
 

@@ -35,7 +35,6 @@ export const pricingRuleBaseSchema = z.object({
   dropPlaceType: z.enum(pricingPlaceTypes).nullable().optional(),
   externalTransferMode: z.enum(pricingExternalTransferModes).nullable().optional(),
   externalTransferMinCount: z.number().int().min(1).max(100).nullable().optional(),
-  displayLabelOverride: z.string().min(1).max(191).nullable().optional(),
   chargeScope: z.enum(pricingChargeScopes).nullable().optional(),
   personMode: z.enum(pricingPersonModes).nullable().optional(),
   customDisplayText: z.string().min(1).max(500).nullable().optional(),

@@ -48,7 +48,6 @@ type PricingRuleAdminRecord = {
   dropPlaceType: string | null;
   externalTransferMode: string | null;
   externalTransferMinCount: number | null;
-  displayLabelOverride: string | null;
   chargeScope: string | null;
   personMode: string | null;
   customDisplayText: string | null;
@@ -202,7 +201,6 @@ export class PricingAdminService {
             dropPlaceType: rule.dropPlaceType,
             externalTransferMode: rule.externalTransferMode,
             externalTransferMinCount: rule.externalTransferMinCount,
-            displayLabelOverride: rule.displayLabelOverride,
             chargeScope: rule.chargeScope,
             personMode: rule.personMode,
             customDisplayText: rule.customDisplayText,
@@ -251,7 +249,6 @@ export class PricingAdminService {
         dropPlaceType: parsed.data.dropPlaceType ?? null,
         externalTransferMode: parsed.data.externalTransferMode ?? null,
         externalTransferMinCount: parsed.data.externalTransferMinCount ?? null,
-        displayLabelOverride: parsed.data.displayLabelOverride?.trim() || null,
         chargeScope: parsed.data.chargeScope ?? null,
         personMode: parsed.data.personMode ?? null,
         customDisplayText: parsed.data.customDisplayText?.trim() || null,
@@ -316,9 +313,6 @@ export class PricingAdminService {
           : {}),
         ...(parsed.data.externalTransferMinCount !== undefined
           ? { externalTransferMinCount: parsed.data.externalTransferMinCount ?? null }
-          : {}),
-        ...(parsed.data.displayLabelOverride !== undefined
-          ? { displayLabelOverride: parsed.data.displayLabelOverride?.trim() || null }
           : {}),
         ...(parsed.data.chargeScope !== undefined ? { chargeScope: parsed.data.chargeScope ?? null } : {}),
         ...(parsed.data.personMode !== undefined ? { personMode: parsed.data.personMode ?? null } : {}),

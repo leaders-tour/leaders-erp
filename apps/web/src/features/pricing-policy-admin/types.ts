@@ -38,7 +38,6 @@ export interface PricingRuleRow {
   dropPlaceType?: PlaceType | null;
   externalTransferMode?: PricingExternalTransferMode | null;
   externalTransferMinCount?: number | null;
-  displayLabelOverride?: string | null;
   chargeScope?: PricingChargeScope | null;
   personMode?: PricingPersonMode | null;
   customDisplayText?: string | null;
@@ -87,7 +86,6 @@ export interface RuleFormState {
   dropPlaceType: '' | PlaceType;
   externalTransferMode: '' | PricingExternalTransferMode;
   externalTransferMinCount: string;
-  displayLabelOverride: string;
   chargeScope: '' | PricingChargeScope;
   personMode: '' | PricingPersonMode;
   customDisplayText: string;
