@@ -39,7 +39,7 @@ export function ExternalTransfersManagerModal({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-slate-900">실투어 외 픽업 / 드랍</h2>
-                <p className="mt-1 text-sm text-slate-600">preset 또는 수동입력으로 외부 이동 항목을 팀별로 관리합니다.</p>
+                <p className="mt-1 text-sm text-slate-600">preset 또는 수동입력으로 외부 이동 항목을 팀별로 관리하고, 금액은 가격 규칙에서 계산합니다.</p>
               </div>
               <Button variant="outline" onClick={onClose}>
                 닫기
@@ -85,8 +85,7 @@ export function ExternalTransfersManagerModal({
                               {transfer.direction === 'PICKUP' ? '픽업' : '드랍'} · {transfer.departurePlace} → {transfer.arrivalPlace}
                             </div>
                             <div className="mt-1 text-xs text-slate-500">
-                              {transfer.travelDate} {transfer.departureTime} → {transfer.arrivalTime} · {teamNames || '-'} · 팀당{' '}
-                              {transfer.unitPriceKrw.toLocaleString('ko-KR')}원
+                              {transfer.travelDate} {transfer.departureTime} → {transfer.arrivalTime} · {teamNames || '-'}
                             </div>
                           </div>
                           <div className="flex gap-2">

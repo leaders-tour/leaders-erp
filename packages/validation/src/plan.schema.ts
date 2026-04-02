@@ -164,7 +164,6 @@ export const externalTransferInputSchema = z
     departurePlace: z.string().min(1).max(100),
     arrivalPlace: z.string().min(1).max(100),
     selectedTeamOrderIndexes: z.array(z.number().int().min(0)).min(1),
-    unitPriceKrw: z.number().int().min(0).max(1_000_000_000),
   })
   .superRefine((value, ctx) => {
     const seen = new Set<number>();

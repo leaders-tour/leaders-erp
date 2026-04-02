@@ -48,6 +48,7 @@ type PricingRuleAdminRecord = {
   dropPlaceType: string | null;
   externalTransferMode: string | null;
   externalTransferMinCount: number | null;
+  externalTransferPresetCodes: Prisma.JsonValue;
   chargeScope: string | null;
   personMode: string | null;
   customDisplayText: string | null;
@@ -201,6 +202,7 @@ export class PricingAdminService {
             dropPlaceType: rule.dropPlaceType,
             externalTransferMode: rule.externalTransferMode,
             externalTransferMinCount: rule.externalTransferMinCount,
+            externalTransferPresetCodes: rule.externalTransferPresetCodes as Prisma.InputJsonValue | undefined,
             chargeScope: rule.chargeScope,
             personMode: rule.personMode,
             customDisplayText: rule.customDisplayText,
@@ -249,6 +251,7 @@ export class PricingAdminService {
         dropPlaceType: parsed.data.dropPlaceType ?? null,
         externalTransferMode: parsed.data.externalTransferMode ?? null,
         externalTransferMinCount: parsed.data.externalTransferMinCount ?? null,
+        externalTransferPresetCodes: parsed.data.externalTransferPresetCodes as Prisma.InputJsonValue,
         chargeScope: parsed.data.chargeScope ?? null,
         personMode: parsed.data.personMode ?? null,
         customDisplayText: parsed.data.customDisplayText?.trim() || null,
@@ -313,6 +316,9 @@ export class PricingAdminService {
           : {}),
         ...(parsed.data.externalTransferMinCount !== undefined
           ? { externalTransferMinCount: parsed.data.externalTransferMinCount ?? null }
+          : {}),
+        ...(parsed.data.externalTransferPresetCodes !== undefined
+          ? { externalTransferPresetCodes: parsed.data.externalTransferPresetCodes as Prisma.InputJsonValue }
           : {}),
         ...(parsed.data.chargeScope !== undefined ? { chargeScope: parsed.data.chargeScope ?? null } : {}),
         ...(parsed.data.personMode !== undefined ? { personMode: parsed.data.personMode ?? null } : {}),

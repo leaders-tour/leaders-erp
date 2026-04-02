@@ -1,4 +1,5 @@
 import type {
+  ExternalTransferPresetCodeOption,
   PricingExternalTransferMode,
   PricingQuantitySource,
   PricingRuleType,
@@ -63,3 +64,17 @@ export const EXTERNAL_TRANSFER_MODE_OPTIONS: Array<{ value: PricingExternalTrans
   { value: 'DROP_ONLY', label: '드랍만' },
   { value: 'BOTH', label: '픽업+드랍 모두' },
 ];
+
+export const EXTERNAL_TRANSFER_PRESET_OPTIONS: Array<{ value: ExternalTransferPresetCodeOption; label: string }> = [
+  { value: 'DROP_ULAANBAATAR_AIRPORT', label: '드랍 · 울란바토르 → 공항' },
+  { value: 'DROP_TERELJ_AIRPORT', label: '드랍 · 테를지 → 공항' },
+  { value: 'DROP_OZHOUSE_AIRPORT', label: '드랍 · 오즈하우스 → 공항' },
+  { value: 'PICKUP_AIRPORT_OZHOUSE', label: '픽업 · 공항 → 오즈하우스' },
+  { value: 'PICKUP_AIRPORT_ULAANBAATAR', label: '픽업 · 공항 → 울란바토르' },
+  { value: 'PICKUP_AIRPORT_TERELJ', label: '픽업 · 공항 → 테를지' },
+  { value: 'CUSTOM', label: '수동입력' },
+];
+
+export function getExternalTransferPresetLabel(code: ExternalTransferPresetCodeOption): string {
+  return EXTERNAL_TRANSFER_PRESET_OPTIONS.find((option) => option.value === code)?.label ?? code;
+}

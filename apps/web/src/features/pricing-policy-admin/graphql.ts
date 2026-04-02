@@ -48,6 +48,7 @@ export const PRICING_POLICY_WITH_RULES_QUERY = gql`
         dropPlaceType
         externalTransferMode
         externalTransferMinCount
+        externalTransferPresetCodes
         chargeScope
         personMode
         customDisplayText

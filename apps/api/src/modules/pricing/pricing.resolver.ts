@@ -62,5 +62,9 @@ export const pricingResolver = {
   PricingRule: {
     variantTypes: (parent: { variantTypes?: unknown }) =>
       Array.isArray(parent.variantTypes) ? parent.variantTypes.filter((value): value is string => typeof value === 'string') : [],
+    externalTransferPresetCodes: (parent: { externalTransferPresetCodes?: unknown }) =>
+      Array.isArray(parent.externalTransferPresetCodes)
+        ? parent.externalTransferPresetCodes.filter((value): value is string => typeof value === 'string')
+        : [],
   },
 };

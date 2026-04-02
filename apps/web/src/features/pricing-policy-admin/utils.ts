@@ -46,6 +46,7 @@ export function createEmptyRuleForm(): RuleFormState {
     dropPlaceType: '',
     externalTransferMode: '',
     externalTransferMinCount: '',
+    externalTransferPresetCodes: [],
     chargeScope: '',
     personMode: '',
     customDisplayText: '',
@@ -75,6 +76,7 @@ export function toRuleForm(rule: PricingRuleRow): RuleFormState {
     dropPlaceType: rule.dropPlaceType ?? '',
     externalTransferMode: rule.externalTransferMode ?? '',
     externalTransferMinCount: rule.externalTransferMinCount != null ? String(rule.externalTransferMinCount) : '',
+    externalTransferPresetCodes: rule.externalTransferPresetCodes ?? [],
     chargeScope: rule.chargeScope ?? '',
     personMode: rule.personMode ?? '',
     customDisplayText: rule.customDisplayText ?? '',
@@ -209,6 +211,7 @@ export function buildRuleMutationBody(ruleForm: RuleFormState) {
     dropPlaceType: ruleForm.dropPlaceType || null,
     externalTransferMode: ruleForm.externalTransferMode || null,
     externalTransferMinCount: parseOptionalInt(ruleForm.externalTransferMinCount),
+    externalTransferPresetCodes: ruleForm.externalTransferPresetCodes,
     chargeScope: ruleForm.ruleType === 'PERCENT_UPLIFT' ? null : ruleForm.chargeScope || null,
     personMode:
       ruleForm.ruleType !== 'PERCENT_UPLIFT' && ruleForm.chargeScope === 'PER_PERSON' ? ruleForm.personMode || null : null,

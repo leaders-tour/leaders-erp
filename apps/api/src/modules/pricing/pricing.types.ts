@@ -51,7 +51,6 @@ export interface ExternalTransferPricingInputDto {
   departurePlace: string;
   arrivalPlace: string;
   selectedTeamOrderIndexes: number[];
-  unitPriceKrw: number;
 }
 
 export interface PricingPlanStopDto {

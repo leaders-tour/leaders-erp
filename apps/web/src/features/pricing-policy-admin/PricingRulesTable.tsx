@@ -1,5 +1,5 @@
 import { Button, Table, Td, Th } from '@tour/ui';
-import { getPricingRuleTypeLabelKo } from './constants';
+import { getExternalTransferPresetLabel, getPricingRuleTypeLabelKo } from './constants';
 import type { PricingRuleRow } from './types';
 import { toDateInputValue } from './utils';
 
@@ -63,6 +63,10 @@ export function PricingRulesTable({
                   rule.pickupPlaceType ? `픽업 ${rule.pickupPlaceType}` : null,
                   rule.dropPlaceType ? `드랍 ${rule.dropPlaceType}` : null,
                   rule.externalTransferMode ? `실투외 ${rule.externalTransferMode}` : null,
+                  rule.externalTransferMinCount ? `실투외 ${rule.externalTransferMinCount}건+` : null,
+                  rule.externalTransferPresetCodes.length > 0
+                    ? `프리셋 ${rule.externalTransferPresetCodes.map(getExternalTransferPresetLabel).join(', ')}`
+                    : null,
                 ]
                   .filter(Boolean)
                   .join(' / ') || '-'}

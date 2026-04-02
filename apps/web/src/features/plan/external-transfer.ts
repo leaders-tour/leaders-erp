@@ -20,7 +20,6 @@ export interface ExternalTransfer {
   departurePlace: string;
   arrivalPlace: string;
   selectedTeamOrderIndexes: number[];
-  unitPriceKrw: number;
 }
 
 export interface ExternalTransferTeamLike {
@@ -39,7 +38,6 @@ export interface ExternalTransferPresetOption {
   direction: ExternalTransferDirection;
   departurePlace: string;
   arrivalPlace: string;
-  unitPriceKrw: number;
 }
 
 interface DateTimeParts {
@@ -53,66 +51,59 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 export const EXTERNAL_TRANSFER_PRESET_OPTIONS: ExternalTransferPresetOption[] = [
   {
     code: 'DROP_ULAANBAATAR_AIRPORT',
-    label: '드랍 · 울란바토르 → 공항',
+    label: '울란바토르 → 공항',
     description: 'OUT 기준 출발 -4시간 30분 / 도착 -3시간',
     direction: 'DROP',
     departurePlace: '울란바토르',
     arrivalPlace: '공항',
-    unitPriceKrw: 100000,
   },
   {
     code: 'DROP_TERELJ_AIRPORT',
-    label: '드랍 · 테를지 → 공항',
+    label: '테를지 → 공항',
     description: 'OUT 기준 출발 -4시간 30분 / 도착 -3시간',
     direction: 'DROP',
     departurePlace: '테를지',
     arrivalPlace: '공항',
-    unitPriceKrw: 150000,
   },
   {
     code: 'DROP_OZHOUSE_AIRPORT',
-    label: '드랍 · 오즈하우스 → 공항',
+    label: '오즈하우스 → 공항',
     description: 'OUT 기준 출발 -4시간 30분 / 도착 -3시간',
     direction: 'DROP',
     departurePlace: '오즈하우스',
     arrivalPlace: '공항',
-    unitPriceKrw: 60000,
   },
   {
     code: 'PICKUP_AIRPORT_OZHOUSE',
-    label: '픽업 · 공항 → 오즈하우스',
+    label: '공항 → 오즈하우스',
     description: 'IN +1시간 후 다음 00/30으로 올림(04:30 IN은 04:30 동일), 도착은 +1시간',
     direction: 'PICKUP',
     departurePlace: '공항',
     arrivalPlace: '오즈하우스',
-    unitPriceKrw: 60000,
   },
   {
     code: 'PICKUP_AIRPORT_ULAANBAATAR',
-    label: '픽업 · 공항 → 울란바토르',
+    label: '공항 → 울란바토르',
     description: 'IN +1시간 후 다음 00/30으로 올림(04:30 IN은 04:30 동일), 도착은 +1시간',
     direction: 'PICKUP',
     departurePlace: '공항',
     arrivalPlace: '울란바토르',
-    unitPriceKrw: 100000,
   },
   {
     code: 'PICKUP_AIRPORT_TERELJ',
-    label: '픽업 · 공항 → 테를지',
+    label: '공항 → 테를지',
     description: 'IN +1시간 후 다음 00/30으로 올림(04:30 IN은 04:30 동일), 도착은 +1시간',
     direction: 'PICKUP',
     departurePlace: '공항',
     arrivalPlace: '테를지',
-    unitPriceKrw: 150000,
   },
   {
     code: 'CUSTOM',
     label: '수동입력',
-    description: '방향, 날짜, 시간, 장소, 금액을 직접 입력',
+    description: '방향, 날짜, 시간, 장소를 직접 입력',
     direction: 'PICKUP',
     departurePlace: '',
     arrivalPlace: '',
-    unitPriceKrw: 0,
   },
 ];
 
@@ -213,7 +204,6 @@ export function buildEmptyExternalTransfer(): ExternalTransfer {
     departurePlace: '',
     arrivalPlace: '',
     selectedTeamOrderIndexes: [],
-    unitPriceKrw: 0,
   };
 }
 
@@ -235,7 +225,6 @@ export function buildExternalTransferFromPreset(
     departurePlace: preset.departurePlace,
     arrivalPlace: preset.arrivalPlace,
     selectedTeamOrderIndexes,
-    unitPriceKrw: preset.unitPriceKrw,
   };
 
   if (!team) {
@@ -348,9 +337,7 @@ export function isExternalTransferComplete(transfer: ExternalTransfer): boolean 
     transfer.arrivalTime.trim().length > 0 &&
     transfer.departurePlace.trim().length > 0 &&
     transfer.arrivalPlace.trim().length > 0 &&
-    transfer.selectedTeamOrderIndexes.length > 0 &&
-    Number.isInteger(transfer.unitPriceKrw) &&
-    transfer.unitPriceKrw >= 0
+    transfer.selectedTeamOrderIndexes.length > 0
   );
 }
 
@@ -393,24 +380,3 @@ export function buildExternalTransferDirectionText(
   return lines.length > 0 ? lines.join('\n') : '-';
 }
 
-export function buildDerivedExternalTransferManualAdjustments(
-  transfers: ExternalTransfer[] | null | undefined,
-  teams: ExternalTransferTeamLike[] | null | undefined,
-): Array<{ description: string; amountKrw: number }> {
-  if (!transfers || !teams || transfers.length === 0 || teams.length === 0) {
-    return [];
-  }
-
-  return transfers
-    .filter((transfer) => isExternalTransferComplete(transfer))
-    .map((transfer) => {
-      const teamLabels = transfer.selectedTeamOrderIndexes
-        .map((teamOrderIndex) => teams[teamOrderIndex]?.teamName || `${teamOrderIndex + 1}번 팀`)
-        .join(', ');
-      const routeLabel = `${transfer.departurePlace}→${transfer.arrivalPlace}`;
-      return {
-        description: `실투어 외 ${transfer.direction === 'PICKUP' ? '픽업' : '드랍'}(${routeLabel}) ${teamLabels}`,
-        amountKrw: transfer.unitPriceKrw * transfer.selectedTeamOrderIndexes.length,
-      };
-    });
-}

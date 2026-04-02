@@ -12,6 +12,14 @@ export type VariantTypeOption = 'basic' | 'early' | 'extend' | 'earlyExtend';
 export type PricingTimeBand = 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT';
 export type PricingExternalTransferMode = 'ANY' | 'PICKUP_ONLY' | 'DROP_ONLY' | 'BOTH';
 export type PlaceType = 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM';
+export type ExternalTransferPresetCodeOption =
+  | 'DROP_ULAANBAATAR_AIRPORT'
+  | 'DROP_TERELJ_AIRPORT'
+  | 'DROP_OZHOUSE_AIRPORT'
+  | 'PICKUP_AIRPORT_OZHOUSE'
+  | 'PICKUP_AIRPORT_ULAANBAATAR'
+  | 'PICKUP_AIRPORT_TERELJ'
+  | 'CUSTOM';
 
 export interface PricingRuleRow {
   id: string;
@@ -38,6 +46,7 @@ export interface PricingRuleRow {
   dropPlaceType?: PlaceType | null;
   externalTransferMode?: PricingExternalTransferMode | null;
   externalTransferMinCount?: number | null;
+  externalTransferPresetCodes: ExternalTransferPresetCodeOption[];
   chargeScope?: PricingChargeScope | null;
   personMode?: PricingPersonMode | null;
   customDisplayText?: string | null;
@@ -86,6 +95,7 @@ export interface RuleFormState {
   dropPlaceType: '' | PlaceType;
   externalTransferMode: '' | PricingExternalTransferMode;
   externalTransferMinCount: string;
+  externalTransferPresetCodes: ExternalTransferPresetCodeOption[];
   chargeScope: '' | PricingChargeScope;
   personMode: '' | PricingPersonMode;
   customDisplayText: string;

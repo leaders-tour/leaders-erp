@@ -9,6 +9,27 @@ const pricingRuleTypes = ['BASE', 'PERCENT_UPLIFT', 'CONDITIONAL_ADDON', 'AUTO_E
 const pricingTimeBands = ['DAWN', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT'] as const;
 const pricingExternalTransferModes = ['ANY', 'PICKUP_ONLY', 'DROP_ONLY', 'BOTH'] as const;
 const pricingPlaceTypes = ['AIRPORT', 'OZ_HOUSE', 'ULAANBAATAR', 'CUSTOM'] as const;
+const externalTransferPresetCodes = [
+  'DROP_ULAANBAATAR_AIRPORT',
+  'DROP_TERELJ_AIRPORT',
+  'DROP_OZHOUSE_AIRPORT',
+  'PICKUP_AIRPORT_OZHOUSE',
+  'PICKUP_AIRPORT_ULAANBAATAR',
+  'PICKUP_AIRPORT_TERELJ',
+  'CUSTOM',
+] as const;
+const externalTransferPresetDirections: Record<
+  (typeof externalTransferPresetCodes)[number],
+  'PICKUP' | 'DROP' | 'ANY'
+> = {
+  DROP_ULAANBAATAR_AIRPORT: 'DROP',
+  DROP_TERELJ_AIRPORT: 'DROP',
+  DROP_OZHOUSE_AIRPORT: 'DROP',
+  PICKUP_AIRPORT_OZHOUSE: 'PICKUP',
+  PICKUP_AIRPORT_ULAANBAATAR: 'PICKUP',
+  PICKUP_AIRPORT_TERELJ: 'PICKUP',
+  CUSTOM: 'ANY',
+};
 
 const dateTimeInputSchema = z.preprocess(
   (value) => (value instanceof Date ? value.toISOString() : value),
@@ -35,6 +56,7 @@ export const pricingRuleBaseSchema = z.object({
   dropPlaceType: z.enum(pricingPlaceTypes).nullable().optional(),
   externalTransferMode: z.enum(pricingExternalTransferModes).nullable().optional(),
   externalTransferMinCount: z.number().int().min(1).max(100).nullable().optional(),
+  externalTransferPresetCodes: z.array(z.enum(externalTransferPresetCodes)).default([]),
   chargeScope: z.enum(pricingChargeScopes).nullable().optional(),
   personMode: z.enum(pricingPersonModes).nullable().optional(),
   customDisplayText: z.string().min(1).max(500).nullable().optional(),
@@ -151,11 +173,41 @@ function validateRuleInput(
   }
 
   if (value.externalTransferMinCount != null && value.externalTransferMode == null) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'externalTransferMode is required when externalTransferMinCount is set',
-      path: ['externalTransferMode'],
-    });
+    const presetCodes = value.externalTransferPresetCodes ?? [];
+    if (presetCodes.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'externalTransferMode or externalTransferPresetCodes is required when externalTransferMinCount is set',
+        path: ['externalTransferMode'],
+      });
+    }
+  }
+
+  const presetCodes = value.externalTransferPresetCodes ?? [];
+  if (presetCodes.length > 0 && value.externalTransferMode != null) {
+    const hasPickupPreset = presetCodes.some((code) => externalTransferPresetDirections[code] === 'PICKUP');
+    const hasDropPreset = presetCodes.some((code) => externalTransferPresetDirections[code] === 'DROP');
+    if (value.externalTransferMode === 'PICKUP_ONLY' && hasDropPreset) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'DROP preset codes cannot be combined with PICKUP_ONLY',
+        path: ['externalTransferPresetCodes'],
+      });
+    }
+    if (value.externalTransferMode === 'DROP_ONLY' && hasPickupPreset) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'PICKUP preset codes cannot be combined with DROP_ONLY',
+        path: ['externalTransferPresetCodes'],
+      });
+    }
+    if (value.externalTransferMode === 'BOTH' && !presetCodes.includes('CUSTOM') && (!hasPickupPreset || !hasDropPreset)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'BOTH mode preset filters must include both PICKUP and DROP presets',
+        path: ['externalTransferPresetCodes'],
+      });
+    }
   }
 }
 

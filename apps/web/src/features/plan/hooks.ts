@@ -120,14 +120,20 @@ export interface PlanVersionMetaRow {
   externalPickupDropNote: string | null;
   externalTransfers: Array<{
     direction: 'PICKUP' | 'DROP';
-    presetCode: 'DROP_ULAANBAATAR_AIRPORT' | 'DROP_TERELJ_AIRPORT' | 'PICKUP_AIRPORT_OZHOUSE' | 'CUSTOM';
+    presetCode:
+      | 'DROP_ULAANBAATAR_AIRPORT'
+      | 'DROP_TERELJ_AIRPORT'
+      | 'DROP_OZHOUSE_AIRPORT'
+      | 'PICKUP_AIRPORT_OZHOUSE'
+      | 'PICKUP_AIRPORT_ULAANBAATAR'
+      | 'PICKUP_AIRPORT_TERELJ'
+      | 'CUSTOM';
     travelDate: string;
     departureTime: string;
     arrivalTime: string;
     departurePlace: string;
     arrivalPlace: string;
     selectedTeamOrderIndexes: number[];
-    unitPriceKrw: number;
   }>;
   specialNote: string | null;
   includeRentalItems: boolean;
@@ -541,7 +547,6 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
           departurePlace
           arrivalPlace
           selectedTeamOrderIndexes
-          unitPriceKrw
         }
         specialNote
         includeRentalItems

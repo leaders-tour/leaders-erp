@@ -2,6 +2,7 @@ import { Button, Input } from '@tour/ui';
 import type { Dispatch, SetStateAction } from 'react';
 import {
   EXTERNAL_TRANSFER_MODE_OPTIONS,
+  EXTERNAL_TRANSFER_PRESET_OPTIONS,
   PLACE_TYPE_OPTIONS,
   QUANTITY_SOURCE_OPTIONS,
   RULE_TYPE_OPTIONS,
@@ -258,7 +259,7 @@ export function PricingRuleFormFields({
         <div className="grid gap-4 rounded-2xl border border-slate-200 p-4">
           <div>
             <div className="text-sm font-semibold text-slate-800">실투어외 픽드랍</div>
-            <p className="mt-1 text-xs text-slate-500">외부 픽업/드랍 발생 조건과 최소 건수를 따로 설정합니다.</p>
+            <p className="mt-1 text-xs text-slate-500">방향, 최소 건수, 프리셋 코드로 외부 이동 규칙 범위를 좁힙니다.</p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="grid gap-1 text-sm">
@@ -287,6 +288,31 @@ export function PricingRuleFormFields({
                 onChange={(event) => setRuleForm((prev) => ({ ...prev, externalTransferMinCount: event.target.value }))}
               />
             </label>
+          </div>
+          <div className="grid gap-2">
+            <span className="text-xs font-medium text-slate-600">외부 이동 프리셋</span>
+            <div className="flex flex-wrap gap-2">
+              {EXTERNAL_TRANSFER_PRESET_OPTIONS.map((option) => {
+                const active = ruleForm.externalTransferPresetCodes.includes(option.value);
+                return (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant={active ? 'default' : 'outline'}
+                    onClick={() =>
+                      setRuleForm((prev) => ({
+                        ...prev,
+                        externalTransferPresetCodes: active
+                          ? prev.externalTransferPresetCodes.filter((item) => item !== option.value)
+                          : [...prev.externalTransferPresetCodes, option.value],
+                      }))
+                    }
+                  >
+                    {option.label}
+                  </Button>
+                );
+              })}
+            </div>
           </div>
         </div>
 

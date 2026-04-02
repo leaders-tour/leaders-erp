@@ -83,14 +83,12 @@ export function ExternalTransferModal({
   onSubmit,
 }: ExternalTransferModalProps): JSX.Element | null {
   const [draft, setDraft] = useState<ExternalTransfer | null>(null);
-  const [unitPriceText, setUnitPriceText] = useState<string>('0');
   const [datePickerTarget, setDatePickerTarget] = useState<DatePickerTarget | null>(null);
   const [timePickerTarget, setTimePickerTarget] = useState<TimePickerTarget | null>(null);
 
   useEffect(() => {
     if (!open) {
       setDraft(null);
-      setUnitPriceText('0');
       setDatePickerTarget(null);
       setTimePickerTarget(null);
       return;
@@ -98,7 +96,6 @@ export function ExternalTransferModal({
 
     const initialDraft = toInitialDraft(initialValue, transportGroups);
     setDraft(initialDraft);
-    setUnitPriceText(initialDraft ? String(initialDraft.unitPriceKrw) : '0');
   }, [initialValue, open, transportGroups]);
 
   useEffect(() => {
@@ -117,31 +114,49 @@ export function ExternalTransferModal({
   }, [onClose, open]);
 
   const activePresetCode = draft?.presetCode ?? null;
-  const hasValidUnitPrice = Number.isInteger(Number(unitPriceText)) && Number(unitPriceText) >= 0;
-  const isFormValid = Boolean(
-    draft &&
-      isExternalTransferComplete({
-        ...draft,
-        unitPriceKrw: hasValidUnitPrice ? Number(unitPriceText) : Number.NaN,
-      }),
-  );
+  const isFormValid = Boolean(draft && isExternalTransferComplete(draft));
   const timePickerValue = timePickerTarget && draft ? draft[timePickerTarget.field] : '';
   const timePickerAllowedMinutes = draft?.presetCode === 'CUSTOM' ? undefined : [0, 30];
   const title = initialValue ? '외부 이동 수정' : '외부 이동 추가';
   const selectedTeamCount = draft?.selectedTeamOrderIndexes.length ?? 0;
+  const presetSections = [
+    {
+      title: '드랍',
+      options: EXTERNAL_TRANSFER_PRESET_OPTIONS.filter((option) => option.code !== 'CUSTOM' && option.direction === 'DROP'),
+    },
+    {
+      title: '픽업',
+      options: EXTERNAL_TRANSFER_PRESET_OPTIONS.filter((option) => option.code !== 'CUSTOM' && option.direction === 'PICKUP'),
+    },
+    {
+      title: '수동입력',
+      options: EXTERNAL_TRANSFER_PRESET_OPTIONS.filter((option) => option.code === 'CUSTOM'),
+    },
+  ] as const;
   const summaryText = useMemo(() => {
     if (!draft) {
       return 'preset 또는 수동입력을 먼저 선택하세요.';
     }
 
-    return `${draft.direction === 'PICKUP' ? '픽업' : '드랍'} · ${selectedTeamCount}팀 · 팀당 ${
-      hasValidUnitPrice ? Number(unitPriceText).toLocaleString('ko-KR') : '-'
-    }원`;
-  }, [draft, hasValidUnitPrice, selectedTeamCount, unitPriceText]);
+    return `${draft.direction === 'PICKUP' ? '픽업' : '드랍'} · ${selectedTeamCount}팀`;
+  }, [draft, selectedTeamCount]);
 
   if (!open) {
     return null;
   }
+
+  const handlePresetSelect = (presetCode: (typeof EXTERNAL_TRANSFER_PRESET_OPTIONS)[number]['code']): void => {
+    const defaultTeamOrderIndex = draft?.selectedTeamOrderIndexes[0] ?? (transportGroups[0] ? 0 : null);
+    const nextDraft =
+      presetCode === 'CUSTOM'
+        ? {
+            ...buildEmptyExternalTransfer(),
+            direction: draft?.direction ?? 'PICKUP',
+            presetCode: 'CUSTOM' as const,
+          }
+        : buildExternalTransferFromPreset(presetCode, defaultTeamOrderIndex, transportGroups);
+    setDraft(nextDraft);
+  };
 
   return (
     <>
@@ -152,44 +167,41 @@ export function ExternalTransferModal({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
-                <p className="mt-1 text-sm text-slate-600">preset을 고르면 팀 기준으로 날짜와 시간이 미리 채워집니다.</p>
+                <p className="mt-1 text-sm text-slate-600">preset을 고르면 팀 기준으로 날짜와 시간이 미리 채워지며, 금액은 가격 규칙에서 계산됩니다.</p>
               </div>
               <Button variant="outline" onClick={onClose}>
                 닫기
               </Button>
             </div>
 
-            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {EXTERNAL_TRANSFER_PRESET_OPTIONS.map((option) => {
-                const isSelected = activePresetCode === option.code;
-                return (
-                  <button
-                    key={option.code}
-                    type="button"
-                    onClick={() => {
-                      const defaultTeamOrderIndex = draft?.selectedTeamOrderIndexes[0] ?? (transportGroups[0] ? 0 : null);
-                      const nextDraft =
-                        option.code === 'CUSTOM'
-                          ? {
-                              ...buildEmptyExternalTransfer(),
-                              direction: draft?.direction ?? 'PICKUP',
-                              presetCode: 'CUSTOM' as const,
-                            }
-                          : buildExternalTransferFromPreset(option.code, defaultTeamOrderIndex, transportGroups);
-                      setDraft(nextDraft);
-                      setUnitPriceText(String(nextDraft.unitPriceKrw));
-                    }}
-                    className={`rounded-3xl border px-4 py-4 text-left transition ${
-                      isSelected
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-slate-50 text-slate-900 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="text-sm font-semibold">{option.label}</div>
-                    <div className={`mt-2 text-xs ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>{option.description}</div>
-                  </button>
-                );
-              })}
+            <div className="mt-5 grid gap-4">
+              {presetSections.map((section) => (
+                <div key={section.title} className="grid gap-2">
+                  <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{section.title}</div>
+                  <div className="grid gap-3">
+                    {section.options.map((option) => {
+                      const isSelected = activePresetCode === option.code;
+                      return (
+                        <button
+                          key={option.code}
+                          type="button"
+                          onClick={() => handlePresetSelect(option.code)}
+                          className={`rounded-3xl border px-4 py-4 text-left transition ${
+                            isSelected
+                              ? 'border-slate-900 bg-slate-900 text-white'
+                              : 'border-slate-200 bg-slate-50 text-slate-900 hover:bg-slate-100'
+                          }`}
+                        >
+                          <div className="text-sm font-semibold">{option.label}</div>
+                          <div className={`mt-2 text-xs ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>
+                            {option.description}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
 
             {!draft ? (
@@ -259,7 +271,6 @@ export function ExternalTransferModal({
                                       transportGroups,
                                     );
                                     setDraft(nextDraft);
-                                    setUnitPriceText(String(nextDraft.unitPriceKrw));
                                   }}
                                 />
                               </label>
@@ -269,17 +280,6 @@ export function ExternalTransferModal({
                       </div>
                     </div>
 
-                    <label className="grid gap-1 text-sm">
-                      <span className="text-xs font-medium text-slate-600">팀당 금액</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step={1000}
-                        value={unitPriceText}
-                        onChange={(event) => setUnitPriceText(event.target.value)}
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                      />
-                    </label>
                   </div>
 
                   <div className="grid gap-4">
@@ -349,14 +349,10 @@ export function ExternalTransferModal({
                     variant="primary"
                     disabled={!isFormValid}
                     onClick={() => {
-                      if (!draft || !hasValidUnitPrice) {
+                      if (!draft) {
                         return;
                       }
-
-                      onSubmit({
-                        ...draft,
-                        unitPriceKrw: Number(unitPriceText),
-                      });
+                      onSubmit(draft);
                     }}
                   >
                     완료

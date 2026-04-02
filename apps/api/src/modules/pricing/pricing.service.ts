@@ -64,6 +64,7 @@ type PricingRuleRecord = {
   dropPlaceType: string | null;
   externalTransferMode: 'ANY' | 'PICKUP_ONLY' | 'DROP_ONLY' | 'BOTH' | null;
   externalTransferMinCount: number | null;
+  externalTransferPresetCodes: Prisma.JsonValue;
   chargeScope: 'TEAM' | 'PER_PERSON' | null;
   personMode: 'SINGLE' | 'PER_DAY' | 'PER_NIGHT' | null;
   customDisplayText: string | null;
@@ -166,7 +167,7 @@ export class PricingService {
     const rules = (await prisma.pricingRule.findMany({
       where: { policyId: policy.id, isEnabled: true },
       orderBy: { sortOrder: 'asc' },
-    })) as PricingRuleRecord[];
+    })) as unknown as PricingRuleRecord[];
 
     const extraLodgingCount = input.extraLodgings.reduce((sum, item) => sum + item.lodgingCount, 0);
 
@@ -552,12 +553,16 @@ export class PricingService {
   }
 
   private buildRuleMeta(rule: PricingRuleRecord, extra: Record<string, unknown> = {}): Record<string, unknown> {
+    const externalTransferPresetCodes = this.getExternalTransferPresetCodes(rule);
     return {
       ruleType: this.getEffectiveRuleType(rule),
       title: rule.title,
       ...(rule.chargeScope ? { chargeScope: rule.chargeScope } : {}),
       ...(rule.personMode ? { personMode: rule.personMode } : {}),
       ...(rule.customDisplayText ? { customDisplayText: rule.customDisplayText } : {}),
+      ...(rule.externalTransferMode ? { externalTransferMode: rule.externalTransferMode } : {}),
+      ...(rule.externalTransferMinCount != null ? { externalTransferMinCount: rule.externalTransferMinCount } : {}),
+      ...(externalTransferPresetCodes.length > 0 ? { externalTransferPresetCodes } : {}),
       ...extra,
     };
   }
@@ -618,7 +623,7 @@ export class PricingService {
 
   private buildConditionalAddonLine(rule: PricingRuleRecord, context: ComputeContext): PricingComputedLineDraft | null {
     const unitPrice = this.ensureAmount(rule);
-    const quantity = this.resolveQuantity(rule.quantitySource, context);
+    const quantity = this.resolveConditionalAddonQuantity(rule, context);
     if (quantity <= 0) {
       return null;
     }
@@ -835,12 +840,22 @@ export class PricingService {
   }
 
   private matchesExternalTransferCondition(rule: PricingRuleRecord, context: ComputeContext): boolean {
+    const matchedTransfers = this.getMatchedExternalTransfers(rule, context);
     if (rule.externalTransferMode === null) {
+      if (this.getExternalTransferPresetCodes(rule).length === 0 && rule.externalTransferMinCount === null) {
+        return true;
+      }
+      if (matchedTransfers.length === 0) {
+        return false;
+      }
+      if (rule.externalTransferMinCount !== null && matchedTransfers.length < rule.externalTransferMinCount) {
+        return false;
+      }
       return true;
     }
 
-    const pickupCount = context.externalTransfers.filter((item) => item.direction === 'PICKUP').length;
-    const dropCount = context.externalTransfers.filter((item) => item.direction === 'DROP').length;
+    const pickupCount = matchedTransfers.filter((item) => item.direction === 'PICKUP').length;
+    const dropCount = matchedTransfers.filter((item) => item.direction === 'DROP').length;
     const matchedCount =
       rule.externalTransferMode === 'PICKUP_ONLY'
         ? pickupCount
@@ -863,6 +878,56 @@ export class PricingService {
       return false;
     }
     return true;
+  }
+
+  private resolveConditionalAddonQuantity(rule: PricingRuleRecord, context: ComputeContext): number {
+    if (!this.hasExternalTransferFilter(rule)) {
+      return this.resolveQuantity(rule.quantitySource, context);
+    }
+    return this.countMatchedExternalTransferTeams(rule, context);
+  }
+
+  private hasExternalTransferFilter(rule: PricingRuleRecord): boolean {
+    return (
+      rule.externalTransferMode !== null ||
+      rule.externalTransferMinCount !== null ||
+      this.getExternalTransferPresetCodes(rule).length > 0
+    );
+  }
+
+  private getExternalTransferPresetCodes(rule: Pick<PricingRuleRecord, 'externalTransferPresetCodes'>): string[] {
+    if (!Array.isArray(rule.externalTransferPresetCodes)) {
+      return [];
+    }
+    return rule.externalTransferPresetCodes.filter((value): value is string => typeof value === 'string');
+  }
+
+  private getMatchedExternalTransfers(rule: PricingRuleRecord, context: ComputeContext): PricingComputeInput['externalTransfers'] {
+    const presetCodes = this.getExternalTransferPresetCodes(rule);
+    const transfersByPreset =
+      presetCodes.length > 0
+        ? context.externalTransfers.filter((item) => presetCodes.includes(item.presetCode))
+        : context.externalTransfers;
+
+    switch (rule.externalTransferMode) {
+      case 'PICKUP_ONLY':
+        return transfersByPreset.filter((item) => item.direction === 'PICKUP');
+      case 'DROP_ONLY':
+        return transfersByPreset.filter((item) => item.direction === 'DROP');
+      case 'BOTH':
+      case 'ANY':
+      case null:
+        return transfersByPreset;
+      default:
+        return transfersByPreset;
+    }
+  }
+
+  private countMatchedExternalTransferTeams(rule: PricingRuleRecord, context: ComputeContext): number {
+    return this.getMatchedExternalTransfers(rule, context).reduce(
+      (count, transfer) => count + transfer.selectedTeamOrderIndexes.length,
+      0,
+    );
   }
 
   private matchesTimeBand(time: string | null | undefined, band: PricingRuleRecord['flightInTimeBand']): boolean {

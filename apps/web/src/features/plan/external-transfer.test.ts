@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildDerivedExternalTransferManualAdjustments,
   buildExternalTransferDirectionText,
   buildExternalTransferFromPreset,
   type ExternalTransfer,
@@ -32,7 +31,6 @@ describe('external-transfer preset rules', () => {
       arrivalTime: '23:05',
       departurePlace: '울란바토르',
       arrivalPlace: '공항',
-      unitPriceKrw: 100000,
     });
   });
 
@@ -44,7 +42,6 @@ describe('external-transfer preset rules', () => {
       arrivalTime: '23:05',
       departurePlace: '오즈하우스',
       arrivalPlace: '공항',
-      unitPriceKrw: 60000,
     });
   });
 
@@ -56,7 +53,6 @@ describe('external-transfer preset rules', () => {
       arrivalTime: '02:00',
       departurePlace: '공항',
       arrivalPlace: '오즈하우스',
-      unitPriceKrw: 60000,
     });
   });
 
@@ -68,7 +64,6 @@ describe('external-transfer preset rules', () => {
       arrivalTime: '02:00',
       departurePlace: '공항',
       arrivalPlace: '울란바토르',
-      unitPriceKrw: 100000,
     });
   });
 
@@ -80,7 +75,6 @@ describe('external-transfer preset rules', () => {
       arrivalTime: '12:30',
       departurePlace: '공항',
       arrivalPlace: '테를지',
-      unitPriceKrw: 150000,
     });
   });
 
@@ -123,7 +117,6 @@ describe('external-transfer formatting', () => {
       departurePlace: '테를지',
       arrivalPlace: '공항',
       selectedTeamOrderIndexes: [0, 1],
-      unitPriceKrw: 150000,
     },
   ];
 
@@ -131,14 +124,5 @@ describe('external-transfer formatting', () => {
     expect(buildExternalTransferDirectionText(transfers, teams, 'DROP')).toBe(
       'A팀 05/03 13:45 테를지 > 15:15 공항\nB팀 05/03 13:45 테를지 > 15:15 공항',
     );
-  });
-
-  it('derives manual adjustment totals from selected team count', () => {
-    expect(buildDerivedExternalTransferManualAdjustments(transfers, teams)).toEqual([
-      {
-        description: '실투어 외 드랍(테를지→공항) A팀, B팀',
-        amountKrw: 300000,
-      },
-    ]);
   });
 });
