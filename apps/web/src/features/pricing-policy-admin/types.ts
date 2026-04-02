@@ -8,7 +8,7 @@ export type PricingQuantitySource =
   | 'SUM_EXTRA_LODGING_COUNTS';
 export type PricingChargeScope = 'TEAM' | 'PER_PERSON';
 export type PricingPersonMode = 'SINGLE' | 'PER_DAY' | 'PER_NIGHT';
-export type VariantTypeOption = 'Basic' | 'Early' | 'Extend' | 'EarlyExtend';
+export type VariantTypeOption = 'basic' | 'early' | 'extend' | 'earlyExtend';
 export type PricingTimeBand = 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT';
 export type PricingExternalTransferMode = 'ANY' | 'PICKUP_ONLY' | 'DROP_ONLY' | 'BOTH';
 export type PlaceType = 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM';

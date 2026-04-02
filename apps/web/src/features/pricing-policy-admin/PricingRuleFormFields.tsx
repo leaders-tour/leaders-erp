@@ -282,20 +282,22 @@ export function PricingRuleFormFields({
           <div className="text-sm font-semibold text-slate-800">적용 Variant</div>
           <div className="flex flex-wrap gap-2">
             {VARIANT_OPTIONS.map((variant) => {
-              const active = ruleForm.variantTypes.includes(variant);
+              const active = ruleForm.variantTypes.includes(variant.value);
               return (
                 <Button
-                  key={variant}
+                  key={variant.value}
                   type="button"
                   variant={active ? 'default' : 'outline'}
                   onClick={() =>
                     setRuleForm((prev) => ({
                       ...prev,
-                      variantTypes: active ? prev.variantTypes.filter((item) => item !== variant) : [...prev.variantTypes, variant],
+                      variantTypes: active
+                        ? prev.variantTypes.filter((item) => item !== variant.value)
+                        : [...prev.variantTypes, variant.value],
                     }))
                   }
                 >
-                  {variant}
+                  {variant.label}
                 </Button>
               );
             })}

@@ -67,7 +67,15 @@ export function PricingRulesTable({
                   .filter(Boolean)
                   .join(' / ') || '-'}
               </Td>
-              <Td>{rule.isEnabled ? '활성' : '비활성'}</Td>
+              <Td>
+                <span
+                  className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    rule.isEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                  }`}
+                >
+                  {rule.isEnabled ? '활성' : '비활성'}
+                </span>
+              </Td>
               <Td>
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => onEdit(rule)}>

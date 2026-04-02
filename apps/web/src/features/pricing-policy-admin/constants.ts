@@ -35,7 +35,12 @@ export const QUANTITY_SOURCE_OPTIONS: Array<{ value: PricingQuantitySource; labe
   { value: 'SUM_EXTRA_LODGING_COUNTS', label: '추가 숙박 수' },
 ];
 
-export const VARIANT_OPTIONS: VariantTypeOption[] = ['Basic', 'Early', 'Extend', 'EarlyExtend'];
+export const VARIANT_OPTIONS: Array<{ value: VariantTypeOption; label: string }> = [
+  { value: 'basic', label: 'Basic' },
+  { value: 'early', label: 'Early' },
+  { value: 'extend', label: 'Extend' },
+  { value: 'earlyExtend', label: 'EarlyExtend' },
+];
 
 export const TIME_BAND_OPTIONS: Array<{ value: PricingTimeBand; label: string }> = [
   { value: 'DAWN', label: '새벽(00~04:59)' },
