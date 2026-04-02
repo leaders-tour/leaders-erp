@@ -26,206 +26,271 @@ export function PricingRuleFormFields({
 }): JSX.Element {
   return (
     <>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <label className="grid gap-1 text-sm">
-          <span>규칙 분류</span>
-          <select
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            value={ruleForm.ruleType}
-            onChange={(event) => setRuleForm((prev) => ({ ...prev, ruleType: event.target.value as PricingRuleType }))}
-          >
-            {RULE_TYPE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm md:col-span-2">
-          <span>제목</span>
-          <Input
-            value={ruleForm.title}
-            onChange={(event) => setRuleForm((prev) => ({ ...prev, title: event.target.value }))}
-            placeholder="예: 하이에이스 추가금"
-          />
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>수량 기준</span>
-          <select
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            value={ruleForm.quantitySource}
-            onChange={(event) =>
-              setRuleForm((prev) => ({ ...prev, quantitySource: event.target.value as PricingQuantitySource }))
-            }
-          >
-            {QUANTITY_SOURCE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        {ruleForm.ruleType === 'PERCENT_UPLIFT' ? (
-          <label className="grid gap-1 text-sm">
-            <span>퍼센트</span>
-            <Input
-              type="number"
-              value={ruleForm.percentText}
-              onChange={(event) => setRuleForm((prev) => ({ ...prev, percentText: event.target.value }))}
-              placeholder="예: 5"
-            />
-          </label>
-        ) : (
-          <label className="grid gap-1 text-sm">
-            <span>금액</span>
-            <Input
-              type="number"
-              value={ruleForm.amountKrw}
-              onChange={(event) => setRuleForm((prev) => ({ ...prev, amountKrw: event.target.value }))}
-              placeholder="음수면 할인"
-            />
-          </label>
-        )}
-        <label className="grid gap-1 text-sm">
-          <span>인원 최소</span>
-          <Input
-            type="number"
-            min={0}
-            value={ruleForm.headcountMin}
-            onChange={(event) => setRuleForm((prev) => ({ ...prev, headcountMin: event.target.value }))}
-          />
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>인원 최대</span>
-          <Input
-            type="number"
-            min={0}
-            value={ruleForm.headcountMax}
-            onChange={(event) => setRuleForm((prev) => ({ ...prev, headcountMax: event.target.value }))}
-          />
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>일수 최소</span>
-          <Input type="number" min={1} value={ruleForm.dayMin} onChange={(event) => setRuleForm((prev) => ({ ...prev, dayMin: event.target.value }))} />
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>일수 최대</span>
-          <Input type="number" min={1} value={ruleForm.dayMax} onChange={(event) => setRuleForm((prev) => ({ ...prev, dayMax: event.target.value }))} />
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>여행 시작일 조건 From</span>
-          <Input
-            type="date"
-            value={ruleForm.travelDateFrom}
-            onChange={(event) => setRuleForm((prev) => ({ ...prev, travelDateFrom: event.target.value }))}
-          />
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>여행 시작일 조건 To</span>
-          <Input
-            type="date"
-            value={ruleForm.travelDateTo}
-            onChange={(event) => setRuleForm((prev) => ({ ...prev, travelDateTo: event.target.value }))}
-          />
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>차량 조건</span>
-          <Input
-            value={ruleForm.vehicleType}
-            onChange={(event) => setRuleForm((prev) => ({ ...prev, vehicleType: event.target.value }))}
-            placeholder="예: 하이에이스 / 푸르공"
-          />
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>항공 IN 시간대</span>
-          <select
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            value={ruleForm.flightInTimeBand}
-            onChange={(event) => setRuleForm((prev) => ({ ...prev, flightInTimeBand: event.target.value as '' | PricingTimeBand }))}
-          >
-            <option value="">없음</option>
-            {TIME_BAND_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>항공 OUT 시간대</span>
-          <select
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            value={ruleForm.flightOutTimeBand}
-            onChange={(event) => setRuleForm((prev) => ({ ...prev, flightOutTimeBand: event.target.value as '' | PricingTimeBand }))}
-          >
-            <option value="">없음</option>
-            {TIME_BAND_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>픽업 장소 조건</span>
-          <select
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            value={ruleForm.pickupPlaceType}
-            onChange={(event) => setRuleForm((prev) => ({ ...prev, pickupPlaceType: event.target.value as '' | PlaceType }))}
-          >
-            <option value="">없음</option>
-            {PLACE_TYPE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>드랍 장소 조건</span>
-          <select
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            value={ruleForm.dropPlaceType}
-            onChange={(event) => setRuleForm((prev) => ({ ...prev, dropPlaceType: event.target.value as '' | PlaceType }))}
-          >
-            <option value="">없음</option>
-            {PLACE_TYPE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>실투어외 픽드랍 조건</span>
-          <select
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-            value={ruleForm.externalTransferMode}
-            onChange={(event) =>
-              setRuleForm((prev) => ({ ...prev, externalTransferMode: event.target.value as '' | PricingExternalTransferMode }))
-            }
-          >
-            <option value="">없음</option>
-            {EXTERNAL_TRANSFER_MODE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span>실투어외 픽드랍 최소 건수</span>
-          <Input
-            type="number"
-            min={1}
-            value={ruleForm.externalTransferMinCount}
-            onChange={(event) => setRuleForm((prev) => ({ ...prev, externalTransferMinCount: event.target.value }))}
-          />
-        </label>
-      </div>
+      <div className="grid gap-4">
+        <div className="grid gap-4 rounded-2xl border border-slate-200 p-4">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">기본 정보</div>
+            <p className="mt-1 text-xs text-slate-500">규칙의 성격과 기본 계산 방식을 정합니다.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-1 text-sm">
+              <span>규칙 분류</span>
+              <select
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={ruleForm.ruleType}
+                onChange={(event) => setRuleForm((prev) => ({ ...prev, ruleType: event.target.value as PricingRuleType }))}
+              >
+                {RULE_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span>수량 기준</span>
+              <select
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={ruleForm.quantitySource}
+                onChange={(event) =>
+                  setRuleForm((prev) => ({ ...prev, quantitySource: event.target.value as PricingQuantitySource }))
+                }
+              >
+                {QUANTITY_SOURCE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm md:col-span-2">
+              <span>제목</span>
+              <Input
+                value={ruleForm.title}
+                onChange={(event) => setRuleForm((prev) => ({ ...prev, title: event.target.value }))}
+                placeholder="예: 하이에이스 추가금"
+              />
+            </label>
+            {ruleForm.ruleType === 'PERCENT_UPLIFT' ? (
+              <label className="grid gap-1 text-sm">
+                <span>퍼센트</span>
+                <Input
+                  type="number"
+                  value={ruleForm.percentText}
+                  onChange={(event) => setRuleForm((prev) => ({ ...prev, percentText: event.target.value }))}
+                  placeholder="예: 5"
+                />
+              </label>
+            ) : (
+              <label className="grid gap-1 text-sm">
+                <span>금액</span>
+                <Input
+                  type="number"
+                  value={ruleForm.amountKrw}
+                  onChange={(event) => setRuleForm((prev) => ({ ...prev, amountKrw: event.target.value }))}
+                  placeholder="음수면 할인"
+                />
+              </label>
+            )}
+            <label className="grid gap-1 text-sm">
+              <span>차량 조건</span>
+              <Input
+                value={ruleForm.vehicleType}
+                onChange={(event) => setRuleForm((prev) => ({ ...prev, vehicleType: event.target.value }))}
+                placeholder="예: 하이에이스 / 푸르공"
+              />
+            </label>
+          </div>
+        </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <div className="grid gap-2 rounded-2xl border border-slate-200 p-4">
+        <div className="grid gap-4 rounded-2xl border border-slate-200 p-4">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">대상 범위</div>
+            <p className="mt-1 text-xs text-slate-500">인원수와 여행 일수에 따른 적용 범위를 설정합니다.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <label className="grid gap-1 text-sm">
+              <span>인원 최소</span>
+              <Input
+                type="number"
+                min={0}
+                value={ruleForm.headcountMin}
+                onChange={(event) => setRuleForm((prev) => ({ ...prev, headcountMin: event.target.value }))}
+              />
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span>인원 최대</span>
+              <Input
+                type="number"
+                min={0}
+                value={ruleForm.headcountMax}
+                onChange={(event) => setRuleForm((prev) => ({ ...prev, headcountMax: event.target.value }))}
+              />
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span>일수 최소</span>
+              <Input
+                type="number"
+                min={1}
+                value={ruleForm.dayMin}
+                onChange={(event) => setRuleForm((prev) => ({ ...prev, dayMin: event.target.value }))}
+              />
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span>일수 최대</span>
+              <Input
+                type="number"
+                min={1}
+                value={ruleForm.dayMax}
+                onChange={(event) => setRuleForm((prev) => ({ ...prev, dayMax: event.target.value }))}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="grid gap-4 rounded-2xl border border-slate-200 p-4">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">여행 시작</div>
+            <p className="mt-1 text-xs text-slate-500">출발 날짜 구간에 따라 규칙 적용 여부를 제한합니다.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-1 text-sm">
+              <span>여행 시작일 조건 From</span>
+              <Input
+                type="date"
+                value={ruleForm.travelDateFrom}
+                onChange={(event) => setRuleForm((prev) => ({ ...prev, travelDateFrom: event.target.value }))}
+              />
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span>여행 시작일 조건 To</span>
+              <Input
+                type="date"
+                value={ruleForm.travelDateTo}
+                onChange={(event) => setRuleForm((prev) => ({ ...prev, travelDateTo: event.target.value }))}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="grid gap-4 rounded-2xl border border-slate-200 p-4">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">항공</div>
+            <p className="mt-1 text-xs text-slate-500">입국/출국 시간대 조건으로 규칙을 한정합니다.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-1 text-sm">
+              <span>항공 IN 시간대</span>
+              <select
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={ruleForm.flightInTimeBand}
+                onChange={(event) =>
+                  setRuleForm((prev) => ({ ...prev, flightInTimeBand: event.target.value as '' | PricingTimeBand }))
+                }
+              >
+                <option value="">없음</option>
+                {TIME_BAND_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span>항공 OUT 시간대</span>
+              <select
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={ruleForm.flightOutTimeBand}
+                onChange={(event) =>
+                  setRuleForm((prev) => ({ ...prev, flightOutTimeBand: event.target.value as '' | PricingTimeBand }))
+                }
+              >
+                <option value="">없음</option>
+                {TIME_BAND_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="grid gap-4 rounded-2xl border border-slate-200 p-4">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">픽업/드랍</div>
+            <p className="mt-1 text-xs text-slate-500">장소 조건이 필요한 경우에만 선택합니다.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-1 text-sm">
+              <span>픽업 장소 조건</span>
+              <select
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={ruleForm.pickupPlaceType}
+                onChange={(event) => setRuleForm((prev) => ({ ...prev, pickupPlaceType: event.target.value as '' | PlaceType }))}
+              >
+                <option value="">없음</option>
+                {PLACE_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span>드랍 장소 조건</span>
+              <select
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={ruleForm.dropPlaceType}
+                onChange={(event) => setRuleForm((prev) => ({ ...prev, dropPlaceType: event.target.value as '' | PlaceType }))}
+              >
+                <option value="">없음</option>
+                {PLACE_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="grid gap-4 rounded-2xl border border-slate-200 p-4">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">실투어외 픽드랍</div>
+            <p className="mt-1 text-xs text-slate-500">외부 픽업/드랍 발생 조건과 최소 건수를 따로 설정합니다.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-1 text-sm">
+              <span>실투어외 픽드랍 조건</span>
+              <select
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={ruleForm.externalTransferMode}
+                onChange={(event) =>
+                  setRuleForm((prev) => ({ ...prev, externalTransferMode: event.target.value as '' | PricingExternalTransferMode }))
+                }
+              >
+                <option value="">없음</option>
+                {EXTERNAL_TRANSFER_MODE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span>실투어외 픽드랍 최소 건수</span>
+              <Input
+                type="number"
+                min={1}
+                value={ruleForm.externalTransferMinCount}
+                onChange={(event) => setRuleForm((prev) => ({ ...prev, externalTransferMinCount: event.target.value }))}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="grid gap-4 rounded-2xl border border-slate-200 p-4">
           <div className="text-sm font-semibold text-slate-800">표시 기준</div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -278,7 +343,7 @@ export function PricingRuleFormFields({
           </label>
         </div>
 
-        <div className="grid gap-2 rounded-2xl border border-slate-200 p-4">
+        <div className="grid gap-4 rounded-2xl border border-slate-200 p-4">
           <div className="text-sm font-semibold text-slate-800">적용 Variant</div>
           <div className="flex flex-wrap gap-2">
             {VARIANT_OPTIONS.map((variant) => {
