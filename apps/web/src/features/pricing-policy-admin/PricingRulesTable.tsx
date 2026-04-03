@@ -3,6 +3,19 @@ import { getExternalTransferPresetLabel, getPricingQuantitySourceLabelKo, getPri
 import type { PricingRuleRow } from './types';
 import { toDateInputValue } from './utils';
 
+function formatCalculationLabel(rule: PricingRuleRow): string {
+  if (rule.ruleType === 'PERCENT_UPLIFT') {
+    return `기본금의 ${(rule.percentBps ?? 0) / 100}%`;
+  }
+
+  const amountLabel = `${rule.amountKrw ?? 0}원`;
+  if (rule.quantitySource === 'ONE') {
+    return `${amountLabel} 1회 적용`;
+  }
+
+  return `${amountLabel} x ${getPricingQuantitySourceLabelKo(rule.quantitySource)}`;
+}
+
 export function PricingRulesTable({
   rules,
   onEdit,
@@ -36,13 +49,13 @@ export function PricingRulesTable({
                 </span>
               </Td>
               <Td>
-                {rule.ruleType === 'PERCENT_UPLIFT'
-                  ? `기본금의 ${(rule.percentBps ?? 0) / 100}%`
-                  : `${rule.amountKrw ?? 0}원 / ${getPricingQuantitySourceLabelKo(rule.quantitySource)}`}
+                {formatCalculationLabel(rule)}
               </Td>
               <Td>
                 {rule.customDisplayText
                   ? `커스텀: ${rule.customDisplayText}`
+                  : rule.ruleType === 'BASE' || rule.ruleType === 'PERCENT_UPLIFT'
+                    ? 'X'
                   : rule.chargeScope === 'TEAM'
                     ? '팀당'
                     : rule.chargeScope === 'PER_PERSON'
