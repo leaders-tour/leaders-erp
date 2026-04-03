@@ -5,7 +5,7 @@ import type { PlanVersionDetail } from '../../plan/hooks';
 import { countMainPlanStopRows } from '../../plan/plan-stop-row';
 import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
 import type { EstimateDocumentData } from '../model/types';
-import { formatPricingDetailFormula } from '../../pricing/pricing-line-presenter';
+import { formatPricingDetailFormula, resolveDisplayLeadAmount } from '../../pricing/pricing-line-presenter';
 import {
   addDays,
   buildPage2Title,
@@ -121,7 +121,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     adjustmentLines:
       (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []).map((line) => ({
         label: getPricingLineLabel(line),
-        amountKrw: line.amountKrw,
+        leadAmountKrw: resolveDisplayLeadAmount(line, pricingCtx),
         formula: formatPricingDetailFormula(line, pricingCtx),
       })),
     totalPricePerPersonKrw: pricing?.totalAmountKrw ?? null,

@@ -97,6 +97,22 @@ export function parseOptionalInt(value: string): number | null {
   return parsed;
 }
 
+export function getRuleAmountInputLabel(ruleForm: Pick<RuleFormState, 'chargeScope' | 'personMode'>): string {
+  if (ruleForm.chargeScope === 'TEAM') {
+    return '총액';
+  }
+  if (ruleForm.chargeScope === 'PER_PERSON') {
+    if (ruleForm.personMode === 'PER_DAY') {
+      return '1인 1일 단가';
+    }
+    if (ruleForm.personMode === 'PER_NIGHT') {
+      return '1인 1박 단가';
+    }
+    return '1인 단가';
+  }
+  return '금액';
+}
+
 export function buildDateTime(value: string): string {
   return `${value}T00:00:00.000Z`;
 }
@@ -180,11 +196,18 @@ export function validateRuleForm(ruleForm: RuleFormState): string | null {
   if (!ruleForm.title.trim()) {
     return '규칙 제목을 입력해 주세요.';
   }
+  const amountLabel = getRuleAmountInputLabel(ruleForm);
   if (ruleForm.ruleType !== 'PERCENT_UPLIFT' && parseOptionalInt(ruleForm.amountKrw) == null) {
-    return '금액 항목은 정수 금액이 필요합니다.';
+    return `${amountLabel} 항목은 정수 금액이 필요합니다.`;
   }
   if (ruleForm.ruleType === 'PERCENT_UPLIFT' && parseOptionalInt(ruleForm.percentText) == null) {
     return '퍼센트 항목은 정수 퍼센트가 필요합니다.';
+  }
+  if (
+    ruleForm.ruleType !== 'CONDITIONAL_ADDON' &&
+    (ruleForm.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT' || ruleForm.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT')
+  ) {
+    return '장거리/야간열차 횟수 기준은 `조건부 추가/할인` 규칙에서만 사용할 수 있습니다.';
   }
   return null;
 }

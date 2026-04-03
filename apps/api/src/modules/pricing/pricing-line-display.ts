@@ -11,7 +11,8 @@ type DisplayContext = {
 };
 
 function configuredDisplayFromMeta(
-  line: Pick<PricingComputedLine, 'unitPriceKrw' | 'quantity' | 'amountKrw' | 'meta'>,
+  line: Pick<PricingComputedLine, 'description' | 'unitPriceKrw' | 'quantity' | 'amountKrw' | 'meta'>,
+  ctx: DisplayContext,
 ): PricingLineDisplay | null {
   const meta = line.meta;
   if (!meta || typeof meta !== 'object') {
@@ -40,6 +41,7 @@ function configuredDisplayFromMeta(
       meta.ruleType === 'MANUAL')
       ? meta.ruleType
       : null;
+  const lineCode = 'lineCode' in meta && typeof meta.lineCode === 'string' ? meta.lineCode : null;
   const percentBps = 'percentBps' in meta && typeof meta.percentBps === 'number' ? meta.percentBps : null;
 
   if (ruleType === 'PERCENT_UPLIFT' && percentBps !== null) {
@@ -55,7 +57,16 @@ function configuredDisplayFromMeta(
   }
 
   if (chargeScope === 'TEAM') {
-    return emptyDisplay('TEAM_DIV_PERSON');
+    const divisorPerson = ctx.headcountTotal > 0 ? ctx.headcountTotal : null;
+    if (line.unitPriceKrw !== null) {
+      return emptyDisplay('TEAM_DIV_PERSON', {
+        label: line.description?.trim() || null,
+        unitAmountKrw: line.unitPriceKrw,
+        count: line.quantity,
+        divisorPerson,
+      });
+    }
+    return emptyDisplay('TEAM_DIV_PERSON', { divisorPerson });
   }
 
   if (chargeScope === 'PER_PERSON') {
@@ -101,7 +112,7 @@ export function buildPricingLineDisplay(
   >,
   ctx: DisplayContext,
 ): PricingLineDisplay {
-  const configured = configuredDisplayFromMeta(line);
+  const configured = configuredDisplayFromMeta(line, ctx);
   if (configured) {
     return configured;
   }
@@ -138,6 +149,18 @@ export function buildPricingLineDisplay(
         });
       }
       return emptyDisplay('CUSTOM', { text: formatKrwNumber(line.amountKrw) });
+    }
+    case 'NIGHT_TRAIN': {
+      if (line.unitPriceKrw !== null && line.quantity > 0) {
+        return emptyDisplay('CUSTOM', {
+          label: '야간열차',
+          text: `${formatKrwNumber(line.unitPriceKrw)}×${line.quantity}회`,
+        });
+      }
+      return emptyDisplay('CUSTOM', {
+        label: '야간열차',
+        text: formatKrwNumber(line.amountKrw),
+      });
     }
     case 'HIACE': {
       if (line.unitPriceKrw !== null && line.quantity > 0) {
@@ -219,13 +242,16 @@ export function buildPricingLineDisplay(
           count: 1,
         });
       }
-      if (
-        desc === '야간열차' ||
-        (meta && typeof meta === 'object' && 'nightTrainBlockIds' in meta)
-      ) {
-        const hp = ctx.headcountTotal > 0 ? ctx.headcountTotal : null;
-        return emptyDisplay('TEAM_DIV_PERSON', {
-          divisorPerson: hp,
+      if (desc === '야간열차' || (meta && typeof meta === 'object' && 'nightTrainBlockIds' in meta)) {
+        if (line.unitPriceKrw !== null && line.quantity > 0) {
+          return emptyDisplay('CUSTOM', {
+            label: '야간열차',
+            text: `${formatKrwNumber(line.unitPriceKrw)}×${line.quantity}회`,
+          });
+        }
+        return emptyDisplay('CUSTOM', {
+          label: '야간열차',
+          text: formatKrwNumber(line.amountKrw),
         });
       }
       if (line.sourceType === 'MANUAL') {

@@ -49,6 +49,9 @@ type PricingRuleAdminRecord = {
   externalTransferMode: string | null;
   externalTransferMinCount: number | null;
   externalTransferPresetCodes: Prisma.JsonValue;
+  nightTrainRequired: boolean | null;
+  nightTrainMinCount: number | null;
+  longDistanceMinCount: number | null;
   chargeScope: string | null;
   personMode: string | null;
   customDisplayText: string | null;
@@ -59,6 +62,7 @@ type PricingRuleAdminRecord = {
 function resolveLegacyLineCode(input: {
   ruleType: PricingRuleTypeValue;
   percentBps?: number | null;
+  quantitySource?: string | null;
 }): Prisma.PricingRuleCreateInput['lineCode'] {
   if (input.ruleType === 'BASE') {
     return 'BASE';
@@ -71,6 +75,12 @@ function resolveLegacyLineCode(input: {
       return 'BASE_UPLIFT_5PLUS_10PCT';
     }
     return 'MANUAL_ADJUSTMENT';
+  }
+  if (input.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT') {
+    return 'LONG_DISTANCE';
+  }
+  if (input.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT') {
+    return 'NIGHT_TRAIN';
   }
   return 'MANUAL_ADJUSTMENT';
 }
@@ -203,6 +213,9 @@ export class PricingAdminService {
             externalTransferMode: rule.externalTransferMode,
             externalTransferMinCount: rule.externalTransferMinCount,
             externalTransferPresetCodes: rule.externalTransferPresetCodes as Prisma.InputJsonValue | undefined,
+            nightTrainRequired: rule.nightTrainRequired,
+            nightTrainMinCount: rule.nightTrainMinCount,
+            longDistanceMinCount: rule.longDistanceMinCount,
             chargeScope: rule.chargeScope,
             personMode: rule.personMode,
             customDisplayText: rule.customDisplayText,
@@ -252,6 +265,9 @@ export class PricingAdminService {
         externalTransferMode: parsed.data.externalTransferMode ?? null,
         externalTransferMinCount: parsed.data.externalTransferMinCount ?? null,
         externalTransferPresetCodes: parsed.data.externalTransferPresetCodes as Prisma.InputJsonValue,
+        nightTrainRequired: null,
+        nightTrainMinCount: null,
+        longDistanceMinCount: null,
         chargeScope: parsed.data.chargeScope ?? null,
         personMode: parsed.data.personMode ?? null,
         customDisplayText: parsed.data.customDisplayText?.trim() || null,
@@ -268,8 +284,18 @@ export class PricingAdminService {
     }
     const existing = (await this.prisma.pricingRule.findUnique({
       where: { id },
-      select: { id: true, ruleType: true, percentBps: true } as never,
-    })) as { id: string; ruleType: PricingRuleTypeValue | null; percentBps: number | null } | null;
+      select: {
+        id: true,
+        ruleType: true,
+        percentBps: true,
+        quantitySource: true,
+      } as never,
+    })) as {
+      id: string;
+      ruleType: PricingRuleTypeValue | null;
+      percentBps: number | null;
+      quantitySource: string | null;
+    } | null;
     if (!existing) {
       throw new DomainError('NOT_FOUND', 'Pricing rule not found');
     }
@@ -280,12 +306,19 @@ export class PricingAdminService {
       | 'AUTO_EXCEPTION'
       | 'MANUAL';
     const nextPercentBps = parsed.data.percentBps ?? existing.percentBps ?? undefined;
+    const nextQuantitySource = parsed.data.quantitySource ?? existing.quantitySource ?? undefined;
     const data = {
         ...(parsed.data.ruleType !== undefined ? { ruleType: parsed.data.ruleType } : {}),
         ...(parsed.data.title !== undefined ? { title: parsed.data.title.trim() } : {}),
-        ...((parsed.data.ruleType !== undefined || parsed.data.percentBps !== undefined)
+        ...((parsed.data.ruleType !== undefined ||
+          parsed.data.percentBps !== undefined ||
+          parsed.data.quantitySource !== undefined)
           ? {
-              lineCode: resolveLegacyLineCode({ ruleType: nextRuleType, percentBps: nextPercentBps }),
+              lineCode: resolveLegacyLineCode({
+                ruleType: nextRuleType,
+                percentBps: nextPercentBps,
+                quantitySource: nextQuantitySource,
+              }),
               calcType: resolveLegacyCalcType(nextRuleType),
               targetLineCode: nextRuleType === 'PERCENT_UPLIFT' ? 'BASE' : null,
             }
@@ -320,6 +353,9 @@ export class PricingAdminService {
         ...(parsed.data.externalTransferPresetCodes !== undefined
           ? { externalTransferPresetCodes: parsed.data.externalTransferPresetCodes as Prisma.InputJsonValue }
           : {}),
+        nightTrainRequired: null,
+        nightTrainMinCount: null,
+        longDistanceMinCount: null,
         ...(parsed.data.chargeScope !== undefined ? { chargeScope: parsed.data.chargeScope ?? null } : {}),
         ...(parsed.data.personMode !== undefined ? { personMode: parsed.data.personMode ?? null } : {}),
         ...(parsed.data.customDisplayText !== undefined

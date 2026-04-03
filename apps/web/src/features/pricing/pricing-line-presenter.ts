@@ -40,6 +40,10 @@ function formatKrw(value: number): string {
   return `${new Intl.NumberFormat('ko-KR').format(value)}원`;
 }
 
+export function roundToHundred(value: number): number {
+  return Math.round(value / 100) * 100;
+}
+
 function emptyResolved(
   basis: PricingDisplayBasis,
   partial: Partial<PricingLineDisplayResolved> = {},
@@ -119,6 +123,18 @@ function inferLegacyPricingLineDisplay(
       }
       return emptyResolved('CUSTOM', { text: formatKrw(line.amountKrw) });
     }
+    case 'NIGHT_TRAIN': {
+      if (line.unitPriceKrw !== null && line.quantity > 0) {
+        return emptyResolved('CUSTOM', {
+          label: '야간열차',
+          text: `${formatKrw(line.unitPriceKrw)}×${line.quantity}회`,
+        });
+      }
+      return emptyResolved('CUSTOM', {
+        label: '야간열차',
+        text: formatKrw(line.amountKrw),
+      });
+    }
     case 'HIACE': {
       if (line.unitPriceKrw !== null && line.quantity > 0) {
         return emptyResolved('PER_DAY', {
@@ -188,8 +204,15 @@ function inferLegacyPricingLineDisplay(
         });
       }
       if (desc === '야간열차') {
-        return emptyResolved('TEAM_DIV_PERSON', {
-          divisorPerson: ctx.headcountTotal > 0 ? ctx.headcountTotal : null,
+        if (line.unitPriceKrw !== null && line.quantity > 0) {
+          return emptyResolved('CUSTOM', {
+            label: '야간열차',
+            text: `${formatKrw(line.unitPriceKrw)}×${line.quantity}회`,
+          });
+        }
+        return emptyResolved('CUSTOM', {
+          label: '야간열차',
+          text: formatKrw(line.amountKrw),
         });
       }
       if (line.sourceType === 'MANUAL') {
@@ -229,6 +252,10 @@ export function formatPricingDetailFormula(
       if (div <= 0) {
         return formatKrw(line.amountKrw);
       }
+      if (d.unitAmountKrw !== null) {
+        const count = d.count ?? line.quantity;
+        return count > 1 ? `${formatKrw(d.unitAmountKrw)}/${div}인*${count}회` : `${formatKrw(d.unitAmountKrw)}/${div}인`;
+      }
       return `${formatKrw(line.amountKrw)}/${div}인`;
     }
     case 'PER_NIGHT': {
@@ -255,4 +282,24 @@ export function formatPricingDetailFormula(
     default:
       return d.text?.trim() && d.text.length > 0 ? d.text : formatKrw(line.amountKrw);
   }
+}
+
+export function resolveDisplayLeadAmount(
+  line: PricingLineLike,
+  ctx: { headcountTotal: number; totalDays: number },
+): number {
+  const d = resolvePricingLineDisplay(line, ctx);
+  if (d.basis !== 'TEAM_DIV_PERSON') {
+    return line.amountKrw;
+  }
+
+  const divisor = d.divisorPerson ?? ctx.headcountTotal;
+  if (divisor <= 0) {
+    return line.amountKrw;
+  }
+
+  const count = d.count ?? line.quantity;
+  const perOccurrenceAmount =
+    d.unitAmountKrw ?? (count > 0 ? Math.round(line.amountKrw / count) : line.amountKrw);
+  return roundToHundred(perOccurrenceAmount / divisor);
 }

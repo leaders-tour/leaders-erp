@@ -72,6 +72,7 @@ enum PricingLineCode {
   BASE_UPLIFT_5PLUS_5PCT
   BASE_UPLIFT_5PLUS_10PCT
   LONG_DISTANCE
+  NIGHT_TRAIN
   HIACE
   EXTRA_LODGING
   LODGING_SELECTION
@@ -90,6 +91,7 @@ enum PricingQuantitySource {
   HEADCOUNT
   TOTAL_DAYS
   LONG_DISTANCE_SEGMENT_COUNT
+  NIGHT_TRAIN_BLOCK_COUNT
   SUM_EXTRA_LODGING_COUNTS
 }
 
@@ -994,6 +996,9 @@ model PricingRule {
   externalTransferMode PricingExternalTransferMode?
   externalTransferMinCount Int?
   externalTransferPresetCodes Json?
+  nightTrainRequired Boolean?
+  nightTrainMinCount Int?
+  longDistanceMinCount Int?
   chargeScope    PricingChargeScope?
   personMode     PricingPersonMode?
   customDisplayText String?           @db.Text

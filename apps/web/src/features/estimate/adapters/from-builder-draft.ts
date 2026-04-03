@@ -4,7 +4,7 @@ import { countMainPlanStopRows } from '../../plan/plan-stop-row';
 import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
 import type { EstimateBuilderDraftSnapshot, EstimateDocumentData } from '../model/types';
 import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
-import { formatPricingDetailFormula } from '../../pricing/pricing-line-presenter';
+import { formatPricingDetailFormula, resolveDisplayLeadAmount } from '../../pricing/pricing-line-presenter';
 import { addDays, buildPage2Title, normalizeMultilineText, toSecurityDepositScope, todayIsoDate } from '../utils/format';
 
 export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): EstimateDocumentData {
@@ -69,7 +69,7 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     adjustmentLines:
       (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []).map((line) => ({
         label: getPricingLineLabel(line),
-        amountKrw: line.amountKrw,
+        leadAmountKrw: resolveDisplayLeadAmount(line, pricingCtx),
         formula: formatPricingDetailFormula(line, pricingCtx),
       })),
     totalPricePerPersonKrw: snapshot.pricing?.totalAmountKrw ?? null,

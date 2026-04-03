@@ -1,0 +1,50 @@
+ALTER TABLE `PricingRule`
+  MODIFY COLUMN `lineCode` ENUM(
+    'BASE',
+    'BASE_UPLIFT_5PLUS_5PCT',
+    'BASE_UPLIFT_5PLUS_10PCT',
+    'LONG_DISTANCE',
+    'NIGHT_TRAIN',
+    'HIACE',
+    'EXTRA_LODGING',
+    'LODGING_SELECTION',
+    'EARLY',
+    'EXTEND',
+    'MANUAL_ADJUSTMENT'
+  ) NOT NULL,
+  MODIFY COLUMN `targetLineCode` ENUM(
+    'BASE',
+    'BASE_UPLIFT_5PLUS_5PCT',
+    'BASE_UPLIFT_5PLUS_10PCT',
+    'LONG_DISTANCE',
+    'NIGHT_TRAIN',
+    'HIACE',
+    'EXTRA_LODGING',
+    'LODGING_SELECTION',
+    'EARLY',
+    'EXTEND',
+    'MANUAL_ADJUSTMENT'
+  ) NULL,
+  ADD COLUMN `nightTrainRequired` BOOLEAN NULL,
+  ADD COLUMN `nightTrainMinCount` INTEGER NULL,
+  ADD COLUMN `longDistanceMinCount` INTEGER NULL;
+
+ALTER TABLE `PlanVersionPricingLine`
+  MODIFY COLUMN `lineCode` ENUM(
+    'BASE',
+    'BASE_UPLIFT_5PLUS_5PCT',
+    'BASE_UPLIFT_5PLUS_10PCT',
+    'LONG_DISTANCE',
+    'NIGHT_TRAIN',
+    'HIACE',
+    'EXTRA_LODGING',
+    'LODGING_SELECTION',
+    'EARLY',
+    'EXTEND',
+    'MANUAL_ADJUSTMENT'
+  ) NOT NULL;
+
+UPDATE `PricingRule`
+SET `ruleType` = 'CONDITIONAL_ADDON'
+WHERE `lineCode` = 'LONG_DISTANCE'
+  AND `ruleType` = 'AUTO_EXCEPTION';

@@ -1,7 +1,14 @@
 import { VariantType } from '@tour/domain';
 import { z } from 'zod';
 
-const pricingQuantitySources = ['ONE', 'HEADCOUNT', 'TOTAL_DAYS', 'LONG_DISTANCE_SEGMENT_COUNT', 'SUM_EXTRA_LODGING_COUNTS'] as const;
+const pricingQuantitySources = [
+  'ONE',
+  'HEADCOUNT',
+  'TOTAL_DAYS',
+  'LONG_DISTANCE_SEGMENT_COUNT',
+  'NIGHT_TRAIN_BLOCK_COUNT',
+  'SUM_EXTRA_LODGING_COUNTS',
+] as const;
 const pricingPolicyStatuses = ['ACTIVE', 'INACTIVE'] as const;
 const pricingChargeScopes = ['TEAM', 'PER_PERSON'] as const;
 const pricingPersonModes = ['SINGLE', 'PER_DAY', 'PER_NIGHT'] as const;
@@ -75,12 +82,22 @@ function validateRuleInput(
   const percentBps = value.percentBps ?? null;
   const usesAmount = ruleType === 'BASE' || ruleType === 'CONDITIONAL_ADDON' || ruleType === 'MANUAL' || ruleType === 'AUTO_EXCEPTION';
   const usesPercent = ruleType === 'PERCENT_UPLIFT';
+  const usesLongDistanceQuantity = value.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT';
+  const usesNightTrainQuantity = value.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT';
 
   if (ruleType === 'AUTO_EXCEPTION' || ruleType === 'MANUAL') {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: `${ruleType} rules are not editable in pricing policy admin`,
       path: ['ruleType'],
+    });
+  }
+
+  if ((usesLongDistanceQuantity || usesNightTrainQuantity) && ruleType !== 'CONDITIONAL_ADDON') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'special count quantity sources are only available for CONDITIONAL_ADDON',
+      path: ['quantitySource'],
     });
   }
 

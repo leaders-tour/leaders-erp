@@ -1091,6 +1091,11 @@ function formatKrw(value: number): string {
 }
 
 function formatPricingLineUnitDisplay(line: PricingLineRow, headcountTotal: number): string {
+  const divisorPerson = line.displayDivisorPerson ?? headcountTotal;
+  if (line.displayBasis === 'TEAM_DIV_PERSON' && divisorPerson > 0) {
+    const unitAmount = line.displayUnitAmountKrw ?? line.unitPriceKrw ?? line.amountKrw;
+    return `${formatKrw(unitAmount)}/${divisorPerson}인`;
+  }
   if (line.lineCode === 'MANUAL_ADJUSTMENT' && line.sourceType === 'RULE' && line.quantity > 1 && headcountTotal > 0) {
     return `${formatKrw(line.unitPriceKrw ?? line.amountKrw)}/${headcountTotal}인`;
   }
@@ -1098,6 +1103,10 @@ function formatPricingLineUnitDisplay(line: PricingLineRow, headcountTotal: numb
 }
 
 function formatPricingLineQuantityDisplay(line: PricingLineRow, headcountTotal: number): string {
+  if (line.displayBasis === 'TEAM_DIV_PERSON') {
+    const count = line.displayCount ?? line.quantity;
+    return count === 1 ? '1회' : `${count}회`;
+  }
   if (line.lineCode === 'MANUAL_ADJUSTMENT' && line.sourceType === 'RULE' && line.quantity > 1 && headcountTotal > 0) {
     return `${headcountTotal}인`;
   }
@@ -2781,20 +2790,20 @@ export function ItineraryBuilderPage(): JSX.Element {
 
         return {
           rowType: row.rowType,
-          segmentId: 'segmentId' in row ? row.segmentId : undefined,
-          segmentVersionId: 'segmentVersionId' in row ? row.segmentVersionId : undefined,
+          segmentId: 'segmentId' in row ? row.segmentId ?? undefined : undefined,
+          segmentVersionId: 'segmentVersionId' in row ? row.segmentVersionId ?? undefined : undefined,
           multiDayBlockId:
-            'multiDayBlockId' in row ? row.multiDayBlockId : overnightStayId ?? undefined,
+            'multiDayBlockId' in row ? row.multiDayBlockId ?? undefined : overnightStayId ?? undefined,
           multiDayBlockDayOrder:
             'multiDayBlockDayOrder' in row
-              ? row.multiDayBlockDayOrder
+              ? row.multiDayBlockDayOrder ?? undefined
               : overnightStayDayOrder ?? undefined,
           multiDayBlockConnectionId:
-            'multiDayBlockConnectionId' in row ? row.multiDayBlockConnectionId : undefined,
+            'multiDayBlockConnectionId' in row ? row.multiDayBlockConnectionId ?? undefined : undefined,
           multiDayBlockConnectionVersionId:
-            'multiDayBlockConnectionVersionId' in row ? row.multiDayBlockConnectionVersionId : undefined,
-          locationId: row.locationId,
-          locationVersionId: 'locationVersionId' in row ? row.locationVersionId : undefined,
+            'multiDayBlockConnectionVersionId' in row ? row.multiDayBlockConnectionVersionId ?? undefined : undefined,
+          locationId: row.locationId ?? undefined,
+          locationVersionId: 'locationVersionId' in row ? row.locationVersionId ?? undefined : undefined,
           dateCellText: '',
           destinationCellText: '',
           timeCellText: '',

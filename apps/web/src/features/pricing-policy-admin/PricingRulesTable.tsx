@@ -1,5 +1,5 @@
 import { Button, Table, Td, Th } from '@tour/ui';
-import { getExternalTransferPresetLabel, getPricingRuleTypeLabelKo } from './constants';
+import { getExternalTransferPresetLabel, getPricingQuantitySourceLabelKo, getPricingRuleTypeLabelKo } from './constants';
 import type { PricingRuleRow } from './types';
 import { toDateInputValue } from './utils';
 
@@ -38,7 +38,7 @@ export function PricingRulesTable({
               <Td>
                 {rule.ruleType === 'PERCENT_UPLIFT'
                   ? `기본금의 ${(rule.percentBps ?? 0) / 100}%`
-                  : `${rule.amountKrw ?? 0}원 / ${rule.quantitySource}`}
+                  : `${rule.amountKrw ?? 0}원 / ${getPricingQuantitySourceLabelKo(rule.quantitySource)}`}
               </Td>
               <Td>
                 {rule.customDisplayText
@@ -67,6 +67,8 @@ export function PricingRulesTable({
                   rule.externalTransferPresetCodes.length > 0
                     ? `프리셋 ${rule.externalTransferPresetCodes.map(getExternalTransferPresetLabel).join(', ')}`
                     : null,
+                  rule.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT' ? '장거리 구간 수만큼 적용' : null,
+                  rule.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT' ? '야간열차 운행 수만큼 적용' : null,
                 ]
                   .filter(Boolean)
                   .join(' / ') || '-'}

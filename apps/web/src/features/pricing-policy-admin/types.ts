@@ -5,6 +5,7 @@ export type PricingQuantitySource =
   | 'HEADCOUNT'
   | 'TOTAL_DAYS'
   | 'LONG_DISTANCE_SEGMENT_COUNT'
+  | 'NIGHT_TRAIN_BLOCK_COUNT'
   | 'SUM_EXTRA_LODGING_COUNTS';
 export type PricingChargeScope = 'TEAM' | 'PER_PERSON';
 export type PricingPersonMode = 'SINGLE' | 'PER_DAY' | 'PER_NIGHT';

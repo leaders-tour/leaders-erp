@@ -17,6 +17,7 @@ import type {
   PricingTimeBand,
   RuleFormState,
 } from './types';
+import { getRuleAmountInputLabel } from './utils';
 
 export function PricingRuleFormFields({
   ruleForm,
@@ -25,6 +26,20 @@ export function PricingRuleFormFields({
   ruleForm: RuleFormState;
   setRuleForm: Dispatch<SetStateAction<RuleFormState>>;
 }): JSX.Element {
+  const amountInputLabel = getRuleAmountInputLabel(ruleForm);
+  const amountInputPlaceholder =
+    ruleForm.chargeScope === 'TEAM'
+      ? '팀 총액 기준, 음수면 할인'
+      : ruleForm.chargeScope === 'PER_PERSON'
+        ? '1인 기준 단가, 음수면 할인'
+        : '음수면 할인';
+  const quantityOptions =
+    ruleForm.ruleType === 'CONDITIONAL_ADDON'
+      ? QUANTITY_SOURCE_OPTIONS
+      : QUANTITY_SOURCE_OPTIONS.filter(
+          (option) => option.value !== 'LONG_DISTANCE_SEGMENT_COUNT' && option.value !== 'NIGHT_TRAIN_BLOCK_COUNT',
+        );
+
   return (
     <>
       <div className="grid gap-4">
@@ -39,7 +54,20 @@ export function PricingRuleFormFields({
               <select
                 className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
                 value={ruleForm.ruleType}
-                onChange={(event) => setRuleForm((prev) => ({ ...prev, ruleType: event.target.value as PricingRuleType }))}
+                onChange={(event) =>
+                  setRuleForm((prev) => {
+                    const nextRuleType = event.target.value as PricingRuleType;
+                    const keepsSpecialQuantity =
+                      nextRuleType === 'CONDITIONAL_ADDON' ||
+                      (prev.quantitySource !== 'LONG_DISTANCE_SEGMENT_COUNT' &&
+                        prev.quantitySource !== 'NIGHT_TRAIN_BLOCK_COUNT');
+                    return {
+                      ...prev,
+                      ruleType: nextRuleType,
+                      quantitySource: keepsSpecialQuantity ? prev.quantitySource : 'ONE',
+                    };
+                  })
+                }
               >
                 {RULE_TYPE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -57,12 +85,17 @@ export function PricingRuleFormFields({
                   setRuleForm((prev) => ({ ...prev, quantitySource: event.target.value as PricingQuantitySource }))
                 }
               >
-                {QUANTITY_SOURCE_OPTIONS.map((option) => (
+                {quantityOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
                 ))}
               </select>
+              {ruleForm.ruleType === 'CONDITIONAL_ADDON' ? (
+                <span className="text-xs text-slate-500">
+                  장거리는 `장거리 구간 수`, 야간열차는 `야간열차 운행 수`를 선택하면 횟수 비례형으로 계산됩니다.
+                </span>
+              ) : null}
             </label>
             <label className="grid gap-1 text-sm md:col-span-2">
               <span>제목</span>
@@ -84,13 +117,20 @@ export function PricingRuleFormFields({
               </label>
             ) : (
               <label className="grid gap-1 text-sm">
-                <span>금액</span>
+                <span>{amountInputLabel}</span>
                 <Input
                   type="number"
                   value={ruleForm.amountKrw}
                   onChange={(event) => setRuleForm((prev) => ({ ...prev, amountKrw: event.target.value }))}
-                  placeholder="음수면 할인"
+                  placeholder={amountInputPlaceholder}
                 />
+                <span className="text-xs text-slate-500">
+                  {ruleForm.chargeScope === 'TEAM'
+                    ? '팀당을 선택하면 이 값은 1회 기준 총액으로 저장됩니다.'
+                    : ruleForm.chargeScope === 'PER_PERSON'
+                      ? '인당/일당/박당을 선택하면 이 값은 1인 기준 단가로 저장됩니다.'
+                      : '표시 기준을 먼저 고르면 총액/단가 의미가 더 명확해집니다.'}
+                </span>
               </label>
             )}
             <label className="grid gap-1 text-sm">
@@ -367,6 +407,12 @@ export function PricingRuleFormFields({
               placeholder="비워두면 팀당/인당/일/박 규칙으로 표시"
             />
           </label>
+          {ruleForm.ruleType === 'CONDITIONAL_ADDON' &&
+          (ruleForm.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT' || ruleForm.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT') ? (
+            <p className="text-xs text-slate-500">
+              장거리·야간열차처럼 횟수 비례형 규칙도 `팀당`으로 두면 `총액/인원` 형태로 표시됩니다.
+            </p>
+          ) : null}
         </div>
 
         <div className="grid gap-4 rounded-2xl border border-slate-200 p-4">

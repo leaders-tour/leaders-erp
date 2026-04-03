@@ -33,8 +33,14 @@ export const QUANTITY_SOURCE_OPTIONS: Array<{ value: PricingQuantitySource; labe
   { value: 'ONE', label: '1회 고정' },
   { value: 'HEADCOUNT', label: '인원수' },
   { value: 'TOTAL_DAYS', label: '여행 일수' },
+  { value: 'LONG_DISTANCE_SEGMENT_COUNT', label: '장거리 구간 수' },
+  { value: 'NIGHT_TRAIN_BLOCK_COUNT', label: '야간열차 운행 수' },
   { value: 'SUM_EXTRA_LODGING_COUNTS', label: '추가 숙박 수' },
 ];
+
+export function getPricingQuantitySourceLabelKo(quantitySource: PricingQuantitySource): string {
+  return QUANTITY_SOURCE_OPTIONS.find((option) => option.value === quantitySource)?.label ?? quantitySource;
+}
 
 export const VARIANT_OPTIONS: Array<{ value: VariantTypeOption; label: string }> = [
   { value: 'basic', label: 'Basic' },

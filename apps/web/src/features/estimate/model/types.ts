@@ -97,7 +97,7 @@ export interface EstimateBuilderDraftSnapshot {
 
 export interface EstimateAdjustmentLine {
   label: string;
-  amountKrw: number;
+  leadAmountKrw: number;
   formula: string;
 }
 

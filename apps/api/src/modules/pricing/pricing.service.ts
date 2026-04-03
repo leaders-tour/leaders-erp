@@ -30,6 +30,7 @@ type ComputeContext = {
   transportGroups: PricingComputeInput['transportGroups'];
   externalTransfers: PricingComputeInput['externalTransfers'];
   longDistanceSegmentCount: number;
+  nightTrainBlockCount: number;
   extraLodgingCount: number;
 };
 
@@ -38,6 +39,7 @@ type PricingQuantitySourceValue =
   | 'HEADCOUNT'
   | 'TOTAL_DAYS'
   | 'LONG_DISTANCE_SEGMENT_COUNT'
+  | 'NIGHT_TRAIN_BLOCK_COUNT'
   | 'SUM_EXTRA_LODGING_COUNTS';
 
 type PricingRuleRecord = {
@@ -65,13 +67,15 @@ type PricingRuleRecord = {
   externalTransferMode: 'ANY' | 'PICKUP_ONLY' | 'DROP_ONLY' | 'BOTH' | null;
   externalTransferMinCount: number | null;
   externalTransferPresetCodes: Prisma.JsonValue;
+  nightTrainRequired: boolean | null;
+  nightTrainMinCount: number | null;
+  longDistanceMinCount: number | null;
   chargeScope: 'TEAM' | 'PER_PERSON' | null;
   personMode: 'SINGLE' | 'PER_DAY' | 'PER_NIGHT' | null;
   customDisplayText: string | null;
 };
 
 const HIACE = '하이에이스';
-const LONG_DISTANCE_BASE_POOL_KRW = 320_000;
 const RENTAL_ITEM_DEPOSIT_PER_PERSON_KRW = 30_000;
 const FIXED_LODGING_SELECTION_AMOUNTS: Record<'LV1' | 'LV2' | 'LV3' | 'LV4', number> = {
   LV1: -50_000,
@@ -146,9 +150,10 @@ export class PricingService {
       throw new DomainError('VALIDATION_FAILED', 'Invalid travelStartDate for pricing');
     }
 
-    const [policy, longDistanceSegmentCount, selectedEvents] = await Promise.all([
+    const [policy, longDistanceSegmentCount, nightTrainBlockIds, selectedEvents] = await Promise.all([
       this.loadActivePolicy(prisma, travelStartDate),
       this.countLongDistanceSegments(prisma, input.regionIds, mainPlanStops),
+      this.detectNightTrainBlocks(prisma, mainPlanStops),
       input.eventIds.length > 0
         ? prisma.event.findMany({
             where: { id: { in: input.eventIds } },
@@ -180,6 +185,7 @@ export class PricingService {
       transportGroups: input.transportGroups,
       externalTransfers: input.externalTransfers,
       longDistanceSegmentCount,
+      nightTrainBlockCount: nightTrainBlockIds.size,
       extraLodgingCount,
     };
 
@@ -215,25 +221,6 @@ export class PricingService {
       baseUpliftAmount += upliftLine.amountKrw;
       lines.push(upliftLine);
     });
-
-    if (context.longDistanceSegmentCount > 0) {
-      const unitPrice = Math.ceil((LONG_DISTANCE_BASE_POOL_KRW / context.headcountTotal) / 1000) * 1000;
-      const quantity = context.longDistanceSegmentCount;
-      lines.push({
-        ruleType: 'AUTO_EXCEPTION',
-        lineCode: 'LONG_DISTANCE',
-        sourceType: 'RULE',
-        ruleId: null,
-        description: null,
-        unitPriceKrw: unitPrice,
-        quantity,
-        amountKrw: unitPrice * quantity,
-        meta: {
-          longDistanceSegmentCount: context.longDistanceSegmentCount,
-          basePoolKrw: LONG_DISTANCE_BASE_POOL_KRW,
-        },
-      });
-    }
 
     this.findConditionalAddonRules(rules, context).forEach((rule) => {
       const addonLine = this.buildConditionalAddonLine(rule, context);
@@ -272,23 +259,6 @@ export class PricingService {
         },
       });
     });
-
-    // 야간열차 판정: 이동형 멀티데이 블록(TRANSFER) 자동 감지
-    const nightTrainBlockIds = await this.detectNightTrainBlocks(prisma, mainPlanStops);
-    if (nightTrainBlockIds.size > 0) {
-      const NIGHT_TRAIN_FIXED_AMOUNT_PER_TEAM_KRW = 420_000;
-      lines.push({
-        ruleType: 'AUTO_EXCEPTION',
-        lineCode: 'MANUAL_ADJUSTMENT',
-        sourceType: 'RULE',
-        ruleId: null,
-        description: '야간열차',
-        unitPriceKrw: NIGHT_TRAIN_FIXED_AMOUNT_PER_TEAM_KRW,
-        quantity: 1,
-        amountKrw: NIGHT_TRAIN_FIXED_AMOUNT_PER_TEAM_KRW,
-        meta: { nightTrainBlockIds: Array.from(nightTrainBlockIds) },
-      });
-    }
 
     // 샤브샤브 누락 할인: mealCellText 전체에서 '샤브샤브' 미포함 시 15,000원 일괄 할인
     const allMealCellTexts = mainPlanStops
@@ -355,6 +325,8 @@ export class PricingService {
         vehicleType: input.vehicleType,
         travelStartDate: input.travelStartDate,
         longDistanceSegmentCount,
+        nightTrainBlockCount: context.nightTrainBlockCount,
+        nightTrainBlockIds: Array.from(nightTrainBlockIds),
         extraLodgingCount,
         extraLodgings: input.extraLodgings,
         lodgingSelections: input.lodgingSelections,
@@ -557,6 +529,7 @@ export class PricingService {
     return {
       ruleType: this.getEffectiveRuleType(rule),
       title: rule.title,
+      lineCode: rule.lineCode,
       ...(rule.chargeScope ? { chargeScope: rule.chargeScope } : {}),
       ...(rule.personMode ? { personMode: rule.personMode } : {}),
       ...(rule.customDisplayText ? { customDisplayText: rule.customDisplayText } : {}),
@@ -627,6 +600,13 @@ export class PricingService {
     if (quantity <= 0) {
       return null;
     }
+    const extraMeta: Record<string, unknown> = {};
+    if (rule.lineCode === 'LONG_DISTANCE') {
+      extraMeta.longDistanceSegmentCount = context.longDistanceSegmentCount;
+    }
+    if (rule.lineCode === 'NIGHT_TRAIN') {
+      extraMeta.nightTrainBlockCount = context.nightTrainBlockCount;
+    }
     return {
       ruleType: 'CONDITIONAL_ADDON',
       lineCode: rule.lineCode,
@@ -636,7 +616,7 @@ export class PricingService {
       unitPriceKrw: unitPrice,
       quantity,
       amountKrw: unitPrice * quantity,
-      meta: this.buildRuleMeta(rule),
+      meta: this.buildRuleMeta(rule, extraMeta),
     };
   }
 
@@ -703,6 +683,8 @@ export class PricingService {
         return context.totalDays;
       case 'LONG_DISTANCE_SEGMENT_COUNT':
         return context.longDistanceSegmentCount;
+      case 'NIGHT_TRAIN_BLOCK_COUNT':
+        return context.nightTrainBlockCount;
       case 'SUM_EXTRA_LODGING_COUNTS':
         return context.extraLodgingCount;
       default:
