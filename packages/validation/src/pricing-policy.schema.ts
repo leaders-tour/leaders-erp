@@ -12,7 +12,7 @@ const pricingQuantitySources = [
 const pricingPolicyStatuses = ['ACTIVE', 'INACTIVE'] as const;
 const pricingChargeScopes = ['TEAM', 'PER_PERSON'] as const;
 const pricingPersonModes = ['SINGLE', 'PER_DAY', 'PER_NIGHT'] as const;
-const pricingRuleTypes = ['BASE', 'PERCENT_UPLIFT', 'CONDITIONAL_ADDON', 'AUTO_EXCEPTION', 'MANUAL'] as const;
+const pricingRuleTypes = ['BASE', 'PERCENT_UPLIFT', 'CONDITIONAL_ADDON', 'LONG_DISTANCE', 'AUTO_EXCEPTION', 'MANUAL'] as const;
 const pricingTimeBands = ['DAWN', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT'] as const;
 const pricingExternalTransferModes = ['ANY', 'PICKUP_ONLY', 'DROP_ONLY', 'BOTH'] as const;
 const pricingPlaceTypes = ['AIRPORT', 'OZ_HOUSE', 'ULAANBAATAR', 'CUSTOM'] as const;
@@ -80,7 +80,12 @@ function validateRuleInput(
   const personMode = value.personMode ?? null;
   const amountKrw = value.amountKrw ?? null;
   const percentBps = value.percentBps ?? null;
-  const usesAmount = ruleType === 'BASE' || ruleType === 'CONDITIONAL_ADDON' || ruleType === 'MANUAL' || ruleType === 'AUTO_EXCEPTION';
+  const usesAmount =
+    ruleType === 'BASE' ||
+    ruleType === 'CONDITIONAL_ADDON' ||
+    ruleType === 'LONG_DISTANCE' ||
+    ruleType === 'MANUAL' ||
+    ruleType === 'AUTO_EXCEPTION';
   const usesPercent = ruleType === 'PERCENT_UPLIFT';
   const usesLongDistanceQuantity = value.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT';
   const usesNightTrainQuantity = value.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT';
@@ -93,10 +98,18 @@ function validateRuleInput(
     });
   }
 
-  if ((usesLongDistanceQuantity || usesNightTrainQuantity) && ruleType !== 'CONDITIONAL_ADDON') {
+  if (usesLongDistanceQuantity && ruleType !== 'LONG_DISTANCE') {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'special count quantity sources are only available for CONDITIONAL_ADDON',
+      message: 'LONG_DISTANCE_SEGMENT_COUNT is only available for LONG_DISTANCE',
+      path: ['quantitySource'],
+    });
+  }
+
+  if (usesNightTrainQuantity && ruleType !== 'CONDITIONAL_ADDON') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'NIGHT_TRAIN_BLOCK_COUNT is only available for CONDITIONAL_ADDON',
       path: ['quantitySource'],
     });
   }

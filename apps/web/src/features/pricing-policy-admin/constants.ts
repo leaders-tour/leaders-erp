@@ -11,6 +11,7 @@ import type {
 export const RULE_TYPE_OPTIONS: Array<{ value: PricingRuleType; label: string }> = [
   { value: 'BASE', label: '기본금' },
   { value: 'PERCENT_UPLIFT', label: '기본금 퍼센트 추가' },
+  { value: 'LONG_DISTANCE', label: '장거리 기본금' },
   { value: 'CONDITIONAL_ADDON', label: '조건부 추가/할인' },
 ];
 

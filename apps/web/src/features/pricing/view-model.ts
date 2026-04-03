@@ -23,7 +23,7 @@ export interface PricingViewBuckets<TLine extends PricingViewLine> {
   grandTotal: number;
 }
 
-const BASE_RULE_TYPES = new Set(['BASE', 'PERCENT_UPLIFT']);
+const BASE_RULE_TYPES = new Set(['BASE', 'PERCENT_UPLIFT', 'LONG_DISTANCE']);
 const BASE_LINE_CODES = new Set(['BASE', 'BASE_UPLIFT_5PLUS_5PCT', 'BASE_UPLIFT_5PLUS_10PCT', 'LONG_DISTANCE']);
 
 const LINE_CODE_LABELS: Record<string, string> = {

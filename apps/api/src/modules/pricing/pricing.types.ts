@@ -96,7 +96,7 @@ export type PricingDisplayBasis =
   | 'PERCENT'
   | 'CUSTOM';
 
-export type PricingRuleTypeValue = 'BASE' | 'PERCENT_UPLIFT' | 'CONDITIONAL_ADDON' | 'AUTO_EXCEPTION' | 'MANUAL';
+export type PricingRuleTypeValue = 'BASE' | 'PERCENT_UPLIFT' | 'CONDITIONAL_ADDON' | 'LONG_DISTANCE' | 'AUTO_EXCEPTION' | 'MANUAL';
 
 /** 표시 전용: 계산 필드와 분리된 견적/빌더 오른쪽 산식 기준 */
 export interface PricingLineDisplay {

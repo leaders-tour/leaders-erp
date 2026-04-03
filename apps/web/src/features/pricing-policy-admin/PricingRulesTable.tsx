@@ -8,7 +8,7 @@ import {
   getPricingRuleTypeLabelKo,
 } from './constants';
 import type { PricingRuleRow } from './types';
-import { toDateInputValue } from './utils';
+import { getPricingDisplayPreview, toDateInputValue } from './utils';
 
 type ConditionChip = {
   label: string;
@@ -146,64 +146,60 @@ export function PricingRulesTable({
         <tbody>
           {rules.map((rule) => {
             const conditionChips = getConditionChips(rule);
+            const displayPreview = getPricingDisplayPreview(rule);
             return (
-            <tr key={rule.id} className="border-t border-slate-200">
-              <Td className="max-w-[14rem] align-middle font-medium text-slate-900">{rule.title}</Td>
-              <Td className="align-middle">
-                <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-800">
-                  {getPricingRuleTypeLabelKo(rule.ruleType)}
-                </span>
-              </Td>
-              <Td>
-                {formatCalculationLabel(rule)}
-              </Td>
-              <Td>
-                {rule.customDisplayText
-                  ? `커스텀: ${rule.customDisplayText}`
-                  : rule.ruleType === 'BASE' || rule.ruleType === 'PERCENT_UPLIFT'
-                    ? 'X'
-                  : rule.chargeScope === 'TEAM'
-                    ? '팀당'
-                    : rule.chargeScope === 'PER_PERSON'
-                      ? rule.personMode || '인당'
-                      : '-'}
-              </Td>
-              <Td>
-                {conditionChips.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {conditionChips.map((chip) => (
-                      <span
-                        key={chip.label}
-                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${chip.className}`}
-                      >
-                        {chip.label}
-                      </span>
-                    ))}
+              <tr key={rule.id} className="border-t border-slate-200">
+                <Td className="max-w-[14rem] align-middle font-medium text-slate-900">{rule.title}</Td>
+                <Td className="align-middle">
+                  <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-800">
+                    {getPricingRuleTypeLabelKo(rule.ruleType)}
+                  </span>
+                </Td>
+                <Td>{formatCalculationLabel(rule)}</Td>
+                <Td className="align-middle">
+                  <div className="grid gap-0.5">
+                    <span className="font-medium text-slate-900">{displayPreview.label}</span>
+                    {displayPreview.example ? (
+                      <span className="text-xs text-slate-500">{displayPreview.example}</span>
+                    ) : null}
                   </div>
-                ) : (
-                  '-'
-                )}
-              </Td>
-              <Td>
-                <span
-                  className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                    rule.isEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                  }`}
-                >
-                  {rule.isEnabled ? '활성' : '비활성'}
-                </span>
-              </Td>
-              <Td>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => onEdit(rule)}>
-                    수정
-                  </Button>
-                  <Button variant="outline" onClick={() => onDelete(rule)}>
-                    삭제
-                  </Button>
-                </div>
-              </Td>
-            </tr>
+                </Td>
+                <Td>
+                  {conditionChips.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {conditionChips.map((chip) => (
+                        <span
+                          key={chip.label}
+                          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${chip.className}`}
+                        >
+                          {chip.label}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    '-'
+                  )}
+                </Td>
+                <Td>
+                  <span
+                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                      rule.isEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                    }`}
+                  >
+                    {rule.isEnabled ? '활성' : '비활성'}
+                  </span>
+                </Td>
+                <Td>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => onEdit(rule)}>
+                      수정
+                    </Button>
+                    <Button variant="outline" onClick={() => onDelete(rule)}>
+                      삭제
+                    </Button>
+                  </div>
+                </Td>
+              </tr>
             );
           })}
         </tbody>

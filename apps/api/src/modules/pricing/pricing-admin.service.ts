@@ -22,7 +22,7 @@ const pricingPolicyInclude = {
   },
 } satisfies Prisma.PricingPolicyInclude;
 
-type PricingRuleTypeValue = 'BASE' | 'PERCENT_UPLIFT' | 'CONDITIONAL_ADDON' | 'AUTO_EXCEPTION' | 'MANUAL';
+type PricingRuleTypeValue = 'BASE' | 'PERCENT_UPLIFT' | 'CONDITIONAL_ADDON' | 'LONG_DISTANCE' | 'AUTO_EXCEPTION' | 'MANUAL';
 
 type PricingRuleAdminRecord = {
   id: string;
@@ -66,6 +66,9 @@ function resolveLegacyLineCode(input: {
 }): Prisma.PricingRuleCreateInput['lineCode'] {
   if (input.ruleType === 'BASE') {
     return 'BASE';
+  }
+  if (input.ruleType === 'LONG_DISTANCE') {
+    return 'LONG_DISTANCE';
   }
   if (input.ruleType === 'PERCENT_UPLIFT') {
     if (input.percentBps === 500) {
@@ -240,16 +243,17 @@ export class PricingAdminService {
     if (!policy) {
       throw new DomainError('NOT_FOUND', 'Pricing policy not found');
     }
+    const quantitySource = parsed.data.ruleType === 'LONG_DISTANCE' ? 'LONG_DISTANCE_SEGMENT_COUNT' : parsed.data.quantitySource;
     const data = {
         policyId: parsed.data.policyId,
         ruleType: parsed.data.ruleType,
         title: parsed.data.title.trim(),
-        lineCode: resolveLegacyLineCode(parsed.data),
+        lineCode: resolveLegacyLineCode({ ...parsed.data, quantitySource }),
         calcType: resolveLegacyCalcType(parsed.data.ruleType),
         targetLineCode: parsed.data.ruleType === 'PERCENT_UPLIFT' ? 'BASE' : null,
         amountKrw: parsed.data.amountKrw ?? null,
         percentBps: parsed.data.percentBps ?? null,
-        quantitySource: parsed.data.quantitySource,
+        quantitySource,
         headcountMin: parsed.data.headcountMin ?? null,
         headcountMax: parsed.data.headcountMax ?? null,
         dayMin: parsed.data.dayMin ?? null,
@@ -303,10 +307,14 @@ export class PricingAdminService {
       | 'BASE'
       | 'PERCENT_UPLIFT'
       | 'CONDITIONAL_ADDON'
+      | 'LONG_DISTANCE'
       | 'AUTO_EXCEPTION'
       | 'MANUAL';
     const nextPercentBps = parsed.data.percentBps ?? existing.percentBps ?? undefined;
-    const nextQuantitySource = parsed.data.quantitySource ?? existing.quantitySource ?? undefined;
+    const nextQuantitySource =
+      nextRuleType === 'LONG_DISTANCE'
+        ? 'LONG_DISTANCE_SEGMENT_COUNT'
+        : parsed.data.quantitySource ?? existing.quantitySource ?? undefined;
     const data = {
         ...(parsed.data.ruleType !== undefined ? { ruleType: parsed.data.ruleType } : {}),
         ...(parsed.data.title !== undefined ? { title: parsed.data.title.trim() } : {}),

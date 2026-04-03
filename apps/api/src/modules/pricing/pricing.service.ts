@@ -222,8 +222,18 @@ export class PricingService {
       lines.push(upliftLine);
     });
 
+    let longDistanceAmount = 0;
+    this.findLongDistanceRules(rules, context).forEach((rule) => {
+      const longDistanceLine = this.buildAmountRuleLine(rule, context);
+      if (!longDistanceLine) {
+        return;
+      }
+      longDistanceAmount += longDistanceLine.amountKrw;
+      lines.push(longDistanceLine);
+    });
+
     this.findConditionalAddonRules(rules, context).forEach((rule) => {
-      const addonLine = this.buildConditionalAddonLine(rule, context);
+      const addonLine = this.buildAmountRuleLine(rule, context);
       if (addonLine) {
         lines.push(addonLine);
       }
@@ -288,7 +298,7 @@ export class PricingService {
       }),
     }));
 
-    const baseAmountKrw = baseRawAmount + baseUpliftAmount;
+    const baseAmountKrw = baseRawAmount + baseUpliftAmount + longDistanceAmount;
     const totalAmountKrw = linesWithDisplay.reduce((sum, line) => sum + line.amountKrw, 0);
     const addonAmountKrw = totalAmountKrw - baseAmountKrw;
     const { depositAmountKrw, balanceAmountKrw } = this.computeDepositAndBalance(totalAmountKrw, input.manualDepositAmountKrw);
@@ -551,7 +561,7 @@ export class PricingService {
       case 'BASE_UPLIFT_5PLUS_10PCT':
         return 'PERCENT_UPLIFT';
       case 'LONG_DISTANCE':
-        return 'AUTO_EXCEPTION';
+        return 'LONG_DISTANCE';
       case 'MANUAL_ADJUSTMENT':
         return 'MANUAL';
       default:
@@ -569,6 +579,10 @@ export class PricingService {
 
   private findPercentUpliftRules(rules: PricingRuleRecord[], context: ComputeContext): PricingRuleRecord[] {
     return rules.filter((rule) => this.getEffectiveRuleType(rule) === 'PERCENT_UPLIFT' && this.matchesRule(rule, context));
+  }
+
+  private findLongDistanceRules(rules: PricingRuleRecord[], context: ComputeContext): PricingRuleRecord[] {
+    return rules.filter((rule) => this.getEffectiveRuleType(rule) === 'LONG_DISTANCE' && this.matchesRule(rule, context));
   }
 
   private buildPercentUpliftLine(rule: PricingRuleRecord, baseAmountKrw: number): PricingComputedLineDraft | null {
@@ -594,12 +608,13 @@ export class PricingService {
     return rules.filter((rule) => this.getEffectiveRuleType(rule) === 'CONDITIONAL_ADDON' && this.matchesRule(rule, context));
   }
 
-  private buildConditionalAddonLine(rule: PricingRuleRecord, context: ComputeContext): PricingComputedLineDraft | null {
+  private buildAmountRuleLine(rule: PricingRuleRecord, context: ComputeContext): PricingComputedLineDraft | null {
     const unitPrice = this.ensureAmount(rule);
     const quantity = this.resolveConditionalAddonQuantity(rule, context);
     if (quantity <= 0) {
       return null;
     }
+    const effectiveRuleType = this.getEffectiveRuleType(rule);
     const extraMeta: Record<string, unknown> = {};
     if (rule.lineCode === 'LONG_DISTANCE') {
       extraMeta.longDistanceSegmentCount = context.longDistanceSegmentCount;
@@ -608,7 +623,7 @@ export class PricingService {
       extraMeta.nightTrainBlockCount = context.nightTrainBlockCount;
     }
     return {
-      ruleType: 'CONDITIONAL_ADDON',
+      ruleType: effectiveRuleType,
       lineCode: rule.lineCode,
       sourceType: 'RULE',
       ruleId: rule.id,

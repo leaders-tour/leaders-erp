@@ -26,6 +26,8 @@ export function PricingRuleFormFields({
   ruleForm: RuleFormState;
   setRuleForm: Dispatch<SetStateAction<RuleFormState>>;
 }): JSX.Element {
+  const isLongDistanceRule = ruleForm.ruleType === 'LONG_DISTANCE';
+  const isConditionalAddonRule = ruleForm.ruleType === 'CONDITIONAL_ADDON';
   const amountInputLabel = getRuleAmountInputLabel(ruleForm);
   const amountInputPlaceholder =
     ruleForm.chargeScope === 'TEAM'
@@ -34,11 +36,13 @@ export function PricingRuleFormFields({
         ? '1인 기준 단가, 음수면 할인'
         : '음수면 할인';
   const quantityOptions =
-    ruleForm.ruleType === 'CONDITIONAL_ADDON'
-      ? QUANTITY_SOURCE_OPTIONS
-      : QUANTITY_SOURCE_OPTIONS.filter(
-          (option) => option.value !== 'LONG_DISTANCE_SEGMENT_COUNT' && option.value !== 'NIGHT_TRAIN_BLOCK_COUNT',
-        );
+    isLongDistanceRule
+      ? QUANTITY_SOURCE_OPTIONS.filter((option) => option.value === 'LONG_DISTANCE_SEGMENT_COUNT')
+      : isConditionalAddonRule
+        ? QUANTITY_SOURCE_OPTIONS.filter((option) => option.value !== 'LONG_DISTANCE_SEGMENT_COUNT')
+        : QUANTITY_SOURCE_OPTIONS.filter(
+            (option) => option.value !== 'LONG_DISTANCE_SEGMENT_COUNT' && option.value !== 'NIGHT_TRAIN_BLOCK_COUNT',
+          );
 
   return (
     <>
@@ -57,14 +61,21 @@ export function PricingRuleFormFields({
                 onChange={(event) =>
                   setRuleForm((prev) => {
                     const nextRuleType = event.target.value as PricingRuleType;
-                    const keepsSpecialQuantity =
-                      nextRuleType === 'CONDITIONAL_ADDON' ||
-                      (prev.quantitySource !== 'LONG_DISTANCE_SEGMENT_COUNT' &&
-                        prev.quantitySource !== 'NIGHT_TRAIN_BLOCK_COUNT');
+                    let nextQuantitySource = prev.quantitySource;
+                    const usesLongDistanceQuantity = prev.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT';
+                    const usesNightTrainQuantity = prev.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT';
+                    const usesSpecialQuantity = usesLongDistanceQuantity || usesNightTrainQuantity;
+                    if (nextRuleType === 'LONG_DISTANCE') {
+                      nextQuantitySource = 'LONG_DISTANCE_SEGMENT_COUNT';
+                    } else if (nextRuleType === 'CONDITIONAL_ADDON') {
+                      nextQuantitySource = usesNightTrainQuantity || !usesSpecialQuantity ? prev.quantitySource : 'ONE';
+                    } else if (usesSpecialQuantity) {
+                      nextQuantitySource = 'ONE';
+                    }
                     return {
                       ...prev,
                       ruleType: nextRuleType,
-                      quantitySource: keepsSpecialQuantity ? prev.quantitySource : 'ONE',
+                      quantitySource: nextQuantitySource,
                     };
                   })
                 }
@@ -91,9 +102,12 @@ export function PricingRuleFormFields({
                   </option>
                 ))}
               </select>
-              {ruleForm.ruleType === 'CONDITIONAL_ADDON' ? (
+              {isLongDistanceRule ? (
+                <span className="text-xs text-slate-500">장거리 기본금은 항상 `장거리 구간 수` 기준으로 계산되어 기본금 계열에 합산됩니다.</span>
+              ) : null}
+              {isConditionalAddonRule ? (
                 <span className="text-xs text-slate-500">
-                  장거리는 `장거리 구간 수`, 야간열차는 `야간열차 운행 수`를 선택하면 횟수 비례형으로 계산됩니다.
+                  야간열차는 `야간열차 운행 수`를 선택하면 횟수 비례형으로 계산됩니다.
                 </span>
               ) : null}
             </label>
@@ -407,7 +421,7 @@ export function PricingRuleFormFields({
               placeholder="비워두면 팀당/인당/일/박 규칙으로 표시"
             />
           </label>
-          {ruleForm.ruleType === 'CONDITIONAL_ADDON' &&
+          {(isLongDistanceRule || isConditionalAddonRule) &&
           (ruleForm.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT' || ruleForm.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT') ? (
             <p className="text-xs text-slate-500">
               장거리·야간열차처럼 횟수 비례형 규칙도 `팀당`으로 두면 `총액/인원` 형태로 표시됩니다.

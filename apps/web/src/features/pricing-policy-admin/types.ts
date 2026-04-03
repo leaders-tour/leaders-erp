@@ -1,5 +1,5 @@
 export type PricingPolicyStatus = 'ACTIVE' | 'INACTIVE';
-export type PricingRuleType = 'BASE' | 'PERCENT_UPLIFT' | 'CONDITIONAL_ADDON' | 'AUTO_EXCEPTION' | 'MANUAL';
+export type PricingRuleType = 'BASE' | 'PERCENT_UPLIFT' | 'CONDITIONAL_ADDON' | 'LONG_DISTANCE' | 'AUTO_EXCEPTION' | 'MANUAL';
 export type PricingQuantitySource =
   | 'ONE'
   | 'HEADCOUNT'

@@ -37,6 +37,7 @@ function configuredDisplayFromMeta(
     (meta.ruleType === 'BASE' ||
       meta.ruleType === 'PERCENT_UPLIFT' ||
       meta.ruleType === 'CONDITIONAL_ADDON' ||
+      meta.ruleType === 'LONG_DISTANCE' ||
       meta.ruleType === 'AUTO_EXCEPTION' ||
       meta.ruleType === 'MANUAL')
       ? meta.ruleType

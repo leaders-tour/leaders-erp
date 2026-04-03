@@ -113,6 +113,71 @@ export function getRuleAmountInputLabel(ruleForm: Pick<RuleFormState, 'chargeSco
   return '금액';
 }
 
+export type PricingDisplayPreview = {
+  label: string;
+  example: string | null;
+};
+
+const krwFormatter = new Intl.NumberFormat('ko-KR');
+
+function formatKrwAmount(value: number | null | undefined): string | null {
+  if (value == null) {
+    return null;
+  }
+  return `${krwFormatter.format(value)}원`;
+}
+
+export function getPricingDisplayPreview(
+  rule: Pick<PricingRuleRow, 'ruleType' | 'chargeScope' | 'personMode' | 'customDisplayText' | 'amountKrw'>,
+): PricingDisplayPreview {
+  const customDisplayText = rule.customDisplayText?.trim();
+  if (customDisplayText) {
+    return {
+      label: '커스텀',
+      example: customDisplayText,
+    };
+  }
+
+  if (rule.ruleType === 'BASE' || rule.ruleType === 'PERCENT_UPLIFT') {
+    return {
+      label: 'X',
+      example: null,
+    };
+  }
+
+  const formattedAmount = formatKrwAmount(rule.amountKrw);
+  if (rule.chargeScope === 'TEAM') {
+    return {
+      label: '팀당',
+      example: formattedAmount ? `${formattedAmount} / n인` : null,
+    };
+  }
+
+  if (rule.chargeScope === 'PER_PERSON') {
+    if (rule.personMode === 'PER_DAY') {
+      return {
+        label: '일당',
+        example: formattedAmount ? `${formattedAmount} * n일` : null,
+      };
+    }
+    if (rule.personMode === 'PER_NIGHT') {
+      return {
+        label: '박당',
+        example: formattedAmount ? `${formattedAmount} * n박` : null,
+      };
+    }
+    return {
+      label: '인당',
+      example: formattedAmount ? `${formattedAmount} * 1` : null,
+    };
+  }
+
+  return {
+    label: '-',
+    example: null,
+  };
+}
+
 export function buildDateTime(value: string): string {
   return `${value}T00:00:00.000Z`;
 }
@@ -203,23 +268,24 @@ export function validateRuleForm(ruleForm: RuleFormState): string | null {
   if (ruleForm.ruleType === 'PERCENT_UPLIFT' && parseOptionalInt(ruleForm.percentText) == null) {
     return '퍼센트 항목은 정수 퍼센트가 필요합니다.';
   }
-  if (
-    ruleForm.ruleType !== 'CONDITIONAL_ADDON' &&
-    (ruleForm.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT' || ruleForm.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT')
-  ) {
-    return '장거리/야간열차 횟수 기준은 `조건부 추가/할인` 규칙에서만 사용할 수 있습니다.';
+  if (ruleForm.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT' && ruleForm.ruleType !== 'LONG_DISTANCE') {
+    return '장거리 구간 수 기준은 `장거리 기본금` 규칙에서만 사용할 수 있습니다.';
+  }
+  if (ruleForm.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT' && ruleForm.ruleType !== 'CONDITIONAL_ADDON') {
+    return '야간열차 운행 수 기준은 `조건부 추가/할인` 규칙에서만 사용할 수 있습니다.';
   }
   return null;
 }
 
 /** create/updatePricingRule 공통 input 본문 (policyId는 create 시에만 상위에서 붙임) */
 export function buildRuleMutationBody(ruleForm: RuleFormState) {
+  const quantitySource = ruleForm.ruleType === 'LONG_DISTANCE' ? 'LONG_DISTANCE_SEGMENT_COUNT' : ruleForm.quantitySource;
   return {
     ruleType: ruleForm.ruleType,
     title: ruleForm.title.trim(),
     amountKrw: ruleForm.ruleType === 'PERCENT_UPLIFT' ? null : parseOptionalInt(ruleForm.amountKrw),
     percentBps: ruleForm.ruleType === 'PERCENT_UPLIFT' ? Number(ruleForm.percentText || '0') * 100 : null,
-    quantitySource: ruleForm.quantitySource,
+    quantitySource,
     headcountMin: parseOptionalInt(ruleForm.headcountMin),
     headcountMax: parseOptionalInt(ruleForm.headcountMax),
     dayMin: parseOptionalInt(ruleForm.dayMin),
