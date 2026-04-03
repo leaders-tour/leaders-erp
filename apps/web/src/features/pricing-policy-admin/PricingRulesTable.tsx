@@ -1,7 +1,19 @@
 import { Button, Table, Td, Th } from '@tour/ui';
-import { getExternalTransferPresetLabel, getPricingQuantitySourceLabelKo, getPricingRuleTypeLabelKo } from './constants';
+import {
+  EXTERNAL_TRANSFER_MODE_OPTIONS,
+  PLACE_TYPE_OPTIONS,
+  TIME_BAND_OPTIONS,
+  getExternalTransferPresetLabel,
+  getPricingQuantitySourceLabelKo,
+  getPricingRuleTypeLabelKo,
+} from './constants';
 import type { PricingRuleRow } from './types';
 import { toDateInputValue } from './utils';
+
+type ConditionChip = {
+  label: string;
+  className: string;
+};
 
 function formatCalculationLabel(rule: PricingRuleRow): string {
   if (rule.ruleType === 'PERCENT_UPLIFT') {
@@ -14,6 +26,98 @@ function formatCalculationLabel(rule: PricingRuleRow): string {
   }
 
   return `${amountLabel} x ${getPricingQuantitySourceLabelKo(rule.quantitySource)}`;
+}
+
+function getOptionLabel(options: Array<{ value: string; label: string }>, value: string): string {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
+
+function getConditionChips(rule: PricingRuleRow): ConditionChip[] {
+  const chips: ConditionChip[] = [];
+
+  if (rule.headcountMin) {
+    chips.push({ label: `인원 ≥ ${rule.headcountMin}`, className: 'border-sky-200 bg-sky-50 text-sky-700' });
+  }
+  if (rule.headcountMax) {
+    chips.push({ label: `인원 ≤ ${rule.headcountMax}`, className: 'border-sky-200 bg-sky-50 text-sky-700' });
+  }
+  if (rule.dayMin) {
+    chips.push({ label: `일수 ≥ ${rule.dayMin}`, className: 'border-indigo-200 bg-indigo-50 text-indigo-700' });
+  }
+  if (rule.dayMax) {
+    chips.push({ label: `일수 ≤ ${rule.dayMax}`, className: 'border-indigo-200 bg-indigo-50 text-indigo-700' });
+  }
+  if (rule.vehicleType) {
+    chips.push({ label: `차량 ${rule.vehicleType}`, className: 'border-amber-200 bg-amber-50 text-amber-700' });
+  }
+  if (rule.travelDateFrom) {
+    chips.push({
+      label: `기간 ≥ ${toDateInputValue(rule.travelDateFrom)}`,
+      className: 'border-violet-200 bg-violet-50 text-violet-700',
+    });
+  }
+  if (rule.travelDateTo) {
+    chips.push({
+      label: `기간 ≤ ${toDateInputValue(rule.travelDateTo)}`,
+      className: 'border-violet-200 bg-violet-50 text-violet-700',
+    });
+  }
+  if (rule.flightInTimeBand) {
+    chips.push({
+      label: `IN ${getOptionLabel(TIME_BAND_OPTIONS, rule.flightInTimeBand)}`,
+      className: 'border-cyan-200 bg-cyan-50 text-cyan-700',
+    });
+  }
+  if (rule.flightOutTimeBand) {
+    chips.push({
+      label: `OUT ${getOptionLabel(TIME_BAND_OPTIONS, rule.flightOutTimeBand)}`,
+      className: 'border-cyan-200 bg-cyan-50 text-cyan-700',
+    });
+  }
+  if (rule.pickupPlaceType) {
+    chips.push({
+      label: `픽업 ${getOptionLabel(PLACE_TYPE_OPTIONS, rule.pickupPlaceType)}`,
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    });
+  }
+  if (rule.dropPlaceType) {
+    chips.push({
+      label: `드랍 ${getOptionLabel(PLACE_TYPE_OPTIONS, rule.dropPlaceType)}`,
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    });
+  }
+  if (rule.externalTransferMode) {
+    chips.push({
+      label: `실투외 ${getOptionLabel(EXTERNAL_TRANSFER_MODE_OPTIONS, rule.externalTransferMode)}`,
+      className: 'border-rose-200 bg-rose-50 text-rose-700',
+    });
+  }
+  if (rule.externalTransferMinCount) {
+    chips.push({
+      label: `실투외 건수 ≥ ${rule.externalTransferMinCount}`,
+      className: 'border-rose-200 bg-rose-50 text-rose-700',
+    });
+  }
+  if (rule.externalTransferPresetCodes.length > 0) {
+    chips.push({
+      label: `프리셋 ${rule.externalTransferPresetCodes.map(getExternalTransferPresetLabel).join(', ')}`,
+      className: 'border-pink-200 bg-pink-50 text-pink-700',
+    });
+  }
+  if (rule.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT') {
+    chips.push({
+      label: '장거리 구간 수만큼 적용',
+      className: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700',
+    });
+  }
+  if (rule.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT') {
+    chips.push({
+      label: '야간열차 운행 수만큼 적용',
+      className: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700',
+    });
+  }
+
+  return chips;
 }
 
 export function PricingRulesTable({
@@ -40,7 +144,9 @@ export function PricingRulesTable({
           </tr>
         </thead>
         <tbody>
-          {rules.map((rule) => (
+          {rules.map((rule) => {
+            const conditionChips = getConditionChips(rule);
+            return (
             <tr key={rule.id} className="border-t border-slate-200">
               <Td className="max-w-[14rem] align-middle font-medium text-slate-900">{rule.title}</Td>
               <Td className="align-middle">
@@ -63,28 +169,20 @@ export function PricingRulesTable({
                       : '-'}
               </Td>
               <Td>
-                {[
-                  rule.headcountMin ? `인원 ${rule.headcountMin}+` : null,
-                  rule.headcountMax ? `인원 ~${rule.headcountMax}` : null,
-                  rule.dayMin ? `일수 ${rule.dayMin}+` : null,
-                  rule.dayMax ? `일수 ~${rule.dayMax}` : null,
-                  rule.vehicleType ? `차량 ${rule.vehicleType}` : null,
-                  rule.travelDateFrom ? `기간 ${toDateInputValue(rule.travelDateFrom)}~` : null,
-                  rule.travelDateTo ? `기간 ~${toDateInputValue(rule.travelDateTo)}` : null,
-                  rule.flightInTimeBand ? `IN ${rule.flightInTimeBand}` : null,
-                  rule.flightOutTimeBand ? `OUT ${rule.flightOutTimeBand}` : null,
-                  rule.pickupPlaceType ? `픽업 ${rule.pickupPlaceType}` : null,
-                  rule.dropPlaceType ? `드랍 ${rule.dropPlaceType}` : null,
-                  rule.externalTransferMode ? `실투외 ${rule.externalTransferMode}` : null,
-                  rule.externalTransferMinCount ? `실투외 ${rule.externalTransferMinCount}건+` : null,
-                  rule.externalTransferPresetCodes.length > 0
-                    ? `프리셋 ${rule.externalTransferPresetCodes.map(getExternalTransferPresetLabel).join(', ')}`
-                    : null,
-                  rule.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT' ? '장거리 구간 수만큼 적용' : null,
-                  rule.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT' ? '야간열차 운행 수만큼 적용' : null,
-                ]
-                  .filter(Boolean)
-                  .join(' / ') || '-'}
+                {conditionChips.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {conditionChips.map((chip) => (
+                      <span
+                        key={chip.label}
+                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${chip.className}`}
+                      >
+                        {chip.label}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  '-'
+                )}
               </Td>
               <Td>
                 <span
@@ -106,7 +204,8 @@ export function PricingRulesTable({
                 </div>
               </Td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </Table>
     </div>
