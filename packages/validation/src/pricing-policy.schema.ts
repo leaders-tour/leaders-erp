@@ -12,6 +12,7 @@ const pricingQuantitySources = [
 const pricingPolicyStatuses = ['ACTIVE', 'INACTIVE'] as const;
 const pricingChargeScopes = ['TEAM', 'PER_PERSON'] as const;
 const pricingPersonModes = ['SINGLE', 'PER_DAY', 'PER_NIGHT'] as const;
+const pricingLodgingSelectionLevels = ['LV1', 'LV2', 'LV4'] as const;
 const pricingRuleTypes = ['BASE', 'PERCENT_UPLIFT', 'CONDITIONAL_ADDON', 'LONG_DISTANCE', 'AUTO_EXCEPTION', 'MANUAL'] as const;
 const pricingTimeBands = ['DAWN', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT'] as const;
 const pricingExternalTransferModes = ['ANY', 'PICKUP_ONLY', 'DROP_ONLY', 'BOTH'] as const;
@@ -49,6 +50,7 @@ export const pricingRuleBaseSchema = z.object({
   amountKrw: z.number().int().min(-1_000_000_000).max(1_000_000_000).nullable().optional(),
   percentBps: z.number().int().min(-100_000).max(100_000).nullable().optional(),
   quantitySource: z.enum(pricingQuantitySources),
+  lodgingSelectionLevel: z.enum(pricingLodgingSelectionLevels).nullable().optional(),
   headcountMin: z.number().int().min(0).max(100).nullable().optional(),
   headcountMax: z.number().int().min(0).max(100).nullable().optional(),
   dayMin: z.number().int().min(1).max(30).nullable().optional(),
@@ -78,6 +80,7 @@ function validateRuleInput(
   const ruleType = value.ruleType ?? null;
   const chargeScope = value.chargeScope ?? null;
   const personMode = value.personMode ?? null;
+  const lodgingSelectionLevel = value.lodgingSelectionLevel ?? null;
   const amountKrw = value.amountKrw ?? null;
   const percentBps = value.percentBps ?? null;
   const usesAmount =
@@ -111,6 +114,38 @@ function validateRuleInput(
       code: z.ZodIssueCode.custom,
       message: 'NIGHT_TRAIN_BLOCK_COUNT is only available for CONDITIONAL_ADDON',
       path: ['quantitySource'],
+    });
+  }
+
+  if (lodgingSelectionLevel != null && ruleType !== 'CONDITIONAL_ADDON') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'lodgingSelectionLevel is only available for CONDITIONAL_ADDON',
+      path: ['lodgingSelectionLevel'],
+    });
+  }
+
+  if (lodgingSelectionLevel != null && value.quantitySource !== 'ONE') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'lodgingSelectionLevel rules must use quantitySource ONE',
+      path: ['quantitySource'],
+    });
+  }
+
+  if (lodgingSelectionLevel != null && chargeScope !== 'PER_PERSON') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'lodgingSelectionLevel rules must use chargeScope PER_PERSON',
+      path: ['chargeScope'],
+    });
+  }
+
+  if (lodgingSelectionLevel != null && personMode !== 'PER_NIGHT') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'lodgingSelectionLevel rules must use personMode PER_NIGHT',
+      path: ['personMode'],
     });
   }
 

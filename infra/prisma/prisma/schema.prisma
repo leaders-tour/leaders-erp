@@ -111,6 +111,12 @@ enum PricingPersonMode {
   PER_NIGHT
 }
 
+enum PricingLodgingSelectionLevel {
+  LV1
+  LV2
+  LV4
+}
+
 enum PricingRuleType {
   BASE
   PERCENT_UPLIFT
@@ -982,6 +988,7 @@ model PricingRule {
   amountKrw      Int?
   percentBps     Int?
   quantitySource PricingQuantitySource
+  lodgingSelectionLevel PricingLodgingSelectionLevel?
   headcountMin   Int?
   headcountMax   Int?
   dayMin         Int?

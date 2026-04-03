@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import {
   EXTERNAL_TRANSFER_MODE_OPTIONS,
   EXTERNAL_TRANSFER_PRESET_OPTIONS,
+  LODGING_SELECTION_LEVEL_OPTIONS,
   PLACE_TYPE_OPTIONS,
   QUANTITY_SOURCE_OPTIONS,
   RULE_TYPE_OPTIONS,
@@ -12,6 +13,7 @@ import {
 import type {
   PlaceType,
   PricingExternalTransferMode,
+  PricingLodgingSelectionLevel,
   PricingQuantitySource,
   PricingRuleType,
   PricingTimeBand,
@@ -28,6 +30,7 @@ export function PricingRuleFormFields({
 }): JSX.Element {
   const isLongDistanceRule = ruleForm.ruleType === 'LONG_DISTANCE';
   const isConditionalAddonRule = ruleForm.ruleType === 'CONDITIONAL_ADDON';
+  const isLodgingSelectionRule = isConditionalAddonRule && ruleForm.lodgingSelectionLevel !== '';
   const amountInputLabel = getRuleAmountInputLabel(ruleForm);
   const amountInputPlaceholder =
     ruleForm.chargeScope === 'TEAM'
@@ -38,6 +41,8 @@ export function PricingRuleFormFields({
   const quantityOptions =
     isLongDistanceRule
       ? QUANTITY_SOURCE_OPTIONS.filter((option) => option.value === 'LONG_DISTANCE_SEGMENT_COUNT')
+      : isLodgingSelectionRule
+        ? QUANTITY_SOURCE_OPTIONS.filter((option) => option.value === 'ONE')
       : isConditionalAddonRule
         ? QUANTITY_SOURCE_OPTIONS.filter((option) => option.value !== 'LONG_DISTANCE_SEGMENT_COUNT')
         : QUANTITY_SOURCE_OPTIONS.filter(
@@ -65,10 +70,16 @@ export function PricingRuleFormFields({
                     const usesLongDistanceQuantity = prev.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT';
                     const usesNightTrainQuantity = prev.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT';
                     const usesSpecialQuantity = usesLongDistanceQuantity || usesNightTrainQuantity;
+                    const nextLodgingSelectionLevel = nextRuleType === 'CONDITIONAL_ADDON' ? prev.lodgingSelectionLevel : '';
                     if (nextRuleType === 'LONG_DISTANCE') {
                       nextQuantitySource = 'LONG_DISTANCE_SEGMENT_COUNT';
                     } else if (nextRuleType === 'CONDITIONAL_ADDON') {
-                      nextQuantitySource = usesNightTrainQuantity || !usesSpecialQuantity ? prev.quantitySource : 'ONE';
+                      nextQuantitySource =
+                        nextLodgingSelectionLevel !== ''
+                          ? 'ONE'
+                          : usesNightTrainQuantity || !usesSpecialQuantity
+                            ? prev.quantitySource
+                            : 'ONE';
                     } else if (usesSpecialQuantity) {
                       nextQuantitySource = 'ONE';
                     }
@@ -76,6 +87,7 @@ export function PricingRuleFormFields({
                       ...prev,
                       ruleType: nextRuleType,
                       quantitySource: nextQuantitySource,
+                      lodgingSelectionLevel: nextLodgingSelectionLevel,
                     };
                   })
                 }
@@ -105,12 +117,43 @@ export function PricingRuleFormFields({
               {isLongDistanceRule ? (
                 <span className="text-xs text-slate-500">장거리 기본금은 항상 `장거리 구간 수` 기준으로 계산되어 기본금 계열에 합산됩니다.</span>
               ) : null}
-              {isConditionalAddonRule ? (
+              {isLodgingSelectionRule ? (
+                <span className="text-xs text-slate-500">숙소 업그레이드 규칙은 선택된 일차마다 1회씩 적용되고, 화면에는 `박당` 기준으로 표시됩니다.</span>
+              ) : isConditionalAddonRule ? (
                 <span className="text-xs text-slate-500">
                   야간열차는 `야간열차 운행 수`를 선택하면 횟수 비례형으로 계산됩니다.
                 </span>
               ) : null}
             </label>
+            {isConditionalAddonRule ? (
+              <label className="grid gap-1 text-sm">
+                <span>숙소 업그레이드 등급</span>
+                <select
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  value={ruleForm.lodgingSelectionLevel}
+                  onChange={(event) =>
+                    setRuleForm((prev) => {
+                      const level = event.target.value as '' | PricingLodgingSelectionLevel;
+                      return {
+                        ...prev,
+                        lodgingSelectionLevel: level,
+                        quantitySource: level ? 'ONE' : prev.quantitySource,
+                        chargeScope: level ? 'PER_PERSON' : prev.chargeScope,
+                        personMode: level ? 'PER_NIGHT' : prev.personMode,
+                      };
+                    })
+                  }
+                >
+                  <option value="">없음</option>
+                  {LODGING_SELECTION_LEVEL_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-xs text-slate-500">선택하면 이 규칙은 `LODGING_SELECTION` 라인으로 계산됩니다.</span>
+              </label>
+            ) : null}
             <label className="grid gap-1 text-sm md:col-span-2">
               <span>제목</span>
               <Input
@@ -372,47 +415,57 @@ export function PricingRuleFormFields({
 
         <div className="grid gap-4 rounded-2xl border border-slate-200 p-4">
           <div className="text-sm font-semibold text-slate-800">표시 기준</div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant={ruleForm.chargeScope === 'TEAM' ? 'default' : 'outline'}
-              onClick={() => setRuleForm((prev) => ({ ...prev, chargeScope: 'TEAM', personMode: '' }))}
-            >
-              팀당
-            </Button>
-            <Button
-              type="button"
-              variant={ruleForm.chargeScope === 'PER_PERSON' ? 'default' : 'outline'}
-              onClick={() => setRuleForm((prev) => ({ ...prev, chargeScope: 'PER_PERSON', personMode: prev.personMode || 'SINGLE' }))}
-            >
-              인당/일/박
-            </Button>
-          </div>
-          {ruleForm.chargeScope === 'PER_PERSON' ? (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant={ruleForm.personMode === 'SINGLE' ? 'default' : 'outline'}
-                onClick={() => setRuleForm((prev) => ({ ...prev, personMode: 'SINGLE' }))}
-              >
-                1인 단수
-              </Button>
-              <Button
-                type="button"
-                variant={ruleForm.personMode === 'PER_DAY' ? 'default' : 'outline'}
-                onClick={() => setRuleForm((prev) => ({ ...prev, personMode: 'PER_DAY' }))}
-              >
-                일 복수
-              </Button>
-              <Button
-                type="button"
-                variant={ruleForm.personMode === 'PER_NIGHT' ? 'default' : 'outline'}
-                onClick={() => setRuleForm((prev) => ({ ...prev, personMode: 'PER_NIGHT' }))}
-              >
-                박 복수
-              </Button>
+          {isLodgingSelectionRule ? (
+            <div className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-medium text-slate-800">
+              숙소 업그레이드 규칙은 자동으로 `박당` 표시를 사용합니다.
             </div>
-          ) : null}
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant={ruleForm.chargeScope === 'TEAM' ? 'default' : 'outline'}
+                  onClick={() => setRuleForm((prev) => ({ ...prev, chargeScope: 'TEAM', personMode: '' }))}
+                >
+                  팀당
+                </Button>
+                <Button
+                  type="button"
+                  variant={ruleForm.chargeScope === 'PER_PERSON' ? 'default' : 'outline'}
+                  onClick={() =>
+                    setRuleForm((prev) => ({ ...prev, chargeScope: 'PER_PERSON', personMode: prev.personMode || 'SINGLE' }))
+                  }
+                >
+                  인당/일/박
+                </Button>
+              </div>
+              {ruleForm.chargeScope === 'PER_PERSON' ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={ruleForm.personMode === 'SINGLE' ? 'default' : 'outline'}
+                    onClick={() => setRuleForm((prev) => ({ ...prev, personMode: 'SINGLE' }))}
+                  >
+                    1인 단수
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={ruleForm.personMode === 'PER_DAY' ? 'default' : 'outline'}
+                    onClick={() => setRuleForm((prev) => ({ ...prev, personMode: 'PER_DAY' }))}
+                  >
+                    일 복수
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={ruleForm.personMode === 'PER_NIGHT' ? 'default' : 'outline'}
+                    onClick={() => setRuleForm((prev) => ({ ...prev, personMode: 'PER_NIGHT' }))}
+                  >
+                    박 복수
+                  </Button>
+                </div>
+              ) : null}
+            </>
+          )}
           <label className="grid gap-1 text-sm">
             <span>커스텀 오른쪽 표기</span>
             <Input

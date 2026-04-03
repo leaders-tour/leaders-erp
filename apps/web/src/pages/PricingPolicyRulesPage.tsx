@@ -142,7 +142,7 @@ export function PricingPolicyRulesPage(): JSX.Element {
             title={policy ? `${policy.name} · 규칙` : '가격 규칙'}
             description={
               policy
-                ? 'ruleType·제목·조건·금액을 관리합니다. 장거리는 `장거리 기본금`, 야간열차는 `조건부 추가/할인` 규칙에서 수량 기준으로 설정합니다.'
+                ? 'ruleType·제목·조건·금액을 관리합니다. 장거리는 `장거리 기본금`, 야간열차와 숙소 업그레이드는 `조건부 추가/할인` 규칙에서 세부 기준으로 설정합니다.'
                 : '정책을 불러오는 중…'
             }
           />
@@ -190,7 +190,7 @@ export function PricingPolicyRulesPage(): JSX.Element {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h2 className="text-xl font-semibold text-slate-900">{editingRuleId ? '규칙 수정' : '규칙 추가'}</h2>
-                    <p className="mt-1 text-xs text-slate-500">ruleType, 제목, 조건, 금액을 입력합니다. 장거리는 `장거리 기본금`, 야간열차는 `조건부 추가/할인`에서 수량 기준으로 설정합니다.</p>
+                    <p className="mt-1 text-xs text-slate-500">ruleType, 제목, 조건, 금액을 입력합니다. 장거리는 `장거리 기본금`, 야간열차와 숙소 업그레이드는 `조건부 추가/할인`에서 세부 기준으로 설정합니다.</p>
                   </div>
                   <Button variant="outline" onClick={closeRuleModal}>
                     닫기

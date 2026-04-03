@@ -14,6 +14,7 @@ import type {
   PricingComputeInput,
   PricingComputedLine,
   PricingComputedLineDraft,
+  PricingLodgingSelectionLevelValue,
   PricingPlanStopDto,
   PricingRuleTypeValue,
 } from './pricing.types';
@@ -52,6 +53,7 @@ type PricingRuleRecord = {
   amountKrw: number | null;
   percentBps: number | null;
   quantitySource: PricingQuantitySourceValue;
+  lodgingSelectionLevel: PricingLodgingSelectionLevelValue | null;
   headcountMin: number | null;
   headcountMax: number | null;
   dayMin: number | null;
@@ -77,12 +79,6 @@ type PricingRuleRecord = {
 
 const HIACE = '하이에이스';
 const RENTAL_ITEM_DEPOSIT_PER_PERSON_KRW = 30_000;
-const FIXED_LODGING_SELECTION_AMOUNTS: Record<'LV1' | 'LV2' | 'LV3' | 'LV4', number> = {
-  LV1: -50_000,
-  LV2: -30_000,
-  LV3: 0,
-  LV4: 50_000,
-};
 
 export class PricingService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -239,9 +235,11 @@ export class PricingService {
       }
     });
 
-    this.buildLodgingSelectionLines(input.lodgingSelections, input.headcountTotal, input.transportGroupCount).forEach((line) => {
-      lines.push(line);
-    });
+    this.buildLodgingSelectionLines(rules, context, input.lodgingSelections, input.headcountTotal, input.transportGroupCount).forEach(
+      (line) => {
+        lines.push(line);
+      },
+    );
 
     input.manualAdjustments.forEach((adjustment, index) => {
       const sign = adjustment.kind === 'DISCOUNT' ? -1 : 1;
@@ -359,6 +357,8 @@ export class PricingService {
   }
 
   private buildLodgingSelectionLines(
+    rules: PricingRuleRecord[],
+    context: ComputeContext,
     lodgingSelections: LodgingSelectionPricingInputDto[],
     headcountTotal: number,
     transportGroupCount: number,
@@ -371,18 +371,22 @@ export class PricingService {
       }
 
       if (selection.level !== 'CUSTOM') {
-        const unitPriceKrw = FIXED_LODGING_SELECTION_AMOUNTS[selection.level];
+        const lodgingRule = this.findFixedLodgingSelectionRule(rules, selection.level, context);
+        const unitPriceKrw = this.ensureAmount(lodgingRule);
         const quantity = 1;
         lines.push({
           ruleType: 'CONDITIONAL_ADDON',
           lineCode: 'LODGING_SELECTION',
-          sourceType: 'MANUAL',
-          ruleId: null,
+          sourceType: 'RULE',
+          ruleId: lodgingRule.id,
           description: `${selection.dayIndex}일차 ${selection.level}`,
           unitPriceKrw,
           quantity,
           amountKrw: unitPriceKrw * quantity,
-          meta: { dayIndex: selection.dayIndex, level: selection.level },
+          meta: this.buildRuleMeta(lodgingRule, {
+            dayIndex: selection.dayIndex,
+            level: selection.level,
+          }),
         });
         return;
       }
@@ -543,6 +547,7 @@ export class PricingService {
       ...(rule.chargeScope ? { chargeScope: rule.chargeScope } : {}),
       ...(rule.personMode ? { personMode: rule.personMode } : {}),
       ...(rule.customDisplayText ? { customDisplayText: rule.customDisplayText } : {}),
+      ...(rule.lodgingSelectionLevel ? { lodgingSelectionLevel: rule.lodgingSelectionLevel } : {}),
       ...(rule.externalTransferMode ? { externalTransferMode: rule.externalTransferMode } : {}),
       ...(rule.externalTransferMinCount != null ? { externalTransferMinCount: rule.externalTransferMinCount } : {}),
       ...(externalTransferPresetCodes.length > 0 ? { externalTransferPresetCodes } : {}),
@@ -605,7 +610,31 @@ export class PricingService {
   }
 
   private findConditionalAddonRules(rules: PricingRuleRecord[], context: ComputeContext): PricingRuleRecord[] {
-    return rules.filter((rule) => this.getEffectiveRuleType(rule) === 'CONDITIONAL_ADDON' && this.matchesRule(rule, context));
+    return rules.filter(
+      (rule) =>
+        this.getEffectiveRuleType(rule) === 'CONDITIONAL_ADDON' &&
+        rule.lodgingSelectionLevel === null &&
+        this.matchesRule(rule, context),
+    );
+  }
+
+  private findFixedLodgingSelectionRule(
+    rules: PricingRuleRecord[],
+    level: PricingLodgingSelectionLevelValue,
+    context: ComputeContext,
+  ): PricingRuleRecord {
+    const matched =
+      rules.find(
+        (rule) =>
+          rule.lineCode === 'LODGING_SELECTION' &&
+          rule.calcType === 'AMOUNT' &&
+          rule.lodgingSelectionLevel === level &&
+          this.matchesRule(rule, context),
+      ) ?? null;
+    if (!matched) {
+      throw new DomainError('VALIDATION_FAILED', `No pricing rule found for lodging selection ${level}`);
+    }
+    return matched;
   }
 
   private buildAmountRuleLine(rule: PricingRuleRecord, context: ComputeContext): PricingComputedLineDraft | null {

@@ -32,6 +32,7 @@ export function createEmptyRuleForm(): RuleFormState {
     amountKrw: '',
     percentText: '',
     quantitySource: 'ONE',
+    lodgingSelectionLevel: '',
     headcountMin: '',
     headcountMax: '',
     dayMin: '',
@@ -62,6 +63,7 @@ export function toRuleForm(rule: PricingRuleRow): RuleFormState {
     amountKrw: rule.amountKrw != null ? String(rule.amountKrw) : '',
     percentText: rule.percentBps != null ? String(rule.percentBps / 100) : '',
     quantitySource: rule.quantitySource,
+    lodgingSelectionLevel: rule.lodgingSelectionLevel ?? '',
     headcountMin: rule.headcountMin != null ? String(rule.headcountMin) : '',
     headcountMax: rule.headcountMax != null ? String(rule.headcountMax) : '',
     dayMin: rule.dayMin != null ? String(rule.dayMin) : '',
@@ -274,18 +276,33 @@ export function validateRuleForm(ruleForm: RuleFormState): string | null {
   if (ruleForm.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT' && ruleForm.ruleType !== 'CONDITIONAL_ADDON') {
     return '야간열차 운행 수 기준은 `조건부 추가/할인` 규칙에서만 사용할 수 있습니다.';
   }
+  if (ruleForm.lodgingSelectionLevel && ruleForm.ruleType !== 'CONDITIONAL_ADDON') {
+    return '숙소 업그레이드 등급은 `조건부 추가/할인` 규칙에서만 사용할 수 있습니다.';
+  }
+  if (ruleForm.lodgingSelectionLevel && ruleForm.quantitySource !== 'ONE') {
+    return '숙소 업그레이드 규칙은 수량 기준을 `1회 고정`으로 유지해야 합니다.';
+  }
+  if (ruleForm.lodgingSelectionLevel && ruleForm.chargeScope !== 'PER_PERSON') {
+    return '숙소 업그레이드 규칙은 표시 기준이 `인당/일/박`이어야 합니다.';
+  }
+  if (ruleForm.lodgingSelectionLevel && ruleForm.personMode !== 'PER_NIGHT') {
+    return '숙소 업그레이드 규칙은 표시 기준이 `박 복수`여야 합니다.';
+  }
   return null;
 }
 
 /** create/updatePricingRule 공통 input 본문 (policyId는 create 시에만 상위에서 붙임) */
 export function buildRuleMutationBody(ruleForm: RuleFormState) {
-  const quantitySource = ruleForm.ruleType === 'LONG_DISTANCE' ? 'LONG_DISTANCE_SEGMENT_COUNT' : ruleForm.quantitySource;
+  const lodgingSelectionLevel = ruleForm.lodgingSelectionLevel || null;
+  const quantitySource =
+    ruleForm.ruleType === 'LONG_DISTANCE' ? 'LONG_DISTANCE_SEGMENT_COUNT' : lodgingSelectionLevel ? 'ONE' : ruleForm.quantitySource;
   return {
     ruleType: ruleForm.ruleType,
     title: ruleForm.title.trim(),
     amountKrw: ruleForm.ruleType === 'PERCENT_UPLIFT' ? null : parseOptionalInt(ruleForm.amountKrw),
     percentBps: ruleForm.ruleType === 'PERCENT_UPLIFT' ? Number(ruleForm.percentText || '0') * 100 : null,
     quantitySource,
+    lodgingSelectionLevel,
     headcountMin: parseOptionalInt(ruleForm.headcountMin),
     headcountMax: parseOptionalInt(ruleForm.headcountMax),
     dayMin: parseOptionalInt(ruleForm.dayMin),
@@ -301,9 +318,20 @@ export function buildRuleMutationBody(ruleForm: RuleFormState) {
     externalTransferMode: ruleForm.externalTransferMode || null,
     externalTransferMinCount: parseOptionalInt(ruleForm.externalTransferMinCount),
     externalTransferPresetCodes: ruleForm.externalTransferPresetCodes,
-    chargeScope: ruleForm.ruleType === 'PERCENT_UPLIFT' ? null : ruleForm.chargeScope || null,
+    chargeScope:
+      ruleForm.ruleType === 'PERCENT_UPLIFT'
+        ? null
+        : lodgingSelectionLevel
+          ? 'PER_PERSON'
+          : ruleForm.chargeScope || null,
     personMode:
-      ruleForm.ruleType !== 'PERCENT_UPLIFT' && ruleForm.chargeScope === 'PER_PERSON' ? ruleForm.personMode || null : null,
+      ruleForm.ruleType !== 'PERCENT_UPLIFT'
+        ? lodgingSelectionLevel
+          ? 'PER_NIGHT'
+          : ruleForm.chargeScope === 'PER_PERSON'
+            ? ruleForm.personMode || null
+            : null
+        : null,
     customDisplayText: ruleForm.ruleType === 'PERCENT_UPLIFT' ? null : ruleForm.customDisplayText.trim() || null,
     isEnabled: ruleForm.isEnabled,
     sortOrder: Number(ruleForm.sortOrder || '0'),

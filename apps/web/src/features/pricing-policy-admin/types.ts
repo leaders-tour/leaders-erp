@@ -9,6 +9,7 @@ export type PricingQuantitySource =
   | 'SUM_EXTRA_LODGING_COUNTS';
 export type PricingChargeScope = 'TEAM' | 'PER_PERSON';
 export type PricingPersonMode = 'SINGLE' | 'PER_DAY' | 'PER_NIGHT';
+export type PricingLodgingSelectionLevel = 'LV1' | 'LV2' | 'LV4';
 export type VariantTypeOption = 'basic' | 'early' | 'extend' | 'earlyExtend';
 export type PricingTimeBand = 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT';
 export type PricingExternalTransferMode = 'ANY' | 'PICKUP_ONLY' | 'DROP_ONLY' | 'BOTH';
@@ -33,6 +34,7 @@ export interface PricingRuleRow {
   amountKrw?: number | null;
   percentBps?: number | null;
   quantitySource: PricingQuantitySource;
+  lodgingSelectionLevel?: PricingLodgingSelectionLevel | null;
   headcountMin?: number | null;
   headcountMax?: number | null;
   dayMin?: number | null;
@@ -82,6 +84,7 @@ export interface RuleFormState {
   amountKrw: string;
   percentText: string;
   quantitySource: PricingQuantitySource;
+  lodgingSelectionLevel: '' | PricingLodgingSelectionLevel;
   headcountMin: string;
   headcountMax: string;
   dayMin: string;

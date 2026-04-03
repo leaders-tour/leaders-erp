@@ -34,6 +34,7 @@ type PricingRuleAdminRecord = {
   amountKrw: number | null;
   percentBps: number | null;
   quantitySource: string;
+  lodgingSelectionLevel: 'LV1' | 'LV2' | 'LV4' | null;
   headcountMin: number | null;
   headcountMax: number | null;
   dayMin: number | null;
@@ -63,6 +64,7 @@ function resolveLegacyLineCode(input: {
   ruleType: PricingRuleTypeValue;
   percentBps?: number | null;
   quantitySource?: string | null;
+  lodgingSelectionLevel?: 'LV1' | 'LV2' | 'LV4' | null;
 }): Prisma.PricingRuleCreateInput['lineCode'] {
   if (input.ruleType === 'BASE') {
     return 'BASE';
@@ -78,6 +80,9 @@ function resolveLegacyLineCode(input: {
       return 'BASE_UPLIFT_5PLUS_10PCT';
     }
     return 'MANUAL_ADJUSTMENT';
+  }
+  if (input.lodgingSelectionLevel) {
+    return 'LODGING_SELECTION';
   }
   if (input.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT') {
     return 'LONG_DISTANCE';
@@ -201,6 +206,7 @@ export class PricingAdminService {
             amountKrw: rule.amountKrw,
             percentBps: rule.percentBps,
             quantitySource: rule.quantitySource,
+            lodgingSelectionLevel: rule.lodgingSelectionLevel,
             headcountMin: rule.headcountMin,
             headcountMax: rule.headcountMax,
             dayMin: rule.dayMin,
@@ -243,17 +249,25 @@ export class PricingAdminService {
     if (!policy) {
       throw new DomainError('NOT_FOUND', 'Pricing policy not found');
     }
-    const quantitySource = parsed.data.ruleType === 'LONG_DISTANCE' ? 'LONG_DISTANCE_SEGMENT_COUNT' : parsed.data.quantitySource;
+    const lodgingSelectionLevel =
+      parsed.data.ruleType === 'CONDITIONAL_ADDON' ? parsed.data.lodgingSelectionLevel ?? null : null;
+    const quantitySource =
+      parsed.data.ruleType === 'LONG_DISTANCE'
+        ? 'LONG_DISTANCE_SEGMENT_COUNT'
+        : lodgingSelectionLevel
+          ? 'ONE'
+          : parsed.data.quantitySource;
     const data = {
         policyId: parsed.data.policyId,
         ruleType: parsed.data.ruleType,
         title: parsed.data.title.trim(),
-        lineCode: resolveLegacyLineCode({ ...parsed.data, quantitySource }),
+        lineCode: resolveLegacyLineCode({ ...parsed.data, quantitySource, lodgingSelectionLevel }),
         calcType: resolveLegacyCalcType(parsed.data.ruleType),
         targetLineCode: parsed.data.ruleType === 'PERCENT_UPLIFT' ? 'BASE' : null,
         amountKrw: parsed.data.amountKrw ?? null,
         percentBps: parsed.data.percentBps ?? null,
         quantitySource,
+        lodgingSelectionLevel,
         headcountMin: parsed.data.headcountMin ?? null,
         headcountMax: parsed.data.headcountMax ?? null,
         dayMin: parsed.data.dayMin ?? null,
@@ -272,8 +286,8 @@ export class PricingAdminService {
         nightTrainRequired: null,
         nightTrainMinCount: null,
         longDistanceMinCount: null,
-        chargeScope: parsed.data.chargeScope ?? null,
-        personMode: parsed.data.personMode ?? null,
+        chargeScope: lodgingSelectionLevel ? 'PER_PERSON' : parsed.data.chargeScope ?? null,
+        personMode: lodgingSelectionLevel ? 'PER_NIGHT' : parsed.data.personMode ?? null,
         customDisplayText: parsed.data.customDisplayText?.trim() || null,
         isEnabled: parsed.data.isEnabled,
         sortOrder: parsed.data.sortOrder,
@@ -293,12 +307,14 @@ export class PricingAdminService {
         ruleType: true,
         percentBps: true,
         quantitySource: true,
+        lodgingSelectionLevel: true,
       } as never,
     })) as {
       id: string;
       ruleType: PricingRuleTypeValue | null;
       percentBps: number | null;
       quantitySource: string | null;
+      lodgingSelectionLevel: 'LV1' | 'LV2' | 'LV4' | null;
     } | null;
     if (!existing) {
       throw new DomainError('NOT_FOUND', 'Pricing rule not found');
@@ -311,21 +327,31 @@ export class PricingAdminService {
       | 'AUTO_EXCEPTION'
       | 'MANUAL';
     const nextPercentBps = parsed.data.percentBps ?? existing.percentBps ?? undefined;
+    const nextLodgingSelectionLevel =
+      nextRuleType === 'CONDITIONAL_ADDON'
+        ? parsed.data.lodgingSelectionLevel !== undefined
+          ? parsed.data.lodgingSelectionLevel
+          : existing.lodgingSelectionLevel
+        : null;
     const nextQuantitySource =
       nextRuleType === 'LONG_DISTANCE'
         ? 'LONG_DISTANCE_SEGMENT_COUNT'
-        : parsed.data.quantitySource ?? existing.quantitySource ?? undefined;
+        : nextLodgingSelectionLevel
+          ? 'ONE'
+          : parsed.data.quantitySource ?? existing.quantitySource ?? undefined;
     const data = {
         ...(parsed.data.ruleType !== undefined ? { ruleType: parsed.data.ruleType } : {}),
         ...(parsed.data.title !== undefined ? { title: parsed.data.title.trim() } : {}),
         ...((parsed.data.ruleType !== undefined ||
           parsed.data.percentBps !== undefined ||
-          parsed.data.quantitySource !== undefined)
+          parsed.data.quantitySource !== undefined ||
+          parsed.data.lodgingSelectionLevel !== undefined)
           ? {
               lineCode: resolveLegacyLineCode({
                 ruleType: nextRuleType,
                 percentBps: nextPercentBps,
                 quantitySource: nextQuantitySource,
+                lodgingSelectionLevel: nextLodgingSelectionLevel,
               }),
               calcType: resolveLegacyCalcType(nextRuleType),
               targetLineCode: nextRuleType === 'PERCENT_UPLIFT' ? 'BASE' : null,
@@ -333,7 +359,12 @@ export class PricingAdminService {
           : {}),
         ...(parsed.data.amountKrw !== undefined ? { amountKrw: parsed.data.amountKrw ?? null } : {}),
         ...(parsed.data.percentBps !== undefined ? { percentBps: parsed.data.percentBps ?? null } : {}),
-        ...(parsed.data.quantitySource !== undefined ? { quantitySource: parsed.data.quantitySource } : {}),
+        ...((parsed.data.quantitySource !== undefined || parsed.data.ruleType !== undefined)
+          ? { quantitySource: nextQuantitySource }
+          : {}),
+        ...((parsed.data.lodgingSelectionLevel !== undefined || parsed.data.ruleType !== undefined)
+          ? { lodgingSelectionLevel: nextLodgingSelectionLevel ?? null }
+          : {}),
         ...(parsed.data.headcountMin !== undefined ? { headcountMin: parsed.data.headcountMin ?? null } : {}),
         ...(parsed.data.headcountMax !== undefined ? { headcountMax: parsed.data.headcountMax ?? null } : {}),
         ...(parsed.data.dayMin !== undefined ? { dayMin: parsed.data.dayMin ?? null } : {}),
@@ -364,8 +395,12 @@ export class PricingAdminService {
         nightTrainRequired: null,
         nightTrainMinCount: null,
         longDistanceMinCount: null,
-        ...(parsed.data.chargeScope !== undefined ? { chargeScope: parsed.data.chargeScope ?? null } : {}),
-        ...(parsed.data.personMode !== undefined ? { personMode: parsed.data.personMode ?? null } : {}),
+        ...((parsed.data.chargeScope !== undefined || parsed.data.lodgingSelectionLevel !== undefined || parsed.data.ruleType !== undefined)
+          ? { chargeScope: nextLodgingSelectionLevel ? 'PER_PERSON' : parsed.data.chargeScope ?? null }
+          : {}),
+        ...((parsed.data.personMode !== undefined || parsed.data.lodgingSelectionLevel !== undefined || parsed.data.ruleType !== undefined)
+          ? { personMode: nextLodgingSelectionLevel ? 'PER_NIGHT' : parsed.data.personMode ?? null }
+          : {}),
         ...(parsed.data.customDisplayText !== undefined
           ? { customDisplayText: parsed.data.customDisplayText?.trim() || null }
           : {}),

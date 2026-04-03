@@ -4,6 +4,7 @@ import {
   PLACE_TYPE_OPTIONS,
   TIME_BAND_OPTIONS,
   getExternalTransferPresetLabel,
+  getLodgingSelectionLevelLabel,
   getPricingQuantitySourceLabelKo,
   getPricingRuleTypeLabelKo,
 } from './constants';
@@ -21,6 +22,9 @@ function formatCalculationLabel(rule: PricingRuleRow): string {
   }
 
   const amountLabel = `${rule.amountKrw ?? 0}원`;
+  if (rule.lodgingSelectionLevel) {
+    return `${amountLabel} x 선택 박수`;
+  }
   if (rule.quantitySource === 'ONE') {
     return `${amountLabel} 1회 적용`;
   }
@@ -102,6 +106,12 @@ function getConditionChips(rule: PricingRuleRow): ConditionChip[] {
     chips.push({
       label: `프리셋 ${rule.externalTransferPresetCodes.map(getExternalTransferPresetLabel).join(', ')}`,
       className: 'border-pink-200 bg-pink-50 text-pink-700',
+    });
+  }
+  if (rule.lodgingSelectionLevel) {
+    chips.push({
+      label: `숙소 ${getLodgingSelectionLevelLabel(rule.lodgingSelectionLevel)}`,
+      className: 'border-orange-200 bg-orange-50 text-orange-700',
     });
   }
   if (rule.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT') {

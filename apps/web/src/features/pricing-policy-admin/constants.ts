@@ -1,6 +1,7 @@
 import type {
   ExternalTransferPresetCodeOption,
   PricingExternalTransferMode,
+  PricingLodgingSelectionLevel,
   PricingQuantitySource,
   PricingRuleType,
   PricingTimeBand,
@@ -38,6 +39,16 @@ export const QUANTITY_SOURCE_OPTIONS: Array<{ value: PricingQuantitySource; labe
   { value: 'NIGHT_TRAIN_BLOCK_COUNT', label: '야간열차 운행 수' },
   { value: 'SUM_EXTRA_LODGING_COUNTS', label: '추가 숙박 수' },
 ];
+
+export const LODGING_SELECTION_LEVEL_OPTIONS: Array<{ value: PricingLodgingSelectionLevel; label: string }> = [
+  { value: 'LV1', label: 'LV1 할인' },
+  { value: 'LV2', label: 'LV2 할인' },
+  { value: 'LV4', label: 'LV4 업그레이드' },
+];
+
+export function getLodgingSelectionLevelLabel(level: PricingLodgingSelectionLevel): string {
+  return LODGING_SELECTION_LEVEL_OPTIONS.find((option) => option.value === level)?.label ?? level;
+}
 
 export function getPricingQuantitySourceLabelKo(quantitySource: PricingQuantitySource): string {
   return QUANTITY_SOURCE_OPTIONS.find((option) => option.value === quantitySource)?.label ?? quantitySource;

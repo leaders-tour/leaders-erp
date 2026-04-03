@@ -34,6 +34,7 @@ export const PRICING_POLICY_WITH_RULES_QUERY = gql`
         amountKrw
         percentBps
         quantitySource
+        lodgingSelectionLevel
         headcountMin
         headcountMax
         dayMin
