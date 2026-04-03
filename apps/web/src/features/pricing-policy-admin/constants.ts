@@ -1,11 +1,18 @@
 import type {
+  ConditionCategoryOption,
   ExternalTransferPresetCodeOption,
+  PriceItemGroupOption,
+  PriceItemOption,
   PricingExternalTransferMode,
+  PricingPriceItemGroup,
+  PricingPriceItemOptionKey,
   PricingLodgingSelectionLevel,
+  PricingPriceItemPreset,
   PricingQuantitySource,
   PricingRuleType,
   PricingTimeBand,
   PlaceType,
+  RuleFormStepOption,
   VariantTypeOption,
 } from './types';
 
@@ -14,6 +21,117 @@ export const RULE_TYPE_OPTIONS: Array<{ value: PricingRuleType; label: string }>
   { value: 'PERCENT_UPLIFT', label: '기본금 퍼센트 추가' },
   { value: 'LONG_DISTANCE', label: '장거리 기본금' },
   { value: 'CONDITIONAL_ADDON', label: '조건부 추가/할인' },
+  { value: 'MANUAL', label: '수동 프리셋' },
+];
+
+export const PRICE_ITEM_PRESET_OPTIONS: Array<{
+  value: PricingPriceItemPreset;
+  label: string;
+  description: string;
+}> = [
+  { value: 'BASE', label: '기본금', description: '기본 금액 라인입니다.' },
+  { value: 'BASE_PERCENT', label: '퍼센트', description: '기본금 기준 퍼센트 추가/할인입니다.' },
+  { value: 'LONG_DISTANCE', label: '장거리', description: '장거리 구간 수 기준으로 자동 계산됩니다.' },
+  { value: 'NIGHT_TRAIN', label: '야간 기차', description: '야간열차 운행 수 기준으로 자동 계산됩니다.' },
+  { value: 'EXTRA_LODGING', label: '숙소 추가', description: '추가 숙박 수 기준으로 자동 계산됩니다.' },
+  { value: 'LODGING_SELECTION', label: '숙소 업그레이드', description: '숙소 업그레이드 등급별 규칙입니다.' },
+  { value: 'PICKUP_DROP', label: '픽드랍', description: '픽업/드랍과 실투어 외 이동 조건을 다룹니다.' },
+  { value: 'CONDITIONAL', label: '조건부', description: '일반 조건 조합형 추가/할인 규칙입니다.' },
+  { value: 'MANUAL_PRESET', label: '수동', description: '일정빌더에서 수동 추가할 기타금액 프리셋입니다.' },
+];
+
+export const PRICE_ITEM_GROUP_OPTIONS: PriceItemGroupOption[] = [
+  { value: 'BASE', label: '기본금', description: '기본 계산에 포함되는 항목입니다.' },
+  { value: 'AUTO', label: '자동', description: '조건을 만나면 자동으로 계산 라인에 들어갑니다.' },
+  { value: 'CONDITION', label: '조건', description: '조건이 맞으면 자동 삽입되는 일반 규칙입니다.' },
+  { value: 'MANUAL', label: '수동', description: '일정빌더에서 수동으로 추가하는 프리셋입니다.' },
+];
+
+export const PRICE_ITEM_OPTIONS: PriceItemOption[] = [
+  { value: 'BASE', group: 'BASE', preset: 'BASE', label: '기본금', description: '기본 금액 라인입니다.' },
+  {
+    value: 'BASE_PERCENT',
+    group: 'BASE',
+    preset: 'BASE_PERCENT',
+    label: '기본금 퍼센트',
+    description: '기본금 기준 퍼센트 추가/할인입니다.',
+  },
+  {
+    value: 'LONG_DISTANCE',
+    group: 'BASE',
+    preset: 'LONG_DISTANCE',
+    label: '장거리',
+    description: '장거리 구간 수 기준으로 자동 계산됩니다.',
+  },
+  {
+    value: 'PICKUP_DROP',
+    group: 'AUTO',
+    preset: 'PICKUP_DROP',
+    label: '실투외 픽드랍',
+    description: '실투어 외 이동과 픽드랍 조건을 기준으로 자동 계산됩니다.',
+  },
+  {
+    value: 'LODGING_SELECTION',
+    group: 'AUTO',
+    preset: 'LODGING_SELECTION',
+    label: '숙소 업그레이드(할인)',
+    description: '숙소 업그레이드 등급별 자동 규칙입니다.',
+  },
+  {
+    value: 'EXTRA_LODGING',
+    group: 'AUTO',
+    preset: 'EXTRA_LODGING',
+    label: '숙소 추가',
+    description: '추가 숙박 수 기준으로 자동 계산됩니다.',
+  },
+  {
+    value: 'NIGHT_TRAIN',
+    group: 'AUTO',
+    preset: 'NIGHT_TRAIN',
+    label: '야간 열차',
+    description: '야간열차 운행 수 기준으로 자동 계산됩니다.',
+  },
+  {
+    value: 'CONDITIONAL_EARLY',
+    group: 'CONDITION',
+    preset: 'CONDITIONAL',
+    label: '얼리',
+    description: 'Early/EarlyExtend variant에 적용됩니다.',
+  },
+  {
+    value: 'CONDITIONAL_EXTEND',
+    group: 'CONDITION',
+    preset: 'CONDITIONAL',
+    label: '연장',
+    description: 'Extend/EarlyExtend variant에 적용됩니다.',
+  },
+  {
+    value: 'CONDITIONAL_HIACE',
+    group: 'CONDITION',
+    preset: 'CONDITIONAL',
+    label: '하이에이스',
+    description: '하이에이스 + 3~6인 조건의 자동 규칙입니다.',
+  },
+  {
+    value: 'CONDITIONAL_CUSTOM',
+    group: 'CONDITION',
+    preset: 'CONDITIONAL',
+    label: '기타 조건',
+    description: '직접 조건을 조합하는 일반 규칙입니다.',
+  },
+  {
+    value: 'MANUAL_PRESET',
+    group: 'MANUAL',
+    preset: 'MANUAL_PRESET',
+    label: '수동',
+    description: '일정빌더에서 수동 추가할 기타금액 프리셋입니다.',
+  },
+];
+
+export const RULE_FORM_STEP_OPTIONS: RuleFormStepOption[] = [
+  { value: 'BASICS', label: '1. 기본 정보', description: '가격 항목, 가격, 수량, 제목을 설정합니다.' },
+  { value: 'CONDITIONS', label: '2. 조건 선택', description: '가격 항목에 맞는 조건만 골라 입력합니다.' },
+  { value: 'DISPLAY', label: '3. 표시 선택', description: '표시 기준과 수동 프리셋 표기를 결정합니다.' },
 ];
 
 /** 테이블·표시용: enum 영문 대신 한글 라벨 */
@@ -30,6 +148,33 @@ export function getPricingRuleTypeLabelKo(ruleType: PricingRuleType): string {
   }
   return ruleType;
 }
+
+export function getPriceItemPresetLabel(value: PricingPriceItemPreset): string {
+  return PRICE_ITEM_PRESET_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
+
+export function getPriceItemGroupLabel(value: PricingPriceItemGroup): string {
+  return PRICE_ITEM_GROUP_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
+
+export function getPriceItemOptionLabel(value: PricingPriceItemOptionKey): string {
+  return PRICE_ITEM_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
+
+export const PRICE_ITEM_ALLOWED_CONDITION_CATEGORIES: Record<
+  PricingPriceItemPreset,
+  ConditionCategoryOption['value'][]
+> = {
+  BASE: ['headcountDays', 'travelDate', 'variant'],
+  BASE_PERCENT: ['headcountDays', 'travelDate', 'variant'],
+  LONG_DISTANCE: ['headcountDays', 'travelDate', 'variant'],
+  NIGHT_TRAIN: ['headcountDays', 'travelDate', 'variant', 'flight'],
+  EXTRA_LODGING: ['headcountDays', 'travelDate', 'variant'],
+  LODGING_SELECTION: ['lodgingSelection', 'headcountDays', 'travelDate', 'variant'],
+  PICKUP_DROP: ['pickupDrop', 'externalTransfer', 'headcountDays', 'travelDate', 'flight'],
+  CONDITIONAL: ['headcountDays', 'travelDate', 'vehicle', 'variant', 'flight', 'pickupDrop', 'externalTransfer'],
+  MANUAL_PRESET: [],
+};
 
 export const QUANTITY_SOURCE_OPTIONS: Array<{ value: PricingQuantitySource; label: string }> = [
   { value: 'ONE', label: '1회 고정' },
@@ -48,6 +193,21 @@ export const LODGING_SELECTION_LEVEL_OPTIONS: Array<{ value: PricingLodgingSelec
 
 export function getLodgingSelectionLevelLabel(level: PricingLodgingSelectionLevel): string {
   return LODGING_SELECTION_LEVEL_OPTIONS.find((option) => option.value === level)?.label ?? level;
+}
+
+export const CONDITION_CATEGORY_OPTIONS: ConditionCategoryOption[] = [
+  { value: 'headcountDays', label: '인원/일수', description: '인원수와 여행 일수 범위를 설정합니다.' },
+  { value: 'travelDate', label: '여행일', description: '여행 시작일 구간을 제한합니다.' },
+  { value: 'vehicle', label: '차량', description: '특정 차량 조건을 설정합니다.' },
+  { value: 'variant', label: 'Variant', description: '적용할 Variant를 선택합니다.' },
+  { value: 'flight', label: '항공', description: '입출국 시간대 조건을 설정합니다.' },
+  { value: 'pickupDrop', label: '픽업/드랍', description: '픽업 또는 드랍 장소 조건을 설정합니다.' },
+  { value: 'externalTransfer', label: '실투어외 픽드랍', description: '외부 이동 방향, 건수, 프리셋을 설정합니다.' },
+  { value: 'lodgingSelection', label: '숙소 업그레이드', description: '숙소 업그레이드 조건을 선택합니다.' },
+];
+
+export function getConditionCategoryLabel(value: ConditionCategoryOption['value']): string {
+  return CONDITION_CATEGORY_OPTIONS.find((option) => option.value === value)?.label ?? value;
 }
 
 export function getPricingQuantitySourceLabelKo(quantitySource: PricingQuantitySource): string {

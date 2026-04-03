@@ -10,11 +10,23 @@ export interface ManualAdjustmentDraftRow {
   customDisplayText: string;
 }
 
+export interface ManualAdjustmentPresetOption {
+  id: string;
+  title: string;
+  kind: 'ADD' | 'DISCOUNT';
+  chargeScope: 'TEAM' | 'PER_PERSON';
+  personMode: 'SINGLE' | 'PER_DAY' | 'PER_NIGHT';
+  amountKrw: number;
+  customDisplayText: string;
+}
+
 interface ManualAdjustmentsModalProps {
   open: boolean;
   rows: ManualAdjustmentDraftRow[];
+  presetOptions: ManualAdjustmentPresetOption[];
   onClose: () => void;
   onAddRow: (kind: 'ADD' | 'DISCOUNT') => void;
+  onAddPresetRow: (preset: ManualAdjustmentPresetOption) => void;
   onUpdateRow: (index: number, nextRow: ManualAdjustmentDraftRow) => void;
   onRemoveRow: (index: number) => void;
 }
@@ -31,8 +43,10 @@ function SectionTitle({ title, description }: { title: string; description: stri
 export function ManualAdjustmentsModal({
   open,
   rows,
+  presetOptions,
   onClose,
   onAddRow,
+  onAddPresetRow,
   onUpdateRow,
   onRemoveRow,
 }: ManualAdjustmentsModalProps): JSX.Element | null {
@@ -46,6 +60,8 @@ export function ManualAdjustmentsModal({
   const discounts = rows
     .map((row, index) => ({ ...row, index }))
     .filter((row) => row.kind === 'DISCOUNT');
+  const additionPresets = presetOptions.filter((preset) => preset.kind === 'ADD');
+  const discountPresets = presetOptions.filter((preset) => preset.kind === 'DISCOUNT');
 
   const renderRow = (row: ManualAdjustmentDraftRow & { index: number }) => {
     const update = (patch: Partial<ManualAdjustmentDraftRow>) => onUpdateRow(row.index, { ...row, ...patch });
@@ -162,6 +178,18 @@ export function ManualAdjustmentsModal({
                     추가하기
                   </Button>
                 </div>
+                {additionPresets.length > 0 ? (
+                  <div className="mt-4 grid gap-2 rounded-2xl border border-dashed border-slate-200 bg-white p-3">
+                    <span className="text-xs font-medium text-slate-600">정책 프리셋</span>
+                    <div className="flex flex-wrap gap-2">
+                      {additionPresets.map((preset) => (
+                        <Button key={preset.id} type="button" variant="outline" onClick={() => onAddPresetRow(preset)}>
+                          {preset.title} · {preset.amountKrw.toLocaleString('ko-KR')}원
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 <div className="mt-4 grid gap-2">
                   {additions.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-500">
@@ -180,6 +208,18 @@ export function ManualAdjustmentsModal({
                     추가하기
                   </Button>
                 </div>
+                {discountPresets.length > 0 ? (
+                  <div className="mt-4 grid gap-2 rounded-2xl border border-dashed border-slate-200 bg-white p-3">
+                    <span className="text-xs font-medium text-slate-600">정책 프리셋</span>
+                    <div className="flex flex-wrap gap-2">
+                      {discountPresets.map((preset) => (
+                        <Button key={preset.id} type="button" variant="outline" onClick={() => onAddPresetRow(preset)}>
+                          {preset.title} · {preset.amountKrw.toLocaleString('ko-KR')}원
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 <div className="mt-4 grid gap-2">
                   {discounts.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-500">

@@ -26,6 +26,7 @@ export const PRICING_POLICY_WITH_RULES_QUERY = gql`
       rules {
         id
         policyId
+        priceItemPreset
         ruleType
         title
         lineCode

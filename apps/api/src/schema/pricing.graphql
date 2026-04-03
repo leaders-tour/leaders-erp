@@ -14,6 +14,7 @@ type PricingPolicy {
 type PricingRule {
   id: ID!
   policyId: String!
+  priceItemPreset: PricingPriceItemPreset!
   ruleType: PricingRuleType!
   title: String!
   lineCode: PricingLineCode!
@@ -70,6 +71,7 @@ input PricingPolicyDuplicateInput {
 
 input PricingRuleCreateInput {
   policyId: ID!
+  priceItemPreset: PricingPriceItemPreset!
   ruleType: PricingRuleType!
   title: String!
   amountKrw: Int
@@ -99,6 +101,7 @@ input PricingRuleCreateInput {
 }
 
 input PricingRuleUpdateInput {
+  priceItemPreset: PricingPriceItemPreset
   ruleType: PricingRuleType
   title: String
   amountKrw: Int
@@ -170,6 +173,18 @@ enum PricingLodgingSelectionLevel {
   LV1
   LV2
   LV4
+}
+
+enum PricingPriceItemPreset {
+  BASE
+  BASE_PERCENT
+  LONG_DISTANCE
+  NIGHT_TRAIN
+  EXTRA_LODGING
+  LODGING_SELECTION
+  PICKUP_DROP
+  CONDITIONAL
+  MANUAL_PRESET
 }
 
 enum PricingTimeBand {

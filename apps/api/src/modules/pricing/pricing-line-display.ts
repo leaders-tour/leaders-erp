@@ -209,6 +209,7 @@ export function buildPricingLineDisplay(
       }
       return emptyDisplay('CUSTOM', { text: formatKrwNumber(line.amountKrw) });
     }
+    case 'BASE_PERCENT':
     case 'BASE_UPLIFT_5PLUS_5PCT':
     case 'BASE_UPLIFT_5PLUS_10PCT': {
       const bps = meta && typeof meta.percentBps === 'number' ? meta.percentBps : null;
@@ -269,6 +270,15 @@ export function buildPricingLineDisplay(
         });
       }
       if (line.unitPriceKrw !== null) {
+        return emptyDisplay('CUSTOM', {
+          text: `${formatKrwNumber(line.unitPriceKrw)}×${line.quantity}`,
+        });
+      }
+      return emptyDisplay('CUSTOM', { text: formatKrwNumber(line.amountKrw) });
+    }
+    case 'PICKUP_DROP':
+    case 'CONDITIONAL': {
+      if (line.unitPriceKrw !== null && line.quantity > 0) {
         return emptyDisplay('CUSTOM', {
           text: `${formatKrwNumber(line.unitPriceKrw)}×${line.quantity}`,
         });

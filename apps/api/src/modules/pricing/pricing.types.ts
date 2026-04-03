@@ -98,6 +98,16 @@ export type PricingDisplayBasis =
 
 export type PricingRuleTypeValue = 'BASE' | 'PERCENT_UPLIFT' | 'CONDITIONAL_ADDON' | 'LONG_DISTANCE' | 'AUTO_EXCEPTION' | 'MANUAL';
 export type PricingLodgingSelectionLevelValue = 'LV1' | 'LV2' | 'LV4';
+export type PricingPriceItemPresetValue =
+  | 'BASE'
+  | 'BASE_PERCENT'
+  | 'LONG_DISTANCE'
+  | 'NIGHT_TRAIN'
+  | 'EXTRA_LODGING'
+  | 'LODGING_SELECTION'
+  | 'PICKUP_DROP'
+  | 'CONDITIONAL'
+  | 'MANUAL_PRESET';
 
 /** 표시 전용: 계산 필드와 분리된 견적/빌더 오른쪽 산식 기준 */
 export interface PricingLineDisplay {

@@ -23,9 +23,20 @@ const pricingPolicyInclude = {
 } satisfies Prisma.PricingPolicyInclude;
 
 type PricingRuleTypeValue = 'BASE' | 'PERCENT_UPLIFT' | 'CONDITIONAL_ADDON' | 'LONG_DISTANCE' | 'AUTO_EXCEPTION' | 'MANUAL';
+type PricingPriceItemPresetValue =
+  | 'BASE'
+  | 'BASE_PERCENT'
+  | 'LONG_DISTANCE'
+  | 'NIGHT_TRAIN'
+  | 'EXTRA_LODGING'
+  | 'LODGING_SELECTION'
+  | 'PICKUP_DROP'
+  | 'CONDITIONAL'
+  | 'MANUAL_PRESET';
 
 type PricingRuleAdminRecord = {
   id: string;
+  priceItemPreset: PricingPriceItemPresetValue;
   ruleType: PricingRuleTypeValue | null;
   title: string | null;
   lineCode: string;
@@ -60,41 +71,96 @@ type PricingRuleAdminRecord = {
   sortOrder: number;
 };
 
-function resolveLegacyLineCode(input: {
-  ruleType: PricingRuleTypeValue;
-  percentBps?: number | null;
+function resolvePriceItemPresetConfig(input: {
+  priceItemPreset: PricingPriceItemPresetValue;
   quantitySource?: string | null;
   lodgingSelectionLevel?: 'LV1' | 'LV2' | 'LV4' | null;
-}): Prisma.PricingRuleCreateInput['lineCode'] {
-  if (input.ruleType === 'BASE') {
-    return 'BASE';
+}) {
+  switch (input.priceItemPreset) {
+    case 'BASE':
+      return {
+        ruleType: 'BASE' as const,
+        lineCode: 'BASE' as const,
+        calcType: 'AMOUNT' as const,
+        targetLineCode: null,
+        quantitySource: input.quantitySource ?? 'ONE',
+      };
+    case 'BASE_PERCENT':
+      return {
+        ruleType: 'PERCENT_UPLIFT' as const,
+        lineCode: 'BASE_PERCENT' as const,
+        calcType: 'PERCENT_OF_LINE' as const,
+        targetLineCode: 'BASE' as const,
+        quantitySource: 'ONE' as const,
+      };
+    case 'LONG_DISTANCE':
+      return {
+        ruleType: 'LONG_DISTANCE' as const,
+        lineCode: 'LONG_DISTANCE' as const,
+        calcType: 'AMOUNT' as const,
+        targetLineCode: null,
+        quantitySource: 'LONG_DISTANCE_SEGMENT_COUNT' as const,
+      };
+    case 'NIGHT_TRAIN':
+      return {
+        ruleType: 'CONDITIONAL_ADDON' as const,
+        lineCode: 'NIGHT_TRAIN' as const,
+        calcType: 'AMOUNT' as const,
+        targetLineCode: null,
+        quantitySource: 'NIGHT_TRAIN_BLOCK_COUNT' as const,
+      };
+    case 'EXTRA_LODGING':
+      return {
+        ruleType: 'CONDITIONAL_ADDON' as const,
+        lineCode: 'EXTRA_LODGING' as const,
+        calcType: 'AMOUNT' as const,
+        targetLineCode: null,
+        quantitySource: 'SUM_EXTRA_LODGING_COUNTS' as const,
+      };
+    case 'LODGING_SELECTION':
+      return {
+        ruleType: 'CONDITIONAL_ADDON' as const,
+        lineCode: 'LODGING_SELECTION' as const,
+        calcType: 'AMOUNT' as const,
+        targetLineCode: null,
+        quantitySource: input.lodgingSelectionLevel ? ('ONE' as const) : input.quantitySource ?? 'ONE',
+      };
+    case 'PICKUP_DROP':
+      return {
+        ruleType: 'CONDITIONAL_ADDON' as const,
+        lineCode: 'PICKUP_DROP' as const,
+        calcType: 'AMOUNT' as const,
+        targetLineCode: null,
+        quantitySource: input.quantitySource ?? 'ONE',
+      };
+    case 'MANUAL_PRESET':
+      return {
+        ruleType: 'MANUAL' as const,
+        lineCode: 'MANUAL_ADJUSTMENT' as const,
+        calcType: 'AMOUNT' as const,
+        targetLineCode: null,
+        quantitySource: 'ONE' as const,
+      };
+    case 'CONDITIONAL':
+    default:
+      return {
+        ruleType: 'CONDITIONAL_ADDON' as const,
+        lineCode: 'CONDITIONAL' as const,
+        calcType: 'AMOUNT' as const,
+        targetLineCode: null,
+        quantitySource: input.quantitySource ?? 'ONE',
+      };
   }
-  if (input.ruleType === 'LONG_DISTANCE') {
-    return 'LONG_DISTANCE';
-  }
-  if (input.ruleType === 'PERCENT_UPLIFT') {
-    if (input.percentBps === 500) {
-      return 'BASE_UPLIFT_5PLUS_5PCT';
-    }
-    if (input.percentBps === 1000) {
-      return 'BASE_UPLIFT_5PLUS_10PCT';
-    }
-    return 'MANUAL_ADJUSTMENT';
-  }
-  if (input.lodgingSelectionLevel) {
-    return 'LODGING_SELECTION';
-  }
-  if (input.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT') {
-    return 'LONG_DISTANCE';
-  }
-  if (input.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT') {
-    return 'NIGHT_TRAIN';
-  }
-  return 'MANUAL_ADJUSTMENT';
 }
 
-function resolveLegacyCalcType(ruleType: PricingRuleTypeValue) {
-  return ruleType === 'PERCENT_UPLIFT' ? 'PERCENT_OF_LINE' : 'AMOUNT';
+function isAutoDisplayPreset(priceItemPreset: PricingPriceItemPresetValue): boolean {
+  return (
+    priceItemPreset === 'BASE' ||
+    priceItemPreset === 'BASE_PERCENT' ||
+    priceItemPreset === 'LONG_DISTANCE' ||
+    priceItemPreset === 'NIGHT_TRAIN' ||
+    priceItemPreset === 'EXTRA_LODGING'
+  );
 }
 
 /** DB 유일 제약용. 운영 식별은 GraphQL id·name 을 사용합니다. */
@@ -198,6 +264,7 @@ export class PricingAdminService {
             : source.effectiveTo,
         rules: {
           create: sourceRules.map((rule) => ({
+            priceItemPreset: rule.priceItemPreset,
             ruleType: rule.ruleType,
             title: rule.title,
             lineCode: rule.lineCode,
@@ -249,49 +316,80 @@ export class PricingAdminService {
     if (!policy) {
       throw new DomainError('NOT_FOUND', 'Pricing policy not found');
     }
+    const priceItemConfig = resolvePriceItemPresetConfig({
+      priceItemPreset: parsed.data.priceItemPreset,
+      quantitySource: parsed.data.quantitySource,
+      lodgingSelectionLevel: parsed.data.lodgingSelectionLevel ?? null,
+    });
     const lodgingSelectionLevel =
-      parsed.data.ruleType === 'CONDITIONAL_ADDON' ? parsed.data.lodgingSelectionLevel ?? null : null;
-    const quantitySource =
-      parsed.data.ruleType === 'LONG_DISTANCE'
-        ? 'LONG_DISTANCE_SEGMENT_COUNT'
-        : lodgingSelectionLevel
-          ? 'ONE'
-          : parsed.data.quantitySource;
+      parsed.data.priceItemPreset === 'LODGING_SELECTION' ? parsed.data.lodgingSelectionLevel ?? null : null;
+    const autoDisplayPreset = isAutoDisplayPreset(parsed.data.priceItemPreset);
     const data = {
-        policyId: parsed.data.policyId,
-        ruleType: parsed.data.ruleType,
-        title: parsed.data.title.trim(),
-        lineCode: resolveLegacyLineCode({ ...parsed.data, quantitySource, lodgingSelectionLevel }),
-        calcType: resolveLegacyCalcType(parsed.data.ruleType),
-        targetLineCode: parsed.data.ruleType === 'PERCENT_UPLIFT' ? 'BASE' : null,
-        amountKrw: parsed.data.amountKrw ?? null,
-        percentBps: parsed.data.percentBps ?? null,
-        quantitySource,
-        lodgingSelectionLevel,
-        headcountMin: parsed.data.headcountMin ?? null,
-        headcountMax: parsed.data.headcountMax ?? null,
-        dayMin: parsed.data.dayMin ?? null,
-        dayMax: parsed.data.dayMax ?? null,
-        travelDateFrom: parsed.data.travelDateFrom ? new Date(parsed.data.travelDateFrom) : null,
-        travelDateTo: parsed.data.travelDateTo ? new Date(parsed.data.travelDateTo) : null,
-        vehicleType: parsed.data.vehicleType?.trim() || null,
-        variantTypes: parsed.data.variantTypes as Prisma.InputJsonValue,
-        flightInTimeBand: parsed.data.flightInTimeBand ?? null,
-        flightOutTimeBand: parsed.data.flightOutTimeBand ?? null,
-        pickupPlaceType: parsed.data.pickupPlaceType ?? null,
-        dropPlaceType: parsed.data.dropPlaceType ?? null,
-        externalTransferMode: parsed.data.externalTransferMode ?? null,
-        externalTransferMinCount: parsed.data.externalTransferMinCount ?? null,
-        externalTransferPresetCodes: parsed.data.externalTransferPresetCodes as Prisma.InputJsonValue,
-        nightTrainRequired: null,
-        nightTrainMinCount: null,
-        longDistanceMinCount: null,
-        chargeScope: lodgingSelectionLevel ? 'PER_PERSON' : parsed.data.chargeScope ?? null,
-        personMode: lodgingSelectionLevel ? 'PER_NIGHT' : parsed.data.personMode ?? null,
-        customDisplayText: parsed.data.customDisplayText?.trim() || null,
-        isEnabled: parsed.data.isEnabled,
-        sortOrder: parsed.data.sortOrder,
-      };
+      policyId: parsed.data.policyId,
+      priceItemPreset: parsed.data.priceItemPreset,
+      ruleType: priceItemConfig.ruleType,
+      title: parsed.data.title.trim(),
+      lineCode: priceItemConfig.lineCode,
+      calcType: priceItemConfig.calcType,
+      targetLineCode: priceItemConfig.targetLineCode,
+      amountKrw: parsed.data.amountKrw ?? null,
+      percentBps: parsed.data.percentBps ?? null,
+      quantitySource: priceItemConfig.quantitySource,
+      lodgingSelectionLevel,
+      headcountMin: parsed.data.priceItemPreset === 'MANUAL_PRESET' ? null : parsed.data.headcountMin ?? null,
+      headcountMax: parsed.data.priceItemPreset === 'MANUAL_PRESET' ? null : parsed.data.headcountMax ?? null,
+      dayMin: parsed.data.priceItemPreset === 'MANUAL_PRESET' ? null : parsed.data.dayMin ?? null,
+      dayMax: parsed.data.priceItemPreset === 'MANUAL_PRESET' ? null : parsed.data.dayMax ?? null,
+      travelDateFrom:
+        parsed.data.priceItemPreset === 'MANUAL_PRESET'
+          ? null
+          : parsed.data.travelDateFrom
+            ? new Date(parsed.data.travelDateFrom)
+            : null,
+      travelDateTo:
+        parsed.data.priceItemPreset === 'MANUAL_PRESET'
+          ? null
+          : parsed.data.travelDateTo
+            ? new Date(parsed.data.travelDateTo)
+            : null,
+      vehicleType: parsed.data.priceItemPreset === 'MANUAL_PRESET' ? null : parsed.data.vehicleType?.trim() || null,
+      variantTypes:
+        parsed.data.priceItemPreset === 'MANUAL_PRESET'
+          ? ([] as Prisma.InputJsonValue)
+          : (parsed.data.variantTypes as Prisma.InputJsonValue),
+      flightInTimeBand: parsed.data.priceItemPreset === 'MANUAL_PRESET' ? null : parsed.data.flightInTimeBand ?? null,
+      flightOutTimeBand: parsed.data.priceItemPreset === 'MANUAL_PRESET' ? null : parsed.data.flightOutTimeBand ?? null,
+      pickupPlaceType: parsed.data.priceItemPreset === 'MANUAL_PRESET' ? null : parsed.data.pickupPlaceType ?? null,
+      dropPlaceType: parsed.data.priceItemPreset === 'MANUAL_PRESET' ? null : parsed.data.dropPlaceType ?? null,
+      externalTransferMode:
+        parsed.data.priceItemPreset === 'MANUAL_PRESET' ? null : parsed.data.externalTransferMode ?? null,
+      externalTransferMinCount:
+        parsed.data.priceItemPreset === 'MANUAL_PRESET' ? null : parsed.data.externalTransferMinCount ?? null,
+      externalTransferPresetCodes:
+        parsed.data.priceItemPreset === 'MANUAL_PRESET'
+          ? ([] as Prisma.InputJsonValue)
+          : (parsed.data.externalTransferPresetCodes as Prisma.InputJsonValue),
+      nightTrainRequired: null,
+      nightTrainMinCount: null,
+      longDistanceMinCount: null,
+      chargeScope:
+        parsed.data.priceItemPreset === 'LODGING_SELECTION'
+          ? 'PER_PERSON'
+          : autoDisplayPreset
+            ? null
+            : parsed.data.chargeScope ?? null,
+      personMode:
+        parsed.data.priceItemPreset === 'LODGING_SELECTION'
+          ? 'PER_NIGHT'
+          : autoDisplayPreset
+            ? null
+            : parsed.data.personMode ?? null,
+      customDisplayText: autoDisplayPreset || parsed.data.priceItemPreset === 'LODGING_SELECTION'
+        ? null
+        : parsed.data.customDisplayText?.trim() || null,
+      isEnabled: parsed.data.isEnabled,
+      sortOrder: parsed.data.sortOrder,
+    };
     return this.prisma.pricingRule.create({ data: data as never });
   }
 
@@ -304,105 +402,248 @@ export class PricingAdminService {
       where: { id },
       select: {
         id: true,
+        priceItemPreset: true,
         ruleType: true,
         percentBps: true,
         quantitySource: true,
         lodgingSelectionLevel: true,
+        headcountMin: true,
+        headcountMax: true,
+        dayMin: true,
+        dayMax: true,
+        travelDateFrom: true,
+        travelDateTo: true,
+        vehicleType: true,
+        variantTypes: true,
+        flightInTimeBand: true,
+        flightOutTimeBand: true,
+        pickupPlaceType: true,
+        dropPlaceType: true,
+        externalTransferMode: true,
+        externalTransferMinCount: true,
+        externalTransferPresetCodes: true,
+        chargeScope: true,
+        personMode: true,
+        customDisplayText: true,
       } as never,
     })) as {
       id: string;
+      priceItemPreset: PricingPriceItemPresetValue;
       ruleType: PricingRuleTypeValue | null;
       percentBps: number | null;
       quantitySource: string | null;
       lodgingSelectionLevel: 'LV1' | 'LV2' | 'LV4' | null;
+      headcountMin: number | null;
+      headcountMax: number | null;
+      dayMin: number | null;
+      dayMax: number | null;
+      travelDateFrom: Date | null;
+      travelDateTo: Date | null;
+      vehicleType: string | null;
+      variantTypes: Prisma.JsonValue;
+      flightInTimeBand: string | null;
+      flightOutTimeBand: string | null;
+      pickupPlaceType: string | null;
+      dropPlaceType: string | null;
+      externalTransferMode: string | null;
+      externalTransferMinCount: number | null;
+      externalTransferPresetCodes: Prisma.JsonValue;
+      chargeScope: string | null;
+      personMode: string | null;
+      customDisplayText: string | null;
     } | null;
     if (!existing) {
       throw new DomainError('NOT_FOUND', 'Pricing rule not found');
     }
-    const nextRuleType = (parsed.data.ruleType ?? existing.ruleType) as
-      | 'BASE'
-      | 'PERCENT_UPLIFT'
-      | 'CONDITIONAL_ADDON'
-      | 'LONG_DISTANCE'
-      | 'AUTO_EXCEPTION'
-      | 'MANUAL';
-    const nextPercentBps = parsed.data.percentBps ?? existing.percentBps ?? undefined;
+    const nextPriceItemPreset = parsed.data.priceItemPreset ?? existing.priceItemPreset;
     const nextLodgingSelectionLevel =
-      nextRuleType === 'CONDITIONAL_ADDON'
+      nextPriceItemPreset === 'LODGING_SELECTION'
         ? parsed.data.lodgingSelectionLevel !== undefined
-          ? parsed.data.lodgingSelectionLevel
+          ? parsed.data.lodgingSelectionLevel ?? null
           : existing.lodgingSelectionLevel
         : null;
-    const nextQuantitySource =
-      nextRuleType === 'LONG_DISTANCE'
-        ? 'LONG_DISTANCE_SEGMENT_COUNT'
-        : nextLodgingSelectionLevel
-          ? 'ONE'
-          : parsed.data.quantitySource ?? existing.quantitySource ?? undefined;
+    const priceItemConfig = resolvePriceItemPresetConfig({
+      priceItemPreset: nextPriceItemPreset,
+      quantitySource: parsed.data.quantitySource ?? existing.quantitySource ?? undefined,
+      lodgingSelectionLevel: nextLodgingSelectionLevel,
+    });
+    const autoDisplayPreset = isAutoDisplayPreset(nextPriceItemPreset);
     const data = {
-        ...(parsed.data.ruleType !== undefined ? { ruleType: parsed.data.ruleType } : {}),
-        ...(parsed.data.title !== undefined ? { title: parsed.data.title.trim() } : {}),
+        ...(parsed.data.priceItemPreset !== undefined ? { priceItemPreset: parsed.data.priceItemPreset } : {}),
         ...((parsed.data.ruleType !== undefined ||
-          parsed.data.percentBps !== undefined ||
+          parsed.data.priceItemPreset !== undefined ||
           parsed.data.quantitySource !== undefined ||
           parsed.data.lodgingSelectionLevel !== undefined)
           ? {
-              lineCode: resolveLegacyLineCode({
-                ruleType: nextRuleType,
-                percentBps: nextPercentBps,
-                quantitySource: nextQuantitySource,
-                lodgingSelectionLevel: nextLodgingSelectionLevel,
-              }),
-              calcType: resolveLegacyCalcType(nextRuleType),
-              targetLineCode: nextRuleType === 'PERCENT_UPLIFT' ? 'BASE' : null,
+              ruleType: priceItemConfig.ruleType,
+              lineCode: priceItemConfig.lineCode,
+              calcType: priceItemConfig.calcType,
+              targetLineCode: priceItemConfig.targetLineCode,
+              quantitySource: priceItemConfig.quantitySource,
             }
           : {}),
+        ...(parsed.data.title !== undefined ? { title: parsed.data.title.trim() } : {}),
         ...(parsed.data.amountKrw !== undefined ? { amountKrw: parsed.data.amountKrw ?? null } : {}),
         ...(parsed.data.percentBps !== undefined ? { percentBps: parsed.data.percentBps ?? null } : {}),
-        ...((parsed.data.quantitySource !== undefined || parsed.data.ruleType !== undefined)
-          ? { quantitySource: nextQuantitySource }
-          : {}),
-        ...((parsed.data.lodgingSelectionLevel !== undefined || parsed.data.ruleType !== undefined)
+        ...((parsed.data.lodgingSelectionLevel !== undefined ||
+          parsed.data.ruleType !== undefined ||
+          parsed.data.priceItemPreset !== undefined)
           ? { lodgingSelectionLevel: nextLodgingSelectionLevel ?? null }
           : {}),
-        ...(parsed.data.headcountMin !== undefined ? { headcountMin: parsed.data.headcountMin ?? null } : {}),
-        ...(parsed.data.headcountMax !== undefined ? { headcountMax: parsed.data.headcountMax ?? null } : {}),
-        ...(parsed.data.dayMin !== undefined ? { dayMin: parsed.data.dayMin ?? null } : {}),
-        ...(parsed.data.dayMax !== undefined ? { dayMax: parsed.data.dayMax ?? null } : {}),
-        ...(parsed.data.travelDateFrom !== undefined
-          ? { travelDateFrom: parsed.data.travelDateFrom ? new Date(parsed.data.travelDateFrom) : null }
+        ...(parsed.data.headcountMin !== undefined || parsed.data.priceItemPreset !== undefined
+          ? {
+              headcountMin:
+                nextPriceItemPreset === 'MANUAL_PRESET' ? null : parsed.data.headcountMin ?? existing.headcountMin,
+            }
           : {}),
-        ...(parsed.data.travelDateTo !== undefined
-          ? { travelDateTo: parsed.data.travelDateTo ? new Date(parsed.data.travelDateTo) : null }
+        ...(parsed.data.headcountMax !== undefined || parsed.data.priceItemPreset !== undefined
+          ? {
+              headcountMax:
+                nextPriceItemPreset === 'MANUAL_PRESET' ? null : parsed.data.headcountMax ?? existing.headcountMax,
+            }
           : {}),
-        ...(parsed.data.vehicleType !== undefined ? { vehicleType: parsed.data.vehicleType?.trim() || null } : {}),
-        ...(parsed.data.variantTypes !== undefined
-          ? { variantTypes: parsed.data.variantTypes as Prisma.InputJsonValue }
+        ...(parsed.data.dayMin !== undefined || parsed.data.priceItemPreset !== undefined
+          ? { dayMin: nextPriceItemPreset === 'MANUAL_PRESET' ? null : parsed.data.dayMin ?? existing.dayMin }
           : {}),
-        ...(parsed.data.flightInTimeBand !== undefined ? { flightInTimeBand: parsed.data.flightInTimeBand ?? null } : {}),
-        ...(parsed.data.flightOutTimeBand !== undefined ? { flightOutTimeBand: parsed.data.flightOutTimeBand ?? null } : {}),
-        ...(parsed.data.pickupPlaceType !== undefined ? { pickupPlaceType: parsed.data.pickupPlaceType ?? null } : {}),
-        ...(parsed.data.dropPlaceType !== undefined ? { dropPlaceType: parsed.data.dropPlaceType ?? null } : {}),
-        ...(parsed.data.externalTransferMode !== undefined
-          ? { externalTransferMode: parsed.data.externalTransferMode ?? null }
+        ...(parsed.data.dayMax !== undefined || parsed.data.priceItemPreset !== undefined
+          ? { dayMax: nextPriceItemPreset === 'MANUAL_PRESET' ? null : parsed.data.dayMax ?? existing.dayMax }
           : {}),
-        ...(parsed.data.externalTransferMinCount !== undefined
-          ? { externalTransferMinCount: parsed.data.externalTransferMinCount ?? null }
+        ...(parsed.data.travelDateFrom !== undefined || parsed.data.priceItemPreset !== undefined
+          ? {
+              travelDateFrom:
+                nextPriceItemPreset === 'MANUAL_PRESET'
+                  ? null
+                  : parsed.data.travelDateFrom !== undefined
+                    ? parsed.data.travelDateFrom
+                      ? new Date(parsed.data.travelDateFrom)
+                      : null
+                    : existing.travelDateFrom,
+            }
           : {}),
-        ...(parsed.data.externalTransferPresetCodes !== undefined
-          ? { externalTransferPresetCodes: parsed.data.externalTransferPresetCodes as Prisma.InputJsonValue }
+        ...(parsed.data.travelDateTo !== undefined || parsed.data.priceItemPreset !== undefined
+          ? {
+              travelDateTo:
+                nextPriceItemPreset === 'MANUAL_PRESET'
+                  ? null
+                  : parsed.data.travelDateTo !== undefined
+                    ? parsed.data.travelDateTo
+                      ? new Date(parsed.data.travelDateTo)
+                      : null
+                    : existing.travelDateTo,
+            }
+          : {}),
+        ...(parsed.data.vehicleType !== undefined || parsed.data.priceItemPreset !== undefined
+          ? {
+              vehicleType:
+                nextPriceItemPreset === 'MANUAL_PRESET'
+                  ? null
+                  : parsed.data.vehicleType !== undefined
+                    ? parsed.data.vehicleType?.trim() || null
+                    : existing.vehicleType,
+            }
+          : {}),
+        ...(parsed.data.variantTypes !== undefined || parsed.data.priceItemPreset !== undefined
+          ? {
+              variantTypes:
+                nextPriceItemPreset === 'MANUAL_PRESET'
+                  ? ([] as Prisma.InputJsonValue)
+                  : ((parsed.data.variantTypes ?? existing.variantTypes) as Prisma.InputJsonValue),
+            }
+          : {}),
+        ...(parsed.data.flightInTimeBand !== undefined || parsed.data.priceItemPreset !== undefined
+          ? {
+              flightInTimeBand:
+                nextPriceItemPreset === 'MANUAL_PRESET'
+                  ? null
+                  : parsed.data.flightInTimeBand ?? existing.flightInTimeBand,
+            }
+          : {}),
+        ...(parsed.data.flightOutTimeBand !== undefined || parsed.data.priceItemPreset !== undefined
+          ? {
+              flightOutTimeBand:
+                nextPriceItemPreset === 'MANUAL_PRESET'
+                  ? null
+                  : parsed.data.flightOutTimeBand ?? existing.flightOutTimeBand,
+            }
+          : {}),
+        ...(parsed.data.pickupPlaceType !== undefined || parsed.data.priceItemPreset !== undefined
+          ? {
+              pickupPlaceType:
+                nextPriceItemPreset === 'MANUAL_PRESET'
+                  ? null
+                  : parsed.data.pickupPlaceType ?? existing.pickupPlaceType,
+            }
+          : {}),
+        ...(parsed.data.dropPlaceType !== undefined || parsed.data.priceItemPreset !== undefined
+          ? {
+              dropPlaceType:
+                nextPriceItemPreset === 'MANUAL_PRESET'
+                  ? null
+                  : parsed.data.dropPlaceType ?? existing.dropPlaceType,
+            }
+          : {}),
+        ...(parsed.data.externalTransferMode !== undefined || parsed.data.priceItemPreset !== undefined
+          ? {
+              externalTransferMode:
+                nextPriceItemPreset === 'MANUAL_PRESET'
+                  ? null
+                  : parsed.data.externalTransferMode ?? existing.externalTransferMode,
+            }
+          : {}),
+        ...(parsed.data.externalTransferMinCount !== undefined || parsed.data.priceItemPreset !== undefined
+          ? {
+              externalTransferMinCount:
+                nextPriceItemPreset === 'MANUAL_PRESET'
+                  ? null
+                  : parsed.data.externalTransferMinCount ?? existing.externalTransferMinCount,
+            }
+          : {}),
+        ...(parsed.data.externalTransferPresetCodes !== undefined || parsed.data.priceItemPreset !== undefined
+          ? {
+              externalTransferPresetCodes:
+                nextPriceItemPreset === 'MANUAL_PRESET'
+                  ? ([] as Prisma.InputJsonValue)
+                  : ((parsed.data.externalTransferPresetCodes ?? existing.externalTransferPresetCodes) as Prisma.InputJsonValue),
+            }
           : {}),
         nightTrainRequired: null,
         nightTrainMinCount: null,
         longDistanceMinCount: null,
-        ...((parsed.data.chargeScope !== undefined || parsed.data.lodgingSelectionLevel !== undefined || parsed.data.ruleType !== undefined)
-          ? { chargeScope: nextLodgingSelectionLevel ? 'PER_PERSON' : parsed.data.chargeScope ?? null }
+        ...((parsed.data.chargeScope !== undefined ||
+          parsed.data.lodgingSelectionLevel !== undefined ||
+          parsed.data.ruleType !== undefined ||
+          parsed.data.priceItemPreset !== undefined)
+          ? {
+              chargeScope:
+                nextPriceItemPreset === 'LODGING_SELECTION'
+                  ? 'PER_PERSON'
+                  : autoDisplayPreset
+                    ? null
+                    : parsed.data.chargeScope ?? existing.chargeScope,
+            }
           : {}),
-        ...((parsed.data.personMode !== undefined || parsed.data.lodgingSelectionLevel !== undefined || parsed.data.ruleType !== undefined)
-          ? { personMode: nextLodgingSelectionLevel ? 'PER_NIGHT' : parsed.data.personMode ?? null }
+        ...((parsed.data.personMode !== undefined ||
+          parsed.data.lodgingSelectionLevel !== undefined ||
+          parsed.data.ruleType !== undefined ||
+          parsed.data.priceItemPreset !== undefined)
+          ? {
+              personMode:
+                nextPriceItemPreset === 'LODGING_SELECTION'
+                  ? 'PER_NIGHT'
+                  : autoDisplayPreset
+                    ? null
+                    : parsed.data.personMode ?? existing.personMode,
+            }
           : {}),
-        ...(parsed.data.customDisplayText !== undefined
-          ? { customDisplayText: parsed.data.customDisplayText?.trim() || null }
+        ...(parsed.data.customDisplayText !== undefined || parsed.data.priceItemPreset !== undefined
+          ? {
+              customDisplayText:
+                autoDisplayPreset || nextPriceItemPreset === 'LODGING_SELECTION'
+                  ? null
+                  : parsed.data.customDisplayText !== undefined
+                    ? parsed.data.customDisplayText?.trim() || null
+                    : existing.customDisplayText,
+            }
           : {}),
         ...(parsed.data.isEnabled !== undefined ? { isEnabled: parsed.data.isEnabled } : {}),
         ...(parsed.data.sortOrder !== undefined ? { sortOrder: parsed.data.sortOrder } : {}),

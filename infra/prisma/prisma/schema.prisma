@@ -69,13 +69,16 @@ enum PricingPolicyStatus {
 
 enum PricingLineCode {
   BASE
+  BASE_PERCENT
   BASE_UPLIFT_5PLUS_5PCT
   BASE_UPLIFT_5PLUS_10PCT
   LONG_DISTANCE
   NIGHT_TRAIN
-  HIACE
+  PICKUP_DROP
   EXTRA_LODGING
   LODGING_SELECTION
+  CONDITIONAL
+  HIACE
   EARLY
   EXTEND
   MANUAL_ADJUSTMENT
@@ -115,6 +118,18 @@ enum PricingLodgingSelectionLevel {
   LV1
   LV2
   LV4
+}
+
+enum PricingPriceItemPreset {
+  BASE
+  BASE_PERCENT
+  LONG_DISTANCE
+  NIGHT_TRAIN
+  EXTRA_LODGING
+  LODGING_SELECTION
+  PICKUP_DROP
+  CONDITIONAL
+  MANUAL_PRESET
 }
 
 enum PricingRuleType {
@@ -980,6 +995,7 @@ model PricingPolicy {
 model PricingRule {
   id             String               @id @default(uuid(7))
   policyId       String
+  priceItemPreset PricingPriceItemPreset
   ruleType       PricingRuleType
   title          String               @db.VarChar(191)
   lineCode       PricingLineCode

@@ -13,6 +13,17 @@ const pricingPolicyStatuses = ['ACTIVE', 'INACTIVE'] as const;
 const pricingChargeScopes = ['TEAM', 'PER_PERSON'] as const;
 const pricingPersonModes = ['SINGLE', 'PER_DAY', 'PER_NIGHT'] as const;
 const pricingLodgingSelectionLevels = ['LV1', 'LV2', 'LV4'] as const;
+const pricingPriceItemPresets = [
+  'BASE',
+  'BASE_PERCENT',
+  'LONG_DISTANCE',
+  'NIGHT_TRAIN',
+  'EXTRA_LODGING',
+  'LODGING_SELECTION',
+  'PICKUP_DROP',
+  'CONDITIONAL',
+  'MANUAL_PRESET',
+] as const;
 const pricingRuleTypes = ['BASE', 'PERCENT_UPLIFT', 'CONDITIONAL_ADDON', 'LONG_DISTANCE', 'AUTO_EXCEPTION', 'MANUAL'] as const;
 const pricingTimeBands = ['DAWN', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT'] as const;
 const pricingExternalTransferModes = ['ANY', 'PICKUP_ONLY', 'DROP_ONLY', 'BOTH'] as const;
@@ -45,6 +56,7 @@ const dateTimeInputSchema = z.preprocess(
 );
 
 export const pricingRuleBaseSchema = z.object({
+  priceItemPreset: z.enum(pricingPriceItemPresets),
   ruleType: z.enum(pricingRuleTypes),
   title: z.string().min(1).max(191),
   amountKrw: z.number().int().min(-1_000_000_000).max(1_000_000_000).nullable().optional(),
@@ -77,6 +89,7 @@ function validateRuleInput(
   value: Partial<z.infer<typeof pricingRuleBaseSchema>>,
   ctx: z.RefinementCtx,
 ): void {
+  const priceItemPreset = value.priceItemPreset ?? null;
   const ruleType = value.ruleType ?? null;
   const chargeScope = value.chargeScope ?? null;
   const personMode = value.personMode ?? null;
@@ -92,12 +105,62 @@ function validateRuleInput(
   const usesPercent = ruleType === 'PERCENT_UPLIFT';
   const usesLongDistanceQuantity = value.quantitySource === 'LONG_DISTANCE_SEGMENT_COUNT';
   const usesNightTrainQuantity = value.quantitySource === 'NIGHT_TRAIN_BLOCK_COUNT';
+  const usesExtraLodgingQuantity = value.quantitySource === 'SUM_EXTRA_LODGING_COUNTS';
+  const hasDisplayInput = chargeScope != null || personMode != null || value.customDisplayText != null;
+  const hasConditionInput =
+    value.headcountMin != null ||
+    value.headcountMax != null ||
+    value.dayMin != null ||
+    value.dayMax != null ||
+    value.travelDateFrom != null ||
+    value.travelDateTo != null ||
+    value.vehicleType != null ||
+    (value.variantTypes?.length ?? 0) > 0 ||
+    value.flightInTimeBand != null ||
+    value.flightOutTimeBand != null ||
+    value.pickupPlaceType != null ||
+    value.dropPlaceType != null ||
+    value.externalTransferMode != null ||
+    value.externalTransferMinCount != null ||
+    (value.externalTransferPresetCodes?.length ?? 0) > 0 ||
+    lodgingSelectionLevel != null;
 
-  if (ruleType === 'AUTO_EXCEPTION' || ruleType === 'MANUAL') {
+  const expectedRuleTypeByPreset: Partial<
+    Record<(typeof pricingPriceItemPresets)[number], (typeof pricingRuleTypes)[number]>
+  > = {
+    BASE: 'BASE',
+    BASE_PERCENT: 'PERCENT_UPLIFT',
+    LONG_DISTANCE: 'LONG_DISTANCE',
+    NIGHT_TRAIN: 'CONDITIONAL_ADDON',
+    EXTRA_LODGING: 'CONDITIONAL_ADDON',
+    LODGING_SELECTION: 'CONDITIONAL_ADDON',
+    PICKUP_DROP: 'CONDITIONAL_ADDON',
+    CONDITIONAL: 'CONDITIONAL_ADDON',
+    MANUAL_PRESET: 'MANUAL',
+  };
+
+  const expectedRuleType = priceItemPreset ? expectedRuleTypeByPreset[priceItemPreset] ?? null : null;
+  if (expectedRuleType != null && ruleType != null && expectedRuleType !== ruleType) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: `${ruleType} rules are not editable in pricing policy admin`,
+      message: `ruleType must match ${priceItemPreset} preset`,
       path: ['ruleType'],
+    });
+  }
+
+  if (ruleType === 'AUTO_EXCEPTION') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'AUTO_EXCEPTION rules are not editable in pricing policy admin',
+      path: ['ruleType'],
+    });
+  }
+
+  if (ruleType === 'MANUAL' && priceItemPreset !== 'MANUAL_PRESET') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'MANUAL rules must use MANUAL_PRESET',
+      path: ['priceItemPreset'],
     });
   }
 
@@ -117,10 +180,58 @@ function validateRuleInput(
     });
   }
 
-  if (lodgingSelectionLevel != null && ruleType !== 'CONDITIONAL_ADDON') {
+  if (usesExtraLodgingQuantity && ruleType !== 'CONDITIONAL_ADDON') {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'lodgingSelectionLevel is only available for CONDITIONAL_ADDON',
+      message: 'SUM_EXTRA_LODGING_COUNTS is only available for CONDITIONAL_ADDON',
+      path: ['quantitySource'],
+    });
+  }
+
+  if (priceItemPreset === 'BASE_PERCENT' && value.quantitySource !== 'ONE') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'BASE_PERCENT must use quantitySource ONE',
+      path: ['quantitySource'],
+    });
+  }
+
+  if (priceItemPreset === 'LONG_DISTANCE' && value.quantitySource !== 'LONG_DISTANCE_SEGMENT_COUNT') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'LONG_DISTANCE must use quantitySource LONG_DISTANCE_SEGMENT_COUNT',
+      path: ['quantitySource'],
+    });
+  }
+
+  if (priceItemPreset === 'NIGHT_TRAIN' && value.quantitySource !== 'NIGHT_TRAIN_BLOCK_COUNT') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'NIGHT_TRAIN must use quantitySource NIGHT_TRAIN_BLOCK_COUNT',
+      path: ['quantitySource'],
+    });
+  }
+
+  if (priceItemPreset === 'EXTRA_LODGING' && value.quantitySource !== 'SUM_EXTRA_LODGING_COUNTS') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'EXTRA_LODGING must use quantitySource SUM_EXTRA_LODGING_COUNTS',
+      path: ['quantitySource'],
+    });
+  }
+
+  if (priceItemPreset === 'MANUAL_PRESET' && value.quantitySource !== 'ONE') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'MANUAL_PRESET must use quantitySource ONE',
+      path: ['quantitySource'],
+    });
+  }
+
+  if (lodgingSelectionLevel != null && priceItemPreset !== 'LODGING_SELECTION') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'lodgingSelectionLevel is only available for LODGING_SELECTION',
       path: ['lodgingSelectionLevel'],
     });
   }
@@ -181,7 +292,22 @@ function validateRuleInput(
     });
   }
 
-  if (usesPercent && (chargeScope != null || personMode != null || value.customDisplayText != null)) {
+  if (
+    hasDisplayInput &&
+    (priceItemPreset === 'BASE' ||
+      priceItemPreset === 'BASE_PERCENT' ||
+      priceItemPreset === 'LONG_DISTANCE' ||
+      priceItemPreset === 'NIGHT_TRAIN' ||
+      priceItemPreset === 'EXTRA_LODGING')
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `${priceItemPreset} display inputs are fixed`,
+      path: ['chargeScope'],
+    });
+  }
+
+  if (usesPercent && hasDisplayInput) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: 'display inputs for PERCENT_UPLIFT are fixed',
@@ -210,6 +336,14 @@ function validateRuleInput(
       code: z.ZodIssueCode.custom,
       message: 'chargeScope is required when personMode is set',
       path: ['chargeScope'],
+    });
+  }
+
+  if (priceItemPreset === 'MANUAL_PRESET' && hasConditionInput) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'MANUAL_PRESET cannot include automatic conditions',
+      path: ['priceItemPreset'],
     });
   }
 

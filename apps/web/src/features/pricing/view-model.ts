@@ -24,14 +24,17 @@ export interface PricingViewBuckets<TLine extends PricingViewLine> {
 }
 
 const BASE_RULE_TYPES = new Set(['BASE', 'PERCENT_UPLIFT', 'LONG_DISTANCE']);
-const BASE_LINE_CODES = new Set(['BASE', 'BASE_UPLIFT_5PLUS_5PCT', 'BASE_UPLIFT_5PLUS_10PCT', 'LONG_DISTANCE']);
+const BASE_LINE_CODES = new Set(['BASE', 'BASE_PERCENT', 'BASE_UPLIFT_5PLUS_5PCT', 'BASE_UPLIFT_5PLUS_10PCT', 'LONG_DISTANCE']);
 
 const LINE_CODE_LABELS: Record<string, string> = {
   BASE: 'BASE 금액',
+  BASE_PERCENT: '기본금 퍼센트',
   BASE_UPLIFT_5PLUS_5PCT: '5% 추가',
   BASE_UPLIFT_5PLUS_10PCT: '10% 추가',
   LONG_DISTANCE: '장거리 구간 합계',
   NIGHT_TRAIN: '야간열차',
+  PICKUP_DROP: '픽드랍',
+  CONDITIONAL: '조건부',
   HIACE: '하이에이스 추가',
   EXTRA_LODGING: '숙소 추가',
   LODGING_SELECTION: '숙소 선택',

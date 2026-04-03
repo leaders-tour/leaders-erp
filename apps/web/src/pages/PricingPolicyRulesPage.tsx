@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@apollo/client';
 import { Button, Card, SectionHeader } from '@tour/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { RULE_FORM_STEP_OPTIONS } from '../features/pricing-policy-admin/constants';
 import { PricingRuleFormFields } from '../features/pricing-policy-admin/PricingRuleFormFields';
 import { PricingRulesTable } from '../features/pricing-policy-admin/PricingRulesTable';
 import {
@@ -10,12 +11,20 @@ import {
   PRICING_POLICY_WITH_RULES_QUERY,
   UPDATE_RULE_MUTATION,
 } from '../features/pricing-policy-admin/graphql';
-import type { PricingPolicyDetailRow, PricingRuleRow, RuleFormState } from '../features/pricing-policy-admin/types';
+import type {
+  ConditionCategoryKey,
+  PricingPolicyDetailRow,
+  PricingRuleRow,
+  RuleFormState,
+  RuleFormStep,
+} from '../features/pricing-policy-admin/types';
 import {
   buildRuleMutationBody,
   createEmptyRuleForm,
+  getActiveConditionCategories,
   toRuleForm,
   validateRuleForm,
+  validateRuleFormStep,
 } from '../features/pricing-policy-admin/utils';
 
 export function PricingPolicyRulesPage(): JSX.Element {
@@ -32,6 +41,8 @@ export function PricingPolicyRulesPage(): JSX.Element {
   const [isRuleModalOpen, setIsRuleModalOpen] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [ruleForm, setRuleForm] = useState<RuleFormState>(createEmptyRuleForm);
+  const [currentRuleStep, setCurrentRuleStep] = useState<RuleFormStep>('BASICS');
+  const [openConditionCategories, setOpenConditionCategories] = useState<ConditionCategoryKey[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -41,6 +52,8 @@ export function PricingPolicyRulesPage(): JSX.Element {
     setIsRuleModalOpen(false);
     setEditingRuleId(null);
     setRuleForm(createEmptyRuleForm());
+    setCurrentRuleStep('BASICS');
+    setOpenConditionCategories([]);
     setErrorMessage(null);
   }, []);
 
@@ -62,15 +75,51 @@ export function PricingPolicyRulesPage(): JSX.Element {
     setErrorMessage(null);
     setEditingRuleId(null);
     setRuleForm(createEmptyRuleForm());
+    setCurrentRuleStep('BASICS');
+    setOpenConditionCategories([]);
     setIsRuleModalOpen(true);
   };
 
   const openEditModal = (rule: PricingRuleRow) => {
+    const nextRuleForm = toRuleForm(rule);
     setMessage(null);
     setErrorMessage(null);
     setEditingRuleId(rule.id);
-    setRuleForm(toRuleForm(rule));
+    setRuleForm(nextRuleForm);
+    setCurrentRuleStep('BASICS');
+    setOpenConditionCategories(getActiveConditionCategories(nextRuleForm));
     setIsRuleModalOpen(true);
+  };
+
+  const handleNextStep = () => {
+    const stepError = validateRuleFormStep(ruleForm, currentRuleStep);
+    if (stepError) {
+      setErrorMessage(stepError);
+      return;
+    }
+    setErrorMessage(null);
+    setCurrentRuleStep((prev) => {
+      if (prev === 'BASICS') {
+        return 'CONDITIONS';
+      }
+      if (prev === 'CONDITIONS') {
+        return 'DISPLAY';
+      }
+      return prev;
+    });
+  };
+
+  const handlePrevStep = () => {
+    setErrorMessage(null);
+    setCurrentRuleStep((prev) => {
+      if (prev === 'DISPLAY') {
+        return 'CONDITIONS';
+      }
+      if (prev === 'CONDITIONS') {
+        return 'BASICS';
+      }
+      return prev;
+    });
   };
 
   const submitRule = async () => {
@@ -142,7 +191,7 @@ export function PricingPolicyRulesPage(): JSX.Element {
             title={policy ? `${policy.name} · 규칙` : '가격 규칙'}
             description={
               policy
-                ? 'ruleType·제목·조건·금액을 관리합니다. 장거리는 `장거리 기본금`, 야간열차와 숙소 업그레이드는 `조건부 추가/할인` 규칙에서 세부 기준으로 설정합니다.'
+                ? '가격 항목·제목·조건·금액을 관리합니다. 주요 항목은 전용 preset으로 만들고, 일반 규칙은 `조건부`, 일정빌더 수동 항목은 `수동`으로 관리합니다.'
                 : '정책을 불러오는 중…'
             }
           />
@@ -190,7 +239,7 @@ export function PricingPolicyRulesPage(): JSX.Element {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h2 className="text-xl font-semibold text-slate-900">{editingRuleId ? '규칙 수정' : '규칙 추가'}</h2>
-                    <p className="mt-1 text-xs text-slate-500">ruleType, 제목, 조건, 금액을 입력합니다. 장거리는 `장거리 기본금`, 야간열차와 숙소 업그레이드는 `조건부 추가/할인`에서 세부 기준으로 설정합니다.</p>
+                    <p className="mt-1 text-xs text-slate-500">가격 항목을 먼저 고르고, 그 항목에 맞는 조건과 표시를 3단계로 설정합니다.</p>
                   </div>
                   <Button variant="outline" onClick={closeRuleModal}>
                     닫기
@@ -199,20 +248,62 @@ export function PricingPolicyRulesPage(): JSX.Element {
 
                 {errorMessage ? <p className="mt-4 text-sm text-rose-700">{errorMessage}</p> : null}
 
+                <div className="mt-5 grid gap-3 lg:grid-cols-3">
+                  {RULE_FORM_STEP_OPTIONS.map((step, index) => {
+                    const isActive = currentRuleStep === step.value;
+                    const isDone = RULE_FORM_STEP_OPTIONS.findIndex((item) => item.value === currentRuleStep) > index;
+                    return (
+                      <button
+                        key={step.value}
+                        type="button"
+                        className={`rounded-2xl border px-4 py-3 text-left transition ${
+                          isActive
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : isDone
+                              ? 'border-slate-300 bg-slate-50 text-slate-700'
+                              : 'border-slate-200 bg-white text-slate-500'
+                        }`}
+                        onClick={() => setCurrentRuleStep(step.value)}
+                      >
+                        <div className="text-sm font-semibold">{step.label}</div>
+                        <div className={`mt-1 text-xs ${isActive ? 'text-slate-200' : 'text-slate-500'}`}>{step.description}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+
                 <div className="mt-5 max-h-[min(70vh,720px)] overflow-y-auto pr-1">
-                  <PricingRuleFormFields ruleForm={ruleForm} setRuleForm={setRuleForm} />
+                  <PricingRuleFormFields
+                    ruleForm={ruleForm}
+                    setRuleForm={setRuleForm}
+                    currentStep={currentRuleStep}
+                    openConditionCategories={openConditionCategories}
+                    setOpenConditionCategories={setOpenConditionCategories}
+                  />
                 </div>
 
                 <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
                   <Button
                     variant="outline"
-                    onClick={() =>
-                      setRuleForm(ruleBeingEdited ? toRuleForm(ruleBeingEdited) : createEmptyRuleForm())
-                    }
+                    onClick={() => {
+                      const nextRuleForm = ruleBeingEdited ? toRuleForm(ruleBeingEdited) : createEmptyRuleForm();
+                      setRuleForm(nextRuleForm);
+                      setCurrentRuleStep('BASICS');
+                      setOpenConditionCategories(getActiveConditionCategories(nextRuleForm));
+                    }}
                   >
                     초기화
                   </Button>
-                  <Button onClick={() => void submitRule()}>{editingRuleId ? '규칙 저장' : '규칙 추가'}</Button>
+                  {currentRuleStep !== 'BASICS' ? (
+                    <Button variant="outline" onClick={handlePrevStep}>
+                      이전
+                    </Button>
+                  ) : null}
+                  {currentRuleStep === 'DISPLAY' ? (
+                    <Button onClick={() => void submitRule()}>{editingRuleId ? '규칙 저장' : '규칙 추가'}</Button>
+                  ) : (
+                    <Button onClick={handleNextStep}>다음</Button>
+                  )}
                 </div>
               </Card>
             </div>

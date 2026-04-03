@@ -1,15 +1,24 @@
 import { Button, Table, Td, Th } from '@tour/ui';
+import { useMemo, useState } from 'react';
 import {
   EXTERNAL_TRANSFER_MODE_OPTIONS,
   PLACE_TYPE_OPTIONS,
   TIME_BAND_OPTIONS,
   getExternalTransferPresetLabel,
   getLodgingSelectionLevelLabel,
+  getPriceItemGroupLabel,
+  getPriceItemOptionLabel,
+  getPriceItemPresetLabel,
   getPricingQuantitySourceLabelKo,
-  getPricingRuleTypeLabelKo,
 } from './constants';
-import type { PricingRuleRow } from './types';
-import { getPricingDisplayPreview, toDateInputValue } from './utils';
+import type { PricingPriceItemGroup, PricingRuleRow } from './types';
+import {
+  getPriceItemGroupForPreset,
+  getPricingDisplayPreview,
+  getSelectedPriceItemOption,
+  toDateInputValue,
+  toRuleForm,
+} from './utils';
 
 type ConditionChip = {
   label: string;
@@ -139,81 +148,152 @@ export function PricingRulesTable({
   onEdit: (rule: PricingRuleRow) => void;
   onDelete: (rule: PricingRuleRow) => void;
 }): JSX.Element {
+  const groupedRules = useMemo(
+    () =>
+      (['BASE', 'AUTO', 'CONDITION', 'MANUAL'] as PricingPriceItemGroup[]).map((group) => ({
+        group,
+        rules: rules.filter((rule) => getPriceItemGroupForPreset(rule.priceItemPreset) === group),
+      })),
+    [rules],
+  );
+  const [selectedGroup, setSelectedGroup] = useState<PricingPriceItemGroup>('BASE');
+
+  const selectedGroupRules = groupedRules.find(({ group }) => group === selectedGroup)?.rules ?? [];
+
   return (
-    <div className="w-full overflow-x-auto">
-      <Table className="w-full min-w-0 text-sm">
-        <thead className="bg-slate-50">
-          <tr>
-            <Th>제목</Th>
-            <Th>분류</Th>
-            <Th>계산</Th>
-            <Th>표시 기준</Th>
-            <Th>조건</Th>
-            <Th>상태</Th>
-            <Th>작업</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {rules.map((rule) => {
-            const conditionChips = getConditionChips(rule);
-            const displayPreview = getPricingDisplayPreview(rule);
-            return (
-              <tr key={rule.id} className="border-t border-slate-200">
-                <Td className="max-w-[14rem] align-middle font-medium text-slate-900">{rule.title}</Td>
-                <Td className="align-middle">
-                  <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-800">
-                    {getPricingRuleTypeLabelKo(rule.ruleType)}
-                  </span>
-                </Td>
-                <Td>{formatCalculationLabel(rule)}</Td>
-                <Td className="align-middle">
-                  <div className="grid gap-0.5">
-                    <span className="font-medium text-slate-900">{displayPreview.label}</span>
-                    {displayPreview.example ? (
-                      <span className="text-xs text-slate-500">{displayPreview.example}</span>
-                    ) : null}
-                  </div>
-                </Td>
-                <Td>
-                  {conditionChips.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {conditionChips.map((chip) => (
-                        <span
-                          key={chip.label}
-                          className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${chip.className}`}
-                        >
-                          {chip.label}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    '-'
-                  )}
-                </Td>
-                <Td>
-                  <span
-                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                      rule.isEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                    }`}
-                  >
-                    {rule.isEnabled ? '활성' : '비활성'}
-                  </span>
-                </Td>
-                <Td>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => onEdit(rule)}>
-                      수정
-                    </Button>
-                    <Button variant="outline" onClick={() => onDelete(rule)}>
-                      삭제
-                    </Button>
-                  </div>
-                </Td>
+    <div className="grid gap-5">
+      <div className="grid w-full gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {groupedRules.map(({ group, rules: groupRules }) => {
+          const isSelected = selectedGroup === group;
+          return (
+            <div
+              key={group}
+              className={`flex min-w-0 overflow-hidden rounded-2xl border bg-white shadow-sm transition ${
+                isSelected ? 'border-slate-900 ring-1 ring-slate-900/10' : 'border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <button
+                type="button"
+                className={`min-w-0 flex-1 p-4 text-left transition ${
+                  isSelected ? 'bg-slate-50' : 'hover:bg-slate-50'
+                }`}
+                onClick={() => setSelectedGroup(group)}
+              >
+                <div className="text-sm font-semibold text-slate-900">{getPriceItemGroupLabel(group)}</div>
+                <div className="mt-2 text-xs text-slate-600">
+                  규칙 {groupRules.length}개
+                  {groupRules.length > 0 ? ` · ${groupRules.slice(0, 2).map((rule) => rule.title).join(', ')}` : ''}
+                </div>
+              </button>
+              <div className="flex w-[92px] shrink-0 flex-col items-stretch justify-center gap-2 border-l border-slate-100 bg-slate-50/80 p-2">
+                <span
+                  className={`mx-auto rounded-full px-2 py-0.5 text-center text-[10px] font-semibold ${
+                    isSelected ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {isSelected ? '선택됨' : '그룹'}
+                </span>
+                <Button type="button" variant="outline" className="h-8 px-2 text-xs" onClick={() => setSelectedGroup(group)}>
+                  보기
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid gap-3">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-800">
+            {getPriceItemGroupLabel(selectedGroup)}
+          </span>
+          <span className="text-xs text-slate-500">{selectedGroupRules.length}개 규칙</span>
+        </div>
+        <div className="w-full overflow-x-auto">
+          <Table className="w-full min-w-0 text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <Th>제목</Th>
+                <Th>세부 항목</Th>
+                <Th>계산</Th>
+                <Th>표시 기준</Th>
+                <Th>조건</Th>
+                <Th>상태</Th>
+                <Th>작업</Th>
               </tr>
-            );
-          })}
-        </tbody>
-      </Table>
+            </thead>
+            <tbody>
+              {selectedGroupRules.length === 0 ? (
+                <tr className="border-t border-slate-200">
+                  <Td colSpan={7} className="py-6 text-center text-sm text-slate-500">
+                    등록된 규칙이 없습니다.
+                  </Td>
+                </tr>
+              ) : (
+                selectedGroupRules.map((rule) => {
+                  const conditionChips = getConditionChips(rule);
+                  const displayPreview = getPricingDisplayPreview(rule);
+                  const optionLabel = getPriceItemOptionLabel(getSelectedPriceItemOption(toRuleForm(rule)));
+                  return (
+                    <tr key={rule.id} className="border-t border-slate-200">
+                      <Td className="max-w-[14rem] align-middle font-medium text-slate-900">{rule.title}</Td>
+                      <Td className="align-middle">
+                        <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-800">
+                          {rule.priceItemPreset === 'CONDITIONAL' ? optionLabel : getPriceItemPresetLabel(rule.priceItemPreset)}
+                        </span>
+                      </Td>
+                      <Td>{formatCalculationLabel(rule)}</Td>
+                      <Td className="align-middle">
+                        <div className="grid gap-0.5">
+                          <span className="font-medium text-slate-900">{displayPreview.label}</span>
+                          {displayPreview.example ? (
+                            <span className="text-xs text-slate-500">{displayPreview.example}</span>
+                          ) : null}
+                        </div>
+                      </Td>
+                      <Td>
+                        {conditionChips.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {conditionChips.map((chip) => (
+                              <span
+                                key={chip.label}
+                                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${chip.className}`}
+                              >
+                                {chip.label}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          '-'
+                        )}
+                      </Td>
+                      <Td>
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            rule.isEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                          }`}
+                        >
+                          {rule.isEnabled ? '활성' : '비활성'}
+                        </span>
+                      </Td>
+                      <Td>
+                        <div className="flex gap-2">
+                          <Button variant="outline" onClick={() => onEdit(rule)}>
+                            수정
+                          </Button>
+                          <Button variant="outline" onClick={() => onDelete(rule)}>
+                            삭제
+                          </Button>
+                        </div>
+                      </Td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </Table>
+        </div>
+      </div>
     </div>
   );
 }

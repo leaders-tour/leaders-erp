@@ -90,6 +90,7 @@ import {
 import {
   ManualAdjustmentsModal,
   type ManualAdjustmentDraftRow,
+  type ManualAdjustmentPresetOption,
 } from '../features/pricing/components/ManualAdjustmentsModal';
 import { mergeLodgingSelectionDisplayLines } from '../features/pricing/merge-lodging-selection-display';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
@@ -168,6 +169,18 @@ function createManualAdjustmentDraft(kind: 'ADD' | 'DISCOUNT'): ManualAdjustment
     countValue: '',
     amountKrw: '',
     customDisplayText: '',
+  };
+}
+
+function createManualAdjustmentDraftFromPreset(preset: ManualAdjustmentPresetOption): ManualAdjustmentRow {
+  return {
+    kind: preset.kind,
+    title: preset.title,
+    chargeScope: preset.chargeScope,
+    personMode: preset.personMode,
+    countValue: preset.personMode === 'PER_DAY' || preset.personMode === 'PER_NIGHT' ? '1' : '',
+    amountKrw: String(preset.amountKrw),
+    customDisplayText: preset.customDisplayText,
   };
 }
 
@@ -293,6 +306,24 @@ interface PricingPreviewRow {
   longDistanceSegmentCount: number;
   extraLodgingCount: number;
   lines: PricingLineRow[];
+}
+
+interface PricingPolicyManualPresetRuleRow {
+  id: string;
+  priceItemPreset: 'MANUAL_PRESET';
+  title: string;
+  amountKrw?: number | null;
+  chargeScope?: 'TEAM' | 'PER_PERSON' | null;
+  personMode?: 'SINGLE' | 'PER_DAY' | 'PER_NIGHT' | null;
+  customDisplayText?: string | null;
+  isEnabled: boolean;
+}
+
+interface PricingPolicyManualPresetQueryRow {
+  pricingPolicy: {
+    id: string;
+    rules: PricingPolicyManualPresetRuleRow[];
+  } | null;
 }
 
 interface PlanTemplateStopRow {
@@ -985,6 +1016,24 @@ const PLAN_PRICING_PREVIEW_QUERY = gql`
         displayCount
         displayDivisorPerson
         displayText
+      }
+    }
+  }
+`;
+
+const PRICING_POLICY_MANUAL_PRESETS_QUERY = gql`
+  query PricingPolicyManualPresetsFromBuilder($id: ID!) {
+    pricingPolicy(id: $id) {
+      id
+      rules {
+        id
+        priceItemPreset
+        title
+        amountKrw
+        chargeScope
+        personMode
+        customDisplayText
+        isEnabled
       }
     }
   }
@@ -3142,6 +3191,31 @@ export function ItineraryBuilderPage(): JSX.Element {
     pricingPreviewData?.planPricingPreview ??
     pricingPreviewPreviousData?.planPricingPreview ??
     null;
+  const { data: pricingPolicyManualPresetsData } = useQuery<PricingPolicyManualPresetQueryRow>(
+    PRICING_POLICY_MANUAL_PRESETS_QUERY,
+    {
+      skip: !pricingPreview?.policyId,
+      variables: { id: pricingPreview?.policyId ?? '' },
+    },
+  );
+  const manualPresetOptions = useMemo<ManualAdjustmentPresetOption[]>(
+    () =>
+      (pricingPolicyManualPresetsData?.pricingPolicy?.rules ?? [])
+        .filter(
+          (rule): rule is PricingPolicyManualPresetRuleRow =>
+            rule.priceItemPreset === 'MANUAL_PRESET' && rule.isEnabled && rule.amountKrw != null,
+        )
+        .map((rule) => ({
+          id: rule.id,
+          title: rule.title,
+          kind: (rule.amountKrw ?? 0) < 0 ? 'DISCOUNT' : 'ADD',
+          chargeScope: rule.chargeScope === 'TEAM' ? 'TEAM' : 'PER_PERSON',
+          personMode: rule.personMode ?? 'SINGLE',
+          amountKrw: Math.abs(rule.amountKrw ?? 0),
+          customDisplayText: rule.customDisplayText ?? '',
+        })),
+    [pricingPolicyManualPresetsData],
+  );
 
   const validationResults = useBuilderValidation({
     planRows,
@@ -6178,12 +6252,16 @@ export function ItineraryBuilderPage(): JSX.Element {
         <ManualAdjustmentsModal
           open={manualAdjustmentsModalState.open}
           rows={manualAdjustments}
+          presetOptions={manualPresetOptions}
           onClose={() => setManualAdjustmentsModalState({ open: false })}
           onAddRow={(kind) =>
             setManualAdjustments((prev) => [
               ...prev,
               createManualAdjustmentDraft(kind),
             ])
+          }
+          onAddPresetRow={(preset) =>
+            setManualAdjustments((prev) => [...prev, createManualAdjustmentDraftFromPreset(preset)])
           }
           onUpdateRow={(index, nextRow) =>
             setManualAdjustments((prev) =>

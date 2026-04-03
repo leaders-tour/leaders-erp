@@ -1,5 +1,29 @@
 export type PricingPolicyStatus = 'ACTIVE' | 'INACTIVE';
 export type PricingRuleType = 'BASE' | 'PERCENT_UPLIFT' | 'CONDITIONAL_ADDON' | 'LONG_DISTANCE' | 'AUTO_EXCEPTION' | 'MANUAL';
+export type PricingPriceItemPreset =
+  | 'BASE'
+  | 'BASE_PERCENT'
+  | 'LONG_DISTANCE'
+  | 'NIGHT_TRAIN'
+  | 'EXTRA_LODGING'
+  | 'LODGING_SELECTION'
+  | 'PICKUP_DROP'
+  | 'CONDITIONAL'
+  | 'MANUAL_PRESET';
+export type PricingPriceItemGroup = 'BASE' | 'AUTO' | 'CONDITION' | 'MANUAL';
+export type PricingPriceItemOptionKey =
+  | 'BASE'
+  | 'BASE_PERCENT'
+  | 'LONG_DISTANCE'
+  | 'PICKUP_DROP'
+  | 'LODGING_SELECTION'
+  | 'EXTRA_LODGING'
+  | 'NIGHT_TRAIN'
+  | 'CONDITIONAL_EARLY'
+  | 'CONDITIONAL_EXTEND'
+  | 'CONDITIONAL_HIACE'
+  | 'CONDITIONAL_CUSTOM'
+  | 'MANUAL_PRESET';
 export type PricingQuantitySource =
   | 'ONE'
   | 'HEADCOUNT'
@@ -10,6 +34,16 @@ export type PricingQuantitySource =
 export type PricingChargeScope = 'TEAM' | 'PER_PERSON';
 export type PricingPersonMode = 'SINGLE' | 'PER_DAY' | 'PER_NIGHT';
 export type PricingLodgingSelectionLevel = 'LV1' | 'LV2' | 'LV4';
+export type RuleFormStep = 'BASICS' | 'CONDITIONS' | 'DISPLAY';
+export type ConditionCategoryKey =
+  | 'headcountDays'
+  | 'travelDate'
+  | 'vehicle'
+  | 'variant'
+  | 'flight'
+  | 'pickupDrop'
+  | 'externalTransfer'
+  | 'lodgingSelection';
 export type VariantTypeOption = 'basic' | 'early' | 'extend' | 'earlyExtend';
 export type PricingTimeBand = 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT';
 export type PricingExternalTransferMode = 'ANY' | 'PICKUP_ONLY' | 'DROP_ONLY' | 'BOTH';
@@ -26,6 +60,7 @@ export type ExternalTransferPresetCodeOption =
 export interface PricingRuleRow {
   id: string;
   policyId: string;
+  priceItemPreset: PricingPriceItemPreset;
   ruleType: PricingRuleType;
   title: string;
   lineCode: string;
@@ -79,6 +114,7 @@ export interface PolicyFormState {
 }
 
 export interface RuleFormState {
+  priceItemPreset: PricingPriceItemPreset;
   ruleType: PricingRuleType;
   title: string;
   amountKrw: string;
@@ -105,4 +141,43 @@ export interface RuleFormState {
   customDisplayText: string;
   isEnabled: boolean;
   sortOrder: string;
+}
+
+export interface RuleFormStepOption {
+  value: RuleFormStep;
+  label: string;
+  description: string;
+}
+
+export interface PriceItemGroupOption {
+  value: PricingPriceItemGroup;
+  label: string;
+  description: string;
+}
+
+export interface PriceItemOption {
+  value: PricingPriceItemOptionKey;
+  group: PricingPriceItemGroup;
+  preset: PricingPriceItemPreset;
+  label: string;
+  description: string;
+}
+
+export interface ConditionCategoryOption {
+  value: ConditionCategoryKey;
+  label: string;
+  description: string;
+}
+
+export interface DerivedRuleConstraints {
+  effectiveRuleType: PricingRuleType;
+  effectiveQuantitySource: PricingQuantitySource;
+  quantitySourceLocked: boolean;
+  quantitySourceReason: string | null;
+  effectiveChargeScope: '' | PricingChargeScope;
+  chargeScopeLocked: boolean;
+  effectivePersonMode: '' | PricingPersonMode;
+  personModeLocked: boolean;
+  displayLockedMessage: string | null;
+  allowedConditionCategories: ConditionCategoryKey[];
 }

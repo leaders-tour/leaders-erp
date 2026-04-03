@@ -15,6 +15,7 @@ import type {
   PricingComputedLine,
   PricingComputedLineDraft,
   PricingLodgingSelectionLevelValue,
+  PricingPriceItemPresetValue,
   PricingPlanStopDto,
   PricingRuleTypeValue,
 } from './pricing.types';
@@ -45,6 +46,7 @@ type PricingQuantitySourceValue =
 
 type PricingRuleRecord = {
   id: string;
+  priceItemPreset: PricingPriceItemPresetValue | null;
   ruleType: PricingRuleTypeValue | null;
   title: string | null;
   lineCode: PricingLineCode;
@@ -544,6 +546,7 @@ export class PricingService {
       ruleType: this.getEffectiveRuleType(rule),
       title: rule.title,
       lineCode: rule.lineCode,
+      ...(rule.priceItemPreset ? { priceItemPreset: rule.priceItemPreset } : {}),
       ...(rule.chargeScope ? { chargeScope: rule.chargeScope } : {}),
       ...(rule.personMode ? { personMode: rule.personMode } : {}),
       ...(rule.customDisplayText ? { customDisplayText: rule.customDisplayText } : {}),
@@ -562,6 +565,7 @@ export class PricingService {
     switch (rule.lineCode) {
       case 'BASE':
         return 'BASE';
+      case 'BASE_PERCENT':
       case 'BASE_UPLIFT_5PLUS_5PCT':
       case 'BASE_UPLIFT_5PLUS_10PCT':
         return 'PERCENT_UPLIFT';
