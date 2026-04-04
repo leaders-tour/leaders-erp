@@ -1,7 +1,6 @@
 import { Button, Input } from '@tour/ui';
 import type { Dispatch, SetStateAction } from 'react';
 import type { DerivedRuleConstraints, RuleFormState } from './types';
-import { formatSignedCurrency } from '../estimate/utils/format';
 import { getPriceItemOptionLabel } from './constants';
 import { getEffectiveRuleForm, getSelectedPriceItemOption } from './utils';
 
@@ -50,10 +49,22 @@ function buildEstimateAdjustmentLabel(ruleForm: RuleFormState): string {
   );
 }
 
-function EstimateAdjustmentPreview({ ruleForm }: { ruleForm: RuleFormState }): JSX.Element {
+function buildEstimateLeadAmountText(ruleForm: RuleFormState): string {
   const effectiveForm = getEffectiveRuleForm(ruleForm);
   const amountKrw = Number(effectiveForm.amountKrw || 0);
+  const sign = amountKrw > 0 ? '+' : amountKrw < 0 ? '-' : '';
+  const absAmountText = formatKrw(Math.abs(amountKrw));
+
+  if (effectiveForm.chargeScope === 'TEAM') {
+    return `${sign}${absAmountText} / n`;
+  }
+
+  return `${sign}${absAmountText}`;
+}
+
+function EstimateAdjustmentPreview({ ruleForm }: { ruleForm: RuleFormState }): JSX.Element {
   const label = buildEstimateAdjustmentLabel(ruleForm);
+  const leadAmountText = buildEstimateLeadAmountText(ruleForm);
   const formula = buildEstimateAdjustmentFormula(ruleForm);
 
   return (
@@ -62,11 +73,11 @@ function EstimateAdjustmentPreview({ ruleForm }: { ruleForm: RuleFormState }): J
         추가 및 할인 사항
       </div>
       <div className="px-4 py-4">
-        <div className="grid grid-cols-[8px,minmax(0,1fr),auto] items-start gap-x-3 text-sm leading-[1.35] text-slate-800">
+        <div className="grid grid-cols-[1fr,minmax(0,1.3fr),auto] items-start gap-x-3 text-sm leading-[1.35] text-slate-800">
           <span aria-hidden="true" />
-          <span className="inline-flex min-w-0 flex-wrap items-baseline justify-center gap-x-2 justify-self-start">
+          <span className="inline-flex min-w-0 flex-wrap items-baseline gap-x-2 justify-self-start">
             <span className="min-w-0">{label}</span>
-            <strong className="font-bold">{formatSignedCurrency(amountKrw)}</strong>
+            <strong className="font-bold">{leadAmountText}</strong>
           </span>
           <span className="justify-self-end text-right text-xs text-[#6b645b]">{formula}</span>
         </div>
