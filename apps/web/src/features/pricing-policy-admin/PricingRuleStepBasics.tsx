@@ -4,7 +4,6 @@ import {
   PRICE_ITEM_GROUP_OPTIONS,
   PRICE_ITEM_OPTIONS,
   QUANTITY_SOURCE_OPTIONS,
-  getPricingQuantitySourceLabelKo,
 } from './constants';
 import type {
   ConditionCategoryKey,
@@ -20,7 +19,6 @@ import {
   getEffectiveRuleForm,
   getPriceItemGroupForPreset,
   getRuleAmountInputLabel,
-  getRuleAmountInterpretation,
   getSelectedPriceItemOption,
 } from './utils';
 
@@ -57,6 +55,7 @@ export function PricingRuleStepBasics({
   const selectedGroup = getPriceItemGroupForPreset(ruleForm.priceItemPreset);
   const selectedOption = getSelectedPriceItemOption(ruleForm);
   const effectiveGroup = lockedGroup ?? selectedGroup;
+  const isReorderedLockedGroup = lockedGroup === 'BASE' || lockedGroup === 'AUTO' || lockedGroup === 'CONDITION';
   const availableOptions = PRICE_ITEM_OPTIONS.filter((option) => option.group === effectiveGroup);
   const applyOptionSelection = (optionKey: PricingPriceItemOptionKey) => {
     setRuleForm((prev) => {
@@ -75,18 +74,17 @@ export function PricingRuleStepBasics({
 
   return (
     <div className="grid gap-4">
-      <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-        <div className="text-sm font-semibold text-slate-900">기본 정보</div>
-        <p className="mt-1 text-xs text-slate-500">{getRuleAmountInterpretation(ruleForm)}</p>
-        {constraints.quantitySourceLocked ? (
-          <div className="mt-3 inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700">
-            수량 기준: {getPricingQuantitySourceLabelKo(constraints.effectiveQuantitySource)} ({constraints.quantitySourceReason})
-          </div>
-        ) : null}
-      </div>
-
       <div className="grid gap-4 rounded-2xl border border-slate-200 p-4 md:grid-cols-2">
-        {effectiveForm.ruleType === 'PERCENT_UPLIFT' ? (
+        {isReorderedLockedGroup ? (
+          <label className="grid gap-1 text-sm">
+            <span>제목</span>
+            <Input
+              value={ruleForm.title}
+              onChange={(event) => setRuleForm((prev) => ({ ...prev, title: event.target.value }))}
+              placeholder="예: 하이에이스 추가금"
+            />
+          </label>
+        ) : effectiveForm.ruleType === 'PERCENT_UPLIFT' ? (
           <label className="grid gap-1 text-sm">
             <span>가격</span>
             <Input
@@ -110,38 +108,65 @@ export function PricingRuleStepBasics({
           </label>
         )}
 
-        <label className="grid gap-1 text-sm">
-          <span>가격 항목 그룹</span>
-          {lockedGroup ? (
-            <div className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
-              {PRICE_ITEM_GROUP_OPTIONS.find((group) => group.value === lockedGroup)?.label}
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {PRICE_ITEM_GROUP_OPTIONS.map((group) => (
-                <button
-                  key={group.value}
-                  type="button"
-                  className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
-                    selectedGroup === group.value
-                      ? 'border-slate-900 bg-slate-900 text-white'
-                      : 'border-slate-200 bg-white text-slate-700'
-                  }`}
-                  onClick={() => {
-                    const nextOption =
-                      PRICE_ITEM_OPTIONS.find((option) => option.group === group.value)?.value ?? selectedOption;
-                  applyOptionSelection(nextOption);
-                  }}
-                >
-                  {group.label}
-                </button>
-              ))}
-            </div>
-          )}
-          <span className="text-xs text-slate-500">
-            {PRICE_ITEM_GROUP_OPTIONS.find((group) => group.value === effectiveGroup)?.description}
-          </span>
-        </label>
+        {isReorderedLockedGroup ? (
+          <label className="grid gap-1 text-sm">
+            <span>가격</span>
+            {effectiveForm.ruleType === 'PERCENT_UPLIFT' ? (
+              <>
+                <Input
+                  type="number"
+                  value={ruleForm.percentText}
+                  onChange={(event) => setRuleForm((prev) => ({ ...prev, percentText: event.target.value }))}
+                  placeholder="예: 5"
+                />
+                <span className="text-xs text-slate-500">기본금 대비 정수 퍼센트로 입력합니다.</span>
+              </>
+            ) : (
+              <>
+                <Input
+                  type="number"
+                  value={ruleForm.amountKrw}
+                  onChange={(event) => setRuleForm((prev) => ({ ...prev, amountKrw: event.target.value }))}
+                  placeholder={amountInputPlaceholder}
+                />
+                <span className="text-xs text-slate-500">{amountInputLabel} 기준으로 저장됩니다.</span>
+              </>
+            )}
+          </label>
+        ) : (
+          <label className="grid gap-1 text-sm">
+            <span>가격 항목 그룹</span>
+            {lockedGroup ? (
+              <div className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                {PRICE_ITEM_GROUP_OPTIONS.find((group) => group.value === lockedGroup)?.label}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {PRICE_ITEM_GROUP_OPTIONS.map((group) => (
+                  <button
+                    key={group.value}
+                    type="button"
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                      selectedGroup === group.value
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-700'
+                    }`}
+                    onClick={() => {
+                      const nextOption =
+                        PRICE_ITEM_OPTIONS.find((option) => option.group === group.value)?.value ?? selectedOption;
+                      applyOptionSelection(nextOption);
+                    }}
+                  >
+                    {group.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <span className="text-xs text-slate-500">
+              {PRICE_ITEM_GROUP_OPTIONS.find((group) => group.value === effectiveGroup)?.description}
+            </span>
+          </label>
+        )}
 
         <label className="grid gap-1 text-sm">
           <span>세부 가격 항목</span>
@@ -184,14 +209,16 @@ export function PricingRuleStepBasics({
           )}
         </label>
 
-        <label className="grid gap-1 text-sm md:col-span-2">
-          <span>제목</span>
-          <Input
-            value={ruleForm.title}
-            onChange={(event) => setRuleForm((prev) => ({ ...prev, title: event.target.value }))}
-            placeholder="예: 하이에이스 추가금"
-          />
-        </label>
+        {!isReorderedLockedGroup ? (
+          <label className="grid gap-1 text-sm md:col-span-2">
+            <span>제목</span>
+            <Input
+              value={ruleForm.title}
+              onChange={(event) => setRuleForm((prev) => ({ ...prev, title: event.target.value }))}
+              placeholder="예: 하이에이스 추가금"
+            />
+          </label>
+        ) : null}
       </div>
     </div>
   );

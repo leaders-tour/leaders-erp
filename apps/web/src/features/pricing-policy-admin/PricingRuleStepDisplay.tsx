@@ -3,11 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { DerivedRuleConstraints, RuleFormState } from './types';
 import { formatSignedCurrency } from '../estimate/utils/format';
 import { getPriceItemOptionLabel } from './constants';
-import {
-  getEffectiveRuleForm,
-  getPricingDisplayPreview,
-  getSelectedPriceItemOption,
-} from './utils';
+import { getEffectiveRuleForm, getSelectedPriceItemOption } from './utils';
 
 function formatKrw(value: number): string {
   return `${new Intl.NumberFormat('ko-KR').format(value)}원`;
@@ -95,36 +91,18 @@ export function PricingRuleEstimatePreviewSection({
   );
 }
 
-function buildDisplaySummary(ruleForm: RuleFormState) {
-  const effectiveForm = getEffectiveRuleForm(ruleForm);
-  return getPricingDisplayPreview({
-    priceItemPreset: effectiveForm.priceItemPreset,
-    ruleType: effectiveForm.ruleType,
-    chargeScope: effectiveForm.chargeScope || null,
-    personMode: effectiveForm.personMode || null,
-    customDisplayText: effectiveForm.customDisplayText,
-    amountKrw:
-      effectiveForm.ruleType === 'PERCENT_UPLIFT' ? null : Number(effectiveForm.amountKrw || 0),
-  });
-}
-
 export function PricingRuleStepDisplay({
   ruleForm,
   setRuleForm,
   constraints,
-  showDisplaySummary = true,
-  showHeader = true,
   showEstimatePreview = true,
 }: {
   ruleForm: RuleFormState;
   setRuleForm: Dispatch<SetStateAction<RuleFormState>>;
   constraints: DerivedRuleConstraints;
-  showDisplaySummary?: boolean;
-  showHeader?: boolean;
   showEstimatePreview?: boolean;
 }): JSX.Element {
   const effectiveForm = getEffectiveRuleForm(ruleForm);
-  const displayPreview = buildDisplaySummary(ruleForm);
   const isPercentRule = effectiveForm.ruleType === 'PERCENT_UPLIFT';
   const isDisplayLocked =
     constraints.chargeScopeLocked ||
@@ -213,6 +191,8 @@ export function PricingRuleStepDisplay({
           />
         </label>
       </div>
+
+      {showEstimatePreview ? <PricingRuleEstimatePreviewSection ruleForm={ruleForm} /> : null}
     </div>
   );
 }

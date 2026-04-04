@@ -52,8 +52,6 @@ export function PricingRuleManualForm({
         ruleForm={ruleForm}
         setRuleForm={setRuleForm}
         constraints={constraints}
-        showDisplaySummary={false}
-        showHeader={false}
         showEstimatePreview={false}
       />
 

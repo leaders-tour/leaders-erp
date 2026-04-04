@@ -18,36 +18,7 @@ import type {
   PricingTimeBand,
   RuleFormState,
 } from './types';
-import { clearConditionCategory, getConditionCategorySummary } from './utils';
-
-function OpenConditionSummaryChips({
-  ruleForm,
-  openCategories,
-  onFocusCategory,
-}: {
-  ruleForm: RuleFormState;
-  openCategories: ConditionCategoryKey[];
-  onFocusCategory: (value: ConditionCategoryKey) => void;
-}): JSX.Element | null {
-  if (openCategories.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {openCategories.map((category) => (
-        <button
-          key={category}
-          type="button"
-          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700"
-          onClick={() => onFocusCategory(category)}
-        >
-          {CONDITION_CATEGORY_OPTIONS.find((option) => option.value === category)?.label}: {getConditionCategorySummary(ruleForm, category) ?? '입력 대기'}
-        </button>
-      ))}
-    </div>
-  );
-}
+import { clearConditionCategory } from './utils';
 
 function ConditionPanel({
   category,
@@ -352,39 +323,6 @@ export function PricingRuleStepConditions({
 
   return (
     <div className="grid gap-4">
-      <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-        <div className="text-sm font-semibold text-slate-900">조건 선택</div>
-        <p className="mt-1 text-xs text-slate-500">
-          {constraints.allowedConditionCategories.length === 0
-            ? '이 가격 항목은 자동 조건 없이 사용됩니다.'
-            : '카테고리에서 필요한 조건만 골라서 입력합니다. 비워두면 해당 조건은 적용되지 않습니다.'}
-        </p>
-        <div className="mt-3">
-          <OpenConditionSummaryChips
-            ruleForm={ruleForm}
-            openCategories={visibleOpenCategories}
-            onFocusCategory={(category) => {
-              const element = document.getElementById(`condition-panel-${category}`);
-              element?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }}
-          />
-        </div>
-        {constraints.quantitySourceLocked || constraints.displayLockedMessage ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {constraints.quantitySourceLocked ? (
-              <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700">
-                수량 자동 설정
-              </span>
-            ) : null}
-            {constraints.displayLockedMessage ? (
-              <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700">
-                표시 자동 설정
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-
       <div className="grid gap-4 rounded-2xl border border-slate-200 p-4">
         <div className="grid gap-2">
           <span className="text-sm font-medium text-slate-700">조건 추가</span>
