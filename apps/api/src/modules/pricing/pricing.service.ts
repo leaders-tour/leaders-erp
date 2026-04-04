@@ -260,7 +260,12 @@ export class PricingService {
         description: adjustment.title,
         unitPriceKrw: signedUnitAmountKrw,
         quantity: normalizedCount,
-        amountKrw: signedUnitAmountKrw * normalizedCount,
+        amountKrw: this.computeDisplayAmountKrw({
+          unitPriceKrw: signedUnitAmountKrw,
+          quantity: normalizedCount,
+          chargeScope: adjustment.chargeScope,
+          headcountTotal: context.headcountTotal,
+        }),
         meta: {
           order: index + 1,
           chargeScope: adjustment.chargeScope,
@@ -663,9 +668,38 @@ export class PricingService {
       description: rule.title,
       unitPriceKrw: unitPrice,
       quantity,
-      amountKrw: unitPrice * quantity,
+      amountKrw: this.computeDisplayAmountKrw({
+        unitPriceKrw: unitPrice,
+        quantity,
+        chargeScope: rule.chargeScope,
+        headcountTotal: context.headcountTotal,
+      }),
       meta: this.buildRuleMeta(rule, extraMeta),
     };
+  }
+
+  private computeDisplayAmountKrw(input: {
+    unitPriceKrw: number;
+    quantity: number;
+    chargeScope: 'TEAM' | 'PER_PERSON' | null;
+    headcountTotal: number;
+  }): number {
+    if (input.chargeScope !== 'TEAM') {
+      return input.unitPriceKrw * input.quantity;
+    }
+    const perPersonAmountKrw = this.computeTeamPerPersonAmountKrw(input.unitPriceKrw, input.headcountTotal);
+    return perPersonAmountKrw * input.quantity;
+  }
+
+  private computeTeamPerPersonAmountKrw(teamUnitAmountKrw: number, headcountTotal: number): number {
+    if (headcountTotal <= 0) {
+      return teamUnitAmountKrw;
+    }
+    return this.roundToHundred(teamUnitAmountKrw / headcountTotal);
+  }
+
+  private roundToHundred(value: number): number {
+    return Math.round(value / 100) * 100;
   }
 
   private shouldApplyEarly(variantType: VariantType): boolean {

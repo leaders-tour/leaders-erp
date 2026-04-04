@@ -74,6 +74,23 @@ describe('pricing-line-presenter', () => {
     expect(resolveDisplayLeadAmount(line, ctx6)).toBe(41_700);
   });
 
+  it('uses team unit amount for formula and stored per-person amount for totals', () => {
+    const line = {
+      lineCode: 'EARLY',
+      sourceType: 'RULE' as const,
+      description: '얼리 추가금',
+      unitPriceKrw: 240_000,
+      quantity: 1,
+      amountKrw: 40_000,
+      displayBasis: 'TEAM_DIV_PERSON',
+      displayUnitAmountKrw: 240_000,
+      displayCount: 1,
+      displayDivisorPerson: 6,
+    };
+    expect(formatPricingDetailFormula(line, ctx6)).toBe('240,000원/6인');
+    expect(resolveDisplayLeadAmount(line, ctx6)).toBe(40_000);
+  });
+
   it('infers PERCENT for stored uplift lines without display', () => {
     const line = {
       lineCode: 'BASE_UPLIFT_5PLUS_5PCT',

@@ -5719,9 +5719,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                           ) : null}
                                         </td>
                                         <td className="px-2 py-1.5">
-                                          {line.unitPriceKrw !== null
-                                            ? formatKrw(line.unitPriceKrw)
-                                            : '-'}
+                                          {formatPricingLineUnitDisplay(line, headcountTotal)}
                                         </td>
                                         <td className="px-2 py-1.5">
                                           {formatPricingLineQuantityDisplay(line, headcountTotal)}
