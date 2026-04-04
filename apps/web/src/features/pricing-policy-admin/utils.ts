@@ -245,7 +245,7 @@ export function deriveRuleConstraints(ruleForm: RuleFormState): DerivedRuleConst
         quantitySourceLocked: true,
         quantitySourceReason: '장거리 항목은 장거리 구간 수 기준으로 자동 설정',
         effectiveChargeScope: '',
-        displayLockedMessage: '장거리 항목은 구간 수 표기를 자동으로 사용합니다.',
+        displayLockedMessage: '장거리 기본금은 표시 기준이 고정됩니다.',
       };
     case 'NIGHT_TRAIN':
       return {
@@ -385,7 +385,11 @@ export function getPricingDisplayPreview(
     };
   }
 
-  if (rule.priceItemPreset === 'BASE' || rule.priceItemPreset === 'BASE_PERCENT') {
+  if (
+    rule.priceItemPreset === 'BASE' ||
+    rule.priceItemPreset === 'BASE_PERCENT' ||
+    rule.priceItemPreset === 'LONG_DISTANCE'
+  ) {
     return {
       label: 'X',
       example: null,
@@ -393,12 +397,6 @@ export function getPricingDisplayPreview(
   }
 
   const formattedAmount = formatKrwAmount(rule.amountKrw);
-  if (rule.priceItemPreset === 'LONG_DISTANCE') {
-    return {
-      label: '구간 합계',
-      example: formattedAmount ? `${formattedAmount} * n구간` : null,
-    };
-  }
   if (rule.priceItemPreset === 'NIGHT_TRAIN') {
     return {
       label: '회당',
