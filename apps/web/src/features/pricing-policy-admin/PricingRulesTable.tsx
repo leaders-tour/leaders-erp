@@ -1,5 +1,5 @@
 import { Button, Table, Td, Th } from '@tour/ui';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   EXTERNAL_TRANSFER_MODE_OPTIONS,
   PLACE_TYPE_OPTIONS,
@@ -141,10 +141,16 @@ function getConditionChips(rule: PricingRuleRow): ConditionChip[] {
 
 export function PricingRulesTable({
   rules,
+  selectedGroup,
+  onSelectGroup,
+  onAddGroup,
   onEdit,
   onDelete,
 }: {
   rules: PricingRuleRow[];
+  selectedGroup: PricingPriceItemGroup;
+  onSelectGroup: (group: PricingPriceItemGroup) => void;
+  onAddGroup: (group: PricingPriceItemGroup) => void;
   onEdit: (rule: PricingRuleRow) => void;
   onDelete: (rule: PricingRuleRow) => void;
 }): JSX.Element {
@@ -156,8 +162,6 @@ export function PricingRulesTable({
       })),
     [rules],
   );
-  const [selectedGroup, setSelectedGroup] = useState<PricingPriceItemGroup>('BASE');
-
   const selectedGroupRules = groupedRules.find(({ group }) => group === selectedGroup)?.rules ?? [];
 
   return (
@@ -177,7 +181,7 @@ export function PricingRulesTable({
                 className={`min-w-0 flex-1 p-4 text-left transition ${
                   isSelected ? 'bg-slate-50' : 'hover:bg-slate-50'
                 }`}
-                onClick={() => setSelectedGroup(group)}
+                onClick={() => onSelectGroup(group)}
               >
                 <div className="text-sm font-semibold text-slate-900">{getPriceItemGroupLabel(group)}</div>
                 <div className="mt-2 text-xs text-slate-600">
@@ -193,7 +197,7 @@ export function PricingRulesTable({
                 >
                   {isSelected ? '선택됨' : '그룹'}
                 </span>
-                <Button type="button" variant="outline" className="h-8 px-2 text-xs" onClick={() => setSelectedGroup(group)}>
+                <Button type="button" variant="outline" className="h-8 px-2 text-xs" onClick={() => onSelectGroup(group)}>
                   보기
                 </Button>
               </div>
@@ -203,11 +207,16 @@ export function PricingRulesTable({
       </div>
 
       <div className="grid gap-3">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-800">
-            {getPriceItemGroupLabel(selectedGroup)}
-          </span>
-          <span className="text-xs text-slate-500">{selectedGroupRules.length}개 규칙</span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-800">
+              {getPriceItemGroupLabel(selectedGroup)}
+            </span>
+            <span className="text-xs text-slate-500">{selectedGroupRules.length}개 규칙</span>
+          </div>
+          <Button type="button" variant="primary" onClick={() => onAddGroup(selectedGroup)}>
+            {getPriceItemGroupLabel(selectedGroup)} 규칙 추가
+          </Button>
         </div>
         <div className="w-full overflow-x-auto">
           <Table className="w-full min-w-0 text-sm">

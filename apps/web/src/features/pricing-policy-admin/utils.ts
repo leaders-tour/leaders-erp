@@ -74,6 +74,11 @@ export function createEmptyRuleForm(): RuleFormState {
   };
 }
 
+export function createEmptyRuleFormForGroup(group: PricingPriceItemGroup): RuleFormState {
+  const defaultOption = PRICE_ITEM_OPTIONS.find((option) => option.group === group)?.value ?? 'CONDITIONAL_CUSTOM';
+  return applyPriceItemOptionSelection(createEmptyRuleForm(), defaultOption);
+}
+
 export function toRuleForm(rule: PricingRuleRow): RuleFormState {
   return {
     priceItemPreset: rule.priceItemPreset,
@@ -141,6 +146,38 @@ export function getSelectedPriceItemOption(ruleForm: RuleFormState): PricingPric
   }
   return (PRICE_ITEM_OPTIONS.find((option) => option.preset === ruleForm.priceItemPreset)?.value ??
     'CONDITIONAL_CUSTOM') as PricingPriceItemOptionKey;
+}
+
+function getRecommendedConditionCategoriesByOption(optionKey: PricingPriceItemOptionKey): ConditionCategoryKey[] {
+  switch (optionKey) {
+    case 'PICKUP_DROP':
+      return ['externalTransfer'];
+    case 'LODGING_SELECTION':
+      return ['lodgingSelection'];
+    case 'CONDITIONAL_EARLY':
+    case 'CONDITIONAL_EXTEND':
+      return ['variant'];
+    case 'CONDITIONAL_HIACE':
+      return ['vehicle', 'headcountDays'];
+    case 'BASE':
+    case 'BASE_PERCENT':
+    case 'LONG_DISTANCE':
+    case 'EXTRA_LODGING':
+    case 'CONDITIONAL_CUSTOM':
+    case 'MANUAL_PRESET':
+    default:
+      return [];
+  }
+}
+
+export function getDefaultOpenConditionCategories(ruleForm: RuleFormState): ConditionCategoryKey[] {
+  const allowedCategories = new Set(getAllowedConditionCategories(ruleForm));
+  const recommendedCategories = getRecommendedConditionCategoriesByOption(getSelectedPriceItemOption(ruleForm));
+  const activeCategories = getActiveConditionCategories(ruleForm);
+
+  return [...recommendedCategories, ...activeCategories].filter(
+    (category, index, categories) => allowedCategories.has(category) && categories.indexOf(category) === index,
+  );
 }
 
 export function applyPriceItemOptionSelection(

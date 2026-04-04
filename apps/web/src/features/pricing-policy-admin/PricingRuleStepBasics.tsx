@@ -7,6 +7,7 @@ import {
   getPricingQuantitySourceLabelKo,
 } from './constants';
 import type {
+  ConditionCategoryKey,
   DerivedRuleConstraints,
   PricingPriceItemGroup,
   PricingPriceItemOptionKey,
@@ -15,6 +16,7 @@ import type {
 } from './types';
 import {
   applyPriceItemOptionSelection,
+  getDefaultOpenConditionCategories,
   getEffectiveRuleForm,
   getPriceItemGroupForPreset,
   getRuleAmountInputLabel,
@@ -41,16 +43,28 @@ export function PricingRuleStepBasics({
   ruleForm,
   setRuleForm,
   constraints,
+  lockedGroup,
+  setOpenConditionCategories,
 }: {
   ruleForm: RuleFormState;
   setRuleForm: Dispatch<SetStateAction<RuleFormState>>;
   constraints: DerivedRuleConstraints;
+  lockedGroup?: PricingPriceItemGroup | null;
+  setOpenConditionCategories: Dispatch<SetStateAction<ConditionCategoryKey[]>>;
 }): JSX.Element {
   const effectiveForm = getEffectiveRuleForm(ruleForm);
   const quantityOptions = getQuantityOptions(ruleForm, constraints);
   const selectedGroup = getPriceItemGroupForPreset(ruleForm.priceItemPreset);
   const selectedOption = getSelectedPriceItemOption(ruleForm);
-  const availableOptions = PRICE_ITEM_OPTIONS.filter((option) => option.group === selectedGroup);
+  const effectiveGroup = lockedGroup ?? selectedGroup;
+  const availableOptions = PRICE_ITEM_OPTIONS.filter((option) => option.group === effectiveGroup);
+  const applyOptionSelection = (optionKey: PricingPriceItemOptionKey) => {
+    setRuleForm((prev) => {
+      const nextForm = applyPriceItemOptionSelection(prev, optionKey);
+      setOpenConditionCategories(getDefaultOpenConditionCategories(nextForm));
+      return nextForm;
+    });
+  };
   const amountInputLabel = getRuleAmountInputLabel(effectiveForm);
   const amountInputPlaceholder =
     effectiveForm.chargeScope === 'TEAM'
@@ -98,28 +112,34 @@ export function PricingRuleStepBasics({
 
         <label className="grid gap-1 text-sm">
           <span>가격 항목 그룹</span>
-          <div className="flex flex-wrap gap-2">
-            {PRICE_ITEM_GROUP_OPTIONS.map((group) => (
-              <button
-                key={group.value}
-                type="button"
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
-                  selectedGroup === group.value
-                    ? 'border-slate-900 bg-slate-900 text-white'
-                    : 'border-slate-200 bg-white text-slate-700'
-                }`}
-                onClick={() => {
-                  const nextOption =
-                    PRICE_ITEM_OPTIONS.find((option) => option.group === group.value)?.value ?? selectedOption;
-                  setRuleForm((prev) => applyPriceItemOptionSelection(prev, nextOption));
-                }}
-              >
-                {group.label}
-              </button>
-            ))}
-          </div>
+          {lockedGroup ? (
+            <div className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
+              {PRICE_ITEM_GROUP_OPTIONS.find((group) => group.value === lockedGroup)?.label}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {PRICE_ITEM_GROUP_OPTIONS.map((group) => (
+                <button
+                  key={group.value}
+                  type="button"
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                    selectedGroup === group.value
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-700'
+                  }`}
+                  onClick={() => {
+                    const nextOption =
+                      PRICE_ITEM_OPTIONS.find((option) => option.group === group.value)?.value ?? selectedOption;
+                  applyOptionSelection(nextOption);
+                  }}
+                >
+                  {group.label}
+                </button>
+              ))}
+            </div>
+          )}
           <span className="text-xs text-slate-500">
-            {PRICE_ITEM_GROUP_OPTIONS.find((group) => group.value === selectedGroup)?.description}
+            {PRICE_ITEM_GROUP_OPTIONS.find((group) => group.value === effectiveGroup)?.description}
           </span>
         </label>
 
@@ -128,9 +148,7 @@ export function PricingRuleStepBasics({
           <select
             className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
             value={selectedOption}
-            onChange={(event) =>
-              setRuleForm((prev) => applyPriceItemOptionSelection(prev, event.target.value as PricingPriceItemOptionKey))
-            }
+            onChange={(event) => applyOptionSelection(event.target.value as PricingPriceItemOptionKey)}
           >
             {availableOptions.map((option) => (
               <option key={option.value} value={option.value}>
