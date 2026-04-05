@@ -6,8 +6,8 @@ import { buildExternalTransferDirectionText } from '../features/plan/external-tr
 import { usePlanVersionDetail, useSetCurrentPlanVersion } from '../features/plan/hooks';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
 import { buildEffectivePricing } from '../features/pricing/manual-pricing';
+import { formatPricingDetailFormula, resolveDisplayLeadAmount } from '../features/pricing/pricing-line-presenter';
 import { toVariantLabel } from '../features/plan/variant-label';
-import { mergeLodgingSelectionDisplayLines } from '../features/pricing/merge-lodging-selection-display';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
@@ -24,6 +24,58 @@ function formatSecurityDepositScope(mode: 'NONE' | 'PER_PERSON' | 'PER_TEAM'): s
     return '인당';
   }
   return '-';
+}
+
+function formatSignedKrw(value: number): string {
+  return value > 0 ? `+${formatKrw(value)}` : value < 0 ? `-${formatKrw(Math.abs(value))}` : formatKrw(0);
+}
+
+function formatPricingLineUnitDisplay(
+  line: {
+    lineCode: string;
+    sourceType: string;
+    unitPriceKrw: number | null;
+    amountKrw: number;
+    quantity: number;
+    displayBasis?: string | null;
+    displayUnitAmountKrw?: number | null;
+    displayDivisorPerson?: number | null;
+  },
+  headcountTotal: number,
+): string {
+  const divisorPerson = line.displayDivisorPerson ?? headcountTotal;
+  if (line.displayBasis === 'TEAM_DIV_PERSON' && divisorPerson > 0) {
+    const unitAmount = line.displayUnitAmountKrw ?? line.unitPriceKrw ?? line.amountKrw;
+    return `${formatKrw(unitAmount)}/${divisorPerson}인`;
+  }
+  if (line.lineCode === 'MANUAL_ADJUSTMENT' && line.sourceType === 'RULE' && line.quantity > 1 && headcountTotal > 0) {
+    return `${formatKrw(line.unitPriceKrw ?? line.amountKrw)}/${headcountTotal}인`;
+  }
+  return line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-';
+}
+
+function formatPricingLineQuantityDisplay(
+  line: {
+    lineCode: string;
+    sourceType: string;
+    quantity: number;
+    displayBasis?: string | null;
+    displayCount?: number | null;
+    quantityDisplaySuffix?: '박';
+  },
+  headcountTotal: number,
+): string {
+  if (line.displayBasis === 'TEAM_DIV_PERSON') {
+    const count = line.displayCount ?? line.quantity;
+    return count === 1 ? '1회' : `${count}회`;
+  }
+  if (line.lineCode === 'MANUAL_ADJUSTMENT' && line.sourceType === 'RULE' && line.quantity > 1 && headcountTotal > 0) {
+    return `${headcountTotal}인`;
+  }
+  if (line.quantityDisplaySuffix === '박') {
+    return `${line.quantity}박`;
+  }
+  return String(line.quantity);
 }
 
 export function PlanVersionDetailPage(): JSX.Element {
@@ -58,12 +110,15 @@ export function PlanVersionDetailPage(): JSX.Element {
         version.pricing.savedManualDepositAmountKrw ?? undefined,
       )
     : null;
-  const pricingBuckets = effectivePricing
-    ? buildPricingViewBuckets(effectivePricing.lines, effectivePricing.totalAmountKrw)
+  const originalPricingSnapshot = version.pricing?.originalPricing ?? null;
+  const autoPricingBuckets = version.pricing
+    ? buildPricingViewBuckets(
+        version.pricing.lines,
+        originalPricingSnapshot?.totalAmountKrw ?? version.pricing.totalAmountKrw,
+      )
     : null;
-  const pricingDisplayAddonLines = pricingBuckets
-    ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines)
-    : [];
+  const hasManualPricing = version.pricing?.manualPricing?.enabled === true;
+  const outputPricingTitle = hasManualPricing ? '수동 금액' : '고객이 확인할 것';
   const transportGroups = version.meta?.transportGroups ?? [];
   const flightInText =
     transportGroups.length > 0
@@ -221,14 +276,17 @@ export function PlanVersionDetailPage(): JSX.Element {
               수동수정이 저장된 버전입니다. 자동 원본 대비 최종 금액이 반영되어 있습니다.
             </p>
           ) : null}
-          {pricingBuckets ? (
+          {autoPricingBuckets ? (
             <div className="space-y-3">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                 <h3 className="text-sm font-semibold text-slate-900">직원이 확인할 것 (상세)</h3>
+                {hasManualPricing ? (
+                  <p className="mt-1 text-[11px] text-slate-500">아래 값은 자동 계산 원본 기준입니다.</p>
+                ) : null}
 
                 <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                  <div className="font-medium text-slate-900">기본금 {formatKrw(pricingBuckets.baseTotal)}</div>
-                  {pricingBuckets.baseLines.length === 0 ? (
+                  <div className="font-medium text-slate-900">기본금 {formatKrw(autoPricingBuckets.baseTotal)}</div>
+                  {autoPricingBuckets.baseLines.length === 0 ? (
                     <p className="mt-2 text-xs text-slate-500">기본금 항목이 없습니다.</p>
                   ) : (
                     <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200">
@@ -242,12 +300,12 @@ export function PlanVersionDetailPage(): JSX.Element {
                           </tr>
                         </thead>
                         <tbody>
-                          {pricingBuckets.baseLines.map((line) => (
+                          {autoPricingBuckets.baseLines.map((line) => (
                             <tr key={line.id ?? `${line.lineCode}-${line.amountKrw}`} className="border-b border-slate-100">
                               <td className="py-2 pl-2 pr-3">{getPricingLineLabel(line)}</td>
-                              <td className="py-2 pr-3">{line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-'}</td>
-                              <td className="py-2 pr-3">{line.quantity}</td>
-                              <td className="py-2 pr-2">{formatKrw(line.amountKrw)}</td>
+                              <td className="py-2 pr-3">{formatPricingLineUnitDisplay(line, pricingCtx.headcountTotal)}</td>
+                              <td className="py-2 pr-3">{formatPricingLineQuantityDisplay(line, pricingCtx.headcountTotal)}</td>
+                              <td className="py-2 pr-2">{formatKrw(resolveDisplayLeadAmount(line, pricingCtx))}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -257,8 +315,8 @@ export function PlanVersionDetailPage(): JSX.Element {
                 </div>
 
                 <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                  <div className="font-medium text-slate-900">추가금 {formatKrw(pricingBuckets.addonTotal)}</div>
-                  {pricingBuckets.addonLines.length === 0 ? (
+                  <div className="font-medium text-slate-900">추가금 {formatKrw(autoPricingBuckets.addonTotal)}</div>
+                  {autoPricingBuckets.addonLines.length === 0 ? (
                     <p className="mt-2 text-xs text-slate-500">추가금 항목이 없습니다.</p>
                   ) : (
                     <div className="mt-2 overflow-x-auto">
@@ -272,7 +330,7 @@ export function PlanVersionDetailPage(): JSX.Element {
                           </tr>
                         </thead>
                         <tbody>
-                          {pricingDisplayAddonLines.map((line) => (
+                          {autoPricingBuckets.addonLines.map((line) => (
                             <tr key={line.id ?? `${line.lineCode}-${line.description ?? ''}`} className="border-b border-slate-100">
                               <td className="py-2 pr-3">
                                 {getPricingLineLabel(line)}
@@ -282,11 +340,9 @@ export function PlanVersionDetailPage(): JSX.Element {
                                   <div className="text-[11px] text-slate-500">{line.description}</div>
                                 ) : null}
                               </td>
-                              <td className="py-2 pr-3">{line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-'}</td>
-                              <td className="py-2 pr-3">
-                                {line.quantityDisplaySuffix === '박' ? `${line.quantity}박` : line.quantity}
-                              </td>
-                              <td className="py-2">{formatKrw(line.amountKrw)}</td>
+                              <td className="py-2 pr-3">{formatPricingLineUnitDisplay(line, pricingCtx.headcountTotal)}</td>
+                              <td className="py-2 pr-3">{formatPricingLineQuantityDisplay(line, pricingCtx.headcountTotal)}</td>
+                              <td className="py-2">{formatKrw(resolveDisplayLeadAmount(line, pricingCtx))}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -296,7 +352,9 @@ export function PlanVersionDetailPage(): JSX.Element {
                 </div>
 
                 <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                  <div className="font-medium text-slate-900">보증금 {formatKrw(effectivePricing.securityDepositAmountKrw)}</div>
+                  <div className="font-medium text-slate-900">
+                    보증금 {formatKrw(originalPricingSnapshot?.securityDepositAmountKrw ?? effectivePricing.securityDepositAmountKrw)}
+                  </div>
                   <div className="mt-2 overflow-x-auto">
                     <table className="min-w-full border-collapse text-left text-xs">
                       <thead>
@@ -316,9 +374,18 @@ export function PlanVersionDetailPage(): JSX.Element {
                           <td className="py-2 pr-3">
                             {effectivePricing.securityDepositMode === 'NONE'
                               ? '-'
-                              : `${formatKrw(effectivePricing.securityDepositUnitPriceKrw)}(${formatSecurityDepositScope(effectivePricing.securityDepositMode)}) x ${effectivePricing.securityDepositQuantity}`}
+                              : `${formatKrw(
+                                  effectivePricing.securityDepositQuantity > 0
+                                    ? Math.round(
+                                        (originalPricingSnapshot?.securityDepositAmountKrw ??
+                                          effectivePricing.securityDepositAmountKrw) / effectivePricing.securityDepositQuantity,
+                                      )
+                                    : originalPricingSnapshot?.securityDepositAmountKrw ?? effectivePricing.securityDepositAmountKrw,
+                                )}(${formatSecurityDepositScope(effectivePricing.securityDepositMode)}) x ${effectivePricing.securityDepositQuantity}`}
                           </td>
-                          <td className="py-2">{formatKrw(effectivePricing.securityDepositAmountKrw)}</td>
+                          <td className="py-2">
+                            {formatKrw(originalPricingSnapshot?.securityDepositAmountKrw ?? effectivePricing.securityDepositAmountKrw)}
+                          </td>
                         </tr>
                       </tbody>
                     </table>
@@ -338,11 +405,11 @@ export function PlanVersionDetailPage(): JSX.Element {
                       <tbody>
                         <tr className="border-b border-slate-100">
                           <td className="py-2 pr-3">예약금</td>
-                          <td className="py-2">{formatKrw(effectivePricing.depositAmountKrw)}</td>
+                          <td className="py-2">{formatKrw(originalPricingSnapshot?.depositAmountKrw ?? effectivePricing.depositAmountKrw)}</td>
                         </tr>
                         <tr className="border-b border-slate-100">
                           <td className="py-2 pr-3">잔금</td>
-                          <td className="py-2">{formatKrw(effectivePricing.balanceAmountKrw)}</td>
+                          <td className="py-2">{formatKrw(originalPricingSnapshot?.balanceAmountKrw ?? effectivePricing.balanceAmountKrw)}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -351,30 +418,27 @@ export function PlanVersionDetailPage(): JSX.Element {
               </div>
 
               <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3">
-                <h3 className="text-sm font-semibold text-blue-900">고객이 확인할 것</h3>
+                <h3 className="text-sm font-semibold text-blue-900">{outputPricingTitle}</h3>
+                {hasManualPricing ? (
+                  <p className="mt-1 text-[11px] text-blue-800">저장된 수동 출력값 기준으로 분리 표시합니다.</p>
+                ) : null}
                 <div className="mt-2 grid gap-2 text-sm text-blue-900">
-                  <div>기본금: {formatKrw(pricingBuckets.baseTotal)}</div>
-                  <div>추가금: {formatKrw(pricingBuckets.addonTotal)}</div>
-                  {pricingBuckets.addonLines.length === 0 ? (
+                  <div>기본금: {formatKrw(effectivePricing.baseAmountKrw)}</div>
+                  <div>추가금: {formatKrw(effectivePricing.addonAmountKrw)}</div>
+                  {effectivePricing.adjustmentLines.length === 0 ? (
                     <p className="text-xs text-blue-700">추가금 항목이 없습니다.</p>
                   ) : (
-                    <div className="max-h-[180px] overflow-auto rounded-lg border border-blue-200 bg-white">
-                      <table className="min-w-full text-xs">
-                        <thead className="bg-blue-50 text-blue-900">
-                          <tr>
-                            <th className="px-2 py-2 text-left">항목</th>
-                            <th className="px-2 py-2 text-left">금액</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {pricingDisplayAddonLines.map((line) => (
-                            <tr key={`customer-addon-${line.id ?? `${line.lineCode}-${line.amountKrw}`}`} className="border-t border-blue-100">
-                              <td className="px-2 py-1.5">{getPricingLineLabel(line)}</td>
-                              <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="space-y-2 rounded-lg border border-blue-200 bg-white p-3">
+                      {effectivePricing.adjustmentLines.map((line) => (
+                        <div
+                          key={`customer-addon-${line.id}`}
+                          className="grid gap-2 border-b border-blue-100 pb-2 last:border-b-0 last:pb-0 lg:grid-cols-[minmax(0,1.5fr)_140px_minmax(0,1fr)]"
+                        >
+                          <div className="font-medium text-slate-900">{line.label}</div>
+                          <div className="font-semibold text-slate-900">{formatSignedKrw(line.leadAmountKrw)}</div>
+                          <div className="text-slate-600">{line.formula || '-'}</div>
+                        </div>
+                      ))}
                     </div>
                   )}
                   <div className="mt-1 overflow-hidden rounded-lg border border-blue-200 bg-white">
@@ -385,7 +449,7 @@ export function PlanVersionDetailPage(): JSX.Element {
                       <div className="px-2 py-2">보증금(팀당/인당)</div>
                     </div>
                     <div className="grid grid-cols-4 text-center text-sm text-slate-900">
-                      <div className="border-r border-slate-200 px-2 py-4 font-semibold">{formatKrw(pricingBuckets.grandTotal)}</div>
+                      <div className="border-r border-slate-200 px-2 py-4 font-semibold">{formatKrw(effectivePricing.totalAmountKrw)}</div>
                       <div className="border-r border-slate-200 px-2 py-4">{formatKrw(effectivePricing.depositAmountKrw)}</div>
                       <div className="border-r border-slate-200 px-2 py-4">{formatKrw(effectivePricing.balanceAmountKrw)}</div>
                       <div className="px-2 py-4">
