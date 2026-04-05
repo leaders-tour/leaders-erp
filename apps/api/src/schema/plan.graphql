@@ -208,6 +208,16 @@ type PlanVersionPricing {
   updatedAt: DateTime!
 }
 
+type ManualAdjustmentSnapshot {
+  kind: ManualAdjustmentKind!
+  title: String!
+  chargeScope: PricingChargeScope!
+  personMode: PricingPersonMode
+  countValue: Int
+  amountKrw: Int!
+  customDisplayText: String
+}
+
 type ManualPricingLineOverride {
   rowKey: String!
   amountKrw: Int!
