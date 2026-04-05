@@ -239,6 +239,7 @@ type ManualPricingAdjustmentLine {
 }
 
 type ManualPricingSummarySnapshot {
+  baseAmountKrw: Int
   totalAmountKrw: Int
   depositAmountKrw: Int
   balanceAmountKrw: Int
@@ -499,6 +500,7 @@ input ManualPricingAdjustmentLineInput {
 }
 
 input ManualPricingSummaryInput {
+  baseAmountKrw: Int
   totalAmountKrw: Int
   depositAmountKrw: Int
   balanceAmountKrw: Int

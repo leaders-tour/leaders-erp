@@ -122,6 +122,7 @@ export const manualPricingAdjustmentLineInputSchema = z.object({
 });
 
 export const manualPricingSummaryInputSchema = z.object({
+  baseAmountKrw: z.number().int().nullable().optional(),
   totalAmountKrw: z.number().int().nullable().optional(),
   depositAmountKrw: z.number().int().nullable().optional(),
   balanceAmountKrw: z.number().int().nullable().optional(),

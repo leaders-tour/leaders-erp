@@ -334,6 +334,7 @@ interface ManualPricingAdjustmentLineRow {
 }
 
 interface ManualPricingSummaryState {
+  baseAmountKrw?: number | null;
   totalAmountKrw?: number | null;
   depositAmountKrw?: number | null;
   balanceAmountKrw?: number | null;
@@ -370,6 +371,7 @@ function normalizeManualPricingState(value?: ManualPricingState | null): ManualP
     summary:
       value?.summary && typeof value.summary === 'object'
         ? {
+            baseAmountKrw: Number.isInteger(value.summary.baseAmountKrw) ? value.summary.baseAmountKrw : null,
             totalAmountKrw: Number.isInteger(value.summary.totalAmountKrw) ? value.summary.totalAmountKrw : null,
             depositAmountKrw: Number.isInteger(value.summary.depositAmountKrw)
               ? value.summary.depositAmountKrw
@@ -414,6 +416,7 @@ function toManualPricingSnapshot(
     summary:
       resolvedSummary && typeof resolvedSummary === 'object'
         ? {
+            baseAmountKrw: Number.isInteger(resolvedSummary.baseAmountKrw) ? resolvedSummary.baseAmountKrw : null,
             totalAmountKrw: Number.isInteger(resolvedSummary.totalAmountKrw) ? resolvedSummary.totalAmountKrw : null,
             depositAmountKrw: Number.isInteger(resolvedSummary.depositAmountKrw)
               ? resolvedSummary.depositAmountKrw
@@ -6123,9 +6126,31 @@ export function ItineraryBuilderPage(): JSX.Element {
                       </div>
 
                       <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                        <div className="font-medium text-slate-900">
-                          기본금 {formatKrw(effectivePricingPreview.baseAmountKrw)}
-                        </div>
+                        <div className="font-medium text-slate-900">기본금</div>
+                        {manualPricing.enabled ? (
+                          <div className="mt-2 grid gap-2 lg:grid-cols-[200px_minmax(0,1fr)] lg:items-center">
+                            <input
+                              type="number"
+                              step={1}
+                              value={effectivePricingPreview.baseAmountKrw}
+                              onChange={(event) => {
+                                const nextValue = Number(event.target.value);
+                                if (!Number.isInteger(nextValue)) {
+                                  return;
+                                }
+                                setManualPricing((current) =>
+                                  setManualPricingSummaryValue(current, 'baseAmountKrw', nextValue),
+                                );
+                              }}
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                            />
+                            <p className="text-xs text-slate-500">
+                              기본금 단일값을 직접 수정하면 총액도 자동 재계산됩니다. 총액을 별도로 수정하면 그 값이 우선합니다.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="mt-2 text-slate-900">{formatKrw(effectivePricingPreview.baseAmountKrw)}</div>
+                        )}
                       </div>
 
                       <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">

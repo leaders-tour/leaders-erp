@@ -244,6 +244,7 @@ export interface PlanVersionPricingRow {
       deleted: boolean;
     }>;
     summary?: {
+      baseAmountKrw?: number | null;
       totalAmountKrw?: number | null;
       depositAmountKrw?: number | null;
       balanceAmountKrw?: number | null;
@@ -676,6 +677,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
             deleted
           }
           summary {
+            baseAmountKrw
             totalAmountKrw
             depositAmountKrw
             balanceAmountKrw

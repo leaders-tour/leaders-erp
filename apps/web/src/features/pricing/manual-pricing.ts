@@ -170,10 +170,15 @@ export function buildEffectivePricing<TLine extends PricingManualSourceLine>(
   manualPricing?: PricingManualSnapshot | null,
   manualDepositAmountKrw?: number,
 ): EffectivePricingResult<TLine> {
-  const { baseAmountKrw, adjustmentLines: autoAdjustmentLines } = buildAutoAdjustmentLines(pricing, manualPricing, ctx);
+  const { baseAmountKrw: autoBaseAmountKrw, adjustmentLines: autoAdjustmentLines } = buildAutoAdjustmentLines(
+    pricing,
+    manualPricing,
+    ctx,
+  );
   const adjustmentLines = mergeAdjustmentLines(autoAdjustmentLines, manualPricing);
-  const computedTotalAmountKrw = baseAmountKrw + adjustmentLines.reduce((sum, line) => sum + line.leadAmountKrw, 0);
   const summary = manualPricing?.summary ?? null;
+  const baseAmountKrw = hasNumber(summary?.baseAmountKrw) ? summary.baseAmountKrw : autoBaseAmountKrw;
+  const computedTotalAmountKrw = baseAmountKrw + adjustmentLines.reduce((sum, line) => sum + line.leadAmountKrw, 0);
   const totalAmountKrw = hasNumber(summary?.totalAmountKrw) ? summary.totalAmountKrw : computedTotalAmountKrw;
   const depositOverride = hasNumber(summary?.depositAmountKrw)
     ? summary.depositAmountKrw

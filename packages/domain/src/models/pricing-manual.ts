@@ -48,6 +48,7 @@ export interface PricingManualAdjustmentLine {
 }
 
 export interface PricingManualSummarySnapshot {
+  baseAmountKrw?: number | null;
   totalAmountKrw?: number | null;
   depositAmountKrw?: number | null;
   balanceAmountKrw?: number | null;

@@ -132,6 +132,10 @@ export class PricingService {
       summary:
         manualPricing.summary && typeof manualPricing.summary === 'object'
           ? {
+              baseAmountKrw:
+                typeof manualPricing.summary.baseAmountKrw === 'number'
+                  ? manualPricing.summary.baseAmountKrw
+                  : null,
               totalAmountKrw:
                 typeof manualPricing.summary.totalAmountKrw === 'number'
                   ? manualPricing.summary.totalAmountKrw
@@ -162,6 +166,10 @@ export class PricingService {
     const originalPricingSnapshot = input.originalPricing ?? this.buildOriginalPricingSnapshot(result);
     const presentation = buildPricingManualPresentation(result.lines, manualPricingSnapshot);
     const manualSummary = manualPricingSnapshot?.summary ?? null;
+    const baseAmountKrw =
+      typeof manualSummary?.baseAmountKrw === 'number'
+        ? manualSummary.baseAmountKrw
+        : presentation.effectiveBaseTotal;
     const manualDepositAmountKrw =
       typeof manualSummary?.depositAmountKrw === 'number'
         ? manualSummary.depositAmountKrw
@@ -171,7 +179,7 @@ export class PricingService {
     const totalAmountKrw =
       typeof manualSummary?.totalAmountKrw === 'number'
         ? manualSummary.totalAmountKrw
-        : presentation.effectiveTotal;
+        : baseAmountKrw + presentation.effectiveAddonTotal;
     const { depositAmountKrw, balanceAmountKrw } =
       typeof manualSummary?.balanceAmountKrw === 'number' && manualDepositAmountKrw !== undefined
         ? {
@@ -189,8 +197,8 @@ export class PricingService {
         planVersionId,
         policyId: result.policyId,
         currencyCode: result.currencyCode,
-        baseAmountKrw: presentation.effectiveBaseTotal,
-        addonAmountKrw: totalAmountKrw - presentation.effectiveBaseTotal,
+        baseAmountKrw,
+        addonAmountKrw: totalAmountKrw - baseAmountKrw,
         totalAmountKrw,
         depositAmountKrw,
         balanceAmountKrw,
