@@ -3237,6 +3237,32 @@ export function ItineraryBuilderPage(): JSX.Element {
     () => buildMergedPlanStops(planStopInputs, externalTransfers, transportGroups),
     [externalTransfers, planStopInputs, transportGroups],
   );
+  const planStopsForMutation = useMemo(
+    () =>
+      mergedPlanStops.map((row) => ({
+        rowType: row.rowType,
+        segmentId: 'segmentId' in row ? row.segmentId ?? undefined : undefined,
+        segmentVersionId: 'segmentVersionId' in row ? row.segmentVersionId ?? undefined : undefined,
+        overnightStayId: 'overnightStayId' in row ? row.overnightStayId ?? undefined : undefined,
+        overnightStayDayOrder: 'overnightStayDayOrder' in row ? row.overnightStayDayOrder ?? undefined : undefined,
+        multiDayBlockId: 'multiDayBlockId' in row ? row.multiDayBlockId ?? undefined : undefined,
+        multiDayBlockDayOrder: 'multiDayBlockDayOrder' in row ? row.multiDayBlockDayOrder ?? undefined : undefined,
+        multiDayBlockConnectionId:
+          'multiDayBlockConnectionId' in row ? row.multiDayBlockConnectionId ?? undefined : undefined,
+        multiDayBlockConnectionVersionId:
+          'multiDayBlockConnectionVersionId' in row ? row.multiDayBlockConnectionVersionId ?? undefined : undefined,
+        locationId: row.locationId ?? undefined,
+        locationVersionId: 'locationVersionId' in row ? row.locationVersionId ?? undefined : undefined,
+        movementIntensity: row.movementIntensity ?? null,
+        dateCellText: row.dateCellText,
+        destinationCellText: row.destinationCellText,
+        timeCellText: row.timeCellText,
+        scheduleCellText: row.scheduleCellText,
+        lodgingCellText: row.lodgingCellText,
+        mealCellText: row.mealCellText,
+      })),
+    [mergedPlanStops],
+  );
   const pricingPreviewPlanStops = useMemo(
     () =>
       mergedPlanStops.map((row) => {
@@ -4352,7 +4378,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                               })),
                               remark: remark.trim() || undefined,
                             },
-                            planStops: mergedPlanStops,
+                            planStops: planStopsForMutation,
                             manualAdjustments: normalizedManualAdjustments,
                             manualDepositAmountKrw: normalizedManualDepositAmountKrw,
                             manualPricing: serializedManualPricingSnapshot,
@@ -4452,7 +4478,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                               })),
                               remark: remark.trim() || undefined,
                             },
-                            planStops: mergedPlanStops,
+                            planStops: planStopsForMutation,
                             manualAdjustments: normalizedManualAdjustments,
                             manualDepositAmountKrw: normalizedManualDepositAmountKrw,
                             manualPricing: serializedManualPricingSnapshot,
@@ -6454,7 +6480,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                               manualDepositAmountKrw: normalizedManualDepositAmountKrw,
                               manualPricing: serializedManualPricingSnapshot,
                               selectedRoute,
-                              planStops: mergedPlanStops,
+                              planStops: planStopsForMutation,
                             }
                           : {
                               userId,
@@ -6502,7 +6528,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                               manualPricing: serializedManualPricingSnapshot,
                               selectedRoute,
                               initialVersion: {
-                                planStops: mergedPlanStops,
+                                planStops: planStopsForMutation,
                               },
                             },
                         null,
