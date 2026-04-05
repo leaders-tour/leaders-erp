@@ -399,6 +399,7 @@ function toManualPricingSnapshot(
   value: ManualPricingState,
   summary?: ManualPricingSummaryState | null,
 ): PricingManualSnapshot {
+  const resolvedSummary = summary ?? value.summary ?? null;
   return {
     enabled: value.enabled,
     adjustmentLines: value.adjustmentLines.map((row) => ({
@@ -411,13 +412,17 @@ function toManualPricingSnapshot(
       deleted: row.deleted === true,
     })),
     summary:
-      summary && typeof summary === 'object'
+      resolvedSummary && typeof resolvedSummary === 'object'
         ? {
-            totalAmountKrw: Number.isInteger(summary.totalAmountKrw) ? summary.totalAmountKrw : null,
-            depositAmountKrw: Number.isInteger(summary.depositAmountKrw) ? summary.depositAmountKrw : null,
-            balanceAmountKrw: Number.isInteger(summary.balanceAmountKrw) ? summary.balanceAmountKrw : null,
-            securityDepositAmountKrw: Number.isInteger(summary.securityDepositAmountKrw)
-              ? summary.securityDepositAmountKrw
+            totalAmountKrw: Number.isInteger(resolvedSummary.totalAmountKrw) ? resolvedSummary.totalAmountKrw : null,
+            depositAmountKrw: Number.isInteger(resolvedSummary.depositAmountKrw)
+              ? resolvedSummary.depositAmountKrw
+              : null,
+            balanceAmountKrw: Number.isInteger(resolvedSummary.balanceAmountKrw)
+              ? resolvedSummary.balanceAmountKrw
+              : null,
+            securityDepositAmountKrw: Number.isInteger(resolvedSummary.securityDepositAmountKrw)
+              ? resolvedSummary.securityDepositAmountKrw
               : null,
           }
         : null,
