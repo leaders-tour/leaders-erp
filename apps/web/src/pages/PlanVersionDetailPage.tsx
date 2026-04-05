@@ -5,6 +5,7 @@ import { VersionSnapshotView } from '../features/plan/components';
 import { buildExternalTransferDirectionText } from '../features/plan/external-transfer';
 import { usePlanVersionDetail, useSetCurrentPlanVersion } from '../features/plan/hooks';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
+import { buildEffectivePricing } from '../features/pricing/manual-pricing';
 import { toVariantLabel } from '../features/plan/variant-label';
 import { mergeLodgingSelectionDisplayLines } from '../features/pricing/merge-lodging-selection-display';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
@@ -45,8 +46,20 @@ export function PlanVersionDetailPage(): JSX.Element {
   }
 
   const isCurrent = version.plan.currentVersionId === version.id;
-  const pricingBuckets = version.pricing
-    ? buildPricingViewBuckets(version.pricing.lines, version.pricing.totalAmountKrw)
+  const pricingCtx = {
+    headcountTotal: version.meta?.headcountTotal ?? 0,
+    totalDays: version.totalDays,
+  };
+  const effectivePricing = version.pricing
+    ? buildEffectivePricing(
+        version.pricing,
+        pricingCtx,
+        version.pricing.manualPricing ?? null,
+        version.pricing.savedManualDepositAmountKrw ?? undefined,
+      )
+    : null;
+  const pricingBuckets = effectivePricing
+    ? buildPricingViewBuckets(effectivePricing.lines, effectivePricing.totalAmountKrw)
     : null;
   const pricingDisplayAddonLines = pricingBuckets
     ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines)
@@ -200,9 +213,14 @@ export function PlanVersionDetailPage(): JSX.Element {
         </Card>
       ) : null}
 
-      {version.pricing ? (
+      {effectivePricing ? (
         <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">금액 스냅샷</h2>
+          {version.pricing?.manualPricing?.enabled ? (
+            <p className="mb-3 text-xs text-slate-500">
+              수동수정이 저장된 버전입니다. 자동 원본 대비 최종 금액이 반영되어 있습니다.
+            </p>
+          ) : null}
           {pricingBuckets ? (
             <div className="space-y-3">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
@@ -278,7 +296,7 @@ export function PlanVersionDetailPage(): JSX.Element {
                 </div>
 
                 <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                  <div className="font-medium text-slate-900">보증금 {formatKrw(version.pricing.securityDepositAmountKrw)}</div>
+                  <div className="font-medium text-slate-900">보증금 {formatKrw(effectivePricing.securityDepositAmountKrw)}</div>
                   <div className="mt-2 overflow-x-auto">
                     <table className="min-w-full border-collapse text-left text-xs">
                       <thead>
@@ -291,16 +309,16 @@ export function PlanVersionDetailPage(): JSX.Element {
                       <tbody>
                         <tr className="border-b border-slate-100">
                           <td className="py-2 pr-3">
-                            {version.pricing.securityDepositEvent
-                              ? `이벤트(${version.pricing.securityDepositEvent.name})`
+                            {effectivePricing.securityDepositEvent
+                              ? `이벤트(${effectivePricing.securityDepositEvent.name})`
                               : '기본 물품'}
                           </td>
                           <td className="py-2 pr-3">
-                            {version.pricing.securityDepositMode === 'NONE'
+                            {effectivePricing.securityDepositMode === 'NONE'
                               ? '-'
-                              : `${formatKrw(version.pricing.securityDepositUnitPriceKrw)}(${formatSecurityDepositScope(version.pricing.securityDepositMode)}) x ${version.pricing.securityDepositQuantity}`}
+                              : `${formatKrw(effectivePricing.securityDepositUnitPriceKrw)}(${formatSecurityDepositScope(effectivePricing.securityDepositMode)}) x ${effectivePricing.securityDepositQuantity}`}
                           </td>
-                          <td className="py-2">{formatKrw(version.pricing.securityDepositAmountKrw)}</td>
+                          <td className="py-2">{formatKrw(effectivePricing.securityDepositAmountKrw)}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -320,11 +338,11 @@ export function PlanVersionDetailPage(): JSX.Element {
                       <tbody>
                         <tr className="border-b border-slate-100">
                           <td className="py-2 pr-3">예약금</td>
-                          <td className="py-2">{formatKrw(version.pricing.depositAmountKrw)}</td>
+                          <td className="py-2">{formatKrw(effectivePricing.depositAmountKrw)}</td>
                         </tr>
                         <tr className="border-b border-slate-100">
                           <td className="py-2 pr-3">잔금</td>
-                          <td className="py-2">{formatKrw(version.pricing.balanceAmountKrw)}</td>
+                          <td className="py-2">{formatKrw(effectivePricing.balanceAmountKrw)}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -368,12 +386,12 @@ export function PlanVersionDetailPage(): JSX.Element {
                     </div>
                     <div className="grid grid-cols-4 text-center text-sm text-slate-900">
                       <div className="border-r border-slate-200 px-2 py-4 font-semibold">{formatKrw(pricingBuckets.grandTotal)}</div>
-                      <div className="border-r border-slate-200 px-2 py-4">{formatKrw(version.pricing.depositAmountKrw)}</div>
-                      <div className="border-r border-slate-200 px-2 py-4">{formatKrw(version.pricing.balanceAmountKrw)}</div>
+                      <div className="border-r border-slate-200 px-2 py-4">{formatKrw(effectivePricing.depositAmountKrw)}</div>
+                      <div className="border-r border-slate-200 px-2 py-4">{formatKrw(effectivePricing.balanceAmountKrw)}</div>
                       <div className="px-2 py-4">
-                        {version.pricing.securityDepositMode === 'NONE'
+                        {effectivePricing.securityDepositMode === 'NONE'
                           ? formatKrw(0)
-                          : `${formatKrw(version.pricing.securityDepositUnitPriceKrw)} (${formatSecurityDepositScope(version.pricing.securityDepositMode)})`}
+                          : `${formatKrw(effectivePricing.securityDepositUnitPriceKrw)} (${formatSecurityDepositScope(effectivePricing.securityDepositMode)})`}
                       </div>
                     </div>
                   </div>

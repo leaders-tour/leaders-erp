@@ -67,6 +67,7 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     remarkText: normalizeMultilineText(snapshot.remark),
     basePricePerPersonKrw,
     adjustmentLines:
+      snapshot.pricing?.adjustmentLines ??
       (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []).map((line) => ({
         label: getPricingLineLabel(line),
         leadAmountKrw: resolveDisplayLeadAmount(line, pricingCtx),

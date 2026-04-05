@@ -200,8 +200,55 @@ type PlanVersionPricing {
   longDistanceSegmentCount: Int!
   extraLodgingCount: Int!
   lines: [PlanPricingLine!]!
+  savedManualAdjustments: [ManualAdjustmentSnapshot!]!
+  savedManualDepositAmountKrw: Int
+  manualPricing: ManualPricingSnapshot
+  originalPricing: OriginalPricingSnapshot
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+type ManualPricingLineOverride {
+  rowKey: String!
+  amountKrw: Int!
+}
+
+enum ManualPricingAdjustmentLineType {
+  AUTO
+  MANUAL
+}
+
+type ManualPricingAdjustmentLine {
+  id: String!
+  type: ManualPricingAdjustmentLineType!
+  rowKey: String
+  label: String!
+  leadAmountKrw: Int!
+  formula: String!
+  deleted: Boolean!
+}
+
+type ManualPricingSummarySnapshot {
+  totalAmountKrw: Int
+  depositAmountKrw: Int
+  balanceAmountKrw: Int
+  securityDepositAmountKrw: Int
+}
+
+type ManualPricingSnapshot {
+  enabled: Boolean!
+  adjustmentLines: [ManualPricingAdjustmentLine!]!
+  summary: ManualPricingSummarySnapshot
+  lineOverrides: [ManualPricingLineOverride!]!
+}
+
+type OriginalPricingSnapshot {
+  baseAmountKrw: Int!
+  addonAmountKrw: Int!
+  totalAmountKrw: Int!
+  depositAmountKrw: Int!
+  balanceAmountKrw: Int!
+  securityDepositAmountKrw: Int!
 }
 
 type PlanPricingPreview {
@@ -317,6 +364,7 @@ input PlanVersionSeedInput {
   meta: PlanVersionMetaInput!
   manualAdjustments: [ManualAdjustmentInput!]
   manualDepositAmountKrw: Int
+  manualPricing: ManualPricingInput
 }
 
 input PlanUpdateInput {
@@ -334,6 +382,7 @@ input PlanVersionCreateInput {
   meta: PlanVersionMetaInput!
   manualAdjustments: [ManualAdjustmentInput!]
   manualDepositAmountKrw: Int
+  manualPricing: ManualPricingInput
 }
 
 input PlanVersionMetaInput {
@@ -422,6 +471,35 @@ input ManualAdjustmentInput {
   countValue: Int
   amountKrw: Int!
   customDisplayText: String
+}
+
+input ManualPricingLineOverrideInput {
+  rowKey: String!
+  amountKrw: Int!
+}
+
+input ManualPricingAdjustmentLineInput {
+  id: String!
+  type: ManualPricingAdjustmentLineType!
+  rowKey: String
+  label: String!
+  leadAmountKrw: Int!
+  formula: String!
+  deleted: Boolean
+}
+
+input ManualPricingSummaryInput {
+  totalAmountKrw: Int
+  depositAmountKrw: Int
+  balanceAmountKrw: Int
+  securityDepositAmountKrw: Int
+}
+
+input ManualPricingInput {
+  enabled: Boolean!
+  adjustmentLines: [ManualPricingAdjustmentLineInput!]
+  summary: ManualPricingSummaryInput
+  lineOverrides: [ManualPricingLineOverrideInput!]
 }
 
 enum ManualAdjustmentKind {

@@ -1,5 +1,9 @@
 import type { PricingLineCode, PricingLineSourceType, SecurityDepositMode } from '@prisma/client';
-import type { VariantType as DomainVariantType } from '@tour/domain';
+import type {
+  PricingManualLineOverride,
+  PricingManualSnapshot,
+  VariantType as DomainVariantType,
+} from '@tour/domain';
 
 export interface ExtraLodgingInputDto {
   dayIndex: number;
@@ -160,3 +164,21 @@ export interface PricingComputationResult {
   lines: PricingComputedLine[];
   inputSnapshot: Record<string, unknown>;
 }
+
+export interface OriginalPricingSnapshot {
+  baseAmountKrw: number;
+  addonAmountKrw: number;
+  totalAmountKrw: number;
+  depositAmountKrw: number;
+  balanceAmountKrw: number;
+  securityDepositAmountKrw: number;
+}
+
+export interface PricingSnapshotPersistInput {
+  planVersionId: string;
+  result: PricingComputationResult;
+  manualPricing?: PricingManualSnapshot | null;
+  originalPricing?: OriginalPricingSnapshot | null;
+}
+
+export type PricingManualLineOverrideDto = PricingManualLineOverride;

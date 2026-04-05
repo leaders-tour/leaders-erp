@@ -222,6 +222,46 @@ export interface PlanVersionPricingRow {
   } | null;
   longDistanceSegmentCount: number;
   extraLodgingCount: number;
+  savedManualAdjustments: Array<{
+    kind: 'ADD' | 'DISCOUNT';
+    title: string;
+    chargeScope: 'TEAM' | 'PER_PERSON';
+    personMode?: 'SINGLE' | 'PER_DAY' | 'PER_NIGHT' | null;
+    countValue?: number | null;
+    amountKrw: number;
+    customDisplayText?: string | null;
+  }>;
+  savedManualDepositAmountKrw: number | null;
+  manualPricing?: {
+    enabled: boolean;
+    adjustmentLines: Array<{
+      id: string;
+      type: 'AUTO' | 'MANUAL';
+      rowKey?: string | null;
+      label: string;
+      leadAmountKrw: number;
+      formula: string;
+      deleted: boolean;
+    }>;
+    summary?: {
+      totalAmountKrw?: number | null;
+      depositAmountKrw?: number | null;
+      balanceAmountKrw?: number | null;
+      securityDepositAmountKrw?: number | null;
+    } | null;
+    lineOverrides: Array<{
+      rowKey: string;
+      amountKrw: number;
+    }>;
+  } | null;
+  originalPricing?: {
+    baseAmountKrw: number;
+    addonAmountKrw: number;
+    totalAmountKrw: number;
+    depositAmountKrw: number;
+    balanceAmountKrw: number;
+    securityDepositAmountKrw: number;
+  } | null;
   lines: PlanPricingLineRow[];
   createdAt: string;
   updatedAt: string;
@@ -614,6 +654,46 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         }
         longDistanceSegmentCount
         extraLodgingCount
+        savedManualAdjustments {
+          kind
+          title
+          chargeScope
+          personMode
+          countValue
+          amountKrw
+          customDisplayText
+        }
+        savedManualDepositAmountKrw
+        manualPricing {
+          enabled
+          adjustmentLines {
+            id
+            type
+            rowKey
+            label
+            leadAmountKrw
+            formula
+            deleted
+          }
+          summary {
+            totalAmountKrw
+            depositAmountKrw
+            balanceAmountKrw
+            securityDepositAmountKrw
+          }
+          lineOverrides {
+            rowKey
+            amountKrw
+          }
+        }
+        originalPricing {
+          baseAmountKrw
+          addonAmountKrw
+          totalAmountKrw
+          depositAmountKrw
+          balanceAmountKrw
+          securityDepositAmountKrw
+        }
         createdAt
         updatedAt
         lines {

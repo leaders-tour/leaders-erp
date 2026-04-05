@@ -1,4 +1,5 @@
 import { mergeLodgingSelectionDisplayLines } from '../../pricing/merge-lodging-selection-display';
+import { buildEffectivePricing } from '../../pricing/manual-pricing';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
 import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
 import type { PlanVersionDetail } from '../../plan/hooks';
@@ -18,7 +19,18 @@ import {
 
 export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
   const meta = version.meta;
-  const pricing = version.pricing;
+  const pricingCtx = {
+    headcountTotal: meta?.headcountTotal ?? 0,
+    totalDays: countMainPlanStopRows(version.planStops),
+  };
+  const pricing = version.pricing
+    ? buildEffectivePricing(
+        version.pricing,
+        pricingCtx,
+        version.pricing.manualPricing ?? null,
+        version.pricing.savedManualDepositAmountKrw ?? undefined,
+      )
+    : null;
   const pricingBuckets = pricing ? buildPricingViewBuckets(pricing.lines, pricing.totalAmountKrw) : null;
   const basePricePerPersonKrw = pricingBuckets?.baseTotal ?? pricing?.baseAmountKrw ?? null;
   const externalTransfers = meta?.externalTransfers ?? [];
@@ -40,11 +52,6 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
   );
   const externalPickupText = externalPickupTextFromTransfers !== '-' ? externalPickupTextFromTransfers : legacyExternalPickupText;
   const externalDropText = externalDropTextFromTransfers !== '-' ? externalDropTextFromTransfers : legacyExternalDropText;
-  const pricingCtx = {
-    headcountTotal: meta?.headcountTotal ?? 0,
-    totalDays: countMainPlanStopRows(version.planStops),
-  };
-
   return {
     mode: 'version',
     isDraft: false,
@@ -119,6 +126,11 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     remarkText: normalizeMultilineText(meta?.remark),
     basePricePerPersonKrw,
     adjustmentLines:
+      pricing?.adjustmentLines.map((line) => ({
+        label: line.label,
+        leadAmountKrw: line.leadAmountKrw,
+        formula: line.formula,
+      })) ??
       (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []).map((line) => ({
         label: getPricingLineLabel(line),
         leadAmountKrw: resolveDisplayLeadAmount(line, pricingCtx),

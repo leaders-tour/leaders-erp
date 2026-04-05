@@ -106,6 +106,82 @@ export const manualAdjustmentInputSchema = z
     }
   });
 
+export const manualPricingLineOverrideInputSchema = z.object({
+  rowKey: z.string().min(1).max(500),
+  amountKrw: z.number().int(),
+});
+
+export const manualPricingAdjustmentLineInputSchema = z.object({
+  id: z.string().min(1).max(100),
+  type: z.enum(['AUTO', 'MANUAL']),
+  rowKey: z.string().min(1).max(500).nullable().optional(),
+  label: z.string().min(0).max(200),
+  leadAmountKrw: z.number().int(),
+  formula: z.string().min(0).max(500),
+  deleted: z.boolean().optional().default(false),
+});
+
+export const manualPricingSummaryInputSchema = z.object({
+  totalAmountKrw: z.number().int().nullable().optional(),
+  depositAmountKrw: z.number().int().nullable().optional(),
+  balanceAmountKrw: z.number().int().nullable().optional(),
+  securityDepositAmountKrw: z.number().int().nullable().optional(),
+});
+
+export const manualPricingInputSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    adjustmentLines: z.array(manualPricingAdjustmentLineInputSchema).default([]),
+    summary: manualPricingSummaryInputSchema.nullable().optional(),
+    lineOverrides: z.array(manualPricingLineOverrideInputSchema).default([]),
+  })
+  .superRefine((value, ctx) => {
+    const seenAdjustmentIds = new Set<string>();
+    value.adjustmentLines.forEach((item, index) => {
+      if (!value.enabled) {
+        return;
+      }
+      if (seenAdjustmentIds.has(item.id)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'manualPricing.adjustmentLines id must be unique',
+          path: ['adjustmentLines', index, 'id'],
+        });
+        return;
+      }
+      seenAdjustmentIds.add(item.id);
+      if (item.type === 'AUTO' && !item.rowKey?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'manualPricing.adjustmentLines AUTO row must include rowKey',
+          path: ['adjustmentLines', index, 'rowKey'],
+        });
+      }
+      if (item.type === 'MANUAL' && item.rowKey) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'manualPricing.adjustmentLines MANUAL row cannot include rowKey',
+          path: ['adjustmentLines', index, 'rowKey'],
+        });
+      }
+    });
+    const seen = new Set<string>();
+    value.lineOverrides.forEach((item, index) => {
+      if (!value.enabled) {
+        return;
+      }
+      if (seen.has(item.rowKey)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'manualPricing.lineOverrides rowKey must be unique',
+          path: ['lineOverrides', index, 'rowKey'],
+        });
+        return;
+      }
+      seen.add(item.rowKey);
+    });
+  });
+
 export const lodgingSelectionInputSchema = z
   .object({
     dayIndex: z.number().int().min(1).max(13),
@@ -376,6 +452,7 @@ const planVersionSeedSchema = z
     meta: planVersionMetaInputSchema,
     manualAdjustments: z.array(manualAdjustmentInputSchema).default([]),
     manualDepositAmountKrw: manualDepositInputSchema.optional(),
+    manualPricing: manualPricingInputSchema.optional(),
   })
   .superRefine((value, ctx) => {
     if (countMainPlanStops(value.planStops) !== value.totalDays) {
@@ -430,6 +507,7 @@ export const planVersionCreateSchema = z
     meta: planVersionMetaInputSchema,
     manualAdjustments: z.array(manualAdjustmentInputSchema).default([]),
     manualDepositAmountKrw: manualDepositInputSchema.optional(),
+    manualPricing: manualPricingInputSchema.optional(),
   })
   .superRefine((value, ctx) => {
     if (countMainPlanStops(value.planStops) !== value.totalDays) {
@@ -546,5 +624,9 @@ export type PlanVersionTransportGroupInput = z.infer<typeof planVersionTransport
 export type ExtraLodgingInput = z.infer<typeof extraLodgingInputSchema>;
 export type ExternalTransferInput = z.infer<typeof externalTransferInputSchema>;
 export type ManualAdjustmentInput = z.infer<typeof manualAdjustmentInputSchema>;
+export type ManualPricingInput = z.infer<typeof manualPricingInputSchema>;
+export type ManualPricingAdjustmentLineInput = z.infer<typeof manualPricingAdjustmentLineInputSchema>;
+export type ManualPricingLineOverrideInput = z.infer<typeof manualPricingLineOverrideInputSchema>;
+export type ManualPricingSummaryInput = z.infer<typeof manualPricingSummaryInputSchema>;
 export type LodgingSelectionInput = z.infer<typeof lodgingSelectionInputSchema>;
 export type PlanPricingPreviewInput = z.infer<typeof planPricingPreviewSchema>;

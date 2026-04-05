@@ -1,5 +1,5 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
-import { pickDefaultLocationMealSet } from '@tour/domain';
+import { pickDefaultLocationMealSet, type PricingManualSnapshot } from '@tour/domain';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -50,6 +50,7 @@ import { useBuilderValidation } from '../features/plan/builder-validation';
 import { useSpecialMealDestinationRules } from '../features/plan/hooks/use-special-meal-destination-rules';
 import { buildMergedPlanStops } from '../features/plan/merge-plan-stops';
 import {
+  countMainPlanStopRows,
   isMainPlanStopRow,
   type PlanStopRowBase,
   type PlanStopRowType,
@@ -92,10 +93,10 @@ import {
   type ManualAdjustmentDraftRow,
   type ManualAdjustmentPresetOption,
 } from '../features/pricing/components/ManualAdjustmentsModal';
-import { mergeLodgingSelectionDisplayLines } from '../features/pricing/merge-lodging-selection-display';
-import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
+import { buildEffectivePricing, type PricingAdjustmentLineRow } from '../features/pricing/manual-pricing';
 import { MealOption, VariantType } from '../generated/graphql';
 import type { ConsultationDraft } from '../generated/graphql';
+import { usePlanVersionDetail } from '../features/plan/hooks';
 
 interface RegionRow {
   id: string;
@@ -306,6 +307,224 @@ interface PricingPreviewRow {
   longDistanceSegmentCount: number;
   extraLodgingCount: number;
   lines: PricingLineRow[];
+}
+
+interface OriginalPricingSnapshotRow {
+  baseAmountKrw: number;
+  addonAmountKrw: number;
+  totalAmountKrw: number;
+  depositAmountKrw: number;
+  balanceAmountKrw: number;
+  securityDepositAmountKrw: number;
+}
+
+interface ManualPricingLineOverrideRow {
+  rowKey: string;
+  amountKrw: number;
+}
+
+interface ManualPricingAdjustmentLineRow {
+  id: string;
+  type: 'AUTO' | 'MANUAL';
+  rowKey?: string | null;
+  label: string;
+  leadAmountKrw: number;
+  formula: string;
+  deleted?: boolean;
+}
+
+interface ManualPricingSummaryState {
+  totalAmountKrw?: number | null;
+  depositAmountKrw?: number | null;
+  balanceAmountKrw?: number | null;
+  securityDepositAmountKrw?: number | null;
+}
+
+interface ManualPricingState {
+  enabled: boolean;
+  adjustmentLines: ManualPricingAdjustmentLineRow[];
+  summary?: ManualPricingSummaryState | null;
+  lineOverrides?: ManualPricingLineOverrideRow[];
+}
+
+interface EffectivePricingRow extends PricingPreviewRow {
+  originalPricing: OriginalPricingSnapshotRow;
+  manualPricing: ManualPricingState | null;
+  adjustmentLines: PricingAdjustmentLineRow[];
+}
+
+function normalizeManualPricingState(value?: ManualPricingState | null): ManualPricingState {
+  return {
+    enabled: value?.enabled === true,
+    adjustmentLines: Array.isArray(value?.adjustmentLines)
+      ? value.adjustmentLines.filter(
+          (row): row is ManualPricingAdjustmentLineRow =>
+            typeof row?.id === 'string' &&
+            (row?.type === 'AUTO' || row?.type === 'MANUAL') &&
+            typeof row?.label === 'string' &&
+            Number.isInteger(row?.leadAmountKrw) &&
+            typeof row?.formula === 'string' &&
+            (row.type !== 'AUTO' || typeof row.rowKey === 'string'),
+        )
+      : [],
+    summary:
+      value?.summary && typeof value.summary === 'object'
+        ? {
+            totalAmountKrw: Number.isInteger(value.summary.totalAmountKrw) ? value.summary.totalAmountKrw : null,
+            depositAmountKrw: Number.isInteger(value.summary.depositAmountKrw)
+              ? value.summary.depositAmountKrw
+              : null,
+            balanceAmountKrw: Number.isInteger(value.summary.balanceAmountKrw)
+              ? value.summary.balanceAmountKrw
+              : null,
+            securityDepositAmountKrw: Number.isInteger(value.summary.securityDepositAmountKrw)
+              ? value.summary.securityDepositAmountKrw
+              : null,
+          }
+        : null,
+    lineOverrides: Array.isArray(value?.lineOverrides)
+      ? value.lineOverrides.filter(
+          (row): row is ManualPricingLineOverrideRow =>
+            typeof row?.rowKey === 'string' && Number.isInteger(row?.amountKrw),
+        )
+      : [],
+  };
+}
+
+function createManualPricingLineId(): string {
+  return `manual-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function toManualPricingSnapshot(
+  value: ManualPricingState,
+  summary?: ManualPricingSummaryState | null,
+): PricingManualSnapshot {
+  return {
+    enabled: value.enabled,
+    adjustmentLines: value.adjustmentLines.map((row) => ({
+      id: row.id,
+      type: row.type,
+      rowKey: row.type === 'AUTO' ? row.rowKey ?? null : null,
+      label: row.label,
+      leadAmountKrw: row.leadAmountKrw,
+      formula: row.formula,
+      deleted: row.deleted === true,
+    })),
+    summary:
+      summary && typeof summary === 'object'
+        ? {
+            totalAmountKrw: Number.isInteger(summary.totalAmountKrw) ? summary.totalAmountKrw : null,
+            depositAmountKrw: Number.isInteger(summary.depositAmountKrw) ? summary.depositAmountKrw : null,
+            balanceAmountKrw: Number.isInteger(summary.balanceAmountKrw) ? summary.balanceAmountKrw : null,
+            securityDepositAmountKrw: Number.isInteger(summary.securityDepositAmountKrw)
+              ? summary.securityDepositAmountKrw
+              : null,
+          }
+        : null,
+    lineOverrides: (value.lineOverrides ?? []).map((row) => ({
+      rowKey: row.rowKey,
+      amountKrw: row.amountKrw,
+    })),
+  };
+}
+
+function createManualPricingAdjustmentLine(): ManualPricingAdjustmentLineRow {
+  return {
+    id: createManualPricingLineId(),
+    type: 'MANUAL',
+    label: '',
+    leadAmountKrw: 0,
+    formula: '',
+    deleted: false,
+  };
+}
+
+function upsertManualPricingAutoOverride(
+  current: ManualPricingState,
+  line: PricingAdjustmentLineRow,
+  patch: Partial<Pick<ManualPricingAdjustmentLineRow, 'label' | 'leadAmountKrw' | 'formula' | 'deleted'>>,
+): ManualPricingState {
+  if (!line.rowKey) {
+    return current;
+  }
+  const existingIndex = current.adjustmentLines.findIndex((row) => row.type === 'AUTO' && row.rowKey === line.rowKey);
+  const existing = existingIndex >= 0 ? current.adjustmentLines[existingIndex] : null;
+  const nextRow: ManualPricingAdjustmentLineRow = {
+    id: existing?.id ?? line.id,
+    type: 'AUTO',
+    rowKey: line.rowKey,
+    label: patch.label ?? existing?.label ?? line.label,
+    leadAmountKrw: patch.leadAmountKrw ?? existing?.leadAmountKrw ?? line.leadAmountKrw,
+    formula: patch.formula ?? existing?.formula ?? line.formula,
+    deleted: patch.deleted ?? existing?.deleted ?? false,
+  };
+  const matchesAuto =
+    nextRow.deleted !== true &&
+    nextRow.label === (line.autoLabel ?? line.label) &&
+    nextRow.leadAmountKrw === (line.autoLeadAmountKrw ?? line.leadAmountKrw) &&
+    nextRow.formula === (line.autoFormula ?? line.formula);
+
+  if (matchesAuto) {
+    return {
+      ...current,
+      adjustmentLines: current.adjustmentLines.filter((row) => !(row.type === 'AUTO' && row.rowKey === line.rowKey)),
+    };
+  }
+
+  if (existingIndex < 0) {
+    return {
+      ...current,
+      adjustmentLines: [...current.adjustmentLines, nextRow],
+    };
+  }
+
+  return {
+    ...current,
+    adjustmentLines: current.adjustmentLines.map((row, index) =>
+      index === existingIndex ? nextRow : row,
+    ),
+  };
+}
+
+function updateManualPricingCustomLine(
+  current: ManualPricingState,
+  id: string,
+  patch: Partial<Pick<ManualPricingAdjustmentLineRow, 'label' | 'leadAmountKrw' | 'formula'>>,
+): ManualPricingState {
+  return {
+    ...current,
+    adjustmentLines: current.adjustmentLines.map((row) =>
+      row.type === 'MANUAL' && row.id === id ? { ...row, ...patch } : row,
+    ),
+  };
+}
+
+function removeManualPricingCustomLine(current: ManualPricingState, id: string): ManualPricingState {
+  return {
+    ...current,
+    adjustmentLines: current.adjustmentLines.filter((row) => !(row.type === 'MANUAL' && row.id === id)),
+  };
+}
+
+function restoreManualPricingAutoLine(current: ManualPricingState, rowKey: string): ManualPricingState {
+  return {
+    ...current,
+    adjustmentLines: current.adjustmentLines.filter((row) => !(row.type === 'AUTO' && row.rowKey === rowKey)),
+  };
+}
+
+function setManualPricingSummaryValue(
+  current: ManualPricingState,
+  field: keyof ManualPricingSummaryState,
+  value: number,
+): ManualPricingState {
+  return {
+    ...current,
+    summary: {
+      ...(current.summary ?? {}),
+      [field]: value,
+    },
+  };
 }
 
 interface PricingPolicyManualPresetRuleRow {
@@ -1139,30 +1358,8 @@ function formatKrw(value: number): string {
   return `${new Intl.NumberFormat('ko-KR').format(value)}원`;
 }
 
-function formatPricingLineUnitDisplay(line: PricingLineRow, headcountTotal: number): string {
-  const divisorPerson = line.displayDivisorPerson ?? headcountTotal;
-  if (line.displayBasis === 'TEAM_DIV_PERSON' && divisorPerson > 0) {
-    const unitAmount = line.displayUnitAmountKrw ?? line.unitPriceKrw ?? line.amountKrw;
-    return `${formatKrw(unitAmount)}/${divisorPerson}인`;
-  }
-  if (line.lineCode === 'MANUAL_ADJUSTMENT' && line.sourceType === 'RULE' && line.quantity > 1 && headcountTotal > 0) {
-    return `${formatKrw(line.unitPriceKrw ?? line.amountKrw)}/${headcountTotal}인`;
-  }
-  return line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-';
-}
-
-function formatPricingLineQuantityDisplay(line: PricingLineRow, headcountTotal: number): string {
-  if (line.displayBasis === 'TEAM_DIV_PERSON') {
-    const count = line.displayCount ?? line.quantity;
-    return count === 1 ? '1회' : `${count}회`;
-  }
-  if (line.lineCode === 'MANUAL_ADJUSTMENT' && line.sourceType === 'RULE' && line.quantity > 1 && headcountTotal > 0) {
-    return `${headcountTotal}인`;
-  }
-  if (line.quantityDisplaySuffix === '박') {
-    return `${line.quantity}박`;
-  }
-  return String(line.quantity);
+function formatSignedKrw(value: number): string {
+  return value > 0 ? `+${formatKrw(value)}` : value < 0 ? `-${formatKrw(Math.abs(value))}` : formatKrw(0);
 }
 
 function cloneExternalTransfer(transfer: ExternalTransfer): ExternalTransfer {
@@ -1200,7 +1397,7 @@ function createEstimateDraftSnapshot(input: {
   eventNames: string[];
   remark: string;
   planStops: PlanStopRowBase[];
-  pricingPreview: PricingPreviewRow | null;
+  pricingPreview: EffectivePricingRow | null;
 }): EstimateBuilderDraftSnapshot {
   return {
     planTitle: input.planTitle,
@@ -1242,6 +1439,11 @@ function createEstimateDraftSnapshot(input: {
           securityDepositTotalKrw: input.pricingPreview.securityDepositAmountKrw,
           securityDepositUnitKrw: input.pricingPreview.securityDepositUnitPriceKrw,
           securityDepositMode: input.pricingPreview.securityDepositMode,
+            adjustmentLines: input.pricingPreview.adjustmentLines.map((line) => ({
+              label: line.label,
+              leadAmountKrw: line.leadAmountKrw,
+              formula: line.formula,
+            })),
           lines: input.pricingPreview.lines.map((line) => ({
             lineCode: line.lineCode,
             sourceType: line.sourceType,
@@ -1883,6 +2085,12 @@ export function ItineraryBuilderPage(): JSX.Element {
     });
   const [manualDepositInput, setManualDepositInput] = useState<string>('');
   const [hasEditedManualDeposit, setHasEditedManualDeposit] = useState<boolean>(false);
+  const [manualPricing, setManualPricing] = useState<ManualPricingState>({
+    enabled: false,
+    adjustmentLines: [],
+    summary: null,
+    lineOverrides: [],
+  });
   const [createdId, setCreatedId] = useState<string>('');
   const [isValidationOpen, setIsValidationOpen] = useState<boolean>(false);
   const [isPayloadPreviewOpen, setIsPayloadPreviewOpen] = useState<boolean>(false);
@@ -1924,13 +2132,21 @@ export function ItineraryBuilderPage(): JSX.Element {
   const pendingConsultationTemplateApplyIdRef = useRef<string | null>(null);
   const lastAutoPlanTitleRef = useRef<string>(buildDefaultPlanTitle(''));
   const hasEditedHeadcountMaleRef = useRef<boolean>(false);
+  const hasHydratedParentVersionRef = useRef<boolean>(false);
 
   const { rules: specialMealDestinationRules } = useSpecialMealDestinationRules();
+
+  useEffect(() => {
+    hasHydratedParentVersionRef.current = false;
+  }, [parentVersionId]);
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
     skip: !isVersionMode,
   });
+  const { version: parentVersion, loading: parentVersionLoading } = usePlanVersionDetail(
+    parentVersionId || undefined,
+  );
   const { data: userData } = useQuery<{ user: UserRow | null }>(USER_QUERY, {
     variables: { id: userId },
     skip: !userId,
@@ -2077,6 +2293,189 @@ export function ItineraryBuilderPage(): JSX.Element {
 
     setRegionSetId(planContext.regionSetId);
   }, [isVersionMode, planContext]);
+
+  useEffect(() => {
+    if (!isVersionMode || !parentVersionId || parentVersionLoading || !parentVersion) {
+      return;
+    }
+    if (hasHydratedParentVersionRef.current) {
+      return;
+    }
+
+    const meta = parentVersion.meta;
+    const pricing = parentVersion.pricing;
+    const mainPlanStops = parentVersion.planStops.filter((stop) => (stop.rowType ?? 'MAIN') !== 'EXTERNAL_TRANSFER');
+    const firstStop = mainPlanStops[0];
+    if (!meta || !firstStop) {
+      return;
+    }
+
+    hasHydratedParentVersionRef.current = true;
+    dirtyPlanRowFieldKeysRef.current.clear();
+    setSkipNextAutoRowsSync(true);
+
+    setPlanTitle(parentVersion.plan.title);
+    setVariantType(parentVersion.variantType as VariantType);
+    setTotalDays(parentVersion.totalDays);
+    setRegionSetId(parentVersion.plan.regionSetId);
+    setLeaderName(meta.leaderName);
+    setTravelStartDate(meta.travelStartDate.slice(0, 10));
+    setTravelEndDate(meta.travelEndDate.slice(0, 10));
+    setHeadcountTotal(meta.headcountTotal);
+    setHeadcountMale(meta.headcountMale);
+    hasEditedHeadcountMaleRef.current = true;
+    setVehicleType(
+      VEHICLES.includes(meta.vehicleType as (typeof VEHICLES)[number])
+        ? (meta.vehicleType as (typeof VEHICLES)[number])
+        : '스타렉스',
+    );
+    setSpecialNote(meta.specialNote ?? '');
+    setIncludeRentalItems(meta.includeRentalItems);
+    setRentalItemsText(meta.rentalItemsText);
+    setEventIds(meta.events.map((event) => event.id));
+    setRemark(meta.remark ?? '');
+    setRoutePresetTemplateId('');
+    setIsMultiDayBlockSectionOpen(false);
+
+    setExternalTransfers(
+      meta.externalTransfers.map((transfer) => ({
+        ...transfer,
+        travelDate: transfer.travelDate.slice(0, 10),
+      })),
+    );
+    setExternalTransfersDraft(
+      meta.externalTransfers.map((transfer) => ({
+        ...transfer,
+        travelDate: transfer.travelDate.slice(0, 10),
+      })),
+    );
+
+    const hydratedTransportGroups =
+      meta.transportGroups.length > 0
+        ? meta.transportGroups.map((group, index) => ({
+            ...createTransportGroupDraft({
+              index,
+              headcount: group.headcount,
+              travelStartDate: meta.travelStartDate.slice(0, 10),
+              travelEndDate: meta.travelEndDate.slice(0, 10),
+              flightInTime: group.flightInTime ?? '02:45',
+              flightOutTime: group.flightOutTime ?? '18:15',
+            }),
+            teamName: group.teamName,
+            headcount: group.headcount,
+            flightInDate: group.flightInDate.slice(0, 10),
+            flightInTime: group.flightInTime,
+            flightOutDate: group.flightOutDate.slice(0, 10),
+            flightOutTime: group.flightOutTime,
+            pickupDate: group.pickupDate?.slice(0, 10) ?? '',
+            pickupTime: group.pickupTime ?? '',
+            pickupPlaceType: (group.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE) as PickupDropPlaceType,
+            pickupPlaceCustomText: group.pickupPlaceCustomText ?? '',
+            dropDate: group.dropDate?.slice(0, 10) ?? '',
+            dropTime: group.dropTime ?? '',
+            dropPlaceType: (group.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE) as PickupDropPlaceType,
+            dropPlaceCustomText: group.dropPlaceCustomText ?? '',
+          }))
+        : [
+            createTransportGroupDraft({
+              index: 0,
+              headcount: meta.headcountTotal,
+              travelStartDate: meta.travelStartDate.slice(0, 10),
+              travelEndDate: meta.travelEndDate.slice(0, 10),
+              flightInTime: meta.flightInTime ?? '02:45',
+              flightOutTime: meta.flightOutTime ?? '18:15',
+            }),
+          ];
+    setTransportGroups(hydratedTransportGroups);
+
+    const nextExtraLodgingCounts = Array.from({ length: Math.max(parentVersion.totalDays, 6) }, () => 0);
+    meta.extraLodgings.forEach((row) => {
+      const index = row.dayIndex - 1;
+      if (index >= 0 && index < nextExtraLodgingCounts.length) {
+        nextExtraLodgingCounts[index] = row.lodgingCount;
+      }
+    });
+    setExtraLodgingCounts(nextExtraLodgingCounts);
+
+    setStartLocationId(firstStop.locationId ?? '');
+    setStartLocationVersionId(firstStop.locationVersionId ?? '');
+    setSelectedRoute(
+      buildSelectedRouteFromStops(
+        mainPlanStops.slice(1).map((stop) => ({
+          segmentId: stop.segmentId,
+          segmentVersionId: stop.segmentVersionId,
+          multiDayBlockId: stop.multiDayBlockId,
+          multiDayBlockDayOrder: stop.multiDayBlockDayOrder,
+          multiDayBlockConnectionId: stop.multiDayBlockConnectionId,
+          multiDayBlockConnectionVersionId: stop.multiDayBlockConnectionVersionId,
+          locationId: stop.locationId,
+          locationVersionId: stop.locationVersionId,
+        })),
+      ),
+    );
+
+    const lodgingSelectionByDayIndex = new Map(
+      meta.lodgingSelections.map((selection) => [selection.dayIndex, selection] as const),
+    );
+    let mainDayIndex = 0;
+    setPlanRows(
+      parentVersion.planStops.map((stop) => {
+        const nextRow = buildDefaultLodgingRow({
+          rowType: stop.rowType ?? 'MAIN',
+          segmentId: stop.segmentId ?? undefined,
+          segmentVersionId: stop.segmentVersionId ?? undefined,
+          overnightStayId: stop.multiDayBlockId ?? undefined,
+          overnightStayDayOrder: stop.multiDayBlockDayOrder ?? undefined,
+          multiDayBlockId: stop.multiDayBlockId ?? undefined,
+          multiDayBlockDayOrder: stop.multiDayBlockDayOrder ?? undefined,
+          multiDayBlockConnectionId: stop.multiDayBlockConnectionId ?? undefined,
+          multiDayBlockConnectionVersionId: stop.multiDayBlockConnectionVersionId ?? undefined,
+          locationId: stop.locationId ?? undefined,
+          locationVersionId: stop.locationVersionId ?? undefined,
+          movementIntensity: stop.movementIntensity ?? null,
+          dateCellText: stop.dateCellText,
+          destinationCellText: stop.destinationCellText,
+          timeCellText: stop.timeCellText,
+          scheduleCellText: stop.scheduleCellText,
+          mealCellText: stop.mealCellText,
+          baseLodgingName: '',
+          lodgingCellText: stop.lodgingCellText,
+        });
+        if (nextRow.rowType === 'EXTERNAL_TRANSFER') {
+          return nextRow;
+        }
+        mainDayIndex += 1;
+        const selection = lodgingSelectionByDayIndex.get(mainDayIndex);
+        return {
+          ...nextRow,
+          lodgingSelectionLevel: selection?.level ?? 'LV3',
+          customLodgingId: selection?.customLodgingId ?? undefined,
+          customLodgingNameSnapshot: selection?.customLodgingNameSnapshot ?? null,
+        };
+      }),
+    );
+
+    setManualAdjustments(
+      (pricing?.savedManualAdjustments ?? []).map((row) => ({
+        kind: row.kind,
+        title: row.title,
+        chargeScope: row.chargeScope,
+        personMode: row.personMode ?? 'SINGLE',
+        countValue: row.countValue != null ? String(row.countValue) : '',
+        amountKrw: String(row.amountKrw),
+        customDisplayText: row.customDisplayText ?? '',
+      })),
+    );
+    setHasEditedManualDeposit(pricing?.savedManualDepositAmountKrw != null);
+    setManualDepositInput(
+      pricing?.savedManualDepositAmountKrw != null
+        ? String(pricing.savedManualDepositAmountKrw)
+        : pricing
+          ? String(pricing.depositAmountKrw)
+          : '',
+    );
+    setManualPricing(normalizeManualPricingState(pricing?.manualPricing));
+  }, [isVersionMode, parentVersionId, parentVersionLoading, parentVersion]);
 
   useEffect(() => {
     const trimmedName = selectedUserName.trim();
@@ -2992,6 +3391,10 @@ export function ItineraryBuilderPage(): JSX.Element {
     () => manualAdjustments.map(toManualAdjustmentInput).filter((item): item is NonNullable<ReturnType<typeof toManualAdjustmentInput>> => item !== null),
     [manualAdjustments],
   );
+  const normalizedManualPricing = useMemo(
+    () => normalizeManualPricingState(manualPricing),
+    [manualPricing],
+  );
 
   const manualAdjustmentSummary = useMemo(() => {
     const validRows = manualAdjustments
@@ -3191,6 +3594,44 @@ export function ItineraryBuilderPage(): JSX.Element {
     pricingPreviewData?.planPricingPreview ??
     pricingPreviewPreviousData?.planPricingPreview ??
     null;
+  const pricingPreviewContext = useMemo(
+    () => ({
+      headcountTotal,
+      totalDays: countMainPlanStopRows(mergedPlanStops),
+    }),
+    [headcountTotal, mergedPlanStops],
+  );
+  const effectivePricingPreview = useMemo<EffectivePricingRow | null>(() => {
+    if (!pricingPreview) {
+      return null;
+    }
+    return buildEffectivePricing(
+      pricingPreview,
+      pricingPreviewContext,
+      normalizedManualPricing.enabled ? toManualPricingSnapshot(normalizedManualPricing) : null,
+      normalizedManualDepositAmountKrw,
+    ) as EffectivePricingRow;
+  }, [normalizedManualDepositAmountKrw, normalizedManualPricing, pricingPreview, pricingPreviewContext]);
+  const serializedManualPricingSnapshot = useMemo(
+    () =>
+      normalizedManualPricing.enabled && effectivePricingPreview
+        ? toManualPricingSnapshot(normalizedManualPricing, {
+            totalAmountKrw: effectivePricingPreview.totalAmountKrw,
+            depositAmountKrw: effectivePricingPreview.depositAmountKrw,
+            balanceAmountKrw: effectivePricingPreview.balanceAmountKrw,
+            securityDepositAmountKrw: effectivePricingPreview.securityDepositAmountKrw,
+          })
+        : undefined,
+    [effectivePricingPreview, normalizedManualPricing],
+  );
+  const hiddenManualPricingAutoLines = useMemo(
+    () =>
+      normalizedManualPricing.adjustmentLines.filter(
+        (line): line is ManualPricingAdjustmentLineRow =>
+          line.type === 'AUTO' && line.deleted === true && typeof line.rowKey === 'string',
+      ),
+    [normalizedManualPricing],
+  );
   const { data: pricingPolicyManualPresetsData } = useQuery<PricingPolicyManualPresetQueryRow>(
     PRICING_POLICY_MANUAL_PRESETS_QUERY,
     {
@@ -3233,34 +3674,24 @@ export function ItineraryBuilderPage(): JSX.Element {
     externalTransfers,
     hasEditedManualDeposit,
     manualDepositInput,
-    pricingPreview,
+    pricingPreview: effectivePricingPreview,
+    manualPricingEnabled: manualPricing.enabled,
     specialMealDestinationRules,
   });
   const validationErrors = validationResults.filter((r) => r.severity === 'error');
   const hasValidation = (id: string) => validationResults.some((r) => r.id === id);
 
-  const pricingBuckets = useMemo(
-    () =>
-      pricingPreview
-        ? buildPricingViewBuckets(pricingPreview.lines, pricingPreview.totalAmountKrw)
-        : null,
-    [pricingPreview],
-  );
-  const pricingDisplayAddonLines = useMemo(
-    () => (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []),
-    [pricingBuckets],
-  );
   const pricingPreviewErrorMessage =
     pricingPreviewError?.graphQLErrors?.[0]?.message ??
     pricingPreviewError?.message ??
     '금액 미리보기 계산 중 오류가 발생했습니다.';
 
   useEffect(() => {
-    if (!pricingPreview || hasEditedManualDeposit) {
+    if (!effectivePricingPreview || hasEditedManualDeposit) {
       return;
     }
-    setManualDepositInput(String(pricingPreview.depositAmountKrw));
-  }, [hasEditedManualDeposit, pricingPreview]);
+    setManualDepositInput(String(effectivePricingPreview.depositAmountKrw));
+  }, [effectivePricingPreview, hasEditedManualDeposit]);
 
   useEffect(() => {
     if (!isPreviewEnabled && activePane === 'preview') {
@@ -3313,7 +3744,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         eventNames: selectedEventNames,
         remark: remark.trim(),
         planStops: mergedPlanStops,
-        pricingPreview,
+        pricingPreview: effectivePricingPreview,
       }),
     [
       effectivePlanTitle,
@@ -3333,7 +3764,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       selectedEventNames,
       remark,
       planRows,
-      pricingPreview,
+      effectivePricingPreview,
     ],
   );
   const { data: previewEstimateData, guidesLoading: previewGuidesLoading } =
@@ -3916,6 +4347,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                             planStops: mergedPlanStops,
                             manualAdjustments: normalizedManualAdjustments,
                             manualDepositAmountKrw: normalizedManualDepositAmountKrw,
+                            manualPricing: serializedManualPricingSnapshot,
                           },
                         },
                       });
@@ -4015,6 +4447,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                             planStops: mergedPlanStops,
                             manualAdjustments: normalizedManualAdjustments,
                             manualDepositAmountKrw: normalizedManualDepositAmountKrw,
+                            manualPricing: serializedManualPricingSnapshot,
                           },
                         },
                       },
@@ -5617,14 +6050,32 @@ export function ItineraryBuilderPage(): JSX.Element {
               <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-lg font-bold text-slate-900">금액</h2>
-                  <Button
-                    variant="outline"
-                    className="shrink-0 whitespace-nowrap"
-                    onClick={() => setManualAdjustmentsModalState({ open: true })}
-                  >
-                    기타 금액 설정
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={manualPricing.enabled}
+                        onChange={(event) =>
+                          setManualPricing((current) => ({
+                            ...current,
+                            enabled: event.target.checked,
+                          }))
+                        }
+                      />
+                      금액 수동수정
+                    </label>
+                    <Button
+                      variant="outline"
+                      className="shrink-0 whitespace-nowrap"
+                      onClick={() => setManualAdjustmentsModalState({ open: true })}
+                    >
+                      기타 금액 설정
+                    </Button>
+                  </div>
                 </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  수동수정 ON이면 현재 화면에 보이는 기본금/추가금 행 금액을 직접 입력합니다. 고객용 문서에는 수동 여부가 보이지 않습니다.
+                </p>
                 {hasValidation('invalid-manual-adjustments') ? (
                   <p className="mt-2 text-xs text-rose-700">
                     기타 금액은 내용과 0 이상 정수 금액을 함께 입력해주세요.
@@ -5635,276 +6086,231 @@ export function ItineraryBuilderPage(): JSX.Element {
                     {pricingPreviewErrorMessage}
                   </div>
                 ) : null}
-                {!pricingPreview ? (
+                {!effectivePricingPreview ? (
                   <p className="mt-3 text-sm text-slate-500">
                     요건이 충족되면 금액이 자동 계산됩니다.
                   </p>
                 ) : (
-                  <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-                    {pricingBuckets ? (
-                      <>
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                          <h3 className="text-sm font-semibold text-slate-900">직원 확인용</h3>
+                  <div className="mt-3">
+                    <div
+                      className={`rounded-2xl border p-3 ${
+                        manualPricing.enabled ? 'border-blue-200 bg-blue-50' : 'border-slate-200 bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-sm font-semibold text-slate-900">
+                          {manualPricing.enabled ? '수동 금액' : '고객 안내용'}
+                        </h3>
+                        {manualPricing.enabled ? (
+                          <Button
+                            variant="outline"
+                            className="h-8 shrink-0 whitespace-nowrap px-3 text-xs"
+                            onClick={() =>
+                              setManualPricing((current) => ({
+                                ...current,
+                                adjustmentLines: [...current.adjustmentLines, createManualPricingAdjustmentLine()],
+                              }))
+                            }
+                          >
+                            추가금 라인 추가
+                          </Button>
+                        ) : null}
+                      </div>
 
-                          <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                            <div className="font-medium text-slate-900">
-                              기본금 {formatKrw(pricingBuckets.baseTotal)}
-                            </div>
-                            {pricingBuckets.baseLines.length === 0 ? (
-                              <p className="mt-2 text-xs text-slate-500">기본금 항목이 없습니다.</p>
-                            ) : (
-                              <div className="mt-2 max-h-[220px] overflow-auto rounded-lg border border-slate-200">
-                                <table className="min-w-full text-xs">
-                                  <thead className="bg-slate-50 text-slate-600">
-                                    <tr>
-                                      <th className="px-2 py-2 text-left">항목</th>
-                                      <th className="px-2 py-2 text-left">가격</th>
-                                      <th className="px-2 py-2 text-left">개수</th>
-                                      <th className="px-2 py-2 text-left">금액</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {pricingBuckets.baseLines.map((line, index) => (
-                                      <tr
-                                        key={`${line.lineCode}-base-${index}`}
-                                        className="border-t border-slate-200"
-                                      >
-                                        <td className="px-2 py-1.5">{getPricingLineLabel(line)}</td>
-                                        <td className="px-2 py-1.5">
-                                          {formatPricingLineUnitDisplay(line, headcountTotal)}
-                                        </td>
-                                        <td className="px-2 py-1.5">
-                                          {formatPricingLineQuantityDisplay(line, headcountTotal)}
-                                        </td>
-                                        <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                            <div className="font-medium text-slate-900">
-                              추가금 {formatKrw(pricingBuckets.addonTotal)}
-                            </div>
-                            {pricingBuckets.addonLines.length === 0 ? (
-                              <p className="mt-2 text-xs text-slate-500">추가금 항목이 없습니다.</p>
-                            ) : (
-                              <div className="mt-2 max-h-[220px] overflow-auto rounded-lg border border-slate-200">
-                                <table className="min-w-full text-xs">
-                                  <thead className="bg-slate-50 text-slate-600">
-                                    <tr>
-                                      <th className="px-2 py-2 text-left">항목</th>
-                                      <th className="px-2 py-2 text-left">가격</th>
-                                      <th className="px-2 py-2 text-left">개수</th>
-                                      <th className="px-2 py-2 text-left">금액</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {pricingDisplayAddonLines.map((line, index) => (
-                                      <tr
-                                        key={`${line.lineCode}-addon-${index}`}
-                                        className="border-t border-slate-200"
-                                      >
-                                        <td className="px-2 py-1.5">
-                                          {getPricingLineLabel(line)}
-                                          {line.description &&
-                                          line.lineCode !== 'MANUAL_ADJUSTMENT' &&
-                                          line.lineCode !== 'LODGING_SELECTION' ? (
-                                            <div className="text-[11px] text-slate-500">
-                                              {line.description}
-                                            </div>
-                                          ) : null}
-                                        </td>
-                                        <td className="px-2 py-1.5">
-                                          {formatPricingLineUnitDisplay(line, headcountTotal)}
-                                        </td>
-                                        <td className="px-2 py-1.5">
-                                          {formatPricingLineQuantityDisplay(line, headcountTotal)}
-                                        </td>
-                                        <td className="px-2 py-1.5">{formatKrw(line.amountKrw)}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                            <div className="font-medium text-slate-900">
-                              보증금 {formatKrw(pricingPreview.securityDepositAmountKrw)}
-                            </div>
-                            <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
-                              <table className="min-w-full text-xs">
-                                <thead className="bg-slate-50 text-slate-600">
-                                  <tr>
-                                    <th className="px-2 py-2 text-left">항목</th>
-                                    <th className="px-2 py-2 text-left">기준</th>
-                                    <th className="px-2 py-2 text-left">금액</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  <tr className="border-t border-slate-200">
-                                    <td className="px-2 py-1.5">
-                                      {pricingPreview.securityDepositEvent
-                                        ? `이벤트(${pricingPreview.securityDepositEvent.name})`
-                                        : '기본 물품'}
-                                    </td>
-                                    <td className="px-2 py-1.5">
-                                      {pricingPreview.securityDepositMode === 'NONE'
-                                        ? '-'
-                                        : `${formatKrw(pricingPreview.securityDepositUnitPriceKrw)}(${formatSecurityDepositScope(pricingPreview.securityDepositMode)}) x ${pricingPreview.securityDepositQuantity}`}
-                                    </td>
-                                    <td className="px-2 py-1.5">
-                                      {formatKrw(pricingPreview.securityDepositAmountKrw)}
-                                    </td>
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-
-                          <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                            <div className="font-medium text-slate-900">예약금/잔금</div>
-                            <div className="mt-2 grid gap-1 text-xs text-slate-600">
-                              <span>예약금 직접수정</span>
-                              <input
-                                type="number"
-                                min={0}
-                                step={1}
-                                value={manualDepositInput}
-                                onChange={(event) => {
-                                  setHasEditedManualDeposit(true);
-                                  setManualDepositInput(event.target.value);
-                                }}
-                                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs"
-                                placeholder="자동 계산값 사용 시 비워두기"
-                              />
-                              {hasValidation('invalid-manual-deposit') ? (
-                                <p className="text-rose-600">
-                                  예약금은 0 이상의 정수만 입력 가능합니다.
-                                </p>
-                              ) : null}
-                            </div>
-                            <div className="mt-2 overflow-auto rounded-lg border border-slate-200">
-                              <table className="min-w-full text-xs">
-                                <thead className="bg-slate-50 text-slate-600">
-                                  <tr>
-                                    <th className="px-2 py-2 text-left">항목</th>
-                                    <th className="px-2 py-2 text-left">금액</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  <tr className="border-t border-slate-200">
-                                    <td className="px-2 py-1.5">예약금</td>
-                                    <td className="px-2 py-1.5">
-                                      {formatKrw(pricingPreview.depositAmountKrw)}
-                                    </td>
-                                  </tr>
-                                  <tr className="border-t border-slate-200">
-                                    <td className="px-2 py-1.5">잔금</td>
-                                    <td className="px-2 py-1.5">
-                                      {formatKrw(pricingPreview.balanceAmountKrw)}
-                                    </td>
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
+                      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                        <div className="font-medium text-slate-900">
+                          기본금 {formatKrw(effectivePricingPreview.baseAmountKrw)}
                         </div>
+                      </div>
 
-                        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-3">
-                          <h3 className="text-sm font-semibold text-blue-900">고객 안내용</h3>
-                          <div className="mt-2 grid gap-2 text-blue-900">
-                            <div className="rounded-xl border border-blue-200 bg-white p-3">
-                              <div className="font-medium text-slate-900">
-                                기본금 {formatKrw(pricingBuckets.baseTotal)}
-                              </div>
-                            </div>
-                            <div className="rounded-xl border border-blue-200 bg-white p-3">
-                              <div className="font-medium text-slate-900">
-                                추가금 {formatKrw(pricingBuckets.addonTotal)}
-                              </div>
-                              {pricingBuckets.addonLines.length === 0 ? (
-                                <p className="mt-2 text-xs text-blue-700">
-                                  추가금 항목이 없습니다.
-                                </p>
-                              ) : (
-                                <div className="mt-2 max-h-[180px] overflow-auto rounded-lg border border-blue-200 bg-white">
-                                  <table className="min-w-full text-xs">
-                                    <thead className="bg-blue-50 text-blue-900">
-                                      <tr>
-                                        <th className="px-2 py-2 text-left">항목</th>
-                                        <th className="px-2 py-2 text-left">가격</th>
-                                        <th className="px-2 py-2 text-left">개수</th>
-                                        <th className="px-2 py-2 text-left">금액</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {pricingDisplayAddonLines.map((line, index) => (
-                                        <tr
-                                          key={`${line.lineCode}-customer-addon-${index}`}
-                                          className="border-t border-blue-100"
+                      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-medium text-slate-900">추가 및 할인 사항</div>
+                          <span className="text-xs text-slate-500">
+                            {manualPricing.enabled
+                              ? '항목 / 금액 / 표기를 직접 수정하면 1페이지에 즉시 반영됩니다.'
+                              : '견적서 1페이지와 같은 출력 형식입니다.'}
+                          </span>
+                        </div>
+                        {effectivePricingPreview.adjustmentLines.length === 0 ? (
+                          <p className="mt-2 text-xs text-slate-500">추가금 항목이 없습니다.</p>
+                        ) : (
+                          <div className="mt-3 space-y-2">
+                            {effectivePricingPreview.adjustmentLines.map((line) => (
+                              <div
+                                key={line.id}
+                                className="grid gap-2 rounded-xl border border-slate-200 p-3 lg:grid-cols-[minmax(0,1.5fr)_160px_minmax(0,1fr)_auto]"
+                              >
+                                {manualPricing.enabled ? (
+                                  <>
+                                    <input
+                                      type="text"
+                                      value={line.label}
+                                      onChange={(event) =>
+                                        setManualPricing((current) =>
+                                          line.type === 'MANUAL'
+                                            ? updateManualPricingCustomLine(current, line.id, {
+                                                label: event.target.value,
+                                              })
+                                            : upsertManualPricingAutoOverride(current, line, {
+                                                label: event.target.value,
+                                              }),
+                                        )
+                                      }
+                                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                      placeholder="항목"
+                                    />
+                                    <input
+                                      type="number"
+                                      step={1}
+                                      value={line.leadAmountKrw}
+                                      onChange={(event) => {
+                                        const nextAmount = Number(event.target.value);
+                                        if (!Number.isInteger(nextAmount)) {
+                                          return;
+                                        }
+                                        setManualPricing((current) =>
+                                          line.type === 'MANUAL'
+                                            ? updateManualPricingCustomLine(current, line.id, {
+                                                leadAmountKrw: nextAmount,
+                                              })
+                                            : upsertManualPricingAutoOverride(current, line, {
+                                                leadAmountKrw: nextAmount,
+                                              }),
+                                        );
+                                      }}
+                                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                      placeholder="금액"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={line.formula}
+                                      onChange={(event) =>
+                                        setManualPricing((current) =>
+                                          line.type === 'MANUAL'
+                                            ? updateManualPricingCustomLine(current, line.id, {
+                                                formula: event.target.value,
+                                              })
+                                            : upsertManualPricingAutoOverride(current, line, {
+                                                formula: event.target.value,
+                                              }),
+                                        )
+                                      }
+                                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                      placeholder="표기"
+                                    />
+                                    <div className="flex items-center justify-end gap-2">
+                                      {line.type === 'AUTO' && line.isManual ? (
+                                        <button
+                                          type="button"
+                                          className="text-xs text-slate-500 underline"
+                                          onClick={() =>
+                                            setManualPricing((current) =>
+                                              restoreManualPricingAutoLine(current, line.rowKey ?? ''),
+                                            )
+                                          }
                                         >
-                                          <td className="px-2 py-1.5">
-                                            {getPricingLineLabel(line)}
-                                            {line.description &&
-                                            line.lineCode !== 'MANUAL_ADJUSTMENT' &&
-                                            line.lineCode !== 'LODGING_SELECTION' ? (
-                                              <div className="text-[11px] text-blue-700">
-                                                {line.description}
-                                              </div>
-                                            ) : null}
-                                          </td>
-                                          <td className="px-2 py-1.5">
-                                            {formatPricingLineUnitDisplay(line, headcountTotal)}
-                                          </td>
-                                          <td className="px-2 py-1.5">
-                                            {formatPricingLineQuantityDisplay(line, headcountTotal)}
-                                          </td>
-                                          <td className="px-2 py-1.5">
-                                            {formatKrw(line.amountKrw)}
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
+                                          자동값 복귀
+                                        </button>
+                                      ) : null}
+                                      <button
+                                        type="button"
+                                        className="rounded-lg border border-rose-200 px-2 py-1 text-xs text-rose-700"
+                                        onClick={() =>
+                                          setManualPricing((current) =>
+                                            line.type === 'MANUAL'
+                                              ? removeManualPricingCustomLine(current, line.id)
+                                              : upsertManualPricingAutoOverride(current, line, { deleted: true }),
+                                          )
+                                        }
+                                      >
+                                        삭제
+                                      </button>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="text-sm font-medium text-slate-900">{line.label}</div>
+                                    <div className="text-sm font-semibold text-slate-900">
+                                      {formatSignedKrw(line.leadAmountKrw)}
+                                    </div>
+                                    <div className="text-sm text-slate-600">{line.formula || '-'}</div>
+                                    <div />
+                                  </>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {manualPricing.enabled && hiddenManualPricingAutoLines.length > 0 ? (
+                          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2">
+                            <span className="text-xs font-medium text-slate-600">숨김된 자동 행</span>
+                            {hiddenManualPricingAutoLines.map((line) => (
+                              <button
+                                key={line.id}
+                                type="button"
+                                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700"
+                                onClick={() =>
+                                  setManualPricing((current) =>
+                                    restoreManualPricingAutoLine(current, line.rowKey ?? ''),
+                                  )
+                                }
+                              >
+                                {line.label || '삭제된 자동 행'} 복원
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div className="grid grid-cols-4 bg-slate-100 text-center text-[11px] font-medium text-slate-600">
+                          <div className="border-r border-slate-200 px-2 py-2">총액(1인)</div>
+                          <div className="border-r border-slate-200 px-2 py-2">예약금(1인)</div>
+                          <div className="border-r border-slate-200 px-2 py-2">잔금(1인)</div>
+                          <div className="px-2 py-2">보증금(팀당/인당)</div>
+                        </div>
+                        <div className="grid grid-cols-4 gap-0 text-center text-sm text-slate-900">
+                          {(
+                            [
+                              ['totalAmountKrw', effectivePricingPreview.totalAmountKrw],
+                              ['depositAmountKrw', effectivePricingPreview.depositAmountKrw],
+                              ['balanceAmountKrw', effectivePricingPreview.balanceAmountKrw],
+                              ['securityDepositAmountKrw', effectivePricingPreview.securityDepositAmountKrw],
+                            ] as const
+                          ).map(([field, value], index) => (
+                            <div
+                              key={field}
+                              className={`${index < 3 ? 'border-r border-slate-200' : ''} px-2 py-3`}
+                            >
+                              {manualPricing.enabled ? (
+                                <input
+                                  type="number"
+                                  step={1}
+                                  value={value}
+                                  onChange={(event) => {
+                                    const nextValue = Number(event.target.value);
+                                    if (!Number.isInteger(nextValue)) {
+                                      return;
+                                    }
+                                    setManualPricing((current) =>
+                                      setManualPricingSummaryValue(current, field, nextValue),
+                                    );
+                                  }}
+                                  className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-sm"
+                                />
+                              ) : field === 'securityDepositAmountKrw' && effectivePricingPreview.securityDepositMode !== 'NONE' ? (
+                                `${formatKrw(effectivePricingPreview.securityDepositUnitPriceKrw)} (${formatSecurityDepositScope(
+                                  effectivePricingPreview.securityDepositMode,
+                                )})`
+                              ) : (
+                                formatKrw(value)
                               )}
                             </div>
-                            <div className="mt-1 overflow-hidden rounded-lg border border-blue-200 bg-white">
-                              <div className="grid grid-cols-4 bg-slate-100 text-center text-[11px] font-medium text-slate-600">
-                                <div className="border-r border-slate-200 px-2 py-2">총액(1인)</div>
-                                <div className="border-r border-slate-200 px-2 py-2">
-                                  예약금(1인)
-                                </div>
-                                <div className="border-r border-slate-200 px-2 py-2">잔금(1인)</div>
-                                <div className="px-2 py-2">보증금(팀당/인당)</div>
-                              </div>
-                              <div className="grid grid-cols-4 text-center text-sm text-slate-900">
-                                <div className="border-r border-slate-200 px-2 py-4 font-semibold">
-                                  {formatKrw(pricingBuckets.grandTotal)}
-                                </div>
-                                <div className="border-r border-slate-200 px-2 py-4">
-                                  {formatKrw(pricingPreview.depositAmountKrw)}
-                                </div>
-                                <div className="border-r border-slate-200 px-2 py-4">
-                                  {formatKrw(pricingPreview.balanceAmountKrw)}
-                                </div>
-                                <div className="px-2 py-4">
-                                  {pricingPreview.securityDepositMode === 'NONE'
-                                    ? formatKrw(0)
-                                    : `${formatKrw(pricingPreview.securityDepositUnitPriceKrw)} (${formatSecurityDepositScope(pricingPreview.securityDepositMode)})`}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                          ))}
                         </div>
-                      </>
-                    ) : null}
+                      </div>
+                    </div>
                   </div>
                 )}
               </Card>
@@ -6016,6 +6422,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                               },
                               manualAdjustments: normalizedManualAdjustments,
                               manualDepositAmountKrw: normalizedManualDepositAmountKrw,
+                              manualPricing: serializedManualPricingSnapshot,
                               selectedRoute,
                               planStops: mergedPlanStops,
                             }
@@ -6062,6 +6469,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                               },
                               manualAdjustments: normalizedManualAdjustments,
                               manualDepositAmountKrw: normalizedManualDepositAmountKrw,
+                              manualPricing: serializedManualPricingSnapshot,
                               selectedRoute,
                               initialVersion: {
                                 planStops: mergedPlanStops,

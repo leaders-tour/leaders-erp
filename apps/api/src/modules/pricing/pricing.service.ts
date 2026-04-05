@@ -1,4 +1,5 @@
-import type {
+import type { PricingManualSnapshot } from '@tour/domain';
+import {
   Event,
   PricingCalcType,
   PricingLineCode,
@@ -7,9 +8,11 @@ import type {
   PrismaClient,
 } from '@prisma/client';
 import type { VariantType } from '@tour/domain';
+import { buildPricingManualPresentation } from '@tour/domain';
 import { DomainError } from '../../lib/errors';
 import type {
   LodgingSelectionPricingInputDto,
+  OriginalPricingSnapshot,
   PricingComputationResult,
   PricingComputeInput,
   PricingComputedLine,
@@ -18,6 +21,7 @@ import type {
   PricingPriceItemPresetValue,
   PricingPlanStopDto,
   PricingRuleTypeValue,
+  PricingSnapshotPersistInput,
 } from './pricing.types';
 import { buildPricingLineDisplay } from './pricing-line-display';
 
@@ -97,27 +101,109 @@ export class PricingService {
     return this.computeWithPrisma(tx, input);
   }
 
-  async createSnapshot(
-    tx: Prisma.TransactionClient,
-    planVersionId: string,
-    result: PricingComputationResult,
-  ): Promise<void> {
+  private buildOriginalPricingSnapshot(result: PricingComputationResult): OriginalPricingSnapshot {
+    return {
+      baseAmountKrw: result.baseAmountKrw,
+      addonAmountKrw: result.addonAmountKrw,
+      totalAmountKrw: result.totalAmountKrw,
+      depositAmountKrw: result.depositAmountKrw,
+      balanceAmountKrw: result.balanceAmountKrw,
+      securityDepositAmountKrw: result.securityDepositAmountKrw,
+    };
+  }
+
+  private normalizeManualPricingSnapshot(
+    manualPricing?: PricingManualSnapshot | null,
+  ): PricingManualSnapshot | null {
+    if (!manualPricing?.enabled) {
+      return null;
+    }
+    return {
+      enabled: true,
+      adjustmentLines: (manualPricing.adjustmentLines ?? []).filter(
+        (row) =>
+          typeof row?.id === 'string' &&
+          (row.type === 'AUTO' || row.type === 'MANUAL') &&
+          typeof row.label === 'string' &&
+          Number.isInteger(row.leadAmountKrw) &&
+          typeof row.formula === 'string' &&
+          (row.type !== 'AUTO' || typeof row.rowKey === 'string'),
+      ),
+      summary:
+        manualPricing.summary && typeof manualPricing.summary === 'object'
+          ? {
+              totalAmountKrw:
+                typeof manualPricing.summary.totalAmountKrw === 'number'
+                  ? manualPricing.summary.totalAmountKrw
+                  : null,
+              depositAmountKrw:
+                typeof manualPricing.summary.depositAmountKrw === 'number'
+                  ? manualPricing.summary.depositAmountKrw
+                  : null,
+              balanceAmountKrw:
+                typeof manualPricing.summary.balanceAmountKrw === 'number'
+                  ? manualPricing.summary.balanceAmountKrw
+                  : null,
+              securityDepositAmountKrw:
+                typeof manualPricing.summary.securityDepositAmountKrw === 'number'
+                  ? manualPricing.summary.securityDepositAmountKrw
+                  : null,
+            }
+          : null,
+      lineOverrides: (manualPricing.lineOverrides ?? []).filter(
+        (row) => typeof row?.rowKey === 'string' && Number.isInteger(row?.amountKrw),
+      ),
+    };
+  }
+
+  async createSnapshot(tx: Prisma.TransactionClient, input: PricingSnapshotPersistInput): Promise<void> {
+    const { planVersionId, result } = input;
+    const manualPricingSnapshot = this.normalizeManualPricingSnapshot(input.manualPricing);
+    const originalPricingSnapshot = input.originalPricing ?? this.buildOriginalPricingSnapshot(result);
+    const presentation = buildPricingManualPresentation(result.lines, manualPricingSnapshot);
+    const manualSummary = manualPricingSnapshot?.summary ?? null;
+    const manualDepositAmountKrw =
+      typeof manualSummary?.depositAmountKrw === 'number'
+        ? manualSummary.depositAmountKrw
+        : typeof result.inputSnapshot.manualDepositAmountKrw === 'number'
+          ? result.inputSnapshot.manualDepositAmountKrw
+          : undefined;
+    const totalAmountKrw =
+      typeof manualSummary?.totalAmountKrw === 'number'
+        ? manualSummary.totalAmountKrw
+        : presentation.effectiveTotal;
+    const { depositAmountKrw, balanceAmountKrw } =
+      typeof manualSummary?.balanceAmountKrw === 'number' && manualDepositAmountKrw !== undefined
+        ? {
+            depositAmountKrw: manualDepositAmountKrw,
+            balanceAmountKrw: manualSummary.balanceAmountKrw,
+          }
+        : this.computeDepositAndBalance(totalAmountKrw, manualDepositAmountKrw);
+    const securityDepositAmountKrw =
+      typeof manualSummary?.securityDepositAmountKrw === 'number'
+        ? manualSummary.securityDepositAmountKrw
+        : result.securityDepositAmountKrw;
+
     await tx.planVersionPricing.create({
       data: {
         planVersionId,
         policyId: result.policyId,
         currencyCode: result.currencyCode,
-        baseAmountKrw: result.baseAmountKrw,
-        addonAmountKrw: result.addonAmountKrw,
-        totalAmountKrw: result.totalAmountKrw,
-        depositAmountKrw: result.depositAmountKrw,
-        balanceAmountKrw: result.balanceAmountKrw,
-        securityDepositAmountKrw: result.securityDepositAmountKrw,
+        baseAmountKrw: presentation.effectiveBaseTotal,
+        addonAmountKrw: totalAmountKrw - presentation.effectiveBaseTotal,
+        totalAmountKrw,
+        depositAmountKrw,
+        balanceAmountKrw,
+        securityDepositAmountKrw,
         securityDepositUnitPriceKrw: result.securityDepositUnitPriceKrw,
         securityDepositQuantity: result.securityDepositQuantity,
         securityDepositMode: result.securityDepositMode,
         securityDepositEventId: result.securityDepositEventId,
         inputSnapshot: result.inputSnapshot as Prisma.InputJsonValue,
+        manualPricingSnapshot: manualPricingSnapshot
+          ? (manualPricingSnapshot as unknown as Prisma.InputJsonValue)
+          : undefined,
+        originalPricingSnapshot: originalPricingSnapshot as unknown as Prisma.InputJsonValue,
         lines: {
           create: result.lines.map((line) => ({
             ruleType: line.ruleType,
@@ -720,9 +806,6 @@ export class PricingService {
       }
       if (manualDepositAmountKrw < 0) {
         throw new DomainError('VALIDATION_FAILED', 'manualDepositAmountKrw must be greater than or equal to 0');
-      }
-      if (manualDepositAmountKrw > totalAmountKrw) {
-        throw new DomainError('VALIDATION_FAILED', 'manualDepositAmountKrw must be less than or equal to totalAmountKrw');
       }
 
       return {

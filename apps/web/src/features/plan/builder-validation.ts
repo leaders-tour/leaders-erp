@@ -181,6 +181,7 @@ export interface BuilderValidationInput {
   hasEditedManualDeposit: boolean;
   manualDepositInput: string;
   pricingPreview: PricingPreviewForValidation | null;
+  manualPricingEnabled?: boolean;
   /** 서버/캐시에서 로드한 특식 여행지 규칙(없으면 기본 상수) */
   specialMealDestinationRules?: SpecialMealDestinationRules;
 }
@@ -205,6 +206,7 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
       hasEditedManualDeposit,
       manualDepositInput,
       pricingPreview,
+      manualPricingEnabled,
       specialMealDestinationRules: specialMealRulesInput,
     } = input;
 
@@ -362,7 +364,7 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
     }
 
     // balance-rounding (error) — 잔금에 1,000원 단위가 남으면 안됨
-    if (pricingPreview && pricingPreview.balanceAmountKrw % 10000 !== 0) {
+    if (!manualPricingEnabled && pricingPreview && pricingPreview.balanceAmountKrw % 10000 !== 0) {
       results.push({
         id: 'balance-rounding',
         severity: 'error',
@@ -503,6 +505,7 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
     input.hasEditedManualDeposit,
     input.manualDepositInput,
     input.pricingPreview,
+    input.manualPricingEnabled,
     input.specialMealDestinationRules,
   ]);
 }

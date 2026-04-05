@@ -23,6 +23,7 @@ export * from './models/outbound-message';
 export * from './models/override';
 export * from './models/outreach-draft';
 export * from './models/plan';
+export * from './models/pricing-manual';
 export * from './models/plan-version';
 export * from './models/plan-stop';
 export * from './models/region-lodging';

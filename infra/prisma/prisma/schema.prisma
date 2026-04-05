@@ -1055,6 +1055,8 @@ model PlanVersionPricing {
   securityDepositMode         SecurityDepositMode @default(NONE)
   securityDepositEventId      String?
   inputSnapshot  Json
+  manualPricingSnapshot Json?
+  originalPricingSnapshot Json?
 
   planVersion          PlanVersion            @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
   policy               PricingPolicy          @relation(fields: [policyId], references: [id])

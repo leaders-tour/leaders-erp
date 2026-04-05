@@ -223,6 +223,50 @@ export const planResolver = {
       const value = (parent.inputSnapshot as Record<string, unknown>).extraLodgingCount;
       return typeof value === 'number' ? value : 0;
     },
+    savedManualAdjustments: (parent: { inputSnapshot?: unknown }) => {
+      if (!parent.inputSnapshot || typeof parent.inputSnapshot !== 'object') {
+        return [];
+      }
+      const value = (parent.inputSnapshot as Record<string, unknown>).manualAdjustments;
+      return Array.isArray(value) ? value : [];
+    },
+    savedManualDepositAmountKrw: (parent: { inputSnapshot?: unknown }) => {
+      if (!parent.inputSnapshot || typeof parent.inputSnapshot !== 'object') {
+        return null;
+      }
+      const value = (parent.inputSnapshot as Record<string, unknown>).manualDepositAmountKrw;
+      return typeof value === 'number' ? value : null;
+    },
+    manualPricing: (parent: { manualPricingSnapshot?: unknown }) => {
+      if (!parent.manualPricingSnapshot || typeof parent.manualPricingSnapshot !== 'object') {
+        return null;
+      }
+      const snapshot = parent.manualPricingSnapshot as Record<string, unknown>;
+      return {
+        enabled: snapshot.enabled === true,
+        adjustmentLines: Array.isArray(snapshot.adjustmentLines) ? snapshot.adjustmentLines : [],
+        summary:
+          snapshot.summary && typeof snapshot.summary === 'object'
+            ? snapshot.summary
+            : null,
+        lineOverrides: Array.isArray(snapshot.lineOverrides) ? snapshot.lineOverrides : [],
+      };
+    },
+    originalPricing: (parent: { originalPricingSnapshot?: unknown }) => {
+      if (!parent.originalPricingSnapshot || typeof parent.originalPricingSnapshot !== 'object') {
+        return null;
+      }
+      const snapshot = parent.originalPricingSnapshot as Record<string, unknown>;
+      return {
+        baseAmountKrw: typeof snapshot.baseAmountKrw === 'number' ? snapshot.baseAmountKrw : 0,
+        addonAmountKrw: typeof snapshot.addonAmountKrw === 'number' ? snapshot.addonAmountKrw : 0,
+        totalAmountKrw: typeof snapshot.totalAmountKrw === 'number' ? snapshot.totalAmountKrw : 0,
+        depositAmountKrw: typeof snapshot.depositAmountKrw === 'number' ? snapshot.depositAmountKrw : 0,
+        balanceAmountKrw: typeof snapshot.balanceAmountKrw === 'number' ? snapshot.balanceAmountKrw : 0,
+        securityDepositAmountKrw:
+          typeof snapshot.securityDepositAmountKrw === 'number' ? snapshot.securityDepositAmountKrw : 0,
+      };
+    },
   },
   PlanVersion: {
     movementIntensity: (parent: { planStops?: Array<Parameters<typeof resolveStopMovementIntensity>[0]> }) =>

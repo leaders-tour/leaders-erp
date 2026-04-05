@@ -901,7 +901,11 @@ export class PlanService {
         throw new DomainError('INTERNAL', 'Failed to resolve created plan version');
       }
 
-      await new PricingService(this.prisma).createSnapshot(tx, createdPlan.currentVersionId, pricingResult);
+      await new PricingService(this.prisma).createSnapshot(tx, {
+        planVersionId: createdPlan.currentVersionId,
+        result: pricingResult,
+        manualPricing: parsed.data.initialVersion.manualPricing,
+      });
       return repository.findById(createdPlan.id);
     });
   }
@@ -995,7 +999,11 @@ export class PlanService {
       const versionNumber = await repository.getNextVersionNumber(parsed.data.planId);
       const documentNumber = this.buildVersionDocumentNumber(plan.documentNumberBase, versionNumber);
       const createdVersion = await repository.createVersion(parsed.data, versionNumber, documentNumber);
-      await new PricingService(this.prisma).createSnapshot(tx, createdVersion.id, pricingResult);
+      await new PricingService(this.prisma).createSnapshot(tx, {
+        planVersionId: createdVersion.id,
+        result: pricingResult,
+        manualPricing: parsed.data.manualPricing,
+      });
       return repository.findVersionById(createdVersion.id);
     });
   }

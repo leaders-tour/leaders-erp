@@ -53,6 +53,7 @@ export interface EstimatePricingSnapshot {
   securityDepositTotalKrw: number;
   securityDepositUnitKrw: number;
   securityDepositMode: EstimateSecurityDepositMode;
+  adjustmentLines?: EstimateAdjustmentLine[];
   lines: EstimatePricingLineSnapshot[];
 }
 
