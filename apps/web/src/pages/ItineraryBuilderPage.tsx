@@ -6474,22 +6474,35 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 {manualPricing.enabled ? (
                                   <>
                                     <div className="grid gap-1">
-                                      {!line.isSharedAcrossTeams && line.teamNames[0] ? (
-                                        <div className="text-xs font-medium text-slate-500">{line.teamNames[0]}</div>
-                                      ) : null}
                                       <input
                                         type="text"
-                                        value={line.label}
+                                        value={
+                                          !line.isSharedAcrossTeams && line.teamNames[0]
+                                            ? `${line.teamNames[0]}) ${line.label}`
+                                            : line.label
+                                        }
                                         onChange={(event) =>
                                           setManualPricing((current) =>
                                             line.type === 'MANUAL'
                                               ? updateManualPricingCustomLine(current, line.sourceLines[0]!.id, {
-                                                  label: event.target.value,
+                                                  label:
+                                                    !line.isSharedAcrossTeams && line.teamNames[0]
+                                                      ? event.target.value.replace(
+                                                          new RegExp(`^${line.teamNames[0]}\\)\\s*`),
+                                                          '',
+                                                        )
+                                                      : event.target.value,
                                                 })
                                               : line.sourceLines.reduce(
                                                   (nextState, sourceLine) =>
                                                     upsertManualPricingAutoOverride(nextState, sourceLine, {
-                                                      label: event.target.value,
+                                                      label:
+                                                        !line.isSharedAcrossTeams && line.teamNames[0]
+                                                          ? event.target.value.replace(
+                                                              new RegExp(`^${line.teamNames[0]}\\)\\s*`),
+                                                              '',
+                                                            )
+                                                          : event.target.value,
                                                     }),
                                                   current,
                                                 ),
@@ -6587,11 +6600,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   </>
                                 ) : (
                                   <>
-                                    <div className="grid gap-1">
-                                      {!line.isSharedAcrossTeams && line.teamNames[0] ? (
-                                        <div className="text-xs font-medium text-slate-500">{line.teamNames[0]}</div>
-                                      ) : null}
-                                      <div className="text-sm font-medium text-slate-900">{line.label}</div>
+                                    <div className="text-sm font-medium text-slate-900">
+                                      {!line.isSharedAcrossTeams && line.teamNames[0]
+                                        ? `${line.teamNames[0]}) ${line.label}`
+                                        : line.label}
                                     </div>
                                     <div className="text-sm font-semibold text-slate-900">
                                       {formatSignedKrw(line.leadAmountKrw)}
@@ -6655,38 +6667,36 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 ) : (
                                   effectivePricingPreview.teamPricings.map((teamPricing) => (
                                     <div key={`${field}-${teamPricing.teamOrderIndex}`} className="grid gap-1">
-                                      <div className="text-center text-xs font-medium text-slate-500">
-                                        {teamPricing.teamName}
-                                      </div>
                                       {manualPricing.enabled ? (
-                                        <input
-                                          type="number"
-                                          step={1}
-                                          value={teamPricing[field]}
-                                          onChange={(event) => {
-                                            const nextValue = Number(event.target.value);
-                                            if (!Number.isInteger(nextValue)) {
-                                              return;
-                                            }
-                                            setManualPricing((current) =>
-                                              setManualPricingTeamSummaryValue(
-                                                current,
-                                                teamPricing.teamOrderIndex,
-                                                field,
-                                                nextValue,
-                                              ),
-                                            );
-                                          }}
-                                          className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-sm"
-                                        />
-                                      ) : field === 'securityDepositAmountKrw' && teamPricing.securityDepositMode !== 'NONE' ? (
-                                        <div className="text-center">
-                                          {`${formatKrw(teamPricing.securityDepositUnitPriceKrw)} (${formatSecurityDepositScope(
-                                            teamPricing.securityDepositMode,
-                                          )})`}
+                                        <div className="flex items-center justify-center gap-2">
+                                          <div className="text-xs font-medium text-slate-500">{`${teamPricing.teamName})`}</div>
+                                          <input
+                                            type="number"
+                                            step={1}
+                                            value={teamPricing[field]}
+                                            onChange={(event) => {
+                                              const nextValue = Number(event.target.value);
+                                              if (!Number.isInteger(nextValue)) {
+                                                return;
+                                              }
+                                              setManualPricing((current) =>
+                                                setManualPricingTeamSummaryValue(
+                                                  current,
+                                                  teamPricing.teamOrderIndex,
+                                                  field,
+                                                  nextValue,
+                                                ),
+                                              );
+                                            }}
+                                            className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-sm"
+                                          />
                                         </div>
+                                      ) : field === 'securityDepositAmountKrw' && teamPricing.securityDepositMode !== 'NONE' ? (
+                                        <div className="text-center">{`${teamPricing.teamName}) ${formatKrw(
+                                          teamPricing.securityDepositUnitPriceKrw,
+                                        )} (${formatSecurityDepositScope(teamPricing.securityDepositMode)})`}</div>
                                       ) : (
-                                        <div className="text-center">{formatKrw(teamPricing[field])}</div>
+                                        <div className="text-center">{`${teamPricing.teamName}) ${formatKrw(teamPricing[field])}`}</div>
                                       )}
                                     </div>
                                   ))

@@ -910,7 +910,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                       <span className="estimate-page1-price-line-gutter" aria-hidden="true" />
                       <span className="estimate-page1-price-line-lead">
                         <span className="estimate-page1-price-line-label">
-                          {line.teamName ? <span className="estimate-page1-price-line-team">{line.teamName}</span> : null}
+                          {line.teamName ? <span className="estimate-page1-price-line-team">{`${line.teamName})`}</span> : null}
                           <span>{line.label}</span>
                         </span>
                         <strong className="estimate-page1-price-line-amount">
@@ -943,8 +943,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                     <div className="estimate-page1-summary-team-list">
                       {data.teamPricings.map((teamPricing) => (
                         <div key={`total-${teamPricing.teamOrderIndex}`} className="estimate-page1-summary-team-item">
-                          <div className="estimate-page1-summary-team-name">{teamPricing.teamName}</div>
-                          <div>{blankIfDash(formatCurrency(teamPricing.totalAmountKrw))}</div>
+                          <div>{`${teamPricing.teamName}) ${blankIfDash(formatCurrency(teamPricing.totalAmountKrw))}`}</div>
                         </div>
                       ))}
                     </div>
@@ -957,8 +956,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                     <div className="estimate-page1-summary-team-list">
                       {data.teamPricings.map((teamPricing) => (
                         <div key={`deposit-${teamPricing.teamOrderIndex}`} className="estimate-page1-summary-team-item">
-                          <div className="estimate-page1-summary-team-name">{teamPricing.teamName}</div>
-                          <div>{blankIfDash(formatCurrency(teamPricing.depositAmountKrw))}</div>
+                          <div>{`${teamPricing.teamName}) ${blankIfDash(formatCurrency(teamPricing.depositAmountKrw))}`}</div>
                         </div>
                       ))}
                     </div>
@@ -971,8 +969,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                     <div className="estimate-page1-summary-team-list">
                       {data.teamPricings.map((teamPricing) => (
                         <div key={`balance-${teamPricing.teamOrderIndex}`} className="estimate-page1-summary-team-item">
-                          <div className="estimate-page1-summary-team-name">{teamPricing.teamName}</div>
-                          <div>{blankIfDash(formatCurrency(teamPricing.balanceAmountKrw))}</div>
+                          <div>{`${teamPricing.teamName}) ${blankIfDash(formatCurrency(teamPricing.balanceAmountKrw))}`}</div>
                         </div>
                       ))}
                     </div>
@@ -985,11 +982,10 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                     <div className="estimate-page1-summary-team-list">
                       {data.teamPricings.map((teamPricing) => (
                         <div key={`security-${teamPricing.teamOrderIndex}`} className="estimate-page1-summary-team-item">
-                          <div className="estimate-page1-summary-team-name">{teamPricing.teamName}</div>
                           <div>
                             {teamPricing.securityDepositScope === '-'
-                              ? blankIfDash(formatCurrency(teamPricing.securityDepositAmountKrw))
-                              : `${formatCurrency(teamPricing.securityDepositUnitKrw)} (${teamPricing.securityDepositScope})`}
+                              ? `${teamPricing.teamName}) ${blankIfDash(formatCurrency(teamPricing.securityDepositAmountKrw))}`
+                              : `${teamPricing.teamName}) ${formatCurrency(teamPricing.securityDepositUnitKrw)} (${teamPricing.securityDepositScope})`}
                           </div>
                         </div>
                       ))}
