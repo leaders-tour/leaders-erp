@@ -416,7 +416,7 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
       });
     }
 
-    // shabushabu-invalid-placement (error)
+    // shabushabu-invalid-placement (warning)
     const shabushabuAllowed = getShabushabuAllowedCandidates(rowContexts, specialMealDestinationRules);
     const shabushabuAssignment = assignments.find((a) => a.specialMeal === '샤브샤브');
     if (shabushabuAssignment) {
@@ -427,7 +427,7 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
         const locHint = formatShabushabuAllowedSummary(specialMealDestinationRules);
         results.push({
           id: 'shabushabu-invalid-placement',
-          severity: 'error',
+          severity: 'warning',
           message: `샤브샤브는 설정된 허용 목적지 이름이 목적지·일정에 보이는 날의 식사에만 배치할 수 있습니다. (허용: ${locHint})`,
           affectedCells: [{ rowIndex: shabushabuAssignment.dayIndex, field: 'mealCellText' }],
         });
