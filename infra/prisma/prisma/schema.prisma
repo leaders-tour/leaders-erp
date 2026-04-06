@@ -483,6 +483,7 @@ model RegionSet {
   items            RegionSetItem[]
   defaultForRegion Region?         @relation("RegionDefaultRegionSet")
   plans            Plan[]
+  planVersions     PlanVersion[]
   planTemplates    PlanTemplate[]
 
   createdAt DateTime @default(now())
@@ -843,6 +844,7 @@ model Plan {
 model PlanVersion {
   id              String  @id @default(uuid(7))
   planId          String
+  regionSetId     String
   parentVersionId String?
   versionNumber   Int
   variantType     VariantType
@@ -850,6 +852,7 @@ model PlanVersion {
   changeNote      String?
 
   plan          Plan          @relation("PlanVersions", fields: [planId], references: [id], onDelete: Cascade)
+  regionSet     RegionSet     @relation(fields: [regionSetId], references: [id], onDelete: Restrict)
   parentVersion PlanVersion?  @relation("PlanVersionParentChild", fields: [parentVersionId], references: [id], onDelete: SetNull)
   childVersions PlanVersion[] @relation("PlanVersionParentChild")
   planAsCurrent Plan[]        @relation("CurrentPlanVersion")
@@ -864,6 +867,7 @@ model PlanVersion {
 
   @@unique([planId, versionNumber])
   @@index([planId])
+  @@index([regionSetId])
   @@index([parentVersionId])
 }
 

@@ -526,6 +526,7 @@ export const planUpdateSchema = z.object({
 export const planVersionCreateSchema = z
   .object({
     planId: z.string().min(1),
+    regionSetId: z.string().min(1),
     parentVersionId: z.string().min(1).optional(),
     variantType: z.nativeEnum(VariantType),
     totalDays: z.number().int().min(2).max(13),

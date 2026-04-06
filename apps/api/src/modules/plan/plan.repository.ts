@@ -326,6 +326,7 @@ export class PlanRepository {
     const createdVersion = await this.prisma.planVersion.create({
       data: {
         planId: createdPlan.id,
+        regionSetId: createdPlan.regionSetId,
         versionNumber: 1,
         variantType: initialVersionData.variantType,
         totalDays: initialVersionData.totalDays,
@@ -387,6 +388,7 @@ export class PlanRepository {
     const createdVersion = await this.prisma.planVersion.create({
       data: {
         planId: versionData.planId,
+        regionSetId: versionData.regionSetId,
         parentVersionId: versionData.parentVersionId,
         versionNumber,
         variantType: versionData.variantType,

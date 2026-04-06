@@ -76,6 +76,7 @@ export interface UserDealTodoRow {
 export interface PlanVersionRow {
   id: string;
   planId: string;
+  regionSetId: string;
   parentVersionId: string | null;
   versionNumber: number;
   variantType: string;
@@ -84,6 +85,10 @@ export interface PlanVersionRow {
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
   createdAt: string;
   updatedAt: string;
+  regionSet?: {
+    id: string;
+    name: string;
+  } | null;
   meta?: PlanVersionMetaRow | null;
 }
 
@@ -442,6 +447,7 @@ const PLANS_BY_USER_QUERY = gql`
       currentVersion {
         id
         planId
+        regionSetId
         parentVersionId
         versionNumber
         variantType
@@ -501,6 +507,7 @@ const PLAN_DETAIL_QUERY = gql`
       versions {
         id
         planId
+        regionSetId
         parentVersionId
         versionNumber
         variantType
@@ -519,6 +526,7 @@ const PLAN_VERSIONS_QUERY = gql`
     planVersions(planId: $planId) {
       id
       planId
+      regionSetId
       parentVersionId
       versionNumber
       variantType
@@ -536,6 +544,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
     planVersion(id: $id) {
       id
       planId
+      regionSetId
       parentVersionId
       versionNumber
       variantType
@@ -573,6 +582,10 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
           id
           name
         }
+      }
+      regionSet {
+        id
+        name
       }
       planStops {
         id

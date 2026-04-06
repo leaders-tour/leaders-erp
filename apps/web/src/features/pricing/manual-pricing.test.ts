@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { PricingManualSourceLine } from '@tour/domain';
 import { buildEffectivePricing } from './manual-pricing';
 
 describe('buildEffectivePricing', () => {
@@ -133,7 +134,7 @@ describe('buildEffectivePricing', () => {
   });
 
   it('builds team-specific effective totals and overrides', () => {
-    const effectivePricing = buildEffectivePricing(
+    const effectivePricing = buildEffectivePricing<PricingManualSourceLine>(
       {
         baseAmountKrw: 1_000_000,
         addonAmountKrw: 40_000,

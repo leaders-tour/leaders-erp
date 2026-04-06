@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { regionSetGraphInclude } from '../region-set/region-set.mapper';
 
 export const planVersionInclude = {
+  regionSet: { include: regionSetGraphInclude },
   parentVersion: true,
   childVersions: {
     orderBy: { versionNumber: 'asc' },

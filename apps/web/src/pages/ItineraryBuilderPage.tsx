@@ -2552,12 +2552,12 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
 
   useEffect(() => {
-    if (!isVersionMode || !planContext) {
+    if (!isVersionMode || !planContext || parentVersionId) {
       return;
     }
 
     setRegionSetId(planContext.regionSetId);
-  }, [isVersionMode, planContext]);
+  }, [isVersionMode, parentVersionId, planContext]);
 
   useEffect(() => {
     if (!isVersionMode || !parentVersionId || parentVersionLoading || !parentVersion) {
@@ -2582,7 +2582,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     setPlanTitle(parentVersion.plan.title);
     setVariantType(parentVersion.variantType as VariantType);
     setTotalDays(parentVersion.totalDays);
-    setRegionSetId(parentVersion.plan.regionSetId);
+    setRegionSetId(parentVersion.regionSetId);
     setLeaderName(meta.leaderName);
     setTravelStartDate(meta.travelStartDate.slice(0, 10));
     setTravelEndDate(meta.travelEndDate.slice(0, 10));
@@ -4573,6 +4573,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                         variables: {
                           input: {
                             planId,
+                            regionSetId,
                             parentVersionId,
                             variantType,
                             totalDays,
@@ -4834,13 +4835,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                     <span className="text-xs text-slate-600">지역 세트</span>
                     <div className="flex flex-wrap content-start items-start gap-2">
                       {regionSets.map((set) => {
-                        const disabled =
-                          isVersionMode && planContext?.regionSetId !== set.id;
                         return (
                           <button
                             key={set.id}
                             type="button"
-                            disabled={disabled}
                             onClick={() => {
                               setRegionSetId(set.id);
                               setStartLocationId('');
@@ -4854,7 +4852,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                               regionSetId === set.id
                                 ? 'border-slate-900 bg-slate-900 text-white'
                                 : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                            } ${disabled ? 'cursor-not-allowed opacity-40' : ''}`}
+                            }`}
                           >
                             {set.name}
                           </button>

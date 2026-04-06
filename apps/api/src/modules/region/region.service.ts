@@ -84,14 +84,15 @@ export class RegionService {
       );
     }
 
-    const [planCount, templateCount] = await Promise.all([
+    const [planCount, planVersionCount, templateCount] = await Promise.all([
       this.prisma.plan.count({ where: { regionSetId: id } }),
+      this.prisma.planVersion.count({ where: { regionSetId: id } }),
       this.prisma.planTemplate.count({ where: { regionSetId: id } }),
     ]);
-    if (planCount > 0 || templateCount > 0) {
+    if (planCount > 0 || planVersionCount > 0 || templateCount > 0) {
       throw new DomainError(
         'VALIDATION_FAILED',
-        'Cannot delete region while plans or templates reference its default region set',
+        'Cannot delete region while plans, versions, or templates reference its default region set',
       );
     }
 

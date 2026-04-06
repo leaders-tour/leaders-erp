@@ -51,6 +51,7 @@ type Plan {
 type PlanVersion {
   id: ID!
   planId: String!
+  regionSetId: String!
   parentVersionId: String
   versionNumber: Int!
   variantType: VariantType!
@@ -59,6 +60,7 @@ type PlanVersion {
   createdAt: DateTime!
   updatedAt: DateTime!
   plan: Plan!
+  regionSet: RegionSet!
   parentVersion: PlanVersion
   childVersions: [PlanVersion!]!
   movementIntensity: MovementIntensity
@@ -419,6 +421,7 @@ input PlanUpdateInput {
 
 input PlanVersionCreateInput {
   planId: String!
+  regionSetId: String!
   parentVersionId: String
   variantType: VariantType!
   totalDays: Int!

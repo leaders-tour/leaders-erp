@@ -119,6 +119,7 @@ export function PlanVersionDetailPage(): JSX.Element {
     : null;
   const hasManualPricing = version.pricing?.manualPricing?.enabled === true;
   const outputPricingTitle = hasManualPricing ? '수동 금액' : '고객이 확인할 것';
+  const regionSetName = version.regionSet?.name ?? version.plan.regionSet.name;
   const transportGroups = version.meta?.transportGroups ?? [];
   const flightInText =
     transportGroups.length > 0
@@ -170,7 +171,7 @@ export function PlanVersionDetailPage(): JSX.Element {
             {version.plan.title} · v{version.versionNumber}
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            고객: {version.plan.user.name} · 지역 세트: {version.plan.regionSet.name}
+            고객: {version.plan.user.name} · 지역 세트: {regionSetName}
           </p>
         </div>
         <div className="flex gap-2">

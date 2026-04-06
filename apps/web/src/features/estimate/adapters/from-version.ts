@@ -19,6 +19,7 @@ import {
 
 export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
   const meta = version.meta;
+  const regionSetName = version.regionSet?.name ?? version.plan.regionSet.name;
   const pricingCtx = {
     headcountTotal: meta?.headcountTotal ?? 0,
     totalDays: countMainPlanStopRows(version.planStops),
@@ -56,11 +57,11 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     mode: 'version',
     isDraft: false,
     planTitle: version.plan.title,
-    page2Title: buildPage2Title(version.plan.regionSet.name, countMainPlanStopRows(version.planStops)),
+    page2Title: buildPage2Title(regionSetName, countMainPlanStopRows(version.planStops)),
     page3Title: ESTIMATE_PAGE3_TITLE,
     leaderName: normalizeMultilineText(meta?.leaderName),
     documentNumber: meta?.documentNumber ?? null,
-    destinationName: normalizeMultilineText(version.plan.regionSet.name),
+    destinationName: normalizeMultilineText(regionSetName),
     headcountTotal: meta?.headcountTotal ?? null,
     headcountMale: meta?.headcountMale ?? null,
     headcountFemale: meta?.headcountFemale ?? null,

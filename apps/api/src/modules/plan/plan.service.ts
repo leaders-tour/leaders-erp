@@ -950,7 +950,7 @@ export class PlanService {
       throw new DomainError('NOT_FOUND', 'Plan not found');
     }
 
-    const regionIds = await resolveRegionSetRegionIds(this.prisma, plan.regionSetId);
+    const regionIds = await resolveRegionSetRegionIds(this.prisma, parsed.data.regionSetId);
     const normalizedPlanStops = await this.normalizePlanStopsWithLocationReferences(parsed.data.planStops);
     const normalizedLodgingSelections = await this.normalizeLodgingSelections(
       regionIds,
@@ -976,7 +976,7 @@ export class PlanService {
       const pricingPlanStops = this.filterMainPlanStops(normalizedPlanStops);
       const planStopsForPricing = await this.enrichPlanStopsWithBlockEndLocationId(pricingPlanStops);
       const pricingResult = await new PricingService(this.prisma).computeWithTransaction(tx, {
-        regionSetId: plan.regionSetId,
+        regionSetId: parsed.data.regionSetId,
         regionIds,
         variantType: parsed.data.variantType,
         totalDays: parsed.data.totalDays,

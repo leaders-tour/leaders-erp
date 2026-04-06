@@ -293,6 +293,15 @@ export const planResolver = {
     },
   },
   PlanVersion: {
+    regionSet: async (
+      parent: { regionSet?: unknown; regionSetId: string },
+      _args: unknown,
+      ctx: AppContext,
+    ) =>
+      parent.regionSet ??
+      ctx.prisma.regionSet.findUniqueOrThrow({
+        where: { id: parent.regionSetId },
+      }),
     movementIntensity: (parent: { planStops?: Array<Parameters<typeof resolveStopMovementIntensity>[0]> }) =>
       calculateAverageMovementIntensity(
         (parent.planStops ?? [])
