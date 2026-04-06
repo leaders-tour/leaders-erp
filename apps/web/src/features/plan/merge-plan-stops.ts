@@ -1,36 +1,79 @@
 import type { ExternalTransfer, ExternalTransferTeamLike } from './external-transfer';
 import type { PlanStopRowBase } from './plan-stop-row';
 
-function formatMonthDayLabel(value: string): string {
-  const trimmed = value.trim();
-  const parts = trimmed.split('-');
-  if (parts.length !== 3) {
-    return trimmed || '-';
+function resolveTransferDestinationLabel(place: string): string {
+  const trimmed = place.trim();
+  if (trimmed === '공항') {
+    return '칭기즈칸 공항';
   }
+  if (trimmed === '오즈하우스') {
+    return '오즈게스트하우스';
+  }
+  return trimmed || '-';
+}
 
-  const month = Number(parts[1]);
-  const day = Number(parts[2]);
-  if (!Number.isInteger(month) || !Number.isInteger(day)) {
+function appendDirectionParticle(value: string): string {
+  const trimmed = value.trim();
+  const lastChar = trimmed[trimmed.length - 1];
+  if (!lastChar) {
     return trimmed;
   }
 
-  return `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
+  const codePoint = lastChar.charCodeAt(0);
+  const hangulBase = 0xac00;
+  const hangulLast = 0xd7a3;
+  if (codePoint < hangulBase || codePoint > hangulLast) {
+    return `${trimmed}로`;
+  }
+
+  const jongseongIndex = (codePoint - hangulBase) % 28;
+  const suffix = jongseongIndex === 0 || jongseongIndex === 8 ? '로' : '으로';
+  return `${trimmed}${suffix}`;
 }
 
-function buildTransferTeamLabel(
-  transfer: ExternalTransfer,
-  teams: ExternalTransferTeamLike[],
-): string {
-  const labels = transfer.selectedTeamOrderIndexes
-    .slice()
+function buildTransferPickupSubject(transfer: ExternalTransfer, teams: ExternalTransferTeamLike[]): string {
+  const selectedTeams = Array.from(new Set(transfer.selectedTeamOrderIndexes))
     .sort((left, right) => left - right)
-    .map((teamOrderIndex) => teams[teamOrderIndex]?.teamName?.trim() || `${teamOrderIndex + 1}번 팀`);
+    .map((teamOrderIndex) => ({
+      teamOrderIndex,
+      team: teams[teamOrderIndex],
+    }))
+    .filter(
+      (entry): entry is { teamOrderIndex: number; team: ExternalTransferTeamLike } =>
+        Number.isInteger(entry.teamOrderIndex) && Boolean(entry.team),
+    );
 
-  return labels.length > 0 ? labels.join(', ') : '팀 미지정';
+  if (selectedTeams.length === 0) {
+    return '팀 미지정';
+  }
+
+  if (teams.length > 0 && selectedTeams.length === teams.length) {
+    return '전원';
+  }
+
+  return selectedTeams
+    .map(({ team, teamOrderIndex }) => {
+      const teamName = team.teamName?.trim() || `${teamOrderIndex + 1}번 팀`;
+      const headcount = Number.isFinite(team.headcount) ? Math.max(0, Number(team.headcount)) : null;
+      return headcount && headcount > 0 ? `${teamName} ${headcount}인` : teamName;
+    })
+    .join(', ');
 }
 
-function buildTransferScheduleLabel(transfer: ExternalTransfer): string {
-  return transfer.direction === 'PICKUP' ? '실투어 외 픽업' : '실투어 외 드랍';
+function buildTransferScheduleText(transfer: ExternalTransfer, teams: ExternalTransferTeamLike[]): string {
+  const destination = resolveTransferDestinationLabel(transfer.arrivalPlace);
+  const pickupSubject = buildTransferPickupSubject(transfer, teams);
+  return `${pickupSubject} 픽업 후 ${appendDirectionParticle(destination)} 출발\n${destination} 드랍`;
+}
+
+function buildTransferLodgingText(destination: string): string {
+  if (destination.includes('게하') || destination.includes('게스트하우스')) {
+    return '오즈게스트하우스';
+  }
+  if (destination.includes('울란바토르') || destination.includes('공항')) {
+    return '숙소미포함';
+  }
+  return '-';
 }
 
 function buildTransferRows(
@@ -52,12 +95,12 @@ function buildTransferRows(
       locationId: null,
       locationVersionId: null,
       movementIntensity: null,
-      dateCellText: `${formatMonthDayLabel(transfer.travelDate)}\n일정외`,
-      destinationCellText: `${transfer.departurePlace || '-'} → ${transfer.arrivalPlace || '-'}`,
+      dateCellText: '기간외',
+      destinationCellText: resolveTransferDestinationLabel(transfer.arrivalPlace),
       timeCellText: `${transfer.departureTime || '-'}\n${transfer.arrivalTime || '-'}`,
-      scheduleCellText: `${buildTransferScheduleLabel(transfer)}\n${buildTransferTeamLabel(transfer, teams)}`,
-      lodgingCellText: '-',
-      mealCellText: '-',
+      scheduleCellText: buildTransferScheduleText(transfer, teams),
+      lodgingCellText: buildTransferLodgingText(resolveTransferDestinationLabel(transfer.arrivalPlace)),
+      mealCellText: 'X',
     }));
 }
 

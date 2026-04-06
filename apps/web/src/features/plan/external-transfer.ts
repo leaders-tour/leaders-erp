@@ -25,6 +25,7 @@ export interface ExternalTransfer {
 export interface ExternalTransferTeamLike {
   orderIndex?: number;
   teamName: string;
+  headcount?: number;
   flightInDate: string | null | undefined;
   flightInTime: string | null | undefined;
   flightOutDate: string | null | undefined;
