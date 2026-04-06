@@ -1577,16 +1577,15 @@ function toAutoTravelEndDate(startDate: string, totalDays: number): string {
 
 function buildDefaultRentalItems(total: number): string {
   const safeTotal = Math.max(1, total);
-  const matCount = Math.ceil(safeTotal / 3);
-  const multiTapCount = Math.ceil(safeTotal / 3);
+  const sharedItemCount = safeTotal >= 5 ? 2 : 1;
   return [
     `판초 ${safeTotal}개`,
     `모기장 ${safeTotal}개`,
     `썰매 ${safeTotal}개`,
-    `돗자리 ${matCount}개`,
+    `돗자리 ${sharedItemCount}개`,
     '별레이저 1개',
     '랜턴 1개',
-    `멀티탭 ${multiTapCount}개`,
+    `멀티탭 ${sharedItemCount}개`,
     '드라이기 1개',
     '보드게임 1종',
     '버너/냄비/팬 set',
