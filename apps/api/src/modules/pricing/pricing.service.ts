@@ -394,13 +394,13 @@ export class PricingService {
       });
     });
 
-    // 샤브샤브 누락 할인: mealCellText 전체에서 '샤브샤브' 미포함 시 15,000원 일괄 할인
+    // 샤브샤브 누락 할인: mealCellText 전체에서 '샤브샤브' 미포함 시 18,000원 일괄 할인
     const allMealCellTexts = mainPlanStops
       .map((stop) => stop.mealCellText ?? '')
       .join(' ');
     const hasShabushabu = allMealCellTexts.includes('샤브샤브');
     if (!hasShabushabu) {
-      const SHABUSHABU_DISCOUNT_KRW = -15_000;
+      const SHABUSHABU_DISCOUNT_KRW = -18_000;
       lines.push({
         ruleType: 'CONDITIONAL_ADDON',
         lineCode: 'MANUAL_ADJUSTMENT',

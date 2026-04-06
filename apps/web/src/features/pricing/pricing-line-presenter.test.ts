@@ -9,16 +9,16 @@ describe('pricing-line-presenter', () => {
       lineCode: 'MANUAL_ADJUSTMENT',
       sourceType: 'RULE' as const,
       description: '샤브샤브 누락 할인',
-      unitPriceKrw: -15_000,
+      unitPriceKrw: -18_000,
       quantity: 1,
-      amountKrw: -15_000,
+      amountKrw: -18_000,
       displayBasis: 'PER_PERSON_SINGLE',
-      displayUnitAmountKrw: -15_000,
+      displayUnitAmountKrw: -18_000,
       displayCount: 1,
       displayDivisorPerson: null,
       displayText: null,
     };
-    expect(formatPricingDetailFormula(line, ctx6)).toBe('-15,000원*1');
+    expect(formatPricingDetailFormula(line, ctx6)).toBe('-18,000원*1');
     expect(resolvePricingLineDisplay(line, ctx6).basis).toBe('PER_PERSON_SINGLE');
   });
 
