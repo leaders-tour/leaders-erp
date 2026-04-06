@@ -43,6 +43,7 @@ import {
   buildExternalTransferDirectionText,
   buildEmptyExternalTransfer,
   isExternalTransferComplete,
+  normalizeExternalTransfers,
   syncExternalTransferWithSelectedTeams,
   type ExternalTransfer,
 } from '../features/plan/external-transfer';
@@ -286,6 +287,9 @@ interface PricingLineRow {
   displayDivisorPerson?: number | null;
   displayText?: string | null;
   quantityDisplaySuffix?: '박';
+  teamOrderIndex?: number | null;
+  teamName?: string | null;
+  headcount?: number | null;
 }
 
 interface PricingPreviewRow {
@@ -306,6 +310,27 @@ interface PricingPreviewRow {
   } | null;
   longDistanceSegmentCount: number;
   extraLodgingCount: number;
+  teamPricings: TeamPricingRow[];
+  lines: PricingLineRow[];
+}
+
+interface TeamPricingRow {
+  teamOrderIndex: number;
+  teamName: string;
+  headcount: number;
+  baseAmountKrw: number;
+  addonAmountKrw: number;
+  totalAmountKrw: number;
+  depositAmountKrw: number;
+  balanceAmountKrw: number;
+  securityDepositAmountKrw: number;
+  securityDepositUnitPriceKrw: number;
+  securityDepositQuantity: number;
+  securityDepositMode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+  securityDepositEvent: {
+    id: string;
+    name: string;
+  } | null;
   lines: PricingLineRow[];
 }
 
@@ -316,6 +341,20 @@ interface OriginalPricingSnapshotRow {
   depositAmountKrw: number;
   balanceAmountKrw: number;
   securityDepositAmountKrw: number;
+  teamPricings?: Array<{
+    teamOrderIndex: number;
+    teamName: string;
+    headcount: number;
+    baseAmountKrw: number;
+    addonAmountKrw: number;
+    totalAmountKrw: number;
+    depositAmountKrw: number;
+    balanceAmountKrw: number;
+    securityDepositAmountKrw: number;
+    securityDepositUnitPriceKrw: number;
+    securityDepositQuantity: number;
+    securityDepositMode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+  }>;
 }
 
 interface ManualPricingLineOverrideRow {
@@ -327,6 +366,7 @@ interface ManualPricingAdjustmentLineRow {
   id: string;
   type: 'AUTO' | 'MANUAL';
   rowKey?: string | null;
+  teamOrderIndex?: number | null;
   label: string;
   leadAmountKrw: number;
   formula: string;
@@ -341,10 +381,15 @@ interface ManualPricingSummaryState {
   securityDepositAmountKrw?: number | null;
 }
 
+interface ManualPricingTeamSummaryState extends ManualPricingSummaryState {
+  teamOrderIndex: number;
+}
+
 interface ManualPricingState {
   enabled: boolean;
   adjustmentLines: ManualPricingAdjustmentLineRow[];
   summary?: ManualPricingSummaryState | null;
+  teamSummaries?: ManualPricingTeamSummaryState[];
   lineOverrides?: ManualPricingLineOverrideRow[];
 }
 
@@ -352,6 +397,114 @@ interface EffectivePricingRow extends PricingPreviewRow {
   originalPricing: OriginalPricingSnapshotRow;
   manualPricing: ManualPricingState | null;
   adjustmentLines: PricingAdjustmentLineRow[];
+  teamPricings: EffectiveTeamPricingRow[];
+}
+
+interface EffectiveTeamPricingRow extends TeamPricingRow {
+  originalPricing: OriginalPricingSnapshotRow['teamPricings'] extends Array<infer T> ? T : never;
+  manualPricing: ManualPricingState | null;
+  adjustmentLines: PricingAdjustmentLineRow[];
+}
+
+interface DisplayedPricingAdjustmentLineRow extends PricingAdjustmentLineRow {
+  sourceLines: PricingAdjustmentLineRow[];
+  teamOrderIndexes: number[];
+  teamNames: string[];
+  isSharedAcrossTeams: boolean;
+}
+
+function buildAdjustmentGroupingKey(line: PricingAdjustmentLineRow): string {
+  return [
+    line.type,
+    line.label,
+    line.leadAmountKrw,
+    line.formula,
+    line.isManual ? 'manual' : 'auto',
+    line.autoLabel ?? '',
+    line.autoLeadAmountKrw ?? '',
+    line.autoFormula ?? '',
+  ].join('|');
+}
+
+function buildDisplayedPricingAdjustmentLines(
+  effectivePricing: EffectivePricingRow | null,
+): DisplayedPricingAdjustmentLineRow[] {
+  if (!effectivePricing) {
+    return [];
+  }
+  if (!effectivePricing.teamPricings || effectivePricing.teamPricings.length === 0) {
+    return effectivePricing.adjustmentLines.map((line) => ({
+      ...line,
+      sourceLines: [line],
+      teamOrderIndexes: line.teamOrderIndex != null ? [line.teamOrderIndex] : [],
+      teamNames: line.teamName ? [line.teamName] : [],
+      isSharedAcrossTeams: false,
+    }));
+  }
+
+  const rawTeamLines = effectivePricing.teamPricings.flatMap((teamPricing) =>
+    teamPricing.adjustmentLines.map((line) => ({
+      ...line,
+      teamOrderIndex: teamPricing.teamOrderIndex,
+      teamName: teamPricing.teamName,
+      headcount: teamPricing.headcount,
+    })),
+  );
+  const grouped = new Map<string, PricingAdjustmentLineRow[]>();
+  rawTeamLines.forEach((line) => {
+    const key = buildAdjustmentGroupingKey(line);
+    const current = grouped.get(key);
+    if (current) {
+      current.push(line);
+      return;
+    }
+    grouped.set(key, [line]);
+  });
+
+  const result: DisplayedPricingAdjustmentLineRow[] = [];
+  const teamCount = effectivePricing.teamPricings.length;
+  rawTeamLines.forEach((line) => {
+    const key = buildAdjustmentGroupingKey(line);
+    const sourceLines = grouped.get(key);
+    if (!sourceLines || sourceLines.length === 0) {
+      return;
+    }
+    grouped.delete(key);
+    const uniqueTeamOrderIndexes = Array.from(
+      new Set(
+        sourceLines
+          .map((item) => item.teamOrderIndex)
+          .filter((value): value is number => typeof value === 'number'),
+      ),
+    );
+    const uniqueTeamNames = Array.from(
+      new Set(sourceLines.map((item) => item.teamName).filter((value): value is string => typeof value === 'string')),
+    );
+    const isSharedAcrossTeams = uniqueTeamOrderIndexes.length === teamCount;
+    if (isSharedAcrossTeams) {
+      result.push({
+        ...line,
+        teamOrderIndex: null,
+        teamName: null,
+        sourceLines,
+        teamOrderIndexes: uniqueTeamOrderIndexes,
+        teamNames: uniqueTeamNames,
+        isSharedAcrossTeams: true,
+      });
+      return;
+    }
+    sourceLines.forEach((sourceLine) => {
+      result.push({
+        ...sourceLine,
+        sourceLines: [sourceLine],
+        teamOrderIndexes:
+          typeof sourceLine.teamOrderIndex === 'number' ? [sourceLine.teamOrderIndex] : [],
+        teamNames: sourceLine.teamName ? [sourceLine.teamName] : [],
+        isSharedAcrossTeams: false,
+      });
+    });
+  });
+  return result;
 }
 
 function normalizeManualPricingState(value?: ManualPricingState | null): ManualPricingState {
@@ -362,6 +515,7 @@ function normalizeManualPricingState(value?: ManualPricingState | null): ManualP
           (row): row is ManualPricingAdjustmentLineRow =>
             typeof row?.id === 'string' &&
             (row?.type === 'AUTO' || row?.type === 'MANUAL') &&
+            (row?.teamOrderIndex == null || Number.isInteger(row?.teamOrderIndex)) &&
             typeof row?.label === 'string' &&
             Number.isInteger(row?.leadAmountKrw) &&
             typeof row?.formula === 'string' &&
@@ -384,6 +538,17 @@ function normalizeManualPricingState(value?: ManualPricingState | null): ManualP
               : null,
           }
         : null,
+    teamSummaries: Array.isArray(value?.teamSummaries)
+      ? value.teamSummaries.filter(
+          (row): row is ManualPricingTeamSummaryState =>
+            Number.isInteger(row?.teamOrderIndex) &&
+            (row.baseAmountKrw == null || Number.isInteger(row.baseAmountKrw)) &&
+            (row.totalAmountKrw == null || Number.isInteger(row.totalAmountKrw)) &&
+            (row.depositAmountKrw == null || Number.isInteger(row.depositAmountKrw)) &&
+            (row.balanceAmountKrw == null || Number.isInteger(row.balanceAmountKrw)) &&
+            (row.securityDepositAmountKrw == null || Number.isInteger(row.securityDepositAmountKrw)),
+        )
+      : [],
     lineOverrides: Array.isArray(value?.lineOverrides)
       ? value.lineOverrides.filter(
           (row): row is ManualPricingLineOverrideRow =>
@@ -408,6 +573,7 @@ function toManualPricingSnapshot(
       id: row.id,
       type: row.type,
       rowKey: row.type === 'AUTO' ? row.rowKey ?? null : null,
+      teamOrderIndex: row.teamOrderIndex ?? null,
       label: row.label,
       leadAmountKrw: row.leadAmountKrw,
       formula: row.formula,
@@ -429,6 +595,16 @@ function toManualPricingSnapshot(
               : null,
           }
         : null,
+    teamSummaries: (value.teamSummaries ?? []).map((summary) => ({
+      teamOrderIndex: summary.teamOrderIndex,
+      baseAmountKrw: Number.isInteger(summary.baseAmountKrw) ? summary.baseAmountKrw : null,
+      totalAmountKrw: Number.isInteger(summary.totalAmountKrw) ? summary.totalAmountKrw : null,
+      depositAmountKrw: Number.isInteger(summary.depositAmountKrw) ? summary.depositAmountKrw : null,
+      balanceAmountKrw: Number.isInteger(summary.balanceAmountKrw) ? summary.balanceAmountKrw : null,
+      securityDepositAmountKrw: Number.isInteger(summary.securityDepositAmountKrw)
+        ? summary.securityDepositAmountKrw
+        : null,
+    })),
     lineOverrides: (value.lineOverrides ?? []).map((row) => ({
       rowKey: row.rowKey,
       amountKrw: row.amountKrw,
@@ -440,6 +616,7 @@ function createManualPricingAdjustmentLine(): ManualPricingAdjustmentLineRow {
   return {
     id: createManualPricingLineId(),
     type: 'MANUAL',
+    teamOrderIndex: null,
     label: '',
     leadAmountKrw: 0,
     formula: '',
@@ -461,6 +638,7 @@ function upsertManualPricingAutoOverride(
     id: existing?.id ?? line.id,
     type: 'AUTO',
     rowKey: line.rowKey,
+    teamOrderIndex: line.teamOrderIndex ?? null,
     label: patch.label ?? existing?.label ?? line.label,
     leadAmountKrw: patch.leadAmountKrw ?? existing?.leadAmountKrw ?? line.leadAmountKrw,
     formula: patch.formula ?? existing?.formula ?? line.formula,
@@ -532,6 +710,28 @@ function setManualPricingSummaryValue(
       ...(current.summary ?? {}),
       [field]: value,
     },
+  };
+}
+
+function setManualPricingTeamSummaryValue(
+  current: ManualPricingState,
+  teamOrderIndex: number,
+  field: keyof ManualPricingSummaryState,
+  value: number,
+): ManualPricingState {
+  const existing = (current.teamSummaries ?? []).find((item) => item.teamOrderIndex === teamOrderIndex);
+  const nextRow: ManualPricingTeamSummaryState = {
+    teamOrderIndex,
+    ...(existing ?? {}),
+    [field]: value,
+  };
+  const nextTeamSummaries =
+    existing == null
+      ? [...(current.teamSummaries ?? []), nextRow]
+      : (current.teamSummaries ?? []).map((item) => (item.teamOrderIndex === teamOrderIndex ? nextRow : item));
+  return {
+    ...current,
+    teamSummaries: nextTeamSummaries,
   };
 }
 
@@ -1228,6 +1428,43 @@ const PLAN_PRICING_PREVIEW_QUERY = gql`
       }
       longDistanceSegmentCount
       extraLodgingCount
+      teamPricings {
+        teamOrderIndex
+        teamName
+        headcount
+        baseAmountKrw
+        addonAmountKrw
+        totalAmountKrw
+        depositAmountKrw
+        balanceAmountKrw
+        securityDepositAmountKrw
+        securityDepositUnitPriceKrw
+        securityDepositQuantity
+        securityDepositMode
+        securityDepositEvent {
+          id
+          name
+        }
+        lines {
+          ruleType
+          lineCode
+          sourceType
+          description
+          ruleId
+          unitPriceKrw
+          quantity
+          amountKrw
+          displayBasis
+          displayLabel
+          displayUnitAmountKrw
+          displayCount
+          displayDivisorPerson
+          displayText
+          teamOrderIndex
+          teamName
+          headcount
+        }
+      }
       lines {
         ruleType
         lineCode
@@ -1243,6 +1480,9 @@ const PLAN_PRICING_PREVIEW_QUERY = gql`
         displayCount
         displayDivisorPerson
         displayText
+        teamOrderIndex
+        teamName
+        headcount
       }
     }
   }
@@ -1406,6 +1646,7 @@ function createEstimateDraftSnapshot(input: {
   remark: string;
   planStops: PlanStopRowBase[];
   pricingPreview: EffectivePricingRow | null;
+  displayedPricingAdjustmentLines: DisplayedPricingAdjustmentLineRow[];
 }): EstimateBuilderDraftSnapshot {
   return {
     planTitle: input.planTitle,
@@ -1447,11 +1688,27 @@ function createEstimateDraftSnapshot(input: {
           securityDepositTotalKrw: input.pricingPreview.securityDepositAmountKrw,
           securityDepositUnitKrw: input.pricingPreview.securityDepositUnitPriceKrw,
           securityDepositMode: input.pricingPreview.securityDepositMode,
-            adjustmentLines: input.pricingPreview.adjustmentLines.map((line) => ({
+          adjustmentLines: input.displayedPricingAdjustmentLines.map((line) => ({
+              teamName: !line.isSharedAcrossTeams ? line.teamNames[0] ?? null : null,
               label: line.label,
               leadAmountKrw: line.leadAmountKrw,
               formula: line.formula,
             })),
+          teamPricings: input.pricingPreview.teamPricings.map((teamPricing) => ({
+            teamOrderIndex: teamPricing.teamOrderIndex,
+            teamName: teamPricing.teamName,
+            totalAmountKrw: teamPricing.totalAmountKrw,
+            depositAmountKrw: teamPricing.depositAmountKrw,
+            balanceAmountKrw: teamPricing.balanceAmountKrw,
+            securityDepositAmountKrw: teamPricing.securityDepositAmountKrw,
+            securityDepositUnitKrw: teamPricing.securityDepositUnitPriceKrw,
+            securityDepositScope:
+              teamPricing.securityDepositMode === 'PER_PERSON'
+                ? '인당'
+                : teamPricing.securityDepositMode === 'PER_TEAM'
+                  ? '팀당'
+                  : '-',
+          })),
           lines: input.pricingPreview.lines.map((line) => ({
             lineCode: line.lineCode,
             sourceType: line.sourceType,
@@ -2097,6 +2354,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     enabled: false,
     adjustmentLines: [],
     summary: null,
+    teamSummaries: [],
     lineOverrides: [],
   });
   const [createdId, setCreatedId] = useState<string>('');
@@ -2346,16 +2604,20 @@ export function ItineraryBuilderPage(): JSX.Element {
     setIsMultiDayBlockSectionOpen(false);
 
     setExternalTransfers(
-      meta.externalTransfers.map((transfer) => ({
-        ...transfer,
-        travelDate: transfer.travelDate.slice(0, 10),
-      })),
+      normalizeExternalTransfers(
+        meta.externalTransfers.map((transfer) => ({
+          ...transfer,
+          travelDate: transfer.travelDate.slice(0, 10),
+        })),
+      ),
     );
     setExternalTransfersDraft(
-      meta.externalTransfers.map((transfer) => ({
-        ...transfer,
-        travelDate: transfer.travelDate.slice(0, 10),
-      })),
+      normalizeExternalTransfers(
+        meta.externalTransfers.map((transfer) => ({
+          ...transfer,
+          travelDate: transfer.travelDate.slice(0, 10),
+        })),
+      ),
     );
 
     const hydratedTransportGroups =
@@ -2525,15 +2787,17 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   useEffect(() => {
     setExternalTransfers((current) =>
-      current.map((transfer) =>
-        syncExternalTransferWithSelectedTeams(
-          {
-            ...transfer,
-            selectedTeamOrderIndexes: transfer.selectedTeamOrderIndexes.filter(
-              (teamOrderIndex) => teamOrderIndex >= 0 && teamOrderIndex < transportGroups.length,
-            ),
-          },
-          transportGroups,
+      normalizeExternalTransfers(
+        current.map((transfer) =>
+          syncExternalTransferWithSelectedTeams(
+            {
+              ...transfer,
+              selectedTeamOrderIndexes: transfer.selectedTeamOrderIndexes.filter(
+                (teamOrderIndex) => teamOrderIndex >= 0 && teamOrderIndex < transportGroups.length,
+              ),
+            },
+            transportGroups,
+          ),
         ),
       ),
     );
@@ -3233,9 +3497,13 @@ export function ItineraryBuilderPage(): JSX.Element {
       })),
     [planRows],
   );
+  const normalizedExternalTransfers = useMemo(
+    () => normalizeExternalTransfers(externalTransfers),
+    [externalTransfers],
+  );
   const mergedPlanStops = useMemo(
-    () => buildMergedPlanStops(planStopInputs, externalTransfers, transportGroups),
-    [externalTransfers, planStopInputs, transportGroups],
+    () => buildMergedPlanStops(planStopInputs, normalizedExternalTransfers, transportGroups),
+    [normalizedExternalTransfers, planStopInputs, transportGroups],
   );
   const planStopsForMutation = useMemo(
     () =>
@@ -3298,7 +3566,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
   const displayPlanRows = useMemo(() => {
     let mainRowIndex = 0;
-    return buildMergedPlanStops(planRows, externalTransfers, transportGroups).map((row) => {
+    return buildMergedPlanStops(planRows, normalizedExternalTransfers, transportGroups).map((row) => {
       if (row.rowType === 'EXTERNAL_TRANSFER') {
         return { row, mainRowIndex: null as number | null };
       }
@@ -3307,7 +3575,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       mainRowIndex += 1;
       return { row, mainRowIndex: currentMainRowIndex };
     });
-  }, [externalTransfers, planRows, transportGroups]);
+  }, [normalizedExternalTransfers, planRows, transportGroups]);
 
   const applyTemplate = (template: PlanTemplateRow, withConfirm = true): void => {
     const builderAllowsEarly =
@@ -3576,7 +3844,7 @@ export function ItineraryBuilderPage(): JSX.Element {
             item.level === 'CUSTOM' &&
             (!item.customLodgingId || item.customLodgingId.trim().length === 0),
         ) &&
-        !externalTransfers.some((t) => !isExternalTransferComplete(t)) &&
+        !normalizedExternalTransfers.some((t) => !isExternalTransferComplete(t)) &&
         (vehicleType !== '하이에이스' || headcountTotal >= 3),
       ),
     [
@@ -3584,7 +3852,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       travelStartDate,
       manualAdjustments,
       lodgingSelections,
-      externalTransfers,
+      normalizedExternalTransfers,
       vehicleType,
       headcountTotal,
     ],
@@ -3617,7 +3885,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         eventIds,
         extraLodgings,
         lodgingSelections,
-        externalTransfers,
+        externalTransfers: normalizedExternalTransfers,
         manualAdjustments: normalizedManualAdjustments,
         manualDepositAmountKrw: normalizedManualDepositAmountKrw,
       },
@@ -3644,7 +3912,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       pricingPreviewContext,
       normalizedManualPricing.enabled ? toManualPricingSnapshot(normalizedManualPricing) : null,
       normalizedManualDepositAmountKrw,
-    ) as EffectivePricingRow;
+    ) as unknown as EffectivePricingRow;
   }, [normalizedManualDepositAmountKrw, normalizedManualPricing, pricingPreview, pricingPreviewContext]);
   const serializedManualPricingSnapshot = useMemo(
     () =>
@@ -3665,6 +3933,10 @@ export function ItineraryBuilderPage(): JSX.Element {
           line.type === 'AUTO' && line.deleted === true && typeof line.rowKey === 'string',
       ),
     [normalizedManualPricing],
+  );
+  const displayedPricingAdjustmentLines = useMemo(
+    () => buildDisplayedPricingAdjustmentLines(effectivePricingPreview),
+    [effectivePricingPreview],
   );
   const { data: pricingPolicyManualPresetsData } = useQuery<PricingPolicyManualPresetQueryRow>(
     PRICING_POLICY_MANUAL_PRESETS_QUERY,
@@ -3705,7 +3977,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     travelEndDate,
     manualAdjustments,
     lodgingSelections,
-    externalTransfers,
+    externalTransfers: normalizedExternalTransfers,
     hasEditedManualDeposit,
     manualDepositInput,
     pricingPreview: effectivePricingPreview,
@@ -3771,7 +4043,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         travelEndDate,
         vehicleType,
         transportGroups: normalizedTransportGroups,
-        externalTransfers,
+        externalTransfers: normalizedExternalTransfers,
         specialNote: specialNote.trim(),
         includeRentalItems,
         rentalItemsText: rentalItemsText.trim(),
@@ -3779,6 +4051,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         remark: remark.trim(),
         planStops: mergedPlanStops,
         pricingPreview: effectivePricingPreview,
+        displayedPricingAdjustmentLines,
       }),
     [
       effectivePlanTitle,
@@ -3791,7 +4064,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       travelEndDate,
       vehicleType,
       normalizedTransportGroups,
-      externalTransfers,
+      normalizedExternalTransfers,
       specialNote,
       includeRentalItems,
       rentalItemsText,
@@ -3799,6 +4072,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       remark,
       planRows,
       effectivePricingPreview,
+      displayedPricingAdjustmentLines,
     ],
   );
   const { data: previewEstimateData, guidesLoading: previewGuidesLoading } =
@@ -4340,7 +4614,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                               ),
                               pickupDropNote: undefined,
                               externalPickupDropNote: undefined,
-                              externalTransfers: externalTransfers.map((transfer) => ({
+                              externalTransfers: normalizedExternalTransfers.map((transfer) => ({
                                 ...transfer,
                                 travelDate: toIsoDateTime(transfer.travelDate),
                               })),
@@ -4440,7 +4714,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                               ),
                               pickupDropNote: undefined,
                               externalPickupDropNote: undefined,
-                              externalTransfers: externalTransfers.map((transfer) => ({
+                              externalTransfers: normalizedExternalTransfers.map((transfer) => ({
                                 ...transfer,
                                 travelDate: toIsoDateTime(transfer.travelDate),
                               })),
@@ -5218,7 +5492,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                         variant="outline"
                         className="shrink-0 whitespace-nowrap"
                         onClick={() => {
-                          setExternalTransfersDraft(externalTransfers.map(cloneExternalTransfer));
+                          setExternalTransfersDraft(normalizeExternalTransfers(externalTransfers.map(cloneExternalTransfer)));
                           setExternalTransfersManagerModalState({ open: true });
                         }}
                       >
@@ -6188,34 +6462,43 @@ export function ItineraryBuilderPage(): JSX.Element {
                               : '견적서 1페이지와 같은 출력 형식입니다.'}
                           </span>
                         </div>
-                        {effectivePricingPreview.adjustmentLines.length === 0 ? (
+                        {displayedPricingAdjustmentLines.length === 0 ? (
                           <p className="mt-2 text-xs text-slate-500">추가금 항목이 없습니다.</p>
                         ) : (
                           <div className="mt-3 space-y-2">
-                            {effectivePricingPreview.adjustmentLines.map((line) => (
+                            {displayedPricingAdjustmentLines.map((line) => (
                               <div
-                                key={line.id}
+                                key={`${line.id}-${line.teamOrderIndexes.join(',') || 'global'}`}
                                 className="grid gap-2 rounded-xl border border-slate-200 p-3 lg:grid-cols-[minmax(0,1.5fr)_160px_minmax(0,1fr)_auto]"
                               >
                                 {manualPricing.enabled ? (
                                   <>
-                                    <input
-                                      type="text"
-                                      value={line.label}
-                                      onChange={(event) =>
-                                        setManualPricing((current) =>
-                                          line.type === 'MANUAL'
-                                            ? updateManualPricingCustomLine(current, line.id, {
-                                                label: event.target.value,
-                                              })
-                                            : upsertManualPricingAutoOverride(current, line, {
-                                                label: event.target.value,
-                                              }),
-                                        )
-                                      }
-                                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                                      placeholder="항목"
-                                    />
+                                    <div className="grid gap-1">
+                                      {!line.isSharedAcrossTeams && line.teamNames[0] ? (
+                                        <div className="text-xs font-medium text-slate-500">{line.teamNames[0]}</div>
+                                      ) : null}
+                                      <input
+                                        type="text"
+                                        value={line.label}
+                                        onChange={(event) =>
+                                          setManualPricing((current) =>
+                                            line.type === 'MANUAL'
+                                              ? updateManualPricingCustomLine(current, line.sourceLines[0]!.id, {
+                                                  label: event.target.value,
+                                                })
+                                              : line.sourceLines.reduce(
+                                                  (nextState, sourceLine) =>
+                                                    upsertManualPricingAutoOverride(nextState, sourceLine, {
+                                                      label: event.target.value,
+                                                    }),
+                                                  current,
+                                                ),
+                                          )
+                                        }
+                                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                        placeholder="항목"
+                                      />
+                                    </div>
                                     <input
                                       type="number"
                                       step={1}
@@ -6227,12 +6510,16 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         }
                                         setManualPricing((current) =>
                                           line.type === 'MANUAL'
-                                            ? updateManualPricingCustomLine(current, line.id, {
+                                            ? updateManualPricingCustomLine(current, line.sourceLines[0]!.id, {
                                                 leadAmountKrw: nextAmount,
                                               })
-                                            : upsertManualPricingAutoOverride(current, line, {
-                                                leadAmountKrw: nextAmount,
-                                              }),
+                                            : line.sourceLines.reduce(
+                                                (nextState, sourceLine) =>
+                                                  upsertManualPricingAutoOverride(nextState, sourceLine, {
+                                                    leadAmountKrw: nextAmount,
+                                                  }),
+                                                current,
+                                              ),
                                         );
                                       }}
                                       className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
@@ -6244,12 +6531,16 @@ export function ItineraryBuilderPage(): JSX.Element {
                                       onChange={(event) =>
                                         setManualPricing((current) =>
                                           line.type === 'MANUAL'
-                                            ? updateManualPricingCustomLine(current, line.id, {
+                                            ? updateManualPricingCustomLine(current, line.sourceLines[0]!.id, {
                                                 formula: event.target.value,
                                               })
-                                            : upsertManualPricingAutoOverride(current, line, {
-                                                formula: event.target.value,
-                                              }),
+                                            : line.sourceLines.reduce(
+                                                (nextState, sourceLine) =>
+                                                  upsertManualPricingAutoOverride(nextState, sourceLine, {
+                                                    formula: event.target.value,
+                                                  }),
+                                                current,
+                                              ),
                                         )
                                       }
                                       className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
@@ -6262,7 +6553,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                                           className="text-xs text-slate-500 underline"
                                           onClick={() =>
                                             setManualPricing((current) =>
-                                              restoreManualPricingAutoLine(current, line.rowKey ?? ''),
+                                              line.sourceLines.reduce(
+                                                (nextState, sourceLine) =>
+                                                  restoreManualPricingAutoLine(nextState, sourceLine.rowKey ?? ''),
+                                                current,
+                                              ),
                                             )
                                           }
                                         >
@@ -6275,8 +6570,14 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         onClick={() =>
                                           setManualPricing((current) =>
                                             line.type === 'MANUAL'
-                                              ? removeManualPricingCustomLine(current, line.id)
-                                              : upsertManualPricingAutoOverride(current, line, { deleted: true }),
+                                              ? removeManualPricingCustomLine(current, line.sourceLines[0]!.id)
+                                              : line.sourceLines.reduce(
+                                                  (nextState, sourceLine) =>
+                                                    upsertManualPricingAutoOverride(nextState, sourceLine, {
+                                                      deleted: true,
+                                                    }),
+                                                  current,
+                                                ),
                                           )
                                         }
                                       >
@@ -6286,7 +6587,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   </>
                                 ) : (
                                   <>
-                                    <div className="text-sm font-medium text-slate-900">{line.label}</div>
+                                    <div className="grid gap-1">
+                                      {!line.isSharedAcrossTeams && line.teamNames[0] ? (
+                                        <div className="text-xs font-medium text-slate-500">{line.teamNames[0]}</div>
+                                      ) : null}
+                                      <div className="text-sm font-medium text-slate-900">{line.label}</div>
+                                    </div>
                                     <div className="text-sm font-semibold text-slate-900">
                                       {formatSignedKrw(line.leadAmountKrw)}
                                     </div>
@@ -6326,42 +6632,66 @@ export function ItineraryBuilderPage(): JSX.Element {
                           <div className="border-r border-slate-200 px-2 py-2">잔금(1인)</div>
                           <div className="px-2 py-2">보증금(팀당/인당)</div>
                         </div>
-                        <div className="grid grid-cols-4 gap-0 text-center text-sm text-slate-900">
+                        <div className="grid grid-cols-4 gap-0 text-sm text-slate-900">
                           {(
                             [
-                              ['totalAmountKrw', effectivePricingPreview.totalAmountKrw],
-                              ['depositAmountKrw', effectivePricingPreview.depositAmountKrw],
-                              ['balanceAmountKrw', effectivePricingPreview.balanceAmountKrw],
-                              ['securityDepositAmountKrw', effectivePricingPreview.securityDepositAmountKrw],
+                              ['totalAmountKrw', 'totalAmountKrw'],
+                              ['depositAmountKrw', 'depositAmountKrw'],
+                              ['balanceAmountKrw', 'balanceAmountKrw'],
+                              ['securityDepositAmountKrw', 'securityDepositAmountKrw'],
                             ] as const
-                          ).map(([field, value], index) => (
-                            <div
-                              key={field}
-                              className={`${index < 3 ? 'border-r border-slate-200' : ''} px-2 py-3`}
-                            >
-                              {manualPricing.enabled ? (
-                                <input
-                                  type="number"
-                                  step={1}
-                                  value={value}
-                                  onChange={(event) => {
-                                    const nextValue = Number(event.target.value);
-                                    if (!Number.isInteger(nextValue)) {
-                                      return;
-                                    }
-                                    setManualPricing((current) =>
-                                      setManualPricingSummaryValue(current, field, nextValue),
-                                    );
-                                  }}
-                                  className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-sm"
-                                />
-                              ) : field === 'securityDepositAmountKrw' && effectivePricingPreview.securityDepositMode !== 'NONE' ? (
-                                `${formatKrw(effectivePricingPreview.securityDepositUnitPriceKrw)} (${formatSecurityDepositScope(
-                                  effectivePricingPreview.securityDepositMode,
-                                )})`
-                              ) : (
-                                formatKrw(value)
-                              )}
+                          ).map(([key, field], index) => (
+                            <div key={key} className={`${index < 3 ? 'border-r border-slate-200' : ''} px-2 py-3`}>
+                              <div className="space-y-2">
+                                {effectivePricingPreview.teamPricings.length === 0 ? (
+                                  <div className="text-center">
+                                    {field === 'securityDepositAmountKrw' &&
+                                    effectivePricingPreview.securityDepositMode !== 'NONE'
+                                      ? `${formatKrw(effectivePricingPreview.securityDepositUnitPriceKrw)} (${formatSecurityDepositScope(
+                                          effectivePricingPreview.securityDepositMode,
+                                        )})`
+                                      : formatKrw(effectivePricingPreview[key])}
+                                  </div>
+                                ) : (
+                                  effectivePricingPreview.teamPricings.map((teamPricing) => (
+                                    <div key={`${field}-${teamPricing.teamOrderIndex}`} className="grid gap-1">
+                                      <div className="text-center text-xs font-medium text-slate-500">
+                                        {teamPricing.teamName}
+                                      </div>
+                                      {manualPricing.enabled ? (
+                                        <input
+                                          type="number"
+                                          step={1}
+                                          value={teamPricing[field]}
+                                          onChange={(event) => {
+                                            const nextValue = Number(event.target.value);
+                                            if (!Number.isInteger(nextValue)) {
+                                              return;
+                                            }
+                                            setManualPricing((current) =>
+                                              setManualPricingTeamSummaryValue(
+                                                current,
+                                                teamPricing.teamOrderIndex,
+                                                field,
+                                                nextValue,
+                                              ),
+                                            );
+                                          }}
+                                          className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-sm"
+                                        />
+                                      ) : field === 'securityDepositAmountKrw' && teamPricing.securityDepositMode !== 'NONE' ? (
+                                        <div className="text-center">
+                                          {`${formatKrw(teamPricing.securityDepositUnitPriceKrw)} (${formatSecurityDepositScope(
+                                            teamPricing.securityDepositMode,
+                                          )})`}
+                                        </div>
+                                      ) : (
+                                        <div className="text-center">{formatKrw(teamPricing[field])}</div>
+                                      )}
+                                    </div>
+                                  ))
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -6466,7 +6796,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   DEFAULT_PICKUP_DROP_PLACE_TYPE,
                                 dropPlaceCustomText:
                                   primaryTransportGroup?.dropPlaceCustomText ?? '',
-                                externalTransfers,
+                                externalTransfers: normalizedExternalTransfers,
                                 transportGroups: normalizedTransportGroups,
                                 specialNote,
                                 includeRentalItems,
@@ -6513,7 +6843,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   DEFAULT_PICKUP_DROP_PLACE_TYPE,
                                 dropPlaceCustomText:
                                   primaryTransportGroup?.dropPlaceCustomText ?? '',
-                                externalTransfers,
+                                externalTransfers: normalizedExternalTransfers,
                                 transportGroups: normalizedTransportGroups,
                                 specialNote,
                                 includeRentalItems,
@@ -6595,7 +6925,7 @@ export function ItineraryBuilderPage(): JSX.Element {
             });
           }}
           onComplete={() => {
-            setExternalTransfers(externalTransfersDraft.map(cloneExternalTransfer));
+            setExternalTransfers(normalizeExternalTransfers(externalTransfersDraft.map(cloneExternalTransfer)));
             setExternalTransfersManagerModalState({ open: false });
             setExternalTransfersDraft([]);
             setExternalTransferModalState({
@@ -6640,11 +6970,13 @@ export function ItineraryBuilderPage(): JSX.Element {
           onSubmit={(value) => {
             setExternalTransfersDraft((current) => {
               if (externalTransferModalState.editingIndex === null) {
-                return [...current, value];
+                return normalizeExternalTransfers([...current, value]);
               }
 
-              return current.map((item, index) =>
-                index === externalTransferModalState.editingIndex ? value : item,
+              return normalizeExternalTransfers(
+                current.map((item, index) =>
+                  index === externalTransferModalState.editingIndex ? value : item,
+                ),
               );
             });
             setExternalTransferModalState({

@@ -127,15 +127,28 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     basePricePerPersonKrw,
     adjustmentLines:
       pricing?.adjustmentLines.map((line) => ({
+        teamName: null,
         label: line.label,
         leadAmountKrw: line.leadAmountKrw,
         formula: line.formula,
       })) ??
       (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []).map((line) => ({
+        teamName: null,
         label: getPricingLineLabel(line),
         leadAmountKrw: resolveDisplayLeadAmount(line, pricingCtx),
         formula: formatPricingDetailFormula(line, pricingCtx),
       })),
+    teamPricings:
+      pricing?.teamPricings.map((teamPricing) => ({
+        teamOrderIndex: teamPricing.teamOrderIndex,
+        teamName: teamPricing.teamName,
+        totalAmountKrw: teamPricing.totalAmountKrw,
+        depositAmountKrw: teamPricing.depositAmountKrw,
+        balanceAmountKrw: teamPricing.balanceAmountKrw,
+        securityDepositAmountKrw: teamPricing.securityDepositAmountKrw,
+        securityDepositUnitKrw: teamPricing.securityDepositUnitPriceKrw,
+        securityDepositScope: toSecurityDepositScope(teamPricing.securityDepositMode),
+      })) ?? [],
     totalPricePerPersonKrw: pricing?.totalAmountKrw ?? null,
     depositPricePerPersonKrw: pricing?.depositAmountKrw ?? null,
     balancePricePerPersonKrw: pricing?.balanceAmountKrw ?? null,

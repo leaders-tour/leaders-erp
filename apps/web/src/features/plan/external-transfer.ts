@@ -315,6 +315,7 @@ export function syncExternalTransferWithSelectedTeams(
 
   const nextSelectedTeamOrderIndexes = transfer.selectedTeamOrderIndexes
     .filter((teamOrderIndex) => Number.isInteger(teamOrderIndex) && teamOrderIndex >= 0 && teamOrderIndex < teams.length)
+    .filter((teamOrderIndex, index, array) => array.indexOf(teamOrderIndex) === index)
     .sort((left, right) => left - right);
   const firstTeamOrderIndex = nextSelectedTeamOrderIndexes[0];
   const presetTransfer = buildExternalTransferFromPreset(
@@ -328,6 +329,51 @@ export function syncExternalTransferWithSelectedTeams(
     ...presetTransfer,
     selectedTeamOrderIndexes: nextSelectedTeamOrderIndexes,
   };
+}
+
+function normalizeExternalTransferTeamIndexes(selectedTeamOrderIndexes: number[]): number[] {
+  return Array.from(new Set(selectedTeamOrderIndexes.filter((teamOrderIndex) => Number.isInteger(teamOrderIndex)))).sort(
+    (left, right) => left - right,
+  );
+}
+
+function getExternalTransferSignature(transfer: ExternalTransfer): string {
+  return [
+    transfer.direction,
+    transfer.presetCode,
+    transfer.travelDate.trim(),
+    transfer.departureTime.trim(),
+    transfer.arrivalTime.trim(),
+    transfer.departurePlace.trim(),
+    transfer.arrivalPlace.trim(),
+    normalizeExternalTransferTeamIndexes(transfer.selectedTeamOrderIndexes).join(','),
+  ].join('|');
+}
+
+export function normalizeExternalTransfers(transfers: ExternalTransfer[] | null | undefined): ExternalTransfer[] {
+  if (!transfers || transfers.length === 0) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  return transfers
+    .map((transfer) => ({
+      ...transfer,
+      travelDate: transfer.travelDate.trim(),
+      departureTime: transfer.departureTime.trim(),
+      arrivalTime: transfer.arrivalTime.trim(),
+      departurePlace: transfer.departurePlace.trim(),
+      arrivalPlace: transfer.arrivalPlace.trim(),
+      selectedTeamOrderIndexes: normalizeExternalTransferTeamIndexes(transfer.selectedTeamOrderIndexes),
+    }))
+    .filter((transfer) => {
+      const signature = getExternalTransferSignature(transfer);
+      if (seen.has(signature)) {
+        return false;
+      }
+      seen.add(signature);
+      return true;
+    });
 }
 
 export function isExternalTransferComplete(transfer: ExternalTransfer): boolean {

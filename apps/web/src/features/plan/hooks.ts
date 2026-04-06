@@ -200,6 +200,9 @@ export interface PlanPricingLineRow {
   displayText?: string | null;
   /** Display-only: merged lodging lines show quantity as "N박". */
   quantityDisplaySuffix?: '박';
+  teamOrderIndex?: number | null;
+  teamName?: string | null;
+  headcount?: number | null;
 }
 
 export interface PlanVersionPricingRow {
@@ -238,6 +241,7 @@ export interface PlanVersionPricingRow {
       id: string;
       type: 'AUTO' | 'MANUAL';
       rowKey?: string | null;
+      teamOrderIndex?: number | null;
       label: string;
       leadAmountKrw: number;
       formula: string;
@@ -250,6 +254,14 @@ export interface PlanVersionPricingRow {
       balanceAmountKrw?: number | null;
       securityDepositAmountKrw?: number | null;
     } | null;
+    teamSummaries: Array<{
+      teamOrderIndex: number;
+      baseAmountKrw?: number | null;
+      totalAmountKrw?: number | null;
+      depositAmountKrw?: number | null;
+      balanceAmountKrw?: number | null;
+      securityDepositAmountKrw?: number | null;
+    }>;
     lineOverrides: Array<{
       rowKey: string;
       amountKrw: number;
@@ -262,7 +274,41 @@ export interface PlanVersionPricingRow {
     depositAmountKrw: number;
     balanceAmountKrw: number;
     securityDepositAmountKrw: number;
+    teamPricings: Array<{
+      teamOrderIndex: number;
+      teamName: string;
+      headcount: number;
+      baseAmountKrw: number;
+      addonAmountKrw: number;
+      totalAmountKrw: number;
+      depositAmountKrw: number;
+      balanceAmountKrw: number;
+      securityDepositAmountKrw: number;
+      securityDepositUnitPriceKrw: number;
+      securityDepositQuantity: number;
+      securityDepositMode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+      lines: PlanPricingLineRow[];
+    }>;
   } | null;
+  teamPricings: Array<{
+    teamOrderIndex: number;
+    teamName: string;
+    headcount: number;
+    baseAmountKrw: number;
+    addonAmountKrw: number;
+    totalAmountKrw: number;
+    depositAmountKrw: number;
+    balanceAmountKrw: number;
+    securityDepositAmountKrw: number;
+    securityDepositUnitPriceKrw: number;
+    securityDepositQuantity: number;
+    securityDepositMode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+    securityDepositEvent: {
+      id: string;
+      name: string;
+    } | null;
+    lines: PlanPricingLineRow[];
+  }>;
   lines: PlanPricingLineRow[];
   createdAt: string;
   updatedAt: string;
@@ -671,12 +717,21 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
             id
             type
             rowKey
+            teamOrderIndex
             label
             leadAmountKrw
             formula
             deleted
           }
           summary {
+            baseAmountKrw
+            totalAmountKrw
+            depositAmountKrw
+            balanceAmountKrw
+            securityDepositAmountKrw
+          }
+          teamSummaries {
+            teamOrderIndex
             baseAmountKrw
             totalAmountKrw
             depositAmountKrw
@@ -695,6 +750,78 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
           depositAmountKrw
           balanceAmountKrw
           securityDepositAmountKrw
+          teamPricings {
+            teamOrderIndex
+            teamName
+            headcount
+            baseAmountKrw
+            addonAmountKrw
+            totalAmountKrw
+            depositAmountKrw
+            balanceAmountKrw
+            securityDepositAmountKrw
+            securityDepositUnitPriceKrw
+            securityDepositQuantity
+            securityDepositMode
+            lines {
+              id
+              ruleType
+              lineCode
+              sourceType
+              description
+              ruleId
+              unitPriceKrw
+              quantity
+              amountKrw
+              displayBasis
+              displayLabel
+              displayUnitAmountKrw
+              displayCount
+              displayDivisorPerson
+              displayText
+              teamOrderIndex
+              teamName
+              headcount
+            }
+          }
+        }
+        teamPricings {
+          teamOrderIndex
+          teamName
+          headcount
+          baseAmountKrw
+          addonAmountKrw
+          totalAmountKrw
+          depositAmountKrw
+          balanceAmountKrw
+          securityDepositAmountKrw
+          securityDepositUnitPriceKrw
+          securityDepositQuantity
+          securityDepositMode
+          securityDepositEvent {
+            id
+            name
+          }
+          lines {
+            id
+            ruleType
+            lineCode
+            sourceType
+            description
+            ruleId
+            unitPriceKrw
+            quantity
+            amountKrw
+            displayBasis
+            displayLabel
+            displayUnitAmountKrw
+            displayCount
+            displayDivisorPerson
+            displayText
+            teamOrderIndex
+            teamName
+            headcount
+          }
         }
         createdAt
         updatedAt
@@ -714,6 +841,9 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
           displayCount
           displayDivisorPerson
           displayText
+          teamOrderIndex
+          teamName
+          headcount
         }
       }
     }

@@ -54,6 +54,7 @@ export interface EstimatePricingSnapshot {
   securityDepositUnitKrw: number;
   securityDepositMode: EstimateSecurityDepositMode;
   adjustmentLines?: EstimateAdjustmentLine[];
+  teamPricings?: EstimateTeamPricing[];
   lines: EstimatePricingLineSnapshot[];
 }
 
@@ -97,9 +98,21 @@ export interface EstimateBuilderDraftSnapshot {
 }
 
 export interface EstimateAdjustmentLine {
+  teamName?: string | null;
   label: string;
   leadAmountKrw: number;
   formula: string;
+}
+
+export interface EstimateTeamPricing {
+  teamOrderIndex: number;
+  teamName: string;
+  totalAmountKrw: number;
+  depositAmountKrw: number;
+  balanceAmountKrw: number;
+  securityDepositAmountKrw: number;
+  securityDepositUnitKrw: number;
+  securityDepositScope: EstimateSecurityDepositScope;
 }
 
 export interface EstimateDocumentData {
@@ -150,6 +163,7 @@ export interface EstimateDocumentData {
   remarkText: string;
   basePricePerPersonKrw: number | null;
   adjustmentLines: EstimateAdjustmentLine[];
+  teamPricings: EstimateTeamPricing[];
   totalPricePerPersonKrw: number | null;
   depositPricePerPersonKrw: number | null;
   balancePricePerPersonKrw: number | null;

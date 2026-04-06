@@ -134,6 +134,9 @@ export interface PricingComputedLine {
   amountKrw: number;
   meta: Record<string, unknown> | null;
   display: PricingLineDisplay;
+  teamOrderIndex?: number | null;
+  teamName?: string | null;
+  headcount?: number | null;
 }
 
 /** display 부착 전 계산 단계 */
@@ -162,6 +165,7 @@ export interface PricingComputationResult {
   longDistanceSegmentCount: number;
   extraLodgingCount: number;
   lines: PricingComputedLine[];
+  teamPricings: TeamPricingResult[];
   inputSnapshot: Record<string, unknown>;
 }
 
@@ -172,6 +176,27 @@ export interface OriginalPricingSnapshot {
   depositAmountKrw: number;
   balanceAmountKrw: number;
   securityDepositAmountKrw: number;
+  teamPricings?: TeamPricingResult[];
+}
+
+export interface TeamPricingResult {
+  teamOrderIndex: number;
+  teamName: string;
+  headcount: number;
+  baseAmountKrw: number;
+  addonAmountKrw: number;
+  totalAmountKrw: number;
+  depositAmountKrw: number;
+  balanceAmountKrw: number;
+  securityDepositAmountKrw: number;
+  securityDepositUnitPriceKrw: number;
+  securityDepositQuantity: number;
+  securityDepositMode: SecurityDepositMode;
+  securityDepositEvent?: {
+    id: string;
+    name: string;
+  } | null;
+  lines: PricingComputedLine[];
 }
 
 export interface PricingSnapshotPersistInput {

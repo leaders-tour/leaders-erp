@@ -666,6 +666,16 @@
 
 .estimate-page1-price-line-label {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.estimate-page1-price-line-team {
+  color: #6b645b;
+  font-size: var(--estimate-page1-small-font-size);
+  font-weight: 500;
 }
 
 .estimate-page1-price-line-amount {
@@ -736,6 +746,22 @@
     var(--estimate-page1-table-cell-padding-y),
     calc((var(--estimate-page1-summary-row-min-height) - 1.35em) / 2)
   );
+}
+
+.estimate-page1-summary-team-list {
+  display: grid;
+  gap: 6px;
+}
+
+.estimate-page1-summary-team-item {
+  display: grid;
+  gap: 2px;
+}
+
+.estimate-page1-summary-team-name {
+  color: #6b645b;
+  font-size: var(--estimate-page1-small-font-size);
+  font-weight: 500;
 }
 
 .estimate-page1-validity-note {

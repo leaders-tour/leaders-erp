@@ -69,10 +69,12 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     adjustmentLines:
       snapshot.pricing?.adjustmentLines ??
       (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []).map((line) => ({
+        teamName: null,
         label: getPricingLineLabel(line),
         leadAmountKrw: resolveDisplayLeadAmount(line, pricingCtx),
         formula: formatPricingDetailFormula(line, pricingCtx),
       })),
+    teamPricings: snapshot.pricing?.teamPricings ?? [],
     totalPricePerPersonKrw: snapshot.pricing?.totalAmountKrw ?? null,
     depositPricePerPersonKrw: snapshot.pricing?.depositAmountKrw ?? null,
     balancePricePerPersonKrw: snapshot.pricing?.balanceAmountKrw ?? null,

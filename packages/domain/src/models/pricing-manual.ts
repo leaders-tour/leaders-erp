@@ -28,6 +28,9 @@ export interface PricingManualSourceLine {
   displayDivisorPerson?: number | null;
   displayText?: string | null;
   quantityDisplaySuffix?: PricingMergedQuantitySuffix;
+  teamOrderIndex?: number | null;
+  teamName?: string | null;
+  headcount?: number | null;
 }
 
 export interface PricingManualLineOverride {
@@ -41,6 +44,7 @@ export interface PricingManualAdjustmentLine {
   id: string;
   type: PricingManualAdjustmentLineType;
   rowKey?: string | null;
+  teamOrderIndex?: number | null;
   label: string;
   leadAmountKrw: number;
   formula: string;
@@ -55,10 +59,15 @@ export interface PricingManualSummarySnapshot {
   securityDepositAmountKrw?: number | null;
 }
 
+export interface PricingManualTeamSummarySnapshot extends PricingManualSummarySnapshot {
+  teamOrderIndex: number;
+}
+
 export interface PricingManualSnapshot {
   enabled: boolean;
   adjustmentLines?: PricingManualAdjustmentLine[];
   summary?: PricingManualSummarySnapshot | null;
+  teamSummaries?: PricingManualTeamSummarySnapshot[];
   /**
    * Legacy field kept for backward compatibility with early manual-pricing saves.
    * New writes should use `adjustmentLines`.
@@ -163,6 +172,8 @@ function buildRowKey<TLine extends PricingManualSourceLine>(
     normalizeSignaturePart(line.lineCode),
     normalizeSignaturePart(line.ruleType),
     normalizeSignaturePart(line.ruleId),
+    normalizeSignaturePart(line.teamOrderIndex),
+    normalizeSignaturePart(line.teamName),
     normalizeSignaturePart(line.displayLabel),
     normalizeSignaturePart(line.description),
     normalizeSignaturePart(line.displayBasis),

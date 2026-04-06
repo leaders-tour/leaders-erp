@@ -909,7 +909,10 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                     <div key={`adj-${index}`} className="estimate-page1-price-line">
                       <span className="estimate-page1-price-line-gutter" aria-hidden="true" />
                       <span className="estimate-page1-price-line-lead">
-                        <span className="estimate-page1-price-line-label">{line.label}</span>
+                        <span className="estimate-page1-price-line-label">
+                          {line.teamName ? <span className="estimate-page1-price-line-team">{line.teamName}</span> : null}
+                          <span>{line.label}</span>
+                        </span>
                         <strong className="estimate-page1-price-line-amount">
                         {formatSignedCurrency(line.leadAmountKrw)}
                         </strong>
@@ -935,10 +938,66 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
             </thead>
             <tbody>
               <tr>
-                <td className="emphasis">{blankIfDash(formatCurrency(data.totalPricePerPersonKrw))}</td>
-                <td className="emphasis">{blankIfDash(formatCurrency(data.depositPricePerPersonKrw))}</td>
-                <td className="emphasis">{blankIfDash(formatCurrency(data.balancePricePerPersonKrw))}</td>
-                <td className="emphasis">{securityDepositSummary}</td>
+                <td className="emphasis">
+                  {data.teamPricings.length > 0 ? (
+                    <div className="estimate-page1-summary-team-list">
+                      {data.teamPricings.map((teamPricing) => (
+                        <div key={`total-${teamPricing.teamOrderIndex}`} className="estimate-page1-summary-team-item">
+                          <div className="estimate-page1-summary-team-name">{teamPricing.teamName}</div>
+                          <div>{blankIfDash(formatCurrency(teamPricing.totalAmountKrw))}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    blankIfDash(formatCurrency(data.totalPricePerPersonKrw))
+                  )}
+                </td>
+                <td className="emphasis">
+                  {data.teamPricings.length > 0 ? (
+                    <div className="estimate-page1-summary-team-list">
+                      {data.teamPricings.map((teamPricing) => (
+                        <div key={`deposit-${teamPricing.teamOrderIndex}`} className="estimate-page1-summary-team-item">
+                          <div className="estimate-page1-summary-team-name">{teamPricing.teamName}</div>
+                          <div>{blankIfDash(formatCurrency(teamPricing.depositAmountKrw))}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    blankIfDash(formatCurrency(data.depositPricePerPersonKrw))
+                  )}
+                </td>
+                <td className="emphasis">
+                  {data.teamPricings.length > 0 ? (
+                    <div className="estimate-page1-summary-team-list">
+                      {data.teamPricings.map((teamPricing) => (
+                        <div key={`balance-${teamPricing.teamOrderIndex}`} className="estimate-page1-summary-team-item">
+                          <div className="estimate-page1-summary-team-name">{teamPricing.teamName}</div>
+                          <div>{blankIfDash(formatCurrency(teamPricing.balanceAmountKrw))}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    blankIfDash(formatCurrency(data.balancePricePerPersonKrw))
+                  )}
+                </td>
+                <td className="emphasis">
+                  {data.teamPricings.length > 0 ? (
+                    <div className="estimate-page1-summary-team-list">
+                      {data.teamPricings.map((teamPricing) => (
+                        <div key={`security-${teamPricing.teamOrderIndex}`} className="estimate-page1-summary-team-item">
+                          <div className="estimate-page1-summary-team-name">{teamPricing.teamName}</div>
+                          <div>
+                            {teamPricing.securityDepositScope === '-'
+                              ? blankIfDash(formatCurrency(teamPricing.securityDepositAmountKrw))
+                              : `${formatCurrency(teamPricing.securityDepositUnitKrw)} (${teamPricing.securityDepositScope})`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    securityDepositSummary
+                  )}
+                </td>
               </tr>
             </tbody>
             </table>

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildExternalTransferDirectionText,
   buildExternalTransferFromPreset,
+  normalizeExternalTransfers,
   type ExternalTransfer,
 } from './external-transfer';
 
@@ -124,5 +125,43 @@ describe('external-transfer formatting', () => {
     expect(buildExternalTransferDirectionText(transfers, teams, 'DROP')).toBe(
       'A팀 05/03 13:45 테를지 > 15:15 공항\nB팀 05/03 13:45 테를지 > 15:15 공항',
     );
+  });
+
+  it('dedupes identical transfers and duplicate team indexes', () => {
+    expect(
+      normalizeExternalTransfers([
+        {
+          direction: 'DROP',
+          presetCode: 'DROP_TERELJ_AIRPORT',
+          travelDate: '2026-05-03 ',
+          departureTime: '13:45',
+          arrivalTime: '15:15',
+          departurePlace: '테를지',
+          arrivalPlace: '공항 ',
+          selectedTeamOrderIndexes: [1, 0, 1],
+        },
+        {
+          direction: 'DROP',
+          presetCode: 'DROP_TERELJ_AIRPORT',
+          travelDate: '2026-05-03',
+          departureTime: '13:45 ',
+          arrivalTime: '15:15',
+          departurePlace: '테를지 ',
+          arrivalPlace: '공항',
+          selectedTeamOrderIndexes: [0, 1],
+        },
+      ]),
+    ).toEqual([
+      {
+        direction: 'DROP',
+        presetCode: 'DROP_TERELJ_AIRPORT',
+        travelDate: '2026-05-03',
+        departureTime: '13:45',
+        arrivalTime: '15:15',
+        departurePlace: '테를지',
+        arrivalPlace: '공항',
+        selectedTeamOrderIndexes: [0, 1],
+      },
+    ]);
   });
 });

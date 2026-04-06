@@ -183,4 +183,440 @@ describe('PricingService.preview', () => {
     expect(result.addonAmountKrw).toBe(-41_700);
     expect(result.totalAmountKrw).toBe(958_300);
   });
+
+  it('keeps shared TEAM charges common across all teams', async () => {
+    const service = makeService([
+      makeRule({
+        id: 'base-rule',
+        priceItemPreset: 'BASE',
+        ruleType: 'BASE',
+        title: '기본금',
+        lineCode: 'BASE',
+        amountKrw: 1_000_000,
+      }),
+      makeRule({
+        id: 'early-rule',
+        title: '얼리 스타트',
+        lineCode: 'EARLY',
+        amountKrw: 240_000,
+        variantTypes: ['early', 'earlyExtend'],
+        chargeScope: 'TEAM',
+        personMode: null,
+      }),
+    ]);
+
+    const result = await service.preview(
+      makeInput({
+        variantType: VariantType.EARLY,
+        headcountTotal: 6,
+        transportGroupCount: 2,
+        transportGroups: [
+          {
+            teamName: 'A팀',
+            headcount: 2,
+            flightInDate: '2026-04-01',
+            flightInTime: '10:00',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+          },
+          {
+            teamName: 'B팀',
+            headcount: 4,
+            flightInDate: '2026-04-01',
+            flightInTime: '10:00',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+          },
+        ],
+      }),
+    );
+
+    expect(result.teamPricings).toHaveLength(2);
+    expect(result.teamPricings[0]).toMatchObject({
+      teamOrderIndex: 0,
+      teamName: 'A팀',
+      totalAmountKrw: 1_040_000,
+      addonAmountKrw: 40_000,
+    });
+    expect(result.teamPricings[1]).toMatchObject({
+      teamOrderIndex: 1,
+      teamName: 'B팀',
+      totalAmountKrw: 1_040_000,
+      addonAmountKrw: 40_000,
+    });
+    expect(result.teamPricings[0]?.lines.find((line) => line.lineCode === 'EARLY')).toMatchObject({
+      amountKrw: 40_000,
+      display: {
+        basis: 'TEAM_DIV_PERSON',
+        divisorPerson: 6,
+      },
+    });
+    expect(result.teamPricings[1]?.lines.find((line) => line.lineCode === 'EARLY')).toMatchObject({
+      amountKrw: 40_000,
+      display: {
+        basis: 'TEAM_DIV_PERSON',
+        divisorPerson: 6,
+      },
+    });
+  });
+
+  it('assigns external transfer charges only to selected teams', async () => {
+    const service = makeService([
+      makeRule({
+        id: 'base-rule',
+        priceItemPreset: 'BASE',
+        ruleType: 'BASE',
+        title: '기본금',
+        lineCode: 'BASE',
+        amountKrw: 1_000_000,
+      }),
+      makeRule({
+        id: 'pickup-rule',
+        title: '외부 픽업',
+        lineCode: 'PICKUP_DROP',
+        amountKrw: 100_000,
+        chargeScope: 'TEAM',
+        personMode: null,
+        externalTransferMode: 'PICKUP_ONLY',
+      }),
+    ]);
+
+    const result = await service.preview(
+      makeInput({
+        variantType: VariantType.EARLY,
+        headcountTotal: 6,
+        transportGroupCount: 2,
+        transportGroups: [
+          {
+            teamName: 'A팀',
+            headcount: 2,
+            flightInDate: '2026-04-01',
+            flightInTime: '10:00',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+          },
+          {
+            teamName: 'B팀',
+            headcount: 4,
+            flightInDate: '2026-04-01',
+            flightInTime: '10:00',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+          },
+        ],
+        externalTransfers: [
+          {
+            direction: 'PICKUP',
+            presetCode: 'PICKUP_AIRPORT_OZHOUSE',
+            travelDate: '2026-04-01',
+            departureTime: '11:00',
+            arrivalTime: '12:00',
+            departurePlace: '공항',
+            arrivalPlace: '오즈하우스',
+            selectedTeamOrderIndexes: [0],
+          },
+        ],
+      }),
+    );
+
+    expect(result.teamPricings[0]?.lines.find((line) => line.lineCode === 'PICKUP_DROP')).toMatchObject({
+      teamOrderIndex: 0,
+      teamName: 'A팀',
+      amountKrw: 50_000,
+    });
+    expect(result.teamPricings[1]?.lines.find((line) => line.lineCode === 'PICKUP_DROP')).toBeUndefined();
+  });
+
+  it('dedupes identical external transfer pickups for the same team', async () => {
+    const service = makeService([
+      makeRule({
+        id: 'base-rule',
+        priceItemPreset: 'BASE',
+        ruleType: 'BASE',
+        title: '기본금',
+        lineCode: 'BASE',
+        amountKrw: 1_000_000,
+      }),
+      makeRule({
+        id: 'pickup-rule',
+        title: '외부 픽업',
+        lineCode: 'PICKUP_DROP',
+        amountKrw: 100_000,
+        chargeScope: 'TEAM',
+        personMode: null,
+        externalTransferMode: 'PICKUP_ONLY',
+      }),
+    ]);
+
+    const duplicatedPickup = {
+      direction: 'PICKUP' as const,
+      presetCode: 'PICKUP_AIRPORT_OZHOUSE',
+      travelDate: '2026-04-01',
+      departureTime: '11:00',
+      arrivalTime: '12:00',
+      departurePlace: '공항',
+      arrivalPlace: '오즈하우스',
+      selectedTeamOrderIndexes: [0],
+    };
+
+    const result = await service.preview(
+      makeInput({
+        headcountTotal: 6,
+        transportGroupCount: 2,
+        transportGroups: [
+          {
+            teamName: 'A팀',
+            headcount: 2,
+            flightInDate: '2026-04-01',
+            flightInTime: '10:00',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+          },
+          {
+            teamName: 'B팀',
+            headcount: 4,
+            flightInDate: '2026-04-01',
+            flightInTime: '10:00',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+          },
+        ],
+        externalTransfers: [duplicatedPickup, duplicatedPickup],
+      }),
+    );
+
+    expect(result.teamPricings[0]?.lines.find((line) => line.lineCode === 'PICKUP_DROP')).toMatchObject({
+      amountKrw: 50_000,
+      quantity: 1,
+      teamName: 'A팀',
+    });
+    expect(result.teamPricings[0]?.addonAmountKrw).toBe(50_000);
+    expect(result.teamPricings[1]?.lines.find((line) => line.lineCode === 'PICKUP_DROP')).toBeUndefined();
+  });
+
+  it('keeps EARLY shared in team totals even when another team-scoped rule only matches A팀', async () => {
+    const service = makeService([
+      makeRule({
+        id: 'base-rule',
+        priceItemPreset: 'BASE',
+        ruleType: 'BASE',
+        title: '기본금',
+        lineCode: 'BASE',
+        amountKrw: 1_000_000,
+      }),
+      makeRule({
+        id: 'early-rule',
+        title: '얼리 스타트',
+        lineCode: 'EARLY',
+        amountKrw: 240_000,
+        chargeScope: 'TEAM',
+        personMode: null,
+        quantitySource: 'ONE',
+        flightInTimeBand: 'DAWN',
+        pickupPlaceType: 'AIRPORT',
+      }),
+      makeRule({
+        id: 'pickup-rule',
+        title: '외부 픽업',
+        lineCode: 'PICKUP_DROP',
+        amountKrw: 100_000,
+        chargeScope: 'TEAM',
+        personMode: null,
+        externalTransferMode: 'PICKUP_ONLY',
+      }),
+    ]);
+
+    const result = await service.preview(
+      makeInput({
+        variantType: VariantType.EARLY,
+        headcountTotal: 6,
+        transportGroupCount: 2,
+        transportGroups: [
+          {
+            teamName: 'A팀',
+            headcount: 3,
+            flightInDate: '2026-04-01',
+            flightInTime: '02:45',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+            pickupPlaceType: 'AIRPORT',
+          },
+          {
+            teamName: 'B팀',
+            headcount: 3,
+            flightInDate: '2026-04-01',
+            flightInTime: '02:30',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+            pickupPlaceType: 'HOTEL',
+          },
+        ],
+        externalTransfers: [
+          {
+            direction: 'PICKUP',
+            presetCode: 'PICKUP_AIRPORT_OZHOUSE',
+            travelDate: '2026-04-01',
+            departureTime: '11:00',
+            arrivalTime: '12:00',
+            departurePlace: '공항',
+            arrivalPlace: '오즈하우스',
+            selectedTeamOrderIndexes: [0],
+          },
+        ],
+      }),
+    );
+
+    expect(result.teamPricings[0]).toMatchObject({
+      teamOrderIndex: 0,
+      addonAmountKrw: 73_300,
+      totalAmountKrw: 1_073_300,
+    });
+    expect(result.teamPricings[1]).toMatchObject({
+      teamOrderIndex: 1,
+      addonAmountKrw: 40_000,
+      totalAmountKrw: 1_040_000,
+    });
+    expect(result.teamPricings[0]?.lines.find((line) => line.lineCode === 'EARLY')).toMatchObject({
+      amountKrw: 40_000,
+      display: {
+        basis: 'TEAM_DIV_PERSON',
+        divisorPerson: 6,
+      },
+    });
+    expect(result.teamPricings[1]?.lines.find((line) => line.lineCode === 'EARLY')).toMatchObject({
+      amountKrw: 40_000,
+      display: {
+        basis: 'TEAM_DIV_PERSON',
+        divisorPerson: 6,
+      },
+    });
+    expect(result.teamPricings[0]?.lines.find((line) => line.lineCode === 'PICKUP_DROP')).toMatchObject({
+      amountKrw: 33_300,
+      teamName: 'A팀',
+    });
+    expect(result.teamPricings[1]?.lines.find((line) => line.lineCode === 'PICKUP_DROP')).toBeUndefined();
+  });
+
+  it('keeps flight-conditioned TEAM charges shared when multiple teams match the same rule', async () => {
+    const service = makeService([
+      makeRule({
+        id: 'base-rule',
+        priceItemPreset: 'BASE',
+        ruleType: 'BASE',
+        title: '기본금',
+        lineCode: 'BASE',
+        amountKrw: 1_000_000,
+      }),
+      makeRule({
+        id: 'early-rule',
+        title: '얼리 스타트',
+        lineCode: 'EARLY',
+        amountKrw: 240_000,
+        chargeScope: 'TEAM',
+        personMode: null,
+        quantitySource: 'HEADCOUNT',
+        flightInTimeBand: 'DAWN',
+      }),
+    ]);
+
+    const result = await service.preview(
+      makeInput({
+        variantType: VariantType.EARLY,
+        headcountTotal: 6,
+        transportGroupCount: 2,
+        transportGroups: [
+          {
+            teamName: 'A팀',
+            headcount: 3,
+            flightInDate: '2026-04-01',
+            flightInTime: '02:45',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+          },
+          {
+            teamName: 'B팀',
+            headcount: 3,
+            flightInDate: '2026-04-01',
+            flightInTime: '02:30',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+          },
+        ],
+      }),
+    );
+
+    expect(result.teamPricings[0]?.lines.find((line) => line.lineCode === 'EARLY')).toMatchObject({
+      quantity: 1,
+      amountKrw: 40_000,
+      teamName: 'A팀',
+      display: {
+        basis: 'TEAM_DIV_PERSON',
+        divisorPerson: 6,
+      },
+    });
+    expect(result.teamPricings[1]?.lines.find((line) => line.lineCode === 'EARLY')).toMatchObject({
+      quantity: 1,
+      amountKrw: 40_000,
+      teamName: 'B팀',
+      display: {
+        basis: 'TEAM_DIV_PERSON',
+        divisorPerson: 6,
+      },
+    });
+  });
+
+  it('assigns flight-conditioned TEAM charges only to matching teams', async () => {
+    const service = makeService([
+      makeRule({
+        id: 'base-rule',
+        priceItemPreset: 'BASE',
+        ruleType: 'BASE',
+        title: '기본금',
+        lineCode: 'BASE',
+        amountKrw: 1_000_000,
+      }),
+      makeRule({
+        id: 'early-rule',
+        title: '얼리 스타트',
+        lineCode: 'EARLY',
+        amountKrw: 240_000,
+        chargeScope: 'TEAM',
+        personMode: null,
+        quantitySource: 'ONE',
+        flightInTimeBand: 'DAWN',
+      }),
+    ]);
+
+    const result = await service.preview(
+      makeInput({
+        variantType: VariantType.EARLY,
+        headcountTotal: 6,
+        transportGroupCount: 2,
+        transportGroups: [
+          {
+            teamName: 'A팀',
+            headcount: 3,
+            flightInDate: '2026-04-01',
+            flightInTime: '02:45',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+          },
+          {
+            teamName: 'B팀',
+            headcount: 3,
+            flightInDate: '2026-04-01',
+            flightInTime: '13:00',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+          },
+        ],
+      }),
+    );
+
+    expect(result.teamPricings[0]?.lines.find((line) => line.lineCode === 'EARLY')).toMatchObject({
+      amountKrw: 80_000,
+      teamName: 'A팀',
+    });
+    expect(result.teamPricings[1]?.lines.find((line) => line.lineCode === 'EARLY')).toBeUndefined();
+  });
 });

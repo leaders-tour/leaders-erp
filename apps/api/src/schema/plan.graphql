@@ -204,6 +204,7 @@ type PlanVersionPricing {
   savedManualDepositAmountKrw: Int
   manualPricing: ManualPricingSnapshot
   originalPricing: OriginalPricingSnapshot
+  teamPricings: [TeamPricing!]!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -232,6 +233,7 @@ type ManualPricingAdjustmentLine {
   id: String!
   type: ManualPricingAdjustmentLineType!
   rowKey: String
+  teamOrderIndex: Int
   label: String!
   leadAmountKrw: Int!
   formula: String!
@@ -246,10 +248,20 @@ type ManualPricingSummarySnapshot {
   securityDepositAmountKrw: Int
 }
 
+type ManualPricingTeamSummarySnapshot {
+  teamOrderIndex: Int!
+  baseAmountKrw: Int
+  totalAmountKrw: Int
+  depositAmountKrw: Int
+  balanceAmountKrw: Int
+  securityDepositAmountKrw: Int
+}
+
 type ManualPricingSnapshot {
   enabled: Boolean!
   adjustmentLines: [ManualPricingAdjustmentLine!]!
   summary: ManualPricingSummarySnapshot
+  teamSummaries: [ManualPricingTeamSummarySnapshot!]!
   lineOverrides: [ManualPricingLineOverride!]!
 }
 
@@ -260,6 +272,7 @@ type OriginalPricingSnapshot {
   depositAmountKrw: Int!
   balanceAmountKrw: Int!
   securityDepositAmountKrw: Int!
+  teamPricings: [TeamPricing!]!
 }
 
 type PlanPricingPreview {
@@ -277,6 +290,24 @@ type PlanPricingPreview {
   securityDepositEvent: Event
   longDistanceSegmentCount: Int!
   extraLodgingCount: Int!
+  teamPricings: [TeamPricing!]!
+  lines: [PlanPricingLine!]!
+}
+
+type TeamPricing {
+  teamOrderIndex: Int!
+  teamName: String!
+  headcount: Int!
+  baseAmountKrw: Int!
+  addonAmountKrw: Int!
+  totalAmountKrw: Int!
+  depositAmountKrw: Int!
+  balanceAmountKrw: Int!
+  securityDepositAmountKrw: Int!
+  securityDepositUnitPriceKrw: Int!
+  securityDepositQuantity: Int!
+  securityDepositMode: SecurityDepositMode!
+  securityDepositEvent: Event
   lines: [PlanPricingLine!]!
 }
 
@@ -296,6 +327,9 @@ type PlanPricingLine {
   displayCount: Int
   displayDivisorPerson: Int
   displayText: String
+  teamOrderIndex: Int
+  teamName: String
+  headcount: Int
 }
 
 enum PricingDisplayBasis {
@@ -493,6 +527,7 @@ input ManualPricingAdjustmentLineInput {
   id: String!
   type: ManualPricingAdjustmentLineType!
   rowKey: String
+  teamOrderIndex: Int
   label: String!
   leadAmountKrw: Int!
   formula: String!
@@ -507,10 +542,20 @@ input ManualPricingSummaryInput {
   securityDepositAmountKrw: Int
 }
 
+input ManualPricingTeamSummaryInput {
+  teamOrderIndex: Int!
+  baseAmountKrw: Int
+  totalAmountKrw: Int
+  depositAmountKrw: Int
+  balanceAmountKrw: Int
+  securityDepositAmountKrw: Int
+}
+
 input ManualPricingInput {
   enabled: Boolean!
   adjustmentLines: [ManualPricingAdjustmentLineInput!]
   summary: ManualPricingSummaryInput
+  teamSummaries: [ManualPricingTeamSummaryInput!]
   lineOverrides: [ManualPricingLineOverrideInput!]
 }
 

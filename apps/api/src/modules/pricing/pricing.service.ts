@@ -22,6 +22,7 @@ import type {
   PricingPlanStopDto,
   PricingRuleTypeValue,
   PricingSnapshotPersistInput,
+  TeamPricingResult,
 } from './pricing.types';
 import { buildPricingLineDisplay } from './pricing-line-display';
 
@@ -38,6 +39,19 @@ type ComputeContext = {
   longDistanceSegmentCount: number;
   nightTrainBlockCount: number;
   extraLodgingCount: number;
+};
+
+type TeamTransferCount = {
+  teamOrderIndex: number;
+  count: number;
+};
+
+type TeamScopedQuantityInput = {
+  line: PricingComputedLine;
+  chargeScope: 'TEAM' | 'PER_PERSON' | null;
+  quantitySource: PricingQuantitySourceValue | null;
+  teamHeadcount: number;
+  teamOrderIndex: number;
 };
 
 type PricingQuantitySourceValue =
@@ -109,6 +123,7 @@ export class PricingService {
       depositAmountKrw: result.depositAmountKrw,
       balanceAmountKrw: result.balanceAmountKrw,
       securityDepositAmountKrw: result.securityDepositAmountKrw,
+      teamPricings: result.teamPricings,
     };
   }
 
@@ -124,6 +139,7 @@ export class PricingService {
         (row) =>
           typeof row?.id === 'string' &&
           (row.type === 'AUTO' || row.type === 'MANUAL') &&
+          (row.teamOrderIndex == null || Number.isInteger(row.teamOrderIndex)) &&
           typeof row.label === 'string' &&
           Number.isInteger(row.leadAmountKrw) &&
           typeof row.formula === 'string' &&
@@ -154,6 +170,15 @@ export class PricingService {
                   : null,
             }
           : null,
+      teamSummaries: (manualPricing.teamSummaries ?? []).filter(
+        (summary) =>
+          Number.isInteger(summary?.teamOrderIndex) &&
+          (summary.baseAmountKrw == null || typeof summary.baseAmountKrw === 'number') &&
+          (summary.totalAmountKrw == null || typeof summary.totalAmountKrw === 'number') &&
+          (summary.depositAmountKrw == null || typeof summary.depositAmountKrw === 'number') &&
+          (summary.balanceAmountKrw == null || typeof summary.balanceAmountKrw === 'number') &&
+          (summary.securityDepositAmountKrw == null || typeof summary.securityDepositAmountKrw === 'number'),
+      ),
       lineOverrides: (manualPricing.lineOverrides ?? []).filter(
         (row) => typeof row?.rowKey === 'string' && Number.isInteger(row?.amountKrw),
       ),
@@ -406,6 +431,12 @@ export class PricingService {
       headcountTotal: input.headcountTotal,
       events: selectedEvents,
     });
+    const teamPricings = this.buildTeamPricings({
+      input,
+      totalDays: input.totalDays,
+      lines: linesWithDisplay,
+      events: selectedEvents,
+    });
 
     return {
       policyId: policy.id,
@@ -424,6 +455,7 @@ export class PricingService {
       longDistanceSegmentCount,
       extraLodgingCount,
       lines: linesWithDisplay,
+      teamPricings,
       inputSnapshot: {
         regionSetId: input.regionSetId,
         regionIds: input.regionIds,
@@ -617,6 +649,230 @@ export class PricingService {
     };
   }
 
+  private computeTeamSecurityDeposit(input: {
+    includeRentalItems: boolean;
+    headcount: number;
+    events: Array<Pick<Event, 'id' | 'name' | 'securityDepositKrw' | 'isActive' | 'sortOrder'>>;
+  }): {
+    amountKrw: number;
+    unitPriceKrw: number;
+    quantity: number;
+    mode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+    event: {
+      id: string;
+      name: string;
+    } | null;
+  } {
+    const topEvent =
+      input.events.length > 0
+        ? input.events
+            .slice()
+            .sort((a, b) => b.securityDepositKrw - a.securityDepositKrw || a.sortOrder - b.sortOrder)[0]
+        : null;
+
+    if (topEvent) {
+      return {
+        amountKrw: topEvent.securityDepositKrw,
+        unitPriceKrw: topEvent.securityDepositKrw,
+        quantity: 1,
+        mode: 'PER_TEAM',
+        event: { id: topEvent.id, name: topEvent.name },
+      };
+    }
+
+    if (input.includeRentalItems) {
+      return {
+        amountKrw: RENTAL_ITEM_DEPOSIT_PER_PERSON_KRW * input.headcount,
+        unitPriceKrw: RENTAL_ITEM_DEPOSIT_PER_PERSON_KRW,
+        quantity: input.headcount,
+        mode: 'PER_PERSON',
+        event: null,
+      };
+    }
+
+    return {
+      amountKrw: 0,
+      unitPriceKrw: 0,
+      quantity: 0,
+      mode: 'NONE',
+      event: null,
+    };
+  }
+
+  private buildTeamPricings(input: {
+    input: PricingComputeInput;
+    totalDays: number;
+    lines: PricingComputedLine[];
+    events: Array<Pick<Event, 'id' | 'name' | 'securityDepositKrw' | 'isActive' | 'sortOrder'>>;
+  }): TeamPricingResult[] {
+    return input.input.transportGroups.map((group, teamOrderIndex) => {
+      const teamLines = input.lines
+        .map((line) =>
+          this.buildTeamLine(line, {
+            teamOrderIndex,
+            teamName: group.teamName,
+            headcount: group.headcount,
+            totalDays: input.totalDays,
+          }),
+        )
+        .filter((line): line is PricingComputedLine => line !== null);
+      const baseAmountKrw = teamLines
+        .filter((line) => this.isBaseLine(line))
+        .reduce((sum, line) => sum + line.amountKrw, 0);
+      const totalAmountKrw = teamLines.reduce((sum, line) => sum + line.amountKrw, 0);
+      const addonAmountKrw = totalAmountKrw - baseAmountKrw;
+      const { depositAmountKrw, balanceAmountKrw } = this.computeDepositAndBalance(totalAmountKrw);
+      const securityDeposit = this.computeTeamSecurityDeposit({
+        includeRentalItems: input.input.includeRentalItems,
+        headcount: group.headcount,
+        events: input.events,
+      });
+
+      return {
+        teamOrderIndex,
+        teamName: group.teamName,
+        headcount: group.headcount,
+        baseAmountKrw,
+        addonAmountKrw,
+        totalAmountKrw,
+        depositAmountKrw,
+        balanceAmountKrw,
+        securityDepositAmountKrw: securityDeposit.amountKrw,
+        securityDepositUnitPriceKrw: securityDeposit.unitPriceKrw,
+        securityDepositQuantity: securityDeposit.quantity,
+        securityDepositMode: securityDeposit.mode,
+        securityDepositEvent: securityDeposit.event,
+        lines: teamLines,
+      };
+    });
+  }
+
+  private buildTeamLine(
+    line: PricingComputedLine,
+    input: { teamOrderIndex: number; teamName: string; headcount: number; totalDays: number },
+  ): PricingComputedLine | null {
+    const meta = line.meta ?? {};
+    const chargeScope =
+      meta && typeof meta === 'object' && 'chargeScope' in meta && (meta.chargeScope === 'TEAM' || meta.chargeScope === 'PER_PERSON')
+        ? meta.chargeScope
+        : null;
+    const quantitySource =
+      meta && typeof meta === 'object' && 'quantitySource' in meta && typeof meta.quantitySource === 'string'
+        ? (meta.quantitySource as PricingQuantitySourceValue)
+        : null;
+    const matchedTeamCount = this.getMatchedTeamCount(meta, input.teamOrderIndex);
+    const hasMatchedTeams = this.hasMatchedTeamCounts(meta);
+    const matchedTransportGroup = this.matchesTransportGroupScope(meta, input.teamOrderIndex);
+
+    if (hasMatchedTeams && matchedTeamCount <= 0) {
+      return null;
+    }
+    if (!matchedTransportGroup) {
+      return null;
+    }
+
+    const quantity = this.resolveTeamScopedQuantity({
+      line,
+      chargeScope,
+      quantitySource,
+      teamHeadcount: input.headcount,
+      teamOrderIndex: input.teamOrderIndex,
+    });
+    if (quantity <= 0) {
+      return null;
+    }
+
+    let amountKrw = line.amountKrw;
+    if (chargeScope === 'TEAM') {
+      const unitPriceKrw = line.unitPriceKrw ?? line.amountKrw;
+      const allocationHeadcount = this.getAllocationHeadcount(meta, input.headcount);
+      amountKrw = this.computeDisplayAmountKrw({
+        unitPriceKrw,
+        quantity,
+        chargeScope,
+        headcountTotal: allocationHeadcount,
+      });
+    } else if (hasMatchedTeams) {
+      const unitPriceKrw = line.unitPriceKrw ?? line.amountKrw;
+      amountKrw = unitPriceKrw * quantity;
+    }
+
+    const teamLine: PricingComputedLine = {
+      ...line,
+      quantity,
+      amountKrw,
+      teamOrderIndex: input.teamOrderIndex,
+      teamName: input.teamName,
+      headcount: input.headcount,
+    };
+    return {
+      ...teamLine,
+      display: buildPricingLineDisplay(teamLine, {
+        headcountTotal: chargeScope === 'TEAM' ? this.getAllocationHeadcount(meta, input.headcount) : input.headcount,
+        totalDays: input.totalDays,
+      }),
+    };
+  }
+
+  private getAllocationHeadcount(meta: Record<string, unknown> | null, fallbackHeadcount: number): number {
+    if (typeof meta?.allocationHeadcount === 'number' && meta.allocationHeadcount > 0) {
+      return meta.allocationHeadcount;
+    }
+    return fallbackHeadcount;
+  }
+
+  private hasMatchedTeamCounts(meta: Record<string, unknown> | null): boolean {
+    return Array.isArray(meta?.matchedTeamCounts);
+  }
+
+  private matchesTransportGroupScope(meta: Record<string, unknown> | null, teamOrderIndex: number): boolean {
+    if (!Array.isArray(meta?.matchedTransportGroupOrderIndexes)) {
+      return true;
+    }
+    return meta.matchedTransportGroupOrderIndexes.includes(teamOrderIndex);
+  }
+
+  private getMatchedTeamCount(meta: Record<string, unknown> | null, teamOrderIndex: number): number {
+    if (!Array.isArray(meta?.matchedTeamCounts)) {
+      return 0;
+    }
+    const matched = meta.matchedTeamCounts.find(
+      (value) =>
+        value &&
+        typeof value === 'object' &&
+        'teamOrderIndex' in value &&
+        'count' in value &&
+        value.teamOrderIndex === teamOrderIndex &&
+        typeof value.count === 'number',
+    );
+    return matched && typeof matched.count === 'number' ? matched.count : 0;
+  }
+
+  private resolveTeamScopedQuantity(input: TeamScopedQuantityInput): number {
+    const matchedTeamCount = this.getMatchedTeamCount(input.line.meta ?? null, input.teamOrderIndex);
+    if (matchedTeamCount > 0) {
+      if (input.quantitySource === 'HEADCOUNT' && input.chargeScope !== 'TEAM') {
+        return matchedTeamCount * input.teamHeadcount;
+      }
+      return matchedTeamCount;
+    }
+
+    if (Array.isArray(input.line.meta?.matchedTransportGroupOrderIndexes)) {
+      if (input.quantitySource === 'HEADCOUNT') {
+        return input.chargeScope === 'TEAM' ? 1 : input.teamHeadcount;
+      }
+      if (input.quantitySource === 'ONE') {
+        return 1;
+      }
+    }
+
+    if (input.chargeScope === 'TEAM' && input.quantitySource === 'HEADCOUNT') {
+      return 1;
+    }
+
+    return input.line.quantity;
+  }
+
   private buildTripFlatLine(
     rules: PricingRuleRecord[],
     lineCode: PricingLineCode,
@@ -646,6 +902,7 @@ export class PricingService {
       title: rule.title,
       lineCode: rule.lineCode,
       ...(rule.priceItemPreset ? { priceItemPreset: rule.priceItemPreset } : {}),
+      quantitySource: rule.quantitySource,
       ...(rule.chargeScope ? { chargeScope: rule.chargeScope } : {}),
       ...(rule.personMode ? { personMode: rule.personMode } : {}),
       ...(rule.customDisplayText ? { customDisplayText: rule.customDisplayText } : {}),
@@ -675,6 +932,10 @@ export class PricingService {
       default:
         return 'CONDITIONAL_ADDON';
     }
+  }
+
+  private isBaseLine(line: Pick<PricingComputedLine, 'ruleType' | 'lineCode'>): boolean {
+    return line.ruleType === 'BASE' || line.ruleType === 'PERCENT_UPLIFT' || line.ruleType === 'LONG_DISTANCE';
   }
 
   private findBaseRule(rules: PricingRuleRecord[], context: ComputeContext): PricingRuleRecord {
@@ -753,6 +1014,26 @@ export class PricingService {
     }
     if (rule.lineCode === 'NIGHT_TRAIN') {
       extraMeta.nightTrainBlockCount = context.nightTrainBlockCount;
+    }
+    const matchedTransportGroupOrderIndexes = this.getAllocationTransportGroupOrderIndexes(rule, context);
+    if (matchedTransportGroupOrderIndexes.length > 0) {
+      extraMeta.matchedTransportGroupOrderIndexes = matchedTransportGroupOrderIndexes;
+    }
+    const matchedTeamCounts = this.hasExternalTransferFilter(rule)
+      ? this.getMatchedExternalTransferTeamCounts(rule, context)
+      : [];
+    if (matchedTeamCounts.length > 0) {
+      extraMeta.matchedTeamCounts = matchedTeamCounts;
+    }
+    if (rule.chargeScope === 'TEAM' && matchedTeamCounts.length === 0) {
+      const allocationHeadcount =
+        matchedTransportGroupOrderIndexes.length > 0
+          ? this.getMatchedTransportGroupHeadcount(context, matchedTransportGroupOrderIndexes)
+          : context.headcountTotal;
+      if (allocationHeadcount > 0) {
+        extraMeta.allocationHeadcount = allocationHeadcount;
+        extraMeta.allocationScope = matchedTransportGroupOrderIndexes.length === 1 ? 'TEAM' : 'COMMON';
+      }
     }
     return {
       ruleType: effectiveRuleType,
@@ -994,6 +1275,75 @@ export class PricingService {
     });
   }
 
+  private getMatchedTransportGroupOrderIndexes(rule: PricingRuleRecord, context: ComputeContext): number[] {
+    if (
+      rule.flightInTimeBand === null &&
+      rule.flightOutTimeBand === null &&
+      rule.pickupPlaceType === null &&
+      rule.dropPlaceType === null
+    ) {
+      return [];
+    }
+    return context.transportGroups.flatMap((group, index) => {
+      if (rule.flightInTimeBand !== null && !this.matchesTimeBand(group.flightInTime, rule.flightInTimeBand)) {
+        return [];
+      }
+      if (rule.flightOutTimeBand !== null && !this.matchesTimeBand(group.flightOutTime, rule.flightOutTimeBand)) {
+        return [];
+      }
+      if (rule.pickupPlaceType !== null && (group.pickupPlaceType ?? null) !== rule.pickupPlaceType) {
+        return [];
+      }
+      if (rule.dropPlaceType !== null && (group.dropPlaceType ?? null) !== rule.dropPlaceType) {
+        return [];
+      }
+      return [index];
+    });
+  }
+
+  private getAllocationTransportGroupOrderIndexes(rule: PricingRuleRecord, context: ComputeContext): number[] {
+    if (rule.lineCode === 'EARLY' || rule.lineCode === 'EXTEND') {
+      const variantScopedIndexes = this.getVariantScopedTransportGroupOrderIndexes(rule, context);
+      if (variantScopedIndexes.length > 0) {
+        return variantScopedIndexes;
+      }
+    }
+    return this.getMatchedTransportGroupOrderIndexes(rule, context);
+  }
+
+  private getVariantScopedTransportGroupOrderIndexes(rule: PricingRuleRecord, context: ComputeContext): number[] {
+    if (rule.lineCode === 'EARLY') {
+      if (!this.shouldApplyEarly(context.variantType)) {
+        return [];
+      }
+      if (rule.flightInTimeBand !== null) {
+        return context.transportGroups.flatMap((group, index) =>
+          this.matchesTimeBand(group.flightInTime, rule.flightInTimeBand) ? [index] : [],
+        );
+      }
+      return context.transportGroups.map((_, index) => index);
+    }
+
+    if (rule.lineCode === 'EXTEND') {
+      if (!this.shouldApplyExtend(context.variantType)) {
+        return [];
+      }
+      if (rule.flightOutTimeBand !== null) {
+        return context.transportGroups.flatMap((group, index) =>
+          this.matchesTimeBand(group.flightOutTime, rule.flightOutTimeBand) ? [index] : [],
+        );
+      }
+      return context.transportGroups.map((_, index) => index);
+    }
+
+    return [];
+  }
+
+  private getMatchedTransportGroupHeadcount(context: ComputeContext, indexes: number[]): number {
+    const uniqueIndexes = Array.from(new Set(indexes));
+    return uniqueIndexes.reduce((sum, index) => sum + (context.transportGroups[index]?.headcount ?? 0), 0);
+  }
+
   private matchesExternalTransferCondition(rule: PricingRuleRecord, context: ComputeContext): boolean {
     const matchedTransfers = this.getMatchedExternalTransfers(rule, context);
     if (rule.externalTransferMode === null) {
@@ -1057,6 +1407,37 @@ export class PricingService {
     return rule.externalTransferPresetCodes.filter((value): value is string => typeof value === 'string');
   }
 
+  private normalizeSelectedTeamOrderIndexes(selectedTeamOrderIndexes: number[]): number[] {
+    return Array.from(new Set(selectedTeamOrderIndexes.filter((value) => Number.isInteger(value)))).sort((left, right) => left - right);
+  }
+
+  private getExternalTransferSignature(transfer: PricingComputeInput['externalTransfers'][number]): string {
+    return [
+      transfer.direction,
+      transfer.presetCode,
+      transfer.travelDate,
+      transfer.departureTime,
+      transfer.arrivalTime,
+      transfer.departurePlace,
+      transfer.arrivalPlace,
+      this.normalizeSelectedTeamOrderIndexes(transfer.selectedTeamOrderIndexes).join(','),
+    ].join('|');
+  }
+
+  private dedupeExternalTransfers(
+    transfers: PricingComputeInput['externalTransfers'],
+  ): PricingComputeInput['externalTransfers'] {
+    const seen = new Set<string>();
+    return transfers.filter((transfer) => {
+      const signature = this.getExternalTransferSignature(transfer);
+      if (seen.has(signature)) {
+        return false;
+      }
+      seen.add(signature);
+      return true;
+    });
+  }
+
   private getMatchedExternalTransfers(rule: PricingRuleRecord, context: ComputeContext): PricingComputeInput['externalTransfers'] {
     const presetCodes = this.getExternalTransferPresetCodes(rule);
     const transfersByPreset =
@@ -1064,25 +1445,47 @@ export class PricingService {
         ? context.externalTransfers.filter((item) => presetCodes.includes(item.presetCode))
         : context.externalTransfers;
 
-    switch (rule.externalTransferMode) {
-      case 'PICKUP_ONLY':
-        return transfersByPreset.filter((item) => item.direction === 'PICKUP');
-      case 'DROP_ONLY':
-        return transfersByPreset.filter((item) => item.direction === 'DROP');
-      case 'BOTH':
-      case 'ANY':
-      case null:
-        return transfersByPreset;
-      default:
-        return transfersByPreset;
-    }
+    const filteredTransfers = (() => {
+      switch (rule.externalTransferMode) {
+        case 'PICKUP_ONLY':
+          return transfersByPreset.filter((item) => item.direction === 'PICKUP');
+        case 'DROP_ONLY':
+          return transfersByPreset.filter((item) => item.direction === 'DROP');
+        case 'BOTH':
+        case 'ANY':
+        case null:
+          return transfersByPreset;
+        default:
+          return transfersByPreset;
+      }
+    })();
+
+    return this.dedupeExternalTransfers(filteredTransfers);
   }
 
   private countMatchedExternalTransferTeams(rule: PricingRuleRecord, context: ComputeContext): number {
+    if (!this.hasExternalTransferFilter(rule)) {
+      return 0;
+    }
     return this.getMatchedExternalTransfers(rule, context).reduce(
-      (count, transfer) => count + transfer.selectedTeamOrderIndexes.length,
+      (count, transfer) => count + this.normalizeSelectedTeamOrderIndexes(transfer.selectedTeamOrderIndexes).length,
       0,
     );
+  }
+
+  private getMatchedExternalTransferTeamCounts(rule: PricingRuleRecord, context: ComputeContext): TeamTransferCount[] {
+    if (!this.hasExternalTransferFilter(rule)) {
+      return [];
+    }
+    const counts = new Map<number, number>();
+    this.getMatchedExternalTransfers(rule, context).forEach((transfer) => {
+      this.normalizeSelectedTeamOrderIndexes(transfer.selectedTeamOrderIndexes).forEach((teamOrderIndex) => {
+        counts.set(teamOrderIndex, (counts.get(teamOrderIndex) ?? 0) + 1);
+      });
+    });
+    return Array.from(counts.entries())
+      .sort((left, right) => left[0] - right[0])
+      .map(([teamOrderIndex, count]) => ({ teamOrderIndex, count }));
   }
 
   private matchesTimeBand(time: string | null | undefined, band: PricingRuleRecord['flightInTimeBand']): boolean {

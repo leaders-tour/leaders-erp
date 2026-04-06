@@ -207,6 +207,21 @@ export const planResolver = {
       const display = parent.display as { text?: unknown } | undefined;
       return display?.text ?? null;
     },
+    teamOrderIndex: (parent: Record<string, unknown>) => {
+      if (typeof parent.teamOrderIndex === 'number') return parent.teamOrderIndex;
+      const meta = parent.meta as { teamOrderIndex?: unknown } | undefined;
+      return typeof meta?.teamOrderIndex === 'number' ? meta.teamOrderIndex : null;
+    },
+    teamName: (parent: Record<string, unknown>) => {
+      if (typeof parent.teamName === 'string') return parent.teamName;
+      const meta = parent.meta as { teamName?: unknown } | undefined;
+      return typeof meta?.teamName === 'string' ? meta.teamName : null;
+    },
+    headcount: (parent: Record<string, unknown>) => {
+      if (typeof parent.headcount === 'number') return parent.headcount;
+      const meta = parent.meta as { headcount?: unknown } | undefined;
+      return typeof meta?.headcount === 'number' ? meta.headcount : null;
+    },
   },
   PlanVersionPricing: {
     longDistanceSegmentCount: (parent: { inputSnapshot?: unknown }) => {
@@ -249,6 +264,7 @@ export const planResolver = {
           snapshot.summary && typeof snapshot.summary === 'object'
             ? snapshot.summary
             : null,
+        teamSummaries: Array.isArray(snapshot.teamSummaries) ? snapshot.teamSummaries : [],
         lineOverrides: Array.isArray(snapshot.lineOverrides) ? snapshot.lineOverrides : [],
       };
     },
@@ -265,7 +281,15 @@ export const planResolver = {
         balanceAmountKrw: typeof snapshot.balanceAmountKrw === 'number' ? snapshot.balanceAmountKrw : 0,
         securityDepositAmountKrw:
           typeof snapshot.securityDepositAmountKrw === 'number' ? snapshot.securityDepositAmountKrw : 0,
+        teamPricings: Array.isArray(snapshot.teamPricings) ? snapshot.teamPricings : [],
       };
+    },
+    teamPricings: (parent: { originalPricingSnapshot?: unknown }) => {
+      if (!parent.originalPricingSnapshot || typeof parent.originalPricingSnapshot !== 'object') {
+        return [];
+      }
+      const snapshot = parent.originalPricingSnapshot as Record<string, unknown>;
+      return Array.isArray(snapshot.teamPricings) ? snapshot.teamPricings : [];
     },
   },
   PlanVersion: {

@@ -115,6 +115,7 @@ export const manualPricingAdjustmentLineInputSchema = z.object({
   id: z.string().min(1).max(100),
   type: z.enum(['AUTO', 'MANUAL']),
   rowKey: z.string().min(1).max(500).nullable().optional(),
+  teamOrderIndex: z.number().int().min(0).nullable().optional(),
   label: z.string().min(0).max(200),
   leadAmountKrw: z.number().int(),
   formula: z.string().min(0).max(500),
@@ -129,11 +130,21 @@ export const manualPricingSummaryInputSchema = z.object({
   securityDepositAmountKrw: z.number().int().nullable().optional(),
 });
 
+export const manualPricingTeamSummaryInputSchema = z.object({
+  teamOrderIndex: z.number().int().min(0),
+  baseAmountKrw: z.number().int().nullable().optional(),
+  totalAmountKrw: z.number().int().nullable().optional(),
+  depositAmountKrw: z.number().int().nullable().optional(),
+  balanceAmountKrw: z.number().int().nullable().optional(),
+  securityDepositAmountKrw: z.number().int().nullable().optional(),
+});
+
 export const manualPricingInputSchema = z
   .object({
     enabled: z.boolean().default(false),
     adjustmentLines: z.array(manualPricingAdjustmentLineInputSchema).default([]),
     summary: manualPricingSummaryInputSchema.nullable().optional(),
+    teamSummaries: z.array(manualPricingTeamSummaryInputSchema).default([]),
     lineOverrides: z.array(manualPricingLineOverrideInputSchema).default([]),
   })
   .superRefine((value, ctx) => {
@@ -165,6 +176,21 @@ export const manualPricingInputSchema = z
           path: ['adjustmentLines', index, 'rowKey'],
         });
       }
+    });
+    const seenTeamSummaryIndexes = new Set<number>();
+    value.teamSummaries.forEach((item, index) => {
+      if (!value.enabled) {
+        return;
+      }
+      if (seenTeamSummaryIndexes.has(item.teamOrderIndex)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'manualPricing.teamSummaries teamOrderIndex must be unique',
+          path: ['teamSummaries', index, 'teamOrderIndex'],
+        });
+        return;
+      }
+      seenTeamSummaryIndexes.add(item.teamOrderIndex);
     });
     const seen = new Set<string>();
     value.lineOverrides.forEach((item, index) => {
