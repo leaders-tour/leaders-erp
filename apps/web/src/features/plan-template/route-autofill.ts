@@ -232,6 +232,10 @@ export interface OvernightStayRouteSelection {
 }
 
 export type RouteSelection = LocationRouteSelection | MultiDayBlockRouteSelection;
+export interface TemplateVariantFlags {
+  useEarlyFirstDay?: boolean;
+  useExtendLastDay?: boolean;
+}
 
 function hasEarlyVariant(variantType: VariantType | undefined): boolean {
   return variantType === 'early' || variantType === 'earlyExtend';
@@ -239,6 +243,17 @@ function hasEarlyVariant(variantType: VariantType | undefined): boolean {
 
 function hasExtendVariant(variantType: VariantType | undefined): boolean {
   return variantType === 'extend' || variantType === 'earlyExtend';
+}
+
+function resolveTemplateVariantFlags(input: {
+  variantType?: VariantType;
+  useEarlyFirstDay?: boolean;
+  useExtendLastDay?: boolean;
+}): Required<TemplateVariantFlags> {
+  return {
+    useEarlyFirstDay: input.useEarlyFirstDay ?? hasEarlyVariant(input.variantType),
+    useExtendLastDay: input.useExtendLastDay ?? hasExtendVariant(input.variantType),
+  };
 }
 
 function formatHours(value: number): string {
@@ -848,12 +863,15 @@ export function buildFirstDayOptions(filteredLocations: LocationOption[]): Locat
 
 export function resolveSegmentScheduleVariant(input: {
   variantType?: VariantType;
+  useEarlyFirstDay?: boolean;
+  useExtendLastDay?: boolean;
   fromDayIndex: number;
   toDayIndex: number;
   totalDays: number;
 }): SegmentScheduleVariant {
-  const sourceContextIsEarly = input.fromDayIndex === 1 && hasEarlyVariant(input.variantType);
-  const targetContextIsExtend = input.toDayIndex === input.totalDays && hasExtendVariant(input.variantType);
+  const { useEarlyFirstDay, useExtendLastDay } = resolveTemplateVariantFlags(input);
+  const sourceContextIsEarly = input.fromDayIndex === 1 && useEarlyFirstDay;
+  const targetContextIsExtend = input.toDayIndex === input.totalDays && useExtendLastDay;
 
   if (sourceContextIsEarly && targetContextIsExtend) {
     return 'earlyExtend';
@@ -894,6 +912,8 @@ export function buildNextOptions(input: {
   selectedRoute: RouteSelection[];
   totalDays: number;
   variantType?: VariantType;
+  useEarlyFirstDay?: boolean;
+  useExtendLastDay?: boolean;
   targetDate?: string;
 }): LocationOption[] {
   const {
@@ -904,6 +924,8 @@ export function buildNextOptions(input: {
     startLocationId,
     totalDays,
     variantType,
+    useEarlyFirstDay,
+    useExtendLastDay,
     targetDate,
   } = input;
   const usedDays = 1 + getConsumedRouteDayCount(selectedRoute);
@@ -914,6 +936,8 @@ export function buildNextOptions(input: {
   const nextDayIndex = usedDays + 1;
   const requiredVariant = resolveSegmentScheduleVariant({
     variantType,
+    useEarlyFirstDay,
+    useExtendLastDay,
     fromDayIndex: nextDayIndex - 1,
     toDayIndex: nextDayIndex,
     totalDays,
@@ -1029,6 +1053,8 @@ export function buildAutoRowsFromRoute(input: {
   locationVersionById: Map<string, LocationVersionOption>;
   totalDays: number;
   variantType?: VariantType;
+  useEarlyFirstDay?: boolean;
+  useExtendLastDay?: boolean;
   travelStartDate?: string;
   flightOutTime?: string;
   firstDayTimeOverride?: string;
@@ -1044,6 +1070,8 @@ export function buildAutoRowsFromRoute(input: {
     locationVersionById,
     totalDays,
     variantType,
+    useEarlyFirstDay,
+    useExtendLastDay,
     travelStartDate,
     flightOutTime,
     firstDayTimeOverride,
@@ -1057,7 +1085,8 @@ export function buildAutoRowsFromRoute(input: {
   const rows: TemplatePlanRow[] = [];
   const startLocation = locationById.get(startLocationId);
   const startVersion = locationVersionById.get(startLocationVersionId);
-  const firstDayProfile: LocationTimeBlockProfile = hasEarlyVariant(variantType) ? 'FIRST_DAY_EARLY' : 'FIRST_DAY';
+  const resolvedFlags = resolveTemplateVariantFlags({ variantType, useEarlyFirstDay, useExtendLastDay });
+  const firstDayProfile: LocationTimeBlockProfile = resolvedFlags.useEarlyFirstDay ? 'FIRST_DAY_EARLY' : 'FIRST_DAY';
 
   rows.push({
     rowType: 'MAIN',
@@ -1121,6 +1150,8 @@ export function buildAutoRowsFromRoute(input: {
     const locationVersion = locationVersionById.get(stop.locationVersionId);
     const variant = resolveSegmentScheduleVariant({
       variantType,
+      useEarlyFirstDay,
+      useExtendLastDay,
       fromDayIndex: nextDayIndex - 1,
       toDayIndex: nextDayIndex,
       totalDays: safeTotalDays,

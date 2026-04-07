@@ -531,6 +531,36 @@ describe('route-autofill', () => {
     expect(options.map((location) => location.id)).toEqual(['loc-c']);
   });
 
+  it('filters route candidates with template timing flags', () => {
+    const earlyOptions = buildNextOptions({
+      filteredLocations: [locationA, locationB, locationC],
+      filteredSegments: [segmentAB, segmentACWithoutEarly],
+      startLocationId: locationA.id,
+      selectedRoute: [],
+      totalDays: 3,
+      useEarlyFirstDay: true,
+    });
+    const extendOptions = buildNextOptions({
+      filteredLocations: [locationA, locationB, locationC],
+      filteredSegments: [segmentBC],
+      startLocationId: locationA.id,
+      selectedRoute: [
+        {
+          kind: 'LOCATION',
+          locationId: locationB.id,
+          locationVersionId: 'ver-b',
+          segmentId: 'segment-ab',
+          segmentVersionId: 'segment-version-ab',
+        },
+      ],
+      totalDays: 3,
+      useExtendLastDay: true,
+    });
+
+    expect(earlyOptions.map((location) => location.id)).toEqual(['loc-b']);
+    expect(extendOptions.map((location) => location.id)).toEqual(['loc-c']);
+  });
+
   it('filters overnight stay options by remaining days per stay length', () => {
     const optionsForTwoDaysLeft = buildMultiDayBlockOptions({
       filteredMultiDayBlocks: [overnightStayB2, overnightStayB3],
@@ -616,6 +646,40 @@ describe('route-autofill', () => {
 
     expect(basic[0]?.mealCellText).toBe('캠프식\n현지식당\n캠프식');
     expect(early[0]?.mealCellText).toBe('캠프식\n캠프식\n현지식당');
+  });
+
+  it('uses timing flags to reproduce early and extend autofill behavior', () => {
+    const rows = buildAutoRowsFromRoute({
+      startLocationId: locationA.id,
+      startLocationVersionId: 'ver-a',
+      selectedRoute: [
+        {
+          kind: 'LOCATION',
+          locationId: locationC.id,
+          locationVersionId: 'ver-c',
+          segmentId: 'segment-ac',
+          segmentVersionId: 'segment-version-ac',
+        },
+      ],
+      filteredSegments: [segmentAC],
+      locationById: new Map([
+        [locationA.id, locationA],
+        [locationC.id, locationC],
+      ]),
+      locationVersionById: new Map([
+        ['ver-a', locationAVersion],
+        ['ver-c', locationCVersion],
+      ]),
+      totalDays: 2,
+      useEarlyFirstDay: true,
+      useExtendLastDay: true,
+      firstDayTimeOverride: '04:30',
+    });
+
+    expect(rows[0]?.mealCellText).toBe('캠프식\n캠프식\n현지식당');
+    expect(rows[0]?.scheduleCellText).toBe('첫날 얼리 일정');
+    expect(rows[1]?.timeCellText).toBe('05:30');
+    expect(rows[1]?.scheduleCellText).toBe('얼리+연장 이동');
   });
 
   it('uses first-day early time blocks and early+extend segment schedules for a 2-day route', () => {

@@ -2,7 +2,6 @@ import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { VariantType } from '../generated/graphql';
 import { formatLocationNameMultiline, normalizeLocationNameLines } from '../features/location/display';
 import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
 import { useSpecialMealDestinationRules } from '../features/plan/hooks/use-special-meal-destination-rules';
@@ -378,19 +377,25 @@ const CREATE_PLAN_TEMPLATE_MUTATION = gql`
   }
 `;
 
-const VARIANTS = [
-  { id: VariantType.Basic, label: '기본' },
-  { id: VariantType.Afternoon, label: '오후' },
-  { id: VariantType.Extend, label: '연장' },
-  { id: VariantType.Early, label: '얼리' },
-  { id: VariantType.EarlyExtend, label: '얼리+연장' },
-];
+function buildTemplateTimingLabel(useEarlyFirstDay: boolean, useExtendLastDay: boolean): string {
+  if (useEarlyFirstDay && useExtendLastDay) {
+    return '얼리+연장';
+  }
+  if (useEarlyFirstDay) {
+    return '얼리';
+  }
+  if (useExtendLastDay) {
+    return '연장';
+  }
+  return '';
+}
 
 function buildSuggestedTemplateTitle(
   regionSetName: string | undefined,
   locationName: LocationOption['name'] | undefined,
   totalDays: number,
-  variantType: VariantType,
+  useEarlyFirstDay: boolean,
+  useExtendLastDay: boolean,
 ): string {
   const fromLocation = normalizeLocationNameLines(locationName)[0] ?? '';
   const fromSet = regionSetName?.trim() ?? '';
@@ -398,9 +403,9 @@ function buildSuggestedTemplateTitle(
   if (!place) {
     return '';
   }
-  const variantLabel = VARIANTS.find((v) => v.id === variantType)?.label ?? '';
   const nights = totalDays - 1;
-  return `${place} ${nights}박${totalDays}일 ${variantLabel}`;
+  const timingLabel = buildTemplateTimingLabel(useEarlyFirstDay, useExtendLastDay);
+  return timingLabel ? `${place} ${nights}박${totalDays}일 ${timingLabel}` : `${place} ${nights}박${totalDays}일`;
 }
 
 export function ItineraryTemplateCreatePage(): JSX.Element {
@@ -413,7 +418,8 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
   const [totalDays, setTotalDays] = useState<number>(6);
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [isActive, setIsActive] = useState<boolean>(true);
-  const [variantType, setVariantType] = useState<VariantType>(VariantType.Basic);
+  const [useEarlyFirstDay, setUseEarlyFirstDay] = useState<boolean>(false);
+  const [useExtendLastDay, setUseExtendLastDay] = useState<boolean>(false);
   const [startLocationId, setStartLocationId] = useState<string>('');
   const [startLocationVersionId, setStartLocationVersionId] = useState<string>('');
   const [selectedRoute, setSelectedRoute] = useState<RouteSelection[]>([]);
@@ -493,9 +499,19 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
         startLocationId,
         selectedRoute,
         totalDays,
-        variantType,
+        useEarlyFirstDay,
+        useExtendLastDay,
       }),
-    [filteredLocations, filteredOvernightStayConnections, filteredSegments, selectedRoute, startLocationId, totalDays, variantType],
+    [
+      filteredLocations,
+      filteredOvernightStayConnections,
+      filteredSegments,
+      selectedRoute,
+      startLocationId,
+      totalDays,
+      useEarlyFirstDay,
+      useExtendLastDay,
+    ],
   );
 
   const overnightStayOptions = useMemo(
@@ -516,9 +532,10 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
         selectedRegionSetName,
         startLocationId ? locationById.get(startLocationId)?.name : undefined,
         totalDays,
-        variantType,
+        useEarlyFirstDay,
+        useExtendLastDay,
       ),
-    [locationById, selectedRegionSetName, startLocationId, totalDays, variantType],
+    [locationById, selectedRegionSetName, startLocationId, totalDays, useEarlyFirstDay, useExtendLastDay],
   );
 
   useEffect(() => {
@@ -540,7 +557,8 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
         locationById,
         locationVersionById,
         totalDays,
-        variantType,
+        useEarlyFirstDay,
+        useExtendLastDay,
       }),
     [
       filteredOvernightStays,
@@ -552,7 +570,8 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
       startLocationId,
       startLocationVersionId,
       totalDays,
-      variantType,
+      useEarlyFirstDay,
+      useExtendLastDay,
     ],
   );
 
@@ -576,13 +595,11 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
     setPlanRows((prev) => prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
   };
 
-  const handleVariantChange = (nextVariantType: VariantType): void => {
-    if (nextVariantType === variantType) {
-      return;
-    }
-    setVariantType(nextVariantType);
-    if (selectedRoute.length > 0) {
-      setSelectedRoute([]);
+  const handleTimingActionToggle = (action: 'early' | 'extend'): void => {
+    if (action === 'early') {
+      setUseEarlyFirstDay((prev) => !prev);
+    } else {
+      setUseExtendLastDay((prev) => !prev);
     }
     setIsOvernightStayPickerOpen(false);
   };
@@ -675,25 +692,6 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
             />
           </label>
           <div className="grid gap-1 text-sm">
-            <span className="text-xs text-slate-600">Variant</span>
-            <div className="flex flex-wrap gap-2">
-              {VARIANTS.map((variant) => (
-                <button
-                  key={variant.id}
-                  type="button"
-                  onClick={() => handleVariantChange(variant.id)}
-                  className={`rounded-xl border px-3 py-1.5 text-sm ${
-                    variantType === variant.id
-                      ? 'border-slate-900 bg-slate-900 text-white'
-                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {variant.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="grid gap-1 text-sm">
             <span className="text-xs text-slate-600">상태</span>
             <div className="flex flex-wrap gap-2">
               <button
@@ -738,12 +736,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
         </Card>
 
         <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">
-          <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
-              3
-            </span>
-            <span>일정 선택</span>
-          </h2>
+          <h2 className="text-lg font-bold text-slate-900">일정 선택</h2>
           <p className="mt-1 text-xs text-slate-600">
             이전 일차와 연결 가능한 목적지만 버튼으로 노출됩니다.
           </p>
@@ -756,7 +749,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
               <div className="mt-1 flex items-center justify-between gap-2">
                 <div className="text-slate-700">
                   <span className="whitespace-pre-line">{formatLocationNameMultiline(locationById.get(startLocationId)?.name ?? startLocationId)}</span>
-                  {(variantType === VariantType.Early || variantType === VariantType.EarlyExtend) && (
+                  {useEarlyFirstDay && (
                     <span className="ml-2 text-xs text-amber-700">(얼리 일정)</span>
                   )}
                 </div>
@@ -862,7 +855,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                         <span className="whitespace-pre-line">
                           {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
                         </span>
-                        {isLastDay && (variantType === VariantType.Extend || variantType === VariantType.EarlyExtend) && (
+                        {isLastDay && useExtendLastDay && (
                           <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
                         )}
                       </div>
@@ -916,7 +909,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                         <span className="whitespace-pre-line">
                           {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
                         </span>
-                        {isLastDay && (variantType === VariantType.Extend || variantType === VariantType.EarlyExtend) && (
+                        {isLastDay && useExtendLastDay && (
                           <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
                         )}
                       </div>
@@ -998,7 +991,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                       <span className="whitespace-pre-line">
                         {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
                       </span>
-                      {isLastDay && (variantType === VariantType.Extend || variantType === VariantType.EarlyExtend) && (
+                      {isLastDay && useExtendLastDay && (
                         <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
                       )}
                     </div>
@@ -1217,32 +1210,64 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
       <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900">일차별 본문 편집</h2>
         <p className="mt-1 text-xs text-slate-600">루트 변경 시 아래 본문은 자동으로 다시 채워집니다.</p>
-        <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
-          <div>
-            <span className="text-xs text-slate-600">특식 4종</span>
-            <p className="mt-0.5 text-xs text-slate-500">
-              {planRows.length === 0
-                ? '일차를 채운 뒤 설정하세요.'
-                : (() => {
-                    const assignments = getAssignmentsFromPlanRows(
-                      planRows.map((r) => ({
-                        mealCellText: r.mealCellText,
-                        destinationCellText: r.destinationCellText,
-                        scheduleCellText: r.scheduleCellText,
-                      })),
-                    );
-                    const count = new Set(assignments.map((a) => a.specialMeal)).size;
-                    return `4종 중 ${count}종 배치됨`;
-                  })()}
-            </p>
+        <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <span className="text-xs text-slate-600">특식 4종</span>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {planRows.length === 0
+                  ? '일차를 채운 뒤 설정하세요.'
+                  : (() => {
+                      const assignments = getAssignmentsFromPlanRows(
+                        planRows.map((r) => ({
+                          mealCellText: r.mealCellText,
+                          destinationCellText: r.destinationCellText,
+                          scheduleCellText: r.scheduleCellText,
+                        })),
+                      );
+                      const count = new Set(assignments.map((a) => a.specialMeal)).size;
+                      return `4종 중 ${count}종 배치됨`;
+                    })()}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setSpecialMealsModalOpen(true)}
+              disabled={planRows.length === 0}
+            >
+              특식 배치 설정
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setSpecialMealsModalOpen(true)}
-            disabled={planRows.length === 0}
-          >
-            특식 배치 설정
-          </Button>
+        </div>
+        <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
+          <div className="text-xs text-slate-600">자동 일정 액션</div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => handleTimingActionToggle('early')}
+              aria-pressed={useEarlyFirstDay}
+              className={`rounded-xl border px-3 py-1.5 text-sm ${
+                useEarlyFirstDay
+                  ? 'border-amber-600 bg-amber-50 text-amber-900'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              1일차 얼리 적용
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTimingActionToggle('extend')}
+              aria-pressed={useExtendLastDay}
+              className={`rounded-xl border px-3 py-1.5 text-sm ${
+                useExtendLastDay
+                  ? 'border-amber-600 bg-amber-50 text-amber-900'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              마지막일차 연장 적용
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">선택한 액션은 경로 후보와 자동 일정 문구에 바로 반영됩니다.</p>
         </div>
         <SpecialMealsModal
           open={specialMealsModalOpen}
