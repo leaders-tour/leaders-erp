@@ -2150,18 +2150,86 @@ export function adjustLastDayMealCellText(
   return value;
 }
 
-export function applyLastDayAutoRowAdjustments<T extends { lodgingCellText: string; mealCellText: string }>(
+function formatTimeFromMinutes(value: number): string {
+  const normalized = ((value % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hours = Math.floor(normalized / 60);
+  const minutes = normalized % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function replaceLastTimeCellLine(timeCellText: string, replacement: string): string {
+  const lines = timeCellText.split('\n');
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index];
+    if (!line?.trim()) {
+      continue;
+    }
+    lines[index] = replacement;
+    return lines.join('\n');
+  }
+  return replacement;
+}
+
+function resolveLastDayAirportScheduleOverride(input: {
+  timeCellText: string;
+  flightOutTime: string;
+  dropTime: string;
+}): Pick<PlanRow, 'timeCellText' | 'scheduleCellText'> | Pick<PlanRow, 'timeCellText'> | null {
+  const flightOutMinutes = parseTimeToMinutes(input.flightOutTime);
+  const dropMinutes = parseTimeToMinutes(input.dropTime);
+  if (flightOutMinutes === null || dropMinutes === null) {
+    return null;
+  }
+
+  const departureTimeCellText = `${formatTimeFromMinutes(dropMinutes - 60)}\n${formatTimeFromMinutes(dropMinutes)}`;
+  if (flightOutMinutes >= 8 * 60 && flightOutMinutes <= 11 * 60 + 30) {
+    return {
+      timeCellText: departureTimeCellText,
+      scheduleCellText: '공항출발\n공항 드랍 후 투어 종료',
+    };
+  }
+
+  if (flightOutMinutes >= 13 * 60 && flightOutMinutes <= 14 * 60) {
+    return {
+      timeCellText: departureTimeCellText,
+      scheduleCellText: '아침 식사 후 공항출발\n공항 드랍 후 투어 종료',
+    };
+  }
+
+  if (flightOutMinutes >= 18 * 60 && flightOutMinutes <= 21 * 60) {
+    return {
+      timeCellText: replaceLastTimeCellLine(input.timeCellText, formatTimeFromMinutes(dropMinutes)),
+    };
+  }
+
+  return null;
+}
+
+export function applyLastDayAutoRowAdjustments<T extends {
+  lodgingCellText: string;
+  mealCellText: string;
+  timeCellText: string;
+  scheduleCellText: string;
+}>(
   rows: T[],
   input: {
     travelEndDate: string;
     dropDate: string;
     dropTime: string;
+    flightOutTime: string;
   },
 ): T[] {
   return rows.map((row, index, allRows) => ({
     ...row,
     lodgingCellText: index === allRows.length - 1 ? '숙소미포함' : row.lodgingCellText,
     mealCellText: index === allRows.length - 1 ? adjustLastDayMealCellText(row.mealCellText, input) : row.mealCellText,
+    ...(index === allRows.length - 1
+      ? (resolveLastDayAirportScheduleOverride({
+          timeCellText: row.timeCellText,
+          flightOutTime: input.flightOutTime,
+          dropTime: input.dropTime,
+        }) ?? {})
+      : {}),
   }));
 }
 
@@ -3081,6 +3149,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       travelEndDate,
       dropDate,
       dropTime,
+      flightOutTime,
     });
   }, [
     filteredOvernightStays,
