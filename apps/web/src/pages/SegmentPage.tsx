@@ -169,6 +169,13 @@ function createEmptyLodgingOverride(): SegmentVersionLodgingOverrideFormInput {
   };
 }
 
+function createFixedUnspecifiedLodgingOverride(): SegmentVersionLodgingOverrideFormInput {
+  return {
+    ...createEmptyLodgingOverride(),
+    isUnspecified: true,
+  };
+}
+
 function createEmptyMealsOverride(): SegmentVersionMealsOverrideFormInput {
   return {
     breakfast: null,
@@ -259,6 +266,17 @@ function sanitizeLodgingOverride(
     hasElectricity: value?.hasElectricity ?? 'YES',
     hasShower: value?.hasShower ?? 'YES',
     hasInternet: value?.hasInternet ?? 'YES',
+  };
+}
+
+function sanitizeFlightLodgingOverride(
+  value: SegmentVersionLodgingOverrideFormInput | null | undefined,
+): SegmentVersionLodgingOverrideFormInput {
+  return {
+    ...createFixedUnspecifiedLodgingOverride(),
+    ...sanitizeLodgingOverride(value),
+    isUnspecified: true,
+    name: '',
   };
 }
 
@@ -460,7 +478,7 @@ function toVersionDrafts(segment: SegmentRow | undefined): SegmentVersionDraft[]
       endDate: version.endDate?.slice(0, 10) ?? '',
       flightOutTimeBand: version.flightOutTimeBand ?? '',
       lodgingOverride: version.kind === 'FLIGHT' && version.lodgingOverride
-        ? sanitizeLodgingOverride(version.lodgingOverride)
+        ? sanitizeFlightLodgingOverride(version.lodgingOverride)
         : createEmptyLodgingOverride(),
       mealsOverride: version.kind === 'FLIGHT' && version.mealsOverride
         ? sanitizeMealsOverride(version.mealsOverride)
@@ -815,8 +833,8 @@ function buildVersionInputs(
       ...(form.sourceType === 'LOCATION' && version.kind === 'FLIGHT' && version.flightOutTimeBand
         ? { flightOutTimeBand: version.flightOutTimeBand }
         : {}),
-      ...(form.sourceType === 'LOCATION' && version.kind === 'FLIGHT' && hasLodgingOverrideValue(version.lodgingOverride)
-        ? { lodgingOverride: sanitizeLodgingOverride(version.lodgingOverride) }
+      ...(form.sourceType === 'LOCATION' && version.kind === 'FLIGHT'
+        ? { lodgingOverride: sanitizeFlightLodgingOverride(version.lodgingOverride) }
         : {}),
       ...(form.sourceType === 'LOCATION' && version.kind === 'FLIGHT' && hasMealsOverrideValue(version.mealsOverride)
         ? { mealsOverride: sanitizeMealsOverride(version.mealsOverride) }
@@ -1029,6 +1047,10 @@ function AlternativeVersionEditor(props: {
                               startDate: kind === 'SEASON' ? item.startDate : '',
                               endDate: kind === 'SEASON' ? item.endDate : '',
                               flightOutTimeBand: kind === 'FLIGHT' ? item.flightOutTimeBand : '',
+                              lodgingOverride:
+                                kind === 'FLIGHT'
+                                  ? createFixedUnspecifiedLodgingOverride()
+                                  : createEmptyLodgingOverride(),
                             }))
                           }
                         >
@@ -1125,10 +1147,6 @@ function AlternativeVersionEditor(props: {
 
                 {showDateRange && version.kind === 'FLIGHT' ? (
                   <div className="grid gap-3">
-                    <LodgingOverrideEditor
-                      value={version.lodgingOverride}
-                      onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, lodgingOverride: nextValue }))}
-                    />
                     <MealsOverrideEditor
                       value={version.mealsOverride}
                       onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, mealsOverride: nextValue }))}
