@@ -4,6 +4,15 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatLocationNameInline } from '../location/display';
 import { MultiDayBlockDaySlotEditor, createMultiDayBlockScheduleSlot, parseMultiDayBlockScheduleSlots, serializeMultiDayBlockScheduleSlots, type MultiDayBlockScheduleSlotInput } from './day-slot-editor';
+import { MultiDayBlockLodgingMealEditor } from './lodging-meal-editor';
+import {
+  createDefaultMultiDayBlockLodgingMealsDraft,
+  parseMultiDayBlockLodgingMealsDraft,
+  serializeMultiDayBlockLodgingCellText,
+  serializeMultiDayBlockMealCellText,
+  type MultiDayBlockLodgingFormValue,
+  type MultiDayBlockMealsFormValue,
+} from './lodging-meal-form';
 
 interface RegionRow {
   id: string;
@@ -44,8 +53,8 @@ interface MultiDayBlockDayDraft {
   averageDistanceKm: string;
   averageTravelHours: string;
   scheduleSlots: MultiDayBlockScheduleSlotInput[];
-  lodgingCellText: string;
-  mealCellText: string;
+  lodging: MultiDayBlockLodgingFormValue;
+  meals: MultiDayBlockMealsFormValue;
 }
 
 const REGIONS_QUERY = gql`
@@ -108,14 +117,15 @@ const DELETE_MULTI_DAY_BLOCK_MUTATION = gql`
 `;
 
 function createDayDraft(dayOrder: number): MultiDayBlockDayDraft {
+  const defaults = createDefaultMultiDayBlockLodgingMealsDraft();
   return {
     dayOrder,
     displayLocationId: '',
     averageDistanceKm: '0',
     averageTravelHours: '0',
     scheduleSlots: [createMultiDayBlockScheduleSlot()],
-    lodgingCellText: '',
-    mealCellText: '',
+    lodging: defaults.lodging,
+    meals: defaults.meals,
   };
 }
 
@@ -155,13 +165,15 @@ export function MultiDayBlockEditPanel({ blockId, onSaved, onDeleted, onClose }:
           .slice()
           .sort((left, right) => left.dayOrder - right.dayOrder)
           .map((day) => ({
+            ...parseMultiDayBlockLodgingMealsDraft({
+              lodgingCellText: day.lodgingCellText ?? '',
+              mealCellText: day.mealCellText ?? '',
+            }),
             dayOrder: day.dayOrder,
             displayLocationId: day.displayLocationId,
             averageDistanceKm: String(day.averageDistanceKm ?? 0),
             averageTravelHours: String(day.averageTravelHours ?? 0),
             scheduleSlots: parseMultiDayBlockScheduleSlots(day.timeCellText ?? '', day.scheduleCellText ?? ''),
-            lodgingCellText: day.lodgingCellText ?? '',
-            mealCellText: day.mealCellText ?? '',
           })),
       );
     },
@@ -280,8 +292,8 @@ export function MultiDayBlockEditPanel({ blockId, onSaved, onDeleted, onClose }:
                           averageTravelHours: Number(day.averageTravelHours) || 0,
                           timeCellText,
                           scheduleCellText,
-                          lodgingCellText: day.lodgingCellText,
-                          mealCellText: day.mealCellText,
+                          lodgingCellText: serializeMultiDayBlockLodgingCellText(day.lodging),
+                          mealCellText: serializeMultiDayBlockMealCellText(day.meals),
                         };
                       }),
                     },
@@ -354,23 +366,12 @@ export function MultiDayBlockEditPanel({ blockId, onSaved, onDeleted, onClose }:
               onChange={(nextValue) => updateDay(day.dayOrder, 'scheduleSlots', nextValue)}
             />
 
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium text-slate-900">숙소</span>
-              <textarea
-                value={day.lodgingCellText}
-                onChange={(event) => updateDay(day.dayOrder, 'lodgingCellText', event.target.value)}
-                className="min-h-24 rounded-xl border border-slate-200 bg-white px-3 py-2"
-              />
-            </label>
-
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium text-slate-900">식사</span>
-              <textarea
-                value={day.mealCellText}
-                onChange={(event) => updateDay(day.dayOrder, 'mealCellText', event.target.value)}
-                className="min-h-24 rounded-xl border border-slate-200 bg-white px-3 py-2"
-              />
-            </label>
+            <MultiDayBlockLodgingMealEditor
+              lodging={day.lodging}
+              meals={day.meals}
+              onLodgingChange={(nextValue) => updateDay(day.dayOrder, 'lodging', nextValue)}
+              onMealsChange={(nextValue) => updateDay(day.dayOrder, 'meals', nextValue)}
+            />
           </div>
         ))}
       </div>

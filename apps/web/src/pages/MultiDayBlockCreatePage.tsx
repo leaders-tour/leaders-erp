@@ -8,6 +8,14 @@ import {
 } from '../features/estimate/model/movement-intensity';
 import { formatLocationNameInline } from '../features/location/display';
 import { MultiDayBlockDaySlotEditor, createMultiDayBlockScheduleSlot, serializeMultiDayBlockScheduleSlots, type MultiDayBlockScheduleSlotInput } from '../features/multi-day-block/day-slot-editor';
+import { MultiDayBlockLodgingMealEditor } from '../features/multi-day-block/lodging-meal-editor';
+import {
+  createDefaultMultiDayBlockLodgingMealsDraft,
+  serializeMultiDayBlockLodgingCellText,
+  serializeMultiDayBlockMealCellText,
+  type MultiDayBlockLodgingFormValue,
+  type MultiDayBlockMealsFormValue,
+} from '../features/multi-day-block/lodging-meal-form';
 import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
 
 interface RegionRow {
@@ -27,8 +35,8 @@ interface MultiDayBlockDayDraft {
   averageDistanceKm: string;
   averageTravelHours: string;
   scheduleSlots: MultiDayBlockScheduleSlotInput[];
-  lodgingCellText: string;
-  mealCellText: string;
+  lodging: MultiDayBlockLodgingFormValue;
+  meals: MultiDayBlockMealsFormValue;
 }
 
 const REGIONS_QUERY = gql`
@@ -59,14 +67,15 @@ const CREATE_MULTI_DAY_BLOCK_MUTATION = gql`
 `;
 
 function createDayDraft(dayOrder: number): MultiDayBlockDayDraft {
+  const defaults = createDefaultMultiDayBlockLodgingMealsDraft();
   return {
     dayOrder,
     displayLocationId: '',
     averageDistanceKm: '0',
     averageTravelHours: '0',
     scheduleSlots: [createMultiDayBlockScheduleSlot()],
-    lodgingCellText: '',
-    mealCellText: '',
+    lodging: defaults.lodging,
+    meals: defaults.meals,
   };
 }
 
@@ -201,8 +210,8 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                             averageTravelHours: Number(day.averageTravelHours) || 0,
                             timeCellText,
                             scheduleCellText,
-                            lodgingCellText: day.lodgingCellText,
-                            mealCellText: day.mealCellText,
+                            lodgingCellText: serializeMultiDayBlockLodgingCellText(day.lodging),
+                            mealCellText: serializeMultiDayBlockMealCellText(day.meals),
                           };
                         }),
                       },
@@ -296,25 +305,12 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                   />
                 </div>
 
-                <label className="grid gap-1 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
-                  <span className="font-medium text-slate-900">숙소</span>
-                  <textarea
-                    value={day.lodgingCellText}
-                    onChange={(event) => updateDay(day.dayOrder, 'lodgingCellText', event.target.value)}
-                    className="min-h-24 rounded-xl border border-slate-200 bg-white px-3 py-2"
-                    placeholder="숙소 정보를 입력하세요."
-                  />
-                </label>
-
-                <label className="grid gap-1 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
-                  <span className="font-medium text-slate-900">식사</span>
-                  <textarea
-                    value={day.mealCellText}
-                    onChange={(event) => updateDay(day.dayOrder, 'mealCellText', event.target.value)}
-                    className="min-h-24 rounded-xl border border-slate-200 bg-white px-3 py-2"
-                    placeholder="식사 정보를 입력하세요."
-                  />
-                </label>
+                <MultiDayBlockLodgingMealEditor
+                  lodging={day.lodging}
+                  meals={day.meals}
+                  onLodgingChange={(nextValue) => updateDay(day.dayOrder, 'lodging', nextValue)}
+                  onMealsChange={(nextValue) => updateDay(day.dayOrder, 'meals', nextValue)}
+                />
               </div>
             ))}
           </div>
