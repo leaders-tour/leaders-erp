@@ -180,6 +180,28 @@ function createVersionDraft(): SegmentVersionDraft {
   };
 }
 
+function sanitizeLodgingOverride(
+  value: SegmentVersionLodgingOverrideFormInput | null | undefined,
+): SegmentVersionLodgingOverrideFormInput {
+  return {
+    isUnspecified: value?.isUnspecified ?? false,
+    name: value?.name ?? '여행자 캠프',
+    hasElectricity: value?.hasElectricity ?? 'YES',
+    hasShower: value?.hasShower ?? 'YES',
+    hasInternet: value?.hasInternet ?? 'YES',
+  };
+}
+
+function sanitizeMealsOverride(
+  value: SegmentVersionMealsOverrideFormInput | null | undefined,
+): SegmentVersionMealsOverrideFormInput {
+  return {
+    breakfast: value?.breakfast ?? null,
+    lunch: value?.lunch ?? null,
+    dinner: value?.dinner ?? null,
+  };
+}
+
 function createEmptyForm(): SegmentFormState {
   return {
     sourceType: 'LOCATION',
@@ -343,19 +365,9 @@ function toVersionDrafts(segment: SegmentRow | undefined): SegmentVersionDraft[]
       endDate: version.endDate?.slice(0, 10) ?? '',
       flightOutTimeBand: version.flightOutTimeBand ?? '',
       lodgingOverrideEnabled: Boolean(version.lodgingOverride),
-      lodgingOverride: version.lodgingOverride ?? {
-        isUnspecified: false,
-        name: '여행자 캠프',
-        hasElectricity: 'YES',
-        hasShower: 'YES',
-        hasInternet: 'YES',
-      },
+      lodgingOverride: sanitizeLodgingOverride(version.lodgingOverride),
       mealsOverrideEnabled: Boolean(version.mealsOverride),
-      mealsOverride: version.mealsOverride ?? {
-        breakfast: null,
-        lunch: null,
-        dinner: null,
-      },
+      mealsOverride: sanitizeMealsOverride(version.mealsOverride),
       timeSlots: toFormTimeSlots(version.scheduleTimeBlocks),
       earlyTimeSlots: toFormTimeSlots(version.earlyScheduleTimeBlocks),
       extendTimeSlots: toFormTimeSlots(version.extendScheduleTimeBlocks),
@@ -682,9 +694,11 @@ function buildVersionInputs(
         ? { flightOutTimeBand: version.flightOutTimeBand }
         : {}),
       ...(form.sourceType === 'LOCATION' && version.lodgingOverrideEnabled
-        ? { lodgingOverride: version.lodgingOverride }
+        ? { lodgingOverride: sanitizeLodgingOverride(version.lodgingOverride) }
         : {}),
-      ...(form.sourceType === 'LOCATION' && version.mealsOverrideEnabled ? { mealsOverride: version.mealsOverride } : {}),
+      ...(form.sourceType === 'LOCATION' && version.mealsOverrideEnabled
+        ? { mealsOverride: sanitizeMealsOverride(version.mealsOverride) }
+        : {}),
       ...buildVariantTimeSlotInput(version, input),
       isDefault: false,
     })),
