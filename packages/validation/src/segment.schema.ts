@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { locationProfileLodgingSchema, locationProfileMealsSchema } from './location.schema';
 
-const pricingTimeBands = ['DAWN', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT'] as const;
+const segmentFlightOutTimeBands = ['EVENING_18_21'] as const;
 const segmentVersionKinds = ['DEFAULT', 'SEASON', 'FLIGHT'] as const;
 
 const segmentTimeSlotSchema = z.object({
@@ -20,7 +20,7 @@ const segmentVersionSchema = z.object({
   kind: z.enum(segmentVersionKinds),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  flightOutTimeBand: z.enum(pricingTimeBands).optional(),
+  flightOutTimeBand: z.enum(segmentFlightOutTimeBands).optional(),
   lodgingOverride: locationProfileLodgingSchema.optional(),
   mealsOverride: locationProfileMealsSchema.optional(),
   timeSlots: segmentTimeSlotsSchema,
@@ -149,7 +149,7 @@ export const segmentCreateSchema = segmentBaseSchema
       });
     }
 
-    const seenBands = new Set<(typeof pricingTimeBands)[number]>();
+    const seenBands = new Set<(typeof segmentFlightOutTimeBands)[number]>();
     const seasonalVersions = value.versions
       .filter((version) => version.kind === 'SEASON' && version.startDate && version.endDate)
       .slice()
@@ -202,7 +202,7 @@ export const segmentUpdateSchema = segmentBaseSchema
       });
     }
 
-    const seenBands = new Set<(typeof pricingTimeBands)[number]>();
+    const seenBands = new Set<(typeof segmentFlightOutTimeBands)[number]>();
     const seasonalVersions = value.versions
       .filter((version) => version.kind === 'SEASON' && version.startDate && version.endDate)
       .slice()

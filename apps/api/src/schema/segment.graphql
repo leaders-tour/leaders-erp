@@ -42,6 +42,10 @@ enum SegmentVersionKind {
   FLIGHT
 }
 
+enum SegmentFlightOutTimeBand {
+  EVENING_18_21
+}
+
 type SegmentVersion {
   id: ID!
   segmentId: String!
@@ -53,7 +57,7 @@ type SegmentVersion {
   kind: SegmentVersionKind!
   startDate: DateTime
   endDate: DateTime
-  flightOutTimeBand: PricingTimeBand
+  flightOutTimeBand: SegmentFlightOutTimeBand
   lodgingOverride: SegmentVersionLodgingOverride
   mealsOverride: SegmentVersionMealsOverride
   sortOrder: Int!
@@ -140,7 +144,7 @@ input SegmentVersionInput {
   kind: SegmentVersionKind!
   startDate: String
   endDate: String
-  flightOutTimeBand: PricingTimeBand
+  flightOutTimeBand: SegmentFlightOutTimeBand
   lodgingOverride: LocationProfileLodgingInput
   mealsOverride: LocationProfileMealsInput
   timeSlots: [SegmentTimeSlotInput!]!

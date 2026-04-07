@@ -151,6 +151,10 @@ enum PricingTimeBand {
   NIGHT
 }
 
+enum SegmentFlightOutTimeBand {
+  EVENING_18_21
+}
+
 enum SegmentVersionKind {
   DEFAULT
   SEASON
@@ -778,7 +782,7 @@ model SegmentVersion {
   kind               SegmentVersionKind @default(DEFAULT)
   startDate          DateTime?
   endDate            DateTime?
-  flightOutTimeBand  PricingTimeBand?
+  flightOutTimeBand  SegmentFlightOutTimeBand?
   overrideLodgingIsUnspecified Boolean?
   overrideLodgingName          String?
   overrideHasElectricity       FacilityAvailability?

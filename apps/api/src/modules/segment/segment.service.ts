@@ -2,9 +2,9 @@ import type {
   FacilityAvailability,
   MealOption,
   MovementIntensity,
-  PricingTimeBand,
   Prisma,
   PrismaClient,
+  SegmentFlightOutTimeBand,
   SegmentVersionKind,
 } from '@prisma/client';
 import {
@@ -45,7 +45,7 @@ interface NormalizedSegmentVersion {
   kind: SegmentVersionKind;
   startDate: Date | null;
   endDate: Date | null;
-  flightOutTimeBand: PricingTimeBand | null;
+  flightOutTimeBand: SegmentFlightOutTimeBand | null;
   lodgingOverride: NormalizedLodgingOverride | null;
   mealsOverride: NormalizedMealsOverride | null;
   isDefault: boolean;
@@ -93,7 +93,7 @@ interface ExistingSegmentLike {
     kind?: SegmentVersionKind | null;
     startDate: Date | null;
     endDate: Date | null;
-    flightOutTimeBand?: PricingTimeBand | null;
+    flightOutTimeBand?: SegmentFlightOutTimeBand | null;
     overrideLodgingIsUnspecified?: boolean | null;
     overrideLodgingName?: string | null;
     overrideHasElectricity?: FacilityAvailability | null;
@@ -195,7 +195,7 @@ export class SegmentService {
     kind?: SegmentVersionKind | null;
     startDate?: Date | null;
     endDate?: Date | null;
-    flightOutTimeBand?: PricingTimeBand | null;
+    flightOutTimeBand?: SegmentFlightOutTimeBand | null;
   }): SegmentVersionKind {
     if (input.kind) {
       return input.kind;
@@ -513,8 +513,12 @@ export class SegmentService {
     requiredVariants: SegmentScheduleVariant[],
   ): void {
     const versionLabel = version.name || 'Default';
+    const variantsToCheck =
+      version.kind === 'FLIGHT'
+        ? requiredVariants.filter((variant) => variant !== 'extend')
+        : requiredVariants;
 
-    requiredVariants.forEach((variant) => {
+    variantsToCheck.forEach((variant) => {
       const timeSlots = version.timeSlotsByVariant[variant];
       if (!timeSlots || timeSlots.length === 0) {
         throw new DomainError('VALIDATION_FAILED', `Segment version "${versionLabel}" requires ${variant} schedules`);
@@ -595,7 +599,7 @@ export class SegmentService {
       }
     }
 
-    const seenFlightOutBands = new Set<PricingTimeBand>();
+    const seenFlightOutBands = new Set<SegmentFlightOutTimeBand>();
     versions.forEach((version) => {
       if (version.kind !== 'FLIGHT' || !version.flightOutTimeBand) {
         return;

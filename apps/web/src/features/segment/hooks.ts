@@ -290,7 +290,7 @@ const REMOVE_BLOCK_CONNECTION = gql`
 `;
 
 export type ConnectionSourceType = 'LOCATION' | 'MULTI_DAY_BLOCK';
-export type FlightTimeBandValue = 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT';
+export type FlightTimeBandValue = 'EVENING_18_21';
 export type SegmentVersionKindValue = 'DEFAULT' | 'SEASON' | 'FLIGHT';
 
 export interface SegmentVersionLodgingOverrideFormInput {

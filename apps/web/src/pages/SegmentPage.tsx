@@ -20,7 +20,6 @@ import {
   type SegmentVersionLodgingOverrideFormInput,
   type SegmentVersionMealsOverrideFormInput,
 } from '../features/segment/hooks';
-import { TIME_BAND_OPTIONS } from '../features/pricing-policy-admin/constants';
 import { RegionNameChip } from '../features/region/region-name-chip';
 import { ConnectionSubNav } from '../features/segment/sub-nav';
 
@@ -71,6 +70,9 @@ const MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
   { value: MealOption.PorkParty, label: '삼겹살파티' },
   { value: MealOption.Horhog, label: '허르헉' },
   { value: MealOption.Shashlik, label: '샤슬릭' },
+];
+const SEGMENT_FLIGHT_OUT_TIME_BAND_OPTIONS: Array<{ value: FlightTimeBandValue; label: string }> = [
+  { value: 'EVENING_18_21', label: '18:00 ~ 21:00' },
 ];
 
 type TimeSlotPasteHelperValue = {
@@ -249,6 +251,7 @@ function createVersionDraftFromPreviousWithKind(
     return {
       ...next,
       kind,
+      flightOutTimeBand: 'EVENING_18_21',
       lodgingOverride: createFixedUnspecifiedLodgingOverride(),
     };
   }
@@ -290,6 +293,7 @@ function createVersionDraftFromBaseWithKind(
     return {
       ...draft,
       kind,
+      flightOutTimeBand: 'EVENING_18_21',
       lodgingOverride: createFixedUnspecifiedLodgingOverride(),
     };
   }
@@ -364,7 +368,7 @@ function getFlightTimeBandLabel(value: FlightTimeBandValue | null | undefined): 
   if (!value) {
     return '';
   }
-  return TIME_BAND_OPTIONS.find((option) => option.value === value)?.label ?? value;
+  return SEGMENT_FLIGHT_OUT_TIME_BAND_OPTIONS.find((option) => option.value === value)?.label ?? value;
 }
 
 function createEmptyForm(): SegmentFormState {
@@ -583,10 +587,13 @@ function isVersionDraftValid(
   },
 ): boolean {
   if (
-    version.name.trim().length === 0 ||
     Number(version.averageDistanceKm) <= 0 ||
     Number(version.averageTravelHours) <= 0
   ) {
+    return false;
+  }
+
+  if (version.kind === 'SEASON' && version.name.trim().length === 0) {
     return false;
   }
 
@@ -1339,26 +1346,6 @@ function FlightAlternativeVersionPanel(props: {
             />
 
             <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-              <label className="grid gap-2 text-sm">
-                <span className="text-slate-700">항공권 OUT 시간대</span>
-                <select
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  value={version.flightOutTimeBand}
-                  onChange={(event) =>
-                    updateVersion(version.clientId, (item) => ({
-                      ...item,
-                      flightOutTimeBand: event.target.value as '' | FlightTimeBandValue,
-                    }))
-                  }
-                >
-                  <option value="">없음</option>
-                  {TIME_BAND_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <MealsOverrideEditor
                 value={version.mealsOverride}
                 onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, mealsOverride: nextValue }))}
@@ -1557,6 +1544,66 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
         allowFlightAlternative: includeEditExtend,
       }),
     );
+  const createSubmitGuideMessages = useMemo(() => {
+    const messages: string[] = [];
+
+    if (!hasCreateSource) {
+      messages.push(form.sourceType === 'LOCATION' ? '출발지를 선택해주세요.' : '출발 블록을 선택해주세요.');
+    }
+    if (!selectedToLocation) {
+      messages.push('도착지를 선택해주세요.');
+    }
+    if (form.sourceType === 'LOCATION' && form.fromLocationId && form.toLocationId && form.fromLocationId === form.toLocationId) {
+      messages.push('출발지와 도착지는 서로 달라야 합니다.');
+    }
+    if (!(Number(form.averageDistanceKm) > 0)) {
+      messages.push('평균거리(km)를 0보다 크게 입력해주세요.');
+    }
+    if (!(Number(form.averageTravelHours) > 0)) {
+      messages.push('평균 이동 시간(시간)을 0보다 크게 입력해주세요.');
+    }
+
+    form.versions.forEach((version, index) => {
+      const versionLabel =
+        version.kind === 'FLIGHT'
+          ? '항공권 버전'
+          : `시즌 버전 ${index + 1}`;
+
+      if (version.kind === 'SEASON' && version.name.trim().length === 0) {
+        messages.push(`${versionLabel}의 버전 이름을 입력해주세요.`);
+      }
+      if (!(Number(version.averageDistanceKm) > 0)) {
+        messages.push(`${versionLabel}의 평균거리(km)를 0보다 크게 입력해주세요.`);
+      }
+      if (!(Number(version.averageTravelHours) > 0)) {
+        messages.push(`${versionLabel}의 평균 이동 시간(시간)을 0보다 크게 입력해주세요.`);
+      }
+      if (version.kind === 'SEASON' && (!version.startDate || !version.endDate)) {
+        messages.push(`${versionLabel}의 적용 시작일과 종료일을 모두 입력해주세요.`);
+      }
+      if (version.kind === 'SEASON' && version.startDate && version.endDate && version.startDate > version.endDate) {
+        messages.push(`${versionLabel}의 적용 종료일은 시작일보다 빠를 수 없습니다.`);
+      }
+      if (version.kind === 'FLIGHT' && !includeCreateExtend) {
+        messages.push('항공권 버전은 도착지가 마지막 일정 후보일 때만 추가할 수 있어요.');
+      }
+      if (version.kind === 'FLIGHT' && !version.flightOutTimeBand) {
+        messages.push('항공권 버전의 항공권 OUT 시간대를 선택해주세요.');
+      }
+    });
+
+    return Array.from(new Set(messages));
+  }, [
+    form.sourceType,
+    form.fromLocationId,
+    form.toLocationId,
+    form.averageDistanceKm,
+    form.averageTravelHours,
+    form.versions,
+    hasCreateSource,
+    includeCreateExtend,
+    selectedToLocation,
+  ]);
   const showCreateSection = mode !== 'list';
   const showListSection = mode !== 'create';
   const pageTitle = mode === 'create' ? '연결 생성' : mode === 'list' ? '연결 목록' : '연결 관리';
@@ -1836,6 +1883,16 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 >
                   {submitting ? '생성 중...' : '연결 생성'}
                 </Button>
+                {!canSubmit && createSubmitGuideMessages.length > 0 ? (
+                  <div className="mt-3 grid gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                    <p className="font-medium">연결 생성을 위해 아래 항목을 확인해주세요.</p>
+                    <ul className="grid gap-1 pl-5 list-disc">
+                      {createSubmitGuideMessages.map((message) => (
+                        <li key={message}>{message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             </div>
 

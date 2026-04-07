@@ -417,7 +417,7 @@ const segmentABSeasonal: SegmentOption = {
       isDefault: false,
       startDate: undefined,
       endDate: undefined,
-      flightOutTimeBand: 'EVENING',
+      flightOutTimeBand: 'EVENING_18_21',
       lodgingOverride: {
         isUnspecified: false,
         name: '야간 도착 게르',

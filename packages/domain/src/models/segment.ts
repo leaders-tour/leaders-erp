@@ -23,7 +23,7 @@ export interface SegmentVersion {
   averageTravelHours: number;
   isLongDistance: boolean;
   kind: 'DEFAULT' | 'SEASON' | 'FLIGHT';
-  flightOutTimeBand?: 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' | null;
+  flightOutTimeBand?: 'EVENING_18_21' | null;
   lodgingOverride?: {
     isUnspecified: boolean;
     name: string;

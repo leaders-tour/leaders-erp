@@ -79,7 +79,7 @@ export interface SegmentVersionOption {
   kind: SegmentVersionKindValue;
   startDate?: string | null;
   endDate?: string | null;
-  flightOutTimeBand?: 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' | null;
+  flightOutTimeBand?: 'EVENING_18_21' | null;
   lodgingOverride?: SegmentVersionLodgingOverrideOption | null;
   mealsOverride?: SegmentVersionMealsOverrideOption | null;
   sortOrder: number;
@@ -118,7 +118,7 @@ interface ResolvedSegmentVersionOption {
   kind: SegmentVersionKindValue;
   startDate?: string | null;
   endDate?: string | null;
-  flightOutTimeBand?: 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' | null;
+  flightOutTimeBand?: 'EVENING_18_21' | null;
   lodgingOverride?: SegmentVersionLodgingOverrideOption | null;
   mealsOverride?: SegmentVersionMealsOverrideOption | null;
   sortOrder: number;
@@ -301,19 +301,7 @@ function matchesTimeBand(
     return false;
   }
 
-  if (minutes < 5 * 60) {
-    return band === 'DAWN';
-  }
-  if (minutes < 12 * 60) {
-    return band === 'MORNING';
-  }
-  if (minutes < 18 * 60) {
-    return band === 'AFTERNOON';
-  }
-  if (minutes < 22 * 60) {
-    return band === 'EVENING';
-  }
-  return band === 'NIGHT';
+  return band === 'EVENING_18_21' && minutes >= 18 * 60 && minutes <= 21 * 60;
 }
 
 export function getRouteDateForDayIndex(startDate: string, dayIndex: number): string | undefined {
