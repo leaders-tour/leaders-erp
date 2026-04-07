@@ -791,7 +791,7 @@ function MealsOverrideEditor(props: {
           {(['breakfast', 'lunch', 'dinner'] as const).map((field) => {
             const label = field === 'breakfast' ? '아침' : field === 'lunch' ? '점심' : '저녁';
             return (
-              <div key={field} className="grid gap-2 text-sm">
+              <div key={field} className="grid gap-2 rounded-xl border border-slate-200 p-3 text-sm">
                 <span className="text-slate-700">{label}</span>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -963,27 +963,6 @@ function AlternativeVersionEditor(props: {
               장거리 여행
             </label>
 
-            {showDateRange ? (
-              <div className="grid gap-3">
-                <LodgingOverrideEditor
-                  value={version.lodgingOverride}
-                  enabled={version.lodgingOverrideEnabled}
-                  onEnabledChange={(enabled) =>
-                    updateVersion(version.clientId, (item) => ({ ...item, lodgingOverrideEnabled: enabled }))
-                  }
-                  onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, lodgingOverride: nextValue }))}
-                />
-                <MealsOverrideEditor
-                  value={version.mealsOverride}
-                  enabled={version.mealsOverrideEnabled}
-                  onEnabledChange={(enabled) =>
-                    updateVersion(version.clientId, (item) => ({ ...item, mealsOverrideEnabled: enabled }))
-                  }
-                  onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, mealsOverride: nextValue }))}
-                />
-              </div>
-            ) : null}
-
             <TimeSlotEditor
               title="버전 일정"
               description="선택된 대안 버전의 시간/일정 자동 채움에 사용됩니다."
@@ -1023,6 +1002,27 @@ function AlternativeVersionEditor(props: {
                   updateVersion(version.clientId, (item) => ({ ...item, earlyExtendTimeSlots: nextTimeSlots }))
                 }
               />
+            ) : null}
+
+            {showDateRange ? (
+              <div className="grid gap-3">
+                <LodgingOverrideEditor
+                  value={version.lodgingOverride}
+                  enabled={version.lodgingOverrideEnabled}
+                  onEnabledChange={(enabled) =>
+                    updateVersion(version.clientId, (item) => ({ ...item, lodgingOverrideEnabled: enabled }))
+                  }
+                  onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, lodgingOverride: nextValue }))}
+                />
+                <MealsOverrideEditor
+                  value={version.mealsOverride}
+                  enabled={version.mealsOverrideEnabled}
+                  onEnabledChange={(enabled) =>
+                    updateVersion(version.clientId, (item) => ({ ...item, mealsOverrideEnabled: enabled }))
+                  }
+                  onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, mealsOverride: nextValue }))}
+                />
+              </div>
             ) : null}
           </div>
         ))
