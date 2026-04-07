@@ -10,7 +10,7 @@ describe('multi-day-block lodging/meal form helpers', () => {
   it('parses existing multiline lodging and meal text into structured draft values', () => {
     const draft = parseMultiDayBlockLodgingMealsDraft({
       lodgingCellText: '사막 캠프\n전기 제한\n샤워 X\n인터넷 O',
-      mealCellText: '캠프식\n현지식당\n허르헉',
+      mealCellText: '캠프식\n현지식\n허르헉',
     });
 
     expect(draft).toMatchObject({
@@ -23,7 +23,7 @@ describe('multi-day-block lodging/meal form helpers', () => {
       },
       meals: {
         breakfast: MealOption.CampMeal,
-        lunch: MealOption.LocalRestaurant,
+        lunch: MealOption.LocalMeal,
         dinner: MealOption.Horhog,
       },
     });
@@ -42,11 +42,11 @@ describe('multi-day-block lodging/meal form helpers', () => {
 
     expect(
       serializeMultiDayBlockMealCellText({
-        breakfast: MealOption.LocalRestaurant,
+        breakfast: MealOption.LocalMeal,
         lunch: null,
         dinner: MealOption.Shashlik,
       }),
-    ).toBe('현지식당\nX\n샤슬릭');
+    ).toBe('현지식\nX\n샤슬릭');
   });
 
   it('keeps lodging and meals empty when the user leaves all fields blank', () => {

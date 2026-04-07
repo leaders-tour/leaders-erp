@@ -34,6 +34,7 @@ export interface SegmentVersion {
   mealsOverride?: {
     breakfast:
       | 'CAMP_MEAL'
+      | 'LOCAL_MEAL'
       | 'LOCAL_RESTAURANT'
       | 'PORK_PARTY'
       | 'HORHOG'
@@ -42,6 +43,7 @@ export interface SegmentVersion {
       | null;
     lunch:
       | 'CAMP_MEAL'
+      | 'LOCAL_MEAL'
       | 'LOCAL_RESTAURANT'
       | 'PORK_PARTY'
       | 'HORHOG'
@@ -50,6 +52,7 @@ export interface SegmentVersion {
       | null;
     dinner:
       | 'CAMP_MEAL'
+      | 'LOCAL_MEAL'
       | 'LOCAL_RESTAURANT'
       | 'PORK_PARTY'
       | 'HORHOG'

@@ -37,6 +37,7 @@ const DEFAULT_MEALS: MultiDayBlockMealsFormValue = {
 
 const MEAL_LABEL_TO_OPTION: Record<string, MealOption | null> = {
   캠프식: MealOption.CampMeal,
+  현지식: MealOption.LocalMeal,
   현지식당: MealOption.LocalRestaurant,
   샤브샤브: MealOption.ShabuShabu,
   삼겹살파티: MealOption.PorkParty,
