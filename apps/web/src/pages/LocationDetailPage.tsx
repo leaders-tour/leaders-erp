@@ -6,7 +6,10 @@ import { LocationSubNav } from '../features/location/sub-nav';
 import {
   formatLocationNameInline,
   formatLocationNameMultiline,
+  toFacilityLabel,
+  toMealLabel,
 } from '../features/location/display';
+import { mealsEarlyDiffersFromRegular, mealsFromVersionMealSets } from '../features/location/location-version-meals';
 import { useLocationGuideCrud } from '../features/location-guide/hooks';
 import { LocationVersionEditPanel } from '../features/location/location-version-edit-panel';
 import { useLocationDetail } from '../features/location/hooks';
@@ -267,6 +270,70 @@ export function LocationDetailPage(): JSX.Element {
           </div>
         </Card>
       )}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <h2 className="mb-3 text-lg font-semibold">숙소</h2>
+          {location.lodgings.length === 0 ? (
+            <div className="text-sm text-slate-500">등록된 숙소 정보가 없습니다.</div>
+          ) : (
+            <div className="grid gap-4 text-sm">
+              {location.lodgings.map((lodging) => (
+                <div
+                  key={lodging.id}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700"
+                >
+                  <div className="font-medium text-slate-900">{lodging.name || '-'}</div>
+                  <div className="mt-1 grid gap-1">
+                    <div>전기({toFacilityLabel(lodging.hasElectricity)})</div>
+                    <div>샤워({toFacilityLabel(lodging.hasShower)})</div>
+                    <div>인터넷({toFacilityLabel(lodging.hasInternet)})</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+        <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <h2 className="mb-3 text-lg font-semibold">식사</h2>
+          {location.mealSets.length === 0 ? (
+            <div className="text-sm text-slate-500">등록된 식사 정보가 없습니다.</div>
+          ) : (
+            (() => {
+              const { meals, mealsEarly } = mealsFromVersionMealSets(location.mealSets);
+              const earlyDiffers = location.isFirstDayEligible && mealsEarlyDiffersFromRegular(meals, mealsEarly);
+              return (
+                <div className="grid gap-1 text-sm text-slate-700">
+                  {location.isFirstDayEligible ? (
+                    <>
+                      <div className="text-xs font-semibold text-slate-600">1일차 일반</div>
+                      <div>아침 {toMealLabel(meals.breakfast)}</div>
+                      <div>점심 {toMealLabel(meals.lunch)}</div>
+                      <div>저녁 {toMealLabel(meals.dinner)}</div>
+                      <div className="mt-3 text-xs font-semibold text-slate-600">1일차 얼리</div>
+                      {earlyDiffers ? (
+                        <>
+                          <div>아침 {toMealLabel(mealsEarly.breakfast)}</div>
+                          <div>점심 {toMealLabel(mealsEarly.lunch)}</div>
+                          <div>저녁 {toMealLabel(mealsEarly.dinner)}</div>
+                        </>
+                      ) : (
+                        <div className="text-slate-500">일반과 동일</div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div>아침 {toMealLabel(meals.breakfast)}</div>
+                      <div>점심 {toMealLabel(meals.lunch)}</div>
+                      <div>저녁 {toMealLabel(meals.dinner)}</div>
+                    </>
+                  )}
+                </div>
+              );
+            })()
+          )}
+        </Card>
+      </div>
 
       <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="mb-3 flex items-center justify-between gap-3">
