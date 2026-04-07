@@ -1512,10 +1512,38 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
 
   const hasCreateSource = form.sourceType === 'LOCATION' ? Boolean(selectedFromLocation) : Boolean(selectedFromMultiDayBlock);
   const hasEditSource = editForm.sourceType === 'LOCATION' ? Boolean(selectedEditFromLocation) : Boolean(selectedEditFromMultiDayBlock);
+  const existingCreateConnectionMessage = useMemo(() => {
+    if (!form.toLocationId) {
+      return null;
+    }
+    if (form.sourceType === 'LOCATION') {
+      if (!form.fromLocationId) {
+        return null;
+      }
+      const exists = crud.rows.some(
+        (row) =>
+          row.sourceType === 'LOCATION' &&
+          row.fromLocationId === form.fromLocationId &&
+          row.toLocationId === form.toLocationId,
+      );
+      return exists ? '이미 같은 출발지와 도착지의 연결이 등록되어 있습니다. 기존 연결을 수정해주세요.' : null;
+    }
+    if (!form.fromMultiDayBlockId) {
+      return null;
+    }
+    const exists = crud.rows.some(
+      (row) =>
+        row.sourceType === 'MULTI_DAY_BLOCK' &&
+        row.fromMultiDayBlockId === form.fromMultiDayBlockId &&
+        row.toLocationId === form.toLocationId,
+    );
+    return exists ? '이미 같은 출발 블록과 도착지의 연결이 등록되어 있습니다. 기존 연결을 수정해주세요.' : null;
+  }, [crud.rows, form.fromLocationId, form.fromMultiDayBlockId, form.sourceType, form.toLocationId]);
 
   const canSubmit =
     hasCreateSource &&
     !!selectedToLocation &&
+    !existingCreateConnectionMessage &&
     (form.sourceType === 'MULTI_DAY_BLOCK' || form.fromLocationId !== form.toLocationId) &&
     Number(form.averageDistanceKm) > 0 &&
     Number(form.averageTravelHours) > 0 &&
@@ -1547,6 +1575,9 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     }
     if (form.sourceType === 'LOCATION' && form.fromLocationId && form.toLocationId && form.fromLocationId === form.toLocationId) {
       messages.push('출발지와 도착지는 서로 달라야 합니다.');
+    }
+    if (existingCreateConnectionMessage) {
+      messages.push(existingCreateConnectionMessage);
     }
     if (!(Number(form.averageDistanceKm) > 0)) {
       messages.push('평균거리(km)를 0보다 크게 입력해주세요.');
@@ -1594,6 +1625,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     form.versions,
     hasCreateSource,
     includeCreateExtend,
+    existingCreateConnectionMessage,
     selectedToLocation,
   ]);
   const showCreateSection = mode !== 'list';
@@ -1805,6 +1837,9 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                     ) : null}
                   </div>
                 </label>
+                {existingCreateConnectionMessage ? (
+                  <p className="text-sm text-red-600">{existingCreateConnectionMessage}</p>
+                ) : null}
               </div>
 
               <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
