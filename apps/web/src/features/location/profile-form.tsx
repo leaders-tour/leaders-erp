@@ -64,7 +64,7 @@ type TimeSlotPasteHelperValue = {
 function createSlot(startTime: string): LocationProfileFormInput['firstDayTimeSlots'][number] {
   return {
     startTime,
-    activities: ['', '', '', ''],
+    activities: [''],
   };
 }
 

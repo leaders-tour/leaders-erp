@@ -33,6 +33,8 @@ export function LocationVersionEditPanel({
       return;
     }
 
+    const defaultProfileValue = createDefaultLocationProfileFormValue(version.location.regionId);
+
     setValue({
       regionId: version.location.regionId,
       name: version.locationNameSnapshot,
@@ -44,22 +46,14 @@ export function LocationVersionEditPanel({
               startTime: timeBlock.startTime,
               activities: timeBlock.activities.length > 0 ? timeBlock.activities.map((activity) => activity.description) : [''],
             }))
-          : [
-              { startTime: '08:00', activities: ['', '', '', ''] },
-              { startTime: '12:00', activities: ['', '', '', ''] },
-              { startTime: '18:00', activities: ['', '', '', ''] },
-            ],
+          : defaultProfileValue.firstDayTimeSlots,
       firstDayEarlyTimeSlots:
         version.firstDayEarlyTimeBlocks.length > 0
           ? version.firstDayEarlyTimeBlocks.map((timeBlock) => ({
               startTime: timeBlock.startTime,
               activities: timeBlock.activities.length > 0 ? timeBlock.activities.map((activity) => activity.description) : [''],
             }))
-          : [
-              { startTime: '08:00', activities: ['', '', '', ''] },
-              { startTime: '12:00', activities: ['', '', '', ''] },
-              { startTime: '18:00', activities: ['', '', '', ''] },
-            ],
+          : defaultProfileValue.firstDayEarlyTimeSlots,
       firstDayAverageDistanceKm:
         version.firstDayAverageDistanceKm !== null && version.firstDayAverageDistanceKm !== undefined
           ? String(version.firstDayAverageDistanceKm)

@@ -132,7 +132,7 @@ interface SegmentVersionDraft {
 function createTimeSlot(startTime: string): SegmentTimeSlotFormInput {
   return {
     startTime,
-    activities: ['', '', '', ''],
+    activities: [''],
   };
 }
 
