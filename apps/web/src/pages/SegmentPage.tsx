@@ -309,10 +309,11 @@ function replaceVersionDraftsByKind(
   kind: SegmentVersionDraft['kind'],
 ): SegmentVersionDraft[] {
   const otherVersions = allVersions.filter((version) => version.kind !== kind);
+  const normalizedNextVersions = kind === 'FLIGHT' ? nextVersions.slice(0, 1) : nextVersions;
   if (kind === 'SEASON') {
-    return [...nextVersions, ...otherVersions];
+    return [...normalizedNextVersions, ...otherVersions];
   }
-  return [...otherVersions, ...nextVersions];
+  return [...otherVersions, ...normalizedNextVersions];
 }
 
 function sanitizeLodgingOverride(
@@ -526,9 +527,20 @@ function toVersionDrafts(segment: SegmentRow | undefined): SegmentVersionDraft[]
     return [];
   }
 
+  let hasFlightVersion = false;
   return segment.versions
     .filter((version) => !version.isDefault)
     .sort((a, b) => a.sortOrder - b.sortOrder)
+    .filter((version) => {
+      if (version.kind !== 'FLIGHT') {
+        return true;
+      }
+      if (hasFlightVersion) {
+        return false;
+      }
+      hasFlightVersion = true;
+      return true;
+    })
     .map((version) => ({
       clientId: version.id,
       name: version.name,
@@ -1265,9 +1277,11 @@ function FlightAlternativeVersionPanel(props: {
   pasteHelperResetNonce?: number;
 }): JSX.Element | null {
   const { value, baseDraft, includeExtend, fixedName, onChange, pasteHelperResetNonce } = props;
+  const currentValue = value[0] ?? createVersionDraftFromBaseWithKind(baseDraft, 'FLIGHT');
+  const hasPersistedValue = value.length > 0;
 
-  const updateVersion = (clientId: string, updater: (current: SegmentVersionDraft) => SegmentVersionDraft) => {
-    onChange(value.map((item) => (item.clientId === clientId ? updater(item) : item)));
+  const updateVersion = (updater: (current: SegmentVersionDraft) => SegmentVersionDraft) => {
+    onChange([updater(currentValue)]);
   };
 
   if (!includeExtend) {
@@ -1276,94 +1290,72 @@ function FlightAlternativeVersionPanel(props: {
 
   return (
     <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="grid gap-1">
-          <h3 className="text-sm font-semibold text-slate-800">항공권 버전 일정</h3>
-          <p className="text-xs text-slate-500">항공권이 6-9pm 일 때 일정을 기록해주세요!</p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() =>
-            onChange([
-              ...value,
-              value.length === 0
-                ? createVersionDraftFromBaseWithKind(baseDraft, 'FLIGHT')
-                : createVersionDraftFromPreviousWithKind(value[value.length - 1], 'FLIGHT'),
-            ])
-          }
-        >
-          항공권 버전 추가
-        </Button>
+      <div className="grid gap-1">
+        <h3 className="text-sm font-semibold text-slate-800">항공권 버전 일정</h3>
+        <p className="text-xs text-slate-500">항공권이 6-9pm 일 때 일정을 기록해주세요!</p>
       </div>
 
-      {value.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-          아직 항공권 버전이 없습니다.
+      <div className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="grid gap-1">
+          <div className="text-sm font-semibold text-slate-800">{fixedName}</div>
         </div>
-      ) : (
-        value.map((version) => (
-          <div key={version.clientId} className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <div className="grid gap-1">
-              <div className="text-sm font-semibold text-slate-800">{fixedName}</div>
-            </div>
 
-            <div className="grid gap-3">
-              <label className="grid gap-2 text-sm">
-                <span className="text-slate-700">평균 이동 시간(시간)</span>
-                <Input
-                  type="number"
-                  min={0.1}
-                  step={0.1}
-                  value={version.averageTravelHours}
-                  onChange={(event) =>
-                    updateVersion(version.clientId, (item) => ({ ...item, averageTravelHours: event.target.value }))
-                  }
-                  placeholder="예: 5.5"
-                />
-              </label>
-              <label className="grid gap-2 text-sm">
-                <span className="text-slate-700">평균거리(km)</span>
-                <Input
-                  type="number"
-                  min={0.1}
-                  step={0.1}
-                  value={version.averageDistanceKm}
-                  onChange={(event) =>
-                    updateVersion(version.clientId, (item) => ({ ...item, averageDistanceKm: event.target.value }))
-                  }
-                  placeholder="예: 320"
-                />
-              </label>
-            </div>
-
-            <TimeSlotEditor
-              title="버전 일정"
-              description="선택된 항공권 대안 버전의 시간/일정 자동 채움에 사용됩니다."
-              value={version.timeSlots}
-              pasteHelperResetNonce={pasteHelperResetNonce}
-              onChange={(nextTimeSlots) => updateVersion(version.clientId, (item) => ({ ...item, timeSlots: nextTimeSlots }))}
+        <div className="grid gap-3">
+          <label className="grid gap-2 text-sm">
+            <span className="text-slate-700">평균 이동 시간(시간)</span>
+            <Input
+              type="number"
+              min={0.1}
+              step={0.1}
+              value={currentValue.averageTravelHours}
+              onChange={(event) =>
+                updateVersion((item) => ({ ...item, averageTravelHours: event.target.value }))
+              }
+              placeholder="예: 5.5"
             />
+          </label>
+          <label className="grid gap-2 text-sm">
+            <span className="text-slate-700">평균거리(km)</span>
+            <Input
+              type="number"
+              min={0.1}
+              step={0.1}
+              value={currentValue.averageDistanceKm}
+              onChange={(event) =>
+                updateVersion((item) => ({ ...item, averageDistanceKm: event.target.value }))
+              }
+              placeholder="예: 320"
+            />
+          </label>
+        </div>
 
-            <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-              <MealsOverrideEditor
-                value={version.mealsOverride}
-                onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, mealsOverride: nextValue }))}
-              />
-            </div>
+        <TimeSlotEditor
+          title="버전 일정"
+          description="선택된 항공권 대안 버전의 시간/일정 자동 채움에 사용됩니다."
+          value={currentValue.timeSlots}
+          pasteHelperResetNonce={pasteHelperResetNonce}
+          onChange={(nextTimeSlots) => updateVersion((item) => ({ ...item, timeSlots: nextTimeSlots }))}
+        />
 
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onChange(value.filter((item) => item.clientId !== version.clientId))}
-              >
-                삭제
-              </Button>
-            </div>
+        <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+          <MealsOverrideEditor
+            value={currentValue.mealsOverride}
+            onChange={(nextValue) => updateVersion((item) => ({ ...item, mealsOverride: nextValue }))}
+          />
+        </div>
+
+        {hasPersistedValue ? (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onChange([])}
+            >
+              삭제
+            </Button>
           </div>
-        ))
-      )}
+        ) : null}
+      </div>
     </div>
   );
 }
