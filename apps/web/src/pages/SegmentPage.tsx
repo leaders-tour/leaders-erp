@@ -966,181 +966,202 @@ function AlternativeVersionEditor(props: {
               </Button>
             </div>
 
-            <label className="grid gap-2 text-sm">
-              <span className="text-slate-700">버전 이름</span>
-              <Input
-                value={version.name}
-                onChange={(event) => updateVersion(version.clientId, (item) => ({ ...item, name: event.target.value }))}
-                placeholder="예: 포토스팟 우선"
-              />
-            </label>
+            <div className="grid items-start gap-6 xl:grid-cols-[minmax(320px,360px)_minmax(0,1fr)]">
+              <div className="grid gap-4">
+                <label className="grid gap-2 text-sm">
+                  <span className="text-slate-700">버전 이름</span>
+                  <Input
+                    value={version.name}
+                    onChange={(event) => updateVersion(version.clientId, (item) => ({ ...item, name: event.target.value }))}
+                    placeholder="예: 포토스팟 우선"
+                  />
+                </label>
 
-            {showDateRange ? (
-              <div className="grid gap-2 text-sm">
-                <span className="text-slate-700">버전 종류</span>
-                <div className="flex flex-wrap gap-2">
-                  {([
-                    ['SEASON', '시즌버전'],
-                    ['FLIGHT', '항공권버전'],
-                  ] as const).map(([kind, label]) => (
-                    <Button
-                      key={kind}
-                      type="button"
-                      variant={version.kind === kind ? 'default' : 'outline'}
-                      onClick={() =>
+                {showDateRange ? (
+                  <div className="grid gap-2 text-sm">
+                    <span className="text-slate-700">버전 종류</span>
+                    <div className="flex flex-wrap gap-2">
+                      {([
+                        ['SEASON', '시즌버전'],
+                        ['FLIGHT', '항공권버전'],
+                      ] as const).map(([kind, label]) => (
+                        <Button
+                          key={kind}
+                          type="button"
+                          variant={version.kind === kind ? 'default' : 'outline'}
+                          onClick={() =>
+                            updateVersion(version.clientId, (item) => ({
+                              ...item,
+                              kind,
+                              startDate: kind === 'SEASON' ? item.startDate : '',
+                              endDate: kind === 'SEASON' ? item.endDate : '',
+                              flightOutTimeBand: kind === 'FLIGHT' ? item.flightOutTimeBand : '',
+                            }))
+                          }
+                        >
+                          {label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="grid gap-2 text-sm">
+                    <span className="text-slate-700">평균 이동 시간(시간)</span>
+                    <Input
+                      type="number"
+                      min={0.1}
+                      step={0.1}
+                      value={version.averageTravelHours}
+                      onChange={(event) =>
+                        updateVersion(version.clientId, (item) => ({ ...item, averageTravelHours: event.target.value }))
+                      }
+                      placeholder="예: 5.5"
+                    />
+                  </label>
+                  <label className="grid gap-2 text-sm">
+                    <span className="text-slate-700">평균거리(km)</span>
+                    <Input
+                      type="number"
+                      min={0.1}
+                      step={0.1}
+                      value={version.averageDistanceKm}
+                      onChange={(event) =>
+                        updateVersion(version.clientId, (item) => ({ ...item, averageDistanceKm: event.target.value }))
+                      }
+                      placeholder="예: 320"
+                    />
+                  </label>
+                </div>
+
+                {showDateRange && version.kind === 'SEASON' ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="grid gap-2 text-sm">
+                      <span className="text-slate-700">적용 시작일</span>
+                      <Input
+                        type="date"
+                        value={version.startDate}
+                        onChange={(event) => updateVersion(version.clientId, (item) => ({ ...item, startDate: event.target.value }))}
+                      />
+                    </label>
+                    <label className="grid gap-2 text-sm">
+                      <span className="text-slate-700">적용 종료일</span>
+                      <Input
+                        type="date"
+                        value={version.endDate}
+                        onChange={(event) => updateVersion(version.clientId, (item) => ({ ...item, endDate: event.target.value }))}
+                      />
+                    </label>
+                  </div>
+                ) : null}
+
+                {showDateRange && version.kind === 'FLIGHT' ? (
+                  <label className="grid gap-2 text-sm">
+                    <span className="text-slate-700">항공권 OUT 시간대</span>
+                    <select
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                      value={version.flightOutTimeBand}
+                      onChange={(event) =>
                         updateVersion(version.clientId, (item) => ({
                           ...item,
-                          kind,
-                          startDate: kind === 'SEASON' ? item.startDate : '',
-                          endDate: kind === 'SEASON' ? item.endDate : '',
-                          flightOutTimeBand: kind === 'FLIGHT' ? item.flightOutTimeBand : '',
+                          flightOutTimeBand: event.target.value as '' | FlightTimeBandValue,
                         }))
                       }
                     >
-                      {label}
-                    </Button>
-                  ))}
+                      <option value="">없음</option>
+                      {TIME_BAND_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+
+                <label className="flex items-center gap-2 text-sm text-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={version.isLongDistance}
+                    onChange={(event) =>
+                      updateVersion(version.clientId, (item) => ({ ...item, isLongDistance: event.target.checked }))
+                    }
+                  />
+                  장거리 여행
+                </label>
+
+                {showDateRange && version.kind === 'FLIGHT' ? (
+                  <div className="grid gap-3">
+                    <LodgingOverrideEditor
+                      value={version.lodgingOverride}
+                      onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, lodgingOverride: nextValue }))}
+                    />
+                    <MealsOverrideEditor
+                      value={version.mealsOverride}
+                      onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, mealsOverride: nextValue }))}
+                    />
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="grid gap-6">
+                <div className="grid items-start gap-6 xl:grid-cols-2">
+                  <TimeSlotEditor
+                    title="버전 일정"
+                    description="선택된 대안 버전의 시간/일정 자동 채움에 사용됩니다."
+                    value={version.timeSlots}
+                    pasteHelperResetNonce={pasteHelperResetNonce}
+                    onChange={(nextTimeSlots) => updateVersion(version.clientId, (item) => ({ ...item, timeSlots: nextTimeSlots }))}
+                  />
+                  {includeEarly ? (
+                    <TimeSlotEditor
+                      title="버전 얼리 일정"
+                      description="첫날 얼리 조건의 연결 자동 채움에 사용됩니다."
+                      value={version.earlyTimeSlots}
+                      pasteHelperResetNonce={pasteHelperResetNonce}
+                      onChange={(nextTimeSlots) =>
+                        updateVersion(version.clientId, (item) => ({ ...item, earlyTimeSlots: nextTimeSlots }))
+                      }
+                    />
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
+                      얼리 조건이 가능한 출발지/도착지일 때 얼리 일정 입력 영역이 나타납니다.
+                    </div>
+                  )}
                 </div>
-              </div>
-            ) : null}
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="grid gap-2 text-sm">
-                <span className="text-slate-700">평균 이동 시간(시간)</span>
-                <Input
-                  type="number"
-                  min={0.1}
-                  step={0.1}
-                  value={version.averageTravelHours}
-                  onChange={(event) =>
-                    updateVersion(version.clientId, (item) => ({ ...item, averageTravelHours: event.target.value }))
-                  }
-                  placeholder="예: 5.5"
-                />
-              </label>
-              <label className="grid gap-2 text-sm">
-                <span className="text-slate-700">평균거리(km)</span>
-                <Input
-                  type="number"
-                  min={0.1}
-                  step={0.1}
-                  value={version.averageDistanceKm}
-                  onChange={(event) =>
-                    updateVersion(version.clientId, (item) => ({ ...item, averageDistanceKm: event.target.value }))
-                  }
-                  placeholder="예: 320"
-                />
-              </label>
+                {(includeExtend || includeEarlyExtend) ? (
+                  <div className="grid items-start gap-6 xl:grid-cols-2">
+                    {includeExtend ? (
+                      <TimeSlotEditor
+                        title="버전 연장 일정"
+                        description="마지막날 연장 조건의 연결 자동 채움에 사용됩니다."
+                        value={version.extendTimeSlots}
+                        pasteHelperResetNonce={pasteHelperResetNonce}
+                        onChange={(nextTimeSlots) =>
+                          updateVersion(version.clientId, (item) => ({ ...item, extendTimeSlots: nextTimeSlots }))
+                        }
+                      />
+                    ) : (
+                      <div />
+                    )}
+                    {includeEarlyExtend ? (
+                      <TimeSlotEditor
+                        title="버전 얼리+연장 일정"
+                        description="첫날 얼리이면서 마지막날 연장 조건의 연결 자동 채움에 사용됩니다."
+                        value={version.earlyExtendTimeSlots}
+                        pasteHelperResetNonce={pasteHelperResetNonce}
+                        onChange={(nextTimeSlots) =>
+                          updateVersion(version.clientId, (item) => ({ ...item, earlyExtendTimeSlots: nextTimeSlots }))
+                        }
+                      />
+                    ) : (
+                      <div />
+                    )}
+                  </div>
+                ) : null}
+              </div>
             </div>
-
-            {showDateRange && version.kind === 'SEASON' ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="grid gap-2 text-sm">
-                  <span className="text-slate-700">적용 시작일</span>
-                  <Input
-                    type="date"
-                    value={version.startDate}
-                    onChange={(event) => updateVersion(version.clientId, (item) => ({ ...item, startDate: event.target.value }))}
-                  />
-                </label>
-                <label className="grid gap-2 text-sm">
-                  <span className="text-slate-700">적용 종료일</span>
-                  <Input
-                    type="date"
-                    value={version.endDate}
-                    onChange={(event) => updateVersion(version.clientId, (item) => ({ ...item, endDate: event.target.value }))}
-                  />
-                </label>
-              </div>
-            ) : null}
-
-            {showDateRange && version.kind === 'FLIGHT' ? (
-              <label className="grid gap-2 text-sm">
-                <span className="text-slate-700">항공권 OUT 시간대</span>
-                <select
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  value={version.flightOutTimeBand}
-                  onChange={(event) =>
-                    updateVersion(version.clientId, (item) => ({
-                      ...item,
-                      flightOutTimeBand: event.target.value as '' | FlightTimeBandValue,
-                    }))
-                  }
-                >
-                  <option value="">없음</option>
-                  {TIME_BAND_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-
-            <label className="flex items-center gap-2 text-sm text-slate-800">
-              <input
-                type="checkbox"
-                checked={version.isLongDistance}
-                onChange={(event) =>
-                  updateVersion(version.clientId, (item) => ({ ...item, isLongDistance: event.target.checked }))
-                }
-              />
-              장거리 여행
-            </label>
-
-            <TimeSlotEditor
-              title="버전 일정"
-              description="선택된 대안 버전의 시간/일정 자동 채움에 사용됩니다."
-              value={version.timeSlots}
-              pasteHelperResetNonce={pasteHelperResetNonce}
-              onChange={(nextTimeSlots) => updateVersion(version.clientId, (item) => ({ ...item, timeSlots: nextTimeSlots }))}
-            />
-            {includeEarly ? (
-              <TimeSlotEditor
-                title="버전 얼리 일정"
-                description="첫날 얼리 조건의 연결 자동 채움에 사용됩니다."
-                value={version.earlyTimeSlots}
-                pasteHelperResetNonce={pasteHelperResetNonce}
-                onChange={(nextTimeSlots) =>
-                  updateVersion(version.clientId, (item) => ({ ...item, earlyTimeSlots: nextTimeSlots }))
-                }
-              />
-            ) : null}
-            {includeExtend ? (
-              <TimeSlotEditor
-                title="버전 연장 일정"
-                description="마지막날 연장 조건의 연결 자동 채움에 사용됩니다."
-                value={version.extendTimeSlots}
-                pasteHelperResetNonce={pasteHelperResetNonce}
-                onChange={(nextTimeSlots) =>
-                  updateVersion(version.clientId, (item) => ({ ...item, extendTimeSlots: nextTimeSlots }))
-                }
-              />
-            ) : null}
-            {includeEarlyExtend ? (
-              <TimeSlotEditor
-                title="버전 얼리+연장 일정"
-                description="첫날 얼리이면서 마지막날 연장 조건의 연결 자동 채움에 사용됩니다."
-                value={version.earlyExtendTimeSlots}
-                pasteHelperResetNonce={pasteHelperResetNonce}
-                onChange={(nextTimeSlots) =>
-                  updateVersion(version.clientId, (item) => ({ ...item, earlyExtendTimeSlots: nextTimeSlots }))
-                }
-              />
-            ) : null}
-
-            {showDateRange && version.kind === 'FLIGHT' ? (
-              <div className="grid gap-3">
-                <LodgingOverrideEditor
-                  value={version.lodgingOverride}
-                  onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, lodgingOverride: nextValue }))}
-                />
-                <MealsOverrideEditor
-                  value={version.mealsOverride}
-                  onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, mealsOverride: nextValue }))}
-                />
-              </div>
-            ) : null}
           </div>
         ))
       )}
