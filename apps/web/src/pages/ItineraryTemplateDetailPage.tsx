@@ -207,6 +207,18 @@ const SEGMENTS_QUERY = gql`
         averageTravelHours
         movementIntensity
         isLongDistance
+        lodgingOverride {
+          isUnspecified
+          name
+          hasElectricity
+          hasShower
+          hasInternet
+        }
+        mealsOverride {
+          breakfast
+          lunch
+          dinner
+        }
         sortOrder
         isDefault
         scheduleTimeBlocks {

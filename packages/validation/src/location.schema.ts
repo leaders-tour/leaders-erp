@@ -44,7 +44,7 @@ const locationProfileTimeSlotSchema = z.object({
   activities: z.array(z.string().max(500)).max(20),
 });
 
-const locationProfileLodgingSchema = z.object({
+export const locationProfileLodgingSchema = z.object({
   isUnspecified: z.boolean().default(false),
   name: z.string().max(100).nullable().optional(),
   hasElectricity: facilityAvailabilitySchema.default('NO'),
@@ -52,7 +52,7 @@ const locationProfileLodgingSchema = z.object({
   hasInternet: facilityAvailabilitySchema.default('NO'),
 });
 
-const locationProfileMealsSchema = z.object({
+export const locationProfileMealsSchema = z.object({
   breakfast: z.nativeEnum(MealOption).nullable().optional(),
   lunch: z.nativeEnum(MealOption).nullable().optional(),
   dinner: z.nativeEnum(MealOption).nullable().optional(),

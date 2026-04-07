@@ -1,4 +1,6 @@
 import { gql, useApolloClient, useQuery } from '@apollo/client';
+import type { MealOption } from '../../generated/graphql';
+import type { FacilityAvailability } from '../location/hooks';
 
 const LIST = gql`
   query Connections {
@@ -66,6 +68,18 @@ const LIST = gql`
         startDate
         endDate
         flightOutTimeBand
+        lodgingOverride {
+          isUnspecified
+          name
+          hasElectricity
+          hasShower
+          hasInternet
+        }
+        mealsOverride {
+          breakfast
+          lunch
+          dinner
+        }
         sortOrder
         isDefault
         scheduleTimeBlocks {
@@ -277,6 +291,20 @@ const REMOVE_BLOCK_CONNECTION = gql`
 export type ConnectionSourceType = 'LOCATION' | 'MULTI_DAY_BLOCK';
 export type FlightTimeBandValue = 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT';
 
+export interface SegmentVersionLodgingOverrideFormInput {
+  isUnspecified: boolean;
+  name: string;
+  hasElectricity: FacilityAvailability;
+  hasShower: FacilityAvailability;
+  hasInternet: FacilityAvailability;
+}
+
+export interface SegmentVersionMealsOverrideFormInput {
+  breakfast: MealOption | null;
+  lunch: MealOption | null;
+  dinner: MealOption | null;
+}
+
 export interface SegmentFormInput {
   sourceType: ConnectionSourceType;
   regionId: string;
@@ -307,6 +335,8 @@ export interface SegmentVersionFormInput {
   startDate?: string;
   endDate?: string;
   flightOutTimeBand?: FlightTimeBandValue;
+  lodgingOverride?: SegmentVersionLodgingOverrideFormInput;
+  mealsOverride?: SegmentVersionMealsOverrideFormInput;
   timeSlots: SegmentTimeSlotFormInput[];
   earlyTimeSlots?: SegmentTimeSlotFormInput[];
   extendTimeSlots?: SegmentTimeSlotFormInput[];
@@ -381,6 +411,8 @@ export interface SegmentRow {
     startDate?: string | null;
     endDate?: string | null;
     flightOutTimeBand?: FlightTimeBandValue | null;
+    lodgingOverride?: SegmentVersionLodgingOverrideFormInput | null;
+    mealsOverride?: SegmentVersionMealsOverrideFormInput | null;
     sortOrder: number;
     isDefault: boolean;
     scheduleTimeBlocks: Array<{

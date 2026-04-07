@@ -770,6 +770,14 @@ model SegmentVersion {
   startDate          DateTime?
   endDate            DateTime?
   flightOutTimeBand  PricingTimeBand?
+  overrideLodgingIsUnspecified Boolean?
+  overrideLodgingName          String?
+  overrideHasElectricity       FacilityAvailability?
+  overrideHasShower            FacilityAvailability?
+  overrideHasInternet          FacilityAvailability?
+  overrideBreakfast            MealOption?
+  overrideLunch                MealOption?
+  overrideDinner               MealOption?
   sortOrder          Int
   isDefault          Boolean @default(false)
 

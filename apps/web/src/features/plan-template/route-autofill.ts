@@ -18,6 +18,20 @@ interface TimeBlockOption {
   }>;
 }
 
+interface SegmentVersionLodgingOverrideOption {
+  isUnspecified: boolean;
+  name: string;
+  hasElectricity: 'YES' | 'LIMITED' | 'NO';
+  hasShower: 'YES' | 'LIMITED' | 'NO';
+  hasInternet: 'YES' | 'LIMITED' | 'NO';
+}
+
+interface SegmentVersionMealsOverrideOption {
+  breakfast: MealOption | null;
+  lunch: MealOption | null;
+  dinner: MealOption | null;
+}
+
 export interface LocationVersionOption {
   id: string;
   versionNumber: number;
@@ -64,6 +78,8 @@ export interface SegmentVersionOption {
   startDate?: string | null;
   endDate?: string | null;
   flightOutTimeBand?: 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' | null;
+  lodgingOverride?: SegmentVersionLodgingOverrideOption | null;
+  mealsOverride?: SegmentVersionMealsOverrideOption | null;
   sortOrder: number;
   isDefault: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
@@ -100,6 +116,8 @@ interface ResolvedSegmentVersionOption {
   startDate?: string | null;
   endDate?: string | null;
   flightOutTimeBand?: 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' | null;
+  lodgingOverride?: SegmentVersionLodgingOverrideOption | null;
+  mealsOverride?: SegmentVersionMealsOverrideOption | null;
   sortOrder: number;
   isDefault: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
@@ -360,6 +378,8 @@ function buildLegacyDirectVersion(segment: SegmentOption): ResolvedSegmentVersio
     startDate: undefined,
     endDate: undefined,
     flightOutTimeBand: null,
+    lodgingOverride: null,
+    mealsOverride: null,
     sortOrder: 0,
     isDefault: true,
     scheduleTimeBlocks: segment.scheduleTimeBlocks,
@@ -444,6 +464,75 @@ function getMultiDayBlockConnectionScheduleTimeBlocks(
     return connectionVersion.earlyExtendScheduleTimeBlocks ?? [];
   }
   return connectionVersion.scheduleTimeBlocks ?? [];
+}
+
+function buildMealsCellText(fields: {
+  breakfast: MealOption | null;
+  lunch: MealOption | null;
+  dinner: MealOption | null;
+}): string {
+  return [toMealLabel(fields.breakfast), toMealLabel(fields.lunch), toMealLabel(fields.dinner)]
+    .filter((line) => line.length > 0)
+    .join('\n');
+}
+
+export function buildSegmentVersionOverrideLodgingText(
+  lodgingOverride: SegmentVersionLodgingOverrideOption | null | undefined,
+): string {
+  if (!lodgingOverride) {
+    return '';
+  }
+
+  return getBaseLodgingText(
+    {
+      lodgings: [
+        {
+          name: lodgingOverride.name,
+          hasElectricity: lodgingOverride.hasElectricity,
+          hasShower: lodgingOverride.hasShower,
+          hasInternet: lodgingOverride.hasInternet,
+        },
+      ],
+    },
+    toFacilityLabel,
+  );
+}
+
+export function buildSegmentVersionOverrideMealText(
+  mealsOverride: SegmentVersionMealsOverrideOption | null | undefined,
+): string {
+  if (!mealsOverride) {
+    return '';
+  }
+
+  return buildMealsCellText(mealsOverride);
+}
+
+function resolveRouteRowLodgingText(input: {
+  locationVersion: LocationVersionOption | undefined;
+  segmentVersion: ResolvedSegmentVersionOption | undefined;
+}): string {
+  const { locationVersion, segmentVersion } = input;
+  if (segmentVersion?.lodgingOverride) {
+    return buildSegmentVersionOverrideLodgingText(segmentVersion.lodgingOverride);
+  }
+  return getBaseLodgingText(locationVersion, toFacilityLabel);
+}
+
+function resolveRouteRowMealText(input: {
+  locationVersion: LocationVersionOption | undefined;
+  segmentVersion: ResolvedSegmentVersionOption | undefined;
+}): string {
+  const { locationVersion, segmentVersion } = input;
+  if (segmentVersion?.mealsOverride) {
+    return buildSegmentVersionOverrideMealText(segmentVersion.mealsOverride);
+  }
+  const set = pickDefaultLocationMealSet(locationVersion?.mealSets ?? []);
+  return buildMealsCellText({
+    breakfast: (set?.breakfast ?? null) as MealOption | null,
+    lunch: (set?.lunch ?? null) as MealOption | null,
+    dinner: (set?.dinner ?? null) as MealOption | null,
+  });
 }
 
 function getMultiDayBlockDay(
@@ -979,13 +1068,11 @@ export function buildAutoRowsFromRoute(input: {
     lodgingCellText: getBaseLodgingText(startVersion, toFacilityLabel),
     mealCellText: (() => {
       const set = pickFirstDayMealSetByProfile(startVersion?.mealSets ?? [], firstDayProfile);
-      return [
-        toMealLabel((set?.breakfast ?? null) as MealOption | null),
-        toMealLabel((set?.lunch ?? null) as MealOption | null),
-        toMealLabel((set?.dinner ?? null) as MealOption | null),
-      ]
-        .filter((line) => line.length > 0)
-        .join('\n');
+      return buildMealsCellText({
+        breakfast: (set?.breakfast ?? null) as MealOption | null,
+        lunch: (set?.lunch ?? null) as MealOption | null,
+        dinner: (set?.dinner ?? null) as MealOption | null,
+      });
     })(),
   });
 
@@ -1055,13 +1142,11 @@ export function buildAutoRowsFromRoute(input: {
         lodgingCellText: getBaseLodgingText(locationVersion, toFacilityLabel),
         mealCellText: (() => {
           const set = pickDefaultLocationMealSet(locationVersion?.mealSets ?? []);
-          return [
-            toMealLabel((set?.breakfast ?? null) as MealOption | null),
-            toMealLabel((set?.lunch ?? null) as MealOption | null),
-            toMealLabel((set?.dinner ?? null) as MealOption | null),
-          ]
-            .filter((line) => line.length > 0)
-            .join('\n');
+          return buildMealsCellText({
+            breakfast: (set?.breakfast ?? null) as MealOption | null,
+            lunch: (set?.lunch ?? null) as MealOption | null,
+            dinner: (set?.dinner ?? null) as MealOption | null,
+          });
         })(),
       });
     } else {
@@ -1090,17 +1175,8 @@ export function buildAutoRowsFromRoute(input: {
         movementIntensity: segmentVersion?.movementIntensity,
         timeCellText: toTimeCellFromTimeBlocks(getSegmentScheduleTimeBlocks(segmentVersion, variant)),
         scheduleCellText: toScheduleCellFromTimeBlocks(getSegmentScheduleTimeBlocks(segmentVersion, variant)),
-        lodgingCellText: getBaseLodgingText(locationVersion, toFacilityLabel),
-        mealCellText: (() => {
-          const set = pickDefaultLocationMealSet(locationVersion?.mealSets ?? []);
-          return [
-            toMealLabel((set?.breakfast ?? null) as MealOption | null),
-            toMealLabel((set?.lunch ?? null) as MealOption | null),
-            toMealLabel((set?.dinner ?? null) as MealOption | null),
-          ]
-            .filter((line) => line.length > 0)
-            .join('\n');
-        })(),
+        lodgingCellText: resolveRouteRowLodgingText({ locationVersion, segmentVersion }),
+        mealCellText: resolveRouteRowMealText({ locationVersion, segmentVersion }),
       });
     }
 

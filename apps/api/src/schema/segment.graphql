@@ -47,6 +47,8 @@ type SegmentVersion {
   startDate: DateTime
   endDate: DateTime
   flightOutTimeBand: PricingTimeBand
+  lodgingOverride: SegmentVersionLodgingOverride
+  mealsOverride: SegmentVersionMealsOverride
   sortOrder: Int!
   isDefault: Boolean!
   scheduleTimeBlocks: [SegmentVersionTimeBlock!]!
@@ -55,6 +57,20 @@ type SegmentVersion {
   earlyExtendScheduleTimeBlocks: [SegmentVersionTimeBlock!]!
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+type SegmentVersionLodgingOverride {
+  isUnspecified: Boolean!
+  name: String!
+  hasElectricity: FacilityAvailability!
+  hasShower: FacilityAvailability!
+  hasInternet: FacilityAvailability!
+}
+
+type SegmentVersionMealsOverride {
+  breakfast: MealOption
+  lunch: MealOption
+  dinner: MealOption
 }
 
 type SegmentVersionTimeBlock {
@@ -117,6 +133,8 @@ input SegmentVersionInput {
   startDate: String
   endDate: String
   flightOutTimeBand: PricingTimeBand
+  lodgingOverride: LocationProfileLodgingInput
+  mealsOverride: LocationProfileMealsInput
   timeSlots: [SegmentTimeSlotInput!]!
   earlyTimeSlots: [SegmentTimeSlotInput!]
   extendTimeSlots: [SegmentTimeSlotInput!]

@@ -2,11 +2,13 @@ import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { MealOption } from '../generated/graphql';
 import {
   calculateMovementIntensityByHours,
   getMovementIntensityMeta,
 } from '../features/estimate/model/movement-intensity';
 import { formatLocationNameInline, includesLocationNameKeyword } from '../features/location/display';
+import type { FacilityAvailability } from '../features/location/hooks';
 import {
   useSegmentCrud,
   type ConnectionSourceType,
@@ -14,6 +16,8 @@ import {
   type SegmentRow,
   type SegmentTimeSlotFormInput,
   type SegmentVersionFormInput,
+  type SegmentVersionLodgingOverrideFormInput,
+  type SegmentVersionMealsOverrideFormInput,
 } from '../features/segment/hooks';
 import { TIME_BAND_OPTIONS } from '../features/pricing-policy-admin/constants';
 import { RegionNameChip } from '../features/region/region-name-chip';
@@ -51,6 +55,19 @@ const TIME_SLOT_PASTE_HELPER_PLACEHOLDER = {
   timeCellText: '08:00\n12:00\n-\n18:00',
   scheduleCellText: '출발지 출발\n이동 중 점심식사\n도착지 도착 후 일정 진행\n숙소 체크인 또는 자유시간',
 } as const;
+const FACILITY_OPTIONS: Array<{ value: FacilityAvailability; label: string }> = [
+  { value: 'YES', label: 'O' },
+  { value: 'LIMITED', label: '제한' },
+  { value: 'NO', label: 'X' },
+];
+const MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
+  { value: MealOption.CampMeal, label: '캠프식' },
+  { value: MealOption.LocalRestaurant, label: '현지식당' },
+  { value: MealOption.ShabuShabu, label: '샤브샤브' },
+  { value: MealOption.PorkParty, label: '삼겹살파티' },
+  { value: MealOption.Horhog, label: '허르헉' },
+  { value: MealOption.Shashlik, label: '샤슬릭' },
+];
 
 type TimeSlotPasteHelperValue = {
   timeCellText: string;
@@ -100,6 +117,10 @@ interface SegmentVersionDraft {
   startDate: string;
   endDate: string;
   flightOutTimeBand: '' | FlightTimeBandValue;
+  lodgingOverrideEnabled: boolean;
+  lodgingOverride: SegmentVersionLodgingOverrideFormInput;
+  mealsOverrideEnabled: boolean;
+  mealsOverride: SegmentVersionMealsOverrideFormInput;
   timeSlots: SegmentTimeSlotFormInput[];
   earlyTimeSlots: SegmentTimeSlotFormInput[];
   extendTimeSlots: SegmentTimeSlotFormInput[];
@@ -138,6 +159,20 @@ function createVersionDraft(): SegmentVersionDraft {
     startDate: '',
     endDate: '',
     flightOutTimeBand: '',
+    lodgingOverrideEnabled: false,
+    lodgingOverride: {
+      isUnspecified: false,
+      name: '여행자 캠프',
+      hasElectricity: 'YES',
+      hasShower: 'YES',
+      hasInternet: 'YES',
+    },
+    mealsOverrideEnabled: false,
+    mealsOverride: {
+      breakfast: null,
+      lunch: null,
+      dinner: null,
+    },
     timeSlots: createDefaultTimeSlots(),
     earlyTimeSlots: createDefaultTimeSlots(),
     extendTimeSlots: createDefaultTimeSlots(),
@@ -307,6 +342,20 @@ function toVersionDrafts(segment: SegmentRow | undefined): SegmentVersionDraft[]
       startDate: version.startDate?.slice(0, 10) ?? '',
       endDate: version.endDate?.slice(0, 10) ?? '',
       flightOutTimeBand: version.flightOutTimeBand ?? '',
+      lodgingOverrideEnabled: Boolean(version.lodgingOverride),
+      lodgingOverride: version.lodgingOverride ?? {
+        isUnspecified: false,
+        name: '여행자 캠프',
+        hasElectricity: 'YES',
+        hasShower: 'YES',
+        hasInternet: 'YES',
+      },
+      mealsOverrideEnabled: Boolean(version.mealsOverride),
+      mealsOverride: version.mealsOverride ?? {
+        breakfast: null,
+        lunch: null,
+        dinner: null,
+      },
       timeSlots: toFormTimeSlots(version.scheduleTimeBlocks),
       earlyTimeSlots: toFormTimeSlots(version.earlyScheduleTimeBlocks),
       extendTimeSlots: toFormTimeSlots(version.extendScheduleTimeBlocks),
@@ -338,6 +387,22 @@ function buildVariantTimeSlotInput(
     ...(input.includeExtend ? { extendTimeSlots: value.extendTimeSlots } : {}),
     ...(input.includeEarlyExtend ? { earlyExtendTimeSlots: value.earlyExtendTimeSlots } : {}),
   };
+}
+
+function isVersionDraftValid(version: SegmentVersionDraft): boolean {
+  if (
+    version.name.trim().length === 0 ||
+    Number(version.averageDistanceKm) <= 0 ||
+    Number(version.averageTravelHours) <= 0
+  ) {
+    return false;
+  }
+
+  if (version.lodgingOverrideEnabled && !version.lodgingOverride.isUnspecified && version.lodgingOverride.name.trim().length === 0) {
+    return false;
+  }
+
+  return true;
 }
 
 function TimeSlotEditor(props: {
@@ -616,10 +681,146 @@ function buildVersionInputs(
       ...(form.sourceType === 'LOCATION' && version.flightOutTimeBand
         ? { flightOutTimeBand: version.flightOutTimeBand }
         : {}),
+      ...(form.sourceType === 'LOCATION' && version.lodgingOverrideEnabled
+        ? { lodgingOverride: version.lodgingOverride }
+        : {}),
+      ...(form.sourceType === 'LOCATION' && version.mealsOverrideEnabled ? { mealsOverride: version.mealsOverride } : {}),
       ...buildVariantTimeSlotInput(version, input),
       isDefault: false,
     })),
   ];
+}
+
+function LodgingOverrideEditor(props: {
+  value: SegmentVersionLodgingOverrideFormInput;
+  enabled: boolean;
+  onEnabledChange: (enabled: boolean) => void;
+  onChange: (nextValue: SegmentVersionLodgingOverrideFormInput) => void;
+}): JSX.Element {
+  const { value, enabled, onEnabledChange, onChange } = props;
+
+  return (
+    <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-1">
+          <h4 className="text-sm font-semibold text-slate-800">숙소 오버라이드</h4>
+          <p className="text-xs text-slate-500">체크하면 목적지 기본 숙소 대신 이 버전의 숙소 정보를 사용합니다.</p>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" checked={enabled} onChange={(event) => onEnabledChange(event.target.checked)} />
+          사용
+        </label>
+      </div>
+
+      {enabled ? (
+        <div className="grid gap-4">
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={value.isUnspecified}
+              onChange={(event) => onChange({ ...value, isUnspecified: event.target.checked })}
+            />
+            숙소 미지정
+          </label>
+          <label className="grid gap-2 text-sm">
+            <span className="text-slate-700">숙소명</span>
+            <Input
+              value={value.name}
+              disabled={value.isUnspecified}
+              onChange={(event) => onChange({ ...value, name: event.target.value })}
+              placeholder="예: 여행자 캠프"
+            />
+          </label>
+          <div className="grid gap-3 md:grid-cols-3">
+            {(
+              [
+                ['hasElectricity', '전기'],
+                ['hasShower', '샤워'],
+                ['hasInternet', '인터넷'],
+              ] as const
+            ).map(([field, label]) => (
+              <div key={field} className="grid gap-2 text-sm">
+                <span className="text-slate-700">{label}</span>
+                <div className="flex flex-wrap gap-2">
+                  {FACILITY_OPTIONS.map((option) => (
+                    <Button
+                      key={option.value}
+                      type="button"
+                      variant={value[field] === option.value ? 'default' : 'outline'}
+                      disabled={value.isUnspecified}
+                      onClick={() => onChange({ ...value, [field]: option.value })}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-slate-500">비워두면 목적지 기본 숙소를 그대로 사용합니다.</p>
+      )}
+    </div>
+  );
+}
+
+function MealsOverrideEditor(props: {
+  value: SegmentVersionMealsOverrideFormInput;
+  enabled: boolean;
+  onEnabledChange: (enabled: boolean) => void;
+  onChange: (nextValue: SegmentVersionMealsOverrideFormInput) => void;
+}): JSX.Element {
+  const { value, enabled, onEnabledChange, onChange } = props;
+
+  return (
+    <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-1">
+          <h4 className="text-sm font-semibold text-slate-800">식사 오버라이드</h4>
+          <p className="text-xs text-slate-500">체크하면 목적지 기본 식사 대신 이 버전의 식사 구성을 사용합니다.</p>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" checked={enabled} onChange={(event) => onEnabledChange(event.target.checked)} />
+          사용
+        </label>
+      </div>
+
+      {enabled ? (
+        <div className="grid gap-3">
+          {(['breakfast', 'lunch', 'dinner'] as const).map((field) => {
+            const label = field === 'breakfast' ? '아침' : field === 'lunch' ? '점심' : '저녁';
+            return (
+              <div key={field} className="grid gap-2 text-sm">
+                <span className="text-slate-700">{label}</span>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={value[field] === null ? 'default' : 'outline'}
+                    onClick={() => onChange({ ...value, [field]: null })}
+                  >
+                    없음
+                  </Button>
+                  {MEAL_OPTIONS.map((option) => (
+                    <Button
+                      key={option.value}
+                      type="button"
+                      variant={value[field] === option.value ? 'default' : 'outline'}
+                      onClick={() => onChange({ ...value, [field]: option.value })}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-xs text-slate-500">비워두면 목적지 기본 식사를 그대로 사용합니다.</p>
+      )}
+    </div>
+  );
 }
 
 function AlternativeVersionEditor(props: {
@@ -632,6 +833,9 @@ function AlternativeVersionEditor(props: {
   pasteHelperResetNonce?: number;
 }): JSX.Element {
   const { value, showDateRange, includeEarly, includeExtend, includeEarlyExtend, onChange, pasteHelperResetNonce } = props;
+  const updateVersion = (clientId: string, updater: (current: SegmentVersionDraft) => SegmentVersionDraft) => {
+    onChange(value.map((item) => (item.clientId === clientId ? updater(item) : item)));
+  };
 
   return (
     <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
@@ -670,11 +874,7 @@ function AlternativeVersionEditor(props: {
               <span className="text-slate-700">버전 이름</span>
               <Input
                 value={version.name}
-                onChange={(event) =>
-                  onChange(
-                    value.map((item) => (item.clientId === version.clientId ? { ...item, name: event.target.value } : item)),
-                  )
-                }
+                onChange={(event) => updateVersion(version.clientId, (item) => ({ ...item, name: event.target.value }))}
                 placeholder="예: 포토스팟 우선"
               />
             </label>
@@ -688,11 +888,7 @@ function AlternativeVersionEditor(props: {
                   step={0.1}
                   value={version.averageTravelHours}
                   onChange={(event) =>
-                    onChange(
-                      value.map((item) =>
-                        item.clientId === version.clientId ? { ...item, averageTravelHours: event.target.value } : item,
-                      ),
-                    )
+                    updateVersion(version.clientId, (item) => ({ ...item, averageTravelHours: event.target.value }))
                   }
                   placeholder="예: 5.5"
                 />
@@ -705,11 +901,7 @@ function AlternativeVersionEditor(props: {
                   step={0.1}
                   value={version.averageDistanceKm}
                   onChange={(event) =>
-                    onChange(
-                      value.map((item) =>
-                        item.clientId === version.clientId ? { ...item, averageDistanceKm: event.target.value } : item,
-                      ),
-                    )
+                    updateVersion(version.clientId, (item) => ({ ...item, averageDistanceKm: event.target.value }))
                   }
                   placeholder="예: 320"
                 />
@@ -723,13 +915,7 @@ function AlternativeVersionEditor(props: {
                   <Input
                     type="date"
                     value={version.startDate}
-                    onChange={(event) =>
-                      onChange(
-                        value.map((item) =>
-                          item.clientId === version.clientId ? { ...item, startDate: event.target.value } : item,
-                        ),
-                      )
-                    }
+                    onChange={(event) => updateVersion(version.clientId, (item) => ({ ...item, startDate: event.target.value }))}
                   />
                 </label>
                 <label className="grid gap-2 text-sm">
@@ -737,13 +923,7 @@ function AlternativeVersionEditor(props: {
                   <Input
                     type="date"
                     value={version.endDate}
-                    onChange={(event) =>
-                      onChange(
-                        value.map((item) =>
-                          item.clientId === version.clientId ? { ...item, endDate: event.target.value } : item,
-                        ),
-                      )
-                    }
+                    onChange={(event) => updateVersion(version.clientId, (item) => ({ ...item, endDate: event.target.value }))}
                   />
                 </label>
               </div>
@@ -756,13 +936,10 @@ function AlternativeVersionEditor(props: {
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                   value={version.flightOutTimeBand}
                   onChange={(event) =>
-                    onChange(
-                      value.map((item) =>
-                        item.clientId === version.clientId
-                          ? { ...item, flightOutTimeBand: event.target.value as '' | FlightTimeBandValue }
-                          : item,
-                      ),
-                    )
+                    updateVersion(version.clientId, (item) => ({
+                      ...item,
+                      flightOutTimeBand: event.target.value as '' | FlightTimeBandValue,
+                    }))
                   }
                 >
                   <option value="">없음</option>
@@ -780,26 +957,39 @@ function AlternativeVersionEditor(props: {
                 type="checkbox"
                 checked={version.isLongDistance}
                 onChange={(event) =>
-                  onChange(
-                    value.map((item) =>
-                      item.clientId === version.clientId ? { ...item, isLongDistance: event.target.checked } : item,
-                    ),
-                  )
+                  updateVersion(version.clientId, (item) => ({ ...item, isLongDistance: event.target.checked }))
                 }
               />
               장거리 여행
             </label>
+
+            {showDateRange ? (
+              <div className="grid gap-3">
+                <LodgingOverrideEditor
+                  value={version.lodgingOverride}
+                  enabled={version.lodgingOverrideEnabled}
+                  onEnabledChange={(enabled) =>
+                    updateVersion(version.clientId, (item) => ({ ...item, lodgingOverrideEnabled: enabled }))
+                  }
+                  onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, lodgingOverride: nextValue }))}
+                />
+                <MealsOverrideEditor
+                  value={version.mealsOverride}
+                  enabled={version.mealsOverrideEnabled}
+                  onEnabledChange={(enabled) =>
+                    updateVersion(version.clientId, (item) => ({ ...item, mealsOverrideEnabled: enabled }))
+                  }
+                  onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, mealsOverride: nextValue }))}
+                />
+              </div>
+            ) : null}
 
             <TimeSlotEditor
               title="버전 일정"
               description="선택된 대안 버전의 시간/일정 자동 채움에 사용됩니다."
               value={version.timeSlots}
               pasteHelperResetNonce={pasteHelperResetNonce}
-              onChange={(nextTimeSlots) =>
-                onChange(
-                  value.map((item) => (item.clientId === version.clientId ? { ...item, timeSlots: nextTimeSlots } : item)),
-                )
-              }
+              onChange={(nextTimeSlots) => updateVersion(version.clientId, (item) => ({ ...item, timeSlots: nextTimeSlots }))}
             />
             {includeEarly ? (
               <TimeSlotEditor
@@ -808,9 +998,7 @@ function AlternativeVersionEditor(props: {
                 value={version.earlyTimeSlots}
                 pasteHelperResetNonce={pasteHelperResetNonce}
                 onChange={(nextTimeSlots) =>
-                  onChange(
-                    value.map((item) => (item.clientId === version.clientId ? { ...item, earlyTimeSlots: nextTimeSlots } : item)),
-                  )
+                  updateVersion(version.clientId, (item) => ({ ...item, earlyTimeSlots: nextTimeSlots }))
                 }
               />
             ) : null}
@@ -821,9 +1009,7 @@ function AlternativeVersionEditor(props: {
                 value={version.extendTimeSlots}
                 pasteHelperResetNonce={pasteHelperResetNonce}
                 onChange={(nextTimeSlots) =>
-                  onChange(
-                    value.map((item) => (item.clientId === version.clientId ? { ...item, extendTimeSlots: nextTimeSlots } : item)),
-                  )
+                  updateVersion(version.clientId, (item) => ({ ...item, extendTimeSlots: nextTimeSlots }))
                 }
               />
             ) : null}
@@ -834,11 +1020,7 @@ function AlternativeVersionEditor(props: {
                 value={version.earlyExtendTimeSlots}
                 pasteHelperResetNonce={pasteHelperResetNonce}
                 onChange={(nextTimeSlots) =>
-                  onChange(
-                    value.map((item) =>
-                      item.clientId === version.clientId ? { ...item, earlyExtendTimeSlots: nextTimeSlots } : item,
-                    ),
-                  )
+                  updateVersion(version.clientId, (item) => ({ ...item, earlyExtendTimeSlots: nextTimeSlots }))
                 }
               />
             ) : null}
@@ -988,12 +1170,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     (form.sourceType === 'MULTI_DAY_BLOCK' || form.fromLocationId !== form.toLocationId) &&
     Number(form.averageDistanceKm) > 0 &&
     Number(form.averageTravelHours) > 0 &&
-    form.versions.every(
-      (version) =>
-        version.name.trim().length > 0 &&
-        Number(version.averageDistanceKm) > 0 &&
-        Number(version.averageTravelHours) > 0,
-    );
+    form.versions.every((version) => isVersionDraftValid(version));
 
   const canUpdate =
     hasEditSource &&
@@ -1001,12 +1178,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     (editForm.sourceType === 'MULTI_DAY_BLOCK' || editForm.fromLocationId !== editForm.toLocationId) &&
     Number(editForm.averageDistanceKm) > 0 &&
     Number(editForm.averageTravelHours) > 0 &&
-    editForm.versions.every(
-      (version) =>
-        version.name.trim().length > 0 &&
-        Number(version.averageDistanceKm) > 0 &&
-        Number(version.averageTravelHours) > 0,
-    );
+    editForm.versions.every((version) => isVersionDraftValid(version));
   const showCreateSection = mode !== 'list';
   const showListSection = mode !== 'create';
   const pageTitle = mode === 'create' ? '연결 생성' : mode === 'list' ? '연결 목록' : '연결 관리';

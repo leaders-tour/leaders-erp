@@ -1,7 +1,9 @@
-import type { MovementIntensity, PricingTimeBand, Prisma, PrismaClient } from '@prisma/client';
+import type { FacilityAvailability, MealOption, MovementIntensity, PricingTimeBand, Prisma, PrismaClient } from '@prisma/client';
 import {
   segmentCreateSchema,
   segmentUpdateSchema,
+  type LocationProfileLodgingInput,
+  type LocationProfileMealsInput,
   type SegmentTimeSlotInput,
   type SegmentVersionInput,
 } from '@tour/validation';
@@ -34,8 +36,24 @@ interface NormalizedSegmentVersion {
   startDate: Date | null;
   endDate: Date | null;
   flightOutTimeBand: PricingTimeBand | null;
+  lodgingOverride: NormalizedLodgingOverride | null;
+  mealsOverride: NormalizedMealsOverride | null;
   isDefault: boolean;
   timeSlotsByVariant: VariantTimeSlotMap;
+}
+
+interface NormalizedLodgingOverride {
+  isUnspecified: boolean;
+  name: string;
+  hasElectricity: FacilityAvailability;
+  hasShower: FacilityAvailability;
+  hasInternet: FacilityAvailability;
+}
+
+interface NormalizedMealsOverride {
+  breakfast: MealOption | null;
+  lunch: MealOption | null;
+  dinner: MealOption | null;
 }
 
 interface ExistingSegmentLike {
@@ -64,6 +82,14 @@ interface ExistingSegmentLike {
     startDate: Date | null;
     endDate: Date | null;
     flightOutTimeBand?: PricingTimeBand | null;
+    overrideLodgingIsUnspecified?: boolean | null;
+    overrideLodgingName?: string | null;
+    overrideHasElectricity?: FacilityAvailability | null;
+    overrideHasShower?: FacilityAvailability | null;
+    overrideHasInternet?: FacilityAvailability | null;
+    overrideBreakfast?: MealOption | null;
+    overrideLunch?: MealOption | null;
+    overrideDinner?: MealOption | null;
     sortOrder: number;
     isDefault: boolean;
     scheduleTimeBlocks: Array<{
@@ -152,6 +178,67 @@ export class SegmentService {
     };
   }
 
+  private normalizeLodgingOverride(lodgingOverride: LocationProfileLodgingInput | undefined): NormalizedLodgingOverride | null {
+    if (!lodgingOverride) {
+      return null;
+    }
+
+    const isUnspecified = lodgingOverride.isUnspecified ?? false;
+    const name = isUnspecified ? '숙소 미지정' : lodgingOverride.name?.trim() ? lodgingOverride.name.trim() : '여행자 캠프';
+
+    return {
+      isUnspecified,
+      name,
+      hasElectricity: isUnspecified ? 'NO' : ((lodgingOverride.hasElectricity ?? 'NO') as FacilityAvailability),
+      hasShower: isUnspecified ? 'NO' : ((lodgingOverride.hasShower ?? 'NO') as FacilityAvailability),
+      hasInternet: isUnspecified ? 'NO' : ((lodgingOverride.hasInternet ?? 'NO') as FacilityAvailability),
+    };
+  }
+
+  private normalizeMealsOverride(mealsOverride: LocationProfileMealsInput | undefined): NormalizedMealsOverride | null {
+    if (!mealsOverride) {
+      return null;
+    }
+
+    return {
+      breakfast: mealsOverride.breakfast ?? null,
+      lunch: mealsOverride.lunch ?? null,
+      dinner: mealsOverride.dinner ?? null,
+    };
+  }
+
+  private buildLodgingOverrideFromExisting(version: ExistingSegmentLike['versions'][number]): NormalizedLodgingOverride | null {
+    if (
+      version.overrideLodgingIsUnspecified == null &&
+      version.overrideLodgingName == null &&
+      version.overrideHasElectricity == null &&
+      version.overrideHasShower == null &&
+      version.overrideHasInternet == null
+    ) {
+      return null;
+    }
+
+    return {
+      isUnspecified: version.overrideLodgingIsUnspecified ?? false,
+      name: version.overrideLodgingName?.trim() ? version.overrideLodgingName.trim() : '여행자 캠프',
+      hasElectricity: version.overrideHasElectricity ?? 'NO',
+      hasShower: version.overrideHasShower ?? 'NO',
+      hasInternet: version.overrideHasInternet ?? 'NO',
+    };
+  }
+
+  private buildMealsOverrideFromExisting(version: ExistingSegmentLike['versions'][number]): NormalizedMealsOverride | null {
+    if (version.overrideBreakfast == null && version.overrideLunch == null && version.overrideDinner == null) {
+      return null;
+    }
+
+    return {
+      breakfast: version.overrideBreakfast ?? null,
+      lunch: version.overrideLunch ?? null,
+      dinner: version.overrideDinner ?? null,
+    };
+  }
+
   private mapScheduleTimeBlocksToTimeSlots(
     timeBlocks:
       | ExistingSegmentLike['scheduleTimeBlocks']
@@ -207,6 +294,8 @@ export class SegmentService {
       startDate: null,
       endDate: null,
       flightOutTimeBand: null,
+      lodgingOverride: null,
+      mealsOverride: null,
       isDefault: true,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(input),
     };
@@ -226,6 +315,8 @@ export class SegmentService {
           startDate: version.startDate,
           endDate: version.endDate,
           flightOutTimeBand: version.flightOutTimeBand ?? null,
+          lodgingOverride: this.buildLodgingOverrideFromExisting(version),
+          mealsOverride: this.buildMealsOverrideFromExisting(version),
           isDefault: version.isDefault,
           timeSlotsByVariant: this.mapTimeBlocksToVariantTimeSlots(version.scheduleTimeBlocks),
         }));
@@ -254,6 +345,8 @@ export class SegmentService {
       startDate: this.parseDateOnly(version.startDate),
       endDate: this.parseDateOnly(version.endDate),
       flightOutTimeBand: version.flightOutTimeBand ?? null,
+      lodgingOverride: this.normalizeLodgingOverride(version.lodgingOverride),
+      mealsOverride: this.normalizeMealsOverride(version.mealsOverride),
       isDefault: version.isDefault !== false,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(version),
     }));
@@ -542,6 +635,14 @@ export class SegmentService {
           startDate: version.startDate,
           endDate: version.endDate,
           flightOutTimeBand: version.flightOutTimeBand,
+          overrideLodgingIsUnspecified: version.lodgingOverride?.isUnspecified ?? null,
+          overrideLodgingName: version.lodgingOverride?.name ?? null,
+          overrideHasElectricity: version.lodgingOverride?.hasElectricity ?? null,
+          overrideHasShower: version.lodgingOverride?.hasShower ?? null,
+          overrideHasInternet: version.lodgingOverride?.hasInternet ?? null,
+          overrideBreakfast: version.mealsOverride?.breakfast ?? null,
+          overrideLunch: version.mealsOverride?.lunch ?? null,
+          overrideDinner: version.mealsOverride?.dinner ?? null,
           sortOrder,
           isDefault: version.isDefault,
         },
@@ -584,6 +685,14 @@ export class SegmentService {
           startDate: null,
           endDate: null,
           flightOutTimeBand: defaultVersion.flightOutTimeBand,
+          overrideLodgingIsUnspecified: defaultVersion.lodgingOverride?.isUnspecified ?? null,
+          overrideLodgingName: defaultVersion.lodgingOverride?.name ?? null,
+          overrideHasElectricity: defaultVersion.lodgingOverride?.hasElectricity ?? null,
+          overrideHasShower: defaultVersion.lodgingOverride?.hasShower ?? null,
+          overrideHasInternet: defaultVersion.lodgingOverride?.hasInternet ?? null,
+          overrideBreakfast: defaultVersion.mealsOverride?.breakfast ?? null,
+          overrideLunch: defaultVersion.mealsOverride?.lunch ?? null,
+          overrideDinner: defaultVersion.mealsOverride?.dinner ?? null,
           sortOrder: 0,
           isDefault: true,
         },
@@ -604,6 +713,14 @@ export class SegmentService {
         startDate: null,
         endDate: null,
         flightOutTimeBand: defaultVersion.flightOutTimeBand,
+        overrideLodgingIsUnspecified: defaultVersion.lodgingOverride?.isUnspecified ?? null,
+        overrideLodgingName: defaultVersion.lodgingOverride?.name ?? null,
+        overrideHasElectricity: defaultVersion.lodgingOverride?.hasElectricity ?? null,
+        overrideHasShower: defaultVersion.lodgingOverride?.hasShower ?? null,
+        overrideHasInternet: defaultVersion.lodgingOverride?.hasInternet ?? null,
+        overrideBreakfast: defaultVersion.mealsOverride?.breakfast ?? null,
+        overrideLunch: defaultVersion.mealsOverride?.lunch ?? null,
+        overrideDinner: defaultVersion.mealsOverride?.dinner ?? null,
         sortOrder: 0,
         isDefault: true,
       },

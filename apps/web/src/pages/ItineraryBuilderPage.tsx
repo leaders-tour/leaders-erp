@@ -1132,6 +1132,18 @@ const SEGMENTS_QUERY = gql`
         startDate
         endDate
         flightOutTimeBand
+        lodgingOverride {
+          isUnspecified
+          name
+          hasElectricity
+          hasShower
+          hasInternet
+        }
+        mealsOverride {
+          breakfast
+          lunch
+          dinner
+        }
         sortOrder
         isDefault
         scheduleTimeBlocks {
@@ -2050,7 +2062,7 @@ function toMealCellText(fields: MealCellFields): string {
     .join('\n');
 }
 
-function adjustLastDayMealCellText(
+export function adjustLastDayMealCellText(
   value: string,
   input: {
     travelEndDate: string;
@@ -2093,6 +2105,21 @@ function adjustLastDayMealCellText(
   }
 
   return value;
+}
+
+export function applyLastDayAutoRowAdjustments<T extends { lodgingCellText: string; mealCellText: string }>(
+  rows: T[],
+  input: {
+    travelEndDate: string;
+    dropDate: string;
+    dropTime: string;
+  },
+): T[] {
+  return rows.map((row, index, allRows) => ({
+    ...row,
+    lodgingCellText: index === allRows.length - 1 ? '숙소미포함' : row.lodgingCellText,
+    mealCellText: index === allRows.length - 1 ? adjustLastDayMealCellText(row.mealCellText, input) : row.mealCellText,
+  }));
 }
 
 function autoResizeTextarea(element: HTMLTextAreaElement): void {
@@ -2987,7 +3014,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         ? firstPickupTime
         : undefined;
 
-    return buildAutoRowsFromRoute({
+    const baseRows = buildAutoRowsFromRoute({
       startLocationId,
       startLocationVersionId,
       selectedRoute,
@@ -3001,21 +3028,17 @@ export function ItineraryBuilderPage(): JSX.Element {
       travelStartDate,
       flightOutTime,
       firstDayTimeOverride,
-    }).map((row, index, rows) => ({
+    }).map((row) => ({
       ...row,
-      lodgingSelectionLevel: 'LV3',
+      lodgingSelectionLevel: 'LV3' as const,
       customLodgingId: undefined,
       customLodgingNameSnapshot: null,
-      lodgingCellText: index === rows.length - 1 ? '숙소미포함' : row.lodgingCellText,
-      mealCellText:
-        index === rows.length - 1
-          ? adjustLastDayMealCellText(row.mealCellText, {
-              travelEndDate,
-              dropDate,
-              dropTime,
-            })
-          : row.mealCellText,
     }));
+    return applyLastDayAutoRowAdjustments(baseRows, {
+      travelEndDate,
+      dropDate,
+      dropTime,
+    });
   }, [
     filteredOvernightStays,
     filteredOvernightStayConnections,

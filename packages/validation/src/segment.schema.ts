@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { locationProfileLodgingSchema, locationProfileMealsSchema } from './location.schema';
 
 const pricingTimeBands = ['DAWN', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT'] as const;
 
@@ -18,6 +19,8 @@ const segmentVersionSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   flightOutTimeBand: z.enum(pricingTimeBands).optional(),
+  lodgingOverride: locationProfileLodgingSchema.optional(),
+  mealsOverride: locationProfileMealsSchema.optional(),
   timeSlots: segmentTimeSlotsSchema,
   earlyTimeSlots: segmentTimeSlotsSchema.optional(),
   extendTimeSlots: segmentTimeSlotsSchema.optional(),

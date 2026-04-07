@@ -357,6 +357,18 @@ const segmentABSeasonal: SegmentOption = {
       startDate: '2026-01-01T00:00:00.000Z',
       endDate: '2026-01-31T00:00:00.000Z',
       flightOutTimeBand: 'AFTERNOON',
+      lodgingOverride: {
+        isUnspecified: false,
+        name: '1월 캠프',
+        hasElectricity: 'LIMITED',
+        hasShower: 'NO',
+        hasInternet: 'NO',
+      },
+      mealsOverride: {
+        breakfast: MealOption.LocalRestaurant,
+        lunch: MealOption.ShabuShabu,
+        dinner: MealOption.PorkParty,
+      },
       scheduleTimeBlocks: [
         {
           id: 'segv-ab-jan-basic',
@@ -382,6 +394,18 @@ const segmentABSeasonal: SegmentOption = {
       startDate: '2026-02-01T00:00:00.000Z',
       endDate: '2026-02-28T00:00:00.000Z',
       flightOutTimeBand: 'EVENING',
+      lodgingOverride: {
+        isUnspecified: false,
+        name: '야간 도착 게르',
+        hasElectricity: 'YES',
+        hasShower: 'LIMITED',
+        hasInternet: 'NO',
+      },
+      mealsOverride: {
+        breakfast: MealOption.CampMeal,
+        lunch: MealOption.LocalRestaurant,
+        dinner: MealOption.Horhog,
+      },
       scheduleTimeBlocks: [
         {
           id: 'segv-ab-feb-basic',
@@ -754,6 +778,35 @@ describe('route-autofill', () => {
     expect(rows[1]?.scheduleCellText).toBe('1월 이동');
   });
 
+  it('applies segment version lodging and meal overrides when the date-matched version is selected', () => {
+    const rows = buildAutoRowsFromRoute({
+      startLocationId: locationA.id,
+      startLocationVersionId: 'ver-a',
+      selectedRoute: [
+        {
+          kind: 'LOCATION',
+          locationId: locationB.id,
+          locationVersionId: 'ver-b',
+          segmentId: 'segment-ab',
+        },
+      ],
+      filteredSegments: [segmentABSeasonal],
+      locationById: new Map([
+        [locationA.id, locationA],
+        [locationB.id, locationB],
+      ]),
+      locationVersionById: new Map([
+        ['ver-a', locationAVersion],
+        ['ver-b', locationBVersion],
+      ]),
+      totalDays: 2,
+      travelStartDate: '2026-01-01',
+    });
+
+    expect(rows[1]?.lodgingCellText).toBe('1월 캠프\n전기 제한\n샤워 X\n인터넷 X');
+    expect(rows[1]?.mealCellText).toBe('현지식당\n샤브샤브\n삼겹살파티');
+  });
+
   it('uses the flight OUT time band for the final segment when auto rows are built', () => {
     const rows = buildAutoRowsFromRoute({
       startLocationId: locationA.id,
@@ -782,6 +835,40 @@ describe('route-autofill', () => {
 
     expect(rows[1]?.segmentVersionId).toBe('segment-version-ab-feb');
     expect(rows[1]?.scheduleCellText).toBe('2월 이동');
+    expect(rows[1]?.lodgingCellText).toBe('야간 도착 게르\n전기 O\n샤워 제한\n인터넷 X');
+    expect(rows[1]?.mealCellText).toBe('캠프식\n현지식당\n허르헉');
+  });
+
+  it('applies the same override path when a segment version is explicitly selected', () => {
+    const rows = buildAutoRowsFromRoute({
+      startLocationId: locationA.id,
+      startLocationVersionId: 'ver-a',
+      selectedRoute: [
+        {
+          kind: 'LOCATION',
+          locationId: locationB.id,
+          locationVersionId: 'ver-b',
+          segmentId: 'segment-ab',
+          segmentVersionId: 'segment-version-ab-jan',
+        },
+      ],
+      filteredSegments: [segmentABSeasonal],
+      locationById: new Map([
+        [locationA.id, locationA],
+        [locationB.id, locationB],
+      ]),
+      locationVersionById: new Map([
+        ['ver-a', locationAVersion],
+        ['ver-b', locationBVersion],
+      ]),
+      totalDays: 2,
+      travelStartDate: '2026-03-01',
+      flightOutTime: '18:15',
+    });
+
+    expect(rows[1]?.segmentVersionId).toBe('segment-version-ab-jan');
+    expect(rows[1]?.lodgingCellText).toBe('1월 캠프\n전기 제한\n샤워 X\n인터넷 X');
+    expect(rows[1]?.mealCellText).toBe('현지식당\n샤브샤브\n삼겹살파티');
   });
 
   it('preserves segmentId in template stop payloads for day 2+', () => {

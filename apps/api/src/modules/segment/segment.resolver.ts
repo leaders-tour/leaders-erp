@@ -51,5 +51,35 @@ export const segmentResolver = {
     extendScheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'extend'),
     earlyExtendScheduleTimeBlocks: (parent: any) =>
       (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'earlyExtend'),
+    lodgingOverride: (parent: any) => {
+      if (
+        parent.overrideLodgingIsUnspecified == null &&
+        parent.overrideLodgingName == null &&
+        parent.overrideHasElectricity == null &&
+        parent.overrideHasShower == null &&
+        parent.overrideHasInternet == null
+      ) {
+        return null;
+      }
+
+      return {
+        isUnspecified: parent.overrideLodgingIsUnspecified ?? false,
+        name: parent.overrideLodgingName ?? '여행자 캠프',
+        hasElectricity: parent.overrideHasElectricity ?? 'NO',
+        hasShower: parent.overrideHasShower ?? 'NO',
+        hasInternet: parent.overrideHasInternet ?? 'NO',
+      };
+    },
+    mealsOverride: (parent: any) => {
+      if (parent.overrideBreakfast == null && parent.overrideLunch == null && parent.overrideDinner == null) {
+        return null;
+      }
+
+      return {
+        breakfast: parent.overrideBreakfast ?? null,
+        lunch: parent.overrideLunch ?? null,
+        dinner: parent.overrideDinner ?? null,
+      };
+    },
   },
 };
