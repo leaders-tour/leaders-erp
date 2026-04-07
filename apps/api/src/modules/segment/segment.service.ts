@@ -515,7 +515,7 @@ export class SegmentService {
     const versionLabel = version.name || 'Default';
     const variantsToCheck =
       version.kind === 'FLIGHT'
-        ? requiredVariants.filter((variant) => variant !== 'extend')
+        ? requiredVariants.filter((variant) => variant !== 'early' && variant !== 'extend')
         : requiredVariants;
 
     variantsToCheck.forEach((variant) => {
