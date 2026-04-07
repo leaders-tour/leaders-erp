@@ -49,6 +49,7 @@ enum OverrideTargetType {
 
 enum MealOption {
   CAMP_MEAL
+  HOTEL_BREAKFAST
   LOCAL_MEAL
   LOCAL_RESTAURANT
   PORK_PARTY

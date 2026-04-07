@@ -36,6 +36,7 @@ export function toMealLabel(value: MealOption | null | undefined): string {
   }
   const labels: Record<MealOption, string> = {
     [MealOption.CampMeal]: '캠프식',
+    [MealOption.HotelBreakfast]: '호텔조식',
     [MealOption.LocalMeal]: '현지식',
     [MealOption.LocalRestaurant]: '현지식당',
     [MealOption.PorkParty]: '삼겹살파티',

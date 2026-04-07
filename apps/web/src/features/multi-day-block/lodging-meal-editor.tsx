@@ -14,6 +14,7 @@ const FACILITY_OPTIONS: Array<{ value: FacilityAvailability; label: string }> = 
 
 const MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
   { value: MealOption.CampMeal, label: '캠프식' },
+  { value: MealOption.HotelBreakfast, label: '호텔조식' },
   { value: MealOption.LocalMeal, label: '현지식' },
   { value: MealOption.LocalRestaurant, label: '현지식당' },
   { value: MealOption.ShabuShabu, label: '샤브샤브' },

@@ -16,6 +16,7 @@ const REGIONS_QUERY = gql`
 
 const MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
   { value: MealOption.CampMeal, label: '캠프식' },
+  { value: MealOption.HotelBreakfast, label: '호텔조식' },
   { value: MealOption.LocalMeal, label: '현지식' },
   { value: MealOption.LocalRestaurant, label: '현지식당' },
   { value: MealOption.ShabuShabu, label: '샤브샤브' },
@@ -740,7 +741,7 @@ export function LocationProfileForm({
                   {form.isFirstDayEligible ? '1일차 일반 식사' : '식사'}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  끼니별로 캠프식·현지식·현지식당 또는 특식(샤브샤브, 삼겹살파티, 허르헉, 샤슬릭)을 골라 저장할 수 있습니다. 특식이 없는 일반 일정이면 특식 대신 보통 식사를 선택하면 됩니다.
+                  끼니별로 캠프식·호텔조식·현지식·현지식당 또는 특식(샤브샤브, 삼겹살파티, 허르헉, 샤슬릭)을 골라 저장할 수 있습니다. 특식이 없는 일반 일정이면 특식 대신 보통 식사를 선택하면 됩니다.
                   {form.isFirstDayEligible ? ' 일정빌더에서 1일차 기본 변형일 때 사용됩니다.' : ''}
                 </p>
                 {form.isFirstDayEligible ? (
