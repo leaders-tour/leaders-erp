@@ -149,6 +149,12 @@ enum PricingTimeBand {
   NIGHT
 }
 
+enum SegmentVersionKind {
+  DEFAULT
+  SEASON
+  FLIGHT
+}
+
 enum PricingExternalTransferMode {
   ANY
   PICKUP_ONLY
@@ -767,6 +773,7 @@ model SegmentVersion {
   averageTravelHours Float
   movementIntensity  MovementIntensity
   isLongDistance     Boolean @default(false)
+  kind               SegmentVersionKind @default(DEFAULT)
   startDate          DateTime?
   endDate            DateTime?
   flightOutTimeBand  PricingTimeBand?

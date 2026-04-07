@@ -1129,6 +1129,7 @@ const SEGMENTS_QUERY = gql`
         averageTravelHours
         movementIntensity
         isLongDistance
+        kind
         startDate
         endDate
         flightOutTimeBand

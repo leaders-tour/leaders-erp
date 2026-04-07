@@ -5,6 +5,7 @@ import { getBaseLodgingText } from '../lodging-selection/model';
 import { buildEmptyPlanRow, buildPlaceholderPlanRows, type TemplatePlanRow } from './editor-utils';
 
 export type SegmentScheduleVariant = 'basic' | 'early' | 'extend' | 'earlyExtend';
+export type SegmentVersionKindValue = 'DEFAULT' | 'SEASON' | 'FLIGHT';
 type LocationTimeBlockProfile = 'FIRST_DAY' | 'FIRST_DAY_EARLY';
 
 interface TimeBlockOption {
@@ -75,6 +76,7 @@ export interface SegmentVersionOption {
   averageTravelHours: number;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
   isLongDistance: boolean;
+  kind: SegmentVersionKindValue;
   startDate?: string | null;
   endDate?: string | null;
   flightOutTimeBand?: 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' | null;
@@ -113,6 +115,7 @@ interface ResolvedSegmentVersionOption {
   averageTravelHours: number;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
   isLongDistance: boolean;
+  kind: SegmentVersionKindValue;
   startDate?: string | null;
   endDate?: string | null;
   flightOutTimeBand?: 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' | null;
@@ -375,6 +378,7 @@ function buildLegacyDirectVersion(segment: SegmentOption): ResolvedSegmentVersio
     averageTravelHours: segment.averageTravelHours,
     movementIntensity: segment.movementIntensity ?? 'LEVEL_1',
     isLongDistance: segment.isLongDistance ?? false,
+    kind: 'DEFAULT',
     startDate: undefined,
     endDate: undefined,
     flightOutTimeBand: null,
@@ -513,7 +517,7 @@ function resolveRouteRowLodgingText(input: {
   segmentVersion: ResolvedSegmentVersionOption | undefined;
 }): string {
   const { locationVersion, segmentVersion } = input;
-  if (segmentVersion?.lodgingOverride) {
+  if (segmentVersion?.kind === 'FLIGHT' && segmentVersion.lodgingOverride) {
     return buildSegmentVersionOverrideLodgingText(segmentVersion.lodgingOverride);
   }
   return getBaseLodgingText(locationVersion, toFacilityLabel);
@@ -524,7 +528,7 @@ function resolveRouteRowMealText(input: {
   segmentVersion: ResolvedSegmentVersionOption | undefined;
 }): string {
   const { locationVersion, segmentVersion } = input;
-  if (segmentVersion?.mealsOverride) {
+  if (segmentVersion?.kind === 'FLIGHT' && segmentVersion.mealsOverride) {
     return buildSegmentVersionOverrideMealText(segmentVersion.mealsOverride);
   }
   const set = pickDefaultLocationMealSet(locationVersion?.mealSets ?? []);
@@ -700,6 +704,7 @@ export function resolveSegmentVersionForDate(
     const matchedByDate = versions.find(
       (version) =>
         version.isDefault !== true &&
+        version.kind === 'SEASON' &&
         isWithinInclusiveDateRange(normalizedTargetDate, version.startDate, version.endDate),
     );
     if (matchedByDate) {
@@ -732,7 +737,11 @@ export function resolveSegmentVersionForContext(input: {
 
   if (isLastRouteLeg && flightOutTime?.trim()) {
     const matchedByFlightOutTimeBand = versions.find(
-      (version) => version.isDefault !== true && version.flightOutTimeBand && matchesTimeBand(flightOutTime, version.flightOutTimeBand),
+      (version) =>
+        version.isDefault !== true &&
+        version.kind === 'FLIGHT' &&
+        version.flightOutTimeBand &&
+        matchesTimeBand(flightOutTime, version.flightOutTimeBand),
     );
     if (matchedByFlightOutTimeBand) {
       return matchedByFlightOutTimeBand;

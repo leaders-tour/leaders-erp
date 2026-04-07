@@ -1,0 +1,10 @@
+ALTER TABLE `SegmentVersion`
+  ADD COLUMN `kind` ENUM('DEFAULT', 'SEASON', 'FLIGHT') NOT NULL DEFAULT 'DEFAULT';
+
+UPDATE `SegmentVersion`
+SET `kind` = CASE
+  WHEN `isDefault` = TRUE THEN 'DEFAULT'
+  WHEN `startDate` IS NOT NULL AND `endDate` IS NOT NULL THEN 'SEASON'
+  WHEN `flightOutTimeBand` IS NOT NULL THEN 'FLIGHT'
+  ELSE 'DEFAULT'
+END;

@@ -65,6 +65,7 @@ const LIST = gql`
         averageDistanceKm
         averageTravelHours
         isLongDistance
+        kind
         startDate
         endDate
         flightOutTimeBand
@@ -290,6 +291,7 @@ const REMOVE_BLOCK_CONNECTION = gql`
 
 export type ConnectionSourceType = 'LOCATION' | 'MULTI_DAY_BLOCK';
 export type FlightTimeBandValue = 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT';
+export type SegmentVersionKindValue = 'DEFAULT' | 'SEASON' | 'FLIGHT';
 
 export interface SegmentVersionLodgingOverrideFormInput {
   isUnspecified: boolean;
@@ -332,6 +334,7 @@ export interface SegmentVersionFormInput {
   averageDistanceKm: number;
   averageTravelHours: number;
   isLongDistance: boolean;
+  kind: SegmentVersionKindValue;
   startDate?: string;
   endDate?: string;
   flightOutTimeBand?: FlightTimeBandValue;
@@ -408,6 +411,7 @@ export interface SegmentRow {
     averageDistanceKm: number;
     averageTravelHours: number;
     isLongDistance: boolean;
+    kind: SegmentVersionKindValue;
     startDate?: string | null;
     endDate?: string | null;
     flightOutTimeBand?: FlightTimeBandValue | null;
@@ -526,6 +530,7 @@ export function useSegmentCrud() {
       averageDistanceKm: version.averageDistanceKm,
       averageTravelHours: version.averageTravelHours,
       isLongDistance: version.isLongDistance,
+      kind: 'DEFAULT',
       startDate: null,
       endDate: null,
       sortOrder: version.sortOrder,

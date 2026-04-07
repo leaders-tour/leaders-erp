@@ -1,4 +1,12 @@
-import type { FacilityAvailability, MealOption, MovementIntensity, PricingTimeBand, Prisma, PrismaClient } from '@prisma/client';
+import type {
+  FacilityAvailability,
+  MealOption,
+  MovementIntensity,
+  PricingTimeBand,
+  Prisma,
+  PrismaClient,
+  SegmentVersionKind,
+} from '@prisma/client';
 import {
   segmentCreateSchema,
   segmentUpdateSchema,
@@ -33,6 +41,7 @@ interface NormalizedSegmentVersion {
   averageTravelHours: number;
   movementIntensity: MovementIntensity;
   isLongDistance: boolean;
+  kind: SegmentVersionKind;
   startDate: Date | null;
   endDate: Date | null;
   flightOutTimeBand: PricingTimeBand | null;
@@ -79,6 +88,7 @@ interface ExistingSegmentLike {
     averageDistanceKm: number;
     averageTravelHours: number;
     isLongDistance: boolean;
+    kind?: SegmentVersionKind | null;
     startDate: Date | null;
     endDate: Date | null;
     flightOutTimeBand?: PricingTimeBand | null;
@@ -176,6 +186,28 @@ export class SegmentService {
       extend: this.cloneTimeSlots(input.extendTimeSlots),
       earlyExtend: this.cloneTimeSlots(input.earlyExtendTimeSlots),
     };
+  }
+
+  private inferVersionKind(input: {
+    isDefault: boolean;
+    kind?: SegmentVersionKind | null;
+    startDate?: Date | null;
+    endDate?: Date | null;
+    flightOutTimeBand?: PricingTimeBand | null;
+  }): SegmentVersionKind {
+    if (input.kind) {
+      return input.kind;
+    }
+    if (input.isDefault) {
+      return 'DEFAULT';
+    }
+    if (input.startDate && input.endDate) {
+      return 'SEASON';
+    }
+    if (input.flightOutTimeBand) {
+      return 'FLIGHT';
+    }
+    return 'DEFAULT';
   }
 
   private normalizeLodgingOverride(lodgingOverride: LocationProfileLodgingInput | undefined): NormalizedLodgingOverride | null {
@@ -291,6 +323,7 @@ export class SegmentService {
       averageTravelHours: input.averageTravelHours,
       movementIntensity: calculateMovementIntensity(input.averageTravelHours),
       isLongDistance: input.isLongDistance,
+      kind: 'DEFAULT',
       startDate: null,
       endDate: null,
       flightOutTimeBand: null,
@@ -312,6 +345,13 @@ export class SegmentService {
           averageTravelHours: version.averageTravelHours,
           movementIntensity: calculateMovementIntensity(version.averageTravelHours),
           isLongDistance: version.isLongDistance,
+          kind: this.inferVersionKind({
+            isDefault: version.isDefault,
+            kind: version.kind ?? null,
+            startDate: version.startDate,
+            endDate: version.endDate,
+            flightOutTimeBand: version.flightOutTimeBand ?? null,
+          }),
           startDate: version.startDate,
           endDate: version.endDate,
           flightOutTimeBand: version.flightOutTimeBand ?? null,
@@ -342,6 +382,7 @@ export class SegmentService {
       averageTravelHours: version.averageTravelHours,
       movementIntensity: calculateMovementIntensity(version.averageTravelHours),
       isLongDistance: version.isLongDistance,
+      kind: version.kind,
       startDate: this.parseDateOnly(version.startDate),
       endDate: this.parseDateOnly(version.endDate),
       flightOutTimeBand: version.flightOutTimeBand ?? null,
@@ -460,21 +501,50 @@ export class SegmentService {
       const hasStartDate = Boolean(version.startDate);
       const hasEndDate = Boolean(version.endDate);
 
-      if (hasStartDate !== hasEndDate) {
-        throw new DomainError('VALIDATION_FAILED', `Segment version "${version.name}" must include both startDate and endDate`);
+      if (version.kind === 'DEFAULT') {
+        if (!version.isDefault) {
+          throw new DomainError('VALIDATION_FAILED', 'Default segment version kind must be marked as default');
+        }
+        if (version.startDate || version.endDate) {
+          throw new DomainError('VALIDATION_FAILED', 'Default segment version cannot have a date range');
+        }
+        if (version.flightOutTimeBand) {
+          throw new DomainError('VALIDATION_FAILED', 'Default segment version cannot have a flightOutTimeBand');
+        }
+        return;
       }
 
-      if (version.startDate && version.endDate && version.startDate.getTime() > version.endDate.getTime()) {
-        throw new DomainError('VALIDATION_FAILED', `Segment version "${version.name}" has an invalid date range`);
+      if (version.isDefault) {
+        throw new DomainError('VALIDATION_FAILED', 'Alternative segment versions cannot be marked as default');
       }
 
-      if (version.isDefault && (version.startDate || version.endDate)) {
-        throw new DomainError('VALIDATION_FAILED', 'Default segment version cannot have a date range');
+      if (version.kind === 'SEASON') {
+        if (hasStartDate !== hasEndDate) {
+          throw new DomainError('VALIDATION_FAILED', `Season segment version "${version.name}" must include both startDate and endDate`);
+        }
+        if (!version.startDate || !version.endDate) {
+          throw new DomainError('VALIDATION_FAILED', `Season segment version "${version.name}" requires a date range`);
+        }
+        if (version.startDate.getTime() > version.endDate.getTime()) {
+          throw new DomainError('VALIDATION_FAILED', `Segment version "${version.name}" has an invalid date range`);
+        }
+        if (version.flightOutTimeBand) {
+          throw new DomainError('VALIDATION_FAILED', `Season segment version "${version.name}" cannot have a flightOutTimeBand`);
+        }
+      }
+
+      if (version.kind === 'FLIGHT') {
+        if (version.startDate || version.endDate) {
+          throw new DomainError('VALIDATION_FAILED', `Flight segment version "${version.name}" cannot have a date range`);
+        }
+        if (!version.flightOutTimeBand) {
+          throw new DomainError('VALIDATION_FAILED', `Flight segment version "${version.name}" requires flightOutTimeBand`);
+        }
       }
     });
 
     const datedVersions = versions
-      .filter((version) => version.startDate && version.endDate)
+      .filter((version) => version.kind === 'SEASON' && version.startDate && version.endDate)
       .slice()
       .sort((left, right) => left.startDate!.getTime() - right.startDate!.getTime());
 
@@ -492,7 +562,7 @@ export class SegmentService {
 
     const seenFlightOutBands = new Set<PricingTimeBand>();
     versions.forEach((version) => {
-      if (!version.flightOutTimeBand) {
+      if (version.kind !== 'FLIGHT' || !version.flightOutTimeBand) {
         return;
       }
       if (seenFlightOutBands.has(version.flightOutTimeBand)) {
@@ -632,6 +702,7 @@ export class SegmentService {
           averageTravelHours: version.averageTravelHours,
           movementIntensity: version.movementIntensity,
           isLongDistance: version.isLongDistance,
+          kind: version.kind,
           startDate: version.startDate,
           endDate: version.endDate,
           flightOutTimeBand: version.flightOutTimeBand,
@@ -682,9 +753,10 @@ export class SegmentService {
           averageTravelHours: defaultVersion.averageTravelHours,
           movementIntensity: defaultVersion.movementIntensity,
           isLongDistance: defaultVersion.isLongDistance,
+          kind: 'DEFAULT',
           startDate: null,
           endDate: null,
-          flightOutTimeBand: defaultVersion.flightOutTimeBand,
+          flightOutTimeBand: null,
           overrideLodgingIsUnspecified: defaultVersion.lodgingOverride?.isUnspecified ?? null,
           overrideLodgingName: defaultVersion.lodgingOverride?.name ?? null,
           overrideHasElectricity: defaultVersion.lodgingOverride?.hasElectricity ?? null,
@@ -710,9 +782,10 @@ export class SegmentService {
         averageTravelHours: defaultVersion.averageTravelHours,
         movementIntensity: defaultVersion.movementIntensity,
         isLongDistance: defaultVersion.isLongDistance,
+        kind: 'DEFAULT',
         startDate: null,
         endDate: null,
-        flightOutTimeBand: defaultVersion.flightOutTimeBand,
+        flightOutTimeBand: null,
         overrideLodgingIsUnspecified: defaultVersion.lodgingOverride?.isUnspecified ?? null,
         overrideLodgingName: defaultVersion.lodgingOverride?.name ?? null,
         overrideHasElectricity: defaultVersion.lodgingOverride?.hasElectricity ?? null,

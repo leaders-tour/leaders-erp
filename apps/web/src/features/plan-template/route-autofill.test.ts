@@ -161,6 +161,7 @@ const segmentAB: SegmentOption = {
       averageDistanceKm: 540,
       averageTravelHours: 8.5,
       isLongDistance: false,
+      kind: 'DEFAULT',
       sortOrder: 0,
       isDefault: true,
       scheduleTimeBlocks: [
@@ -219,6 +220,7 @@ const segmentBC: SegmentOption = {
       averageDistanceKm: 200,
       averageTravelHours: 4,
       isLongDistance: false,
+      kind: 'DEFAULT',
       sortOrder: 0,
       isDefault: true,
       scheduleTimeBlocks: [
@@ -291,6 +293,7 @@ const segmentAC: SegmentOption = {
       averageDistanceKm: 620,
       averageTravelHours: 10,
       isLongDistance: false,
+      kind: 'DEFAULT',
       sortOrder: 0,
       isDefault: true,
       scheduleTimeBlocks: [
@@ -346,6 +349,7 @@ const segmentABSeasonal: SegmentOption = {
     {
       ...segmentAB.versions![0]!,
       id: 'segment-version-ab-default',
+      kind: 'DEFAULT',
       isDefault: true,
       flightOutTimeBand: null,
     },
@@ -353,22 +357,11 @@ const segmentABSeasonal: SegmentOption = {
       ...segmentAB.versions![0]!,
       id: 'segment-version-ab-jan',
       name: '1월 특화',
+      kind: 'SEASON',
       isDefault: false,
       startDate: '2026-01-01T00:00:00.000Z',
       endDate: '2026-01-31T00:00:00.000Z',
-      flightOutTimeBand: 'AFTERNOON',
-      lodgingOverride: {
-        isUnspecified: false,
-        name: '1월 캠프',
-        hasElectricity: 'LIMITED',
-        hasShower: 'NO',
-        hasInternet: 'NO',
-      },
-      mealsOverride: {
-        breakfast: MealOption.LocalRestaurant,
-        lunch: MealOption.ShabuShabu,
-        dinner: MealOption.PorkParty,
-      },
+      flightOutTimeBand: null,
       scheduleTimeBlocks: [
         {
           id: 'segv-ab-jan-basic',
@@ -390,9 +383,29 @@ const segmentABSeasonal: SegmentOption = {
       ...segmentAB.versions![0]!,
       id: 'segment-version-ab-feb',
       name: '2월 특화',
+      kind: 'SEASON',
       isDefault: false,
       startDate: '2026-02-01T00:00:00.000Z',
       endDate: '2026-02-28T00:00:00.000Z',
+      flightOutTimeBand: null,
+      scheduleTimeBlocks: [
+        {
+          id: 'segv-ab-feb-basic',
+          startTime: '11:30',
+          orderIndex: 0,
+          activities: [{ id: 'segv-ab-feb-basic-act', description: '2월 이동', orderIndex: 0 }],
+        },
+      ],
+      earlyScheduleTimeBlocks: [],
+    },
+    {
+      ...segmentAB.versions![0]!,
+      id: 'segment-version-ab-flight-evening',
+      name: '야간 출국 특화',
+      kind: 'FLIGHT',
+      isDefault: false,
+      startDate: undefined,
+      endDate: undefined,
       flightOutTimeBand: 'EVENING',
       lodgingOverride: {
         isUnspecified: false,
@@ -408,10 +421,10 @@ const segmentABSeasonal: SegmentOption = {
       },
       scheduleTimeBlocks: [
         {
-          id: 'segv-ab-feb-basic',
+          id: 'segv-ab-flight-evening-basic',
           startTime: '11:30',
           orderIndex: 0,
-          activities: [{ id: 'segv-ab-feb-basic-act', description: '2월 이동', orderIndex: 0 }],
+          activities: [{ id: 'segv-ab-flight-evening-basic-act', description: '야간 출국 이동', orderIndex: 0 }],
         },
       ],
       earlyScheduleTimeBlocks: [],
@@ -548,7 +561,7 @@ describe('route-autofill', () => {
         flightOutTime: '18:15',
         isLastRouteLeg: true,
       })?.id,
-    ).toBe('segment-version-ab-feb');
+    ).toBe('segment-version-ab-flight-evening');
   });
 
   it('does not use the flight OUT time band when the segment is not the last route leg', () => {
@@ -778,7 +791,7 @@ describe('route-autofill', () => {
     expect(rows[1]?.scheduleCellText).toBe('1월 이동');
   });
 
-  it('applies segment version lodging and meal overrides when the date-matched version is selected', () => {
+  it('keeps location default lodging and meals when a season version is selected', () => {
     const rows = buildAutoRowsFromRoute({
       startLocationId: locationA.id,
       startLocationVersionId: 'ver-a',
@@ -803,8 +816,8 @@ describe('route-autofill', () => {
       travelStartDate: '2026-01-01',
     });
 
-    expect(rows[1]?.lodgingCellText).toBe('1월 캠프\n전기 제한\n샤워 X\n인터넷 X');
-    expect(rows[1]?.mealCellText).toBe('현지식당\n샤브샤브\n삼겹살파티');
+    expect(rows[1]?.lodgingCellText).toBe('여행자 캠프\n전기 O\n샤워 O\n인터넷 제한');
+    expect(rows[1]?.mealCellText).toBe('캠프식\n현지식당\n캠프식');
   });
 
   it('uses the flight OUT time band for the final segment when auto rows are built', () => {
@@ -833,13 +846,13 @@ describe('route-autofill', () => {
       flightOutTime: '18:15',
     });
 
-    expect(rows[1]?.segmentVersionId).toBe('segment-version-ab-feb');
-    expect(rows[1]?.scheduleCellText).toBe('2월 이동');
+    expect(rows[1]?.segmentVersionId).toBe('segment-version-ab-flight-evening');
+    expect(rows[1]?.scheduleCellText).toBe('야간 출국 이동');
     expect(rows[1]?.lodgingCellText).toBe('야간 도착 게르\n전기 O\n샤워 제한\n인터넷 X');
     expect(rows[1]?.mealCellText).toBe('캠프식\n현지식당\n허르헉');
   });
 
-  it('applies the same override path when a segment version is explicitly selected', () => {
+  it('keeps the explicitly selected season version ahead of flight and date auto selection', () => {
     const rows = buildAutoRowsFromRoute({
       startLocationId: locationA.id,
       startLocationVersionId: 'ver-a',
@@ -867,8 +880,8 @@ describe('route-autofill', () => {
     });
 
     expect(rows[1]?.segmentVersionId).toBe('segment-version-ab-jan');
-    expect(rows[1]?.lodgingCellText).toBe('1월 캠프\n전기 제한\n샤워 X\n인터넷 X');
-    expect(rows[1]?.mealCellText).toBe('현지식당\n샤브샤브\n삼겹살파티');
+    expect(rows[1]?.lodgingCellText).toBe('여행자 캠프\n전기 O\n샤워 O\n인터넷 제한');
+    expect(rows[1]?.mealCellText).toBe('캠프식\n현지식당\n캠프식');
   });
 
   it('preserves segmentId in template stop payloads for day 2+', () => {

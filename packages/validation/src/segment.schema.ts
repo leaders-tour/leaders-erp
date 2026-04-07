@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { locationProfileLodgingSchema, locationProfileMealsSchema } from './location.schema';
 
 const pricingTimeBands = ['DAWN', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT'] as const;
+const segmentVersionKinds = ['DEFAULT', 'SEASON', 'FLIGHT'] as const;
 
 const segmentTimeSlotSchema = z.object({
   startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
@@ -16,6 +17,7 @@ const segmentVersionSchema = z.object({
   averageDistanceKm: z.number().positive(),
   averageTravelHours: z.number().positive(),
   isLongDistance: z.boolean(),
+  kind: z.enum(segmentVersionKinds),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   flightOutTimeBand: z.enum(pricingTimeBands).optional(),
@@ -46,12 +48,71 @@ const segmentVersionSchema = z.object({
     });
   }
 
-  if (value.isDefault !== false && (hasStartDate || hasEndDate)) {
+  if (value.kind === 'DEFAULT') {
+    if (value.isDefault === false) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'default kind must be marked as default version',
+        path: ['kind'],
+      });
+    }
+    if (hasStartDate || hasEndDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'default version cannot have startDate or endDate',
+        path: ['startDate'],
+      });
+    }
+    if (value.flightOutTimeBand) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'default version cannot have flightOutTimeBand',
+        path: ['flightOutTimeBand'],
+      });
+    }
+    return;
+  }
+
+  if (value.isDefault !== false) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'default version cannot have startDate or endDate',
-      path: ['startDate'],
+      message: 'non-default alternative version must set isDefault to false',
+      path: ['isDefault'],
     });
+  }
+
+  if (value.kind === 'SEASON') {
+    if (!hasStartDate || !hasEndDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'season version requires startDate and endDate',
+        path: [hasStartDate ? 'endDate' : 'startDate'],
+      });
+    }
+    if (value.flightOutTimeBand) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'season version cannot have flightOutTimeBand',
+        path: ['flightOutTimeBand'],
+      });
+    }
+  }
+
+  if (value.kind === 'FLIGHT') {
+    if (hasStartDate || hasEndDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'flight version cannot have startDate or endDate',
+        path: ['startDate'],
+      });
+    }
+    if (!value.flightOutTimeBand) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'flight version requires flightOutTimeBand',
+        path: ['flightOutTimeBand'],
+      });
+    }
   }
 });
 
@@ -89,7 +150,26 @@ export const segmentCreateSchema = segmentBaseSchema
     }
 
     const seenBands = new Set<(typeof pricingTimeBands)[number]>();
+    const seasonalVersions = value.versions
+      .filter((version) => version.kind === 'SEASON' && version.startDate && version.endDate)
+      .slice()
+      .sort((left, right) => left.startDate!.localeCompare(right.startDate!));
+    for (let index = 1; index < seasonalVersions.length; index += 1) {
+      const previousVersion = seasonalVersions[index - 1]!;
+      const currentVersion = seasonalVersions[index]!;
+      if (previousVersion.endDate! >= currentVersion.startDate!) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'season versions must not have overlapping date ranges',
+          path: ['versions'],
+        });
+        break;
+      }
+    }
     value.versions.forEach((version, index) => {
+      if (version.kind !== 'FLIGHT') {
+        return;
+      }
       const band = version.flightOutTimeBand;
       if (!band) {
         return;
@@ -123,7 +203,26 @@ export const segmentUpdateSchema = segmentBaseSchema
     }
 
     const seenBands = new Set<(typeof pricingTimeBands)[number]>();
+    const seasonalVersions = value.versions
+      .filter((version) => version.kind === 'SEASON' && version.startDate && version.endDate)
+      .slice()
+      .sort((left, right) => left.startDate!.localeCompare(right.startDate!));
+    for (let index = 1; index < seasonalVersions.length; index += 1) {
+      const previousVersion = seasonalVersions[index - 1]!;
+      const currentVersion = seasonalVersions[index]!;
+      if (previousVersion.endDate! >= currentVersion.startDate!) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'season versions must not have overlapping date ranges',
+          path: ['versions'],
+        });
+        break;
+      }
+    }
     value.versions.forEach((version, index) => {
+      if (version.kind !== 'FLIGHT') {
+        return;
+      }
       const band = version.flightOutTimeBand;
       if (!band) {
         return;

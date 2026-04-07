@@ -36,6 +36,12 @@ enum SegmentScheduleVariant {
   earlyExtend
 }
 
+enum SegmentVersionKind {
+  DEFAULT
+  SEASON
+  FLIGHT
+}
+
 type SegmentVersion {
   id: ID!
   segmentId: String!
@@ -44,6 +50,7 @@ type SegmentVersion {
   averageTravelHours: Float!
   movementIntensity: MovementIntensity!
   isLongDistance: Boolean!
+  kind: SegmentVersionKind!
   startDate: DateTime
   endDate: DateTime
   flightOutTimeBand: PricingTimeBand
@@ -130,6 +137,7 @@ input SegmentVersionInput {
   averageDistanceKm: Float!
   averageTravelHours: Float!
   isLongDistance: Boolean!
+  kind: SegmentVersionKind!
   startDate: String
   endDate: String
   flightOutTimeBand: PricingTimeBand
