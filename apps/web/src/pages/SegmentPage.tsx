@@ -183,6 +183,30 @@ function createVersionDraft(): SegmentVersionDraft {
   };
 }
 
+function cloneTimeSlotDrafts(timeSlots: SegmentTimeSlotFormInput[]): SegmentTimeSlotFormInput[] {
+  return timeSlots.map((slot) => ({
+    startTime: slot.startTime,
+    activities: [...slot.activities],
+  }));
+}
+
+function createVersionDraftFromPrevious(previous: SegmentVersionDraft | undefined): SegmentVersionDraft {
+  if (!previous) {
+    return createVersionDraft();
+  }
+
+  return {
+    ...previous,
+    clientId: createDraftId(),
+    lodgingOverride: { ...previous.lodgingOverride },
+    mealsOverride: { ...previous.mealsOverride },
+    timeSlots: cloneTimeSlotDrafts(previous.timeSlots),
+    earlyTimeSlots: cloneTimeSlotDrafts(previous.earlyTimeSlots),
+    extendTimeSlots: cloneTimeSlotDrafts(previous.extendTimeSlots),
+    earlyExtendTimeSlots: cloneTimeSlotDrafts(previous.earlyExtendTimeSlots),
+  };
+}
+
 function sanitizeLodgingOverride(
   value: SegmentVersionLodgingOverrideFormInput | null | undefined,
 ): SegmentVersionLodgingOverrideFormInput {
@@ -897,7 +921,11 @@ function AlternativeVersionEditor(props: {
           <h3 className="text-sm font-semibold text-slate-800">대안 버전</h3>
           <p className="text-xs text-slate-500">같은 출발지/도착지에 대해 직결 대안 버전을 추가합니다.</p>
         </div>
-        <Button type="button" variant="outline" onClick={() => onChange([...value, createVersionDraft()])}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => onChange([...value, createVersionDraftFromPrevious(value[value.length - 1])])}
+        >
           대안 버전 추가
         </Button>
       </div>
