@@ -121,9 +121,7 @@ interface SegmentVersionDraft {
   startDate: string;
   endDate: string;
   flightOutTimeBand: '' | FlightTimeBandValue;
-  lodgingOverrideEnabled: boolean;
   lodgingOverride: SegmentVersionLodgingOverrideFormInput;
-  mealsOverrideEnabled: boolean;
   mealsOverride: SegmentVersionMealsOverrideFormInput;
   timeSlots: SegmentTimeSlotFormInput[];
   earlyTimeSlots: SegmentTimeSlotFormInput[];
@@ -153,6 +151,24 @@ function createDraftId(): string {
   return `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function createEmptyLodgingOverride(): SegmentVersionLodgingOverrideFormInput {
+  return {
+    isUnspecified: false,
+    name: '',
+    hasElectricity: 'YES',
+    hasShower: 'YES',
+    hasInternet: 'YES',
+  };
+}
+
+function createEmptyMealsOverride(): SegmentVersionMealsOverrideFormInput {
+  return {
+    breakfast: null,
+    lunch: null,
+    dinner: null,
+  };
+}
+
 function createVersionDraft(): SegmentVersionDraft {
   return {
     clientId: createDraftId(),
@@ -164,20 +180,8 @@ function createVersionDraft(): SegmentVersionDraft {
     startDate: '',
     endDate: '',
     flightOutTimeBand: '',
-    lodgingOverrideEnabled: false,
-    lodgingOverride: {
-      isUnspecified: false,
-      name: '여행자 캠프',
-      hasElectricity: 'YES',
-      hasShower: 'YES',
-      hasInternet: 'YES',
-    },
-    mealsOverrideEnabled: false,
-    mealsOverride: {
-      breakfast: null,
-      lunch: null,
-      dinner: null,
-    },
+    lodgingOverride: createEmptyLodgingOverride(),
+    mealsOverride: createEmptyMealsOverride(),
     timeSlots: createDefaultTimeSlots(),
     earlyTimeSlots: createDefaultTimeSlots(),
     extendTimeSlots: createDefaultTimeSlots(),
@@ -230,7 +234,7 @@ function sanitizeLodgingOverride(
 ): SegmentVersionLodgingOverrideFormInput {
   return {
     isUnspecified: value?.isUnspecified ?? false,
-    name: value?.name ?? '여행자 캠프',
+    name: value?.name ?? '',
     hasElectricity: value?.hasElectricity ?? 'YES',
     hasShower: value?.hasShower ?? 'YES',
     hasInternet: value?.hasInternet ?? 'YES',
@@ -245,6 +249,14 @@ function sanitizeMealsOverride(
     lunch: value?.lunch ?? null,
     dinner: value?.dinner ?? null,
   };
+}
+
+function hasLodgingOverrideValue(value: SegmentVersionLodgingOverrideFormInput): boolean {
+  return value.isUnspecified || value.name.trim().length > 0;
+}
+
+function hasMealsOverrideValue(value: SegmentVersionMealsOverrideFormInput): boolean {
+  return value.breakfast != null || value.lunch != null || value.dinner != null;
 }
 
 function toAlternativeVersionKind(kind: SegmentRow['versions'][number]['kind'] | null | undefined): SegmentVersionDraft['kind'] {
@@ -425,10 +437,12 @@ function toVersionDrafts(segment: SegmentRow | undefined): SegmentVersionDraft[]
       startDate: version.startDate?.slice(0, 10) ?? '',
       endDate: version.endDate?.slice(0, 10) ?? '',
       flightOutTimeBand: version.flightOutTimeBand ?? '',
-      lodgingOverrideEnabled: version.kind === 'FLIGHT' && Boolean(version.lodgingOverride),
-      lodgingOverride: sanitizeLodgingOverride(version.lodgingOverride),
-      mealsOverrideEnabled: version.kind === 'FLIGHT' && Boolean(version.mealsOverride),
-      mealsOverride: sanitizeMealsOverride(version.mealsOverride),
+      lodgingOverride: version.kind === 'FLIGHT' && version.lodgingOverride
+        ? sanitizeLodgingOverride(version.lodgingOverride)
+        : createEmptyLodgingOverride(),
+      mealsOverride: version.kind === 'FLIGHT' && version.mealsOverride
+        ? sanitizeMealsOverride(version.mealsOverride)
+        : createEmptyMealsOverride(),
       timeSlots: toFormTimeSlots(version.scheduleTimeBlocks),
       earlyTimeSlots: toFormTimeSlots(version.earlyScheduleTimeBlocks),
       extendTimeSlots: toFormTimeSlots(version.extendScheduleTimeBlocks),
@@ -485,7 +499,7 @@ function isVersionDraftValid(version: SegmentVersionDraft): boolean {
 
   if (
     version.kind === 'FLIGHT' &&
-    version.lodgingOverrideEnabled &&
+    hasLodgingOverrideValue(version.lodgingOverride) &&
     !version.lodgingOverride.isUnspecified &&
     version.lodgingOverride.name.trim().length === 0
   ) {
@@ -773,10 +787,10 @@ function buildVersionInputs(
       ...(form.sourceType === 'LOCATION' && version.kind === 'FLIGHT' && version.flightOutTimeBand
         ? { flightOutTimeBand: version.flightOutTimeBand }
         : {}),
-      ...(form.sourceType === 'LOCATION' && version.kind === 'FLIGHT' && version.lodgingOverrideEnabled
+      ...(form.sourceType === 'LOCATION' && version.kind === 'FLIGHT' && hasLodgingOverrideValue(version.lodgingOverride)
         ? { lodgingOverride: sanitizeLodgingOverride(version.lodgingOverride) }
         : {}),
-      ...(form.sourceType === 'LOCATION' && version.kind === 'FLIGHT' && version.mealsOverrideEnabled
+      ...(form.sourceType === 'LOCATION' && version.kind === 'FLIGHT' && hasMealsOverrideValue(version.mealsOverride)
         ? { mealsOverride: sanitizeMealsOverride(version.mealsOverride) }
         : {}),
       ...buildVariantTimeSlotInput(version, input),
@@ -787,133 +801,107 @@ function buildVersionInputs(
 
 function LodgingOverrideEditor(props: {
   value: SegmentVersionLodgingOverrideFormInput;
-  enabled: boolean;
-  onEnabledChange: (enabled: boolean) => void;
   onChange: (nextValue: SegmentVersionLodgingOverrideFormInput) => void;
 }): JSX.Element {
-  const { value, enabled, onEnabledChange, onChange } = props;
+  const { value, onChange } = props;
 
   return (
     <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid gap-1">
-          <h4 className="text-sm font-semibold text-slate-800">숙소 오버라이드</h4>
-          <p className="text-xs text-slate-500">체크하면 목적지 기본 숙소 대신 이 버전의 숙소 정보를 사용합니다.</p>
-        </div>
-        <label className="flex items-center gap-2 text-sm text-slate-700">
-          <input type="checkbox" checked={enabled} onChange={(event) => onEnabledChange(event.target.checked)} />
-          사용
-        </label>
+      <div className="grid gap-1">
+        <h4 className="text-sm font-semibold text-slate-800">숙소 오버라이드</h4>
+        <p className="text-xs text-slate-500">값을 입력하면 목적지 기본 숙소 대신 이 버전의 숙소 정보를 사용합니다.</p>
       </div>
-
-      {enabled ? (
-        <div className="grid gap-4">
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={value.isUnspecified}
-              onChange={(event) => onChange({ ...value, isUnspecified: event.target.checked })}
-            />
-            숙소 미지정
-          </label>
-          <label className="grid gap-2 text-sm">
-            <span className="text-slate-700">숙소명</span>
-            <Textarea
-              value={value.name}
-              disabled={value.isUnspecified}
-              onChange={(event) => onChange({ ...value, name: event.target.value })}
-              placeholder="예: 여행자 캠프"
-              rows={4}
-            />
-          </label>
-          <div className="grid gap-3 md:grid-cols-3">
-            {(
-              [
-                ['hasElectricity', '전기'],
-                ['hasShower', '샤워'],
-                ['hasInternet', '인터넷'],
-              ] as const
-            ).map(([field, label]) => (
-              <div key={field} className="grid gap-2 text-sm">
-                <span className="text-slate-700">{label}</span>
-                <div className="flex flex-wrap gap-2">
-                  {FACILITY_OPTIONS.map((option) => (
-                    <Button
-                      key={option.value}
-                      type="button"
-                      variant={value[field] === option.value ? 'default' : 'outline'}
-                      disabled={value.isUnspecified}
-                      onClick={() => onChange({ ...value, [field]: option.value })}
-                    >
-                      {option.label}
-                    </Button>
-                  ))}
-                </div>
+      <div className="grid gap-4">
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={value.isUnspecified}
+            onChange={(event) => onChange({ ...value, isUnspecified: event.target.checked })}
+          />
+          숙소 미지정
+        </label>
+        <label className="grid gap-2 text-sm">
+          <span className="text-slate-700">숙소명</span>
+          <Textarea
+            value={value.name}
+            disabled={value.isUnspecified}
+            onChange={(event) => onChange({ ...value, name: event.target.value })}
+            placeholder="예: 여행자 캠프"
+            rows={4}
+          />
+        </label>
+        <div className="grid gap-3 md:grid-cols-3">
+          {(
+            [
+              ['hasElectricity', '전기'],
+              ['hasShower', '샤워'],
+              ['hasInternet', '인터넷'],
+            ] as const
+          ).map(([field, label]) => (
+            <div key={field} className="grid gap-2 text-sm">
+              <span className="text-slate-700">{label}</span>
+              <div className="flex flex-wrap gap-2">
+                {FACILITY_OPTIONS.map((option) => (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant={value[field] === option.value ? 'default' : 'outline'}
+                    disabled={value.isUnspecified}
+                    onClick={() => onChange({ ...value, [field]: option.value })}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
-      ) : (
-        <p className="text-xs text-slate-500">비워두면 목적지 기본 숙소를 그대로 사용합니다.</p>
-      )}
+      </div>
     </div>
   );
 }
 
 function MealsOverrideEditor(props: {
   value: SegmentVersionMealsOverrideFormInput;
-  enabled: boolean;
-  onEnabledChange: (enabled: boolean) => void;
   onChange: (nextValue: SegmentVersionMealsOverrideFormInput) => void;
 }): JSX.Element {
-  const { value, enabled, onEnabledChange, onChange } = props;
+  const { value, onChange } = props;
 
   return (
     <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid gap-1">
-          <h4 className="text-sm font-semibold text-slate-800">식사 오버라이드</h4>
-          <p className="text-xs text-slate-500">체크하면 목적지 기본 식사 대신 이 버전의 식사 구성을 사용합니다.</p>
-        </div>
-        <label className="flex items-center gap-2 text-sm text-slate-700">
-          <input type="checkbox" checked={enabled} onChange={(event) => onEnabledChange(event.target.checked)} />
-          사용
-        </label>
+      <div className="grid gap-1">
+        <h4 className="text-sm font-semibold text-slate-800">식사 오버라이드</h4>
+        <p className="text-xs text-slate-500">값을 선택하면 목적지 기본 식사 대신 이 버전의 식사 구성을 사용합니다.</p>
       </div>
-
-      {enabled ? (
-        <div className="grid gap-3">
-          {(['breakfast', 'lunch', 'dinner'] as const).map((field) => {
-            const label = field === 'breakfast' ? '아침' : field === 'lunch' ? '점심' : '저녁';
-            return (
-              <div key={field} className="grid gap-2 rounded-xl border border-slate-200 p-3 text-sm">
-                <span className="text-slate-700">{label}</span>
-                <div className="flex flex-wrap gap-2">
+      <div className="grid gap-3">
+        {(['breakfast', 'lunch', 'dinner'] as const).map((field) => {
+          const label = field === 'breakfast' ? '아침' : field === 'lunch' ? '점심' : '저녁';
+          return (
+            <div key={field} className="grid gap-2 rounded-xl border border-slate-200 p-3 text-sm">
+              <span className="text-slate-700">{label}</span>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant={value[field] === null ? 'default' : 'outline'}
+                  onClick={() => onChange({ ...value, [field]: null })}
+                >
+                  없음
+                </Button>
+                {MEAL_OPTIONS.map((option) => (
                   <Button
+                    key={option.value}
                     type="button"
-                    variant={value[field] === null ? 'default' : 'outline'}
-                    onClick={() => onChange({ ...value, [field]: null })}
+                    variant={value[field] === option.value ? 'default' : 'outline'}
+                    onClick={() => onChange({ ...value, [field]: option.value })}
                   >
-                    없음
+                    {option.label}
                   </Button>
-                  {MEAL_OPTIONS.map((option) => (
-                    <Button
-                      key={option.value}
-                      type="button"
-                      variant={value[field] === option.value ? 'default' : 'outline'}
-                      onClick={() => onChange({ ...value, [field]: option.value })}
-                    >
-                      {option.label}
-                    </Button>
-                  ))}
-                </div>
+                ))}
               </div>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="text-xs text-slate-500">비워두면 목적지 기본 식사를 그대로 사용합니다.</p>
-      )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1006,8 +994,6 @@ function AlternativeVersionEditor(props: {
                           startDate: kind === 'SEASON' ? item.startDate : '',
                           endDate: kind === 'SEASON' ? item.endDate : '',
                           flightOutTimeBand: kind === 'FLIGHT' ? item.flightOutTimeBand : '',
-                          lodgingOverrideEnabled: kind === 'FLIGHT' ? item.lodgingOverrideEnabled : false,
-                          mealsOverrideEnabled: kind === 'FLIGHT' ? item.mealsOverrideEnabled : false,
                         }))
                       }
                     >
@@ -1147,18 +1133,10 @@ function AlternativeVersionEditor(props: {
               <div className="grid gap-3">
                 <LodgingOverrideEditor
                   value={version.lodgingOverride}
-                  enabled={version.lodgingOverrideEnabled}
-                  onEnabledChange={(enabled) =>
-                    updateVersion(version.clientId, (item) => ({ ...item, lodgingOverrideEnabled: enabled }))
-                  }
                   onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, lodgingOverride: nextValue }))}
                 />
                 <MealsOverrideEditor
                   value={version.mealsOverride}
-                  enabled={version.mealsOverrideEnabled}
-                  onEnabledChange={(enabled) =>
-                    updateVersion(version.clientId, (item) => ({ ...item, mealsOverrideEnabled: enabled }))
-                  }
                   onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, mealsOverride: nextValue }))}
                 />
               </div>
