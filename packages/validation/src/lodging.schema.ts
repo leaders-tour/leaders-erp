@@ -5,7 +5,7 @@ export const facilityAvailabilitySchema = z.enum(['YES', 'LIMITED', 'NO']);
 const lodgingBaseSchema = z.object({
   locationId: z.string().min(1).optional(),
   locationVersionId: z.string().min(1).optional(),
-  name: z.string().min(1).max(100),
+  name: z.string().min(1).max(4000),
   specialNotes: z.string().max(5000).nullable().optional(),
   isUnspecified: z.boolean().optional(),
   hasElectricity: facilityAvailabilitySchema.optional(),

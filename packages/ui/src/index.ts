@@ -1,6 +1,7 @@
 export * from './base/button';
 export * from './base/card';
 export * from './base/input';
+export * from './base/textarea';
 export * from './base/table';
 export * from './composite/form-field';
 export * from './composite/section-header';

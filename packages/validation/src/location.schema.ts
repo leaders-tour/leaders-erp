@@ -46,7 +46,8 @@ const locationProfileTimeSlotSchema = z.object({
 
 export const locationProfileLodgingSchema = z.object({
   isUnspecified: z.boolean().default(false),
-  name: z.string().max(100).nullable().optional(),
+  /** 멀티라인 숙소 안내(예: 일정별 상이 숙소) */
+  name: z.string().max(4000).nullable().optional(),
   hasElectricity: facilityAvailabilitySchema.default('NO'),
   hasShower: facilityAvailabilitySchema.default('NO'),
   hasInternet: facilityAvailabilitySchema.default('NO'),

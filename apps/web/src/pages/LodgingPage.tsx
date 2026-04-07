@@ -26,7 +26,7 @@ export function LodgingPage(): JSX.Element {
       fields={[
         { name: 'locationVersionId', label: '목적지 버전 ID' },
         { name: 'locationId', label: '목적지 ID(옵션)' },
-        { name: 'name', label: '숙소명' },
+        { name: 'name', label: '숙소명', type: 'textarea' },
         { name: 'specialNotes', label: '특이사항' },
       ]}
       columns={[

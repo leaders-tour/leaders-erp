@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button, Card, FormField, Input, type ButtonProps } from '@tour/ui';
+import { Button, Card, FormField, Input, Textarea, type ButtonProps } from '@tour/ui';
 import { useEffect, useMemo } from 'react';
 import { useForm, type Path } from 'react-hook-form';
 import type { z } from 'zod';
@@ -55,10 +55,7 @@ export function SimpleForm<TSchema extends z.ZodTypeAny>({
           <div key={field.name}>
             <FormField label={field.label}>
               {field.type === 'textarea' ? (
-                <textarea
-                  className="min-h-32 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
-                  {...form.register(field.name as Path<z.infer<TSchema>>)}
-                />
+                <Textarea className="min-h-32" rows={6} {...form.register(field.name as Path<z.infer<TSchema>>)} />
               ) : field.type === 'checkbox' ? (
                 <label className="inline-flex items-center gap-2 text-sm text-slate-700">
                   <input

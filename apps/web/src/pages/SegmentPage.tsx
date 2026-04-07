@@ -1,5 +1,5 @@
 import { gql, useQuery } from '@apollo/client';
-import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
+import { Button, Card, Input, Table, Td, Textarea, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { MealOption } from '../generated/graphql';
@@ -16,6 +16,7 @@ import {
   type SegmentRow,
   type SegmentTimeSlotFormInput,
   type SegmentVersionFormInput,
+  type SegmentVersionKindValue,
   type SegmentVersionLodgingOverrideFormInput,
   type SegmentVersionMealsOverrideFormInput,
 } from '../features/segment/hooks';
@@ -114,6 +115,7 @@ interface SegmentVersionDraft {
   averageDistanceKm: string;
   averageTravelHours: string;
   isLongDistance: boolean;
+  kind: Exclude<SegmentVersionKindValue, 'DEFAULT'>;
   startDate: string;
   endDate: string;
   flightOutTimeBand: '' | FlightTimeBandValue;
@@ -156,6 +158,7 @@ function createVersionDraft(): SegmentVersionDraft {
     averageDistanceKm: '',
     averageTravelHours: '',
     isLongDistance: false,
+    kind: 'SEASON',
     startDate: '',
     endDate: '',
     flightOutTimeBand: '',
@@ -200,6 +203,21 @@ function sanitizeMealsOverride(
     lunch: value?.lunch ?? null,
     dinner: value?.dinner ?? null,
   };
+}
+
+function toAlternativeVersionKind(kind: SegmentRow['versions'][number]['kind'] | null | undefined): SegmentVersionDraft['kind'] {
+  return kind === 'FLIGHT' ? 'FLIGHT' : 'SEASON';
+}
+
+function getVersionKindLabel(kind: SegmentVersionDraft['kind'] | SegmentRow['versions'][number]['kind']): string {
+  return kind === 'FLIGHT' ? '항공권버전' : '시즌버전';
+}
+
+function getFlightTimeBandLabel(value: FlightTimeBandValue | null | undefined): string {
+  if (!value) {
+    return '';
+  }
+  return TIME_BAND_OPTIONS.find((option) => option.value === value)?.label ?? value;
 }
 
 function createEmptyForm(): SegmentFormState {
@@ -361,12 +379,13 @@ function toVersionDrafts(segment: SegmentRow | undefined): SegmentVersionDraft[]
       averageDistanceKm: String(version.averageDistanceKm),
       averageTravelHours: String(version.averageTravelHours),
       isLongDistance: version.isLongDistance,
+      kind: toAlternativeVersionKind(version.kind),
       startDate: version.startDate?.slice(0, 10) ?? '',
       endDate: version.endDate?.slice(0, 10) ?? '',
       flightOutTimeBand: version.flightOutTimeBand ?? '',
-      lodgingOverrideEnabled: Boolean(version.lodgingOverride),
+      lodgingOverrideEnabled: version.kind === 'FLIGHT' && Boolean(version.lodgingOverride),
       lodgingOverride: sanitizeLodgingOverride(version.lodgingOverride),
-      mealsOverrideEnabled: Boolean(version.mealsOverride),
+      mealsOverrideEnabled: version.kind === 'FLIGHT' && Boolean(version.mealsOverride),
       mealsOverride: sanitizeMealsOverride(version.mealsOverride),
       timeSlots: toFormTimeSlots(version.scheduleTimeBlocks),
       earlyTimeSlots: toFormTimeSlots(version.earlyScheduleTimeBlocks),
@@ -410,7 +429,24 @@ function isVersionDraftValid(version: SegmentVersionDraft): boolean {
     return false;
   }
 
-  if (version.lodgingOverrideEnabled && !version.lodgingOverride.isUnspecified && version.lodgingOverride.name.trim().length === 0) {
+  if (version.kind === 'SEASON' && (!version.startDate || !version.endDate)) {
+    return false;
+  }
+
+  if (version.kind === 'SEASON' && version.startDate && version.endDate && version.startDate > version.endDate) {
+    return false;
+  }
+
+  if (version.kind === 'FLIGHT' && !version.flightOutTimeBand) {
+    return false;
+  }
+
+  if (
+    version.kind === 'FLIGHT' &&
+    version.lodgingOverrideEnabled &&
+    !version.lodgingOverride.isUnspecified &&
+    version.lodgingOverride.name.trim().length === 0
+  ) {
     return false;
   }
 
@@ -680,6 +716,7 @@ function buildVersionInputs(
       averageDistanceKm: Number(form.averageDistanceKm),
       averageTravelHours: Number(form.averageTravelHours),
       isLongDistance: form.isLongDistance,
+      kind: 'DEFAULT',
       ...buildVariantTimeSlotInput(form, input),
       isDefault: true,
     },
@@ -688,15 +725,16 @@ function buildVersionInputs(
       averageDistanceKm: Number(version.averageDistanceKm),
       averageTravelHours: Number(version.averageTravelHours),
       isLongDistance: version.isLongDistance,
-      ...(form.sourceType === 'LOCATION' && version.startDate ? { startDate: version.startDate } : {}),
-      ...(form.sourceType === 'LOCATION' && version.endDate ? { endDate: version.endDate } : {}),
-      ...(form.sourceType === 'LOCATION' && version.flightOutTimeBand
+      kind: version.kind,
+      ...(form.sourceType === 'LOCATION' && version.kind === 'SEASON' && version.startDate ? { startDate: version.startDate } : {}),
+      ...(form.sourceType === 'LOCATION' && version.kind === 'SEASON' && version.endDate ? { endDate: version.endDate } : {}),
+      ...(form.sourceType === 'LOCATION' && version.kind === 'FLIGHT' && version.flightOutTimeBand
         ? { flightOutTimeBand: version.flightOutTimeBand }
         : {}),
-      ...(form.sourceType === 'LOCATION' && version.lodgingOverrideEnabled
+      ...(form.sourceType === 'LOCATION' && version.kind === 'FLIGHT' && version.lodgingOverrideEnabled
         ? { lodgingOverride: sanitizeLodgingOverride(version.lodgingOverride) }
         : {}),
-      ...(form.sourceType === 'LOCATION' && version.mealsOverrideEnabled
+      ...(form.sourceType === 'LOCATION' && version.kind === 'FLIGHT' && version.mealsOverrideEnabled
         ? { mealsOverride: sanitizeMealsOverride(version.mealsOverride) }
         : {}),
       ...buildVariantTimeSlotInput(version, input),
@@ -738,11 +776,12 @@ function LodgingOverrideEditor(props: {
           </label>
           <label className="grid gap-2 text-sm">
             <span className="text-slate-700">숙소명</span>
-            <Input
+            <Textarea
               value={value.name}
               disabled={value.isUnspecified}
               onChange={(event) => onChange({ ...value, name: event.target.value })}
               placeholder="예: 여행자 캠프"
+              rows={4}
             />
           </label>
           <div className="grid gap-3 md:grid-cols-3">
@@ -893,6 +932,37 @@ function AlternativeVersionEditor(props: {
               />
             </label>
 
+            {showDateRange ? (
+              <div className="grid gap-2 text-sm">
+                <span className="text-slate-700">버전 종류</span>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    ['SEASON', '시즌버전'],
+                    ['FLIGHT', '항공권버전'],
+                  ] as const).map(([kind, label]) => (
+                    <Button
+                      key={kind}
+                      type="button"
+                      variant={version.kind === kind ? 'default' : 'outline'}
+                      onClick={() =>
+                        updateVersion(version.clientId, (item) => ({
+                          ...item,
+                          kind,
+                          startDate: kind === 'SEASON' ? item.startDate : '',
+                          endDate: kind === 'SEASON' ? item.endDate : '',
+                          flightOutTimeBand: kind === 'FLIGHT' ? item.flightOutTimeBand : '',
+                          lodgingOverrideEnabled: kind === 'FLIGHT' ? item.lodgingOverrideEnabled : false,
+                          mealsOverrideEnabled: kind === 'FLIGHT' ? item.mealsOverrideEnabled : false,
+                        }))
+                      }
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-2 text-sm">
                 <span className="text-slate-700">평균 이동 시간(시간)</span>
@@ -922,7 +992,7 @@ function AlternativeVersionEditor(props: {
               </label>
             </div>
 
-            {showDateRange ? (
+            {showDateRange && version.kind === 'SEASON' ? (
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="grid gap-2 text-sm">
                   <span className="text-slate-700">적용 시작일</span>
@@ -943,7 +1013,7 @@ function AlternativeVersionEditor(props: {
               </div>
             ) : null}
 
-            {showDateRange ? (
+            {showDateRange && version.kind === 'FLIGHT' ? (
               <label className="grid gap-2 text-sm">
                 <span className="text-slate-700">항공권 OUT 시간대</span>
                 <select
@@ -1018,7 +1088,7 @@ function AlternativeVersionEditor(props: {
               />
             ) : null}
 
-            {showDateRange ? (
+            {showDateRange && version.kind === 'FLIGHT' ? (
               <div className="grid gap-3">
                 <LodgingOverrideEditor
                   value={version.lodgingOverride}
@@ -1650,7 +1720,13 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                         <span key={version.id} className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-600">
                           {[
                             version.name.trim() || '기본',
-                            version.startDate && version.endDate ? `(${version.startDate.slice(0, 10)}~${version.endDate.slice(0, 10)})` : null,
+                            version.isDefault ? '(기본버전)' : `(${getVersionKindLabel(version.kind)})`,
+                            version.kind === 'SEASON' && version.startDate && version.endDate
+                              ? `(${version.startDate.slice(0, 10)}~${version.endDate.slice(0, 10)})`
+                              : null,
+                            version.kind === 'FLIGHT' && version.flightOutTimeBand
+                              ? `(${getFlightTimeBandLabel(version.flightOutTimeBand)})`
+                              : null,
                           ]
                             .filter(Boolean)
                             .join(' ')}

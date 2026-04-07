@@ -1,4 +1,4 @@
-import { Button, Input } from '@tour/ui';
+import { Button, Textarea } from '@tour/ui';
 import { MealOption } from '../../generated/graphql';
 import type { FacilityAvailability } from '../location/hooks';
 import type {
@@ -54,10 +54,11 @@ export function MultiDayBlockLodgingMealEditor(props: Props): JSX.Element {
           </label>
           <label className="grid gap-1 text-sm">
             <span className="text-slate-700">숙소명</span>
-            <Input
+            <Textarea
               value={lodging.name}
               disabled={lodging.isUnspecified}
               onChange={(event) => onLodgingChange({ ...lodging, name: event.target.value })}
+              rows={4}
             />
           </label>
           {(

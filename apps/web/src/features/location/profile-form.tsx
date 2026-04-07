@@ -1,5 +1,5 @@
 import { gql, useQuery } from '@apollo/client';
-import { Button, Card, Input, type ButtonProps } from '@tour/ui';
+import { Button, Card, Input, Textarea, type ButtonProps } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { MealOption, type Region } from '../../generated/graphql';
 import { getMovementIntensityMeta } from '../estimate/model/movement-intensity';
@@ -686,7 +686,7 @@ export function LocationProfileForm({
               </label>
               <label className="grid gap-1 text-sm">
                 <span className="text-slate-700">숙소명</span>
-                <Input
+                <Textarea
                   value={form.lodging.name}
                   onChange={(event) =>
                     setForm((prev) => ({
@@ -695,6 +695,7 @@ export function LocationProfileForm({
                     }))
                   }
                   disabled={form.lodging.isUnspecified}
+                  rows={4}
                 />
               </label>
               <div className="grid gap-3 text-sm text-slate-700">

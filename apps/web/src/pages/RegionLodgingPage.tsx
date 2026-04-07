@@ -1,5 +1,5 @@
 import { gql, useQuery } from '@apollo/client';
-import { Button, Card, Input, SectionHeader, Table, Td, Th } from '@tour/ui';
+import { Button, Card, Input, SectionHeader, Table, Td, Textarea, Th } from '@tour/ui';
 import { useMemo, useState } from 'react';
 import { useRegionLodgingCrud } from '../features/lodging-selection/hooks';
 
@@ -230,7 +230,11 @@ export function RegionLodgingPage(): JSX.Element {
               <h3 className="text-sm font-semibold text-slate-800">숙소명</h3>
             </div>
             <label className="grid gap-2 text-sm">
-              <Input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} />
+              <Textarea
+                value={form.name}
+                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                rows={3}
+              />
             </label>
           </div>
 
