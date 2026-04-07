@@ -7,6 +7,7 @@ import {
   getMovementIntensityMeta,
 } from '../features/estimate/model/movement-intensity';
 import { formatLocationNameInline } from '../features/location/display';
+import { ScheduleCopyColumnButtons } from '../components/ScheduleCopyColumnButtons';
 import { MultiDayBlockEditPanel } from '../features/multi-day-block/multi-day-block-edit-panel';
 import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
 
@@ -205,7 +206,10 @@ export function MultiDayBlockDetailPage(): JSX.Element {
 
               <div className="mt-4 grid gap-4">
                 <div>
-                  <h3 className="mb-2 text-sm font-semibold text-slate-800">시간 / 일정</h3>
+                  <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <h3 className="text-sm font-semibold text-slate-800">시간 / 일정</h3>
+                    <ScheduleCopyColumnButtons lines={scheduleLines} />
+                  </div>
                   {scheduleLines.length > 0 ? (
                     <div className="grid gap-1 text-sm">
                       {scheduleLines.map((line, index) => (

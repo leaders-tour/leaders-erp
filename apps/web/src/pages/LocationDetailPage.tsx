@@ -1,6 +1,7 @@
 import { Button, Card } from '@tour/ui';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useState } from 'react';
+import { ScheduleCopyColumnButtons } from '../components/ScheduleCopyColumnButtons';
 import { LocationSubNav } from '../features/location/sub-nav';
 import {
   formatLocationNameInline,
@@ -216,7 +217,10 @@ export function LocationDetailPage(): JSX.Element {
       {location.isFirstDayEligible ? (
         <div className="grid gap-6 lg:grid-cols-2">
           <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <h2 className="mb-3 text-lg font-semibold">1일차 기본 일정</h2>
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-lg font-semibold">1일차 기본 일정</h2>
+              <ScheduleCopyColumnButtons lines={firstDayScheduleLines} />
+            </div>
             {firstDayScheduleLines.length === 0 ? (
               <div className="text-sm text-slate-500">등록된 시간 / 일정 정보가 없습니다.</div>
             ) : (
@@ -234,7 +238,10 @@ export function LocationDetailPage(): JSX.Element {
             )}
           </Card>
           <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <h2 className="mb-3 text-lg font-semibold">1일차 얼리 일정</h2>
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-lg font-semibold">1일차 얼리 일정</h2>
+              <ScheduleCopyColumnButtons lines={firstDayEarlyScheduleLines} />
+            </div>
             {firstDayEarlyScheduleLines.length === 0 ? (
               <div className="text-sm text-slate-500">등록된 시간 / 일정 정보가 없습니다.</div>
             ) : (
