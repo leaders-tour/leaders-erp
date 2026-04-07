@@ -606,8 +606,8 @@ function buildVersionInputs(
       averageDistanceKm: Number(version.averageDistanceKm),
       averageTravelHours: Number(version.averageTravelHours),
       isLongDistance: version.isLongDistance,
-      ...(version.startDate ? { startDate: version.startDate } : {}),
-      ...(version.endDate ? { endDate: version.endDate } : {}),
+      ...(form.sourceType === 'LOCATION' && version.startDate ? { startDate: version.startDate } : {}),
+      ...(form.sourceType === 'LOCATION' && version.endDate ? { endDate: version.endDate } : {}),
       ...buildVariantTimeSlotInput(version, input),
       isDefault: false,
     })),
@@ -616,13 +616,14 @@ function buildVersionInputs(
 
 function AlternativeVersionEditor(props: {
   value: SegmentVersionDraft[];
+  showDateRange: boolean;
   includeEarly: boolean;
   includeExtend: boolean;
   includeEarlyExtend: boolean;
   onChange: (nextValue: SegmentVersionDraft[]) => void;
   pasteHelperResetNonce?: number;
 }): JSX.Element {
-  const { value, includeEarly, includeExtend, includeEarlyExtend, onChange, pasteHelperResetNonce } = props;
+  const { value, showDateRange, includeEarly, includeExtend, includeEarlyExtend, onChange, pasteHelperResetNonce } = props;
 
   return (
     <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
@@ -707,32 +708,38 @@ function AlternativeVersionEditor(props: {
               </label>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="grid gap-2 text-sm">
-                <span className="text-slate-700">적용 시작일</span>
-                <Input
-                  type="date"
-                  value={version.startDate}
-                  onChange={(event) =>
-                    onChange(
-                      value.map((item) => (item.clientId === version.clientId ? { ...item, startDate: event.target.value } : item)),
-                    )
-                  }
-                />
-              </label>
-              <label className="grid gap-2 text-sm">
-                <span className="text-slate-700">적용 종료일</span>
-                <Input
-                  type="date"
-                  value={version.endDate}
-                  onChange={(event) =>
-                    onChange(
-                      value.map((item) => (item.clientId === version.clientId ? { ...item, endDate: event.target.value } : item)),
-                    )
-                  }
-                />
-              </label>
-            </div>
+            {showDateRange ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="grid gap-2 text-sm">
+                  <span className="text-slate-700">적용 시작일</span>
+                  <Input
+                    type="date"
+                    value={version.startDate}
+                    onChange={(event) =>
+                      onChange(
+                        value.map((item) =>
+                          item.clientId === version.clientId ? { ...item, startDate: event.target.value } : item,
+                        ),
+                      )
+                    }
+                  />
+                </label>
+                <label className="grid gap-2 text-sm">
+                  <span className="text-slate-700">적용 종료일</span>
+                  <Input
+                    type="date"
+                    value={version.endDate}
+                    onChange={(event) =>
+                      onChange(
+                        value.map((item) =>
+                          item.clientId === version.clientId ? { ...item, endDate: event.target.value } : item,
+                        ),
+                      )
+                    }
+                  />
+                </label>
+              </div>
+            ) : null}
 
             <label className="flex items-center gap-2 text-sm text-slate-800">
               <input
@@ -1308,6 +1315,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
 
               <AlternativeVersionEditor
                 value={form.versions}
+                showDateRange={form.sourceType === 'LOCATION'}
                 includeEarly={includeCreateEarly}
                 includeExtend={includeCreateExtend}
                 includeEarlyExtend={includeCreateEarlyExtend}
@@ -1852,6 +1860,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
 
                 <AlternativeVersionEditor
                   value={editForm.versions}
+                  showDateRange={editForm.sourceType === 'LOCATION'}
                   includeEarly={includeEditEarly}
                   includeExtend={includeEditExtend}
                   includeEarlyExtend={includeEditEarlyExtend}
