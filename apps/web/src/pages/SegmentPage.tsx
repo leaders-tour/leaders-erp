@@ -821,7 +821,10 @@ function buildVersionInputs(
       ...(form.sourceType === 'LOCATION' && version.kind === 'FLIGHT' && hasMealsOverrideValue(version.mealsOverride)
         ? { mealsOverride: sanitizeMealsOverride(version.mealsOverride) }
         : {}),
-      ...buildVariantTimeSlotInput(version, input),
+      ...buildVariantTimeSlotInput(version, {
+        includeEarly: version.kind === 'FLIGHT' ? false : input.includeEarly,
+        includeExtend: version.kind === 'FLIGHT' ? false : input.includeExtend,
+      }),
       isDefault: false,
     })),
   ];
@@ -977,8 +980,11 @@ function AlternativeVersionEditor(props: {
           아직 대안 버전이 없습니다.
         </div>
       ) : (
-        value.map((version, index) => (
-          <div key={version.clientId} className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        value.map((version, index) => {
+          const useSingleScheduleOnly = version.kind === 'FLIGHT';
+
+          return (
+            <div key={version.clientId} className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-sm font-semibold text-slate-800">대안 버전 {index + 1}</div>
@@ -1140,7 +1146,7 @@ function AlternativeVersionEditor(props: {
                     pasteHelperResetNonce={pasteHelperResetNonce}
                     onChange={(nextTimeSlots) => updateVersion(version.clientId, (item) => ({ ...item, timeSlots: nextTimeSlots }))}
                   />
-                  {includeEarly ? (
+                  {!useSingleScheduleOnly && includeEarly ? (
                     version.earlySameAsBasic ? (
                       <div className="grid gap-3 self-start rounded-2xl border border-slate-200 p-4">
                         <div className="flex items-start justify-between gap-3">
@@ -1186,14 +1192,14 @@ function AlternativeVersionEditor(props: {
                         }
                       />
                     )
-                  ) : (
+                  ) : !useSingleScheduleOnly ? (
                     <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
                       얼리 조건이 가능한 출발지/도착지일 때 얼리 일정 입력 영역이 나타납니다.
                     </div>
-                  )}
+                  ) : null}
                 </div>
 
-                {includeExtend ? (
+                {!useSingleScheduleOnly && includeExtend ? (
                   <div className="grid items-start gap-6 xl:grid-cols-2">
                     <TimeSlotEditor
                       title="버전 연장 일정"
@@ -1208,8 +1214,9 @@ function AlternativeVersionEditor(props: {
                 ) : null}
               </div>
             </div>
-          </div>
-        ))
+            </div>
+          );
+        })
       )}
     </div>
   );
