@@ -102,6 +102,7 @@ export interface EstimateAdjustmentLine {
   label: string;
   leadAmountKrw: number;
   formula: string;
+  strikethrough?: boolean;
 }
 
 export interface EstimateTeamPricing {

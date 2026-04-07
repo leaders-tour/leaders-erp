@@ -239,6 +239,7 @@ type ManualPricingAdjustmentLine {
   label: String!
   leadAmountKrw: Int!
   formula: String!
+  strikethrough: Boolean!
   deleted: Boolean!
 }
 
@@ -534,6 +535,7 @@ input ManualPricingAdjustmentLineInput {
   label: String!
   leadAmountKrw: Int!
   formula: String!
+  strikethrough: Boolean
   deleted: Boolean
 }
 

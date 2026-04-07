@@ -73,6 +73,7 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
         label: getPricingLineLabel(line),
         leadAmountKrw: resolveDisplayLeadAmount(line, pricingCtx),
         formula: formatPricingDetailFormula(line, pricingCtx),
+        strikethrough: false,
       })),
     teamPricings: snapshot.pricing?.teamPricings ?? [],
     totalPricePerPersonKrw: snapshot.pricing?.totalAmountKrw ?? null,

@@ -278,4 +278,55 @@ describe('buildEffectivePricing', () => {
       leadAmountKrw: 60_000,
     });
   });
+
+  it('keeps strikethrough lines visible while excluding them from totals', () => {
+    const effectivePricing = buildEffectivePricing(
+      {
+        baseAmountKrw: 1_000_000,
+        addonAmountKrw: 40_000,
+        totalAmountKrw: 1_040_000,
+        depositAmountKrw: 100_000,
+        balanceAmountKrw: 940_000,
+        securityDepositAmountKrw: 0,
+        securityDepositEvent: null,
+        securityDepositUnitPriceKrw: 0,
+        securityDepositQuantity: 0,
+        securityDepositMode: 'NONE',
+        lines: [
+          {
+            ruleType: 'BASE',
+            lineCode: 'BASE',
+            sourceType: 'RULE',
+            description: '기본금',
+            ruleId: 'rule-base',
+            unitPriceKrw: 1_000_000,
+            quantity: 1,
+            amountKrw: 1_000_000,
+          },
+        ],
+      },
+      { headcountTotal: 6, totalDays: 1 },
+      {
+        enabled: true,
+        adjustmentLines: [
+          {
+            id: 'manual-discount-line',
+            type: 'MANUAL',
+            label: '얼리 스타트',
+            leadAmountKrw: 40_000,
+            formula: '240,000원/6인',
+            strikethrough: true,
+          },
+        ],
+      },
+    );
+
+    expect(effectivePricing.totalAmountKrw).toBe(1_000_000);
+    expect(effectivePricing.addonAmountKrw).toBe(0);
+    expect(effectivePricing.adjustmentLines[0]).toMatchObject({
+      label: '얼리 스타트',
+      leadAmountKrw: 40_000,
+      strikethrough: true,
+    });
+  });
 });

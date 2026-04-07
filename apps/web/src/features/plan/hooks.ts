@@ -250,6 +250,7 @@ export interface PlanVersionPricingRow {
       label: string;
       leadAmountKrw: number;
       formula: string;
+      strikethrough: boolean;
       deleted: boolean;
     }>;
     summary?: {
@@ -734,6 +735,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
             label
             leadAmountKrw
             formula
+            strikethrough
             deleted
           }
           summary {

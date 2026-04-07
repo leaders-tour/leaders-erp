@@ -374,6 +374,7 @@ interface ManualPricingAdjustmentLineRow {
   label: string;
   leadAmountKrw: number;
   formula: string;
+  strikethrough?: boolean;
   deleted?: boolean;
 }
 
@@ -423,6 +424,7 @@ function buildAdjustmentGroupingKey(line: PricingAdjustmentLineRow): string {
     line.label,
     line.leadAmountKrw,
     line.formula,
+    line.strikethrough ? 'strikethrough' : '',
     line.isManual ? 'manual' : 'auto',
     line.autoLabel ?? '',
     line.autoLeadAmountKrw ?? '',
@@ -593,6 +595,7 @@ function toManualPricingSnapshot(
       label: row.label,
       leadAmountKrw: row.leadAmountKrw,
       formula: row.formula,
+      strikethrough: row.strikethrough === true,
       deleted: row.deleted === true,
     })),
     summary:
@@ -636,6 +639,7 @@ function createManualPricingAdjustmentLine(): ManualPricingAdjustmentLineRow {
     label: '',
     leadAmountKrw: 0,
     formula: '',
+    strikethrough: false,
     deleted: false,
   };
 }
@@ -643,7 +647,7 @@ function createManualPricingAdjustmentLine(): ManualPricingAdjustmentLineRow {
 function upsertManualPricingAutoOverride(
   current: ManualPricingState,
   line: PricingAdjustmentLineRow,
-  patch: Partial<Pick<ManualPricingAdjustmentLineRow, 'label' | 'leadAmountKrw' | 'formula' | 'deleted'>>,
+  patch: Partial<Pick<ManualPricingAdjustmentLineRow, 'label' | 'leadAmountKrw' | 'formula' | 'strikethrough' | 'deleted'>>,
 ): ManualPricingState {
   if (!line.rowKey) {
     return current;
@@ -658,13 +662,15 @@ function upsertManualPricingAutoOverride(
     label: patch.label ?? existing?.label ?? line.label,
     leadAmountKrw: patch.leadAmountKrw ?? existing?.leadAmountKrw ?? line.leadAmountKrw,
     formula: patch.formula ?? existing?.formula ?? line.formula,
+    strikethrough: patch.strikethrough ?? existing?.strikethrough ?? line.strikethrough ?? false,
     deleted: patch.deleted ?? existing?.deleted ?? false,
   };
   const matchesAuto =
     nextRow.deleted !== true &&
     nextRow.label === (line.autoLabel ?? line.label) &&
     nextRow.leadAmountKrw === (line.autoLeadAmountKrw ?? line.leadAmountKrw) &&
-    nextRow.formula === (line.autoFormula ?? line.formula);
+    nextRow.formula === (line.autoFormula ?? line.formula) &&
+    nextRow.strikethrough !== true;
 
   if (matchesAuto) {
     return {
@@ -691,7 +697,7 @@ function upsertManualPricingAutoOverride(
 function updateManualPricingCustomLine(
   current: ManualPricingState,
   id: string,
-  patch: Partial<Pick<ManualPricingAdjustmentLineRow, 'label' | 'leadAmountKrw' | 'formula'>>,
+  patch: Partial<Pick<ManualPricingAdjustmentLineRow, 'label' | 'leadAmountKrw' | 'formula' | 'strikethrough'>>,
 ): ManualPricingState {
   return {
     ...current,
@@ -1741,6 +1747,7 @@ function createEstimateDraftSnapshot(input: {
               label: line.label,
               leadAmountKrw: line.leadAmountKrw,
               formula: line.formula,
+              strikethrough: line.strikethrough === true,
             })),
           teamPricings: input.pricingPreview.teamPricings.map((teamPricing) => ({
             teamOrderIndex: teamPricing.teamOrderIndex,
@@ -6557,6 +6564,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                     <div className="grid gap-1">
                                       <input
                                         type="text"
+                                        disabled={line.strikethrough}
                                         value={
                                           !line.isSharedAcrossTeams && line.teamNames[0]
                                             ? `${line.teamNames[0]}) ${line.label}`
@@ -6589,13 +6597,18 @@ export function ItineraryBuilderPage(): JSX.Element {
                                                 ),
                                           )
                                         }
-                                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                        className={`rounded-xl border px-3 py-2 text-sm ${
+                                          line.strikethrough
+                                            ? 'border-slate-100 bg-slate-50 text-slate-400 line-through disabled:cursor-not-allowed'
+                                            : 'border-slate-200 bg-white'
+                                        }`}
                                         placeholder="항목"
                                       />
                                     </div>
                                     <input
                                       type="number"
                                       step={1}
+                                      disabled={line.strikethrough}
                                       value={line.leadAmountKrw}
                                       onChange={(event) => {
                                         const nextAmount = Number(event.target.value);
@@ -6616,7 +6629,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                                               ),
                                         );
                                       }}
-                                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                      className={`rounded-xl border px-3 py-2 text-sm ${
+                                        line.strikethrough
+                                          ? 'border-slate-100 bg-slate-50 text-slate-400 line-through disabled:cursor-not-allowed'
+                                          : 'border-slate-200 bg-white'
+                                      }`}
                                       placeholder="금액"
                                     />
                                     <input
@@ -6641,6 +6658,31 @@ export function ItineraryBuilderPage(): JSX.Element {
                                       placeholder="표기"
                                     />
                                     <div className="flex items-center justify-end gap-2">
+                                      <button
+                                        type="button"
+                                        className={`rounded-lg border px-2 py-1 text-xs ${
+                                          line.strikethrough
+                                            ? 'border-amber-200 bg-amber-50 text-amber-700'
+                                            : 'border-slate-200 text-slate-700'
+                                        }`}
+                                        onClick={() =>
+                                          setManualPricing((current) =>
+                                            line.type === 'MANUAL'
+                                              ? updateManualPricingCustomLine(current, line.sourceLines[0]!.id, {
+                                                  strikethrough: !line.strikethrough,
+                                                })
+                                              : line.sourceLines.reduce(
+                                                  (nextState, sourceLine) =>
+                                                    upsertManualPricingAutoOverride(nextState, sourceLine, {
+                                                      strikethrough: !line.strikethrough,
+                                                    }),
+                                                  current,
+                                                ),
+                                          )
+                                        }
+                                      >
+                                        {line.strikethrough ? '할인해제' : '할인처리'}
+                                      </button>
                                       {line.type === 'AUTO' && line.isManual ? (
                                         <button
                                           type="button"
@@ -6681,12 +6723,20 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   </>
                                 ) : (
                                   <>
-                                    <div className="text-sm font-medium text-slate-900">
+                                    <div
+                                      className={`text-sm font-medium ${
+                                        line.strikethrough ? 'text-slate-400 line-through' : 'text-slate-900'
+                                      }`}
+                                    >
                                       {!line.isSharedAcrossTeams && line.teamNames[0]
                                         ? `${line.teamNames[0]}) ${line.label}`
                                         : line.label}
                                     </div>
-                                    <div className="text-sm font-semibold text-slate-900">
+                                    <div
+                                      className={`text-sm font-semibold ${
+                                        line.strikethrough ? 'text-slate-400 line-through' : 'text-slate-900'
+                                      }`}
+                                    >
                                       {formatSignedKrw(line.leadAmountKrw)}
                                     </div>
                                     <div className="text-sm text-slate-600">{line.formula || '-'}</div>

@@ -933,7 +933,10 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                   <div className="estimate-page1-price-placeholder" />
                 ) : (
                   adjustmentLines.map((line, index) => (
-                    <div key={`adj-${index}`} className="estimate-page1-price-line">
+                    <div
+                      key={`adj-${index}`}
+                      className={`estimate-page1-price-line ${line.strikethrough ? 'estimate-page1-price-line--strikethrough' : ''}`}
+                    >
                       <span className="estimate-page1-price-line-gutter" aria-hidden="true" />
                       <span className="estimate-page1-price-line-lead">
                         <span className="estimate-page1-price-line-label">

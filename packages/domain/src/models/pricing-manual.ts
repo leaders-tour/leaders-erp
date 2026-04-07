@@ -48,6 +48,7 @@ export interface PricingManualAdjustmentLine {
   label: string;
   leadAmountKrw: number;
   formula: string;
+  strikethrough?: boolean;
   deleted?: boolean;
 }
 

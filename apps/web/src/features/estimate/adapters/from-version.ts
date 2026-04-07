@@ -132,12 +132,14 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
         label: line.label,
         leadAmountKrw: line.leadAmountKrw,
         formula: line.formula,
+        strikethrough: line.strikethrough === true,
       })) ??
       (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []).map((line) => ({
         teamName: null,
         label: getPricingLineLabel(line),
         leadAmountKrw: resolveDisplayLeadAmount(line, pricingCtx),
         formula: formatPricingDetailFormula(line, pricingCtx),
+        strikethrough: false,
       })),
     teamPricings:
       pricing?.teamPricings.map((teamPricing) => ({

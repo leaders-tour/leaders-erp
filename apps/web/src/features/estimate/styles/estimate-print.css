@@ -664,6 +664,10 @@
   text-align: center;
 }
 
+.estimate-page1-price-line--strikethrough .estimate-page1-price-line-lead {
+  text-decoration: line-through;
+}
+
 .estimate-page1-price-line-label {
   min-width: 0;
   display: flex;

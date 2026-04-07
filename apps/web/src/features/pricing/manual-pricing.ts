@@ -39,6 +39,7 @@ export interface PricingAdjustmentLineRow {
   label: string;
   leadAmountKrw: number;
   formula: string;
+  strikethrough: boolean;
   deleted: boolean;
   isManual: boolean;
   autoLabel?: string | null;
@@ -161,6 +162,7 @@ function buildAutoAdjustmentLines<TLine extends PricingManualSourceLine>(
       label: getPricingLineLabel(row),
       leadAmountKrw: resolveDisplayLeadAmount(row, ctx),
       formula: formatPricingDetailFormula(row, ctx),
+      strikethrough: false,
       deleted: false,
       isManual: row.isManualOverride,
       autoLabel: getPricingLineLabel(row),
@@ -198,6 +200,7 @@ function mergeAdjustmentLines(
       label: row.label,
       leadAmountKrw: row.leadAmountKrw,
       formula: row.formula,
+      strikethrough: row.strikethrough === true,
       deleted: false,
       isManual: true,
       autoLabel: null,
@@ -222,10 +225,12 @@ function mergeAdjustmentLines(
         label: override.label,
         leadAmountKrw: override.leadAmountKrw,
         formula: override.formula,
+        strikethrough: override.strikethrough === true,
         isManual:
           override.label !== line.autoLabel ||
           override.leadAmountKrw !== line.autoLeadAmountKrw ||
-          override.formula !== line.autoFormula,
+          override.formula !== line.autoFormula ||
+          override.strikethrough === true,
       },
     ];
   });
@@ -247,7 +252,9 @@ function buildSingleEffectivePricing<TLine extends PricingManualSourceLine>(
   const adjustmentLines = mergeAdjustmentLines(autoAdjustmentLines, manualPricing);
   const summary = manualPricing?.summary ?? null;
   const baseAmountKrw = hasNumber(summary?.baseAmountKrw) ? summary.baseAmountKrw : autoBaseAmountKrw;
-  const computedTotalAmountKrw = baseAmountKrw + adjustmentLines.reduce((sum, line) => sum + line.leadAmountKrw, 0);
+  const computedTotalAmountKrw =
+    baseAmountKrw +
+    adjustmentLines.reduce((sum, line) => sum + (line.strikethrough ? 0 : line.leadAmountKrw), 0);
   const totalAmountKrw = hasNumber(summary?.totalAmountKrw) ? summary.totalAmountKrw : computedTotalAmountKrw;
   const depositOverride = hasNumber(summary?.depositAmountKrw)
     ? summary.depositAmountKrw

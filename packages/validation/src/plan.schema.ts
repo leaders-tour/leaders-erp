@@ -119,6 +119,7 @@ export const manualPricingAdjustmentLineInputSchema = z.object({
   label: z.string().min(0).max(200),
   leadAmountKrw: z.number().int(),
   formula: z.string().min(0).max(500),
+  strikethrough: z.boolean().optional().default(false),
   deleted: z.boolean().optional().default(false),
 });
 
