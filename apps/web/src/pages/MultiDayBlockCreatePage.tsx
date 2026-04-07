@@ -83,6 +83,18 @@ export function MultiDayBlockCreatePage(): JSX.Element {
   const locationById = useMemo(() => new Map(locations.map((location) => [location.id, location])), [locations]);
   const sortedDays = days.slice().sort((left, right) => left.dayOrder - right.dayOrder);
   const canSubmit = Boolean(name.trim() && sortedDays.every((day) => day.displayLocationId));
+  const submitGuideMessages = useMemo(() => {
+    const messages: string[] = [];
+    if (!name.trim()) {
+      messages.push('블록 이름을 입력해주세요.');
+    }
+    sortedDays.forEach((day) => {
+      if (!day.displayLocationId) {
+        messages.push(`${day.dayOrder}일차 목적지를 선택해주세요.`);
+      }
+    });
+    return messages;
+  }, [name, sortedDays]);
 
   const updateDay = (
     dayOrder: number,
@@ -174,6 +186,16 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                 취소
               </Button>
             </div>
+            {!canSubmit && submitGuideMessages.length > 0 ? (
+              <div className="grid gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                <p className="font-medium">블록 생성을 위해 아래 항목을 확인해주세요.</p>
+                <ul className="grid list-disc gap-1 pl-5">
+                  {submitGuideMessages.map((message) => (
+                    <li key={message}>{message}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
 
           <div className="grid items-start gap-6 lg:grid-cols-2">
