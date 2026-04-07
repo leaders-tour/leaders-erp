@@ -769,6 +769,7 @@ model SegmentVersion {
   isLongDistance     Boolean @default(false)
   startDate          DateTime?
   endDate            DateTime?
+  flightOutTimeBand  PricingTimeBand?
   sortOrder          Int
   isDefault          Boolean @default(false)
 

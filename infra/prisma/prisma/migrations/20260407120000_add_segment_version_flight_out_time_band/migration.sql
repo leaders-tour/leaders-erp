@@ -1,0 +1,2 @@
+ALTER TABLE `SegmentVersion`
+  ADD COLUMN `flightOutTimeBand` ENUM('DAWN', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT') NULL;

@@ -63,6 +63,7 @@ export interface SegmentVersionOption {
   isLongDistance: boolean;
   startDate?: string | null;
   endDate?: string | null;
+  flightOutTimeBand?: 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' | null;
   sortOrder: number;
   isDefault: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
@@ -98,6 +99,7 @@ interface ResolvedSegmentVersionOption {
   isLongDistance: boolean;
   startDate?: string | null;
   endDate?: string | null;
+  flightOutTimeBand?: 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' | null;
   sortOrder: number;
   isDefault: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
@@ -240,6 +242,43 @@ function isWithinInclusiveDateRange(targetDate: string, startDate?: string | nul
   return normalizedStartDate <= targetDate && targetDate <= normalizedEndDate;
 }
 
+function parseTimeToMinutes(value: string | null | undefined): number | null {
+  const trimmed = value?.trim() ?? '';
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(trimmed);
+  if (!match) {
+    return null;
+  }
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function matchesTimeBand(
+  time: string | null | undefined,
+  band: ResolvedSegmentVersionOption['flightOutTimeBand'],
+): boolean {
+  if (!band) {
+    return true;
+  }
+
+  const minutes = parseTimeToMinutes(time);
+  if (minutes === null) {
+    return false;
+  }
+
+  if (minutes < 5 * 60) {
+    return band === 'DAWN';
+  }
+  if (minutes < 12 * 60) {
+    return band === 'MORNING';
+  }
+  if (minutes < 18 * 60) {
+    return band === 'AFTERNOON';
+  }
+  if (minutes < 22 * 60) {
+    return band === 'EVENING';
+  }
+  return band === 'NIGHT';
+}
+
 export function getRouteDateForDayIndex(startDate: string, dayIndex: number): string | undefined {
   const normalizedStartDate = normalizeDateOnly(startDate);
   if (!normalizedStartDate || dayIndex < 1) {
@@ -320,6 +359,7 @@ function buildLegacyDirectVersion(segment: SegmentOption): ResolvedSegmentVersio
     isLongDistance: segment.isLongDistance ?? false,
     startDate: undefined,
     endDate: undefined,
+    flightOutTimeBand: null,
     sortOrder: 0,
     isDefault: true,
     scheduleTimeBlocks: segment.scheduleTimeBlocks,
@@ -579,6 +619,38 @@ export function resolveSegmentVersionForDate(
   }
 
   return resolveSegmentVersion(segment, undefined);
+}
+
+export function resolveSegmentVersionForContext(input: {
+  segment: SegmentOption | undefined;
+  targetDate?: string;
+  segmentVersionId?: string;
+  flightOutTime?: string;
+  isLastRouteLeg?: boolean;
+}): ResolvedSegmentVersionOption | undefined {
+  const { segment, targetDate, segmentVersionId, flightOutTime, isLastRouteLeg } = input;
+  const versions = getSegmentVersions(segment);
+  if (versions.length === 0) {
+    return undefined;
+  }
+
+  if (segmentVersionId) {
+    const matched = versions.find((version) => version.id === segmentVersionId);
+    if (matched) {
+      return matched;
+    }
+  }
+
+  if (isLastRouteLeg && flightOutTime?.trim()) {
+    const matchedByFlightOutTimeBand = versions.find(
+      (version) => version.isDefault !== true && version.flightOutTimeBand && matchesTimeBand(flightOutTime, version.flightOutTimeBand),
+    );
+    if (matchedByFlightOutTimeBand) {
+      return matchedByFlightOutTimeBand;
+    }
+  }
+
+  return resolveSegmentVersionForDate(segment, targetDate, undefined);
 }
 
 export function formatSegmentVersionLabel(version: Pick<ResolvedSegmentVersionOption, 'name'>): string {
@@ -860,6 +932,7 @@ export function buildAutoRowsFromRoute(input: {
   totalDays: number;
   variantType?: VariantType;
   travelStartDate?: string;
+  flightOutTime?: string;
   firstDayTimeOverride?: string;
 }): TemplatePlanRow[] {
   const {
@@ -874,6 +947,7 @@ export function buildAutoRowsFromRoute(input: {
     totalDays,
     variantType,
     travelStartDate,
+    flightOutTime,
     firstDayTimeOverride,
   } = input;
   const safeTotalDays = Math.max(2, totalDays);
@@ -994,11 +1068,13 @@ export function buildAutoRowsFromRoute(input: {
       const segment =
         (stop.segmentId ? filteredSegments.find((item) => item.id === stop.segmentId) : undefined) ??
         findSegment(filteredSegments, previousContext.locationId, stop.locationId);
-      const segmentVersion = resolveSegmentVersionForDate(
+      const segmentVersion = resolveSegmentVersionForContext({
         segment,
-        travelStartDate ? getRouteDateForDayIndex(travelStartDate, nextDayIndex) : undefined,
-        stop.segmentVersionId,
-      );
+        targetDate: travelStartDate ? getRouteDateForDayIndex(travelStartDate, nextDayIndex) : undefined,
+        segmentVersionId: stop.segmentVersionId,
+        flightOutTime,
+        isLastRouteLeg: nextDayIndex === safeTotalDays,
+      });
       rows.push({
         rowType: 'MAIN',
         segmentId: segment?.id,

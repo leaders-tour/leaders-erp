@@ -9,6 +9,7 @@ import {
   buildMultiDayBlockOptions,
   buildSelectedRouteFromStops,
   buildTemplateStopsFromRouteAndRows,
+  resolveSegmentVersionForContext,
   resolveSegmentVersionForDate,
 } from './route-autofill';
 
@@ -346,6 +347,7 @@ const segmentABSeasonal: SegmentOption = {
       ...segmentAB.versions![0]!,
       id: 'segment-version-ab-default',
       isDefault: true,
+      flightOutTimeBand: null,
     },
     {
       ...segmentAB.versions![0]!,
@@ -354,6 +356,7 @@ const segmentABSeasonal: SegmentOption = {
       isDefault: false,
       startDate: '2026-01-01T00:00:00.000Z',
       endDate: '2026-01-31T00:00:00.000Z',
+      flightOutTimeBand: 'AFTERNOON',
       scheduleTimeBlocks: [
         {
           id: 'segv-ab-jan-basic',
@@ -378,6 +381,7 @@ const segmentABSeasonal: SegmentOption = {
       isDefault: false,
       startDate: '2026-02-01T00:00:00.000Z',
       endDate: '2026-02-28T00:00:00.000Z',
+      flightOutTimeBand: 'EVENING',
       scheduleTimeBlocks: [
         {
           id: 'segv-ab-feb-basic',
@@ -510,6 +514,28 @@ describe('route-autofill', () => {
 
   it('keeps an explicitly selected segment version even when the date points to another one', () => {
     expect(resolveSegmentVersionForDate(segmentABSeasonal, '2026-01-15', 'segment-version-ab-feb')?.id).toBe('segment-version-ab-feb');
+  });
+
+  it('prefers the flight OUT time band on the last route leg before date fallback', () => {
+    expect(
+      resolveSegmentVersionForContext({
+        segment: segmentABSeasonal,
+        targetDate: '2026-01-15',
+        flightOutTime: '18:15',
+        isLastRouteLeg: true,
+      })?.id,
+    ).toBe('segment-version-ab-feb');
+  });
+
+  it('does not use the flight OUT time band when the segment is not the last route leg', () => {
+    expect(
+      resolveSegmentVersionForContext({
+        segment: segmentABSeasonal,
+        targetDate: '2026-01-15',
+        flightOutTime: '18:15',
+        isLastRouteLeg: false,
+      })?.id,
+    ).toBe('segment-version-ab-jan');
   });
 
   it('filters day candidates using the date-matched segment version schedule', () => {
@@ -726,6 +752,36 @@ describe('route-autofill', () => {
 
     expect(rows[1]?.segmentVersionId).toBe('segment-version-ab-jan');
     expect(rows[1]?.scheduleCellText).toBe('1월 이동');
+  });
+
+  it('uses the flight OUT time band for the final segment when auto rows are built', () => {
+    const rows = buildAutoRowsFromRoute({
+      startLocationId: locationA.id,
+      startLocationVersionId: 'ver-a',
+      selectedRoute: [
+        {
+          kind: 'LOCATION',
+          locationId: locationB.id,
+          locationVersionId: 'ver-b',
+          segmentId: 'segment-ab',
+        },
+      ],
+      filteredSegments: [segmentABSeasonal],
+      locationById: new Map([
+        [locationA.id, locationA],
+        [locationB.id, locationB],
+      ]),
+      locationVersionById: new Map([
+        ['ver-a', locationAVersion],
+        ['ver-b', locationBVersion],
+      ]),
+      totalDays: 2,
+      travelStartDate: '2026-01-01',
+      flightOutTime: '18:15',
+    });
+
+    expect(rows[1]?.segmentVersionId).toBe('segment-version-ab-feb');
+    expect(rows[1]?.scheduleCellText).toBe('2월 이동');
   });
 
   it('preserves segmentId in template stop payloads for day 2+', () => {

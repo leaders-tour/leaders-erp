@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+const pricingTimeBands = ['DAWN', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT'] as const;
+
 const segmentTimeSlotSchema = z.object({
   startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
   activities: z.array(z.string().max(500)).max(20),
@@ -15,6 +17,7 @@ const segmentVersionSchema = z.object({
   isLongDistance: z.boolean(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  flightOutTimeBand: z.enum(pricingTimeBands).optional(),
   timeSlots: segmentTimeSlotsSchema,
   earlyTimeSlots: segmentTimeSlotsSchema.optional(),
   extendTimeSlots: segmentTimeSlotsSchema.optional(),
@@ -81,6 +84,23 @@ export const segmentCreateSchema = segmentBaseSchema
         path: ['versions'],
       });
     }
+
+    const seenBands = new Set<(typeof pricingTimeBands)[number]>();
+    value.versions.forEach((version, index) => {
+      const band = version.flightOutTimeBand;
+      if (!band) {
+        return;
+      }
+      if (seenBands.has(band)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'versions must not contain duplicate flightOutTimeBand values',
+          path: ['versions', index, 'flightOutTimeBand'],
+        });
+        return;
+      }
+      seenBands.add(band);
+    });
   });
 
 export const segmentUpdateSchema = segmentBaseSchema
@@ -98,6 +118,23 @@ export const segmentUpdateSchema = segmentBaseSchema
         path: ['versions'],
       });
     }
+
+    const seenBands = new Set<(typeof pricingTimeBands)[number]>();
+    value.versions.forEach((version, index) => {
+      const band = version.flightOutTimeBand;
+      if (!band) {
+        return;
+      }
+      if (seenBands.has(band)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'versions must not contain duplicate flightOutTimeBand values',
+          path: ['versions', index, 'flightOutTimeBand'],
+        });
+        return;
+      }
+      seenBands.add(band);
+    });
   });
 
 export type SegmentCreateInput = z.infer<typeof segmentCreateSchema>;

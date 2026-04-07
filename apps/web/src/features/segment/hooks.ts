@@ -65,6 +65,7 @@ const LIST = gql`
         isLongDistance
         startDate
         endDate
+        flightOutTimeBand
         sortOrder
         isDefault
         scheduleTimeBlocks {
@@ -274,6 +275,7 @@ const REMOVE_BLOCK_CONNECTION = gql`
 `;
 
 export type ConnectionSourceType = 'LOCATION' | 'MULTI_DAY_BLOCK';
+export type FlightTimeBandValue = 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT';
 
 export interface SegmentFormInput {
   sourceType: ConnectionSourceType;
@@ -304,6 +306,7 @@ export interface SegmentVersionFormInput {
   isLongDistance: boolean;
   startDate?: string;
   endDate?: string;
+  flightOutTimeBand?: FlightTimeBandValue;
   timeSlots: SegmentTimeSlotFormInput[];
   earlyTimeSlots?: SegmentTimeSlotFormInput[];
   extendTimeSlots?: SegmentTimeSlotFormInput[];
@@ -377,6 +380,7 @@ export interface SegmentRow {
     isLongDistance: boolean;
     startDate?: string | null;
     endDate?: string | null;
+    flightOutTimeBand?: FlightTimeBandValue | null;
     sortOrder: number;
     isDefault: boolean;
     scheduleTimeBlocks: Array<{

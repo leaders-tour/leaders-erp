@@ -1,4 +1,4 @@
-import type { MovementIntensity, Prisma, PrismaClient } from '@prisma/client';
+import type { MovementIntensity, PricingTimeBand, Prisma, PrismaClient } from '@prisma/client';
 import {
   segmentCreateSchema,
   segmentUpdateSchema,
@@ -33,6 +33,7 @@ interface NormalizedSegmentVersion {
   isLongDistance: boolean;
   startDate: Date | null;
   endDate: Date | null;
+  flightOutTimeBand: PricingTimeBand | null;
   isDefault: boolean;
   timeSlotsByVariant: VariantTimeSlotMap;
 }
@@ -62,6 +63,7 @@ interface ExistingSegmentLike {
     isLongDistance: boolean;
     startDate: Date | null;
     endDate: Date | null;
+    flightOutTimeBand?: PricingTimeBand | null;
     sortOrder: number;
     isDefault: boolean;
     scheduleTimeBlocks: Array<{
@@ -204,6 +206,7 @@ export class SegmentService {
       isLongDistance: input.isLongDistance,
       startDate: null,
       endDate: null,
+      flightOutTimeBand: null,
       isDefault: true,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(input),
     };
@@ -222,6 +225,7 @@ export class SegmentService {
           isLongDistance: version.isLongDistance,
           startDate: version.startDate,
           endDate: version.endDate,
+          flightOutTimeBand: version.flightOutTimeBand ?? null,
           isDefault: version.isDefault,
           timeSlotsByVariant: this.mapTimeBlocksToVariantTimeSlots(version.scheduleTimeBlocks),
         }));
@@ -249,6 +253,7 @@ export class SegmentService {
       isLongDistance: version.isLongDistance,
       startDate: this.parseDateOnly(version.startDate),
       endDate: this.parseDateOnly(version.endDate),
+      flightOutTimeBand: version.flightOutTimeBand ?? null,
       isDefault: version.isDefault !== false,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(version),
     }));
@@ -392,6 +397,20 @@ export class SegmentService {
       }
     }
 
+    const seenFlightOutBands = new Set<PricingTimeBand>();
+    versions.forEach((version) => {
+      if (!version.flightOutTimeBand) {
+        return;
+      }
+      if (seenFlightOutBands.has(version.flightOutTimeBand)) {
+        throw new DomainError(
+          'VALIDATION_FAILED',
+          `Segment versions must not contain duplicate flightOutTimeBand values (${version.flightOutTimeBand})`,
+        );
+      }
+      seenFlightOutBands.add(version.flightOutTimeBand);
+    });
+
     const requiredVariants = this.getRequiredVariants(fromLocation, toLocation);
     versions.forEach((version) => this.assertRequiredVariantSchedules(version, requiredVariants));
   }
@@ -522,6 +541,7 @@ export class SegmentService {
           isLongDistance: version.isLongDistance,
           startDate: version.startDate,
           endDate: version.endDate,
+          flightOutTimeBand: version.flightOutTimeBand,
           sortOrder,
           isDefault: version.isDefault,
         },
@@ -563,6 +583,7 @@ export class SegmentService {
           isLongDistance: defaultVersion.isLongDistance,
           startDate: null,
           endDate: null,
+          flightOutTimeBand: defaultVersion.flightOutTimeBand,
           sortOrder: 0,
           isDefault: true,
         },
@@ -582,6 +603,7 @@ export class SegmentService {
         isLongDistance: defaultVersion.isLongDistance,
         startDate: null,
         endDate: null,
+        flightOutTimeBand: defaultVersion.flightOutTimeBand,
         sortOrder: 0,
         isDefault: true,
       },

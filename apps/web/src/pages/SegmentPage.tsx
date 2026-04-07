@@ -10,10 +10,12 @@ import { formatLocationNameInline, includesLocationNameKeyword } from '../featur
 import {
   useSegmentCrud,
   type ConnectionSourceType,
+  type FlightTimeBandValue,
   type SegmentRow,
   type SegmentTimeSlotFormInput,
   type SegmentVersionFormInput,
 } from '../features/segment/hooks';
+import { TIME_BAND_OPTIONS } from '../features/pricing-policy-admin/constants';
 import { RegionNameChip } from '../features/region/region-name-chip';
 import { ConnectionSubNav } from '../features/segment/sub-nav';
 
@@ -97,6 +99,7 @@ interface SegmentVersionDraft {
   isLongDistance: boolean;
   startDate: string;
   endDate: string;
+  flightOutTimeBand: '' | FlightTimeBandValue;
   timeSlots: SegmentTimeSlotFormInput[];
   earlyTimeSlots: SegmentTimeSlotFormInput[];
   extendTimeSlots: SegmentTimeSlotFormInput[];
@@ -134,6 +137,7 @@ function createVersionDraft(): SegmentVersionDraft {
     isLongDistance: false,
     startDate: '',
     endDate: '',
+    flightOutTimeBand: '',
     timeSlots: createDefaultTimeSlots(),
     earlyTimeSlots: createDefaultTimeSlots(),
     extendTimeSlots: createDefaultTimeSlots(),
@@ -302,6 +306,7 @@ function toVersionDrafts(segment: SegmentRow | undefined): SegmentVersionDraft[]
       isLongDistance: version.isLongDistance,
       startDate: version.startDate?.slice(0, 10) ?? '',
       endDate: version.endDate?.slice(0, 10) ?? '',
+      flightOutTimeBand: version.flightOutTimeBand ?? '',
       timeSlots: toFormTimeSlots(version.scheduleTimeBlocks),
       earlyTimeSlots: toFormTimeSlots(version.earlyScheduleTimeBlocks),
       extendTimeSlots: toFormTimeSlots(version.extendScheduleTimeBlocks),
@@ -608,6 +613,9 @@ function buildVersionInputs(
       isLongDistance: version.isLongDistance,
       ...(form.sourceType === 'LOCATION' && version.startDate ? { startDate: version.startDate } : {}),
       ...(form.sourceType === 'LOCATION' && version.endDate ? { endDate: version.endDate } : {}),
+      ...(form.sourceType === 'LOCATION' && version.flightOutTimeBand
+        ? { flightOutTimeBand: version.flightOutTimeBand }
+        : {}),
       ...buildVariantTimeSlotInput(version, input),
       isDefault: false,
     })),
@@ -739,6 +747,32 @@ function AlternativeVersionEditor(props: {
                   />
                 </label>
               </div>
+            ) : null}
+
+            {showDateRange ? (
+              <label className="grid gap-2 text-sm">
+                <span className="text-slate-700">항공권 OUT 시간대</span>
+                <select
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  value={version.flightOutTimeBand}
+                  onChange={(event) =>
+                    onChange(
+                      value.map((item) =>
+                        item.clientId === version.clientId
+                          ? { ...item, flightOutTimeBand: event.target.value as '' | FlightTimeBandValue }
+                          : item,
+                      ),
+                    )
+                  }
+                >
+                  <option value="">없음</option>
+                  {TIME_BAND_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             ) : null}
 
             <label className="flex items-center gap-2 text-sm text-slate-800">

@@ -46,6 +46,7 @@ type SegmentVersion {
   isLongDistance: Boolean!
   startDate: DateTime
   endDate: DateTime
+  flightOutTimeBand: PricingTimeBand
   sortOrder: Int!
   isDefault: Boolean!
   scheduleTimeBlocks: [SegmentVersionTimeBlock!]!
@@ -115,6 +116,7 @@ input SegmentVersionInput {
   isLongDistance: Boolean!
   startDate: String
   endDate: String
+  flightOutTimeBand: PricingTimeBand
   timeSlots: [SegmentTimeSlotInput!]!
   earlyTimeSlots: [SegmentTimeSlotInput!]
   extendTimeSlots: [SegmentTimeSlotInput!]

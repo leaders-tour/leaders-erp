@@ -80,13 +80,13 @@ import {
   getRouteStopEndDayIndex,
   getRouteStopStartDayIndex,
   getSegmentVersions,
+  resolveSegmentVersionForContext,
   type LocationVersionOption,
   type LocationOption,
   type MultiDayBlockConnectionOption,
   type MultiDayBlockOption,
   type RouteSelection,
   trimRouteSelectionsToTotalDays,
-  resolveSegmentVersionForDate,
   type SegmentOption,
 } from '../features/plan-template/route-autofill';
 import {
@@ -1131,6 +1131,7 @@ const SEGMENTS_QUERY = gql`
         isLongDistance
         startDate
         endDate
+        flightOutTimeBand
         sortOrder
         isDefault
         scheduleTimeBlocks {
@@ -2979,6 +2980,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     const firstPickupTime = transportGroups[0]?.pickupTime?.trim() ?? '';
     const dropDate = transportGroups[0]?.dropDate?.trim() ?? '';
     const dropTime = transportGroups[0]?.dropTime?.trim() ?? '';
+    const flightOutTime = transportGroups[0]?.flightOutTime?.trim() ?? '';
     const firstDayTimeOverride =
       (variantType === VariantType.Early || variantType === VariantType.EarlyExtend) &&
       firstPickupTime
@@ -2997,6 +2999,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       totalDays,
       variantType,
       travelStartDate,
+      flightOutTime,
       firstDayTimeOverride,
     }).map((row, index, rows) => ({
       ...row,
@@ -5695,15 +5698,16 @@ export function ItineraryBuilderPage(): JSX.Element {
                             stop.locationId,
                           );
                           const versions = getSegmentVersions(segment);
-                          const selectedVersion = resolveSegmentVersionForDate(
+                          const isLastDay = endDayIndex === totalDays;
+                          const selectedVersion = resolveSegmentVersionForContext({
                             segment,
-                            travelStartDate
+                            targetDate: travelStartDate
                               ? getRouteDateForDayIndex(travelStartDate, startDayIndex)
                               : undefined,
-                            stop.segmentVersionId,
-                          );
-
-                          const isLastDay = endDayIndex === totalDays;
+                            segmentVersionId: stop.segmentVersionId,
+                            flightOutTime: transportGroups[0]?.flightOutTime,
+                            isLastRouteLeg: isLastDay,
+                          });
                           return (
                             <>
                               <div className="text-sm font-medium">{startDayIndex}일차</div>
@@ -5762,15 +5766,16 @@ export function ItineraryBuilderPage(): JSX.Element {
                             : (selectedRoute[index - 1]?.locationId ?? '');
                         const segment = findSegment(filteredSegments, fromId, stop.locationId);
                         const versions = getSegmentVersions(segment);
-                        const selectedVersion = resolveSegmentVersionForDate(
+                        const isLastDay = endDayIndex === totalDays;
+                        const selectedVersion = resolveSegmentVersionForContext({
                           segment,
-                          travelStartDate
+                          targetDate: travelStartDate
                             ? getRouteDateForDayIndex(travelStartDate, startDayIndex)
                             : undefined,
-                          stop.segmentVersionId,
-                        );
-
-                        const isLastDay = endDayIndex === totalDays;
+                          segmentVersionId: stop.segmentVersionId,
+                          flightOutTime: transportGroups[0]?.flightOutTime,
+                          isLastRouteLeg: isLastDay,
+                        });
                         return (
                           <>
                             <div className="text-sm font-medium">{startDayIndex}일차</div>

@@ -22,6 +22,7 @@ export interface SegmentVersion {
   averageDistanceKm: number;
   averageTravelHours: number;
   isLongDistance: boolean;
+  flightOutTimeBand?: 'DAWN' | 'MORNING' | 'AFTERNOON' | 'EVENING' | 'NIGHT' | null;
   sortOrder: number;
   isDefault: boolean;
   scheduleTimeBlocks: SegmentVersionTimeBlock[];
