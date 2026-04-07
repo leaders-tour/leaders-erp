@@ -343,6 +343,79 @@ function getOrderedTimeBlocks(timeBlocks: TimeBlockOption[]): TimeBlockOption[] 
   return timeBlocks.slice().sort((a, b) => a.orderIndex - b.orderIndex);
 }
 
+function mergeTimeBlockActivities(blocks: TimeBlockOption[]): TimeBlockOption['activities'] {
+  const mergedActivities = new Map<string, TimeBlockOption['activities'][number]>();
+
+  blocks.forEach((block) => {
+    block.activities
+      .slice()
+      .sort((a, b) => a.orderIndex - b.orderIndex)
+      .forEach((activity) => {
+        const key = activity.description.trim() || activity.id;
+        if (!mergedActivities.has(key)) {
+          mergedActivities.set(key, {
+            id: activity.id,
+            description: activity.description,
+            orderIndex: mergedActivities.size,
+          });
+        }
+      });
+  });
+
+  return Array.from(mergedActivities.values());
+}
+
+function mergeTimeBlocksForEarlyExtend(
+  explicitBlocks: TimeBlockOption[],
+  earlyBlocks: TimeBlockOption[],
+  extendBlocks: TimeBlockOption[],
+): TimeBlockOption[] {
+  if (explicitBlocks.length > 0) {
+    return explicitBlocks;
+  }
+
+  const groupedByStartTime = new Map<string, TimeBlockOption[]>();
+  [...getOrderedTimeBlocks(earlyBlocks), ...getOrderedTimeBlocks(extendBlocks)].forEach((block) => {
+    const key = block.startTime.trim() || `__empty__:${block.id}`;
+    const group = groupedByStartTime.get(key);
+    if (group) {
+      group.push(block);
+      return;
+    }
+    groupedByStartTime.set(key, [block]);
+  });
+
+  return Array.from(groupedByStartTime.entries())
+    .map(([startTime, blocks], index) => ({
+      id: `merged-early-extend-${index}`,
+      startTime: startTime.startsWith('__empty__:') ? '' : startTime,
+      orderIndex: index,
+      activities: mergeTimeBlockActivities(blocks),
+    }))
+    .sort((left, right) => {
+      const leftMinutes = parseTimeToMinutes(left.startTime);
+      const rightMinutes = parseTimeToMinutes(right.startTime);
+      if (leftMinutes !== null && rightMinutes !== null && leftMinutes !== rightMinutes) {
+        return leftMinutes - rightMinutes;
+      }
+      if (leftMinutes !== null) {
+        return -1;
+      }
+      if (rightMinutes !== null) {
+        return 1;
+      }
+      return left.orderIndex - right.orderIndex;
+    })
+    .map((block, blockIndex) => ({
+      ...block,
+      orderIndex: blockIndex,
+      activities: block.activities.map((activity, activityIndex) => ({
+        ...activity,
+        orderIndex: activityIndex,
+      })),
+    }));
+}
+
 function toTimeCellFromTimeBlocks(
   timeBlocks: TimeBlockOption[],
   options?: {
@@ -461,7 +534,11 @@ function getSegmentScheduleTimeBlocks(
     return segmentVersion.extendScheduleTimeBlocks ?? [];
   }
   if (variant === 'earlyExtend') {
-    return segmentVersion.earlyExtendScheduleTimeBlocks ?? [];
+    return mergeTimeBlocksForEarlyExtend(
+      segmentVersion.earlyExtendScheduleTimeBlocks ?? [],
+      segmentVersion.earlyScheduleTimeBlocks ?? [],
+      segmentVersion.extendScheduleTimeBlocks ?? [],
+    );
   }
   return segmentVersion.scheduleTimeBlocks ?? [];
 }

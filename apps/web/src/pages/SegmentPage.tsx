@@ -153,6 +153,10 @@ function createDraftId(): string {
   return `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function isPersistedVersionDraft(clientId: string): boolean {
+  return !clientId.startsWith('draft-');
+}
+
 function createEmptyLodgingOverride(): SegmentVersionLodgingOverrideFormInput {
   return {
     isUnspecified: false,
@@ -457,24 +461,20 @@ function buildVariantTimeSlotInput(
     timeSlots: SegmentTimeSlotFormInput[];
     earlyTimeSlots: SegmentTimeSlotFormInput[];
     extendTimeSlots: SegmentTimeSlotFormInput[];
-    earlyExtendTimeSlots: SegmentTimeSlotFormInput[];
   },
   input: {
     includeEarly: boolean;
     includeExtend: boolean;
-    includeEarlyExtend: boolean;
   },
 ): {
   timeSlots: SegmentTimeSlotFormInput[];
   earlyTimeSlots?: SegmentTimeSlotFormInput[];
   extendTimeSlots?: SegmentTimeSlotFormInput[];
-  earlyExtendTimeSlots?: SegmentTimeSlotFormInput[];
 } {
   return {
     timeSlots: value.timeSlots,
     ...(input.includeEarly ? { earlyTimeSlots: value.earlyTimeSlots } : {}),
     ...(input.includeExtend ? { extendTimeSlots: value.extendTimeSlots } : {}),
-    ...(input.includeEarlyExtend ? { earlyExtendTimeSlots: value.earlyExtendTimeSlots } : {}),
   };
 }
 
@@ -765,7 +765,6 @@ function buildVersionInputs(
   input: {
     includeEarly: boolean;
     includeExtend: boolean;
-    includeEarlyExtend: boolean;
   },
 ): SegmentVersionFormInput[] {
   return [
@@ -779,6 +778,7 @@ function buildVersionInputs(
       isDefault: true,
     },
     ...form.versions.map((version) => ({
+      ...(isPersistedVersionDraft(version.clientId) ? { id: version.clientId } : {}),
       name: version.name.trim(),
       averageDistanceKm: Number(version.averageDistanceKm),
       averageTravelHours: Number(version.averageTravelHours),
@@ -917,11 +917,10 @@ function AlternativeVersionEditor(props: {
   showDateRange: boolean;
   includeEarly: boolean;
   includeExtend: boolean;
-  includeEarlyExtend: boolean;
   onChange: (nextValue: SegmentVersionDraft[]) => void;
   pasteHelperResetNonce?: number;
 }): JSX.Element {
-  const { value, baseDraft, showDateRange, includeEarly, includeExtend, includeEarlyExtend, onChange, pasteHelperResetNonce } = props;
+  const { value, baseDraft, showDateRange, includeEarly, includeExtend, onChange, pasteHelperResetNonce } = props;
   const updateVersion = (clientId: string, updater: (current: SegmentVersionDraft) => SegmentVersionDraft) => {
     onChange(value.map((item) => (item.clientId === clientId ? updater(item) : item)));
   };
@@ -1132,34 +1131,17 @@ function AlternativeVersionEditor(props: {
                   )}
                 </div>
 
-                {(includeExtend || includeEarlyExtend) ? (
+                {includeExtend ? (
                   <div className="grid items-start gap-6 xl:grid-cols-2">
-                    {includeExtend ? (
-                      <TimeSlotEditor
-                        title="버전 연장 일정"
-                        description="마지막날 연장 조건의 연결 자동 채움에 사용됩니다."
-                        value={version.extendTimeSlots}
-                        pasteHelperResetNonce={pasteHelperResetNonce}
-                        onChange={(nextTimeSlots) =>
-                          updateVersion(version.clientId, (item) => ({ ...item, extendTimeSlots: nextTimeSlots }))
-                        }
-                      />
-                    ) : (
-                      <div />
-                    )}
-                    {includeEarlyExtend ? (
-                      <TimeSlotEditor
-                        title="버전 얼리+연장 일정"
-                        description="첫날 얼리이면서 마지막날 연장 조건의 연결 자동 채움에 사용됩니다."
-                        value={version.earlyExtendTimeSlots}
-                        pasteHelperResetNonce={pasteHelperResetNonce}
-                        onChange={(nextTimeSlots) =>
-                          updateVersion(version.clientId, (item) => ({ ...item, earlyExtendTimeSlots: nextTimeSlots }))
-                        }
-                      />
-                    ) : (
-                      <div />
-                    )}
+                    <TimeSlotEditor
+                      title="버전 연장 일정"
+                      description="마지막날 연장 조건의 연결 자동 채움에 사용됩니다."
+                      value={version.extendTimeSlots}
+                      pasteHelperResetNonce={pasteHelperResetNonce}
+                      onChange={(nextTimeSlots) =>
+                        updateVersion(version.clientId, (item) => ({ ...item, extendTimeSlots: nextTimeSlots }))
+                      }
+                    />
                   </div>
                 ) : null}
               </div>
@@ -1292,10 +1274,8 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const selectedEditToLocation = editForm.toLocationId ? locationById.get(editForm.toLocationId) : undefined;
   const includeCreateEarly = form.sourceType === 'LOCATION' && Boolean(selectedFromLocation?.isFirstDayEligible);
   const includeCreateExtend = Boolean(selectedToLocation?.isLastDayEligible);
-  const includeCreateEarlyExtend = includeCreateEarly && includeCreateExtend;
   const includeEditEarly = editForm.sourceType === 'LOCATION' && Boolean(selectedEditFromLocation?.isFirstDayEligible);
   const includeEditExtend = Boolean(selectedEditToLocation?.isLastDayEligible);
-  const includeEditEarlyExtend = includeEditEarly && includeEditExtend;
   const createMovementIntensityMeta = useMemo(() => {
     const hours = Number(form.averageTravelHours);
     if (!Number.isFinite(hours) || hours < 0) {
@@ -1389,12 +1369,10 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 ...buildVariantTimeSlotInput(form, {
                   includeEarly: includeCreateEarly,
                   includeExtend: includeCreateExtend,
-                  includeEarlyExtend: includeCreateEarlyExtend,
                 }),
                 versions: buildVersionInputs(form, {
                   includeEarly: includeCreateEarly,
                   includeExtend: includeCreateExtend,
-                  includeEarlyExtend: includeCreateEarlyExtend,
                 }),
               });
               setForm(createEmptyForm());
@@ -1638,39 +1616,16 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                     </div>
                   )}
                 </div>
-                {(includeCreateExtend || includeCreateEarlyExtend) ? (
-                  <>
-                    <div>
-                      {includeCreateExtend ? (
-                        <TimeSlotEditor
-                          title="도착지가 연장일 때"
-                          description="마지막날 연장 조건의 연결 일정입니다."
-                          value={form.extendTimeSlots}
-                          pasteHelperResetNonce={createPasteHelperResetNonce}
-                          onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
-                        />
-                      ) : (
-                        <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-                          연장 조건이 가능한 출발지/도착지일 때 연장 일정 입력 영역이 나타납니다.
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      {includeCreateEarlyExtend ? (
-                        <TimeSlotEditor
-                          title="기본 버전 얼리+연장 일정"
-                          description="첫날 얼리이면서 마지막날 연장 조건의 연결 일정입니다."
-                          value={form.earlyExtendTimeSlots}
-                          pasteHelperResetNonce={createPasteHelperResetNonce}
-                          onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, earlyExtendTimeSlots: nextTimeSlots }))}
-                        />
-                      ) : (
-                        <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-                          얼리+연장 조건이 가능한 출발지/도착지일 때 얼리+연장 일정 입력 영역이 나타납니다.
-                        </div>
-                      )}
-                    </div>
-                  </>
+                {includeCreateExtend ? (
+                  <div>
+                    <TimeSlotEditor
+                      title="도착지가 연장일 때"
+                      description="마지막날 연장 조건의 연결 일정입니다."
+                      value={form.extendTimeSlots}
+                      pasteHelperResetNonce={createPasteHelperResetNonce}
+                      onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
+                    />
+                  </div>
                 ) : null}
               </div>
 
@@ -1680,7 +1635,6 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 showDateRange={form.sourceType === 'LOCATION'}
                 includeEarly={includeCreateEarly}
                 includeExtend={includeCreateExtend}
-                includeEarlyExtend={includeCreateEarlyExtend}
                 pasteHelperResetNonce={createPasteHelperResetNonce}
                 onChange={(nextVersions) => setForm((prev) => ({ ...prev, versions: nextVersions }))}
               />
@@ -1938,12 +1892,10 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                   ...buildVariantTimeSlotInput(editForm, {
                     includeEarly: includeEditEarly,
                     includeExtend: includeEditExtend,
-                    includeEarlyExtend: includeEditEarlyExtend,
                   }),
                   versions: buildVersionInputs(editForm, {
                     includeEarly: includeEditEarly,
                     includeExtend: includeEditExtend,
-                    includeEarlyExtend: includeEditEarlyExtend,
                   }),
                 });
                 setEditingSegmentId(null);
@@ -2203,30 +2155,15 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                   )}
                 </div>
                 <p className="text-xs text-slate-500">기본 버전은 상시 적용 버전으로 날짜 범위를 설정하지 않습니다.</p>
-                {(includeEditExtend || includeEditEarlyExtend) ? (
+                {includeEditExtend ? (
                   <div className="grid items-start gap-6 lg:grid-cols-2">
-                    {includeEditExtend ? (
-                      <TimeSlotEditor
-                        title="기본 버전 연장 일정"
-                        description="마지막날 연장 조건의 연결 일정입니다."
-                        value={editForm.extendTimeSlots}
-                        pasteHelperResetNonce={editPasteHelperResetNonce}
-                        onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
-                      />
-                    ) : (
-                      <div />
-                    )}
-                    {includeEditEarlyExtend ? (
-                      <TimeSlotEditor
-                        title="기본 버전 얼리+연장 일정"
-                        description="첫날 얼리이면서 마지막날 연장 조건의 연결 일정입니다."
-                        value={editForm.earlyExtendTimeSlots}
-                        pasteHelperResetNonce={editPasteHelperResetNonce}
-                        onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, earlyExtendTimeSlots: nextTimeSlots }))}
-                      />
-                    ) : (
-                      <div />
-                    )}
+                    <TimeSlotEditor
+                      title="기본 버전 연장 일정"
+                      description="마지막날 연장 조건의 연결 일정입니다."
+                      value={editForm.extendTimeSlots}
+                      pasteHelperResetNonce={editPasteHelperResetNonce}
+                      onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
+                    />
                   </div>
                 ) : null}
 
@@ -2236,7 +2173,6 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                   showDateRange={editForm.sourceType === 'LOCATION'}
                   includeEarly={includeEditEarly}
                   includeExtend={includeEditExtend}
-                  includeEarlyExtend={includeEditEarlyExtend}
                   pasteHelperResetNonce={editPasteHelperResetNonce}
                   onChange={(nextVersions) => setEditForm((prev) => ({ ...prev, versions: nextVersions }))}
                 />

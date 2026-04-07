@@ -36,6 +36,7 @@ interface VariantTimeSlotMap {
 }
 
 interface NormalizedSegmentVersion {
+  id?: string;
   name: string;
   averageDistanceKm: number;
   averageTravelHours: number;
@@ -49,6 +50,7 @@ interface NormalizedSegmentVersion {
   mealsOverride: NormalizedMealsOverride | null;
   isDefault: boolean;
   timeSlotsByVariant: VariantTimeSlotMap;
+  earlyExtendProvided?: boolean;
 }
 
 interface NormalizedLodgingOverride {
@@ -318,6 +320,7 @@ export class SegmentService {
     earlyExtendTimeSlots?: SegmentTimeSlotInput[];
   }): NormalizedSegmentVersion {
     return {
+      id: undefined,
       name: '기본',
       averageDistanceKm: input.averageDistanceKm,
       averageTravelHours: input.averageTravelHours,
@@ -331,6 +334,7 @@ export class SegmentService {
       mealsOverride: null,
       isDefault: true,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(input),
+      earlyExtendProvided: input.earlyExtendTimeSlots !== undefined,
     };
   }
 
@@ -340,6 +344,7 @@ export class SegmentService {
         .slice()
         .sort((a, b) => a.sortOrder - b.sortOrder)
         .map((version) => ({
+          id: version.id,
           name: version.name,
           averageDistanceKm: version.averageDistanceKm,
           averageTravelHours: version.averageTravelHours,
@@ -359,6 +364,7 @@ export class SegmentService {
           mealsOverride: this.buildMealsOverrideFromExisting(version),
           isDefault: version.isDefault,
           timeSlotsByVariant: this.mapTimeBlocksToVariantTimeSlots(version.scheduleTimeBlocks),
+          earlyExtendProvided: true,
         }));
     }
 
@@ -377,6 +383,7 @@ export class SegmentService {
 
   private normalizeVersionsFromInput(inputVersions: SegmentVersionInput[]): NormalizedSegmentVersion[] {
     return inputVersions.map((version) => ({
+      id: version.id?.trim() || undefined,
       name: version.name.trim(),
       averageDistanceKm: version.averageDistanceKm,
       averageTravelHours: version.averageTravelHours,
@@ -390,7 +397,38 @@ export class SegmentService {
       mealsOverride: this.normalizeMealsOverride(version.mealsOverride),
       isDefault: version.isDefault !== false,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(version),
+      earlyExtendProvided: Object.prototype.hasOwnProperty.call(version, 'earlyExtendTimeSlots'),
     }));
+  }
+
+  private preserveMissingEarlyExtendSchedules(
+    versions: NormalizedSegmentVersion[],
+    existingVersions: NormalizedSegmentVersion[],
+  ): NormalizedSegmentVersion[] {
+    const existingVersionById = new Map(
+      existingVersions
+        .filter((version): version is NormalizedSegmentVersion & { id: string } => Boolean(version.id))
+        .map((version) => [version.id, version]),
+    );
+
+    return versions.map((version) => {
+      if (version.earlyExtendProvided || !version.id) {
+        return version;
+      }
+
+      const existingVersion = existingVersionById.get(version.id);
+      if (!existingVersion?.timeSlotsByVariant.earlyExtend) {
+        return version;
+      }
+
+      return {
+        ...version,
+        timeSlotsByVariant: {
+          ...version.timeSlotsByVariant,
+          earlyExtend: existingVersion.timeSlotsByVariant.earlyExtend,
+        },
+      };
+    });
   }
 
   private hasLegacyDirectUpdates(input: SegmentUpdateDto): boolean {
@@ -420,9 +458,6 @@ export class SegmentService {
     }
     if (toLocation.isLastDayEligible) {
       variants.push('extend');
-    }
-    if (fromLocation.isFirstDayEligible && toLocation.isLastDayEligible) {
-      variants.push('earlyExtend');
     }
     return variants;
   }
@@ -859,6 +894,9 @@ export class SegmentService {
     const hasLegacyDirectUpdates = this.hasLegacyDirectUpdates(parsed.data);
 
     let nextVersions = parsed.data.versions ? this.normalizeVersionsFromInput(parsed.data.versions) : existingVersions;
+    if (parsed.data.versions) {
+      nextVersions = this.preserveMissingEarlyExtendSchedules(nextVersions, existingVersions);
+    }
 
     if (!parsed.data.versions && hasLegacyDirectUpdates) {
       nextVersions = existingVersions.map((version) =>

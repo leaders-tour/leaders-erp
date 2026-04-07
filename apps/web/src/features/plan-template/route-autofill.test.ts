@@ -343,6 +343,17 @@ const segmentACWithoutEarly: SegmentOption = {
   ],
 };
 
+const segmentACWithoutEarlyExtend: SegmentOption = {
+  ...segmentAC,
+  earlyExtendScheduleTimeBlocks: [],
+  versions: [
+    {
+      ...segmentAC.versions![0]!,
+      earlyExtendScheduleTimeBlocks: [],
+    },
+  ],
+};
+
 const segmentABSeasonal: SegmentOption = {
   ...segmentAB,
   versions: [
@@ -721,6 +732,41 @@ describe('route-autofill', () => {
       segmentVersionId: 'segment-version-ac',
       timeCellText: '05:30',
       scheduleCellText: '얼리+연장 이동',
+    });
+  });
+
+  it('merges early and extend segment schedules when early+extend blocks are missing', () => {
+    const rows = buildAutoRowsFromRoute({
+      startLocationId: locationA.id,
+      startLocationVersionId: 'ver-a',
+      selectedRoute: [
+        {
+          kind: 'LOCATION',
+          locationId: locationC.id,
+          locationVersionId: 'ver-c',
+          segmentId: 'segment-ac',
+          segmentVersionId: 'segment-version-ac',
+        },
+      ],
+      filteredSegments: [segmentACWithoutEarlyExtend],
+      locationById: new Map([
+        [locationA.id, locationA],
+        [locationC.id, locationC],
+      ]),
+      locationVersionById: new Map([
+        ['ver-a', locationAVersion],
+        ['ver-c', locationCVersion],
+      ]),
+      totalDays: 2,
+      variantType: VariantType.EarlyExtend,
+      firstDayTimeOverride: '04:30',
+    });
+
+    expect(rows[1]).toMatchObject({
+      segmentId: 'segment-ac',
+      segmentVersionId: 'segment-version-ac',
+      timeCellText: '05:30\n20:00',
+      scheduleCellText: '얼리 장거리 이동\n연장 장거리 이동',
     });
   });
 
