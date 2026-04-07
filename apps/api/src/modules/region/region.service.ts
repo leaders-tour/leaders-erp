@@ -72,6 +72,30 @@ export class RegionService {
     });
   }
 
+  private getDeleteBlockingEntries(
+    summary: {
+      planCount: number;
+      planVersionCount: number;
+      templateCount: number;
+      locationCount: number;
+      segmentCount: number;
+      overnightStayCount: number;
+      overnightStayConnectionCount: number;
+      regionLodgingCount: number;
+    },
+  ): Array<{ label: string; count: number }> {
+    return [
+      { label: '플랜', count: summary.planCount },
+      { label: '플랜 버전', count: summary.planVersionCount },
+      { label: '플랜 템플릿', count: summary.templateCount },
+      { label: '목적지', count: summary.locationCount },
+      { label: '구간 연결(Segment)', count: summary.segmentCount },
+      { label: '연속 일정 블록', count: summary.overnightStayCount },
+      { label: '블록 후속 연결', count: summary.overnightStayConnectionCount },
+      { label: '지역 숙소 정책', count: summary.regionLodgingCount },
+    ].filter((entry) => entry.count > 0);
+  }
+
   async delete(id: string): Promise<boolean> {
     const inComposite = await this.prisma.regionSetItem.findFirst({
       where: { regionId: id, regionSetId: { not: id } },
@@ -80,42 +104,56 @@ export class RegionService {
     if (inComposite) {
       throw new DomainError(
         'VALIDATION_FAILED',
-        'Region is part of a composite region set and cannot be deleted',
+        '다른 지역 세트에 포함된 지역은 삭제할 수 없습니다. 해당 세트에서 먼저 제외해 주세요.',
       );
     }
 
-    const [planCount, planVersionCount, templateCount] = await Promise.all([
+    const [
+      planCount,
+      planVersionCount,
+      templateCount,
+      locationCount,
+      segmentCount,
+      overnightStayCount,
+      overnightStayConnectionCount,
+      regionLodgingCount,
+    ] = await Promise.all([
       this.prisma.plan.count({ where: { regionSetId: id } }),
       this.prisma.planVersion.count({ where: { regionSetId: id } }),
       this.prisma.planTemplate.count({ where: { regionSetId: id } }),
+      this.prisma.location.count({ where: { regionId: id } }),
+      this.prisma.segment.count({ where: { regionId: id } }),
+      this.prisma.overnightStay.count({ where: { regionId: id } }),
+      this.prisma.overnightStayConnection.count({ where: { regionId: id } }),
+      this.prisma.regionLodging.count({ where: { regionId: id } }),
     ]);
-    if (planCount > 0 || planVersionCount > 0 || templateCount > 0) {
+
+    const blockingEntries = this.getDeleteBlockingEntries({
+      planCount,
+      planVersionCount,
+      templateCount,
+      locationCount,
+      segmentCount,
+      overnightStayCount,
+      overnightStayConnectionCount,
+      regionLodgingCount,
+    });
+
+    if (blockingEntries.length > 0) {
+      const bulletLines = blockingEntries.map((entry) => `- ${entry.label} ${entry.count}건`);
+      const message = [
+        '다른 데이터와 연결된 지역은 삭제할 수 없습니다.',
+        ...bulletLines,
+        '위 연결을 먼저 정리한 뒤 다시 시도해 주세요.',
+      ].join('\n');
       throw new DomainError(
         'VALIDATION_FAILED',
-        'Cannot delete region while plans, versions, or templates reference its default region set',
+        message,
+        Object.fromEntries(blockingEntries.map((entry) => [entry.label, String(entry.count)])),
       );
     }
 
     await this.prisma.$transaction(async (tx) => {
-      const locations = await tx.location.findMany({
-        where: { regionId: id },
-        select: { id: true },
-      });
-      const locationIds = locations.map((location) => location.id);
-
-      await tx.segment.deleteMany({
-        where: {
-          OR: [
-            { regionId: id },
-            ...(locationIds.length > 0
-              ? [{ fromLocationId: { in: locationIds } }, { toLocationId: { in: locationIds } }]
-              : []),
-          ],
-        },
-      });
-
-      await tx.location.deleteMany({ where: { regionId: id } });
-
       await tx.region.update({
         where: { id },
         data: { defaultRegionSetId: null },

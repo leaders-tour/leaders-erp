@@ -1,6 +1,21 @@
-import { gql } from '@apollo/client';
+import { ApolloError, gql } from '@apollo/client';
 import type { Region } from '../../generated/graphql';
 import { useCrudResource } from '../../lib/crud';
+
+export function toRegionMutationErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApolloError) {
+    const graphQlMessage = error.graphQLErrors[0]?.message?.trim();
+    if (graphQlMessage) {
+      return graphQlMessage;
+    }
+  }
+
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return fallback;
+}
 
 export const regionCreateSchema = {
   parse: (input: { name: string; description: string }) => ({
