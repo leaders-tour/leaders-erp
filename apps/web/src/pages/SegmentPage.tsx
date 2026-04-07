@@ -240,6 +240,27 @@ function createVersionDraftFromPrevious(previous: SegmentVersionDraft | undefine
   };
 }
 
+function createVersionDraftFromPreviousWithKind(
+  previous: SegmentVersionDraft | undefined,
+  kind: SegmentVersionDraft['kind'],
+): SegmentVersionDraft {
+  const next = createVersionDraftFromPrevious(previous);
+  if (kind === 'FLIGHT') {
+    return {
+      ...next,
+      kind,
+      lodgingOverride: createFixedUnspecifiedLodgingOverride(),
+    };
+  }
+  return {
+    ...next,
+    kind,
+    flightOutTimeBand: '',
+    lodgingOverride: createEmptyLodgingOverride(),
+    mealsOverride: createEmptyMealsOverride(),
+  };
+}
+
 function createVersionDraftFromBase(base: Pick<
   SegmentFormState,
   'averageDistanceKm' | 'averageTravelHours' | 'isLongDistance' | 'timeSlots' | 'earlyTimeSlots' | 'extendTimeSlots' | 'earlyExtendTimeSlots' | 'earlySameAsBasic'
@@ -255,6 +276,39 @@ function createVersionDraftFromBase(base: Pick<
     earlyExtendTimeSlots: cloneTimeSlotDrafts(base.earlyExtendTimeSlots),
     earlySameAsBasic: base.earlySameAsBasic,
   };
+}
+
+function createVersionDraftFromBaseWithKind(
+  base: Pick<
+    SegmentFormState,
+    'averageDistanceKm' | 'averageTravelHours' | 'isLongDistance' | 'timeSlots' | 'earlyTimeSlots' | 'extendTimeSlots' | 'earlyExtendTimeSlots' | 'earlySameAsBasic'
+  >,
+  kind: SegmentVersionDraft['kind'],
+): SegmentVersionDraft {
+  const draft = createVersionDraftFromBase(base);
+  if (kind === 'FLIGHT') {
+    return {
+      ...draft,
+      kind,
+      lodgingOverride: createFixedUnspecifiedLodgingOverride(),
+    };
+  }
+  return {
+    ...draft,
+    kind,
+  };
+}
+
+function replaceVersionDraftsByKind(
+  allVersions: SegmentVersionDraft[],
+  nextVersions: SegmentVersionDraft[],
+  kind: SegmentVersionDraft['kind'],
+): SegmentVersionDraft[] {
+  const otherVersions = allVersions.filter((version) => version.kind !== kind);
+  if (kind === 'SEASON') {
+    return [...nextVersions, ...otherVersions];
+  }
+  return [...otherVersions, ...nextVersions];
 }
 
 function sanitizeLodgingOverride(
@@ -339,6 +393,10 @@ function formatFromSourceLabel(input: {
     return input.row.fromMultiDayBlockTitle ?? input.row.fromMultiDayBlockId ?? '-';
   }
   return formatLocationNameInline(input.locationById.get(input.row.fromLocationId ?? '')?.name ?? [input.row.fromLocationId ?? '-']);
+}
+
+function buildFlightVersionName(fromLabel: string, toLabel: string): string {
+  return `${fromLabel}-${toLabel} 항공권버전`;
 }
 
 function getNextSlotTime(timeSlots: SegmentTimeSlotFormInput[]): string {
@@ -518,7 +576,12 @@ function buildVariantTimeSlotInput(
   };
 }
 
-function isVersionDraftValid(version: SegmentVersionDraft): boolean {
+function isVersionDraftValid(
+  version: SegmentVersionDraft,
+  input: {
+    allowFlightAlternative: boolean;
+  },
+): boolean {
   if (
     version.name.trim().length === 0 ||
     Number(version.averageDistanceKm) <= 0 ||
@@ -532,6 +595,10 @@ function isVersionDraftValid(version: SegmentVersionDraft): boolean {
   }
 
   if (version.kind === 'SEASON' && version.startDate && version.endDate && version.startDate > version.endDate) {
+    return false;
+  }
+
+  if (version.kind === 'FLIGHT' && !input.allowFlightAlternative) {
     return false;
   }
 
@@ -809,6 +876,7 @@ function buildVersionInputs(
   input: {
     includeEarly: boolean;
     includeExtend: boolean;
+    fixedFlightVersionName?: string;
   },
 ): SegmentVersionFormInput[] {
   return [
@@ -823,7 +891,7 @@ function buildVersionInputs(
     },
     ...form.versions.map((version) => ({
       ...(isPersistedVersionDraft(version.clientId) ? { id: version.clientId } : {}),
-      name: version.name.trim(),
+      name: version.kind === 'FLIGHT' ? (input.fixedFlightVersionName ?? version.name.trim()) : version.name.trim(),
       averageDistanceKm: Number(version.averageDistanceKm),
       averageTravelHours: Number(version.averageTravelHours),
       isLongDistance: version.isLongDistance,
@@ -976,8 +1044,8 @@ function AlternativeVersionEditor(props: {
     <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-slate-800">대안 버전</h3>
-          <p className="text-xs text-slate-500">같은 출발지/도착지에 대해 직결 대안 버전을 추가합니다.</p>
+          <h3 className="text-sm font-semibold text-slate-800">시즌 버전 일정</h3>
+          <p className="text-xs text-slate-500">같은 출발지/도착지에 대해 시즌 대안 버전을 추가합니다.</p>
         </div>
         <Button
           type="button"
@@ -985,29 +1053,25 @@ function AlternativeVersionEditor(props: {
           onClick={() =>
             onChange([
               ...value,
-              value.length === 0 ? createVersionDraftFromBase(baseDraft) : createVersionDraftFromPrevious(value[value.length - 1]),
+              value.length === 0
+                ? createVersionDraftFromBaseWithKind(baseDraft, 'SEASON')
+                : createVersionDraftFromPreviousWithKind(value[value.length - 1], 'SEASON'),
             ])
           }
         >
-          대안 버전 추가
+          시즌 버전 추가
         </Button>
       </div>
 
       {value.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-          아직 대안 버전이 없습니다.
+          아직 시즌 버전이 없습니다.
         </div>
       ) : (
         value.map((version, index) => {
-          const useSingleScheduleOnly = version.kind === 'FLIGHT';
-
           return (
             <div key={version.clientId} className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-slate-800">대안 버전 {index + 1}</div>
-                <p className="text-xs text-slate-500">버전별 이동 정보를 입력합니다.</p>
-              </div>
+            <div className="flex justify-end">
               <Button
                 type="button"
                 variant="outline"
@@ -1028,38 +1092,12 @@ function AlternativeVersionEditor(props: {
                   />
                 </label>
 
-                {showDateRange ? (
-                  <div className="grid gap-2 text-sm">
-                    <span className="text-slate-700">버전 종류</span>
-                    <div className="flex flex-wrap gap-2">
-                      {([
-                        ['SEASON', '시즌버전'],
-                        ['FLIGHT', '항공권버전'],
-                      ] as const).map(([kind, label]) => (
-                        <Button
-                          key={kind}
-                          type="button"
-                          variant={version.kind === kind ? 'default' : 'outline'}
-                          onClick={() =>
-                            updateVersion(version.clientId, (item) => ({
-                              ...item,
-                              kind,
-                              startDate: kind === 'SEASON' ? item.startDate : '',
-                              endDate: kind === 'SEASON' ? item.endDate : '',
-                              flightOutTimeBand: kind === 'FLIGHT' ? item.flightOutTimeBand : '',
-                              lodgingOverride:
-                                kind === 'FLIGHT'
-                                  ? createFixedUnspecifiedLodgingOverride()
-                                  : createEmptyLodgingOverride(),
-                            }))
-                          }
-                        >
-                          {label}
-                        </Button>
-                      ))}
-                    </div>
+                <div className="grid gap-2 text-sm">
+                  <span className="text-slate-700">버전 종류</span>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                    시즌버전
                   </div>
-                ) : null}
+                </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="grid gap-2 text-sm">
@@ -1111,29 +1149,6 @@ function AlternativeVersionEditor(props: {
                   </div>
                 ) : null}
 
-                {showDateRange && version.kind === 'FLIGHT' ? (
-                  <label className="grid gap-2 text-sm">
-                    <span className="text-slate-700">항공권 OUT 시간대</span>
-                    <select
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                      value={version.flightOutTimeBand}
-                      onChange={(event) =>
-                        updateVersion(version.clientId, (item) => ({
-                          ...item,
-                          flightOutTimeBand: event.target.value as '' | FlightTimeBandValue,
-                        }))
-                      }
-                    >
-                      <option value="">없음</option>
-                      {TIME_BAND_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-
                 <label className="flex items-center gap-2 text-sm text-slate-800">
                   <input
                     type="checkbox"
@@ -1144,27 +1159,18 @@ function AlternativeVersionEditor(props: {
                   />
                   장거리 여행
                 </label>
-
-                {showDateRange && version.kind === 'FLIGHT' ? (
-                  <div className="grid gap-3">
-                    <MealsOverrideEditor
-                      value={version.mealsOverride}
-                      onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, mealsOverride: nextValue }))}
-                    />
-                  </div>
-                ) : null}
               </div>
 
               <div className="grid gap-6">
                 <div className="grid items-start gap-6 xl:grid-cols-2">
                   <TimeSlotEditor
                     title="버전 일정"
-                    description="선택된 대안 버전의 시간/일정 자동 채움에 사용됩니다."
+                    description="선택된 시즌 대안 버전의 시간/일정 자동 채움에 사용됩니다."
                     value={version.timeSlots}
                     pasteHelperResetNonce={pasteHelperResetNonce}
                     onChange={(nextTimeSlots) => updateVersion(version.clientId, (item) => ({ ...item, timeSlots: nextTimeSlots }))}
                   />
-                  {!useSingleScheduleOnly && includeEarly ? (
+                  {includeEarly ? (
                     version.earlySameAsBasic ? (
                       <div className="grid gap-3 self-start rounded-2xl border border-slate-200 p-4">
                         <div className="flex items-start justify-between gap-3">
@@ -1210,14 +1216,14 @@ function AlternativeVersionEditor(props: {
                         }
                       />
                     )
-                  ) : !useSingleScheduleOnly ? (
+                  ) : (
                     <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
                       얼리 조건이 가능한 출발지/도착지일 때 얼리 일정 입력 영역이 나타납니다.
                     </div>
-                  ) : null}
+                  )}
                 </div>
 
-                {!useSingleScheduleOnly && includeExtend ? (
+                {includeExtend ? (
                   <div className="grid items-start gap-6 xl:grid-cols-2">
                     <TimeSlotEditor
                       title="버전 연장 일정"
@@ -1235,6 +1241,141 @@ function AlternativeVersionEditor(props: {
             </div>
           );
         })
+      )}
+    </div>
+  );
+}
+
+function FlightAlternativeVersionPanel(props: {
+  value: SegmentVersionDraft[];
+  baseDraft: Pick<
+    SegmentFormState,
+    'averageDistanceKm' | 'averageTravelHours' | 'isLongDistance' | 'timeSlots' | 'earlyTimeSlots' | 'extendTimeSlots' | 'earlyExtendTimeSlots' | 'earlySameAsBasic'
+  >;
+  includeExtend: boolean;
+  fixedName: string;
+  onChange: (nextValue: SegmentVersionDraft[]) => void;
+  pasteHelperResetNonce?: number;
+}): JSX.Element | null {
+  const { value, baseDraft, includeExtend, fixedName, onChange, pasteHelperResetNonce } = props;
+
+  const updateVersion = (clientId: string, updater: (current: SegmentVersionDraft) => SegmentVersionDraft) => {
+    onChange(value.map((item) => (item.clientId === clientId ? updater(item) : item)));
+  };
+
+  if (!includeExtend) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="grid gap-1">
+          <h3 className="text-sm font-semibold text-slate-800">항공권 버전 일정</h3>
+          <p className="text-xs text-slate-500">항공권이 6-9pm 일 때 일정을 기록해주세요!</p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() =>
+            onChange([
+              ...value,
+              value.length === 0
+                ? createVersionDraftFromBaseWithKind(baseDraft, 'FLIGHT')
+                : createVersionDraftFromPreviousWithKind(value[value.length - 1], 'FLIGHT'),
+            ])
+          }
+        >
+          항공권 버전 추가
+        </Button>
+      </div>
+
+      {value.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
+          아직 항공권 버전이 없습니다.
+        </div>
+      ) : (
+        value.map((version) => (
+          <div key={version.clientId} className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="grid gap-1">
+              <div className="text-sm font-semibold text-slate-800">{fixedName}</div>
+            </div>
+
+            <div className="grid gap-3">
+              <label className="grid gap-2 text-sm">
+                <span className="text-slate-700">평균 이동 시간(시간)</span>
+                <Input
+                  type="number"
+                  min={0.1}
+                  step={0.1}
+                  value={version.averageTravelHours}
+                  onChange={(event) =>
+                    updateVersion(version.clientId, (item) => ({ ...item, averageTravelHours: event.target.value }))
+                  }
+                  placeholder="예: 5.5"
+                />
+              </label>
+              <label className="grid gap-2 text-sm">
+                <span className="text-slate-700">평균거리(km)</span>
+                <Input
+                  type="number"
+                  min={0.1}
+                  step={0.1}
+                  value={version.averageDistanceKm}
+                  onChange={(event) =>
+                    updateVersion(version.clientId, (item) => ({ ...item, averageDistanceKm: event.target.value }))
+                  }
+                  placeholder="예: 320"
+                />
+              </label>
+            </div>
+
+            <TimeSlotEditor
+              title="버전 일정"
+              description="선택된 항공권 대안 버전의 시간/일정 자동 채움에 사용됩니다."
+              value={version.timeSlots}
+              pasteHelperResetNonce={pasteHelperResetNonce}
+              onChange={(nextTimeSlots) => updateVersion(version.clientId, (item) => ({ ...item, timeSlots: nextTimeSlots }))}
+            />
+
+            <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+              <label className="grid gap-2 text-sm">
+                <span className="text-slate-700">항공권 OUT 시간대</span>
+                <select
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                  value={version.flightOutTimeBand}
+                  onChange={(event) =>
+                    updateVersion(version.clientId, (item) => ({
+                      ...item,
+                      flightOutTimeBand: event.target.value as '' | FlightTimeBandValue,
+                    }))
+                  }
+                >
+                  <option value="">없음</option>
+                  {TIME_BAND_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <MealsOverrideEditor
+                value={version.mealsOverride}
+                onChange={(nextValue) => updateVersion(version.clientId, (item) => ({ ...item, mealsOverride: nextValue }))}
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onChange(value.filter((item) => item.clientId !== version.clientId))}
+              >
+                삭제
+              </Button>
+            </div>
+          </div>
+        ))
       )}
     </div>
   );
@@ -1359,6 +1500,18 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const selectedEditFromLocation = editForm.fromLocationId ? locationById.get(editForm.fromLocationId) : undefined;
   const selectedEditFromMultiDayBlock = editForm.fromMultiDayBlockId ? multiDayBlockById.get(editForm.fromMultiDayBlockId) : undefined;
   const selectedEditToLocation = editForm.toLocationId ? locationById.get(editForm.toLocationId) : undefined;
+  const createFromLabel =
+    form.sourceType === 'LOCATION'
+      ? formatLocationNameInline(selectedFromLocation?.name ?? [form.fromLocationId || '-'])
+      : ((selectedFromMultiDayBlock?.title ?? form.fromMultiDayBlockId) || '-');
+  const createToLabel = formatLocationNameInline(selectedToLocation?.name ?? [form.toLocationId || '-']);
+  const editFromLabel =
+    editForm.sourceType === 'LOCATION'
+      ? formatLocationNameInline(selectedEditFromLocation?.name ?? [editForm.fromLocationId || '-'])
+      : ((selectedEditFromMultiDayBlock?.title ?? editForm.fromMultiDayBlockId) || '-');
+  const editToLabel = formatLocationNameInline(selectedEditToLocation?.name ?? [editForm.toLocationId || '-']);
+  const createFlightVersionName = buildFlightVersionName(createFromLabel, createToLabel);
+  const editFlightVersionName = buildFlightVersionName(editFromLabel, editToLabel);
   const includeCreateEarly = form.sourceType === 'LOCATION' && Boolean(selectedFromLocation?.isFirstDayEligible);
   const includeCreateExtend = Boolean(selectedToLocation?.isLastDayEligible);
   const includeEditEarly = editForm.sourceType === 'LOCATION' && Boolean(selectedEditFromLocation?.isFirstDayEligible);
@@ -1387,7 +1540,11 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     (form.sourceType === 'MULTI_DAY_BLOCK' || form.fromLocationId !== form.toLocationId) &&
     Number(form.averageDistanceKm) > 0 &&
     Number(form.averageTravelHours) > 0 &&
-    form.versions.every((version) => isVersionDraftValid(version));
+    form.versions.every((version) =>
+      isVersionDraftValid(version, {
+        allowFlightAlternative: includeCreateExtend,
+      }),
+    );
 
   const canUpdate =
     hasEditSource &&
@@ -1395,7 +1552,11 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     (editForm.sourceType === 'MULTI_DAY_BLOCK' || editForm.fromLocationId !== editForm.toLocationId) &&
     Number(editForm.averageDistanceKm) > 0 &&
     Number(editForm.averageTravelHours) > 0 &&
-    editForm.versions.every((version) => isVersionDraftValid(version));
+    editForm.versions.every((version) =>
+      isVersionDraftValid(version, {
+        allowFlightAlternative: includeEditExtend,
+      }),
+    );
   const showCreateSection = mode !== 'list';
   const showListSection = mode !== 'create';
   const pageTitle = mode === 'create' ? '연결 생성' : mode === 'list' ? '연결 목록' : '연결 관리';
@@ -1460,6 +1621,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 versions: buildVersionInputs(form, {
                   includeEarly: includeCreateEarly,
                   includeExtend: includeCreateExtend,
+                  fixedFlightVersionName: createFlightVersionName,
                 }),
               });
               setForm(createEmptyForm());
@@ -1746,16 +1908,36 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                     />
                   </div>
                 ) : null}
+                {includeCreateExtend ? (
+                  <FlightAlternativeVersionPanel
+                    value={form.versions.filter((version) => version.kind === 'FLIGHT')}
+                    baseDraft={form}
+                    includeExtend={includeCreateExtend}
+                    fixedName={createFlightVersionName}
+                    pasteHelperResetNonce={createPasteHelperResetNonce}
+                    onChange={(nextVersions) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        versions: replaceVersionDraftsByKind(prev.versions, nextVersions, 'FLIGHT'),
+                      }))
+                    }
+                  />
+                ) : null}
               </div>
 
               <AlternativeVersionEditor
-                value={form.versions}
+                value={form.versions.filter((version) => version.kind !== 'FLIGHT')}
                 baseDraft={form}
                 showDateRange={form.sourceType === 'LOCATION'}
                 includeEarly={includeCreateEarly}
                 includeExtend={includeCreateExtend}
                 pasteHelperResetNonce={createPasteHelperResetNonce}
-                onChange={(nextVersions) => setForm((prev) => ({ ...prev, versions: nextVersions }))}
+                onChange={(nextVersions) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    versions: replaceVersionDraftsByKind(prev.versions, nextVersions, 'SEASON'),
+                  }))
+                }
               />
             </div>
           </div>
@@ -2018,6 +2200,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                   versions: buildVersionInputs(editForm, {
                     includeEarly: includeEditEarly,
                     includeExtend: includeEditExtend,
+                    fixedFlightVersionName: editFlightVersionName,
                   }),
                 });
                 setEditingSegmentId(null);
@@ -2310,7 +2493,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 </div>
                 <p className="text-xs text-slate-500">기본 버전은 상시 적용 버전으로 날짜 범위를 설정하지 않습니다.</p>
                 {includeEditExtend ? (
-                  <div className="grid items-start gap-6 lg:grid-cols-2">
+                  <div>
                     <TimeSlotEditor
                       title="기본 버전 연장 일정"
                       description="마지막날 연장 조건의 연결 일정입니다."
@@ -2320,15 +2503,35 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                     />
                   </div>
                 ) : null}
+                {includeEditExtend ? (
+                  <FlightAlternativeVersionPanel
+                    value={editForm.versions.filter((version) => version.kind === 'FLIGHT')}
+                    baseDraft={editForm}
+                    includeExtend={includeEditExtend}
+                    fixedName={editFlightVersionName}
+                    pasteHelperResetNonce={editPasteHelperResetNonce}
+                    onChange={(nextVersions) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        versions: replaceVersionDraftsByKind(prev.versions, nextVersions, 'FLIGHT'),
+                      }))
+                    }
+                  />
+                ) : null}
 
                 <AlternativeVersionEditor
-                  value={editForm.versions}
+                  value={editForm.versions.filter((version) => version.kind !== 'FLIGHT')}
                   baseDraft={editForm}
                   showDateRange={editForm.sourceType === 'LOCATION'}
                   includeEarly={includeEditEarly}
                   includeExtend={includeEditExtend}
                   pasteHelperResetNonce={editPasteHelperResetNonce}
-                  onChange={(nextVersions) => setEditForm((prev) => ({ ...prev, versions: nextVersions }))}
+                  onChange={(nextVersions) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      versions: replaceVersionDraftsByKind(prev.versions, nextVersions, 'SEASON'),
+                    }))
+                  }
                 />
               </div>
             </div>
