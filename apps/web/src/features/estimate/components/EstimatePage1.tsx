@@ -23,8 +23,8 @@ import {
   formatTravelPeriod,
 } from '../utils/format';
 
-const FLIGHT_IN_TIME_OPTIONS = ['00:05', '00:30', '00:50', '02:45', '04:30', '13:20', '17:00', '23:05', '23:30'] as const;
-const FLIGHT_OUT_TIME_OPTIONS = ['00:25', '00:50', '01:30', '01:50', '02:05', '08:40', '13:00', '18:15', '20:30'] as const;
+const FLIGHT_IN_TIME_OPTIONS = ['00:05', '00:30', '00:50', '02:45', '04:30', '11:10', '12:40', '13:20', '17:00', '18:10', '23:05', '23:30'] as const;
+const FLIGHT_OUT_TIME_OPTIONS = ['00:25', '00:50', '01:30', '01:50', '02:05', '08:40', '11:00', '13:00', '13:40', '14:50', '18:15', '20:30'] as const;
 const PICKUP_DROP_TIME_OPTIONS = ['04:00', '05:00', '08:00', '15:30', '19:00', '21:00', '23:00'] as const;
 
 interface EstimatePage1Props {
