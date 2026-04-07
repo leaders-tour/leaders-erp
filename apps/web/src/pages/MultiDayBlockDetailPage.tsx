@@ -7,18 +7,23 @@ import {
   getMovementIntensityMeta,
 } from '../features/estimate/model/movement-intensity';
 import { formatLocationNameInline } from '../features/location/display';
+import { formatMultiDayBlockRegionSummary, getMultiDayBlockRegionEntries } from '../features/multi-day-block/region-summary';
+import { RegionNameChip } from '../features/region/region-name-chip';
 import { ScheduleCopyColumnButtons } from '../components/ScheduleCopyColumnButtons';
 import { MultiDayBlockEditPanel } from '../features/multi-day-block/multi-day-block-edit-panel';
 import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
 
 interface LocationRow {
   id: string;
+  regionId: string;
+  regionName: string;
   name: string[];
 }
 
 interface MultiDayBlockRow {
   id: string;
   regionId: string;
+  regionIds: string[];
   locationId: string;
   name: string;
   title: string;
@@ -42,6 +47,8 @@ const LOCATIONS_QUERY = gql`
   query OvernightStayDetailLocations {
     locations {
       id
+      regionId
+      regionName
       name
     }
   }
@@ -52,6 +59,7 @@ const MULTI_DAY_BLOCK_QUERY = gql`
     multiDayBlock(id: $id) {
       id
       regionId
+      regionIds
       locationId
       name
       title
@@ -133,6 +141,10 @@ export function MultiDayBlockDetailPage(): JSX.Element {
 
   const orderedDays = block.days.slice().sort((left, right) => left.dayOrder - right.dayOrder);
   const baseLocation = block.locationId ? locationById.get(block.locationId) : null;
+  const regionEntries = getMultiDayBlockRegionEntries(
+    orderedDays.map((day) => ({ dayOrder: day.dayOrder, displayLocationId: day.displayLocationId })),
+    locationById,
+  );
 
   return (
     <section className="grid gap-6">
@@ -161,6 +173,12 @@ export function MultiDayBlockDetailPage(): JSX.Element {
           <div>상태: {block.isActive ? '활성' : '비활성'}</div>
           <div>정렬 순서: {block.sortOrder}</div>
           <div>일수: {orderedDays.length}일</div>
+          <div className="md:col-span-2">
+            <div className="mb-1">포함 지역: {regionEntries.length > 0 ? formatMultiDayBlockRegionSummary(regionEntries) : '-'}</div>
+            <div className="flex flex-wrap gap-2">
+              {regionEntries.length > 0 ? regionEntries.map((region) => <RegionNameChip key={region.id} name={region.name} />) : null}
+            </div>
+          </div>
           <div className="md:col-span-2">대표 목적지: {formatLocationNameInline(baseLocation?.name ?? [block.locationId])}</div>
         </div>
       </Card>

@@ -12,7 +12,6 @@ const multiDayBlockDayInputSchema = z.object({
 });
 
 const multiDayBlockBaseSchema = z.object({
-  regionId: z.string().min(1),
   name: z.string().trim().min(1).max(120),
   isNightTrain: z.boolean().default(false),
   sortOrder: z.number().int().min(0).max(100_000).default(0),
@@ -41,7 +40,6 @@ const multiDayBlockConnectionVersionSchema = z.object({
 });
 
 const multiDayBlockConnectionBaseSchema = z.object({
-  regionId: z.string().min(1),
   fromMultiDayBlockId: z.string().min(1),
   toLocationId: z.string().min(1),
   averageDistanceKm: z.number().positive(),

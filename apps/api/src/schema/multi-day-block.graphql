@@ -2,6 +2,7 @@
 type MultiDayBlock {
   id: ID!
   regionId: String!
+  regionIds: [String!]!
   locationId: String!
   name: String!
   title: String!
@@ -131,7 +132,6 @@ input MultiDayBlockDayInput {
 }
 
 input MultiDayBlockCreateInput {
-  regionId: String!
   name: String!
   isNightTrain: Boolean
   sortOrder: Int
@@ -140,7 +140,6 @@ input MultiDayBlockCreateInput {
 }
 
 input MultiDayBlockUpdateInput {
-  regionId: String
   name: String
   isNightTrain: Boolean
   sortOrder: Int
@@ -167,7 +166,6 @@ input MultiDayBlockConnectionVersionInput {
 }
 
 input MultiDayBlockConnectionCreateInput {
-  regionId: String!
   fromMultiDayBlockId: String!
   toLocationId: String!
   averageDistanceKm: Float!
@@ -181,7 +179,6 @@ input MultiDayBlockConnectionCreateInput {
 }
 
 input MultiDayBlockConnectionUpdateInput {
-  regionId: String
   fromMultiDayBlockId: String
   toLocationId: String
   averageDistanceKm: Float

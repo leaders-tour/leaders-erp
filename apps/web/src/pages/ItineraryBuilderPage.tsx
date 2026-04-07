@@ -1225,6 +1225,7 @@ const OVERNIGHT_STAYS_QUERY = gql`
     multiDayBlocks(regionSetId: $regionSetId) {
       id
       regionId
+      regionIds
       locationId
       name
       title

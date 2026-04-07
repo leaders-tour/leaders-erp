@@ -43,6 +43,7 @@ const MULTI_DAY_BLOCKS_QUERY = gql`
       id
       title
       regionId
+      regionIds
       region {
         id
         name
@@ -88,6 +89,7 @@ interface MultiDayBlockRow {
   id: string;
   title: string;
   regionId: string;
+  regionIds: string[];
   region: {
     id: string;
     name: string;
@@ -1201,8 +1203,18 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
 
   const locations = useMemo(() => locationData?.locations ?? [], [locationData]);
   const multiDayBlocks = useMemo(() => multiDayBlockData?.multiDayBlocks ?? [], [multiDayBlockData]);
+  const regionNameById = useMemo(
+    () => new Map(locations.map((item) => [item.regionId, item.regionName])),
+    [locations],
+  );
   const locationById = useMemo(() => new Map(locations.map((item) => [item.id, item])), [locations]);
   const multiDayBlockById = useMemo(() => new Map(multiDayBlocks.map((item) => [item.id, item])), [multiDayBlocks]);
+  const getBlockRegionSummary = (block: MultiDayBlockRow): string => {
+    const regionNames = Array.from(
+      new Set(block.regionIds.map((regionId) => regionNameById.get(regionId) ?? block.region.name)),
+    );
+    return regionNames.join(', ');
+  };
   const regions = useMemo(() => {
     return Array.from(new Set(crud.rows.map((row) => row.regionName))).sort((a, b) => a.localeCompare(b, 'ko'));
   }, [crud.rows]);
@@ -1366,7 +1378,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
               setErrorMessage(null);
               await crud.createRow({
                 sourceType: form.sourceType,
-                regionId: form.sourceType === 'LOCATION' ? selectedFromLocation!.regionId : selectedFromMultiDayBlock!.regionId,
+                ...(form.sourceType === 'LOCATION' ? { regionId: selectedFromLocation!.regionId } : {}),
                 fromLocationId: form.sourceType === 'LOCATION' ? form.fromLocationId : undefined,
                 fromMultiDayBlockId: form.sourceType === 'MULTI_DAY_BLOCK' ? form.fromMultiDayBlockId : undefined,
                 toLocationId: form.toLocationId,
@@ -1477,7 +1489,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                                   }}
                                   className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                                 >
-                                  {item.title} ({item.region.name})
+                                  {item.title} ({getBlockRegionSummary(item)})
                                 </button>
                               ))
                         )}
@@ -1574,12 +1586,17 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 </label>
               </div>
 
-              {(form.sourceType === 'LOCATION' ? selectedFromLocation?.regionId : selectedFromMultiDayBlock?.regionId) &&
+              {(form.sourceType === 'LOCATION'
+                ? selectedFromLocation?.regionId
+                : selectedFromMultiDayBlock?.regionIds.some((regionId) => regionId === selectedToLocation?.regionId)
+                  ? undefined
+                  : selectedFromMultiDayBlock?.regionId) &&
               selectedToLocation &&
-              (form.sourceType === 'LOCATION' ? selectedFromLocation?.regionId : selectedFromMultiDayBlock?.regionId) !==
-                selectedToLocation.regionId ? (
+              (form.sourceType === 'LOCATION'
+                ? selectedFromLocation?.regionId !== selectedToLocation.regionId
+                : !selectedFromMultiDayBlock?.regionIds.some((regionId) => regionId === selectedToLocation.regionId)) ? (
                 <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-                  <p className="text-sm text-blue-700">다른 지역 간 연결도 만들 수 있으며, 저장 지역은 출발지 기준으로 맞춰집니다.</p>
+                  <p className="text-sm text-blue-700">다른 지역 간 연결도 만들 수 있으며, 블록 연결의 저장 지역은 마지막 날 출발 지역 기준으로 자동 계산됩니다.</p>
                 </div>
               ) : null}
 
@@ -1910,8 +1927,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 setErrorMessage(null);
                 await crud.updateRow(editingSegmentId, {
                   sourceType: editForm.sourceType,
-                  regionId:
-                    editForm.sourceType === 'LOCATION' ? selectedEditFromLocation!.regionId : selectedEditFromMultiDayBlock!.regionId,
+                  ...(editForm.sourceType === 'LOCATION' ? { regionId: selectedEditFromLocation!.regionId } : {}),
                   fromLocationId: editForm.sourceType === 'LOCATION' ? editForm.fromLocationId : undefined,
                   fromMultiDayBlockId: editForm.sourceType === 'MULTI_DAY_BLOCK' ? editForm.fromMultiDayBlockId : undefined,
                   toLocationId: editForm.toLocationId,
@@ -2022,7 +2038,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                                   }}
                                   className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
                                 >
-                                  {item.title} ({item.region.name})
+                                  {item.title} ({getBlockRegionSummary(item)})
                                 </button>
                               ))
                         )}
@@ -2124,11 +2140,16 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                   <span className="text-xs text-slate-500">비용 추가 관련 존재, 정확한 기재 바람.</span>
                 </label>
 
-                {(editForm.sourceType === 'LOCATION' ? selectedEditFromLocation?.regionId : selectedEditFromMultiDayBlock?.regionId) &&
+                {(editForm.sourceType === 'LOCATION'
+                  ? selectedEditFromLocation?.regionId
+                  : selectedEditFromMultiDayBlock?.regionIds.some((regionId) => regionId === selectedEditToLocation?.regionId)
+                    ? undefined
+                    : selectedEditFromMultiDayBlock?.regionId) &&
                 selectedEditToLocation &&
-                (editForm.sourceType === 'LOCATION' ? selectedEditFromLocation?.regionId : selectedEditFromMultiDayBlock?.regionId) !==
-                  selectedEditToLocation.regionId ? (
-                  <p className="text-sm text-blue-700">다른 지역 간 연결도 저장할 수 있으며, 저장 지역은 출발지 기준으로 맞춰집니다.</p>
+                (editForm.sourceType === 'LOCATION'
+                  ? selectedEditFromLocation?.regionId !== selectedEditToLocation.regionId
+                  : !selectedEditFromMultiDayBlock?.regionIds.some((regionId) => regionId === selectedEditToLocation.regionId)) ? (
+                  <p className="text-sm text-blue-700">다른 지역 간 연결도 저장할 수 있으며, 블록 연결의 저장 지역은 마지막 날 출발 지역 기준으로 자동 계산됩니다.</p>
                 ) : null}
 
                 <div className="flex gap-2">

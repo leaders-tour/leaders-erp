@@ -4,6 +4,7 @@ import { Fragment, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { formatLocationNameInline } from '../features/location/display';
 import { MultiDayBlockEditPanel } from '../features/multi-day-block/multi-day-block-edit-panel';
+import { formatMultiDayBlockRegionSummary, getMultiDayBlockRegionEntries } from '../features/multi-day-block/region-summary';
 import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
 
 const DELETE_MULTI_DAY_BLOCK_MUTATION = gql`
@@ -28,6 +29,11 @@ const MULTI_DAY_BLOCKS_QUERY = gql`
       days {
         id
         dayOrder
+        displayLocation {
+          id
+          regionId
+          regionName
+        }
         averageDistanceKm
         averageTravelHours
         timeCellText
@@ -53,6 +59,11 @@ interface MultiDayBlockRow {
   days: Array<{
     id: string;
     dayOrder: number;
+    displayLocation?: {
+      id: string;
+      regionId: string;
+      regionName: string;
+    } | null;
     averageDistanceKm: number;
     averageTravelHours: number;
     timeCellText: string;
@@ -140,6 +151,14 @@ export function MultiDayBlockListPage(): JSX.Element {
                   const orderedDays = row.days
                     .slice()
                     .sort((left, right) => left.dayOrder - right.dayOrder);
+                  const regionEntries = getMultiDayBlockRegionEntries(
+                    orderedDays.map((day) => ({
+                      dayOrder: day.dayOrder,
+                      displayLocation: day.displayLocation
+                        ? { regionId: day.displayLocation.regionId, regionName: day.displayLocation.regionName }
+                        : null,
+                    })),
+                  );
                   const deleteErrorForRow = rowDeleteError?.rowId === row.id ? rowDeleteError.message : null;
                   return (
                     <Fragment key={row.id}>
@@ -156,7 +175,10 @@ export function MultiDayBlockListPage(): JSX.Element {
                         }}
                       >
                         <Td>{row.name}</Td>
-                        <Td>{formatLocationNameInline(row.location.name)}</Td>
+                        <Td className="whitespace-pre-line">
+                          {formatLocationNameInline(row.location.name)}
+                          {regionEntries.length > 0 ? `\n${formatMultiDayBlockRegionSummary(regionEntries)}` : ''}
+                        </Td>
                         <Td>{row.isActive ? '활성' : '비활성'}</Td>
                         <Td>{orderedDays.length}일</Td>
                         <Td className="whitespace-pre-line">

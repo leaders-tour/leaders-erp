@@ -6,8 +6,8 @@ import {
   calculateMovementIntensityByHours,
   getMovementIntensityMeta,
 } from '../features/estimate/model/movement-intensity';
-import { formatLocationNameInline } from '../features/location/display';
 import { MultiDayBlockDaySlotEditor, createMultiDayBlockScheduleSlot, serializeMultiDayBlockScheduleSlots, type MultiDayBlockScheduleSlotInput } from '../features/multi-day-block/day-slot-editor';
+import { MultiDayBlockLocationSearchSelect } from '../features/multi-day-block/location-search-select';
 import { MultiDayBlockLodgingMealEditor } from '../features/multi-day-block/lodging-meal-editor';
 import {
   createDefaultMultiDayBlockLodgingMealsDraft,
@@ -18,14 +18,10 @@ import {
 } from '../features/multi-day-block/lodging-meal-form';
 import { MultiDayBlockSubNav } from '../features/multi-day-block/sub-nav';
 
-interface RegionRow {
-  id: string;
-  name: string;
-}
-
 interface LocationRow {
   id: string;
   regionId: string;
+  regionName: string;
   name: string[];
 }
 
@@ -39,20 +35,12 @@ interface MultiDayBlockDayDraft {
   meals: MultiDayBlockMealsFormValue;
 }
 
-const REGIONS_QUERY = gql`
-  query OvernightStayCreateRegions {
-    regions {
-      id
-      name
-    }
-  }
-`;
-
 const LOCATIONS_QUERY = gql`
   query OvernightStayCreateLocations {
     locations {
       id
       regionId
+      regionName
       name
     }
   }
@@ -81,28 +69,20 @@ function createDayDraft(dayOrder: number): MultiDayBlockDayDraft {
 
 export function MultiDayBlockCreatePage(): JSX.Element {
   const navigate = useNavigate();
-  const [regionId, setRegionId] = useState('');
   const [name, setName] = useState('');
   const [isNightTrain, setIsNightTrain] = useState(false);
-  const [isActive, setIsActive] = useState(true);
   const [days, setDays] = useState<MultiDayBlockDayDraft[]>([createDayDraft(1), createDayDraft(2)]);
   const [dayEditorNonce, setDayEditorNonce] = useState(0);
 
-  const { data: regionData } = useQuery<{ regions: RegionRow[] }>(REGIONS_QUERY);
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
   const [createMultiDayBlock, { loading }] = useMutation<{ createMultiDayBlock: { id: string } }>(
     CREATE_MULTI_DAY_BLOCK_MUTATION,
   );
 
-  const regions = regionData?.regions ?? [];
   const locations = locationData?.locations ?? [];
   const locationById = useMemo(() => new Map(locations.map((location) => [location.id, location])), [locations]);
-  const selectableLocations = useMemo(
-    () => locations.filter((location) => location.regionId === regionId),
-    [locations, regionId],
-  );
   const sortedDays = days.slice().sort((left, right) => left.dayOrder - right.dayOrder);
-  const canSubmit = Boolean(regionId && name.trim() && sortedDays.every((day) => day.displayLocationId));
+  const canSubmit = Boolean(name.trim() && sortedDays.every((day) => day.displayLocationId));
 
   const updateDay = (
     dayOrder: number,
@@ -110,16 +90,6 @@ export function MultiDayBlockCreatePage(): JSX.Element {
     value: MultiDayBlockDayDraft[keyof MultiDayBlockDayDraft],
   ) => {
     setDays((prev) => prev.map((day) => (day.dayOrder === dayOrder ? { ...day, [field]: value } : day)));
-  };
-
-  const handleRegionChange = (nextRegionId: string) => {
-    setRegionId(nextRegionId);
-    setDays((prev) =>
-      prev.map((day) => {
-        const location = locationById.get(day.displayLocationId);
-        return location && location.regionId !== nextRegionId ? { ...day, displayLocationId: '' } : day;
-      }),
-    );
   };
 
   return (
@@ -145,35 +115,11 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                 <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="예: 테를지 3일 커스텀" />
               </label>
 
-              <label className="grid gap-1 text-sm">
-                <span className="font-medium text-slate-900">지역</span>
-                <div className="flex flex-wrap gap-2">
-                  {regions.map((region) => (
-                    <button
-                      key={region.id}
-                      type="button"
-                      onClick={() => handleRegionChange(region.id)}
-                      className={`rounded-xl border px-3 py-1.5 text-sm ${
-                        regionId === region.id
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {region.name}
-                    </button>
-                  ))}
-                </div>
-              </label>
-
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={isNightTrain} onChange={(event) => setIsNightTrain(event.target.checked)} />
                 야간열차 금액 규칙 적용
               </label>
 
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
-                활성
-              </label>
             </div>
 
             <div className="flex items-center gap-2 rounded-2xl border border-slate-200 p-4">
@@ -196,11 +142,10 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                   const result = await createMultiDayBlock({
                     variables: {
                       input: {
-                        regionId,
                         name: name.trim(),
                         isNightTrain,
                         sortOrder: 0,
-                        isActive,
+                        isActive: true,
                         days: sortedDays.map((day) => {
                           const { timeCellText, scheduleCellText } = serializeMultiDayBlockScheduleSlots(day.scheduleSlots);
                           return {
@@ -241,19 +186,17 @@ export function MultiDayBlockCreatePage(): JSX.Element {
 
                 <label className="grid gap-1 text-sm">
                   <span className="font-medium text-slate-900">이 일차 목적지</span>
-                  <select
-                    value={day.displayLocationId}
-                    onChange={(event) => updateDay(day.dayOrder, 'displayLocationId', event.target.value)}
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2"
-                  >
-                    <option value="">목적지 선택</option>
-                    {selectableLocations.map((location) => (
-                      <option key={location.id} value={location.id}>
-                        {formatLocationNameInline(location.name)}
-                      </option>
-                    ))}
-                  </select>
+                  <MultiDayBlockLocationSearchSelect
+                    locations={locations}
+                    selectedLocationId={day.displayLocationId}
+                    onSelect={(locationId) => updateDay(day.dayOrder, 'displayLocationId', locationId)}
+                  />
                 </label>
+                {day.displayLocationId ? (
+                  <div className="text-xs text-slate-500">
+                    선택 지역: {locationById.get(day.displayLocationId)?.regionName ?? '-'}
+                  </div>
+                ) : null}
 
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
                   <label className="grid gap-1 rounded-2xl border border-slate-200 p-4 text-sm">

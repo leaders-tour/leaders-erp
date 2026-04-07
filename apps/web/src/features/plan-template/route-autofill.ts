@@ -145,6 +145,7 @@ export interface MultiDayBlockDayOption {
 export interface MultiDayBlockOption {
   id: string;
   regionId: string;
+  regionIds: string[];
   locationId: string;
   isNightTrain?: boolean;
   name: string;

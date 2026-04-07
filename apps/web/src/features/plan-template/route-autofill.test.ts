@@ -439,6 +439,7 @@ const locationCVersion = locationC.variations[0]!;
 const overnightStayB2: MultiDayBlockOption = {
   id: 'stay-b-2',
   regionId: 'region-1',
+  regionIds: ['region-1'],
   locationId: locationB.id,
   isNightTrain: false,
   name: '차강소브라가 2일 표준',

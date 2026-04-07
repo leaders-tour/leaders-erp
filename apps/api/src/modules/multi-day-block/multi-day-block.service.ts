@@ -124,15 +124,7 @@ export class MultiDayBlockService {
     return this.repository.findById(id);
   }
 
-  private async validateRegionAndDayLocations(regionId: string, dayLocationIds: string[]): Promise<void> {
-    const region = await this.prisma.region.findUnique({
-      where: { id: regionId },
-      select: { id: true },
-    });
-    if (!region) {
-      throw new DomainError('VALIDATION_FAILED', 'Region not found for multi-day block');
-    }
-
+  private async getDayLocationRegionMap(dayLocationIds: string[]): Promise<Map<string, string>> {
     const uniqueLocationIds = Array.from(new Set(dayLocationIds));
     const locations = await this.prisma.location.findMany({
       where: { id: { in: uniqueLocationIds } },
@@ -141,9 +133,28 @@ export class MultiDayBlockService {
     if (locations.length !== uniqueLocationIds.length) {
       throw new DomainError('VALIDATION_FAILED', 'One or more day locations are invalid');
     }
-    if (locations.some((location) => location.regionId !== regionId)) {
-      throw new DomainError('VALIDATION_FAILED', 'All block day locations must belong to the selected region');
+
+    return new Map(locations.map((location) => [location.id, location.regionId]));
+  }
+
+  private resolveRepresentativeRegionId(
+    days: Array<{ dayOrder: number; displayLocationId: string }>,
+    locationRegionById: Map<string, string>,
+  ): string {
+    const firstDay = days
+      .slice()
+      .sort((left, right) => left.dayOrder - right.dayOrder)[0];
+
+    if (!firstDay) {
+      throw new DomainError('VALIDATION_FAILED', 'Multi-day block requires at least one day');
     }
+
+    const representativeRegionId = locationRegionById.get(firstDay.displayLocationId);
+    if (!representativeRegionId) {
+      throw new DomainError('VALIDATION_FAILED', 'Representative region could not be derived from block days');
+    }
+
+    return representativeRegionId;
   }
 
   private normalizeDays(
@@ -187,10 +198,8 @@ export class MultiDayBlockService {
     }
 
     const normalizedDays = this.normalizeDays(parsed.data.days);
-    await this.validateRegionAndDayLocations(
-      parsed.data.regionId,
-      normalizedDays.map((day) => day.displayLocationId),
-    );
+    const locationRegionById = await this.getDayLocationRegionMap(normalizedDays.map((day) => day.displayLocationId));
+    const representativeRegionId = this.resolveRepresentativeRegionId(normalizedDays, locationRegionById);
     const legacyLocations = this.deriveLegacyLocationFields(normalizedDays);
     const isNightTrain = parsed.data.isNightTrain ?? false;
 
@@ -198,7 +207,7 @@ export class MultiDayBlockService {
       const repository = new MultiDayBlockRepository(tx);
       const created = await tx.overnightStay.create({
         data: {
-          regionId: parsed.data.regionId,
+          regionId: representativeRegionId,
           locationId: legacyLocations.locationId,
           blockType: isNightTrain ? 'TRANSFER' : 'STAY',
           startLocationId: legacyLocations.startLocationId,
@@ -245,11 +254,12 @@ export class MultiDayBlockService {
           })),
         );
 
-    const nextRegionId = parsed.data.regionId ?? existing.regionId;
-    await this.validateRegionAndDayLocations(
-      nextRegionId,
-      normalizedDays.map((day) => day.displayLocationId),
-    );
+    const representativeRegionId = parsed.data.days
+      ? this.resolveRepresentativeRegionId(
+          normalizedDays,
+          await this.getDayLocationRegionMap(normalizedDays.map((day) => day.displayLocationId)),
+        )
+      : existing.days[0]?.displayLocation?.regionId ?? existing.regionId;
 
     const legacyLocations = this.deriveLegacyLocationFields(normalizedDays);
     const isNightTrain = parsed.data.isNightTrain ?? existing.isNightTrain ?? existing.blockType === 'TRANSFER';
@@ -259,7 +269,7 @@ export class MultiDayBlockService {
       await tx.overnightStay.update({
         where: { id },
         data: {
-          regionId: nextRegionId,
+          regionId: representativeRegionId,
           locationId: legacyLocations.locationId,
           blockType: isNightTrain ? 'TRANSFER' : 'STAY',
           startLocationId: legacyLocations.startLocationId,
@@ -470,7 +480,19 @@ export class MultiDayBlockConnectionService {
   ): Promise<{ fromBlockRegionId: string; toLocation: ConnectionTargetLocation }> {
     const overnightStay = await this.prisma.overnightStay.findUnique({
       where: { id: fromMultiDayBlockId },
-      select: { id: true, regionId: true },
+      select: {
+        id: true,
+        regionId: true,
+        days: {
+          orderBy: { dayOrder: 'desc' },
+          take: 1,
+          select: {
+            displayLocation: {
+              select: { regionId: true },
+            },
+          },
+        },
+      },
     });
     if (!overnightStay) {
       throw new DomainError('VALIDATION_FAILED', 'Multi-day block not found for connection');
@@ -484,17 +506,13 @@ export class MultiDayBlockConnectionService {
       throw new DomainError('VALIDATION_FAILED', 'Connection destination location not found');
     }
 
-    return { fromBlockRegionId: overnightStay.regionId, toLocation };
+    return {
+      fromBlockRegionId: overnightStay.days[0]?.displayLocation.regionId ?? overnightStay.regionId,
+      toLocation,
+    };
   }
 
-  private async resolveOwningConnectionRegion(
-    inputRegionId: string | undefined,
-    fromBlockRegionId: string,
-  ): Promise<{ id: string; name: string }> {
-    if (inputRegionId && inputRegionId !== fromBlockRegionId) {
-      throw new DomainError('VALIDATION_FAILED', 'Connection regionId must match the source multi-day block region');
-    }
-
+  private async resolveOwningConnectionRegion(fromBlockRegionId: string): Promise<{ id: string; name: string }> {
     const region = await this.prisma.region.findUnique({
       where: { id: fromBlockRegionId },
       select: { id: true, name: true },
@@ -729,7 +747,7 @@ export class MultiDayBlockConnectionService {
     }
 
     const endpoints = await this.validateEndpoints(parsed.data.fromMultiDayBlockId, parsed.data.toLocationId);
-    const owningRegion = await this.resolveOwningConnectionRegion(parsed.data.regionId, endpoints.fromBlockRegionId);
+    const owningRegion = await this.resolveOwningConnectionRegion(endpoints.fromBlockRegionId);
 
     const nextVersions = parsed.data.versions
       ? this.normalizeVersionsFromInput(parsed.data.versions)
@@ -773,7 +791,7 @@ export class MultiDayBlockConnectionService {
     const nextToLocationId = parsed.data.toLocationId ?? existing.toLocationId;
 
     const endpoints = await this.validateEndpoints(nextFromMultiDayBlockId, nextToLocationId);
-    const owningRegion = await this.resolveOwningConnectionRegion(parsed.data.regionId, endpoints.fromBlockRegionId);
+    const owningRegion = await this.resolveOwningConnectionRegion(endpoints.fromBlockRegionId);
 
     const existingVersions = this.buildVersionsFromExisting(existing as ExistingConnectionLike);
     const hasLegacyDirectUpdates = this.hasLegacyDirectUpdates(parsed.data);
@@ -803,9 +821,7 @@ export class MultiDayBlockConnectionService {
     await this.validateVersions(endpoints.toLocation, nextVersions);
     const defaultVersion = this.getDefaultVersion(nextVersions);
     const shouldSyncOwningRegion =
-      parsed.data.regionId !== undefined ||
-      parsed.data.fromMultiDayBlockId !== undefined ||
-      existing.regionId !== owningRegion.id;
+      parsed.data.fromMultiDayBlockId !== undefined || existing.regionId !== owningRegion.id;
 
     return this.prisma.$transaction(async (tx) => {
       await tx.overnightStayConnection.update({
@@ -824,11 +840,7 @@ export class MultiDayBlockConnectionService {
       } else if (hasLegacyDirectUpdates || existing.versions.length === 0) {
         defaultVersionId = await this.upsertDefaultVersionOnly(tx, id, defaultVersion);
         await this.syncDefaultMirror(tx, id, defaultVersionId, defaultVersion);
-      } else if (
-        parsed.data.regionId !== undefined ||
-        parsed.data.fromMultiDayBlockId !== undefined ||
-        parsed.data.toLocationId !== undefined
-      ) {
+      } else if (parsed.data.fromMultiDayBlockId !== undefined || parsed.data.toLocationId !== undefined) {
         await tx.overnightStayConnection.update({
           where: { id },
           data: {

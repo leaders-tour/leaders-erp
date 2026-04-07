@@ -309,7 +309,7 @@ export interface SegmentVersionMealsOverrideFormInput {
 
 export interface SegmentFormInput {
   sourceType: ConnectionSourceType;
-  regionId: string;
+  regionId?: string;
   fromLocationId?: string;
   fromMultiDayBlockId?: string;
   toLocationId: string;
@@ -551,7 +551,6 @@ export function useSegmentCrud() {
         mutation: CREATE_BLOCK_CONNECTION,
         variables: {
           input: {
-            regionId: input.regionId,
             fromMultiDayBlockId: input.fromMultiDayBlockId,
             toLocationId: input.toLocationId,
             averageDistanceKm: input.averageDistanceKm,
@@ -606,7 +605,6 @@ export function useSegmentCrud() {
         variables: {
           id,
           input: {
-            regionId: input.regionId,
             fromMultiDayBlockId: input.fromMultiDayBlockId,
             toLocationId: input.toLocationId,
             averageDistanceKm: input.averageDistanceKm,

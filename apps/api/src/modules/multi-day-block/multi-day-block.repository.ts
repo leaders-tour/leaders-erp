@@ -19,7 +19,17 @@ export class MultiDayBlockRepository {
   findMany(filter: MultiDayBlockListFilter) {
     return this.prisma.overnightStay.findMany({
       where: {
-        ...(filter.regionIds?.length ? { regionId: { in: filter.regionIds } } : {}),
+        ...(filter.regionIds?.length
+          ? {
+              days: {
+                some: {
+                  displayLocation: {
+                    regionId: { in: filter.regionIds },
+                  },
+                },
+              },
+            }
+          : {}),
         ...(filter.activeOnly ? { isActive: true } : {}),
       },
       include: multiDayBlockInclude,
@@ -81,7 +91,17 @@ export class MultiDayBlockConnectionRepository {
           ? {
               OR: [
                 { regionId: { in: filter.regionIds } },
-                { fromOvernightStay: { regionId: { in: filter.regionIds } } },
+                {
+                  fromOvernightStay: {
+                    days: {
+                      some: {
+                        displayLocation: {
+                          regionId: { in: filter.regionIds },
+                        },
+                      },
+                    },
+                  },
+                },
                 { toLocation: { regionId: { in: filter.regionIds } } },
               ],
             }

@@ -81,6 +81,19 @@ export const multiDayBlockResolver = {
       new MultiDayBlockConnectionService(ctx.prisma).delete(args.id),
   },
   MultiDayBlock: {
+    regionIds: (parent: any) => {
+      const dayRegionIds = Array.isArray(parent.days)
+        ? parent.days
+            .map((day: any) => day.displayLocation?.regionId)
+            .filter((value: string | undefined | null): value is string => Boolean(value))
+        : [];
+
+      if (dayRegionIds.length === 0) {
+        return parent.regionId ? [parent.regionId] : [];
+      }
+
+      return Array.from(new Set(dayRegionIds));
+    },
     title: (parent: any) => {
       if (typeof parent.name === 'string' && parent.name.trim().length > 0) return parent.name.trim();
       const rawName = parent.location?.name;
