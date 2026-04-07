@@ -1,7 +1,17 @@
-import { useLayoutEffect, useRef, useState, type FocusEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type FocusEvent, type ReactNode } from 'react';
+import {
+  teamPricingsForSummaryDisplay,
+  teamPricingSummarySignatureFromParts,
+} from '../../pricing/team-pricing-summary-display';
 import { PICKUP_DROP_PLACE_OPTIONS, formatPickupDropDisplay, type PickupDropPlaceType } from '../../plan/pickup-drop';
 import { ESTIMATE_COMPANY, ESTIMATE_PAYMENT, ESTIMATE_TAGLINE, ESTIMATE_TITLE } from '../model/constants';
-import type { EstimateDocumentData, EstimatePage1EditableField, EstimatePage1Editor, EstimateTransportGroup } from '../model/types';
+import type {
+  EstimateDocumentData,
+  EstimatePage1EditableField,
+  EstimatePage1Editor,
+  EstimateTeamPricing,
+  EstimateTransportGroup,
+} from '../model/types';
 import {
   formatCurrency,
   formatDateKorean,
@@ -32,6 +42,18 @@ const VEHICLE_PURGONG_PHOTO_NOTE = '*푸르공 사진촬영 가능';
 function vehicleTypeShowsPurgongPhotoNote(vehicleType: string | null | undefined): boolean {
   const v = vehicleType?.trim();
   return v === '스타렉스' || v === '하이에이스';
+}
+
+function estimateTeamPricingSummarySignature(row: EstimateTeamPricing): string {
+  return teamPricingSummarySignatureFromParts({
+    totalAmountKrw: row.totalAmountKrw,
+    depositAmountKrw: row.depositAmountKrw,
+    balanceAmountKrw: row.balanceAmountKrw,
+    securityNone: row.securityDepositScope === '-',
+    securityDepositAmountKrw: row.securityDepositAmountKrw,
+    securityDepositUnitKrw: row.securityDepositUnitKrw,
+    securityScopeWhenPresent: row.securityDepositScope === '-' ? '' : row.securityDepositScope,
+  });
 }
 
 function VehicleTypeCellDisplay({ vehicleType }: { vehicleType: string | null | undefined }): JSX.Element {
@@ -424,6 +446,11 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
     data.securityDepositUnitKrw === null
       ? ''
       : `${formatCurrency(data.securityDepositUnitKrw)} (${data.securityDepositScope})`;
+  const summaryTeamPricingsForDisplay = useMemo(
+    () => teamPricingsForSummaryDisplay(data.teamPricings, estimateTeamPricingSummarySignature),
+    [data.teamPricings],
+  );
+  const estimateSummaryShowTeamPrefix = summaryTeamPricingsForDisplay.length > 1;
   const travelPeriodCompact = formatTravelPeriodCompact(data.travelStartDate, data.travelEndDate);
   const headcountDisplay = blankIfDash(formatHeadcount(data.headcountTotal, data.headcountMale, data.headcountFemale));
   const flightInText = blankIfDash(
@@ -941,9 +968,9 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 <td className="emphasis">
                   {data.teamPricings.length > 0 ? (
                     <div className="estimate-page1-summary-team-list">
-                      {data.teamPricings.map((teamPricing) => (
+                      {summaryTeamPricingsForDisplay.map((teamPricing) => (
                         <div key={`total-${teamPricing.teamOrderIndex}`} className="estimate-page1-summary-team-item">
-                          <div>{`${teamPricing.teamName}) ${blankIfDash(formatCurrency(teamPricing.totalAmountKrw))}`}</div>
+                          <div>{`${estimateSummaryShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${blankIfDash(formatCurrency(teamPricing.totalAmountKrw))}`}</div>
                         </div>
                       ))}
                     </div>
@@ -954,9 +981,9 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 <td className="emphasis">
                   {data.teamPricings.length > 0 ? (
                     <div className="estimate-page1-summary-team-list">
-                      {data.teamPricings.map((teamPricing) => (
+                      {summaryTeamPricingsForDisplay.map((teamPricing) => (
                         <div key={`deposit-${teamPricing.teamOrderIndex}`} className="estimate-page1-summary-team-item">
-                          <div>{`${teamPricing.teamName}) ${blankIfDash(formatCurrency(teamPricing.depositAmountKrw))}`}</div>
+                          <div>{`${estimateSummaryShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${blankIfDash(formatCurrency(teamPricing.depositAmountKrw))}`}</div>
                         </div>
                       ))}
                     </div>
@@ -967,9 +994,9 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 <td className="emphasis">
                   {data.teamPricings.length > 0 ? (
                     <div className="estimate-page1-summary-team-list">
-                      {data.teamPricings.map((teamPricing) => (
+                      {summaryTeamPricingsForDisplay.map((teamPricing) => (
                         <div key={`balance-${teamPricing.teamOrderIndex}`} className="estimate-page1-summary-team-item">
-                          <div>{`${teamPricing.teamName}) ${blankIfDash(formatCurrency(teamPricing.balanceAmountKrw))}`}</div>
+                          <div>{`${estimateSummaryShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${blankIfDash(formatCurrency(teamPricing.balanceAmountKrw))}`}</div>
                         </div>
                       ))}
                     </div>
@@ -980,12 +1007,12 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 <td className="emphasis">
                   {data.teamPricings.length > 0 ? (
                     <div className="estimate-page1-summary-team-list">
-                      {data.teamPricings.map((teamPricing) => (
+                      {summaryTeamPricingsForDisplay.map((teamPricing) => (
                         <div key={`security-${teamPricing.teamOrderIndex}`} className="estimate-page1-summary-team-item">
                           <div>
                             {teamPricing.securityDepositScope === '-'
-                              ? `${teamPricing.teamName}) ${blankIfDash(formatCurrency(teamPricing.securityDepositAmountKrw))}`
-                              : `${teamPricing.teamName}) ${formatCurrency(teamPricing.securityDepositUnitKrw)} (${teamPricing.securityDepositScope})`}
+                              ? `${estimateSummaryShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${blankIfDash(formatCurrency(teamPricing.securityDepositAmountKrw))}`
+                              : `${estimateSummaryShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${formatCurrency(teamPricing.securityDepositUnitKrw)} (${teamPricing.securityDepositScope})`}
                           </div>
                         </div>
                       ))}

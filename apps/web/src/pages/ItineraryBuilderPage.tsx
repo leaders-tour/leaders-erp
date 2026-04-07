@@ -29,6 +29,10 @@ import { LodgingUpgradeModal } from '../features/lodging-selection/components/Lo
 import { RegionLodgingSelectModal } from '../features/lodging-selection/components/RegionLodgingSelectModal';
 import { ExtraLodgingsModal } from '../features/pricing/components/ExtraLodgingsModal';
 import {
+  teamPricingsForSummaryDisplay,
+  teamPricingSummarySignatureFromParts,
+} from '../features/pricing/team-pricing-summary-display';
+import {
   buildLodgingCellText,
   getBaseLodgingText,
   type LodgingSelectionLevel,
@@ -426,6 +430,18 @@ function buildAdjustmentGroupingKey(line: PricingAdjustmentLineRow): string {
   ].join('|');
 }
 
+function builderTeamPricingRowSummarySignature(row: TeamPricingRow): string {
+  return teamPricingSummarySignatureFromParts({
+    totalAmountKrw: row.totalAmountKrw,
+    depositAmountKrw: row.depositAmountKrw,
+    balanceAmountKrw: row.balanceAmountKrw,
+    securityNone: row.securityDepositMode === 'NONE',
+    securityDepositAmountKrw: row.securityDepositAmountKrw,
+    securityDepositUnitKrw: row.securityDepositUnitPriceKrw,
+    securityScopeWhenPresent: row.securityDepositMode,
+  });
+}
+
 function buildDisplayedPricingAdjustmentLines(
   effectivePricing: EffectivePricingRow | null,
 ): DisplayedPricingAdjustmentLineRow[] {
@@ -733,6 +749,18 @@ function setManualPricingTeamSummaryValue(
     ...current,
     teamSummaries: nextTeamSummaries,
   };
+}
+
+function setManualPricingAllTeamSummariesValue(
+  current: ManualPricingState,
+  teamOrderIndexes: number[],
+  field: keyof ManualPricingSummaryState,
+  value: number,
+): ManualPricingState {
+  return teamOrderIndexes.reduce(
+    (state, teamOrderIndex) => setManualPricingTeamSummaryValue(state, teamOrderIndex, field, value),
+    current,
+  );
 }
 
 interface PricingPolicyManualPresetRuleRow {
@@ -3918,10 +3946,21 @@ export function ItineraryBuilderPage(): JSX.Element {
     },
   });
 
-  const pricingPreview =
-    pricingPreviewData?.planPricingPreview ??
-    pricingPreviewPreviousData?.planPricingPreview ??
-    null;
+  const pricingPreview = useMemo(() => {
+    const raw =
+      pricingPreviewData?.planPricingPreview ?? pricingPreviewPreviousData?.planPricingPreview ?? null;
+    if (!raw) {
+      return null;
+    }
+    if (raw.teamPricings.length !== normalizedTransportGroups.length) {
+      return null;
+    }
+    return raw;
+  }, [
+    pricingPreviewData?.planPricingPreview,
+    pricingPreviewPreviousData?.planPricingPreview,
+    normalizedTransportGroups.length,
+  ]);
   const pricingPreviewContext = useMemo(
     () => ({
       headcountTotal,
@@ -3964,6 +4003,15 @@ export function ItineraryBuilderPage(): JSX.Element {
     () => buildDisplayedPricingAdjustmentLines(effectivePricingPreview),
     [effectivePricingPreview],
   );
+  const pricingSummaryTeamsForDisplay = useMemo(
+    () =>
+      teamPricingsForSummaryDisplay(
+        effectivePricingPreview?.teamPricings ?? [],
+        builderTeamPricingRowSummarySignature,
+      ),
+    [effectivePricingPreview],
+  );
+  const pricingSummaryShowTeamPrefix = pricingSummaryTeamsForDisplay.length > 1;
   const { data: pricingPolicyManualPresetsData } = useQuery<PricingPolicyManualPresetQueryRow>(
     PRICING_POLICY_MANUAL_PRESETS_QUERY,
     {
@@ -6691,11 +6739,13 @@ export function ItineraryBuilderPage(): JSX.Element {
                                       : formatKrw(effectivePricingPreview[key])}
                                   </div>
                                 ) : (
-                                  effectivePricingPreview.teamPricings.map((teamPricing) => (
+                                  pricingSummaryTeamsForDisplay.map((teamPricing) => (
                                     <div key={`${field}-${teamPricing.teamOrderIndex}`} className="grid gap-1">
                                       {manualPricing.enabled ? (
                                         <div className="flex items-center justify-center gap-2">
-                                          <div className="text-xs font-medium text-slate-500">{`${teamPricing.teamName})`}</div>
+                                          {pricingSummaryShowTeamPrefix ? (
+                                            <div className="text-xs font-medium text-slate-500">{`${teamPricing.teamName})`}</div>
+                                          ) : null}
                                           <input
                                             type="number"
                                             step={1}
@@ -6705,24 +6755,36 @@ export function ItineraryBuilderPage(): JSX.Element {
                                               if (!Number.isInteger(nextValue)) {
                                                 return;
                                               }
+                                              const allTeamIndexes = effectivePricingPreview.teamPricings.map(
+                                                (t) => t.teamOrderIndex,
+                                              );
+                                              const syncAllTeams =
+                                                allTeamIndexes.length > 1 && !pricingSummaryShowTeamPrefix;
                                               setManualPricing((current) =>
-                                                setManualPricingTeamSummaryValue(
-                                                  current,
-                                                  teamPricing.teamOrderIndex,
-                                                  field,
-                                                  nextValue,
-                                                ),
+                                                syncAllTeams
+                                                  ? setManualPricingAllTeamSummariesValue(
+                                                      current,
+                                                      allTeamIndexes,
+                                                      field,
+                                                      nextValue,
+                                                    )
+                                                  : setManualPricingTeamSummaryValue(
+                                                      current,
+                                                      teamPricing.teamOrderIndex,
+                                                      field,
+                                                      nextValue,
+                                                    ),
                                               );
                                             }}
                                             className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-sm"
                                           />
                                         </div>
                                       ) : field === 'securityDepositAmountKrw' && teamPricing.securityDepositMode !== 'NONE' ? (
-                                        <div className="text-center">{`${teamPricing.teamName}) ${formatKrw(
+                                        <div className="text-center">{`${pricingSummaryShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${formatKrw(
                                           teamPricing.securityDepositUnitPriceKrw,
                                         )} (${formatSecurityDepositScope(teamPricing.securityDepositMode)})`}</div>
                                       ) : (
-                                        <div className="text-center">{`${teamPricing.teamName}) ${formatKrw(teamPricing[field])}`}</div>
+                                        <div className="text-center">{`${pricingSummaryShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${formatKrw(teamPricing[field])}`}</div>
                                       )}
                                     </div>
                                   ))
