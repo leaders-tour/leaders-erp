@@ -207,6 +207,22 @@ function createVersionDraftFromPrevious(previous: SegmentVersionDraft | undefine
   };
 }
 
+function createVersionDraftFromBase(base: Pick<
+  SegmentFormState,
+  'averageDistanceKm' | 'averageTravelHours' | 'isLongDistance' | 'timeSlots' | 'earlyTimeSlots' | 'extendTimeSlots' | 'earlyExtendTimeSlots'
+>): SegmentVersionDraft {
+  return {
+    ...createVersionDraft(),
+    averageDistanceKm: base.averageDistanceKm,
+    averageTravelHours: base.averageTravelHours,
+    isLongDistance: base.isLongDistance,
+    timeSlots: cloneTimeSlotDrafts(base.timeSlots),
+    earlyTimeSlots: cloneTimeSlotDrafts(base.earlyTimeSlots),
+    extendTimeSlots: cloneTimeSlotDrafts(base.extendTimeSlots),
+    earlyExtendTimeSlots: cloneTimeSlotDrafts(base.earlyExtendTimeSlots),
+  };
+}
+
 function sanitizeLodgingOverride(
   value: SegmentVersionLodgingOverrideFormInput | null | undefined,
 ): SegmentVersionLodgingOverrideFormInput {
@@ -902,6 +918,10 @@ function MealsOverrideEditor(props: {
 
 function AlternativeVersionEditor(props: {
   value: SegmentVersionDraft[];
+  baseDraft: Pick<
+    SegmentFormState,
+    'averageDistanceKm' | 'averageTravelHours' | 'isLongDistance' | 'timeSlots' | 'earlyTimeSlots' | 'extendTimeSlots' | 'earlyExtendTimeSlots'
+  >;
   showDateRange: boolean;
   includeEarly: boolean;
   includeExtend: boolean;
@@ -909,7 +929,7 @@ function AlternativeVersionEditor(props: {
   onChange: (nextValue: SegmentVersionDraft[]) => void;
   pasteHelperResetNonce?: number;
 }): JSX.Element {
-  const { value, showDateRange, includeEarly, includeExtend, includeEarlyExtend, onChange, pasteHelperResetNonce } = props;
+  const { value, baseDraft, showDateRange, includeEarly, includeExtend, includeEarlyExtend, onChange, pasteHelperResetNonce } = props;
   const updateVersion = (clientId: string, updater: (current: SegmentVersionDraft) => SegmentVersionDraft) => {
     onChange(value.map((item) => (item.clientId === clientId ? updater(item) : item)));
   };
@@ -924,7 +944,12 @@ function AlternativeVersionEditor(props: {
         <Button
           type="button"
           variant="outline"
-          onClick={() => onChange([...value, createVersionDraftFromPrevious(value[value.length - 1])])}
+          onClick={() =>
+            onChange([
+              ...value,
+              value.length === 0 ? createVersionDraftFromBase(baseDraft) : createVersionDraftFromPrevious(value[value.length - 1]),
+            ])
+          }
         >
           대안 버전 추가
         </Button>
@@ -1633,6 +1658,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
 
               <AlternativeVersionEditor
                 value={form.versions}
+                baseDraft={form}
                 showDateRange={form.sourceType === 'LOCATION'}
                 includeEarly={includeCreateEarly}
                 includeExtend={includeCreateExtend}
@@ -2184,6 +2210,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
 
                 <AlternativeVersionEditor
                   value={editForm.versions}
+                  baseDraft={editForm}
                   showDateRange={editForm.sourceType === 'LOCATION'}
                   includeEarly={includeEditEarly}
                   includeExtend={includeEditExtend}
