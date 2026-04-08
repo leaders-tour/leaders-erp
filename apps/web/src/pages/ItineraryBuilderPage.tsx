@@ -12,6 +12,7 @@ import { TimePickerModal } from '../components/date-picker/TimePickerModal';
 import { formatTimeTriggerLabel } from '../components/date-picker/time-picker-utils';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
+import { useEstimatePdfDownload } from '../features/estimate/hooks/use-estimate-pdf-download';
 import { averageMovementIntensity } from '../features/estimate/model/movement-intensity';
 import type {
   EstimateBuilderDraftSnapshot,
@@ -2424,6 +2425,7 @@ function TimeInputTrigger({
 
 export function ItineraryBuilderPage(): JSX.Element {
   const { employee } = useAuth();
+  const { downloading: downloadingEstimatePdf, downloadEstimatePdf } = useEstimatePdfDownload();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -4302,20 +4304,17 @@ export function ItineraryBuilderPage(): JSX.Element {
   };
 
   const openEstimatePdf = (): void => {
-    const draftKey = `estimate-draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-    try {
-      window.sessionStorage.setItem(draftKey, JSON.stringify(estimateDraftSnapshot));
-    } catch (_error) {
-      window.alert('견적서 임시 데이터를 저장할 수 없습니다. 브라우저 저장공간을 확인해주세요.');
+    if (!previewEstimateData) {
+      window.alert('견적서 미리보기 데이터를 준비한 뒤 다시 시도해주세요.');
       return;
     }
 
-    window.open(
-      `/documents/estimate?mode=draft&draftKey=${encodeURIComponent(draftKey)}`,
-      '_blank',
-      'noopener,noreferrer',
-    );
+    void downloadEstimatePdf({
+      data: previewEstimateData,
+      fileName: `${previewEstimateData.planTitle || 'estimate'} 견적서.pdf`,
+    }).catch((error) => {
+      window.alert(error instanceof Error ? error.message : '견적서 PDF 다운로드에 실패했습니다.');
+    });
   };
 
   if (!hasValidContext) {
@@ -4699,8 +4698,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                 <Button variant="outline" onClick={() => setIsPreviewEnabled((prev) => !prev)}>
                   {isPreviewEnabled ? '미리보기 끄기' : '미리보기 켜기'}
                 </Button>
-                <Button variant="outline" onClick={openEstimatePdf}>
-                  견적서 PDF
+                <Button
+                  variant="outline"
+                  onClick={openEstimatePdf}
+                  disabled={downloadingEstimatePdf || previewGuidesLoading || !previewEstimateData}
+                >
+                  {downloadingEstimatePdf ? 'PDF 생성 중...' : '견적서 PDF'}
                 </Button>
                 <Button
                   variant="outline"

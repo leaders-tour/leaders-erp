@@ -14,7 +14,7 @@
 .estimate-document {
   display: grid;
   gap: 16px;
-  --estimate-page1-padding: 12mm;
+  /* --estimate-page1-padding: 12mm; */
   --estimate-page2-padding: 14mm;
   --estimate-page3-padding: 14mm;
 }

@@ -17,6 +17,8 @@ interface AuthPayload {
   expiresAt: string;
 }
 
+const PDF_RENDER_AUTH_SESSION_STORAGE_KEY = 'tour_estimate_pdf_auth_session';
+
 interface AuthContextValue {
   status: AuthStatus;
   employee: SessionEmployee | null;
@@ -81,6 +83,43 @@ const LOGOUT_MUTATION = `
   }
 `;
 
+function readPdfRenderBootstrapSession(): AuthPayload | null {
+  try {
+    const raw = window.sessionStorage.getItem(PDF_RENDER_AUTH_SESSION_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    window.sessionStorage.removeItem(PDF_RENDER_AUTH_SESSION_STORAGE_KEY);
+    const parsed = JSON.parse(raw) as Partial<AuthPayload> | null;
+    if (
+      !parsed ||
+      typeof parsed.accessToken !== 'string' ||
+      typeof parsed.expiresAt !== 'string' ||
+      !parsed.employee ||
+      typeof parsed.employee.id !== 'string' ||
+      typeof parsed.employee.name !== 'string' ||
+      typeof parsed.employee.email !== 'string' ||
+      typeof parsed.employee.role !== 'string'
+    ) {
+      return null;
+    }
+
+    return {
+      accessToken: parsed.accessToken,
+      expiresAt: parsed.expiresAt,
+      employee: {
+        id: parsed.employee.id,
+        name: parsed.employee.name,
+        email: parsed.employee.email,
+        role: parsed.employee.role as SessionEmployee['role'],
+      },
+    };
+  } catch (_error) {
+    return null;
+  }
+}
+
 async function requestGraphql<TData>(query: string, variables?: Record<string, unknown>): Promise<TData> {
   const response = await fetch(GRAPHQL_URL, {
     method: 'POST',
@@ -117,11 +156,13 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
   const accessTokenRef = useRef<string | null>(null);
   const expiresAtRef = useRef<string | null>(null);
   const statusRef = useRef<AuthStatus>('loading');
+  const bootstrapSessionActiveRef = useRef(false);
   const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
 
-  const applySession = useCallback((payload: AuthPayload): string => {
+  const applySession = useCallback((payload: AuthPayload, options?: { bootstrap?: boolean }): string => {
     accessTokenRef.current = payload.accessToken;
     expiresAtRef.current = payload.expiresAt;
+    bootstrapSessionActiveRef.current = options?.bootstrap === true;
     statusRef.current = 'authenticated';
     setEmployee(payload.employee);
     setExpiresAt(payload.expiresAt);
@@ -132,6 +173,7 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
   const clearSession = useCallback((): null => {
     accessTokenRef.current = null;
     expiresAtRef.current = null;
+    bootstrapSessionActiveRef.current = false;
     statusRef.current = 'unauthenticated';
     setEmployee(null);
     setExpiresAt(null);
@@ -145,7 +187,7 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
     }
 
     const promise = requestGraphql<{ refreshAccessToken: AuthPayload }>(REFRESH_MUTATION)
-      .then((data) => applySession(data.refreshAccessToken))
+      .then((data) => applySession(data.refreshAccessToken, { bootstrap: false }))
       .catch(() => clearSession())
       .finally(() => {
         refreshPromiseRef.current = null;
@@ -156,15 +198,21 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
   }, [applySession, clearSession]);
 
   useEffect(() => {
+    const bootstrapSession = readPdfRenderBootstrapSession();
+    if (bootstrapSession) {
+      applySession(bootstrapSession, { bootstrap: true });
+      return;
+    }
+
     void refreshSession();
-  }, [refreshSession]);
+  }, [applySession, refreshSession]);
 
   const login = useCallback(
     async (email: string, password: string): Promise<void> => {
       const data = await requestGraphql<{ login: AuthPayload }>(LOGIN_MUTATION, {
         input: { email, password },
       });
-      applySession(data.login);
+      applySession(data.login, { bootstrap: false });
     },
     [applySession],
   );
@@ -174,7 +222,7 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
       const data = await requestGraphql<{ registerEmployee: AuthPayload }>(REGISTER_MUTATION, {
         input: { name, email, password },
       });
-      applySession(data.registerEmployee);
+      applySession(data.registerEmployee, { bootstrap: false });
     },
     [applySession],
   );
@@ -192,8 +240,14 @@ export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
     async (forceRefresh = false): Promise<string | null> => {
       if (!forceRefresh && accessTokenRef.current && expiresAtRef.current) {
         const expiresAtTime = Date.parse(expiresAtRef.current);
-        if (!Number.isNaN(expiresAtTime) && expiresAtTime - Date.now() > 30_000) {
-          return accessTokenRef.current;
+        if (!Number.isNaN(expiresAtTime)) {
+          if (bootstrapSessionActiveRef.current && expiresAtTime > Date.now()) {
+            return accessTokenRef.current;
+          }
+
+          if (!bootstrapSessionActiveRef.current && expiresAtTime - Date.now() > 30_000) {
+            return accessTokenRef.current;
+          }
         }
       }
 

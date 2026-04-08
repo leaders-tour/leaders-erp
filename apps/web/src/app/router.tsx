@@ -8,6 +8,7 @@ import { CustomerPage } from '../pages/CustomerPage';
 import { CustomerPlansPage } from '../pages/CustomerPlansPage';
 import { DealPipelinePage } from '../pages/DealPipelinePage';
 import { EmployeeAdminPage } from '../pages/EmployeeAdminPage';
+import { EstimatePdfRenderPage } from '../pages/EstimatePdfRenderPage';
 import { EstimatePrintPage } from '../pages/EstimatePrintPage';
 import { EventPage } from '../pages/EventPage';
 import { ItineraryBuilderPage } from '../pages/ItineraryBuilderPage';
@@ -40,6 +41,10 @@ import { SpecialMealDestinationRulesPage } from '../pages/SpecialMealDestination
 import { TodoListPage } from '../pages/TodoListPage';
 
 export const router = createBrowserRouter([
+  {
+    path: '/documents/estimate/render',
+    element: <EstimatePdfRenderPage />,
+  },
   {
     path: '/login',
     element: (

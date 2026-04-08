@@ -1,6 +1,10 @@
 import { Button, Card } from '@tour/ui';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useEstimatePdfDownload } from '../features/estimate/hooks/use-estimate-pdf-download';
+import { fromVersion } from '../features/estimate/adapters';
+import { useEstimateLocationGuides } from '../features/estimate/hooks/use-estimate-location-guides';
+import { applyLocationGuides } from '../features/estimate/utils/apply-location-guides';
 import { VersionSnapshotView } from '../features/plan/components';
 import { buildExternalTransferDirectionText } from '../features/plan/external-transfer';
 import { usePlanVersionDetail, useSetCurrentPlanVersion } from '../features/plan/hooks';
@@ -81,9 +85,15 @@ function formatPricingLineQuantityDisplay(
 export function PlanVersionDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { planId, versionId } = useParams<{ planId: string; versionId: string }>();
+  const { downloading, downloadEstimatePdf } = useEstimatePdfDownload();
   const { version, loading } = usePlanVersionDetail(versionId);
+  const { guideRows, loading: guidesLoading } = useEstimateLocationGuides();
   const { setCurrentPlanVersion, loading: settingCurrent } = useSetCurrentPlanVersion();
   const [confirming, setConfirming] = useState(false);
+  const estimateDocumentData = useMemo(
+    () => (version ? applyLocationGuides(fromVersion(version), guideRows) : null),
+    [guideRows, version],
+  );
 
   if (!planId || !versionId) {
     return <section className="py-8 text-sm text-slate-600">잘못된 접근입니다.</section>;
@@ -180,15 +190,17 @@ export function PlanVersionDetailPage(): JSX.Element {
           </Button>
           <Button
             variant="outline"
-            onClick={() =>
-              window.open(
-                `/documents/estimate?mode=version&versionId=${encodeURIComponent(version.id)}`,
-                '_blank',
-                'noopener,noreferrer',
-              )
-            }
+            onClick={() => {
+              void downloadEstimatePdf({
+                data: estimateDocumentData ?? applyLocationGuides(fromVersion(version), guideRows),
+                fileName: `${version.plan.title || version.id} 견적서.pdf`,
+              }).catch((error) => {
+                window.alert(error instanceof Error ? error.message : '견적서 PDF 다운로드에 실패했습니다.');
+              });
+            }}
+            disabled={downloading || guidesLoading || !estimateDocumentData}
           >
-            견적서 PDF
+            {downloading ? 'PDF 생성 중...' : '견적서 PDF'}
           </Button>
           <Button
             variant="primary"

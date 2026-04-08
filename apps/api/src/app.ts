@@ -5,6 +5,14 @@ import express from 'express';
 import type { RequestHandler } from 'express';
 import { Readable } from 'node:stream';
 import { createContext } from './context';
+import {
+  buildContentDisposition,
+  buildEstimatePdfFilename,
+  getEstimateRenderSession,
+  getEstimatePdfRenderBaseUrl,
+  parseEstimatePdfRequestBody,
+  renderEstimateDocumentPdf,
+} from './lib/pdf/estimate-pdf';
 import { toGraphQLErrorExtensions } from './lib/errors';
 import type { UploadFile } from './lib/file-storage/client';
 import { resolvers } from './resolvers';
@@ -26,6 +34,19 @@ function getAllowedWebOrigins(): string[] {
     .split(',')
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
+}
+
+function createCorsMiddleware(allowedWebOrigins: ReadonlySet<string>) {
+  return cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedWebOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+  });
 }
 
 function setValueByPath(target: JsonObject, path: string, value: unknown) {
@@ -125,6 +146,8 @@ const parseGraphqlMultipartRequest: RequestHandler = async (req, _res, next) => 
 export async function createApp(): Promise<express.Express> {
   const app = express();
   const allowedWebOrigins = new Set(getAllowedWebOrigins());
+  const corsMiddleware = createCorsMiddleware(allowedWebOrigins);
+  const estimatePdfRenderBaseUrl = getEstimatePdfRenderBaseUrl([...allowedWebOrigins]);
 
   const server = new ApolloServer({
     typeDefs,
@@ -149,22 +172,61 @@ export async function createApp(): Promise<express.Express> {
 
   app.use(
     '/graphql',
-    cors({
-      origin: (origin, callback) => {
-        if (!origin || allowedWebOrigins.has(origin)) {
-          callback(null, true);
-          return;
-        }
-        callback(new Error('Not allowed by CORS'));
-      },
-      credentials: true,
-    }),
+    corsMiddleware,
     parseGraphqlMultipartRequest,
     express.json(),
     expressMiddleware(server, {
       context: async ({ req, res }) => createContext({ req, res }),
     }),
   );
+
+  app.options('/documents/estimate/pdf', corsMiddleware);
+  app.options('/documents/estimate/render-sessions/:token', corsMiddleware);
+
+  app.post('/documents/estimate/pdf', corsMiddleware, express.json({ limit: '5mb' }), async (req, res, next) => {
+    try {
+      const context = await createContext({ req, res });
+      if (!context.employee) {
+        res.status(401).json({ message: '인증이 필요합니다.' });
+        return;
+      }
+
+      const request = parseEstimatePdfRequestBody(req.body);
+      const pdfBuffer = await renderEstimateDocumentPdf({
+        data: request.data,
+        renderBaseUrl: estimatePdfRenderBaseUrl,
+      });
+      const filename = buildEstimatePdfFilename({
+        planTitle: typeof request.data.planTitle === 'string' ? request.data.planTitle : null,
+        fileName: request.fileName,
+      });
+
+      res.setHeader('content-type', 'application/pdf');
+      res.setHeader('content-disposition', buildContentDisposition(filename));
+      res.setHeader('content-length', String(pdfBuffer.length));
+      res.status(200).send(pdfBuffer);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/documents/estimate/render-sessions/:token', corsMiddleware, (req, res) => {
+    const token = req.params.token?.trim();
+    if (!token) {
+      res.status(400).json({ message: 'render token이 필요합니다.' });
+      return;
+    }
+
+    const session = getEstimateRenderSession(token);
+    if (!session) {
+      res.status(404).json({ message: '렌더 세션이 만료되었거나 존재하지 않습니다.' });
+      return;
+    }
+
+    res.status(200).json({
+      data: session.data,
+    });
+  });
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
