@@ -35,7 +35,6 @@ const estimateDocumentDataSchema = z.object({
 
 const estimatePdfRequestSchema = z.object({
   data: estimateDocumentDataSchema,
-  fileName: z.string().trim().min(1).optional(),
 });
 
 interface EstimateRenderSession {
@@ -164,12 +163,10 @@ export function getEstimatePdfRenderBaseUrl(fallbackOrigins: readonly string[]):
 
 export function parseEstimatePdfRequestBody(body: unknown): {
   data: Record<string, unknown>;
-  fileName?: string;
 } {
   const parsed = estimatePdfRequestSchema.parse(body);
   return {
     data: parsed.data,
-    fileName: parsed.fileName,
   };
 }
 
@@ -228,10 +225,12 @@ export function buildContentDisposition(filename: string): string {
   return `attachment; filename="${safeAsciiFilename}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
-export function buildEstimatePdfFilename(input: { planTitle?: string | null; fileName?: string }): string {
-  if (input.fileName) {
-    return buildContentFilename(input.fileName);
-  }
-
-  return buildContentFilename(`${input.planTitle || 'estimate'} 견적서`);
+export function buildEstimatePdfFilename(input: {
+  leaderName?: string | null;
+  documentNumber?: string | null;
+  isDraft?: boolean | null;
+}): string {
+  const leaderName = input.leaderName?.trim() || '고객';
+  const documentNumberPart = input.isDraft ? '임시본' : input.documentNumber?.trim() || '문서번호없음';
+  return buildContentFilename(`리더스_${leaderName}님_맞춤견적서_${documentNumberPart}`);
 }

@@ -46,6 +46,7 @@ function createCorsMiddleware(allowedWebOrigins: ReadonlySet<string>) {
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
+    exposedHeaders: ['content-disposition'],
   });
 }
 
@@ -197,8 +198,9 @@ export async function createApp(): Promise<express.Express> {
         renderBaseUrl: estimatePdfRenderBaseUrl,
       });
       const filename = buildEstimatePdfFilename({
-        planTitle: typeof request.data.planTitle === 'string' ? request.data.planTitle : null,
-        fileName: request.fileName,
+        leaderName: typeof request.data.leaderName === 'string' ? request.data.leaderName : null,
+        documentNumber: typeof request.data.documentNumber === 'string' ? request.data.documentNumber : null,
+        isDraft: request.data.isDraft === true,
       });
 
       res.setHeader('content-type', 'application/pdf');

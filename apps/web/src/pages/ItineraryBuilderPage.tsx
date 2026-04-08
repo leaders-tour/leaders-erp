@@ -4311,7 +4311,6 @@ export function ItineraryBuilderPage(): JSX.Element {
 
     void downloadEstimatePdf({
       data: previewEstimateData,
-      fileName: `${previewEstimateData.planTitle || 'estimate'} 견적서.pdf`,
     }).catch((error) => {
       window.alert(error instanceof Error ? error.message : '견적서 PDF 다운로드에 실패했습니다.');
     });

@@ -33,7 +33,6 @@ export function EstimatePrintPage(): JSX.Element {
 
       await downloadEstimatePdf({
         data,
-        fileName: `${data.planTitle || 'estimate'} 견적서.pdf`,
       });
     } catch (error) {
       setDownloadError(error instanceof Error ? error.message : 'PDF 다운로드에 실패했습니다.');

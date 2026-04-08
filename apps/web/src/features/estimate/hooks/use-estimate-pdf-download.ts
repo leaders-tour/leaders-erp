@@ -44,7 +44,7 @@ function triggerBlobDownload(blob: Blob, filename: string): void {
 
 export function useEstimatePdfDownload(): {
   downloading: boolean;
-  downloadEstimatePdf: (input: { data: EstimateDocumentData; fileName?: string }) => Promise<void>;
+  downloadEstimatePdf: (input: { data: EstimateDocumentData }) => Promise<void>;
 } {
   const { ensureAccessToken } = useAuth();
   const [downloading, setDownloading] = useState(false);
@@ -69,7 +69,7 @@ export function useEstimatePdfDownload(): {
   );
 
   const downloadEstimatePdf = useCallback(
-    async (input: { data: EstimateDocumentData; fileName?: string }): Promise<void> => {
+    async (input: { data: EstimateDocumentData }): Promise<void> => {
       setDownloading(true);
       try {
         const response = await authorizedFetch(`${API_BASE_URL}/documents/estimate/pdf`, {
@@ -86,10 +86,7 @@ export function useEstimatePdfDownload(): {
         const blob = await response.blob();
         triggerBlobDownload(
           blob,
-          getFilenameFromDisposition(
-            response.headers.get('content-disposition'),
-            input.fileName || `${input.data.planTitle || 'estimate'}.pdf`,
-          ),
+          getFilenameFromDisposition(response.headers.get('content-disposition'), `${input.data.planTitle || 'estimate'}.pdf`),
         );
       } finally {
         setDownloading(false);

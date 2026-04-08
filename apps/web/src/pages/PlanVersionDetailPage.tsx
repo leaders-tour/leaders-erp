@@ -193,7 +193,6 @@ export function PlanVersionDetailPage(): JSX.Element {
             onClick={() => {
               void downloadEstimatePdf({
                 data: estimateDocumentData ?? applyLocationGuides(fromVersion(version), guideRows),
-                fileName: `${version.plan.title || version.id} 견적서.pdf`,
               }).catch((error) => {
                 window.alert(error instanceof Error ? error.message : '견적서 PDF 다운로드에 실패했습니다.');
               });
