@@ -31,6 +31,7 @@ RUN npm install -g pnpm@9.12.2
 COPY . .
 
 ENV NODE_ENV=production
+ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 
 RUN pnpm install --frozen-lockfile --prod=false
 RUN cd apps/api && pnpm exec puppeteer browsers install chrome
