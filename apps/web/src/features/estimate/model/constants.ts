@@ -30,13 +30,13 @@ export const ESTIMATE_PAGE2_FOOTER_NOTICES = [
 export const ESTIMATE_PAGE3_TITLE = '여행지 안내사항';
 
 export const ESTIMATE_IMAGE_PAGE_SRCS = [
-  '/estimate/page-04.png',
-  '/estimate/page-05.png',
-  '/estimate/page-06.png',
-  '/estimate/page-07.png',
-  '/estimate/page-08.png',
-  '/estimate/page-09.png',
-  '/estimate/page-10.png',
-  '/estimate/page-11.png',
-  '/estimate/page-12.png',
+  '/estimate/page-04.webp',
+  '/estimate/page-05.webp',
+  '/estimate/page-06.webp',
+  '/estimate/page-07.webp',
+  '/estimate/page-08.webp',
+  '/estimate/page-09.webp',
+  '/estimate/page-10.webp',
+  '/estimate/page-11.webp',
+  '/estimate/page-12.webp',
 ] as const;
