@@ -5,6 +5,8 @@ import { z } from 'zod';
 const PDF_RENDER_TIMEOUT_MS = 120_000;
 const PUPPETEER_PROTOCOL_TIMEOUT_MS = 180_000;
 const PDF_RENDER_SESSION_TTL_MS = 5 * 60_000;
+const PDF_JOB_RUNNING_TTL_MS = 10 * 60_000;
+const PDF_JOB_COMPLETED_TTL_MS = 5 * 60_000;
 const DEFAULT_RENDER_BASE_URL = 'http://localhost:5173';
 const PUPPETEER_LAUNCH_ARGS = [
   '--no-sandbox',
@@ -57,6 +59,19 @@ interface EstimateRenderSession {
 interface RenderEstimatePdfInput {
   sessionToken: string;
   renderBaseUrl: string;
+}
+
+export type EstimatePdfJobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
+
+interface EstimatePdfJob {
+  id: string;
+  status: EstimatePdfJobStatus;
+  createdAt: number;
+  expiresAt: number;
+  filename: string;
+  data: Record<string, unknown>;
+  pdfBuffer?: Buffer;
+  errorMessage?: string;
 }
 
 let browserInstancePromise: Promise<Browser> | null = null;
@@ -216,6 +231,7 @@ async function renderEstimatePdf(input: RenderEstimatePdfInput): Promise<Buffer>
 }
 
 const estimateRenderSessions = new Map<string, EstimateRenderSession>();
+const estimatePdfJobs = new Map<string, EstimatePdfJob>();
 
 function cleanupExpiredEstimateRenderSessions(): void {
   const now = Date.now();
@@ -223,6 +239,75 @@ function cleanupExpiredEstimateRenderSessions(): void {
     if (session.expiresAt <= now) {
       estimateRenderSessions.delete(token);
     }
+  }
+}
+
+function cleanupExpiredEstimatePdfJobs(): void {
+  const now = Date.now();
+  for (const [jobId, job] of estimatePdfJobs.entries()) {
+    if (job.expiresAt <= now) {
+      estimatePdfJobs.delete(jobId);
+    }
+  }
+}
+
+function getEstimatePdfJobFilename(data: Record<string, unknown>): string {
+  return buildEstimatePdfFilename({
+    leaderName: typeof data.leaderName === 'string' ? data.leaderName : null,
+    documentNumber: typeof data.documentNumber === 'string' ? data.documentNumber : null,
+    isDraft: data.isDraft === true,
+  });
+}
+
+function toJobErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'PDF 생성에 실패했습니다.';
+}
+
+function markEstimatePdfJobComplete(jobId: string, input: { status: 'succeeded'; pdfBuffer: Buffer } | { status: 'failed'; errorMessage: string }): void {
+  const job = estimatePdfJobs.get(jobId);
+  if (!job) {
+    return;
+  }
+
+  job.status = input.status;
+  job.expiresAt = Date.now() + PDF_JOB_COMPLETED_TTL_MS;
+
+  if (input.status === 'succeeded') {
+    job.pdfBuffer = input.pdfBuffer;
+    delete job.errorMessage;
+    return;
+  }
+
+  delete job.pdfBuffer;
+  job.errorMessage = input.errorMessage;
+}
+
+async function runEstimatePdfJob(input: { jobId: string; renderBaseUrl: string }): Promise<void> {
+  const job = estimatePdfJobs.get(input.jobId);
+  if (!job) {
+    return;
+  }
+
+  job.status = 'running';
+  logEstimatePdf(input.jobId, 'job status updated', { status: job.status });
+
+  try {
+    const pdfBuffer = await renderEstimateDocumentPdf({
+      data: job.data,
+      renderBaseUrl: input.renderBaseUrl,
+    });
+    markEstimatePdfJobComplete(input.jobId, {
+      status: 'succeeded',
+      pdfBuffer,
+    });
+    logEstimatePdf(input.jobId, 'job status updated', { status: 'succeeded', bytes: pdfBuffer.length });
+  } catch (error) {
+    const errorMessage = toJobErrorMessage(error);
+    markEstimatePdfJobComplete(input.jobId, {
+      status: 'failed',
+      errorMessage,
+    });
+    logEstimatePdfError(input.jobId, 'job failed', error);
   }
 }
 
@@ -273,6 +358,79 @@ export function getEstimateRenderSession(token: string): EstimateRenderSession |
   }
 
   return session;
+}
+
+export function createEstimatePdfJob(input: {
+  data: Record<string, unknown>;
+  renderBaseUrl: string;
+}): {
+  jobId: string;
+  status: EstimatePdfJobStatus;
+} {
+  cleanupExpiredEstimatePdfJobs();
+
+  const now = Date.now();
+  const jobId = randomUUID();
+  estimatePdfJobs.set(jobId, {
+    id: jobId,
+    status: 'queued',
+    createdAt: now,
+    expiresAt: now + PDF_JOB_RUNNING_TTL_MS,
+    filename: getEstimatePdfJobFilename(input.data),
+    data: input.data,
+  });
+  logEstimatePdf(jobId, 'created PDF job');
+
+  void runEstimatePdfJob({
+    jobId,
+    renderBaseUrl: input.renderBaseUrl,
+  });
+
+  return {
+    jobId,
+    status: 'queued',
+  };
+}
+
+export function getEstimatePdfJob(jobId: string): {
+  jobId: string;
+  status: EstimatePdfJobStatus;
+  errorMessage?: string;
+  filename: string;
+  ready: boolean;
+} | null {
+  cleanupExpiredEstimatePdfJobs();
+  const job = estimatePdfJobs.get(jobId);
+  if (!job) {
+    return null;
+  }
+
+  return {
+    jobId: job.id,
+    status: job.status,
+    errorMessage: job.errorMessage,
+    filename: job.filename,
+    ready: job.status === 'succeeded',
+  };
+}
+
+export function consumeEstimatePdfJobResult(jobId: string): {
+  filename: string;
+  pdfBuffer: Buffer;
+} | null {
+  cleanupExpiredEstimatePdfJobs();
+  const job = estimatePdfJobs.get(jobId);
+  if (!job || job.status !== 'succeeded' || !job.pdfBuffer) {
+    return null;
+  }
+
+  estimatePdfJobs.delete(jobId);
+  logEstimatePdf(jobId, 'consumed PDF job result');
+
+  return {
+    filename: job.filename,
+    pdfBuffer: job.pdfBuffer,
+  };
 }
 
 export async function renderEstimateDocumentPdf(input: {

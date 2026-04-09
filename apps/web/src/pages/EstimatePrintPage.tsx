@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button, Card } from '@tour/ui';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
-import { useEstimatePdfDownload } from '../features/estimate/hooks/use-estimate-pdf-download';
+import { getEstimatePdfDownloadLabel, useEstimatePdfDownload } from '../features/estimate/hooks/use-estimate-pdf-download';
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
 import type { EstimateSourceMode } from '../features/estimate/model/types';
 
@@ -15,7 +15,7 @@ export function EstimatePrintPage(): JSX.Element {
   const mode: EstimateSourceMode = modeParam === 'version' ? 'version' : 'draft';
   const versionId = searchParams.get('versionId');
   const draftKey = searchParams.get('draftKey');
-  const { downloading, downloadEstimatePdf } = useEstimatePdfDownload();
+  const { downloading, phase, downloadEstimatePdf } = useEstimatePdfDownload();
 
   const { data, loading, errorMessage } = useEstimateSource({
     mode,
@@ -50,7 +50,7 @@ export function EstimatePrintPage(): JSX.Element {
             이전 화면
           </Button>
           <Button onClick={() => void handleDownloadClick()} disabled={downloading || loading || !data}>
-            {downloading ? 'PDF 생성 중...' : 'PDF 다운로드'}
+            {getEstimatePdfDownloadLabel(phase)}
           </Button>
         </div>
       </div>

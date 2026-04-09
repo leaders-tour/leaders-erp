@@ -1,7 +1,7 @@
 import { Button, Card } from '@tour/ui';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useEstimatePdfDownload } from '../features/estimate/hooks/use-estimate-pdf-download';
+import { getEstimatePdfDownloadLabel, useEstimatePdfDownload } from '../features/estimate/hooks/use-estimate-pdf-download';
 import { fromVersion } from '../features/estimate/adapters';
 import { useEstimateLocationGuides } from '../features/estimate/hooks/use-estimate-location-guides';
 import { applyLocationGuides } from '../features/estimate/utils/apply-location-guides';
@@ -85,7 +85,7 @@ function formatPricingLineQuantityDisplay(
 export function PlanVersionDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { planId, versionId } = useParams<{ planId: string; versionId: string }>();
-  const { downloading, downloadEstimatePdf } = useEstimatePdfDownload();
+  const { downloading, phase, downloadEstimatePdf } = useEstimatePdfDownload();
   const { version, loading } = usePlanVersionDetail(versionId);
   const { guideRows, loading: guidesLoading } = useEstimateLocationGuides();
   const { setCurrentPlanVersion, loading: settingCurrent } = useSetCurrentPlanVersion();
@@ -199,7 +199,7 @@ export function PlanVersionDetailPage(): JSX.Element {
             }}
             disabled={downloading || guidesLoading || !estimateDocumentData}
           >
-            {downloading ? 'PDF 생성 중...' : '견적서 PDF'}
+            {downloading ? getEstimatePdfDownloadLabel(phase) : '견적서 PDF'}
           </Button>
           <Button
             variant="primary"

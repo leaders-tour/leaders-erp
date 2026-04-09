@@ -8,6 +8,9 @@ import { createContext } from './context';
 import {
   buildContentDisposition,
   buildEstimatePdfFilename,
+  consumeEstimatePdfJobResult,
+  createEstimatePdfJob,
+  getEstimatePdfJob,
   getEstimateRenderSession,
   getEstimatePdfRenderBaseUrl,
   parseEstimatePdfRequestBody,
@@ -195,6 +198,9 @@ export async function createApp(): Promise<express.Express> {
   );
 
   app.options('/documents/estimate/pdf', corsMiddleware);
+  app.options('/documents/estimate/pdf-jobs', corsMiddleware);
+  app.options('/documents/estimate/pdf-jobs/:jobId', corsMiddleware);
+  app.options('/documents/estimate/pdf-jobs/:jobId/download', corsMiddleware);
   app.options('/documents/estimate/render-sessions/:token', corsMiddleware);
 
   app.post('/documents/estimate/pdf', corsMiddleware, express.json({ limit: '5mb' }), async (req, res, next) => {
@@ -220,6 +226,97 @@ export async function createApp(): Promise<express.Express> {
       res.setHeader('content-disposition', buildContentDisposition(filename));
       res.setHeader('content-length', String(pdfBuffer.length));
       res.status(200).send(pdfBuffer);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/documents/estimate/pdf-jobs', corsMiddleware, express.json({ limit: '5mb' }), async (req, res, next) => {
+    try {
+      const context = await createContext({ req, res });
+      if (!context.employee) {
+        res.status(401).json({ message: '인증이 필요합니다.' });
+        return;
+      }
+
+      const request = parseEstimatePdfRequestBody(req.body);
+      const job = createEstimatePdfJob({
+        data: request.data,
+        renderBaseUrl: estimatePdfRenderBaseUrl,
+      });
+
+      res.status(202).json(job);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/documents/estimate/pdf-jobs/:jobId', corsMiddleware, async (req, res, next) => {
+    try {
+      const context = await createContext({ req, res });
+      if (!context.employee) {
+        res.status(401).json({ message: '인증이 필요합니다.' });
+        return;
+      }
+
+      const jobId = req.params.jobId?.trim();
+      if (!jobId) {
+        res.status(400).json({ message: 'jobId가 필요합니다.' });
+        return;
+      }
+
+      const job = getEstimatePdfJob(jobId);
+      if (!job) {
+        res.status(404).json({ message: 'PDF 생성 작업을 찾을 수 없거나 만료되었습니다.' });
+        return;
+      }
+
+      res.status(200).json(job);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/documents/estimate/pdf-jobs/:jobId/download', corsMiddleware, async (req, res, next) => {
+    try {
+      const context = await createContext({ req, res });
+      if (!context.employee) {
+        res.status(401).json({ message: '인증이 필요합니다.' });
+        return;
+      }
+
+      const jobId = req.params.jobId?.trim();
+      if (!jobId) {
+        res.status(400).json({ message: 'jobId가 필요합니다.' });
+        return;
+      }
+
+      const job = getEstimatePdfJob(jobId);
+      if (!job) {
+        res.status(404).json({ message: 'PDF 생성 작업을 찾을 수 없거나 만료되었습니다.' });
+        return;
+      }
+
+      if (job.status === 'failed') {
+        res.status(409).json({ message: job.errorMessage || 'PDF 생성에 실패했습니다.' });
+        return;
+      }
+
+      if (job.status !== 'succeeded') {
+        res.status(409).json({ message: 'PDF 생성이 아직 완료되지 않았습니다.' });
+        return;
+      }
+
+      const result = consumeEstimatePdfJobResult(jobId);
+      if (!result) {
+        res.status(404).json({ message: 'PDF 생성 결과를 찾을 수 없거나 이미 다운로드되었습니다.' });
+        return;
+      }
+
+      res.setHeader('content-type', 'application/pdf');
+      res.setHeader('content-disposition', buildContentDisposition(result.filename));
+      res.setHeader('content-length', String(result.pdfBuffer.length));
+      res.status(200).send(result.pdfBuffer);
     } catch (error) {
       next(error);
     }

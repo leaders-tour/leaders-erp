@@ -12,7 +12,7 @@ import { TimePickerModal } from '../components/date-picker/TimePickerModal';
 import { formatTimeTriggerLabel } from '../components/date-picker/time-picker-utils';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
-import { useEstimatePdfDownload } from '../features/estimate/hooks/use-estimate-pdf-download';
+import { getEstimatePdfDownloadLabel, useEstimatePdfDownload } from '../features/estimate/hooks/use-estimate-pdf-download';
 import { averageMovementIntensity } from '../features/estimate/model/movement-intensity';
 import type {
   EstimateBuilderDraftSnapshot,
@@ -2332,7 +2332,7 @@ function TimeInputTrigger({
 
 export function ItineraryBuilderPage(): JSX.Element {
   const { employee } = useAuth();
-  const { downloading: downloadingEstimatePdf, downloadEstimatePdf } = useEstimatePdfDownload();
+  const { downloading: downloadingEstimatePdf, phase: estimatePdfPhase, downloadEstimatePdf } = useEstimatePdfDownload();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -4609,7 +4609,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                   onClick={openEstimatePdf}
                   disabled={downloadingEstimatePdf || previewGuidesLoading || !previewEstimateData}
                 >
-                  {downloadingEstimatePdf ? 'PDF 생성 중...' : '견적서 PDF'}
+                  {downloadingEstimatePdf ? getEstimatePdfDownloadLabel(estimatePdfPhase) : '견적서 PDF'}
                 </Button>
                 <Button
                   variant="outline"
