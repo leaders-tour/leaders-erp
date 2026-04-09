@@ -148,7 +148,7 @@ const parseGraphqlMultipartRequest: RequestHandler = async (req, _res, next) => 
 };
 
 const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
-  console.error(`[api] ${req.method} ${req.originalUrl} failed`, error);
+  console.error(`[api] ${req.method} ${req.originalUrl} 요청 처리 중 오류가 발생했습니다.`, error);
 
   if (res.headersSent) {
     next(error);

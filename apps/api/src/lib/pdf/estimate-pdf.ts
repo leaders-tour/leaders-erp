@@ -76,14 +76,6 @@ interface EstimatePdfJob {
 
 let browserInstancePromise: Promise<Browser> | null = null;
 
-function logEstimatePdf(sessionToken: string, message: string, extra?: unknown): void {
-  if (extra === undefined) {
-    console.log(`[estimate-pdf:${sessionToken}] ${message}`);
-    return;
-  }
-  console.log(`[estimate-pdf:${sessionToken}] ${message}`, extra);
-}
-
 function logEstimatePdfError(sessionToken: string, message: string, error: unknown): void {
   console.error(`[estimate-pdf:${sessionToken}] ${message}`, error);
 }
@@ -139,7 +131,6 @@ async function waitForEstimatePageReady(page: Page): Promise<void> {
 }
 
 async function launchBrowser(): Promise<Browser> {
-  console.log('[estimate-pdf] launching browser');
   const browser = await puppeteer.launch({
     headless: true,
     protocolTimeout: PUPPETEER_PROTOCOL_TIMEOUT_MS,
@@ -148,11 +139,9 @@ async function launchBrowser(): Promise<Browser> {
   });
 
   browser.on('disconnected', () => {
-    console.warn('[estimate-pdf] browser disconnected');
     browserInstancePromise = null;
   });
 
-  console.log('[estimate-pdf] browser launched');
   return browser;
 }
 
@@ -168,22 +157,20 @@ async function getOrLaunchBrowser(): Promise<Browser> {
 }
 
 async function renderEstimatePdf(input: RenderEstimatePdfInput): Promise<Buffer> {
-  logEstimatePdf(input.sessionToken, 'starting PDF render', { renderBaseUrl: input.renderBaseUrl });
   const browser = await getOrLaunchBrowser();
   const page = await browser.newPage();
 
   try {
     page.setDefaultTimeout(PDF_RENDER_TIMEOUT_MS);
     page.setDefaultNavigationTimeout(PDF_RENDER_TIMEOUT_MS);
-    page.on('console', (message) => {
-      console.log(`[estimate-pdf:${input.sessionToken}] page console ${message.type()}: ${message.text()}`);
-    });
     page.on('pageerror', (error) => {
-      logEstimatePdfError(input.sessionToken, 'page error', error);
+      logEstimatePdfError(input.sessionToken, 'PDF 렌더 페이지 내부 오류가 발생했습니다.', error);
     });
     page.on('requestfailed', (request) => {
-      console.warn(
-        `[estimate-pdf:${input.sessionToken}] request failed: ${request.method()} ${request.url()} ${request.failure()?.errorText ?? 'unknown'}`,
+      logEstimatePdfError(
+        input.sessionToken,
+        `렌더 페이지 요청에 실패했습니다. (${request.method()} ${request.url()} - ${request.failure()?.errorText ?? '원인 미상'})`,
+        new Error('렌더 페이지 요청 실패'),
       );
     });
 
@@ -192,21 +179,16 @@ async function renderEstimatePdf(input: RenderEstimatePdfInput): Promise<Buffer>
       token: input.sessionToken,
     });
 
-    logEstimatePdf(input.sessionToken, 'navigating to render page', { url });
     await page.setViewport({ width: 1440, height: 2200, deviceScaleFactor: 1 });
 
     await page.goto(url, {
       waitUntil: 'domcontentloaded',
       timeout: PDF_RENDER_TIMEOUT_MS,
     });
-    logEstimatePdf(input.sessionToken, 'render page loaded');
 
-    logEstimatePdf(input.sessionToken, 'waiting for render readiness');
     await waitForEstimatePageReady(page);
-    logEstimatePdf(input.sessionToken, 'render readiness confirmed');
     await page.emulateMediaType('print');
 
-    logEstimatePdf(input.sessionToken, 'starting page.pdf');
     const pdf = await page.pdf({
       printBackground: true,
       preferCSSPageSize: true,
@@ -219,13 +201,11 @@ async function renderEstimatePdf(input: RenderEstimatePdfInput): Promise<Buffer>
       },
     });
 
-    logEstimatePdf(input.sessionToken, 'page.pdf completed', { bytes: pdf.length });
     return Buffer.from(pdf);
   } catch (error) {
-    logEstimatePdfError(input.sessionToken, 'PDF render failed', error);
+    logEstimatePdfError(input.sessionToken, '견적서 PDF 생성 중 오류가 발생했습니다.', error);
     throw error;
   } finally {
-    logEstimatePdf(input.sessionToken, 'closing page');
     await page.close();
   }
 }
@@ -289,7 +269,6 @@ async function runEstimatePdfJob(input: { jobId: string; renderBaseUrl: string }
   }
 
   job.status = 'running';
-  logEstimatePdf(input.jobId, 'job status updated', { status: job.status });
 
   try {
     const pdfBuffer = await renderEstimateDocumentPdf({
@@ -300,14 +279,13 @@ async function runEstimatePdfJob(input: { jobId: string; renderBaseUrl: string }
       status: 'succeeded',
       pdfBuffer,
     });
-    logEstimatePdf(input.jobId, 'job status updated', { status: 'succeeded', bytes: pdfBuffer.length });
   } catch (error) {
     const errorMessage = toJobErrorMessage(error);
     markEstimatePdfJobComplete(input.jobId, {
       status: 'failed',
       errorMessage,
     });
-    logEstimatePdfError(input.jobId, 'job failed', error);
+    logEstimatePdfError(input.jobId, '비동기 PDF 작업이 실패했습니다.', error);
   }
 }
 
@@ -379,7 +357,6 @@ export function createEstimatePdfJob(input: {
     filename: getEstimatePdfJobFilename(input.data),
     data: input.data,
   });
-  logEstimatePdf(jobId, 'created PDF job');
 
   void runEstimatePdfJob({
     jobId,
@@ -425,7 +402,6 @@ export function consumeEstimatePdfJobResult(jobId: string): {
   }
 
   estimatePdfJobs.delete(jobId);
-  logEstimatePdf(jobId, 'consumed PDF job result');
 
   return {
     filename: job.filename,
@@ -439,13 +415,11 @@ export async function renderEstimateDocumentPdf(input: {
 }): Promise<Buffer> {
   const sessionToken = createEstimateRenderSession(input.data);
   try {
-    logEstimatePdf(sessionToken, 'created render session');
     return await renderEstimatePdf({
       sessionToken,
       renderBaseUrl: input.renderBaseUrl,
     });
   } finally {
-    logEstimatePdf(sessionToken, 'deleting render session');
     estimateRenderSessions.delete(sessionToken);
   }
 }
