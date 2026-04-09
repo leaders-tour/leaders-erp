@@ -2106,6 +2106,24 @@ function toMealCellText(fields: MealCellFields): string {
     .join('\n');
 }
 
+function resolveBreakfastFromPreviousLodging(lodgingCellText: string): string | null {
+  const firstLine = lodgingCellText.split('\n')[0]?.trim() ?? '';
+  const normalized = firstLine.replace(/\s+/g, '');
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized === '여행자캠프' || normalized.startsWith('LV4')) {
+    return '캠프식';
+  }
+
+  if (firstLine.includes('호텔')) {
+    return '호텔조식';
+  }
+
+  return null;
+}
+
 export function adjustLastDayMealCellText(
   value: string,
   input: {
@@ -2220,18 +2238,38 @@ export function applyLastDayAutoRowAdjustments<T extends {
     flightOutTime: string;
   },
 ): T[] {
-  return rows.map((row, index, allRows) => ({
-    ...row,
-    lodgingCellText: index === allRows.length - 1 ? '숙소미포함' : row.lodgingCellText,
-    mealCellText: index === allRows.length - 1 ? adjustLastDayMealCellText(row.mealCellText, input) : row.mealCellText,
-    ...(index === allRows.length - 1
-      ? (resolveLastDayAirportScheduleOverride({
-          timeCellText: row.timeCellText,
-          flightOutTime: input.flightOutTime,
-          dropTime: input.dropTime,
-        }) ?? {})
-      : {}),
-  }));
+  const flightOutMinutes = parseTimeToMinutes(input.flightOutTime);
+  const isBreakfastDepartureFlight =
+    flightOutMinutes !== null && flightOutMinutes >= 13 * 60 && flightOutMinutes <= 14 * 60;
+
+  return rows.map((row, index, allRows) => {
+    if (index !== allRows.length - 1) {
+      return row;
+    }
+
+    let mealCellText = adjustLastDayMealCellText(row.mealCellText, input);
+    const previousRow = index > 0 ? allRows[index - 1] : undefined;
+    const breakfastOverride =
+      isBreakfastDepartureFlight && previousRow
+        ? resolveBreakfastFromPreviousLodging(previousRow.lodgingCellText)
+        : null;
+
+    if (breakfastOverride) {
+      const mealFields = parseMealCellText(mealCellText);
+      mealCellText = toMealCellText({ ...mealFields, breakfast: breakfastOverride });
+    }
+
+    return {
+      ...row,
+      lodgingCellText: '숙소미포함',
+      mealCellText,
+      ...(resolveLastDayAirportScheduleOverride({
+        timeCellText: row.timeCellText,
+        flightOutTime: input.flightOutTime,
+        dropTime: input.dropTime,
+      }) ?? {}),
+    };
+  });
 }
 
 function autoResizeTextarea(element: HTMLTextAreaElement): void {
