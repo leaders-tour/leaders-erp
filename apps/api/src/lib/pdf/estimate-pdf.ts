@@ -61,6 +61,18 @@ interface RenderEstimatePdfInput {
 
 let browserInstancePromise: Promise<Browser> | null = null;
 
+function logEstimatePdf(sessionToken: string, message: string, extra?: unknown): void {
+  if (extra === undefined) {
+    console.log(`[estimate-pdf:${sessionToken}] ${message}`);
+    return;
+  }
+  console.log(`[estimate-pdf:${sessionToken}] ${message}`, extra);
+}
+
+function logEstimatePdfError(sessionToken: string, message: string, error: unknown): void {
+  console.error(`[estimate-pdf:${sessionToken}] ${message}`, error);
+}
+
 function ensureTrailingSlash(value: string): string {
   return value.endsWith('/') ? value : `${value}/`;
 }
@@ -112,6 +124,7 @@ async function waitForEstimatePageReady(page: Page): Promise<void> {
 }
 
 async function launchBrowser(): Promise<Browser> {
+  console.log('[estimate-pdf] launching browser');
   const browser = await puppeteer.launch({
     headless: true,
     protocolTimeout: PUPPETEER_PROTOCOL_TIMEOUT_MS,
@@ -120,9 +133,11 @@ async function launchBrowser(): Promise<Browser> {
   });
 
   browser.on('disconnected', () => {
+    console.warn('[estimate-pdf] browser disconnected');
     browserInstancePromise = null;
   });
 
+  console.log('[estimate-pdf] browser launched');
   return browser;
 }
 
@@ -138,28 +153,45 @@ async function getOrLaunchBrowser(): Promise<Browser> {
 }
 
 async function renderEstimatePdf(input: RenderEstimatePdfInput): Promise<Buffer> {
+  logEstimatePdf(input.sessionToken, 'starting PDF render', { renderBaseUrl: input.renderBaseUrl });
   const browser = await getOrLaunchBrowser();
   const page = await browser.newPage();
 
   try {
     page.setDefaultTimeout(PDF_RENDER_TIMEOUT_MS);
     page.setDefaultNavigationTimeout(PDF_RENDER_TIMEOUT_MS);
+    page.on('console', (message) => {
+      console.log(`[estimate-pdf:${input.sessionToken}] page console ${message.type()}: ${message.text()}`);
+    });
+    page.on('pageerror', (error) => {
+      logEstimatePdfError(input.sessionToken, 'page error', error);
+    });
+    page.on('requestfailed', (request) => {
+      console.warn(
+        `[estimate-pdf:${input.sessionToken}] request failed: ${request.method()} ${request.url()} ${request.failure()?.errorText ?? 'unknown'}`,
+      );
+    });
 
     const url = buildEstimateRenderUrl({
       renderBaseUrl: input.renderBaseUrl,
       token: input.sessionToken,
     });
 
+    logEstimatePdf(input.sessionToken, 'navigating to render page', { url });
     await page.setViewport({ width: 1440, height: 2200, deviceScaleFactor: 1 });
 
     await page.goto(url, {
       waitUntil: 'domcontentloaded',
       timeout: PDF_RENDER_TIMEOUT_MS,
     });
+    logEstimatePdf(input.sessionToken, 'render page loaded');
 
+    logEstimatePdf(input.sessionToken, 'waiting for render readiness');
     await waitForEstimatePageReady(page);
+    logEstimatePdf(input.sessionToken, 'render readiness confirmed');
     await page.emulateMediaType('print');
 
+    logEstimatePdf(input.sessionToken, 'starting page.pdf');
     const pdf = await page.pdf({
       printBackground: true,
       preferCSSPageSize: true,
@@ -172,8 +204,13 @@ async function renderEstimatePdf(input: RenderEstimatePdfInput): Promise<Buffer>
       },
     });
 
+    logEstimatePdf(input.sessionToken, 'page.pdf completed', { bytes: pdf.length });
     return Buffer.from(pdf);
+  } catch (error) {
+    logEstimatePdfError(input.sessionToken, 'PDF render failed', error);
+    throw error;
   } finally {
+    logEstimatePdf(input.sessionToken, 'closing page');
     await page.close();
   }
 }
@@ -244,11 +281,13 @@ export async function renderEstimateDocumentPdf(input: {
 }): Promise<Buffer> {
   const sessionToken = createEstimateRenderSession(input.data);
   try {
+    logEstimatePdf(sessionToken, 'created render session');
     return await renderEstimatePdf({
       sessionToken,
       renderBaseUrl: input.renderBaseUrl,
     });
   } finally {
+    logEstimatePdf(sessionToken, 'deleting render session');
     estimateRenderSessions.delete(sessionToken);
   }
 }

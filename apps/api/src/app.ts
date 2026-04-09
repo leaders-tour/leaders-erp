@@ -2,7 +2,7 @@ import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@as-integrations/express5';
 import cors from 'cors';
 import express from 'express';
-import type { RequestHandler } from 'express';
+import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { Readable } from 'node:stream';
 import { createContext } from './context';
 import {
@@ -144,6 +144,19 @@ const parseGraphqlMultipartRequest: RequestHandler = async (req, _res, next) => 
   }
 };
 
+const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
+  console.error(`[api] ${req.method} ${req.originalUrl} failed`, error);
+
+  if (res.headersSent) {
+    next(error);
+    return;
+  }
+
+  res.status(500).json({
+    message: error instanceof Error ? error.message : '서버 내부 오류가 발생했습니다.',
+  });
+};
+
 export async function createApp(): Promise<express.Express> {
   const app = express();
   const allowedWebOrigins = new Set(getAllowedWebOrigins());
@@ -233,6 +246,8 @@ export async function createApp(): Promise<express.Express> {
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
+
+  app.use(errorHandler);
 
   return app;
 }
