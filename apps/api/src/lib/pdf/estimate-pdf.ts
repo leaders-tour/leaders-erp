@@ -1,10 +1,20 @@
 import { randomUUID } from 'node:crypto';
-import puppeteer, { type Page } from 'puppeteer';
+import puppeteer, { type Browser, type Page } from 'puppeteer';
 import { z } from 'zod';
  
-const PDF_RENDER_TIMEOUT_MS = 60_000;
+const PDF_RENDER_TIMEOUT_MS = 120_000;
+const PUPPETEER_PROTOCOL_TIMEOUT_MS = 180_000;
 const PDF_RENDER_SESSION_TTL_MS = 5 * 60_000;
 const DEFAULT_RENDER_BASE_URL = 'http://localhost:5173';
+const PUPPETEER_LAUNCH_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-gpu',
+  '--disable-extensions',
+  '--disable-background-networking',
+  '--no-first-run',
+] as const;
 
 const estimateDocumentDataSchema = z.object({
   mode: z.enum(['version', 'draft']),
@@ -48,6 +58,8 @@ interface RenderEstimatePdfInput {
   sessionToken: string;
   renderBaseUrl: string;
 }
+
+let browserInstancePromise: Promise<Browser> | null = null;
 
 function ensureTrailingSlash(value: string): string {
   return value.endsWith('/') ? value : `${value}/`;
@@ -99,15 +111,40 @@ async function waitForEstimatePageReady(page: Page): Promise<void> {
   });
 }
 
-async function renderEstimatePdf(input: RenderEstimatePdfInput): Promise<Buffer> {
+async function launchBrowser(): Promise<Browser> {
   const browser = await puppeteer.launch({
     headless: true,
+    protocolTimeout: PUPPETEER_PROTOCOL_TIMEOUT_MS,
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH?.trim() || undefined,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: [...PUPPETEER_LAUNCH_ARGS],
   });
 
+  browser.on('disconnected', () => {
+    browserInstancePromise = null;
+  });
+
+  return browser;
+}
+
+async function getOrLaunchBrowser(): Promise<Browser> {
+  if (!browserInstancePromise) {
+    browserInstancePromise = launchBrowser().catch((error) => {
+      browserInstancePromise = null;
+      throw error;
+    });
+  }
+
+  return browserInstancePromise;
+}
+
+async function renderEstimatePdf(input: RenderEstimatePdfInput): Promise<Buffer> {
+  const browser = await getOrLaunchBrowser();
+  const page = await browser.newPage();
+
   try {
-    const page = await browser.newPage();
+    page.setDefaultTimeout(PDF_RENDER_TIMEOUT_MS);
+    page.setDefaultNavigationTimeout(PDF_RENDER_TIMEOUT_MS);
+
     const url = buildEstimateRenderUrl({
       renderBaseUrl: input.renderBaseUrl,
       token: input.sessionToken,
@@ -126,6 +163,7 @@ async function renderEstimatePdf(input: RenderEstimatePdfInput): Promise<Buffer>
     const pdf = await page.pdf({
       printBackground: true,
       preferCSSPageSize: true,
+      timeout: PDF_RENDER_TIMEOUT_MS,
       margin: {
         top: 0,
         right: 0,
@@ -136,7 +174,7 @@ async function renderEstimatePdf(input: RenderEstimatePdfInput): Promise<Buffer>
 
     return Buffer.from(pdf);
   } finally {
-    await browser.close();
+    await page.close();
   }
 }
 

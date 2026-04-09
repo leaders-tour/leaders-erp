@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { ExternalTransfer } from './external-transfer';
 import { isExternalTransferComplete } from './external-transfer';
+import { getRequiredXMealsForLastDay } from './last-day-plan';
 import { parseTimeToMinutes } from './pickup-drop';
 import {
   DEFAULT_SPECIAL_MEAL_DESTINATION_RULES,
@@ -9,6 +10,8 @@ import {
   getAssignmentsFromPlanRows,
   getShabushabuAllowedCandidates,
   isSamgyeopsalRecommended,
+  mealSlotToLabel,
+  parseMealCellText,
   SPECIAL_MEAL_KINDS,
   type SpecialMealDestinationRules,
   type SpecialMealRowContext,
@@ -26,12 +29,6 @@ export interface ValidationResult {
 
 const HH_MM_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
-interface MealCellFields {
-  breakfast: string;
-  lunch: string;
-  dinner: string;
-}
-
 function extractLastTimeFromCellText(timeCellText: string | null | undefined): string | null {
   const text = timeCellText?.trim() ?? '';
   if (!text) return null;
@@ -45,86 +42,11 @@ function extractLastTimeFromCellText(timeCellText: string | null | undefined): s
   return null;
 }
 
-function parseMealCellText(value: string | null | undefined): MealCellFields {
-  const result: MealCellFields = {
-    breakfast: '',
-    lunch: '',
-    dinner: '',
-  };
-  const text = value?.trim() ?? '';
-  if (!text || text === '-') {
-    return result;
-  }
-
-  const unlabeled: string[] = [];
-  text.split('\n').forEach((line) => {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      return;
-    }
-    const breakfastMatch = /^아침\s*[:：]?\s*(.*)$/.exec(trimmed);
-    if (breakfastMatch) {
-      result.breakfast = breakfastMatch[1]?.trim() ?? '';
-      return;
-    }
-    const lunchMatch = /^점심\s*[:：]?\s*(.*)$/.exec(trimmed);
-    if (lunchMatch) {
-      result.lunch = lunchMatch[1]?.trim() ?? '';
-      return;
-    }
-    const dinnerMatch = /^저녁\s*[:：]?\s*(.*)$/.exec(trimmed);
-    if (dinnerMatch) {
-      result.dinner = dinnerMatch[1]?.trim() ?? '';
-      return;
-    }
-    unlabeled.push(trimmed);
-  });
-
-  if (!result.breakfast && unlabeled[0]) {
-    result.breakfast = unlabeled[0];
-  }
-  if (!result.lunch && unlabeled[1]) {
-    result.lunch = unlabeled[1];
-  }
-  if (!result.dinner && unlabeled[2]) {
-    result.dinner = unlabeled[2];
-  }
-
-  return result;
-}
-
-function getRequiredXMeals(input: {
-  travelEndDate: string;
-  dropDate: string;
-  dropTime: string;
-}): Array<keyof MealCellFields> {
-  const { travelEndDate, dropDate, dropTime } = input;
-  const minutes = parseTimeToMinutes(dropTime);
-  if (minutes === null) {
-    return [];
-  }
-
-  if (travelEndDate && dropDate && dropDate > travelEndDate) {
-    return [];
-  }
-
-  if (minutes < 11 * 60) {
-    return ['breakfast', 'lunch', 'dinner'];
-  }
-  if (minutes < 14 * 60) {
-    return ['lunch', 'dinner'];
-  }
-  if (minutes < 19 * 60) {
-    return ['dinner'];
-  }
-
-  return [];
-}
-
 export interface PlanRowForValidation {
   timeCellText: string;
   mealCellText: string;
   scheduleCellText: string;
+  lodgingCellText: string;
   /** 특식 규칙 검증(샤브샤브 지역 등)용, 있으면 사용 */
   destinationCellText?: string | null;
 }
@@ -455,10 +377,13 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
     if (planRows.length > 0 && transportGroups[0]) {
       const lastRowIndex = planRows.length - 1;
       const lastRow = planRows[lastRowIndex];
-      const requiredXMeals = getRequiredXMeals({
+      const previousRow = lastRowIndex > 0 ? planRows[lastRowIndex - 1] : undefined;
+      const requiredXMeals = getRequiredXMealsForLastDay({
         travelEndDate,
         dropDate: transportGroups[0].dropDate?.trim() ?? '',
         dropTime: transportGroups[0].dropTime?.trim() ?? '',
+        flightOutTime: transportGroups[0].flightOutTime?.trim() ?? '',
+        previousLodgingCellText: previousRow?.lodgingCellText ?? null,
       });
       if (requiredXMeals.length > 0) {
         const mealFields = parseMealCellText(lastRow?.mealCellText);
@@ -467,16 +392,7 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
           return value !== 'X';
         });
         if (invalidMeals.length > 0) {
-          const labels = invalidMeals.map((mealKey) => {
-            switch (mealKey) {
-              case 'breakfast':
-                return '아침';
-              case 'lunch':
-                return '점심';
-              case 'dinner':
-                return '저녁';
-            }
-          });
+          const labels = invalidMeals.map((mealKey) => mealSlotToLabel(mealKey));
           results.push({
             id: 'last-day-meal-x-rule',
             severity: 'warning',

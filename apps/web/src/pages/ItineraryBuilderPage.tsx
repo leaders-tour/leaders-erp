@@ -43,7 +43,13 @@ import { ConsultationPasteModal } from '../features/plan/components/Consultation
 import { ExternalTransferModal } from '../features/plan/components/ExternalTransferModal';
 import { ExternalTransfersManagerModal } from '../features/plan/components/ExternalTransfersManagerModal';
 import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
-import { getAssignmentsFromPlanRows } from '../features/plan/special-meals';
+import { adjustLastDayMealCellText } from '../features/plan/last-day-plan';
+import {
+  getAssignmentsFromPlanRows,
+  parseMealCellText,
+  toMealCellText,
+  type MealCellFields,
+} from '../features/plan/special-meals';
 import {
   buildExternalTransferDirectionText,
   buildEmptyExternalTransfer,
@@ -2042,133 +2048,6 @@ function toMealCell(version: LocationVersionRow | undefined): string {
   ].join('\n');
 }
 
-interface MealCellFields {
-  breakfast: string;
-  lunch: string;
-  dinner: string;
-}
-
-function parseMealCellText(value: string | null | undefined): MealCellFields {
-  const result: MealCellFields = {
-    breakfast: '',
-    lunch: '',
-    dinner: '',
-  };
-  const text = value?.trim() ?? '';
-  if (!text || text === '-') {
-    return result;
-  }
-
-  const unlabeled: string[] = [];
-  text.split('\n').forEach((line) => {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      return;
-    }
-    const breakfastMatch = /^아침\s*[:：]?\s*(.*)$/.exec(trimmed);
-    if (breakfastMatch) {
-      result.breakfast = breakfastMatch[1]?.trim() ?? '';
-      return;
-    }
-    const lunchMatch = /^점심\s*[:：]?\s*(.*)$/.exec(trimmed);
-    if (lunchMatch) {
-      result.lunch = lunchMatch[1]?.trim() ?? '';
-      return;
-    }
-    const dinnerMatch = /^저녁\s*[:：]?\s*(.*)$/.exec(trimmed);
-    if (dinnerMatch) {
-      result.dinner = dinnerMatch[1]?.trim() ?? '';
-      return;
-    }
-    unlabeled.push(trimmed);
-  });
-
-  if (!result.breakfast && unlabeled[0]) {
-    result.breakfast = unlabeled[0];
-  }
-  if (!result.lunch && unlabeled[1]) {
-    result.lunch = unlabeled[1];
-  }
-  if (!result.dinner && unlabeled[2]) {
-    result.dinner = unlabeled[2];
-  }
-
-  return result;
-}
-
-function toMealCellText(fields: MealCellFields): string {
-  return [
-    fields.breakfast ? `아침 ${fields.breakfast}` : '',
-    fields.lunch ? `점심 ${fields.lunch}` : '',
-    fields.dinner ? `저녁 ${fields.dinner}` : '',
-  ]
-    .filter((line) => line.length > 0)
-    .join('\n');
-}
-
-function resolveBreakfastFromPreviousLodging(lodgingCellText: string): string | null {
-  const firstLine = lodgingCellText.split('\n')[0]?.trim() ?? '';
-  const normalized = firstLine.replace(/\s+/g, '');
-  if (!normalized) {
-    return null;
-  }
-
-  if (normalized === '여행자캠프' || normalized.startsWith('LV4')) {
-    return '캠프식';
-  }
-
-  if (firstLine.includes('호텔')) {
-    return '호텔조식';
-  }
-
-  return null;
-}
-
-export function adjustLastDayMealCellText(
-  value: string,
-  input: {
-    travelEndDate: string;
-    dropDate: string;
-    dropTime: string;
-  },
-): string {
-  const { travelEndDate, dropDate, dropTime } = input;
-  const fields = parseMealCellText(value);
-  const minutes = parseTimeToMinutes(dropTime);
-  if (minutes === null) {
-    return value;
-  }
-
-  if (!travelEndDate || !dropDate) {
-    if (minutes < 11 * 60) {
-      return toMealCellText({ breakfast: 'X', lunch: 'X', dinner: 'X' });
-    }
-    if (minutes < 14 * 60) {
-      return toMealCellText({ ...fields, lunch: 'X', dinner: 'X' });
-    }
-    if (minutes < 19 * 60) {
-      return toMealCellText({ ...fields, dinner: 'X' });
-    }
-    return value;
-  }
-
-  if (dropDate > travelEndDate) {
-    return value;
-  }
-
-  if (minutes < 11 * 60) {
-    return toMealCellText({ breakfast: 'X', lunch: 'X', dinner: 'X' });
-  }
-  if (minutes < 14 * 60) {
-    return toMealCellText({ ...fields, lunch: 'X', dinner: 'X' });
-  }
-  if (minutes < 19 * 60) {
-    return toMealCellText({ ...fields, dinner: 'X' });
-  }
-
-  return value;
-}
-
 function formatTimeFromMinutes(value: number): string {
   const normalized = ((value % (24 * 60)) + 24 * 60) % (24 * 60);
   const hours = Math.floor(normalized / 60);
@@ -2238,26 +2117,16 @@ export function applyLastDayAutoRowAdjustments<T extends {
     flightOutTime: string;
   },
 ): T[] {
-  const flightOutMinutes = parseTimeToMinutes(input.flightOutTime);
-  const isBreakfastDepartureFlight =
-    flightOutMinutes !== null && flightOutMinutes >= 13 * 60 && flightOutMinutes <= 14 * 60;
-
   return rows.map((row, index, allRows) => {
     if (index !== allRows.length - 1) {
       return row;
     }
 
-    let mealCellText = adjustLastDayMealCellText(row.mealCellText, input);
     const previousRow = index > 0 ? allRows[index - 1] : undefined;
-    const breakfastOverride =
-      isBreakfastDepartureFlight && previousRow
-        ? resolveBreakfastFromPreviousLodging(previousRow.lodgingCellText)
-        : null;
-
-    if (breakfastOverride) {
-      const mealFields = parseMealCellText(mealCellText);
-      mealCellText = toMealCellText({ ...mealFields, breakfast: breakfastOverride });
-    }
+    const mealCellText = adjustLastDayMealCellText(row.mealCellText, {
+      ...input,
+      previousLodgingCellText: previousRow?.lodgingCellText ?? null,
+    });
 
     return {
       ...row,
