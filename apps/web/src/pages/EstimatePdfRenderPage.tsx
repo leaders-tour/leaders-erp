@@ -35,6 +35,7 @@ export function EstimatePdfRenderPage(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const token = searchParams.get('token');
+  const includeStaticImagePages = searchParams.get('staticPages') !== 'none';
   const renderState = loading ? 'loading' : errorMessage ? 'error' : data ? 'ready' : 'idle';
 
   useEffect(() => {
@@ -91,7 +92,7 @@ export function EstimatePdfRenderPage(): JSX.Element {
       {!loading && errorMessage ? (
         <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{errorMessage}</Card>
       ) : null}
-      {!loading && !errorMessage && data ? <EstimateDocument data={data} /> : null}
+      {!loading && !errorMessage && data ? <EstimateDocument data={data} includeStaticImagePages={includeStaticImagePages} /> : null}
     </section>
   );
 }

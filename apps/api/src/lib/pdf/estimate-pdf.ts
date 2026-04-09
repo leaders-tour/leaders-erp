@@ -1,5 +1,8 @@
+import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import path from 'node:path';
 import puppeteer, { type Browser, type Page } from 'puppeteer';
+import { PDFDocument } from 'pdf-lib';
 import { z } from 'zod';
  
 const PDF_RENDER_TIMEOUT_MS = 120_000;
@@ -59,6 +62,7 @@ interface EstimateRenderSession {
 interface RenderEstimatePdfInput {
   sessionToken: string;
   renderBaseUrl: string;
+  includeStaticImagePages?: boolean;
 }
 
 export type EstimatePdfJobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
@@ -75,6 +79,7 @@ interface EstimatePdfJob {
 }
 
 let browserInstancePromise: Promise<Browser> | null = null;
+let staticAppendixPdfBytesPromise: Promise<Uint8Array> | null = null;
 
 function logEstimatePdfError(sessionToken: string, message: string, error: unknown): void {
   console.error(`[estimate-pdf:${sessionToken}] ${message}`, error);
@@ -84,9 +89,12 @@ function ensureTrailingSlash(value: string): string {
   return value.endsWith('/') ? value : `${value}/`;
 }
 
-function buildEstimateRenderUrl(input: { renderBaseUrl: string; token: string }): string {
+function buildEstimateRenderUrl(input: { renderBaseUrl: string; token: string; includeStaticImagePages?: boolean }): string {
   const url = new URL('/documents/estimate/render', ensureTrailingSlash(input.renderBaseUrl));
   url.searchParams.set('token', input.token);
+  if (input.includeStaticImagePages === false) {
+    url.searchParams.set('staticPages', 'none');
+  }
   return url.toString();
 }
 
@@ -98,6 +106,50 @@ function sanitizeFilenameSegment(value: string): string {
 function buildContentFilename(baseName: string): string {
   const safeBaseName = sanitizeFilenameSegment(baseName);
   return safeBaseName.endsWith('.pdf') ? safeBaseName : `${safeBaseName}.pdf`;
+}
+
+async function getStaticAppendixPdfBytes(): Promise<Uint8Array> {
+  if (!staticAppendixPdfBytesPromise) {
+    const candidates = [
+      path.resolve(process.cwd(), 'assets/estimate-static-appendix.pdf'),
+      path.resolve(process.cwd(), 'apps/api/assets/estimate-static-appendix.pdf'),
+    ];
+
+    staticAppendixPdfBytesPromise = (async () => {
+      for (const candidate of candidates) {
+        try {
+          return await readFile(candidate);
+        } catch (_error) {
+          continue;
+        }
+      }
+
+      throw new Error('정적 appendix PDF 파일을 찾을 수 없습니다.');
+    })().catch((error) => {
+      staticAppendixPdfBytesPromise = null;
+      throw error;
+    });
+  }
+
+  return staticAppendixPdfBytesPromise;
+}
+
+async function mergeWithStaticAppendixPdf(dynamicPdfBuffer: Buffer): Promise<Buffer> {
+  const mergedPdf = await PDFDocument.create();
+  const dynamicPdf = await PDFDocument.load(dynamicPdfBuffer);
+  const appendixPdf = await PDFDocument.load(await getStaticAppendixPdfBytes());
+
+  const dynamicPages = await mergedPdf.copyPages(dynamicPdf, dynamicPdf.getPageIndices());
+  dynamicPages.forEach((page) => {
+    mergedPdf.addPage(page);
+  });
+
+  const appendixPages = await mergedPdf.copyPages(appendixPdf, appendixPdf.getPageIndices());
+  appendixPages.forEach((page) => {
+    mergedPdf.addPage(page);
+  });
+
+  return Buffer.from(await mergedPdf.save());
 }
 
 async function waitForEstimatePageReady(page: Page): Promise<void> {
@@ -177,6 +229,7 @@ async function renderEstimatePdf(input: RenderEstimatePdfInput): Promise<Buffer>
     const url = buildEstimateRenderUrl({
       renderBaseUrl: input.renderBaseUrl,
       token: input.sessionToken,
+      includeStaticImagePages: input.includeStaticImagePages,
     });
 
     await page.setViewport({ width: 1440, height: 2200, deviceScaleFactor: 1 });
@@ -415,10 +468,12 @@ export async function renderEstimateDocumentPdf(input: {
 }): Promise<Buffer> {
   const sessionToken = createEstimateRenderSession(input.data);
   try {
-    return await renderEstimatePdf({
+    const dynamicPdfBuffer = await renderEstimatePdf({
       sessionToken,
       renderBaseUrl: input.renderBaseUrl,
+      includeStaticImagePages: false,
     });
+    return await mergeWithStaticAppendixPdf(dynamicPdfBuffer);
   } finally {
     estimateRenderSessions.delete(sessionToken);
   }
