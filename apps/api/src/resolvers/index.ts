@@ -134,6 +134,8 @@ export const resolvers = {
     ['login', 'registerEmployee', 'refreshAccessToken', 'logout'],
   ),
   User: mergeSection(planResolver.User ?? {}),
+  PlanVersion: mergeSection(planResolver.PlanVersion ?? {}),
+  PlanStop: mergeSection(planResolver.PlanStop ?? {}),
   Region: mergeSection(regionResolver.Region ?? {}),
   CafeLead: outreachResolver.CafeLead,
   OutreachDraft: outreachResolver.OutreachDraft,
