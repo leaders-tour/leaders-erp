@@ -963,6 +963,107 @@ describe('route-autofill', () => {
     expect(rows[1]?.mealCellText).toBe('캠프식\n현지식당\n허르헉');
   });
 
+  it('applies mealsOverride from non-FLIGHT segment version with per-field merge', () => {
+    const segmentWithDefaultMealOverride: SegmentOption = {
+      ...segmentAB,
+      versions: [
+        {
+          ...segmentAB.versions![0]!,
+          id: 'segment-version-ab-override',
+          kind: 'DEFAULT',
+          isDefault: true,
+          mealsOverride: {
+            breakfast: MealOption.HotelBreakfast,
+            lunch: null,
+            dinner: null,
+          },
+        },
+      ],
+    };
+
+    const rows = buildAutoRowsFromRoute({
+      startLocationId: locationA.id,
+      startLocationVersionId: 'ver-a',
+      selectedRoute: [
+        {
+          kind: 'LOCATION',
+          locationId: locationB.id,
+          locationVersionId: 'ver-b',
+          segmentId: segmentWithDefaultMealOverride.id,
+        },
+      ],
+      filteredSegments: [segmentWithDefaultMealOverride],
+      locationById: new Map([
+        [locationA.id, locationA],
+        [locationB.id, locationB],
+      ]),
+      locationVersionById: new Map([
+        ['ver-a', locationAVersion],
+        ['ver-b', locationBVersion],
+      ]),
+      totalDays: 2,
+    });
+
+    expect(rows[1]?.mealCellText).toBe('호텔조식\n현지식당\n캠프식');
+  });
+
+  it('applies mealsOverride from SEASON segment version with per-field merge', () => {
+    const segmentWithSeasonMealOverride: SegmentOption = {
+      ...segmentAB,
+      versions: [
+        {
+          ...segmentAB.versions![0]!,
+          id: 'segment-version-ab-default',
+          kind: 'DEFAULT',
+          isDefault: true,
+          flightOutTimeBand: null,
+        },
+        {
+          ...segmentAB.versions![0]!,
+          id: 'segment-version-ab-season-override',
+          name: '겨울 시즌',
+          kind: 'SEASON',
+          isDefault: false,
+          startDate: '2026-01-01T00:00:00.000Z',
+          endDate: '2026-01-31T00:00:00.000Z',
+          flightOutTimeBand: null,
+          mealsOverride: {
+            breakfast: MealOption.HotelBreakfast,
+            lunch: null,
+            dinner: MealOption.Horhog,
+          },
+        },
+      ],
+    };
+
+    const rows = buildAutoRowsFromRoute({
+      startLocationId: locationA.id,
+      startLocationVersionId: 'ver-a',
+      selectedRoute: [
+        {
+          kind: 'LOCATION',
+          locationId: locationB.id,
+          locationVersionId: 'ver-b',
+          segmentId: segmentWithSeasonMealOverride.id,
+        },
+      ],
+      filteredSegments: [segmentWithSeasonMealOverride],
+      locationById: new Map([
+        [locationA.id, locationA],
+        [locationB.id, locationB],
+      ]),
+      locationVersionById: new Map([
+        ['ver-a', locationAVersion],
+        ['ver-b', locationBVersion],
+      ]),
+      totalDays: 2,
+      travelStartDate: '2026-01-15',
+    });
+
+    expect(rows[1]?.segmentVersionId).toBe('segment-version-ab-season-override');
+    expect(rows[1]?.mealCellText).toBe('호텔조식\n현지식당\n허르헉');
+  });
+
   it('keeps the explicitly selected season version ahead of flight and date auto selection', () => {
     const rows = buildAutoRowsFromRoute({
       startLocationId: locationA.id,

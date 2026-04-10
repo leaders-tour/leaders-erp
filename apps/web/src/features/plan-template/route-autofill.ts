@@ -609,15 +609,18 @@ function resolveRouteRowMealText(input: {
   segmentVersion: ResolvedSegmentVersionOption | undefined;
 }): string {
   const { locationVersion, segmentVersion } = input;
-  if (segmentVersion?.kind === 'FLIGHT' && segmentVersion.mealsOverride) {
-    return buildSegmentVersionOverrideMealText(segmentVersion.mealsOverride);
-  }
   const set = pickDefaultLocationMealSet(locationVersion?.mealSets ?? []);
-  return buildMealsCellText({
+  const meals = {
     breakfast: (set?.breakfast ?? null) as MealOption | null,
     lunch: (set?.lunch ?? null) as MealOption | null,
     dinner: (set?.dinner ?? null) as MealOption | null,
-  });
+  };
+  if (segmentVersion?.mealsOverride) {
+    if (segmentVersion.mealsOverride.breakfast != null) meals.breakfast = segmentVersion.mealsOverride.breakfast;
+    if (segmentVersion.mealsOverride.lunch != null) meals.lunch = segmentVersion.mealsOverride.lunch;
+    if (segmentVersion.mealsOverride.dinner != null) meals.dinner = segmentVersion.mealsOverride.dinner;
+  }
+  return buildMealsCellText(meals);
 }
 
 function getMultiDayBlockDay(

@@ -108,6 +108,7 @@ interface SegmentFormState {
   averageDistanceKm: string;
   averageTravelHours: string;
   isLongDistance: boolean;
+  mealsOverride: SegmentVersionMealsOverrideFormInput;
   timeSlots: SegmentTimeSlotFormInput[];
   earlyTimeSlots: SegmentTimeSlotFormInput[];
   extendTimeSlots: SegmentTimeSlotFormInput[];
@@ -381,6 +382,7 @@ function createEmptyForm(): SegmentFormState {
     averageDistanceKm: '',
     averageTravelHours: '',
     isLongDistance: false,
+    mealsOverride: createEmptyMealsOverride(),
     timeSlots: createDefaultTimeSlots(),
     earlyTimeSlots: createDefaultTimeSlots(),
     extendTimeSlots: createDefaultTimeSlots(),
@@ -554,7 +556,7 @@ function toVersionDrafts(segment: SegmentRow | undefined): SegmentVersionDraft[]
       lodgingOverride: version.kind === 'FLIGHT' && version.lodgingOverride
         ? sanitizeFlightLodgingOverride(version.lodgingOverride)
         : createEmptyLodgingOverride(),
-      mealsOverride: version.kind === 'FLIGHT' && version.mealsOverride
+      mealsOverride: version.mealsOverride
         ? sanitizeMealsOverride(version.mealsOverride)
         : createEmptyMealsOverride(),
       timeSlots: toFormTimeSlots(version.scheduleTimeBlocks),
@@ -905,6 +907,9 @@ function buildVersionInputs(
       averageTravelHours: Number(form.averageTravelHours),
       isLongDistance: form.isLongDistance,
       kind: 'DEFAULT',
+      ...(hasMealsOverrideValue(form.mealsOverride)
+        ? { mealsOverride: sanitizeMealsOverride(form.mealsOverride) }
+        : {}),
       ...buildVariantTimeSlotInput(form, input),
       isDefault: true,
     },
@@ -923,7 +928,7 @@ function buildVersionInputs(
       ...(form.sourceType === 'LOCATION' && version.kind === 'FLIGHT'
         ? { lodgingOverride: sanitizeFlightLodgingOverride(version.lodgingOverride) }
         : {}),
-      ...(form.sourceType === 'LOCATION' && version.kind === 'FLIGHT' && hasMealsOverrideValue(version.mealsOverride)
+      ...(hasMealsOverrideValue(version.mealsOverride)
         ? { mealsOverride: sanitizeMealsOverride(version.mealsOverride) }
         : {}),
       ...buildVariantTimeSlotInput(version, {
@@ -944,7 +949,7 @@ function LodgingOverrideEditor(props: {
   return (
     <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
       <div className="grid gap-1">
-        <h4 className="text-sm font-semibold text-slate-800">숙소 오버라이드</h4>
+        <h4 className="text-sm font-semibold text-slate-800">숙소 덮어쓰기</h4>
         <p className="text-xs text-slate-500">값을 입력하면 목적지 기본 숙소 대신 이 버전의 숙소 정보를 사용합니다.</p>
       </div>
       <div className="grid gap-4">
@@ -1000,17 +1005,23 @@ function LodgingOverrideEditor(props: {
 function MealsOverrideEditor(props: {
   value: SegmentVersionMealsOverrideFormInput;
   onChange: (nextValue: SegmentVersionMealsOverrideFormInput) => void;
+  breakfastOnly?: boolean;
 }): JSX.Element {
-  const { value, onChange } = props;
+  const { value, onChange, breakfastOnly } = props;
+  const fields = breakfastOnly ? (['breakfast'] as const) : (['breakfast', 'lunch', 'dinner'] as const);
 
   return (
     <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4">
       <div className="grid gap-1">
-        <h4 className="text-sm font-semibold text-slate-800">식사 오버라이드</h4>
-        <p className="text-xs text-slate-500">값을 선택하면 목적지 기본 식사 대신 이 버전의 식사 구성을 사용합니다.</p>
+        <h4 className="text-sm font-semibold text-slate-800">{breakfastOnly ? '아침 식사 덮어쓰기' : '식사 덮어쓰기'}</h4>
+        <p className="text-xs text-slate-500">
+          {breakfastOnly
+            ? '도착지 아침을 출발지 기준 식사로 변경할 때 사용합니다.'
+            : '값을 선택하면 목적지 기본 식사 대신 이 버전의 식사 구성을 사용합니다.'}
+        </p>
       </div>
       <div className="grid gap-3">
-        {(['breakfast', 'lunch', 'dinner'] as const).map((field) => {
+        {fields.map((field) => {
           const label = field === 'breakfast' ? '아침' : field === 'lunch' ? '점심' : '저녁';
           return (
             <div key={field} className="grid gap-2 rounded-xl border border-slate-200 p-3 text-sm">
@@ -1255,6 +1266,14 @@ function AlternativeVersionEditor(props: {
                     />
                   </div>
                 ) : null}
+
+                <MealsOverrideEditor
+                  value={version.mealsOverride}
+                  onChange={(nextValue) =>
+                    updateVersion(version.clientId, (item) => ({ ...item, mealsOverride: nextValue }))
+                  }
+                  breakfastOnly
+                />
               </div>
             </div>
             </div>
@@ -1876,6 +1895,14 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 <div className="text-sm text-slate-600">이동강도: {createMovementIntensityMeta ? createMovementIntensityMeta.label : '시간 입력 필요'}</div>
               </div>
 
+              {form.sourceType === 'LOCATION' ? (
+                <MealsOverrideEditor
+                  value={form.mealsOverride}
+                  onChange={(nextValue) => setForm((prev) => ({ ...prev, mealsOverride: nextValue }))}
+                  breakfastOnly
+                />
+              ) : null}
+
               <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
                 <label className="flex items-center gap-2 text-sm text-slate-700">
                   <input
@@ -2156,6 +2183,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                         setEditingSegmentId(row.id);
                         const basicSlots = toFormTimeSlots(row.scheduleTimeBlocks);
                         const earlySlots = toFormTimeSlots(row.earlyScheduleTimeBlocks);
+                        const defaultVersionMeals = row.versions.find((v) => v.isDefault)?.mealsOverride;
                         setEditForm({
                           sourceType: row.sourceType,
                           fromLocationId: row.fromLocationId ?? '',
@@ -2164,6 +2192,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                           averageDistanceKm: String(row.averageDistanceKm),
                           averageTravelHours: String(row.averageTravelHours),
                           isLongDistance: row.isLongDistance,
+                          mealsOverride: defaultVersionMeals ? sanitizeMealsOverride(defaultVersionMeals) : createEmptyMealsOverride(),
                           timeSlots: basicSlots,
                           earlyTimeSlots: earlySlots,
                           extendTimeSlots: toFormTimeSlots(row.extendScheduleTimeBlocks),
@@ -2471,6 +2500,14 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                     )}
                   </span>
                 </div>
+
+                {editForm.sourceType === 'LOCATION' ? (
+                  <MealsOverrideEditor
+                    value={editForm.mealsOverride}
+                    onChange={(nextValue) => setEditForm((prev) => ({ ...prev, mealsOverride: nextValue }))}
+                    breakfastOnly
+                  />
+                ) : null}
 
                 <label className="flex items-center gap-2 rounded-2xl border border-slate-200 p-4 text-sm text-slate-800">
                   <input
