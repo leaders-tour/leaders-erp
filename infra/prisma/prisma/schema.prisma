@@ -258,6 +258,7 @@ model Employee {
   ownedUsers    User[]                @relation("UserOwnerEmployee")
   refreshTokens EmployeeRefreshToken[]
   reviewedOutreachDrafts OutreachDraft[]
+  confirmedTrips ConfirmedTrip[]     @relation("ConfirmedTripEmployee")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -403,10 +404,11 @@ model User {
   dealStageOrder  Int       @default(0)
   ownerEmployeeId String?
 
-  ownerEmployee Employee?      @relation("UserOwnerEmployee", fields: [ownerEmployeeId], references: [id], onDelete: SetNull)
-  plans         Plan[]
-  notes         UserNote[]
-  dealTodos     UserDealTodo[]
+  ownerEmployee  Employee?      @relation("UserOwnerEmployee", fields: [ownerEmployeeId], references: [id], onDelete: SetNull)
+  plans          Plan[]
+  notes          UserNote[]
+  dealTodos      UserDealTodo[]
+  confirmedTrips ConfirmedTrip[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -854,6 +856,7 @@ model Plan {
   regionSet      RegionSet     @relation(fields: [regionSetId], references: [id], onDelete: Restrict)
   versions       PlanVersion[] @relation("PlanVersions")
   currentVersion PlanVersion?  @relation("CurrentPlanVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  confirmedTrips ConfirmedTrip[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -883,6 +886,7 @@ model PlanVersion {
   planStops     PlanStop[]
   planVersionEvents PlanVersionEvent[]
   overrides     Override[]
+  confirmedTrips ConfirmedTrip[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -891,6 +895,40 @@ model PlanVersion {
   @@index([planId])
   @@index([regionSetId])
   @@index([parentVersionId])
+}
+
+enum ConfirmedTripStatus {
+  ACTIVE
+  CANCELLED
+}
+
+model ConfirmedTrip {
+  id                    String              @id @default(uuid(7))
+  userId                String
+  planId                String
+  planVersionId         String
+  status                ConfirmedTripStatus @default(ACTIVE)
+  confirmedAt           DateTime            @default(now())
+  confirmedByEmployeeId String?
+
+  guideName             String?
+  driverName            String?
+  assignedVehicle       String?
+  accommodationNote     String?   @db.Text
+  operationNote         String?   @db.Text
+
+  user                User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                Plan        @relation(fields: [planId], references: [id], onDelete: Cascade)
+  planVersion         PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+  confirmedByEmployee Employee?   @relation("ConfirmedTripEmployee", fields: [confirmedByEmployeeId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([planId])
+  @@index([planVersionId])
+  @@index([status, confirmedAt])
 }
 
 model PlanVersionMeta {

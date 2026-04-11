@@ -21,3 +21,4 @@ export * from './segment.schema';
 export * from './special-meal-destination-rules.schema';
 export * from './time-block.schema';
 export * from './user.schema';
+export * from './confirmed-trip.schema';

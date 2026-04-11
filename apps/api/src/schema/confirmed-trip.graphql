@@ -1,0 +1,43 @@
+enum ConfirmedTripStatus {
+  ACTIVE
+  CANCELLED
+}
+
+type ConfirmedTrip {
+  id: ID!
+  userId: String!
+  planId: String!
+  planVersionId: String!
+  status: ConfirmedTripStatus!
+  confirmedAt: DateTime!
+  confirmedByEmployeeId: String
+
+  guideName: String
+  driverName: String
+  assignedVehicle: String
+  accommodationNote: String
+  operationNote: String
+
+  user: User!
+  plan: Plan!
+  planVersion: PlanVersion!
+  confirmedByEmployee: Employee
+
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input ConfirmTripInput {
+  planId: ID!
+  planVersionId: ID!
+  confirmedByEmployeeId: ID
+}
+
+input ConfirmedTripUpdateInput {
+  guideName: String
+  driverName: String
+  assignedVehicle: String
+  accommodationNote: String
+  operationNote: String
+  status: ConfirmedTripStatus
+}

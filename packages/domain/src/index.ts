@@ -31,3 +31,4 @@ export * from './models/region';
 export * from './models/segment';
 export * from './models/time-block';
 export * from './models/user';
+export * from './enums/confirmed-trip-status';

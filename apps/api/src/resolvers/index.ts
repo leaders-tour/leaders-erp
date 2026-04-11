@@ -19,6 +19,7 @@ import { regionLodgingResolver } from '../modules/region-lodging/region-lodging.
 import { segmentResolver } from '../modules/segment/segment.resolver';
 import { specialMealDestinationRulesResolver } from '../modules/special-meal-destination-rules/special-meal-destination-rules.resolver';
 import { timeBlockResolver } from '../modules/time-block/time-block.resolver';
+import { confirmedTripResolver } from '../modules/confirmed-trip/confirmed-trip.resolver';
 import { requireEmployee } from '../lib/auth-guards';
 
 function mergeSection(...items: Array<Record<string, unknown>>): Record<string, unknown> {
@@ -102,6 +103,7 @@ export const resolvers = {
       overrideResolver.Query,
       outreachResolver.Query,
       specialMealDestinationRulesResolver.Query,
+      confirmedTripResolver.Query,
       {
         health: () => 'ok',
       },
@@ -130,6 +132,7 @@ export const resolvers = {
       overrideResolver.Mutation,
       outreachResolver.Mutation,
       specialMealDestinationRulesResolver.Mutation,
+      confirmedTripResolver.Mutation,
     ),
     ['login', 'registerEmployee', 'refreshAccessToken', 'logout'],
   ),

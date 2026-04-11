@@ -44,6 +44,8 @@ type Query {
   event(id: ID!): Event
   overrides: [Override!]!
   override(id: ID!): Override
+  confirmedTrips(status: ConfirmedTripStatus): [ConfirmedTrip!]!
+  confirmedTrip(id: ID!): ConfirmedTrip
 }
 
 type Mutation {
@@ -126,4 +128,8 @@ type Mutation {
   createOverride(input: OverrideCreateInput!): Override!
   updateOverride(id: ID!, input: OverrideUpdateInput!): Override!
   deleteOverride(id: ID!): Boolean!
+
+  confirmTrip(input: ConfirmTripInput!): ConfirmedTrip!
+  updateConfirmedTrip(id: ID!, input: ConfirmedTripUpdateInput!): ConfirmedTrip!
+  cancelConfirmedTrip(id: ID!): ConfirmedTrip!
 }
