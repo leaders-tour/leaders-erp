@@ -8,6 +8,7 @@ import { applyLocationGuides } from '../features/estimate/utils/apply-location-g
 import { VersionSnapshotView } from '../features/plan/components';
 import { buildExternalTransferDirectionText } from '../features/plan/external-transfer';
 import { usePlanVersionDetail, useSetCurrentPlanVersion } from '../features/plan/hooks';
+import { useConfirmTrip } from '../features/confirmed-trip/hooks';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
 import { buildEffectivePricing } from '../features/pricing/manual-pricing';
 import { formatPricingDetailFormula, resolveDisplayLeadAmount } from '../features/pricing/pricing-line-presenter';
@@ -89,7 +90,9 @@ export function PlanVersionDetailPage(): JSX.Element {
   const { version, loading } = usePlanVersionDetail(versionId);
   const { guideRows, loading: guidesLoading } = useEstimateLocationGuides();
   const { setCurrentPlanVersion, loading: settingCurrent } = useSetCurrentPlanVersion();
+  const { confirmTrip, loading: confirmingTrip } = useConfirmTrip();
   const [confirming, setConfirming] = useState(false);
+  const [confirmingTripModal, setConfirmingTripModal] = useState(false);
   const estimateDocumentData = useMemo(
     () => (version ? applyLocationGuides(fromVersion(version), guideRows) : null),
     [guideRows, version],
@@ -220,6 +223,14 @@ export function PlanVersionDetailPage(): JSX.Element {
             onClick={() => setConfirming(true)}
           >
             {isCurrent ? '현재 버전' : '현재 버전으로 지정'}
+          </Button>
+          <Button
+            variant="primary"
+            disabled={confirmingTrip}
+            onClick={() => setConfirmingTripModal(true)}
+            className="bg-emerald-600 hover:bg-emerald-700"
+          >
+            이 견적으로 확정
           </Button>
         </div>
       </header>
@@ -496,6 +507,45 @@ export function PlanVersionDetailPage(): JSX.Element {
                 }}
               >
                 지정
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {confirmingTripModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <Card className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-900">여행 확정</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              v{version.versionNumber}을 확정 견적으로 지정하시겠습니까?
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              확정하면 이 견적 기준으로 투어 리스트에 등록됩니다.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfirmingTripModal(false)}>
+                취소
+              </Button>
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700"
+                disabled={confirmingTrip}
+                onClick={async () => {
+                  try {
+                    await confirmTrip({
+                      planId,
+                      planVersionId: version.id,
+                    });
+                    setConfirmingTripModal(false);
+                    navigate('/confirmed-trips');
+                  } catch (error) {
+                    window.alert(
+                      error instanceof Error ? error.message : '확정에 실패했습니다.',
+                    );
+                  }
+                }}
+              >
+                확정
               </Button>
             </div>
           </Card>

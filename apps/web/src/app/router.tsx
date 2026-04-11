@@ -1,6 +1,8 @@
 import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { RedirectAuthenticated, RequireAdmin, RequireAuth } from './auth-guards';
 import { AppLayout } from '../components/layout/AppLayout';
+import { ConfirmedTripsPage } from '../pages/ConfirmedTripsPage';
+import { ConfirmedTripDetailPage } from '../pages/ConfirmedTripDetailPage';
 import { ConnectionCreatePage } from '../pages/ConnectionCreatePage';
 import { ConnectionListPage } from '../pages/ConnectionListPage';
 import { CustomerCreatePage } from '../pages/CustomerCreatePage';
@@ -63,6 +65,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/itinerary-builder" replace /> },
       { path: 'itinerary-builder', element: <ItineraryBuilderPage /> },
+      { path: 'confirmed-trips', element: <ConfirmedTripsPage /> },
+      { path: 'confirmed-trips/:tripId', element: <ConfirmedTripDetailPage /> },
       { path: 'itinerary-templates', element: <ItineraryTemplatePage /> },
       { path: 'itinerary-templates/new', element: <ItineraryTemplateCreatePage /> },
       { path: 'itinerary-templates/:templateId', element: <ItineraryTemplateDetailPage /> },

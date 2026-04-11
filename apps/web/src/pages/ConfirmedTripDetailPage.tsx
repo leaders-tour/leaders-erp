@@ -1,0 +1,337 @@
+import { Button, Card } from '@tour/ui';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  useConfirmedTrip,
+  useUpdateConfirmedTrip,
+  useCancelConfirmedTrip,
+} from '../features/confirmed-trip/hooks';
+
+const currencyFormatter = new Intl.NumberFormat('ko-KR');
+function formatKrw(value: number): string {
+  return `${currencyFormatter.format(value)}원`;
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('ko-KR');
+}
+
+export function ConfirmedTripDetailPage(): JSX.Element {
+  const navigate = useNavigate();
+  const { tripId } = useParams<{ tripId: string }>();
+  const { trip, loading } = useConfirmedTrip(tripId);
+  const { updateConfirmedTrip, loading: updating } = useUpdateConfirmedTrip();
+  const { cancelConfirmedTrip, loading: cancelling } = useCancelConfirmedTrip();
+
+  const [editing, setEditing] = useState(false);
+  const [guideName, setGuideName] = useState('');
+  const [driverName, setDriverName] = useState('');
+  const [assignedVehicle, setAssignedVehicle] = useState('');
+  const [accommodationNote, setAccommodationNote] = useState('');
+  const [operationNote, setOperationNote] = useState('');
+
+  if (!tripId) {
+    return <section className="py-8 text-sm text-slate-600">잘못된 접근입니다.</section>;
+  }
+
+  if (loading) {
+    return <section className="py-8 text-sm text-slate-600">불러오는 중...</section>;
+  }
+
+  if (!trip) {
+    return <section className="py-8 text-sm text-slate-600">확정 건을 찾을 수 없습니다.</section>;
+  }
+
+  const meta = trip.planVersion.meta;
+  const pricing = trip.planVersion.pricing;
+
+  const startEditMode = () => {
+    setGuideName(trip.guideName ?? '');
+    setDriverName(trip.driverName ?? '');
+    setAssignedVehicle(trip.assignedVehicle ?? '');
+    setAccommodationNote(trip.accommodationNote ?? '');
+    setOperationNote(trip.operationNote ?? '');
+    setEditing(true);
+  };
+
+  const handleSave = async () => {
+    try {
+      await updateConfirmedTrip(tripId, {
+        guideName: guideName.trim() || null,
+        driverName: driverName.trim() || null,
+        assignedVehicle: assignedVehicle.trim() || null,
+        accommodationNote: accommodationNote.trim() || null,
+        operationNote: operationNote.trim() || null,
+      });
+      setEditing(false);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!window.confirm('정말 이 확정 건을 취소하시겠습니까?')) return;
+    try {
+      await cancelConfirmedTrip(tripId);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '취소에 실패했습니다.');
+    }
+  };
+
+  return (
+    <section className="grid gap-6">
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+            {meta?.leaderName ?? trip.user.name}
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">
+            {trip.plan.title} · v{trip.planVersion.versionNumber} · {trip.plan.regionSet.name}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate('/confirmed-trips')}>
+            목록으로
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigate(
+                `/plans/${trip.planId}/versions/${trip.planVersionId}`,
+              )
+            }
+          >
+            견적서 상세
+          </Button>
+          {trip.status === 'ACTIVE' && !editing ? (
+            <Button variant="primary" onClick={startEditMode}>
+              운영 정보 편집
+            </Button>
+          ) : null}
+          {trip.status === 'ACTIVE' ? (
+            <Button
+              variant="outline"
+              className="border-red-300 text-red-600 hover:bg-red-50"
+              disabled={cancelling}
+              onClick={handleCancel}
+            >
+              확정 취소
+            </Button>
+          ) : null}
+        </div>
+      </header>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold text-slate-900">견적 원본 정보</h2>
+          <div className="grid gap-3 text-sm text-slate-700">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <span className="text-slate-500">대표자</span>
+                <p className="font-medium">{meta?.leaderName ?? '-'}</p>
+              </div>
+              <div>
+                <span className="text-slate-500">문서번호</span>
+                <p className="font-medium">{meta?.documentNumber ?? '-'}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <span className="text-slate-500">여행기간</span>
+                <p className="font-medium">
+                  {meta ? `${formatDate(meta.travelStartDate)} ~ ${formatDate(meta.travelEndDate)}` : '-'}
+                </p>
+              </div>
+              <div>
+                <span className="text-slate-500">인원</span>
+                <p className="font-medium">
+                  {meta ? `${meta.headcountTotal}명 (남 ${meta.headcountMale} / 여 ${meta.headcountFemale})` : '-'}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <span className="text-slate-500">차량</span>
+                <p className="font-medium">{meta?.vehicleType ?? '-'}</p>
+              </div>
+              <div>
+                <span className="text-slate-500">일수</span>
+                <p className="font-medium">{trip.planVersion.totalDays}일</p>
+              </div>
+            </div>
+            {meta?.specialNote ? (
+              <div>
+                <span className="text-slate-500">특이사항</span>
+                <p className="whitespace-pre-wrap font-medium">{meta.specialNote}</p>
+              </div>
+            ) : null}
+            {meta?.includeRentalItems ? (
+              <div>
+                <span className="text-slate-500">대여물품</span>
+                <p className="whitespace-pre-wrap font-medium">{meta.rentalItemsText}</p>
+              </div>
+            ) : null}
+            {meta?.remark ? (
+              <div>
+                <span className="text-slate-500">비고</span>
+                <p className="whitespace-pre-wrap font-medium">{meta.remark}</p>
+              </div>
+            ) : null}
+          </div>
+        </Card>
+
+        <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold text-slate-900">금액 정보</h2>
+          {pricing ? (
+            <div className="grid gap-3 text-sm text-slate-700">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-slate-500">총액</span>
+                  <p className="text-lg font-semibold text-slate-900">
+                    {formatKrw(pricing.totalAmountKrw)}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-slate-500">보증금</span>
+                  <p className="font-medium">{formatKrw(pricing.securityDepositAmountKrw)}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-slate-500">예약금</span>
+                  <p className="font-medium">{formatKrw(pricing.depositAmountKrw)}</p>
+                </div>
+                <div>
+                  <span className="text-slate-500">잔금</span>
+                  <p className="font-medium">{formatKrw(pricing.balanceAmountKrw)}</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">가격 정보 없음</p>
+          )}
+        </Card>
+      </div>
+
+      <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-900">운영 정보</h2>
+          {editing ? (
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setEditing(false)} disabled={updating}>
+                취소
+              </Button>
+              <Button variant="primary" onClick={handleSave} disabled={updating}>
+                {updating ? '저장 중...' : '저장'}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+        {editing ? (
+          <div className="grid gap-4 text-sm md:grid-cols-2">
+            <label className="grid gap-1">
+              <span className="text-slate-500">가이드</span>
+              <input
+                className="rounded-xl border border-slate-200 px-3 py-2"
+                value={guideName}
+                onChange={(e) => setGuideName(e.target.value)}
+                placeholder="가이드 이름"
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-slate-500">기사</span>
+              <input
+                className="rounded-xl border border-slate-200 px-3 py-2"
+                value={driverName}
+                onChange={(e) => setDriverName(e.target.value)}
+                placeholder="기사 이름"
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-slate-500">배차 차량</span>
+              <input
+                className="rounded-xl border border-slate-200 px-3 py-2"
+                value={assignedVehicle}
+                onChange={(e) => setAssignedVehicle(e.target.value)}
+                placeholder="실제 배차 차량"
+              />
+            </label>
+            <label className="grid gap-1 md:col-span-2">
+              <span className="text-slate-500">숙소 확정 메모</span>
+              <textarea
+                className="rounded-xl border border-slate-200 px-3 py-2"
+                rows={3}
+                value={accommodationNote}
+                onChange={(e) => setAccommodationNote(e.target.value)}
+                placeholder="확정된 숙소 정보를 기록하세요"
+              />
+            </label>
+            <label className="grid gap-1 md:col-span-2">
+              <span className="text-slate-500">운영 비고</span>
+              <textarea
+                className="rounded-xl border border-slate-200 px-3 py-2"
+                rows={3}
+                value={operationNote}
+                onChange={(e) => setOperationNote(e.target.value)}
+                placeholder="내부 운영 메모"
+              />
+            </label>
+          </div>
+        ) : (
+          <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-2">
+            <div>
+              <span className="text-slate-500">가이드</span>
+              <p className="font-medium">{trip.guideName ?? '-'}</p>
+            </div>
+            <div>
+              <span className="text-slate-500">기사</span>
+              <p className="font-medium">{trip.driverName ?? '-'}</p>
+            </div>
+            <div>
+              <span className="text-slate-500">배차 차량</span>
+              <p className="font-medium">{trip.assignedVehicle ?? meta?.vehicleType ?? '-'}</p>
+            </div>
+            {trip.accommodationNote ? (
+              <div className="md:col-span-2">
+                <span className="text-slate-500">숙소 확정 메모</span>
+                <p className="whitespace-pre-wrap font-medium">{trip.accommodationNote}</p>
+              </div>
+            ) : null}
+            {trip.operationNote ? (
+              <div className="md:col-span-2">
+                <span className="text-slate-500">운영 비고</span>
+                <p className="whitespace-pre-wrap font-medium">{trip.operationNote}</p>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </Card>
+
+      <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-4 text-sm font-semibold text-slate-900">관리 정보</h2>
+        <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-2">
+          <div>
+            <span className="text-slate-500">고객</span>
+            <p className="font-medium">{trip.user.name}</p>
+          </div>
+          <div>
+            <span className="text-slate-500">담당자</span>
+            <p className="font-medium">{trip.user.ownerEmployee?.name ?? '-'}</p>
+          </div>
+          <div>
+            <span className="text-slate-500">확정자</span>
+            <p className="font-medium">{trip.confirmedByEmployee?.name ?? '-'}</p>
+          </div>
+          <div>
+            <span className="text-slate-500">확정일</span>
+            <p className="font-medium">{formatDate(trip.confirmedAt)}</p>
+          </div>
+          <div>
+            <span className="text-slate-500">상태</span>
+            <p className="font-medium">{trip.status === 'ACTIVE' ? '확정' : '취소됨'}</p>
+          </div>
+        </div>
+      </Card>
+    </section>
+  );
+}
