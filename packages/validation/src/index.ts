@@ -24,3 +24,4 @@ export * from './user.schema';
 export * from './confirmed-trip.schema';
 export * from './guide.schema';
 export * from './driver.schema';
+export * from './accommodation.schema';

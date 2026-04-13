@@ -1,0 +1,99 @@
+enum AccommodationLevel {
+  LV2
+  LV3
+  LV4
+  LV5
+}
+
+enum PaymentMethod {
+  PER_PERSON
+  PER_ROOM
+}
+
+type Accommodation {
+  id: ID!
+  name: String!
+  destination: String!
+  region: String!
+  options: [AccommodationOption!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type AccommodationOption {
+  id: ID!
+  accommodationId: ID!
+  accommodation: Accommodation!
+  roomType: String!
+  level: AccommodationLevel!
+  priceOffSeason: Int
+  pricePeakSeason: Int
+  paymentMethod: PaymentMethod
+  mealCostPerServing: Int
+  capacity: String
+  mealIncluded: Boolean!
+  facilities: String
+  bookingPriority: String
+  bookingMethod: String
+  phone: String
+  googleMapsUrl: String
+  openingDate: String
+  closingDate: String
+  imageUrls: [String!]!
+  note: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input AccommodationCreateInput {
+  name: String!
+  destination: String!
+  region: String!
+}
+
+input AccommodationUpdateInput {
+  name: String
+  destination: String
+  region: String
+}
+
+input AccommodationOptionCreateInput {
+  accommodationId: ID!
+  roomType: String!
+  level: AccommodationLevel
+  priceOffSeason: Int
+  pricePeakSeason: Int
+  paymentMethod: PaymentMethod
+  mealCostPerServing: Int
+  capacity: String
+  mealIncluded: Boolean
+  facilities: String
+  bookingPriority: String
+  bookingMethod: String
+  phone: String
+  googleMapsUrl: String
+  openingDate: String
+  closingDate: String
+  imageUrls: [String!]
+  note: String
+}
+
+input AccommodationOptionUpdateInput {
+  roomType: String
+  level: AccommodationLevel
+  priceOffSeason: Int
+  pricePeakSeason: Int
+  paymentMethod: PaymentMethod
+  mealCostPerServing: Int
+  capacity: String
+  mealIncluded: Boolean
+  facilities: String
+  bookingPriority: String
+  bookingMethod: String
+  phone: String
+  googleMapsUrl: String
+  openingDate: String
+  closingDate: String
+  imageUrls: [String!]
+  note: String
+}

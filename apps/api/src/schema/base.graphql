@@ -50,6 +50,10 @@ type Query {
   guide(id: ID!): Guide
   drivers(status: DriverStatus, level: DriverLevel, vehicleType: VehicleType): [Driver!]!
   driver(id: ID!): Driver
+  accommodations(region: String, destination: String, level: AccommodationLevel): [Accommodation!]!
+  accommodation(id: ID!): Accommodation
+  accommodationOptions(accommodationId: ID!): [AccommodationOption!]!
+  accommodationOption(id: ID!): AccommodationOption
 }
 
 type Mutation {
@@ -144,4 +148,12 @@ type Mutation {
   createDriver(input: DriverCreateInput!): Driver!
   updateDriver(id: ID!, input: DriverUpdateInput!): Driver!
   deleteDriver(id: ID!): Boolean!
+
+  createAccommodation(input: AccommodationCreateInput!): Accommodation!
+  updateAccommodation(id: ID!, input: AccommodationUpdateInput!): Accommodation!
+  deleteAccommodation(id: ID!): Boolean!
+
+  createAccommodationOption(input: AccommodationOptionCreateInput!): AccommodationOption!
+  updateAccommodationOption(id: ID!, input: AccommodationOptionUpdateInput!): AccommodationOption!
+  deleteAccommodationOption(id: ID!): Boolean!
 }

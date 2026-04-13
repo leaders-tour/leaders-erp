@@ -1553,3 +1553,58 @@ model Driver {
   @@index([level])
   @@index([status])
 }
+
+enum AccommodationLevel {
+  LV2
+  LV3
+  LV4
+  LV5
+}
+
+enum PaymentMethod {
+  PER_PERSON
+  PER_ROOM
+}
+
+model Accommodation {
+  id          String   @id @default(uuid(7))
+  name        String
+  destination String
+  region      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  options AccommodationOption[]
+
+  @@index([region])
+  @@index([destination])
+}
+
+model AccommodationOption {
+  id                 String             @id @default(uuid(7))
+  accommodationId    String
+  accommodation      Accommodation      @relation(fields: [accommodationId], references: [id])
+  roomType           String
+  level              AccommodationLevel @default(LV3)
+  priceOffSeason     Int?
+  pricePeakSeason    Int?
+  paymentMethod      PaymentMethod?
+  mealCostPerServing Int?
+  capacity           String?
+  mealIncluded       Boolean            @default(false)
+  facilities         String?
+  bookingPriority    String?
+  bookingMethod      String?
+  phone              String?
+  googleMapsUrl      String?            @db.Text
+  openingDate        String?
+  closingDate        String?
+  imageUrls          Json               @default("[]")
+  note               String?            @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accommodationId])
+  @@index([level])
+}

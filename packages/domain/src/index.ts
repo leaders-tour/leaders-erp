@@ -38,3 +38,5 @@ export * from './enums/guide-gender';
 export * from './enums/driver-level';
 export * from './enums/driver-status';
 export * from './enums/vehicle-type';
+export * from './enums/accommodation-level';
+export * from './enums/payment-method';
