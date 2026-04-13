@@ -253,9 +253,24 @@ function findImageByGuideFolder(guideDbPath: string, guideName: string): string 
   const folderBase = join(guideDbPath, '가이드', '가이드 개인정보');
   try {
     const entries = readdirSync(folderBase);
-    const match = entries.find(
-      (e) => e.includes(guideName) || guideName.includes(e.split(' ')[0]),
-    );
+
+    // 1순위: 폴더명이 가이드 이름과 정확히 일치
+    let match = entries.find((e) => e === guideName);
+
+    // 2순위: 폴더명이 가이드 이름을 포함 (예: "뭉구(이신영)" → 가이드명 "뭉구(이신영)")
+    if (!match) {
+      match = entries.find((e) => e.includes(guideName));
+    }
+
+    // 3순위: 가이드 이름이 폴더명과 정확히 일치하는 첫 부분 (공백 전까지)
+    // 단, 폴더명이 3글자 이상인 경우만 허용 (짧은 이름의 오매칭 방지)
+    if (!match) {
+      match = entries.find((e) => {
+        const folderFirstWord = e.split(' ')[0];
+        return folderFirstWord.length >= 3 && guideName === folderFirstWord;
+      });
+    }
+
     if (!match) return null;
     const folder = join(folderBase, match);
     const files = readdirSync(folder).filter((f) => IMAGE_EXTS.has(extname(f).toLowerCase()));
