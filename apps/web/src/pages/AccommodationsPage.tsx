@@ -1,7 +1,7 @@
-import { Card } from '@tour/ui';
+import { Button, Card } from '@tour/ui';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAccommodations, type AccommodationLevel, type AccommodationRow } from '../features/accommodation/hooks';
+import { useAccommodations, useCreateAccommodation, type AccommodationLevel, type AccommodationRow } from '../features/accommodation/hooks';
 
 const LEVEL_LABEL: Record<AccommodationLevel, string> = {
   LV2: 'LV.2',
@@ -78,9 +78,106 @@ function AccommodationCard({ acc, onClick }: { acc: AccommodationRow; onClick: (
 const REGIONS = ['고비사막', '중부', '홉스골', '울란바토르', '자브항', '울란곰'];
 const LEVELS: AccommodationLevel[] = ['LV2', 'LV3', 'LV4', 'LV5'];
 
+function CreateAccommodationModal({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (id: string) => void;
+}) {
+  const [form, setForm] = useState({ name: '', region: REGIONS[0], destination: '' });
+  const { createAccommodation, loading } = useCreateAccommodation();
+  const [error, setError] = useState<string | null>(null);
+
+  if (!open) return null;
+
+  const handleSubmit = async () => {
+    if (!form.name.trim()) {
+      setError('숙소명을 입력해 주세요.');
+      return;
+    }
+    if (!form.destination.trim()) {
+      setError('목적지를 입력해 주세요.');
+      return;
+    }
+    setError(null);
+    try {
+      const result = await createAccommodation({
+        name: form.name.trim(),
+        region: form.region,
+        destination: form.destination.trim(),
+      });
+      setForm({ name: '', region: REGIONS[0], destination: '' });
+      onClose();
+      onCreated(result.id);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <Card className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-slate-900">숙소 등록</h3>
+        <p className="mt-1 text-sm text-slate-500">새로운 숙소를 등록합니다.</p>
+
+        {error && (
+          <div className="mt-3 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{error}</div>
+        )}
+
+        <div className="mt-4 grid gap-4">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">숙소명 *</span>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+              placeholder="예: 투어리스트 캠프"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+              autoFocus
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">지역 *</span>
+            <select
+              value={form.region}
+              onChange={(e) => setForm((p) => ({ ...p, region: e.target.value }))}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+            >
+              {REGIONS.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">목적지 *</span>
+            <input
+              type="text"
+              value={form.destination}
+              onChange={(e) => setForm((p) => ({ ...p, destination: e.target.value }))}
+              placeholder="예: 테를지"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            />
+          </label>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose} disabled={loading}>취소</Button>
+          <Button onClick={handleSubmit} disabled={loading}>
+            {loading ? '등록 중...' : '등록'}
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 export function AccommodationsPage(): JSX.Element {
   const [regionFilter, setRegionFilter] = useState<string | undefined>(undefined);
   const [levelFilter, setLevelFilter] = useState<AccommodationLevel | undefined>(undefined);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const { accommodations, loading } = useAccommodations({
     region: regionFilter,
@@ -97,17 +194,26 @@ export function AccommodationsPage(): JSX.Element {
 
   return (
     <section className="grid gap-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">숙소 목록</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          등록된 숙소 및 옵션 정보를 관리합니다.
-          {!loading && (
-            <span className="ml-2 text-slate-400">
-              ({filteredAcc.length}개 숙소)
-            </span>
-          )}
-        </p>
+      <header className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">숙소 목록</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            등록된 숙소 및 옵션 정보를 관리합니다.
+            {!loading && (
+              <span className="ml-2 text-slate-400">
+                ({filteredAcc.length}개 숙소)
+              </span>
+            )}
+          </p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)}>+ 숙소 등록</Button>
       </header>
+
+      <CreateAccommodationModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(id) => navigate(`/accommodations/${id}`)}
+      />
 
       {/* 필터 */}
       <div className="flex flex-col gap-3">

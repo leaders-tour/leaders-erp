@@ -75,6 +75,15 @@ const UPDATE_DRIVER_MUTATION = gql`
   }
 `;
 
+const CREATE_DRIVER_MUTATION = gql`
+  ${DRIVER_FRAGMENT}
+  mutation CreateDriver($input: DriverCreateInput!) {
+    createDriver(input: $input) {
+      ...DriverFields
+    }
+  }
+`;
+
 export function useDrivers(filters?: { status?: string; level?: string; vehicleType?: string }) {
   const { data, loading, refetch } = useQuery<{ drivers: DriverRow[] }>(DRIVERS_QUERY, {
     variables: {
@@ -93,6 +102,21 @@ export function useDriver(id: string | undefined) {
     skip: !id,
   });
   return { driver: data?.driver ?? null, loading, refetch };
+}
+
+export function useCreateDriver() {
+  const [mutate, { loading }] = useMutation<{ createDriver: DriverRow }>(CREATE_DRIVER_MUTATION);
+  return {
+    loading,
+    createDriver: async (input: { nameMn: string; vehicleType?: string; level?: string; status?: string }) => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [{ query: DRIVERS_QUERY }],
+      });
+      if (!result.data?.createDriver) throw new Error('Create failed');
+      return result.data.createDriver;
+    },
+  };
 }
 
 export function useUpdateDriver() {

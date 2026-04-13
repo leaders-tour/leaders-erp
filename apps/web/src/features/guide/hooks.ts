@@ -67,6 +67,15 @@ const UPDATE_GUIDE_MUTATION = gql`
   }
 `;
 
+const CREATE_GUIDE_MUTATION = gql`
+  ${GUIDE_FRAGMENT}
+  mutation CreateGuide($input: GuideCreateInput!) {
+    createGuide(input: $input) {
+      ...GuideFields
+    }
+  }
+`;
+
 const DELETE_GUIDE_MUTATION = gql`
   mutation DeleteGuide($id: ID!) {
     deleteGuide(id: $id)
@@ -87,6 +96,21 @@ export function useGuide(id: string | undefined) {
     skip: !id,
   });
   return { guide: data?.guide ?? null, loading, refetch };
+}
+
+export function useCreateGuide() {
+  const [mutate, { loading }] = useMutation<{ createGuide: GuideRow }>(CREATE_GUIDE_MUTATION);
+  return {
+    loading,
+    createGuide: async (input: { nameKo: string; nameMn?: string; level?: string; status?: string; gender?: string }) => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [{ query: GUIDES_QUERY }],
+      });
+      if (!result.data?.createGuide) throw new Error('Create failed');
+      return result.data.createGuide;
+    },
+  };
 }
 
 export function useUpdateGuide() {

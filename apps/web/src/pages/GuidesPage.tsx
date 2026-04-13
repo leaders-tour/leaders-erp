@@ -1,7 +1,7 @@
-import { Card } from '@tour/ui';
+import { Button, Card } from '@tour/ui';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGuides, type GuideRow } from '../features/guide/hooks';
+import { useGuides, useCreateGuide, type GuideRow } from '../features/guide/hooks';
 
 const LEVEL_LABEL: Record<string, string> = {
   MAIN: '메인',
@@ -48,18 +48,178 @@ function StatusBadge({ status }: { status: GuideRow['status'] }) {
 type LevelFilter = GuideRow['level'] | undefined;
 type StatusFilter = GuideRow['status'] | undefined;
 
+const GUIDE_LEVEL_OPTIONS: { value: GuideRow['level']; label: string }[] = [
+  { value: 'MAIN', label: '메인' },
+  { value: 'JUNIOR', label: '주니어' },
+  { value: 'ROOKIE', label: '신입' },
+  { value: 'OTHER', label: '기타' },
+];
+
+const GUIDE_STATUS_OPTIONS: { value: GuideRow['status']; label: string }[] = [
+  { value: 'ACTIVE_SEASON', label: '2026 시즌' },
+  { value: 'INTERVIEW_DONE', label: '면접 완료' },
+  { value: 'INACTIVE', label: '비활성' },
+  { value: 'OTHER', label: '기타' },
+];
+
+function CreateGuideModal({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (id: string) => void;
+}) {
+  const [form, setForm] = useState({
+    nameKo: '',
+    nameMn: '',
+    level: 'ROOKIE' as GuideRow['level'],
+    status: 'INTERVIEW_DONE' as GuideRow['status'],
+    gender: '' as '' | 'MALE' | 'FEMALE',
+    phone: '',
+  });
+  const { createGuide, loading } = useCreateGuide();
+  const [error, setError] = useState<string | null>(null);
+
+  if (!open) return null;
+
+  const handleSubmit = async () => {
+    if (!form.nameKo.trim()) {
+      setError('이름을 입력해 주세요.');
+      return;
+    }
+    setError(null);
+    try {
+      const result = await createGuide({
+        nameKo: form.nameKo.trim(),
+        ...(form.nameMn.trim() ? { nameMn: form.nameMn.trim() } : {}),
+        level: form.level,
+        status: form.status,
+        ...(form.gender ? { gender: form.gender } : {}),
+        ...(form.phone.trim() ? { phone: form.phone.trim() } : {}),
+      } as any);
+      setForm({ nameKo: '', nameMn: '', level: 'ROOKIE', status: 'INTERVIEW_DONE', gender: '', phone: '' });
+      onClose();
+      onCreated(result.id);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <Card className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-slate-900">가이드 등록</h3>
+        <p className="mt-1 text-sm text-slate-500">새로운 가이드를 등록합니다. 상세 정보는 등록 후 수정할 수 있습니다.</p>
+
+        {error && (
+          <div className="mt-3 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{error}</div>
+        )}
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">이름 (한국) *</span>
+            <input
+              type="text"
+              value={form.nameKo}
+              onChange={(e) => setForm((p) => ({ ...p, nameKo: e.target.value }))}
+              placeholder="한국어 이름"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+              autoFocus
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">몽골 이름</span>
+            <input
+              type="text"
+              value={form.nameMn}
+              onChange={(e) => setForm((p) => ({ ...p, nameMn: e.target.value }))}
+              placeholder="몽골어 이름"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">레벨</span>
+            <select
+              value={form.level}
+              onChange={(e) => setForm((p) => ({ ...p, level: e.target.value as GuideRow['level'] }))}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+            >
+              {GUIDE_LEVEL_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">상태</span>
+            <select
+              value={form.status}
+              onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as GuideRow['status'] }))}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+            >
+              {GUIDE_STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">성별</span>
+            <select
+              value={form.gender}
+              onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value as '' | 'MALE' | 'FEMALE' }))}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+            >
+              <option value="">-</option>
+              <option value="MALE">남</option>
+              <option value="FEMALE">여</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">전화번호</span>
+            <input
+              type="text"
+              value={form.phone}
+              onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+              placeholder="전화번호"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            />
+          </label>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose} disabled={loading}>취소</Button>
+          <Button onClick={handleSubmit} disabled={loading}>
+            {loading ? '등록 중...' : '등록'}
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 export function GuidesPage(): JSX.Element {
   const [levelFilter, setLevelFilter] = useState<LevelFilter>(undefined);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE_SEASON');
+  const [createOpen, setCreateOpen] = useState(false);
   const { guides, loading } = useGuides({ level: levelFilter, status: statusFilter });
   const navigate = useNavigate();
 
   return (
     <section className="grid gap-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">가이드 목록</h1>
-        <p className="mt-1 text-sm text-slate-600">등록된 가이드 정보를 관리합니다.</p>
+      <header className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">가이드 목록</h1>
+          <p className="mt-1 text-sm text-slate-600">등록된 가이드 정보를 관리합니다.</p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)}>+ 가이드 등록</Button>
       </header>
+
+      <CreateGuideModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(id) => navigate(`/guides/${id}`)}
+      />
 
       {/* 필터 */}
       <div className="flex flex-col gap-3">

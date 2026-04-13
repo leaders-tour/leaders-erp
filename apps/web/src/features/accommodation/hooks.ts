@@ -105,6 +105,15 @@ const UPDATE_OPTION_MUTATION = gql`
   }
 `;
 
+const CREATE_ACCOMMODATION_MUTATION = gql`
+  ${ACCOMMODATION_FRAGMENT}
+  mutation CreateAccommodation($input: AccommodationCreateInput!) {
+    createAccommodation(input: $input) {
+      ...AccommodationFields
+    }
+  }
+`;
+
 const UPDATE_ACCOMMODATION_MUTATION = gql`
   ${ACCOMMODATION_FRAGMENT}
   mutation UpdateAccommodation($id: ID!, $input: AccommodationUpdateInput!) {
@@ -139,6 +148,23 @@ export function useAccommodation(id: string | undefined) {
     { variables: { id }, skip: !id },
   );
   return { accommodation: data?.accommodation ?? null, loading, refetch };
+}
+
+export function useCreateAccommodation() {
+  const [mutate, { loading }] = useMutation<{ createAccommodation: AccommodationRow }>(
+    CREATE_ACCOMMODATION_MUTATION,
+  );
+  return {
+    loading,
+    createAccommodation: async (input: { name: string; destination: string; region: string }) => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [{ query: ACCOMMODATIONS_QUERY }],
+      });
+      if (!result.data?.createAccommodation) throw new Error('Create failed');
+      return result.data.createAccommodation;
+    },
+  };
 }
 
 export function useUpdateAccommodation() {

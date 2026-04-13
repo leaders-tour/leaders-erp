@@ -1,7 +1,7 @@
-import { Card } from '@tour/ui';
+import { Button, Card } from '@tour/ui';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDrivers, type DriverRow } from '../features/driver/hooks';
+import { useDrivers, useCreateDriver, type DriverRow } from '../features/driver/hooks';
 
 const VEHICLE_TYPE_LABEL: Record<string, string> = {
   STAREX: '스타렉스',
@@ -74,10 +74,158 @@ type StatusFilter = DriverRow['status'] | undefined;
 type LevelFilter = DriverRow['level'] | undefined;
 type VehicleFilter = DriverRow['vehicleType'] | undefined;
 
+const VEHICLE_OPTIONS: { value: DriverRow['vehicleType']; label: string }[] = [
+  { value: 'STAREX', label: '스타렉스' },
+  { value: 'HIACE', label: '하이에이스' },
+  { value: 'PURGON', label: '푸르공' },
+  { value: 'LAND_CRUISER', label: '랜드크루저' },
+  { value: 'ALPHARD', label: '알파드' },
+  { value: 'OTHER', label: '기타' },
+];
+
+const LEVEL_OPTIONS: { value: DriverRow['level']; label: string }[] = [
+  { value: 'MAIN', label: '메인' },
+  { value: 'JUNIOR', label: '주니어' },
+  { value: 'ROOKIE', label: '신입' },
+  { value: 'OTHER', label: '기타' },
+];
+
+const STATUS_OPTIONS: { value: DriverRow['status']; label: string }[] = [
+  { value: 'ACTIVE_SEASON', label: '2026 시즌' },
+  { value: 'INTERVIEW_DONE', label: '면접 완료' },
+  { value: 'BLACKLISTED', label: '블랙리스트' },
+  { value: 'OTHER', label: '기타' },
+];
+
+function CreateDriverModal({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (id: string) => void;
+}) {
+  const [form, setForm] = useState({
+    nameMn: '',
+    vehicleType: 'STAREX' as DriverRow['vehicleType'],
+    level: 'ROOKIE' as DriverRow['level'],
+    status: 'INTERVIEW_DONE' as DriverRow['status'],
+    phone: '',
+  });
+  const { createDriver, loading } = useCreateDriver();
+  const [error, setError] = useState<string | null>(null);
+
+  if (!open) return null;
+
+  const handleSubmit = async () => {
+    if (!form.nameMn.trim()) {
+      setError('이름을 입력해 주세요.');
+      return;
+    }
+    setError(null);
+    try {
+      const result = await createDriver({
+        nameMn: form.nameMn.trim(),
+        vehicleType: form.vehicleType,
+        level: form.level,
+        status: form.status,
+        ...(form.phone.trim() ? { phone: form.phone.trim() } : {}),
+      } as any);
+      setForm({ nameMn: '', vehicleType: 'STAREX', level: 'ROOKIE', status: 'INTERVIEW_DONE', phone: '' });
+      onClose();
+      onCreated(result.id);
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <Card className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-slate-900">기사 등록</h3>
+        <p className="mt-1 text-sm text-slate-500">새로운 기사를 등록합니다. 상세 정보는 등록 후 수정할 수 있습니다.</p>
+
+        {error && (
+          <div className="mt-3 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{error}</div>
+        )}
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 sm:col-span-2">
+            <span className="text-xs font-medium text-slate-500">이름 (몽골) *</span>
+            <input
+              type="text"
+              value={form.nameMn}
+              onChange={(e) => setForm((p) => ({ ...p, nameMn: e.target.value }))}
+              placeholder="기사 이름"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+              autoFocus
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">차종</span>
+            <select
+              value={form.vehicleType}
+              onChange={(e) => setForm((p) => ({ ...p, vehicleType: e.target.value as DriverRow['vehicleType'] }))}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+            >
+              {VEHICLE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">레벨</span>
+            <select
+              value={form.level}
+              onChange={(e) => setForm((p) => ({ ...p, level: e.target.value as DriverRow['level'] }))}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+            >
+              {LEVEL_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">상태</span>
+            <select
+              value={form.status}
+              onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as DriverRow['status'] }))}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+            >
+              {STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">전화번호</span>
+            <input
+              type="text"
+              value={form.phone}
+              onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+              placeholder="전화번호"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            />
+          </label>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose} disabled={loading}>취소</Button>
+          <Button onClick={handleSubmit} disabled={loading}>
+            {loading ? '등록 중...' : '등록'}
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 export function DriversPage(): JSX.Element {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE_SEASON');
   const [levelFilter, setLevelFilter] = useState<LevelFilter>(undefined);
   const [vehicleFilter, setVehicleFilter] = useState<VehicleFilter>(undefined);
+  const [createOpen, setCreateOpen] = useState(false);
   const { drivers, loading } = useDrivers({
     status: statusFilter,
     level: levelFilter,
@@ -87,10 +235,19 @@ export function DriversPage(): JSX.Element {
 
   return (
     <section className="grid gap-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">기사 목록</h1>
-        <p className="mt-1 text-sm text-slate-600">등록된 기사 및 차량 정보를 관리합니다.</p>
+      <header className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">기사 목록</h1>
+          <p className="mt-1 text-sm text-slate-600">등록된 기사 및 차량 정보를 관리합니다.</p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)}>+ 기사 등록</Button>
       </header>
+
+      <CreateDriverModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(id) => navigate(`/drivers/${id}`)}
+      />
 
       {/* 필터 */}
       <div className="flex flex-col gap-3">
