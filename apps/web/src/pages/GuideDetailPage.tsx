@@ -98,12 +98,12 @@ export function GuideDetailPage(): JSX.Element {
           ← 목록
         </button>
         {!editing ? (
-          <Button variant="secondary" onClick={startEdit}>
+          <Button variant="default" onClick={startEdit}>
             편집
           </Button>
         ) : (
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setEditing(false)} disabled={saving}>
+            <Button variant="default" onClick={() => setEditing(false)} disabled={saving}>
               취소
             </Button>
             <Button variant="primary" onClick={save} disabled={saving}>
