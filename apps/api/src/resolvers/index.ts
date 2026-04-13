@@ -21,6 +21,7 @@ import { specialMealDestinationRulesResolver } from '../modules/special-meal-des
 import { timeBlockResolver } from '../modules/time-block/time-block.resolver';
 import { confirmedTripResolver } from '../modules/confirmed-trip/confirmed-trip.resolver';
 import { guideResolver } from '../modules/guide/guide.resolver';
+import { driverResolver } from '../modules/driver/driver.resolver';
 import { requireEmployee } from '../lib/auth-guards';
 
 function mergeSection(...items: Array<Record<string, unknown>>): Record<string, unknown> {
@@ -106,6 +107,7 @@ export const resolvers = {
       specialMealDestinationRulesResolver.Query,
       confirmedTripResolver.Query,
       guideResolver.Query,
+      driverResolver.Query,
       {
         health: () => 'ok',
       },
@@ -136,6 +138,7 @@ export const resolvers = {
       specialMealDestinationRulesResolver.Mutation,
       confirmedTripResolver.Mutation,
       guideResolver.Mutation,
+      driverResolver.Mutation,
     ),
     ['login', 'registerEmployee', 'refreshAccessToken', 'logout'],
   ),
@@ -165,4 +168,5 @@ export const resolvers = {
   MultiDayBlockConnectionActivity: multiDayBlockResolver.MultiDayBlockConnectionActivity,
   SpecialMealDestinationRules: specialMealDestinationRulesResolver.SpecialMealDestinationRules,
   Guide: guideResolver.Guide,
+  Driver: driverResolver.Driver,
 };

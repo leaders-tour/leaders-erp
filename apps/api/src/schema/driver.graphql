@@ -1,0 +1,85 @@
+enum DriverLevel {
+  MAIN
+  JUNIOR
+  ROOKIE
+  OTHER
+}
+
+enum DriverStatus {
+  ACTIVE_SEASON
+  INTERVIEW_DONE
+  BLACKLISTED
+  OTHER
+}
+
+enum VehicleType {
+  STAREX
+  HIACE
+  PURGON
+  LAND_CRUISER
+  ALPHARD
+  OTHER
+}
+
+type Driver {
+  id: ID!
+  nameMn: String!
+  vehicleType: VehicleType!
+  vehicleNumber: String
+  vehicleOptions: String
+  vehicleYear: Int
+  maxPassengers: Int
+  level: DriverLevel!
+  status: DriverStatus!
+  gender: GuideGender
+  birthYear: Int
+  isSmoker: Boolean!
+  hasTouristLicense: Boolean!
+  joinYear: Int
+  phone: String
+  profileImageUrl: String
+  vehicleImageUrls: [String!]!
+  note: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input DriverCreateInput {
+  nameMn: String!
+  vehicleType: VehicleType
+  vehicleNumber: String
+  vehicleOptions: String
+  vehicleYear: Int
+  maxPassengers: Int
+  level: DriverLevel
+  status: DriverStatus
+  gender: GuideGender
+  birthYear: Int
+  isSmoker: Boolean
+  hasTouristLicense: Boolean
+  joinYear: Int
+  phone: String
+  profileImageUrl: String
+  vehicleImageUrls: [String!]
+  note: String
+}
+
+input DriverUpdateInput {
+  nameMn: String
+  vehicleType: VehicleType
+  vehicleNumber: String
+  vehicleOptions: String
+  vehicleYear: Int
+  maxPassengers: Int
+  level: DriverLevel
+  status: DriverStatus
+  gender: GuideGender
+  birthYear: Int
+  isSmoker: Boolean
+  hasTouristLicense: Boolean
+  joinYear: Int
+  phone: String
+  profileImageUrl: String
+  vehicleImageUrls: [String!]
+  note: String
+}

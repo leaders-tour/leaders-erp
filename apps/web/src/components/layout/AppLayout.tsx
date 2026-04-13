@@ -116,10 +116,21 @@ const GuideIcon: NavIcon = ({ className }) => (
   </svg>
 );
 
+const DriverIcon: NavIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <rect x="2" y="8" width="20" height="12" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16 8V6a4 4 0 0 0-8 0v2" />
+    <circle cx="12" cy="14" r="2" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 20v-2" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M18 20v-2" />
+  </svg>
+);
+
 const baseNavItems: NavItem[] = [
   { path: '/itinerary-builder', label: '일정 빌더', icon: ItineraryIcon },
   { path: '/confirmed-trips', label: '투어 리스트', icon: TourListIcon },
   { path: '/guides', label: '가이드', icon: GuideIcon },
+  { path: '/drivers', label: '기사', icon: DriverIcon },
   { path: '/deal-pipeline', label: '딜 파이프라인 ( 준비중 )', icon: PipelineIcon },
   { path: '/outreach/leads', label: '카페 리드 ( 준비중 )', icon: OutreachIcon },
   { path: '/todos/list', label: 'TODO ( 준비중 )', icon: TodoIcon },

@@ -5,6 +5,8 @@ import { ConfirmedTripsPage } from '../pages/ConfirmedTripsPage';
 import { ConfirmedTripDetailPage } from '../pages/ConfirmedTripDetailPage';
 import { GuidesPage } from '../pages/GuidesPage';
 import { GuideDetailPage } from '../pages/GuideDetailPage';
+import { DriverDetailPage } from '../pages/DriverDetailPage';
+import { DriversPage } from '../pages/DriversPage';
 import { ConnectionCreatePage } from '../pages/ConnectionCreatePage';
 import { ConnectionListPage } from '../pages/ConnectionListPage';
 import { CustomerCreatePage } from '../pages/CustomerCreatePage';
@@ -71,6 +73,8 @@ export const router = createBrowserRouter([
       { path: 'confirmed-trips/:tripId', element: <ConfirmedTripDetailPage /> },
       { path: 'guides', element: <GuidesPage /> },
       { path: 'guides/:guideId', element: <GuideDetailPage /> },
+      { path: 'drivers', element: <DriversPage /> },
+      { path: 'drivers/:driverId', element: <DriverDetailPage /> },
       { path: 'itinerary-templates', element: <ItineraryTemplatePage /> },
       { path: 'itinerary-templates/new', element: <ItineraryTemplateCreatePage /> },
       { path: 'itinerary-templates/:templateId', element: <ItineraryTemplateDetailPage /> },

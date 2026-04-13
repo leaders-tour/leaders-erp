@@ -1503,3 +1503,53 @@ model Guide {
   @@index([level])
   @@index([status])
 }
+
+enum DriverLevel {
+  MAIN
+  JUNIOR
+  ROOKIE
+  OTHER
+}
+
+enum DriverStatus {
+  ACTIVE_SEASON
+  INTERVIEW_DONE
+  BLACKLISTED
+  OTHER
+}
+
+enum VehicleType {
+  STAREX
+  HIACE
+  PURGON
+  LAND_CRUISER
+  ALPHARD
+  OTHER
+}
+
+model Driver {
+  id                String       @id @default(uuid(7))
+  nameMn            String
+  vehicleType       VehicleType  @default(OTHER)
+  vehicleNumber     String?
+  vehicleOptions    String?
+  vehicleYear       Int?
+  maxPassengers     Int?
+  level             DriverLevel  @default(OTHER)
+  status            DriverStatus @default(OTHER)
+  gender            GuideGender?
+  birthYear         Int?
+  isSmoker          Boolean      @default(false)
+  hasTouristLicense Boolean      @default(false)
+  joinYear          Int?
+  phone             String?
+  profileImageUrl   String?
+  vehicleImageUrls  Json         @default("[]")
+  note              String?      @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([level])
+  @@index([status])
+}

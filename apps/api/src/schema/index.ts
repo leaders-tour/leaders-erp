@@ -30,6 +30,7 @@ const files = [
   'outreach.graphql',
   'confirmed-trip.graphql',
   'guide.graphql',
+  'driver.graphql',
 ];
 
 export const typeDefs = files.map((fileName) => readFileSync(path.join(__dirname, fileName), 'utf8'));

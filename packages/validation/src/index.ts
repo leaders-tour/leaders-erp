@@ -23,3 +23,4 @@ export * from './time-block.schema';
 export * from './user.schema';
 export * from './confirmed-trip.schema';
 export * from './guide.schema';
+export * from './driver.schema';

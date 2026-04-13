@@ -35,3 +35,6 @@ export * from './enums/confirmed-trip-status';
 export * from './enums/guide-level';
 export * from './enums/guide-status';
 export * from './enums/guide-gender';
+export * from './enums/driver-level';
+export * from './enums/driver-status';
+export * from './enums/vehicle-type';

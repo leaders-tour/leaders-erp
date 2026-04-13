@@ -48,6 +48,8 @@ type Query {
   confirmedTrip(id: ID!): ConfirmedTrip
   guides(status: GuideStatus, level: GuideLevel): [Guide!]!
   guide(id: ID!): Guide
+  drivers(status: DriverStatus, level: DriverLevel, vehicleType: VehicleType): [Driver!]!
+  driver(id: ID!): Driver
 }
 
 type Mutation {
@@ -138,4 +140,8 @@ type Mutation {
   createGuide(input: GuideCreateInput!): Guide!
   updateGuide(id: ID!, input: GuideUpdateInput!): Guide!
   deleteGuide(id: ID!): Boolean!
+
+  createDriver(input: DriverCreateInput!): Driver!
+  updateDriver(id: ID!, input: DriverUpdateInput!): Driver!
+  deleteDriver(id: ID!): Boolean!
 }
