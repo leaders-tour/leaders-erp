@@ -110,7 +110,7 @@ export function AccommodationsPage(): JSX.Element {
       </header>
 
       {/* 필터 */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-1">
           <button
             className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${!regionFilter ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
