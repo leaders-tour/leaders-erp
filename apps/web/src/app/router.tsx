@@ -3,6 +3,8 @@ import { RedirectAuthenticated, RequireAdmin, RequireAuth } from './auth-guards'
 import { AppLayout } from '../components/layout/AppLayout';
 import { ConfirmedTripsPage } from '../pages/ConfirmedTripsPage';
 import { ConfirmedTripDetailPage } from '../pages/ConfirmedTripDetailPage';
+import { GuidesPage } from '../pages/GuidesPage';
+import { GuideDetailPage } from '../pages/GuideDetailPage';
 import { ConnectionCreatePage } from '../pages/ConnectionCreatePage';
 import { ConnectionListPage } from '../pages/ConnectionListPage';
 import { CustomerCreatePage } from '../pages/CustomerCreatePage';
@@ -67,6 +69,8 @@ export const router = createBrowserRouter([
       { path: 'itinerary-builder', element: <ItineraryBuilderPage /> },
       { path: 'confirmed-trips', element: <ConfirmedTripsPage /> },
       { path: 'confirmed-trips/:tripId', element: <ConfirmedTripDetailPage /> },
+      { path: 'guides', element: <GuidesPage /> },
+      { path: 'guides/:guideId', element: <GuideDetailPage /> },
       { path: 'itinerary-templates', element: <ItineraryTemplatePage /> },
       { path: 'itinerary-templates/new', element: <ItineraryTemplateCreatePage /> },
       { path: 'itinerary-templates/:templateId', element: <ItineraryTemplateDetailPage /> },

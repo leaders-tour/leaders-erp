@@ -20,6 +20,7 @@ import { segmentResolver } from '../modules/segment/segment.resolver';
 import { specialMealDestinationRulesResolver } from '../modules/special-meal-destination-rules/special-meal-destination-rules.resolver';
 import { timeBlockResolver } from '../modules/time-block/time-block.resolver';
 import { confirmedTripResolver } from '../modules/confirmed-trip/confirmed-trip.resolver';
+import { guideResolver } from '../modules/guide/guide.resolver';
 import { requireEmployee } from '../lib/auth-guards';
 
 function mergeSection(...items: Array<Record<string, unknown>>): Record<string, unknown> {
@@ -104,6 +105,7 @@ export const resolvers = {
       outreachResolver.Query,
       specialMealDestinationRulesResolver.Query,
       confirmedTripResolver.Query,
+      guideResolver.Query,
       {
         health: () => 'ok',
       },
@@ -133,6 +135,7 @@ export const resolvers = {
       outreachResolver.Mutation,
       specialMealDestinationRulesResolver.Mutation,
       confirmedTripResolver.Mutation,
+      guideResolver.Mutation,
     ),
     ['login', 'registerEmployee', 'refreshAccessToken', 'logout'],
   ),
@@ -161,4 +164,5 @@ export const resolvers = {
   MultiDayBlockConnectionTimeBlock: multiDayBlockResolver.MultiDayBlockConnectionTimeBlock,
   MultiDayBlockConnectionActivity: multiDayBlockResolver.MultiDayBlockConnectionActivity,
   SpecialMealDestinationRules: specialMealDestinationRulesResolver.SpecialMealDestinationRules,
+  Guide: guideResolver.Guide,
 };

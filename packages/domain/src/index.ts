@@ -32,3 +32,6 @@ export * from './models/segment';
 export * from './models/time-block';
 export * from './models/user';
 export * from './enums/confirmed-trip-status';
+export * from './enums/guide-level';
+export * from './enums/guide-status';
+export * from './enums/guide-gender';

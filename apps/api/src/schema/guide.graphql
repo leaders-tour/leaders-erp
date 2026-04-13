@@ -1,0 +1,69 @@
+enum GuideLevel {
+  MAIN
+  JUNIOR
+  ROOKIE
+  OTHER
+}
+
+enum GuideStatus {
+  ACTIVE_SEASON
+  INTERVIEW_DONE
+  INACTIVE
+  OTHER
+}
+
+enum GuideGender {
+  MALE
+  FEMALE
+}
+
+type Guide {
+  id: ID!
+  nameKo: String!
+  nameMn: String
+  level: GuideLevel!
+  status: GuideStatus!
+  gender: GuideGender
+  birthYear: Int
+  isSmoker: Boolean!
+  experienceYears: Int
+  joinYear: Int
+  phone: String
+  profileImageUrl: String
+  certImageUrls: [String!]!
+  note: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input GuideCreateInput {
+  nameKo: String!
+  nameMn: String
+  level: GuideLevel
+  status: GuideStatus
+  gender: GuideGender
+  birthYear: Int
+  isSmoker: Boolean
+  experienceYears: Int
+  joinYear: Int
+  phone: String
+  profileImageUrl: String
+  certImageUrls: [String!]
+  note: String
+}
+
+input GuideUpdateInput {
+  nameKo: String
+  nameMn: String
+  level: GuideLevel
+  status: GuideStatus
+  gender: GuideGender
+  birthYear: Int
+  isSmoker: Boolean
+  experienceYears: Int
+  joinYear: Int
+  phone: String
+  profileImageUrl: String
+  certImageUrls: [String!]
+  note: String
+}

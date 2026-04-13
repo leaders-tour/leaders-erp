@@ -46,6 +46,8 @@ type Query {
   override(id: ID!): Override
   confirmedTrips(status: ConfirmedTripStatus): [ConfirmedTrip!]!
   confirmedTrip(id: ID!): ConfirmedTrip
+  guides(status: GuideStatus, level: GuideLevel): [Guide!]!
+  guide(id: ID!): Guide
 }
 
 type Mutation {
@@ -132,4 +134,8 @@ type Mutation {
   confirmTrip(input: ConfirmTripInput!): ConfirmedTrip!
   updateConfirmedTrip(id: ID!, input: ConfirmedTripUpdateInput!): ConfirmedTrip!
   cancelConfirmedTrip(id: ID!): ConfirmedTrip!
+
+  createGuide(input: GuideCreateInput!): Guide!
+  updateGuide(id: ID!, input: GuideUpdateInput!): Guide!
+  deleteGuide(id: ID!): Boolean!
 }

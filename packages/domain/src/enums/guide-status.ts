@@ -1,0 +1,6 @@
+export enum GuideStatus {
+  ACTIVE_SEASON = 'ACTIVE_SEASON',
+  INTERVIEW_DONE = 'INTERVIEW_DONE',
+  INACTIVE = 'INACTIVE',
+  OTHER = 'OTHER',
+}

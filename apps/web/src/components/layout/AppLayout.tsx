@@ -109,9 +109,17 @@ const TourListIcon: NavIcon = ({ className }) => (
   </svg>
 );
 
+const GuideIcon: NavIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 21v-1a6 6 0 0 1 12 0v1" />
+  </svg>
+);
+
 const baseNavItems: NavItem[] = [
   { path: '/itinerary-builder', label: '일정 빌더', icon: ItineraryIcon },
   { path: '/confirmed-trips', label: '투어 리스트', icon: TourListIcon },
+  { path: '/guides', label: '가이드', icon: GuideIcon },
   { path: '/deal-pipeline', label: '딜 파이프라인 ( 준비중 )', icon: PipelineIcon },
   { path: '/outreach/leads', label: '카페 리드 ( 준비중 )', icon: OutreachIcon },
   { path: '/todos/list', label: 'TODO ( 준비중 )', icon: TodoIcon },
