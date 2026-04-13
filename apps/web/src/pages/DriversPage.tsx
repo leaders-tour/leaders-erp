@@ -93,7 +93,7 @@ export function DriversPage(): JSX.Element {
       </header>
 
       {/* 필터 */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-1">
           {([undefined, 'ACTIVE_SEASON', 'INTERVIEW_DONE', 'BLACKLISTED'] as (StatusFilter | undefined)[]).map(
             (s) => (

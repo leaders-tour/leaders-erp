@@ -62,8 +62,8 @@ export function GuidesPage(): JSX.Element {
       </header>
 
       {/* 필터 */}
-      <div className="flex flex-wrap gap-3">
-        <div className="flex gap-1">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap gap-1">
           {([undefined, 'ACTIVE_SEASON', 'INTERVIEW_DONE', 'INACTIVE'] as (StatusFilter | undefined)[]).map(
             (s) => (
               <button
@@ -81,7 +81,7 @@ export function GuidesPage(): JSX.Element {
           )}
         </div>
 
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {([undefined, 'MAIN', 'JUNIOR', 'ROOKIE'] as (LevelFilter | undefined)[]).map((l) => (
             <button
               key={String(l)}
