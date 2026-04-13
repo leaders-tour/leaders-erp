@@ -49,6 +49,19 @@ function StatusBadge({ status }: { status: 'ACTIVE' | 'CANCELLED' }) {
   return <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">확정</span>;
 }
 
+function getLodgingSummary(trip: ConfirmedTripRow): string {
+  if (trip.accommodationNote) return trip.accommodationNote;
+  const selections = trip.planVersion.meta?.lodgingSelections ?? [];
+  const names = [
+    ...new Set(
+      selections
+        .map((s) => s.customLodgingNameSnapshot)
+        .filter((n): n is string => !!n),
+    ),
+  ];
+  return names.length > 0 ? names.join(', ') : '-';
+}
+
 function WarningBadges({ trip }: { trip: ConfirmedTripRow }) {
   const badges: JSX.Element[] = [];
   if (!trip.guideName) {
@@ -176,9 +189,9 @@ export function ConfirmedTripsPage(): JSX.Element {
                       <td className="whitespace-nowrap px-4 py-3 text-slate-700">
                         {trip.assignedVehicle ?? meta?.vehicleType ?? '-'}
                       </td>
-                      <td className="max-w-[180px] px-4 py-3 text-slate-700">
-                        <span className="line-clamp-2 whitespace-pre-wrap text-xs leading-snug">
-                          {trip.accommodationNote ?? '-'}
+                      <td className="max-w-[200px] px-4 py-3 text-slate-700">
+                        <span className="line-clamp-2 text-xs leading-snug">
+                          {getLodgingSummary(trip)}
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-slate-700">

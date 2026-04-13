@@ -43,6 +43,11 @@ export interface ConfirmedTripRow {
       includeRentalItems: boolean;
       rentalItemsText: string;
       remark: string | null;
+      lodgingSelections: Array<{
+        dayIndex: number;
+        level: string;
+        customLodgingNameSnapshot: string | null;
+      }>;
     } | null;
     pricing: {
       totalAmountKrw: number;
@@ -107,6 +112,11 @@ const CONFIRMED_TRIP_FRAGMENT = gql`
         includeRentalItems
         rentalItemsText
         remark
+        lodgingSelections {
+          dayIndex
+          level
+          customLodgingNameSnapshot
+        }
       }
       pricing {
         totalAmountKrw
