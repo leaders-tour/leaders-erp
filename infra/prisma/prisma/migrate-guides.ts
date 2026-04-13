@@ -320,7 +320,7 @@ async function main() {
       if (profilePath) {
         try {
           const ext = extname(profilePath).toLowerCase();
-          const s3Key = `${sanitizeSegment(g.nameKo)}/profile${ext}`;
+          const s3Key = `${g.nameKo}/profile${ext}`;
           profileImageUrl = await uploadToS3(profilePath, s3Key);
           process.stdout.write(`  📷 프로필: ${profileImageUrl}\n`);
         } catch (err) {
@@ -335,7 +335,7 @@ async function main() {
         if (certPath) {
           try {
             const ext = extname(certPath).toLowerCase();
-            const s3Key = `${sanitizeSegment(g.nameKo)}/cert_${i + 1}${ext}`;
+            const s3Key = `${g.nameKo}/cert_${i + 1}${ext}`;
             const url = await uploadToS3(certPath, s3Key);
             certImageUrls.push(url);
             process.stdout.write(`  📄 자격증: ${url}\n`);
