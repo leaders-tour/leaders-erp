@@ -1,11 +1,16 @@
 import { Card } from '@tour/ui';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ConfirmedTripCalendar } from '../features/confirmed-trip/ConfirmedTripCalendar';
 import { useConfirmedTrips, type ConfirmedTripRow } from '../features/confirmed-trip/hooks';
 
 type StatusFilter = 'ACTIVE' | 'CANCELLED' | undefined;
 type ViewMode = 'list' | 'calendar';
+
+function getNow() {
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+}
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
 function formatKrw(value: number): string {
@@ -85,9 +90,25 @@ function WarningBadges({ trip }: { trip: ConfirmedTripRow }) {
 
 export function ConfirmedTripsPage(): JSX.Element {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [searchParams, setSearchParams] = useSearchParams();
   const { trips, loading } = useConfirmedTrips(statusFilter);
   const navigate = useNavigate();
+
+  const viewMode: ViewMode = searchParams.get('view') === 'calendar' ? 'calendar' : 'list';
+  const { year: nowYear, month: nowMonth } = getNow();
+  const calYear = Number(searchParams.get('cy')) || nowYear;
+  const calMonth = Number(searchParams.get('cm')) || nowMonth;
+
+  function setViewMode(mode: ViewMode) {
+    setSearchParams((prev) => { prev.set('view', mode); return prev; }, { replace: true });
+  }
+
+  function setCalendarMonth(year: number, month: number) {
+    setSearchParams(
+      (prev) => { prev.set('cy', String(year)); prev.set('cm', String(month)); return prev; },
+      { replace: true },
+    );
+  }
 
   return (
     <section className="grid gap-6">
@@ -170,7 +191,12 @@ export function ConfirmedTripsPage(): JSX.Element {
       {loading ? (
         <p className="text-sm text-slate-500">불러오는 중...</p>
       ) : viewMode === 'calendar' ? (
-        <ConfirmedTripCalendar trips={trips} />
+        <ConfirmedTripCalendar
+          trips={trips}
+          year={calYear}
+          month={calMonth}
+          onChangeMonth={setCalendarMonth}
+        />
       ) : trips.length === 0 ? (
         <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
           확정된 투어가 없습니다.

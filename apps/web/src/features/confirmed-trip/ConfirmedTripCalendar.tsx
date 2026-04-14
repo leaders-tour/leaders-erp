@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   KOREAN_WEEKDAY_LABELS,
@@ -9,6 +9,9 @@ import type { ConfirmedTripRow } from './hooks';
 
 interface ConfirmedTripCalendarProps {
   trips: ConfirmedTripRow[];
+  year: number;
+  month: number;
+  onChangeMonth: (year: number, month: number) => void;
 }
 
 interface CalendarBlock {
@@ -162,11 +165,8 @@ function buildWeekBlocks(
   return { weekBlocks, weekCount };
 }
 
-export function ConfirmedTripCalendar({ trips }: ConfirmedTripCalendarProps): JSX.Element {
+export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: ConfirmedTripCalendarProps): JSX.Element {
   const navigate = useNavigate();
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
 
   const daysInMonth = getDaysInMonth(year, month);
   const firstWeekday = getWeekdayIndex(year, month, 1);
@@ -178,13 +178,13 @@ export function ConfirmedTripCalendar({ trips }: ConfirmedTripCalendarProps): JS
   );
 
   function goToPrevMonth() {
-    if (month === 1) { setYear((y) => y - 1); setMonth(12); }
-    else { setMonth((m) => m - 1); }
+    if (month === 1) onChangeMonth(year - 1, 12);
+    else onChangeMonth(year, month - 1);
   }
 
   function goToNextMonth() {
-    if (month === 12) { setYear((y) => y + 1); setMonth(1); }
-    else { setMonth((m) => m + 1); }
+    if (month === 12) onChangeMonth(year + 1, 1);
+    else onChangeMonth(year, month + 1);
   }
 
   return (
