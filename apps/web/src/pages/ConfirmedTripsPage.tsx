@@ -1,11 +1,37 @@
 import { Card } from '@tour/ui';
-import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ConfirmedTripCalendar } from '../features/confirmed-trip/ConfirmedTripCalendar';
 import { useConfirmedTrips, type ConfirmedTripRow } from '../features/confirmed-trip/hooks';
 
-type StatusFilter = 'ACTIVE' | 'CANCELLED' | undefined;
+type DateFilter = 'upcoming' | 'ongoing' | 'completed';
 type ViewMode = 'list' | 'calendar';
+
+const DATE_FILTER_OPTIONS: { value: DateFilter; label: string }[] = [
+  { value: 'upcoming', label: '여행 예정' },
+  { value: 'ongoing', label: '여행중' },
+  { value: 'completed', label: '여행 완료' },
+];
+
+function getTodayMidnight(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function applyDateFilter(trips: ConfirmedTripRow[], filter: DateFilter): ConfirmedTripRow[] {
+  const today = getTodayMidnight();
+  return trips.filter((trip) => {
+    const meta = trip.planVersion.meta;
+    if (!meta) return false;
+    const start = new Date(meta.travelStartDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(meta.travelEndDate);
+    end.setHours(0, 0, 0, 0);
+    if (filter === 'upcoming') return start > today;
+    if (filter === 'ongoing') return start <= today && end >= today;
+    return end < today;
+  });
+}
 
 function getNow() {
   const now = new Date();
@@ -89,10 +115,13 @@ function WarningBadges({ trip }: { trip: ConfirmedTripRow }) {
 }
 
 export function ConfirmedTripsPage(): JSX.Element {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE');
   const [searchParams, setSearchParams] = useSearchParams();
-  const { trips, loading } = useConfirmedTrips(statusFilter);
+  const { trips: allTrips, loading } = useConfirmedTrips('ACTIVE');
   const navigate = useNavigate();
+
+  const dateFilter: DateFilter =
+    (searchParams.get('filter') as DateFilter | null) ?? 'upcoming';
+  const trips = applyDateFilter(allTrips, dateFilter);
 
   const viewMode: ViewMode = searchParams.get('view') === 'calendar' ? 'calendar' : 'list';
   const { year: nowYear, month: nowMonth } = getNow();
@@ -120,38 +149,27 @@ export function ConfirmedTripsPage(): JSX.Element {
       </header>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* 상태 필터 */}
+        {/* 날짜 기준 필터 */}
         <div className="flex gap-2">
-          <button
-            className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-              statusFilter === 'ACTIVE'
-                ? 'bg-emerald-600 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-            onClick={() => setStatusFilter('ACTIVE')}
-          >
-            확정
-          </button>
-          <button
-            className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-              statusFilter === 'CANCELLED'
-                ? 'bg-red-600 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-            onClick={() => setStatusFilter('CANCELLED')}
-          >
-            취소됨
-          </button>
-          <button
-            className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-              statusFilter === undefined
-                ? 'bg-slate-800 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-            onClick={() => setStatusFilter(undefined)}
-          >
-            전체
-          </button>
+          {DATE_FILTER_OPTIONS.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                dateFilter === value
+                  ? 'bg-slate-800 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+              onClick={() =>
+                setSearchParams(
+                  (prev) => { prev.set('filter', value); return prev; },
+                  { replace: true },
+                )
+              }
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* 뷰 전환 토글 */}
@@ -192,14 +210,16 @@ export function ConfirmedTripsPage(): JSX.Element {
         <p className="text-sm text-slate-500">불러오는 중...</p>
       ) : viewMode === 'calendar' ? (
         <ConfirmedTripCalendar
-          trips={trips}
+          trips={allTrips}
           year={calYear}
           month={calMonth}
           onChangeMonth={setCalendarMonth}
         />
       ) : trips.length === 0 ? (
         <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
-          확정된 투어가 없습니다.
+          {dateFilter === 'upcoming' && '예정된 투어가 없습니다.'}
+          {dateFilter === 'ongoing' && '현재 여행중인 투어가 없습니다.'}
+          {dateFilter === 'completed' && '완료된 투어가 없습니다.'}
         </Card>
       ) : (
         <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
