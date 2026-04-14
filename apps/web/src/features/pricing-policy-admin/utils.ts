@@ -133,7 +133,7 @@ export function getPriceItemGroupForPreset(priceItemPreset: PricingPriceItemPres
 export function getSelectedPriceItemOption(ruleForm: RuleFormState): PricingPriceItemOptionKey {
   if (ruleForm.priceItemPreset === 'CONDITIONAL') {
     const variants = [...ruleForm.variantTypes].sort().join(',');
-    if (ruleForm.vehicleType.trim() === '하이에이스' && ruleForm.headcountMin === '3' && ruleForm.headcountMax === '6') {
+    if (ruleForm.vehicleType.trim() === '하이에이스') {
       return 'CONDITIONAL_HIACE';
     }
     if (variants === ['early', 'earlyExtend'].sort().join(',')) {
