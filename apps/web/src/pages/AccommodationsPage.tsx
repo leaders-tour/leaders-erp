@@ -32,18 +32,19 @@ function AccommodationCard({ acc, onClick }: { acc: AccommodationRow; onClick: (
     .map((o) => o.priceOffSeason)
     .filter((p): p is number => p !== null)
     .sort((a, b) => a - b)[0];
+  const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <div
       className="cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md hover:border-slate-300"
       onClick={onClick}
     >
-      {firstImage ? (
+      {firstImage && !imgFailed ? (
         <img
           src={firstImage}
           alt={acc.name}
           className="h-40 w-full object-cover"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          onError={() => setImgFailed(true)}
         />
       ) : (
         <div className="flex h-40 w-full items-center justify-center bg-slate-100 text-2xl text-slate-400">
