@@ -237,8 +237,8 @@ export function ConfirmedTripCalendar({ trips }: ConfirmedTripCalendarProps): JS
         {Array.from({ length: weekCount }, (_, weekIdx) => {
           const currentBlocks = weekBlocks[weekIdx] ?? [];
           const laneCount = currentBlocks.reduce((max, b) => Math.max(max, b.lane + 1), 0);
-          // 날짜 숫자 영역 높이 + 레인 높이
-          const rowMinHeight = 2.5 + laneCount * 1.75;
+          // 날짜 숫자 영역(4rem 기본) + 레인당 1.875rem
+          const rowMinHeight = 4 + laneCount * 1.875;
 
           return (
             <div key={`week-${weekIdx}`} className="relative" style={{ minHeight: `${rowMinHeight}rem` }}>
@@ -285,7 +285,7 @@ export function ConfirmedTripCalendar({ trips }: ConfirmedTripCalendarProps): JS
 
                 const colStartPct = (block.colStart / 7) * 100;
                 const colWidthPct = (block.colSpan / 7) * 100;
-                const topRem = 1.75 + block.lane * 1.75;
+                const topRem = 2.125 + block.lane * 1.875;
 
                 // 잘린 끝은 라운딩 없음, 자연스러운 끝은 라운딩
                 const roundingClass = [
@@ -299,7 +299,7 @@ export function ConfirmedTripCalendar({ trips }: ConfirmedTripCalendarProps): JS
                     type="button"
                     onClick={() => navigate(`/confirmed-trips/${block.tripId}`)}
                     title={`${block.leaderName} (${block.headcount}명)`}
-                    className={`absolute z-10 flex h-6 cursor-pointer items-center gap-1 truncate px-2 text-[11px] font-medium text-white transition ${color.bg} ${color.hover} ${roundingClass}`}
+                    className={`absolute z-10 flex h-7 cursor-pointer items-center gap-1 truncate px-2.5 text-[11px] font-medium text-white transition ${color.bg} ${color.hover} ${roundingClass}`}
                     style={{
                       left: `calc(${colStartPct}% + ${block.clippedLeft ? 0 : 2}px)`,
                       width: `calc(${colWidthPct}% - ${(block.clippedLeft ? 0 : 2) + (block.clippedRight ? 0 : 2)}px)`,
