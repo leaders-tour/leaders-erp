@@ -114,7 +114,16 @@ function parseCSV(csvPath: string): { parents: CsvRow[]; children: CsvRow[] } {
     }
   }
 
-  return { parents, children };
+  // 같은 이름+지역의 중복 부모 제거 (Notion에서 동일 숙소가 두 번 등장하는 케이스 방어)
+  const seen = new Set<string>();
+  const dedupedParents = parents.filter((p) => {
+    const key = `${p.name}|${p.region}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return { parents: dedupedParents, children };
 }
 
 // ─── HTML 파싱: 이미지 상대경로 → Notion S3 URL 매핑 ─────────────────────────
@@ -338,8 +347,9 @@ async function main() {
   // 부모 이름 → 자식 목록 매핑
   const childrenByParent = new Map<string, CsvRow[]>();
   for (const child of children) {
-    // parentRef 형태: "부모이름 (https://...)"
-    const parentName = child.parentRef.split(' (')[0].trim();
+    // parentRef 형태: "부모이름 (https://...)" 또는 "부모이름 (설명) (https://...)"
+    // URL 부분만 제거하고 나머지를 부모이름으로 사용
+    const parentName = child.parentRef.replace(/\s*\(https?:\/\/[^)]+\)\s*$/g, '').trim();
     const list = childrenByParent.get(parentName) ?? [];
     list.push(child);
     childrenByParent.set(parentName, list);
@@ -383,10 +393,23 @@ async function main() {
       process.stdout.write(`  ℹ️  옵션 없음\n`);
     }
 
-    for (const opt of opts) {
+    // 기존 옵션 전체 삭제 후 재생성 (동일 roomType 중복으로 인한 손실 방지)
+    try {
+      const deleted = await prisma.accommodationOption.deleteMany({
+        where: { accommodationId: accommodation.id },
+      });
+      if (deleted.count > 0) {
+        process.stdout.write(`  🗑️  기존 옵션 ${deleted.count}개 삭제\n`);
+      }
+    } catch (err) {
+      process.stderr.write(`  ❌ 기존 옵션 삭제 실패: ${err}\n`);
+    }
+
+    for (let optIdx = 0; optIdx < opts.length; optIdx++) {
+      const opt = opts[optIdx];
       const roomType = opt.roomType || '기타';
       const notionUrls = resolveImageUrls(opt.imagePaths, fileNameToUrl);
-      process.stdout.write(`  📦 옵션: ${roomType} (이미지 ${notionUrls.length}개)\n`);
+      process.stdout.write(`  📦 옵션 ${optIdx + 1}/${opts.length}: ${roomType} (이미지 ${notionUrls.length}개)\n`);
 
       let imageUrls: string[] = [];
       if (uploadEnabled && notionUrls.length > 0) {
@@ -419,18 +442,7 @@ async function main() {
       };
 
       try {
-        // 같은 숙소 + 룸형태 조합으로 기존 옵션 찾기
-        const existingOpt = await prisma.accommodationOption.findFirst({
-          where: { accommodationId: accommodation.id, roomType },
-        });
-        if (existingOpt) {
-          await prisma.accommodationOption.update({
-            where: { id: existingOpt.id },
-            data: optData,
-          });
-        } else {
-          await prisma.accommodationOption.create({ data: optData });
-        }
+        await prisma.accommodationOption.create({ data: optData });
         optSuccess++;
       } catch (err) {
         process.stderr.write(`    ❌ 옵션 저장 실패 (${roomType}): ${err}\n`);

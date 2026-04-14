@@ -65,7 +65,7 @@ function parseCSVForImages(csvPath: string): OptionInfo[] {
     const parentRef = get(cols, '상위 항목');
     if (!parentRef) continue;
 
-    const accommodationName = parentRef.split(' (')[0].trim();
+    const accommodationName = parentRef.replace(/\s*\(https?:\/\/[^)]+\)\s*$/g, '').trim();
     const roomType = get(cols, '룸 형태') || '기타';
     const rawPaths = get(cols, '사진(내,외부, 식당, 전경 등)');
     if (!rawPaths) continue;
@@ -213,7 +213,7 @@ async function main() {
 
   process.stdout.write(`📁 이미지 폴더: ${imageBase}\n\n`);
 
-  // DB에서 이미지 없는 옵션 조회
+  // DB에서 이미지 없는 옵션 조회 (생성순 정렬 → CSV 행 순서와 일치)
   const allOptions = await (prisma.accommodationOption as unknown as {
     findMany: (args: object) => Promise<Array<{
       id: string;
@@ -224,6 +224,7 @@ async function main() {
     }>>;
   }).findMany({
     include: { accommodation: { select: { name: true } } },
+    orderBy: [{ accommodationId: 'asc' }, { createdAt: 'asc' }],
   });
 
   const needsImage = allOptions.filter((o) => {
@@ -239,13 +240,18 @@ async function main() {
     return;
   }
 
-  // CSV 이미지 경로 맵 구성
+  // CSV 이미지 경로 맵 구성 (다중값: 같은 숙소+룸형태에 여러 CSV행 → 순서대로 매핑)
   const csvOptions = parseCSVForImages(csvPath);
-  // key: "숙소명|룸타입"
-  const csvMap = new Map<string, string[]>();
+  // key: "숙소명|룸타입", value: 각 CSV 행의 imagePaths 배열 목록
+  const csvMultiMap = new Map<string, string[][]>();
   for (const o of csvOptions) {
-    csvMap.set(`${o.accommodationName}|${o.roomType}`, o.imagePaths);
+    const key = `${o.accommodationName}|${o.roomType}`;
+    const list = csvMultiMap.get(key) ?? [];
+    list.push(o.imagePaths);
+    csvMultiMap.set(key, list);
   }
+  // 각 키별로 현재 몇 번째 CSV행을 소비했는지 추적
+  const csvIndexMap = new Map<string, number>();
 
   let successCount = 0;
   let skipCount = 0;
@@ -255,14 +261,21 @@ async function main() {
     const accName = opt.accommodation?.name ?? '';
     const csvKey = `${accName}|${opt.roomType}`;
 
-    let csvPaths = csvMap.get(csvKey);
+    // 해당 키의 다음 CSV행 이미지 목록 가져오기 (순서 기반)
+    const csvPathsList = csvMultiMap.get(csvKey) ?? [];
+    const idx = csvIndexMap.get(csvKey) ?? 0;
+    let csvPaths: string[] | undefined = csvPathsList[idx];
+    csvIndexMap.set(csvKey, idx + 1);
 
-    // 정확 매핑 실패 시 부분 매핑 시도 (같은 숙소의 유사 룸타입)
-    if (!csvPaths) {
-      const fallbackKey = [...csvMap.keys()].find(
+    // 정확 매핑 실패 시 부분 매핑 시도 (같은 숙소의 유사 룸타입에서 첫 번째 이미지 사용)
+    if (!csvPaths || csvPaths.length === 0) {
+      const fallbackKey = [...csvMultiMap.keys()].find(
         (k) => k.startsWith(`${accName}|`) && k.toLowerCase().includes(opt.roomType.slice(0, 3).toLowerCase()),
       );
-      if (fallbackKey) csvPaths = csvMap.get(fallbackKey);
+      if (fallbackKey) {
+        const fbList = csvMultiMap.get(fallbackKey) ?? [];
+        csvPaths = fbList[0];
+      }
     }
 
     if (!csvPaths || csvPaths.length === 0) {
