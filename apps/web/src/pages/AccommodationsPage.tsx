@@ -75,7 +75,7 @@ function AccommodationCard({ acc, onClick }: { acc: AccommodationRow; onClick: (
   );
 }
 
-const REGIONS = ['고비사막', '중부', '홉스골', '울란바토르', '자브항', '울란곰'] as const;
+const REGIONS = ['고비사막', '중부', '홉스골', '울란바토르', '자브항', '울란곰'];
 const LEVELS: AccommodationLevel[] = ['LV2', 'LV3', 'LV4', 'LV5'];
 
 function CreateAccommodationModal({
@@ -87,7 +87,7 @@ function CreateAccommodationModal({
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
-  const [form, setForm] = useState({ name: '', region: REGIONS[0], destination: '' });
+  const [form, setForm] = useState<{ name: string; region: string; destination: string }>({ name: '', region: REGIONS[0] ?? '', destination: '' });
   const { createAccommodation, loading } = useCreateAccommodation();
   const [error, setError] = useState<string | null>(null);
 
@@ -109,7 +109,7 @@ function CreateAccommodationModal({
         region: form.region,
         destination: form.destination.trim(),
       });
-      setForm({ name: '', region: REGIONS[0], destination: '' });
+      setForm({ name: '', region: REGIONS[0] ?? '', destination: '' });
       onClose();
       onCreated(result.id);
     } catch (e) {
