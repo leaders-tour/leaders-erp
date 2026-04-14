@@ -84,7 +84,6 @@ export function SpecialMealDestinationRulesPage(): JSX.Element {
 
   const [draft, setDraft] = useState<SpecialMealDestinationRules | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'ok' | 'err'; message: string } | null>(null);
-  const [pickShabuId, setPickShabuId] = useState<string>('');
 
   const locationById = useMemo(
     () => new Map((locData?.locations ?? []).map((l) => [l.id, l.name] as const)),
@@ -152,7 +151,7 @@ export function SpecialMealDestinationRulesPage(): JSX.Element {
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-slate-900">특식 여행지 규칙</h1>
         <p className="mt-1 text-sm text-slate-600">
-          샤브는 목적지 마스터에서 고릅니다. 삼겹살·샤슬릭은 키워드와 지역 라벨, 지역별 추천 순서를 맞춥니다. 일정
+          삼겹살·샤슬릭은 키워드와 지역 라벨, 지역별 추천 순서를 맞춥니다. 일정
           칸 텍스트가 등록한 이름·키워드와 부분 일치할 때 적용됩니다.
         </p>
         {updatedAt ? (
@@ -171,67 +170,6 @@ export function SpecialMealDestinationRulesPage(): JSX.Element {
           {feedback.message}
         </div>
       ) : null}
-
-      <Card className="mb-6 rounded-2xl border border-slate-200 p-5">
-        <h2 className="font-medium text-slate-900">샤브샤브 — 허용 목적지</h2>
-        <p className="mt-1 text-xs text-slate-500">
-          선택한 목적지의 표시 이름이 일정·목적지 칸에 포함되면 해당 일차에서 샤브 배치 가능
-        </p>
-        <div className="mt-3 flex flex-wrap items-end gap-2">
-          <label className="grid gap-1 text-sm">
-            <span className="text-slate-600">목적지 추가</span>
-            <select
-              value={pickShabuId}
-              onChange={(e) => setPickShabuId(e.target.value)}
-              className="min-w-[220px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">선택…</option>
-              {locationOptionsSorted.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {formatLocationNameInline(loc.name)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              if (!pickShabuId || draft.shabushabuLocationIds.includes(pickShabuId)) {
-                return;
-              }
-              const next = withShabushabuResolvedFromLocations(
-                { ...draft, shabushabuLocationIds: [...draft.shabushabuLocationIds, pickShabuId] },
-                locationById,
-              );
-              setDraft(next);
-              setPickShabuId('');
-            }}
-          >
-            추가
-          </Button>
-        </div>
-        <ul className="mt-4 space-y-2">
-          {draft.shabushabuLocationIds.map((id) => (
-            <li key={id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
-              <span>{formatLocationNameInline(locationById.get(id) ?? []) || id}</span>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  const nextIds = draft.shabushabuLocationIds.filter((x) => x !== id);
-                  setDraft(withShabushabuResolvedFromLocations({ ...draft, shabushabuLocationIds: nextIds }, locationById));
-                }}
-              >
-                제거
-              </Button>
-            </li>
-          ))}
-        </ul>
-        {draft.shabushabuLocationIds.length === 0 ? (
-          <p className="mt-3 text-xs text-amber-700">허용 목적지가 없으면 어떤 일차에서도 샤브를 둘 수 없습니다.</p>
-        ) : null}
-      </Card>
 
       <Card className="mb-6 rounded-2xl border border-slate-200 p-5">
         <h2 className="font-medium text-slate-900">삼겹살 — 키워드 ↔ 지역</h2>

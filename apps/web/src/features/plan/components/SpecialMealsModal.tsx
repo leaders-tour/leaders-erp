@@ -9,7 +9,6 @@ import {
   applySpecialMealSelections,
   buildSpecialMealOriginalSlotValues,
   DEFAULT_SPECIAL_MEAL_DESTINATION_RULES,
-  formatShabushabuAllowedSummary,
   getSamgyeopsalRecommendationRank,
   getShashlikRecommendationRank,
   type MealSlot,
@@ -21,7 +20,6 @@ import {
   MEAL_SLOTS,
   SPECIAL_MEAL_KINDS,
   getAssignmentsFromPlanRows,
-  isShabushabuAllowed,
   mealSlotToLabel,
 } from '../special-meals';
 
@@ -77,19 +75,13 @@ function buildInitialSelections(rows: PlanRowForSpecialMeals[]): SelectionMap {
 }
 
 function getAllowedMealSlots(
-  specialMeal: SpecialMealKind,
+  _specialMeal: SpecialMealKind,
   row: PlanRowForSpecialMeals | undefined,
-  dayIndex: number,
-  rules: SpecialMealDestinationRules,
+  _dayIndex: number,
+  _rules: SpecialMealDestinationRules,
 ): MealSlot[] {
   if (!row) {
     return [];
-  }
-
-  if (specialMeal === '샤브샤브') {
-    return (MEAL_SLOTS as readonly MealSlot[]).filter((slot) =>
-      isShabushabuAllowed(toRowContext(row, dayIndex, slot), rules),
-    );
   }
 
   return [...MEAL_SLOTS];
@@ -288,9 +280,6 @@ export function SpecialMealsModal({
                     })}
                   </div>
                   <div className="mt-3 text-xs text-slate-500">
-                    {activeMeal === '샤브샤브'
-                      ? `샤브 허용 목적지(이름이 일정·목적지 칸과 맞아야 함): ${formatShabushabuAllowedSummary(specialMealDestinationRules)}`
-                      : null}
                     {activeMeal === '삼겹살파티' ? '삼겹살파티는 추천 목적지를 우선 표시합니다.' : null}
                     {activeMeal === '샤슬릭' ? '샤슬릭은 설정한 키워드·지역별 추천 순서를 반영합니다.' : null}
                   </div>

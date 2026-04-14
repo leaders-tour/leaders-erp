@@ -169,51 +169,21 @@ export type SpecialMealDestinationRules = SpecialMealDestinationRulesPayload & {
 /** 설정 미로드·테스트용 기본 규칙 (@tour/validation과 동일) */
 export const DEFAULT_SPECIAL_MEAL_DESTINATION_RULES = SPECIAL_MEAL_DESTINATION_RULES_DEFAULT;
 
-export function formatShabushabuAllowedSummary(rules: SpecialMealDestinationRules): string {
-  if (rules.shabushabuLocationIds.length === 0) {
-    return '허용 목적지 없음';
-  }
-  const lines = rules.shabushabuResolvedNameLines;
-  if (lines && lines.length > 0) {
-    const labels = lines
-      .map((l) => l.map((s) => s.trim()).filter(Boolean).join(' / '))
-      .filter(Boolean);
-    return labels.length > 0 ? labels.join(', ') : '목적지 이름을 불러오는 중…';
-  }
-  return `등록된 목적지 ${rules.shabushabuLocationIds.length}곳 (이름 로딩 대기)`;
-}
+// --- 샤브샤브 ---
 
-// --- 샤브샤브: hard constraint (규칙에 등록된 Location 이름이 목적지/일정에 보이는 행) ---
-
-/** 샤브샤브 배치 가능 후보 */
+/** 샤브샤브 배치 가능 후보 (허용 제한 없음 — 모든 일차에서 배치 가능) */
 export function getShabushabuAllowedCandidates(
   rowContexts: SpecialMealRowContext[],
-  rules: SpecialMealDestinationRules = SPECIAL_MEAL_DESTINATION_RULES_DEFAULT,
+  _rules?: SpecialMealDestinationRules,
 ): SpecialMealRowContext[] {
-  if (rules.shabushabuLocationIds.length === 0) {
-    return [];
-  }
-  return rowContexts.filter((ctx) => isShabushabuAllowed(ctx, rules));
+  return rowContexts;
 }
 
 export function isShabushabuAllowed(
-  ctx: SpecialMealRowContext,
-  rules: SpecialMealDestinationRules = SPECIAL_MEAL_DESTINATION_RULES_DEFAULT,
+  _ctx: SpecialMealRowContext,
+  _rules?: SpecialMealDestinationRules,
 ): boolean {
-  if (rules.shabushabuLocationIds.length === 0) {
-    return false;
-  }
-  const resolved = rules.shabushabuResolvedNameLines;
-  if (!resolved || resolved.length === 0) {
-    return false;
-  }
-  const blob = getRowCombinedText(ctx);
-  return resolved.some((nameLines) =>
-    nameLines.some((line) => {
-      const t = line.trim();
-      return t.length > 0 && includesLocationNameKeyword(blob, t);
-    }),
-  );
+  return true;
 }
 
 // --- 삼겹살파티: soft recommendation (지역별 우선 추천지) ---
