@@ -1,9 +1,11 @@
 import { Card } from '@tour/ui';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ConfirmedTripCalendar } from '../features/confirmed-trip/ConfirmedTripCalendar';
 import { useConfirmedTrips, type ConfirmedTripRow } from '../features/confirmed-trip/hooks';
 
 type StatusFilter = 'ACTIVE' | 'CANCELLED' | undefined;
+type ViewMode = 'list' | 'calendar';
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
 function formatKrw(value: number): string {
@@ -83,6 +85,7 @@ function WarningBadges({ trip }: { trip: ConfirmedTripRow }) {
 
 export function ConfirmedTripsPage(): JSX.Element {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const { trips, loading } = useConfirmedTrips(statusFilter);
   const navigate = useNavigate();
 
@@ -95,41 +98,79 @@ export function ConfirmedTripsPage(): JSX.Element {
         </p>
       </header>
 
-      <div className="flex gap-2">
-        <button
-          className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-            statusFilter === 'ACTIVE'
-              ? 'bg-emerald-600 text-white'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}
-          onClick={() => setStatusFilter('ACTIVE')}
-        >
-          확정
-        </button>
-        <button
-          className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-            statusFilter === 'CANCELLED'
-              ? 'bg-red-600 text-white'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}
-          onClick={() => setStatusFilter('CANCELLED')}
-        >
-          취소됨
-        </button>
-        <button
-          className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-            statusFilter === undefined
-              ? 'bg-slate-800 text-white'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}
-          onClick={() => setStatusFilter(undefined)}
-        >
-          전체
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* 상태 필터 */}
+        <div className="flex gap-2">
+          <button
+            className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+              statusFilter === 'ACTIVE'
+                ? 'bg-emerald-600 text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+            onClick={() => setStatusFilter('ACTIVE')}
+          >
+            확정
+          </button>
+          <button
+            className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+              statusFilter === 'CANCELLED'
+                ? 'bg-red-600 text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+            onClick={() => setStatusFilter('CANCELLED')}
+          >
+            취소됨
+          </button>
+          <button
+            className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+              statusFilter === undefined
+                ? 'bg-slate-800 text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+            onClick={() => setStatusFilter(undefined)}
+          >
+            전체
+          </button>
+        </div>
+
+        {/* 뷰 전환 토글 */}
+        <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1">
+          <button
+            type="button"
+            onClick={() => setViewMode('list')}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+              viewMode === 'list'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4">
+              <path d="M2 4h12M2 8h12M2 12h12" strokeLinecap="round" />
+            </svg>
+            리스트
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('calendar')}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+              viewMode === 'calendar'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4">
+              <rect x="2" y="3" width="12" height="11" rx="1.5" />
+              <path d="M5 2v2M11 2v2M2 7h12" strokeLinecap="round" />
+            </svg>
+            캘린더
+          </button>
+        </div>
       </div>
 
       {loading ? (
         <p className="text-sm text-slate-500">불러오는 중...</p>
+      ) : viewMode === 'calendar' ? (
+        <ConfirmedTripCalendar trips={trips} />
       ) : trips.length === 0 ? (
         <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
           확정된 투어가 없습니다.
