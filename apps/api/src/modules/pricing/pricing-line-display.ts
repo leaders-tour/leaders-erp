@@ -276,14 +276,26 @@ export function buildPricingLineDisplay(
       }
       return emptyDisplay('CUSTOM', { text: formatKrwNumber(line.amountKrw) });
     }
-    case 'PICKUP_DROP':
-    case 'CONDITIONAL': {
+    case 'PICKUP_DROP': {
       if (line.unitPriceKrw !== null && line.quantity > 0) {
         return emptyDisplay('CUSTOM', {
           text: `${formatKrwNumber(line.unitPriceKrw)}×${line.quantity}`,
         });
       }
       return emptyDisplay('CUSTOM', { text: formatKrwNumber(line.amountKrw) });
+    }
+    case 'CONDITIONAL': {
+      const title =
+        meta && typeof meta === 'object' && 'title' in meta && typeof meta.title === 'string' && meta.title.trim().length > 0
+          ? meta.title.trim()
+          : null;
+      if (line.unitPriceKrw !== null && line.quantity > 0) {
+        return emptyDisplay('CUSTOM', {
+          label: title,
+          text: `${formatKrwNumber(line.unitPriceKrw)}×${line.quantity}`,
+        });
+      }
+      return emptyDisplay('CUSTOM', { label: title, text: formatKrwNumber(line.amountKrw) });
     }
     default:
       return emptyDisplay('CUSTOM', { text: formatKrwNumber(line.amountKrw) });

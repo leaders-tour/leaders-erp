@@ -117,7 +117,7 @@ export function ExternalTransferModal({
   const isFormValid = Boolean(draft && isExternalTransferComplete(draft));
   const timePickerValue = timePickerTarget && draft ? draft[timePickerTarget.field] : '';
   const timePickerAllowedMinutes = draft?.presetCode === 'CUSTOM' ? undefined : [0, 30];
-  const title = initialValue ? '외부 이동 수정' : '외부 이동 추가';
+  const title = initialValue ? '실투어 외 픽드랍 수정' : '실투어 외 픽드랍 추가';
   const selectedTeamCount = draft?.selectedTeamOrderIndexes.length ?? 0;
   const presetSections = [
     {
