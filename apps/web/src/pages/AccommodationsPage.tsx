@@ -75,7 +75,7 @@ function AccommodationCard({ acc, onClick }: { acc: AccommodationRow; onClick: (
   );
 }
 
-const REGIONS = ['고비사막', '중부', '홉스골', '울란바토르', '자브항', '울란곰'];
+const REGIONS = ['고비사막', '중부', '홉스골', '울란바토르', '자브항', '울란곰'] as const;
 const LEVELS: AccommodationLevel[] = ['LV2', 'LV3', 'LV4', 'LV5'];
 
 function CreateAccommodationModal({
