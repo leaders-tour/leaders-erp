@@ -415,10 +415,8 @@ async function main() {
       if (uploadEnabled && notionUrls.length > 0) {
         imageUrls = await downloadAndUpload(notionUrls, parent.name, roomType);
         process.stdout.write(`    🖼️  ${imageUrls.length}/${notionUrls.length}개 업로드 완료\n`);
-      } else if (!uploadEnabled && notionUrls.length > 0) {
-        // S3 업로드 없이 Notion URL 그대로 저장
-        imageUrls = notionUrls;
       }
+      // S3 비활성 시 Notion 임시 서명 URL을 저장하지 않음 (만료 후 ERR_BLOCKED_BY_ORB 발생)
 
       const optData = {
         accommodationId: accommodation.id,
