@@ -40,4 +40,4 @@ RUN pnpm --filter @tour/api build
 
 EXPOSE 4000
 
-CMD ["sh", "-c", "pnpm --filter @tour/prisma db:deploy && pnpm --filter @tour/api start"]
+CMD ["sh", "-c", "echo '[startup] Running db:deploy...' && pnpm --filter @tour/prisma db:deploy && echo '[startup] db:deploy complete. Starting API...' && pnpm --filter @tour/api start"]
