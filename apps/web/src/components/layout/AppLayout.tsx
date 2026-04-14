@@ -100,6 +100,15 @@ const AdminIcon: NavIcon = ({ className }) => (
   </svg>
 );
 
+const PricingIcon: NavIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <g transform="translate(0 2)">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2 12V4a2 2 0 0 1 2-2h8l10 10-8 8L2 12Z" />
+      <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" stroke="none" />
+    </g>
+  </svg>
+);
+
 const TourListIcon: NavIcon = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M9 6h11M9 12h11M9 18h11" />
@@ -118,11 +127,10 @@ const GuideIcon: NavIcon = ({ className }) => (
 
 const DriverIcon: NavIcon = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-    <rect x="2" y="8" width="20" height="12" rx="2" strokeLinecap="round" strokeLinejoin="round" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M16 8V6a4 4 0 0 0-8 0v2" />
-    <circle cx="12" cy="14" r="2" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M6 20v-2" />
-    <path strokeLinecap="round" strokeLinejoin="round" d="M18 20v-2" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M5 17h14M7 9l2-4h6l2 4" />
+    <rect x="3" y="9" width="18" height="8" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="7.5" cy="17" r="2" />
+    <circle cx="16.5" cy="17" r="2" />
   </svg>
 );
 
@@ -133,12 +141,15 @@ const AccommodationIcon: NavIcon = ({ className }) => (
   </svg>
 );
 
-const baseNavItems: NavItem[] = [
-  { path: '/itinerary-builder', label: '일정 빌더', icon: ItineraryIcon },
-  { path: '/confirmed-trips', label: '투어 리스트', icon: TourListIcon },
+const resourceNavItems: NavItem[] = [
   { path: '/guides', label: '가이드', icon: GuideIcon },
   { path: '/drivers', label: '기사', icon: DriverIcon },
   { path: '/accommodations', label: '숙소', icon: AccommodationIcon },
+];
+
+const baseNavItems: NavItem[] = [
+  { path: '/itinerary-builder', label: '일정 빌더', icon: ItineraryIcon },
+  { path: '/confirmed-trips', label: '투어 리스트', icon: TourListIcon },
   { path: '/deal-pipeline', label: '딜 파이프라인 ( 준비중 )', icon: PipelineIcon },
   { path: '/outreach/leads', label: '카페 리드 ( 준비중 )', icon: OutreachIcon },
   { path: '/todos/list', label: 'TODO ( 준비중 )', icon: TodoIcon },
@@ -240,10 +251,11 @@ export function AppLayout(): JSX.Element {
     (employee?.role === EmployeeRole.ADMIN
       ? [
           ...baseNavItems,
-          { path: '/admin/pricing-policies', label: '가격 정책', icon: AdminIcon },
+          { path: '/admin/pricing-policies', label: '가격 정책', icon: PricingIcon },
+          ...resourceNavItems,
           { path: '/admin/employees', label: '직원 관리', icon: AdminIcon },
         ]
-      : baseNavItems
+      : [...baseNavItems, ...resourceNavItems]
     ).filter((item) => !hiddenNavPaths.has(item.path));
 
   const matchesPath = (path: string): boolean =>
@@ -366,7 +378,7 @@ export function AppLayout(): JSX.Element {
               {navItems.map((item) => {
                 const itemActive = isNavItemActive(item.path, item.children);
                 const activeChildPath = item.children ? getActiveChildPath(item.children) : null;
-                const showDividerAbove = item.path === '/customers';
+                const showDividerAbove = item.path === '/customers' || item.path === '/guides' || item.path === '/admin/employees';
                 const ItemIcon = item.icon;
                 const compactItemClassName = `flex items-center justify-center rounded-2xl px-3 py-3 transition-colors ${
                   itemActive
