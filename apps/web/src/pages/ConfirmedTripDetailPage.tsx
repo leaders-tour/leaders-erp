@@ -12,6 +12,119 @@ import {
   getTripDestination,
 } from '../features/confirmed-trip/hooks';
 
+interface AttachmentItem {
+  filename: string;
+  url: string;
+  type: string;
+}
+
+function AttachmentsCard({ attachments }: { attachments: AttachmentItem[] }) {
+  const [preview, setPreview] = useState<AttachmentItem | null>(null);
+
+  const images = attachments.filter((a) => a.type === 'image');
+  const pdfs = attachments.filter((a) => a.type === 'pdf');
+
+  return (
+    <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 className="mb-4 text-sm font-semibold text-slate-900">첨부파일</h2>
+
+      {/* 이미지 그리드 */}
+      {images.length > 0 && (
+        <div className="mb-4">
+          <p className="mb-2 text-xs font-medium text-slate-400 uppercase tracking-wide">이미지 ({images.length})</p>
+          <div className="flex flex-wrap gap-3">
+            {images.map((att) => (
+              <button
+                key={att.url}
+                onClick={() => setPreview(preview?.url === att.url ? null : att)}
+                className="relative overflow-hidden rounded-xl border border-slate-200 hover:border-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+                title={att.filename}
+              >
+                <img
+                  src={att.url}
+                  alt={att.filename}
+                  className="h-28 w-28 object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+                {preview?.url === att.url && (
+                  <div className="absolute inset-0 bg-blue-500/20 ring-2 ring-blue-500 rounded-xl" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* PDF 목록 */}
+      {pdfs.length > 0 && (
+        <div className="mb-4">
+          <p className="mb-2 text-xs font-medium text-slate-400 uppercase tracking-wide">PDF ({pdfs.length})</p>
+          <ul className="grid gap-1.5">
+            {pdfs.map((att) => (
+              <li key={att.url}>
+                <button
+                  onClick={() => setPreview(preview?.url === att.url ? null : att)}
+                  className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2 text-sm text-left transition-colors
+                    ${preview?.url === att.url
+                      ? 'border-blue-400 bg-blue-50 text-blue-700'
+                      : 'border-slate-100 hover:border-slate-300 text-slate-700'
+                    }`}
+                >
+                  <span className="text-base shrink-0">📄</span>
+                  <span className="flex-1 truncate font-medium">{att.filename}</span>
+                  <span className="text-xs text-slate-400">{preview?.url === att.url ? '▲ 닫기' : '▼ 미리보기'}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* 인라인 미리보기 */}
+      {preview && (
+        <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
+            <p className="truncate text-xs font-medium text-slate-600">{preview.filename}</p>
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href={preview.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:underline"
+              >
+                새 탭으로 열기 ↗
+              </a>
+              <button
+                onClick={() => setPreview(null)}
+                className="ml-1 rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          {preview.type === 'image' ? (
+            <div className="flex justify-center p-4 bg-slate-100">
+              <img
+                src={preview.url}
+                alt={preview.filename}
+                className="max-h-[600px] max-w-full rounded-lg object-contain shadow"
+              />
+            </div>
+          ) : (
+            <iframe
+              src={preview.url}
+              title={preview.filename}
+              className="h-[700px] w-full"
+            />
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
 function formatKrw(value: number): string {
   return `${currencyFormatter.format(value)}원`;
@@ -410,27 +523,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
       </Card>
 
       {trip.user.attachments.length > 0 ? (
-        <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-slate-900">첨부파일</h2>
-          <ul className="grid gap-2">
-            {trip.user.attachments.map((att) => (
-              <li key={att.url} className="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2 text-sm">
-                <span className="text-base">{att.type === 'pdf' ? '📄' : '🖼️'}</span>
-                <a
-                  href={att.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 truncate font-medium text-blue-600 hover:underline"
-                >
-                  {att.filename}
-                </a>
-                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500 uppercase">
-                  {att.type}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <AttachmentsCard attachments={trip.user.attachments} />
       ) : null}
     </section>
   );
