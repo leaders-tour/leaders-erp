@@ -6,8 +6,8 @@ enum ConfirmedTripStatus {
 type ConfirmedTrip {
   id: ID!
   userId: String!
-  planId: String!
-  planVersionId: String!
+  planId: String
+  planVersionId: String
   status: ConfirmedTripStatus!
   confirmedAt: DateTime!
   confirmedByEmployeeId: String
@@ -18,10 +18,29 @@ type ConfirmedTrip {
   accommodationNote: String
   operationNote: String
 
+  travelStart: DateTime
+  travelEnd: DateTime
+  destination: String
+  paxCount: Int
+  guideId: String
+  driverId: String
+  rentalGear: Boolean!
+  rentalDrone: Boolean!
+  rentalStarlink: Boolean!
+  rentalPowerbank: Boolean!
+
+  depositAmountKrw: Int
+  balanceAmountKrw: Int
+  totalAmountKrw: Int
+  securityDepositAmountKrw: Int
+  groupTotalAmountKrw: Int
+
   user: User!
-  plan: Plan!
-  planVersion: PlanVersion!
+  plan: Plan
+  planVersion: PlanVersion
   confirmedByEmployee: Employee
+  guide: Guide
+  driver: Driver
 
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -40,4 +59,19 @@ input ConfirmedTripUpdateInput {
   accommodationNote: String
   operationNote: String
   status: ConfirmedTripStatus
+  travelStart: DateTime
+  travelEnd: DateTime
+  destination: String
+  paxCount: Int
+  guideId: ID
+  driverId: ID
+  rentalGear: Boolean
+  rentalDrone: Boolean
+  rentalStarlink: Boolean
+  rentalPowerbank: Boolean
+  depositAmountKrw: Int
+  balanceAmountKrw: Int
+  totalAmountKrw: Int
+  securityDepositAmountKrw: Int
+  groupTotalAmountKrw: Int
 }

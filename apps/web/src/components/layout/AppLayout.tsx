@@ -268,9 +268,10 @@ export function AppLayout(): JSX.Element {
     /^\/locations\/[^/]+\/versions\/[^/]+\/edit$/.test(location.pathname);
   const isWideMultiDayBlockCreatePage = location.pathname === '/multi-day-blocks/create';
   const isWideConnectionListPage = location.pathname === '/connections/list';
+  const isConfirmedTripsPage = matchesPath('/confirmed-trips');
   const pageShellClassName = isFullBleedPage
     ? 'max-w-none px-0 py-0'
-    : isWideConnectionListPage || isPricingAdminPage
+    : isWideConnectionListPage || isPricingAdminPage || isConfirmedTripsPage
       ? 'max-w-none'
       : isWideLocationProfilePage || isWideMultiDayBlockCreatePage
         ? 'max-w-[1800px]'

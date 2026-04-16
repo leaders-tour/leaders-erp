@@ -3,8 +3,8 @@ import { gql, useMutation, useQuery } from '@apollo/client';
 export interface ConfirmedTripRow {
   id: string;
   userId: string;
-  planId: string;
-  planVersionId: string;
+  planId: string | null;
+  planVersionId: string | null;
   status: 'ACTIVE' | 'CANCELLED';
   confirmedAt: string;
   confirmedByEmployeeId: string | null;
@@ -13,6 +13,20 @@ export interface ConfirmedTripRow {
   assignedVehicle: string | null;
   accommodationNote: string | null;
   operationNote: string | null;
+  /** 노션 마이그레이션 데이터용 직접 필드 (planVersion 없을 때 fallback) */
+  travelStart: string | null;
+  travelEnd: string | null;
+  destination: string | null;
+  paxCount: number | null;
+  rentalGear: boolean;
+  rentalDrone: boolean;
+  rentalStarlink: boolean;
+  rentalPowerbank: boolean;
+  depositAmountKrw: number | null;
+  balanceAmountKrw: number | null;
+  totalAmountKrw: number | null;
+  securityDepositAmountKrw: number | null;
+  groupTotalAmountKrw: number | null;
   user: {
     id: string;
     name: string;
@@ -24,7 +38,7 @@ export interface ConfirmedTripRow {
     id: string;
     title: string;
     regionSet: { id: string; name: string };
-  };
+  } | null;
   planVersion: {
     id: string;
     versionNumber: number;
@@ -55,7 +69,7 @@ export interface ConfirmedTripRow {
       balanceAmountKrw: number;
       securityDepositAmountKrw: number;
     } | null;
-  };
+  } | null;
   confirmedByEmployee: { id: string; name: string } | null;
   createdAt: string;
   updatedAt: string;
@@ -75,6 +89,19 @@ const CONFIRMED_TRIP_FRAGMENT = gql`
     assignedVehicle
     accommodationNote
     operationNote
+    travelStart
+    travelEnd
+    destination
+    paxCount
+    rentalGear
+    rentalDrone
+    rentalStarlink
+    rentalPowerbank
+    depositAmountKrw
+    balanceAmountKrw
+    totalAmountKrw
+    securityDepositAmountKrw
+    groupTotalAmountKrw
     user {
       id
       name
@@ -271,4 +298,26 @@ export function useCancelConfirmedTrip() {
       return result.data.cancelConfirmedTrip;
     },
   };
+}
+
+// ── 헬퍼: trip에서 여행 시작/종료 날짜를 가져옵니다 (planVersion.meta 또는 직접 필드) ──
+
+export function getTripStartDate(trip: ConfirmedTripRow): string | null {
+  return trip.planVersion?.meta?.travelStartDate ?? trip.travelStart ?? null;
+}
+
+export function getTripEndDate(trip: ConfirmedTripRow): string | null {
+  return trip.planVersion?.meta?.travelEndDate ?? trip.travelEnd ?? null;
+}
+
+export function getTripLeaderName(trip: ConfirmedTripRow): string {
+  return trip.planVersion?.meta?.leaderName ?? trip.user.name;
+}
+
+export function getTripHeadcount(trip: ConfirmedTripRow): number | null {
+  return trip.planVersion?.meta?.headcountTotal ?? trip.paxCount ?? null;
+}
+
+export function getTripDestination(trip: ConfirmedTripRow): string {
+  return trip.plan?.regionSet.name ?? trip.destination ?? '-';
 }

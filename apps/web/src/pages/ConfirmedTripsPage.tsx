@@ -1,7 +1,15 @@
 import { Card } from '@tour/ui';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ConfirmedTripCalendar } from '../features/confirmed-trip/ConfirmedTripCalendar';
-import { useConfirmedTrips, type ConfirmedTripRow } from '../features/confirmed-trip/hooks';
+import {
+  useConfirmedTrips,
+  getTripStartDate,
+  getTripEndDate,
+  getTripLeaderName,
+  getTripHeadcount,
+  getTripDestination,
+  type ConfirmedTripRow,
+} from '../features/confirmed-trip/hooks';
 
 type DateFilter = 'upcoming' | 'ongoing' | 'completed';
 type ViewMode = 'list' | 'calendar';
@@ -20,16 +28,26 @@ function getTodayMidnight(): Date {
 
 function applyDateFilter(trips: ConfirmedTripRow[], filter: DateFilter): ConfirmedTripRow[] {
   const today = getTodayMidnight();
-  return trips.filter((trip) => {
-    const meta = trip.planVersion.meta;
-    if (!meta) return false;
-    const start = new Date(meta.travelStartDate);
+  const filtered = trips.filter((trip) => {
+    const startStr = getTripStartDate(trip);
+    const endStr = getTripEndDate(trip);
+    if (!startStr || !endStr) return false;
+    const start = new Date(startStr);
     start.setHours(0, 0, 0, 0);
-    const end = new Date(meta.travelEndDate);
+    const end = new Date(endStr);
     end.setHours(0, 0, 0, 0);
     if (filter === 'upcoming') return start > today;
     if (filter === 'ongoing') return start <= today && end >= today;
     return end < today;
+  });
+
+  // 출발일 오름차순 정렬 (곧 출발하는 순서)
+  return filtered.sort((a, b) => {
+    const aStr = getTripStartDate(a);
+    const bStr = getTripStartDate(b);
+    if (!aStr) return 1;
+    if (!bStr) return -1;
+    return new Date(aStr).getTime() - new Date(bStr).getTime();
   });
 }
 
@@ -84,7 +102,7 @@ function StatusBadge({ status }: { status: 'ACTIVE' | 'CANCELLED' }) {
 
 function getLodgingSummary(trip: ConfirmedTripRow): string {
   if (trip.accommodationNote) return trip.accommodationNote;
-  const selections = trip.planVersion.meta?.lodgingSelections ?? [];
+  const selections = trip.planVersion?.meta?.lodgingSelections ?? [];
   const names = [
     ...new Set(
       selections
@@ -197,7 +215,7 @@ export function ConfirmedTripsPage(): JSX.Element {
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
               <rect x="2" y="3" width="12" height="11" rx="1.5" />
               <path d="M5 2v2M11 2v2M2 7h12" strokeLinecap="round" />
             </svg>
@@ -244,8 +262,11 @@ export function ConfirmedTripsPage(): JSX.Element {
               </thead>
               <tbody>
                 {trips.map((trip) => {
-                  const meta = trip.planVersion.meta;
-                  const pricing = trip.planVersion.pricing;
+                  const meta = trip.planVersion?.meta ?? null;
+                  const pricing = trip.planVersion?.pricing ?? null;
+                  const startStr = getTripStartDate(trip);
+                  const endStr = getTripEndDate(trip);
+                  const headcount = getTripHeadcount(trip);
                   return (
                     <tr
                       key={trip.id}
@@ -253,19 +274,19 @@ export function ConfirmedTripsPage(): JSX.Element {
                       onClick={() => navigate(`/confirmed-trips/${trip.id}`)}
                     >
                       <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
-                        {meta?.leaderName ?? trip.user.name}
+                        {getTripLeaderName(trip)}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                        {meta ? formatDateRange(meta.travelStartDate, meta.travelEndDate) : '-'}
+                        {startStr && endStr ? formatDateRange(startStr, endStr) : '-'}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
-                        {meta ? <DepartureBadge startDate={meta.travelStartDate} /> : '-'}
+                        {startStr ? <DepartureBadge startDate={startStr} /> : '-'}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                        {meta?.headcountTotal ?? '-'}
+                        {headcount ?? '-'}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                        {trip.plan.regionSet.name}
+                        {getTripDestination(trip)}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-slate-700">
                         {trip.guideName ?? '-'}
@@ -282,10 +303,18 @@ export function ConfirmedTripsPage(): JSX.Element {
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                        {pricing ? formatKrw(pricing.totalAmountKrw) : '-'}
+                        {pricing
+                          ? formatKrw(pricing.totalAmountKrw)
+                          : trip.totalAmountKrw != null
+                            ? formatKrw(trip.totalAmountKrw)
+                            : '-'}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                        {pricing ? formatKrw(pricing.depositAmountKrw) : '-'}
+                        {pricing
+                          ? formatKrw(pricing.depositAmountKrw)
+                          : trip.depositAmountKrw != null
+                            ? formatKrw(trip.depositAmountKrw)
+                            : '-'}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
                         <StatusBadge status={trip.status} />

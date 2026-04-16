@@ -5,7 +5,7 @@ import {
   getDaysInMonth,
   getWeekdayIndex,
 } from '../../components/date-picker/date-picker-utils';
-import type { ConfirmedTripRow } from './hooks';
+import { getTripStartDate, getTripEndDate, getTripLeaderName, getTripHeadcount, type ConfirmedTripRow } from './hooks';
 
 interface ConfirmedTripCalendarProps {
   trips: ConfirmedTripRow[];
@@ -88,16 +88,19 @@ function buildWeekBlocks(
 
   const filtered = trips
     .filter((trip) => {
-      const meta = trip.planVersion.meta;
-      if (!meta) return false;
-      const start = isoToLocalDate(meta.travelStartDate);
-      const end = isoToLocalDate(meta.travelEndDate);
+      const startStr = getTripStartDate(trip);
+      const endStr = getTripEndDate(trip);
+      if (!startStr || !endStr) return false;
+      const start = isoToLocalDate(startStr);
+      const end = isoToLocalDate(endStr);
       return start <= monthEnd && end >= monthStart;
     })
     .sort((a, b) => {
-      const aStart = isoToLocalDate(a.planVersion.meta!.travelStartDate).getTime();
-      const bStart = isoToLocalDate(b.planVersion.meta!.travelStartDate).getTime();
-      return aStart - bStart;
+      const aStartStr = getTripStartDate(a);
+      const bStartStr = getTripStartDate(b);
+      if (!aStartStr) return 1;
+      if (!bStartStr) return -1;
+      return isoToLocalDate(aStartStr).getTime() - isoToLocalDate(bStartStr).getTime();
     });
 
   // weekBlocks[weekIdx] 초기화
@@ -107,9 +110,11 @@ function buildWeekBlocks(
   const weekLaneCount: number[] = new Array(weekCount).fill(0);
 
   for (const trip of filtered) {
-    const meta = trip.planVersion.meta!;
-    const tripStart = isoToLocalDate(meta.travelStartDate);
-    const tripEnd = isoToLocalDate(meta.travelEndDate);
+    const startStr = getTripStartDate(trip);
+    const endStr = getTripEndDate(trip);
+    if (!startStr || !endStr) continue;
+    const tripStart = isoToLocalDate(startStr);
+    const tripEnd = isoToLocalDate(endStr);
     const colorIndex = colorMap.get(trip.id) ?? 0;
 
     for (let weekIdx = 0; weekIdx < weekCount; weekIdx++) {
@@ -149,8 +154,8 @@ function buildWeekBlocks(
       weekBlocks[weekIdx]?.push({
         key: `${trip.id}-w${weekIdx}`,
         tripId: trip.id,
-        leaderName: meta.leaderName,
-        headcount: meta.headcountTotal,
+        leaderName: getTripLeaderName(trip),
+        headcount: getTripHeadcount(trip) ?? 0,
         colorIndex,
         status: trip.status,
         colStart,

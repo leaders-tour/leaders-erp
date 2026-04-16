@@ -14,6 +14,8 @@ const confirmedTripInclude = {
     },
   },
   confirmedByEmployee: true,
+  guide: true,
+  driver: true,
 } satisfies Prisma.ConfirmedTripInclude;
 
 export class ConfirmedTripRepository {
@@ -23,7 +25,7 @@ export class ConfirmedTripRepository {
     return this.prisma.confirmedTrip.findMany({
       where: status ? { status } : undefined,
       include: confirmedTripInclude,
-      orderBy: [{ confirmedAt: 'desc' }],
+      orderBy: [{ travelStart: 'asc' }, { confirmedAt: 'desc' }],
     });
   }
 
@@ -67,6 +69,21 @@ export class ConfirmedTripRepository {
       accommodationNote: string | null;
       operationNote: string | null;
       status: ConfirmedTripStatus;
+      travelStart: Date | null;
+      travelEnd: Date | null;
+      destination: string | null;
+      paxCount: number | null;
+      guideId: string | null;
+      driverId: string | null;
+      rentalGear: boolean;
+      rentalDrone: boolean;
+      rentalStarlink: boolean;
+      rentalPowerbank: boolean;
+      depositAmountKrw: number | null;
+      balanceAmountKrw: number | null;
+      totalAmountKrw: number | null;
+      securityDepositAmountKrw: number | null;
+      groupTotalAmountKrw: number | null;
     }>,
   ) {
     return this.prisma.confirmedTrip.update({

@@ -5,6 +5,11 @@ import {
   useConfirmedTrip,
   useUpdateConfirmedTrip,
   useCancelConfirmedTrip,
+  getTripStartDate,
+  getTripEndDate,
+  getTripLeaderName,
+  getTripHeadcount,
+  getTripDestination,
 } from '../features/confirmed-trip/hooks';
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
@@ -42,8 +47,8 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     return <section className="py-8 text-sm text-slate-600">확정 건을 찾을 수 없습니다.</section>;
   }
 
-  const meta = trip.planVersion.meta;
-  const pricing = trip.planVersion.pricing;
+  const meta = trip.planVersion?.meta ?? null;
+  const pricing = trip.planVersion?.pricing ?? null;
 
   const startEditMode = () => {
     setGuideName(trip.guideName ?? '');
@@ -83,26 +88,32 @@ export function ConfirmedTripDetailPage(): JSX.Element {
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            {meta?.leaderName ?? trip.user.name}
+            {getTripLeaderName(trip)}
           </h1>
-          <p className="mt-1 text-sm text-slate-600">
-            {trip.plan.title} · v{trip.planVersion.versionNumber} · {trip.plan.regionSet.name}
-          </p>
+          {trip.plan && trip.planVersion ? (
+            <p className="mt-1 text-sm text-slate-600">
+              {trip.plan.title} · v{trip.planVersion.versionNumber} · {trip.plan.regionSet.name}
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-slate-600">노션 마이그레이션 데이터</p>
+          )}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate('/confirmed-trips')}>
             목록으로
           </Button>
-          <Button
-            variant="outline"
-            onClick={() =>
-              navigate(
-                `/plans/${trip.planId}/versions/${trip.planVersionId}`,
-              )
-            }
-          >
-            견적서 상세
-          </Button>
+          {trip.planId && trip.planVersionId ? (
+            <Button
+              variant="outline"
+              onClick={() =>
+                navigate(
+                  `/plans/${trip.planId}/versions/${trip.planVersionId}`,
+                )
+              }
+            >
+              견적서 상세
+            </Button>
+          ) : null}
           {trip.status === 'ACTIVE' && !editing ? (
             <Button variant="primary" onClick={startEditMode}>
               운영 정보 편집
@@ -123,42 +134,56 @@ export function ConfirmedTripDetailPage(): JSX.Element {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-slate-900">견적 원본 정보</h2>
+          <h2 className="mb-4 text-sm font-semibold text-slate-900">여행 정보</h2>
           <div className="grid gap-3 text-sm text-slate-700">
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <span className="text-slate-500">대표자</span>
-                <p className="font-medium">{meta?.leaderName ?? '-'}</p>
+                <p className="font-medium">{getTripLeaderName(trip)}</p>
               </div>
               <div>
-                <span className="text-slate-500">문서번호</span>
-                <p className="font-medium">{meta?.documentNumber ?? '-'}</p>
+                <span className="text-slate-500">여행지</span>
+                <p className="font-medium">{getTripDestination(trip)}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <span className="text-slate-500">여행기간</span>
                 <p className="font-medium">
-                  {meta ? `${formatDate(meta.travelStartDate)} ~ ${formatDate(meta.travelEndDate)}` : '-'}
+                  {(() => {
+                    const s = getTripStartDate(trip);
+                    const e = getTripEndDate(trip);
+                    return s && e ? `${formatDate(s)} ~ ${formatDate(e)}` : '-';
+                  })()}
                 </p>
               </div>
               <div>
                 <span className="text-slate-500">인원</span>
                 <p className="font-medium">
-                  {meta ? `${meta.headcountTotal}명 (남 ${meta.headcountMale} / 여 ${meta.headcountFemale})` : '-'}
+                  {meta
+                    ? `${meta.headcountTotal}명 (남 ${meta.headcountMale} / 여 ${meta.headcountFemale})`
+                    : getTripHeadcount(trip) != null ? `${getTripHeadcount(trip)}명` : '-'}
                 </p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <span className="text-slate-500">차량</span>
-                <p className="font-medium">{meta?.vehicleType ?? '-'}</p>
+                <p className="font-medium">{meta?.vehicleType ?? trip.assignedVehicle ?? '-'}</p>
               </div>
-              <div>
-                <span className="text-slate-500">일수</span>
-                <p className="font-medium">{trip.planVersion.totalDays}일</p>
-              </div>
+              {trip.planVersion ? (
+                <div>
+                  <span className="text-slate-500">일수</span>
+                  <p className="font-medium">{trip.planVersion.totalDays}일</p>
+                </div>
+              ) : null}
             </div>
+            {meta?.documentNumber ? (
+              <div>
+                <span className="text-slate-500">문서번호</span>
+                <p className="font-medium">{meta.documentNumber}</p>
+              </div>
+            ) : null}
             {meta?.specialNote ? (
               <div>
                 <span className="text-slate-500">특이사항</span>
@@ -175,6 +200,20 @@ export function ConfirmedTripDetailPage(): JSX.Element {
               <div>
                 <span className="text-slate-500">비고</span>
                 <p className="whitespace-pre-wrap font-medium">{meta.remark}</p>
+              </div>
+            ) : null}
+            {/* 노션 마이그레이션 데이터 전용 대여 정보 */}
+            {!meta && (trip.rentalGear || trip.rentalDrone || trip.rentalStarlink || trip.rentalPowerbank) ? (
+              <div>
+                <span className="text-slate-500">대여 항목</span>
+                <p className="font-medium">
+                  {[
+                    trip.rentalGear && '물품',
+                    trip.rentalDrone && '드론',
+                    trip.rentalStarlink && '스타링크',
+                    trip.rentalPowerbank && '파워뱅크',
+                  ].filter(Boolean).join(', ')}
+                </p>
               </div>
             ) : null}
           </div>
@@ -206,6 +245,43 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                   <p className="font-medium">{formatKrw(pricing.balanceAmountKrw)}</p>
                 </div>
               </div>
+            </div>
+          ) : trip.totalAmountKrw != null ? (
+            <div className="grid gap-3 text-sm text-slate-700">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-slate-500">총액</span>
+                  <p className="text-lg font-semibold text-slate-900">
+                    {formatKrw(trip.totalAmountKrw)}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-slate-500">보증금</span>
+                  <p className="font-medium">
+                    {trip.securityDepositAmountKrw != null ? formatKrw(trip.securityDepositAmountKrw) : '-'}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-slate-500">예약금</span>
+                  <p className="font-medium">
+                    {trip.depositAmountKrw != null ? formatKrw(trip.depositAmountKrw) : '-'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-slate-500">잔금</span>
+                  <p className="font-medium">
+                    {trip.balanceAmountKrw != null ? formatKrw(trip.balanceAmountKrw) : '-'}
+                  </p>
+                </div>
+              </div>
+              {trip.groupTotalAmountKrw != null ? (
+                <div>
+                  <span className="text-slate-500">팀별총액</span>
+                  <p className="font-medium">{formatKrw(trip.groupTotalAmountKrw)}</p>
+                </div>
+              ) : null}
             </div>
           ) : (
             <p className="text-sm text-slate-500">가격 정보 없음</p>
