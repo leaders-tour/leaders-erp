@@ -905,8 +905,8 @@ enum ConfirmedTripStatus {
 model ConfirmedTrip {
   id                    String              @id @default(uuid(7))
   userId                String
-  planId                String
-  planVersionId         String
+  planId                String?
+  planVersionId         String?
   status                ConfirmedTripStatus @default(ACTIVE)
   confirmedAt           DateTime            @default(now())
   confirmedByEmployeeId String?
@@ -917,10 +917,29 @@ model ConfirmedTrip {
   accommodationNote     String?   @db.Text
   operationNote         String?   @db.Text
 
+  travelStart     DateTime?
+  travelEnd       DateTime?
+  destination     String?
+  paxCount        Int?
+  guideId         String?
+  driverId        String?
+  rentalGear      Boolean   @default(false)
+  rentalDrone     Boolean   @default(false)
+  rentalStarlink  Boolean   @default(false)
+  rentalPowerbank Boolean   @default(false)
+
+  depositAmountKrw         Int?
+  balanceAmountKrw         Int?
+  totalAmountKrw           Int?
+  securityDepositAmountKrw Int?
+  groupTotalAmountKrw      Int?
+
   user                User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan                Plan        @relation(fields: [planId], references: [id], onDelete: Cascade)
-  planVersion         PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+  plan                Plan?       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  planVersion         PlanVersion? @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
   confirmedByEmployee Employee?   @relation("ConfirmedTripEmployee", fields: [confirmedByEmployeeId], references: [id], onDelete: SetNull)
+  guide               Guide?      @relation(fields: [guideId], references: [id], onDelete: SetNull)
+  driver              Driver?     @relation(fields: [driverId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -929,6 +948,9 @@ model ConfirmedTrip {
   @@index([planId])
   @@index([planVersionId])
   @@index([status, confirmedAt])
+  @@index([guideId])
+  @@index([driverId])
+  @@index([travelStart])
 }
 
 model PlanVersionMeta {
@@ -1497,6 +1519,8 @@ model Guide {
   certImageUrls     Json         @default("[]")
   note              String?      @db.Text
 
+  confirmedTrips ConfirmedTrip[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1546,6 +1570,8 @@ model Driver {
   profileImageUrl   String?
   vehicleImageUrls  Json         @default("[]")
   note              String?      @db.Text
+
+  confirmedTrips ConfirmedTrip[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
