@@ -32,6 +32,12 @@ export interface UserDealTodoPreviewRow {
   updatedAt: string;
 }
 
+export interface UserAttachmentItem {
+  filename: string;
+  url: string;
+  type: string;
+}
+
 export interface UserRow {
   id: string;
   name: string;
@@ -40,6 +46,7 @@ export interface UserRow {
   ownerEmployee: EmployeeOwnerRow | null;
   dealStage: DealStageValue;
   dealStageOrder: number;
+  attachments: UserAttachmentItem[];
   userDealTodos?: UserDealTodoPreviewRow[];
   createdAt: string;
   updatedAt: string;
@@ -419,6 +426,11 @@ const USER_QUERY = gql`
       }
       dealStage
       dealStageOrder
+      attachments {
+        filename
+        url
+        type
+      }
       userDealTodos {
         id
         stage

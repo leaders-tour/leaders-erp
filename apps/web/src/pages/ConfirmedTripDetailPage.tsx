@@ -408,6 +408,30 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           </div>
         </div>
       </Card>
+
+      {trip.user.attachments.length > 0 ? (
+        <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold text-slate-900">첨부파일</h2>
+          <ul className="grid gap-2">
+            {trip.user.attachments.map((att) => (
+              <li key={att.url} className="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2 text-sm">
+                <span className="text-base">{att.type === 'pdf' ? '📄' : '🖼️'}</span>
+                <a
+                  href={att.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 truncate font-medium text-blue-600 hover:underline"
+                >
+                  {att.filename}
+                </a>
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500 uppercase">
+                  {att.type}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
     </section>
   );
 }

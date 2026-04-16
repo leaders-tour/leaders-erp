@@ -33,6 +33,7 @@ export interface ConfirmedTripRow {
     email: string | null;
     ownerEmployeeId: string | null;
     ownerEmployee: { id: string; name: string; email: string } | null;
+    attachments: { filename: string; url: string; type: string }[];
   };
   plan: {
     id: string;
@@ -111,6 +112,11 @@ const CONFIRMED_TRIP_FRAGMENT = gql`
         id
         name
         email
+      }
+      attachments {
+        filename
+        url
+        type
       }
     }
     plan {

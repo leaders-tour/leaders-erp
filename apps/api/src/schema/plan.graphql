@@ -1,3 +1,9 @@
+type UserAttachment {
+  filename: String!
+  url: String!
+  type: String!
+}
+
 type User {
   id: ID!
   name: String!
@@ -6,6 +12,7 @@ type User {
   ownerEmployee: Employee
   dealStage: DealStage!
   dealStageOrder: Int!
+  attachments: [UserAttachment!]!
   createdAt: DateTime!
   updatedAt: DateTime!
   plans: [Plan!]!

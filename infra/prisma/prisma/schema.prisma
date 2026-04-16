@@ -403,6 +403,7 @@ model User {
   dealStage       DealStage @default(CONSULTING)
   dealStageOrder  Int       @default(0)
   ownerEmployeeId String?
+  attachments     Json      @default("[]")
 
   ownerEmployee  Employee?      @relation("UserOwnerEmployee", fields: [ownerEmployeeId], references: [id], onDelete: SetNull)
   plans          Plan[]
