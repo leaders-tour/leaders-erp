@@ -52,6 +52,17 @@ export interface UserRow {
   updatedAt: string;
 }
 
+export interface UserWithTravelRow extends UserRow {
+  plans: Array<{
+    currentVersion: {
+      meta: {
+        travelStartDate: string;
+        travelEndDate: string;
+      } | null;
+    } | null;
+  }>;
+}
+
 export interface DealPipelineCardUpdateInput {
   userId: string;
   dealStage: DealStageValue;
@@ -1182,4 +1193,49 @@ export function useUpdateUserDealTodoStatus() {
       return result.data.updateUserDealTodoStatus;
     },
   };
+}
+
+const USERS_WITH_TRAVEL_QUERY = gql`
+  query UsersWithTravel {
+    users {
+      id
+      name
+      email
+      ownerEmployeeId
+      ownerEmployee {
+        id
+        name
+        email
+        role
+        isActive
+      }
+      dealStage
+      dealStageOrder
+      plans {
+        currentVersion {
+          meta {
+            travelStartDate
+            travelEndDate
+          }
+        }
+      }
+      userDealTodos {
+        id
+        stage
+        title
+        description
+        status
+        completedAt
+        createdAt
+        updatedAt
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export function useUsersWithTravel() {
+  const { data, loading, error, refetch } = useQuery<{ users: UserWithTravelRow[] }>(USERS_WITH_TRAVEL_QUERY);
+  return { users: data?.users ?? [], loading, error, refetch };
 }

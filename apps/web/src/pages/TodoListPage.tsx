@@ -2,10 +2,10 @@ import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
 import { useCallback, useMemo, useState } from 'react';
 import {
   useUpdateUserDealTodoStatus,
-  useUsers,
+  useUsersWithTravel,
   type DealStageValue,
   type DealTodoStatusValue,
-  type UserRow,
+  type UserWithTravelRow,
 } from '../features/plan/hooks';
 
 const DEAL_STAGES: Array<{ value: DealStageValue; label: string }> = [
@@ -33,6 +33,8 @@ interface TodoListRow {
   customerName: string;
   ownerName: string;
   ownerFilterValue: string;
+  travelStartDate: string | null;
+  travelEndDate: string | null;
   stage: DealStageValue;
   title: string;
   description: string | null;
@@ -84,27 +86,44 @@ function formatDateTime(value: string | null): string {
   return date.toLocaleString('ko-KR');
 }
 
+function formatDate(value: string | null): string {
+  if (!value) {
+    return '-';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+
+  return date.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+}
+
 function parseTime(value: string): number {
   const timestamp = Date.parse(value);
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
-function flattenTodos(users: UserRow[]): TodoListRow[] {
+function flattenTodos(users: UserWithTravelRow[]): TodoListRow[] {
   return users
-    .flatMap((user) =>
-      (user.userDealTodos ?? []).map((todo) => ({
+    .flatMap((user) => {
+      const meta = user.plans?.[0]?.currentVersion?.meta ?? null;
+
+      return (user.userDealTodos ?? []).map((todo) => ({
         todoId: todo.id,
         customerName: user.name,
         ownerName: user.ownerEmployee?.name ?? '미지정',
         ownerFilterValue: user.ownerEmployeeId ?? UNASSIGNED_OWNER,
+        travelStartDate: meta?.travelStartDate ?? null,
+        travelEndDate: meta?.travelEndDate ?? null,
         stage: todo.stage,
         title: todo.title,
         description: todo.description,
         status: todo.status,
         createdAt: todo.createdAt,
         completedAt: todo.completedAt,
-      })),
-    )
+      }));
+    })
     .sort((left, right) => {
       const createdAtDiff = parseTime(right.createdAt) - parseTime(left.createdAt);
       if (createdAtDiff !== 0) {
@@ -118,12 +137,11 @@ function flattenTodos(users: UserRow[]): TodoListRow[] {
 type ActiveTab = 'active' | 'done';
 
 export function TodoListPage(): JSX.Element {
-  const { users, loading, error, refetch: refetchUsers } = useUsers();
+  const { users, loading, error, refetch: refetchUsers } = useUsersWithTravel();
   const { updateUserDealTodoStatus, loading: todoUpdating } = useUpdateUserDealTodoStatus();
   const [activeTab, setActiveTab] = useState<ActiveTab>('active');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedStage, setSelectedStage] = useState<'ALL' | DealStageValue>('ALL');
-  const [selectedOwner, setSelectedOwner] = useState<string>('ALL');
   const [pendingTodoId, setPendingTodoId] = useState<string | null>(null);
   const [pendingStatus, setPendingStatus] = useState<DealTodoStatusValue | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
@@ -133,36 +151,12 @@ export function TodoListPage(): JSX.Element {
 
   const rows = useMemo(() => flattenTodos(users), [users]);
 
-  const ownerOptions = useMemo(() => {
-    const seen = new Set<string>();
-    const options: Array<{ value: string; label: string }> = [];
-
-    for (const row of rows) {
-      const value = row.ownerFilterValue;
-      if (seen.has(value)) {
-        continue;
-      }
-
-      seen.add(value);
-      options.push({
-        value,
-        label: row.ownerName,
-      });
-    }
-
-    return options.sort((left, right) => left.label.localeCompare(right.label, 'ko'));
-  }, [rows]);
-
   const applyFilters = useCallback(
     (subset: TodoListRow[]) => {
       const keyword = searchKeyword.trim().toLowerCase();
 
       return subset.filter((row) => {
         if (selectedStage !== 'ALL' && row.stage !== selectedStage) {
-          return false;
-        }
-
-        if (selectedOwner !== 'ALL' && row.ownerFilterValue !== selectedOwner) {
           return false;
         }
 
@@ -177,7 +171,7 @@ export function TodoListPage(): JSX.Element {
         );
       });
     },
-    [searchKeyword, selectedOwner, selectedStage],
+    [searchKeyword, selectedStage],
   );
 
   const activeRows = useMemo(
@@ -199,14 +193,12 @@ export function TodoListPage(): JSX.Element {
   const resetFilters = () => {
     setSearchKeyword('');
     setSelectedStage('ALL');
-    setSelectedOwner('ALL');
   };
 
   const switchTab = (tab: ActiveTab) => {
     setActiveTab(tab);
     setSearchKeyword('');
     setSelectedStage('ALL');
-    setSelectedOwner('ALL');
   };
 
   const handleStatusChange = useCallback(
@@ -292,7 +284,7 @@ export function TodoListPage(): JSX.Element {
         </div>
 
         <div className="grid gap-4 border-b border-slate-200 p-4">
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1.6fr)_220px_220px_auto]">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1.6fr)_220px_auto]">
             <Input value={searchKeyword} onChange={(event) => setSearchKeyword(event.target.value)} placeholder="고객명, 제목, 설명 검색" />
             <select
               value={selectedStage}
@@ -303,18 +295,6 @@ export function TodoListPage(): JSX.Element {
               {DEAL_STAGES.map((stage) => (
                 <option key={stage.value} value={stage.value}>
                   {stage.label}
-                </option>
-              ))}
-            </select>
-            <select
-              value={selectedOwner}
-              onChange={(event) => setSelectedOwner(event.target.value)}
-              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
-            >
-              <option value="ALL">전체 담당자</option>
-              {ownerOptions.map((owner) => (
-                <option key={owner.value} value={owner.value}>
-                  {owner.label}
                 </option>
               ))}
             </select>
@@ -332,9 +312,9 @@ export function TodoListPage(): JSX.Element {
             <thead>
               <tr>
                 <Th>고객</Th>
-                <Th>담당자</Th>
                 <Th>단계</Th>
                 <Th>제목</Th>
+                <Th>출발일</Th>
                 <Th>생성일</Th>
                 <Th>완료일</Th>
                 <Th>액션</Th>
@@ -363,11 +343,11 @@ export function TodoListPage(): JSX.Element {
                       <Td>
                         <div className="text-base font-semibold text-slate-900">{row.customerName}</div>
                       </Td>
-                      <Td>{row.ownerName}</Td>
                       <Td><StageChip stage={row.stage} /></Td>
                       <Td>
                         <div className="min-w-[220px] font-medium text-slate-900">{row.title}</div>
                       </Td>
+                      <Td>{formatDate(row.travelStartDate)}</Td>
                       <Td>{formatDateTime(row.createdAt)}</Td>
                       <Td>{formatDateTime(row.completedAt)}</Td>
                       <Td>

@@ -223,7 +223,7 @@ const baseNavItems: NavItem[] = [
 ];
 
 const sidebarCollapsedStorageKey = 'tour-erp:sidebar-collapsed';
-const hiddenNavPaths = new Set(['/outreach/leads']);
+const hiddenNavPaths = new Set(['/outreach/leads', '/todos/list']);
 
 function roleLabel(role: EmployeeRole): string {
   return role === EmployeeRole.ADMIN ? '관리자' : '일반';

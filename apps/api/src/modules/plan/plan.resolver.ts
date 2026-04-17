@@ -156,6 +156,7 @@ export const planResolver = {
   User: {
     userDealTodos: (parent: { dealTodos?: unknown[] }) => (Array.isArray(parent.dealTodos) ? parent.dealTodos : []),
     ownerEmployee: (parent: { ownerEmployee?: unknown }) => parent.ownerEmployee ?? null,
+    plans: (parent: { plans?: unknown[] }) => (Array.isArray(parent.plans) ? parent.plans : []),
   },
   PlanVersionMeta: {
     externalTransfers: (parent: { externalTransfers?: unknown }) =>

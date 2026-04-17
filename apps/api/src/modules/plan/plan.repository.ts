@@ -160,6 +160,22 @@ export class PlanRepository {
     return this.prisma.user.findMany({
       include: {
         ownerEmployee: true,
+        plans: {
+          select: {
+            id: true,
+            currentVersion: {
+              select: {
+                meta: {
+                  select: {
+                    travelStartDate: true,
+                    travelEndDate: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
         dealTodos: {
           orderBy: [{ stage: 'asc' }, { createdAt: 'desc' }, { id: 'asc' }],
         },
