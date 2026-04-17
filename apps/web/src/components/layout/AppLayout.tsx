@@ -152,7 +152,7 @@ const baseNavItems: NavItem[] = [
   { path: '/confirmed-trips', label: '투어 리스트', icon: TourListIcon },
   { path: '/deal-pipeline', label: '딜 파이프라인 ( 준비중 )', icon: PipelineIcon },
   { path: '/outreach/leads', label: '카페 리드 ( 준비중 )', icon: OutreachIcon },
-  { path: '/todos/list', label: 'TODO ( 준비중 )', icon: TodoIcon },
+  { path: '/todos/list', label: 'TODO', icon: TodoIcon },
   {
     path: '/customers',
     label: '고객',
@@ -223,7 +223,7 @@ const baseNavItems: NavItem[] = [
 ];
 
 const sidebarCollapsedStorageKey = 'tour-erp:sidebar-collapsed';
-const hiddenNavPaths = new Set(['/outreach/leads', '/todos/list']);
+const hiddenNavPaths = new Set(['/outreach/leads']);
 
 function roleLabel(role: EmployeeRole): string {
   return role === EmployeeRole.ADMIN ? '관리자' : '일반';
@@ -269,9 +269,10 @@ export function AppLayout(): JSX.Element {
   const isWideMultiDayBlockCreatePage = location.pathname === '/multi-day-blocks/create';
   const isWideConnectionListPage = location.pathname === '/connections/list';
   const isConfirmedTripsPage = matchesPath('/confirmed-trips');
+  const isTodoListPage = matchesPath('/todos/list');
   const pageShellClassName = isFullBleedPage
     ? 'max-w-none px-0 py-0'
-    : isWideConnectionListPage || isPricingAdminPage || isConfirmedTripsPage
+    : isWideConnectionListPage || isPricingAdminPage || isConfirmedTripsPage || isTodoListPage
       ? 'max-w-none'
       : isWideLocationProfilePage || isWideMultiDayBlockCreatePage
         ? 'max-w-[1800px]'
