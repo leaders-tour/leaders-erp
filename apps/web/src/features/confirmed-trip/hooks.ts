@@ -72,8 +72,8 @@ export interface ConfirmedTripRow {
     } | null;
   } | null;
   confirmedByEmployee: { id: string; name: string } | null;
-  guide: { id: string; nameKo: string; level: string } | null;
-  driver: { id: string; nameMn: string; vehicleType: string; level: string } | null;
+  guide: { id: string; nameKo: string; nameMn: string | null; level: string; profileImageUrl: string | null } | null;
+  driver: { id: string; nameMn: string; vehicleType: string; level: string; profileImageUrl: string | null } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -167,13 +167,16 @@ const CONFIRMED_TRIP_FRAGMENT = gql`
     guide {
       id
       nameKo
+      nameMn
       level
+      profileImageUrl
     }
     driver {
       id
       nameMn
       vehicleType
       level
+      profileImageUrl
     }
     createdAt
     updatedAt

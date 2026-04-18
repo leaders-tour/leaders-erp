@@ -173,6 +173,15 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const meta = trip.planVersion?.meta ?? null;
   const pricing = trip.planVersion?.pricing ?? null;
 
+  const travelStartDate = trip.planVersion?.meta?.travelStartDate ?? trip.travelStart ?? null;
+  const totalDays = (() => {
+    if (trip.planVersion?.totalDays) return trip.planVersion.totalDays;
+    const s = trip.planVersion?.meta?.travelStartDate ?? trip.travelStart;
+    const e = trip.planVersion?.meta?.travelEndDate ?? trip.travelEnd;
+    if (s && e) return Math.round((new Date(e).getTime() - new Date(s).getTime()) / 86400000);
+    return null;
+  })();
+
   const startEditMode = () => {
     const hasGuideEntity = !!trip.guide;
     const hasDriverEntity = !!trip.driver;
@@ -569,51 +578,86 @@ export function ConfirmedTripDetailPage(): JSX.Element {
             </label>
           </div>
         ) : (
-          <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-2">
-            <div>
-              <span className="text-slate-500">가이드</span>
-              {trip.guide ? (
-                <p className="font-medium">
-                  {trip.guide.nameKo}
-                  <span className="ml-1.5 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
-                    {trip.guide.level}
-                  </span>
-                </p>
-              ) : (
-                <p className="font-medium">{trip.guideName ?? '-'}</p>
-              )}
+          <div className="grid gap-4 text-sm text-slate-700 sm:grid-cols-2">
+            {/* 가이드 */}
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+                {trip.guide?.profileImageUrl ? (
+                  <img src={trip.guide.profileImageUrl} alt={trip.guide.nameKo} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xl text-slate-300">👤</div>
+                )}
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">가이드</p>
+                {trip.guide ? (
+                  <>
+                    <p className="font-semibold text-slate-800 leading-tight">{trip.guide.nameKo}</p>
+                    {trip.guide.nameMn && <p className="text-xs text-slate-400">{trip.guide.nameMn}</p>}
+                    <span className="mt-0.5 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
+                      {trip.guide.level}
+                    </span>
+                  </>
+                ) : (
+                  <p className="font-medium">{trip.guideName ?? '-'}</p>
+                )}
+              </div>
             </div>
-            <div>
-              <span className="text-slate-500">기사</span>
-              {trip.driver ? (
-                <p className="font-medium">
-                  {trip.driver.nameMn}
-                  <span className="ml-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                    {trip.driver.vehicleType}
-                  </span>
-                </p>
-              ) : (
-                <p className="font-medium">{trip.driverName ?? '-'}</p>
-              )}
+
+            {/* 기사 */}
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+                {trip.driver?.profileImageUrl ? (
+                  <img src={trip.driver.profileImageUrl} alt={trip.driver.nameMn} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xl text-slate-300">🚗</div>
+                )}
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">기사</p>
+                {trip.driver ? (
+                  <>
+                    <p className="font-semibold text-slate-800 leading-tight">{trip.driver.nameMn}</p>
+                    <span className="mt-0.5 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                      {trip.driver.vehicleType}
+                    </span>
+                  </>
+                ) : (
+                  <p className="font-medium">{trip.driverName ?? '-'}</p>
+                )}
+              </div>
             </div>
-            <div>
-              <span className="text-slate-500">배차 차량</span>
-              <p className="font-medium">{trip.assignedVehicle ?? meta?.vehicleType ?? '-'}</p>
-            </div>
+
+            {(trip.assignedVehicle ?? meta?.vehicleType) ? (
+              <div>
+                <span className="text-slate-500">배차 차량</span>
+                <p className="font-medium">{trip.assignedVehicle ?? meta?.vehicleType}</p>
+              </div>
+            ) : null}
             {trip.accommodationNote ? (
-              <div className="md:col-span-2">
+              <div className="sm:col-span-2">
                 <span className="text-slate-500">숙소 확정 메모</span>
                 <p className="whitespace-pre-wrap font-medium">{trip.accommodationNote}</p>
               </div>
             ) : null}
             {trip.operationNote ? (
-              <div className="md:col-span-2">
+              <div className="sm:col-span-2">
                 <span className="text-slate-500">운영 비고</span>
                 <p className="whitespace-pre-wrap font-medium">{trip.operationNote}</p>
               </div>
             ) : null}
           </div>
         )}
+        {/* 구분선 + 숙소 */}
+        <div className="mt-5 pt-4 border-t border-slate-100">
+          <LodgingSection
+            tripId={tripId}
+            hasPlan={!!(trip.planId && trip.planVersionId)}
+            totalDays={totalDays}
+            travelStartDate={travelStartDate}
+            embedded
+          />
+        </div>
       </Card>
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -641,13 +685,6 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           </div>
         </div>
       </Card>
-
-      <LodgingSection
-        tripId={tripId}
-        hasPlan={!!(trip.planId && trip.planVersionId)}
-        totalDays={trip.planVersion?.totalDays ?? null}
-        travelStartDate={trip.planVersion?.meta?.travelStartDate ?? trip.travelStart ?? null}
-      />
 
       {trip.user.attachments.length > 0 ? (
         <AttachmentsCard attachments={trip.user.attachments} />
