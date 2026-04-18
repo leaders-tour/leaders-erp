@@ -72,6 +72,8 @@ export interface ConfirmedTripRow {
     } | null;
   } | null;
   confirmedByEmployee: { id: string; name: string } | null;
+  guide: { id: string; nameKo: string; level: string } | null;
+  driver: { id: string; nameMn: string; vehicleType: string; level: string } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -161,6 +163,17 @@ const CONFIRMED_TRIP_FRAGMENT = gql`
     confirmedByEmployee {
       id
       name
+    }
+    guide {
+      id
+      nameKo
+      level
+    }
+    driver {
+      id
+      nameMn
+      vehicleType
+      level
     }
     createdAt
     updatedAt
@@ -262,6 +275,8 @@ export function useUpdateConfirmedTrip() {
       input: {
         guideName?: string | null;
         driverName?: string | null;
+        guideId?: string | null;
+        driverId?: string | null;
         assignedVehicle?: string | null;
         accommodationNote?: string | null;
         operationNote?: string | null;

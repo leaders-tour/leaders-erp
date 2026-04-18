@@ -945,6 +945,8 @@ model ConfirmedTrip {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  lodgings ConfirmedTripLodging[]
+
   @@index([userId])
   @@index([planId])
   @@index([planVersionId])
@@ -952,6 +954,54 @@ model ConfirmedTrip {
   @@index([guideId])
   @@index([driverId])
   @@index([travelStart])
+}
+
+enum LodgingAssignmentType {
+  ACCOMMODATION
+  LV1
+  LV2
+  LV3
+  LV4
+  NIGHT_TRAIN
+  CUSTOM_TEXT
+}
+
+enum LodgingBookingStatus {
+  PENDING
+  REQUESTED
+  CONFIRMED
+  CANCELLED
+}
+
+model ConfirmedTripLodging {
+  id              String   @id @default(cuid())
+  confirmedTripId String
+  dayIndex        Int
+  checkInDate     DateTime
+  checkOutDate    DateTime
+  nights          Int
+
+  type                  LodgingAssignmentType
+  accommodationId       String?
+  accommodationOptionId String?
+
+  lodgingNameSnapshot String
+  pricePerNightKrw    Int?
+  roomCount           Int                  @default(1)
+  totalPriceKrw       Int?
+
+  bookingStatus    LodgingBookingStatus @default(PENDING)
+  bookingMemo      String?
+  bookingReference String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  confirmedTrip ConfirmedTrip  @relation(fields: [confirmedTripId], references: [id], onDelete: Cascade)
+  accommodation Accommodation? @relation(fields: [accommodationId], references: [id])
+
+  @@index([confirmedTripId, dayIndex])
+  @@index([accommodationId, checkInDate, checkOutDate])
 }
 
 model PlanVersionMeta {
@@ -1601,7 +1651,8 @@ model Accommodation {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  options AccommodationOption[]
+  options  AccommodationOption[]
+  lodgings ConfirmedTripLodging[]
 
   @@index([region])
   @@index([destination])

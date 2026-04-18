@@ -3,6 +3,51 @@ enum ConfirmedTripStatus {
   CANCELLED
 }
 
+enum LodgingAssignmentType {
+  ACCOMMODATION
+  LV1
+  LV2
+  LV3
+  LV4
+  NIGHT_TRAIN
+  CUSTOM_TEXT
+}
+
+enum LodgingBookingStatus {
+  PENDING
+  REQUESTED
+  CONFIRMED
+  CANCELLED
+}
+
+type LodgingConflictWarning {
+  conflictingTripId: String!
+  conflictingTripLeaderName: String!
+  overlapStartDate: DateTime!
+  overlapEndDate: DateTime!
+}
+
+type ConfirmedTripLodging {
+  id: ID!
+  confirmedTripId: String!
+  dayIndex: Int!
+  checkInDate: DateTime!
+  checkOutDate: DateTime!
+  nights: Int!
+  type: LodgingAssignmentType!
+  accommodationId: String
+  accommodationOptionId: String
+  accommodation: Accommodation
+  lodgingNameSnapshot: String!
+  roomCount: Int!
+  bookingStatus: LodgingBookingStatus!
+  bookingMemo: String
+  bookingReference: String
+  conflictWarnings: [LodgingConflictWarning!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
 type ConfirmedTrip {
   id: ID!
   userId: String!
@@ -41,6 +86,7 @@ type ConfirmedTrip {
   confirmedByEmployee: Employee
   guide: Guide
   driver: Driver
+  lodgings: [ConfirmedTripLodging!]!
 
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -74,4 +120,21 @@ input ConfirmedTripUpdateInput {
   totalAmountKrw: Int
   securityDepositAmountKrw: Int
   groupTotalAmountKrw: Int
+}
+
+input ConfirmedTripLodgingUpsertInput {
+  id: ID
+  confirmedTripId: ID!
+  dayIndex: Int!
+  checkInDate: DateTime!
+  checkOutDate: DateTime!
+  type: LodgingAssignmentType!
+  accommodationId: String
+  accommodationOptionId: String
+  lodgingNameSnapshot: String!
+  pricePerNightKrw: Int
+  roomCount: Int!
+  bookingStatus: LodgingBookingStatus
+  bookingMemo: String
+  bookingReference: String
 }

@@ -140,6 +140,9 @@ type Mutation {
   confirmTrip(input: ConfirmTripInput!): ConfirmedTrip!
   updateConfirmedTrip(id: ID!, input: ConfirmedTripUpdateInput!): ConfirmedTrip!
   cancelConfirmedTrip(id: ID!): ConfirmedTrip!
+  upsertConfirmedTripLodging(input: ConfirmedTripLodgingUpsertInput!): ConfirmedTripLodging!
+  deleteConfirmedTripLodging(id: ID!): Boolean!
+  seedConfirmedTripLodgingsFromPlan(confirmedTripId: ID!): [ConfirmedTripLodging!]!
 
   createGuide(input: GuideCreateInput!): Guide!
   updateGuide(id: ID!, input: GuideUpdateInput!): Guide!

@@ -11,6 +11,9 @@ import {
   getTripHeadcount,
   getTripDestination,
 } from '../features/confirmed-trip/hooks';
+import { useGuides } from '../features/guide/hooks';
+import { useDrivers } from '../features/driver/hooks';
+import { LodgingSection } from '../features/confirmed-trip/LodgingSection';
 
 interface AttachmentItem {
   filename: string;
@@ -141,9 +144,16 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const { updateConfirmedTrip, loading: updating } = useUpdateConfirmedTrip();
   const { cancelConfirmedTrip, loading: cancelling } = useCancelConfirmedTrip();
 
+  const { guides } = useGuides({ status: 'ACTIVE_SEASON' });
+  const { drivers } = useDrivers({ status: 'ACTIVE_SEASON' });
+
   const [editing, setEditing] = useState(false);
   const [guideName, setGuideName] = useState('');
   const [driverName, setDriverName] = useState('');
+  const [guideId, setGuideId] = useState<string | null>(null);
+  const [driverId, setDriverId] = useState<string | null>(null);
+  const [guideManual, setGuideManual] = useState(false);
+  const [driverManual, setDriverManual] = useState(false);
   const [assignedVehicle, setAssignedVehicle] = useState('');
   const [accommodationNote, setAccommodationNote] = useState('');
   const [operationNote, setOperationNote] = useState('');
@@ -164,8 +174,14 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const pricing = trip.planVersion?.pricing ?? null;
 
   const startEditMode = () => {
+    const hasGuideEntity = !!trip.guide;
+    const hasDriverEntity = !!trip.driver;
+    setGuideId(trip.guide?.id ?? null);
+    setDriverId(trip.driver?.id ?? null);
     setGuideName(trip.guideName ?? '');
     setDriverName(trip.driverName ?? '');
+    setGuideManual(!hasGuideEntity);
+    setDriverManual(!hasDriverEntity);
     setAssignedVehicle(trip.assignedVehicle ?? '');
     setAccommodationNote(trip.accommodationNote ?? '');
     setOperationNote(trip.operationNote ?? '');
@@ -174,9 +190,26 @@ export function ConfirmedTripDetailPage(): JSX.Element {
 
   const handleSave = async () => {
     try {
+      const resolvedGuideId = guideManual ? null : guideId;
+      const resolvedDriverId = driverManual ? null : driverId;
+
+      let resolvedGuideName = guideName.trim() || null;
+      let resolvedDriverName = driverName.trim() || null;
+
+      if (!guideManual && resolvedGuideId) {
+        const g = guides.find((x) => x.id === resolvedGuideId);
+        if (g) resolvedGuideName = g.nameKo;
+      }
+      if (!driverManual && resolvedDriverId) {
+        const d = drivers.find((x) => x.id === resolvedDriverId);
+        if (d) resolvedDriverName = d.nameMn;
+      }
+
       await updateConfirmedTrip(tripId, {
-        guideName: guideName.trim() || null,
-        driverName: driverName.trim() || null,
+        guideName: resolvedGuideName,
+        driverName: resolvedDriverName,
+        guideId: resolvedGuideId,
+        driverId: resolvedDriverId,
         assignedVehicle: assignedVehicle.trim() || null,
         accommodationNote: accommodationNote.trim() || null,
         operationNote: operationNote.trim() || null,
@@ -405,37 +438,106 @@ export function ConfirmedTripDetailPage(): JSX.Element {
       <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900">운영 정보</h2>
-          {editing ? (
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setEditing(false)} disabled={updating}>
-                취소
+          <div className="flex gap-2">
+            {!editing && trip.status === 'ACTIVE' && (
+              <Button
+                variant="primary"
+                onClick={() => navigate(`/confirmed-trips/${tripId}/assign`)}
+              >
+                배정하기
               </Button>
-              <Button variant="primary" onClick={handleSave} disabled={updating}>
-                {updating ? '저장 중...' : '저장'}
-              </Button>
-            </div>
-          ) : null}
+            )}
+            {editing ? (
+              <>
+                <Button variant="outline" onClick={() => setEditing(false)} disabled={updating}>
+                  취소
+                </Button>
+                <Button variant="primary" onClick={handleSave} disabled={updating}>
+                  {updating ? '저장 중...' : '저장'}
+                </Button>
+              </>
+            ) : null}
+          </div>
         </div>
         {editing ? (
           <div className="grid gap-4 text-sm md:grid-cols-2">
-            <label className="grid gap-1">
-              <span className="text-slate-500">가이드</span>
-              <input
-                className="rounded-xl border border-slate-200 px-3 py-2"
-                value={guideName}
-                onChange={(e) => setGuideName(e.target.value)}
-                placeholder="가이드 이름"
-              />
-            </label>
-            <label className="grid gap-1">
-              <span className="text-slate-500">기사</span>
-              <input
-                className="rounded-xl border border-slate-200 px-3 py-2"
-                value={driverName}
-                onChange={(e) => setDriverName(e.target.value)}
-                placeholder="기사 이름"
-              />
-            </label>
+            {/* 가이드 */}
+            <div className="grid gap-1">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">가이드</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGuideManual((prev) => !prev);
+                    setGuideId(null);
+                    setGuideName('');
+                  }}
+                  className="text-xs text-blue-500 hover:underline"
+                >
+                  {guideManual ? '마스터에서 선택' : '직접 입력'}
+                </button>
+              </div>
+              {guideManual ? (
+                <input
+                  className="rounded-xl border border-slate-200 px-3 py-2"
+                  value={guideName}
+                  onChange={(e) => setGuideName(e.target.value)}
+                  placeholder="가이드 이름 직접 입력"
+                />
+              ) : (
+                <select
+                  className="rounded-xl border border-slate-200 px-3 py-2 bg-white"
+                  value={guideId ?? ''}
+                  onChange={(e) => setGuideId(e.target.value || null)}
+                >
+                  <option value="">가이드 선택</option>
+                  {guides.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.nameKo} ({g.level})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* 기사 */}
+            <div className="grid gap-1">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">기사</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDriverManual((prev) => !prev);
+                    setDriverId(null);
+                    setDriverName('');
+                  }}
+                  className="text-xs text-blue-500 hover:underline"
+                >
+                  {driverManual ? '마스터에서 선택' : '직접 입력'}
+                </button>
+              </div>
+              {driverManual ? (
+                <input
+                  className="rounded-xl border border-slate-200 px-3 py-2"
+                  value={driverName}
+                  onChange={(e) => setDriverName(e.target.value)}
+                  placeholder="기사 이름 직접 입력"
+                />
+              ) : (
+                <select
+                  className="rounded-xl border border-slate-200 px-3 py-2 bg-white"
+                  value={driverId ?? ''}
+                  onChange={(e) => setDriverId(e.target.value || null)}
+                >
+                  <option value="">기사 선택</option>
+                  {drivers.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.nameMn} ({d.vehicleType})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
             <label className="grid gap-1">
               <span className="text-slate-500">배차 차량</span>
               <input
@@ -470,11 +572,29 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-2">
             <div>
               <span className="text-slate-500">가이드</span>
-              <p className="font-medium">{trip.guideName ?? '-'}</p>
+              {trip.guide ? (
+                <p className="font-medium">
+                  {trip.guide.nameKo}
+                  <span className="ml-1.5 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
+                    {trip.guide.level}
+                  </span>
+                </p>
+              ) : (
+                <p className="font-medium">{trip.guideName ?? '-'}</p>
+              )}
             </div>
             <div>
               <span className="text-slate-500">기사</span>
-              <p className="font-medium">{trip.driverName ?? '-'}</p>
+              {trip.driver ? (
+                <p className="font-medium">
+                  {trip.driver.nameMn}
+                  <span className="ml-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                    {trip.driver.vehicleType}
+                  </span>
+                </p>
+              ) : (
+                <p className="font-medium">{trip.driverName ?? '-'}</p>
+              )}
             </div>
             <div>
               <span className="text-slate-500">배차 차량</span>
@@ -521,6 +641,13 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           </div>
         </div>
       </Card>
+
+      <LodgingSection
+        tripId={tripId}
+        hasPlan={!!(trip.planId && trip.planVersionId)}
+        totalDays={trip.planVersion?.totalDays ?? null}
+        travelStartDate={trip.planVersion?.meta?.travelStartDate ?? trip.travelStart ?? null}
+      />
 
       {trip.user.attachments.length > 0 ? (
         <AttachmentsCard attachments={trip.user.attachments} />

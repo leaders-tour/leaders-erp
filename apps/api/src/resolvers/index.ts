@@ -174,4 +174,6 @@ export const resolvers = {
   Driver: driverResolver.Driver,
   Accommodation: accommodationResolver.Accommodation,
   AccommodationOption: accommodationResolver.AccommodationOption,
+  ConfirmedTrip: confirmedTripResolver.ConfirmedTrip,
+  ConfirmedTripLodging: confirmedTripResolver.ConfirmedTripLodging,
 };

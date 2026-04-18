@@ -1,8 +1,8 @@
-import type { ConfirmedTripStatus, PrismaClient } from '@prisma/client';
-import { confirmTripSchema, confirmedTripUpdateSchema } from '@tour/validation';
+import type { ConfirmedTripStatus, LodgingAssignmentType, LodgingBookingStatus, PrismaClient } from '@prisma/client';
+import { confirmTripSchema, confirmedTripLodgingUpsertSchema, confirmedTripUpdateSchema } from '@tour/validation';
 import { DomainError, createValidationError } from '../../lib/errors';
 import { ConfirmedTripRepository } from './confirmed-trip.repository';
-import type { ConfirmTripDto, ConfirmedTripUpdateDto } from './confirmed-trip.types';
+import type { ConfirmTripDto, ConfirmedTripLodgingUpsertDto, ConfirmedTripUpdateDto } from './confirmed-trip.types';
 
 export class ConfirmedTripService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -102,5 +102,202 @@ export class ConfirmedTripService {
     }
 
     return new ConfirmedTripRepository(this.prisma).update(id, { status: 'CANCELLED' });
+  }
+
+  async upsertLodging(input: ConfirmedTripLodgingUpsertDto) {
+    const parsed = confirmedTripLodgingUpsertSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid lodging input', parsed.error);
+    }
+
+    const { checkInDate, checkOutDate, pricePerNightKrw, roomCount } = parsed.data;
+    const checkIn = new Date(checkInDate);
+    const checkOut = new Date(checkOutDate);
+    const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+    const totalPriceKrw =
+      pricePerNightKrw != null ? pricePerNightKrw * nights * roomCount : null;
+
+    const repo = new ConfirmedTripRepository(this.prisma);
+    const lodging = await repo.upsertLodging({
+      id: parsed.data.id,
+      confirmedTripId: parsed.data.confirmedTripId,
+      dayIndex: parsed.data.dayIndex,
+      checkInDate: checkIn,
+      checkOutDate: checkOut,
+      nights,
+      type: parsed.data.type as LodgingAssignmentType,
+      accommodationId: parsed.data.accommodationId ?? null,
+      accommodationOptionId: parsed.data.accommodationOptionId ?? null,
+      lodgingNameSnapshot: parsed.data.lodgingNameSnapshot,
+      pricePerNightKrw: pricePerNightKrw ?? null,
+      roomCount,
+      totalPriceKrw,
+      bookingStatus: parsed.data.bookingStatus as LodgingBookingStatus,
+      bookingMemo: parsed.data.bookingMemo ?? null,
+      bookingReference: parsed.data.bookingReference ?? null,
+    });
+
+    const conflictWarnings = await this.findConflictWarnings(
+      parsed.data.accommodationId ?? null,
+      checkIn,
+      checkOut,
+      parsed.data.confirmedTripId,
+    );
+
+    return { ...lodging, conflictWarnings };
+  }
+
+  async deleteLodging(id: string) {
+    const repo = new ConfirmedTripRepository(this.prisma);
+    const existing = await repo.findLodgingById(id);
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'Lodging not found');
+    }
+    await repo.deleteLodging(id);
+    return true;
+  }
+
+  async seedLodgingsFromPlan(confirmedTripId: string) {
+    const trip = await this.prisma.confirmedTrip.findUnique({
+      where: { id: confirmedTripId },
+      include: {
+        planVersion: {
+          include: {
+            meta: true,
+          },
+        },
+      },
+    });
+
+    if (!trip) {
+      throw new DomainError('NOT_FOUND', 'Confirmed trip not found');
+    }
+
+    const meta = trip.planVersion?.meta;
+    if (!meta) {
+      throw new DomainError('VALIDATION_FAILED', 'No plan version meta found for this trip');
+    }
+
+    const rawSelections = meta.lodgingSelections as Array<{
+      dayIndex: number;
+      level: string;
+      customLodgingId?: string | null;
+      customLodgingNameSnapshot?: string | null;
+      pricingModeSnapshot?: string | null;
+    }>;
+
+    if (!rawSelections || rawSelections.length === 0) {
+      return [];
+    }
+
+    const travelStartDate = new Date(meta.travelStartDate);
+
+    const repo = new ConfirmedTripRepository(this.prisma);
+    await repo.deleteLodgingsByTripId(confirmedTripId);
+
+    const lodgingLevelMap: Record<string, LodgingAssignmentType> = {
+      LV1: 'LV1',
+      LV2: 'LV2',
+      LV3: 'LV3',
+      LV4: 'LV4',
+      NIGHT_TRAIN: 'NIGHT_TRAIN',
+      CUSTOM: 'CUSTOM_TEXT',
+    };
+
+    const items = rawSelections.map((sel) => {
+      const dayOffset = sel.dayIndex - 1;
+      const checkInDate = new Date(travelStartDate);
+      checkInDate.setDate(checkInDate.getDate() + dayOffset);
+      const checkOutDate = new Date(checkInDate);
+      checkOutDate.setDate(checkOutDate.getDate() + 1);
+
+      const type: LodgingAssignmentType = lodgingLevelMap[sel.level] ?? 'CUSTOM_TEXT';
+      const lodgingNameSnapshot =
+        sel.customLodgingNameSnapshot ?? sel.level;
+
+      return {
+        confirmedTripId,
+        dayIndex: sel.dayIndex,
+        checkInDate,
+        checkOutDate,
+        nights: 1,
+        type,
+        accommodationId: null as string | null,
+        accommodationOptionId: null as string | null,
+        lodgingNameSnapshot,
+        pricePerNightKrw: null as number | null,
+        roomCount: 1,
+        totalPriceKrw: null as number | null,
+        bookingStatus: 'PENDING' as LodgingBookingStatus,
+      };
+    });
+
+    await repo.createManyLodgings(items);
+
+    const refreshed = await repo.findById(confirmedTripId);
+    const lodgings = refreshed?.lodgings ?? [];
+
+    const withWarnings = await Promise.all(
+      lodgings.map(async (l) => {
+        const conflicts = await this.findConflictWarnings(
+          l.accommodationId,
+          l.checkInDate,
+          l.checkOutDate,
+          confirmedTripId,
+        );
+        return { ...l, conflictWarnings: conflicts };
+      }),
+    );
+
+    return withWarnings;
+  }
+
+  async getLodgingsWithConflicts(confirmedTripId: string) {
+    const repo = new ConfirmedTripRepository(this.prisma);
+    const trip = await repo.findById(confirmedTripId);
+    if (!trip) throw new DomainError('NOT_FOUND', 'Confirmed trip not found');
+
+    const lodgings = trip.lodgings ?? [];
+    return Promise.all(
+      lodgings.map(async (l) => {
+        const conflicts = await this.findConflictWarnings(
+          l.accommodationId,
+          l.checkInDate,
+          l.checkOutDate,
+          confirmedTripId,
+        );
+        return { ...l, conflictWarnings: conflicts };
+      }),
+    );
+  }
+
+  private async findConflictWarnings(
+    accommodationId: string | null | undefined,
+    checkInDate: Date,
+    checkOutDate: Date,
+    excludeTripId: string,
+  ) {
+    if (!accommodationId) return [];
+
+    const repo = new ConfirmedTripRepository(this.prisma);
+    const conflicts = await repo.findConflictingLodgings(
+      accommodationId,
+      checkInDate,
+      checkOutDate,
+      excludeTripId,
+    );
+
+    return conflicts.map((c) => {
+      const leaderName =
+        (c.confirmedTrip.planVersion?.meta as { leaderName?: string } | null)?.leaderName ?? c.confirmedTripId;
+      const overlapStart = checkInDate > c.checkInDate ? checkInDate : c.checkInDate;
+      const overlapEnd = checkOutDate < c.checkOutDate ? checkOutDate : c.checkOutDate;
+      return {
+        conflictingTripId: c.confirmedTripId,
+        conflictingTripLeaderName: leaderName,
+        overlapStartDate: overlapStart,
+        overlapEndDate: overlapEnd,
+      };
+    });
   }
 }
