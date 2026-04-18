@@ -304,87 +304,114 @@ function InlineForm({
     }
   };
 
+  const changeType = (t: LodgingAssignmentType) => {
+    set('type', t);
+    if (t !== 'ACCOMMODATION') {
+      set('accommodationId', null);
+      set('accommodationOptionId', null);
+      if (t !== 'CUSTOM_TEXT') set('lodgingNameSnapshot', LODGING_TYPE_LABELS[t]);
+    } else {
+      set('lodgingNameSnapshot', '');
+    }
+  };
+
   return (
-    <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 grid gap-3">
-      {/* 타입 + 객실수 */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="grid gap-1">
-          <label className="text-xs font-medium text-slate-500">타입</label>
-          <select
-            className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-sm"
-            value={form.type}
-            onChange={(e) => {
-              const t = e.target.value as LodgingAssignmentType;
-              set('type', t);
-              if (t !== 'ACCOMMODATION') {
-                set('accommodationId', null);
-                set('accommodationOptionId', null);
-                if (t !== 'CUSTOM_TEXT') set('lodgingNameSnapshot', LODGING_TYPE_LABELS[t]);
-              } else {
-                set('lodgingNameSnapshot', '');
-              }
-            }}
-          >
-            {(Object.keys(LODGING_TYPE_LABELS) as LodgingAssignmentType[]).map((t) => (
-              <option key={t} value={t}>{LODGING_TYPE_LABELS[t]}</option>
+    <div className="mt-3 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      {/* 헤더 */}
+      <div className="bg-slate-50 border-b border-slate-100 px-4 py-3">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">숙소 배정</p>
+      </div>
+
+      <div className="p-4 grid gap-5">
+        {/* ① 타입 탭 */}
+        <div>
+          <p className="mb-2 text-xs font-medium text-slate-400">타입</p>
+          <div className="flex flex-wrap gap-1.5">
+            {(Object.keys(LODGING_TYPE_LABELS) as LodgingAssignmentType[]).filter((t) => t !== 'LV3' && t !== 'LV4').map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => changeType(t)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  form.type === t
+                    ? 'bg-slate-800 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {LODGING_TYPE_LABELS[t]}
+              </button>
             ))}
-          </select>
+          </div>
         </div>
-        <div className="grid gap-1">
-          <label className="text-xs font-medium text-slate-500">객실수</label>
-          <input
-            type="number"
-            min={1}
-            className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-sm"
-            value={form.roomCount}
-            onChange={(e) => set('roomCount', parseInt(e.target.value, 10) || 1)}
-          />
+
+        {/* ② 숙소 선택 또는 이름 입력 */}
+        {form.type === 'ACCOMMODATION' ? (
+          <div>
+            <p className="mb-2 text-xs font-medium text-slate-400">숙소 선택</p>
+            <AccommodationPicker
+              accommodationId={form.accommodationId}
+              optionId={form.accommodationOptionId}
+              onChange={(accId, optId, name) => {
+                set('accommodationId', accId);
+                set('accommodationOptionId', optId);
+                if (name) set('lodgingNameSnapshot', name);
+              }}
+            />
+          </div>
+        ) : (
+          <div>
+            <p className="mb-2 text-xs font-medium text-slate-400">숙소명</p>
+            <input
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+              value={form.lodgingNameSnapshot}
+              onChange={(e) => set('lodgingNameSnapshot', e.target.value)}
+              placeholder="숙소 이름을 입력하세요"
+            />
+          </div>
+        )}
+
+        {/* ③ 객실수 + 메모 */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="mb-2 text-xs font-medium text-slate-400">객실수</p>
+            <div className="flex items-center gap-0">
+              <button
+                type="button"
+                onClick={() => set('roomCount', Math.max(1, form.roomCount - 1))}
+                className="flex h-9 w-9 items-center justify-center rounded-l-xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 text-lg font-medium"
+              >
+                −
+              </button>
+              <span className="flex h-9 min-w-[2.5rem] items-center justify-center border-y border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800">
+                {form.roomCount}
+              </span>
+              <button
+                type="button"
+                onClick={() => set('roomCount', form.roomCount + 1)}
+                className="flex h-9 w-9 items-center justify-center rounded-r-xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 text-lg font-medium"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-medium text-slate-400">메모</p>
+            <input
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+              value={form.bookingMemo}
+              onChange={(e) => set('bookingMemo', e.target.value)}
+              placeholder="내부 메모"
+            />
+          </div>
         </div>
       </div>
 
-      {/* 숙소명 or Accommodation Picker */}
-      {form.type === 'ACCOMMODATION' ? (
-        <div className="grid gap-1">
-          <label className="text-xs font-medium text-slate-500">숙소 선택</label>
-          <AccommodationPicker
-            accommodationId={form.accommodationId}
-            optionId={form.accommodationOptionId}
-            onChange={(accId, optId, name) => {
-              set('accommodationId', accId);
-              set('accommodationOptionId', optId);
-              if (name) set('lodgingNameSnapshot', name);
-            }}
-          />
-        </div>
-      ) : (
-        <div className="grid gap-1">
-          <label className="text-xs font-medium text-slate-500">숙소명</label>
-          <input
-            className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-sm"
-            value={form.lodgingNameSnapshot}
-            onChange={(e) => set('lodgingNameSnapshot', e.target.value)}
-            placeholder="숙소 이름 입력"
-          />
-        </div>
-      )}
-
-      {/* 메모 */}
-      <div className="grid gap-1">
-        <label className="text-xs font-medium text-slate-500">메모</label>
-        <input
-          className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-sm"
-          value={form.bookingMemo}
-          onChange={(e) => set('bookingMemo', e.target.value)}
-          placeholder="내부 메모"
-        />
-      </div>
-
-      {/* 버튼 */}
-      <div className="flex justify-end gap-2 pt-1">
+      {/* 버튼 영역 */}
+      <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-xl border border-slate-200 px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
+          className="rounded-xl border border-slate-200 bg-white px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
         >
           취소
         </button>
