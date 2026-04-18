@@ -13,11 +13,18 @@ import {
 
 type DateFilter = 'upcoming' | 'ongoing' | 'completed';
 type ViewMode = 'list' | 'calendar';
+type RentalItemFilter = 'drone' | 'starlink' | 'powerbank';
 
 const DATE_FILTER_OPTIONS: { value: DateFilter; label: string }[] = [
   { value: 'upcoming', label: '여행 예정' },
   { value: 'ongoing', label: '여행중' },
   { value: 'completed', label: '여행 완료' },
+];
+
+const RENTAL_ITEM_FILTER_OPTIONS: Array<{ value: RentalItemFilter; label: string }> = [
+  { value: 'drone', label: '드론' },
+  { value: 'starlink', label: '스타링크' },
+  { value: 'powerbank', label: '파워뱅크' },
 ];
 
 function getTodayMidnight(): Date {
@@ -48,6 +55,19 @@ function applyDateFilter(trips: ConfirmedTripRow[], filter: DateFilter): Confirm
     if (!aStr) return 1;
     if (!bStr) return -1;
     return new Date(aStr).getTime() - new Date(bStr).getTime();
+  });
+}
+
+function applyRentalItemFilter(
+  trips: ConfirmedTripRow[],
+  filter: RentalItemFilter | null,
+): ConfirmedTripRow[] {
+  if (!filter) return trips;
+
+  return trips.filter((trip) => {
+    if (filter === 'drone') return trip.rentalDrone;
+    if (filter === 'starlink') return trip.rentalStarlink;
+    return trip.rentalPowerbank;
   });
 }
 
@@ -139,7 +159,10 @@ export function ConfirmedTripsPage(): JSX.Element {
 
   const dateFilter: DateFilter =
     (searchParams.get('filter') as DateFilter | null) ?? 'upcoming';
-  const trips = applyDateFilter(allTrips, dateFilter);
+  const rentalItemFilter =
+    (searchParams.get('rentalItem') as RentalItemFilter | null) ?? null;
+  const trips = applyRentalItemFilter(applyDateFilter(allTrips, dateFilter), rentalItemFilter);
+  const calendarTrips = applyRentalItemFilter(allTrips, rentalItemFilter);
 
   const viewMode: ViewMode = searchParams.get('view') === 'calendar' ? 'calendar' : 'list';
   const { year: nowYear, month: nowMonth } = getNow();
@@ -153,6 +176,17 @@ export function ConfirmedTripsPage(): JSX.Element {
   function setCalendarMonth(year: number, month: number) {
     setSearchParams(
       (prev) => { prev.set('cy', String(year)); prev.set('cm', String(month)); return prev; },
+      { replace: true },
+    );
+  }
+
+  function setRentalItemFilter(nextFilter: RentalItemFilter | null) {
+    setSearchParams(
+      (prev) => {
+        if (nextFilter) prev.set('rentalItem', nextFilter);
+        else prev.delete('rentalItem');
+        return prev;
+      },
       { replace: true },
     );
   }
@@ -224,11 +258,33 @@ export function ConfirmedTripsPage(): JSX.Element {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-slate-500">장비 필터</span>
+        {RENTAL_ITEM_FILTER_OPTIONS.map(({ value, label }) => {
+          const active = rentalItemFilter === value;
+          const dimmed = rentalItemFilter !== null && !active;
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setRentalItemFilter(active ? null : value)}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                active
+                  ? 'bg-slate-800 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              } ${dimmed ? 'opacity-40' : ''}`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
       {loading ? (
         <p className="text-sm text-slate-500">불러오는 중...</p>
       ) : viewMode === 'calendar' ? (
         <ConfirmedTripCalendar
-          trips={allTrips}
+          trips={calendarTrips}
           year={calYear}
           month={calMonth}
           onChangeMonth={setCalendarMonth}
