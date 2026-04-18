@@ -1,3 +1,4 @@
+import { EmployeeRole } from '@tour/domain';
 import type { PropsWithChildren } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../features/auth/context';
@@ -35,6 +36,34 @@ export function RedirectAuthenticated({ children }: PropsWithChildren): JSX.Elem
 
   if (status === 'authenticated') {
     return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+/**
+ * ADMIN 또는 STAFF만 통과 — OPS_STAFF는 접근 거부 메시지를 보여줍니다.
+ * 투어리스트·가이드·기사·숙소 외 모든 경로에 적용합니다.
+ */
+export function RequireStaffOrAbove({ children }: PropsWithChildren): JSX.Element {
+  const { employee, status } = useAuth();
+
+  if (status === 'loading') {
+    return <AuthLoadingScreen />;
+  }
+
+  if (!employee) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (employee.role === EmployeeRole.OPS_STAFF) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+        <div className="rounded-3xl border border-slate-200 bg-white px-6 py-5 text-sm text-slate-600 shadow-sm">
+          이 페이지는 운영 담당자가 접근할 수 없습니다.
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;

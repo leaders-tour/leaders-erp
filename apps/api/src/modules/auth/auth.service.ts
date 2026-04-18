@@ -79,7 +79,7 @@ export class AuthService {
     return this.buildAuthPayload(employee);
   }
 
-  private async ensureAdminFloor(employeeId: string, nextRole: 'ADMIN' | 'STAFF', nextIsActive: boolean): Promise<void> {
+  private async ensureAdminFloor(employeeId: string, nextRole: 'ADMIN' | 'STAFF' | 'OPS_STAFF', nextIsActive: boolean): Promise<void> {
     const existing = await new AuthRepository(this.prisma).findEmployeeForAdminChecks(employeeId);
     if (!existing) {
       throw new DomainError('NOT_FOUND', 'Employee not found');

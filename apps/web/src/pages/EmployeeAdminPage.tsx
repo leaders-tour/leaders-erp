@@ -29,7 +29,9 @@ function FieldLabel({ children }: FieldLabelProps): JSX.Element {
 }
 
 function roleLabel(role: EmployeeRole): string {
-  return role === EmployeeRole.ADMIN ? '관리자' : '일반';
+  if (role === EmployeeRole.ADMIN) return '관리자';
+  if (role === EmployeeRole.OPS_STAFF) return '운영 담당';
+  return '일반';
 }
 
 export function EmployeeAdminPage(): JSX.Element {
@@ -122,6 +124,7 @@ export function EmployeeAdminPage(): JSX.Element {
               className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
             >
               <option value={EmployeeRole.STAFF}>일반</option>
+              <option value={EmployeeRole.OPS_STAFF}>운영 담당</option>
               <option value={EmployeeRole.ADMIN}>관리자</option>
             </select>
           </label>
@@ -211,6 +214,7 @@ export function EmployeeAdminPage(): JSX.Element {
                       className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
                     >
                       <option value={EmployeeRole.STAFF}>일반</option>
+                      <option value={EmployeeRole.OPS_STAFF}>운영 담당</option>
                       <option value={EmployeeRole.ADMIN}>관리자</option>
                     </select>
                   </label>

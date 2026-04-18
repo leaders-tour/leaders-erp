@@ -1,6 +1,7 @@
 enum EmployeeRole {
   ADMIN
   STAFF
+  OPS_STAFF
 }
 
 type Employee {

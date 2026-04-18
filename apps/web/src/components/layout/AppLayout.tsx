@@ -226,7 +226,9 @@ const sidebarCollapsedStorageKey = 'tour-erp:sidebar-collapsed';
 const hiddenNavPaths = new Set(['/outreach/leads', '/todos/list']);
 
 function roleLabel(role: EmployeeRole): string {
-  return role === EmployeeRole.ADMIN ? '관리자' : '일반';
+  if (role === EmployeeRole.ADMIN) return '관리자';
+  if (role === EmployeeRole.OPS_STAFF) return '운영 담당';
+  return '일반';
 }
 
 export function AppLayout(): JSX.Element {
@@ -247,16 +249,22 @@ export function AppLayout(): JSX.Element {
 
     return savedValue === 'true';
   });
-  const navItems =
-    (employee?.role === EmployeeRole.ADMIN
-      ? [
-          ...baseNavItems,
-          { path: '/admin/pricing-policies', label: '가격 정책', icon: PricingIcon },
-          ...resourceNavItems,
-          { path: '/admin/employees', label: '직원 관리', icon: AdminIcon },
-        ]
-      : [...baseNavItems, ...resourceNavItems]
-    ).filter((item) => !hiddenNavPaths.has(item.path));
+  const navItems = ((): NavItem[] => {
+    if (employee?.role === EmployeeRole.ADMIN) {
+      return [
+        ...baseNavItems,
+        { path: '/admin/pricing-policies', label: '가격 정책', icon: PricingIcon },
+        ...resourceNavItems,
+        { path: '/admin/employees', label: '직원 관리', icon: AdminIcon },
+      ];
+    }
+    if (employee?.role === EmployeeRole.OPS_STAFF) {
+      // 투어리스트·가이드·기사·숙소만 표시
+      const confirmedTripsItem = baseNavItems.find((item) => item.path === '/confirmed-trips');
+      return [...(confirmedTripsItem ? [confirmedTripsItem] : []), ...resourceNavItems];
+    }
+    return [...baseNavItems, ...resourceNavItems];
+  })().filter((item) => !hiddenNavPaths.has(item.path));
 
   const matchesPath = (path: string): boolean =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);
