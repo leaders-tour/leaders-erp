@@ -58,22 +58,24 @@ export class DriverService {
     return true;
   }
 
-  async uploadProfileImage(id: string, image: UploadFile) {
+  async uploadProfileImage(id: string, rawImage: UploadFile | Promise<UploadFile>) {
     const existing = await new DriverRepository(this.prisma).findById(id);
     if (!existing) throw new DomainError('NOT_FOUND', 'Driver not found');
+    const image = await Promise.resolve(rawImage);
     this.assertAllowedMimeType(image);
     const url = await this.getFileStorageClient().uploadImage(image, MAX_FILE_SIZE_BYTES);
     return new DriverRepository(this.prisma).update(id, { profileImageUrl: url });
   }
 
-  async uploadVehicleImages(id: string, images: UploadFile[]) {
+  async uploadVehicleImages(id: string, rawImages: (UploadFile | Promise<UploadFile>)[]) {
     const existing = await new DriverRepository(this.prisma).findById(id);
     if (!existing) throw new DomainError('NOT_FOUND', 'Driver not found');
-    if (images.length === 0) throw new DomainError('VALIDATION_FAILED', 'At least one image is required');
+    if (rawImages.length === 0) throw new DomainError('VALIDATION_FAILED', 'At least one image is required');
     const currentUrls: string[] = Array.isArray(existing.vehicleImageUrls) ? (existing.vehicleImageUrls as string[]) : [];
-    if (currentUrls.length + images.length > MAX_VEHICLE_IMAGE_COUNT) {
+    if (currentUrls.length + rawImages.length > MAX_VEHICLE_IMAGE_COUNT) {
       throw new DomainError('VALIDATION_FAILED', `Total vehicle images cannot exceed ${MAX_VEHICLE_IMAGE_COUNT}`);
     }
+    const images = await Promise.all(rawImages.map((img) => Promise.resolve(img)));
     for (const img of images) this.assertAllowedMimeType(img);
     const client = this.getFileStorageClient();
     const newUrls = await Promise.all(images.map((img) => client.uploadImage(img, MAX_FILE_SIZE_BYTES)));

@@ -42,9 +42,9 @@ export const driverResolver = {
       new DriverService(ctx.prisma).update(args.id, args.input),
     deleteDriver: (_parent: unknown, args: DriverIdArgs, ctx: AppContext) =>
       new DriverService(ctx.prisma).delete(args.id),
-    uploadDriverProfileImage: (_parent: unknown, args: { id: string; image: UploadFile }, ctx: AppContext) =>
+    uploadDriverProfileImage: (_parent: unknown, args: { id: string; image: UploadFile | Promise<UploadFile> }, ctx: AppContext) =>
       new DriverService(ctx.prisma).uploadProfileImage(args.id, args.image),
-    uploadDriverVehicleImages: (_parent: unknown, args: { id: string; images: UploadFile[] }, ctx: AppContext) =>
+    uploadDriverVehicleImages: (_parent: unknown, args: { id: string; images: (UploadFile | Promise<UploadFile>)[] }, ctx: AppContext) =>
       new DriverService(ctx.prisma).uploadVehicleImages(args.id, args.images),
     removeDriverVehicleImage: (_parent: unknown, args: { id: string; imageUrl: string }, ctx: AppContext) =>
       new DriverService(ctx.prisma).removeVehicleImage(args.id, args.imageUrl),

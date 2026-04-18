@@ -105,14 +105,15 @@ export class AccommodationService {
     return true;
   }
 
-  async uploadOptionImages(id: string, images: UploadFile[]) {
+  async uploadOptionImages(id: string, rawImages: (UploadFile | Promise<UploadFile>)[]) {
     const existing = await this.repo.findOptionById(id);
     if (!existing) throw new DomainError('NOT_FOUND', 'AccommodationOption not found');
-    if (images.length === 0) throw new DomainError('VALIDATION_FAILED', 'At least one image is required');
+    if (rawImages.length === 0) throw new DomainError('VALIDATION_FAILED', 'At least one image is required');
     const currentUrls: string[] = Array.isArray(existing.imageUrls) ? (existing.imageUrls as string[]) : [];
-    if (currentUrls.length + images.length > MAX_OPTION_IMAGE_COUNT) {
+    if (currentUrls.length + rawImages.length > MAX_OPTION_IMAGE_COUNT) {
       throw new DomainError('VALIDATION_FAILED', `Total images cannot exceed ${MAX_OPTION_IMAGE_COUNT}`);
     }
+    const images = await Promise.all(rawImages.map((img) => Promise.resolve(img)));
     for (const img of images) this.assertAllowedMimeType(img);
     const client = this.getFileStorageClient();
     const newUrls = await Promise.all(images.map((img) => client.uploadImage(img, MAX_FILE_SIZE_BYTES)));

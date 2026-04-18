@@ -40,9 +40,9 @@ export const guideResolver = {
       new GuideService(ctx.prisma).update(args.id, args.input),
     deleteGuide: (_parent: unknown, args: GuideIdArgs, ctx: AppContext) =>
       new GuideService(ctx.prisma).delete(args.id),
-    uploadGuideProfileImage: (_parent: unknown, args: { id: string; image: UploadFile }, ctx: AppContext) =>
+    uploadGuideProfileImage: (_parent: unknown, args: { id: string; image: UploadFile | Promise<UploadFile> }, ctx: AppContext) =>
       new GuideService(ctx.prisma).uploadProfileImage(args.id, args.image),
-    uploadGuideCertImages: (_parent: unknown, args: { id: string; images: UploadFile[] }, ctx: AppContext) =>
+    uploadGuideCertImages: (_parent: unknown, args: { id: string; images: (UploadFile | Promise<UploadFile>)[] }, ctx: AppContext) =>
       new GuideService(ctx.prisma).uploadCertImages(args.id, args.images),
     removeGuideCertImage: (_parent: unknown, args: { id: string; imageUrl: string }, ctx: AppContext) =>
       new GuideService(ctx.prisma).removeCertImage(args.id, args.imageUrl),

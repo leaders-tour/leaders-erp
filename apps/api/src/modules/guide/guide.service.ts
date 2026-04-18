@@ -68,22 +68,24 @@ export class GuideService {
     return true;
   }
 
-  async uploadProfileImage(id: string, image: UploadFile) {
+  async uploadProfileImage(id: string, rawImage: UploadFile | Promise<UploadFile>) {
     const existing = await new GuideRepository(this.prisma).findById(id);
     if (!existing) throw new DomainError('NOT_FOUND', 'Guide not found');
+    const image = await Promise.resolve(rawImage);
     this.assertAllowedMimeType(image);
     const url = await this.getFileStorageClient().uploadImage(image, MAX_FILE_SIZE_BYTES);
     return new GuideRepository(this.prisma).update(id, { profileImageUrl: url });
   }
 
-  async uploadCertImages(id: string, images: UploadFile[]) {
+  async uploadCertImages(id: string, rawImages: (UploadFile | Promise<UploadFile>)[]) {
     const existing = await new GuideRepository(this.prisma).findById(id);
     if (!existing) throw new DomainError('NOT_FOUND', 'Guide not found');
-    if (images.length === 0) throw new DomainError('VALIDATION_FAILED', 'At least one image is required');
+    if (rawImages.length === 0) throw new DomainError('VALIDATION_FAILED', 'At least one image is required');
     const currentUrls: string[] = Array.isArray(existing.certImageUrls) ? (existing.certImageUrls as string[]) : [];
-    if (currentUrls.length + images.length > MAX_CERT_IMAGE_COUNT) {
+    if (currentUrls.length + rawImages.length > MAX_CERT_IMAGE_COUNT) {
       throw new DomainError('VALIDATION_FAILED', `Total cert images cannot exceed ${MAX_CERT_IMAGE_COUNT}`);
     }
+    const images = await Promise.all(rawImages.map((img) => Promise.resolve(img)));
     for (const img of images) this.assertAllowedMimeType(img);
     const client = this.getFileStorageClient();
     const newUrls = await Promise.all(images.map((img) => client.uploadImage(img, MAX_FILE_SIZE_BYTES)));
