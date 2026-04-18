@@ -119,6 +119,10 @@ function buildWeekBlocks(
   // 주별 레인 점유 (단순 카운팅 – 주 내 순서대로 lane 배정)
   const weekLaneCount: number[] = new Array(weekCount).fill(0);
 
+  // 투어 블록이 차지한 레인을 기억: tripId → weekIdx → lane
+  // 픽업/드랍 블록이 같은 주에 있을 때 동일 레인을 재사용하기 위해 사용
+  const tripWeekLane = new Map<string, Map<number, number>>();
+
   for (const trip of filtered) {
     const startStr = getTripStartDate(trip);
     const endStr = getTripEndDate(trip);
@@ -161,6 +165,10 @@ function buildWeekBlocks(
       const lane = weekLaneCount[weekIdx] ?? 0;
       weekLaneCount[weekIdx] = lane + 1;
 
+      // 이 여행이 이 주에서 사용하는 레인을 기록
+      if (!tripWeekLane.has(trip.id)) tripWeekLane.set(trip.id, new Map());
+      tripWeekLane.get(trip.id)!.set(weekIdx, lane);
+
       weekBlocks[weekIdx]?.push({
         key: `${trip.id}-w${weekIdx}`,
         tripId: trip.id,
@@ -187,14 +195,6 @@ function buildWeekBlocks(
     const date = isoToLocalDate(dateStr);
     if (date < monthStart || date > monthEnd) return;
 
-    const weekIdx = Math.floor(
-      (getWeekdayIndex(date.getFullYear(), date.getMonth() + 1, date.getDate()) +
-        (date.getDate() - 1) +
-        firstWeekday) /
-        7,
-    );
-
-    // weekIdx 재계산: 해당 날짜가 몇 번째 주에 속하는지
     const dayOfMonth = date.getDate();
     const dayPosition = dayOfMonth + firstWeekday - 1; // 0-indexed grid position
     const correctWeekIdx = Math.floor(dayPosition / 7);
@@ -207,8 +207,15 @@ function buildWeekBlocks(
       date.getDate(),
     );
 
-    const lane = weekLaneCount[correctWeekIdx] ?? 0;
-    weekLaneCount[correctWeekIdx] = lane + 1;
+    // 같은 주에 투어 블록이 있으면 동일 레인 재사용 → 픽업/드랍이 투어와 같은 행에 표시됨
+    const existingLane = tripWeekLane.get(trip.id)?.get(correctWeekIdx);
+    let lane: number;
+    if (existingLane !== undefined) {
+      lane = existingLane;
+    } else {
+      lane = weekLaneCount[correctWeekIdx] ?? 0;
+      weekLaneCount[correctWeekIdx] = lane + 1;
+    }
 
     weekBlocks[correctWeekIdx]?.push({
       key: `${trip.id}-${type}-w${correctWeekIdx}`,

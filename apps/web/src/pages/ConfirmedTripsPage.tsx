@@ -8,12 +8,14 @@ import {
   getTripLeaderName,
   getTripHeadcount,
   getTripDestination,
+  getTripPickupDate,
+  getTripDropDate,
   type ConfirmedTripRow,
 } from '../features/confirmed-trip/hooks';
 
 type DateFilter = 'upcoming' | 'ongoing' | 'completed';
 type ViewMode = 'list' | 'calendar';
-type RentalItemFilter = 'drone' | 'starlink' | 'powerbank' | 'camelDoll';
+type RentalItemFilter = 'drone' | 'starlink' | 'powerbank' | 'camelDoll' | 'pickup' | 'drop';
 
 const DATE_FILTER_OPTIONS: { value: DateFilter; label: string }[] = [
   { value: 'upcoming', label: '여행 예정' },
@@ -26,6 +28,8 @@ const RENTAL_ITEM_FILTER_OPTIONS: Array<{ value: RentalItemFilter; label: string
   { value: 'starlink', label: '스타링크' },
   { value: 'powerbank', label: '파워뱅크' },
   { value: 'camelDoll', label: '낙타인형 구매' },
+  { value: 'pickup', label: '픽업 있음' },
+  { value: 'drop', label: '드랍 있음' },
 ];
 
 function getTodayMidnight(): Date {
@@ -69,7 +73,10 @@ function applyRentalItemFilter(
     if (filter === 'drone') return trip.rentalDrone;
     if (filter === 'starlink') return trip.rentalStarlink;
     if (filter === 'powerbank') return trip.rentalPowerbank;
-    return trip.camelDollPurchased;
+    if (filter === 'camelDoll') return trip.camelDollPurchased;
+    if (filter === 'pickup') return getTripPickupDate(trip) !== null;
+    if (filter === 'drop') return getTripDropDate(trip) !== null;
+    return false;
   });
 }
 
