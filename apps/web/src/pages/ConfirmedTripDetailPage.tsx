@@ -10,6 +10,8 @@ import {
   getTripLeaderName,
   getTripHeadcount,
   getTripDestination,
+  getTripPickupDate,
+  getTripDropDate,
 } from '../features/confirmed-trip/hooks';
 import { useGuides } from '../features/guide/hooks';
 import { useDrivers } from '../features/driver/hooks';
@@ -161,6 +163,12 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   // 낙타인형 구매 — 독립 상태
   const [camelDollSaving, setCamelDollSaving] = useState(false);
 
+  // 픽드랍 — 독립 상태
+  const [pickupDateEdit, setPickupDateEdit] = useState<string>('');
+  const [dropDateEdit, setDropDateEdit] = useState<string>('');
+  const [pickupDropEditing, setPickupDropEditing] = useState(false);
+  const [pickupDropSaving, setPickupDropSaving] = useState(false);
+
   if (!tripId) {
     return <section className="py-8 text-sm text-slate-600">잘못된 접근입니다.</section>;
   }
@@ -249,6 +257,31 @@ export function ConfirmedTripDetailPage(): JSX.Element {
       window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
     } finally {
       setCamelDollSaving(false);
+    }
+  };
+
+  const startPickupDropEdit = () => {
+    const toDateInputValue = (iso: string | null) => {
+      if (!iso) return '';
+      return iso.split('T')[0] ?? '';
+    };
+    setPickupDateEdit(toDateInputValue(getTripPickupDate(trip)));
+    setDropDateEdit(toDateInputValue(getTripDropDate(trip)));
+    setPickupDropEditing(true);
+  };
+
+  const handlePickupDropSave = async () => {
+    setPickupDropSaving(true);
+    try {
+      await updateConfirmedTrip(tripId, {
+        pickupDate: pickupDateEdit || null,
+        dropDate: dropDateEdit || null,
+      });
+      setPickupDropEditing(false);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
+    } finally {
+      setPickupDropSaving(false);
     }
   };
 
@@ -457,6 +490,79 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           )}
         </Card>
       </div>
+
+      {/* 픽드랍 일정 — 독립 카드 */}
+      <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-900">픽드랍 일정</h2>
+          {trip.status === 'ACTIVE' && !pickupDropEditing && (
+            <button
+              type="button"
+              onClick={startPickupDropEdit}
+              className="rounded-full bg-slate-100 px-4 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-200"
+            >
+              편집
+            </button>
+          )}
+          {pickupDropEditing && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPickupDropEditing(false)}
+                disabled={pickupDropSaving}
+                className="rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handlePickupDropSave}
+                disabled={pickupDropSaving}
+                className="rounded-full bg-slate-800 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
+              >
+                {pickupDropSaving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          )}
+        </div>
+        {pickupDropEditing ? (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="grid gap-1">
+              <span className="text-xs font-medium text-slate-500">픽업 날짜</span>
+              <input
+                type="date"
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={pickupDateEdit}
+                onChange={(e) => setPickupDateEdit(e.target.value)}
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs font-medium text-slate-500">드랍 날짜</span>
+              <input
+                type="date"
+                className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                value={dropDateEdit}
+                onChange={(e) => setDropDateEdit(e.target.value)}
+              />
+            </label>
+          </div>
+        ) : (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 text-sm">
+            <div>
+              <span className="text-xs font-medium text-slate-500">픽업</span>
+              <p className="mt-0.5 font-medium text-slate-800">
+                {getTripPickupDate(trip) ? formatDate(getTripPickupDate(trip)!) : '-'}
+              </p>
+            </div>
+            <div>
+              <span className="text-xs font-medium text-slate-500">드랍</span>
+              <p className="mt-0.5 font-medium text-slate-800">
+                {getTripDropDate(trip) ? formatDate(getTripDropDate(trip)!) : '-'}
+              </p>
+            </div>
+          </div>
+        )}
+      </Card>
 
       {/* 낙타인형 구매 — 독립 카드 */}
       <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">

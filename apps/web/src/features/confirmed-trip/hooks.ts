@@ -16,6 +16,8 @@ export interface ConfirmedTripRow {
   /** 노션 마이그레이션 데이터용 직접 필드 (planVersion 없을 때 fallback) */
   travelStart: string | null;
   travelEnd: string | null;
+  pickupDate: string | null;
+  dropDate: string | null;
   destination: string | null;
   paxCount: number | null;
   rentalGear: boolean;
@@ -59,6 +61,8 @@ export interface ConfirmedTripRow {
       includeRentalItems: boolean;
       rentalItemsText: string;
       remark: string | null;
+      pickupDate: string | null;
+      dropDate: string | null;
       lodgingSelections: Array<{
         dayIndex: number;
         level: string;
@@ -95,6 +99,8 @@ const CONFIRMED_TRIP_FRAGMENT = gql`
     operationNote
     travelStart
     travelEnd
+    pickupDate
+    dropDate
     destination
     paxCount
     rentalGear
@@ -149,6 +155,8 @@ const CONFIRMED_TRIP_FRAGMENT = gql`
         includeRentalItems
         rentalItemsText
         remark
+        pickupDate
+        dropDate
         lodgingSelections {
           dayIndex
           level
@@ -287,6 +295,8 @@ export function useUpdateConfirmedTrip() {
         operationNote?: string | null;
         status?: 'ACTIVE' | 'CANCELLED';
         camelDollPurchased?: boolean;
+        pickupDate?: string | null;
+        dropDate?: string | null;
       },
     ): Promise<ConfirmedTripRow> => {
       const result = await mutate({
@@ -347,4 +357,12 @@ export function getTripHeadcount(trip: ConfirmedTripRow): number | null {
 
 export function getTripDestination(trip: ConfirmedTripRow): string {
   return trip.plan?.regionSet.name ?? trip.destination ?? '-';
+}
+
+export function getTripPickupDate(trip: ConfirmedTripRow): string | null {
+  return trip.planVersion?.meta?.pickupDate ?? trip.pickupDate ?? null;
+}
+
+export function getTripDropDate(trip: ConfirmedTripRow): string | null {
+  return trip.planVersion?.meta?.dropDate ?? trip.dropDate ?? null;
 }

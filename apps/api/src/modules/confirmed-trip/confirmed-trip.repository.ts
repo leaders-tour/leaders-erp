@@ -156,6 +156,8 @@ export class ConfirmedTripRepository {
       status: ConfirmedTripStatus;
       travelStart: Date | null;
       travelEnd: Date | null;
+      pickupDate: Date | null;
+      dropDate: Date | null;
       destination: string | null;
       paxCount: number | null;
       guideId: string | null;

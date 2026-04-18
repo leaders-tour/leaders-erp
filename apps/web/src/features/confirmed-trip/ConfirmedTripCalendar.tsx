@@ -11,6 +11,8 @@ import {
   getTripLeaderName,
   getTripHeadcount,
   getTripDestination,
+  getTripPickupDate,
+  getTripDropDate,
   type ConfirmedTripRow,
 } from './hooks';
 
@@ -29,6 +31,7 @@ interface CalendarBlock {
   headcount: number;
   color: { bg: string; hover: string };
   status: 'ACTIVE' | 'CANCELLED';
+  blockType: 'tour' | 'pickup' | 'drop';
   /** grid 시작 열 (0=일요일) */
   colStart: number;
   /** grid span 개수 */
@@ -43,6 +46,8 @@ interface CalendarBlock {
 
 const CANCELLED_COLOR: { bg: string; hover: string } = { bg: 'bg-slate-400', hover: 'hover:bg-slate-500' };
 const FALLBACK_COLOR: { bg: string; hover: string } = { bg: 'bg-blue-500', hover: 'hover:bg-blue-600' };
+const PICKUP_COLOR: { bg: string; hover: string } = { bg: 'bg-slate-600', hover: 'hover:bg-slate-700' };
+const DROP_COLOR: { bg: string; hover: string } = { bg: 'bg-slate-500', hover: 'hover:bg-slate-600' };
 
 const REGION_COLOR_RULES: Array<{ keyword: string; color: { bg: string; hover: string } }> = [
   { keyword: '고비', color: { bg: 'bg-amber-500', hover: 'hover:bg-amber-600' } },
@@ -163,6 +168,7 @@ function buildWeekBlocks(
         headcount: getTripHeadcount(trip) ?? 0,
         color,
         status: trip.status,
+        blockType: 'tour',
         colStart,
         colSpan: colEnd - colStart + 1,
         lane,
@@ -170,6 +176,62 @@ function buildWeekBlocks(
         clippedRight: tripEnd > weekDateEnd || tripEnd > monthEnd,
       });
     }
+  }
+
+  // ── 픽업 / 드랍 1일짜리 블록 추가 ──────────────────────────────────────────
+  const addSingleDayBlock = (
+    trip: ConfirmedTripRow,
+    dateStr: string,
+    type: 'pickup' | 'drop',
+  ) => {
+    const date = isoToLocalDate(dateStr);
+    if (date < monthStart || date > monthEnd) return;
+
+    const weekIdx = Math.floor(
+      (getWeekdayIndex(date.getFullYear(), date.getMonth() + 1, date.getDate()) +
+        (date.getDate() - 1) +
+        firstWeekday) /
+        7,
+    );
+
+    // weekIdx 재계산: 해당 날짜가 몇 번째 주에 속하는지
+    const dayOfMonth = date.getDate();
+    const dayPosition = dayOfMonth + firstWeekday - 1; // 0-indexed grid position
+    const correctWeekIdx = Math.floor(dayPosition / 7);
+
+    if (correctWeekIdx < 0 || correctWeekIdx >= weekCount) return;
+
+    const col = getWeekdayIndex(
+      date.getFullYear(),
+      date.getMonth() + 1,
+      date.getDate(),
+    );
+
+    const lane = weekLaneCount[correctWeekIdx] ?? 0;
+    weekLaneCount[correctWeekIdx] = lane + 1;
+
+    weekBlocks[correctWeekIdx]?.push({
+      key: `${trip.id}-${type}-w${correctWeekIdx}`,
+      tripId: trip.id,
+      leaderName: getTripLeaderName(trip),
+      headcount: getTripHeadcount(trip) ?? 0,
+      color: type === 'pickup' ? PICKUP_COLOR : DROP_COLOR,
+      status: trip.status,
+      blockType: type,
+      colStart: col,
+      colSpan: 1,
+      lane,
+      clippedLeft: false,
+      clippedRight: false,
+    });
+  };
+
+  // 이달에 픽업/드랍 날짜가 있는 모든 여행을 처리 (필터 없이 전체 목록 순회)
+  for (const trip of trips) {
+    const pickupStr = getTripPickupDate(trip);
+    const dropStr = getTripDropDate(trip);
+    if (pickupStr) addSingleDayBlock(trip, pickupStr, 'pickup');
+    if (dropStr) addSingleDayBlock(trip, dropStr, 'drop');
   }
 
   return { weekBlocks, weekCount };
@@ -294,27 +356,47 @@ export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: Con
                 const colWidthPct = (block.colSpan / 7) * 100;
                 const topRem = 2.125 + block.lane * 1.875;
 
-                // 잘린 끝은 라운딩 없음, 자연스러운 끝은 라운딩
-                const roundingClass = [
-                  !block.clippedLeft ? 'rounded-l-full' : 'rounded-l-none',
-                  !block.clippedRight ? 'rounded-r-full' : 'rounded-r-none',
-                ].join(' ');
+                const roundingClass = block.blockType === 'tour'
+                  ? [
+                      !block.clippedLeft ? 'rounded-l-full' : 'rounded-l-none',
+                      !block.clippedRight ? 'rounded-r-full' : 'rounded-r-none',
+                    ].join(' ')
+                  : 'rounded-full';
+
+                const label = block.blockType === 'pickup'
+                  ? '픽업'
+                  : block.blockType === 'drop'
+                    ? '드랍'
+                    : null;
 
                 return (
                   <button
                     key={block.key}
                     type="button"
                     onClick={() => navigate(`/confirmed-trips/${block.tripId}`)}
-                    title={`${block.leaderName} (${block.headcount}명)`}
+                    title={
+                      label
+                        ? `${label} — ${block.leaderName}`
+                        : `${block.leaderName} (${block.headcount}명)`
+                    }
                     className={`absolute z-10 flex h-7 cursor-pointer items-center gap-1 truncate px-2.5 text-[11px] font-medium text-white transition ${color.bg} ${color.hover} ${roundingClass}`}
                     style={{
-                      left: `calc(${colStartPct}% + ${block.clippedLeft ? 0 : 2}px)`,
-                      width: `calc(${colWidthPct}% - ${(block.clippedLeft ? 0 : 2) + (block.clippedRight ? 0 : 2)}px)`,
+                      left: `calc(${colStartPct}% + 2px)`,
+                      width: `calc(${colWidthPct}% - 4px)`,
                       top: `${topRem}rem`,
                     }}
                   >
-                    <span className="truncate">{block.leaderName}</span>
-                    <span className="shrink-0 opacity-75">{block.headcount}명</span>
+                    {label ? (
+                      <>
+                        <span className="shrink-0 font-semibold">{label}</span>
+                        <span className="truncate opacity-80">{block.leaderName}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="truncate">{block.leaderName}</span>
+                        <span className="shrink-0 opacity-75">{block.headcount}명</span>
+                      </>
+                    )}
                   </button>
                 );
               })}

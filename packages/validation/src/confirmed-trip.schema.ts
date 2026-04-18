@@ -18,6 +18,8 @@ export const confirmedTripUpdateSchema = z.object({
   status: confirmedTripStatusSchema.optional(),
   travelStart: z.coerce.date().nullable().optional(),
   travelEnd: z.coerce.date().nullable().optional(),
+  pickupDate: z.coerce.date().nullable().optional(),
+  dropDate: z.coerce.date().nullable().optional(),
   destination: z.string().max(500).nullable().optional(),
   paxCount: z.number().int().min(1).max(9999).nullable().optional(),
   guideId: z.string().nullable().optional(),

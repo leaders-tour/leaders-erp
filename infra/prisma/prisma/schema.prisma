@@ -920,6 +920,8 @@ model ConfirmedTrip {
 
   travelStart     DateTime?
   travelEnd       DateTime?
+  pickupDate      DateTime?
+  dropDate        DateTime?
   destination     String?
   paxCount        Int?
   guideId         String?
