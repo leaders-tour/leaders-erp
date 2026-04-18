@@ -5,7 +5,14 @@ import {
   getDaysInMonth,
   getWeekdayIndex,
 } from '../../components/date-picker/date-picker-utils';
-import { getTripStartDate, getTripEndDate, getTripLeaderName, getTripHeadcount, type ConfirmedTripRow } from './hooks';
+import {
+  getTripStartDate,
+  getTripEndDate,
+  getTripLeaderName,
+  getTripHeadcount,
+  getTripDestination,
+  type ConfirmedTripRow,
+} from './hooks';
 
 interface ConfirmedTripCalendarProps {
   trips: ConfirmedTripRow[];
@@ -20,7 +27,7 @@ interface CalendarBlock {
   tripId: string;
   leaderName: string;
   headcount: number;
-  colorIndex: number;
+  color: { bg: string; hover: string };
   status: 'ACTIVE' | 'CANCELLED';
   /** grid 시작 열 (0=일요일) */
   colStart: number;
@@ -34,19 +41,15 @@ interface CalendarBlock {
   clippedRight: boolean;
 }
 
-const BLOCK_COLORS: Array<{ bg: string; hover: string }> = [
-  { bg: 'bg-blue-500', hover: 'hover:bg-blue-600' },
-  { bg: 'bg-emerald-500', hover: 'hover:bg-emerald-600' },
-  { bg: 'bg-violet-500', hover: 'hover:bg-violet-600' },
-  { bg: 'bg-amber-500', hover: 'hover:bg-amber-600' },
-  { bg: 'bg-rose-500', hover: 'hover:bg-rose-600' },
-  { bg: 'bg-cyan-500', hover: 'hover:bg-cyan-600' },
-  { bg: 'bg-pink-500', hover: 'hover:bg-pink-600' },
-  { bg: 'bg-indigo-500', hover: 'hover:bg-indigo-600' },
-];
-
 const CANCELLED_COLOR: { bg: string; hover: string } = { bg: 'bg-slate-400', hover: 'hover:bg-slate-500' };
 const FALLBACK_COLOR: { bg: string; hover: string } = { bg: 'bg-blue-500', hover: 'hover:bg-blue-600' };
+
+const REGION_COLOR_RULES: Array<{ keyword: string; color: { bg: string; hover: string } }> = [
+  { keyword: '고비', color: { bg: 'bg-amber-500', hover: 'hover:bg-amber-600' } },
+  { keyword: '홉스골', color: { bg: 'bg-blue-500', hover: 'hover:bg-blue-600' } },
+  { keyword: '중부', color: { bg: 'bg-emerald-500', hover: 'hover:bg-emerald-600' } },
+  { keyword: '자브항', color: { bg: 'bg-violet-500', hover: 'hover:bg-violet-600' } },
+];
 
 /** "2026-06-08" 또는 "2026-06-08T00:00:00.000Z" 모두 처리 — 로컬 자정 기준 Date 반환 */
 function isoToLocalDate(iso: string): Date {
@@ -65,6 +68,12 @@ function getTodayIso(): string {
   return toIso(now.getFullYear(), now.getMonth() + 1, now.getDate());
 }
 
+function getTripCalendarColor(trip: ConfirmedTripRow): { bg: string; hover: string } {
+  const destination = getTripDestination(trip).replace(/\s+/g, '');
+  const matchedRule = REGION_COLOR_RULES.find((rule) => destination.includes(rule.keyword));
+  return matchedRule?.color ?? FALLBACK_COLOR;
+}
+
 /**
  * 주어진 year/month 에 대해 각 주(week)의 CalendarBlock[] 배열을 계산합니다.
  * weekBlocks[weekIdx] = 해당 주에 렌더링할 블록 목록
@@ -81,10 +90,6 @@ function buildWeekBlocks(
 
   const monthStart = new Date(year, month - 1, 1);
   const monthEnd = new Date(year, month - 1, daysInMonth);
-
-  // 이 달과 겹치는 여행만 필터 + 색상 인덱스 맵 (전체 목록 순서 기준)
-  const colorMap = new Map<string, number>();
-  trips.forEach((trip, idx) => colorMap.set(trip.id, idx % BLOCK_COLORS.length));
 
   const filtered = trips
     .filter((trip) => {
@@ -115,7 +120,7 @@ function buildWeekBlocks(
     if (!startStr || !endStr) continue;
     const tripStart = isoToLocalDate(startStr);
     const tripEnd = isoToLocalDate(endStr);
-    const colorIndex = colorMap.get(trip.id) ?? 0;
+    const color = getTripCalendarColor(trip);
 
     for (let weekIdx = 0; weekIdx < weekCount; weekIdx++) {
       // 이 주가 커버하는 달력 날짜 범위 (이달 기준)
@@ -156,7 +161,7 @@ function buildWeekBlocks(
         tripId: trip.id,
         leaderName: getTripLeaderName(trip),
         headcount: getTripHeadcount(trip) ?? 0,
-        colorIndex,
+        color,
         status: trip.status,
         colStart,
         colSpan: colEnd - colStart + 1,
@@ -283,10 +288,7 @@ export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: Con
 
               {/* 블록 오버레이 */}
               {currentBlocks.map((block) => {
-                const color =
-                  block.status === 'CANCELLED'
-                    ? CANCELLED_COLOR
-                    : (BLOCK_COLORS[block.colorIndex % BLOCK_COLORS.length] ?? FALLBACK_COLOR);
+                const color = block.status === 'CANCELLED' ? CANCELLED_COLOR : block.color;
 
                 const colStartPct = (block.colStart / 7) * 100;
                 const colWidthPct = (block.colSpan / 7) * 100;
