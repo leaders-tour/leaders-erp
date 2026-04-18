@@ -428,7 +428,7 @@ function InlineForm({
   );
 }
 
-// ── 하루 섹션 (컴팩트 한 줄) ──────────────────────────────────────────────────
+// ── 하루 섹션 ─────────────────────────────────────────────────────────────────
 
 function DayRow({
   tripId,
@@ -437,6 +437,7 @@ function DayRow({
   checkOutDate,
   lodging,
   onDelete,
+  compact = false,
 }: {
   tripId: string;
   dayIndex: number;
@@ -444,105 +445,171 @@ function DayRow({
   checkOutDate: Date | null;
   lodging: ConfirmedTripLodgingRow | null;
   onDelete: (id: string) => void;
+  compact?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
 
-  const dateLabel =
-    checkInDate && checkOutDate
-      ? `${formatDateShort(checkInDate.toISOString())} → ${formatDateShort(checkOutDate.toISOString())}`
-      : null;
+  const thumbUrl = lodging?.accommodation?.options.flatMap((o) => o.imageUrls)[0] ?? null;
 
-  return (
-    <div>
-      {/* 한 줄 요약 행 */}
-      <div className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-slate-50 transition-colors">
-        {/* 일차 뱃지 */}
-        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-600">
-          {dayIndex}
-        </span>
+  const inlineForm = editing && (
+    <InlineForm
+      tripId={tripId}
+      dayIndex={dayIndex}
+      checkInDate={checkInDate ?? new Date()}
+      checkOutDate={checkOutDate ?? addDays(checkInDate ?? new Date(), 1)}
+      existing={lodging}
+      onSaved={() => setEditing(false)}
+      onCancel={() => setEditing(false)}
+    />
+  );
 
-        {/* 날짜 */}
-        {dateLabel && (
-          <span className="shrink-0 text-xs text-slate-400 w-28">{dateLabel}</span>
-        )}
+  /* ── 컴팩트 한 줄 (embedded 모드용) ── */
+  if (compact) {
+    const dateLabel =
+      checkInDate && checkOutDate
+        ? `${formatDateShort(checkInDate.toISOString())} → ${formatDateShort(checkOutDate.toISOString())}`
+        : null;
 
-        {/* 숙소 정보 or 미배정 */}
-        <div className="flex-1 min-w-0 flex items-center gap-1.5">
-          {lodging ? (
-            <>
-              {(() => {
-                const thumb = lodging.accommodation?.options.flatMap((o) => o.imageUrls)[0] ?? null;
-                return thumb ? (
-                  <img src={thumb} alt="" className="h-6 w-8 shrink-0 rounded object-cover border border-slate-100" />
-                ) : null;
-              })()}
-              <TypeChip type={lodging.type} />
-              <span className="text-xs font-medium text-slate-700 truncate">
-                {lodging.lodgingNameSnapshot}
-              </span>
-              {lodging.roomCount > 1 && (
-                <span className="text-xs text-slate-400 shrink-0">{lodging.roomCount}실</span>
-              )}
-              {lodging.conflictWarnings.length > 0 && (
-                <div className="group relative shrink-0">
-                  <span className="cursor-help rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
-                    ⚠{lodging.conflictWarnings.length}
-                  </span>
-                  <div className="absolute left-0 bottom-full mb-1 z-10 hidden group-hover:block w-48 rounded-xl bg-red-50 border border-red-200 p-2 shadow-lg text-xs text-red-700">
-                    {lodging.conflictWarnings.map((w, i) => (
-                      <p key={i}>{w.conflictingTripLeaderName} ({formatDateShort(w.overlapStartDate)})</p>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <span className="text-xs text-slate-300 italic">미배정</span>
+    return (
+      <div>
+        <div className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-slate-50 transition-colors">
+          <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-600">
+            {dayIndex}
+          </span>
+          {dateLabel && (
+            <span className="shrink-0 text-xs text-slate-400 w-28">{dateLabel}</span>
           )}
-        </div>
-
-        {/* 액션 버튼 */}
-        {!editing && (
-          <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className={`rounded-lg px-2 py-0.5 text-xs font-medium transition-colors ${
-                lodging
-                  ? 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-                  : 'text-blue-600 hover:bg-blue-50'
-              }`}
-            >
-              {lodging ? '편집' : '+ 배정'}
-            </button>
-            {lodging && (
-              <button
-                type="button"
-                onClick={() => onDelete(lodging.id)}
-                className="rounded-lg p-0.5 text-slate-200 hover:text-red-400 hover:bg-red-50 transition-colors"
-                title="삭제"
-              >
-                ✕
-              </button>
+          <div className="flex-1 min-w-0 flex items-center gap-1.5">
+            {lodging ? (
+              <>
+                {thumbUrl && (
+                  <img src={thumbUrl} alt="" className="h-6 w-8 shrink-0 rounded object-cover border border-slate-100" />
+                )}
+                <TypeChip type={lodging.type} />
+                <span className="text-xs font-medium text-slate-700 truncate">{lodging.lodgingNameSnapshot}</span>
+                {lodging.roomCount > 1 && (
+                  <span className="text-xs text-slate-400 shrink-0">{lodging.roomCount}실</span>
+                )}
+                {lodging.conflictWarnings.length > 0 && (
+                  <div className="group relative shrink-0">
+                    <span className="cursor-help rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
+                      ⚠{lodging.conflictWarnings.length}
+                    </span>
+                    <div className="absolute left-0 bottom-full mb-1 z-10 hidden group-hover:block w-48 rounded-xl bg-red-50 border border-red-200 p-2 shadow-lg text-xs text-red-700">
+                      {lodging.conflictWarnings.map((w, i) => (
+                        <p key={i}>{w.conflictingTripLeaderName} ({formatDateShort(w.overlapStartDate)})</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <span className="text-xs text-slate-300 italic">미배정</span>
             )}
           </div>
+          {!editing && (
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className={`rounded-lg px-2 py-0.5 text-xs font-medium transition-colors ${
+                  lodging ? 'text-slate-400 hover:text-slate-600 hover:bg-slate-100' : 'text-blue-600 hover:bg-blue-50'
+                }`}
+              >
+                {lodging ? '편집' : '+ 배정'}
+              </button>
+              {lodging && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(lodging.id)}
+                  className="rounded-lg p-0.5 text-slate-200 hover:text-red-400 hover:bg-red-50 transition-colors"
+                  title="삭제"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        {editing && <div className="mb-1">{inlineForm}</div>}
+      </div>
+    );
+  }
+
+  /* ── 기본 카드 뷰 (배정 페이지용) ── */
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white shrink-0">
+            {dayIndex}
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-slate-800">{dayIndex}일차 숙박</p>
+            {checkInDate && checkOutDate && (
+              <p className="text-xs text-slate-400">
+                {formatDateShort(checkInDate.toISOString())} → {formatDateShort(checkOutDate.toISOString())}
+              </p>
+            )}
+          </div>
+        </div>
+        {!editing && (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
+              lodging
+                ? 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            {lodging ? '편집' : '배정'}
+          </button>
         )}
       </div>
 
-      {/* 확장 폼 */}
-      {editing && (
-        <div className="mb-1">
-          <InlineForm
-            tripId={tripId}
-            dayIndex={dayIndex}
-            checkInDate={checkInDate ?? new Date()}
-            checkOutDate={checkOutDate ?? addDays(checkInDate ?? new Date(), 1)}
-            existing={lodging}
-            onSaved={() => setEditing(false)}
-            onCancel={() => setEditing(false)}
-          />
+      {lodging && !editing && (
+        <div className="mt-3 flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+          {thumbUrl ? (
+            <img src={thumbUrl} alt="" className="h-10 w-14 shrink-0 rounded-lg object-cover border border-slate-100" />
+          ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-200 text-xl text-slate-400">
+              🏨
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-slate-800 truncate">{lodging.lodgingNameSnapshot}</p>
+            <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+              <TypeChip type={lodging.type} />
+              {lodging.roomCount > 1 && (
+                <span className="text-xs text-slate-400">{lodging.roomCount}실</span>
+              )}
+            </div>
+          </div>
+          {lodging.conflictWarnings.length > 0 && (
+            <div className="group relative shrink-0">
+              <span className="cursor-help rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">
+                ⚠ {lodging.conflictWarnings.length}
+              </span>
+              <div className="absolute right-0 bottom-full mb-1 z-10 hidden group-hover:block w-52 rounded-xl bg-red-50 border border-red-200 p-2 shadow-lg text-xs text-red-700">
+                {lodging.conflictWarnings.map((w, i) => (
+                  <p key={i}>{w.conflictingTripLeaderName} ({formatDateShort(w.overlapStartDate)})</p>
+                ))}
+              </div>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => onDelete(lodging.id)}
+            className="shrink-0 rounded-lg p-1.5 text-slate-300 hover:bg-red-50 hover:text-red-400 transition-colors"
+            title="삭제"
+          >
+            ✕
+          </button>
         </div>
       )}
+
+      {editing && inlineForm}
     </div>
   );
 }
@@ -631,6 +698,7 @@ export function LodgingSection({
               checkOutDate={checkOut}
               lodging={lodgingByDay.get(dayIdx) ?? null}
               onDelete={(id) => void handleDelete(id)}
+              compact={embedded}
             />
           );
         })
