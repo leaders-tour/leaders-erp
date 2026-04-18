@@ -446,7 +446,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900">운영 정보</h2>
+          <h2 className="text-sm font-semibold text-slate-900">운영정보 (가이드/기사/숙소)</h2>
           <div className="flex gap-2">
             {!editing && trip.status === 'ACTIVE' && (
               <Button
