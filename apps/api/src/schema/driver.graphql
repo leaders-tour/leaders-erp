@@ -83,3 +83,9 @@ input DriverUpdateInput {
   vehicleImageUrls: [String!]
   note: String
 }
+
+extend type Mutation {
+  uploadDriverProfileImage(id: ID!, image: Upload!): Driver!
+  uploadDriverVehicleImages(id: ID!, images: [Upload!]!): Driver!
+  removeDriverVehicleImage(id: ID!, imageUrl: String!): Driver!
+}

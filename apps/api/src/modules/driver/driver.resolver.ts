@@ -1,5 +1,6 @@
 import type { DriverLevel, DriverStatus, VehicleType } from '@prisma/client';
 import type { AppContext } from '../../context';
+import type { UploadFile } from '../../lib/file-storage/client';
 import { DriverService } from './driver.service';
 import type { DriverCreateDto, DriversFilterDto, DriverUpdateDto } from './driver.types';
 
@@ -41,6 +42,12 @@ export const driverResolver = {
       new DriverService(ctx.prisma).update(args.id, args.input),
     deleteDriver: (_parent: unknown, args: DriverIdArgs, ctx: AppContext) =>
       new DriverService(ctx.prisma).delete(args.id),
+    uploadDriverProfileImage: (_parent: unknown, args: { id: string; image: UploadFile }, ctx: AppContext) =>
+      new DriverService(ctx.prisma).uploadProfileImage(args.id, args.image),
+    uploadDriverVehicleImages: (_parent: unknown, args: { id: string; images: UploadFile[] }, ctx: AppContext) =>
+      new DriverService(ctx.prisma).uploadVehicleImages(args.id, args.images),
+    removeDriverVehicleImage: (_parent: unknown, args: { id: string; imageUrl: string }, ctx: AppContext) =>
+      new DriverService(ctx.prisma).removeVehicleImage(args.id, args.imageUrl),
   },
 
   Driver: {

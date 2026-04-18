@@ -1,7 +1,14 @@
 import { Button, Card } from '@tour/ui';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useDriver, useUpdateDriver, type DriverRow } from '../features/driver/hooks';
+import {
+  useDriver,
+  useRemoveDriverVehicleImage,
+  useUpdateDriver,
+  useUploadDriverProfileImage,
+  useUploadDriverVehicleImages,
+  type DriverRow,
+} from '../features/driver/hooks';
 
 const VEHICLE_TYPE_LABEL: Record<string, string> = {
   STAREX: '스타렉스',
@@ -119,11 +126,16 @@ function SelectField<T extends string>({
 export function DriverDetailPage(): JSX.Element {
   const { driverId } = useParams<{ driverId: string }>();
   const navigate = useNavigate();
-  const { driver, loading } = useDriver(driverId);
+  const { driver, loading, refetch } = useDriver(driverId);
   const { updateDriver, loading: saving } = useUpdateDriver();
+  const { uploadProfileImage, loading: uploadingProfile } = useUploadDriverProfileImage();
+  const { uploadVehicleImages, loading: uploadingVehicle } = useUploadDriverVehicleImages();
+  const { removeVehicleImage, loading: removingVehicle } = useRemoveDriverVehicleImage();
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Partial<DriverRow>>({});
+  const profileInputRef = useRef<HTMLInputElement | null>(null);
+  const vehicleInputRef = useRef<HTMLInputElement | null>(null);
 
   if (loading) return <p className="text-sm text-slate-500">불러오는 중...</p>;
   if (!driver) return <p className="text-sm text-slate-500">기사를 찾을 수 없습니다.</p>;
@@ -200,6 +212,27 @@ export function DriverDetailPage(): JSX.Element {
           <span className="text-xs text-slate-500">
             가입: {driver.joinYear ?? '-'}
           </span>
+          <input
+            ref={profileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file || !driverId) return;
+              await uploadProfileImage(driverId, file);
+              await refetch();
+              if (profileInputRef.current) profileInputRef.current.value = '';
+            }}
+          />
+          <button
+            type="button"
+            disabled={uploadingProfile}
+            onClick={() => profileInputRef.current?.click()}
+            className="text-xs text-indigo-600 hover:underline disabled:text-slate-400"
+          >
+            {uploadingProfile ? '업로드 중...' : '프로필 변경'}
+          </button>
         </div>
 
         {/* 기본 정보 (뷰 / 편집) */}
@@ -270,22 +303,64 @@ export function DriverDetailPage(): JSX.Element {
       </div>
 
       {/* 차량 이미지 */}
-      {driver.vehicleImageUrls.length > 0 && (
-        <div>
-          <h2 className="mb-4 text-lg font-medium text-slate-800">차량 사진</h2>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-            {driver.vehicleImageUrls.map((url, idx) => (
-              <a key={idx} href={url} target="_blank" rel="noreferrer">
-                <img
-                  src={url}
-                  alt={`차량 사진 ${idx + 1}`}
-                  className="aspect-video w-full rounded-xl object-cover shadow-sm transition hover:scale-[1.02]"
-                />
-              </a>
-            ))}
+      <div>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-medium text-slate-800">차량 사진</h2>
+          <div className="flex items-center gap-2">
+            <input
+              ref={vehicleInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              className="hidden"
+              onChange={async (e) => {
+                const files = e.target.files;
+                if (!files || files.length === 0 || !driverId) return;
+                await uploadVehicleImages(driverId, Array.from(files));
+                await refetch();
+                if (vehicleInputRef.current) vehicleInputRef.current.value = '';
+              }}
+            />
+            <button
+              type="button"
+              disabled={uploadingVehicle}
+              onClick={() => vehicleInputRef.current?.click()}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:text-slate-400"
+            >
+              {uploadingVehicle ? '업로드 중...' : '+ 사진 추가'}
+            </button>
           </div>
         </div>
-      )}
+        {driver.vehicleImageUrls.length === 0 ? (
+          <p className="text-sm text-slate-400">등록된 차량 사진이 없습니다.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+            {driver.vehicleImageUrls.map((url, idx) => (
+              <div key={idx} className="group relative">
+                <a href={url} target="_blank" rel="noreferrer">
+                  <img
+                    src={url}
+                    alt={`차량 사진 ${idx + 1}`}
+                    className="aspect-video w-full rounded-xl object-cover shadow-sm transition hover:scale-[1.02]"
+                  />
+                </a>
+                <button
+                  type="button"
+                  disabled={removingVehicle}
+                  onClick={async () => {
+                    if (!driverId || !window.confirm('이 사진을 삭제할까요?')) return;
+                    await removeVehicleImage(driverId, url);
+                    await refetch();
+                  }}
+                  className="absolute -right-1.5 -top-1.5 hidden group-hover:flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-white text-xs hover:bg-rose-700"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

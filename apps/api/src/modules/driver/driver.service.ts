@@ -1,11 +1,31 @@
 import type { PrismaClient } from '@prisma/client';
 import { driverCreateSchema, driverUpdateSchema } from '@tour/validation';
 import { DomainError, createValidationError } from '../../lib/errors';
+import { FileStorageClient, type UploadFile } from '../../lib/file-storage/client';
 import { DriverRepository } from './driver.repository';
 import type { DriverCreateDto, DriversFilterDto, DriverUpdateDto } from './driver.types';
 
+const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+const MAX_VEHICLE_IMAGE_COUNT = 20;
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
 export class DriverService {
+  private fileStorageClient: FileStorageClient | null = null;
+
   constructor(private readonly prisma: PrismaClient) {}
+
+  private getFileStorageClient(): FileStorageClient {
+    if (!this.fileStorageClient) {
+      this.fileStorageClient = new FileStorageClient();
+    }
+    return this.fileStorageClient;
+  }
+
+  private assertAllowedMimeType(file: UploadFile) {
+    if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+      throw new DomainError('VALIDATION_FAILED', `Unsupported file type: ${file.mimetype}`);
+    }
+  }
 
   list(filters?: DriversFilterDto) {
     return new DriverRepository(this.prisma).findMany(filters);
@@ -36,5 +56,35 @@ export class DriverService {
     if (!existing) throw new DomainError('NOT_FOUND', 'Driver not found');
     await new DriverRepository(this.prisma).delete(id);
     return true;
+  }
+
+  async uploadProfileImage(id: string, image: UploadFile) {
+    const existing = await new DriverRepository(this.prisma).findById(id);
+    if (!existing) throw new DomainError('NOT_FOUND', 'Driver not found');
+    this.assertAllowedMimeType(image);
+    const url = await this.getFileStorageClient().uploadImage(image, MAX_FILE_SIZE_BYTES);
+    return new DriverRepository(this.prisma).update(id, { profileImageUrl: url });
+  }
+
+  async uploadVehicleImages(id: string, images: UploadFile[]) {
+    const existing = await new DriverRepository(this.prisma).findById(id);
+    if (!existing) throw new DomainError('NOT_FOUND', 'Driver not found');
+    if (images.length === 0) throw new DomainError('VALIDATION_FAILED', 'At least one image is required');
+    const currentUrls: string[] = Array.isArray(existing.vehicleImageUrls) ? (existing.vehicleImageUrls as string[]) : [];
+    if (currentUrls.length + images.length > MAX_VEHICLE_IMAGE_COUNT) {
+      throw new DomainError('VALIDATION_FAILED', `Total vehicle images cannot exceed ${MAX_VEHICLE_IMAGE_COUNT}`);
+    }
+    for (const img of images) this.assertAllowedMimeType(img);
+    const client = this.getFileStorageClient();
+    const newUrls = await Promise.all(images.map((img) => client.uploadImage(img, MAX_FILE_SIZE_BYTES)));
+    return new DriverRepository(this.prisma).update(id, { vehicleImageUrls: [...currentUrls, ...newUrls] });
+  }
+
+  async removeVehicleImage(id: string, imageUrl: string) {
+    const existing = await new DriverRepository(this.prisma).findById(id);
+    if (!existing) throw new DomainError('NOT_FOUND', 'Driver not found');
+    const currentUrls: string[] = Array.isArray(existing.vehicleImageUrls) ? (existing.vehicleImageUrls as string[]) : [];
+    const updated = currentUrls.filter((u) => u !== imageUrl);
+    return new DriverRepository(this.prisma).update(id, { vehicleImageUrls: updated });
   }
 }

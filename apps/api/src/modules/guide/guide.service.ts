@@ -1,11 +1,31 @@
 import type { PrismaClient } from '@prisma/client';
 import { guideCreateSchema, guideUpdateSchema } from '@tour/validation';
 import { DomainError, createValidationError } from '../../lib/errors';
+import { FileStorageClient, type UploadFile } from '../../lib/file-storage/client';
 import { GuideRepository } from './guide.repository';
 import type { GuideCreateDto, GuidesFilterDto, GuideUpdateDto } from './guide.types';
 
+const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+const MAX_CERT_IMAGE_COUNT = 20;
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
 export class GuideService {
+  private fileStorageClient: FileStorageClient | null = null;
+
   constructor(private readonly prisma: PrismaClient) {}
+
+  private getFileStorageClient(): FileStorageClient {
+    if (!this.fileStorageClient) {
+      this.fileStorageClient = new FileStorageClient();
+    }
+    return this.fileStorageClient;
+  }
+
+  private assertAllowedMimeType(file: UploadFile) {
+    if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+      throw new DomainError('VALIDATION_FAILED', `Unsupported file type: ${file.mimetype}`);
+    }
+  }
 
   list(filters?: GuidesFilterDto) {
     return new GuideRepository(this.prisma).findMany(filters);
@@ -46,5 +66,35 @@ export class GuideService {
     }
     await new GuideRepository(this.prisma).delete(id);
     return true;
+  }
+
+  async uploadProfileImage(id: string, image: UploadFile) {
+    const existing = await new GuideRepository(this.prisma).findById(id);
+    if (!existing) throw new DomainError('NOT_FOUND', 'Guide not found');
+    this.assertAllowedMimeType(image);
+    const url = await this.getFileStorageClient().uploadImage(image, MAX_FILE_SIZE_BYTES);
+    return new GuideRepository(this.prisma).update(id, { profileImageUrl: url });
+  }
+
+  async uploadCertImages(id: string, images: UploadFile[]) {
+    const existing = await new GuideRepository(this.prisma).findById(id);
+    if (!existing) throw new DomainError('NOT_FOUND', 'Guide not found');
+    if (images.length === 0) throw new DomainError('VALIDATION_FAILED', 'At least one image is required');
+    const currentUrls: string[] = Array.isArray(existing.certImageUrls) ? (existing.certImageUrls as string[]) : [];
+    if (currentUrls.length + images.length > MAX_CERT_IMAGE_COUNT) {
+      throw new DomainError('VALIDATION_FAILED', `Total cert images cannot exceed ${MAX_CERT_IMAGE_COUNT}`);
+    }
+    for (const img of images) this.assertAllowedMimeType(img);
+    const client = this.getFileStorageClient();
+    const newUrls = await Promise.all(images.map((img) => client.uploadImage(img, MAX_FILE_SIZE_BYTES)));
+    return new GuideRepository(this.prisma).update(id, { certImageUrls: [...currentUrls, ...newUrls] });
+  }
+
+  async removeCertImage(id: string, imageUrl: string) {
+    const existing = await new GuideRepository(this.prisma).findById(id);
+    if (!existing) throw new DomainError('NOT_FOUND', 'Guide not found');
+    const currentUrls: string[] = Array.isArray(existing.certImageUrls) ? (existing.certImageUrls as string[]) : [];
+    const updated = currentUrls.filter((u) => u !== imageUrl);
+    return new GuideRepository(this.prisma).update(id, { certImageUrls: updated });
   }
 }

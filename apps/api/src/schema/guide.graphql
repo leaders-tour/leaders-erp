@@ -67,3 +67,9 @@ input GuideUpdateInput {
   certImageUrls: [String!]
   note: String
 }
+
+extend type Mutation {
+  uploadGuideProfileImage(id: ID!, image: Upload!): Guide!
+  uploadGuideCertImages(id: ID!, images: [Upload!]!): Guide!
+  removeGuideCertImage(id: ID!, imageUrl: String!): Guide!
+}

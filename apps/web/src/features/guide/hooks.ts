@@ -1,4 +1,7 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
+import { useState } from 'react';
+import { useAuth } from '../auth/context';
+import { runUploadMutation } from '../../lib/upload-mutation';
 
 export interface GuideRow {
   id: string;
@@ -82,6 +85,36 @@ const DELETE_GUIDE_MUTATION = gql`
   }
 `;
 
+const GUIDE_FIELDS = `
+  id nameKo nameMn level status gender birthYear isSmoker
+  experienceYears joinYear phone profileImageUrl certImageUrls note createdAt updatedAt
+`;
+
+const UPLOAD_GUIDE_PROFILE_IMAGE_MUTATION_STR = `
+  mutation UploadGuideProfileImage($id: ID!, $image: Upload!) {
+    uploadGuideProfileImage(id: $id, image: $image) {
+      ${GUIDE_FIELDS}
+    }
+  }
+`;
+
+const UPLOAD_GUIDE_CERT_IMAGES_MUTATION_STR = `
+  mutation UploadGuideCertImages($id: ID!, $images: [Upload!]!) {
+    uploadGuideCertImages(id: $id, images: $images) {
+      ${GUIDE_FIELDS}
+    }
+  }
+`;
+
+const REMOVE_GUIDE_CERT_IMAGE_MUTATION = gql`
+  ${GUIDE_FRAGMENT}
+  mutation RemoveGuideCertImage($id: ID!, $imageUrl: String!) {
+    removeGuideCertImage(id: $id, imageUrl: $imageUrl) {
+      ...GuideFields
+    }
+  }
+`;
+
 export function useGuides(filters?: { status?: string; level?: string }) {
   const { data, loading, refetch } = useQuery<{ guides: GuideRow[] }>(GUIDES_QUERY, {
     variables: { status: filters?.status, level: filters?.level },
@@ -137,6 +170,68 @@ export function useDeleteGuide() {
         variables: { id },
         refetchQueries: [{ query: GUIDES_QUERY }],
       });
+    },
+  };
+}
+
+export function useUploadGuideProfileImage() {
+  const { ensureAccessToken } = useAuth();
+  const [loading, setLoading] = useState(false);
+  return {
+    loading,
+    uploadProfileImage: async (id: string, image: File) => {
+      setLoading(true);
+      try {
+        const accessToken = await ensureAccessToken();
+        const data = await runUploadMutation<{ uploadGuideProfileImage: GuideRow }>(
+          UPLOAD_GUIDE_PROFILE_IMAGE_MUTATION_STR,
+          { id, image: null },
+          [image],
+          ['variables.image'],
+          accessToken,
+        );
+        return data.uploadGuideProfileImage;
+      } finally {
+        setLoading(false);
+      }
+    },
+  };
+}
+
+export function useUploadGuideCertImages() {
+  const { ensureAccessToken } = useAuth();
+  const [loading, setLoading] = useState(false);
+  return {
+    loading,
+    uploadCertImages: async (id: string, images: File[]) => {
+      setLoading(true);
+      try {
+        const accessToken = await ensureAccessToken();
+        const data = await runUploadMutation<{ uploadGuideCertImages: GuideRow }>(
+          UPLOAD_GUIDE_CERT_IMAGES_MUTATION_STR,
+          { id, images: images.map(() => null) },
+          images,
+          images.map((_, i) => `variables.images.${i}`),
+          accessToken,
+        );
+        return data.uploadGuideCertImages;
+      } finally {
+        setLoading(false);
+      }
+    },
+  };
+}
+
+export function useRemoveGuideCertImage() {
+  const [mutate, { loading }] = useMutation<{ removeGuideCertImage: GuideRow }>(
+    REMOVE_GUIDE_CERT_IMAGE_MUTATION,
+  );
+  return {
+    loading,
+    removeCertImage: async (id: string, imageUrl: string) => {
+      const result = await mutate({ variables: { id, imageUrl } });
+      if (!result.data?.removeGuideCertImage) throw new Error('Remove failed');
+      return result.data.removeGuideCertImage;
     },
   };
 }

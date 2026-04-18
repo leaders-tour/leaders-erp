@@ -1,5 +1,6 @@
 import type { AccommodationLevel } from '@prisma/client';
 import type { AppContext } from '../../context';
+import type { UploadFile } from '../../lib/file-storage/client';
 import { AccommodationService } from './accommodation.service';
 import type {
   AccommodationCreateDto,
@@ -43,6 +44,10 @@ export const accommodationResolver = {
       new AccommodationService(ctx.prisma).updateOption(args.id, args.input),
     deleteAccommodationOption: (_parent: unknown, args: { id: string }, ctx: AppContext) =>
       new AccommodationService(ctx.prisma).deleteOption(args.id),
+    uploadAccommodationOptionImages: (_parent: unknown, args: { id: string; images: UploadFile[] }, ctx: AppContext) =>
+      new AccommodationService(ctx.prisma).uploadOptionImages(args.id, args.images),
+    removeAccommodationOptionImage: (_parent: unknown, args: { id: string; imageUrl: string }, ctx: AppContext) =>
+      new AccommodationService(ctx.prisma).removeOptionImage(args.id, args.imageUrl),
   },
 
   Accommodation: {

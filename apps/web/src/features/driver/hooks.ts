@@ -1,4 +1,7 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
+import { useState } from 'react';
+import { useAuth } from '../auth/context';
+import { runUploadMutation } from '../../lib/upload-mutation';
 
 export interface DriverRow {
   id: string;
@@ -84,6 +87,37 @@ const CREATE_DRIVER_MUTATION = gql`
   }
 `;
 
+const DRIVER_FIELDS = `
+  id nameMn vehicleType vehicleNumber vehicleOptions vehicleYear maxPassengers
+  level status gender birthYear isSmoker hasTouristLicense joinYear phone
+  profileImageUrl vehicleImageUrls note createdAt updatedAt
+`;
+
+const UPLOAD_DRIVER_PROFILE_IMAGE_MUTATION_STR = `
+  mutation UploadDriverProfileImage($id: ID!, $image: Upload!) {
+    uploadDriverProfileImage(id: $id, image: $image) {
+      ${DRIVER_FIELDS}
+    }
+  }
+`;
+
+const UPLOAD_DRIVER_VEHICLE_IMAGES_MUTATION_STR = `
+  mutation UploadDriverVehicleImages($id: ID!, $images: [Upload!]!) {
+    uploadDriverVehicleImages(id: $id, images: $images) {
+      ${DRIVER_FIELDS}
+    }
+  }
+`;
+
+const REMOVE_DRIVER_VEHICLE_IMAGE_MUTATION = gql`
+  ${DRIVER_FRAGMENT}
+  mutation RemoveDriverVehicleImage($id: ID!, $imageUrl: String!) {
+    removeDriverVehicleImage(id: $id, imageUrl: $imageUrl) {
+      ...DriverFields
+    }
+  }
+`;
+
 export function useDrivers(filters?: { status?: string; level?: string; vehicleType?: string }) {
   const { data, loading, refetch } = useQuery<{ drivers: DriverRow[] }>(DRIVERS_QUERY, {
     variables: {
@@ -130,6 +164,68 @@ export function useUpdateDriver() {
       });
       if (!result.data?.updateDriver) throw new Error('Update failed');
       return result.data.updateDriver;
+    },
+  };
+}
+
+export function useUploadDriverProfileImage() {
+  const { ensureAccessToken } = useAuth();
+  const [loading, setLoading] = useState(false);
+  return {
+    loading,
+    uploadProfileImage: async (id: string, image: File) => {
+      setLoading(true);
+      try {
+        const accessToken = await ensureAccessToken();
+        const data = await runUploadMutation<{ uploadDriverProfileImage: DriverRow }>(
+          UPLOAD_DRIVER_PROFILE_IMAGE_MUTATION_STR,
+          { id, image: null },
+          [image],
+          ['variables.image'],
+          accessToken,
+        );
+        return data.uploadDriverProfileImage;
+      } finally {
+        setLoading(false);
+      }
+    },
+  };
+}
+
+export function useUploadDriverVehicleImages() {
+  const { ensureAccessToken } = useAuth();
+  const [loading, setLoading] = useState(false);
+  return {
+    loading,
+    uploadVehicleImages: async (id: string, images: File[]) => {
+      setLoading(true);
+      try {
+        const accessToken = await ensureAccessToken();
+        const data = await runUploadMutation<{ uploadDriverVehicleImages: DriverRow }>(
+          UPLOAD_DRIVER_VEHICLE_IMAGES_MUTATION_STR,
+          { id, images: images.map(() => null) },
+          images,
+          images.map((_, i) => `variables.images.${i}`),
+          accessToken,
+        );
+        return data.uploadDriverVehicleImages;
+      } finally {
+        setLoading(false);
+      }
+    },
+  };
+}
+
+export function useRemoveDriverVehicleImage() {
+  const [mutate, { loading }] = useMutation<{ removeDriverVehicleImage: DriverRow }>(
+    REMOVE_DRIVER_VEHICLE_IMAGE_MUTATION,
+  );
+  return {
+    loading,
+    removeVehicleImage: async (id: string, imageUrl: string) => {
+      const result = await mutate({ variables: { id, imageUrl } });
+      if (!result.data?.removeDriverVehicleImage) throw new Error('Remove failed');
+      return result.data.removeDriverVehicleImage;
     },
   };
 }

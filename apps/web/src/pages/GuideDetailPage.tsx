@@ -1,7 +1,13 @@
 import { Button, Card } from '@tour/ui';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useGuide, useUpdateGuide } from '../features/guide/hooks';
+import {
+  useGuide,
+  useRemoveGuideCertImage,
+  useUpdateGuide,
+  useUploadGuideCertImages,
+  useUploadGuideProfileImage,
+} from '../features/guide/hooks';
 
 const LEVEL_OPTIONS = [
   { value: 'MAIN', label: '메인' },
@@ -31,9 +37,14 @@ export function GuideDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { guide, loading, refetch } = useGuide(guideId);
   const { updateGuide, loading: saving } = useUpdateGuide();
+  const { uploadProfileImage, loading: uploadingProfile } = useUploadGuideProfileImage();
+  const { uploadCertImages, loading: uploadingCert } = useUploadGuideCertImages();
+  const { removeCertImage, loading: removingCert } = useRemoveGuideCertImage();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
+  const profileInputRef = useRef<HTMLInputElement | null>(null);
+  const certInputRef = useRef<HTMLInputElement | null>(null);
 
   if (loading) {
     return <p className="text-sm text-slate-500">불러오는 중...</p>;
@@ -119,17 +130,40 @@ export function GuideDetailPage(): JSX.Element {
 
       <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-start gap-6 border-b border-slate-100 p-6">
-          {guide.profileImageUrl ? (
-            <img
-              src={guide.profileImageUrl}
-              alt={guide.nameKo}
-              className="h-24 w-24 rounded-2xl object-cover"
+          <div className="flex flex-col items-center gap-2">
+            {guide.profileImageUrl ? (
+              <img
+                src={guide.profileImageUrl}
+                alt={guide.nameKo}
+                className="h-24 w-24 rounded-2xl object-cover"
+              />
+            ) : (
+              <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-slate-100 text-3xl font-semibold text-slate-500">
+                {guide.nameKo.slice(0, 1)}
+              </div>
+            )}
+            <input
+              ref={profileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file || !guideId) return;
+                await uploadProfileImage(guideId, file);
+                await refetch();
+                if (profileInputRef.current) profileInputRef.current.value = '';
+              }}
             />
-          ) : (
-            <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-slate-100 text-3xl font-semibold text-slate-500">
-              {guide.nameKo.slice(0, 1)}
-            </div>
-          )}
+            <button
+              type="button"
+              disabled={uploadingProfile}
+              onClick={() => profileInputRef.current?.click()}
+              className="text-xs text-indigo-600 hover:underline disabled:text-slate-400"
+            >
+              {uploadingProfile ? '업로드 중...' : '프로필 변경'}
+            </button>
+          </div>
           <div>
             <h2 className="text-xl font-semibold text-slate-900">{guide.nameKo}</h2>
             {guide.nameMn && <p className="text-sm text-slate-500">{guide.nameMn}</p>}
@@ -247,22 +281,64 @@ export function GuideDetailPage(): JSX.Element {
         )}
       </Card>
 
-      {guide.certImageUrls.length > 0 && (
-        <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold text-slate-700">자격증 사본</h3>
+      <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-slate-700">자격증 사본</h3>
+          <div className="flex items-center gap-2">
+            <input
+              ref={certInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              className="hidden"
+              onChange={async (e) => {
+                const files = e.target.files;
+                if (!files || files.length === 0 || !guideId) return;
+                await uploadCertImages(guideId, Array.from(files));
+                await refetch();
+                if (certInputRef.current) certInputRef.current.value = '';
+              }}
+            />
+            <button
+              type="button"
+              disabled={uploadingCert}
+              onClick={() => certInputRef.current?.click()}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:text-slate-400"
+            >
+              {uploadingCert ? '업로드 중...' : '+ 이미지 추가'}
+            </button>
+          </div>
+        </div>
+        {guide.certImageUrls.length === 0 ? (
+          <p className="text-sm text-slate-400">등록된 자격증 사본이 없습니다.</p>
+        ) : (
           <div className="flex flex-wrap gap-3">
             {guide.certImageUrls.map((url, i) => (
-              <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                <img
-                  src={url}
-                  alt={`자격증 ${i + 1}`}
-                  className="h-32 w-auto rounded-lg border border-slate-200 object-cover"
-                />
-              </a>
+              <div key={i} className="group relative">
+                <a href={url} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={url}
+                    alt={`자격증 ${i + 1}`}
+                    className="h-32 w-auto rounded-lg border border-slate-200 object-cover"
+                  />
+                </a>
+                <button
+                  type="button"
+                  disabled={removingCert}
+                  onClick={async () => {
+                    if (!guideId || !window.confirm('이 이미지를 삭제할까요?')) return;
+                    await removeCertImage(guideId, url);
+                    await refetch();
+                  }}
+                  className="absolute -right-1.5 -top-1.5 hidden group-hover:flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-white text-xs hover:bg-rose-700"
+                >
+                  ×
+                </button>
+              </div>
             ))}
           </div>
-        </Card>
-      )}
+        )}
+      </Card>
     </section>
   );
 }

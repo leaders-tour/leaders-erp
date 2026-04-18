@@ -97,3 +97,8 @@ input AccommodationOptionUpdateInput {
   imageUrls: [String!]
   note: String
 }
+
+extend type Mutation {
+  uploadAccommodationOptionImages(id: ID!, images: [Upload!]!): AccommodationOption!
+  removeAccommodationOptionImage(id: ID!, imageUrl: String!): AccommodationOption!
+}
