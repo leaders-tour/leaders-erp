@@ -22,6 +22,7 @@ export interface ConfirmedTripRow {
   rentalDrone: boolean;
   rentalStarlink: boolean;
   rentalPowerbank: boolean;
+  camelDollPurchased: boolean;
   depositAmountKrw: number | null;
   balanceAmountKrw: number | null;
   totalAmountKrw: number | null;
@@ -100,6 +101,7 @@ const CONFIRMED_TRIP_FRAGMENT = gql`
     rentalDrone
     rentalStarlink
     rentalPowerbank
+    camelDollPurchased
     depositAmountKrw
     balanceAmountKrw
     totalAmountKrw
@@ -284,6 +286,7 @@ export function useUpdateConfirmedTrip() {
         accommodationNote?: string | null;
         operationNote?: string | null;
         status?: 'ACTIVE' | 'CANCELLED';
+        camelDollPurchased?: boolean;
       },
     ): Promise<ConfirmedTripRow> => {
       const result = await mutate({

@@ -164,6 +164,7 @@ export class ConfirmedTripRepository {
       rentalDrone: boolean;
       rentalStarlink: boolean;
       rentalPowerbank: boolean;
+      camelDollPurchased: boolean;
       depositAmountKrw: number | null;
       balanceAmountKrw: number | null;
       totalAmountKrw: number | null;

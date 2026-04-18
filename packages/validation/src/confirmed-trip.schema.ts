@@ -26,6 +26,7 @@ export const confirmedTripUpdateSchema = z.object({
   rentalDrone: z.boolean().optional(),
   rentalStarlink: z.boolean().optional(),
   rentalPowerbank: z.boolean().optional(),
+  camelDollPurchased: z.boolean().optional(),
   depositAmountKrw: z.number().int().min(0).nullable().optional(),
   balanceAmountKrw: z.number().int().min(0).nullable().optional(),
   totalAmountKrw: z.number().int().min(0).nullable().optional(),

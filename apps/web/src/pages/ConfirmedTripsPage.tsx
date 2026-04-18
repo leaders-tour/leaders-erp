@@ -13,7 +13,7 @@ import {
 
 type DateFilter = 'upcoming' | 'ongoing' | 'completed';
 type ViewMode = 'list' | 'calendar';
-type RentalItemFilter = 'drone' | 'starlink' | 'powerbank';
+type RentalItemFilter = 'drone' | 'starlink' | 'powerbank' | 'camelDoll';
 
 const DATE_FILTER_OPTIONS: { value: DateFilter; label: string }[] = [
   { value: 'upcoming', label: '여행 예정' },
@@ -25,6 +25,7 @@ const RENTAL_ITEM_FILTER_OPTIONS: Array<{ value: RentalItemFilter; label: string
   { value: 'drone', label: '드론' },
   { value: 'starlink', label: '스타링크' },
   { value: 'powerbank', label: '파워뱅크' },
+  { value: 'camelDoll', label: '낙타인형 구매' },
 ];
 
 function getTodayMidnight(): Date {
@@ -67,7 +68,8 @@ function applyRentalItemFilter(
   return trips.filter((trip) => {
     if (filter === 'drone') return trip.rentalDrone;
     if (filter === 'starlink') return trip.rentalStarlink;
-    return trip.rentalPowerbank;
+    if (filter === 'powerbank') return trip.rentalPowerbank;
+    return trip.camelDollPurchased;
   });
 }
 

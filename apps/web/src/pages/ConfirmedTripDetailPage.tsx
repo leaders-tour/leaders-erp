@@ -158,6 +158,9 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const [accommodationNote, setAccommodationNote] = useState('');
   const [operationNote, setOperationNote] = useState('');
 
+  // 낙타인형 구매 — 독립 상태
+  const [camelDollSaving, setCamelDollSaving] = useState(false);
+
   if (!tripId) {
     return <section className="py-8 text-sm text-slate-600">잘못된 접근입니다.</section>;
   }
@@ -235,6 +238,17 @@ export function ConfirmedTripDetailPage(): JSX.Element {
       await cancelConfirmedTrip(tripId);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : '취소에 실패했습니다.');
+    }
+  };
+
+  const handleCamelDollToggle = async (next: boolean) => {
+    setCamelDollSaving(true);
+    try {
+      await updateConfirmedTrip(tripId, { camelDollPurchased: next });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
+    } finally {
+      setCamelDollSaving(false);
     }
   };
 
@@ -443,6 +457,38 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           )}
         </Card>
       </div>
+
+      {/* 낙타인형 구매 — 독립 카드 */}
+      <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-900">낙타인형 구매</h2>
+          {trip.status === 'ACTIVE' && (
+            <button
+              type="button"
+              disabled={camelDollSaving}
+              onClick={() => handleCamelDollToggle(!trip.camelDollPurchased)}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition disabled:opacity-50 ${
+                trip.camelDollPurchased
+                  ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {camelDollSaving ? '저장 중...' : trip.camelDollPurchased ? '구매 취소' : '구매로 변경'}
+            </button>
+          )}
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <span
+            className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${
+              trip.camelDollPurchased
+                ? 'bg-amber-100 text-amber-800'
+                : 'bg-slate-100 text-slate-500'
+            }`}
+          >
+            {trip.camelDollPurchased ? '구매' : '미구매'}
+          </span>
+        </div>
+      </Card>
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center justify-between">

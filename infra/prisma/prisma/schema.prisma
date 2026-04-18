@@ -924,10 +924,11 @@ model ConfirmedTrip {
   paxCount        Int?
   guideId         String?
   driverId        String?
-  rentalGear      Boolean   @default(false)
-  rentalDrone     Boolean   @default(false)
-  rentalStarlink  Boolean   @default(false)
-  rentalPowerbank Boolean   @default(false)
+  rentalGear            Boolean   @default(false)
+  rentalDrone           Boolean   @default(false)
+  rentalStarlink        Boolean   @default(false)
+  rentalPowerbank       Boolean   @default(false)
+  camelDollPurchased    Boolean   @default(false)
 
   depositAmountKrw         Int?
   balanceAmountKrw         Int?

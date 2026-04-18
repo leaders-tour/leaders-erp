@@ -73,6 +73,7 @@ type ConfirmedTrip {
   rentalDrone: Boolean!
   rentalStarlink: Boolean!
   rentalPowerbank: Boolean!
+  camelDollPurchased: Boolean!
 
   depositAmountKrw: Int
   balanceAmountKrw: Int
@@ -115,6 +116,7 @@ input ConfirmedTripUpdateInput {
   rentalDrone: Boolean
   rentalStarlink: Boolean
   rentalPowerbank: Boolean
+  camelDollPurchased: Boolean
   depositAmountKrw: Int
   balanceAmountKrw: Int
   totalAmountKrw: Int
