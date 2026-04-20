@@ -251,6 +251,7 @@ function TripTableHead({
   return (
     <thead>
       <tr className="border-b border-slate-100 bg-slate-50">
+        {filter === 'reserved' && thSort('예약일', 'confirmedAt')}
         {th('대표자명')}
         {thSort('여행기간', 'travelStart')}
         {/* 상태 컬럼: D-day / #일차 / D+day */}
@@ -289,6 +290,12 @@ function TripTableRow({
       className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50"
       onClick={onClick}
     >
+      {/* 예약일 (예약표 전용) */}
+      {filter === 'reserved' && (
+        <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">
+          {new Date(trip.confirmedAt).toLocaleDateString('ko-KR')}
+        </td>
+      )}
       {/* 대표자명 */}
       <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
         {getTripLeaderName(trip)}
