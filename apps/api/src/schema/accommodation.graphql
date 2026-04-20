@@ -15,6 +15,11 @@ type Accommodation {
   name: String!
   destination: String!
   region: String!
+  phone: String
+  facilities: String
+  bookingMethod: String
+  openingDate: String
+  closingDate: String
   options: [AccommodationOption!]!
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -32,13 +37,8 @@ type AccommodationOption {
   mealCostPerServing: Int
   capacity: String
   mealIncluded: Boolean!
-  facilities: String
   bookingPriority: String
-  bookingMethod: String
-  phone: String
   googleMapsUrl: String
-  openingDate: String
-  closingDate: String
   imageUrls: [String!]!
   note: String
   createdAt: DateTime!
@@ -49,12 +49,22 @@ input AccommodationCreateInput {
   name: String!
   destination: String!
   region: String!
+  phone: String
+  facilities: String
+  bookingMethod: String
+  openingDate: String
+  closingDate: String
 }
 
 input AccommodationUpdateInput {
   name: String
   destination: String
   region: String
+  phone: String
+  facilities: String
+  bookingMethod: String
+  openingDate: String
+  closingDate: String
 }
 
 input AccommodationOptionCreateInput {
@@ -67,13 +77,8 @@ input AccommodationOptionCreateInput {
   mealCostPerServing: Int
   capacity: String
   mealIncluded: Boolean
-  facilities: String
   bookingPriority: String
-  bookingMethod: String
-  phone: String
   googleMapsUrl: String
-  openingDate: String
-  closingDate: String
   imageUrls: [String!]
   note: String
 }
@@ -87,13 +92,8 @@ input AccommodationOptionUpdateInput {
   mealCostPerServing: Int
   capacity: String
   mealIncluded: Boolean
-  facilities: String
   bookingPriority: String
-  bookingMethod: String
-  phone: String
   googleMapsUrl: String
-  openingDate: String
-  closingDate: String
   imageUrls: [String!]
   note: String
 }

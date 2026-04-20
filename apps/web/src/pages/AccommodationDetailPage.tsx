@@ -12,6 +12,7 @@ import {
   useUploadAccommodationOptionImages,
   type AccommodationLevel,
   type AccommodationOption,
+  type AccommodationRow,
   type PaymentMethod,
 } from '../features/accommodation/hooks';
 
@@ -205,23 +206,6 @@ function OptionCard({
           <div className="mt-4 border-t border-slate-100 pt-4">
             {editing ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                {([
-                  ['전화번호', 'phone', 'text'],
-                  ['오픈일', 'openingDate', 'text'],
-                  ['마감일', 'closingDate', 'text'],
-                  ['부대시설', 'facilities', 'text'],
-                  ['예약 방식', 'bookingMethod', 'text'],
-                ] as [string, keyof AccommodationOption, string][]).map(([label, key, type]) => (
-                  <label key={key} className="flex flex-col gap-1">
-                    <span className="text-xs text-slate-500">{label}</span>
-                    <input
-                      type={type}
-                      value={String(current[key] ?? '')}
-                      onChange={(e) => setDraft((p) => ({ ...p, [key]: e.target.value || null }))}
-                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
-                    />
-                  </label>
-                ))}
                 <label className="flex flex-col gap-1 sm:col-span-2">
                   <span className="text-xs text-slate-500">특이사항</span>
                   <textarea
@@ -234,18 +218,13 @@ function OptionCard({
               </div>
             ) : (
               <dl className="grid gap-2 text-sm sm:grid-cols-2">
-                {current.phone && <div><dt className="text-slate-400 text-xs">전화번호</dt><dd className="text-slate-800">{current.phone}</dd></div>}
                 {current.googleMapsUrl && (
                   <div>
                     <dt className="text-slate-400 text-xs">위치</dt>
                     <dd><a href={current.googleMapsUrl} target="_blank" rel="noreferrer" className="text-indigo-600 text-xs hover:underline">Google Maps</a></dd>
                   </div>
                 )}
-                {current.openingDate && <div><dt className="text-slate-400 text-xs">오픈</dt><dd className="text-slate-800">{current.openingDate}</dd></div>}
-                {current.closingDate && <div><dt className="text-slate-400 text-xs">마감</dt><dd className="text-slate-800">{current.closingDate}</dd></div>}
-                {current.bookingMethod && <div><dt className="text-slate-400 text-xs">예약방식</dt><dd className="text-slate-800">{current.bookingMethod}</dd></div>}
                 {current.mealCostPerServing != null && <div><dt className="text-slate-400 text-xs">끼니당</dt><dd className="text-slate-800">₮{current.mealCostPerServing.toLocaleString()}</dd></div>}
-                {current.facilities && <div><dt className="text-slate-400 text-xs">부대시설</dt><dd className="text-slate-800">{current.facilities}</dd></div>}
                 {current.note && <div className="sm:col-span-2"><dt className="text-slate-400 text-xs">특이사항</dt><dd className="text-slate-700 whitespace-pre-wrap">{current.note}</dd></div>}
               </dl>
             )}
@@ -430,10 +409,24 @@ export function AccommodationDetailPage(): JSX.Element {
   const { deleteAccommodation, loading: deleting } = useDeleteAccommodation();
 
   const [editingAccom, setEditingAccom] = useState(false);
-  const [accomDraft, setAccomDraft] = useState<{ name: string; region: string; destination: string }>({
+  const [accomDraft, setAccomDraft] = useState<{
+    name: string;
+    region: string;
+    destination: string;
+    phone: string;
+    facilities: string;
+    bookingMethod: string;
+    openingDate: string;
+    closingDate: string;
+  }>({
     name: '',
     region: '',
     destination: '',
+    phone: '',
+    facilities: '',
+    bookingMethod: '',
+    openingDate: '',
+    closingDate: '',
   });
   const [addOptionOpen, setAddOptionOpen] = useState(false);
 
@@ -447,12 +440,26 @@ export function AccommodationDetailPage(): JSX.Element {
       name: accommodation.name,
       region: accommodation.region,
       destination: accommodation.destination,
+      phone: accommodation.phone ?? '',
+      facilities: accommodation.facilities ?? '',
+      bookingMethod: accommodation.bookingMethod ?? '',
+      openingDate: accommodation.openingDate ?? '',
+      closingDate: accommodation.closingDate ?? '',
     });
     setEditingAccom(true);
   };
 
   const saveAccom = async () => {
-    await updateAccommodation(accommodation.id, accomDraft);
+    await updateAccommodation(accommodation.id, {
+      name: accomDraft.name,
+      region: accomDraft.region,
+      destination: accomDraft.destination,
+      phone: accomDraft.phone || null,
+      facilities: accomDraft.facilities || null,
+      bookingMethod: accomDraft.bookingMethod || null,
+      openingDate: accomDraft.openingDate || null,
+      closingDate: accomDraft.closingDate || null,
+    });
     await refetch();
     setEditingAccom(false);
   };
@@ -460,14 +467,14 @@ export function AccommodationDetailPage(): JSX.Element {
   return (
     <section className="mx-auto grid max-w-5xl gap-8">
       {/* 헤더 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/accommodations')} className="text-slate-400 hover:text-slate-700">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4 flex-1">
+          <button onClick={() => navigate('/accommodations')} className="mt-1 text-slate-400 hover:text-slate-700 shrink-0">
             ← 목록
           </button>
           {editingAccom ? (
-            <div className="grid gap-2 sm:flex sm:items-end sm:gap-3">
-              <label className="flex flex-col gap-0.5">
+            <div className="grid gap-3 flex-1 sm:grid-cols-2">
+              <label className="flex flex-col gap-0.5 sm:col-span-2">
                 <span className="text-xs text-slate-500">숙소명</span>
                 <input
                   type="text"
@@ -497,15 +504,74 @@ export function AccommodationDetailPage(): JSX.Element {
                   className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
                 />
               </label>
+              <label className="flex flex-col gap-0.5">
+                <span className="text-xs text-slate-500">전화번호</span>
+                <input
+                  type="text"
+                  value={accomDraft.phone}
+                  onChange={(e) => setAccomDraft((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="예: +976-9999-0000"
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+                />
+              </label>
+              <label className="flex flex-col gap-0.5">
+                <span className="text-xs text-slate-500">예약 방식</span>
+                <input
+                  type="text"
+                  value={accomDraft.bookingMethod}
+                  onChange={(e) => setAccomDraft((p) => ({ ...p, bookingMethod: e.target.value }))}
+                  placeholder="예: 전화예약"
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+                />
+              </label>
+              <label className="flex flex-col gap-0.5">
+                <span className="text-xs text-slate-500">오픈일</span>
+                <input
+                  type="text"
+                  value={accomDraft.openingDate}
+                  onChange={(e) => setAccomDraft((p) => ({ ...p, openingDate: e.target.value }))}
+                  placeholder="예: 6월 초"
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+                />
+              </label>
+              <label className="flex flex-col gap-0.5">
+                <span className="text-xs text-slate-500">마감일</span>
+                <input
+                  type="text"
+                  value={accomDraft.closingDate}
+                  onChange={(e) => setAccomDraft((p) => ({ ...p, closingDate: e.target.value }))}
+                  placeholder="예: 9월 말"
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+                />
+              </label>
+              <label className="flex flex-col gap-0.5 sm:col-span-2">
+                <span className="text-xs text-slate-500">부대시설</span>
+                <input
+                  type="text"
+                  value={accomDraft.facilities}
+                  onChange={(e) => setAccomDraft((p) => ({ ...p, facilities: e.target.value }))}
+                  placeholder="예: 샤워실, 화장실, Wi-Fi"
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+                />
+              </label>
             </div>
           ) : (
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">{accommodation.name}</h1>
               <p className="text-sm text-slate-500">{accommodation.region} · {accommodation.destination}</p>
+              {(accommodation.phone || accommodation.bookingMethod || accommodation.openingDate || accommodation.closingDate || accommodation.facilities) && (
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                  {accommodation.phone && <span>📞 {accommodation.phone}</span>}
+                  {accommodation.bookingMethod && <span>예약: {accommodation.bookingMethod}</span>}
+                  {accommodation.openingDate && <span>오픈: {accommodation.openingDate}</span>}
+                  {accommodation.closingDate && <span>마감: {accommodation.closingDate}</span>}
+                  {accommodation.facilities && <span>부대시설: {accommodation.facilities}</span>}
+                </div>
+              )}
             </div>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           {editingAccom ? (
             <>
               <Button variant="outline" onClick={() => setEditingAccom(false)} disabled={updating}>취소</Button>

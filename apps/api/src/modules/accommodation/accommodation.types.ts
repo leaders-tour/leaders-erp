@@ -4,12 +4,22 @@ export interface AccommodationCreateDto {
   name: string;
   destination: string;
   region: string;
+  phone?: string | null;
+  facilities?: string | null;
+  bookingMethod?: string | null;
+  openingDate?: string | null;
+  closingDate?: string | null;
 }
 
 export interface AccommodationUpdateDto {
   name?: string;
   destination?: string;
   region?: string;
+  phone?: string | null;
+  facilities?: string | null;
+  bookingMethod?: string | null;
+  openingDate?: string | null;
+  closingDate?: string | null;
 }
 
 export interface AccommodationOptionCreateDto {
@@ -22,13 +32,8 @@ export interface AccommodationOptionCreateDto {
   mealCostPerServing?: number | null;
   capacity?: string | null;
   mealIncluded?: boolean;
-  facilities?: string | null;
   bookingPriority?: string | null;
-  bookingMethod?: string | null;
-  phone?: string | null;
   googleMapsUrl?: string | null;
-  openingDate?: string | null;
-  closingDate?: string | null;
   imageUrls?: string[];
   note?: string | null;
 }
@@ -42,13 +47,8 @@ export interface AccommodationOptionUpdateDto {
   mealCostPerServing?: number | null;
   capacity?: string | null;
   mealIncluded?: boolean;
-  facilities?: string | null;
   bookingPriority?: string | null;
-  bookingMethod?: string | null;
-  phone?: string | null;
   googleMapsUrl?: string | null;
-  openingDate?: string | null;
-  closingDate?: string | null;
   imageUrls?: string[];
   note?: string | null;
 }

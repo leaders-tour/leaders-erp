@@ -8,12 +8,22 @@ export const accommodationCreateSchema = z.object({
   name: z.string().min(1).max(200),
   destination: z.string().min(1).max(100),
   region: z.string().min(1).max(100),
+  phone: z.string().max(100).nullable().optional(),
+  facilities: z.string().max(500).nullable().optional(),
+  bookingMethod: z.string().max(100).nullable().optional(),
+  openingDate: z.string().max(100).nullable().optional(),
+  closingDate: z.string().max(100).nullable().optional(),
 });
 
 export const accommodationUpdateSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   destination: z.string().min(1).max(100).optional(),
   region: z.string().min(1).max(100).optional(),
+  phone: z.string().max(100).nullable().optional(),
+  facilities: z.string().max(500).nullable().optional(),
+  bookingMethod: z.string().max(100).nullable().optional(),
+  openingDate: z.string().max(100).nullable().optional(),
+  closingDate: z.string().max(100).nullable().optional(),
 });
 
 export const accommodationOptionCreateSchema = z.object({
@@ -26,13 +36,8 @@ export const accommodationOptionCreateSchema = z.object({
   mealCostPerServing: z.number().int().min(0).nullable().optional(),
   capacity: z.string().max(50).nullable().optional(),
   mealIncluded: z.boolean().optional(),
-  facilities: z.string().max(500).nullable().optional(),
   bookingPriority: z.string().max(50).nullable().optional(),
-  bookingMethod: z.string().max(100).nullable().optional(),
-  phone: z.string().max(100).nullable().optional(),
   googleMapsUrl: z.string().url().nullable().optional(),
-  openingDate: z.string().max(100).nullable().optional(),
-  closingDate: z.string().max(100).nullable().optional(),
   imageUrls: z.array(z.string()).optional(),
   note: z.string().max(5000).nullable().optional(),
 });
@@ -46,13 +51,8 @@ export const accommodationOptionUpdateSchema = z.object({
   mealCostPerServing: z.number().int().min(0).nullable().optional(),
   capacity: z.string().max(50).nullable().optional(),
   mealIncluded: z.boolean().optional(),
-  facilities: z.string().max(500).nullable().optional(),
   bookingPriority: z.string().max(50).nullable().optional(),
-  bookingMethod: z.string().max(100).nullable().optional(),
-  phone: z.string().max(100).nullable().optional(),
   googleMapsUrl: z.string().url().nullable().optional(),
-  openingDate: z.string().max(100).nullable().optional(),
-  closingDate: z.string().max(100).nullable().optional(),
   imageUrls: z.array(z.string()).optional(),
   note: z.string().max(5000).nullable().optional(),
 });

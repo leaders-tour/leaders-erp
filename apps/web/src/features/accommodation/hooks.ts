@@ -17,13 +17,8 @@ export interface AccommodationOption {
   mealCostPerServing: number | null;
   capacity: string | null;
   mealIncluded: boolean;
-  facilities: string | null;
   bookingPriority: string | null;
-  bookingMethod: string | null;
-  phone: string | null;
   googleMapsUrl: string | null;
-  openingDate: string | null;
-  closingDate: string | null;
   imageUrls: string[];
   note: string | null;
   createdAt: string;
@@ -35,6 +30,11 @@ export interface AccommodationRow {
   name: string;
   destination: string;
   region: string;
+  phone: string | null;
+  facilities: string | null;
+  bookingMethod: string | null;
+  openingDate: string | null;
+  closingDate: string | null;
   options: AccommodationOption[];
   createdAt: string;
   updatedAt: string;
@@ -52,13 +52,8 @@ const OPTION_FRAGMENT = gql`
     mealCostPerServing
     capacity
     mealIncluded
-    facilities
     bookingPriority
-    bookingMethod
-    phone
     googleMapsUrl
-    openingDate
-    closingDate
     imageUrls
     note
     createdAt
@@ -73,6 +68,11 @@ const ACCOMMODATION_FRAGMENT = gql`
     name
     destination
     region
+    phone
+    facilities
+    bookingMethod
+    openingDate
+    closingDate
     options {
       ...OptionFields
     }
@@ -149,8 +149,8 @@ const DELETE_ACCOMMODATION_OPTION_MUTATION = gql`
 
 const OPTION_FIELDS = `
   id accommodationId roomType level priceOffSeason pricePeakSeason paymentMethod
-  mealCostPerServing capacity mealIncluded facilities bookingPriority bookingMethod
-  phone googleMapsUrl openingDate closingDate imageUrls note createdAt updatedAt
+  mealCostPerServing capacity mealIncluded bookingPriority
+  googleMapsUrl imageUrls note createdAt updatedAt
 `;
 
 const UPLOAD_OPTION_IMAGES_MUTATION_STR = `
@@ -203,7 +203,16 @@ export function useCreateAccommodation() {
   );
   return {
     loading,
-    createAccommodation: async (input: { name: string; destination: string; region: string }) => {
+    createAccommodation: async (input: {
+      name: string;
+      destination: string;
+      region: string;
+      phone?: string | null;
+      facilities?: string | null;
+      bookingMethod?: string | null;
+      openingDate?: string | null;
+      closingDate?: string | null;
+    }) => {
       const result = await mutate({
         variables: { input },
         refetchQueries: [{ query: ACCOMMODATIONS_QUERY }],
@@ -220,7 +229,10 @@ export function useUpdateAccommodation() {
   );
   return {
     loading,
-    updateAccommodation: async (id: string, input: Partial<Pick<AccommodationRow, 'name' | 'destination' | 'region'>>) => {
+    updateAccommodation: async (
+      id: string,
+      input: Partial<Pick<AccommodationRow, 'name' | 'destination' | 'region' | 'phone' | 'facilities' | 'bookingMethod' | 'openingDate' | 'closingDate'>>,
+    ) => {
       const result = await mutate({
         variables: { id, input },
         refetchQueries: [{ query: ACCOMMODATION_QUERY, variables: { id } }],
@@ -266,13 +278,8 @@ export function useCreateAccommodationOption() {
       mealCostPerServing?: number | null;
       capacity?: string | null;
       mealIncluded?: boolean;
-      facilities?: string | null;
       bookingPriority?: string | null;
-      bookingMethod?: string | null;
-      phone?: string | null;
       googleMapsUrl?: string | null;
-      openingDate?: string | null;
-      closingDate?: string | null;
       note?: string | null;
     }) => {
       const result = await mutate({

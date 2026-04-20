@@ -88,7 +88,25 @@ function CreateAccommodationModal({
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
-  const [form, setForm] = useState<{ name: string; region: string; destination: string }>({ name: '', region: REGIONS[0] ?? '', destination: '' });
+  const [form, setForm] = useState<{
+    name: string;
+    region: string;
+    destination: string;
+    phone: string;
+    facilities: string;
+    bookingMethod: string;
+    openingDate: string;
+    closingDate: string;
+  }>({
+    name: '',
+    region: REGIONS[0] ?? '',
+    destination: '',
+    phone: '',
+    facilities: '',
+    bookingMethod: '',
+    openingDate: '',
+    closingDate: '',
+  });
   const { createAccommodation, loading } = useCreateAccommodation();
   const [error, setError] = useState<string | null>(null);
 
@@ -109,8 +127,13 @@ function CreateAccommodationModal({
         name: form.name.trim(),
         region: form.region,
         destination: form.destination.trim(),
+        phone: form.phone.trim() || null,
+        facilities: form.facilities.trim() || null,
+        bookingMethod: form.bookingMethod.trim() || null,
+        openingDate: form.openingDate.trim() || null,
+        closingDate: form.closingDate.trim() || null,
       });
-      setForm({ name: '', region: REGIONS[0] ?? '', destination: '' });
+      setForm({ name: '', region: REGIONS[0] ?? '', destination: '', phone: '', facilities: '', bookingMethod: '', openingDate: '', closingDate: '' });
       onClose();
       onCreated(result.id);
     } catch (e) {
@@ -128,8 +151,8 @@ function CreateAccommodationModal({
           <div className="mt-3 rounded-xl bg-rose-50 px-4 py-2.5 text-sm text-rose-600">{error}</div>
         )}
 
-        <div className="mt-4 grid gap-4">
-          <label className="flex flex-col gap-1">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 sm:col-span-2">
             <span className="text-xs font-medium text-slate-500">숙소명 *</span>
             <input
               type="text"
@@ -159,6 +182,56 @@ function CreateAccommodationModal({
               value={form.destination}
               onChange={(e) => setForm((p) => ({ ...p, destination: e.target.value }))}
               placeholder="예: 테를지"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">전화번호</span>
+            <input
+              type="text"
+              value={form.phone}
+              onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+              placeholder="예: +976-9999-0000"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">예약 방식</span>
+            <input
+              type="text"
+              value={form.bookingMethod}
+              onChange={(e) => setForm((p) => ({ ...p, bookingMethod: e.target.value }))}
+              placeholder="예: 전화예약"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">오픈일</span>
+            <input
+              type="text"
+              value={form.openingDate}
+              onChange={(e) => setForm((p) => ({ ...p, openingDate: e.target.value }))}
+              placeholder="예: 6월 초"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">마감일</span>
+            <input
+              type="text"
+              value={form.closingDate}
+              onChange={(e) => setForm((p) => ({ ...p, closingDate: e.target.value }))}
+              placeholder="예: 9월 말"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            />
+          </label>
+          <label className="flex flex-col gap-1 sm:col-span-2">
+            <span className="text-xs font-medium text-slate-500">부대시설</span>
+            <input
+              type="text"
+              value={form.facilities}
+              onChange={(e) => setForm((p) => ({ ...p, facilities: e.target.value }))}
+              placeholder="예: 샤워실, 화장실, Wi-Fi"
               className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
             />
           </label>
