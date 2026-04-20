@@ -305,18 +305,6 @@ export function ConfirmedTripCalendar({
           {year}년 {month}월
         </h2>
         <div className="flex items-center gap-2">
-          {onRequestAddNote && (
-            <button
-              type="button"
-              onClick={() => onRequestAddNote('')}
-              className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-700"
-            >
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5">
-                <path d="M8 3v10M3 8h10" strokeLinecap="round" />
-              </svg>
-              일정 추가
-            </button>
-          )}
           <div className="flex items-center gap-1">
           <button
             type="button"
@@ -392,17 +380,12 @@ export function ConfirmedTripCalendar({
                   return (
                     <div
                       key={`cell-${weekIdx}-${colIdx}`}
-                      className="relative px-1.5 pt-1"
+                      className="group/cell relative px-1.5 pt-1"
                       style={{ minHeight: `${rowMinHeight}rem` }}
                     >
                       {isValid && (
                         <>
-                          <button
-                            type="button"
-                            onClick={() => onRequestAddNote?.(isoDate)}
-                            className="group flex items-center gap-0.5"
-                            title={`${isoDate}에 일정 추가`}
-                          >
+                          <div className="flex items-center gap-0.5">
                             <span
                               className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
                                 isToday
@@ -416,11 +399,24 @@ export function ConfirmedTripCalendar({
                             >
                               {dayNum}
                             </span>
-                          </button>
+                            {onRequestAddNote && (
+                              <button
+                                type="button"
+                                onClick={() => onRequestAddNote(isoDate)}
+                                title={`${isoDate}에 일정 추가`}
+                                className="invisible flex h-5 w-5 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 group-hover/cell:visible"
+                              >
+                                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-3 w-3">
+                                  <path d="M8 3v10M3 8h10" strokeLinecap="round" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
                           <div
                             className="absolute left-1.5 right-1.5 grid gap-0.5"
                             style={{ top: `${notesTopRem}rem` }}
                           >
+
                             {/* 투어 파생 메모 (픽업/드랍/낙타인형) */}
                             {cellNotes.map((note) => (
                               <button
