@@ -178,6 +178,7 @@ function CreateAccommodationModal({
 export function AccommodationsPage(): JSX.Element {
   const [regionFilter, setRegionFilter] = useState<string | undefined>(undefined);
   const [levelFilter, setLevelFilter] = useState<AccommodationLevel | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
 
   const { accommodations, loading } = useAccommodations({
@@ -187,8 +188,14 @@ export function AccommodationsPage(): JSX.Element {
   const navigate = useNavigate();
 
   const filteredAcc = accommodations.filter((acc) => {
-    if (levelFilter) {
-      return acc.options.some((o) => o.level === levelFilter);
+    if (levelFilter && !acc.options.some((o) => o.level === levelFilter)) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      return (
+        acc.name.toLowerCase().includes(q) ||
+        acc.destination.toLowerCase().includes(q) ||
+        acc.region.toLowerCase().includes(q)
+      );
     }
     return true;
   });
@@ -216,8 +223,37 @@ export function AccommodationsPage(): JSX.Element {
         onCreated={(id) => navigate(`/accommodations/${id}`)}
       />
 
-      {/* 필터 */}
+      {/* 검색 + 필터 */}
       <div className="flex flex-col gap-3">
+        {/* 검색 인풋 */}
+        <div className="relative">
+          <svg
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="숙소명, 목적지, 지역 검색..."
+            className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
         <div className="flex flex-wrap gap-1">
           <button
             className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${!regionFilter ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
@@ -258,7 +294,7 @@ export function AccommodationsPage(): JSX.Element {
         <p className="text-sm text-slate-500">불러오는 중...</p>
       ) : filteredAcc.length === 0 ? (
         <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
-          등록된 숙소가 없습니다.
+          {searchQuery.trim() ? `"${searchQuery}" 검색 결과가 없습니다.` : '등록된 숙소가 없습니다.'}
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">

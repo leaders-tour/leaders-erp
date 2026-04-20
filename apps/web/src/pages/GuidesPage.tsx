@@ -201,9 +201,21 @@ function CreateGuideModal({
 export function GuidesPage(): JSX.Element {
   const [levelFilter, setLevelFilter] = useState<LevelFilter>(undefined);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE_SEASON');
+  const [searchQuery, setSearchQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const { guides, loading } = useGuides({ level: levelFilter, status: statusFilter });
   const navigate = useNavigate();
+
+  const filteredGuides = searchQuery.trim()
+    ? guides.filter((g) => {
+        const q = searchQuery.trim().toLowerCase();
+        return (
+          g.nameKo.toLowerCase().includes(q) ||
+          (g.nameMn?.toLowerCase().includes(q) ?? false) ||
+          (g.phone?.toLowerCase().includes(q) ?? false)
+        );
+      })
+    : guides;
 
   return (
     <section className="grid gap-6">
@@ -221,8 +233,37 @@ export function GuidesPage(): JSX.Element {
         onCreated={(id) => navigate(`/guides/${id}`)}
       />
 
-      {/* 필터 */}
+      {/* 검색 + 필터 */}
       <div className="flex flex-col gap-3">
+        {/* 검색 인풋 */}
+        <div className="relative">
+          <svg
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="이름(한국/몽골), 전화번호 검색..."
+            className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
         <div className="flex flex-wrap gap-1">
           {([undefined, 'ACTIVE_SEASON', 'INTERVIEW_DONE', 'INACTIVE'] as (StatusFilter | undefined)[]).map(
             (s) => (
@@ -260,9 +301,9 @@ export function GuidesPage(): JSX.Element {
 
       {loading ? (
         <p className="text-sm text-slate-500">불러오는 중...</p>
-      ) : guides.length === 0 ? (
+      ) : filteredGuides.length === 0 ? (
         <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
-          등록된 가이드가 없습니다.
+          {searchQuery.trim() ? `"${searchQuery}" 검색 결과가 없습니다.` : '등록된 가이드가 없습니다.'}
         </Card>
       ) : (
         <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -284,7 +325,7 @@ export function GuidesPage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {guides.map((guide) => (
+                {filteredGuides.map((guide) => (
                   <tr
                     key={guide.id}
                     className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50"

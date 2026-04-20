@@ -5,7 +5,8 @@ import { useDrivers, useCreateDriver, type DriverRow } from '../features/driver/
 
 const VEHICLE_TYPE_LABEL: Record<string, string> = {
   STAREX: '스타렉스',
-  HIACE: '하이에이스',
+  HIACE_SHORT: '하이에이스(숏)',
+  HIACE_LONG: '하이에이스(롱)',
   PURGON: '푸르공',
   LAND_CRUISER: '랜드크루저',
   ALPHARD: '알파드',
@@ -57,7 +58,8 @@ function StatusBadge({ status }: { status: DriverRow['status'] }) {
 function VehicleBadge({ vehicleType }: { vehicleType: DriverRow['vehicleType'] }) {
   const colors: Record<string, string> = {
     STAREX: 'bg-violet-100 text-violet-700',
-    HIACE: 'bg-blue-100 text-blue-700',
+    HIACE_SHORT: 'bg-blue-100 text-blue-700',
+    HIACE_LONG: 'bg-sky-100 text-sky-700',
     PURGON: 'bg-orange-100 text-orange-700',
     LAND_CRUISER: 'bg-teal-100 text-teal-700',
     ALPHARD: 'bg-pink-100 text-pink-700',
@@ -76,7 +78,8 @@ type VehicleFilter = DriverRow['vehicleType'] | undefined;
 
 const VEHICLE_OPTIONS: { value: DriverRow['vehicleType']; label: string }[] = [
   { value: 'STAREX', label: '스타렉스' },
-  { value: 'HIACE', label: '하이에이스' },
+  { value: 'HIACE_SHORT', label: '하이에이스(숏)' },
+  { value: 'HIACE_LONG', label: '하이에이스(롱)' },
   { value: 'PURGON', label: '푸르공' },
   { value: 'LAND_CRUISER', label: '랜드크루저' },
   { value: 'ALPHARD', label: '알파드' },
@@ -225,6 +228,7 @@ export function DriversPage(): JSX.Element {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE_SEASON');
   const [levelFilter, setLevelFilter] = useState<LevelFilter>(undefined);
   const [vehicleFilter, setVehicleFilter] = useState<VehicleFilter>(undefined);
+  const [searchQuery, setSearchQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const { drivers, loading } = useDrivers({
     status: statusFilter,
@@ -232,6 +236,17 @@ export function DriversPage(): JSX.Element {
     vehicleType: vehicleFilter,
   });
   const navigate = useNavigate();
+
+  const filteredDrivers = searchQuery.trim()
+    ? drivers.filter((d) => {
+        const q = searchQuery.trim().toLowerCase();
+        return (
+          d.nameMn.toLowerCase().includes(q) ||
+          (d.phone?.toLowerCase().includes(q) ?? false) ||
+          (d.vehicleNumber?.toLowerCase().includes(q) ?? false)
+        );
+      })
+    : drivers;
 
   return (
     <section className="grid gap-6">
@@ -249,8 +264,37 @@ export function DriversPage(): JSX.Element {
         onCreated={(id) => navigate(`/drivers/${id}`)}
       />
 
-      {/* 필터 */}
+      {/* 검색 + 필터 */}
       <div className="flex flex-col gap-3">
+        {/* 검색 인풋 */}
+        <div className="relative">
+          <svg
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="이름, 전화번호, 차량번호 검색..."
+            className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
         <div className="flex flex-wrap gap-1">
           {([undefined, 'ACTIVE_SEASON', 'INTERVIEW_DONE', 'BLACKLISTED'] as (StatusFilter | undefined)[]).map(
             (s) => (
@@ -302,9 +346,9 @@ export function DriversPage(): JSX.Element {
 
       {loading ? (
         <p className="text-sm text-slate-500">불러오는 중...</p>
-      ) : drivers.length === 0 ? (
+      ) : filteredDrivers.length === 0 ? (
         <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
-          등록된 기사가 없습니다.
+          {searchQuery.trim() ? `"${searchQuery}" 검색 결과가 없습니다.` : '등록된 기사가 없습니다.'}
         </Card>
       ) : (
         <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -327,7 +371,7 @@ export function DriversPage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {drivers.map((driver) => (
+                {filteredDrivers.map((driver) => (
                   <tr
                     key={driver.id}
                     className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50"
