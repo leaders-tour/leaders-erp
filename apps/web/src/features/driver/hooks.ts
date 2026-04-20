@@ -168,6 +168,25 @@ export function useUpdateDriver() {
   };
 }
 
+const DELETE_DRIVER_MUTATION = gql`
+  mutation DeleteDriver($id: ID!) {
+    deleteDriver(id: $id)
+  }
+`;
+
+export function useDeleteDriver() {
+  const [mutate, { loading }] = useMutation<{ deleteDriver: boolean }>(DELETE_DRIVER_MUTATION);
+  return {
+    loading,
+    deleteDriver: async (id: string) => {
+      await mutate({
+        variables: { id },
+        refetchQueries: [{ query: DRIVERS_QUERY }],
+      });
+    },
+  };
+}
+
 export function useUploadDriverProfileImage() {
   const { ensureAccessToken } = useAuth();
   const [loading, setLoading] = useState(false);

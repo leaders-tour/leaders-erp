@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   useAccommodation,
   useCreateAccommodationOption,
+  useDeleteAccommodation,
   useDeleteAccommodationOption,
   useRemoveAccommodationOptionImage,
   useUpdateAccommodation,
@@ -426,6 +427,7 @@ export function AccommodationDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { accommodation, loading, refetch } = useAccommodation(accommodationId);
   const { updateAccommodation, loading: updating } = useUpdateAccommodation();
+  const { deleteAccommodation, loading: deleting } = useDeleteAccommodation();
 
   const [editingAccom, setEditingAccom] = useState(false);
   const [accomDraft, setAccomDraft] = useState<{ name: string; region: string; destination: string }>({
@@ -510,7 +512,21 @@ export function AccommodationDetailPage(): JSX.Element {
               <Button onClick={saveAccom} disabled={updating}>{updating ? '저장 중...' : '저장'}</Button>
             </>
           ) : (
-            <Button variant="outline" onClick={startEditAccom}>숙소 편집</Button>
+            <>
+              <Button
+                variant="destructive"
+                disabled={deleting}
+                onClick={async () => {
+                  if (!accommodationId) return;
+                  if (!window.confirm('숙소를 삭제합니다. 되돌릴 수 없습니다. 계속할까요?')) return;
+                  await deleteAccommodation(accommodationId);
+                  navigate('/accommodations');
+                }}
+              >
+                {deleting ? '삭제 중...' : '삭제'}
+              </Button>
+              <Button variant="outline" onClick={startEditAccom}>숙소 편집</Button>
+            </>
           )}
         </div>
       </div>

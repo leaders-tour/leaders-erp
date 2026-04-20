@@ -2,6 +2,7 @@ import { Button, Card } from '@tour/ui';
 import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  useDeleteGuide,
   useGuide,
   useRemoveGuideCertImage,
   useUpdateGuide,
@@ -37,6 +38,7 @@ export function GuideDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { guide, loading, refetch } = useGuide(guideId);
   const { updateGuide, loading: saving } = useUpdateGuide();
+  const { deleteGuide, loading: deleting } = useDeleteGuide();
   const { uploadProfileImage, loading: uploadingProfile } = useUploadGuideProfileImage();
   const { uploadCertImages, loading: uploadingCert } = useUploadGuideCertImages();
   const { removeCertImage, loading: removingCert } = useRemoveGuideCertImage();
@@ -108,20 +110,36 @@ export function GuideDetailPage(): JSX.Element {
         >
           ← 목록
         </button>
-        {!editing ? (
-          <Button variant="default" onClick={startEdit}>
-            편집
-          </Button>
-        ) : (
-          <div className="flex gap-2">
-            <Button variant="default" onClick={() => setEditing(false)} disabled={saving}>
-              취소
-            </Button>
-            <Button variant="primary" onClick={save} disabled={saving}>
-              {saving ? '저장 중...' : '저장'}
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          {!editing ? (
+            <>
+              <Button
+                variant="destructive"
+                disabled={deleting}
+                onClick={async () => {
+                  if (!guideId) return;
+                  if (!window.confirm('가이드를 삭제합니다. 되돌릴 수 없습니다. 계속할까요?')) return;
+                  await deleteGuide(guideId);
+                  navigate('/guides');
+                }}
+              >
+                {deleting ? '삭제 중...' : '삭제'}
+              </Button>
+              <Button variant="default" onClick={startEdit}>
+                편집
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="default" onClick={() => setEditing(false)} disabled={saving}>
+                취소
+              </Button>
+              <Button variant="primary" onClick={save} disabled={saving}>
+                {saving ? '저장 중...' : '저장'}
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {saveError && (

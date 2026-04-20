@@ -2,6 +2,7 @@ import { Button, Card } from '@tour/ui';
 import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  useDeleteDriver,
   useDriver,
   useRemoveDriverVehicleImage,
   useUpdateDriver,
@@ -128,6 +129,7 @@ export function DriverDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { driver, loading, refetch } = useDriver(driverId);
   const { updateDriver, loading: saving } = useUpdateDriver();
+  const { deleteDriver, loading: deleting } = useDeleteDriver();
   const { uploadProfileImage, loading: uploadingProfile } = useUploadDriverProfileImage();
   const { uploadVehicleImages, loading: uploadingVehicle } = useUploadDriverVehicleImages();
   const { removeVehicleImage, loading: removingVehicle } = useRemoveDriverVehicleImage();
@@ -188,9 +190,23 @@ export function DriverDetailPage(): JSX.Element {
               </Button>
             </>
           ) : (
-            <Button variant="default" onClick={() => setEditing(true)}>
-              편집
-            </Button>
+            <>
+              <Button
+                variant="destructive"
+                disabled={deleting}
+                onClick={async () => {
+                  if (!driverId) return;
+                  if (!window.confirm('기사를 삭제합니다. 되돌릴 수 없습니다. 계속할까요?')) return;
+                  await deleteDriver(driverId);
+                  navigate('/drivers');
+                }}
+              >
+                {deleting ? '삭제 중...' : '삭제'}
+              </Button>
+              <Button variant="default" onClick={() => setEditing(true)}>
+                편집
+              </Button>
+            </>
           )}
         </div>
       </div>

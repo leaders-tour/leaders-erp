@@ -135,6 +135,12 @@ const CREATE_ACCOMMODATION_OPTION_MUTATION = gql`
   }
 `;
 
+const DELETE_ACCOMMODATION_MUTATION = gql`
+  mutation DeleteAccommodation($id: ID!) {
+    deleteAccommodation(id: $id)
+  }
+`;
+
 const DELETE_ACCOMMODATION_OPTION_MUTATION = gql`
   mutation DeleteAccommodationOption($id: ID!) {
     deleteAccommodationOption(id: $id)
@@ -275,6 +281,21 @@ export function useCreateAccommodationOption() {
       });
       if (!result.data?.createAccommodationOption) throw new Error('Create failed');
       return result.data.createAccommodationOption;
+    },
+  };
+}
+
+export function useDeleteAccommodation() {
+  const [mutate, { loading }] = useMutation<{ deleteAccommodation: boolean }>(
+    DELETE_ACCOMMODATION_MUTATION,
+  );
+  return {
+    loading,
+    deleteAccommodation: async (id: string) => {
+      await mutate({
+        variables: { id },
+        refetchQueries: [{ query: ACCOMMODATIONS_QUERY }],
+      });
     },
   };
 }
