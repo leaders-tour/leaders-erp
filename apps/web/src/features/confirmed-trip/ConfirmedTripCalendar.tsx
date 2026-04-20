@@ -13,14 +13,18 @@ import {
   getTripDestination,
   getTripPickupDate,
   getTripDropDate,
+  type CalendarNoteRow,
   type ConfirmedTripRow,
 } from './hooks';
 
 interface ConfirmedTripCalendarProps {
   trips: ConfirmedTripRow[];
+  notes: CalendarNoteRow[];
   year: number;
   month: number;
   onChangeMonth: (year: number, month: number) => void;
+  onRequestAddNote?: (date: string) => void;
+  onRequestEditNote?: (note: CalendarNoteRow) => void;
 }
 
 interface CalendarBlock {
@@ -230,12 +234,53 @@ function buildWeekBlocks(
   return { weekBlocks, weekNotes, weekCount };
 }
 
-export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: ConfirmedTripCalendarProps): JSX.Element {
+const KIND_LABEL: Record<string, string> = {
+  GUEST_HOUSE: '게스트하우스',
+  PICKUP: '픽업',
+  DROP: '드랍',
+  CAMEL_DOLL: '낙타인형 구매',
+  CUSTOM: '',
+};
+
+function getNoteDisplayLabel(note: CalendarNoteRow): string {
+  if (note.kind === 'CUSTOM') return note.customText ?? '직접입력';
+  return KIND_LABEL[note.kind] ?? note.kind;
+}
+
+function getNotePersonLabel(note: CalendarNoteRow): string {
+  if (!note.confirmedTrip) return '';
+  return (
+    note.confirmedTrip.planVersion?.meta?.leaderName ??
+    note.confirmedTrip.user.name
+  );
+}
+
+export function ConfirmedTripCalendar({
+  trips,
+  notes,
+  year,
+  month,
+  onChangeMonth,
+  onRequestAddNote,
+  onRequestEditNote,
+}: ConfirmedTripCalendarProps): JSX.Element {
   const navigate = useNavigate();
 
   const daysInMonth = getDaysInMonth(year, month);
   const firstWeekday = getWeekdayIndex(year, month, 1);
   const todayIso = getTodayIso();
+
+  // CalendarNote를 날짜 문자열 키로 분류
+  const notesByDate = useMemo(() => {
+    const map = new Map<string, CalendarNoteRow[]>();
+    for (const note of notes) {
+      const key = note.occursOn.slice(0, 10);
+      const arr = map.get(key) ?? [];
+      arr.push(note);
+      map.set(key, arr);
+    }
+    return map;
+  }, [notes]);
 
   const { weekBlocks, weekNotes, weekCount } = useMemo(
     () => buildWeekBlocks(trips, year, month),
@@ -259,7 +304,20 @@ export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: Con
         <h2 className="text-lg font-semibold text-slate-900">
           {year}년 {month}월
         </h2>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          {onRequestAddNote && (
+            <button
+              type="button"
+              onClick={() => onRequestAddNote('')}
+              className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-700"
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5">
+                <path d="M8 3v10M3 8h10" strokeLinecap="round" />
+              </svg>
+              일정 추가
+            </button>
+          )}
+          <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={goToPrevMonth}
@@ -280,6 +338,7 @@ export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: Con
               <path d="M6 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
+          </div>
         </div>
       </div>
 
@@ -307,8 +366,16 @@ export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: Con
             (max, notesByDay) => Math.max(max, notesByDay.length),
             0,
           );
+          // 수동 CalendarNote 수도 행 높이에 반영
+          const maxCalNoteCount = Array.from({ length: 7 }, (_, colIdx) => {
+            const dayNum2 = weekIdx * 7 + colIdx - firstWeekday + 1;
+            const isValid2 = dayNum2 >= 1 && dayNum2 <= daysInMonth;
+            if (!isValid2) return 0;
+            const isoDate2 = toIso(year, month, dayNum2);
+            return (notesByDate.get(isoDate2) ?? []).length;
+          }).reduce((a, b) => Math.max(a, b), 0);
           const notesTopRem = 2.125 + laneCount * 1.875 + 0.25;
-          const rowMinHeight = notesTopRem + maxNoteCount * 1.125 + 0.5;
+          const rowMinHeight = notesTopRem + (maxNoteCount + maxCalNoteCount) * 1.125 + 0.5;
 
           return (
             <div key={`week-${weekIdx}`} className="relative" style={{ minHeight: `${rowMinHeight}rem` }}>
@@ -320,6 +387,7 @@ export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: Con
                   const isoDate = isValid ? toIso(year, month, dayNum) : '';
                   const isToday = isoDate === todayIso;
                   const cellNotes = currentNotes[colIdx] ?? [];
+                  const calNotes = isoDate ? (notesByDate.get(isoDate) ?? []) : [];
 
                   return (
                     <div
@@ -329,23 +397,31 @@ export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: Con
                     >
                       {isValid && (
                         <>
-                          <span
-                            className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
-                              isToday
-                                ? 'bg-slate-900 text-white'
-                                : colIdx === 0
-                                  ? 'text-red-500'
-                                  : colIdx === 6
-                                    ? 'text-blue-500'
-                                    : 'text-slate-700'
-                            }`}
+                          <button
+                            type="button"
+                            onClick={() => onRequestAddNote?.(isoDate)}
+                            className="group flex items-center gap-0.5"
+                            title={`${isoDate}에 일정 추가`}
                           >
-                            {dayNum}
-                          </span>
+                            <span
+                              className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
+                                isToday
+                                  ? 'bg-slate-900 text-white'
+                                  : colIdx === 0
+                                    ? 'text-red-500'
+                                    : colIdx === 6
+                                      ? 'text-blue-500'
+                                      : 'text-slate-700'
+                              }`}
+                            >
+                              {dayNum}
+                            </span>
+                          </button>
                           <div
                             className="absolute left-1.5 right-1.5 grid gap-0.5"
                             style={{ top: `${notesTopRem}rem` }}
                           >
+                            {/* 투어 파생 메모 (픽업/드랍/낙타인형) */}
                             {cellNotes.map((note) => (
                               <button
                                 key={note.key}
@@ -359,6 +435,22 @@ export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: Con
                                 {note.label} - {note.leaderName}
                               </button>
                             ))}
+                            {/* 수동 추가 CalendarNote */}
+                            {calNotes.map((cn) => {
+                              const label = getNoteDisplayLabel(cn);
+                              const person = getNotePersonLabel(cn);
+                              return (
+                                <button
+                                  key={cn.id}
+                                  type="button"
+                                  onClick={() => onRequestEditNote?.(cn)}
+                                  title={person ? `${label} - ${person}` : label}
+                                  className="w-full truncate text-left text-[11px] leading-4 text-indigo-600 transition hover:text-indigo-900"
+                                >
+                                  {label}{person ? ` - ${person}` : ''}
+                                </button>
+                              );
+                            })}
                           </div>
                         </>
                       )}

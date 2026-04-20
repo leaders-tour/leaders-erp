@@ -1,3 +1,39 @@
+enum CalendarNoteKind {
+  GUEST_HOUSE
+  PICKUP
+  DROP
+  CAMEL_DOLL
+  CUSTOM
+}
+
+type CalendarNote {
+  id: ID!
+  occursOn: String!
+  kind: CalendarNoteKind!
+  customText: String
+  confirmedTripId: String
+  confirmedTrip: ConfirmedTrip
+  memo: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input CalendarNoteCreateInput {
+  occursOn: String!
+  kind: CalendarNoteKind!
+  customText: String
+  confirmedTripId: ID
+  memo: String
+}
+
+input CalendarNoteUpdateInput {
+  occursOn: String
+  kind: CalendarNoteKind
+  customText: String
+  confirmedTripId: ID
+  memo: String
+}
+
 enum ConfirmedTripStatus {
   ACTIVE
   CANCELLED

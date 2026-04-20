@@ -949,7 +949,8 @@ model ConfirmedTrip {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  lodgings ConfirmedTripLodging[]
+  lodgings       ConfirmedTripLodging[]
+  calendarNotes  CalendarNote[]
 
   @@index([userId])
   @@index([planId])
@@ -958,6 +959,31 @@ model ConfirmedTrip {
   @@index([guideId])
   @@index([driverId])
   @@index([travelStart])
+}
+
+enum CalendarNoteKind {
+  GUEST_HOUSE
+  PICKUP
+  DROP
+  CAMEL_DOLL
+  CUSTOM
+}
+
+model CalendarNote {
+  id              String           @id @default(uuid(7))
+  occursOn        DateTime         @db.Date
+  kind            CalendarNoteKind
+  customText      String?          @db.VarChar(500)
+  confirmedTripId String?
+  memo            String?          @db.Text
+
+  confirmedTrip ConfirmedTrip? @relation(fields: [confirmedTripId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([occursOn])
+  @@index([confirmedTripId])
 }
 
 enum LodgingAssignmentType {

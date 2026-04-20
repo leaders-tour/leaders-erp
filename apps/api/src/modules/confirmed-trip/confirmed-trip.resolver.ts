@@ -1,7 +1,27 @@
 import type { ConfirmedTripStatus } from '@prisma/client';
 import type { AppContext } from '../../context';
 import { ConfirmedTripService } from './confirmed-trip.service';
-import type { ConfirmTripDto, ConfirmedTripLodgingUpsertDto, ConfirmedTripUpdateDto } from './confirmed-trip.types';
+import type {
+  CalendarNoteCreateDto,
+  CalendarNoteUpdateDto,
+  ConfirmTripDto,
+  ConfirmedTripLodgingUpsertDto,
+  ConfirmedTripUpdateDto,
+} from './confirmed-trip.types';
+
+interface CalendarNotesArgs {
+  year: number;
+  month: number;
+}
+
+interface CreateCalendarNoteArgs {
+  input: CalendarNoteCreateDto;
+}
+
+interface UpdateCalendarNoteArgs {
+  id: string;
+  input: CalendarNoteUpdateDto;
+}
 
 interface ConfirmedTripsArgs {
   status?: ConfirmedTripStatus;
@@ -34,8 +54,16 @@ export const confirmedTripResolver = {
       new ConfirmedTripService(ctx.prisma).list(args.status),
     confirmedTrip: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
       new ConfirmedTripService(ctx.prisma).get(args.id),
+    calendarNotes: (_parent: unknown, args: CalendarNotesArgs, ctx: AppContext) =>
+      new ConfirmedTripService(ctx.prisma).listCalendarNotes(args.year, args.month),
   },
   Mutation: {
+    createCalendarNote: (_parent: unknown, args: CreateCalendarNoteArgs, ctx: AppContext) =>
+      new ConfirmedTripService(ctx.prisma).createCalendarNote(args.input),
+    updateCalendarNote: (_parent: unknown, args: UpdateCalendarNoteArgs, ctx: AppContext) =>
+      new ConfirmedTripService(ctx.prisma).updateCalendarNote(args.id, args.input),
+    deleteCalendarNote: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
+      new ConfirmedTripService(ctx.prisma).deleteCalendarNote(args.id),
     confirmTrip: (_parent: unknown, args: ConfirmTripArgs, ctx: AppContext) =>
       new ConfirmedTripService(ctx.prisma).confirm(args.input),
     updateConfirmedTrip: (_parent: unknown, args: UpdateConfirmedTripArgs, ctx: AppContext) =>

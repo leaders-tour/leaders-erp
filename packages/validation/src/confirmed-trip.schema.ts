@@ -1,6 +1,34 @@
 import { ConfirmedTripStatus } from '@tour/domain';
 import { z } from 'zod';
 
+export const calendarNoteKindSchema = z.enum([
+  'GUEST_HOUSE',
+  'PICKUP',
+  'DROP',
+  'CAMEL_DOLL',
+  'CUSTOM',
+]);
+
+export const calendarNoteCreateSchema = z.object({
+  occursOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'occursOn must be YYYY-MM-DD'),
+  kind: calendarNoteKindSchema,
+  customText: z.string().max(500).nullable().optional(),
+  confirmedTripId: z.string().min(1).nullable().optional(),
+  memo: z.string().max(5000).nullable().optional(),
+});
+
+export const calendarNoteUpdateSchema = z.object({
+  occursOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  kind: calendarNoteKindSchema.optional(),
+  customText: z.string().max(500).nullable().optional(),
+  confirmedTripId: z.string().min(1).nullable().optional(),
+  memo: z.string().max(5000).nullable().optional(),
+});
+
+export type CalendarNoteKind = z.infer<typeof calendarNoteKindSchema>;
+export type CalendarNoteCreateInput = z.infer<typeof calendarNoteCreateSchema>;
+export type CalendarNoteUpdateInput = z.infer<typeof calendarNoteUpdateSchema>;
+
 export const confirmedTripStatusSchema = z.nativeEnum(ConfirmedTripStatus);
 
 export const confirmTripSchema = z.object({

@@ -46,6 +46,7 @@ type Query {
   override(id: ID!): Override
   confirmedTrips(status: ConfirmedTripStatus): [ConfirmedTrip!]!
   confirmedTrip(id: ID!): ConfirmedTrip
+  calendarNotes(year: Int!, month: Int!): [CalendarNote!]!
   guides(status: GuideStatus, level: GuideLevel): [Guide!]!
   guide(id: ID!): Guide
   drivers(status: DriverStatus, level: DriverLevel, vehicleType: VehicleType): [Driver!]!
@@ -136,6 +137,10 @@ type Mutation {
   createOverride(input: OverrideCreateInput!): Override!
   updateOverride(id: ID!, input: OverrideUpdateInput!): Override!
   deleteOverride(id: ID!): Boolean!
+
+  createCalendarNote(input: CalendarNoteCreateInput!): CalendarNote!
+  updateCalendarNote(id: ID!, input: CalendarNoteUpdateInput!): CalendarNote!
+  deleteCalendarNote(id: ID!): Boolean!
 
   confirmTrip(input: ConfirmTripInput!): ConfirmedTrip!
   updateConfirmedTrip(id: ID!, input: ConfirmedTripUpdateInput!): ConfirmedTrip!

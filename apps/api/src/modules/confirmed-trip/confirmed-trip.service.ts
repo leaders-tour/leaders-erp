@@ -1,8 +1,20 @@
-import type { ConfirmedTripStatus, LodgingAssignmentType, LodgingBookingStatus, PrismaClient } from '@prisma/client';
-import { confirmTripSchema, confirmedTripLodgingUpsertSchema, confirmedTripUpdateSchema } from '@tour/validation';
+import type { CalendarNoteKind, ConfirmedTripStatus, LodgingAssignmentType, LodgingBookingStatus, PrismaClient } from '@prisma/client';
+import {
+  calendarNoteCreateSchema,
+  calendarNoteUpdateSchema,
+  confirmTripSchema,
+  confirmedTripLodgingUpsertSchema,
+  confirmedTripUpdateSchema,
+} from '@tour/validation';
 import { DomainError, createValidationError } from '../../lib/errors';
 import { ConfirmedTripRepository } from './confirmed-trip.repository';
-import type { ConfirmTripDto, ConfirmedTripLodgingUpsertDto, ConfirmedTripUpdateDto } from './confirmed-trip.types';
+import type {
+  CalendarNoteCreateDto,
+  CalendarNoteUpdateDto,
+  ConfirmTripDto,
+  ConfirmedTripLodgingUpsertDto,
+  ConfirmedTripUpdateDto,
+} from './confirmed-trip.types';
 
 export class ConfirmedTripService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -269,6 +281,71 @@ export class ConfirmedTripService {
         return { ...l, conflictWarnings: conflicts };
       }),
     );
+  }
+
+  // ── CalendarNote ──────────────────────────────────────────────────────────
+
+  listCalendarNotes(year: number, month: number) {
+    const from = new Date(year, month - 1, 1);
+    const to = new Date(year, month, 0); // 마지막 날
+    return this.prisma.calendarNote.findMany({
+      where: {
+        occursOn: { gte: from, lte: to },
+      },
+      include: {
+        confirmedTrip: true,
+      },
+      orderBy: { occursOn: 'asc' },
+    });
+  }
+
+  async createCalendarNote(input: CalendarNoteCreateDto) {
+    const parsed = calendarNoteCreateSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid calendar note input', parsed.error);
+    }
+    const { occursOn, kind, customText, confirmedTripId, memo } = parsed.data;
+    return this.prisma.calendarNote.create({
+      data: {
+        occursOn: new Date(occursOn),
+        kind: kind as CalendarNoteKind,
+        customText: customText ?? null,
+        confirmedTripId: confirmedTripId ?? null,
+        memo: memo ?? null,
+      },
+      include: { confirmedTrip: true },
+    });
+  }
+
+  async updateCalendarNote(id: string, input: CalendarNoteUpdateDto) {
+    const parsed = calendarNoteUpdateSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid calendar note update input', parsed.error);
+    }
+
+    const existing = await this.prisma.calendarNote.findUnique({ where: { id } });
+    if (!existing) throw new DomainError('NOT_FOUND', 'Calendar note not found');
+
+    const { occursOn, kind, customText, confirmedTripId, memo } = parsed.data;
+    const data: Record<string, unknown> = {};
+    if (occursOn !== undefined) data.occursOn = new Date(occursOn);
+    if (kind !== undefined) data.kind = kind as CalendarNoteKind;
+    if (customText !== undefined) data.customText = customText ?? null;
+    if (confirmedTripId !== undefined) data.confirmedTripId = confirmedTripId ?? null;
+    if (memo !== undefined) data.memo = memo ?? null;
+
+    return this.prisma.calendarNote.update({
+      where: { id },
+      data,
+      include: { confirmedTrip: true },
+    });
+  }
+
+  async deleteCalendarNote(id: string) {
+    const existing = await this.prisma.calendarNote.findUnique({ where: { id } });
+    if (!existing) throw new DomainError('NOT_FOUND', 'Calendar note not found');
+    await this.prisma.calendarNote.delete({ where: { id } });
+    return true;
   }
 
   private async findConflictWarnings(

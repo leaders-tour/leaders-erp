@@ -1,8 +1,14 @@
 import { Card } from '@tour/ui';
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { CalendarNoteModal } from '../features/confirmed-trip/CalendarNoteModal';
 import { ConfirmedTripCalendar } from '../features/confirmed-trip/ConfirmedTripCalendar';
 import {
+  useCalendarNotes,
   useConfirmedTrips,
+  useCreateCalendarNote,
+  useUpdateCalendarNote,
+  useDeleteCalendarNote,
   getTripStartDate,
   getTripEndDate,
   getTripLeaderName,
@@ -10,6 +16,7 @@ import {
   getTripDestination,
   getTripPickupDate,
   getTripDropDate,
+  type CalendarNoteRow,
   type ConfirmedTripRow,
 } from '../features/confirmed-trip/hooks';
 
@@ -179,6 +186,49 @@ export function ConfirmedTripsPage(): JSX.Element {
   const { trips: allTrips, loading } = useConfirmedTrips('ACTIVE');
   const navigate = useNavigate();
 
+  // ── CalendarNote 상태 ──────────────────────────────────────────────────────
+  const [noteModalOpen, setNoteModalOpen] = useState(false);
+  const [noteModalDate, setNoteModalDate] = useState('');
+  const [editingNote, setEditingNote] = useState<CalendarNoteRow | null>(null);
+
+  const { year: nowYear, month: nowMonth } = getNow();
+  const calYear = Number(searchParams.get('cy')) || nowYear;
+  const calMonth = Number(searchParams.get('cm')) || nowMonth;
+
+  const { notes, refetch: refetchNotes } = useCalendarNotes(calYear, calMonth);
+  const { createCalendarNote, loading: creating } = useCreateCalendarNote();
+  const { updateCalendarNote, loading: updating } = useUpdateCalendarNote();
+  const { deleteCalendarNote } = useDeleteCalendarNote();
+
+  function openAddNote(date: string) {
+    setEditingNote(null);
+    setNoteModalDate(date);
+    setNoteModalOpen(true);
+  }
+
+  function openEditNote(note: CalendarNoteRow) {
+    setEditingNote(note);
+    setNoteModalDate('');
+    setNoteModalOpen(true);
+  }
+
+  async function handleNoteSave(payload: Parameters<typeof createCalendarNote>[0]) {
+    if (editingNote) {
+      await updateCalendarNote(editingNote.id, payload);
+    } else {
+      await createCalendarNote(payload);
+    }
+    await refetchNotes();
+    setNoteModalOpen(false);
+  }
+
+  async function handleNoteDelete() {
+    if (!editingNote) return;
+    await deleteCalendarNote(editingNote.id);
+    await refetchNotes();
+    setNoteModalOpen(false);
+  }
+
   const dateFilter: DateFilter =
     (searchParams.get('filter') as DateFilter | null) ?? 'upcoming';
   const rentalItemFilter =
@@ -213,9 +263,6 @@ export function ConfirmedTripsPage(): JSX.Element {
   }
 
   const viewMode: ViewMode = searchParams.get('view') === 'calendar' ? 'calendar' : 'list';
-  const { year: nowYear, month: nowMonth } = getNow();
-  const calYear = Number(searchParams.get('cy')) || nowYear;
-  const calMonth = Number(searchParams.get('cm')) || nowMonth;
 
   function setViewMode(mode: ViewMode) {
     setSearchParams((prev) => { prev.set('view', mode); return prev; }, { replace: true });
@@ -333,9 +380,12 @@ export function ConfirmedTripsPage(): JSX.Element {
       ) : viewMode === 'calendar' ? (
         <ConfirmedTripCalendar
           trips={calendarTrips}
+          notes={notes}
           year={calYear}
           month={calMonth}
           onChangeMonth={setCalendarMonth}
+          onRequestAddNote={openAddNote}
+          onRequestEditNote={openEditNote}
         />
       ) : trips.length === 0 ? (
         <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
@@ -448,6 +498,16 @@ export function ConfirmedTripsPage(): JSX.Element {
           </div>
         </Card>
       )}
+      <CalendarNoteModal
+        open={noteModalOpen}
+        initialDate={noteModalDate}
+        note={editingNote}
+        confirmedTrips={allTrips}
+        saving={creating || updating}
+        onSave={handleNoteSave}
+        onDelete={editingNote ? handleNoteDelete : undefined}
+        onClose={() => setNoteModalOpen(false)}
+      />
     </section>
   );
 }

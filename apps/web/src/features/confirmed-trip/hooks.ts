@@ -1,5 +1,146 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 
+// ── CalendarNote ──────────────────────────────────────────────────────────────
+
+export type CalendarNoteKind = 'GUEST_HOUSE' | 'PICKUP' | 'DROP' | 'CAMEL_DOLL' | 'CUSTOM';
+
+export interface CalendarNoteRow {
+  id: string;
+  occursOn: string;
+  kind: CalendarNoteKind;
+  customText: string | null;
+  confirmedTripId: string | null;
+  memo: string | null;
+  confirmedTrip: {
+    id: string;
+    planVersion: {
+      meta: { leaderName: string } | null;
+    } | null;
+    user: { name: string };
+  } | null;
+}
+
+const CALENDAR_NOTE_FRAGMENT = gql`
+  fragment CalendarNoteFields on CalendarNote {
+    id
+    occursOn
+    kind
+    customText
+    confirmedTripId
+    memo
+    confirmedTrip {
+      id
+      planVersion {
+        meta {
+          leaderName
+        }
+      }
+      user {
+        name
+      }
+    }
+  }
+`;
+
+const CALENDAR_NOTES_QUERY = gql`
+  ${CALENDAR_NOTE_FRAGMENT}
+  query CalendarNotes($year: Int!, $month: Int!) {
+    calendarNotes(year: $year, month: $month) {
+      ...CalendarNoteFields
+    }
+  }
+`;
+
+const CREATE_CALENDAR_NOTE_MUTATION = gql`
+  ${CALENDAR_NOTE_FRAGMENT}
+  mutation CreateCalendarNote($input: CalendarNoteCreateInput!) {
+    createCalendarNote(input: $input) {
+      ...CalendarNoteFields
+    }
+  }
+`;
+
+const UPDATE_CALENDAR_NOTE_MUTATION = gql`
+  ${CALENDAR_NOTE_FRAGMENT}
+  mutation UpdateCalendarNote($id: ID!, $input: CalendarNoteUpdateInput!) {
+    updateCalendarNote(id: $id, input: $input) {
+      ...CalendarNoteFields
+    }
+  }
+`;
+
+const DELETE_CALENDAR_NOTE_MUTATION = gql`
+  mutation DeleteCalendarNote($id: ID!) {
+    deleteCalendarNote(id: $id)
+  }
+`;
+
+export function useCalendarNotes(year: number, month: number) {
+  const { data, loading, refetch } = useQuery<{ calendarNotes: CalendarNoteRow[] }>(
+    CALENDAR_NOTES_QUERY,
+    { variables: { year, month }, fetchPolicy: 'cache-and-network' },
+  );
+  return { notes: data?.calendarNotes ?? [], loading, refetch };
+}
+
+export function useCreateCalendarNote() {
+  const [mutate, { loading }] = useMutation<{ createCalendarNote: CalendarNoteRow }>(
+    CREATE_CALENDAR_NOTE_MUTATION,
+  );
+  return {
+    loading,
+    createCalendarNote: async (input: {
+      occursOn: string;
+      kind: CalendarNoteKind;
+      customText?: string | null;
+      confirmedTripId?: string | null;
+      memo?: string | null;
+    }): Promise<CalendarNoteRow> => {
+      const result = await mutate({ variables: { input } });
+      if (!result.data?.createCalendarNote) throw new Error('Failed to create calendar note');
+      return result.data.createCalendarNote;
+    },
+  };
+}
+
+export function useUpdateCalendarNote() {
+  const [mutate, { loading }] = useMutation<{ updateCalendarNote: CalendarNoteRow }>(
+    UPDATE_CALENDAR_NOTE_MUTATION,
+  );
+  return {
+    loading,
+    updateCalendarNote: async (
+      id: string,
+      input: Partial<{
+        occursOn: string;
+        kind: CalendarNoteKind;
+        customText: string | null;
+        confirmedTripId: string | null;
+        memo: string | null;
+      }>,
+    ): Promise<CalendarNoteRow> => {
+      const result = await mutate({ variables: { id, input } });
+      if (!result.data?.updateCalendarNote) throw new Error('Failed to update calendar note');
+      return result.data.updateCalendarNote;
+    },
+  };
+}
+
+export function useDeleteCalendarNote() {
+  const [mutate, { loading }] = useMutation<{ deleteCalendarNote: boolean }>(
+    DELETE_CALENDAR_NOTE_MUTATION,
+  );
+  return {
+    loading,
+    deleteCalendarNote: async (id: string): Promise<boolean> => {
+      const result = await mutate({ variables: { id } });
+      return result.data?.deleteCalendarNote ?? false;
+    },
+  };
+}
+
+// ── ConfirmedTrip ─────────────────────────────────────────────────────────────
+
 export interface ConfirmedTripRow {
   id: string;
   userId: string;
