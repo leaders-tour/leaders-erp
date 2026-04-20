@@ -14,7 +14,8 @@ enum DriverStatus {
 
 enum VehicleType {
   STAREX
-  HIACE
+  HIACE_SHORT
+  HIACE_LONG
   PURGON
   LAND_CRUISER
   ALPHARD

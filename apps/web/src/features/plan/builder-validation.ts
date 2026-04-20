@@ -156,7 +156,7 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
     }
 
     // hiace-headcount (error)
-    if (vehicleType === '하이에이스' && headcountTotal < 3) {
+    if ((vehicleType === '하이에이스(숏)' || vehicleType === '하이에이스(롱)') && headcountTotal < 3) {
       results.push({
         id: 'hiace-headcount',
         severity: 'error',

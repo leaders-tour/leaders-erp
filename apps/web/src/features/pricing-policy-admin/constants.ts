@@ -106,11 +106,18 @@ export const PRICE_ITEM_OPTIONS: PriceItemOption[] = [
     description: 'Extend/EarlyExtend variant에 적용됩니다.',
   },
   {
-    value: 'CONDITIONAL_HIACE',
+    value: 'CONDITIONAL_HIACE_SHORT',
     group: 'CONDITION',
     preset: 'CONDITIONAL',
-    label: '하이에이스',
-    description: '하이에이스 + 3~6인 조건의 자동 규칙입니다.',
+    label: '하이에이스(숏)',
+    description: '하이에이스(숏) + 3~6인 조건의 자동 규칙입니다.',
+  },
+  {
+    value: 'CONDITIONAL_HIACE_LONG',
+    group: 'CONDITION',
+    preset: 'CONDITIONAL',
+    label: '하이에이스(롱)',
+    description: '하이에이스(롱) + 3~6인 조건의 자동 규칙입니다.',
   },
   {
     value: 'CONDITIONAL_CUSTOM',

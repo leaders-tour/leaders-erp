@@ -35,7 +35,7 @@ const ENUM_HINTS = `
 - movementIntensity: 원문에 해당 없으면 level1to5·rawLabel 모두 null. rawLabel은 원문에 나온 표현(있을 때만).
 - movementIntensity.level1to5: "매우 여유"=1, "여유"=2, "보통"=3, "높음"=4, "매우 높음"=5
 - lodgingPreference.suggestedLevel: "캠핑"/"LV1"→LV1, "전통게르"/"게르"→LV2, "여행자캠프"/"일반게르"/"게르게스트하우스"→LV3, "디럭스"/"호텔"/"독채"/"팬션"→LV4
-- vehicle.mentionedTypes: "스타렉스","푸르공","벨파이어","하이에이스" 등 언급된 차량명 배열
+- vehicle.mentionedTypes: "스타렉스","푸르공","벨파이어","하이에이스(숏)","하이에이스(롱)" 등 언급된 차량명 배열
 - tourDates: 실투어 첫날~마지막날(픽업~드랍). "투어 날짜"에 N박 M일만 있고 입출국·항공에 월/일이 있으면 그 입국일·출국일을 startDate·endDate에 반드시 채울 것(실투어와 동일하게 해석).
 - flightOrBorder: 입국/출국(또는 국경) 일자·시각. tourDates와 같은 캘린더 일자면 일치시킬 것.
 - 날짜 YYYY-MM-DD: 연도가 없는 "9/11", "7.16", "7월 16일" 등은 아래 "처리 기준일"을 오늘로 두고 채운다. 해당 월·일이 기준일 이후(당해, 같은 해)에 오면 당해 연도, 이미 지났으면 다음 연도. 다른 필드에 연도(19xx/20xx)가 명시되면 그 연도를 우선. 학습 데이터·관행으로 임의의 과거 연도(예: 2023)를 넣지 말 것.

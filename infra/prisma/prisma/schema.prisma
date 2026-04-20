@@ -932,6 +932,7 @@ model ConfirmedTrip {
   rentalStarlink        Boolean   @default(false)
   rentalPowerbank       Boolean   @default(false)
   camelDollPurchased    Boolean   @default(false)
+  isRecruitingOpen      Boolean   @default(false)
 
   depositAmountKrw         Int?
   balanceAmountKrw         Int?
@@ -1625,7 +1626,8 @@ enum DriverStatus {
 
 enum VehicleType {
   STAREX
-  HIACE
+  HIACE_SHORT
+  HIACE_LONG
   PURGON
   LAND_CRUISER
   ALPHARD

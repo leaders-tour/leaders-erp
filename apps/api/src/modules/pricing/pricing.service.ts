@@ -97,7 +97,8 @@ type PricingRuleRecord = {
   customDisplayText: string | null;
 };
 
-const HIACE = '하이에이스';
+const HIACE_SHORT = '하이에이스(숏)';
+const HIACE_LONG = '하이에이스(롱)';
 const RENTAL_ITEM_DEPOSIT_PER_PERSON_KRW = 30_000;
 
 export class PricingService {
@@ -306,7 +307,7 @@ export class PricingService {
       extraLodgingCount,
     };
 
-    if (context.vehicleType === HIACE && context.headcountTotal < 3) {
+    if ((context.vehicleType === HIACE_SHORT || context.vehicleType === HIACE_LONG) && context.headcountTotal < 3) {
       throw new DomainError('VALIDATION_FAILED', '하이에이스 차량은 3인 이상부터 선택할 수 있습니다.');
     }
 
@@ -1525,7 +1526,7 @@ export class PricingService {
       return true;
     }
     if (rule.lineCode === 'HIACE' && rule.vehicleType === null) {
-      return context.vehicleType === HIACE && context.headcountTotal >= 3 && context.headcountTotal <= 6;
+      return (context.vehicleType === HIACE_SHORT || context.vehicleType === HIACE_LONG) && context.headcountTotal >= 3 && context.headcountTotal <= 6;
     }
     if (rule.lineCode === 'EARLY' && (!rule.variantTypes || (Array.isArray(rule.variantTypes) && rule.variantTypes.length === 0))) {
       return this.shouldApplyEarly(context.variantType);

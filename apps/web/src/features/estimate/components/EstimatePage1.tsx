@@ -41,7 +41,7 @@ const VEHICLE_PURGONG_PHOTO_NOTE = '*푸르공 사진촬영 가능';
 
 function vehicleTypeShowsPurgongPhotoNote(vehicleType: string | null | undefined): boolean {
   const v = vehicleType?.trim();
-  return v === '스타렉스' || v === '하이에이스';
+  return v === '스타렉스' || v === '하이에이스(숏)' || v === '하이에이스(롱)';
 }
 
 function estimateTeamPricingSummarySignature(row: EstimateTeamPricing): string {

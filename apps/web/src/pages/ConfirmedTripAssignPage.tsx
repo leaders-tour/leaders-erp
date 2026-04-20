@@ -70,7 +70,8 @@ function GuideCard({
 
 const VEHICLE_TYPE_LABELS: Record<string, string> = {
   STAREX: '스타렉스',
-  HIACE: '하이에이스',
+  HIACE_SHORT: '하이에이스(숏)',
+  HIACE_LONG: '하이에이스(롱)',
   PURGON: '부르곤',
   LAND_CRUISER: '랜드크루저',
   ALPHARD: '알파드',

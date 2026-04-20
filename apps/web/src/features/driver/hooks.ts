@@ -6,7 +6,7 @@ import { runUploadMutation } from '../../lib/upload-mutation';
 export interface DriverRow {
   id: string;
   nameMn: string;
-  vehicleType: 'STAREX' | 'HIACE' | 'PURGON' | 'LAND_CRUISER' | 'ALPHARD' | 'OTHER';
+  vehicleType: 'STAREX' | 'HIACE_SHORT' | 'HIACE_LONG' | 'PURGON' | 'LAND_CRUISER' | 'ALPHARD' | 'OTHER';
   vehicleNumber: string | null;
   vehicleOptions: string | null;
   vehicleYear: number | null;

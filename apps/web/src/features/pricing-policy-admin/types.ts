@@ -21,7 +21,8 @@ export type PricingPriceItemOptionKey =
   | 'NIGHT_TRAIN'
   | 'CONDITIONAL_EARLY'
   | 'CONDITIONAL_EXTEND'
-  | 'CONDITIONAL_HIACE'
+  | 'CONDITIONAL_HIACE_SHORT'
+  | 'CONDITIONAL_HIACE_LONG'
   | 'CONDITIONAL_CUSTOM'
   | 'MANUAL_PRESET';
 export type PricingQuantitySource =

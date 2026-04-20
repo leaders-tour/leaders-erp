@@ -13,7 +13,8 @@ import {
 
 const VEHICLE_TYPE_LABEL: Record<string, string> = {
   STAREX: '스타렉스',
-  HIACE: '하이에이스',
+  HIACE_SHORT: '하이에이스(숏)',
+  HIACE_LONG: '하이에이스(롱)',
   PURGON: '푸르공',
   LAND_CRUISER: '랜드크루저',
   ALPHARD: '알파드',
@@ -36,7 +37,8 @@ const STATUS_OPTIONS: { value: DriverRow['status']; label: string }[] = [
 
 const VEHICLE_TYPE_OPTIONS: { value: DriverRow['vehicleType']; label: string }[] = [
   { value: 'STAREX', label: '스타렉스' },
-  { value: 'HIACE', label: '하이에이스' },
+  { value: 'HIACE_SHORT', label: '하이에이스(숏)' },
+  { value: 'HIACE_LONG', label: '하이에이스(롱)' },
   { value: 'PURGON', label: '푸르공' },
   { value: 'LAND_CRUISER', label: '랜드크루저' },
   { value: 'ALPHARD', label: '알파드' },
