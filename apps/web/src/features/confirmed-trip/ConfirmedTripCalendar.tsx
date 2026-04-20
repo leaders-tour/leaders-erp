@@ -44,10 +44,16 @@ interface CalendarBlock {
   clippedRight: boolean;
 }
 
+interface CalendarTextNote {
+  key: string;
+  tripId: string;
+  label: string;
+  leaderName: string;
+  status: 'ACTIVE' | 'CANCELLED';
+}
+
 const CANCELLED_COLOR: { bg: string; hover: string } = { bg: 'bg-slate-400', hover: 'hover:bg-slate-500' };
 const FALLBACK_COLOR: { bg: string; hover: string } = { bg: 'bg-blue-500', hover: 'hover:bg-blue-600' };
-const PICKUP_COLOR: { bg: string; hover: string } = { bg: 'bg-slate-600', hover: 'hover:bg-slate-700' };
-const DROP_COLOR: { bg: string; hover: string } = { bg: 'bg-slate-500', hover: 'hover:bg-slate-600' };
 
 const REGION_COLOR_RULES: Array<{ keyword: string; color: { bg: string; hover: string } }> = [
   { keyword: '고비', color: { bg: 'bg-amber-500', hover: 'hover:bg-amber-600' } },
@@ -87,7 +93,7 @@ function buildWeekBlocks(
   trips: ConfirmedTripRow[],
   year: number,
   month: number,
-): { weekBlocks: CalendarBlock[][]; weekCount: number } {
+): { weekBlocks: CalendarBlock[][]; weekNotes: CalendarTextNote[][][]; weekCount: number } {
   const daysInMonth = getDaysInMonth(year, month);
   const firstWeekday = getWeekdayIndex(year, month, 1);
   const totalCells = firstWeekday + daysInMonth;
@@ -115,13 +121,12 @@ function buildWeekBlocks(
 
   // weekBlocks[weekIdx] 초기화
   const weekBlocks: CalendarBlock[][] = Array.from({ length: weekCount }, () => []);
+  const weekNotes: CalendarTextNote[][][] = Array.from({ length: weekCount }, () =>
+    Array.from({ length: 7 }, () => []),
+  );
 
   // 주별 레인 점유 (단순 카운팅 – 주 내 순서대로 lane 배정)
   const weekLaneCount: number[] = new Array(weekCount).fill(0);
-
-  // 투어 블록이 차지한 레인을 기억: tripId → weekIdx → lane
-  // 픽업/드랍 블록이 같은 주에 있을 때 동일 레인을 재사용하기 위해 사용
-  const tripWeekLane = new Map<string, Map<number, number>>();
 
   for (const trip of filtered) {
     const startStr = getTripStartDate(trip);
@@ -165,10 +170,6 @@ function buildWeekBlocks(
       const lane = weekLaneCount[weekIdx] ?? 0;
       weekLaneCount[weekIdx] = lane + 1;
 
-      // 이 여행이 이 주에서 사용하는 레인을 기록
-      if (!tripWeekLane.has(trip.id)) tripWeekLane.set(trip.id, new Map());
-      tripWeekLane.get(trip.id)!.set(weekIdx, lane);
-
       weekBlocks[weekIdx]?.push({
         key: `${trip.id}-w${weekIdx}`,
         tripId: trip.id,
@@ -186,11 +187,11 @@ function buildWeekBlocks(
     }
   }
 
-  // ── 픽업 / 드랍 1일짜리 블록 추가 ──────────────────────────────────────────
-  const addSingleDayBlock = (
+  // 날짜 칸 하단에 렌더링할 텍스트 메모 추가
+  const addSingleDayNote = (
     trip: ConfirmedTripRow,
     dateStr: string,
-    type: 'pickup' | 'drop',
+    label: string,
   ) => {
     const date = isoToLocalDate(dateStr);
     if (date < monthStart || date > monthEnd) return;
@@ -207,41 +208,26 @@ function buildWeekBlocks(
       date.getDate(),
     );
 
-    // 같은 주에 투어 블록이 있으면 동일 레인 재사용 → 픽업/드랍이 투어와 같은 행에 표시됨
-    const existingLane = tripWeekLane.get(trip.id)?.get(correctWeekIdx);
-    let lane: number;
-    if (existingLane !== undefined) {
-      lane = existingLane;
-    } else {
-      lane = weekLaneCount[correctWeekIdx] ?? 0;
-      weekLaneCount[correctWeekIdx] = lane + 1;
-    }
-
-    weekBlocks[correctWeekIdx]?.push({
-      key: `${trip.id}-${type}-w${correctWeekIdx}`,
+    weekNotes[correctWeekIdx]?.[col]?.push({
+      key: `${trip.id}-${label}-w${correctWeekIdx}`,
       tripId: trip.id,
-      leaderName: getTripLeaderName(trip),
-      headcount: getTripHeadcount(trip) ?? 0,
-      color: type === 'pickup' ? PICKUP_COLOR : DROP_COLOR,
       status: trip.status,
-      blockType: type,
-      colStart: col,
-      colSpan: 1,
-      lane,
-      clippedLeft: false,
-      clippedRight: false,
+      label,
+      leaderName: getTripLeaderName(trip),
     });
   };
 
-  // 이달에 픽업/드랍 날짜가 있는 모든 여행을 처리 (필터 없이 전체 목록 순회)
+  // 이달에 표시할 메모성 텍스트를 날짜별로 수집
   for (const trip of trips) {
+    const startStr = getTripStartDate(trip);
     const pickupStr = getTripPickupDate(trip);
     const dropStr = getTripDropDate(trip);
-    if (pickupStr) addSingleDayBlock(trip, pickupStr, 'pickup');
-    if (dropStr) addSingleDayBlock(trip, dropStr, 'drop');
+    if (pickupStr) addSingleDayNote(trip, pickupStr, '픽업');
+    if (dropStr) addSingleDayNote(trip, dropStr, '드랍');
+    if (trip.camelDollPurchased && startStr) addSingleDayNote(trip, startStr, '낙타인형 구매');
   }
 
-  return { weekBlocks, weekCount };
+  return { weekBlocks, weekNotes, weekCount };
 }
 
 export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: ConfirmedTripCalendarProps): JSX.Element {
@@ -251,7 +237,7 @@ export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: Con
   const firstWeekday = getWeekdayIndex(year, month, 1);
   const todayIso = getTodayIso();
 
-  const { weekBlocks, weekCount } = useMemo(
+  const { weekBlocks, weekNotes, weekCount } = useMemo(
     () => buildWeekBlocks(trips, year, month),
     [trips, year, month],
   );
@@ -315,9 +301,14 @@ export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: Con
       <div className="divide-y divide-slate-100">
         {Array.from({ length: weekCount }, (_, weekIdx) => {
           const currentBlocks = weekBlocks[weekIdx] ?? [];
+          const currentNotes = weekNotes[weekIdx] ?? [];
           const laneCount = currentBlocks.reduce((max, b) => Math.max(max, b.lane + 1), 0);
-          // 날짜 숫자 영역(4rem 기본) + 레인당 1.875rem
-          const rowMinHeight = 4 + laneCount * 1.875;
+          const maxNoteCount = currentNotes.reduce(
+            (max, notesByDay) => Math.max(max, notesByDay.length),
+            0,
+          );
+          const notesTopRem = 2.125 + laneCount * 1.875 + 0.25;
+          const rowMinHeight = notesTopRem + maxNoteCount * 1.125 + 0.5;
 
           return (
             <div key={`week-${weekIdx}`} className="relative" style={{ minHeight: `${rowMinHeight}rem` }}>
@@ -328,27 +319,48 @@ export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: Con
                   const isValid = dayNum >= 1 && dayNum <= daysInMonth;
                   const isoDate = isValid ? toIso(year, month, dayNum) : '';
                   const isToday = isoDate === todayIso;
+                  const cellNotes = currentNotes[colIdx] ?? [];
 
                   return (
                     <div
                       key={`cell-${weekIdx}-${colIdx}`}
-                      className="px-1.5 pt-1"
+                      className="relative px-1.5 pt-1"
                       style={{ minHeight: `${rowMinHeight}rem` }}
                     >
                       {isValid && (
-                        <span
-                          className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
-                            isToday
-                              ? 'bg-slate-900 text-white'
-                              : colIdx === 0
-                                ? 'text-red-500'
-                                : colIdx === 6
-                                  ? 'text-blue-500'
-                                  : 'text-slate-700'
-                          }`}
-                        >
-                          {dayNum}
-                        </span>
+                        <>
+                          <span
+                            className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
+                              isToday
+                                ? 'bg-slate-900 text-white'
+                                : colIdx === 0
+                                  ? 'text-red-500'
+                                  : colIdx === 6
+                                    ? 'text-blue-500'
+                                    : 'text-slate-700'
+                            }`}
+                          >
+                            {dayNum}
+                          </span>
+                          <div
+                            className="absolute left-1.5 right-1.5 grid gap-0.5"
+                            style={{ top: `${notesTopRem}rem` }}
+                          >
+                            {cellNotes.map((note) => (
+                              <button
+                                key={note.key}
+                                type="button"
+                                onClick={() => navigate(`/confirmed-trips/${note.tripId}`)}
+                                title={`${note.label} - ${note.leaderName}`}
+                                className={`w-full truncate text-left text-[11px] leading-4 transition hover:text-slate-900 ${
+                                  note.status === 'CANCELLED' ? 'text-slate-400' : 'text-slate-700'
+                                }`}
+                              >
+                                {note.label} - {note.leaderName}
+                              </button>
+                            ))}
+                          </div>
+                        </>
                       )}
                     </div>
                   );
@@ -370,22 +382,12 @@ export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: Con
                     ].join(' ')
                   : 'rounded-full';
 
-                const label = block.blockType === 'pickup'
-                  ? '픽업'
-                  : block.blockType === 'drop'
-                    ? '드랍'
-                    : null;
-
                 return (
                   <button
                     key={block.key}
                     type="button"
                     onClick={() => navigate(`/confirmed-trips/${block.tripId}`)}
-                    title={
-                      label
-                        ? `${label} — ${block.leaderName}`
-                        : `${block.leaderName} (${block.headcount}명)`
-                    }
+                    title={`${block.leaderName} (${block.headcount}명)`}
                     className={`absolute z-10 flex h-7 cursor-pointer items-center gap-1 truncate px-2.5 text-[11px] font-medium text-white transition ${color.bg} ${color.hover} ${roundingClass}`}
                     style={{
                       left: `calc(${colStartPct}% + 2px)`,
@@ -393,17 +395,8 @@ export function ConfirmedTripCalendar({ trips, year, month, onChangeMonth }: Con
                       top: `${topRem}rem`,
                     }}
                   >
-                    {label ? (
-                      <>
-                        <span className="shrink-0 font-semibold">{label}</span>
-                        <span className="truncate opacity-80">{block.leaderName}</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="truncate">{block.leaderName}</span>
-                        <span className="shrink-0 opacity-75">{block.headcount}명</span>
-                      </>
-                    )}
+                    <span className="truncate">{block.leaderName}</span>
+                    <span className="shrink-0 opacity-75">{block.headcount}명</span>
                   </button>
                 );
               })}
