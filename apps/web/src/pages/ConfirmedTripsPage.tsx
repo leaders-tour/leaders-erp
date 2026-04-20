@@ -16,6 +16,8 @@ import {
 type DateFilter = 'upcoming' | 'ongoing' | 'completed';
 type ViewMode = 'list' | 'calendar';
 type RentalItemFilter = 'drone' | 'starlink' | 'powerbank' | 'camelDoll' | 'pickup' | 'drop';
+type SortKey = 'travelStart' | 'confirmedAt';
+type SortDir = 'asc' | 'desc';
 
 const DATE_FILTER_OPTIONS: { value: DateFilter; label: string }[] = [
   { value: 'upcoming', label: '여행 예정' },
@@ -53,13 +55,24 @@ function applyDateFilter(trips: ConfirmedTripRow[], filter: DateFilter): Confirm
     return end < today;
   });
 
-  // 출발일 오름차순 정렬 (곧 출발하는 순서)
-  return filtered.sort((a, b) => {
-    const aStr = getTripStartDate(a);
-    const bStr = getTripStartDate(b);
-    if (!aStr) return 1;
-    if (!bStr) return -1;
-    return new Date(aStr).getTime() - new Date(bStr).getTime();
+  return filtered;
+}
+
+function applySort(trips: ConfirmedTripRow[], key: SortKey, dir: SortDir): ConfirmedTripRow[] {
+  return [...trips].sort((a, b) => {
+    let aVal: number, bVal: number;
+    if (key === 'confirmedAt') {
+      aVal = new Date(a.confirmedAt).getTime();
+      bVal = new Date(b.confirmedAt).getTime();
+    } else {
+      const aStr = getTripStartDate(a);
+      const bStr = getTripStartDate(b);
+      if (!aStr) return 1;
+      if (!bStr) return -1;
+      aVal = new Date(aStr).getTime();
+      bVal = new Date(bStr).getTime();
+    }
+    return dir === 'asc' ? aVal - bVal : bVal - aVal;
   });
 }
 
@@ -170,8 +183,34 @@ export function ConfirmedTripsPage(): JSX.Element {
     (searchParams.get('filter') as DateFilter | null) ?? 'upcoming';
   const rentalItemFilter =
     (searchParams.get('rentalItem') as RentalItemFilter | null) ?? null;
-  const trips = applyRentalItemFilter(applyDateFilter(allTrips, dateFilter), rentalItemFilter);
+  const sortKey: SortKey = (searchParams.get('sortKey') as SortKey | null) ?? 'travelStart';
+  const sortDir: SortDir = (searchParams.get('sortDir') as SortDir | null) ?? 'asc';
+
+  const trips = applySort(
+    applyRentalItemFilter(applyDateFilter(allTrips, dateFilter), rentalItemFilter),
+    sortKey,
+    sortDir,
+  );
   const calendarTrips = applyRentalItemFilter(allTrips, rentalItemFilter);
+
+  function toggleSort(key: SortKey) {
+    setSearchParams((prev) => {
+      const currentKey = prev.get('sortKey') ?? 'travelStart';
+      const currentDir = prev.get('sortDir') ?? 'asc';
+      if (currentKey === key) {
+        prev.set('sortDir', currentDir === 'asc' ? 'desc' : 'asc');
+      } else {
+        prev.set('sortKey', key);
+        prev.set('sortDir', 'asc');
+      }
+      return prev;
+    }, { replace: true });
+  }
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <span className="ml-1 text-slate-300">↕</span>;
+    return <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>;
+  }
 
   const viewMode: ViewMode = searchParams.get('view') === 'calendar' ? 'calendar' : 'list';
   const { year: nowYear, month: nowMonth } = getNow();
@@ -311,7 +350,12 @@ export function ConfirmedTripsPage(): JSX.Element {
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">대표자</th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">여행기간</th>
+                  <th
+                    className="cursor-pointer whitespace-nowrap px-4 py-3 font-medium text-slate-600 hover:text-slate-900 select-none"
+                    onClick={() => toggleSort('travelStart')}
+                  >
+                    여행기간<SortIcon col="travelStart" />
+                  </th>
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">D-Day</th>
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">인원</th>
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">여행지</th>
@@ -321,6 +365,12 @@ export function ConfirmedTripsPage(): JSX.Element {
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">숙소</th>
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">총액</th>
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">예약금</th>
+                  <th
+                    className="cursor-pointer whitespace-nowrap px-4 py-3 font-medium text-slate-600 hover:text-slate-900 select-none"
+                    onClick={() => toggleSort('confirmedAt')}
+                  >
+                    예약일<SortIcon col="confirmedAt" />
+                  </th>
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">상태</th>
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">경고</th>
                 </tr>
@@ -380,6 +430,9 @@ export function ConfirmedTripsPage(): JSX.Element {
                           : trip.depositAmountKrw != null
                             ? formatKrw(trip.depositAmountKrw)
                             : '-'}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-slate-500 text-xs">
+                        {new Date(trip.confirmedAt).toLocaleDateString('ko-KR')}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
                         <StatusBadge status={trip.status} />
