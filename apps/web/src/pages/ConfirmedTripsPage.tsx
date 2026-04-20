@@ -20,13 +20,14 @@ import {
   type ConfirmedTripRow,
 } from '../features/confirmed-trip/hooks';
 
-type DateFilter = 'upcoming' | 'ongoing' | 'completed';
+type DateFilter = 'reserved' | 'upcoming' | 'ongoing' | 'completed';
 type ViewMode = 'list' | 'calendar';
 type RentalItemFilter = 'drone' | 'starlink' | 'powerbank' | 'camelDoll' | 'pickup' | 'drop';
 type SortKey = 'travelStart' | 'confirmedAt';
 type SortDir = 'asc' | 'desc';
 
 const DATE_FILTER_OPTIONS: { value: DateFilter; label: string }[] = [
+  { value: 'reserved', label: '예약표' },
   { value: 'upcoming', label: '여행 예정' },
   { value: 'ongoing', label: '여행중' },
   { value: 'completed', label: '여행 완료' },
@@ -48,8 +49,9 @@ function getTodayMidnight(): Date {
 }
 
 function applyDateFilter(trips: ConfirmedTripRow[], filter: DateFilter): ConfirmedTripRow[] {
+  if (filter === 'reserved') return trips;
   const today = getTodayMidnight();
-  const filtered = trips.filter((trip) => {
+  return trips.filter((trip) => {
     const startStr = getTripStartDate(trip);
     const endStr = getTripEndDate(trip);
     if (!startStr || !endStr) return false;
@@ -61,8 +63,6 @@ function applyDateFilter(trips: ConfirmedTripRow[], filter: DateFilter): Confirm
     if (filter === 'ongoing') return start <= today && end >= today;
     return end < today;
   });
-
-  return filtered;
 }
 
 function applySort(trips: ConfirmedTripRow[], key: SortKey, dir: SortDir): ConfirmedTripRow[] {
@@ -88,7 +88,6 @@ function applyRentalItemFilter(
   filter: RentalItemFilter | null,
 ): ConfirmedTripRow[] {
   if (!filter) return trips;
-
   return trips.filter((trip) => {
     if (filter === 'drone') return trip.rentalDrone;
     if (filter === 'starlink') return trip.rentalStarlink;
@@ -105,11 +104,6 @@ function getNow() {
   return { year: now.getFullYear(), month: now.getMonth() + 1 };
 }
 
-const currencyFormatter = new Intl.NumberFormat('ko-KR');
-function formatKrw(value: number): string {
-  return `${currencyFormatter.format(value)}원`;
-}
-
 function formatDateRange(start: string, end: string): string {
   const s = new Date(start);
   const e = new Date(end);
@@ -118,18 +112,22 @@ function formatDateRange(start: string, end: string): string {
   return `${fmt(s)} → ${fmt(e)}`;
 }
 
-function getDaysUntilDeparture(startDate: string): number {
+function getDaysFromToday(dateStr: string): number {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  const start = new Date(startDate);
-  start.setHours(0, 0, 0, 0);
-  return Math.ceil((start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+// D-day 뱃지 (여행 출발까지 남은 일수)
 function DepartureBadge({ startDate }: { startDate: string }) {
-  const days = getDaysUntilDeparture(startDate);
+  const days = getDaysFromToday(startDate);
   if (days < 0) {
     return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">출발완료</span>;
+  }
+  if (days === 0) {
+    return <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">D-Day</span>;
   }
   if (days <= 3) {
     return <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">D-{days}</span>;
@@ -142,11 +140,51 @@ function DepartureBadge({ startDate }: { startDate: string }) {
   return <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">D-{days}</span>;
 }
 
-function StatusBadge({ status }: { status: 'ACTIVE' | 'CANCELLED' }) {
-  if (status === 'CANCELLED') {
-    return <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">취소</span>;
+// #N일차 진행중 뱃지
+function TripDayBadge({ startDate }: { startDate: string }) {
+  const elapsed = -getDaysFromToday(startDate);
+  const day = elapsed + 1;
+  return (
+    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+      #{day}일차 진행중
+    </span>
+  );
+}
+
+// D+N 뱃지 (여행 종료 후 경과일)
+function DPlusBadge({ endDate }: { endDate: string }) {
+  const elapsed = -getDaysFromToday(endDate);
+  return (
+    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+      D+{elapsed}
+    </span>
+  );
+}
+
+// 모집 뱃지
+function RecruitmentBadge({ open }: { open: boolean }) {
+  if (open) {
+    return <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">모집중</span>;
   }
-  return <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">확정</span>;
+  return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">마감</span>;
+}
+
+// 이벤트 뱃지 (드론/스타링크/파워뱅크)
+function EventBadges({ trip }: { trip: ConfirmedTripRow }) {
+  const items: string[] = [];
+  if (trip.rentalDrone) items.push('드론');
+  if (trip.rentalStarlink) items.push('스타링크');
+  if (trip.rentalPowerbank) items.push('파워뱅크');
+  if (items.length === 0) return <span className="text-slate-300">-</span>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {items.map((item) => (
+        <span key={item} className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+          {item}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function getLodgingSummary(trip: ConfirmedTripRow): string {
@@ -179,6 +217,148 @@ function WarningBadges({ trip }: { trip: ConfirmedTripRow }) {
     );
   }
   return badges.length > 0 ? <div className="flex flex-wrap gap-1">{badges}</div> : null;
+}
+
+// 필터별 테이블 헤더 정의
+function TripTableHead({
+  filter,
+  sortKey,
+  sortDir,
+  onSort,
+}: {
+  filter: DateFilter;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
+}) {
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <span className="ml-1 text-slate-300">↕</span>;
+    return <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>;
+  }
+
+  const th = (label: string) => (
+    <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">{label}</th>
+  );
+  const thSort = (label: string, col: SortKey) => (
+    <th
+      className="cursor-pointer whitespace-nowrap px-4 py-3 font-medium text-slate-600 hover:text-slate-900 select-none"
+      onClick={() => onSort(col)}
+    >
+      {label}<SortIcon col={col} />
+    </th>
+  );
+
+  return (
+    <thead>
+      <tr className="border-b border-slate-100 bg-slate-50">
+        {th('대표자명')}
+        {thSort('여행기간', 'travelStart')}
+        {/* 상태 컬럼: D-day / #일차 / D+day */}
+        {(filter === 'reserved' || filter === 'upcoming') && th('D-Day')}
+        {filter === 'ongoing' && th('#일차')}
+        {filter === 'completed' && th('D+day')}
+        {th('인원')}
+        {(filter === 'reserved' || filter === 'upcoming') && th('모집유무')}
+        {th('여행지')}
+        {th('가이드')}
+        {th('기사')}
+        {(filter !== 'completed') && th('차량')}
+        {(filter !== 'completed') && th('숙소')}
+        {(filter !== 'reserved') && th('이벤트')}
+      </tr>
+    </thead>
+  );
+}
+
+// 필터별 테이블 행 정의
+function TripTableRow({
+  trip,
+  filter,
+  onClick,
+}: {
+  trip: ConfirmedTripRow;
+  filter: DateFilter;
+  onClick: () => void;
+}) {
+  const startStr = getTripStartDate(trip);
+  const endStr = getTripEndDate(trip);
+  const headcount = getTripHeadcount(trip);
+
+  return (
+    <tr
+      className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50"
+      onClick={onClick}
+    >
+      {/* 대표자명 */}
+      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
+        {getTripLeaderName(trip)}
+      </td>
+      {/* 여행기간 */}
+      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+        {startStr && endStr ? formatDateRange(startStr, endStr) : '-'}
+      </td>
+      {/* D-Day */}
+      {(filter === 'reserved' || filter === 'upcoming') && (
+        <td className="whitespace-nowrap px-4 py-3">
+          {startStr ? <DepartureBadge startDate={startStr} /> : '-'}
+        </td>
+      )}
+      {/* #일차 진행중 */}
+      {filter === 'ongoing' && (
+        <td className="whitespace-nowrap px-4 py-3">
+          {startStr ? <TripDayBadge startDate={startStr} /> : '-'}
+        </td>
+      )}
+      {/* D+day */}
+      {filter === 'completed' && (
+        <td className="whitespace-nowrap px-4 py-3">
+          {endStr ? <DPlusBadge endDate={endStr} /> : '-'}
+        </td>
+      )}
+      {/* 인원 */}
+      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+        {headcount ?? '-'}
+      </td>
+      {/* 모집유무 */}
+      {(filter === 'reserved' || filter === 'upcoming') && (
+        <td className="whitespace-nowrap px-4 py-3">
+          <RecruitmentBadge open={trip.isRecruitingOpen} />
+        </td>
+      )}
+      {/* 여행지 */}
+      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+        {getTripDestination(trip)}
+      </td>
+      {/* 가이드 */}
+      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+        {trip.guideName ?? '-'}
+      </td>
+      {/* 기사 */}
+      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+        {trip.driverName ?? '-'}
+      </td>
+      {/* 차량 (여행 완료 제외) */}
+      {filter !== 'completed' && (
+        <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+          {trip.assignedVehicle ?? trip.planVersion?.meta?.vehicleType ?? '-'}
+        </td>
+      )}
+      {/* 숙소 (여행 완료 제외) */}
+      {filter !== 'completed' && (
+        <td className="max-w-[200px] px-4 py-3 text-slate-700">
+          <span className="line-clamp-2 text-xs leading-snug">
+            {getLodgingSummary(trip)}
+          </span>
+        </td>
+      )}
+      {/* 이벤트 (예약표 제외) */}
+      {filter !== 'reserved' && (
+        <td className="whitespace-nowrap px-4 py-3">
+          <EventBadges trip={trip} />
+        </td>
+      )}
+    </tr>
+  );
 }
 
 export function ConfirmedTripsPage(): JSX.Element {
@@ -257,11 +437,6 @@ export function ConfirmedTripsPage(): JSX.Element {
     }, { replace: true });
   }
 
-  function SortIcon({ col }: { col: SortKey }) {
-    if (sortKey !== col) return <span className="ml-1 text-slate-300">↕</span>;
-    return <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>;
-  }
-
   const viewMode: ViewMode = searchParams.get('view') === 'calendar' ? 'calendar' : 'list';
 
   function setViewMode(mode: ViewMode) {
@@ -285,6 +460,13 @@ export function ConfirmedTripsPage(): JSX.Element {
       { replace: true },
     );
   }
+
+  const emptyMessage = {
+    reserved: '확정된 여행이 없습니다.',
+    upcoming: '예정된 투어가 없습니다.',
+    ongoing: '현재 여행중인 투어가 없습니다.',
+    completed: '완료된 투어가 없습니다.',
+  }[dateFilter];
 
   return (
     <section className="grid gap-6">
@@ -389,110 +571,27 @@ export function ConfirmedTripsPage(): JSX.Element {
         />
       ) : trips.length === 0 ? (
         <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
-          {dateFilter === 'upcoming' && '예정된 투어가 없습니다.'}
-          {dateFilter === 'ongoing' && '현재 여행중인 투어가 없습니다.'}
-          {dateFilter === 'completed' && '완료된 투어가 없습니다.'}
+          {emptyMessage}
         </Card>
       ) : (
         <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50">
-                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">대표자</th>
-                  <th
-                    className="cursor-pointer whitespace-nowrap px-4 py-3 font-medium text-slate-600 hover:text-slate-900 select-none"
-                    onClick={() => toggleSort('travelStart')}
-                  >
-                    여행기간<SortIcon col="travelStart" />
-                  </th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">D-Day</th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">인원</th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">여행지</th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">가이드</th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">기사</th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">차량</th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">숙소</th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">총액</th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">예약금</th>
-                  <th
-                    className="cursor-pointer whitespace-nowrap px-4 py-3 font-medium text-slate-600 hover:text-slate-900 select-none"
-                    onClick={() => toggleSort('confirmedAt')}
-                  >
-                    예약일<SortIcon col="confirmedAt" />
-                  </th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">상태</th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">경고</th>
-                </tr>
-              </thead>
+              <TripTableHead
+                filter={dateFilter}
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
               <tbody>
-                {trips.map((trip) => {
-                  const meta = trip.planVersion?.meta ?? null;
-                  const pricing = trip.planVersion?.pricing ?? null;
-                  const startStr = getTripStartDate(trip);
-                  const endStr = getTripEndDate(trip);
-                  const headcount = getTripHeadcount(trip);
-                  return (
-                    <tr
-                      key={trip.id}
-                      className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50"
-                      onClick={() => navigate(`/confirmed-trips/${trip.id}`)}
-                    >
-                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
-                        {getTripLeaderName(trip)}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                        {startStr && endStr ? formatDateRange(startStr, endStr) : '-'}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3">
-                        {startStr ? <DepartureBadge startDate={startStr} /> : '-'}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                        {headcount ?? '-'}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                        {getTripDestination(trip)}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                        {trip.guideName ?? '-'}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                        {trip.driverName ?? '-'}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                        {trip.assignedVehicle ?? meta?.vehicleType ?? '-'}
-                      </td>
-                      <td className="max-w-[200px] px-4 py-3 text-slate-700">
-                        <span className="line-clamp-2 text-xs leading-snug">
-                          {getLodgingSummary(trip)}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                        {pricing
-                          ? formatKrw(pricing.totalAmountKrw)
-                          : trip.totalAmountKrw != null
-                            ? formatKrw(trip.totalAmountKrw)
-                            : '-'}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                        {pricing
-                          ? formatKrw(pricing.depositAmountKrw)
-                          : trip.depositAmountKrw != null
-                            ? formatKrw(trip.depositAmountKrw)
-                            : '-'}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-slate-500 text-xs">
-                        {new Date(trip.confirmedAt).toLocaleDateString('ko-KR')}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3">
-                        <StatusBadge status={trip.status} />
-                      </td>
-                      <td className="px-4 py-3">
-                        <WarningBadges trip={trip} />
-                      </td>
-                    </tr>
-                  );
-                })}
+                {trips.map((trip) => (
+                  <TripTableRow
+                    key={trip.id}
+                    trip={trip}
+                    filter={dateFilter}
+                    onClick={() => navigate(`/confirmed-trips/${trip.id}`)}
+                  />
+                ))}
               </tbody>
             </table>
           </div>

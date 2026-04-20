@@ -166,6 +166,7 @@ export interface ConfirmedTripRow {
   rentalStarlink: boolean;
   rentalPowerbank: boolean;
   camelDollPurchased: boolean;
+  isRecruitingOpen: boolean;
   depositAmountKrw: number | null;
   balanceAmountKrw: number | null;
   totalAmountKrw: number | null;
@@ -249,6 +250,7 @@ const CONFIRMED_TRIP_FRAGMENT = gql`
     rentalStarlink
     rentalPowerbank
     camelDollPurchased
+    isRecruitingOpen
     depositAmountKrw
     balanceAmountKrw
     totalAmountKrw
