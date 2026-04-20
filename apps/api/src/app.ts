@@ -197,6 +197,54 @@ export async function createApp(): Promise<express.Express> {
     }),
   );
 
+  app.options('/api/pdf-proxy', corsMiddleware);
+  app.get('/api/pdf-proxy', corsMiddleware, async (req, res, next) => {
+    try {
+      const rawUrl = typeof req.query['url'] === 'string' ? req.query['url'] : '';
+      if (!rawUrl) {
+        res.status(400).json({ message: 'url 파라미터가 필요합니다.' });
+        return;
+      }
+
+      let parsed: URL;
+      try {
+        parsed = new URL(rawUrl);
+      } catch {
+        res.status(400).json({ message: '유효하지 않은 URL입니다.' });
+        return;
+      }
+
+      const s3Bucket = process.env.S3_BUCKET ?? '';
+      const s3Region = process.env.AWS_REGION ?? '';
+      const publicBaseUrl = process.env.S3_PUBLIC_BASE_URL ?? '';
+      const allowedHosts = [
+        `${s3Bucket}.s3.${s3Region}.amazonaws.com`,
+        `${s3Bucket}.s3.amazonaws.com`,
+        publicBaseUrl ? new URL(publicBaseUrl).hostname : '',
+      ].filter(Boolean);
+
+      if (!allowedHosts.includes(parsed.hostname)) {
+        res.status(403).json({ message: '허용되지 않은 도메인입니다.' });
+        return;
+      }
+
+      const upstream = await fetch(rawUrl);
+      if (!upstream.ok) {
+        res.status(502).json({ message: `업스트림 오류: ${upstream.status}` });
+        return;
+      }
+
+      const contentType = upstream.headers.get('content-type') ?? 'application/pdf';
+      res.setHeader('content-type', contentType);
+      res.setHeader('cache-control', 'public, max-age=3600');
+
+      const buffer = await upstream.arrayBuffer();
+      res.status(200).send(Buffer.from(buffer));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.options('/documents/estimate/pdf', corsMiddleware);
   app.options('/documents/estimate/pdf-jobs', corsMiddleware);
   app.options('/documents/estimate/pdf-jobs/:jobId', corsMiddleware);
