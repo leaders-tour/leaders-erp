@@ -1,7 +1,8 @@
 import { Button, Card } from '@tour/ui';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useGuides, useCreateGuide, type GuideRow } from '../features/guide/hooks';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { GuideAllocationCalendar } from '../features/guide/components/GuideAllocationCalendar';
+import { useGuides, useGuidesWithTrips, useCreateGuide, type GuideRow } from '../features/guide/hooks';
 
 const LEVEL_LABEL: Record<string, string> = {
   MAIN: '메인',
@@ -198,16 +199,50 @@ function CreateGuideModal({
   );
 }
 
+function getNow() {
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+}
+
 export function GuidesPage(): JSX.Element {
   const [levelFilter, setLevelFilter] = useState<LevelFilter>(undefined);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE_SEASON');
   const [searchQuery, setSearchQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const { guides, loading } = useGuides({ level: levelFilter, status: statusFilter });
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const viewMode = searchParams.get('view') === 'calendar' ? 'calendar' : 'list';
+  const { year: nowYear, month: nowMonth } = getNow();
+  const calYear = Number(searchParams.get('cy')) || nowYear;
+  const calMonth = Number(searchParams.get('cm')) || nowMonth;
+
+  function setViewMode(mode: 'list' | 'calendar') {
+    setSearchParams((prev) => { prev.set('view', mode); return prev; }, { replace: true });
+  }
+
+  function setCalendarMonth(year: number, month: number) {
+    setSearchParams(
+      (prev) => { prev.set('cy', String(year)); prev.set('cm', String(month)); return prev; },
+      { replace: true },
+    );
+  }
+
+  // 리스트 뷰: 가벼운 쿼리
+  const { guides: listGuides, loading: listLoading } = useGuides({
+    level: levelFilter,
+    status: statusFilter,
+  });
+  // 캘린더 뷰: 여행 배정 포함 쿼리
+  const { guides: calGuides, loading: calLoading } = useGuidesWithTrips({
+    level: levelFilter,
+    status: statusFilter,
+  });
+
+  const loading = viewMode === 'calendar' ? calLoading : listLoading;
 
   const filteredGuides = searchQuery.trim()
-    ? guides.filter((g) => {
+    ? listGuides.filter((g) => {
         const q = searchQuery.trim().toLowerCase();
         return (
           g.nameKo.toLowerCase().includes(q) ||
@@ -215,16 +250,29 @@ export function GuidesPage(): JSX.Element {
           (g.phone?.toLowerCase().includes(q) ?? false)
         );
       })
-    : guides;
+    : listGuides;
+
+  const filteredCalGuides = searchQuery.trim()
+    ? calGuides.filter((g) => {
+        const q = searchQuery.trim().toLowerCase();
+        return (
+          g.nameKo.toLowerCase().includes(q) ||
+          (g.nameMn?.toLowerCase().includes(q) ?? false) ||
+          (g.phone?.toLowerCase().includes(q) ?? false)
+        );
+      })
+    : calGuides;
 
   return (
     <section className="grid gap-6">
-      <header className="flex items-start justify-between">
+      <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">가이드 목록</h1>
           <p className="mt-1 text-sm text-slate-600">등록된 가이드 정보를 관리합니다.</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>+ 가이드 등록</Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button onClick={() => setCreateOpen(true)}>+ 가이드 등록</Button>
+        </div>
       </header>
 
       <CreateGuideModal
@@ -264,22 +312,57 @@ export function GuidesPage(): JSX.Element {
           )}
         </div>
 
-        <div className="flex flex-wrap gap-1">
-          {([undefined, 'ACTIVE_SEASON', 'INTERVIEW_DONE', 'INACTIVE'] as (StatusFilter | undefined)[]).map(
-            (s) => (
-              <button
-                key={String(s)}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                  statusFilter === s
-                    ? 'bg-slate-800 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-                onClick={() => setStatusFilter(s as StatusFilter)}
-              >
-                {s == null ? '전체' : STATUS_LABEL[s]}
-              </button>
-            ),
-          )}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-1">
+            {([undefined, 'ACTIVE_SEASON', 'INTERVIEW_DONE', 'INACTIVE'] as (StatusFilter | undefined)[]).map(
+              (s) => (
+                <button
+                  key={String(s)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                    statusFilter === s
+                      ? 'bg-slate-800 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                  onClick={() => setStatusFilter(s as StatusFilter)}
+                >
+                  {s == null ? '전체' : STATUS_LABEL[s]}
+                </button>
+              ),
+            )}
+          </div>
+
+          {/* 뷰 전환 토글 */}
+          <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                viewMode === 'list'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4">
+                <path d="M2 4h12M2 8h12M2 12h12" strokeLinecap="round" />
+              </svg>
+              리스트
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('calendar')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                viewMode === 'calendar'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+                <rect x="2" y="3" width="12" height="11" rx="1.5" />
+                <path d="M5 2v2M11 2v2M2 7h12" strokeLinecap="round" />
+              </svg>
+              캘린더
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-1">
@@ -301,6 +384,13 @@ export function GuidesPage(): JSX.Element {
 
       {loading ? (
         <p className="text-sm text-slate-500">불러오는 중...</p>
+      ) : viewMode === 'calendar' ? (
+        <GuideAllocationCalendar
+          guides={filteredCalGuides}
+          year={calYear}
+          month={calMonth}
+          onChangeMonth={setCalendarMonth}
+        />
       ) : filteredGuides.length === 0 ? (
         <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
           {searchQuery.trim() ? `"${searchQuery}" 검색 결과가 없습니다.` : '등록된 가이드가 없습니다.'}

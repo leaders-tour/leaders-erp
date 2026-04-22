@@ -13,6 +13,7 @@ import {
   getTripStartDate,
   type ConfirmedTripRow,
 } from '../../confirmed-trip/hooks';
+import { getColorByDestination } from '../trip-color';
 
 interface Props {
   trips: ConfirmedTripRow[];
@@ -30,17 +31,8 @@ interface CalendarBlock {
   clippedRight: boolean;
 }
 
-const REGION_COLOR_RULES: Array<{ keyword: string; bg: string; hover: string }> = [
-  { keyword: '고비', bg: 'bg-amber-500', hover: 'hover:bg-amber-600' },
-  { keyword: '홉스골', bg: 'bg-blue-500', hover: 'hover:bg-blue-600' },
-  { keyword: '중부', bg: 'bg-emerald-500', hover: 'hover:bg-emerald-600' },
-  { keyword: '자브항', bg: 'bg-violet-500', hover: 'hover:bg-violet-600' },
-];
-const FALLBACK_COLOR = { bg: 'bg-blue-500', hover: 'hover:bg-blue-600' };
-
 function getTripColor(trip: ConfirmedTripRow) {
-  const dest = getTripDestination(trip).replace(/\s+/g, '');
-  return REGION_COLOR_RULES.find((r) => dest.includes(r.keyword)) ?? FALLBACK_COLOR;
+  return getColorByDestination(getTripDestination(trip));
 }
 
 function isoToLocalDate(iso: string): Date {
@@ -253,7 +245,7 @@ export function GuideTripCalendar({ trips }: Props) {
               {/* 블록 오버레이 */}
               {currentBlocks.map((block) => {
                 const trip = trips.find((t) => t.id === block.tripId);
-                const color = trip ? getTripColor(trip) : FALLBACK_COLOR;
+                const color = trip ? getTripColor(trip) : getColorByDestination('');
 
                 const colStartPct = (block.colStart / 7) * 100;
                 const colWidthPct = (block.colSpan / 7) * 100;

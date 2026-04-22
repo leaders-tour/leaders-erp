@@ -265,3 +265,64 @@ export function useGuideTrips(id: string | undefined, includeCancelled = false) 
     refetch,
   };
 }
+
+// ── Guides + 배정 여행 (캘린더 조망용) ─────────────────────────────────────
+
+export interface TripSlim {
+  id: string;
+  status: 'ACTIVE' | 'CANCELLED';
+  travelStart: string | null;
+  travelEnd: string | null;
+  destination: string | null;
+  user: { name: string };
+  planVersion: {
+    meta: {
+      travelStartDate: string;
+      travelEndDate: string;
+    } | null;
+  } | null;
+}
+
+export interface GuideWithTrips extends GuideRow {
+  confirmedTrips: TripSlim[];
+}
+
+const GUIDES_WITH_TRIPS_QUERY = gql`
+  query GuidesWithTrips($status: GuideStatus, $level: GuideLevel) {
+    guides(status: $status, level: $level) {
+      id
+      nameKo
+      nameMn
+      level
+      status
+      profileImageUrl
+      confirmedTrips {
+        id
+        status
+        travelStart
+        travelEnd
+        destination
+        user {
+          name
+        }
+        planVersion {
+          meta {
+            travelStartDate
+            travelEndDate
+          }
+        }
+      }
+    }
+  }
+`;
+
+export function useGuidesWithTrips(filters?: { status?: string; level?: string }) {
+  const { data, loading, refetch } = useQuery<{ guides: GuideWithTrips[] }>(
+    GUIDES_WITH_TRIPS_QUERY,
+    {
+      variables: { status: filters?.status, level: filters?.level },
+      fetchPolicy: 'cache-and-network',
+    },
+  );
+  return { guides: data?.guides ?? [], loading, refetch };
+}
