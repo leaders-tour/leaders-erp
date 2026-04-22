@@ -3,10 +3,12 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarNoteModal } from '../features/confirmed-trip/CalendarNoteModal';
 import { ConfirmedTripCalendar } from '../features/confirmed-trip/ConfirmedTripCalendar';
+import { CreateConfirmedTripModal } from '../features/confirmed-trip/CreateConfirmedTripModal';
 import {
   useCalendarNotes,
   useConfirmedTrips,
   useCreateCalendarNote,
+  useCreateConfirmedTripDirect,
   useUpdateCalendarNote,
   useDeleteCalendarNote,
   getTripStartDate,
@@ -373,6 +375,26 @@ export function ConfirmedTripsPage(): JSX.Element {
   const { trips: allTrips, loading } = useConfirmedTrips('ACTIVE');
   const navigate = useNavigate();
 
+  // ── 직접 추가 모달 상태 ───────────────────────────────────────────────────
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const { createConfirmedTripDirect, loading: creatingDirect } = useCreateConfirmedTripDirect();
+
+  async function handleCreateDirect(payload: {
+    userId: string;
+    travelStart?: string | null;
+    travelEnd?: string | null;
+    destination?: string | null;
+    paxCount?: number | null;
+    totalAmountKrw?: number | null;
+    depositAmountKrw?: number | null;
+    balanceAmountKrw?: number | null;
+    securityDepositAmountKrw?: number | null;
+  }) {
+    await createConfirmedTripDirect(payload);
+    setCreateModalOpen(false);
+    navigate(`/confirmed-trips`);
+  }
+
   // ── CalendarNote 상태 ──────────────────────────────────────────────────────
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [noteModalDate, setNoteModalDate] = useState('');
@@ -477,11 +499,20 @@ export function ConfirmedTripsPage(): JSX.Element {
 
   return (
     <section className="grid gap-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">투어 리스트</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          확정된 여행 건의 운영 현황을 확인합니다.
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">투어 리스트</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            확정된 여행 건의 운영 현황을 확인합니다.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setCreateModalOpen(true)}
+          className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+        >
+          + 직접 추가
+        </button>
       </header>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -614,6 +645,14 @@ export function ConfirmedTripsPage(): JSX.Element {
         onDelete={editingNote ? handleNoteDelete : undefined}
         onClose={() => setNoteModalOpen(false)}
       />
+
+      <CreateConfirmedTripModal
+        open={createModalOpen}
+        saving={creatingDirect}
+        onSave={handleCreateDirect}
+        onClose={() => setCreateModalOpen(false)}
+      />
+
     </section>
   );
 }

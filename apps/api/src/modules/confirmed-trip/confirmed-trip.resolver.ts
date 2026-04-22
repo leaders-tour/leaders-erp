@@ -5,6 +5,7 @@ import type {
   CalendarNoteCreateDto,
   CalendarNoteUpdateDto,
   ConfirmTripDto,
+  CreateConfirmedTripDirectDto,
   ConfirmedTripLodgingUpsertDto,
   ConfirmedTripUpdateDto,
 } from './confirmed-trip.types';
@@ -33,6 +34,10 @@ interface IdArgs {
 
 interface ConfirmTripArgs {
   input: ConfirmTripDto;
+}
+
+interface CreateConfirmedTripDirectArgs {
+  input: CreateConfirmedTripDirectDto;
 }
 
 interface UpdateConfirmedTripArgs {
@@ -66,6 +71,8 @@ export const confirmedTripResolver = {
       new ConfirmedTripService(ctx.prisma).deleteCalendarNote(args.id),
     confirmTrip: (_parent: unknown, args: ConfirmTripArgs, ctx: AppContext) =>
       new ConfirmedTripService(ctx.prisma).confirm(args.input),
+    createConfirmedTrip: (_parent: unknown, args: CreateConfirmedTripDirectArgs, ctx: AppContext) =>
+      new ConfirmedTripService(ctx.prisma).createDirect(args.input),
     updateConfirmedTrip: (_parent: unknown, args: UpdateConfirmedTripArgs, ctx: AppContext) =>
       new ConfirmedTripService(ctx.prisma).update(args.id, args.input),
     cancelConfirmedTrip: (_parent: unknown, args: IdArgs, ctx: AppContext) =>

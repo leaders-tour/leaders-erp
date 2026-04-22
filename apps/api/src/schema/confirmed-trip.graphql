@@ -138,6 +138,19 @@ input ConfirmTripInput {
   confirmedByEmployeeId: ID
 }
 
+input CreateConfirmedTripDirectInput {
+  userId: ID!
+  travelStart: DateTime
+  travelEnd: DateTime
+  destination: String
+  paxCount: Int
+  totalAmountKrw: Int
+  depositAmountKrw: Int
+  balanceAmountKrw: Int
+  securityDepositAmountKrw: Int
+  confirmedByEmployeeId: ID
+}
+
 input ConfirmedTripUpdateInput {
   guideName: String
   driverName: String

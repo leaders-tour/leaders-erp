@@ -381,6 +381,15 @@ const CANCEL_CONFIRMED_TRIP_MUTATION = gql`
   }
 `;
 
+const CREATE_CONFIRMED_TRIP_DIRECT_MUTATION = gql`
+  ${CONFIRMED_TRIP_FRAGMENT}
+  mutation CreateConfirmedTripDirect($input: CreateConfirmedTripDirectInput!) {
+    createConfirmedTrip(input: $input) {
+      ...ConfirmedTripFields
+    }
+  }
+`;
+
 export function useConfirmedTrips(status?: 'ACTIVE' | 'CANCELLED') {
   const { data, loading, refetch } = useQuery<{ confirmedTrips: ConfirmedTripRow[] }>(
     CONFIRMED_TRIPS_QUERY,
@@ -476,6 +485,37 @@ export function useCancelConfirmedTrip() {
         throw new Error('Failed to cancel confirmed trip');
       }
       return result.data.cancelConfirmedTrip;
+    },
+  };
+}
+
+export function useCreateConfirmedTripDirect() {
+  const [mutate, { loading }] = useMutation<{ createConfirmedTrip: ConfirmedTripRow }>(
+    CREATE_CONFIRMED_TRIP_DIRECT_MUTATION,
+  );
+
+  return {
+    loading,
+    createConfirmedTripDirect: async (input: {
+      userId: string;
+      travelStart?: string | null;
+      travelEnd?: string | null;
+      destination?: string | null;
+      paxCount?: number | null;
+      totalAmountKrw?: number | null;
+      depositAmountKrw?: number | null;
+      balanceAmountKrw?: number | null;
+      securityDepositAmountKrw?: number | null;
+      confirmedByEmployeeId?: string | null;
+    }): Promise<ConfirmedTripRow> => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [{ query: CONFIRMED_TRIPS_QUERY }],
+      });
+      if (!result.data?.createConfirmedTrip) {
+        throw new Error('Failed to create confirmed trip');
+      }
+      return result.data.createConfirmedTrip;
     },
   };
 }

@@ -3,6 +3,7 @@ import {
   calendarNoteCreateSchema,
   calendarNoteUpdateSchema,
   confirmTripSchema,
+  createConfirmedTripDirectSchema,
   confirmedTripLodgingUpsertSchema,
   confirmedTripUpdateSchema,
 } from '@tour/validation';
@@ -12,6 +13,7 @@ import type {
   CalendarNoteCreateDto,
   CalendarNoteUpdateDto,
   ConfirmTripDto,
+  CreateConfirmedTripDirectDto,
   ConfirmedTripLodgingUpsertDto,
   ConfirmedTripUpdateDto,
 } from './confirmed-trip.types';
@@ -69,6 +71,31 @@ export class ConfirmedTripService {
       planId,
       planVersionId,
       confirmedByEmployeeId: confirmedByEmployeeId ?? null,
+    });
+  }
+
+  async createDirect(input: CreateConfirmedTripDirectDto) {
+    const parsed = createConfirmedTripDirectSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid create confirmed trip input', parsed.error);
+    }
+
+    const { userId, confirmedByEmployeeId, ...rest } = parsed.data;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!user) {
+      throw new DomainError('NOT_FOUND', 'User not found');
+    }
+
+    return new ConfirmedTripRepository(this.prisma).create({
+      userId,
+      planId: null,
+      planVersionId: null,
+      confirmedByEmployeeId: confirmedByEmployeeId ?? null,
+      ...rest,
     });
   }
 

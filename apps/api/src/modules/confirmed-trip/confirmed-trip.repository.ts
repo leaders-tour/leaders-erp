@@ -49,16 +49,32 @@ export class ConfirmedTripRepository {
 
   create(data: {
     userId: string;
-    planId: string;
-    planVersionId: string;
+    planId?: string | null;
+    planVersionId?: string | null;
     confirmedByEmployeeId?: string | null;
+    travelStart?: Date | null;
+    travelEnd?: Date | null;
+    destination?: string | null;
+    paxCount?: number | null;
+    totalAmountKrw?: number | null;
+    depositAmountKrw?: number | null;
+    balanceAmountKrw?: number | null;
+    securityDepositAmountKrw?: number | null;
   }) {
     return this.prisma.confirmedTrip.create({
       data: {
         userId: data.userId,
-        planId: data.planId,
-        planVersionId: data.planVersionId,
+        planId: data.planId ?? null,
+        planVersionId: data.planVersionId ?? null,
         confirmedByEmployeeId: data.confirmedByEmployeeId ?? null,
+        travelStart: data.travelStart ?? null,
+        travelEnd: data.travelEnd ?? null,
+        destination: data.destination ?? null,
+        paxCount: data.paxCount ?? null,
+        totalAmountKrw: data.totalAmountKrw ?? null,
+        depositAmountKrw: data.depositAmountKrw ?? null,
+        balanceAmountKrw: data.balanceAmountKrw ?? null,
+        securityDepositAmountKrw: data.securityDepositAmountKrw ?? null,
       },
       include: confirmedTripInclude,
     });

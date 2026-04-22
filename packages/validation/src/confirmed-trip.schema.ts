@@ -65,5 +65,19 @@ export const confirmedTripUpdateSchema = z.object({
   groupTotalAmountKrw: z.number().int().min(0).nullable().optional(),
 });
 
+export const createConfirmedTripDirectSchema = z.object({
+  userId: z.string().min(1),
+  travelStart: z.coerce.date().nullable().optional(),
+  travelEnd: z.coerce.date().nullable().optional(),
+  destination: z.string().max(500).nullable().optional(),
+  paxCount: z.number().int().min(1).max(9999).nullable().optional(),
+  totalAmountKrw: z.number().int().min(0).nullable().optional(),
+  depositAmountKrw: z.number().int().min(0).nullable().optional(),
+  balanceAmountKrw: z.number().int().min(0).nullable().optional(),
+  securityDepositAmountKrw: z.number().int().min(0).nullable().optional(),
+  confirmedByEmployeeId: z.string().nullable().optional(),
+});
+
 export type ConfirmTripInput = z.infer<typeof confirmTripSchema>;
+export type CreateConfirmedTripDirectInput = z.infer<typeof createConfirmedTripDirectSchema>;
 export type ConfirmedTripUpdateInput = z.infer<typeof confirmedTripUpdateSchema>;

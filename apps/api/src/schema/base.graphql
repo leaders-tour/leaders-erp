@@ -143,6 +143,7 @@ type Mutation {
   deleteCalendarNote(id: ID!): Boolean!
 
   confirmTrip(input: ConfirmTripInput!): ConfirmedTrip!
+  createConfirmedTrip(input: CreateConfirmedTripDirectInput!): ConfirmedTrip!
   updateConfirmedTrip(id: ID!, input: ConfirmedTripUpdateInput!): ConfirmedTrip!
   cancelConfirmedTrip(id: ID!): ConfirmedTrip!
   upsertConfirmedTripLodging(input: ConfirmedTripLodgingUpsertInput!): ConfirmedTripLodging!
