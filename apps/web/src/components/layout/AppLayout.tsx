@@ -13,6 +13,7 @@ type NavIcon = ComponentType<{ className?: string }>;
 
 interface NavItem {
   path: string;
+  search?: string;
   label: string;
   icon: NavIcon;
   children?: NavChild[];
@@ -141,6 +142,14 @@ const AccommodationIcon: NavIcon = ({ className }) => (
   </svg>
 );
 
+const EquipmentIcon: NavIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <rect x="3" y="4" width="18" height="16" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8 2v4M16 2v4M3 10h18" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="m9 15 2 2 4-4" />
+  </svg>
+);
+
 const resourceNavItems: NavItem[] = [
   { path: '/guides', label: '가이드', icon: GuideIcon },
   { path: '/drivers', label: '기사', icon: DriverIcon },
@@ -150,6 +159,7 @@ const resourceNavItems: NavItem[] = [
 const baseNavItems: NavItem[] = [
   { path: '/itinerary-builder', label: '일정 빌더', icon: ItineraryIcon },
   { path: '/confirmed-trips', label: '투어 리스트', icon: TourListIcon },
+  { path: '/confirmed-trips', search: 'view=calendar', label: '장비 재고확인', icon: EquipmentIcon },
   { path: '/deal-pipeline', label: '딜 파이프라인 ( 준비중 )', icon: PipelineIcon },
   { path: '/outreach/leads', label: '카페 리드 ( 준비중 )', icon: OutreachIcon },
   { path: '/todos/list', label: 'TODO', icon: TodoIcon },
@@ -259,9 +269,9 @@ export function AppLayout(): JSX.Element {
       ];
     }
     if (employee?.role === EmployeeRole.OPS_STAFF) {
-      // 투어리스트·가이드·기사·숙소만 표시
-      const confirmedTripsItem = baseNavItems.find((item) => item.path === '/confirmed-trips');
-      return [...(confirmedTripsItem ? [confirmedTripsItem] : []), ...resourceNavItems];
+      // 투어리스트·장비 재고확인·가이드·기사·숙소만 표시
+      const tripItems = baseNavItems.filter((item) => item.path === '/confirmed-trips');
+      return [...tripItems, ...resourceNavItems];
     }
     return [...baseNavItems, ...resourceNavItems];
   })().filter((item) => !hiddenNavPaths.has(item.path));
@@ -287,16 +297,39 @@ export function AppLayout(): JSX.Element {
         : undefined;
   const isCompactSidebar = isSidebarCollapsed;
 
-  const isNavItemActive = (path: string, children?: NavChild[]): boolean => {
-    if (matchesPath(path)) {
+  const isNavItemActive = (item: NavItem): boolean => {
+    const { path, search, children } = item;
+    if (!matchesPath(path)) {
+      if (!children || children.length === 0) return false;
+      return children.some((child) => matchesPath(child.path));
+    }
+
+    // 동일 path를 공유하는 항목이 search로 구분되는 경우
+    const siblingWithSearch = navItems.some((n) => n.path === path && n.search);
+    if (search) {
+      // search가 있는 항목: 쿼리가 정확히 일치해야 활성
+      const params = new URLSearchParams(location.search);
+      const itemParams = new URLSearchParams(search);
+      for (const [k, v] of itemParams.entries()) {
+        if (params.get(k) !== v) return false;
+      }
       return true;
     }
-
-    if (!children || children.length === 0) {
-      return false;
+    if (siblingWithSearch) {
+      // search가 없는 항목: sibling의 search 조건과 겹치면 비활성
+      const params = new URLSearchParams(location.search);
+      const sibling = navItems.find((n) => n.path === path && n.search);
+      if (sibling) {
+        const sibParams = new URLSearchParams(sibling.search);
+        const allMatch = [...sibParams.entries()].every(([k, v]) => params.get(k) === v);
+        if (allMatch) return false;
+      }
     }
 
-    return children.some((child) => matchesPath(child.path));
+    if (children && children.length > 0) {
+      return children.some((child) => matchesPath(child.path));
+    }
+    return true;
   };
 
   const getActiveChildPath = (children: NavChild[]): string | null => {
@@ -386,10 +419,11 @@ export function AppLayout(): JSX.Element {
           <nav className={`flex-1 overflow-y-auto ${isCompactSidebar ? 'px-2 py-4' : 'px-4 py-5'}`}>
             <ul className="space-y-2">
               {navItems.map((item) => {
-                const itemActive = isNavItemActive(item.path, item.children);
+                const itemActive = isNavItemActive(item);
                 const activeChildPath = item.children ? getActiveChildPath(item.children) : null;
                 const showDividerAbove = item.path === '/customers' || item.path === '/guides' || item.path === '/admin/employees';
                 const ItemIcon = item.icon;
+                const linkTarget = item.search ? `${item.path}?${item.search}` : item.path;
                 const compactItemClassName = `flex items-center justify-center rounded-2xl px-3 py-3 transition-colors ${
                   itemActive
                     ? 'bg-slate-900 text-white'
@@ -397,9 +431,9 @@ export function AppLayout(): JSX.Element {
                 }`;
 
                 return (
-                  <li key={item.path} className={`space-y-1 ${showDividerAbove ? 'mt-3 border-t border-slate-200 pt-3' : ''}`}>
+                  <li key={`${item.path}${item.search ?? ''}`} className={`space-y-1 ${showDividerAbove ? 'mt-3 border-t border-slate-200 pt-3' : ''}`}>
                     {isCompactSidebar ? (
-                      <Link to={item.path} title={item.label} aria-label={item.label} className={compactItemClassName}>
+                      <Link to={linkTarget} title={item.label} aria-label={item.label} className={compactItemClassName}>
                         <ItemIcon className="h-5 w-5 flex-none" />
                       </Link>
                     ) : item.children && item.children.length > 0 ? (
@@ -420,7 +454,7 @@ export function AppLayout(): JSX.Element {
                       </button>
                     ) : (
                       <Link
-                        to={item.path}
+                        to={linkTarget}
                         className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
                           itemActive
                             ? 'bg-slate-900 text-white'
@@ -484,13 +518,14 @@ export function AppLayout(): JSX.Element {
           </div>
           <nav className="flex gap-2 overflow-x-auto pb-1">
             {navItems.map((item) => {
-              const itemActive = isNavItemActive(item.path, item.children);
+              const itemActive = isNavItemActive(item);
               const ItemIcon = item.icon;
+              const linkTarget = item.search ? `${item.path}?${item.search}` : item.path;
 
               return (
                 <Link
-                  key={item.path}
-                  to={item.path}
+                  key={`${item.path}${item.search ?? ''}`}
+                  to={linkTarget}
                   className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-1.5 text-sm transition-colors ${
                     itemActive
                       ? 'border-slate-900 bg-slate-900 text-white'
