@@ -147,13 +147,18 @@ function OptionCard({
             <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${LEVEL_COLORS[opt.level]}`}>
               {LEVEL_LABEL[opt.level]}
             </span>
+            {current.capacity && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                {current.capacity}
+              </span>
+            )}
             {opt.bookingPriority && (
               <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PRIORITY_COLORS[opt.bookingPriority] ?? 'bg-slate-100 text-slate-500'}`}>
                 {opt.bookingPriority}
               </span>
             )}
             {opt.mealIncluded && (
-              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+              <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
                 식사 포함
               </span>
             )}
@@ -198,7 +203,6 @@ function OptionCard({
               성수기 <strong className="text-slate-900">₮{current.pricePeakSeason.toLocaleString()}</strong>
             </span>
           )}
-          {current.capacity && <span className="text-slate-500">{current.capacity}</span>}
         </div>
 
         {/* 상세 정보 */}
