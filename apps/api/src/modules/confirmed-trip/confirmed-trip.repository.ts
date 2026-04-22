@@ -2,7 +2,7 @@ import type { ConfirmedTripStatus, LodgingAssignmentType, LodgingBookingStatus, 
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
-const confirmedTripInclude = {
+export const confirmedTripInclude = {
   user: { include: { ownerEmployee: true } },
   plan: { include: { regionSet: true } },
   planVersion: {
@@ -44,6 +44,17 @@ export class ConfirmedTripRepository {
     return this.prisma.confirmedTrip.findFirst({
       where: { planId, status: 'ACTIVE' },
       include: confirmedTripInclude,
+    });
+  }
+
+  findByGuideId(guideId: string, includeCancelled = false) {
+    return this.prisma.confirmedTrip.findMany({
+      where: {
+        guideId,
+        ...(includeCancelled ? {} : { status: 'ACTIVE' }),
+      },
+      include: confirmedTripInclude,
+      orderBy: [{ travelStart: 'asc' }, { confirmedAt: 'desc' }],
     });
   }
 

@@ -1,6 +1,7 @@
 import type { GuideLevel, GuideStatus } from '@prisma/client';
 import type { AppContext } from '../../context';
 import type { UploadFile } from '../../lib/file-storage/client';
+import { ConfirmedTripRepository } from '../confirmed-trip/confirmed-trip.repository';
 import { GuideService } from './guide.service';
 import type { GuideCreateDto, GuidesFilterDto, GuideUpdateDto } from './guide.types';
 
@@ -56,5 +57,14 @@ export const guideResolver = {
       }
       return [];
     },
+    confirmedTrips: (
+      parent: { id: string },
+      args: { includeCancelled?: boolean | null },
+      ctx: AppContext,
+    ) =>
+      new ConfirmedTripRepository(ctx.prisma).findByGuideId(
+        parent.id,
+        args.includeCancelled ?? false,
+      ),
   },
 };

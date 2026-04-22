@@ -34,6 +34,7 @@ type Guide {
   note: String
   createdAt: DateTime!
   updatedAt: DateTime!
+  confirmedTrips(includeCancelled: Boolean): [ConfirmedTrip!]!
 }
 
 input GuideCreateInput {

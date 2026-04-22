@@ -225,7 +225,7 @@ export interface ConfirmedTripRow {
   updatedAt: string;
 }
 
-const CONFIRMED_TRIP_FRAGMENT = gql`
+export const CONFIRMED_TRIP_FRAGMENT = gql`
   fragment ConfirmedTripFields on ConfirmedTrip {
     id
     userId

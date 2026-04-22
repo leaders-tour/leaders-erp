@@ -2,6 +2,7 @@ import { gql, useMutation, useQuery } from '@apollo/client';
 import { useState } from 'react';
 import { useAuth } from '../auth/context';
 import { runUploadMutation } from '../../lib/upload-mutation';
+import { CONFIRMED_TRIP_FRAGMENT, type ConfirmedTripRow } from '../confirmed-trip/hooks';
 
 export interface GuideRow {
   id: string;
@@ -233,5 +234,34 @@ export function useRemoveGuideCertImage() {
       if (!result.data?.removeGuideCertImage) throw new Error('Remove failed');
       return result.data.removeGuideCertImage;
     },
+  };
+}
+
+// ── Guide Trips (배정 이력 + 예정 여행) ───────────────────────────────────────
+
+const GUIDE_TRIPS_QUERY = gql`
+  ${CONFIRMED_TRIP_FRAGMENT}
+  query GuideTrips($id: ID!, $includeCancelled: Boolean) {
+    guide(id: $id) {
+      id
+      confirmedTrips(includeCancelled: $includeCancelled) {
+        ...ConfirmedTripFields
+      }
+    }
+  }
+`;
+
+export function useGuideTrips(id: string | undefined, includeCancelled = false) {
+  const { data, loading, refetch } = useQuery<{
+    guide: { id: string; confirmedTrips: ConfirmedTripRow[] };
+  }>(GUIDE_TRIPS_QUERY, {
+    variables: { id, includeCancelled },
+    skip: !id,
+    fetchPolicy: 'cache-and-network',
+  });
+  return {
+    trips: data?.guide?.confirmedTrips ?? [],
+    loading,
+    refetch,
   };
 }
