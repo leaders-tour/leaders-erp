@@ -1,15 +1,20 @@
 import { Button, Card } from '@tour/ui';
 import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { GuideTripCalendar } from '../features/guide/components/GuideTripCalendar';
+import { GuideTripCard } from '../features/guide/components/GuideTripCard';
+import { GuideTripTimeline } from '../features/guide/components/GuideTripTimeline';
 import {
   useDeleteDriver,
   useDriver,
+  useDriverTrips,
   useRemoveDriverVehicleImage,
   useUpdateDriver,
   useUploadDriverProfileImage,
   useUploadDriverVehicleImages,
   type DriverRow,
 } from '../features/driver/hooks';
+import { splitGuideTrips } from '../features/guide/trip-utils';
 
 const VEHICLE_TYPE_LABEL: Record<string, string> = {
   STAREX: '스타렉스',
@@ -136,8 +141,10 @@ export function DriverDetailPage(): JSX.Element {
   const { uploadVehicleImages, loading: uploadingVehicle } = useUploadDriverVehicleImages();
   const { removeVehicleImage, loading: removingVehicle } = useRemoveDriverVehicleImage();
 
+  const { trips, loading: tripsLoading } = useDriverTrips(driverId);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Partial<DriverRow>>({});
+  const [upcomingView, setUpcomingView] = useState<'cards' | 'calendar'>('cards');
   const profileInputRef = useRef<HTMLInputElement | null>(null);
   const vehicleInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -379,6 +386,114 @@ export function DriverDetailPage(): JSX.Element {
           </div>
         )}
       </div>
+
+      {/* ── 예정 여행 섹션 ─────────────────────────────────── */}
+      {(() => {
+        if (tripsLoading) {
+          return (
+            <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm text-slate-400">배정 정보 불러오는 중...</p>
+            </Card>
+          );
+        }
+        const { upcoming, ongoing, past } = splitGuideTrips(trips);
+        const futureTrips = [...ongoing, ...upcoming];
+
+        return (
+          <>
+            <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-sm font-semibold text-slate-700">예정 여행</h3>
+                  <div className="flex gap-1.5">
+                    {ongoing.length > 0 && (
+                      <span className="text-xs bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5 font-medium">
+                        진행중 {ongoing.length}건
+                      </span>
+                    )}
+                    {upcoming.length > 0 && (
+                      <span className="text-xs bg-sky-100 text-sky-700 rounded-full px-2 py-0.5 font-medium">
+                        예정 {upcoming.length}건
+                      </span>
+                    )}
+                    {futureTrips.length === 0 && (
+                      <span className="text-xs text-slate-400">없음</span>
+                    )}
+                  </div>
+                </div>
+
+                {futureTrips.length > 0 && (
+                  <div className="flex items-center gap-1 rounded-lg border border-slate-200 p-0.5 bg-slate-50">
+                    <button
+                      type="button"
+                      onClick={() => setUpcomingView('cards')}
+                      className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                        upcomingView === 'cards'
+                          ? 'bg-white shadow text-slate-800 font-medium'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      카드
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUpcomingView('calendar')}
+                      className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                        upcomingView === 'calendar'
+                          ? 'bg-white shadow text-slate-800 font-medium'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      캘린더
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {futureTrips.length === 0 ? (
+                <p className="text-sm text-slate-400">예정된 배정이 없습니다.</p>
+              ) : (
+                <div className="space-y-5">
+                  <GuideTripTimeline upcoming={upcoming} ongoing={ongoing} />
+                  {upcomingView === 'cards' ? (
+                    <div className="space-y-2">
+                      {ongoing.map((t) => (
+                        <GuideTripCard key={t.id} trip={t} variant="ongoing" />
+                      ))}
+                      {upcoming.map((t) => (
+                        <GuideTripCard key={t.id} trip={t} variant="upcoming" />
+                      ))}
+                    </div>
+                  ) : (
+                    <GuideTripCalendar trips={futureTrips} />
+                  )}
+                </div>
+              )}
+            </Card>
+
+            {/* ── 배정 이력 섹션 ────────────────────────────── */}
+            <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center gap-3">
+                <h3 className="text-sm font-semibold text-slate-700">배정 이력</h3>
+                {past.length > 0 && (
+                  <span className="text-xs bg-slate-100 text-slate-500 rounded-full px-2 py-0.5">
+                    {past.length}건
+                  </span>
+                )}
+              </div>
+              {past.length === 0 ? (
+                <p className="text-sm text-slate-400">과거 배정 이력이 없습니다.</p>
+              ) : (
+                <div className="space-y-2">
+                  {past.map((t) => (
+                    <GuideTripCard key={t.id} trip={t} variant="past" />
+                  ))}
+                </div>
+              )}
+            </Card>
+          </>
+        );
+      })()}
     </section>
   );
 }

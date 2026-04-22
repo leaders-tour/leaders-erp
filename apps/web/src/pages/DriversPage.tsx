@@ -1,7 +1,8 @@
 import { Button, Card } from '@tour/ui';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useDrivers, useCreateDriver, type DriverRow } from '../features/driver/hooks';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { DriverAllocationCalendar } from '../features/driver/components/DriverAllocationCalendar';
+import { useDrivers, useDriversWithTrips, useCreateDriver, type DriverRow } from '../features/driver/hooks';
 
 const VEHICLE_TYPE_LABEL: Record<string, string> = {
   STAREX: '스타렉스',
@@ -230,15 +231,35 @@ export function DriversPage(): JSX.Element {
   const [vehicleFilter, setVehicleFilter] = useState<VehicleFilter>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const { drivers, loading } = useDrivers({
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const viewMode = searchParams.get('view') === 'calendar' ? 'calendar' : 'list';
+  const calYear = Number(searchParams.get('cy')) || new Date().getFullYear();
+  const calMonth = Number(searchParams.get('cm')) || new Date().getMonth() + 1;
+
+  function setViewMode(v: 'list' | 'calendar') {
+    setSearchParams((prev) => { prev.set('view', v); return prev; });
+  }
+  function setCalendarMonth(y: number, m: number) {
+    setSearchParams((prev) => { prev.set('cy', String(y)); prev.set('cm', String(m)); return prev; });
+  }
+
+  const { drivers: listDrivers, loading: listLoading } = useDrivers({
     status: statusFilter,
     level: levelFilter,
     vehicleType: vehicleFilter,
   });
-  const navigate = useNavigate();
+  const { drivers: calDrivers, loading: calLoading } = useDriversWithTrips({
+    status: statusFilter,
+    level: levelFilter,
+    vehicleType: vehicleFilter,
+  });
+
+  const loading = viewMode === 'calendar' ? calLoading : listLoading;
 
   const filteredDrivers = searchQuery.trim()
-    ? drivers.filter((d) => {
+    ? listDrivers.filter((d) => {
         const q = searchQuery.trim().toLowerCase();
         return (
           d.nameMn.toLowerCase().includes(q) ||
@@ -246,7 +267,18 @@ export function DriversPage(): JSX.Element {
           (d.vehicleNumber?.toLowerCase().includes(q) ?? false)
         );
       })
-    : drivers;
+    : listDrivers;
+
+  const filteredCalDrivers = searchQuery.trim()
+    ? calDrivers.filter((d) => {
+        const q = searchQuery.trim().toLowerCase();
+        return (
+          d.nameMn.toLowerCase().includes(q) ||
+          (d.phone?.toLowerCase().includes(q) ?? false) ||
+          (d.vehicleNumber?.toLowerCase().includes(q) ?? false)
+        );
+      })
+    : calDrivers;
 
   return (
     <section className="grid gap-6">
@@ -295,22 +327,56 @@ export function DriversPage(): JSX.Element {
           )}
         </div>
 
-        <div className="flex flex-wrap gap-1">
-          {([undefined, 'ACTIVE_SEASON', 'INTERVIEW_DONE', 'BLACKLISTED'] as (StatusFilter | undefined)[]).map(
-            (s) => (
-              <button
-                key={String(s)}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                  statusFilter === s
-                    ? 'bg-slate-800 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-                onClick={() => setStatusFilter(s as StatusFilter)}
-              >
-                {s == null ? '전체' : STATUS_LABEL[s]}
-              </button>
-            ),
-          )}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-1">
+            {([undefined, 'ACTIVE_SEASON', 'INTERVIEW_DONE', 'BLACKLISTED'] as (StatusFilter | undefined)[]).map(
+              (s) => (
+                <button
+                  key={String(s)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                    statusFilter === s
+                      ? 'bg-slate-800 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                  onClick={() => setStatusFilter(s as StatusFilter)}
+                >
+                  {s == null ? '전체' : STATUS_LABEL[s]}
+                </button>
+              ),
+            )}
+          </div>
+          {/* 뷰 전환 토글 */}
+          <div className="flex shrink-0 items-center rounded-xl border border-slate-200 bg-slate-50 p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                viewMode === 'list'
+                  ? 'bg-white text-slate-800 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-3.5 w-3.5">
+                <path d="M2 4h12M2 8h12M2 12h12" strokeLinecap="round" />
+              </svg>
+              목록
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('calendar')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                viewMode === 'calendar'
+                  ? 'bg-white text-slate-800 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-3.5 w-3.5">
+                <rect x="1" y="2" width="14" height="13" rx="2" />
+                <path d="M1 6h14M5 2v2M11 2v2" strokeLinecap="round" />
+              </svg>
+              캘린더
+            </button>
+          </div>
         </div>
         <div className="flex flex-wrap gap-1">
           {([undefined, 'MAIN', 'JUNIOR', 'ROOKIE'] as (LevelFilter | undefined)[]).map((l) => (
@@ -346,6 +412,13 @@ export function DriversPage(): JSX.Element {
 
       {loading ? (
         <p className="text-sm text-slate-500">불러오는 중...</p>
+      ) : viewMode === 'calendar' ? (
+        <DriverAllocationCalendar
+          drivers={filteredCalDrivers}
+          year={calYear}
+          month={calMonth}
+          onChangeMonth={setCalendarMonth}
+        />
       ) : filteredDrivers.length === 0 ? (
         <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
           {searchQuery.trim() ? `"${searchQuery}" 검색 결과가 없습니다.` : '등록된 기사가 없습니다.'}

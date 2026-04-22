@@ -58,6 +58,17 @@ export class ConfirmedTripRepository {
     });
   }
 
+  findByDriverId(driverId: string, includeCancelled = false) {
+    return this.prisma.confirmedTrip.findMany({
+      where: {
+        driverId,
+        ...(includeCancelled ? {} : { status: 'ACTIVE' }),
+      },
+      include: confirmedTripInclude,
+      orderBy: [{ travelStart: 'asc' }, { confirmedAt: 'desc' }],
+    });
+  }
+
   create(data: {
     userId: string;
     planId?: string | null;

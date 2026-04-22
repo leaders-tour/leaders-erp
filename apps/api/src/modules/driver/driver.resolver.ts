@@ -1,6 +1,7 @@
 import type { DriverLevel, DriverStatus, VehicleType } from '@prisma/client';
 import type { AppContext } from '../../context';
 import type { UploadFile } from '../../lib/file-storage/client';
+import { ConfirmedTripRepository } from '../confirmed-trip/confirmed-trip.repository';
 import { DriverService } from './driver.service';
 import type { DriverCreateDto, DriversFilterDto, DriverUpdateDto } from './driver.types';
 
@@ -58,5 +59,14 @@ export const driverResolver = {
       }
       return [];
     },
+    confirmedTrips: (
+      parent: { id: string },
+      args: { includeCancelled?: boolean | null },
+      ctx: AppContext,
+    ) =>
+      new ConfirmedTripRepository(ctx.prisma).findByDriverId(
+        parent.id,
+        args.includeCancelled ?? false,
+      ),
   },
 };

@@ -43,6 +43,7 @@ type Driver {
   note: String
   createdAt: DateTime!
   updatedAt: DateTime!
+  confirmedTrips(includeCancelled: Boolean): [ConfirmedTrip!]!
 }
 
 input DriverCreateInput {

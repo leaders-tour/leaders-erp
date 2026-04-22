@@ -2,6 +2,7 @@ import { gql, useMutation, useQuery } from '@apollo/client';
 import { useState } from 'react';
 import { useAuth } from '../auth/context';
 import { runUploadMutation } from '../../lib/upload-mutation';
+import { CONFIRMED_TRIP_FRAGMENT, type ConfirmedTripRow } from '../confirmed-trip/hooks';
 
 export interface DriverRow {
   id: string;
@@ -247,4 +248,102 @@ export function useRemoveDriverVehicleImage() {
       return result.data.removeDriverVehicleImage;
     },
   };
+}
+
+// ── Driver Trips (배정 이력 + 예정 여행) ─────────────────────────────────────
+
+const DRIVER_TRIPS_QUERY = gql`
+  ${CONFIRMED_TRIP_FRAGMENT}
+  query DriverTrips($id: ID!, $includeCancelled: Boolean) {
+    driver(id: $id) {
+      id
+      confirmedTrips(includeCancelled: $includeCancelled) {
+        ...ConfirmedTripFields
+      }
+    }
+  }
+`;
+
+export function useDriverTrips(id: string | undefined, includeCancelled = false) {
+  const { data, loading, refetch } = useQuery<{
+    driver: { id: string; confirmedTrips: ConfirmedTripRow[] };
+  }>(DRIVER_TRIPS_QUERY, {
+    variables: { id, includeCancelled },
+    skip: !id,
+    fetchPolicy: 'cache-and-network',
+  });
+  return {
+    trips: data?.driver?.confirmedTrips ?? [],
+    loading,
+    refetch,
+  };
+}
+
+// ── Drivers + 배정 여행 (캘린더 조망용) ──────────────────────────────────────
+
+export interface DriverTripSlim {
+  id: string;
+  status: 'ACTIVE' | 'CANCELLED';
+  travelStart: string | null;
+  travelEnd: string | null;
+  destination: string | null;
+  user: { name: string };
+  planVersion: {
+    meta: {
+      travelStartDate: string;
+      travelEndDate: string;
+    } | null;
+  } | null;
+}
+
+export interface DriverWithTrips extends DriverRow {
+  confirmedTrips: DriverTripSlim[];
+}
+
+const DRIVERS_WITH_TRIPS_QUERY = gql`
+  query DriversWithTrips($status: DriverStatus, $level: DriverLevel, $vehicleType: VehicleType) {
+    drivers(status: $status, level: $level, vehicleType: $vehicleType) {
+      id
+      nameMn
+      vehicleType
+      level
+      status
+      profileImageUrl
+      confirmedTrips {
+        id
+        status
+        travelStart
+        travelEnd
+        destination
+        user {
+          name
+        }
+        planVersion {
+          meta {
+            travelStartDate
+            travelEndDate
+          }
+        }
+      }
+    }
+  }
+`;
+
+export function useDriversWithTrips(filters?: {
+  status?: string;
+  level?: string;
+  vehicleType?: string;
+}) {
+  const { data, loading, refetch } = useQuery<{ drivers: DriverWithTrips[] }>(
+    DRIVERS_WITH_TRIPS_QUERY,
+    {
+      variables: {
+        status: filters?.status,
+        level: filters?.level,
+        vehicleType: filters?.vehicleType,
+      },
+      fetchPolicy: 'cache-and-network',
+    },
+  );
+  return { drivers: data?.drivers ?? [], loading, refetch };
 }
