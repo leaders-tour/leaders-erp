@@ -1570,7 +1570,7 @@ const VARIANTS = [
   { id: VariantType.EarlyExtend, label: '얼리+연장' },
 ];
 
-const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스(숏)', '하이에이스(롱)'] as const;
+const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
 const FLIGHT_IN_TIME_OPTIONS = [
   '00:05',
   '00:30',
@@ -3891,7 +3891,7 @@ export function ItineraryBuilderPage(): JSX.Element {
             (!item.customLodgingId || item.customLodgingId.trim().length === 0),
         ) &&
         !normalizedExternalTransfers.some((t) => !isExternalTransferComplete(t)) &&
-        (vehicleType !== '하이에이스(숏)' && vehicleType !== '하이에이스(롱)' || headcountTotal >= 3),
+        (vehicleType !== '하이에이스' || headcountTotal >= 3),
       ),
     [
       regionSetId,
@@ -5071,17 +5071,17 @@ export function ItineraryBuilderPage(): JSX.Element {
                             key={vehicle}
                             type="button"
                             onClick={() => {
-                              if ((vehicle === '하이에이스(숏)' || vehicle === '하이에이스(롱)') && headcountTotal < 3) {
+                              if (vehicle === '하이에이스' && headcountTotal < 3) {
                                 return;
                               }
                               setVehicleType(vehicle);
                             }}
-                            disabled={(vehicle === '하이에이스(숏)' || vehicle === '하이에이스(롱)') && headcountTotal < 3}
+                            disabled={vehicle === '하이에이스' && headcountTotal < 3}
                             className={`rounded-xl border px-3 py-1.5 text-sm ${
                               vehicleType === vehicle
                                 ? 'border-slate-900 bg-slate-900 text-white'
                                 : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                            } ${(vehicle === '하이에이스(숏)' || vehicle === '하이에이스(롱)') && headcountTotal < 3 ? 'cursor-not-allowed opacity-40' : ''}`}
+                            } ${vehicle === '하이에이스' && headcountTotal < 3 ? 'cursor-not-allowed opacity-40' : ''}`}
                           >
                             {vehicle}
                           </button>

@@ -133,11 +133,8 @@ export function getPriceItemGroupForPreset(priceItemPreset: PricingPriceItemPres
 export function getSelectedPriceItemOption(ruleForm: RuleFormState): PricingPriceItemOptionKey {
   if (ruleForm.priceItemPreset === 'CONDITIONAL') {
     const variants = [...ruleForm.variantTypes].sort().join(',');
-    if (ruleForm.vehicleType.trim() === '하이에이스(숏)') {
-      return 'CONDITIONAL_HIACE_SHORT';
-    }
-    if (ruleForm.vehicleType.trim() === '하이에이스(롱)') {
-      return 'CONDITIONAL_HIACE_LONG';
+    if (ruleForm.vehicleType.trim() === '하이에이스') {
+      return 'CONDITIONAL_HIACE';
     }
     if (variants === ['early', 'earlyExtend'].sort().join(',')) {
       return 'CONDITIONAL_EARLY';
@@ -160,8 +157,7 @@ function getRecommendedConditionCategoriesByOption(optionKey: PricingPriceItemOp
     case 'CONDITIONAL_EARLY':
     case 'CONDITIONAL_EXTEND':
       return ['variant'];
-    case 'CONDITIONAL_HIACE_SHORT':
-    case 'CONDITIONAL_HIACE_LONG':
+    case 'CONDITIONAL_HIACE':
       return ['vehicle', 'headcountDays'];
     case 'BASE':
     case 'BASE_PERCENT':
@@ -215,18 +211,10 @@ export function applyPriceItemOptionSelection(
         headcountMax: '',
         variantTypes: ['extend', 'earlyExtend'],
       };
-    case 'CONDITIONAL_HIACE_SHORT':
+    case 'CONDITIONAL_HIACE':
       return {
         ...baseNextForm,
-        vehicleType: '하이에이스(숏)',
-        headcountMin: '3',
-        headcountMax: '6',
-        variantTypes: [],
-      };
-    case 'CONDITIONAL_HIACE_LONG':
-      return {
-        ...baseNextForm,
-        vehicleType: '하이에이스(롱)',
+        vehicleType: '하이에이스',
         headcountMin: '3',
         headcountMax: '6',
         variantTypes: [],

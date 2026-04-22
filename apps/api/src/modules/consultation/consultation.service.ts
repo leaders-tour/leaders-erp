@@ -81,7 +81,7 @@ export interface ConsultationDraft {
 
 const FLIGHT_IN_TIMES = ['00:05', '00:30', '00:50', '02:45', '04:30', '13:20', '17:00', '23:05', '23:30'];
 const FLIGHT_OUT_TIMES = ['00:25', '00:50', '01:30', '01:50', '02:05', '08:40', '13:00', '18:15', '20:30'];
-const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스(숏)', '하이에이스(롱)'] as const;
+const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
 
 function pickClosestTime(options: readonly string[], target: string): string {
   if (!target || target.length < 4) return options[0] ?? '02:45';
