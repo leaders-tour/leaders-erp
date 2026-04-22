@@ -328,7 +328,7 @@ export function DriversPage(): JSX.Element {
           ))}
         </div>
         <div className="flex flex-wrap gap-1">
-          {([undefined, 'STAREX', 'HIACE', 'PURGON', 'LAND_CRUISER', 'ALPHARD'] as (VehicleFilter | undefined)[]).map((v) => (
+          {([undefined, 'STAREX', 'HIACE_SHORT', 'HIACE_LONG', 'PURGON', 'LAND_CRUISER', 'ALPHARD'] as (VehicleFilter | undefined)[]).map((v) => (
             <button
               key={String(v)}
               className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
