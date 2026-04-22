@@ -85,20 +85,47 @@ function applySort(trips: ConfirmedTripRow[], key: SortKey, dir: SortDir): Confi
   });
 }
 
+const RENTAL_ITEM_FILTER_VALUES = new Set<RentalItemFilter>([
+  'drone',
+  'starlink',
+  'powerbank',
+  'camelDoll',
+  'pickup',
+  'drop',
+]);
+
+function matchesRentalItem(trip: ConfirmedTripRow, filter: RentalItemFilter): boolean {
+  if (filter === 'drone') return Boolean(trip.rentalDrone);
+  if (filter === 'starlink') return Boolean(trip.rentalStarlink);
+  if (filter === 'powerbank') return Boolean(trip.rentalPowerbank);
+  if (filter === 'camelDoll') return Boolean(trip.camelDollPurchased);
+  if (filter === 'pickup') return getTripPickupDate(trip) !== null;
+  if (filter === 'drop') return getTripDropDate(trip) !== null;
+  return false;
+}
+
 function applyRentalItemFilter(
   trips: ConfirmedTripRow[],
-  filter: RentalItemFilter | null,
+  filters: RentalItemFilter[],
 ): ConfirmedTripRow[] {
-  if (!filter) return trips;
-  return trips.filter((trip) => {
-    if (filter === 'drone') return trip.rentalDrone;
-    if (filter === 'starlink') return trip.rentalStarlink;
-    if (filter === 'powerbank') return trip.rentalPowerbank;
-    if (filter === 'camelDoll') return trip.camelDollPurchased;
-    if (filter === 'pickup') return getTripPickupDate(trip) !== null;
-    if (filter === 'drop') return getTripDropDate(trip) !== null;
-    return false;
-  });
+  if (filters.length === 0) return trips;
+  return trips.filter((trip) => filters.every((filter) => matchesRentalItem(trip, filter)));
+}
+
+function parseRentalItemFilters(raw: string | null): RentalItemFilter[] {
+  if (!raw) return [];
+  const seen = new Set<RentalItemFilter>();
+  const result: RentalItemFilter[] = [];
+  for (const token of raw.split(',')) {
+    const trimmed = token.trim();
+    if (!trimmed) continue;
+    if (!RENTAL_ITEM_FILTER_VALUES.has(trimmed as RentalItemFilter)) continue;
+    const value = trimmed as RentalItemFilter;
+    if (seen.has(value)) continue;
+    seen.add(value);
+    result.push(value);
+  }
+  return result;
 }
 
 function getNow() {
@@ -440,17 +467,16 @@ export function ConfirmedTripsPage(): JSX.Element {
 
   const dateFilter: DateFilter =
     (searchParams.get('filter') as DateFilter | null) ?? 'upcoming';
-  const rentalItemFilter =
-    (searchParams.get('rentalItem') as RentalItemFilter | null) ?? null;
+  const rentalItemFilters = parseRentalItemFilters(searchParams.get('rentalItem'));
   const sortKey: SortKey = (searchParams.get('sortKey') as SortKey | null) ?? 'travelStart';
   const sortDir: SortDir = (searchParams.get('sortDir') as SortDir | null) ?? 'asc';
 
   const trips = applySort(
-    applyRentalItemFilter(applyDateFilter(allTrips, dateFilter), rentalItemFilter),
+    applyRentalItemFilter(applyDateFilter(allTrips, dateFilter), rentalItemFilters),
     sortKey,
     sortDir,
   );
-  const calendarTrips = applyRentalItemFilter(allTrips, rentalItemFilter);
+  const calendarTrips = applyRentalItemFilter(allTrips, rentalItemFilters);
 
   function toggleSort(key: SortKey) {
     setSearchParams((prev) => {
@@ -479,11 +505,26 @@ export function ConfirmedTripsPage(): JSX.Element {
     );
   }
 
-  function setRentalItemFilter(nextFilter: RentalItemFilter | null) {
+  function toggleRentalItemFilter(value: RentalItemFilter) {
     setSearchParams(
       (prev) => {
-        if (nextFilter) prev.set('rentalItem', nextFilter);
-        else prev.delete('rentalItem');
+        const current = parseRentalItemFilters(prev.get('rentalItem'));
+        const exists = current.includes(value);
+        const next = exists
+          ? current.filter((item) => item !== value)
+          : [...current, value];
+        if (next.length === 0) prev.delete('rentalItem');
+        else prev.set('rentalItem', next.join(','));
+        return prev;
+      },
+      { replace: true },
+    );
+  }
+
+  function clearRentalItemFilters() {
+    setSearchParams(
+      (prev) => {
+        prev.delete('rentalItem');
         return prev;
       },
       { replace: true },
@@ -576,23 +617,32 @@ export function ConfirmedTripsPage(): JSX.Element {
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-medium text-slate-500">장비 필터</span>
         {RENTAL_ITEM_FILTER_OPTIONS.map(({ value, label }) => {
-          const active = rentalItemFilter === value;
-          const dimmed = rentalItemFilter !== null && !active;
+          const active = rentalItemFilters.includes(value);
           return (
             <button
               key={value}
               type="button"
-              onClick={() => setRentalItemFilter(active ? null : value)}
+              aria-pressed={active}
+              onClick={() => toggleRentalItemFilter(value)}
               className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
                 active
                   ? 'bg-slate-800 text-white'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              } ${dimmed ? 'opacity-40' : ''}`}
+              }`}
             >
               {label}
             </button>
           );
         })}
+        {rentalItemFilters.length > 0 ? (
+          <button
+            type="button"
+            onClick={clearRentalItemFilters}
+            className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700"
+          >
+            초기화
+          </button>
+        ) : null}
       </div>
 
       {loading ? (
