@@ -2,25 +2,34 @@ import { Card } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CustomerSelector, PlanListPanel } from '../features/plan/components';
+import {
+  calcGroupCounts,
+  getCustomerTripStatus,
+  type CustomerTripStatus,
+} from '../features/plan/customerTripStatus';
 import { usePlansByUser, useUsers } from '../features/plan/hooks';
+
+type StatusFilterKey = CustomerTripStatus | 'all';
 
 export function CustomerPage(): JSX.Element {
   const navigate = useNavigate();
   const { users, loading } = useUsers();
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [customerSearch, setCustomerSearch] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilterKey>('all');
+
+  const groupCounts = useMemo(() => calcGroupCounts(users), [users]);
 
   const filteredUsers = useMemo(() => {
     const keyword = customerSearch.trim().toLowerCase();
-    if (!keyword) {
-      return users;
-    }
     return users.filter((user) => {
+      if (statusFilter !== 'all' && getCustomerTripStatus(user) !== statusFilter) return false;
+      if (!keyword) return true;
       const ownerNameMatched = user.ownerEmployee?.name.toLowerCase().includes(keyword) ?? false;
       const ownerEmailMatched = user.ownerEmployee?.email.toLowerCase().includes(keyword) ?? false;
       return user.name.toLowerCase().includes(keyword) || ownerNameMatched || ownerEmailMatched;
     });
-  }, [customerSearch, users]);
+  }, [customerSearch, users, statusFilter]);
 
   useEffect(() => {
     if (!selectedUserId && filteredUsers.length > 0) {
@@ -57,6 +66,9 @@ export function CustomerPage(): JSX.Element {
             searchValue={customerSearch}
             onChangeSearch={setCustomerSearch}
             onSelect={setSelectedUserId}
+            statusFilter={statusFilter}
+            onChangeStatusFilter={setStatusFilter}
+            groupCounts={groupCounts}
           />
         </div>
 

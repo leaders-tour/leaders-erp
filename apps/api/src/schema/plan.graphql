@@ -4,6 +4,13 @@ type UserAttachment {
   type: String!
 }
 
+type UserConfirmedTripSummary {
+  id: ID!
+  status: ConfirmedTripStatus!
+  travelStart: DateTime
+  travelEnd: DateTime
+}
+
 type User {
   id: ID!
   name: String!
@@ -17,6 +24,7 @@ type User {
   updatedAt: DateTime!
   plans: [Plan!]!
   userDealTodos: [UserDealTodo!]!
+  confirmedTrips: [UserConfirmedTripSummary!]!
 }
 
 type UserNote {

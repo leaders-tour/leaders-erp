@@ -179,6 +179,10 @@ export class PlanRepository {
         dealTodos: {
           orderBy: [{ stage: 'asc' }, { createdAt: 'desc' }, { id: 'asc' }],
         },
+        confirmedTrips: {
+          select: { id: true, status: true, travelStart: true, travelEnd: true },
+          orderBy: { travelStart: 'asc' },
+        },
       },
       orderBy: [{ dealStage: 'asc' }, { dealStageOrder: 'asc' }, { createdAt: 'desc' }],
     });

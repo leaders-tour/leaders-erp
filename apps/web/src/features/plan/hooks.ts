@@ -13,6 +13,15 @@ export type DealStageValue =
 
 export type DealTodoStatusValue = 'TODO' | 'DOING' | 'DONE';
 
+export type ConfirmedTripStatusValue = 'ACTIVE' | 'CANCELLED';
+
+export interface UserConfirmedTripSummaryRow {
+  id: string;
+  status: ConfirmedTripStatusValue;
+  travelStart: string | null;
+  travelEnd: string | null;
+}
+
 export interface EmployeeOwnerRow {
   id: string;
   name: string;
@@ -48,6 +57,7 @@ export interface UserRow {
   dealStageOrder: number;
   attachments: UserAttachmentItem[];
   userDealTodos?: UserDealTodoPreviewRow[];
+  confirmedTrips?: UserConfirmedTripSummaryRow[];
   createdAt: string;
   updatedAt: string;
 }
@@ -414,6 +424,12 @@ const USERS_QUERY = gql`
         completedAt
         createdAt
         updatedAt
+      }
+      confirmedTrips {
+        id
+        status
+        travelStart
+        travelEnd
       }
       createdAt
       updatedAt
