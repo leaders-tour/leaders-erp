@@ -372,7 +372,11 @@ export function GuidesPage(): JSX.Element {
                       {guide.phone ?? '-'}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                      {guide.isSmoker ? '🚬' : '-'}
+                      {guide.isSmoker ? (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">흡연</span>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
                     </td>
                   </tr>
                 ))}
