@@ -2,6 +2,7 @@ import type { AppContext } from '../../context';
 import { resolveRegionSetRegionIds } from '../../lib/resolve-region-set';
 import { MultiDayBlockConnectionService, MultiDayBlockService } from './multi-day-block.service';
 import type {
+  MultiDayBlockConnectionBulkCreateDto,
   MultiDayBlockConnectionCreateDto,
   MultiDayBlockConnectionUpdateDto,
   MultiDayBlockCreateDto,
@@ -28,6 +29,10 @@ interface MultiDayBlockUpdateArgs {
 
 interface MultiDayBlockConnectionCreateArgs {
   input: MultiDayBlockConnectionCreateDto;
+}
+
+interface MultiDayBlockConnectionBulkCreateArgs {
+  input: MultiDayBlockConnectionBulkCreateDto;
 }
 
 interface MultiDayBlockConnectionUpdateArgs {
@@ -75,6 +80,11 @@ export const multiDayBlockResolver = {
       new MultiDayBlockService(ctx.prisma).delete(args.id),
     createMultiDayBlockConnection: (_parent: unknown, args: MultiDayBlockConnectionCreateArgs, ctx: AppContext) =>
       new MultiDayBlockConnectionService(ctx.prisma).create(args.input),
+    createMultiDayBlockConnectionsBulk: (
+      _parent: unknown,
+      args: MultiDayBlockConnectionBulkCreateArgs,
+      ctx: AppContext,
+    ) => new MultiDayBlockConnectionService(ctx.prisma).createBulk(args.input),
     updateMultiDayBlockConnection: (_parent: unknown, args: MultiDayBlockConnectionUpdateArgs, ctx: AppContext) =>
       new MultiDayBlockConnectionService(ctx.prisma).update(args.id, args.input),
     deleteMultiDayBlockConnection: (_parent: unknown, args: EntityArgs, ctx: AppContext) =>

@@ -253,6 +253,14 @@ const CREATE = gql`
   }
 `;
 
+const CREATE_BULK = gql`
+  mutation CreateSegmentsBulk($input: SegmentBulkCreateInput!) {
+    createSegmentsBulk(input: $input) {
+      id
+    }
+  }
+`;
+
 const UPDATE = gql`
   mutation UpdateSegment($id: ID!, $input: SegmentUpdateInput!) {
     updateSegment(id: $id, input: $input) {
@@ -270,6 +278,14 @@ const REMOVE = gql`
 const CREATE_BLOCK_CONNECTION = gql`
   mutation CreateMultiDayBlockConnection($input: MultiDayBlockConnectionCreateInput!) {
     createMultiDayBlockConnection(input: $input) {
+      id
+    }
+  }
+`;
+
+const CREATE_BLOCK_CONNECTION_BULK = gql`
+  mutation CreateMultiDayBlockConnectionsBulk($input: MultiDayBlockConnectionBulkCreateInput!) {
+    createMultiDayBlockConnectionsBulk(input: $input) {
       id
     }
   }
@@ -312,6 +328,22 @@ export interface SegmentFormInput {
   regionId?: string;
   fromLocationId?: string;
   fromMultiDayBlockId?: string;
+  toLocationId: string;
+  averageDistanceKm: number;
+  averageTravelHours: number;
+  isLongDistance: boolean;
+  timeSlots: SegmentTimeSlotFormInput[];
+  earlyTimeSlots?: SegmentTimeSlotFormInput[];
+  extendTimeSlots?: SegmentTimeSlotFormInput[];
+  earlyExtendTimeSlots?: SegmentTimeSlotFormInput[];
+  versions?: SegmentVersionFormInput[];
+}
+
+export interface SegmentBulkFormInput {
+  sourceType: ConnectionSourceType;
+  regionId?: string;
+  fromLocationIds?: string[];
+  fromMultiDayBlockIds?: string[];
   toLocationId: string;
   averageDistanceKm: number;
   averageTravelHours: number;
@@ -586,6 +618,47 @@ export function useSegmentCrud() {
     await refetch();
   }
 
+  async function createRowsBulk(input: SegmentBulkFormInput): Promise<void> {
+    if (input.sourceType === 'MULTI_DAY_BLOCK') {
+      await client.mutate({
+        mutation: CREATE_BLOCK_CONNECTION_BULK,
+        variables: {
+          input: {
+            fromMultiDayBlockIds: input.fromMultiDayBlockIds ?? [],
+            toLocationId: input.toLocationId,
+            averageDistanceKm: input.averageDistanceKm,
+            averageTravelHours: input.averageTravelHours,
+            isLongDistance: input.isLongDistance,
+            timeSlots: input.timeSlots,
+            ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
+            ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
+            ...(input.earlyExtendTimeSlots ? { earlyExtendTimeSlots: input.earlyExtendTimeSlots } : {}),
+            ...(input.versions ? { versions: input.versions } : {}),
+          },
+        },
+      });
+    } else {
+      await client.mutate({
+        mutation: CREATE_BULK,
+        variables: {
+          input: {
+            regionId: input.regionId,
+            fromLocationIds: input.fromLocationIds ?? [],
+            toLocationId: input.toLocationId,
+            averageDistanceKm: input.averageDistanceKm,
+            averageTravelHours: input.averageTravelHours,
+            isLongDistance: input.isLongDistance,
+            timeSlots: input.timeSlots,
+            ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
+            ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
+            ...(input.versions ? { versions: input.versions } : {}),
+          },
+        },
+      });
+    }
+    await refetch();
+  }
+
   async function updateRow(id: string, input: SegmentFormInput): Promise<void> {
     const existing = rowById.get(id);
     if (!existing) {
@@ -658,6 +731,7 @@ export function useSegmentCrud() {
     loading,
     error,
     createRow,
+    createRowsBulk,
     updateRow,
     deleteRow,
     refetch,

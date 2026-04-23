@@ -1,7 +1,7 @@
 import type { AppContext } from '../../context';
 import { resolveRegionSetRegionIds } from '../../lib/resolve-region-set';
 import { SegmentService } from './segment.service';
-import type { SegmentCreateDto, SegmentUpdateDto } from './segment.types';
+import type { SegmentBulkCreateDto, SegmentCreateDto, SegmentUpdateDto } from './segment.types';
 
 interface SegmentArgs {
   id: string;
@@ -13,6 +13,10 @@ interface SegmentsArgs {
 
 interface SegmentCreateArgs {
   input: SegmentCreateDto;
+}
+
+interface SegmentBulkCreateArgs {
+  input: SegmentBulkCreateDto;
 }
 
 interface SegmentUpdateArgs {
@@ -34,6 +38,8 @@ export const segmentResolver = {
   Mutation: {
     createSegment: (_parent: unknown, args: SegmentCreateArgs, ctx: AppContext) =>
       new SegmentService(ctx.prisma).create(args.input),
+    createSegmentsBulk: (_parent: unknown, args: SegmentBulkCreateArgs, ctx: AppContext) =>
+      new SegmentService(ctx.prisma).createBulk(args.input),
     updateSegment: (_parent: unknown, args: SegmentUpdateArgs, ctx: AppContext) =>
       new SegmentService(ctx.prisma).update(args.id, args.input),
     deleteSegment: (_parent: unknown, args: SegmentArgs, ctx: AppContext) => new SegmentService(ctx.prisma).delete(args.id),

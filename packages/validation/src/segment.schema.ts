@@ -239,7 +239,83 @@ export const segmentUpdateSchema = segmentBaseSchema
     });
   });
 
+const segmentBulkBaseSchema = segmentBaseSchema
+  .omit({ fromLocationId: true, regionId: true })
+  .extend({
+    regionId: z.string().min(1).optional(),
+    fromLocationIds: z.array(z.string().min(1)).min(1).max(50),
+  });
+
+export const segmentBulkCreateSchema = segmentBulkBaseSchema
+  .superRefine((value, ctx) => {
+    const uniqueFromIds = new Set(value.fromLocationIds);
+    if (uniqueFromIds.size !== value.fromLocationIds.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'fromLocationIds must not contain duplicates',
+        path: ['fromLocationIds'],
+      });
+    }
+    if (value.fromLocationIds.includes(value.toLocationId)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'fromLocationIds must not include toLocationId',
+        path: ['fromLocationIds'],
+      });
+    }
+
+    if (!value.versions) {
+      return;
+    }
+
+    const defaultVersions = value.versions.filter((version) => version.isDefault !== false);
+    if (defaultVersions.length !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'versions must include exactly one default version',
+        path: ['versions'],
+      });
+    }
+
+    const seenBands = new Set<(typeof segmentFlightOutTimeBands)[number]>();
+    const seasonalVersions = value.versions
+      .filter((version) => version.kind === 'SEASON' && version.startDate && version.endDate)
+      .slice()
+      .sort((left, right) => left.startDate!.localeCompare(right.startDate!));
+    for (let index = 1; index < seasonalVersions.length; index += 1) {
+      const previousVersion = seasonalVersions[index - 1]!;
+      const currentVersion = seasonalVersions[index]!;
+      if (previousVersion.endDate! >= currentVersion.startDate!) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'season versions must not have overlapping date ranges',
+          path: ['versions'],
+        });
+        break;
+      }
+    }
+    value.versions.forEach((version, index) => {
+      if (version.kind !== 'FLIGHT') {
+        return;
+      }
+      const band = version.flightOutTimeBand;
+      if (!band) {
+        return;
+      }
+      if (seenBands.has(band)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'versions must not contain duplicate flightOutTimeBand values',
+          path: ['versions', index, 'flightOutTimeBand'],
+        });
+        return;
+      }
+      seenBands.add(band);
+    });
+  });
+
 export type SegmentCreateInput = z.infer<typeof segmentCreateSchema>;
 export type SegmentUpdateInput = z.infer<typeof segmentUpdateSchema>;
+export type SegmentBulkCreateInput = z.infer<typeof segmentBulkCreateSchema>;
 export type SegmentTimeSlotInput = z.infer<typeof segmentTimeSlotSchema>;
 export type SegmentVersionInput = z.infer<typeof segmentVersionSchema>;

@@ -13,6 +13,7 @@ import {
   useSegmentCrud,
   type ConnectionSourceType,
   type FlightTimeBandValue,
+  type SegmentBulkFormInput,
   type SegmentRow,
   type SegmentTimeSlotFormInput,
   type SegmentVersionFormInput,
@@ -104,6 +105,9 @@ interface SegmentFormState {
   sourceType: ConnectionSourceType;
   fromLocationId: string;
   fromMultiDayBlockId: string;
+  bulkMode: boolean;
+  bulkFromLocationIds: string[];
+  bulkFromMultiDayBlockIds: string[];
   toLocationId: string;
   averageDistanceKm: string;
   averageTravelHours: string;
@@ -378,6 +382,9 @@ function createEmptyForm(): SegmentFormState {
     sourceType: 'LOCATION',
     fromLocationId: '',
     fromMultiDayBlockId: '',
+    bulkMode: false,
+    bulkFromLocationIds: [],
+    bulkFromMultiDayBlockIds: [],
     toLocationId: '',
     averageDistanceKm: '',
     averageTravelHours: '',
@@ -1498,8 +1505,15 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const selectedEditFromLocation = editForm.fromLocationId ? locationById.get(editForm.fromLocationId) : undefined;
   const selectedEditFromMultiDayBlock = editForm.fromMultiDayBlockId ? multiDayBlockById.get(editForm.fromMultiDayBlockId) : undefined;
   const selectedEditToLocation = editForm.toLocationId ? locationById.get(editForm.toLocationId) : undefined;
-  const createFromLabel =
-    form.sourceType === 'LOCATION'
+  const createFromLabel = form.bulkMode
+    ? (form.sourceType === 'LOCATION'
+        ? form.bulkFromLocationIds
+            .map((id) => formatLocationNameInline(locationById.get(id)?.name ?? [id]))
+            .join('+') || '-'
+        : form.bulkFromMultiDayBlockIds
+            .map((id) => multiDayBlockById.get(id)?.title ?? id)
+            .join('+') || '-')
+    : form.sourceType === 'LOCATION'
       ? formatLocationNameInline(selectedFromLocation?.name ?? [form.fromLocationId || '-'])
       : ((selectedFromMultiDayBlock?.title ?? form.fromMultiDayBlockId) || '-');
   const createToLabel = formatLocationNameInline(selectedToLocation?.name ?? [form.toLocationId || '-']);
@@ -1510,7 +1524,19 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const editToLabel = formatLocationNameInline(selectedEditToLocation?.name ?? [editForm.toLocationId || '-']);
   const createFlightVersionName = buildFlightVersionName(createFromLabel, createToLabel);
   const editFlightVersionName = buildFlightVersionName(editFromLabel, editToLabel);
-  const includeCreateEarly = form.sourceType === 'LOCATION' && Boolean(selectedFromLocation?.isFirstDayEligible);
+  const bulkLockedFirstDayEligible = useMemo<boolean | null>(() => {
+    if (!form.bulkMode || form.sourceType !== 'LOCATION' || form.bulkFromLocationIds.length === 0) {
+      return null;
+    }
+    const firstId = form.bulkFromLocationIds[0]!;
+    const firstLoc = locationById.get(firstId);
+    return firstLoc ? Boolean(firstLoc.isFirstDayEligible) : null;
+  }, [form.bulkMode, form.sourceType, form.bulkFromLocationIds, locationById]);
+  const includeCreateEarly =
+    form.sourceType === 'LOCATION' &&
+    (form.bulkMode
+      ? bulkLockedFirstDayEligible === true
+      : Boolean(selectedFromLocation?.isFirstDayEligible));
   const includeCreateExtend = Boolean(selectedToLocation?.isLastDayEligible);
   const includeEditEarly = editForm.sourceType === 'LOCATION' && Boolean(selectedEditFromLocation?.isFirstDayEligible);
   const includeEditExtend = Boolean(selectedEditToLocation?.isLastDayEligible);
@@ -1529,11 +1555,52 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     return getMovementIntensityMeta(calculateMovementIntensityByHours(hours));
   }, [editForm.averageTravelHours]);
 
-  const hasCreateSource = form.sourceType === 'LOCATION' ? Boolean(selectedFromLocation) : Boolean(selectedFromMultiDayBlock);
+  const hasCreateSourceSingle = form.sourceType === 'LOCATION' ? Boolean(selectedFromLocation) : Boolean(selectedFromMultiDayBlock);
+  const hasCreateSourceBulk =
+    form.sourceType === 'LOCATION'
+      ? form.bulkFromLocationIds.length > 0 && form.bulkFromLocationIds.every((id) => locationById.has(id))
+      : form.bulkFromMultiDayBlockIds.length > 0 && form.bulkFromMultiDayBlockIds.every((id) => multiDayBlockById.has(id));
+  const hasCreateSource = form.bulkMode ? hasCreateSourceBulk : hasCreateSourceSingle;
   const hasEditSource = editForm.sourceType === 'LOCATION' ? Boolean(selectedEditFromLocation) : Boolean(selectedEditFromMultiDayBlock);
   const existingCreateConnectionMessage = useMemo(() => {
     if (!form.toLocationId) {
       return null;
+    }
+    if (form.bulkMode) {
+      if (form.sourceType === 'LOCATION') {
+        if (form.bulkFromLocationIds.length === 0) {
+          return null;
+        }
+        const conflictRows = crud.rows.filter(
+          (row) =>
+            row.sourceType === 'LOCATION' &&
+            row.toLocationId === form.toLocationId &&
+            form.bulkFromLocationIds.includes(row.fromLocationId ?? ''),
+        );
+        if (conflictRows.length === 0) {
+          return null;
+        }
+        const labels = conflictRows.map((row) =>
+          formatLocationNameInline(locationById.get(row.fromLocationId ?? '')?.name ?? [row.fromLocationId ?? '']),
+        );
+        return `이미 등록된 (출발지→도착지) 연결이 있어요: ${labels.join(', ')}. 해당 출발지를 제거하거나 기존 연결을 수정해주세요.`;
+      }
+      if (form.bulkFromMultiDayBlockIds.length === 0) {
+        return null;
+      }
+      const conflictRows = crud.rows.filter(
+        (row) =>
+          row.sourceType === 'MULTI_DAY_BLOCK' &&
+          row.toLocationId === form.toLocationId &&
+          form.bulkFromMultiDayBlockIds.includes(row.fromMultiDayBlockId ?? ''),
+      );
+      if (conflictRows.length === 0) {
+        return null;
+      }
+      const labels = conflictRows.map(
+        (row) => row.fromMultiDayBlockTitle ?? row.fromMultiDayBlockId ?? '',
+      );
+      return `이미 등록된 (출발 블록→도착지) 연결이 있어요: ${labels.join(', ')}. 해당 블록을 제거하거나 기존 연결을 수정해주세요.`;
     }
     if (form.sourceType === 'LOCATION') {
       if (!form.fromLocationId) {
@@ -1557,13 +1624,31 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
         row.toLocationId === form.toLocationId,
     );
     return exists ? '이미 같은 출발 블록과 도착지의 연결이 등록되어 있습니다. 기존 연결을 수정해주세요.' : null;
-  }, [crud.rows, form.fromLocationId, form.fromMultiDayBlockId, form.sourceType, form.toLocationId]);
+  }, [
+    crud.rows,
+    form.bulkFromLocationIds,
+    form.bulkFromMultiDayBlockIds,
+    form.bulkMode,
+    form.fromLocationId,
+    form.fromMultiDayBlockId,
+    form.sourceType,
+    form.toLocationId,
+    locationById,
+  ]);
+
+  const bulkFromConflictsWithTo = form.bulkMode
+    && (form.sourceType === 'LOCATION'
+      ? form.bulkFromLocationIds.includes(form.toLocationId)
+      : false);
 
   const canSubmit =
     hasCreateSource &&
     !!selectedToLocation &&
     !existingCreateConnectionMessage &&
-    (form.sourceType === 'MULTI_DAY_BLOCK' || form.fromLocationId !== form.toLocationId) &&
+    !bulkFromConflictsWithTo &&
+    (form.bulkMode
+      ? true
+      : form.sourceType === 'MULTI_DAY_BLOCK' || form.fromLocationId !== form.toLocationId) &&
     Number(form.averageDistanceKm) > 0 &&
     Number(form.averageTravelHours) > 0 &&
     form.versions.every((version) =>
@@ -1587,13 +1672,20 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     const messages: string[] = [];
 
     if (!hasCreateSource) {
-      messages.push(form.sourceType === 'LOCATION' ? '출발지를 선택해주세요.' : '출발 블록을 선택해주세요.');
+      if (form.bulkMode) {
+        messages.push(form.sourceType === 'LOCATION' ? '출발지를 1개 이상 선택해주세요.' : '출발 블록을 1개 이상 선택해주세요.');
+      } else {
+        messages.push(form.sourceType === 'LOCATION' ? '출발지를 선택해주세요.' : '출발 블록을 선택해주세요.');
+      }
     }
     if (!selectedToLocation) {
       messages.push('도착지를 선택해주세요.');
     }
     if (form.sourceType === 'LOCATION' && form.fromLocationId && form.toLocationId && form.fromLocationId === form.toLocationId) {
       messages.push('출발지와 도착지는 서로 달라야 합니다.');
+    }
+    if (bulkFromConflictsWithTo) {
+      messages.push('출발지 목록에서 도착지와 동일한 항목은 제거해주세요.');
     }
     if (existingCreateConnectionMessage) {
       messages.push(existingCreateConnectionMessage);
@@ -1637,6 +1729,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     return Array.from(new Set(messages));
   }, [
     form.sourceType,
+    form.bulkMode,
     form.fromLocationId,
     form.toLocationId,
     form.averageDistanceKm,
@@ -1645,6 +1738,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     hasCreateSource,
     includeCreateExtend,
     existingCreateConnectionMessage,
+    bulkFromConflictsWithTo,
     selectedToLocation,
   ]);
   const showCreateSection = mode !== 'list';
@@ -1684,36 +1778,57 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
           className="grid gap-4"
           onSubmit={async (event) => {
             event.preventDefault();
-            if (
-              !canSubmit ||
-              !selectedToLocation ||
-              (form.sourceType === 'LOCATION' ? !selectedFromLocation : !selectedFromMultiDayBlock)
-            ) {
+            if (!canSubmit || !selectedToLocation) {
+              return;
+            }
+            if (!form.bulkMode && (form.sourceType === 'LOCATION' ? !selectedFromLocation : !selectedFromMultiDayBlock)) {
               return;
             }
 
             setSubmitting(true);
             try {
               setErrorMessage(null);
-              await crud.createRow({
-                sourceType: form.sourceType,
-                ...(form.sourceType === 'LOCATION' ? { regionId: selectedFromLocation!.regionId } : {}),
-                fromLocationId: form.sourceType === 'LOCATION' ? form.fromLocationId : undefined,
-                fromMultiDayBlockId: form.sourceType === 'MULTI_DAY_BLOCK' ? form.fromMultiDayBlockId : undefined,
-                toLocationId: form.toLocationId,
-                averageDistanceKm: Number(form.averageDistanceKm),
-                averageTravelHours: Number(form.averageTravelHours),
-                isLongDistance: form.isLongDistance,
-                ...buildVariantTimeSlotInput(form, {
-                  includeEarly: includeCreateEarly,
-                  includeExtend: includeCreateExtend,
-                }),
-                versions: buildVersionInputs(form, {
-                  includeEarly: includeCreateEarly,
-                  includeExtend: includeCreateExtend,
-                  fixedFlightVersionName: createFlightVersionName,
-                }),
-              });
+              if (form.bulkMode) {
+                const bulkInput: SegmentBulkFormInput = {
+                  sourceType: form.sourceType,
+                  fromLocationIds: form.sourceType === 'LOCATION' ? form.bulkFromLocationIds : undefined,
+                  fromMultiDayBlockIds: form.sourceType === 'MULTI_DAY_BLOCK' ? form.bulkFromMultiDayBlockIds : undefined,
+                  toLocationId: form.toLocationId,
+                  averageDistanceKm: Number(form.averageDistanceKm),
+                  averageTravelHours: Number(form.averageTravelHours),
+                  isLongDistance: form.isLongDistance,
+                  ...buildVariantTimeSlotInput(form, {
+                    includeEarly: includeCreateEarly,
+                    includeExtend: includeCreateExtend,
+                  }),
+                  versions: buildVersionInputs(form, {
+                    includeEarly: includeCreateEarly,
+                    includeExtend: includeCreateExtend,
+                    fixedFlightVersionName: createFlightVersionName,
+                  }),
+                };
+                await crud.createRowsBulk(bulkInput);
+              } else {
+                await crud.createRow({
+                  sourceType: form.sourceType,
+                  ...(form.sourceType === 'LOCATION' ? { regionId: selectedFromLocation!.regionId } : {}),
+                  fromLocationId: form.sourceType === 'LOCATION' ? form.fromLocationId : undefined,
+                  fromMultiDayBlockId: form.sourceType === 'MULTI_DAY_BLOCK' ? form.fromMultiDayBlockId : undefined,
+                  toLocationId: form.toLocationId,
+                  averageDistanceKm: Number(form.averageDistanceKm),
+                  averageTravelHours: Number(form.averageTravelHours),
+                  isLongDistance: form.isLongDistance,
+                  ...buildVariantTimeSlotInput(form, {
+                    includeEarly: includeCreateEarly,
+                    includeExtend: includeCreateExtend,
+                  }),
+                  versions: buildVersionInputs(form, {
+                    includeEarly: includeCreateEarly,
+                    includeExtend: includeCreateExtend,
+                    fixedFlightVersionName: createFlightVersionName,
+                  }),
+                });
+              }
               setForm(createEmptyForm());
               setCreatePasteHelperResetNonce((n) => n + 1);
               setFromSearch('');
@@ -1738,7 +1853,14 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                       type="button"
                       variant={form.sourceType === 'LOCATION' ? 'default' : 'outline'}
                       onClick={() => {
-                        setForm((prev) => ({ ...prev, sourceType: 'LOCATION', fromMultiDayBlockId: '', fromLocationId: '' }));
+                        setForm((prev) => ({
+                          ...prev,
+                          sourceType: 'LOCATION',
+                          fromMultiDayBlockId: '',
+                          fromLocationId: '',
+                          bulkFromLocationIds: [],
+                          bulkFromMultiDayBlockIds: [],
+                        }));
                         setFromSearch('');
                         setFromOpen(false);
                       }}
@@ -1749,7 +1871,14 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                       type="button"
                       variant={form.sourceType === 'MULTI_DAY_BLOCK' ? 'default' : 'outline'}
                       onClick={() => {
-                        setForm((prev) => ({ ...prev, sourceType: 'MULTI_DAY_BLOCK', fromLocationId: '', fromMultiDayBlockId: '' }));
+                        setForm((prev) => ({
+                          ...prev,
+                          sourceType: 'MULTI_DAY_BLOCK',
+                          fromLocationId: '',
+                          fromMultiDayBlockId: '',
+                          bulkFromLocationIds: [],
+                          bulkFromMultiDayBlockIds: [],
+                        }));
                         setFromSearch('');
                         setFromOpen(false);
                       }}
@@ -1758,62 +1887,213 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                     </Button>
                   </div>
                 </div>
-                <label className="grid gap-1 text-sm min-w-0">
-                  <span className="text-slate-700">출발지</span>
-                  <div className="relative">
-                    <Input
-                      value={fromSearch}
-                      onFocus={() => setFromOpen(true)}
-                      onBlur={() => setTimeout(() => setFromOpen(false), 120)}
+                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                  <div className="grid gap-0.5">
+                    <span className="font-semibold text-slate-800">중복 모드</span>
+                    <span className="text-xs text-slate-500">동일한 입력값을 여러 출발지에 한 번에 적용해 일괄 생성합니다.</span>
+                  </div>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={form.bulkMode}
                       onChange={(event) => {
-                        setFromSearch(event.target.value);
+                        const nextBulk = event.target.checked;
                         setForm((prev) => ({
                           ...prev,
-                          fromLocationId: prev.sourceType === 'LOCATION' ? '' : prev.fromLocationId,
-                          fromMultiDayBlockId: prev.sourceType === 'MULTI_DAY_BLOCK' ? '' : prev.fromMultiDayBlockId,
+                          bulkMode: nextBulk,
+                          fromLocationId: nextBulk ? '' : prev.fromLocationId,
+                          fromMultiDayBlockId: nextBulk ? '' : prev.fromMultiDayBlockId,
+                          bulkFromLocationIds: nextBulk ? prev.bulkFromLocationIds : [],
+                          bulkFromMultiDayBlockIds: nextBulk ? prev.bulkFromMultiDayBlockIds : [],
                         }));
-                        setFromOpen(true);
+                        setFromSearch('');
+                        setFromOpen(false);
                       }}
-                      placeholder={form.sourceType === 'LOCATION' ? '출발 목적지 검색 또는 선택' : '출발 블록 검색 또는 선택'}
                     />
-                    {fromOpen ? (
-                      <div className="absolute left-0 right-0 top-[44px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-                        {(form.sourceType === 'LOCATION' ? filteredFromLocations.length === 0 : filteredFromMultiDayBlocks.length === 0) ? (
-                          <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
-                        ) : (
-                          form.sourceType === 'LOCATION'
-                            ? filteredFromLocations.map((item) => (
+                    <span className="text-slate-700">{form.bulkMode ? '켜짐' : '꺼짐'}</span>
+                  </label>
+                </div>
+                <label className="grid gap-1 text-sm min-w-0">
+                  <span className="text-slate-700">{form.bulkMode ? (form.sourceType === 'LOCATION' ? '출발지 (여러 개 선택)' : '출발 블록 (여러 개 선택)') : '출발지'}</span>
+                  {form.bulkMode ? (
+                    <>
+                      {form.sourceType === 'LOCATION' && bulkLockedFirstDayEligible !== null ? (
+                        <p className="text-xs text-slate-500">
+                          그룹 잠금: <span className="font-medium text-slate-700">{bulkLockedFirstDayEligible ? '첫째 날 가능 출발지' : '첫째 날 불가 출발지'}</span> · 다른 그룹은 추가할 수 없습니다.
+                        </p>
+                      ) : null}
+                      {(form.sourceType === 'LOCATION' ? form.bulkFromLocationIds : form.bulkFromMultiDayBlockIds).length > 0 ? (
+                        <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2">
+                          {(form.sourceType === 'LOCATION' ? form.bulkFromLocationIds : form.bulkFromMultiDayBlockIds).map((id) => {
+                            const label = form.sourceType === 'LOCATION'
+                              ? formatLocationNameInline(locationById.get(id)?.name ?? [id])
+                              : multiDayBlockById.get(id)?.title ?? id;
+                            return (
+                              <span
+                                key={id}
+                                className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                              >
+                                {label}
                                 <button
-                                  key={item.id}
                                   type="button"
+                                  className="rounded-full px-1 text-blue-500 hover:bg-blue-100"
                                   onClick={() => {
-                                    setForm((prev) => ({ ...prev, fromLocationId: item.id }));
-                                    setFromSearch(formatLocationNameInline(item.name));
-                                    setFromOpen(false);
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      bulkFromLocationIds: prev.sourceType === 'LOCATION'
+                                        ? prev.bulkFromLocationIds.filter((existingId) => existingId !== id)
+                                        : prev.bulkFromLocationIds,
+                                      bulkFromMultiDayBlockIds: prev.sourceType === 'MULTI_DAY_BLOCK'
+                                        ? prev.bulkFromMultiDayBlockIds.filter((existingId) => existingId !== id)
+                                        : prev.bulkFromMultiDayBlockIds,
+                                    }));
                                   }}
-                                  className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
+                                  aria-label={`${label} 제거`}
                                 >
-                                  {formatLocationNameInline(item.name)} ({item.regionName})
+                                  ×
                                 </button>
-                              ))
-                            : filteredFromMultiDayBlocks.map((item) => (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setForm((prev) => ({ ...prev, fromMultiDayBlockId: item.id }));
-                                    setFromSearch(item.title);
-                                    setFromOpen(false);
-                                  }}
-                                  className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
-                                >
-                                  {item.title} ({getBlockRegionSummary(item)})
-                                </button>
-                              ))
-                        )}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      <div className="relative">
+                        <Input
+                          value={fromSearch}
+                          onFocus={() => setFromOpen(true)}
+                          onBlur={() => setTimeout(() => setFromOpen(false), 120)}
+                          onChange={(event) => {
+                            setFromSearch(event.target.value);
+                            setFromOpen(true);
+                          }}
+                          placeholder={form.sourceType === 'LOCATION' ? '출발 목적지 검색 후 클릭하여 추가' : '출발 블록 검색 후 클릭하여 추가'}
+                        />
+                        {fromOpen ? (
+                          <div className="absolute left-0 right-0 top-[44px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                            {(form.sourceType === 'LOCATION' ? filteredFromLocations.length === 0 : filteredFromMultiDayBlocks.length === 0) ? (
+                              <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
+                            ) : (
+                              form.sourceType === 'LOCATION'
+                                ? filteredFromLocations.map((item) => {
+                                    const isSelected = form.bulkFromLocationIds.includes(item.id);
+                                    const isGroupMismatch =
+                                      bulkLockedFirstDayEligible !== null &&
+                                      Boolean(item.isFirstDayEligible) !== bulkLockedFirstDayEligible;
+                                    const eligibilityTag = item.isFirstDayEligible ? '첫째날 가능' : '첫째날 불가';
+                                    const disabled = isSelected || isGroupMismatch;
+                                    return (
+                                      <button
+                                        key={item.id}
+                                        type="button"
+                                        disabled={disabled}
+                                        title={isGroupMismatch ? '선택된 그룹과 첫째날 가능 여부가 달라 추가할 수 없어요.' : undefined}
+                                        onClick={() => {
+                                          if (disabled) return;
+                                          setForm((prev) => ({
+                                            ...prev,
+                                            bulkFromLocationIds: prev.bulkFromLocationIds.includes(item.id)
+                                              ? prev.bulkFromLocationIds
+                                              : [...prev.bulkFromLocationIds, item.id],
+                                          }));
+                                          setFromSearch('');
+                                          setFromOpen(false);
+                                        }}
+                                        className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${disabled ? 'bg-slate-100 text-slate-400' : 'hover:bg-slate-100'}`}
+                                      >
+                                        {formatLocationNameInline(item.name)} ({item.regionName})
+                                        <span className={`ml-2 text-[10px] font-medium ${item.isFirstDayEligible ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                          {eligibilityTag}
+                                        </span>
+                                        {isSelected ? ' · 추가됨' : ''}
+                                        {isGroupMismatch ? ' · 다른 그룹' : ''}
+                                      </button>
+                                    );
+                                  })
+                                : filteredFromMultiDayBlocks.map((item) => {
+                                    const isSelected = form.bulkFromMultiDayBlockIds.includes(item.id);
+                                    return (
+                                      <button
+                                        key={item.id}
+                                        type="button"
+                                        disabled={isSelected}
+                                        onClick={() => {
+                                          if (isSelected) return;
+                                          setForm((prev) => ({
+                                            ...prev,
+                                            bulkFromMultiDayBlockIds: prev.bulkFromMultiDayBlockIds.includes(item.id)
+                                              ? prev.bulkFromMultiDayBlockIds
+                                              : [...prev.bulkFromMultiDayBlockIds, item.id],
+                                          }));
+                                          setFromSearch('');
+                                          setFromOpen(false);
+                                        }}
+                                        className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${isSelected ? 'bg-slate-100 text-slate-400' : 'hover:bg-slate-100'}`}
+                                      >
+                                        {item.title} ({getBlockRegionSummary(item)}) {isSelected ? '· 추가됨' : ''}
+                                      </button>
+                                    );
+                                  })
+                            )}
+                          </div>
+                        ) : null}
                       </div>
-                    ) : null}
-                  </div>
+                    </>
+                  ) : (
+                    <div className="relative">
+                      <Input
+                        value={fromSearch}
+                        onFocus={() => setFromOpen(true)}
+                        onBlur={() => setTimeout(() => setFromOpen(false), 120)}
+                        onChange={(event) => {
+                          setFromSearch(event.target.value);
+                          setForm((prev) => ({
+                            ...prev,
+                            fromLocationId: prev.sourceType === 'LOCATION' ? '' : prev.fromLocationId,
+                            fromMultiDayBlockId: prev.sourceType === 'MULTI_DAY_BLOCK' ? '' : prev.fromMultiDayBlockId,
+                          }));
+                          setFromOpen(true);
+                        }}
+                        placeholder={form.sourceType === 'LOCATION' ? '출발 목적지 검색 또는 선택' : '출발 블록 검색 또는 선택'}
+                      />
+                      {fromOpen ? (
+                        <div className="absolute left-0 right-0 top-[44px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                          {(form.sourceType === 'LOCATION' ? filteredFromLocations.length === 0 : filteredFromMultiDayBlocks.length === 0) ? (
+                            <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
+                          ) : (
+                            form.sourceType === 'LOCATION'
+                              ? filteredFromLocations.map((item) => (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setForm((prev) => ({ ...prev, fromLocationId: item.id }));
+                                      setFromSearch(formatLocationNameInline(item.name));
+                                      setFromOpen(false);
+                                    }}
+                                    className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
+                                  >
+                                    {formatLocationNameInline(item.name)} ({item.regionName})
+                                  </button>
+                                ))
+                              : filteredFromMultiDayBlocks.map((item) => (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setForm((prev) => ({ ...prev, fromMultiDayBlockId: item.id }));
+                                      setFromSearch(item.title);
+                                      setFromOpen(false);
+                                    }}
+                                    className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
+                                  >
+                                    {item.title} ({getBlockRegionSummary(item)})
+                                  </button>
+                                ))
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </label>
               </div>
 
@@ -2188,6 +2468,9 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                           sourceType: row.sourceType,
                           fromLocationId: row.fromLocationId ?? '',
                           fromMultiDayBlockId: row.fromMultiDayBlockId ?? '',
+                          bulkMode: false,
+                          bulkFromLocationIds: [],
+                          bulkFromMultiDayBlockIds: [],
                           toLocationId: row.toLocationId,
                           averageDistanceKm: String(row.averageDistanceKm),
                           averageTravelHours: String(row.averageTravelHours),

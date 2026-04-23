@@ -8,6 +8,7 @@ import type {
   SegmentVersionKind,
 } from '@prisma/client';
 import {
+  segmentBulkCreateSchema,
   segmentCreateSchema,
   segmentUpdateSchema,
   type LocationProfileLodgingInput,
@@ -18,7 +19,7 @@ import {
 import { createValidationError, DomainError } from '../../lib/errors';
 import { calculateMovementIntensity } from '../../lib/movement-intensity';
 import { SegmentRepository } from './segment.repository';
-import type { SegmentCreateDto, SegmentUpdateDto } from './segment.types';
+import type { SegmentBulkCreateDto, SegmentCreateDto, SegmentUpdateDto } from './segment.types';
 
 type SegmentScheduleVariant = 'basic' | 'early' | 'extend' | 'earlyExtend';
 
@@ -875,6 +876,130 @@ export class SegmentService {
       await this.syncDefaultMirror(tx, created.id, defaultVersionId, defaultVersion);
 
       return new SegmentRepository(tx).findById(created.id);
+    });
+  }
+
+  async createBulk(input: SegmentBulkCreateDto) {
+    const parsed = segmentBulkCreateSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid segment bulk input', parsed.error);
+    }
+
+    const { fromLocationIds, toLocationId, regionId } = parsed.data;
+    const uniqueFromIds = Array.from(new Set(fromLocationIds));
+
+    const locationIds = Array.from(new Set([...uniqueFromIds, toLocationId]));
+    const locations = await this.prisma.location.findMany({
+      where: { id: { in: locationIds } },
+      select: { id: true, regionId: true, isFirstDayEligible: true, isLastDayEligible: true },
+    });
+    if (locations.length !== locationIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'One or more segment locations not found');
+    }
+    const locationById = new Map(locations.map((location) => [location.id, location]));
+    const toLocation = locationById.get(toLocationId);
+    if (!toLocation) {
+      throw new DomainError('VALIDATION_FAILED', 'Segment destination location not found');
+    }
+
+    const fromRegionIds = Array.from(
+      new Set(uniqueFromIds.map((id) => locationById.get(id)!.regionId)),
+    );
+    const regions = await this.prisma.region.findMany({
+      where: { id: { in: fromRegionIds } },
+      select: { id: true, name: true },
+    });
+    if (regions.length !== fromRegionIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'Region not found for one or more segments');
+    }
+    const regionById = new Map(regions.map((region) => [region.id, region]));
+
+    if (regionId) {
+      const mismatched = uniqueFromIds.find((id) => locationById.get(id)!.regionId !== regionId);
+      if (mismatched) {
+        throw new DomainError(
+          'VALIDATION_FAILED',
+          'Segment regionId must match every departure location region in bulk create',
+        );
+      }
+    }
+
+    const existingSegments = await this.prisma.segment.findMany({
+      where: { toLocationId, fromLocationId: { in: uniqueFromIds } },
+      select: { fromLocationId: true },
+    });
+    if (existingSegments.length > 0) {
+      const existingFromIds = existingSegments.map((segment) => segment.fromLocationId);
+      throw new DomainError(
+        'VALIDATION_FAILED',
+        `Segments already exist for from-locations: ${existingFromIds.join(', ')}`,
+      );
+    }
+
+    const fromInputsByFromId = new Map(
+      uniqueFromIds.map((fromLocationId) => {
+        const fromLocation = locationById.get(fromLocationId)!;
+        const owningRegion = regionById.get(fromLocation.regionId)!;
+        const nextVersions = parsed.data.versions
+          ? this.normalizeVersionsFromInput(parsed.data.versions)
+          : [
+              this.buildLegacyDirectVersionFromInput({
+                averageDistanceKm: parsed.data.averageDistanceKm,
+                averageTravelHours: parsed.data.averageTravelHours,
+                isLongDistance: parsed.data.isLongDistance,
+                timeSlots: parsed.data.timeSlots,
+                earlyTimeSlots: parsed.data.earlyTimeSlots,
+                extendTimeSlots: parsed.data.extendTimeSlots,
+                earlyExtendTimeSlots: parsed.data.earlyExtendTimeSlots,
+              }),
+            ];
+        return [
+          fromLocationId,
+          {
+            fromLocation,
+            owningRegion,
+            nextVersions,
+          },
+        ] as const;
+      }),
+    );
+
+    for (const { fromLocation, nextVersions } of fromInputsByFromId.values()) {
+      await this.validateVersions(fromLocation, toLocation, nextVersions);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const repository = new SegmentRepository(tx);
+      const created: NonNullable<Awaited<ReturnType<SegmentRepository['findById']>>>[] = [];
+
+      for (const fromLocationId of uniqueFromIds) {
+        const { owningRegion, nextVersions } = fromInputsByFromId.get(fromLocationId)!;
+        const defaultVersion = this.getDefaultVersion(nextVersions);
+
+        const newSegment = await tx.segment.create({
+          data: {
+            regionId: owningRegion.id,
+            regionName: owningRegion.name,
+            fromLocationId,
+            toLocationId,
+            averageDistanceKm: defaultVersion.averageDistanceKm,
+            averageTravelHours: defaultVersion.averageTravelHours,
+            movementIntensity: defaultVersion.movementIntensity,
+            isLongDistance: defaultVersion.isLongDistance,
+          },
+        });
+
+        const defaultVersionId = await this.replaceAllVersions(tx, newSegment.id, nextVersions);
+        await this.syncDefaultMirror(tx, newSegment.id, defaultVersionId, defaultVersion);
+
+        const reloaded = await repository.findById(newSegment.id);
+        if (!reloaded) {
+          throw new DomainError('INTERNAL', 'Failed to load created segment');
+        }
+        created.push(reloaded);
+      }
+
+      return created;
     });
   }
 

@@ -168,6 +168,20 @@ input SegmentCreateInput {
   versions: [SegmentVersionInput!]
 }
 
+input SegmentBulkCreateInput {
+  regionId: String
+  fromLocationIds: [String!]!
+  toLocationId: String!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  isLongDistance: Boolean!
+  timeSlots: [SegmentTimeSlotInput!]!
+  earlyTimeSlots: [SegmentTimeSlotInput!]
+  extendTimeSlots: [SegmentTimeSlotInput!]
+  earlyExtendTimeSlots: [SegmentTimeSlotInput!]
+  versions: [SegmentVersionInput!]
+}
+
 input SegmentUpdateInput {
   regionId: String
   fromLocationId: String

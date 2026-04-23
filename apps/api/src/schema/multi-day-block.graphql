@@ -178,6 +178,19 @@ input MultiDayBlockConnectionCreateInput {
   versions: [MultiDayBlockConnectionVersionInput!]
 }
 
+input MultiDayBlockConnectionBulkCreateInput {
+  fromMultiDayBlockIds: [String!]!
+  toLocationId: String!
+  averageDistanceKm: Float!
+  averageTravelHours: Float!
+  isLongDistance: Boolean!
+  timeSlots: [MultiDayBlockConnectionTimeSlotInput!]!
+  earlyTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  extendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  earlyExtendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  versions: [MultiDayBlockConnectionVersionInput!]
+}
+
 input MultiDayBlockConnectionUpdateInput {
   fromMultiDayBlockId: String
   toLocationId: String

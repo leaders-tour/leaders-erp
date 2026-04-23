@@ -1,5 +1,6 @@
 import type { MovementIntensity, Prisma, PrismaClient } from '@prisma/client';
 import {
+  multiDayBlockConnectionBulkCreateSchema,
   multiDayBlockConnectionCreateSchema,
   multiDayBlockConnectionUpdateSchema,
   multiDayBlockCreateSchema,
@@ -11,6 +12,7 @@ import { createValidationError, DomainError } from '../../lib/errors';
 import { calculateMovementIntensity } from '../../lib/movement-intensity';
 import { MultiDayBlockConnectionRepository, MultiDayBlockRepository } from './multi-day-block.repository';
 import type {
+  MultiDayBlockConnectionBulkCreateDto,
   MultiDayBlockConnectionCreateDto,
   MultiDayBlockConnectionUpdateDto,
   MultiDayBlockCreateDto,
@@ -773,6 +775,117 @@ export class MultiDayBlockConnectionService {
       await this.syncDefaultMirror(tx, created.id, defaultVersionId, defaultVersion);
 
       return new MultiDayBlockConnectionRepository(tx).findById(created.id);
+    });
+  }
+
+  async createBulk(input: MultiDayBlockConnectionBulkCreateDto) {
+    const parsed = multiDayBlockConnectionBulkCreateSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid multi-day block connection bulk input', parsed.error);
+    }
+
+    const { fromMultiDayBlockIds, toLocationId } = parsed.data;
+    const uniqueFromIds = Array.from(new Set(fromMultiDayBlockIds));
+
+    const toLocation = await this.prisma.location.findUnique({
+      where: { id: toLocationId },
+      select: { id: true, regionId: true, isLastDayEligible: true },
+    });
+    if (!toLocation) {
+      throw new DomainError('VALIDATION_FAILED', 'Connection destination location not found');
+    }
+
+    const overnightStays = await this.prisma.overnightStay.findMany({
+      where: { id: { in: uniqueFromIds } },
+      select: {
+        id: true,
+        regionId: true,
+        days: {
+          orderBy: { dayOrder: 'desc' },
+          take: 1,
+          select: {
+            displayLocation: { select: { regionId: true } },
+          },
+        },
+      },
+    });
+    if (overnightStays.length !== uniqueFromIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'One or more multi-day blocks not found for connection');
+    }
+    const fromBlockRegionByBlockId = new Map(
+      overnightStays.map((stay) => [stay.id, stay.days[0]?.displayLocation.regionId ?? stay.regionId]),
+    );
+
+    const fromBlockRegionIds = Array.from(new Set(fromBlockRegionByBlockId.values()));
+    const regions = await this.prisma.region.findMany({
+      where: { id: { in: fromBlockRegionIds } },
+      select: { id: true, name: true },
+    });
+    if (regions.length !== fromBlockRegionIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'Region not found for one or more multi-day block connections');
+    }
+    const regionById = new Map(regions.map((region) => [region.id, region]));
+
+    const existingConnections = await this.prisma.overnightStayConnection.findMany({
+      where: { toLocationId, fromOvernightStayId: { in: uniqueFromIds } },
+      select: { fromOvernightStayId: true },
+    });
+    if (existingConnections.length > 0) {
+      const existingFromIds = existingConnections.map((connection) => connection.fromOvernightStayId);
+      throw new DomainError(
+        'VALIDATION_FAILED',
+        `Multi-day block connections already exist for from-blocks: ${existingFromIds.join(', ')}`,
+      );
+    }
+
+    const nextVersions = parsed.data.versions
+      ? this.normalizeVersionsFromInput(parsed.data.versions)
+      : [
+          this.buildLegacyDirectVersionFromInput({
+            averageDistanceKm: parsed.data.averageDistanceKm,
+            averageTravelHours: parsed.data.averageTravelHours,
+            isLongDistance: parsed.data.isLongDistance,
+            timeSlots: parsed.data.timeSlots,
+            earlyTimeSlots: parsed.data.earlyTimeSlots,
+            extendTimeSlots: parsed.data.extendTimeSlots,
+            earlyExtendTimeSlots: parsed.data.earlyExtendTimeSlots,
+          }),
+        ];
+    await this.validateVersions(toLocation, nextVersions);
+    const defaultVersion = this.getDefaultVersion(nextVersions);
+
+    return this.prisma.$transaction(async (tx) => {
+      const repository = new MultiDayBlockConnectionRepository(tx);
+      const created: NonNullable<Awaited<ReturnType<MultiDayBlockConnectionRepository['findById']>>>[] = [];
+
+      for (const fromMultiDayBlockId of uniqueFromIds) {
+        const fromBlockRegionId = fromBlockRegionByBlockId.get(fromMultiDayBlockId)!;
+        const owningRegion = regionById.get(fromBlockRegionId)!;
+
+        const newConnection = await tx.overnightStayConnection.create({
+          data: {
+            regionId: owningRegion.id,
+            regionName: owningRegion.name,
+            fromOvernightStayId: fromMultiDayBlockId,
+            toLocationId,
+            averageDistanceKm: defaultVersion.averageDistanceKm,
+            averageTravelHours: defaultVersion.averageTravelHours,
+            movementIntensity: defaultVersion.movementIntensity,
+            isLongDistance: defaultVersion.isLongDistance,
+          },
+        });
+
+        const defaultVersionId = await this.replaceAllVersions(tx, newConnection.id, nextVersions);
+        await this.syncDefaultMirror(tx, newConnection.id, defaultVersionId, defaultVersion);
+
+        const reloaded = await repository.findById(newConnection.id);
+        if (!reloaded) {
+          throw new DomainError('INTERNAL', 'Failed to load created multi-day block connection');
+        }
+        created.push(reloaded);
+      }
+
+      return created;
     });
   }
 

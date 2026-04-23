@@ -139,10 +139,40 @@ export const multiDayBlockConnectionUpdateSchema = multiDayBlockConnectionBaseSc
   validateDefaultVersions(value.versions, ctx);
 });
 
+const multiDayBlockConnectionBulkBaseSchema = multiDayBlockConnectionBaseSchema
+  .omit({ fromMultiDayBlockId: true })
+  .extend({
+    fromMultiDayBlockIds: z.array(z.string().min(1)).min(1).max(50),
+  });
+
+export const multiDayBlockConnectionBulkCreateSchema = multiDayBlockConnectionBulkBaseSchema.superRefine((value, ctx) => {
+  const uniqueFromIds = new Set(value.fromMultiDayBlockIds);
+  if (uniqueFromIds.size !== value.fromMultiDayBlockIds.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'fromMultiDayBlockIds must not contain duplicates',
+      path: ['fromMultiDayBlockIds'],
+    });
+  }
+  if (value.fromMultiDayBlockIds.includes(value.toLocationId)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'fromMultiDayBlockIds must not include toLocationId',
+      path: ['fromMultiDayBlockIds'],
+    });
+  }
+
+  if (!value.versions) {
+    return;
+  }
+  validateDefaultVersions(value.versions, ctx);
+});
+
 export type MultiDayBlockCreateInput = z.infer<typeof multiDayBlockCreateSchema>;
 export type MultiDayBlockUpdateInput = z.infer<typeof multiDayBlockUpdateSchema>;
 export type MultiDayBlockDayInput = z.infer<typeof multiDayBlockDayInputSchema>;
 export type MultiDayBlockConnectionCreateInput = z.infer<typeof multiDayBlockConnectionCreateSchema>;
 export type MultiDayBlockConnectionUpdateInput = z.infer<typeof multiDayBlockConnectionUpdateSchema>;
+export type MultiDayBlockConnectionBulkCreateInput = z.infer<typeof multiDayBlockConnectionBulkCreateSchema>;
 export type MultiDayBlockConnectionTimeSlotInput = z.infer<typeof multiDayBlockConnectionTimeSlotSchema>;
 export type MultiDayBlockConnectionVersionInput = z.infer<typeof multiDayBlockConnectionVersionSchema>;

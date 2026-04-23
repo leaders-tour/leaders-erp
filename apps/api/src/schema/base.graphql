@@ -88,6 +88,7 @@ type Mutation {
   deleteMealSet(id: ID!): Boolean!
 
   createSegment(input: SegmentCreateInput!): Segment!
+  createSegmentsBulk(input: SegmentBulkCreateInput!): [Segment!]!
   updateSegment(id: ID!, input: SegmentUpdateInput!): Segment!
   deleteSegment(id: ID!): Boolean!
 
@@ -95,6 +96,7 @@ type Mutation {
   updateMultiDayBlock(id: ID!, input: MultiDayBlockUpdateInput!): MultiDayBlock!
   deleteMultiDayBlock(id: ID!): Boolean!
   createMultiDayBlockConnection(input: MultiDayBlockConnectionCreateInput!): MultiDayBlockConnection!
+  createMultiDayBlockConnectionsBulk(input: MultiDayBlockConnectionBulkCreateInput!): [MultiDayBlockConnection!]!
   updateMultiDayBlockConnection(id: ID!, input: MultiDayBlockConnectionUpdateInput!): MultiDayBlockConnection!
   deleteMultiDayBlockConnection(id: ID!): Boolean!
 
