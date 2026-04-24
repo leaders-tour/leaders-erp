@@ -269,6 +269,14 @@ const UPDATE = gql`
   }
 `;
 
+const UPDATE_WITH_ADDITIONAL = gql`
+  mutation UpdateSegmentWithAdditionalFroms($id: ID!, $input: SegmentUpdateWithAdditionalFromsInput!) {
+    updateSegmentWithAdditionalFroms(id: $id, input: $input) {
+      id
+    }
+  }
+`;
+
 const REMOVE = gql`
   mutation DeleteSegment($id: ID!) {
     deleteSegment(id: $id)
@@ -294,6 +302,17 @@ const CREATE_BLOCK_CONNECTION_BULK = gql`
 const UPDATE_BLOCK_CONNECTION = gql`
   mutation UpdateMultiDayBlockConnection($id: ID!, $input: MultiDayBlockConnectionUpdateInput!) {
     updateMultiDayBlockConnection(id: $id, input: $input) {
+      id
+    }
+  }
+`;
+
+const UPDATE_BLOCK_CONNECTION_WITH_ADDITIONAL = gql`
+  mutation UpdateMultiDayBlockConnectionWithAdditionalFroms(
+    $id: ID!
+    $input: MultiDayBlockConnectionUpdateWithAdditionalFromsInput!
+  ) {
+    updateMultiDayBlockConnectionWithAdditionalFroms(id: $id, input: $input) {
       id
     }
   }
@@ -713,6 +732,79 @@ export function useSegmentCrud() {
     await refetch();
   }
 
+  async function updateRowWithAdditionalFroms(
+    id: string,
+    input: SegmentFormInput,
+    options: { additionalFromLocationIds?: string[]; additionalFromMultiDayBlockIds?: string[] },
+  ): Promise<void> {
+    const existing = rowById.get(id);
+    if (!existing) {
+      throw new Error('연결을 찾을 수 없습니다.');
+    }
+
+    if (existing.sourceType !== input.sourceType) {
+      throw new Error('출발지 유형을 바꾸는 경우는 기존 연결 위에서 추가 출발을 할 수 없습니다. 출발지 유형을 유지하거나, 기존 연결을 수동으로 조정하세요.');
+    }
+
+    if (input.sourceType === 'MULTI_DAY_BLOCK') {
+      const additional = options.additionalFromMultiDayBlockIds ?? [];
+      if (additional.length === 0) {
+        await updateRow(id, input);
+        return;
+      }
+      await client.mutate({
+        mutation: UPDATE_BLOCK_CONNECTION_WITH_ADDITIONAL,
+        variables: {
+          id,
+          input: {
+            update: {
+              fromMultiDayBlockId: input.fromMultiDayBlockId,
+              toLocationId: input.toLocationId,
+              averageDistanceKm: input.averageDistanceKm,
+              averageTravelHours: input.averageTravelHours,
+              isLongDistance: input.isLongDistance,
+              timeSlots: input.timeSlots,
+              ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
+              ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
+              ...(input.earlyExtendTimeSlots ? { earlyExtendTimeSlots: input.earlyExtendTimeSlots } : {}),
+              ...(input.versions ? { versions: input.versions } : {}),
+            },
+            additionalFromMultiDayBlockIds: additional,
+          },
+        },
+      });
+    } else {
+      const additional = options.additionalFromLocationIds ?? [];
+      if (additional.length === 0) {
+        await updateRow(id, input);
+        return;
+      }
+      await client.mutate({
+        mutation: UPDATE_WITH_ADDITIONAL,
+        variables: {
+          id,
+          input: {
+            update: {
+              regionId: input.regionId,
+              fromLocationId: input.fromLocationId,
+              toLocationId: input.toLocationId,
+              averageDistanceKm: input.averageDistanceKm,
+              averageTravelHours: input.averageTravelHours,
+              isLongDistance: input.isLongDistance,
+              timeSlots: input.timeSlots,
+              ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
+              ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
+              ...(input.earlyExtendTimeSlots ? { earlyExtendTimeSlots: input.earlyExtendTimeSlots } : {}),
+              ...(input.versions ? { versions: input.versions } : {}),
+            },
+            additionalFromLocationIds: additional,
+          },
+        },
+      });
+    }
+    await refetch();
+  }
+
   async function deleteRow(id: string): Promise<void> {
     const existing = rowById.get(id);
     if (!existing) {
@@ -733,6 +825,7 @@ export function useSegmentCrud() {
     createRow,
     createRowsBulk,
     updateRow,
+    updateRowWithAdditionalFroms,
     deleteRow,
     refetch,
   };

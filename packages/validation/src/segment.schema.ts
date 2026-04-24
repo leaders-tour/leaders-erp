@@ -246,6 +246,24 @@ const segmentBulkBaseSchema = segmentBaseSchema
     fromLocationIds: z.array(z.string().min(1)).min(1).max(50),
   });
 
+const segmentUpdateWithAdditionalFromsBaseSchema = z.object({
+  update: segmentUpdateSchema,
+  additionalFromLocationIds: z.array(z.string().min(1)).max(50),
+});
+
+export const segmentUpdateWithAdditionalFromsSchema = segmentUpdateWithAdditionalFromsBaseSchema.superRefine(
+  (value, ctx) => {
+    const set = new Set(value.additionalFromLocationIds);
+    if (set.size !== value.additionalFromLocationIds.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'additionalFromLocationIds must not contain duplicates',
+        path: ['additionalFromLocationIds'],
+      });
+    }
+  },
+);
+
 export const segmentBulkCreateSchema = segmentBulkBaseSchema
   .superRefine((value, ctx) => {
     const uniqueFromIds = new Set(value.fromLocationIds);
@@ -317,5 +335,6 @@ export const segmentBulkCreateSchema = segmentBulkBaseSchema
 export type SegmentCreateInput = z.infer<typeof segmentCreateSchema>;
 export type SegmentUpdateInput = z.infer<typeof segmentUpdateSchema>;
 export type SegmentBulkCreateInput = z.infer<typeof segmentBulkCreateSchema>;
+export type SegmentUpdateWithAdditionalFromsInput = z.infer<typeof segmentUpdateWithAdditionalFromsSchema>;
 export type SegmentTimeSlotInput = z.infer<typeof segmentTimeSlotSchema>;
 export type SegmentVersionInput = z.infer<typeof segmentVersionSchema>;

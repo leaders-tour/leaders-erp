@@ -11,15 +11,17 @@ import {
   segmentBulkCreateSchema,
   segmentCreateSchema,
   segmentUpdateSchema,
+  segmentUpdateWithAdditionalFromsSchema,
   type LocationProfileLodgingInput,
   type LocationProfileMealsInput,
   type SegmentTimeSlotInput,
+  type SegmentUpdateInput,
   type SegmentVersionInput,
 } from '@tour/validation';
 import { createValidationError, DomainError } from '../../lib/errors';
 import { calculateMovementIntensity } from '../../lib/movement-intensity';
 import { SegmentRepository } from './segment.repository';
-import type { SegmentBulkCreateDto, SegmentCreateDto, SegmentUpdateDto } from './segment.types';
+import type { SegmentBulkCreateDto, SegmentCreateDto, SegmentUpdateDto, SegmentUpdateWithAdditionalFromsDto } from './segment.types';
 
 type SegmentScheduleVariant = 'basic' | 'early' | 'extend' | 'earlyExtend';
 
@@ -52,6 +54,21 @@ interface NormalizedSegmentVersion {
   isDefault: boolean;
   timeSlotsByVariant: VariantTimeSlotMap;
   earlyExtendProvided?: boolean;
+}
+
+interface PreparedSegmentUpdate {
+  nextFromLocationId: string;
+  nextToLocationId: string;
+  endpoints: { fromLocation: SegmentEndpointLocation; toLocation: SegmentEndpointLocation };
+  owningRegion: { id: string; name: string };
+  /** Primary from/to에 맞게 early·extend·earlyExtend 키가 잘라진 버전(저장·검증) */
+  nextVersions: NormalizedSegmentVersion[];
+  /** 병합 직후 값. 추가 출발지 생성 시 출발지별로 다시 잘라 씀 */
+  rawMergedNextVersions: NormalizedSegmentVersion[];
+  defaultVersion: NormalizedSegmentVersion;
+  hasLegacyDirectUpdates: boolean;
+  shouldSyncOwningRegion: boolean;
+  data: SegmentUpdateInput;
 }
 
 interface NormalizedLodgingOverride {
@@ -852,9 +869,14 @@ export class SegmentService {
     const endpoints = await this.validateLocations(parsed.data.fromLocationId, parsed.data.toLocationId);
     const owningRegion = await this.resolveOwningRegion(parsed.data.regionId, endpoints.fromLocation);
 
-    const nextVersions = parsed.data.versions
+    const merged = parsed.data.versions
       ? this.normalizeVersionsFromInput(parsed.data.versions)
       : [this.buildLegacyDirectVersionFromInput(parsed.data)];
+    const nextVersions = this.stripSegmentSchedulesForEndpointEligibility(
+      endpoints.fromLocation,
+      endpoints.toLocation,
+      merged,
+    );
     await this.validateVersions(endpoints.fromLocation, endpoints.toLocation, nextVersions);
     const defaultVersion = this.getDefaultVersion(nextVersions);
 
@@ -936,23 +958,29 @@ export class SegmentService {
       );
     }
 
+    const baseNextVersions = parsed.data.versions
+      ? this.normalizeVersionsFromInput(parsed.data.versions)
+      : [
+          this.buildLegacyDirectVersionFromInput({
+            averageDistanceKm: parsed.data.averageDistanceKm,
+            averageTravelHours: parsed.data.averageTravelHours,
+            isLongDistance: parsed.data.isLongDistance,
+            timeSlots: parsed.data.timeSlots,
+            earlyTimeSlots: parsed.data.earlyTimeSlots,
+            extendTimeSlots: parsed.data.extendTimeSlots,
+            earlyExtendTimeSlots: parsed.data.earlyExtendTimeSlots,
+          }),
+        ];
+
     const fromInputsByFromId = new Map(
       uniqueFromIds.map((fromLocationId) => {
         const fromLocation = locationById.get(fromLocationId)!;
         const owningRegion = regionById.get(fromLocation.regionId)!;
-        const nextVersions = parsed.data.versions
-          ? this.normalizeVersionsFromInput(parsed.data.versions)
-          : [
-              this.buildLegacyDirectVersionFromInput({
-                averageDistanceKm: parsed.data.averageDistanceKm,
-                averageTravelHours: parsed.data.averageTravelHours,
-                isLongDistance: parsed.data.isLongDistance,
-                timeSlots: parsed.data.timeSlots,
-                earlyTimeSlots: parsed.data.earlyTimeSlots,
-                extendTimeSlots: parsed.data.extendTimeSlots,
-                earlyExtendTimeSlots: parsed.data.earlyExtendTimeSlots,
-              }),
-            ];
+        const nextVersions = this.stripSegmentSchedulesForEndpointEligibility(
+          fromLocation,
+          toLocation,
+          this.cloneNormalizedSegmentVersions(baseNextVersions),
+        );
         return [
           fromLocationId,
           {
@@ -1003,6 +1031,286 @@ export class SegmentService {
     });
   }
 
+  private stripSegmentVersionIds(versions: NormalizedSegmentVersion[]): NormalizedSegmentVersion[] {
+    return versions.map((version) => {
+      const { id: _dropped, earlyExtendProvided: _prev, ...rest } = version;
+      return { ...rest, earlyExtendProvided: false };
+    });
+  }
+
+  private cloneNormalizedSegmentVersions(versions: NormalizedSegmentVersion[]): NormalizedSegmentVersion[] {
+    return structuredClone(versions);
+  }
+
+  /** from/to eligibility에 맞지 않는 variant의 일정(early·extend·earlyExtend) 키를 제거 */
+  private stripSegmentSchedulesForEndpointEligibility(
+    fromLocation: SegmentEndpointLocation,
+    toLocation: SegmentEndpointLocation,
+    versions: NormalizedSegmentVersion[],
+  ): NormalizedSegmentVersion[] {
+    return versions.map((version) => {
+      const tv = version.timeSlotsByVariant;
+      const next: VariantTimeSlotMap = { basic: tv.basic };
+      if (fromLocation.isFirstDayEligible && tv.early) {
+        next.early = tv.early;
+      }
+      if (toLocation.isLastDayEligible && tv.extend) {
+        next.extend = tv.extend;
+      }
+      if (fromLocation.isFirstDayEligible && toLocation.isLastDayEligible && tv.earlyExtend) {
+        next.earlyExtend = tv.earlyExtend;
+      }
+      return { ...version, timeSlotsByVariant: next };
+    });
+  }
+
+  private async prepareSegmentUpdate(
+    id: string,
+    data: SegmentUpdateInput,
+    existing: NonNullable<Awaited<ReturnType<SegmentRepository['findById']>>>,
+  ): Promise<PreparedSegmentUpdate> {
+    const nextFromLocationId = data.fromLocationId ?? existing.fromLocationId;
+    const nextToLocationId = data.toLocationId ?? existing.toLocationId;
+    const endpoints = await this.validateLocations(nextFromLocationId, nextToLocationId);
+    const owningRegion = await this.resolveOwningRegion(data.regionId, endpoints.fromLocation);
+
+    const existingVersions = this.buildVersionsFromExisting(existing as ExistingSegmentLike);
+    const hasLegacyDirectUpdates = this.hasLegacyDirectUpdates(data);
+
+    let nextVersions = data.versions ? this.normalizeVersionsFromInput(data.versions) : existingVersions;
+    if (data.versions) {
+      nextVersions = this.preserveMissingEarlyExtendSchedules(nextVersions, existingVersions);
+    }
+
+    if (!data.versions && hasLegacyDirectUpdates) {
+      nextVersions = existingVersions.map((version) =>
+        version.isDefault
+          ? {
+              ...version,
+              averageDistanceKm: data.averageDistanceKm ?? version.averageDistanceKm,
+              averageTravelHours: data.averageTravelHours ?? version.averageTravelHours,
+              movementIntensity: calculateMovementIntensity(data.averageTravelHours ?? version.averageTravelHours),
+              isLongDistance: data.isLongDistance ?? version.isLongDistance,
+              timeSlotsByVariant: {
+                basic: data.timeSlots ?? version.timeSlotsByVariant.basic,
+                early: data.earlyTimeSlots ?? version.timeSlotsByVariant.early,
+                extend: data.extendTimeSlots ?? version.timeSlotsByVariant.extend,
+                earlyExtend: data.earlyExtendTimeSlots ?? version.timeSlotsByVariant.earlyExtend,
+              },
+            }
+          : version,
+      );
+    }
+
+    const rawMergedNextVersions = this.cloneNormalizedSegmentVersions(nextVersions);
+    const nextVersionsStripped = this.stripSegmentSchedulesForEndpointEligibility(
+      endpoints.fromLocation,
+      endpoints.toLocation,
+      this.cloneNormalizedSegmentVersions(nextVersions),
+    );
+
+    await this.validateVersions(endpoints.fromLocation, endpoints.toLocation, nextVersionsStripped);
+    const defaultVersion = this.getDefaultVersion(nextVersionsStripped);
+    const shouldSyncOwningRegion =
+      data.regionId !== undefined || data.fromLocationId !== undefined || existing.regionId !== owningRegion.id;
+
+    return {
+      nextFromLocationId,
+      nextToLocationId,
+      endpoints,
+      owningRegion,
+      nextVersions: nextVersionsStripped,
+      rawMergedNextVersions,
+      defaultVersion,
+      hasLegacyDirectUpdates,
+      shouldSyncOwningRegion,
+      data,
+    };
+  }
+
+  private async applySegmentUpdateInTransaction(
+    tx: Prisma.TransactionClient,
+    id: string,
+    existing: NonNullable<Awaited<ReturnType<SegmentRepository['findById']>>>,
+    state: PreparedSegmentUpdate,
+  ) {
+    const { data, nextVersions, defaultVersion, hasLegacyDirectUpdates, shouldSyncOwningRegion, owningRegion } = state;
+
+    await tx.segment.update({
+      where: { id },
+      data: {
+        ...(shouldSyncOwningRegion ? { regionId: owningRegion.id, regionName: owningRegion.name } : {}),
+        ...(data.fromLocationId !== undefined ? { fromLocationId: data.fromLocationId } : {}),
+        ...(data.toLocationId !== undefined ? { toLocationId: data.toLocationId } : {}),
+      },
+    });
+
+    let defaultVersionId = existing.defaultVersionId ?? '';
+    if (data.versions) {
+      defaultVersionId = await this.replaceAllVersions(tx, id, nextVersions);
+      await this.syncDefaultMirror(tx, id, defaultVersionId, defaultVersion);
+    } else if (hasLegacyDirectUpdates || existing.versions.length === 0) {
+      defaultVersionId = await this.upsertDefaultVersionOnly(tx, id, defaultVersion);
+      await this.syncDefaultMirror(tx, id, defaultVersionId, defaultVersion);
+    } else if (data.regionId !== undefined || data.fromLocationId !== undefined || data.toLocationId !== undefined) {
+      await tx.segment.update({
+        where: { id },
+        data: {
+          defaultVersionId: existing.defaultVersionId,
+        },
+      });
+    }
+
+    return new SegmentRepository(tx).findById(id);
+  }
+
+  private async createSegmentInTransaction(
+    tx: Prisma.TransactionClient,
+    params: {
+      fromLocation: SegmentEndpointLocation;
+      toLocation: SegmentEndpointLocation;
+      owningRegion: { id: string; name: string };
+      nextVersions: NormalizedSegmentVersion[];
+    },
+  ) {
+    const { fromLocation, toLocation, owningRegion, nextVersions } = params;
+    const defaultVersion = this.getDefaultVersion(nextVersions);
+
+    const newSegment = await tx.segment.create({
+      data: {
+        regionId: owningRegion.id,
+        regionName: owningRegion.name,
+        fromLocationId: fromLocation.id,
+        toLocationId: toLocation.id,
+        averageDistanceKm: defaultVersion.averageDistanceKm,
+        averageTravelHours: defaultVersion.averageTravelHours,
+        movementIntensity: defaultVersion.movementIntensity,
+        isLongDistance: defaultVersion.isLongDistance,
+      },
+    });
+
+    const defaultVersionId = await this.replaceAllVersions(tx, newSegment.id, nextVersions);
+    await this.syncDefaultMirror(tx, newSegment.id, defaultVersionId, defaultVersion);
+
+    const repository = new SegmentRepository(tx);
+    const reloaded = await repository.findById(newSegment.id);
+    if (!reloaded) {
+      throw new DomainError('INTERNAL', 'Failed to load created segment');
+    }
+    return reloaded;
+  }
+
+  async updateWithAdditionalFroms(segmentId: string, input: SegmentUpdateWithAdditionalFromsDto) {
+    const parsed = segmentUpdateWithAdditionalFromsSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid segment update with additional from-locations', parsed.error);
+    }
+
+    const updateParsed = segmentUpdateSchema.safeParse(parsed.data.update);
+    if (!updateParsed.success) {
+      throw createValidationError('Invalid segment update input', updateParsed.error);
+    }
+
+    const existing = await this.repository.findById(segmentId);
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'Segment not found');
+    }
+
+    const state = await this.prepareSegmentUpdate(segmentId, updateParsed.data, existing);
+
+    const uniqueAdditional = Array.from(new Set(parsed.data.additionalFromLocationIds)).filter(
+      (fromId) => fromId !== state.nextFromLocationId && fromId !== state.nextToLocationId,
+    );
+
+    if (uniqueAdditional.length === 0) {
+      return this.prisma.$transaction((tx) =>
+        this.applySegmentUpdateInTransaction(tx, segmentId, existing, state),
+      ).then((primary) => (primary ? [primary] : []));
+    }
+
+    const toLocation = state.endpoints.toLocation;
+    const locationQueryIds = Array.from(new Set([...uniqueAdditional, toLocation.id]));
+    const locationRows = await this.prisma.location.findMany({
+      where: { id: { in: locationQueryIds } },
+      select: { id: true, regionId: true, isFirstDayEligible: true, isLastDayEligible: true },
+    });
+    if (locationRows.length !== locationQueryIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'One or more segment locations not found for additional from-locations');
+    }
+    const locationById = new Map(locationRows.map((l) => [l.id, l]));
+
+    for (const fromId of uniqueAdditional) {
+      if (!locationById.get(fromId)) {
+        throw new DomainError('VALIDATION_FAILED', 'One or more additional from-locations are invalid');
+      }
+    }
+
+    const existingSegments = await this.prisma.segment.findMany({
+      where: { toLocationId: toLocation.id, fromLocationId: { in: uniqueAdditional } },
+      select: { fromLocationId: true },
+    });
+    if (existingSegments.length > 0) {
+      const conflictFromIds = existingSegments.map((s) => s.fromLocationId);
+      throw new DomainError(
+        'VALIDATION_FAILED',
+        `Segments already exist for from-locations: ${conflictFromIds.join(', ')}`,
+      );
+    }
+
+    for (const fromId of uniqueAdditional) {
+      const fromLocation = locationById.get(fromId)!;
+      const versionsForCreate = this.stripSegmentVersionIds(
+        this.stripSegmentSchedulesForEndpointEligibility(
+          fromLocation,
+          toLocation,
+          this.cloneNormalizedSegmentVersions(state.rawMergedNextVersions),
+        ),
+      );
+      await this.validateVersions(fromLocation, toLocation, versionsForCreate);
+    }
+
+    const fromRegionIds = Array.from(
+      new Set(uniqueAdditional.map((fromId) => locationById.get(fromId)!.regionId)),
+    );
+    const regions = await this.prisma.region.findMany({
+      where: { id: { in: fromRegionIds } },
+      select: { id: true, name: true },
+    });
+    if (regions.length !== fromRegionIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'Region not found for one or more additional from-locations');
+    }
+    const regionById = new Map(regions.map((r) => [r.id, r]));
+
+    return this.prisma.$transaction(async (tx) => {
+      const primary = await this.applySegmentUpdateInTransaction(tx, segmentId, existing, state);
+      if (!primary) {
+        throw new DomainError('INTERNAL', 'Failed to load updated segment');
+      }
+
+      const created: NonNullable<Awaited<ReturnType<SegmentRepository['findById']>>>[] = [];
+      for (const fromId of uniqueAdditional) {
+        const fromLocation = locationById.get(fromId)!;
+        const owningRegion = regionById.get(fromLocation.regionId)!;
+        const nextForCreate = this.stripSegmentVersionIds(
+          this.stripSegmentSchedulesForEndpointEligibility(
+            fromLocation,
+            toLocation,
+            this.cloneNormalizedSegmentVersions(state.rawMergedNextVersions),
+          ),
+        );
+        const row = await this.createSegmentInTransaction(tx, {
+          fromLocation,
+          toLocation,
+          owningRegion,
+          nextVersions: nextForCreate,
+        });
+        created.push(row);
+      }
+
+      return [primary, ...created];
+    });
+  }
+
   async update(id: string, input: SegmentUpdateDto) {
     const parsed = segmentUpdateSchema.safeParse(input);
     if (!parsed.success) {
@@ -1014,74 +1322,9 @@ export class SegmentService {
       throw new DomainError('NOT_FOUND', 'Segment not found');
     }
 
-    const nextFromLocationId = parsed.data.fromLocationId ?? existing.fromLocationId;
-    const nextToLocationId = parsed.data.toLocationId ?? existing.toLocationId;
-    const endpoints = await this.validateLocations(nextFromLocationId, nextToLocationId);
-    const owningRegion = await this.resolveOwningRegion(parsed.data.regionId, endpoints.fromLocation);
+    const state = await this.prepareSegmentUpdate(id, parsed.data, existing);
 
-    const existingVersions = this.buildVersionsFromExisting(existing as ExistingSegmentLike);
-    const hasLegacyDirectUpdates = this.hasLegacyDirectUpdates(parsed.data);
-
-    let nextVersions = parsed.data.versions ? this.normalizeVersionsFromInput(parsed.data.versions) : existingVersions;
-    if (parsed.data.versions) {
-      nextVersions = this.preserveMissingEarlyExtendSchedules(nextVersions, existingVersions);
-    }
-
-    if (!parsed.data.versions && hasLegacyDirectUpdates) {
-      nextVersions = existingVersions.map((version) =>
-        version.isDefault
-          ? {
-              ...version,
-              averageDistanceKm: parsed.data.averageDistanceKm ?? version.averageDistanceKm,
-              averageTravelHours: parsed.data.averageTravelHours ?? version.averageTravelHours,
-              movementIntensity: calculateMovementIntensity(parsed.data.averageTravelHours ?? version.averageTravelHours),
-              isLongDistance: parsed.data.isLongDistance ?? version.isLongDistance,
-              timeSlotsByVariant: {
-                basic: parsed.data.timeSlots ?? version.timeSlotsByVariant.basic,
-                early: parsed.data.earlyTimeSlots ?? version.timeSlotsByVariant.early,
-                extend: parsed.data.extendTimeSlots ?? version.timeSlotsByVariant.extend,
-                earlyExtend: parsed.data.earlyExtendTimeSlots ?? version.timeSlotsByVariant.earlyExtend,
-              },
-            }
-          : version,
-      );
-    }
-
-    await this.validateVersions(endpoints.fromLocation, endpoints.toLocation, nextVersions);
-    const defaultVersion = this.getDefaultVersion(nextVersions);
-    const shouldSyncOwningRegion =
-      parsed.data.regionId !== undefined ||
-      parsed.data.fromLocationId !== undefined ||
-      existing.regionId !== owningRegion.id;
-
-    return this.prisma.$transaction(async (tx) => {
-      await tx.segment.update({
-        where: { id },
-        data: {
-          ...(shouldSyncOwningRegion ? { regionId: owningRegion.id, regionName: owningRegion.name } : {}),
-          ...(parsed.data.fromLocationId !== undefined ? { fromLocationId: parsed.data.fromLocationId } : {}),
-          ...(parsed.data.toLocationId !== undefined ? { toLocationId: parsed.data.toLocationId } : {}),
-        },
-      });
-
-      let defaultVersionId = existing.defaultVersionId ?? '';
-      if (parsed.data.versions) {
-        defaultVersionId = await this.replaceAllVersions(tx, id, nextVersions);
-        await this.syncDefaultMirror(tx, id, defaultVersionId, defaultVersion);
-      } else if (hasLegacyDirectUpdates || existing.versions.length === 0) {
-        defaultVersionId = await this.upsertDefaultVersionOnly(tx, id, defaultVersion);
-        await this.syncDefaultMirror(tx, id, defaultVersionId, defaultVersion);
-      } else if (parsed.data.regionId !== undefined || parsed.data.fromLocationId !== undefined || parsed.data.toLocationId !== undefined) {
-        await tx.segment.update({
-          where: { id },
-          data: {
-            defaultVersionId: existing.defaultVersionId,
-          },
-        });
-      }
-
-      return new SegmentRepository(tx).findById(id);
-    });
+    return this.prisma.$transaction(async (tx) => this.applySegmentUpdateInTransaction(tx, id, existing, state));
   }
 
   delete(id: string) {

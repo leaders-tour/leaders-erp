@@ -3,9 +3,11 @@ import {
   multiDayBlockConnectionBulkCreateSchema,
   multiDayBlockConnectionCreateSchema,
   multiDayBlockConnectionUpdateSchema,
+  multiDayBlockConnectionUpdateWithAdditionalFromsSchema,
   multiDayBlockCreateSchema,
   multiDayBlockUpdateSchema,
   type MultiDayBlockConnectionTimeSlotInput,
+  type MultiDayBlockConnectionUpdateInput,
   type MultiDayBlockConnectionVersionInput,
 } from '@tour/validation';
 import { createValidationError, DomainError } from '../../lib/errors';
@@ -15,6 +17,7 @@ import type {
   MultiDayBlockConnectionBulkCreateDto,
   MultiDayBlockConnectionCreateDto,
   MultiDayBlockConnectionUpdateDto,
+  MultiDayBlockConnectionUpdateWithAdditionalFromsDto,
   MultiDayBlockCreateDto,
   MultiDayBlockUpdateDto,
 } from './multi-day-block.types';
@@ -107,6 +110,18 @@ interface ConnectionTargetLocation {
   id: string;
   regionId: string;
   isLastDayEligible: boolean;
+}
+
+interface PreparedMdbConnectionUpdate {
+  nextFromMultiDayBlockId: string;
+  nextToLocationId: string;
+  endpoints: { fromBlockRegionId: string; toLocation: ConnectionTargetLocation };
+  owningRegion: { id: string; name: string };
+  nextVersions: NormalizedConnectionVersion[];
+  defaultVersion: NormalizedConnectionVersion;
+  hasLegacyDirectUpdates: boolean;
+  shouldSyncOwningRegion: boolean;
+  data: MultiDayBlockConnectionUpdateInput;
 }
 
 const SEGMENT_SCHEDULE_VARIANTS: SegmentScheduleVariant[] = ['basic', 'early', 'extend', 'earlyExtend'];
@@ -889,6 +904,223 @@ export class MultiDayBlockConnectionService {
     });
   }
 
+  private async prepareMdbConnectionUpdate(
+    _id: string,
+    data: MultiDayBlockConnectionUpdateInput,
+    existing: NonNullable<Awaited<ReturnType<MultiDayBlockConnectionRepository['findById']>>>,
+  ): Promise<PreparedMdbConnectionUpdate> {
+    const nextFromMultiDayBlockId = data.fromMultiDayBlockId ?? existing.fromOvernightStayId;
+    const nextToLocationId = data.toLocationId ?? existing.toLocationId;
+
+    const endpoints = await this.validateEndpoints(nextFromMultiDayBlockId, nextToLocationId);
+    const owningRegion = await this.resolveOwningConnectionRegion(endpoints.fromBlockRegionId);
+
+    const existingVersions = this.buildVersionsFromExisting(existing as ExistingConnectionLike);
+    const hasLegacyDirectUpdates = this.hasLegacyDirectUpdates(data);
+
+    let nextVersions = data.versions ? this.normalizeVersionsFromInput(data.versions) : existingVersions;
+
+    if (!data.versions && hasLegacyDirectUpdates) {
+      nextVersions = existingVersions.map((version) =>
+        version.isDefault
+          ? {
+              ...version,
+              averageDistanceKm: data.averageDistanceKm ?? version.averageDistanceKm,
+              averageTravelHours: data.averageTravelHours ?? version.averageTravelHours,
+              movementIntensity: calculateMovementIntensity(data.averageTravelHours ?? version.averageTravelHours),
+              isLongDistance: data.isLongDistance ?? version.isLongDistance,
+              timeSlotsByVariant: {
+                basic: data.timeSlots ?? version.timeSlotsByVariant.basic,
+                early: data.earlyTimeSlots ?? version.timeSlotsByVariant.early,
+                extend: data.extendTimeSlots ?? version.timeSlotsByVariant.extend,
+                earlyExtend: data.earlyExtendTimeSlots ?? version.timeSlotsByVariant.earlyExtend,
+              },
+            }
+          : version,
+      );
+    }
+
+    await this.validateVersions(endpoints.toLocation, nextVersions);
+    const defaultVersion = this.getDefaultVersion(nextVersions);
+    const shouldSyncOwningRegion = data.fromMultiDayBlockId !== undefined || existing.regionId !== owningRegion.id;
+
+    return {
+      nextFromMultiDayBlockId,
+      nextToLocationId,
+      endpoints,
+      owningRegion,
+      nextVersions,
+      defaultVersion,
+      hasLegacyDirectUpdates,
+      shouldSyncOwningRegion,
+      data,
+    };
+  }
+
+  private async applyMdbConnectionUpdateInTransaction(
+    tx: Prisma.TransactionClient,
+    id: string,
+    existing: NonNullable<Awaited<ReturnType<MultiDayBlockConnectionRepository['findById']>>>,
+    state: PreparedMdbConnectionUpdate,
+  ) {
+    const { data, nextVersions, defaultVersion, hasLegacyDirectUpdates, shouldSyncOwningRegion, owningRegion } = state;
+
+    await tx.overnightStayConnection.update({
+      where: { id },
+      data: {
+        ...(shouldSyncOwningRegion ? { regionId: owningRegion.id, regionName: owningRegion.name } : {}),
+        ...(data.fromMultiDayBlockId !== undefined ? { fromOvernightStayId: data.fromMultiDayBlockId } : {}),
+        ...(data.toLocationId !== undefined ? { toLocationId: data.toLocationId } : {}),
+      },
+    });
+
+    let defaultVersionId = existing.defaultVersionId ?? '';
+    if (data.versions) {
+      defaultVersionId = await this.replaceAllVersions(tx, id, nextVersions);
+      await this.syncDefaultMirror(tx, id, defaultVersionId, defaultVersion);
+    } else if (hasLegacyDirectUpdates || existing.versions.length === 0) {
+      defaultVersionId = await this.upsertDefaultVersionOnly(tx, id, defaultVersion);
+      await this.syncDefaultMirror(tx, id, defaultVersionId, defaultVersion);
+    } else if (data.fromMultiDayBlockId !== undefined || data.toLocationId !== undefined) {
+      await tx.overnightStayConnection.update({
+        where: { id },
+        data: {
+          defaultVersionId: existing.defaultVersionId,
+        },
+      });
+    }
+
+    return new MultiDayBlockConnectionRepository(tx).findById(id);
+  }
+
+  private async createMdbConnectionInTransaction(
+    tx: Prisma.TransactionClient,
+    params: {
+      fromMultiDayBlockId: string;
+      toLocation: ConnectionTargetLocation;
+      owningRegion: { id: string; name: string };
+      nextVersions: NormalizedConnectionVersion[];
+    },
+  ) {
+    const { toLocation, owningRegion, nextVersions, fromMultiDayBlockId } = params;
+    const defaultVersion = this.getDefaultVersion(nextVersions);
+
+    const newConnection = await tx.overnightStayConnection.create({
+      data: {
+        regionId: owningRegion.id,
+        regionName: owningRegion.name,
+        fromOvernightStayId: fromMultiDayBlockId,
+        toLocationId: toLocation.id,
+        averageDistanceKm: defaultVersion.averageDistanceKm,
+        averageTravelHours: defaultVersion.averageTravelHours,
+        movementIntensity: defaultVersion.movementIntensity,
+        isLongDistance: defaultVersion.isLongDistance,
+      },
+    });
+
+    const defaultVersionId = await this.replaceAllVersions(tx, newConnection.id, nextVersions);
+    await this.syncDefaultMirror(tx, newConnection.id, defaultVersionId, defaultVersion);
+
+    const reloaded = await new MultiDayBlockConnectionRepository(tx).findById(newConnection.id);
+    if (!reloaded) {
+      throw new DomainError('INTERNAL', 'Failed to load created multi-day block connection');
+    }
+    return reloaded;
+  }
+
+  async updateWithAdditionalFroms(connectionId: string, input: MultiDayBlockConnectionUpdateWithAdditionalFromsDto) {
+    const parsed = multiDayBlockConnectionUpdateWithAdditionalFromsSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid multi-day block connection update with additional from-blocks', parsed.error);
+    }
+
+    const updateParsed = multiDayBlockConnectionUpdateSchema.safeParse(parsed.data.update);
+    if (!updateParsed.success) {
+      throw createValidationError('Invalid multi-day block connection update input', updateParsed.error);
+    }
+
+    const existing = await this.repository.findById(connectionId);
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'Multi-day block connection not found');
+    }
+
+    const state = await this.prepareMdbConnectionUpdate(connectionId, updateParsed.data, existing);
+    const toLocation = state.endpoints.toLocation;
+
+    const uniqueAdditional = Array.from(new Set(parsed.data.additionalFromMultiDayBlockIds)).filter(
+      (fromId) => fromId !== state.nextFromMultiDayBlockId && fromId !== toLocation.id,
+    );
+
+    if (uniqueAdditional.length === 0) {
+      return this.prisma.$transaction((tx) =>
+        this.applyMdbConnectionUpdateInTransaction(tx, connectionId, existing, state),
+      ).then((primary) => (primary ? [primary] : []));
+    }
+
+    const overnightStays = await this.prisma.overnightStay.findMany({
+      where: { id: { in: uniqueAdditional } },
+      select: {
+        id: true,
+        regionId: true,
+        days: {
+          orderBy: { dayOrder: 'desc' },
+          take: 1,
+          select: {
+            displayLocation: { select: { regionId: true } },
+          },
+        },
+      },
+    });
+    if (overnightStays.length !== uniqueAdditional.length) {
+      throw new DomainError('VALIDATION_FAILED', 'One or more additional multi-day blocks not found for connection');
+    }
+    const fromBlockRegionByBlockId = new Map(
+      overnightStays.map((stay) => [stay.id, stay.days[0]?.displayLocation.regionId ?? stay.regionId]),
+    );
+
+    const existingConnections = await this.prisma.overnightStayConnection.findMany({
+      where: { toLocationId: toLocation.id, fromOvernightStayId: { in: uniqueAdditional } },
+      select: { fromOvernightStayId: true },
+    });
+    if (existingConnections.length > 0) {
+      const fromIds = existingConnections.map((c) => c.fromOvernightStayId);
+      throw new DomainError('VALIDATION_FAILED', `Multi-day block connections already exist for from-blocks: ${fromIds.join(', ')}`);
+    }
+
+    await this.validateVersions(toLocation, state.nextVersions);
+
+    const fromBlockRegionIds = Array.from(new Set(fromBlockRegionByBlockId.values()));
+    const regions = await this.prisma.region.findMany({
+      where: { id: { in: fromBlockRegionIds } },
+      select: { id: true, name: true },
+    });
+    if (regions.length !== fromBlockRegionIds.length) {
+      throw new DomainError('VALIDATION_FAILED', 'Region not found for one or more additional from-blocks');
+    }
+    const regionById = new Map(regions.map((r) => [r.id, r]));
+
+    return this.prisma.$transaction(async (tx) => {
+      const primary = await this.applyMdbConnectionUpdateInTransaction(tx, connectionId, existing, state);
+      if (!primary) {
+        throw new DomainError('INTERNAL', 'Failed to load updated multi-day block connection');
+      }
+
+      const created: NonNullable<Awaited<ReturnType<MultiDayBlockConnectionRepository['findById']>>>[] = [];
+      for (const fromMultiDayBlockId of uniqueAdditional) {
+        const fromBlockRegionId = fromBlockRegionByBlockId.get(fromMultiDayBlockId)!;
+        const owningRegion = regionById.get(fromBlockRegionId)!;
+        const row = await this.createMdbConnectionInTransaction(tx, {
+          fromMultiDayBlockId,
+          toLocation,
+          owningRegion,
+          nextVersions: state.nextVersions,
+        });
+        created.push(row);
+      }
+      return [primary, ...created];
+    });
+  }
+
   async update(id: string, input: MultiDayBlockConnectionUpdateDto) {
     const parsed = multiDayBlockConnectionUpdateSchema.safeParse(input);
     if (!parsed.success) {
@@ -900,70 +1132,9 @@ export class MultiDayBlockConnectionService {
       throw new DomainError('NOT_FOUND', 'Multi-day block connection not found');
     }
 
-    const nextFromMultiDayBlockId = parsed.data.fromMultiDayBlockId ?? existing.fromOvernightStayId;
-    const nextToLocationId = parsed.data.toLocationId ?? existing.toLocationId;
+    const state = await this.prepareMdbConnectionUpdate(id, parsed.data, existing);
 
-    const endpoints = await this.validateEndpoints(nextFromMultiDayBlockId, nextToLocationId);
-    const owningRegion = await this.resolveOwningConnectionRegion(endpoints.fromBlockRegionId);
-
-    const existingVersions = this.buildVersionsFromExisting(existing as ExistingConnectionLike);
-    const hasLegacyDirectUpdates = this.hasLegacyDirectUpdates(parsed.data);
-
-    let nextVersions = parsed.data.versions ? this.normalizeVersionsFromInput(parsed.data.versions) : existingVersions;
-
-    if (!parsed.data.versions && hasLegacyDirectUpdates) {
-      nextVersions = existingVersions.map((version) =>
-        version.isDefault
-          ? {
-              ...version,
-              averageDistanceKm: parsed.data.averageDistanceKm ?? version.averageDistanceKm,
-              averageTravelHours: parsed.data.averageTravelHours ?? version.averageTravelHours,
-              movementIntensity: calculateMovementIntensity(parsed.data.averageTravelHours ?? version.averageTravelHours),
-              isLongDistance: parsed.data.isLongDistance ?? version.isLongDistance,
-              timeSlotsByVariant: {
-                basic: parsed.data.timeSlots ?? version.timeSlotsByVariant.basic,
-                early: parsed.data.earlyTimeSlots ?? version.timeSlotsByVariant.early,
-                extend: parsed.data.extendTimeSlots ?? version.timeSlotsByVariant.extend,
-                earlyExtend: parsed.data.earlyExtendTimeSlots ?? version.timeSlotsByVariant.earlyExtend,
-              },
-            }
-          : version,
-      );
-    }
-
-    await this.validateVersions(endpoints.toLocation, nextVersions);
-    const defaultVersion = this.getDefaultVersion(nextVersions);
-    const shouldSyncOwningRegion =
-      parsed.data.fromMultiDayBlockId !== undefined || existing.regionId !== owningRegion.id;
-
-    return this.prisma.$transaction(async (tx) => {
-      await tx.overnightStayConnection.update({
-        where: { id },
-        data: {
-          ...(shouldSyncOwningRegion ? { regionId: owningRegion.id, regionName: owningRegion.name } : {}),
-          ...(parsed.data.fromMultiDayBlockId !== undefined ? { fromOvernightStayId: parsed.data.fromMultiDayBlockId } : {}),
-          ...(parsed.data.toLocationId !== undefined ? { toLocationId: parsed.data.toLocationId } : {}),
-        },
-      });
-
-      let defaultVersionId = existing.defaultVersionId ?? '';
-      if (parsed.data.versions) {
-        defaultVersionId = await this.replaceAllVersions(tx, id, nextVersions);
-        await this.syncDefaultMirror(tx, id, defaultVersionId, defaultVersion);
-      } else if (hasLegacyDirectUpdates || existing.versions.length === 0) {
-        defaultVersionId = await this.upsertDefaultVersionOnly(tx, id, defaultVersion);
-        await this.syncDefaultMirror(tx, id, defaultVersionId, defaultVersion);
-      } else if (parsed.data.fromMultiDayBlockId !== undefined || parsed.data.toLocationId !== undefined) {
-        await tx.overnightStayConnection.update({
-          where: { id },
-          data: {
-            defaultVersionId: existing.defaultVersionId,
-          },
-        });
-      }
-
-      return new MultiDayBlockConnectionRepository(tx).findById(id);
-    });
+    return this.prisma.$transaction(async (tx) => this.applyMdbConnectionUpdateInTransaction(tx, id, existing, state));
   }
 
   delete(id: string) {

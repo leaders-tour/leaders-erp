@@ -1,6 +1,10 @@
 import type { PrismaClient } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
-import { segmentBulkCreateSchema } from '@tour/validation';
+import {
+  multiDayBlockConnectionUpdateWithAdditionalFromsSchema,
+  segmentBulkCreateSchema,
+  segmentUpdateWithAdditionalFromsSchema,
+} from '@tour/validation';
 import { DomainError } from '../../lib/errors';
 import { SegmentService } from './segment.service';
 
@@ -83,7 +87,9 @@ describe('segmentBulkCreateSchema', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues.some((issue) => issue.message === 'fromLocationIds must not include toLocationId')).toBe(true);
+      expect(result.error.issues.some((issue) => issue.message === 'fromLocationIds must not include toLocationId')).toBe(
+        true,
+      );
     }
   });
 
@@ -93,5 +99,94 @@ describe('segmentBulkCreateSchema', () => {
       fromLocationIds: [],
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('segmentUpdateWithAdditionalFromsSchema', () => {
+  it('accepts empty additionalFromLocationIds', () => {
+    const result = segmentUpdateWithAdditionalFromsSchema.safeParse({
+      update: {},
+      additionalFromLocationIds: [],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects duplicate additionalFromLocationIds', () => {
+    const result = segmentUpdateWithAdditionalFromsSchema.safeParse({
+      update: { toLocationId: 'to-1' },
+      additionalFromLocationIds: ['a', 'a'],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((i) => i.message === 'additionalFromLocationIds must not contain duplicates'),
+      ).toBe(true);
+    }
+  });
+});
+
+describe('multiDayBlockConnectionUpdateWithAdditionalFromsSchema', () => {
+  it('rejects duplicate additionalFromMultiDayBlockIds', () => {
+    const result = multiDayBlockConnectionUpdateWithAdditionalFromsSchema.safeParse({
+      update: { toLocationId: 'loc-1' },
+      additionalFromMultiDayBlockIds: ['b1', 'b1'],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((i) => i.message === 'additionalFromMultiDayBlockIds must not contain duplicates'),
+      ).toBe(true);
+    }
+  });
+});
+
+const endpoint = (first: boolean, last: boolean) => ({
+  id: 'x',
+  regionId: 'r',
+  isFirstDayEligible: first,
+  isLastDayEligible: last,
+});
+
+describe('SegmentService stripSegmentSchedulesForEndpointEligibility', () => {
+  it('drops early and earlyExtend when from is not first-day eligible', () => {
+    const service = createService();
+    const version = {
+      ...createVersion('SEASON'),
+      timeSlotsByVariant: {
+        basic: [{ startTime: '08:00', activities: [] }],
+        early: [{ startTime: '05:00', activities: [] }],
+        extend: [{ startTime: '18:00', activities: [] }],
+        earlyExtend: [{ startTime: '04:00', activities: [] }],
+      },
+    };
+    const out = (service as any).stripSegmentSchedulesForEndpointEligibility(
+      endpoint(false, true),
+      endpoint(true, true),
+      [version],
+    );
+    expect(out[0]!.timeSlotsByVariant.early).toBeUndefined();
+    expect(out[0]!.timeSlotsByVariant.earlyExtend).toBeUndefined();
+    expect(out[0]!.timeSlotsByVariant.extend?.length).toBeGreaterThan(0);
+  });
+
+  it('drops extend and earlyExtend when to is not last-day eligible', () => {
+    const service = createService();
+    const version = {
+      ...createVersion('SEASON'),
+      timeSlotsByVariant: {
+        basic: [{ startTime: '08:00', activities: [] }],
+        early: [{ startTime: '05:00', activities: [] }],
+        extend: [{ startTime: '18:00', activities: [] }],
+        earlyExtend: [{ startTime: '04:00', activities: [] }],
+      },
+    };
+    const out = (service as any).stripSegmentSchedulesForEndpointEligibility(
+      endpoint(true, true),
+      endpoint(true, false),
+      [version],
+    );
+    expect(out[0]!.timeSlotsByVariant.extend).toBeUndefined();
+    expect(out[0]!.timeSlotsByVariant.earlyExtend).toBeUndefined();
+    expect(out[0]!.timeSlotsByVariant.early?.length).toBeGreaterThan(0);
   });
 });

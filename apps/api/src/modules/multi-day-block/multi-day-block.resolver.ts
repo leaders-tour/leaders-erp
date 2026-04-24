@@ -5,6 +5,7 @@ import type {
   MultiDayBlockConnectionBulkCreateDto,
   MultiDayBlockConnectionCreateDto,
   MultiDayBlockConnectionUpdateDto,
+  MultiDayBlockConnectionUpdateWithAdditionalFromsDto,
   MultiDayBlockCreateDto,
   MultiDayBlockUpdateDto,
 } from './multi-day-block.types';
@@ -38,6 +39,11 @@ interface MultiDayBlockConnectionBulkCreateArgs {
 interface MultiDayBlockConnectionUpdateArgs {
   id: string;
   input: MultiDayBlockConnectionUpdateDto;
+}
+
+interface MultiDayBlockConnectionUpdateWithAdditionalFromsArgs {
+  id: string;
+  input: MultiDayBlockConnectionUpdateWithAdditionalFromsDto;
 }
 
 interface MultiDayBlockConnectionListArgs {
@@ -87,6 +93,11 @@ export const multiDayBlockResolver = {
     ) => new MultiDayBlockConnectionService(ctx.prisma).createBulk(args.input),
     updateMultiDayBlockConnection: (_parent: unknown, args: MultiDayBlockConnectionUpdateArgs, ctx: AppContext) =>
       new MultiDayBlockConnectionService(ctx.prisma).update(args.id, args.input),
+    updateMultiDayBlockConnectionWithAdditionalFroms: (
+      _parent: unknown,
+      args: MultiDayBlockConnectionUpdateWithAdditionalFromsArgs,
+      ctx: AppContext,
+    ) => new MultiDayBlockConnectionService(ctx.prisma).updateWithAdditionalFroms(args.id, args.input),
     deleteMultiDayBlockConnection: (_parent: unknown, args: EntityArgs, ctx: AppContext) =>
       new MultiDayBlockConnectionService(ctx.prisma).delete(args.id),
   },

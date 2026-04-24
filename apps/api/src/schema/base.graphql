@@ -90,6 +90,7 @@ type Mutation {
   createSegment(input: SegmentCreateInput!): Segment!
   createSegmentsBulk(input: SegmentBulkCreateInput!): [Segment!]!
   updateSegment(id: ID!, input: SegmentUpdateInput!): Segment!
+  updateSegmentWithAdditionalFroms(id: ID!, input: SegmentUpdateWithAdditionalFromsInput!): [Segment!]!
   deleteSegment(id: ID!): Boolean!
 
   createMultiDayBlock(input: MultiDayBlockCreateInput!): MultiDayBlock!
@@ -98,6 +99,10 @@ type Mutation {
   createMultiDayBlockConnection(input: MultiDayBlockConnectionCreateInput!): MultiDayBlockConnection!
   createMultiDayBlockConnectionsBulk(input: MultiDayBlockConnectionBulkCreateInput!): [MultiDayBlockConnection!]!
   updateMultiDayBlockConnection(id: ID!, input: MultiDayBlockConnectionUpdateInput!): MultiDayBlockConnection!
+  updateMultiDayBlockConnectionWithAdditionalFroms(
+    id: ID!
+    input: MultiDayBlockConnectionUpdateWithAdditionalFromsInput!
+  ): [MultiDayBlockConnection!]!
   deleteMultiDayBlockConnection(id: ID!): Boolean!
 
   createUser(input: UserCreateInput!): User!

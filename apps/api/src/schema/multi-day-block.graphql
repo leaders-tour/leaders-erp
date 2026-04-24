@@ -203,3 +203,8 @@ input MultiDayBlockConnectionUpdateInput {
   earlyExtendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
   versions: [MultiDayBlockConnectionVersionInput!]
 }
+
+input MultiDayBlockConnectionUpdateWithAdditionalFromsInput {
+  update: MultiDayBlockConnectionUpdateInput!
+  additionalFromMultiDayBlockIds: [String!]!
+}

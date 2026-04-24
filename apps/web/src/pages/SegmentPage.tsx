@@ -108,6 +108,9 @@ interface SegmentFormState {
   bulkMode: boolean;
   bulkFromLocationIds: string[];
   bulkFromMultiDayBlockIds: string[];
+  /** 수정 모달: 같은 도착지로 추가 생성할 출발지(기본 출발지 제외) */
+  editExtraFromLocationIds: string[];
+  editExtraFromMultiDayBlockIds: string[];
   toLocationId: string;
   averageDistanceKm: string;
   averageTravelHours: string;
@@ -385,6 +388,8 @@ function createEmptyForm(): SegmentFormState {
     bulkMode: false,
     bulkFromLocationIds: [],
     bulkFromMultiDayBlockIds: [],
+    editExtraFromLocationIds: [],
+    editExtraFromMultiDayBlockIds: [],
     toLocationId: '',
     averageDistanceKm: '',
     averageTravelHours: '',
@@ -1408,6 +1413,8 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const [editToSearch, setEditToSearch] = useState('');
   const [editFromOpen, setEditFromOpen] = useState(false);
   const [editToOpen, setEditToOpen] = useState(false);
+  const [editExtraFromSearch, setEditExtraFromSearch] = useState('');
+  const [editExtraFromOpen, setEditExtraFromOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -1499,6 +1506,30 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     return locations.filter((item) => includesLocationNameKeyword(item.name, keyword));
   }, [locations, toSearch]);
 
+  const filteredEditFromLocations = useMemo(() => {
+    const keyword = editFromSearch.trim().toLowerCase();
+    if (!keyword) {
+      return locations;
+    }
+    return locations.filter((item) => includesLocationNameKeyword(item.name, keyword));
+  }, [locations, editFromSearch]);
+
+  const filteredEditFromMultiDayBlocksForModal = useMemo(() => {
+    const keyword = editFromSearch.trim().toLowerCase();
+    if (!keyword) {
+      return multiDayBlocks;
+    }
+    return multiDayBlocks.filter((item) => item.title.toLowerCase().includes(keyword));
+  }, [multiDayBlocks, editFromSearch]);
+
+  const filteredEditToLocations = useMemo(() => {
+    const keyword = editToSearch.trim().toLowerCase();
+    if (!keyword) {
+      return locations;
+    }
+    return locations.filter((item) => includesLocationNameKeyword(item.name, keyword));
+  }, [locations, editToSearch]);
+
   const selectedFromLocation = form.fromLocationId ? locationById.get(form.fromLocationId) : undefined;
   const selectedFromMultiDayBlock = form.fromMultiDayBlockId ? multiDayBlockById.get(form.fromMultiDayBlockId) : undefined;
   const selectedToLocation = form.toLocationId ? locationById.get(form.toLocationId) : undefined;
@@ -1524,22 +1555,82 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const editToLabel = formatLocationNameInline(selectedEditToLocation?.name ?? [editForm.toLocationId || '-']);
   const createFlightVersionName = buildFlightVersionName(createFromLabel, createToLabel);
   const editFlightVersionName = buildFlightVersionName(editFromLabel, editToLabel);
-  const bulkLockedFirstDayEligible = useMemo<boolean | null>(() => {
-    if (!form.bulkMode || form.sourceType !== 'LOCATION' || form.bulkFromLocationIds.length === 0) {
-      return null;
-    }
-    const firstId = form.bulkFromLocationIds[0]!;
-    const firstLoc = locationById.get(firstId);
-    return firstLoc ? Boolean(firstLoc.isFirstDayEligible) : null;
-  }, [form.bulkMode, form.sourceType, form.bulkFromLocationIds, locationById]);
   const includeCreateEarly =
     form.sourceType === 'LOCATION' &&
     (form.bulkMode
-      ? bulkLockedFirstDayEligible === true
+      ? form.bulkFromLocationIds.some((id) => Boolean(locationById.get(id)?.isFirstDayEligible))
       : Boolean(selectedFromLocation?.isFirstDayEligible));
   const includeCreateExtend = Boolean(selectedToLocation?.isLastDayEligible);
-  const includeEditEarly = editForm.sourceType === 'LOCATION' && Boolean(selectedEditFromLocation?.isFirstDayEligible);
+  const includeEditEarly =
+    editForm.sourceType === 'LOCATION' &&
+    (Boolean(selectedEditFromLocation?.isFirstDayEligible) ||
+      editForm.editExtraFromLocationIds.some((id) => Boolean(locationById.get(id)?.isFirstDayEligible)));
   const includeEditExtend = Boolean(selectedEditToLocation?.isLastDayEligible);
+  const filteredEditExtraFromLocations = useMemo(() => {
+    const keyword = editExtraFromSearch.trim().toLowerCase();
+    let list = !keyword
+      ? locations
+      : locations.filter((item) => includesLocationNameKeyword(item.name, keyword));
+    list = list.filter((item) => item.id !== editForm.toLocationId);
+    list = list.filter((item) => item.id !== editForm.fromLocationId);
+    list = list.filter((item) => !editForm.editExtraFromLocationIds.includes(item.id));
+    return list;
+  }, [
+    locations,
+    editExtraFromSearch,
+    editForm.toLocationId,
+    editForm.fromLocationId,
+    editForm.editExtraFromLocationIds,
+  ]);
+  const filteredEditExtraFromBlocks = useMemo(() => {
+    const keyword = editExtraFromSearch.trim().toLowerCase();
+    let list = !keyword
+      ? multiDayBlocks
+      : multiDayBlocks.filter((item) => item.title.toLowerCase().includes(keyword));
+    list = list.filter((item) => item.id !== editForm.toLocationId);
+    list = list.filter((item) => item.id !== editForm.fromMultiDayBlockId);
+    list = list.filter((item) => !editForm.editExtraFromMultiDayBlockIds.includes(item.id));
+    return list;
+  }, [
+    multiDayBlocks,
+    editExtraFromSearch,
+    editForm.toLocationId,
+    editForm.fromMultiDayBlockId,
+    editForm.editExtraFromMultiDayBlockIds,
+  ]);
+  const existingEditExtensionMessage = useMemo(() => {
+    if (!editingSegmentId || !editForm.toLocationId) {
+      return null;
+    }
+    if (editForm.sourceType === 'LOCATION') {
+      for (const fromId of editForm.editExtraFromLocationIds) {
+        const found = crud.rows.find(
+          (row) =>
+            row.id !== editingSegmentId &&
+            row.sourceType === 'LOCATION' &&
+            row.fromLocationId === fromId &&
+            row.toLocationId === editForm.toLocationId,
+        );
+        if (found) {
+          return `추가 출발지에 이미 (출발→도착) 연결이 있어요: ${formatLocationNameInline(locationById.get(fromId)?.name ?? [fromId])} → (현재 도착지).`;
+        }
+      }
+    } else {
+      for (const fromId of editForm.editExtraFromMultiDayBlockIds) {
+        const found = crud.rows.find(
+          (row) =>
+            row.id !== editingSegmentId &&
+            row.sourceType === 'MULTI_DAY_BLOCK' &&
+            row.fromMultiDayBlockId === fromId &&
+            row.toLocationId === editForm.toLocationId,
+        );
+        if (found) {
+          return `추가 블록에 이미 연결이 있어요: ${multiDayBlockById.get(fromId)?.title ?? fromId}.`;
+        }
+      }
+    }
+    return null;
+  }, [editingSegmentId, editForm, crud.rows, locationById, multiDayBlockById]);
   const createMovementIntensityMeta = useMemo(() => {
     const hours = Number(form.averageTravelHours);
     if (!Number.isFinite(hours) || hours < 0) {
@@ -1660,6 +1751,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const canUpdate =
     hasEditSource &&
     !!selectedEditToLocation &&
+    !existingEditExtensionMessage &&
     (editForm.sourceType === 'MULTI_DAY_BLOCK' || editForm.fromLocationId !== editForm.toLocationId) &&
     Number(editForm.averageDistanceKm) > 0 &&
     Number(editForm.averageTravelHours) > 0 &&
@@ -1917,11 +2009,6 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                   <span className="text-slate-700">{form.bulkMode ? (form.sourceType === 'LOCATION' ? '출발지 (여러 개 선택)' : '출발 블록 (여러 개 선택)') : '출발지'}</span>
                   {form.bulkMode ? (
                     <>
-                      {form.sourceType === 'LOCATION' && bulkLockedFirstDayEligible !== null ? (
-                        <p className="text-xs text-slate-500">
-                          그룹 잠금: <span className="font-medium text-slate-700">{bulkLockedFirstDayEligible ? '첫째 날 가능 출발지' : '첫째 날 불가 출발지'}</span> · 다른 그룹은 추가할 수 없습니다.
-                        </p>
-                      ) : null}
                       {(form.sourceType === 'LOCATION' ? form.bulkFromLocationIds : form.bulkFromMultiDayBlockIds).length > 0 ? (
                         <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2">
                           {(form.sourceType === 'LOCATION' ? form.bulkFromLocationIds : form.bulkFromMultiDayBlockIds).map((id) => {
@@ -1976,19 +2063,14 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                               form.sourceType === 'LOCATION'
                                 ? filteredFromLocations.map((item) => {
                                     const isSelected = form.bulkFromLocationIds.includes(item.id);
-                                    const isGroupMismatch =
-                                      bulkLockedFirstDayEligible !== null &&
-                                      Boolean(item.isFirstDayEligible) !== bulkLockedFirstDayEligible;
                                     const eligibilityTag = item.isFirstDayEligible ? '첫째날 가능' : '첫째날 불가';
-                                    const disabled = isSelected || isGroupMismatch;
                                     return (
                                       <button
                                         key={item.id}
                                         type="button"
-                                        disabled={disabled}
-                                        title={isGroupMismatch ? '선택된 그룹과 첫째날 가능 여부가 달라 추가할 수 없어요.' : undefined}
+                                        disabled={isSelected}
                                         onClick={() => {
-                                          if (disabled) return;
+                                          if (isSelected) return;
                                           setForm((prev) => ({
                                             ...prev,
                                             bulkFromLocationIds: prev.bulkFromLocationIds.includes(item.id)
@@ -1998,14 +2080,13 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                                           setFromSearch('');
                                           setFromOpen(false);
                                         }}
-                                        className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${disabled ? 'bg-slate-100 text-slate-400' : 'hover:bg-slate-100'}`}
+                                        className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${isSelected ? 'bg-slate-100 text-slate-400' : 'hover:bg-slate-100'}`}
                                       >
                                         {formatLocationNameInline(item.name)} ({item.regionName})
                                         <span className={`ml-2 text-[10px] font-medium ${item.isFirstDayEligible ? 'text-emerald-600' : 'text-slate-400'}`}>
                                           {eligibilityTag}
                                         </span>
                                         {isSelected ? ' · 추가됨' : ''}
-                                        {isGroupMismatch ? ' · 다른 그룹' : ''}
                                       </button>
                                     );
                                   })
@@ -2471,6 +2552,8 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                           bulkMode: false,
                           bulkFromLocationIds: [],
                           bulkFromMultiDayBlockIds: [],
+                          editExtraFromLocationIds: [],
+                          editExtraFromMultiDayBlockIds: [],
                           toLocationId: row.toLocationId,
                           averageDistanceKm: String(row.averageDistanceKm),
                           averageTravelHours: String(row.averageTravelHours),
@@ -2487,6 +2570,8 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                         setEditToSearch(formatLocationNameInline(locationById.get(row.toLocationId)?.name ?? row.toLocationId));
                         setEditFromOpen(false);
                         setEditToOpen(false);
+                        setEditExtraFromSearch('');
+                        setEditExtraFromOpen(false);
                       }}
                     >
                       수정
@@ -2537,6 +2622,8 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
               setEditToSearch('');
               setEditFromOpen(false);
               setEditToOpen(false);
+              setEditExtraFromSearch('');
+              setEditExtraFromOpen(false);
               setErrorMessage(null);
             }
           }}
@@ -2557,6 +2644,8 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                   setEditToSearch('');
                   setEditFromOpen(false);
                   setEditToOpen(false);
+                  setEditExtraFromSearch('');
+                  setEditExtraFromOpen(false);
                   setErrorMessage(null);
                 }}
               >
@@ -2580,7 +2669,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
               setUpdating(true);
               try {
                 setErrorMessage(null);
-                await crud.updateRow(editingSegmentId, {
+                const formPayload = {
                   sourceType: editForm.sourceType,
                   ...(editForm.sourceType === 'LOCATION' ? { regionId: selectedEditFromLocation!.regionId } : {}),
                   fromLocationId: editForm.sourceType === 'LOCATION' ? editForm.fromLocationId : undefined,
@@ -2598,7 +2687,22 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                     includeExtend: includeEditExtend,
                     fixedFlightVersionName: editFlightVersionName,
                   }),
-                });
+                };
+                const hasEditExtras =
+                  editForm.sourceType === 'LOCATION'
+                    ? editForm.editExtraFromLocationIds.length > 0
+                    : editForm.editExtraFromMultiDayBlockIds.length > 0;
+                if (hasEditExtras) {
+                  await crud.updateRowWithAdditionalFroms(
+                    editingSegmentId,
+                    formPayload,
+                    editForm.sourceType === 'LOCATION'
+                      ? { additionalFromLocationIds: editForm.editExtraFromLocationIds }
+                      : { additionalFromMultiDayBlockIds: editForm.editExtraFromMultiDayBlockIds },
+                  );
+                } else {
+                  await crud.updateRow(editingSegmentId, formPayload);
+                }
                 setEditingSegmentId(null);
                 setEditForm(createEmptyForm());
                 setEditPasteHelperResetNonce((n) => n + 1);
@@ -2606,6 +2710,8 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 setEditToSearch('');
                 setEditFromOpen(false);
                 setEditToOpen(false);
+                setEditExtraFromSearch('');
+                setEditExtraFromOpen(false);
               } catch (error) {
                 setErrorMessage(error instanceof Error ? error.message : '연결 저장에 실패했습니다.');
               } finally {
@@ -2614,6 +2720,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
             }}
           >
             {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
+            {existingEditExtensionMessage ? <p className="text-sm text-red-600">{existingEditExtensionMessage}</p> : null}
             <div className="grid items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
               <div className="grid gap-4">
                 <div className="grid gap-3 rounded-2xl border border-slate-200 p-4 md:grid-cols-2 xl:grid-cols-1">
@@ -2624,18 +2731,32 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                         type="button"
                         variant={editForm.sourceType === 'LOCATION' ? 'default' : 'outline'}
                         onClick={() => {
-                          setEditForm((prev) => ({ ...prev, sourceType: 'LOCATION', fromMultiDayBlockId: '', fromLocationId: '' }));
+                          setEditForm((prev) => ({
+                            ...prev,
+                            sourceType: 'LOCATION',
+                            fromMultiDayBlockId: '',
+                            fromLocationId: '',
+                            editExtraFromLocationIds: [],
+                            editExtraFromMultiDayBlockIds: [],
+                          }));
                           setEditFromSearch('');
                           setEditFromOpen(false);
                         }}
                       >
                         목적지
                       </Button>
-                      <Button
+                    <Button
                         type="button"
                         variant={editForm.sourceType === 'MULTI_DAY_BLOCK' ? 'default' : 'outline'}
                         onClick={() => {
-                          setEditForm((prev) => ({ ...prev, sourceType: 'MULTI_DAY_BLOCK', fromLocationId: '', fromMultiDayBlockId: '' }));
+                          setEditForm((prev) => ({
+                            ...prev,
+                            sourceType: 'MULTI_DAY_BLOCK',
+                            fromLocationId: '',
+                            fromMultiDayBlockId: '',
+                            editExtraFromLocationIds: [],
+                            editExtraFromMultiDayBlockIds: [],
+                          }));
                           setEditFromSearch('');
                           setEditFromOpen(false);
                         }}
@@ -2663,16 +2784,16 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                     />
                     {editFromOpen ? (
                       <div className="absolute left-0 right-0 top-[76px] z-[100] max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-                        {(editForm.sourceType === 'LOCATION' ? filteredFromLocations.length === 0 : filteredFromMultiDayBlocks.length === 0) ? (
+                        {(editForm.sourceType === 'LOCATION' ? filteredEditFromLocations.length === 0 : filteredEditFromMultiDayBlocksForModal.length === 0) ? (
                           <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
                         ) : (
                           editForm.sourceType === 'LOCATION'
-                            ? filteredFromLocations.map((item) => (
+                            ? filteredEditFromLocations.map((item) => (
                                 <button
                                   key={item.id}
                                   type="button"
                                   onClick={() => {
-                                    setEditForm((prev) => ({ ...prev, fromLocationId: item.id }));
+                                    setEditForm((prev) => ({ ...prev, fromLocationId: item.id, editExtraFromLocationIds: [] }));
                                     setEditFromSearch(formatLocationNameInline(item.name));
                                     setEditFromOpen(false);
                                   }}
@@ -2681,12 +2802,12 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                                   {formatLocationNameInline(item.name)} ({item.regionName})
                                 </button>
                               ))
-                            : filteredFromMultiDayBlocks.map((item) => (
+                            : filteredEditFromMultiDayBlocksForModal.map((item) => (
                                 <button
                                   key={item.id}
                                   type="button"
                                   onClick={() => {
-                                    setEditForm((prev) => ({ ...prev, fromMultiDayBlockId: item.id }));
+                                    setEditForm((prev) => ({ ...prev, fromMultiDayBlockId: item.id, editExtraFromMultiDayBlockIds: [] }));
                                     setEditFromSearch(item.title);
                                     setEditFromOpen(false);
                                   }}
@@ -2699,6 +2820,173 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                       </div>
                     ) : null}
                   </div>
+
+                  {editForm.sourceType === 'LOCATION' && selectedEditFromLocation && editForm.toLocationId ? (
+                    <div className="grid gap-2 rounded-xl border border-dashed border-amber-200/80 bg-amber-50/50 p-3 text-sm">
+                      <p className="font-medium text-slate-800">같은 도착지로 이어서 생성할 출발지</p>
+                      <p className="text-xs text-slate-600">
+                        아래에 출발지를 추가하면, 저장 시 <span className="font-medium">이 연결은 수정</span>되고, 추가 출발지는 같은 입력값으로 <span className="font-medium">새 연결</span>이 됩니다(한 번에 트랜잭션).
+                      </p>
+                      {editForm.editExtraFromLocationIds.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {editForm.editExtraFromLocationIds.map((id) => {
+                            const label = formatLocationNameInline(locationById.get(id)?.name ?? [id]);
+                            return (
+                              <span
+                                key={id}
+                                className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-medium text-amber-900"
+                              >
+                                {label}
+                                <button
+                                  type="button"
+                                  className="rounded-full px-1 text-amber-600 hover:bg-amber-100"
+                                  onClick={() => {
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      editExtraFromLocationIds: prev.editExtraFromLocationIds.filter((eid) => eid !== id),
+                                    }));
+                                  }}
+                                  aria-label={`${label} 제거`}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      <div className="relative">
+                        <Input
+                          value={editExtraFromSearch}
+                          onFocus={() => setEditExtraFromOpen(true)}
+                          onBlur={() => setTimeout(() => setEditExtraFromOpen(false), 120)}
+                          onChange={(event) => {
+                            setEditExtraFromSearch(event.target.value);
+                            setEditExtraFromOpen(true);
+                          }}
+                          placeholder="추가할 출발 목적지 검색 후 선택"
+                        />
+                        {editExtraFromOpen ? (
+                          <div className="absolute left-0 right-0 top-[44px] z-[100] max-h-40 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                            {filteredEditExtraFromLocations.length === 0 ? (
+                              <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
+                            ) : (
+                              filteredEditExtraFromLocations.map((item) => {
+                                const isSelected = editForm.editExtraFromLocationIds.includes(item.id);
+                                return (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    disabled={isSelected}
+                                    onClick={() => {
+                                      if (isSelected) return;
+                                      setEditForm((prev) => ({
+                                        ...prev,
+                                        editExtraFromLocationIds: prev.editExtraFromLocationIds.includes(item.id)
+                                          ? prev.editExtraFromLocationIds
+                                          : [...prev.editExtraFromLocationIds, item.id],
+                                      }));
+                                      setEditExtraFromSearch('');
+                                      setEditExtraFromOpen(false);
+                                    }}
+                                    className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${isSelected ? 'bg-slate-100 text-slate-400' : 'hover:bg-slate-100'}`}
+                                  >
+                                    {formatLocationNameInline(item.name)} ({item.regionName})
+                                    <span
+                                      className={`ml-2 text-[10px] font-medium ${item.isFirstDayEligible ? 'text-emerald-600' : 'text-slate-400'}`}
+                                    >
+                                      {item.isFirstDayEligible ? '첫째날 가능' : '첫째날 불가'}
+                                    </span>
+                                    {isSelected ? ' · 추가됨' : ''}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                  {editForm.sourceType === 'MULTI_DAY_BLOCK' && selectedEditFromMultiDayBlock && editForm.toLocationId ? (
+                    <div className="grid gap-2 rounded-xl border border-dashed border-amber-200/80 bg-amber-50/50 p-3 text-sm">
+                      <p className="font-medium text-slate-800">같은 도착지로 이어서 생성할 출발 블록</p>
+                      <p className="text-xs text-slate-600">
+                        추가 블록을 넣고 저장하면 이 연결은 수정되고, 추가 블록은 같은 입력으로 새 연결이 생성됩니다.
+                      </p>
+                      {editForm.editExtraFromMultiDayBlockIds.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {editForm.editExtraFromMultiDayBlockIds.map((id) => {
+                            const label = multiDayBlockById.get(id)?.title ?? id;
+                            return (
+                              <span
+                                key={id}
+                                className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-medium text-amber-900"
+                              >
+                                {label}
+                                <button
+                                  type="button"
+                                  className="rounded-full px-1 text-amber-600 hover:bg-amber-100"
+                                  onClick={() => {
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      editExtraFromMultiDayBlockIds: prev.editExtraFromMultiDayBlockIds.filter((eid) => eid !== id),
+                                    }));
+                                  }}
+                                  aria-label={`${label} 제거`}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      <div className="relative">
+                        <Input
+                          value={editExtraFromSearch}
+                          onFocus={() => setEditExtraFromOpen(true)}
+                          onBlur={() => setTimeout(() => setEditExtraFromOpen(false), 120)}
+                          onChange={(event) => {
+                            setEditExtraFromSearch(event.target.value);
+                            setEditExtraFromOpen(true);
+                          }}
+                          placeholder="추가할 블록 검색 후 선택"
+                        />
+                        {editExtraFromOpen ? (
+                          <div className="absolute left-0 right-0 top-[44px] z-[100] max-h-40 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                            {filteredEditExtraFromBlocks.length === 0 ? (
+                              <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
+                            ) : (
+                              filteredEditExtraFromBlocks.map((item) => {
+                                const isSelected = editForm.editExtraFromMultiDayBlockIds.includes(item.id);
+                                return (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    disabled={isSelected}
+                                    onClick={() => {
+                                      if (isSelected) return;
+                                      setEditForm((prev) => ({
+                                        ...prev,
+                                        editExtraFromMultiDayBlockIds: prev.editExtraFromMultiDayBlockIds.includes(item.id)
+                                          ? prev.editExtraFromMultiDayBlockIds
+                                          : [...prev.editExtraFromMultiDayBlockIds, item.id],
+                                      }));
+                                      setEditExtraFromSearch('');
+                                      setEditExtraFromOpen(false);
+                                    }}
+                                    className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${isSelected ? 'bg-slate-100 text-slate-400' : 'hover:bg-slate-100'}`}
+                                  >
+                                    {item.title} ({getBlockRegionSummary(item)}){isSelected ? ' · 추가됨' : ''}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
 
                   <div className="relative grid gap-2">
                     <h3 className="text-sm font-semibold text-slate-800">도착지</h3>
@@ -2715,10 +3003,10 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                     />
                     {editToOpen ? (
                       <div className="absolute left-0 right-0 top-[76px] z-[100] max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-                        {filteredToLocations.length === 0 ? (
+                        {filteredEditToLocations.length === 0 ? (
                           <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
                         ) : (
-                          filteredToLocations.map((item) => (
+                          filteredEditToLocations.map((item) => (
                             <button
                               key={item.id}
                               type="button"

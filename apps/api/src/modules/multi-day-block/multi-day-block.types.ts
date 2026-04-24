@@ -2,6 +2,7 @@ export type {
   MultiDayBlockConnectionBulkCreateInput as MultiDayBlockConnectionBulkCreateDto,
   MultiDayBlockConnectionCreateInput as MultiDayBlockConnectionCreateDto,
   MultiDayBlockConnectionUpdateInput as MultiDayBlockConnectionUpdateDto,
+  MultiDayBlockConnectionUpdateWithAdditionalFromsInput as MultiDayBlockConnectionUpdateWithAdditionalFromsDto,
   MultiDayBlockCreateInput as MultiDayBlockCreateDto,
   MultiDayBlockUpdateInput as MultiDayBlockUpdateDto,
 } from '@tour/validation';
