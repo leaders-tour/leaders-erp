@@ -398,6 +398,25 @@ export interface SegmentVersionFormInput {
   isDefault?: boolean;
 }
 
+/**
+ * `MultiDayBlockConnectionVersionInput`는 구간(LOCATION)용 세그먼트 버전 필드(`kind` 등)를 받지 않습니다.
+ * 뮤테이션 variables에 `SegmentVersionFormInput[]`을 그대로 넣으면 GraphQL validation 오류가 납니다.
+ */
+function toMultiDayBlockConnectionVersionInputs(versions: SegmentVersionFormInput[]) {
+  return versions.map((v) => ({
+    ...(v.id ? { id: v.id } : {}),
+    name: v.name,
+    averageDistanceKm: v.averageDistanceKm,
+    averageTravelHours: v.averageTravelHours,
+    isLongDistance: v.isLongDistance,
+    timeSlots: v.timeSlots,
+    ...(v.earlyTimeSlots ? { earlyTimeSlots: v.earlyTimeSlots } : {}),
+    ...(v.extendTimeSlots ? { extendTimeSlots: v.extendTimeSlots } : {}),
+    ...(v.earlyExtendTimeSlots ? { earlyExtendTimeSlots: v.earlyExtendTimeSlots } : {}),
+    ...(v.isDefault !== undefined ? { isDefault: v.isDefault } : {}),
+  }));
+}
+
 export interface SegmentRow {
   id: string;
   sourceType: ConnectionSourceType;
@@ -611,7 +630,7 @@ export function useSegmentCrud() {
             ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
             ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
             ...(input.earlyExtendTimeSlots ? { earlyExtendTimeSlots: input.earlyExtendTimeSlots } : {}),
-            ...(input.versions ? { versions: input.versions } : {}),
+            ...(input.versions ? { versions: toMultiDayBlockConnectionVersionInputs(input.versions) } : {}),
           },
         },
       });
@@ -652,7 +671,7 @@ export function useSegmentCrud() {
             ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
             ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
             ...(input.earlyExtendTimeSlots ? { earlyExtendTimeSlots: input.earlyExtendTimeSlots } : {}),
-            ...(input.versions ? { versions: input.versions } : {}),
+            ...(input.versions ? { versions: toMultiDayBlockConnectionVersionInputs(input.versions) } : {}),
           },
         },
       });
@@ -705,7 +724,7 @@ export function useSegmentCrud() {
             ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
             ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
             ...(input.earlyExtendTimeSlots ? { earlyExtendTimeSlots: input.earlyExtendTimeSlots } : {}),
-            ...(input.versions ? { versions: input.versions } : {}),
+            ...(input.versions ? { versions: toMultiDayBlockConnectionVersionInputs(input.versions) } : {}),
           },
         },
       });
@@ -767,7 +786,7 @@ export function useSegmentCrud() {
               ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
               ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
               ...(input.earlyExtendTimeSlots ? { earlyExtendTimeSlots: input.earlyExtendTimeSlots } : {}),
-              ...(input.versions ? { versions: input.versions } : {}),
+              ...(input.versions ? { versions: toMultiDayBlockConnectionVersionInputs(input.versions) } : {}),
             },
             additionalFromMultiDayBlockIds: additional,
           },
