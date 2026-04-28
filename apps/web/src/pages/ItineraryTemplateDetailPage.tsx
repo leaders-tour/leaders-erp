@@ -31,6 +31,10 @@ import {
   resolveSegmentVersion,
   type SegmentOption,
 } from '../features/plan-template/route-autofill';
+import {
+  resolveTemplateStopDisplayName,
+  resolveTemplateStopVersionParenthetical,
+} from '../features/plan-template/template-stop-display';
 
 interface RegionSetRow {
   id: string;
@@ -52,6 +56,8 @@ interface PlanTemplateStopRow {
   multiDayBlockConnectionVersionId: string | null;
   locationId: string | null;
   locationVersionId: string | null;
+  location?: { id: string; name: string[] } | null;
+  locationVersion?: { id: string; label: string; versionNumber: number } | null;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
   dateCellText: string;
   destinationCellText: string;
@@ -301,6 +307,15 @@ const PLAN_TEMPLATE_QUERY = gql`
         scheduleCellText
         lodgingCellText
         mealCellText
+        location {
+          id
+          name
+        }
+        locationVersion {
+          id
+          label
+          versionNumber
+        }
       }
     }
   }
@@ -514,6 +529,10 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
   const [deleteTemplate, { loading: deleting }] = useMutation(DELETE_PLAN_TEMPLATE_MUTATION);
 
   const template = templateData?.planTemplate ?? null;
+  const templateStopByDayIndex = useMemo(
+    () => new Map((template?.planStops ?? []).map((s) => [s.dayIndex, s] as const)),
+    [template?.planStops],
+  );
   const regionSets = regionSetData?.regionSets ?? [];
   const locations = locationData?.locations ?? [];
   const segments = segmentData?.segments ?? [];
@@ -925,8 +944,22 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
             {startLocationId ? (
               <div className="mt-1 flex items-center justify-between gap-2">
                 <div className="text-slate-700">
-                  <span className="whitespace-pre-line">{formatLocationNameMultiline(locationById.get(startLocationId)?.name ?? startLocationId)}</span>
-                  {startLocationVersionId ? ` (${formatLocationVersion(locationVersionById.get(startLocationVersionId))})` : ''}
+                  <span className="whitespace-pre-line">
+                    {resolveTemplateStopDisplayName(
+                      startLocationId,
+                      1,
+                      locationById,
+                      planRows,
+                      templateStopByDayIndex.get(1),
+                    )}
+                  </span>
+                  {resolveTemplateStopVersionParenthetical(
+                    startLocationId,
+                    startLocationVersionId,
+                    locationById,
+                    locationVersionById,
+                    templateStopByDayIndex.get(1),
+                  )}
                 </div>
                 <button
                   type="button"
@@ -1027,9 +1060,21 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                       </div>
                       <div className="mt-1 text-slate-700">
                         <span className="whitespace-pre-line">
-                          {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
+                          {resolveTemplateStopDisplayName(
+                            stop.locationId,
+                            startDayIndex,
+                            locationById,
+                            planRows,
+                            templateStopByDayIndex.get(startDayIndex),
+                          )}
                         </span>
-                        {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
+                        {resolveTemplateStopVersionParenthetical(
+                          stop.locationId,
+                          stop.locationVersionId,
+                          locationById,
+                          locationVersionById,
+                          templateStopByDayIndex.get(startDayIndex),
+                        )}
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {(locationById.get(stop.locationId)?.variations ?? []).map((version) => (
@@ -1073,9 +1118,21 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                       <div className="text-sm font-medium">{startDayIndex}일차</div>
                       <div className="mt-1 text-slate-700">
                         <span className="whitespace-pre-line">
-                          {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
+                          {resolveTemplateStopDisplayName(
+                            stop.locationId,
+                            startDayIndex,
+                            locationById,
+                            planRows,
+                            templateStopByDayIndex.get(startDayIndex),
+                          )}
                         </span>
-                        {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
+                        {resolveTemplateStopVersionParenthetical(
+                          stop.locationId,
+                          stop.locationVersionId,
+                          locationById,
+                          locationVersionById,
+                          templateStopByDayIndex.get(startDayIndex),
+                        )}
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {(locationById.get(stop.locationId)?.variations ?? []).map((version) => (
@@ -1148,9 +1205,21 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                     <div className="text-sm font-medium">{startDayIndex}일차</div>
                     <div className="mt-1 text-slate-700">
                       <span className="whitespace-pre-line">
-                        {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
+                        {resolveTemplateStopDisplayName(
+                          stop.locationId,
+                          startDayIndex,
+                          locationById,
+                          planRows,
+                          templateStopByDayIndex.get(startDayIndex),
+                        )}
                       </span>
-                      {` (${formatLocationVersion(locationVersionById.get(stop.locationVersionId))})`}
+                      {resolveTemplateStopVersionParenthetical(
+                        stop.locationId,
+                        stop.locationVersionId,
+                        locationById,
+                        locationVersionById,
+                        templateStopByDayIndex.get(startDayIndex),
+                      )}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {(locationById.get(stop.locationId)?.variations ?? []).map((version) => (

@@ -34,6 +34,8 @@ type PlanTemplateStop {
   mealCellText: String!
   createdAt: DateTime!
   updatedAt: DateTime!
+  location: Location
+  locationVersion: LocationVersion
 }
 
 input PlanTemplateStopNestedInput {

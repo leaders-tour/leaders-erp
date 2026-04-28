@@ -100,6 +100,7 @@ import {
   trimRouteSelectionsToTotalDays,
   type SegmentOption,
 } from '../features/plan-template/route-autofill';
+import { resolveTemplateStopDisplayName } from '../features/plan-template/template-stop-display';
 import {
   ManualAdjustmentsModal,
   type ManualAdjustmentDraftRow,
@@ -807,6 +808,8 @@ interface PlanTemplateStopRow {
   multiDayBlockConnectionVersionId: string | null;
   locationId: string | null;
   locationVersionId: string | null;
+  location?: { id: string; name: string[] } | null;
+  locationVersion?: { id: string; label: string; versionNumber: number } | null;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
   lodgingSelectionLevel?: LodgingSelectionLevel | null;
   customLodgingId?: string | null;
@@ -1433,6 +1436,15 @@ const PLAN_TEMPLATE_QUERY = gql`
         scheduleCellText
         lodgingCellText
         mealCellText
+        location {
+          id
+          name
+        }
+        locationVersion {
+          id
+          label
+          versionNumber
+        }
       }
     }
   }
@@ -2540,6 +2552,10 @@ export function ItineraryBuilderPage(): JSX.Element {
   const regionLodgings = regionLodgingData?.regionLodgings ?? [];
   const activeTemplateRows = templateListData?.planTemplates ?? [];
   const templateById = templateByIdData?.planTemplate ?? null;
+  const templateStopByDayForDisplay = useMemo(
+    () => new Map((templateById?.planStops ?? []).map((s) => [s.dayIndex, s] as const)),
+    [templateById?.planStops],
+  );
   const selectedRegionIds = useMemo(
     () =>
       new Set(
@@ -5739,10 +5755,14 @@ export function ItineraryBuilderPage(): JSX.Element {
                               </div>
                               <div className="mt-1 text-slate-700">
                                 <span className="whitespace-pre-line">
-                                  {filteredOvernightStays.find((item) => item.id === stop.multiDayBlockId)?.title ??
-                                    formatLocationNameMultiline(
-                                      locationById.get(stop.locationId)?.name ?? stop.locationId,
-                                    )}
+                                {filteredOvernightStays.find((item) => item.id === stop.multiDayBlockId)?.title ??
+                                  resolveTemplateStopDisplayName(
+                                    stop.locationId,
+                                    startDayIndex,
+                                    locationById,
+                                    planRows,
+                                    templateStopByDayForDisplay.get(startDayIndex),
+                                  )}
                                 </span>
                                 {isLastDay &&
                                   (variantType === VariantType.Extend ||
@@ -5777,8 +5797,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                               <div className="text-sm font-medium">{startDayIndex}일차</div>
                               <div className="mt-1 text-slate-700">
                                 <span className="whitespace-pre-line">
-                                  {formatLocationNameMultiline(
-                                    locationById.get(stop.locationId)?.name ?? stop.locationId,
+                                  {resolveTemplateStopDisplayName(
+                                    stop.locationId,
+                                    startDayIndex,
+                                    locationById,
+                                    planRows,
+                                    templateStopByDayForDisplay.get(startDayIndex),
                                   )}
                                 </span>
                                 {isLastDay &&
@@ -5845,8 +5869,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                             <div className="text-sm font-medium">{startDayIndex}일차</div>
                             <div className="mt-1 text-slate-700">
                               <span className="whitespace-pre-line">
-                                {formatLocationNameMultiline(
-                                  locationById.get(stop.locationId)?.name ?? stop.locationId,
+                                {resolveTemplateStopDisplayName(
+                                  stop.locationId,
+                                  startDayIndex,
+                                  locationById,
+                                  planRows,
+                                  templateStopByDayForDisplay.get(startDayIndex),
                                 )}
                               </span>
                               {isLastDay &&
