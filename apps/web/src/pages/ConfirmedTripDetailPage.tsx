@@ -375,7 +375,11 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     if (trip.planVersion?.totalDays) return trip.planVersion.totalDays;
     const s = trip.planVersion?.meta?.travelStartDate ?? trip.travelStart;
     const e = trip.planVersion?.meta?.travelEndDate ?? trip.travelEnd;
-    if (s && e) return Math.round((new Date(e).getTime() - new Date(s).getTime()) / 86400000);
+    if (s && e) {
+      const diff = Math.round((new Date(e).getTime() - new Date(s).getTime()) / 86400000);
+      // travelEnd는 마지막 일차 날짜(일정 빌더와 동일) → 포함 일수 = 차이 + 1
+      return diff > 0 ? diff + 1 : null;
+    }
     return null;
   })();
 
