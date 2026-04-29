@@ -1,5 +1,5 @@
 import { Card } from '@tour/ui';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarNoteModal } from '../features/confirmed-trip/CalendarNoteModal';
 import { ConfirmedTripCalendar } from '../features/confirmed-trip/ConfirmedTripCalendar';
@@ -21,6 +21,61 @@ import {
   type CalendarNoteRow,
   type ConfirmedTripRow,
 } from '../features/confirmed-trip/hooks';
+import {
+  tripMatchesAggRegions,
+  parseAggRegionsParam,
+  TRIP_REGION_FILTER_OPTIONS,
+  type TripRegionBucket,
+} from '../features/confirmed-trip/trip-region-bucket';
+import { DateRangePickerModal } from '../components/date-picker/DateRangePickerModal';
+import { parseIsoDate } from '../components/date-picker/date-picker-utils';
+
+function formatAggRangeButtonLabel(from: string, to: string): string {
+  const a = parseIsoDate(from);
+  const b = parseIsoDate(to);
+  if (!a || !b) return '기간 선택';
+  if (a.year === b.year) return `${a.month}.${a.day} – ${b.month}.${b.day}`;
+  return `${a.year}.${a.month}.${a.day} – ${b.year}.${b.month}.${b.day}`;
+}
+
+function getLocalDateFromIsoOrYmd(value: string | null): Date | null {
+  if (!value) return null;
+  const ymd = value.slice(0, 10);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]) - 1;
+  const d = Number(m[3]);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return null;
+  return new Date(y, mo, d);
+}
+
+/** 출발일만: filterStart ≤ tripStart ≤ filterEnd (일 단위, 로컬). */
+function isDepartureInRange(tripStartIso: string | null, fromYmd: string, toYmd: string): boolean {
+  const day = getLocalDateFromIsoOrYmd(tripStartIso);
+  const from = getLocalDateFromIsoOrYmd(fromYmd);
+  const to = getLocalDateFromIsoOrYmd(toYmd);
+  if (!day || !from || !to) return false;
+  return day >= from && day <= to;
+}
+
+/** 집계·리스트·캘린더 공통: 지역(다중 OR) + (from·to 둘 다 있을 때만) 출발일 구간. */
+function filterTripsByAggScope(
+  trips: ConfirmedTripRow[],
+  aggFrom: string,
+  aggTo: string,
+  aggRegions: TripRegionBucket[],
+): ConfirmedTripRow[] {
+  const hasDateRange = Boolean(aggFrom && aggTo);
+  let out = trips;
+  if (aggRegions.length > 0) {
+    out = out.filter((t) => tripMatchesAggRegions(t, aggRegions));
+  }
+  if (hasDateRange) {
+    out = out.filter((t) => isDepartureInRange(getTripStartDate(t), aggFrom, aggTo));
+  }
+  return out;
+}
 
 type DateFilter = 'reserved' | 'upcoming' | 'ongoing' | 'completed';
 type ViewMode = 'list' | 'calendar';
@@ -34,6 +89,10 @@ const DATE_FILTER_OPTIONS: { value: DateFilter; label: string }[] = [
   { value: 'ongoing', label: '여행중' },
   { value: 'completed', label: '여행 완료' },
 ];
+
+/** 필터 행: 타이틀 열 우측 세로 구분선 — 그리드 첫 열(5rem)과 맞춤 */
+const FILTER_TITLE_COL_CLASS =
+  'border-r border-slate-200 py-0.5 pr-3 text-sm font-medium text-slate-500';
 
 const RENTAL_ITEM_FILTER_OPTIONS: Array<{ value: RentalItemFilter; label: string }> = [
   { value: 'drone', label: '드론' },
@@ -153,20 +212,38 @@ function getDaysFromToday(dateStr: string): number {
 function DepartureBadge({ startDate }: { startDate: string }) {
   const days = getDaysFromToday(startDate);
   if (days < 0) {
-    return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">출발완료</span>;
+    return (
+      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+        출발완료
+      </span>
+    );
   }
   if (days === 0) {
-    return <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">D-Day</span>;
+    return (
+      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+        D-Day
+      </span>
+    );
   }
   if (days <= 3) {
-    return <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">D-{days}</span>;
+    return (
+      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+        D-{days}
+      </span>
+    );
   }
   if (days <= 10) {
     return (
-      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">D-{days}</span>
+      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+        D-{days}
+      </span>
     );
   }
-  return <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">D-{days}</span>;
+  return (
+    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+      D-{days}
+    </span>
+  );
 }
 
 // #N일차 진행중 뱃지
@@ -193,9 +270,17 @@ function DPlusBadge({ endDate }: { endDate: string }) {
 // 모집 뱃지
 function RecruitmentBadge({ open }: { open: boolean }) {
   if (open) {
-    return <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">모집중</span>;
+    return (
+      <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+        모집중
+      </span>
+    );
   }
-  return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">마감</span>;
+  return (
+    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+      마감
+    </span>
+  );
 }
 
 // 이벤트 뱃지 (드론/스타링크/파워뱅크)
@@ -208,7 +293,10 @@ function EventBadges({ trip }: { trip: ConfirmedTripRow }) {
   return (
     <div className="flex flex-wrap gap-1">
       {items.map((item) => (
-        <span key={item} className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+        <span
+          key={item}
+          className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700"
+        >
           {item}
         </span>
       ))}
@@ -220,11 +308,7 @@ function getLodgingSummary(trip: ConfirmedTripRow): string {
   if (trip.accommodationNote) return trip.accommodationNote;
   const selections = trip.planVersion?.meta?.lodgingSelections ?? [];
   const names = [
-    ...new Set(
-      selections
-        .map((s) => s.customLodgingNameSnapshot)
-        .filter((n): n is string => !!n),
-    ),
+    ...new Set(selections.map((s) => s.customLodgingNameSnapshot).filter((n): n is string => !!n)),
   ];
   return names.length > 0 ? names.join(', ') : '-';
 }
@@ -233,19 +317,57 @@ function WarningBadges({ trip }: { trip: ConfirmedTripRow }) {
   const badges: JSX.Element[] = [];
   if (!trip.guideName) {
     badges.push(
-      <span key="guide" className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+      <span
+        key="guide"
+        className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700"
+      >
         가이드 미배정
       </span>,
     );
   }
   if (!trip.driverName) {
     badges.push(
-      <span key="driver" className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+      <span
+        key="driver"
+        className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700"
+      >
         기사 미배정
       </span>,
     );
   }
   return badges.length > 0 ? <div className="flex flex-wrap gap-1">{badges}</div> : null;
+}
+
+function TripTableListSummaryBar({
+  teams,
+  paxSum,
+  missingPax,
+  title = '현재 목록 합계',
+}: {
+  teams: number;
+  paxSum: number;
+  missingPax: number;
+  title?: string;
+}): JSX.Element {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2.5 text-sm">
+      <span className="text-slate-500">{title}</span>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 tabular-nums text-slate-800">
+        <span>
+          팀 <strong className="text-base font-semibold text-slate-900">{teams}</strong>
+        </span>
+        <span className="text-slate-300">·</span>
+        <span>
+          인원 합 <strong className="text-base font-semibold text-slate-900">{paxSum}</strong>명
+        </span>
+        {missingPax > 0 ? (
+          <span className="text-xs font-normal text-amber-800">
+            미입력 {missingPax}건은 합계에서 제외
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 // 필터별 테이블 헤더 정의
@@ -273,7 +395,8 @@ function TripTableHead({
       className="cursor-pointer whitespace-nowrap px-4 py-3 font-medium text-slate-600 hover:text-slate-900 select-none"
       onClick={() => onSort(col)}
     >
-      {label}<SortIcon col={col} />
+      {label}
+      <SortIcon col={col} />
     </th>
   );
 
@@ -292,9 +415,9 @@ function TripTableHead({
         {th('여행지')}
         {th('가이드')}
         {th('기사')}
-        {(filter !== 'completed') && th('차량')}
-        {(filter !== 'completed') && th('숙소')}
-        {(filter !== 'reserved') && th('이벤트')}
+        {filter !== 'completed' && th('차량')}
+        {filter !== 'completed' && th('숙소')}
+        {filter !== 'reserved' && th('이벤트')}
       </tr>
     </thead>
   );
@@ -352,9 +475,7 @@ function TripTableRow({
         </td>
       )}
       {/* 인원 */}
-      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-        {headcount ?? '-'}
-      </td>
+      <td className="whitespace-nowrap px-4 py-3 text-slate-700">{headcount ?? '-'}</td>
       {/* 모집유무 */}
       {(filter === 'reserved' || filter === 'upcoming') && (
         <td className="whitespace-nowrap px-4 py-3">
@@ -362,17 +483,11 @@ function TripTableRow({
         </td>
       )}
       {/* 여행지 */}
-      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-        {getTripDestination(trip)}
-      </td>
+      <td className="whitespace-nowrap px-4 py-3 text-slate-700">{getTripDestination(trip)}</td>
       {/* 가이드 */}
-      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-        {trip.guideName ?? '-'}
-      </td>
+      <td className="whitespace-nowrap px-4 py-3 text-slate-700">{trip.guideName ?? '-'}</td>
       {/* 기사 */}
-      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-        {trip.driverName ?? '-'}
-      </td>
+      <td className="whitespace-nowrap px-4 py-3 text-slate-700">{trip.driverName ?? '-'}</td>
       {/* 차량 (여행 완료 제외) */}
       {filter !== 'completed' && (
         <td className="whitespace-nowrap px-4 py-3 text-slate-700">
@@ -382,9 +497,7 @@ function TripTableRow({
       {/* 숙소 (여행 완료 제외) */}
       {filter !== 'completed' && (
         <td className="max-w-[200px] px-4 py-3 text-slate-700">
-          <span className="line-clamp-2 text-xs leading-snug">
-            {getLodgingSummary(trip)}
-          </span>
+          <span className="line-clamp-2 text-xs leading-snug">{getLodgingSummary(trip)}</span>
         </td>
       )}
       {/* 이벤트 (예약표 제외) */}
@@ -426,6 +539,7 @@ export function ConfirmedTripsPage(): JSX.Element {
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [noteModalDate, setNoteModalDate] = useState('');
   const [editingNote, setEditingNote] = useState<CalendarNoteRow | null>(null);
+  const [rangePickerOpen, setRangePickerOpen] = useState(false);
 
   const { year: nowYear, month: nowMonth } = getNow();
   const calYear = Number(searchParams.get('cy')) || nowYear;
@@ -465,42 +579,112 @@ export function ConfirmedTripsPage(): JSX.Element {
     setNoteModalOpen(false);
   }
 
-  const dateFilter: DateFilter =
-    (searchParams.get('filter') as DateFilter | null) ?? 'upcoming';
+  const dateFilter: DateFilter = (searchParams.get('filter') as DateFilter | null) ?? 'upcoming';
   const rentalItemFilters = parseRentalItemFilters(searchParams.get('rentalItem'));
   const sortKey: SortKey = (searchParams.get('sortKey') as SortKey | null) ?? 'travelStart';
   const sortDir: SortDir = (searchParams.get('sortDir') as SortDir | null) ?? 'asc';
 
-  const trips = applySort(
-    applyRentalItemFilter(applyDateFilter(allTrips, dateFilter), rentalItemFilters),
-    sortKey,
-    sortDir,
+  const aggFrom = searchParams.get('aggFrom') ?? '';
+  const aggTo = searchParams.get('aggTo') ?? '';
+  const aggRegionParam = searchParams.get('aggRegion');
+  const aggRegions = useMemo(() => parseAggRegionsParam(aggRegionParam), [aggRegionParam]);
+
+  const departureRangeHint = useMemo(() => {
+    if (!aggFrom || !aggTo) return null;
+    const regionFiltered =
+      aggRegions.length === 0
+        ? allTrips
+        : allTrips.filter((t) => tripMatchesAggRegions(t, aggRegions));
+    const noStart = regionFiltered.filter((t) => !getTripStartDate(t)).length;
+    if (noStart <= 0) return null;
+    return `출발일 미입력 ${noStart}건은 구간 조건에서 제외됩니다. (현재 지역 기준)`;
+  }, [allTrips, aggFrom, aggTo, aggRegions]);
+
+  const tripsFilteredBase = useMemo(
+    () =>
+      filterTripsByAggScope(
+        applyRentalItemFilter(applyDateFilter(allTrips, dateFilter), rentalItemFilters),
+        aggFrom,
+        aggTo,
+        aggRegions,
+      ),
+    [allTrips, dateFilter, rentalItemFilters, aggFrom, aggTo, aggRegions],
   );
-  const calendarTrips = applyRentalItemFilter(allTrips, rentalItemFilters);
+
+  const listViewStats = useMemo(() => {
+    let paxSum = 0;
+    let missingPax = 0;
+    for (const t of tripsFilteredBase) {
+      const h = getTripHeadcount(t);
+      if (h == null) missingPax += 1;
+      else paxSum += h;
+    }
+    return { teams: tripsFilteredBase.length, paxSum, missingPax };
+  }, [tripsFilteredBase]);
+
+  const trips = useMemo(
+    () => applySort(tripsFilteredBase, sortKey, sortDir),
+    [tripsFilteredBase, sortKey, sortDir],
+  );
+
+  const calendarTrips = useMemo(
+    () =>
+      filterTripsByAggScope(
+        applyRentalItemFilter(allTrips, rentalItemFilters),
+        aggFrom,
+        aggTo,
+        aggRegions,
+      ),
+    [allTrips, rentalItemFilters, aggFrom, aggTo, aggRegions],
+  );
+
+  const calendarViewStats = useMemo(() => {
+    let paxSum = 0;
+    let missingPax = 0;
+    for (const t of calendarTrips) {
+      const h = getTripHeadcount(t);
+      if (h == null) missingPax += 1;
+      else paxSum += h;
+    }
+    return { teams: calendarTrips.length, paxSum, missingPax };
+  }, [calendarTrips]);
 
   function toggleSort(key: SortKey) {
-    setSearchParams((prev) => {
-      const currentKey = prev.get('sortKey') ?? 'travelStart';
-      const currentDir = prev.get('sortDir') ?? 'asc';
-      if (currentKey === key) {
-        prev.set('sortDir', currentDir === 'asc' ? 'desc' : 'asc');
-      } else {
-        prev.set('sortKey', key);
-        prev.set('sortDir', 'asc');
-      }
-      return prev;
-    }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        const currentKey = prev.get('sortKey') ?? 'travelStart';
+        const currentDir = prev.get('sortDir') ?? 'asc';
+        if (currentKey === key) {
+          prev.set('sortDir', currentDir === 'asc' ? 'desc' : 'asc');
+        } else {
+          prev.set('sortKey', key);
+          prev.set('sortDir', 'asc');
+        }
+        return prev;
+      },
+      { replace: true },
+    );
   }
 
   const viewMode: ViewMode = searchParams.get('view') === 'calendar' ? 'calendar' : 'list';
 
   function setViewMode(mode: ViewMode) {
-    setSearchParams((prev) => { prev.set('view', mode); return prev; }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        prev.set('view', mode);
+        return prev;
+      },
+      { replace: true },
+    );
   }
 
   function setCalendarMonth(year: number, month: number) {
     setSearchParams(
-      (prev) => { prev.set('cy', String(year)); prev.set('cm', String(month)); return prev; },
+      (prev) => {
+        prev.set('cy', String(year));
+        prev.set('cm', String(month));
+        return prev;
+      },
       { replace: true },
     );
   }
@@ -510,9 +694,7 @@ export function ConfirmedTripsPage(): JSX.Element {
       (prev) => {
         const current = parseRentalItemFilters(prev.get('rentalItem'));
         const exists = current.includes(value);
-        const next = exists
-          ? current.filter((item) => item !== value)
-          : [...current, value];
+        const next = exists ? current.filter((item) => item !== value) : [...current, value];
         if (next.length === 0) prev.delete('rentalItem');
         else prev.set('rentalItem', next.join(','));
         return prev;
@@ -531,21 +713,60 @@ export function ConfirmedTripsPage(): JSX.Element {
     );
   }
 
-  const emptyMessage = {
+  function toggleAggRegion(value: TripRegionBucket) {
+    setSearchParams(
+      (prev) => {
+        const current = parseAggRegionsParam(prev.get('aggRegion'));
+        const exists = current.includes(value);
+        const next = exists ? current.filter((item) => item !== value) : [...current, value];
+        if (next.length === 0) prev.delete('aggRegion');
+        else prev.set('aggRegion', next.join(','));
+        return prev;
+      },
+      { replace: true },
+    );
+  }
+
+  function clearAggDateRange() {
+    setSearchParams(
+      (prev) => {
+        prev.delete('aggFrom');
+        prev.delete('aggTo');
+        return prev;
+      },
+      { replace: true },
+    );
+  }
+
+  function clearAggRegionOnly() {
+    setSearchParams(
+      (prev) => {
+        prev.delete('aggRegion');
+        return prev;
+      },
+      { replace: true },
+    );
+  }
+
+  const aggFilterActive = Boolean(aggFrom || aggTo || aggRegions.length > 0);
+
+  const baseEmptyByDate: Record<DateFilter, string> = {
     reserved: '확정된 여행이 없습니다.',
     upcoming: '예정된 투어가 없습니다.',
     ongoing: '현재 여행중인 투어가 없습니다.',
     completed: '완료된 투어가 없습니다.',
-  }[dateFilter];
+  };
+  const emptyMessage =
+    trips.length === 0 && (aggFilterActive || rentalItemFilters.length > 0) && allTrips.length > 0
+      ? '선택한 필터 조건에 맞는 투어가 없습니다.'
+      : baseEmptyByDate[dateFilter];
 
   return (
     <section className="grid gap-6">
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">투어 리스트</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            확정된 여행 건의 운영 현황을 확인합니다.
-          </p>
+          <p className="mt-1 text-sm text-slate-600">확정된 여행 건의 운영 현황을 확인합니다.</p>
         </div>
         <button
           type="button"
@@ -570,7 +791,10 @@ export function ConfirmedTripsPage(): JSX.Element {
               }`}
               onClick={() =>
                 setSearchParams(
-                  (prev) => { prev.set('filter', value); return prev; },
+                  (prev) => {
+                    prev.set('filter', value);
+                    return prev;
+                  },
                   { replace: true },
                 )
               }
@@ -591,7 +815,13 @@ export function ConfirmedTripsPage(): JSX.Element {
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-4 w-4">
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              className="h-4 w-4"
+            >
               <path d="M2 4h12M2 8h12M2 12h12" strokeLinecap="round" />
             </svg>
             리스트
@@ -605,7 +835,13 @@ export function ConfirmedTripsPage(): JSX.Element {
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              className="h-4 w-4"
+            >
               <rect x="2" y="3" width="12" height="11" rx="1.5" />
               <path d="M5 2v2M11 2v2M2 7h12" strokeLinecap="round" />
             </svg>
@@ -614,75 +850,176 @@ export function ConfirmedTripsPage(): JSX.Element {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-slate-500">장비 필터</span>
-        {RENTAL_ITEM_FILTER_OPTIONS.map(({ value, label }) => {
-          const active = rentalItemFilters.includes(value);
-          return (
+      <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-[5rem_1fr] items-start gap-x-3 gap-y-2">
+          <div className={`${FILTER_TITLE_COL_CLASS} pt-1.5`}>출발 구간</div>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <button
-              key={value}
               type="button"
-              aria-pressed={active}
-              onClick={() => toggleRentalItemFilter(value)}
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                active
-                  ? 'bg-slate-800 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              onClick={() => setRangePickerOpen(true)}
+              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                aggFrom && aggTo
+                  ? 'border-slate-800 bg-slate-800 text-white'
+                  : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
               }`}
             >
-              {label}
+              {formatAggRangeButtonLabel(aggFrom, aggTo)}
             </button>
-          );
-        })}
-        {rentalItemFilters.length > 0 ? (
-          <button
-            type="button"
-            onClick={clearRentalItemFilters}
-            className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700"
-          >
-            초기화
-          </button>
+            {aggFrom || aggTo ? (
+              <button
+                type="button"
+                onClick={clearAggDateRange}
+                className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700"
+              >
+                구간 초기화
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[5rem_1fr] items-start gap-x-3 gap-y-2">
+          <div className={`${FILTER_TITLE_COL_CLASS} pt-1.5`}>지역</div>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {TRIP_REGION_FILTER_OPTIONS.map(({ value, label }) => {
+              if (value === 'ALL') {
+                const active = aggRegions.length === 0;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => clearAggRegionOnly()}
+                    className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                      active
+                        ? 'bg-slate-800 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              }
+              const active = aggRegions.includes(value);
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => toggleAggRegion(value)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                    active
+                      ? 'bg-slate-800 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+            {aggRegions.length > 0 ? (
+              <button
+                type="button"
+                onClick={clearAggRegionOnly}
+                className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700"
+              >
+                지역 초기화
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[5rem_1fr] items-start gap-x-3 gap-y-2">
+          <div className={`${FILTER_TITLE_COL_CLASS} pt-1.5`}>장비 필터</div>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {RENTAL_ITEM_FILTER_OPTIONS.map(({ value, label }) => {
+              const active = rentalItemFilters.includes(value);
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => toggleRentalItemFilter(value)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                    active
+                      ? 'bg-slate-800 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+            {rentalItemFilters.length > 0 ? (
+              <button
+                type="button"
+                onClick={clearRentalItemFilters}
+                className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700"
+              >
+                장비 초기화
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {departureRangeHint ? (
+          <div className="grid grid-cols-[5rem_1fr] gap-x-3">
+            <div aria-hidden className="min-h-0" />
+            <p className="text-xs text-slate-500">{departureRangeHint}</p>
+          </div>
         ) : null}
       </div>
 
       {loading ? (
         <p className="text-sm text-slate-500">불러오는 중...</p>
       ) : viewMode === 'calendar' ? (
-        <ConfirmedTripCalendar
-          trips={calendarTrips}
-          notes={notes}
-          year={calYear}
-          month={calMonth}
-          onChangeMonth={setCalendarMonth}
-          onRequestAddNote={openAddNote}
-          onRequestEditNote={openEditNote}
-        />
-      ) : trips.length === 0 ? (
-        <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
-          {emptyMessage}
+        <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <TripTableListSummaryBar
+            title="캘린더 합계 (예정·완료 탭 미적용)"
+            teams={calendarViewStats.teams}
+            paxSum={calendarViewStats.paxSum}
+            missingPax={calendarViewStats.missingPax}
+          />
+          <ConfirmedTripCalendar
+            trips={calendarTrips}
+            notes={notes}
+            year={calYear}
+            month={calMonth}
+            onChangeMonth={setCalendarMonth}
+            onRequestAddNote={openAddNote}
+            onRequestEditNote={openEditNote}
+          />
         </Card>
       ) : (
         <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <TripTableHead
-                filter={dateFilter}
-                sortKey={sortKey}
-                sortDir={sortDir}
-                onSort={toggleSort}
-              />
-              <tbody>
-                {trips.map((trip) => (
-                  <TripTableRow
-                    key={trip.id}
-                    trip={trip}
-                    filter={dateFilter}
-                    onClick={() => navigate(`/confirmed-trips/${trip.id}`)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TripTableListSummaryBar
+            teams={listViewStats.teams}
+            paxSum={listViewStats.paxSum}
+            missingPax={listViewStats.missingPax}
+          />
+          {trips.length === 0 ? (
+            <div className="p-6 text-sm text-slate-600">{emptyMessage}</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <TripTableHead
+                  filter={dateFilter}
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                />
+                <tbody>
+                  {trips.map((trip) => (
+                    <TripTableRow
+                      key={trip.id}
+                      trip={trip}
+                      filter={dateFilter}
+                      onClick={() => navigate(`/confirmed-trips/${trip.id}`)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       )}
       <CalendarNoteModal
@@ -703,6 +1040,24 @@ export function ConfirmedTripsPage(): JSX.Element {
         onClose={() => setCreateModalOpen(false)}
       />
 
+      <DateRangePickerModal
+        open={rangePickerOpen}
+        from={aggFrom}
+        to={aggTo}
+        onClose={() => setRangePickerOpen(false)}
+        onConfirm={(f, t) => {
+          setSearchParams(
+            (prev) => {
+              if (f) prev.set('aggFrom', f);
+              else prev.delete('aggFrom');
+              if (t) prev.set('aggTo', t);
+              else prev.delete('aggTo');
+              return prev;
+            },
+            { replace: true },
+          );
+        }}
+      />
     </section>
   );
 }
