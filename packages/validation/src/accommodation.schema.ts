@@ -11,6 +11,7 @@ export const accommodationCreateSchema = z.object({
   phone: z.string().max(100).nullable().optional(),
   facilities: z.string().max(500).nullable().optional(),
   bookingMethod: z.string().max(100).nullable().optional(),
+  bookingPriority: z.string().max(50).nullable().optional(),
   openingDate: z.string().max(100).nullable().optional(),
   closingDate: z.string().max(100).nullable().optional(),
 });
@@ -22,6 +23,7 @@ export const accommodationUpdateSchema = z.object({
   phone: z.string().max(100).nullable().optional(),
   facilities: z.string().max(500).nullable().optional(),
   bookingMethod: z.string().max(100).nullable().optional(),
+  bookingPriority: z.string().max(50).nullable().optional(),
   openingDate: z.string().max(100).nullable().optional(),
   closingDate: z.string().max(100).nullable().optional(),
 });
@@ -36,7 +38,6 @@ export const accommodationOptionCreateSchema = z.object({
   mealCostPerServing: z.number().int().min(0).nullable().optional(),
   capacity: z.string().max(50).nullable().optional(),
   mealIncluded: z.boolean().optional(),
-  bookingPriority: z.string().max(50).nullable().optional(),
   googleMapsUrl: z.string().url().nullable().optional(),
   imageUrls: z.array(z.string()).optional(),
   note: z.string().max(5000).nullable().optional(),
@@ -51,7 +52,6 @@ export const accommodationOptionUpdateSchema = z.object({
   mealCostPerServing: z.number().int().min(0).nullable().optional(),
   capacity: z.string().max(50).nullable().optional(),
   mealIncluded: z.boolean().optional(),
-  bookingPriority: z.string().max(50).nullable().optional(),
   googleMapsUrl: z.string().url().nullable().optional(),
   imageUrls: z.array(z.string()).optional(),
   note: z.string().max(5000).nullable().optional(),

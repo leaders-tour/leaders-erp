@@ -72,7 +72,14 @@ function AccommodationPicker({
     return (
       <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold text-blue-900">{selected.name}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-blue-900">{selected.name}</p>
+            {selected.bookingPriority && (
+              <span className="inline-flex items-center rounded-md bg-orange-50 px-1.5 py-0.5 text-xs font-medium text-orange-600">
+                ★ {selected.bookingPriority}
+              </span>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => onChange(null, null, '')}
@@ -129,11 +136,6 @@ function AccommodationPicker({
                         {opt.mealIncluded && (
                           <span className="inline-flex items-center rounded-md bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-600">
                             🍽 식사포함
-                          </span>
-                        )}
-                        {opt.bookingPriority && (
-                          <span className="inline-flex items-center rounded-md bg-orange-50 px-1.5 py-0.5 text-xs font-medium text-orange-600">
-                            ★ {opt.bookingPriority}
                           </span>
                         )}
                       </div>

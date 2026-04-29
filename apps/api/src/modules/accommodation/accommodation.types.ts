@@ -7,6 +7,7 @@ export interface AccommodationCreateDto {
   phone?: string | null;
   facilities?: string | null;
   bookingMethod?: string | null;
+  bookingPriority?: string | null;
   openingDate?: string | null;
   closingDate?: string | null;
 }
@@ -18,6 +19,7 @@ export interface AccommodationUpdateDto {
   phone?: string | null;
   facilities?: string | null;
   bookingMethod?: string | null;
+  bookingPriority?: string | null;
   openingDate?: string | null;
   closingDate?: string | null;
 }
@@ -32,7 +34,6 @@ export interface AccommodationOptionCreateDto {
   mealCostPerServing?: number | null;
   capacity?: string | null;
   mealIncluded?: boolean;
-  bookingPriority?: string | null;
   googleMapsUrl?: string | null;
   imageUrls?: string[];
   note?: string | null;
@@ -47,7 +48,6 @@ export interface AccommodationOptionUpdateDto {
   mealCostPerServing?: number | null;
   capacity?: string | null;
   mealIncluded?: boolean;
-  bookingPriority?: string | null;
   googleMapsUrl?: string | null;
   imageUrls?: string[];
   note?: string | null;
@@ -57,4 +57,8 @@ export interface AccommodationsFilterDto {
   region?: string;
   destination?: string;
   level?: AccommodationLevel;
+  /** Exact match (e.g. 1순위, 2순위). Ignored when bookingPriorityUnset is true. */
+  bookingPriority?: string;
+  /** When true, only accommodations with null bookingPriority */
+  bookingPriorityUnset?: boolean;
 }

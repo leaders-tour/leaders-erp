@@ -18,6 +18,7 @@ type Accommodation {
   phone: String
   facilities: String
   bookingMethod: String
+  bookingPriority: String
   openingDate: String
   closingDate: String
   options: [AccommodationOption!]!
@@ -37,7 +38,6 @@ type AccommodationOption {
   mealCostPerServing: Int
   capacity: String
   mealIncluded: Boolean!
-  bookingPriority: String
   googleMapsUrl: String
   imageUrls: [String!]!
   note: String
@@ -52,6 +52,7 @@ input AccommodationCreateInput {
   phone: String
   facilities: String
   bookingMethod: String
+  bookingPriority: String
   openingDate: String
   closingDate: String
 }
@@ -63,6 +64,7 @@ input AccommodationUpdateInput {
   phone: String
   facilities: String
   bookingMethod: String
+  bookingPriority: String
   openingDate: String
   closingDate: String
 }
@@ -77,7 +79,6 @@ input AccommodationOptionCreateInput {
   mealCostPerServing: Int
   capacity: String
   mealIncluded: Boolean
-  bookingPriority: String
   googleMapsUrl: String
   imageUrls: [String!]
   note: String
@@ -92,7 +93,6 @@ input AccommodationOptionUpdateInput {
   mealCostPerServing: Int
   capacity: String
   mealIncluded: Boolean
-  bookingPriority: String
   googleMapsUrl: String
   imageUrls: [String!]
   note: String

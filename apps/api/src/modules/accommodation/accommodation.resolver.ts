@@ -14,13 +14,24 @@ export const accommodationResolver = {
   Query: {
     accommodations: (
       _parent: unknown,
-      args: { region?: string; destination?: string; level?: AccommodationLevel },
+      args: {
+        region?: string;
+        destination?: string;
+        level?: AccommodationLevel;
+        bookingPriority?: string | null;
+        bookingPriorityUnset?: boolean | null;
+      },
       ctx: AppContext,
     ) => {
       const filters: AccommodationsFilterDto = {};
       if (args.region) filters.region = args.region;
       if (args.destination) filters.destination = args.destination;
       if (args.level) filters.level = args.level;
+      if (args.bookingPriorityUnset === true) {
+        filters.bookingPriorityUnset = true;
+      } else if (args.bookingPriority != null && args.bookingPriority !== '') {
+        filters.bookingPriority = args.bookingPriority;
+      }
       return new AccommodationService(ctx.prisma).list(filters);
     },
     accommodation: (_parent: unknown, args: { id: string }, ctx: AppContext) =>

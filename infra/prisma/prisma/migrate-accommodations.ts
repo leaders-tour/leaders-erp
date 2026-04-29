@@ -197,6 +197,37 @@ function mapPriority(raw: string): string | null {
   return raw.trim() || null;
 }
 
+/** 옵션·부모 행의 우선순위 문자열들 중 예약 우선도가 가장 낮은(가장 불리한) 하나 */
+function aggregateWorstBookingPriority(rawValues: (string | null | undefined)[]): string | null {
+  const normalized = rawValues.map((v) => mapPriority(v ?? '')).filter((v): v is string => Boolean(v));
+  if (normalized.length === 0) return null;
+  const rank = (s: string): number => {
+    switch (s) {
+      case '1순위':
+        return 1;
+      case '2순위':
+        return 2;
+      case '3순위':
+        return 3;
+      case '보류':
+        return 4;
+      default:
+        return 5;
+    }
+  };
+  let worst = normalized[0]!;
+  let worstRank = rank(worst);
+  for (let i = 1; i < normalized.length; i++) {
+    const s = normalized[i]!;
+    const r = rank(s);
+    if (r > worstRank || (r === worstRank && s.localeCompare(worst) > 0)) {
+      worst = s;
+      worstRank = r;
+    }
+  }
+  return worst;
+}
+
 // ─── S3 업로드 ────────────────────────────────────────────────────────────────
 
 function sha256Hex(value: string | Buffer): string {
@@ -428,13 +459,7 @@ async function main() {
         mealCostPerServing: parsePrice(opt.mealCostPerServing),
         capacity: opt.capacity || null,
         mealIncluded: opt.mealIncluded === '포함',
-        facilities: opt.facilities || null,
-        bookingPriority: mapPriority(opt.bookingPriority),
-        bookingMethod: opt.bookingMethod || null,
-        phone: opt.phone || null,
         googleMapsUrl: opt.googleMapsUrl || null,
-        openingDate: opt.openingDate || null,
-        closingDate: opt.closingDate || null,
         imageUrls,
         note: opt.note || null,
       };
@@ -446,6 +471,20 @@ async function main() {
         process.stderr.write(`    ❌ 옵션 저장 실패 (${roomType}): ${err}\n`);
         errorCount++;
       }
+    }
+
+    const bookingPriorityAgg = aggregateWorstBookingPriority([
+      parent.bookingPriority,
+      ...opts.map((o) => o.bookingPriority),
+    ]);
+    try {
+      await prisma.accommodation.update({
+        where: { id: accommodation.id },
+        data: { bookingPriority: bookingPriorityAgg },
+      });
+    } catch (err) {
+      process.stderr.write(`  ❌ 숙소 예약 우선순위 반영 실패: ${err}\n`);
+      errorCount++;
     }
   }
 

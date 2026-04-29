@@ -152,11 +152,6 @@ function OptionCard({
                 {current.capacity}
               </span>
             )}
-            {opt.bookingPriority && (
-              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PRIORITY_COLORS[opt.bookingPriority] ?? 'bg-slate-100 text-slate-500'}`}>
-                {opt.bookingPriority}
-              </span>
-            )}
             {opt.mealIncluded && (
               <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
                 식사 포함
@@ -256,7 +251,6 @@ function AddOptionModal({
     pricePeakSeason: string;
     capacity: string;
     mealIncluded: boolean;
-    bookingPriority: string;
     note: string;
   }>({
     roomType: '',
@@ -265,7 +259,6 @@ function AddOptionModal({
     pricePeakSeason: '',
     capacity: '',
     mealIncluded: false,
-    bookingPriority: '',
     note: '',
   });
   const [error, setError] = useState<string | null>(null);
@@ -287,7 +280,6 @@ function AddOptionModal({
         pricePeakSeason: form.pricePeakSeason ? parseInt(form.pricePeakSeason, 10) : null,
         capacity: form.capacity || null,
         mealIncluded: form.mealIncluded,
-        bookingPriority: form.bookingPriority || null,
         note: form.note || null,
       });
       onClose();
@@ -360,20 +352,6 @@ function AddOptionModal({
               className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
             />
           </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-slate-500">예약 우선순위</span>
-            <select
-              value={form.bookingPriority}
-              onChange={(e) => setForm((p) => ({ ...p, bookingPriority: e.target.value }))}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
-            >
-              <option value="">-</option>
-              <option value="1순위">1순위</option>
-              <option value="2순위">2순위</option>
-              <option value="3순위">3순위</option>
-              <option value="보류">보류</option>
-            </select>
-          </label>
           <label className="flex items-center gap-2 sm:col-span-2">
             <input
               type="checkbox"
@@ -420,6 +398,7 @@ export function AccommodationDetailPage(): JSX.Element {
     phone: string;
     facilities: string;
     bookingMethod: string;
+    bookingPriority: string;
     openingDate: string;
     closingDate: string;
   }>({
@@ -429,6 +408,7 @@ export function AccommodationDetailPage(): JSX.Element {
     phone: '',
     facilities: '',
     bookingMethod: '',
+    bookingPriority: '',
     openingDate: '',
     closingDate: '',
   });
@@ -447,6 +427,7 @@ export function AccommodationDetailPage(): JSX.Element {
       phone: accommodation.phone ?? '',
       facilities: accommodation.facilities ?? '',
       bookingMethod: accommodation.bookingMethod ?? '',
+      bookingPriority: accommodation.bookingPriority ?? '',
       openingDate: accommodation.openingDate ?? '',
       closingDate: accommodation.closingDate ?? '',
     });
@@ -461,6 +442,7 @@ export function AccommodationDetailPage(): JSX.Element {
       phone: accomDraft.phone || null,
       facilities: accomDraft.facilities || null,
       bookingMethod: accomDraft.bookingMethod || null,
+      bookingPriority: accomDraft.bookingPriority || null,
       openingDate: accomDraft.openingDate || null,
       closingDate: accomDraft.closingDate || null,
     });
@@ -529,6 +511,20 @@ export function AccommodationDetailPage(): JSX.Element {
                 />
               </label>
               <label className="flex flex-col gap-0.5">
+                <span className="text-xs text-slate-500">예약 우선순위</span>
+                <select
+                  value={accomDraft.bookingPriority}
+                  onChange={(e) => setAccomDraft((p) => ({ ...p, bookingPriority: e.target.value }))}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+                >
+                  <option value="">-</option>
+                  <option value="1순위">1순위</option>
+                  <option value="2순위">2순위</option>
+                  <option value="3순위">3순위</option>
+                  <option value="보류">보류</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-0.5">
                 <span className="text-xs text-slate-500">오픈일</span>
                 <input
                   type="text"
@@ -561,7 +557,14 @@ export function AccommodationDetailPage(): JSX.Element {
             </div>
           ) : (
             <div>
-              <h1 className="text-2xl font-semibold text-slate-900">{accommodation.name}</h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-semibold text-slate-900">{accommodation.name}</h1>
+                {accommodation.bookingPriority && (
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PRIORITY_COLORS[accommodation.bookingPriority] ?? 'bg-slate-100 text-slate-500'}`}>
+                    {accommodation.bookingPriority}
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-slate-500">{accommodation.region} · {accommodation.destination}</p>
               {(accommodation.phone || accommodation.bookingMethod || accommodation.openingDate || accommodation.closingDate || accommodation.facilities) && (
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">

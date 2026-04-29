@@ -17,6 +17,15 @@ const LEVEL_COLORS: Record<AccommodationLevel, string> = {
   LV5: 'bg-violet-100 text-violet-700',
 };
 
+const BOOKING_PRIORITY_LABELS = ['1순위', '2순위', '3순위', '보류'] as const;
+
+const PRIORITY_CHIP_COLORS: Record<string, string> = {
+  '1순위': 'bg-emerald-100 text-emerald-700',
+  '2순위': 'bg-amber-100 text-amber-700',
+  '3순위': 'bg-orange-100 text-orange-700',
+  보류: 'bg-rose-100 text-rose-700',
+};
+
 function LevelBadge({ level }: { level: AccommodationLevel }) {
   return (
     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${LEVEL_COLORS[level]}`}>
@@ -54,7 +63,14 @@ function AccommodationCard({ acc, onClick }: { acc: AccommodationRow; onClick: (
       <div className="p-4">
         <div className="mb-1 flex items-start justify-between gap-2">
           <h3 className="text-sm font-semibold text-slate-900 leading-tight line-clamp-2">{acc.name}</h3>
-          <div className="flex shrink-0 gap-1 flex-wrap justify-end">
+          <div className="flex shrink-0 gap-1 flex-wrap justify-end items-start">
+            {acc.bookingPriority && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${PRIORITY_CHIP_COLORS[acc.bookingPriority] ?? 'bg-slate-100 text-slate-600'}`}
+              >
+                {acc.bookingPriority}
+              </span>
+            )}
             {levels.map((l) => (
               <LevelBadge key={l} level={l} />
             ))}
@@ -248,15 +264,26 @@ function CreateAccommodationModal({
   );
 }
 
+type BookingPriorityFilter = 'all' | 'unset' | (typeof BOOKING_PRIORITY_LABELS)[number];
+
 export function AccommodationsPage(): JSX.Element {
   const [regionFilter, setRegionFilter] = useState<string | undefined>(undefined);
   const [levelFilter, setLevelFilter] = useState<AccommodationLevel | undefined>(undefined);
+  const [bookingPriorityFilter, setBookingPriorityFilter] = useState<BookingPriorityFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+
+  const bookingPriorityQuery =
+    bookingPriorityFilter === 'all'
+      ? {}
+      : bookingPriorityFilter === 'unset'
+        ? { bookingPriorityUnset: true as const }
+        : { bookingPriority: bookingPriorityFilter };
 
   const { accommodations, loading } = useAccommodations({
     region: regionFilter,
     level: levelFilter,
+    ...bookingPriorityQuery,
   });
   const navigate = useNavigate();
 
@@ -360,6 +387,32 @@ export function AccommodationsPage(): JSX.Element {
               {LEVEL_LABEL[l]}
             </button>
           ))}
+        </div>
+        <div className="flex flex-wrap gap-1">
+          <button
+            type="button"
+            className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${bookingPriorityFilter === 'all' ? 'bg-amber-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            onClick={() => setBookingPriorityFilter('all')}
+          >
+            전체 순위
+          </button>
+          {BOOKING_PRIORITY_LABELS.map((p) => (
+            <button
+              type="button"
+              key={p}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${bookingPriorityFilter === p ? 'bg-amber-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              onClick={() => setBookingPriorityFilter(p)}
+            >
+              {p}
+            </button>
+          ))}
+          <button
+            type="button"
+            className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${bookingPriorityFilter === 'unset' ? 'bg-amber-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            onClick={() => setBookingPriorityFilter('unset')}
+          >
+            미지정
+          </button>
         </div>
       </div>
 

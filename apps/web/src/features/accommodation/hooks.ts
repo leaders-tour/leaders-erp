@@ -17,7 +17,6 @@ export interface AccommodationOption {
   mealCostPerServing: number | null;
   capacity: string | null;
   mealIncluded: boolean;
-  bookingPriority: string | null;
   googleMapsUrl: string | null;
   imageUrls: string[];
   note: string | null;
@@ -33,6 +32,7 @@ export interface AccommodationRow {
   phone: string | null;
   facilities: string | null;
   bookingMethod: string | null;
+  bookingPriority: string | null;
   openingDate: string | null;
   closingDate: string | null;
   options: AccommodationOption[];
@@ -52,7 +52,6 @@ const OPTION_FRAGMENT = gql`
     mealCostPerServing
     capacity
     mealIncluded
-    bookingPriority
     googleMapsUrl
     imageUrls
     note
@@ -71,6 +70,7 @@ const ACCOMMODATION_FRAGMENT = gql`
     phone
     facilities
     bookingMethod
+    bookingPriority
     openingDate
     closingDate
     options {
@@ -83,8 +83,20 @@ const ACCOMMODATION_FRAGMENT = gql`
 
 const ACCOMMODATIONS_QUERY = gql`
   ${ACCOMMODATION_FRAGMENT}
-  query Accommodations($region: String, $destination: String, $level: AccommodationLevel) {
-    accommodations(region: $region, destination: $destination, level: $level) {
+  query Accommodations(
+    $region: String
+    $destination: String
+    $level: AccommodationLevel
+    $bookingPriority: String
+    $bookingPriorityUnset: Boolean
+  ) {
+    accommodations(
+      region: $region
+      destination: $destination
+      level: $level
+      bookingPriority: $bookingPriority
+      bookingPriorityUnset: $bookingPriorityUnset
+    ) {
       ...AccommodationFields
     }
   }
@@ -149,7 +161,7 @@ const DELETE_ACCOMMODATION_OPTION_MUTATION = gql`
 
 const OPTION_FIELDS = `
   id accommodationId roomType level priceOffSeason pricePeakSeason paymentMethod
-  mealCostPerServing capacity mealIncluded bookingPriority
+  mealCostPerServing capacity mealIncluded
   googleMapsUrl imageUrls note createdAt updatedAt
 `;
 
@@ -174,7 +186,19 @@ export function useAccommodations(filters?: {
   region?: string;
   destination?: string;
   level?: AccommodationLevel;
+  /** Exact label e.g. 1순위. Ignored when bookingPriorityUnset is true. */
+  bookingPriority?: string;
+  /** Only rows with null bookingPriority */
+  bookingPriorityUnset?: boolean;
 }) {
+  let bookingPriority: string | undefined;
+  let bookingPriorityUnset: boolean | undefined;
+  if (filters?.bookingPriorityUnset === true) {
+    bookingPriorityUnset = true;
+  } else if (filters?.bookingPriority != null && filters.bookingPriority !== '') {
+    bookingPriority = filters.bookingPriority;
+  }
+
   const { data, loading, refetch } = useQuery<{ accommodations: AccommodationRow[] }>(
     ACCOMMODATIONS_QUERY,
     {
@@ -182,6 +206,8 @@ export function useAccommodations(filters?: {
         region: filters?.region,
         destination: filters?.destination,
         level: filters?.level,
+        bookingPriority,
+        bookingPriorityUnset,
       },
       fetchPolicy: 'cache-and-network',
     },
@@ -210,6 +236,7 @@ export function useCreateAccommodation() {
       phone?: string | null;
       facilities?: string | null;
       bookingMethod?: string | null;
+      bookingPriority?: string | null;
       openingDate?: string | null;
       closingDate?: string | null;
     }) => {
@@ -231,7 +258,7 @@ export function useUpdateAccommodation() {
     loading,
     updateAccommodation: async (
       id: string,
-      input: Partial<Pick<AccommodationRow, 'name' | 'destination' | 'region' | 'phone' | 'facilities' | 'bookingMethod' | 'openingDate' | 'closingDate'>>,
+      input: Partial<Pick<AccommodationRow, 'name' | 'destination' | 'region' | 'phone' | 'facilities' | 'bookingMethod' | 'bookingPriority' | 'openingDate' | 'closingDate'>>,
     ) => {
       const result = await mutate({
         variables: { id, input },
@@ -278,7 +305,6 @@ export function useCreateAccommodationOption() {
       mealCostPerServing?: number | null;
       capacity?: string | null;
       mealIncluded?: boolean;
-      bookingPriority?: string | null;
       googleMapsUrl?: string | null;
       note?: string | null;
     }) => {

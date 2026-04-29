@@ -1676,17 +1676,18 @@ enum PaymentMethod {
 }
 
 model Accommodation {
-  id            String   @id @default(uuid(7))
-  name          String
-  destination   String
-  region        String
-  phone         String?
-  facilities    String?
-  bookingMethod String?
-  openingDate   String?
-  closingDate   String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                String   @id @default(uuid(7))
+  name              String
+  destination       String
+  region            String
+  phone             String?
+  facilities        String?
+  bookingMethod     String?
+  bookingPriority   String?
+  openingDate       String?
+  closingDate       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   options  AccommodationOption[]
   lodgings ConfirmedTripLodging[]
@@ -1707,7 +1708,6 @@ model AccommodationOption {
   mealCostPerServing Int?
   capacity           String?
   mealIncluded       Boolean            @default(false)
-  bookingPriority    String?
   googleMapsUrl      String?            @db.Text
   imageUrls          Json               @default("[]")
   note               String?            @db.Text
