@@ -16,16 +16,21 @@ import {
   getRouteStopEndDayIndex,
   getRouteStopStartDayIndex,
   buildTemplateStopsFromRouteAndRows,
+  findMultiDayBlockConnection,
   findSegment,
+  formatMultiDayBlockConnectionVersionLabel,
   formatSegmentVersionLabel,
   formatLocationVersion,
+  getDefaultMultiDayBlockConnectionVersionId,
   getDefaultSegmentVersionId,
   getDefaultVersionId,
+  getMultiDayBlockConnectionVersions,
   getSegmentVersions,
   type LocationOption,
   type MultiDayBlockOption,
   type RouteSelection,
   trimRouteSelectionsToTotalDays,
+  resolveMultiDayBlockConnectionVersion,
   resolveSegmentVersion,
   type SegmentOption,
 } from '../features/plan-template/route-autofill';
@@ -894,13 +899,16 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
 
                 const previousStop = selectedRoute[index - 1];
                 if (previousStop?.kind === 'MULTI_DAY_BLOCK') {
-                  const segment = findSegment(
-                    filteredSegments,
-                    previousStop.locationId,
+                  const connection = findMultiDayBlockConnection(
+                    filteredOvernightStayConnections,
+                    previousStop.multiDayBlockId,
                     stop.locationId,
                   );
-                  const versions = getSegmentVersions(segment);
-                  const selectedVersion = resolveSegmentVersion(segment, stop.segmentVersionId);
+                  const versions = getMultiDayBlockConnectionVersions(connection);
+                  const selectedVersion = resolveMultiDayBlockConnectionVersion(
+                    connection,
+                    stop.multiDayBlockConnectionVersionId,
+                  );
 
                   const isLastDay = endDayIndex === totalDays;
                   return (
@@ -948,7 +956,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                           <div className="flex flex-wrap gap-2">
                             {versions.map((version) => (
                               <button
-                                key={`route-post-block-segment-version-${index}-${version.id}`}
+                                key={`route-post-block-connection-version-${index}-${version.id}`}
                                 type="button"
                                 onClick={() =>
                                   setSelectedRoute((prev) =>
@@ -956,8 +964,10 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                                       itemIndex === index && item.kind === 'LOCATION'
                                         ? {
                                             ...item,
-                                            segmentId: segment?.id,
-                                            segmentVersionId: version.id,
+                                            segmentId: undefined,
+                                            segmentVersionId: undefined,
+                                            multiDayBlockConnectionId: connection?.id,
+                                            multiDayBlockConnectionVersionId: version.id,
                                           }
                                         : item,
                                     ),
@@ -969,7 +979,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                                     : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
                                 }`}
                               >
-                                {formatSegmentVersionLabel(version)}
+                                {formatMultiDayBlockConnectionVersionLabel(version)}
                               </button>
                             ))}
                           </div>
@@ -1077,9 +1087,9 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                         setSelectedRoute((prev) => {
                           const lastStop = prev[prev.length - 1];
                           if (lastStop?.kind === 'MULTI_DAY_BLOCK') {
-                            const segment = findSegment(
-                              filteredSegments,
-                              lastStop.locationId,
+                            const connection = findMultiDayBlockConnection(
+                              filteredOvernightStayConnections,
+                              lastStop.multiDayBlockId,
                               location.id,
                             );
                             return [
@@ -1088,8 +1098,9 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                                 kind: 'LOCATION',
                                 locationId: location.id,
                                 locationVersionId: getDefaultVersionId(location),
-                                segmentId: segment?.id,
-                                segmentVersionId: getDefaultSegmentVersionId(segment) || undefined,
+                                multiDayBlockConnectionId: connection?.id,
+                                multiDayBlockConnectionVersionId:
+                                  getDefaultMultiDayBlockConnectionVersionId(connection) || undefined,
                               },
                             ];
                           }

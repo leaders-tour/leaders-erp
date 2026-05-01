@@ -83,14 +83,19 @@ import {
   buildSelectedRouteFromStops,
   buildFirstDayOptions,
   buildNextOptions,
+  findMultiDayBlockConnection,
   findSegment,
+  formatMultiDayBlockConnectionVersionLabel,
   formatSegmentVersionLabel,
   getConsumedRouteDayCount,
+  getDefaultMultiDayBlockConnectionVersionId,
   getDefaultVersionId,
   getRouteDateForDayIndex,
   getRouteStopEndDayIndex,
   getRouteStopStartDayIndex,
+  getMultiDayBlockConnectionVersions,
   getSegmentVersions,
+  resolveMultiDayBlockConnectionVersion,
   resolveSegmentVersionForContext,
   type LocationVersionOption,
   type LocationOption,
@@ -5776,22 +5781,17 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                         const previousStop = selectedRoute[index - 1];
                         if (previousStop?.kind === 'MULTI_DAY_BLOCK') {
-                          const segment = findSegment(
-                            filteredSegments,
-                            previousStop.locationId,
+                          const connection = findMultiDayBlockConnection(
+                            filteredOvernightStayConnections,
+                            previousStop.multiDayBlockId,
                             stop.locationId,
                           );
-                          const versions = getSegmentVersions(segment);
+                          const versions = getMultiDayBlockConnectionVersions(connection);
                           const isLastDay = endDayIndex === totalDays;
-                          const selectedVersion = resolveSegmentVersionForContext({
-                            segment,
-                            targetDate: travelStartDate
-                              ? getRouteDateForDayIndex(travelStartDate, startDayIndex)
-                              : undefined,
-                            segmentVersionId: stop.segmentVersionId,
-                            flightOutTime: transportGroups[0]?.flightOutTime,
-                            isLastRouteLeg: isLastDay,
-                          });
+                          const selectedVersion = resolveMultiDayBlockConnectionVersion(
+                            connection,
+                            stop.multiDayBlockConnectionVersionId,
+                          );
                           return (
                             <>
                               <div className="text-sm font-medium">{startDayIndex}일차</div>
@@ -5817,7 +5817,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   <div className="flex flex-wrap gap-2">
                                     {versions.map((version) => (
                                       <button
-                                        key={`route-post-block-segment-version-${index}-${version.id}`}
+                                        key={`route-post-block-connection-version-${index}-${version.id}`}
                                         type="button"
                                         onClick={() =>
                                           setSelectedRoute((prev) =>
@@ -5825,8 +5825,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                                               itemIndex === index && item.kind === 'LOCATION'
                                                 ? {
                                                     ...item,
-                                                    segmentId: segment?.id,
-                                                    segmentVersionId: version.id,
+                                                    segmentId: undefined,
+                                                    segmentVersionId: undefined,
+                                                    multiDayBlockConnectionId: connection?.id,
+                                                    multiDayBlockConnectionVersionId: version.id,
                                                   }
                                                 : item,
                                             ),
@@ -5838,7 +5840,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                             : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
                                         }`}
                                       >
-                                        {formatSegmentVersionLabel(version)}
+                                        {formatMultiDayBlockConnectionVersionLabel(version)}
                                       </button>
                                     ))}
                                   </div>
@@ -5940,9 +5942,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 setSelectedRoute((prev) => {
                                   const lastStop = prev[prev.length - 1];
                                   if (lastStop?.kind === 'MULTI_DAY_BLOCK') {
-                                    const segment = findSegment(
-                                      filteredSegments,
-                                      lastStop.locationId,
+                                    const connection = findMultiDayBlockConnection(
+                                      filteredOvernightStayConnections,
+                                      lastStop.multiDayBlockId,
                                       location.id,
                                     );
                                     return [
@@ -5951,8 +5953,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         kind: 'LOCATION',
                                         locationId: location.id,
                                         locationVersionId: getDefaultVersionId(location),
-                                        segmentId: segment?.id,
-                                        segmentVersionId: undefined,
+                                        multiDayBlockConnectionId: connection?.id,
+                                        multiDayBlockConnectionVersionId:
+                                          getDefaultMultiDayBlockConnectionVersionId(connection) || undefined,
                                       },
                                     ];
                                   }
