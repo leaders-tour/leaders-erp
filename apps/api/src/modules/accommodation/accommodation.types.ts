@@ -16,6 +16,7 @@ export interface AccommodationUpdateDto {
   name?: string;
   destination?: string;
   region?: string;
+  coverImageUrl?: string | null;
   phone?: string | null;
   facilities?: string | null;
   bookingMethod?: string | null;

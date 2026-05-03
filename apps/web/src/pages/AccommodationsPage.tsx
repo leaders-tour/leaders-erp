@@ -1,7 +1,15 @@
 import { Button, Card } from '@tour/ui';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAccommodations, useCreateAccommodation, type AccommodationLevel, type AccommodationRow } from '../features/accommodation/hooks';
+import {
+  useAccommodations,
+  useCreateAccommodation,
+  useAccommodation,
+  useUpdateAccommodation,
+  accommodationDisplayImageUrl,
+  type AccommodationLevel,
+  type AccommodationRow,
+} from '../features/accommodation/hooks';
 
 const LEVEL_LABEL: Record<AccommodationLevel, string> = {
   LV2: 'LV.2',
@@ -34,32 +42,162 @@ function LevelBadge({ level }: { level: AccommodationLevel }) {
   );
 }
 
+function collectDistinctOptionImageUrls(acc: AccommodationRow): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const o of acc.options) {
+    for (const u of o.imageUrls) {
+      if (u && !seen.has(u)) {
+        seen.add(u);
+        out.push(u);
+      }
+    }
+  }
+  return out;
+}
+
+function CoverImagePickerModal({
+  acc,
+  open,
+  onClose,
+}: {
+  acc: AccommodationRow | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const accId = open && acc ? acc.id : undefined;
+  const { accommodation: fullAcc, loading: loadingFull } = useAccommodation(accId);
+  const { updateAccommodation, loading } = useUpdateAccommodation();
+  const [error, setError] = useState<string | null>(null);
+
+  if (!open || !acc) return null;
+
+  const sourceAcc = fullAcc ?? acc;
+  const images = collectDistinctOptionImageUrls(sourceAcc);
+  const explicitCover = acc.coverImageUrl?.trim() ?? null;
+
+  const apply = async (coverImageUrl: string | null) => {
+    setError(null);
+    try {
+      await updateAccommodation(acc.id, { coverImageUrl });
+      onClose();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
+      <Card
+        className="max-h-[90vh] w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="border-b border-slate-100 px-5 py-4">
+          <h3 className="text-lg font-semibold text-slate-900">대표 사진</h3>
+          <p className="mt-1 text-sm text-slate-500">
+            <span className="font-medium text-slate-700">{acc.name}</span> 목록·상세에 보일 사진을 고릅니다.
+          </p>
+        </div>
+        <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
+          {error && <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</div>}
+          {loadingFull && fullAcc == null ? (
+            <p className="text-sm text-slate-500">옵션·사진 목록 불러오는 중...</p>
+          ) : images.length === 0 ? (
+            <p className="text-sm text-slate-600">
+              등록된 옵션 사진이 없습니다. 숙소 상세에서 옵션별로 사진을 먼저 추가해 주세요.
+            </p>
+          ) : (
+            <>
+              <div className="mb-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={loading || loadingFull}
+                  onClick={() => apply(null)}
+                  className={`rounded-xl border px-3 py-2 text-xs font-medium transition ${
+                    !explicitCover
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-800'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                  }`}
+                >
+                  자동 (옵션 첫 사진)
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {images.map((url) => {
+                  const selected = explicitCover === url;
+                  return (
+                    <button
+                      key={url}
+                      type="button"
+                      disabled={loading || loadingFull}
+                      onClick={() => apply(url)}
+                      className={`relative overflow-hidden rounded-xl border-2 transition ${
+                        selected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-transparent hover:border-slate-200'
+                      }`}
+                    >
+                      <img src={url} alt="" className="aspect-[4/3] w-full object-cover" />
+                      {selected && (
+                        <span className="absolute bottom-1 right-1 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                          대표
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="flex justify-end border-t border-slate-100 px-5 py-3">
+          <Button variant="outline" onClick={onClose} disabled={loading}>
+            닫기
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function AccommodationCard({ acc, onClick }: { acc: AccommodationRow; onClick: () => void }) {
-  const firstImage = acc.options.flatMap((o) => o.imageUrls)[0];
+  const displayImage = accommodationDisplayImageUrl(acc);
   const levels = [...new Set(acc.options.map((o) => o.level))];
   const minPrice = acc.options
     .map((o) => o.priceOffSeason)
     .filter((p): p is number => p !== null)
     .sort((a, b) => a - b)[0];
   const [imgFailed, setImgFailed] = useState(false);
+  const [coverPickerOpen, setCoverPickerOpen] = useState(false);
 
   return (
-    <div
-      className="cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md hover:border-slate-300"
-      onClick={onClick}
-    >
-      {firstImage && !imgFailed ? (
-        <img
-          src={firstImage}
-          alt={acc.name}
-          className="h-40 w-full object-cover"
-          onError={() => setImgFailed(true)}
-        />
-      ) : (
-        <div className="flex h-40 w-full items-center justify-center bg-slate-100 text-2xl text-slate-400">
-          🏠
+    <>
+      <div
+        className="cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md hover:border-slate-300"
+        onClick={onClick}
+      >
+        <div className="relative">
+          {displayImage && !imgFailed ? (
+            <img
+              src={displayImage}
+              alt={acc.name}
+              className="h-40 w-full object-cover"
+              onError={() => setImgFailed(true)}
+            />
+          ) : (
+            <div className="flex h-40 w-full items-center justify-center bg-slate-100 text-2xl text-slate-400">
+              🏠
+            </div>
+          )}
+          <button
+            type="button"
+            className="absolute bottom-2 right-2 rounded-lg bg-white/90 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm backdrop-blur hover:bg-white"
+            onClick={(e) => {
+              e.stopPropagation();
+              setCoverPickerOpen(true);
+            }}
+          >
+            대표 사진
+          </button>
         </div>
-      )}
       <div className="p-4">
         <div className="mb-1 flex items-start justify-between gap-2">
           <h3 className="text-sm font-semibold text-slate-900 leading-tight line-clamp-2">{acc.name}</h3>
@@ -88,7 +226,9 @@ function AccommodationCard({ acc, onClick }: { acc: AccommodationRow; onClick: (
           )}
         </div>
       </div>
-    </div>
+      </div>
+      <CoverImagePickerModal acc={acc} open={coverPickerOpen} onClose={() => setCoverPickerOpen(false)} />
+    </>
   );
 }
 

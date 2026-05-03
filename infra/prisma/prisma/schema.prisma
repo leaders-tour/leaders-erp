@@ -1680,6 +1680,8 @@ model Accommodation {
   name              String
   destination       String
   region            String
+  // 목록·상세 커버. 미설정 시 옵션 이미지 중 첫 번째 URL 사용
+  coverImageUrl     String?  @db.Text
   phone             String?
   facilities        String?
   bookingMethod     String?

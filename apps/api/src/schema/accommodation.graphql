@@ -15,6 +15,7 @@ type Accommodation {
   name: String!
   destination: String!
   region: String!
+  coverImageUrl: String
   phone: String
   facilities: String
   bookingMethod: String
@@ -61,6 +62,7 @@ input AccommodationUpdateInput {
   name: String
   destination: String
   region: String
+  coverImageUrl: String
   phone: String
   facilities: String
   bookingMethod: String
@@ -99,6 +101,8 @@ input AccommodationOptionUpdateInput {
 }
 
 extend type Mutation {
+  # 대표 사진(coverImageUrl) 한 장만 업로드. images는 길이 1. 객실 옵션 앨범은 uploadAccommodationOptionImages 사용.
+  uploadAccommodationImages(accommodationId: ID!, images: [Upload!]!): Accommodation!
   uploadAccommodationOptionImages(id: ID!, images: [Upload!]!): AccommodationOption!
   removeAccommodationOptionImage(id: ID!, imageUrl: String!): AccommodationOption!
 }

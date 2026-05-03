@@ -71,6 +71,7 @@ export class AccommodationRepository {
         ...(data.name !== undefined ? { name: data.name } : {}),
         ...(data.destination !== undefined ? { destination: data.destination } : {}),
         ...(data.region !== undefined ? { region: data.region } : {}),
+        ...(data.coverImageUrl !== undefined ? { coverImageUrl: data.coverImageUrl } : {}),
         ...(data.phone !== undefined ? { phone: data.phone } : {}),
         ...(data.facilities !== undefined ? { facilities: data.facilities } : {}),
         ...(data.bookingMethod !== undefined ? { bookingMethod: data.bookingMethod } : {}),

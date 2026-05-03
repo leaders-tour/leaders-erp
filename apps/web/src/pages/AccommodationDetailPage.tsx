@@ -1,5 +1,5 @@
 import { Button, Card } from '@tour/ui';
-import { useRef, useState } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   useAccommodation,
@@ -9,7 +9,9 @@ import {
   useRemoveAccommodationOptionImage,
   useUpdateAccommodation,
   useUpdateAccommodationOption,
+  useUploadAccommodationImages,
   useUploadAccommodationOptionImages,
+  accommodationDisplayImageUrl,
   type AccommodationLevel,
   type AccommodationOption,
   type AccommodationRow,
@@ -389,6 +391,8 @@ export function AccommodationDetailPage(): JSX.Element {
   const { accommodation, loading, refetch } = useAccommodation(accommodationId);
   const { updateAccommodation, loading: updating } = useUpdateAccommodation();
   const { deleteAccommodation, loading: deleting } = useDeleteAccommodation();
+  const { uploadImages: uploadAccommodationImagesFromForm, loading: uploadingAccomImages } = useUploadAccommodationImages();
+  const coverImageInputRef = useRef<HTMLInputElement | null>(null);
 
   const [editingAccom, setEditingAccom] = useState(false);
   const [accomDraft, setAccomDraft] = useState<{
@@ -414,10 +418,23 @@ export function AccommodationDetailPage(): JSX.Element {
   });
   const [addOptionOpen, setAddOptionOpen] = useState(false);
 
+  const handleCoverUploadChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    if (!accommodationId) return;
+    const files = e.target.files;
+    if (!files?.length) return;
+    try {
+      await uploadAccommodationImagesFromForm(accommodationId, [files[0]!]);
+      await refetch();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : String(err));
+    }
+    e.target.value = '';
+  };
+
   if (loading) return <p className="text-sm text-slate-500">불러오는 중...</p>;
   if (!accommodation) return <p className="text-sm text-slate-500">숙소를 찾을 수 없습니다.</p>;
 
-  const coverImage = accommodation.options.flatMap((o) => o.imageUrls)[0];
+  const coverImage = accommodationDisplayImageUrl(accommodation);
 
   const startEditAccom = () => {
     setAccomDraft({
@@ -452,6 +469,16 @@ export function AccommodationDetailPage(): JSX.Element {
 
   return (
     <section className="mx-auto grid max-w-5xl gap-8">
+      <input
+        ref={coverImageInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        disabled={uploadingAccomImages}
+        onChange={handleCoverUploadChange}
+      />
       {/* 헤더 */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4 flex-1">
@@ -545,6 +572,23 @@ export function AccommodationDetailPage(): JSX.Element {
                 />
               </label>
               <label className="flex flex-col gap-0.5 sm:col-span-2">
+                <span className="text-xs font-medium text-slate-500">대표 사진 (목록·상단)</span>
+                <span className="text-[11px] leading-snug text-slate-400">
+                  jpg, png, webp 한 장만 선택합니다. 대표 사진 칸만 갱신되며 객실 옵션 사진 목록과는 별개입니다. 옵션별 갤러리는 아래 카드에서 추가하세요.
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={uploadingAccomImages}
+                    onClick={() => coverImageInputRef.current?.click()}
+                  >
+                    파일 선택
+                  </Button>
+                  {uploadingAccomImages && <span className="text-xs text-slate-500">업로드 중...</span>}
+                </div>
+              </label>
+              <label className="flex flex-col gap-0.5 sm:col-span-2">
                 <span className="text-xs text-slate-500">부대시설</span>
                 <input
                   type="text"
@@ -581,8 +625,8 @@ export function AccommodationDetailPage(): JSX.Element {
         <div className="flex shrink-0 gap-2">
           {editingAccom ? (
             <>
-              <Button variant="outline" onClick={() => setEditingAccom(false)} disabled={updating}>취소</Button>
-              <Button onClick={saveAccom} disabled={updating}>{updating ? '저장 중...' : '저장'}</Button>
+              <Button variant="outline" onClick={() => setEditingAccom(false)} disabled={updating || uploadingAccomImages}>취소</Button>
+              <Button onClick={saveAccom} disabled={updating || uploadingAccomImages}>{updating ? '저장 중...' : '저장'}</Button>
             </>
           ) : (
             <>
@@ -605,14 +649,44 @@ export function AccommodationDetailPage(): JSX.Element {
       </div>
 
       {/* 커버 이미지 */}
-      {coverImage && (
-        <img
-          src={coverImage}
-          alt={accommodation.name}
-          className="h-64 w-full rounded-3xl object-cover shadow"
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-        />
-      )}
+      <div className="relative h-64 w-full overflow-hidden rounded-3xl border border-slate-100 bg-slate-100 shadow">
+        {coverImage ? (
+          <img
+            src={coverImage}
+            alt={accommodation.name}
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-slate-400" aria-hidden>
+            <span className="text-4xl leading-none">👣</span>
+            <span className="text-xs">대표 사진 없음</span>
+          </div>
+        )}
+        <button
+          type="button"
+          disabled={uploadingAccomImages}
+          onClick={() => coverImageInputRef.current?.click()}
+          className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/80 bg-white/95 text-slate-600 shadow-md backdrop-blur transition hover:bg-white hover:text-slate-900 disabled:opacity-50"
+          aria-label="대표 사진 변경"
+          title="대표 사진 변경"
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
+            />
+          </svg>
+        </button>
+        {uploadingAccomImages && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/50 text-sm font-medium text-slate-700">
+            업로드 중…
+          </div>
+        )}
+      </div>
 
       {/* 요약 */}
       <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">

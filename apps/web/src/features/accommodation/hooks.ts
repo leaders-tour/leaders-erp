@@ -29,6 +29,7 @@ export interface AccommodationRow {
   name: string;
   destination: string;
   region: string;
+  coverImageUrl: string | null;
   phone: string | null;
   facilities: string | null;
   bookingMethod: string | null;
@@ -38,6 +39,13 @@ export interface AccommodationRow {
   options: AccommodationOption[];
   createdAt: string;
   updatedAt: string;
+}
+
+/** 목록·카드·상단 커버에 사용할 URL (대표 설정 또는 옵션 첫 이미지) */
+export function accommodationDisplayImageUrl(acc: Pick<AccommodationRow, 'coverImageUrl' | 'options'>): string | null {
+  const explicit = acc.coverImageUrl?.trim();
+  if (explicit) return explicit;
+  return acc.options.flatMap((o) => o.imageUrls)[0] ?? null;
 }
 
 const OPTION_FRAGMENT = gql`
@@ -67,6 +75,7 @@ const ACCOMMODATION_FRAGMENT = gql`
     name
     destination
     region
+    coverImageUrl
     phone
     facilities
     bookingMethod
@@ -173,6 +182,20 @@ const UPLOAD_OPTION_IMAGES_MUTATION_STR = `
   }
 `;
 
+const ACCOMMODATION_FIELDS_FOR_UPLOAD = `
+  id name destination region coverImageUrl phone facilities bookingMethod bookingPriority
+  openingDate closingDate createdAt updatedAt
+  options { ${OPTION_FIELDS} }
+`;
+
+const UPLOAD_ACCOMMODATION_IMAGES_MUTATION_STR = `
+  mutation UploadAccommodationImages($accommodationId: ID!, $images: [Upload!]!) {
+    uploadAccommodationImages(accommodationId: $accommodationId, images: $images) {
+      ${ACCOMMODATION_FIELDS_FOR_UPLOAD}
+    }
+  }
+`;
+
 const REMOVE_OPTION_IMAGE_MUTATION = gql`
   ${OPTION_FRAGMENT}
   mutation RemoveAccommodationOptionImage($id: ID!, $imageUrl: String!) {
@@ -258,11 +281,14 @@ export function useUpdateAccommodation() {
     loading,
     updateAccommodation: async (
       id: string,
-      input: Partial<Pick<AccommodationRow, 'name' | 'destination' | 'region' | 'phone' | 'facilities' | 'bookingMethod' | 'bookingPriority' | 'openingDate' | 'closingDate'>>,
+      input: Partial<Pick<AccommodationRow, 'name' | 'destination' | 'region' | 'coverImageUrl' | 'phone' | 'facilities' | 'bookingMethod' | 'bookingPriority' | 'openingDate' | 'closingDate'>>,
     ) => {
       const result = await mutate({
         variables: { id, input },
-        refetchQueries: [{ query: ACCOMMODATION_QUERY, variables: { id } }],
+        refetchQueries: [
+          { query: ACCOMMODATION_QUERY, variables: { id } },
+          { query: ACCOMMODATIONS_QUERY },
+        ],
       });
       return result.data?.updateAccommodation;
     },
@@ -365,6 +391,36 @@ export function useUploadAccommodationOptionImages() {
           accessToken,
         );
         return data.uploadAccommodationOptionImages;
+      } finally {
+        setLoading(false);
+      }
+    },
+  };
+}
+
+export function useUploadAccommodationImages() {
+  const { ensureAccessToken } = useAuth();
+  const [loading, setLoading] = useState(false);
+  return {
+    loading,
+    uploadImages: async (accommodationId: string, images: File[]) => {
+      if (images.length === 0) return null;
+      if (images.length > 1) {
+        throw new Error(
+          '대표 사진은 한 장만 선택할 수 있습니다. 객실별 여러 장은 옵션 카드에서 추가해 주세요.',
+        );
+      }
+      setLoading(true);
+      try {
+        const accessToken = await ensureAccessToken();
+        const data = await runUploadMutation<{ uploadAccommodationImages: AccommodationRow }>(
+          UPLOAD_ACCOMMODATION_IMAGES_MUTATION_STR,
+          { accommodationId, images: images.map(() => null) },
+          images,
+          images.map((_, i) => `variables.images.${i}`),
+          accessToken,
+        );
+        return data.uploadAccommodationImages;
       } finally {
         setLoading(false);
       }

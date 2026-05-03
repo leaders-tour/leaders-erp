@@ -20,6 +20,7 @@ export const accommodationUpdateSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   destination: z.string().min(1).max(100).optional(),
   region: z.string().min(1).max(100).optional(),
+  coverImageUrl: z.string().url().max(2048).nullable().optional(),
   phone: z.string().max(100).nullable().optional(),
   facilities: z.string().max(500).nullable().optional(),
   bookingMethod: z.string().max(100).nullable().optional(),

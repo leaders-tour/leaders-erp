@@ -55,6 +55,8 @@ export const accommodationResolver = {
       new AccommodationService(ctx.prisma).updateOption(args.id, args.input),
     deleteAccommodationOption: (_parent: unknown, args: { id: string }, ctx: AppContext) =>
       new AccommodationService(ctx.prisma).deleteOption(args.id),
+    uploadAccommodationImages: (_parent: unknown, args: { accommodationId: string; images: (UploadFile | Promise<UploadFile>)[] }, ctx: AppContext) =>
+      new AccommodationService(ctx.prisma).uploadAccommodationImages(args.accommodationId, args.images),
     uploadAccommodationOptionImages: (_parent: unknown, args: { id: string; images: (UploadFile | Promise<UploadFile>)[] }, ctx: AppContext) =>
       new AccommodationService(ctx.prisma).uploadOptionImages(args.id, args.images),
     removeAccommodationOptionImage: (_parent: unknown, args: { id: string; imageUrl: string }, ctx: AppContext) =>

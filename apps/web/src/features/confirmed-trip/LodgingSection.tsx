@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAccommodations } from '../accommodation/hooks';
+import { useAccommodations, accommodationDisplayImageUrl } from '../accommodation/hooks';
 import type { AccommodationRow } from '../accommodation/hooks';
 import {
   LODGING_TYPE_CHIP_STYLES,
@@ -208,7 +208,7 @@ function AccommodationListItem({
   acc: AccommodationRow;
   onSelect: () => void;
 }) {
-  const firstImg = acc.options.flatMap((o) => o.imageUrls)[0] ?? null;
+  const firstImg = accommodationDisplayImageUrl(acc);
   return (
     <button
       type="button"
