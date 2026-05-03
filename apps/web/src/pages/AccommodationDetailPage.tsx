@@ -14,7 +14,6 @@ import {
   accommodationDisplayImageUrl,
   type AccommodationLevel,
   type AccommodationOption,
-  type AccommodationRow,
   type PaymentMethod,
 } from '../features/accommodation/hooks';
 
@@ -486,119 +485,15 @@ export function AccommodationDetailPage(): JSX.Element {
             ← 목록
           </button>
           {editingAccom ? (
-            <div className="grid gap-3 flex-1 sm:grid-cols-2">
-              <label className="flex flex-col gap-0.5 sm:col-span-2">
-                <span className="text-xs text-slate-500">숙소명</span>
-                <input
-                  type="text"
-                  value={accomDraft.name}
-                  onChange={(e) => setAccomDraft((p) => ({ ...p, name: e.target.value }))}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
-                />
-              </label>
-              <label className="flex flex-col gap-0.5">
-                <span className="text-xs text-slate-500">지역</span>
-                <select
-                  value={accomDraft.region}
-                  onChange={(e) => setAccomDraft((p) => ({ ...p, region: e.target.value }))}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
-                >
-                  {REGIONS.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-0.5">
-                <span className="text-xs text-slate-500">목적지</span>
-                <input
-                  type="text"
-                  value={accomDraft.destination}
-                  onChange={(e) => setAccomDraft((p) => ({ ...p, destination: e.target.value }))}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
-                />
-              </label>
-              <label className="flex flex-col gap-0.5">
-                <span className="text-xs text-slate-500">전화번호</span>
-                <input
-                  type="text"
-                  value={accomDraft.phone}
-                  onChange={(e) => setAccomDraft((p) => ({ ...p, phone: e.target.value }))}
-                  placeholder="예: +976-9999-0000"
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
-                />
-              </label>
-              <label className="flex flex-col gap-0.5">
-                <span className="text-xs text-slate-500">예약 방식</span>
-                <input
-                  type="text"
-                  value={accomDraft.bookingMethod}
-                  onChange={(e) => setAccomDraft((p) => ({ ...p, bookingMethod: e.target.value }))}
-                  placeholder="예: 전화예약"
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
-                />
-              </label>
-              <label className="flex flex-col gap-0.5">
-                <span className="text-xs text-slate-500">예약 우선순위</span>
-                <select
-                  value={accomDraft.bookingPriority}
-                  onChange={(e) => setAccomDraft((p) => ({ ...p, bookingPriority: e.target.value }))}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
-                >
-                  <option value="">-</option>
-                  <option value="1순위">1순위</option>
-                  <option value="2순위">2순위</option>
-                  <option value="3순위">3순위</option>
-                  <option value="보류">보류</option>
-                </select>
-              </label>
-              <label className="flex flex-col gap-0.5">
-                <span className="text-xs text-slate-500">오픈일</span>
-                <input
-                  type="text"
-                  value={accomDraft.openingDate}
-                  onChange={(e) => setAccomDraft((p) => ({ ...p, openingDate: e.target.value }))}
-                  placeholder="예: 6월 초"
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
-                />
-              </label>
-              <label className="flex flex-col gap-0.5">
-                <span className="text-xs text-slate-500">마감일</span>
-                <input
-                  type="text"
-                  value={accomDraft.closingDate}
-                  onChange={(e) => setAccomDraft((p) => ({ ...p, closingDate: e.target.value }))}
-                  placeholder="예: 9월 말"
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
-                />
-              </label>
-              <label className="flex flex-col gap-0.5 sm:col-span-2">
-                <span className="text-xs font-medium text-slate-500">대표 사진 (목록·상단)</span>
-                <span className="text-[11px] leading-snug text-slate-400">
-                  jpg, png, webp 한 장만 선택합니다. 대표 사진 칸만 갱신되며 객실 옵션 사진 목록과는 별개입니다. 옵션별 갤러리는 아래 카드에서 추가하세요.
-                </span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={uploadingAccomImages}
-                    onClick={() => coverImageInputRef.current?.click()}
-                  >
-                    파일 선택
-                  </Button>
-                  {uploadingAccomImages && <span className="text-xs text-slate-500">업로드 중...</span>}
-                </div>
-              </label>
-              <label className="flex flex-col gap-0.5 sm:col-span-2">
-                <span className="text-xs text-slate-500">부대시설</span>
-                <input
-                  type="text"
-                  value={accomDraft.facilities}
-                  onChange={(e) => setAccomDraft((p) => ({ ...p, facilities: e.target.value }))}
-                  placeholder="예: 샤워실, 화장실, Wi-Fi"
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
-                />
-              </label>
-            </div>
+            <label className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-xs text-slate-500">숙소명</span>
+              <input
+                type="text"
+                value={accomDraft.name}
+                onChange={(e) => setAccomDraft((p) => ({ ...p, name: e.target.value }))}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+              />
+            </label>
           ) : (
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -687,6 +582,102 @@ export function AccommodationDetailPage(): JSX.Element {
           </div>
         )}
       </div>
+
+      {editingAccom && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-0.5">
+            <span className="text-xs text-slate-500">지역</span>
+            <select
+              value={accomDraft.region}
+              onChange={(e) => setAccomDraft((p) => ({ ...p, region: e.target.value }))}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+            >
+              {REGIONS.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-0.5">
+            <span className="text-xs text-slate-500">목적지</span>
+            <input
+              type="text"
+              value={accomDraft.destination}
+              onChange={(e) => setAccomDraft((p) => ({ ...p, destination: e.target.value }))}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-0.5">
+            <span className="text-xs text-slate-500">전화번호</span>
+            <input
+              type="text"
+              value={accomDraft.phone}
+              onChange={(e) => setAccomDraft((p) => ({ ...p, phone: e.target.value }))}
+              placeholder="예: +976-9999-0000"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-0.5">
+            <span className="text-xs text-slate-500">예약 방식</span>
+            <input
+              type="text"
+              value={accomDraft.bookingMethod}
+              onChange={(e) => setAccomDraft((p) => ({ ...p, bookingMethod: e.target.value }))}
+              placeholder="예: 전화예약"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-0.5">
+            <span className="text-xs text-slate-500">예약 우선순위</span>
+            <select
+              value={accomDraft.bookingPriority}
+              onChange={(e) => setAccomDraft((p) => ({ ...p, bookingPriority: e.target.value }))}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+            >
+              <option value="">-</option>
+              <option value="1순위">1순위</option>
+              <option value="2순위">2순위</option>
+              <option value="3순위">3순위</option>
+              <option value="보류">보류</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-0.5">
+            <span className="text-xs text-slate-500">오픈일</span>
+            <input
+              type="text"
+              value={accomDraft.openingDate}
+              onChange={(e) => setAccomDraft((p) => ({ ...p, openingDate: e.target.value }))}
+              placeholder="예: 6월 초"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-0.5">
+            <span className="text-xs text-slate-500">마감일</span>
+            <input
+              type="text"
+              value={accomDraft.closingDate}
+              onChange={(e) => setAccomDraft((p) => ({ ...p, closingDate: e.target.value }))}
+              placeholder="예: 9월 말"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+            />
+          </label>
+          <div className="flex flex-col gap-0.5 sm:col-span-2">
+            <span className="text-xs font-medium text-slate-500">대표 사진 (목록·상단)</span>
+            <span className="text-[11px] leading-snug text-slate-400">
+              jpg, png, webp 한 장입니다. 위 커버 이미지 오른쪽 상단의 편집 아이콘으로 바꿀 수 있습니다. 대표 사진만 갱신되며 객실 옵션 사진과는 별개입니다. 옵션별 갤러리는 아래 카드에서 추가하세요.
+            </span>
+          </div>
+          <label className="flex flex-col gap-0.5 sm:col-span-2">
+            <span className="text-xs text-slate-500">부대시설</span>
+            <input
+              type="text"
+              value={accomDraft.facilities}
+              onChange={(e) => setAccomDraft((p) => ({ ...p, facilities: e.target.value }))}
+              placeholder="예: 샤워실, 화장실, Wi-Fi"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none"
+            />
+          </label>
+        </div>
+      )}
 
       {/* 요약 */}
       <Card className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
