@@ -3574,28 +3574,35 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
   const planStopsForMutation = useMemo(
     () =>
-      mergedPlanStops.map((row) => ({
-        rowType: row.rowType,
-        segmentId: 'segmentId' in row ? row.segmentId ?? undefined : undefined,
-        segmentVersionId: 'segmentVersionId' in row ? row.segmentVersionId ?? undefined : undefined,
-        overnightStayId: 'overnightStayId' in row ? row.overnightStayId ?? undefined : undefined,
-        overnightStayDayOrder: 'overnightStayDayOrder' in row ? row.overnightStayDayOrder ?? undefined : undefined,
-        multiDayBlockId: 'multiDayBlockId' in row ? row.multiDayBlockId ?? undefined : undefined,
-        multiDayBlockDayOrder: 'multiDayBlockDayOrder' in row ? row.multiDayBlockDayOrder ?? undefined : undefined,
-        multiDayBlockConnectionId:
-          'multiDayBlockConnectionId' in row ? row.multiDayBlockConnectionId ?? undefined : undefined,
-        multiDayBlockConnectionVersionId:
-          'multiDayBlockConnectionVersionId' in row ? row.multiDayBlockConnectionVersionId ?? undefined : undefined,
-        locationId: row.locationId ?? undefined,
-        locationVersionId: 'locationVersionId' in row ? row.locationVersionId ?? undefined : undefined,
-        movementIntensity: row.movementIntensity ?? null,
-        dateCellText: row.dateCellText,
-        destinationCellText: row.destinationCellText,
-        timeCellText: row.timeCellText,
-        scheduleCellText: row.scheduleCellText,
-        lodgingCellText: row.lodgingCellText,
-        mealCellText: row.mealCellText,
-      })),
+      mergedPlanStops.map((row) => {
+        const overnightStayId = 'overnightStayId' in row ? row.overnightStayId : undefined;
+        const overnightStayDayOrder =
+          'overnightStayDayOrder' in row ? row.overnightStayDayOrder : undefined;
+        return {
+          rowType: row.rowType,
+          segmentId: 'segmentId' in row ? row.segmentId ?? undefined : undefined,
+          segmentVersionId: 'segmentVersionId' in row ? row.segmentVersionId ?? undefined : undefined,
+          multiDayBlockId:
+            'multiDayBlockId' in row ? row.multiDayBlockId ?? undefined : overnightStayId ?? undefined,
+          multiDayBlockDayOrder:
+            'multiDayBlockDayOrder' in row
+              ? row.multiDayBlockDayOrder ?? undefined
+              : overnightStayDayOrder ?? undefined,
+          multiDayBlockConnectionId:
+            'multiDayBlockConnectionId' in row ? row.multiDayBlockConnectionId ?? undefined : undefined,
+          multiDayBlockConnectionVersionId:
+            'multiDayBlockConnectionVersionId' in row ? row.multiDayBlockConnectionVersionId ?? undefined : undefined,
+          locationId: row.locationId ?? undefined,
+          locationVersionId: 'locationVersionId' in row ? row.locationVersionId ?? undefined : undefined,
+          movementIntensity: row.movementIntensity ?? null,
+          dateCellText: row.dateCellText,
+          destinationCellText: row.destinationCellText,
+          timeCellText: row.timeCellText,
+          scheduleCellText: row.scheduleCellText,
+          lodgingCellText: row.lodgingCellText,
+          mealCellText: row.mealCellText,
+        };
+      }),
     [mergedPlanStops],
   );
   const pricingPreviewPlanStops = useMemo(

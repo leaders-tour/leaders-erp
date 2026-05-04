@@ -341,9 +341,6 @@ export class PlanService {
             'Block day stops cannot include block connection references',
           );
         }
-        if (index === 0) {
-          throw new DomainError('VALIDATION_FAILED', 'Block is not allowed on the first stop');
-        }
         const currentDayOrder = dayOrder;
         const firstDayOrder = blockDayOrders[0];
         const lastDayOrder = blockDayOrders[blockDayOrders.length - 1];
