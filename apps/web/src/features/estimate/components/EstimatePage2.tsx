@@ -1,7 +1,12 @@
 import { ESTIMATE_PAGE2_BRAND, ESTIMATE_PAGE2_FOOTER_NOTICES } from '../model/constants';
 import type { EstimateDocumentData } from '../model/types';
 import type { CSSProperties } from 'react';
-import { getMovementIntensityMeta, type MovementIntensityValue } from '../model/movement-intensity';
+import {
+  averageMovementIntensity,
+  getMovementIntensityMeta,
+  resolveMovementIntensityForEstimateStop,
+  type MovementIntensityValue,
+} from '../model/movement-intensity';
 import { isExternalTransferPlanStopRow } from '../../plan/plan-stop-row';
 
 interface EstimatePage2Props {
@@ -55,7 +60,7 @@ function getMovementIntensityChipColor(value: MovementIntensityValue | null | un
   }
 }
 
-const DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR = '#111111';
+const DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR = '#94a3b8';
 const DEFAULT_PAGE2_HEADER_BG_COLOR = '#6f8ca6';
 
 function getPage2HeaderBgColor(destinationName: string | null | undefined): string {
@@ -81,9 +86,24 @@ export function EstimatePage2({ data }: EstimatePage2Props): JSX.Element {
     '--itinerary-row-count': String(rowCount),
     '--estimate-page2-header-bg': getPage2HeaderBgColor(data.destinationName),
   } as CSSProperties;
-  const overallIntensity = getMovementIntensityMeta(data.movementIntensity);
+
+  const mainItineraryRows = data.planStops.filter((row) => !isExternalTransferPlanStopRow(row));
+  const resolvedMovementByMainRow = mainItineraryRows.map((row) =>
+    resolveMovementIntensityForEstimateStop(
+      {
+        rowType: row.rowType,
+        movementIntensity: row.movementIntensity,
+        destinationCellText: row.destinationCellText,
+      },
+      null,
+    ),
+  );
+  const overallMovementIntensity: MovementIntensityValue | null =
+    averageMovementIntensity(resolvedMovementByMainRow) ?? data.movementIntensity ?? null;
+
+  const overallIntensity = getMovementIntensityMeta(overallMovementIntensity);
   const overallIntensityColor =
-    getMovementIntensityChipColor(data.movementIntensity) ?? DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR;
+    getMovementIntensityChipColor(overallMovementIntensity) ?? DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR;
 
   return (
     <section className="estimate-sheet estimate-sheet-page2 estimate-sheet-itinerary">
@@ -127,7 +147,14 @@ export function EstimatePage2({ data }: EstimatePage2Props): JSX.Element {
               (() => {
                 const rowMovementIntensity = isExternalTransferPlanStopRow(row)
                   ? null
-                  : (row.movementIntensity ?? data.movementIntensity ?? null);
+                  : resolveMovementIntensityForEstimateStop(
+                      {
+                        rowType: row.rowType,
+                        movementIntensity: row.movementIntensity,
+                        destinationCellText: row.destinationCellText,
+                      },
+                      null,
+                    );
                 const intensity = getMovementIntensityMeta(rowMovementIntensity);
                 const intensityColor = getMovementIntensityChipColor(rowMovementIntensity) ?? DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR;
 

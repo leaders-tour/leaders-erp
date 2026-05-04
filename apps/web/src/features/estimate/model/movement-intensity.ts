@@ -101,3 +101,54 @@ export function calculateMovementIntensityByHours(hours: number): MovementIntens
   }
   return 'LEVEL_5';
 }
+
+/** GraphQL/캐시 등에서 들어오는 값을 LEVEL_* 로 정규화 */
+export function normalizeMovementIntensityValue(value: unknown): MovementIntensityValue | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const upper = value.trim().toUpperCase();
+  return (MOVEMENT_INTENSITY_ORDER as readonly string[]).includes(upper)
+    ? (upper as MovementIntensityValue)
+    : null;
+}
+
+/**
+ * 목적지 셀에 들어 있는 "이동 N시간" 문구에서 시간 추출 (일정표 스냅샷 보조용)
+ */
+export function parseTravelHoursFromDestinationCellText(text: string | null | undefined): number | null {
+  if (!text?.trim()) {
+    return null;
+  }
+  const match = text.match(/이동\s*(\d+(?:\.\d+)?)\s*시간/u);
+  if (!match?.[1]) {
+    return null;
+  }
+  const hours = Number(match[1]);
+  return Number.isFinite(hours) && hours >= 0 ? hours : null;
+}
+
+/**
+ * 일정표 행의 이동강도: 저장된 값 → 목적지 텍스트 기반 추론 → (선택) 전체 폴백
+ */
+export function resolveMovementIntensityForEstimateStop(
+  input: {
+    rowType?: string | null;
+    movementIntensity?: unknown;
+    destinationCellText?: string | null;
+  },
+  overallFallback?: MovementIntensityValue | null,
+): MovementIntensityValue | null {
+  if (input.rowType === 'EXTERNAL_TRANSFER') {
+    return null;
+  }
+  const direct = normalizeMovementIntensityValue(input.movementIntensity);
+  if (direct) {
+    return direct;
+  }
+  const hours = parseTravelHoursFromDestinationCellText(input.destinationCellText);
+  if (hours != null) {
+    return calculateMovementIntensityByHours(hours);
+  }
+  return overallFallback ?? null;
+}

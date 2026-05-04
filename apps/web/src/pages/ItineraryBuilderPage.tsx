@@ -974,20 +974,81 @@ function isSamePlanRowSource(left: PlanRow | undefined, right: PlanRow | undefin
   );
 }
 
+function planRowHasRouteStructure(row: PlanRow): boolean {
+  return Boolean(
+    row.segmentId ||
+      row.segmentVersionId ||
+      row.multiDayBlockId ||
+      row.multiDayBlockConnectionId ||
+      row.overnightStayId ||
+      row.locationId,
+  );
+}
+
+/** 자동 생성 행이 목적지/구간 정보 없이 비어 있을 때 (플레이스홀더 등) */
+function isVacuousMainPlanAutoRow(row: PlanRow): boolean {
+  if (row.rowType === 'EXTERNAL_TRANSFER') {
+    return false;
+  }
+  return !planRowHasRouteStructure(row);
+}
+
+/** 자동 행이 일정표에 찍을 표면 텍스트가 거의 없을 때 */
+function planRowMissingScheduleSurface(row: PlanRow): boolean {
+  return (
+    !(row.destinationCellText?.trim()) &&
+    !(row.scheduleCellText?.trim()) &&
+    !(row.timeCellText?.trim())
+  );
+}
+
+function planRowHasScheduleSurface(row: PlanRow): boolean {
+  return (
+    Boolean(row.destinationCellText?.trim()) ||
+    Boolean(row.scheduleCellText?.trim()) ||
+    Boolean(row.timeCellText?.trim())
+  );
+}
+
 function mergeAutoRowsWithDirtyValues(
   current: PlanRow[],
   autoRows: PlanRow[],
   dirtyFieldKeys: Set<string>,
 ): PlanRow[] {
-  return autoRows.map((autoRow, rowIndex) => {
-    const currentRow = current[rowIndex];
+  const mainPhysicalIndexes = current.reduce<number[]>((acc, row, idx) => {
+    if (isMainPlanStopRow(row)) {
+      acc.push(idx);
+    }
+    return acc;
+  }, []);
+
+  return autoRows.map((autoRow, mainIndex) => {
+    const physicalIndex = mainPhysicalIndexes[mainIndex];
+    const currentRow = physicalIndex !== undefined ? current[physicalIndex] : undefined;
+
     if (!currentRow || !isSamePlanRowSource(currentRow, autoRow)) {
+      if (
+        currentRow &&
+        isVacuousMainPlanAutoRow(autoRow) &&
+        planRowHasRouteStructure(currentRow)
+      ) {
+        return currentRow;
+      }
+      if (
+        currentRow &&
+        planRowHasRouteStructure(currentRow) &&
+        planRowHasScheduleSurface(currentRow) &&
+        planRowMissingScheduleSurface(autoRow)
+      ) {
+        return currentRow;
+      }
       return autoRow;
     }
 
     const mergedRow = { ...autoRow };
+    const dirtyRowIndex = physicalIndex ?? mainIndex;
     for (const field of PRESERVED_PLAN_ROW_FIELDS) {
-      if (dirtyFieldKeys.has(getDirtyPlanRowFieldKey(rowIndex, field))) {
+      if (dirtyFieldKeys.has(getDirtyPlanRowFieldKey(dirtyRowIndex, field))) {
         (mergedRow as Record<string, unknown>)[field] = currentRow[field];
       }
     }
@@ -1688,6 +1749,31 @@ function formatKrw(value: number): string {
 
 function formatSignedKrw(value: number): string {
   return value > 0 ? `+${formatKrw(value)}` : value < 0 ? `-${formatKrw(Math.abs(value))}` : formatKrw(0);
+}
+
+/** 부모 클론 후 사용자가 루트를 바꿨는지 비교용 */
+function serializeSelectedRouteBaseline(route: RouteSelection[]): string {
+  return JSON.stringify(
+    route.map((stop) =>
+      stop.kind === 'MULTI_DAY_BLOCK'
+        ? {
+            k: 'B',
+            b: stop.multiDayBlockId,
+            n: stop.stayLength,
+            l: stop.locationId,
+            v: stop.locationVersionId,
+          }
+        : {
+            k: 'L',
+            l: stop.locationId,
+            v: stop.locationVersionId,
+            seg: stop.segmentId ?? '',
+            sv: stop.segmentVersionId ?? '',
+            mc: stop.multiDayBlockConnectionId ?? '',
+            mcv: stop.multiDayBlockConnectionVersionId ?? '',
+          },
+    ),
+  );
 }
 
 function cloneExternalTransfer(transfer: ExternalTransfer): ExternalTransfer {
@@ -2477,11 +2563,23 @@ export function ItineraryBuilderPage(): JSX.Element {
   const lastAutoPlanTitleRef = useRef<string>(buildDefaultPlanTitle(''));
   const hasEditedHeadcountMaleRef = useRef<boolean>(false);
   const hasHydratedParentVersionRef = useRef<boolean>(false);
+  /** 부모 버전 하이드레이션과 같은 틱에서 autoRows merge가 돌면 setPlanRows가 엇갈려 일정이 비워짐 — 한 프레임 스킵 */
+  const suppressAutoRowsMergeOnceRef = useRef<boolean>(false);
+  /** 신규 버전(부모 복제) 직후: 사용자가 루트·일수·variant를 바꾸기 전까지 autoRows 병합으로 일정을 덮어쓰지 않음 */
+  const skipAutoRowMergeForParentCloneRef = useRef<boolean>(false);
+  const parentCloneScheduleBaselineRef = useRef<{
+    route: string;
+    variantType: VariantType;
+    totalDays: number;
+  } | null>(null);
 
   const { rules: specialMealDestinationRules } = useSpecialMealDestinationRules();
 
   useEffect(() => {
     hasHydratedParentVersionRef.current = false;
+    suppressAutoRowsMergeOnceRef.current = false;
+    skipAutoRowMergeForParentCloneRef.current = false;
+    parentCloneScheduleBaselineRef.current = null;
   }, [parentVersionId]);
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
@@ -2511,24 +2609,28 @@ export function ItineraryBuilderPage(): JSX.Element {
   const { data: regionSetData } = useQuery<{ regionSets: RegionSetRow[] }>(REGION_SETS_QUERY, {
     variables: { includeInactive: true },
   });
-  const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY, {
-    skip: !regionSetId,
-  });
-  const { data: segmentData } = useQuery<{ segments: SegmentRow[] }>(SEGMENTS_QUERY, {
-    skip: !regionSetId,
-  });
-  const { data: overnightStayData } = useQuery<{ multiDayBlocks: MultiDayBlockOption[] }>(
-    OVERNIGHT_STAYS_QUERY,
+  const { data: locationData, loading: locationsLoading } = useQuery<{ locations: LocationRow[] }>(
+    LOCATIONS_QUERY,
     {
       skip: !regionSetId,
     },
   );
-  const { data: overnightStayConnectionData } = useQuery<{ multiDayBlockConnections: MultiDayBlockConnectionOption[] }>(
-    MULTI_DAY_BLOCK_CONNECTIONS_QUERY,
+  const { data: segmentData, loading: segmentsLoading } = useQuery<{ segments: SegmentRow[] }>(
+    SEGMENTS_QUERY,
     {
       skip: !regionSetId,
     },
   );
+  const { data: overnightStayData, loading: overnightStaysLoading } = useQuery<{
+    multiDayBlocks: MultiDayBlockOption[];
+  }>(OVERNIGHT_STAYS_QUERY, {
+    skip: !regionSetId,
+  });
+  const { data: overnightStayConnectionData, loading: overnightStayConnectionsLoading } = useQuery<{
+    multiDayBlockConnections: MultiDayBlockConnectionOption[];
+  }>(MULTI_DAY_BLOCK_CONNECTIONS_QUERY, {
+    skip: !regionSetId,
+  });
   const { data: templateListData } = useQuery<{ planTemplates: PlanTemplateRow[] }>(
     PLAN_TEMPLATES_QUERY,
     {
@@ -2565,6 +2667,13 @@ export function ItineraryBuilderPage(): JSX.Element {
   const segments = segmentData?.segments ?? [];
   const overnightStays = overnightStayData?.multiDayBlocks ?? [];
   const overnightStayConnections = overnightStayConnectionData?.multiDayBlockConnections ?? [];
+  const routeGraphLoading = Boolean(
+    regionSetId &&
+      (segmentsLoading ||
+        locationsLoading ||
+        overnightStaysLoading ||
+        overnightStayConnectionsLoading),
+  );
   const planContext = planContextData?.plan ?? null;
   const selectedUserName = userData?.user?.name ?? '';
   const eventOptions = eventData?.events ?? [];
@@ -2658,6 +2767,9 @@ export function ItineraryBuilderPage(): JSX.Element {
       return;
     }
 
+    suppressAutoRowsMergeOnceRef.current = true;
+    skipAutoRowMergeForParentCloneRef.current = true;
+    parentCloneScheduleBaselineRef.current = null;
     hasHydratedParentVersionRef.current = true;
     dirtyPlanRowFieldKeysRef.current.clear();
     setSkipNextAutoRowsSync(true);
@@ -3049,10 +3161,6 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
 
   const autoRows = useMemo((): PlanRow[] => {
-    if (selectedRoute.length === 0 || !isRouteSelectionStopComplete(selectedRoute[0]!)) {
-      return [];
-    }
-
     const firstPickupTime = transportGroups[0]?.pickupTime?.trim() ?? '';
     const dropDate = transportGroups[0]?.dropDate?.trim() ?? '';
     const dropTime = transportGroups[0]?.dropTime?.trim() ?? '';
@@ -3101,8 +3209,18 @@ export function ItineraryBuilderPage(): JSX.Element {
   ]);
 
   useEffect(() => {
+    if (suppressAutoRowsMergeOnceRef.current) {
+      suppressAutoRowsMergeOnceRef.current = false;
+      return;
+    }
     if (skipNextAutoRowsSync) {
       setSkipNextAutoRowsSync(false);
+      return;
+    }
+    if (regionSetId && routeGraphLoading) {
+      return;
+    }
+    if (parentVersionId && skipAutoRowMergeForParentCloneRef.current) {
       return;
     }
     setPlanRows((current) => {
@@ -3113,7 +3231,42 @@ export function ItineraryBuilderPage(): JSX.Element {
       );
       return arePlanRowsEqual(current, nextRows) ? current : nextRows;
     });
-  }, [autoRows, skipNextAutoRowsSync]);
+  }, [autoRows, regionSetId, routeGraphLoading, skipNextAutoRowsSync]);
+
+  useEffect(() => {
+    if (!parentVersionId || !hasHydratedParentVersionRef.current) {
+      return;
+    }
+    if (parentCloneScheduleBaselineRef.current !== null) {
+      return;
+    }
+    if (selectedRoute.length === 0 || planRows.length === 0) {
+      return;
+    }
+    parentCloneScheduleBaselineRef.current = {
+      route: serializeSelectedRouteBaseline(selectedRoute),
+      variantType,
+      totalDays,
+    };
+  }, [parentVersionId, selectedRoute, variantType, totalDays, planRows.length]);
+
+  useEffect(() => {
+    if (!parentVersionId || !skipAutoRowMergeForParentCloneRef.current) {
+      return;
+    }
+    const baseline = parentCloneScheduleBaselineRef.current;
+    if (!baseline) {
+      return;
+    }
+    const routeNow = serializeSelectedRouteBaseline(selectedRoute);
+    if (
+      routeNow !== baseline.route ||
+      variantType !== baseline.variantType ||
+      totalDays !== baseline.totalDays
+    ) {
+      skipAutoRowMergeForParentCloneRef.current = false;
+    }
+  }, [parentVersionId, selectedRoute, variantType, totalDays]);
 
   useEffect(() => {
     setExtraLodgingCounts((prev) =>
