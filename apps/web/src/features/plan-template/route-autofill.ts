@@ -214,7 +214,7 @@ export interface LocationRouteSelection {
   multiDayBlockConnectionVersionId?: string;
 }
 
-/** 내부 정본: 연속 일정 블록 선택. API 호환용 legacy 필드명은 buildRouteStopsFromSelections에서 처리 */
+/** 내부 정본: `selectedRoute`로부터 일별 plan stop 메타 후보 행 생성 (legacy overnight 필드명 호환 포함) */
 export interface MultiDayBlockRouteSelection {
   kind: 'MULTI_DAY_BLOCK';
   multiDayBlockId: string;
@@ -644,12 +644,16 @@ function getMultiDayBlockLength(
   return dayCount;
 }
 
-function getCurrentContext(selectedRoute: RouteSelection[], startLocationId: string):
+/** `selectedRoute`가 비어 있으면 undefined (1일차는 `buildFirstDayOptions` 등에서 별도 처리) */
+export function getCurrentRouteTailContext(
+  selectedRoute: RouteSelection[],
+):
   | { kind: 'LOCATION'; locationId: string }
-  | { kind: 'MULTI_DAY_BLOCK'; multiDayBlockId: string; locationId: string } {
+  | { kind: 'MULTI_DAY_BLOCK'; multiDayBlockId: string; locationId: string }
+  | undefined {
   const lastStop = selectedRoute[selectedRoute.length - 1];
   if (!lastStop) {
-    return { kind: 'LOCATION', locationId: startLocationId };
+    return undefined;
   }
   if (lastStop.kind === 'MULTI_DAY_BLOCK') {
     return {
@@ -659,6 +663,13 @@ function getCurrentContext(selectedRoute: RouteSelection[], startLocationId: str
     };
   }
   return { kind: 'LOCATION', locationId: lastStop.locationId };
+}
+
+export function isRouteSelectionStopComplete(stop: RouteSelection): boolean {
+  if (stop.kind === 'MULTI_DAY_BLOCK') {
+    return Boolean(stop.multiDayBlockId && stop.locationId && stop.locationVersionId);
+  }
+  return Boolean(stop.locationId && stop.locationVersionId);
 }
 
 export function getRouteSelectionDaySpan(selection: RouteSelection): number {
@@ -671,7 +682,7 @@ export function getConsumedRouteDayCount(selectedRoute: RouteSelection[]): numbe
 
 export function getRouteStopStartDayIndex(selectedRoute: RouteSelection[], index: number): number {
   return (
-    2 +
+    1 +
     selectedRoute.slice(0, index).reduce((sum, stop) => sum + getRouteSelectionDaySpan(stop), 0)
   );
 }
@@ -683,7 +694,7 @@ export function getRouteStopEndDayIndex(selectedRoute: RouteSelection[], index: 
 
 export function trimRouteSelectionsToTotalDays(selectedRoute: RouteSelection[], totalDays: number): RouteSelection[] {
   const nextRoute: RouteSelection[] = [];
-  let usedDays = 1;
+  let usedDays = 0;
 
   for (const stop of selectedRoute) {
     const daySpan = getRouteSelectionDaySpan(stop);
@@ -977,7 +988,6 @@ export function buildNextOptions(input: {
   filteredLocations: LocationOption[];
   filteredSegments: SegmentOption[];
   filteredMultiDayBlockConnections?: MultiDayBlockConnectionOption[];
-  startLocationId: string;
   selectedRoute: RouteSelection[];
   totalDays: number;
   variantType?: VariantType;
@@ -990,15 +1000,14 @@ export function buildNextOptions(input: {
     filteredSegments,
     filteredMultiDayBlockConnections = [],
     selectedRoute,
-    startLocationId,
     totalDays,
     variantType,
     useEarlyFirstDay,
     useExtendLastDay,
     targetDate,
   } = input;
-  const usedDays = 1 + getConsumedRouteDayCount(selectedRoute);
-  if (usedDays >= totalDays) {
+  const usedDays = getConsumedRouteDayCount(selectedRoute);
+  if (selectedRoute.length === 0 || usedDays >= totalDays) {
     return [];
   }
 
@@ -1012,7 +1021,10 @@ export function buildNextOptions(input: {
     totalDays,
   });
   const isLastDay = nextDayIndex === totalDays;
-  const context = getCurrentContext(selectedRoute, startLocationId);
+  const context = getCurrentRouteTailContext(selectedRoute);
+  if (!context) {
+    return [];
+  }
 
   if (context.kind === 'MULTI_DAY_BLOCK') {
     const toIds = filteredMultiDayBlockConnections
@@ -1037,7 +1049,7 @@ export function buildMultiDayBlockOptions(input: {
   totalDays: number;
 }): MultiDayBlockOption[] {
   const { filteredMultiDayBlocks, selectedRoute, totalDays } = input;
-  const usedDays = 1 + getConsumedRouteDayCount(selectedRoute);
+  const usedDays = getConsumedRouteDayCount(selectedRoute);
 
   return filteredMultiDayBlocks.filter(
     (multiDayBlock) =>
@@ -1106,8 +1118,6 @@ function buildMultiDayBlockRows(input: {
 }
 
 export function buildAutoRowsFromRoute(input: {
-  startLocationId: string;
-  startLocationVersionId: string;
   selectedRoute: RouteSelection[];
   filteredSegments: SegmentOption[];
   filteredMultiDayBlocks?: MultiDayBlockOption[];
@@ -1123,8 +1133,6 @@ export function buildAutoRowsFromRoute(input: {
   firstDayTimeOverride?: string;
 }): TemplatePlanRow[] {
   const {
-    startLocationId,
-    startLocationVersionId,
     selectedRoute,
     filteredSegments,
     filteredMultiDayBlocks = [],
@@ -1141,49 +1149,21 @@ export function buildAutoRowsFromRoute(input: {
   } = input;
   const safeTotalDays = Math.max(2, totalDays);
 
-  if (!startLocationId || !startLocationVersionId) {
+  const firstStop = selectedRoute[0];
+  if (!firstStop || !isRouteSelectionStopComplete(firstStop)) {
     return buildPlaceholderPlanRows(safeTotalDays);
   }
 
   const rows: TemplatePlanRow[] = [];
-  const startLocation = locationById.get(startLocationId);
-  const startVersion = locationVersionById.get(startLocationVersionId);
   const resolvedFlags = resolveTemplateVariantFlags({ variantType, useEarlyFirstDay, useExtendLastDay });
   const firstDayProfile: LocationTimeBlockProfile = resolvedFlags.useEarlyFirstDay ? 'FIRST_DAY_EARLY' : 'FIRST_DAY';
 
-  rows.push({
-    rowType: 'MAIN',
-    locationId: startLocationId,
-    locationVersionId: startLocationVersionId,
-    dateCellText: '1일차',
-    destinationCellText: formatRouteDestinationCellText({
-      locationName: startLocation?.name ?? startLocationId,
-      averageTravelHours: startVersion?.firstDayAverageTravelHours,
-      averageDistanceKm: startVersion?.firstDayAverageDistanceKm,
-    }),
-    movementIntensity: startVersion?.firstDayMovementIntensity ?? null,
-    timeCellText: toTimeCellFromTimeBlocks(getLocationTimeBlocks(startVersion, firstDayProfile), {
-      firstStartTimeOverride: firstDayTimeOverride,
-    }),
-    scheduleCellText: toScheduleCellFromTimeBlocks(getLocationTimeBlocks(startVersion, firstDayProfile)),
-    lodgingCellText: getBaseLodgingText(startVersion, toFacilityLabel),
-    mealCellText: (() => {
-      const set = pickFirstDayMealSetByProfile(startVersion?.mealSets ?? [], firstDayProfile);
-      return buildMealsCellText({
-        breakfast: (set?.breakfast ?? null) as MealOption | null,
-        lunch: (set?.lunch ?? null) as MealOption | null,
-        dinner: (set?.dinner ?? null) as MealOption | null,
-      });
-    })(),
-  });
+  let previousContext: { kind: 'LOCATION'; locationId: string } | { kind: 'MULTI_DAY_BLOCK'; multiDayBlockId: string; locationId: string } =
+    { kind: 'LOCATION', locationId: '' };
+  let nextDayIndex = 1;
 
-  let previousContext: { kind: 'LOCATION'; locationId: string } | { kind: 'MULTI_DAY_BLOCK'; multiDayBlockId: string; locationId: string } = {
-    kind: 'LOCATION',
-    locationId: startLocationId,
-  };
-  let nextDayIndex = 2;
-
-  for (const stop of selectedRoute) {
+  for (let stopIndex = 0; stopIndex < selectedRoute.length; stopIndex += 1) {
+    const stop = selectedRoute[stopIndex]!;
     if (nextDayIndex > safeTotalDays) {
       break;
     }
@@ -1219,6 +1199,37 @@ export function buildAutoRowsFromRoute(input: {
       toDayIndex: nextDayIndex,
       totalDays: safeTotalDays,
     });
+
+    if (stopIndex === 0 && stop.kind === 'LOCATION') {
+      rows.push({
+        rowType: 'MAIN',
+        locationId: stop.locationId,
+        locationVersionId: stop.locationVersionId,
+        dateCellText: '1일차',
+        destinationCellText: formatRouteDestinationCellText({
+          locationName: location?.name ?? stop.locationId,
+          averageTravelHours: locationVersion?.firstDayAverageTravelHours,
+          averageDistanceKm: locationVersion?.firstDayAverageDistanceKm,
+        }),
+        movementIntensity: locationVersion?.firstDayMovementIntensity ?? null,
+        timeCellText: toTimeCellFromTimeBlocks(getLocationTimeBlocks(locationVersion, firstDayProfile), {
+          firstStartTimeOverride: firstDayTimeOverride,
+        }),
+        scheduleCellText: toScheduleCellFromTimeBlocks(getLocationTimeBlocks(locationVersion, firstDayProfile)),
+        lodgingCellText: getBaseLodgingText(locationVersion, toFacilityLabel),
+        mealCellText: (() => {
+          const set = pickFirstDayMealSetByProfile(locationVersion?.mealSets ?? [], firstDayProfile);
+          return buildMealsCellText({
+            breakfast: (set?.breakfast ?? null) as MealOption | null,
+            lunch: (set?.lunch ?? null) as MealOption | null,
+            dinner: (set?.dinner ?? null) as MealOption | null,
+          });
+        })(),
+      });
+      previousContext = { kind: 'LOCATION', locationId: stop.locationId };
+      nextDayIndex += 1;
+      continue;
+    }
 
     if (previousContext.kind === 'MULTI_DAY_BLOCK') {
       const connection =
@@ -1294,11 +1305,7 @@ export function buildAutoRowsFromRoute(input: {
   return rows;
 }
 
-function buildRouteStopsFromSelections(input: {
-  startLocationId: string;
-  startLocationVersionId: string;
-  selectedRoute: RouteSelection[];
-}): Array<
+function buildRouteStopsFromSelections(selectedRoute: RouteSelection[]): Array<
   Pick<
     TemplatePlanRow,
     | 'segmentId'
@@ -1323,9 +1330,9 @@ function buildRouteStopsFromSelections(input: {
       | 'locationId'
       | 'locationVersionId'
     >
-  > = [{ locationId: input.startLocationId, locationVersionId: input.startLocationVersionId }];
+  > = [];
 
-  input.selectedRoute.forEach((stop) => {
+  selectedRoute.forEach((stop) => {
     if (stop.kind === 'MULTI_DAY_BLOCK') {
       const blockId = stop.multiDayBlockId;
       routeStops.push({
@@ -1358,13 +1365,8 @@ function buildRouteStopsFromSelections(input: {
   return routeStops;
 }
 
-export function buildTemplateStopsFromRouteAndRows(input: {
-  startLocationId: string;
-  startLocationVersionId: string;
-  selectedRoute: RouteSelection[];
-  planRows: TemplatePlanRow[];
-}) {
-  const routeStops = buildRouteStopsFromSelections(input);
+export function buildTemplateStopsFromRouteAndRows(input: { selectedRoute: RouteSelection[]; planRows: TemplatePlanRow[] }) {
+  const routeStops = buildRouteStopsFromSelections(input.selectedRoute);
 
   return input.planRows.map((row, index) => {
     const routeStop = routeStops[index];

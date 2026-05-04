@@ -2,7 +2,7 @@ import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatLocationNameMultiline, normalizeLocationNameLines } from '../features/location/display';
+import { formatLocationNameMultiline, normalizeLocationNameLines, type LocationNameLike } from '../features/location/display';
 import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
 import { useSpecialMealDestinationRules } from '../features/plan/hooks/use-special-meal-destination-rules';
 import { getAssignmentsFromPlanRows } from '../features/plan/special-meals';
@@ -15,6 +15,7 @@ import {
   getConsumedRouteDayCount,
   getRouteStopEndDayIndex,
   getRouteStopStartDayIndex,
+  isRouteSelectionStopComplete,
   buildTemplateStopsFromRouteAndRows,
   findMultiDayBlockConnection,
   findSegment,
@@ -398,7 +399,7 @@ function buildTemplateTimingLabel(useEarlyFirstDay: boolean, useExtendLastDay: b
 
 function buildSuggestedTemplateTitle(
   regionSetName: string | undefined,
-  locationName: LocationOption['name'] | undefined,
+  locationName: LocationNameLike,
   totalDays: number,
   useEarlyFirstDay: boolean,
   useExtendLastDay: boolean,
@@ -426,8 +427,6 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
   const [isActive, setIsActive] = useState<boolean>(true);
   const [useEarlyFirstDay, setUseEarlyFirstDay] = useState<boolean>(false);
   const [useExtendLastDay, setUseExtendLastDay] = useState<boolean>(false);
-  const [startLocationId, setStartLocationId] = useState<string>('');
-  const [startLocationVersionId, setStartLocationVersionId] = useState<string>('');
   const [selectedRoute, setSelectedRoute] = useState<RouteSelection[]>([]);
   const [isOvernightStayPickerOpen, setIsOvernightStayPickerOpen] = useState<boolean>(false);
   const [planRows, setPlanRows] = useState<TemplatePlanRow[]>([]);
@@ -502,7 +501,6 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
         filteredLocations,
         filteredSegments,
         filteredMultiDayBlockConnections: filteredOvernightStayConnections,
-        startLocationId,
         selectedRoute,
         totalDays,
         useEarlyFirstDay,
@@ -513,7 +511,6 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
       filteredOvernightStayConnections,
       filteredSegments,
       selectedRoute,
-      startLocationId,
       totalDays,
       useEarlyFirstDay,
       useExtendLastDay,
@@ -534,12 +531,21 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
     () =>
       buildSuggestedTemplateTitle(
         selectedRegionSetName,
-        startLocationId ? locationById.get(startLocationId)?.name : undefined,
+        (() => {
+          const first = selectedRoute[0];
+          if (!first) {
+            return undefined;
+          }
+          if (first.kind === 'MULTI_DAY_BLOCK') {
+            return filteredOvernightStays.find((b) => b.id === first.multiDayBlockId)?.title;
+          }
+          return locationById.get(first.locationId)?.name;
+        })(),
         totalDays,
         useEarlyFirstDay,
         useExtendLastDay,
       ),
-    [locationById, selectedRegionSetName, startLocationId, totalDays, useEarlyFirstDay, useExtendLastDay],
+    [locationById, selectedRegionSetName, selectedRoute, totalDays, useEarlyFirstDay, useExtendLastDay, filteredOvernightStays],
   );
 
   useEffect(() => {
@@ -552,8 +558,6 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
   const autoRows = useMemo(
     () =>
       buildAutoRowsFromRoute({
-        startLocationId,
-        startLocationVersionId,
         selectedRoute,
         filteredSegments,
         filteredMultiDayBlocks: filteredOvernightStays,
@@ -571,8 +575,6 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
       locationById,
       locationVersionById,
       selectedRoute,
-      startLocationId,
-      startLocationVersionId,
       totalDays,
       useEarlyFirstDay,
       useExtendLastDay,
@@ -584,9 +586,8 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
   }, [autoRows]);
 
   const hasCompleteRoute =
-    Boolean(startLocationId) &&
-    Boolean(startLocationVersionId) &&
-    1 + getConsumedRouteDayCount(selectedRoute) === totalDays &&
+    getConsumedRouteDayCount(selectedRoute) === totalDays &&
+    selectedRoute.length > 0 &&
     selectedRoute.every((stop) =>
       stop.kind === 'MULTI_DAY_BLOCK'
         ? Boolean(stop.multiDayBlockId && stop.locationId && stop.locationVersionId)
@@ -631,8 +632,6 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                 type="button"
                 onClick={() => {
                   setRegionSetId('');
-                  setStartLocationId('');
-                  setStartLocationVersionId('');
                   setSelectedRoute([]);
                 }}
                 className={`rounded-xl border px-3 py-1.5 text-sm ${
@@ -649,8 +648,6 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                   type="button"
                   onClick={() => {
                     setRegionSetId(set.id);
-                    setStartLocationId('');
-                    setStartLocationVersionId('');
                     setSelectedRoute([]);
                   }}
                   className={`rounded-xl border px-3 py-1.5 text-left text-sm font-medium ${
@@ -746,43 +743,25 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
           </p>
 
           <div className="mt-4 space-y-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <div className="text-sm font-medium">1일차 출발지</div>
-            <p className="mt-1 text-xs text-slate-500">목적지중 첫날 가능 목적지만 나열됩니다</p>
-            {startLocationId ? (
-              <div className="mt-1 flex items-center justify-between gap-2">
-                <div className="text-slate-700">
-                  <span className="whitespace-pre-line">{formatLocationNameMultiline(locationById.get(startLocationId)?.name ?? startLocationId)}</span>
-                  {useEarlyFirstDay && (
-                    <span className="ml-2 text-xs text-amber-700">(얼리 일정)</span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStartLocationId('');
-                    setStartLocationVersionId('');
-                    setSelectedRoute([]);
-                    setIsOvernightStayPickerOpen(false);
-                  }}
-                  className="text-xs text-slate-500 underline"
-                >
-                  변경
-                </button>
-              </div>
-            ) : (
-              <div className="mt-1 text-xs text-slate-500">출발지를 선택해주세요.</div>
-            )}
-            {!startLocationId ? (
+          {selectedRoute.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <div className="text-sm font-medium">1일차 시작</div>
+              <p className="mt-1 text-xs text-slate-500">
+                첫날 가능 목적지로 시작하거나, 연박/기차 블록으로 바로 시작할 수 있습니다.
+              </p>
               <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
                 {firstDayOptions.map((location) => (
                   <button
                     key={`start-${location.id}`}
                     type="button"
                     onClick={() => {
-                      setStartLocationId(location.id);
-                      setStartLocationVersionId(getDefaultVersionId(location));
-                      setSelectedRoute([]);
+                      setSelectedRoute([
+                        {
+                          kind: 'LOCATION',
+                          locationId: location.id,
+                          locationVersionId: getDefaultVersionId(location),
+                        },
+                      ]);
                       setIsOvernightStayPickerOpen(false);
                     }}
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
@@ -791,35 +770,81 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                   </button>
                 ))}
               </div>
-            ) : null}
-            {!startLocationId && firstDayOptions.length === 0 ? (
-              <p className="mt-3 text-xs text-amber-700">첫날 가능으로 설정된 목적지가 없습니다.</p>
-            ) : null}
-            {startLocationId ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {(locationById.get(startLocationId)?.variations ?? []).map((version) => {
-                  const versionLabel = formatLocationVersion(version);
-                  if (versionLabel === '기본' || !versionLabel) {
-                    return null;
-                  }
-                  return (
-                    <button
-                      key={`start-version-${version.id}`}
-                      type="button"
-                      onClick={() => setStartLocationVersionId(version.id)}
-                      className={`rounded-lg border px-3 py-1 text-xs ${
-                        startLocationVersionId === version.id
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
-                      }`}
+              {firstDayOptions.length === 0 ? (
+                <p className="mt-3 text-xs text-amber-700">첫날 가능으로 설정된 목적지가 없습니다.</p>
+              ) : null}
+              <div
+                className="mt-4 border-t border-slate-200 pt-4"
+                role="group"
+                aria-label="연속 일정 블록 선택"
+              >
+                {!isOvernightStayPickerOpen ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      disabled={totalDays < 2}
+                      onClick={() => setIsOvernightStayPickerOpen(true)}
                     >
-                      {versionLabel}
-                    </button>
-                  );
-                })}
+                      연박/기차로 시작
+                    </Button>
+                    {totalDays < 2 ? (
+                      <span className="text-xs text-slate-500">
+                        여행 일수가 2일 이상일 때 블록으로 시작할 수 있습니다.
+                      </span>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 text-xs font-semibold text-slate-700">연속 일정 블록</div>
+                      <button
+                        type="button"
+                        onClick={() => setIsOvernightStayPickerOpen(false)}
+                        className="shrink-0 text-xs text-slate-500 underline"
+                      >
+                        접기
+                      </button>
+                    </div>
+                    {overnightStayOptions.length > 0 ? (
+                      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 md:grid-cols-3">
+                        {overnightStayOptions.map((overnightStay) => (
+                          <button
+                            key={overnightStay.id}
+                            type="button"
+                            onClick={() => {
+                              const sortedDays = overnightStay.days
+                                .slice()
+                                .sort((left, right) => left.dayOrder - right.dayOrder);
+                              const lastDay = sortedDays[sortedDays.length - 1];
+                              const lastLocationId = lastDay?.displayLocationId ?? overnightStay.locationId;
+                              const location = locationById.get(lastLocationId);
+                              setSelectedRoute([
+                                {
+                                  kind: 'MULTI_DAY_BLOCK',
+                                  multiDayBlockId: overnightStay.id,
+                                  stayLength: overnightStay.days.length,
+                                  locationId: lastLocationId,
+                                  locationVersionId: getDefaultVersionId(location) || '',
+                                },
+                              ]);
+                              setIsOvernightStayPickerOpen(false);
+                            }}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm hover:bg-slate-100"
+                          >
+                            {overnightStay.title}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-amber-700">
+                        선택 가능한 블록이 없습니다.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
 
           {selectedRoute.map((stop, index) => {
             const isLastSelectedStop = index === selectedRoute.length - 1;
@@ -987,7 +1012,55 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                   );
                 }
 
-                const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
+                if (startDayIndex === 1 && stop.kind === 'LOCATION') {
+                  const isLastDay = endDayIndex === totalDays;
+                  return (
+                    <>
+                      <div className="text-sm font-medium">1일차</div>
+                      <div className="mt-1 text-slate-700">
+                        <span className="whitespace-pre-line">
+                          {formatLocationNameMultiline(locationById.get(stop.locationId)?.name ?? stop.locationId)}
+                        </span>
+                        {useEarlyFirstDay && (
+                          <span className="ml-2 text-xs text-amber-700">(얼리 일정)</span>
+                        )}
+                        {isLastDay && useExtendLastDay && (
+                          <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
+                        )}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {(locationById.get(stop.locationId)?.variations ?? []).map((version) => {
+                          const versionLabel = formatLocationVersion(version);
+                          if (versionLabel === '기본' || !versionLabel) {
+                            return null;
+                          }
+                          return (
+                            <button
+                              key={`route-version-first-${index}-${version.id}`}
+                              type="button"
+                              onClick={() =>
+                                setSelectedRoute((prev) =>
+                                  prev.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, locationVersionId: version.id } : item,
+                                  ),
+                                )
+                              }
+                              className={`rounded-lg border px-3 py-1 text-xs ${
+                                stop.locationVersionId === version.id
+                                  ? 'border-slate-900 bg-slate-900 text-white'
+                                  : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              {versionLabel}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  );
+                }
+
+                const fromId = selectedRoute[index - 1]?.locationId ?? '';
                 const segment = findSegment(filteredSegments, fromId, stop.locationId);
                 const versions = getSegmentVersions(segment);
                 const selectedVersion = resolveSegmentVersion(segment, stop.segmentVersionId);
@@ -1072,9 +1145,11 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
             );
           })}
 
-          {startLocationId && startLocationVersionId && 1 + getConsumedRouteDayCount(selectedRoute) < totalDays ? (
+          {selectedRoute.length > 0 &&
+          selectedRoute.every(isRouteSelectionStopComplete) &&
+          getConsumedRouteDayCount(selectedRoute) < totalDays ? (
             <div className="rounded-2xl border border-dashed border-slate-300 p-4">
-              <div className="mb-3 text-sm font-medium">{2 + getConsumedRouteDayCount(selectedRoute)}일차 선택</div>
+              <div className="mb-3 text-sm font-medium">{getConsumedRouteDayCount(selectedRoute) + 1}일차 선택</div>
               <div className="grid gap-3">
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
                   {nextOptions.map((location) => (
@@ -1103,7 +1178,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                             ];
                           }
 
-                          const fromId = prev.length === 0 ? startLocationId : prev[prev.length - 1]?.locationId ?? '';
+                          const fromId = prev[prev.length - 1]?.locationId ?? '';
                           const segment = findSegment(filteredSegments, fromId, location.id);
                           return [
                             ...prev,
@@ -1135,12 +1210,12 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                     <div className="flex flex-wrap items-center gap-2">
                       <Button
                         variant="outline"
-                        disabled={totalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2}
+                        disabled={totalDays - getConsumedRouteDayCount(selectedRoute) < 2}
                         onClick={() => setIsOvernightStayPickerOpen(true)}
                       >
                         연박/기차 추가
                       </Button>
-                      {totalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2 ? (
+                      {totalDays - getConsumedRouteDayCount(selectedRoute) < 2 ? (
                         <span className="text-xs text-slate-500">
                           남은 일수에 맞는 블록만 선택할 수 있습니다.
                         </span>
@@ -1199,12 +1274,10 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
             </div>
           ) : null}
 
-          {startLocationId || selectedRoute.length > 0 ? (
+          {selectedRoute.length > 0 ? (
             <button
               type="button"
               onClick={() => {
-                setStartLocationId('');
-                setStartLocationVersionId('');
                 setSelectedRoute([]);
                 setIsOvernightStayPickerOpen(false);
               }}
@@ -1379,8 +1452,6 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                     sortOrder,
                     isActive,
                     planStops: buildTemplateStopsFromRouteAndRows({
-                      startLocationId,
-                      startLocationVersionId,
                       selectedRoute,
                       planRows,
                     }),

@@ -87,7 +87,6 @@ export interface PricingPreviewForValidation {
 export interface BuilderValidationInput {
   planRows: PlanRowForValidation[];
   selectedRoute: RouteSelection[];
-  startLocationId: string | null;
   filteredSegments: SegmentOption[];
   transportGroups: TransportGroupForValidation[];
   headcountTotal: number;
@@ -112,7 +111,6 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
     const {
       planRows,
       selectedRoute,
-      startLocationId,
       filteredSegments,
       transportGroups,
       headcountTotal,
@@ -270,7 +268,14 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
       if (toStop.kind === 'MULTI_DAY_BLOCK') {
         return false;
       }
-      const fromId = index === 0 ? startLocationId : selectedRoute[index - 1]?.locationId ?? '';
+      if (index === 0) {
+        return false;
+      }
+      const prev = selectedRoute[index - 1];
+      if (prev?.kind === 'MULTI_DAY_BLOCK') {
+        return false;
+      }
+      const fromId = prev?.locationId ?? '';
       return !filteredSegments.some(
         (seg) => seg.fromLocationId === fromId && seg.toLocationId === toStop.locationId,
       );
@@ -387,7 +392,6 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
   }, [
     input.planRows,
     input.selectedRoute,
-    input.startLocationId,
     input.filteredSegments,
     input.transportGroups,
     input.headcountTotal,

@@ -444,6 +444,12 @@ const segmentABSeasonal: SegmentOption = {
 };
 
 const locationAVersion = locationA.variations[0]!;
+
+const routeDay1LocationA = {
+  kind: 'LOCATION' as const,
+  locationId: locationA.id,
+  locationVersionId: locationAVersion.id,
+};
 const locationBVersion = locationB.variations[0]!;
 const locationCVersion = locationC.variations[0]!;
 
@@ -549,8 +555,7 @@ describe('route-autofill', () => {
     const options = buildNextOptions({
       filteredLocations: [locationA, locationB, locationC],
       filteredSegments: [segmentAB, segmentACWithoutEarly],
-      startLocationId: locationA.id,
-      selectedRoute: [],
+      selectedRoute: [routeDay1LocationA],
       totalDays: 3,
       variantType: VariantType.Early,
     });
@@ -562,8 +567,8 @@ describe('route-autofill', () => {
     const options = buildNextOptions({
       filteredLocations: [locationA, locationB, locationC],
       filteredSegments: [segmentBC],
-      startLocationId: locationA.id,
       selectedRoute: [
+        routeDay1LocationA,
         {
           kind: 'LOCATION',
           locationId: locationB.id,
@@ -583,16 +588,15 @@ describe('route-autofill', () => {
     const earlyOptions = buildNextOptions({
       filteredLocations: [locationA, locationB, locationC],
       filteredSegments: [segmentAB, segmentACWithoutEarly],
-      startLocationId: locationA.id,
-      selectedRoute: [],
+      selectedRoute: [routeDay1LocationA],
       totalDays: 3,
       useEarlyFirstDay: true,
     });
     const extendOptions = buildNextOptions({
       filteredLocations: [locationA, locationB, locationC],
       filteredSegments: [segmentBC],
-      startLocationId: locationA.id,
       selectedRoute: [
+        routeDay1LocationA,
         {
           kind: 'LOCATION',
           locationId: locationB.id,
@@ -612,7 +616,7 @@ describe('route-autofill', () => {
   it('filters overnight stay options by remaining days per stay length', () => {
     const optionsForTwoDaysLeft = buildMultiDayBlockOptions({
       filteredMultiDayBlocks: [overnightStayB2, overnightStayB3],
-      selectedRoute: [],
+      selectedRoute: [routeDay1LocationA],
       totalDays: 3,
     });
 
@@ -690,8 +694,7 @@ describe('route-autofill', () => {
     const januaryOptions = buildNextOptions({
       filteredLocations: [locationA, locationB, locationC],
       filteredSegments: [segmentABSeasonal],
-      startLocationId: locationA.id,
-      selectedRoute: [],
+      selectedRoute: [routeDay1LocationA],
       totalDays: 3,
       variantType: VariantType.Early,
       targetDate: '2026-01-02',
@@ -700,8 +703,7 @@ describe('route-autofill', () => {
     const februaryOptions = buildNextOptions({
       filteredLocations: [locationA, locationB, locationC],
       filteredSegments: [segmentABSeasonal],
-      startLocationId: locationA.id,
-      selectedRoute: [],
+      selectedRoute: [routeDay1LocationA],
       totalDays: 3,
       variantType: VariantType.Early,
       targetDate: '2026-02-02',
@@ -713,9 +715,7 @@ describe('route-autofill', () => {
 
   it('uses first-day early meal set when variant is Early', () => {
     const baseArgs = {
-      startLocationId: locationA.id,
-      startLocationVersionId: 'ver-a',
-      selectedRoute: [],
+      selectedRoute: [routeDay1LocationA],
       filteredSegments: [],
       locationById: new Map([[locationA.id, locationA]]),
       locationVersionById: new Map([['ver-a', locationAVersion]]),
@@ -731,9 +731,8 @@ describe('route-autofill', () => {
 
   it('uses timing flags to reproduce early and extend autofill behavior', () => {
     const rows = buildAutoRowsFromRoute({
-      startLocationId: locationA.id,
-      startLocationVersionId: 'ver-a',
       selectedRoute: [
+        routeDay1LocationA,
         {
           kind: 'LOCATION',
           locationId: locationC.id,
@@ -765,9 +764,8 @@ describe('route-autofill', () => {
 
   it('uses first-day early time blocks and early+extend segment schedules for a 2-day route', () => {
     const rows = buildAutoRowsFromRoute({
-      startLocationId: locationA.id,
-      startLocationVersionId: 'ver-a',
       selectedRoute: [
+        routeDay1LocationA,
         {
           kind: 'LOCATION',
           locationId: locationC.id,
@@ -806,9 +804,8 @@ describe('route-autofill', () => {
 
   it('merges early and extend segment schedules when early+extend blocks are missing', () => {
     const rows = buildAutoRowsFromRoute({
-      startLocationId: locationA.id,
-      startLocationVersionId: 'ver-a',
       selectedRoute: [
+        routeDay1LocationA,
         {
           kind: 'LOCATION',
           locationId: locationC.id,
@@ -841,8 +838,6 @@ describe('route-autofill', () => {
 
   it('expands 3-day block into 3 rows', () => {
     const rows = buildAutoRowsFromRoute({
-      startLocationId: locationA.id,
-      startLocationVersionId: 'ver-a',
       selectedRoute: [
         {
           kind: 'MULTI_DAY_BLOCK',
@@ -865,13 +860,11 @@ describe('route-autofill', () => {
       totalDays: 4,
     });
 
-    expect(rows.slice(1, 4).map((row) => row.overnightStayDayOrder)).toEqual([1, 2, 3]);
+    expect(rows.slice(0, 3).map((row) => row.overnightStayDayOrder)).toEqual([1, 2, 3]);
   });
 
   it('STAY block expands rows with multiDayBlock* and displayLocationId-derived locationId', () => {
     const rows = buildAutoRowsFromRoute({
-      startLocationId: locationA.id,
-      startLocationVersionId: 'ver-a',
       selectedRoute: [
         {
           kind: 'MULTI_DAY_BLOCK',
@@ -894,7 +887,7 @@ describe('route-autofill', () => {
       totalDays: 3,
     });
 
-    expect(rows[1]).toMatchObject({
+    expect(rows[0]).toMatchObject({
       multiDayBlockId: overnightStayB2.id,
       multiDayBlockDayOrder: 1,
       overnightStayId: overnightStayB2.id,
@@ -902,7 +895,7 @@ describe('route-autofill', () => {
       locationId: locationB.id,
       locationVersionId: 'ver-b',
     });
-    expect(rows[2]).toMatchObject({
+    expect(rows[1]).toMatchObject({
       multiDayBlockId: overnightStayB2.id,
       multiDayBlockDayOrder: 2,
       overnightStayId: overnightStayB2.id,
@@ -944,9 +937,8 @@ describe('route-autofill', () => {
 
   it('uses the route date to fill segmentVersionId when auto rows are built', () => {
     const rows = buildAutoRowsFromRoute({
-      startLocationId: locationA.id,
-      startLocationVersionId: 'ver-a',
       selectedRoute: [
+        routeDay1LocationA,
         {
           kind: 'LOCATION',
           locationId: locationB.id,
@@ -973,9 +965,8 @@ describe('route-autofill', () => {
 
   it('keeps location default lodging and meals when a season version is selected', () => {
     const rows = buildAutoRowsFromRoute({
-      startLocationId: locationA.id,
-      startLocationVersionId: 'ver-a',
       selectedRoute: [
+        routeDay1LocationA,
         {
           kind: 'LOCATION',
           locationId: locationB.id,
@@ -1002,9 +993,8 @@ describe('route-autofill', () => {
 
   it('uses the flight OUT time band for the final segment when auto rows are built', () => {
     const rows = buildAutoRowsFromRoute({
-      startLocationId: locationA.id,
-      startLocationVersionId: 'ver-a',
       selectedRoute: [
+        routeDay1LocationA,
         {
           kind: 'LOCATION',
           locationId: locationB.id,
@@ -1051,9 +1041,8 @@ describe('route-autofill', () => {
     };
 
     const rows = buildAutoRowsFromRoute({
-      startLocationId: locationA.id,
-      startLocationVersionId: 'ver-a',
       selectedRoute: [
+        routeDay1LocationA,
         {
           kind: 'LOCATION',
           locationId: locationB.id,
@@ -1106,9 +1095,8 @@ describe('route-autofill', () => {
     };
 
     const rows = buildAutoRowsFromRoute({
-      startLocationId: locationA.id,
-      startLocationVersionId: 'ver-a',
       selectedRoute: [
+        routeDay1LocationA,
         {
           kind: 'LOCATION',
           locationId: locationB.id,
@@ -1135,9 +1123,8 @@ describe('route-autofill', () => {
 
   it('keeps the explicitly selected season version ahead of flight and date auto selection', () => {
     const rows = buildAutoRowsFromRoute({
-      startLocationId: locationA.id,
-      startLocationVersionId: 'ver-a',
       selectedRoute: [
+        routeDay1LocationA,
         {
           kind: 'LOCATION',
           locationId: locationB.id,
@@ -1167,9 +1154,8 @@ describe('route-autofill', () => {
 
   it('preserves segmentId in template stop payloads for day 2+', () => {
     const stops = buildTemplateStopsFromRouteAndRows({
-      startLocationId: locationA.id,
-      startLocationVersionId: 'ver-a',
       selectedRoute: [
+        routeDay1LocationA,
         {
           kind: 'LOCATION',
           locationId: locationB.id,
@@ -1219,9 +1205,8 @@ describe('route-autofill', () => {
 
   it('uses only multiDayBlock* fields in template stop payloads', () => {
     const stops = buildTemplateStopsFromRouteAndRows({
-      startLocationId: locationA.id,
-      startLocationVersionId: 'ver-a',
       selectedRoute: [
+        routeDay1LocationA,
         {
           kind: 'MULTI_DAY_BLOCK',
           multiDayBlockId: overnightStayB2.id,

@@ -85,6 +85,7 @@ import {
   buildNextOptions,
   findMultiDayBlockConnection,
   findSegment,
+  formatLocationVersion,
   formatMultiDayBlockConnectionVersionLabel,
   formatSegmentVersionLabel,
   getConsumedRouteDayCount,
@@ -93,6 +94,7 @@ import {
   getRouteDateForDayIndex,
   getRouteStopEndDayIndex,
   getRouteStopStartDayIndex,
+  isRouteSelectionStopComplete,
   getMultiDayBlockConnectionVersions,
   getSegmentVersions,
   resolveMultiDayBlockConnectionVersion,
@@ -2177,38 +2179,50 @@ function templateUsesEarlyFirstDay(input: {
   locationVersionById: Map<string, LocationVersionOption>;
 }): boolean {
   const orderedStops = sortTemplateStops(input.template.planStops);
-  const firstStop = orderedStops[0];
-  const startLocationId = firstStop?.locationId ?? '';
-  const startLocationVersionId = firstStop?.locationVersionId ?? '';
-  if (!startLocationId || !startLocationVersionId) {
+  const dayOrderedStops = Array.from({ length: input.template.totalDays }, (_, index) =>
+    orderedStops.find((stop) => stop.dayIndex === index + 1),
+  );
+  const route = buildSelectedRouteFromStops(
+    dayOrderedStops.map((stop) => ({
+      segmentId: stop?.segmentId,
+      segmentVersionId: stop?.segmentVersionId,
+      overnightStayId: stop?.overnightStayId,
+      overnightStayDayOrder: stop?.overnightStayDayOrder,
+      multiDayBlockId: stop?.multiDayBlockId,
+      multiDayBlockDayOrder: stop?.multiDayBlockDayOrder,
+      multiDayBlockConnectionId: stop?.multiDayBlockConnectionId,
+      multiDayBlockConnectionVersionId: stop?.multiDayBlockConnectionVersionId,
+      locationId: stop?.locationId,
+      locationVersionId: stop?.locationVersionId,
+    })),
+  );
+  if (route.length === 0 || !isRouteSelectionStopComplete(route[0]!)) {
     return false;
   }
 
+  const totalDays = Math.max(2, input.template.totalDays);
   const baseRows = buildAutoRowsFromRoute({
-    startLocationId,
-    startLocationVersionId,
-    selectedRoute: [],
+    selectedRoute: route,
     filteredSegments: [],
     filteredMultiDayBlocks: [],
     filteredMultiDayBlockConnections: [],
     locationById: input.locationById,
     locationVersionById: input.locationVersionById,
-    totalDays: Math.max(2, input.template.totalDays),
+    totalDays,
     variantType: VariantType.Basic,
   });
   const earlyRows = buildAutoRowsFromRoute({
-    startLocationId,
-    startLocationVersionId,
-    selectedRoute: [],
+    selectedRoute: route,
     filteredSegments: [],
     filteredMultiDayBlocks: [],
     filteredMultiDayBlockConnections: [],
     locationById: input.locationById,
     locationVersionById: input.locationVersionById,
-    totalDays: Math.max(2, input.template.totalDays),
+    totalDays,
     variantType: VariantType.Early,
   });
 
+  const firstStop = orderedStops[0];
   const templateTime = normalizeCellText(firstStop?.timeCellText);
   const templateSchedule = normalizeCellText(firstStop?.scheduleCellText);
   const basicTime = normalizeCellText(baseRows[0]?.timeCellText);
@@ -2392,8 +2406,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [rentalItemsText, setRentalItemsText] = useState<string>(buildDefaultRentalItems(6));
   const [eventIds, setEventIds] = useState<string[]>([]);
   const [remark, setRemark] = useState<string>('');
-  const [startLocationId, setStartLocationId] = useState<string>('');
-  const [startLocationVersionId, setStartLocationVersionId] = useState<string>('');
+
+
   const [selectedRoute, setSelectedRoute] = useState<RouteSelection[]>([]);
   const [isMultiDayBlockSectionOpen, setIsMultiDayBlockSectionOpen] = useState<boolean>(false);
   const [planRows, setPlanRows] = useState<PlanRow[]>([]);
@@ -2735,11 +2749,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     });
     setExtraLodgingCounts(nextExtraLodgingCounts);
 
-    setStartLocationId(firstStop.locationId ?? '');
-    setStartLocationVersionId(firstStop.locationVersionId ?? '');
     setSelectedRoute(
       buildSelectedRouteFromStops(
-        mainPlanStops.slice(1).map((stop) => ({
+        mainPlanStops.map((stop) => ({
           segmentId: stop.segmentId,
           segmentVersionId: stop.segmentVersionId,
           multiDayBlockId: stop.multiDayBlockId,
@@ -2997,7 +3009,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     [firstDayScopedLocations],
   );
 
-  const nextRouteDayIndex = 2 + getConsumedRouteDayCount(selectedRoute);
+  const nextRouteDayIndex = 1 + getConsumedRouteDayCount(selectedRoute);
   const nextRouteDate = useMemo(
     () =>
       travelStartDate ? getRouteDateForDayIndex(travelStartDate, nextRouteDayIndex) : undefined,
@@ -3010,7 +3022,6 @@ export function ItineraryBuilderPage(): JSX.Element {
         filteredLocations,
         filteredSegments,
         filteredMultiDayBlockConnections: filteredOvernightStayConnections,
-        startLocationId,
         selectedRoute,
         totalDays,
         variantType,
@@ -3022,7 +3033,6 @@ export function ItineraryBuilderPage(): JSX.Element {
       filteredSegments,
       nextRouteDate,
       selectedRoute,
-      startLocationId,
       totalDays,
       variantType,
     ],
@@ -3039,7 +3049,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
 
   const autoRows = useMemo((): PlanRow[] => {
-    if (!startLocationId || !startLocationVersionId) {
+    if (selectedRoute.length === 0 || !isRouteSelectionStopComplete(selectedRoute[0]!)) {
       return [];
     }
 
@@ -3054,8 +3064,6 @@ export function ItineraryBuilderPage(): JSX.Element {
         : undefined;
 
     const baseRows = buildAutoRowsFromRoute({
-      startLocationId,
-      startLocationVersionId,
       selectedRoute,
       filteredSegments,
       filteredMultiDayBlocks: filteredOvernightStays,
@@ -3086,8 +3094,6 @@ export function ItineraryBuilderPage(): JSX.Element {
     locationById,
     locationVersionById,
     selectedRoute,
-    startLocationId,
-    startLocationVersionId,
     totalDays,
     transportGroups,
     travelStartDate,
@@ -3394,8 +3400,6 @@ export function ItineraryBuilderPage(): JSX.Element {
         rentalItemsText.trim() === buildDefaultRentalItems(headcountTotal) &&
         eventIds.length === 0 &&
         !remark.trim() &&
-        !startLocationId &&
-        !startLocationVersionId &&
         selectedRoute.length === 0 &&
         planRows.length === 0 &&
         extraLodgingCounts.every((count) => count === 0) &&
@@ -3436,8 +3440,6 @@ export function ItineraryBuilderPage(): JSX.Element {
     routePresetTemplateId,
     selectedRoute.length,
     specialNote,
-    startLocationId,
-    startLocationVersionId,
     totalDays,
     transportGroups,
     travelEndDate,
@@ -3667,8 +3669,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
 
     const orderedStops = sortTemplateStops(template.planStops);
-    const firstStop = orderedStops[0];
-    if (!firstStop) {
+    if (orderedStops.length === 0) {
       return;
     }
 
@@ -3676,11 +3677,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     setSkipNextAutoRowsSync(true);
     setRegionSetId(template.regionSetId);
     setTotalDays(template.totalDays);
-    setStartLocationId(firstStop.locationId ?? '');
-    setStartLocationVersionId(firstStop.locationVersionId ?? '');
     setSelectedRoute(
       buildSelectedRouteFromStops(
-        orderedStops.slice(1).map((stop) => ({
+        orderedStops.map((stop) => ({
           segmentId: stop.segmentId,
           segmentVersionId: stop.segmentVersionId,
           overnightStayId: stop.overnightStayId,
@@ -3840,8 +3839,6 @@ export function ItineraryBuilderPage(): JSX.Element {
       const nextRegionSetId = draft.regionSetId ?? null;
       if (nextRegionSetId) {
         setRegionSetId(nextRegionSetId);
-        setStartLocationId('');
-        setStartLocationVersionId('');
         setSelectedRoute([]);
         dirtyPlanRowFieldKeysRef.current.clear();
         setPlanRows([]);
@@ -4052,7 +4049,6 @@ export function ItineraryBuilderPage(): JSX.Element {
   const validationResults = useBuilderValidation({
     planRows,
     selectedRoute,
-    startLocationId,
     filteredSegments,
     transportGroups,
     headcountTotal,
@@ -4096,9 +4092,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     leaderName.trim() &&
     validationErrors.length === 0 &&
     (includeRentalItems ? rentalItemsText.trim() : true) &&
-    startLocationId &&
-    startLocationVersionId &&
-    1 + getConsumedRouteDayCount(selectedRoute) === totalDays &&
+    selectedRoute.length > 0 &&
+    selectedRoute.every(isRouteSelectionStopComplete) &&
+    getConsumedRouteDayCount(selectedRoute) === totalDays &&
     planRows.length === totalDays &&
     (!isVersionMode ? planTitle.trim() : true),
   );
@@ -4927,8 +4923,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                             type="button"
                             onClick={() => {
                               setRegionSetId(set.id);
-                              setStartLocationId('');
-                              setStartLocationVersionId('');
                               setSelectedRoute([]);
                               dirtyPlanRowFieldKeysRef.current.clear();
                               setPlanRows([]);
@@ -5653,52 +5647,25 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </div>
 
                 <div className="mt-4 space-y-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <div className="text-sm font-medium">1일차 출발지</div>
-                    <p className="mt-1 text-xs text-slate-500">
-                      목적지중 첫날 가능 목적지만 나열됩니다
-                    </p>
-                    {startLocationId ? (
-                      <div className="mt-1 flex items-center justify-between gap-2">
-                        <div className="text-slate-700">
-                          <span className="whitespace-pre-line">
-                            {formatLocationNameMultiline(
-                              locationById.get(startLocationId)?.name ?? startLocationId,
-                            )}
-                          </span>
-                          {(variantType === VariantType.Early ||
-                            variantType === VariantType.EarlyExtend) && (
-                            <span className="ml-2 text-xs text-amber-700">(얼리 일정)</span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setStartLocationId('');
-                            setStartLocationVersionId('');
-                            setSelectedRoute([]);
-                            dirtyPlanRowFieldKeysRef.current.clear();
-                            setPlanRows([]);
-                            setIsMultiDayBlockSectionOpen(false);
-                          }}
-                          className="text-xs text-slate-500 underline"
-                        >
-                          변경
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="mt-1 text-xs text-slate-500">출발지를 선택해주세요.</div>
-                    )}
-                    {!startLocationId ? (
+                  {selectedRoute.length === 0 ? (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="text-sm font-medium">1일차 시작</div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        첫날 가능 목적지로 시작하거나, 연박/기차 블록으로 바로 시작할 수 있습니다.
+                      </p>
                       <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
                         {firstDayOptions.map((location) => (
                           <button
                             key={`start-${location.id}`}
                             type="button"
                             onClick={() => {
-                              setStartLocationId(location.id);
-                              setStartLocationVersionId(getDefaultVersionId(location));
-                              setSelectedRoute([]);
+                              setSelectedRoute([
+                                {
+                                  kind: 'LOCATION',
+                                  locationId: location.id,
+                                  locationVersionId: getDefaultVersionId(location),
+                                },
+                              ]);
                               setIsMultiDayBlockSectionOpen(false);
                             }}
                             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-100"
@@ -5709,13 +5676,84 @@ export function ItineraryBuilderPage(): JSX.Element {
                           </button>
                         ))}
                       </div>
-                    ) : null}
-                    {!startLocationId && firstDayOptions.length === 0 ? (
-                      <p className="mt-3 text-xs text-amber-700">
-                        첫날 가능으로 설정된 목적지가 없습니다.
-                      </p>
-                    ) : null}
-                  </div>
+                      {firstDayOptions.length === 0 ? (
+                        <p className="mt-3 text-xs text-amber-700">
+                          첫날 가능으로 설정된 목적지가 없습니다.
+                        </p>
+                      ) : null}
+                      <div
+                        className="mt-4 border-t border-slate-200 pt-4"
+                        role="group"
+                        aria-label="연속 일정 블록 선택"
+                      >
+                        {!isMultiDayBlockSectionOpen ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                              variant="outline"
+                              disabled={totalDays < 2}
+                              onClick={() => setIsMultiDayBlockSectionOpen(true)}
+                            >
+                              연박/기차로 시작
+                            </Button>
+                            {totalDays < 2 ? (
+                              <span className="text-xs text-slate-500">
+                                여행 일수가 2일 이상일 때 블록으로 시작할 수 있습니다.
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 text-xs font-semibold text-slate-700">연속 일정 블록</div>
+                              <button
+                                type="button"
+                                onClick={() => setIsMultiDayBlockSectionOpen(false)}
+                                className="shrink-0 text-xs text-slate-500 underline"
+                              >
+                                접기
+                              </button>
+                            </div>
+                            {overnightStayOptions.length > 0 ? (
+                              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 md:grid-cols-3">
+                                {overnightStayOptions.map((overnightStay) => (
+                                  <button
+                                    key={overnightStay.id}
+                                    type="button"
+                                    onClick={() => {
+                                      const sortedDays = overnightStay.days
+                                        .slice()
+                                        .sort((left, right) => left.dayOrder - right.dayOrder);
+                                      const lastDay = sortedDays[sortedDays.length - 1];
+                                      const lastLocationId =
+                                        lastDay?.displayLocationId ?? overnightStay.locationId;
+                                      const loc = locationById.get(lastLocationId);
+                                      setSelectedRoute([
+                                        {
+                                          kind: 'MULTI_DAY_BLOCK',
+                                          multiDayBlockId: overnightStay.id,
+                                          stayLength: overnightStay.days.length,
+                                          locationId: lastLocationId,
+                                          locationVersionId: getDefaultVersionId(loc) || '',
+                                        },
+                                      ]);
+                                      setIsMultiDayBlockSectionOpen(false);
+                                    }}
+                                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm hover:bg-slate-100"
+                                  >
+                                    {overnightStay.title}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-amber-700">
+                                선택 가능한 블록이 없습니다.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
 
                   {selectedRoute.map((stop, index) => {
                     const isLastSelectedStop = index === selectedRoute.length - 1;
@@ -5848,10 +5886,66 @@ export function ItineraryBuilderPage(): JSX.Element {
                           );
                         }
 
-                        const fromId =
-                          index === 0
-                            ? startLocationId
-                            : (selectedRoute[index - 1]?.locationId ?? '');
+                        if (startDayIndex === 1 && stop.kind === 'LOCATION') {
+                          const isLastDay = endDayIndex === totalDays;
+                          return (
+                            <>
+                              <div className="text-sm font-medium">1일차</div>
+                              <div className="mt-1 text-slate-700">
+                                <span className="whitespace-pre-line">
+                                  {resolveTemplateStopDisplayName(
+                                    stop.locationId,
+                                    startDayIndex,
+                                    locationById,
+                                    planRows,
+                                    templateStopByDayForDisplay.get(startDayIndex),
+                                  )}
+                                </span>
+                                {(variantType === VariantType.Early ||
+                                  variantType === VariantType.EarlyExtend) && (
+                                  <span className="ml-2 text-xs text-amber-700">(얼리 일정)</span>
+                                )}
+                                {isLastDay &&
+                                  (variantType === VariantType.Extend ||
+                                    variantType === VariantType.EarlyExtend) && (
+                                    <span className="ml-2 text-xs text-amber-700">(연장 일정)</span>
+                                  )}
+                              </div>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {(locationById.get(stop.locationId)?.variations ?? []).map((version) => {
+                                  const versionLabel = formatLocationVersion(version);
+                                  if (versionLabel === '기본' || !versionLabel) {
+                                    return null;
+                                  }
+                                  return (
+                                    <button
+                                      key={`route-version-first-${index}-${version.id}`}
+                                      type="button"
+                                      onClick={() =>
+                                        setSelectedRoute((prev) =>
+                                          prev.map((item, itemIndex) =>
+                                            itemIndex === index
+                                              ? { ...item, locationVersionId: version.id }
+                                              : item,
+                                          ),
+                                        )
+                                      }
+                                      className={`rounded-lg border px-3 py-1 text-xs ${
+                                        stop.locationVersionId === version.id
+                                          ? 'border-slate-900 bg-slate-900 text-white'
+                                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100'
+                                      }`}
+                                    >
+                                      {versionLabel}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          );
+                        }
+
+                        const fromId = selectedRoute[index - 1]?.locationId ?? '';
                         const segment = findSegment(filteredSegments, fromId, stop.locationId);
                         const versions = getSegmentVersions(segment);
                         const isLastDay = endDayIndex === totalDays;
@@ -5923,12 +6017,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                     );
                   })}
 
-                  {startLocationId &&
-                  startLocationVersionId &&
-                  1 + getConsumedRouteDayCount(selectedRoute) < totalDays ? (
+                  {selectedRoute.length > 0 &&
+                  selectedRoute.every(isRouteSelectionStopComplete) &&
+                  getConsumedRouteDayCount(selectedRoute) < totalDays ? (
                     <div className="rounded-2xl border border-dashed border-slate-300 p-4">
                       <div className="mb-3 text-sm font-medium">
-                        {2 + getConsumedRouteDayCount(selectedRoute)}일차 선택
+                        {getConsumedRouteDayCount(selectedRoute) + 1}일차 선택
                       </div>
                       <div className="grid gap-3">
                         <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
@@ -5958,10 +6052,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                     ];
                                   }
 
-                                  const fromId =
-                                    prev.length === 0
-                                      ? startLocationId
-                                      : (prev[prev.length - 1]?.locationId ?? '');
+                                  const fromId = prev[prev.length - 1]?.locationId ?? '';
                                   const segment = findSegment(
                                     filteredSegments,
                                     fromId,
@@ -6001,12 +6092,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                             <div className="flex flex-wrap items-center gap-2">
                               <Button
                                 variant="outline"
-                                disabled={totalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2}
+                                disabled={totalDays - getConsumedRouteDayCount(selectedRoute) < 2}
                                 onClick={() => setIsMultiDayBlockSectionOpen(true)}
                               >
                                 연박/기차 추가
                               </Button>
-                              {totalDays - (1 + getConsumedRouteDayCount(selectedRoute)) < 2 ? (
+                              {totalDays - getConsumedRouteDayCount(selectedRoute) < 2 ? (
                                 <span className="text-xs text-slate-500">
                                   남은 일수에 맞는 블록만 선택할 수 있습니다.
                                 </span>
@@ -6045,6 +6136,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                             locationVersionId: getDefaultVersionId(location) || '',
                                           },
                                         ]);
+                                        setIsMultiDayBlockSectionOpen(false);
                                       }}
                                       className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm hover:bg-slate-100"
                                     >
@@ -6064,12 +6156,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                     </div>
                   ) : null}
 
-                  {startLocationId || selectedRoute.length > 0 ? (
+                  {selectedRoute.length > 0 ? (
                     <button
                       type="button"
                       onClick={() => {
-                        setStartLocationId('');
-                        setStartLocationVersionId('');
                         setSelectedRoute([]);
                         dirtyPlanRowFieldKeysRef.current.clear();
                         setPlanRows([]);
