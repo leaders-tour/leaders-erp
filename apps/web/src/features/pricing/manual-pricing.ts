@@ -358,3 +358,42 @@ export function buildEffectivePricing<TLine extends PricingManualSourceLine>(
     teamPricings,
   };
 }
+
+/** 글로벌 요약 vs 팀 1개 요약 — 수동 줄이 팀 스코프만 있을 때 slice가 빌더·확정 카드와 동일한 금액 행이 된다 */
+type EffectivePricingTotalsSlice<TLine extends PricingManualSourceLine = PricingManualSourceLine> = Pick<
+  EffectivePricingResult<TLine>,
+  | 'baseAmountKrw'
+  | 'totalAmountKrw'
+  | 'depositAmountKrw'
+  | 'balanceAmountKrw'
+  | 'securityDepositAmountKrw'
+  | 'securityDepositUnitPriceKrw'
+  | 'securityDepositMode'
+>;
+
+export function sliceEffectiveTotalsForUi<TLine extends PricingManualSourceLine>(
+  effective: EffectivePricingResult<TLine>,
+): EffectivePricingTotalsSlice<TLine> {
+  const teams = effective.teamPricings ?? [];
+  if (teams.length === 1 && teams[0]) {
+    const t = teams[0];
+    return {
+      baseAmountKrw: t.baseAmountKrw,
+      totalAmountKrw: t.totalAmountKrw,
+      depositAmountKrw: t.depositAmountKrw,
+      balanceAmountKrw: t.balanceAmountKrw,
+      securityDepositAmountKrw: t.securityDepositAmountKrw,
+      securityDepositUnitPriceKrw: t.securityDepositUnitPriceKrw,
+      securityDepositMode: t.securityDepositMode,
+    };
+  }
+  return {
+    baseAmountKrw: effective.baseAmountKrw,
+    totalAmountKrw: effective.totalAmountKrw,
+    depositAmountKrw: effective.depositAmountKrw,
+    balanceAmountKrw: effective.balanceAmountKrw,
+    securityDepositAmountKrw: effective.securityDepositAmountKrw,
+    securityDepositUnitPriceKrw: effective.securityDepositUnitPriceKrw,
+    securityDepositMode: effective.securityDepositMode,
+  };
+}

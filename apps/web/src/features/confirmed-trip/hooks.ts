@@ -1,5 +1,8 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 
+import type { PlanVersionPricingRow } from '../plan/hooks';
+import { PLAN_VERSION_PRICING_EFFECTIVE_FIELDS_FRAGMENT } from '../plan/plan-version-pricing-fragment';
+
 // ── CalendarNote ──────────────────────────────────────────────────────────────
 
 export type CalendarNoteKind = 'GUEST_HOUSE' | 'PICKUP' | 'DROP' | 'CAMEL_DOLL' | 'CUSTOM';
@@ -211,12 +214,8 @@ export interface ConfirmedTripRow {
         customLodgingNameSnapshot: string | null;
       }>;
     } | null;
-    pricing: {
-      totalAmountKrw: number;
-      depositAmountKrw: number;
-      balanceAmountKrw: number;
-      securityDepositAmountKrw: number;
-    } | null;
+    planStops: Array<{ rowType?: 'MAIN' | 'EXTERNAL_TRANSFER' | null }>;
+    pricing: PlanVersionPricingRow | null;
   } | null;
   confirmedByEmployee: { id: string; name: string } | null;
   guide: { id: string; nameKo: string; nameMn: string | null; level: string; profileImageUrl: string | null } | null;
@@ -226,6 +225,7 @@ export interface ConfirmedTripRow {
 }
 
 export const CONFIRMED_TRIP_FRAGMENT = gql`
+  ${PLAN_VERSION_PRICING_EFFECTIVE_FIELDS_FRAGMENT}
   fragment ConfirmedTripFields on ConfirmedTrip {
     id
     userId
@@ -306,11 +306,11 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
           customLodgingNameSnapshot
         }
       }
+      planStops {
+        rowType
+      }
       pricing {
-        totalAmountKrw
-        depositAmountKrw
-        balanceAmountKrw
-        securityDepositAmountKrw
+        ...PlanVersionPricingEffectiveFields
       }
     }
     confirmedByEmployee {
@@ -345,7 +345,7 @@ const CONFIRMED_TRIPS_QUERY = gql`
   }
 `;
 
-const CONFIRMED_TRIP_QUERY = gql`
+export const CONFIRMED_TRIP_QUERY = gql`
   ${CONFIRMED_TRIP_FRAGMENT}
   query ConfirmedTrip($id: ID!) {
     confirmedTrip(id: $id) {
@@ -433,24 +433,38 @@ export function useUpdateConfirmedTrip() {
     UPDATE_CONFIRMED_TRIP_MUTATION,
   );
 
+  type UpdateConfirmedTripInput = {
+    guideName?: string | null;
+    driverName?: string | null;
+    guideId?: string | null;
+    driverId?: string | null;
+    assignedVehicle?: string | null;
+    accommodationNote?: string | null;
+    operationNote?: string | null;
+    status?: 'ACTIVE' | 'CANCELLED';
+    camelDollPurchased?: boolean;
+    pickupDate?: string | null;
+    dropDate?: string | null;
+    planVersionId?: string;
+    travelStart?: string | null;
+    travelEnd?: string | null;
+    destination?: string | null;
+    paxCount?: number | null;
+    rentalGear?: boolean;
+    rentalDrone?: boolean;
+    rentalStarlink?: boolean;
+    rentalPowerbank?: boolean;
+    isRecruitingOpen?: boolean;
+    depositAmountKrw?: number | null;
+    balanceAmountKrw?: number | null;
+    totalAmountKrw?: number | null;
+    securityDepositAmountKrw?: number | null;
+    groupTotalAmountKrw?: number | null;
+  };
+
   return {
     loading,
-    updateConfirmedTrip: async (
-      id: string,
-      input: {
-        guideName?: string | null;
-        driverName?: string | null;
-        guideId?: string | null;
-        driverId?: string | null;
-        assignedVehicle?: string | null;
-        accommodationNote?: string | null;
-        operationNote?: string | null;
-        status?: 'ACTIVE' | 'CANCELLED';
-        camelDollPurchased?: boolean;
-        pickupDate?: string | null;
-        dropDate?: string | null;
-      },
-    ): Promise<ConfirmedTripRow> => {
+    updateConfirmedTrip: async (id: string, input: UpdateConfirmedTripInput): Promise<ConfirmedTripRow> => {
       const result = await mutate({
         variables: { id, input },
         refetchQueries: [

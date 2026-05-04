@@ -8,7 +8,12 @@ export const confirmedTripInclude = {
   planVersion: {
     include: {
       meta: { include: { transportGroups: { orderBy: { orderIndex: 'asc' as const } } } },
-      pricing: true,
+      pricing: {
+        include: {
+          securityDepositEvent: true,
+          lines: { orderBy: { createdAt: 'asc' } },
+        },
+      },
       planStops: { orderBy: { id: 'asc' as const } },
       regionSet: true,
     },
@@ -211,6 +216,7 @@ export class ConfirmedTripRepository {
       totalAmountKrw: number | null;
       securityDepositAmountKrw: number | null;
       groupTotalAmountKrw: number | null;
+      planVersionId: string | null;
     }>,
   ) {
     return this.prisma.confirmedTrip.update({

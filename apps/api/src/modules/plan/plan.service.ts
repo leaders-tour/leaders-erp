@@ -13,6 +13,7 @@ import {
   userUpdateSchema,
 } from '@tour/validation';
 import { createValidationError, DomainError } from '../../lib/errors';
+import { FileStorageClient, type UploadFile } from '../../lib/file-storage/client';
 import { resolveRegionSetRegionIds } from '../../lib/resolve-region-set';
 import { PricingService } from '../pricing/pricing.service';
 import { PlanRepository } from './plan.repository';
@@ -41,6 +42,24 @@ type PlanStopRowType = 'MAIN' | 'EXTERNAL_TRANSFER';
 
 export class PlanService {
   constructor(private readonly prisma: PrismaClient) {}
+
+  private fileStorageClient: FileStorageClient | null = null;
+
+  private static readonly USER_ATTACHMENT_ALLOWED_MIMES = new Set([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'application/pdf',
+  ]);
+
+  private static readonly USER_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
+
+  private getFileStorageClient(): FileStorageClient {
+    if (!this.fileStorageClient) {
+      this.fileStorageClient = new FileStorageClient();
+    }
+    return this.fileStorageClient;
+  }
 
   private async validateOwnerEmployeeId(ownerEmployeeId: string | null | undefined): Promise<void> {
     if (!ownerEmployeeId) {
@@ -522,6 +541,29 @@ export class PlanService {
 
     await this.validateOwnerEmployeeId(parsed.data.ownerEmployeeId);
     return new PlanRepository(this.prisma).updateUser(id, parsed.data);
+  }
+
+  async uploadUserAttachment(userId: string, rawFile: UploadFile | Promise<UploadFile>) {
+    const existing = await new PlanRepository(this.prisma).findUserById(userId);
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'User not found');
+    }
+
+    const file = await Promise.resolve(rawFile);
+    if (!PlanService.USER_ATTACHMENT_ALLOWED_MIMES.has(file.mimetype)) {
+      throw new DomainError('VALIDATION_FAILED', `Unsupported file type: ${file.mimetype}`);
+    }
+
+    const client = this.getFileStorageClient();
+    const sanitizedOriginal = file.filename.replace(/[^\w.-]+/g, '_').slice(-120);
+    const storageFilename = `user-att-${userId.slice(0, 12)}-${Date.now()}-${sanitizedOriginal || 'file'}`;
+
+    const url = await client.uploadImage(
+      { ...file, filename: storageFilename },
+      PlanService.USER_ATTACHMENT_MAX_BYTES,
+    );
+    const type = file.mimetype === 'application/pdf' ? 'pdf' : 'image';
+    return { filename: file.filename, url, type };
   }
 
   deleteUser(id: string) {

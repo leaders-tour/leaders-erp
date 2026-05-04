@@ -1,5 +1,5 @@
 import { mergeLodgingSelectionDisplayLines } from '../../pricing/merge-lodging-selection-display';
-import { buildEffectivePricing } from '../../pricing/manual-pricing';
+import { buildEffectivePricing, sliceEffectiveTotalsForUi } from '../../pricing/manual-pricing';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
 import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
 import type { PlanVersionDetail } from '../../plan/hooks';
@@ -32,8 +32,10 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
         version.pricing.savedManualDepositAmountKrw ?? undefined,
       )
     : null;
-  const pricingBuckets = pricing ? buildPricingViewBuckets(pricing.lines, pricing.totalAmountKrw) : null;
-  const basePricePerPersonKrw = pricingBuckets?.baseTotal ?? pricing?.baseAmountKrw ?? null;
+  const pricingTotals = pricing ? sliceEffectiveTotalsForUi(pricing) : null;
+  const pricingBuckets =
+    pricing && pricingTotals ? buildPricingViewBuckets(pricing.lines, pricingTotals.totalAmountKrw) : null;
+  const basePricePerPersonKrw = pricingBuckets?.baseTotal ?? pricingTotals?.baseAmountKrw ?? null;
   const externalTransfers = meta?.externalTransfers ?? [];
   const externalPickupTextFromTransfers = buildExternalTransferDirectionText(externalTransfers, meta?.transportGroups, 'PICKUP');
   const externalDropTextFromTransfers = buildExternalTransferDirectionText(externalTransfers, meta?.transportGroups, 'DROP');
@@ -152,12 +154,12 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
         securityDepositUnitKrw: teamPricing.securityDepositUnitPriceKrw,
         securityDepositScope: toSecurityDepositScope(teamPricing.securityDepositMode),
       })) ?? [],
-    totalPricePerPersonKrw: pricing?.totalAmountKrw ?? null,
-    depositPricePerPersonKrw: pricing?.depositAmountKrw ?? null,
-    balancePricePerPersonKrw: pricing?.balanceAmountKrw ?? null,
-    securityDepositTotalKrw: pricing?.securityDepositAmountKrw ?? null,
-    securityDepositUnitKrw: pricing?.securityDepositUnitPriceKrw ?? null,
-    securityDepositScope: pricing ? toSecurityDepositScope(pricing.securityDepositMode) : '-',
+    totalPricePerPersonKrw: pricingTotals?.totalAmountKrw ?? null,
+    depositPricePerPersonKrw: pricingTotals?.depositAmountKrw ?? null,
+    balancePricePerPersonKrw: pricingTotals?.balanceAmountKrw ?? null,
+    securityDepositTotalKrw: pricingTotals?.securityDepositAmountKrw ?? null,
+    securityDepositUnitKrw: pricingTotals?.securityDepositUnitPriceKrw ?? null,
+    securityDepositScope: pricingTotals ? toSecurityDepositScope(pricingTotals.securityDepositMode) : '-',
     validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
     movementIntensity: version.movementIntensity ?? null,
     planStops: version.planStops.map((row) => ({

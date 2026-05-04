@@ -20,6 +20,7 @@ import type {
   EstimateTransportGroup,
 } from '../features/estimate/model/types';
 import { useAuth } from '../features/auth/context';
+import { useUpdateConfirmedTrip } from '../features/confirmed-trip/hooks';
 import {
   formatLocationNameInline,
   formatLocationNameMultiline,
@@ -113,7 +114,7 @@ import {
   type ManualAdjustmentDraftRow,
   type ManualAdjustmentPresetOption,
 } from '../features/pricing/components/ManualAdjustmentsModal';
-import { buildEffectivePricing, type PricingAdjustmentLineRow } from '../features/pricing/manual-pricing';
+import { buildEffectivePricing, sliceEffectiveTotalsForUi, type PricingAdjustmentLineRow, type EffectivePricingResult } from '../features/pricing/manual-pricing';
 import { MealOption, VariantType } from '../generated/graphql';
 import type { ConsultationDraft } from '../generated/graphql';
 import { usePlanVersionDetail } from '../features/plan/hooks';
@@ -595,11 +596,37 @@ function createManualPricingLineId(): string {
   return `manual-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** 상태에 정수 요약이 있으면 우선하고, 비어 있을 때만 effective(등) 폴백을 씁니다 — 저장 시 계산값이 수동 입력을 덮어쓰지 않도록 */
+function mergeManualPricingSummaryFields(
+  stateSummary: ManualPricingSummaryState | null | undefined,
+  fallback: ManualPricingSummaryState | null | undefined,
+): ManualPricingSummaryState | null {
+  const pick = (k: keyof ManualPricingSummaryState): number | null => {
+    const sv = stateSummary?.[k];
+    if (typeof sv === 'number' && Number.isInteger(sv)) return sv;
+    const fv = fallback?.[k];
+    if (typeof fv === 'number' && Number.isInteger(fv)) return fv;
+    return null;
+  };
+
+  const merged: ManualPricingSummaryState = {
+    baseAmountKrw: pick('baseAmountKrw'),
+    totalAmountKrw: pick('totalAmountKrw'),
+    depositAmountKrw: pick('depositAmountKrw'),
+    balanceAmountKrw: pick('balanceAmountKrw'),
+    securityDepositAmountKrw: pick('securityDepositAmountKrw'),
+  };
+
+  const hasAny = Object.values(merged).some((v) => v !== null);
+  return hasAny ? merged : null;
+}
+
 function toManualPricingSnapshot(
   value: ManualPricingState,
-  summary?: ManualPricingSummaryState | null,
+  summaryFallback?: ManualPricingSummaryState | null,
 ): PricingManualSnapshot {
-  const resolvedSummary = summary ?? value.summary ?? null;
+  const stateSummary = value.summary && typeof value.summary === 'object' ? value.summary : null;
+  const merged = mergeManualPricingSummaryFields(stateSummary, summaryFallback);
   return {
     enabled: value.enabled,
     adjustmentLines: value.adjustmentLines.map((row) => ({
@@ -614,19 +641,13 @@ function toManualPricingSnapshot(
       deleted: row.deleted === true,
     })),
     summary:
-      resolvedSummary && typeof resolvedSummary === 'object'
+      merged
         ? {
-            baseAmountKrw: Number.isInteger(resolvedSummary.baseAmountKrw) ? resolvedSummary.baseAmountKrw : null,
-            totalAmountKrw: Number.isInteger(resolvedSummary.totalAmountKrw) ? resolvedSummary.totalAmountKrw : null,
-            depositAmountKrw: Number.isInteger(resolvedSummary.depositAmountKrw)
-              ? resolvedSummary.depositAmountKrw
-              : null,
-            balanceAmountKrw: Number.isInteger(resolvedSummary.balanceAmountKrw)
-              ? resolvedSummary.balanceAmountKrw
-              : null,
-            securityDepositAmountKrw: Number.isInteger(resolvedSummary.securityDepositAmountKrw)
-              ? resolvedSummary.securityDepositAmountKrw
-              : null,
+            baseAmountKrw: merged.baseAmountKrw ?? null,
+            totalAmountKrw: merged.totalAmountKrw ?? null,
+            depositAmountKrw: merged.depositAmountKrw ?? null,
+            balanceAmountKrw: merged.balanceAmountKrw ?? null,
+            securityDepositAmountKrw: merged.securityDepositAmountKrw ?? null,
           }
         : null,
     teamSummaries: (value.teamSummaries ?? []).map((summary) => ({
@@ -2456,6 +2477,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const userId = searchParams.get('userId') ?? '';
   const planId = searchParams.get('planId') ?? '';
   const parentVersionId = searchParams.get('parentVersionId') ?? '';
+  const confirmedTripId = searchParams.get('confirmedTripId') ?? '';
   const initialChangeNote = searchParams.get('changeNote') ?? '';
   const initialTemplateId = searchParams.get('templateId') ?? '';
 
@@ -2659,8 +2681,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [createUser, { loading: creatingUser }] = useMutation<{ createUser: UserRow }>(
     CREATE_USER_MUTATION,
   );
+  const { updateConfirmedTrip, loading: confirmingTripVersion } = useUpdateConfirmedTrip();
 
-  const creating = creatingPlan || creatingVersion;
+  const creating = creatingPlan || creatingVersion || confirmingTripVersion;
 
   const regionSets = regionSetData?.regionSets ?? [];
   const locations = locationData?.locations ?? [];
@@ -4147,18 +4170,16 @@ export function ItineraryBuilderPage(): JSX.Element {
       normalizedManualDepositAmountKrw,
     ) as unknown as EffectivePricingRow;
   }, [normalizedManualDepositAmountKrw, normalizedManualPricing, pricingPreview, pricingPreviewContext]);
-  const serializedManualPricingSnapshot = useMemo(
-    () =>
-      normalizedManualPricing.enabled && effectivePricingPreview
-        ? toManualPricingSnapshot(normalizedManualPricing, {
-            totalAmountKrw: effectivePricingPreview.totalAmountKrw,
-            depositAmountKrw: effectivePricingPreview.depositAmountKrw,
-            balanceAmountKrw: effectivePricingPreview.balanceAmountKrw,
-            securityDepositAmountKrw: effectivePricingPreview.securityDepositAmountKrw,
-          })
-        : undefined,
-    [effectivePricingPreview, normalizedManualPricing],
-  );
+  const serializedManualPricingSnapshot = useMemo(() => {
+    if (!normalizedManualPricing.enabled) {
+      return undefined;
+    }
+    if (!effectivePricingPreview) {
+      return toManualPricingSnapshot(normalizedManualPricing);
+    }
+    const totals = sliceEffectiveTotalsForUi(effectivePricingPreview as EffectivePricingResult);
+    return toManualPricingSnapshot(normalizedManualPricing, totals);
+  }, [effectivePricingPreview, normalizedManualPricing]);
   const hiddenManualPricingAutoLines = useMemo(
     () =>
       normalizedManualPricing.adjustmentLines.filter(
@@ -4905,6 +4926,22 @@ export function ItineraryBuilderPage(): JSX.Element {
                       const createdVersionId = result.data?.createPlanVersion.id ?? '';
                       setCreatedId(createdVersionId);
                       if (createdVersionId) {
+                        if (confirmedTripId) {
+                          try {
+                            await updateConfirmedTrip(confirmedTripId, {
+                              planVersionId: createdVersionId,
+                            });
+                          } catch (error) {
+                            window.alert(
+                              error instanceof Error
+                                ? error.message
+                                : '확정 건 견적 버전 갱신에 실패했습니다.',
+                            );
+                            return;
+                          }
+                          navigate(`/confirmed-trips/${confirmedTripId}`);
+                          return;
+                        }
                         navigate(`/plans/${planId}/versions/${createdVersionId}`);
                       }
                       return;

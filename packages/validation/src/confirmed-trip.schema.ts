@@ -38,6 +38,7 @@ export const confirmTripSchema = z.object({
 });
 
 export const confirmedTripUpdateSchema = z.object({
+  planVersionId: z.string().min(1).optional(),
   guideName: z.string().max(200).nullable().optional(),
   driverName: z.string().max(200).nullable().optional(),
   assignedVehicle: z.string().max(200).nullable().optional(),

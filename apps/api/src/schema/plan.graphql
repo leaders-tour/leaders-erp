@@ -4,6 +4,12 @@ type UserAttachment {
   type: String!
 }
 
+input UserAttachmentInput {
+  filename: String!
+  url: String!
+  type: String!
+}
+
 type UserConfirmedTripSummary {
   id: ID!
   status: ConfirmedTripStatus!
@@ -662,6 +668,7 @@ input UserUpdateInput {
   ownerEmployeeId: String
   dealStage: DealStage
   dealStageOrder: Int
+  attachments: [UserAttachmentInput!]
 }
 
 input DealPipelineCardUpdateInput {

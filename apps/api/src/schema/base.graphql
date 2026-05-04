@@ -113,6 +113,7 @@ type Mutation {
 
   createUser(input: UserCreateInput!): User!
   updateUser(id: ID!, input: UserUpdateInput!): User!
+  uploadUserAttachment(userId: ID!, file: Upload!): UserAttachment!
   reorderDealPipeline(input: DealPipelineReorderInput!): Boolean!
   createUserNote(input: UserNoteCreateInput!): UserNote!
   updateUserDealTodoStatus(id: ID!, status: DealTodoStatus!): UserDealTodo!

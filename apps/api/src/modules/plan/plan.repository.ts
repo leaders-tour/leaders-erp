@@ -225,7 +225,16 @@ export class PlanRepository {
   }
 
   updateUser(id: string, data: UserUpdateDto) {
-    return this.prisma.user.update({ where: { id }, data });
+    const payload = Object.fromEntries(
+      Object.entries(data as Record<string, unknown>).filter(([, value]) => value !== undefined),
+    ) as Record<string, unknown>;
+    if (payload.attachments !== undefined) {
+      payload.attachments = payload.attachments as Prisma.InputJsonValue;
+    }
+    return this.prisma.user.update({
+      where: { id },
+      data: payload as Prisma.UserUpdateInput,
+    });
   }
 
   createUserNote(data: UserNoteCreateDto) {

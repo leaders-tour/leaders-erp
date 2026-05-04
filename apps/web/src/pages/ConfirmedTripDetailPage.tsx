@@ -1,5 +1,5 @@
 import { Button, Card } from '@tour/ui';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -15,6 +15,9 @@ pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.vers
 // pdf-proxy 엔드포인트 base (GRAPHQL_URL과 동일 서버)
 const PDF_PROXY_BASE = GRAPHQL_URL.replace(/\/graphql$/, '');
 
+import { toSecurityDepositScope } from '../features/estimate/utils/format';
+import { buildEffectivePricing, sliceEffectiveTotalsForUi } from '../features/pricing/manual-pricing';
+import { countMainPlanStopRows } from '../features/plan/plan-stop-row';
 import {
   useConfirmedTrip,
   useUpdateConfirmedTrip,
@@ -27,14 +30,25 @@ import {
   getTripPickupDate,
   getTripDropDate,
 } from '../features/confirmed-trip/hooks';
-import { useGuides } from '../features/guide/hooks';
-import { useDrivers } from '../features/driver/hooks';
 import { LodgingSection } from '../features/confirmed-trip/LodgingSection';
+import { useUpdateUser, useUploadUserAttachment } from '../features/plan/hooks';
 
 interface AttachmentItem {
   filename: string;
   url: string;
   type: string;
+}
+
+function toDateInputValue(iso: string | null | undefined): string {
+  if (!iso) return '';
+  return iso.split('T')[0] ?? '';
+}
+
+function parseNullableInt(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === '') return null;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
 function PdfPageViewer({ url, filename }: { url: string; filename: string }) {
@@ -329,24 +343,9 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { tripId } = useParams<{ tripId: string }>();
   const { trip, loading } = useConfirmedTrip(tripId);
-  const { updateConfirmedTrip, loading: updating } = useUpdateConfirmedTrip();
+  const { updateConfirmedTrip } = useUpdateConfirmedTrip();
   const { cancelConfirmedTrip, loading: cancelling } = useCancelConfirmedTrip();
 
-  const { guides } = useGuides({ status: 'ACTIVE_SEASON' });
-  const { drivers } = useDrivers({ status: 'ACTIVE_SEASON' });
-
-  const [editing, setEditing] = useState(false);
-  const [guideName, setGuideName] = useState('');
-  const [driverName, setDriverName] = useState('');
-  const [guideId, setGuideId] = useState<string | null>(null);
-  const [driverId, setDriverId] = useState<string | null>(null);
-  const [guideManual, setGuideManual] = useState(false);
-  const [driverManual, setDriverManual] = useState(false);
-  const [assignedVehicle, setAssignedVehicle] = useState('');
-  const [accommodationNote, setAccommodationNote] = useState('');
-  const [operationNote, setOperationNote] = useState('');
-
-  // 낙타인형 구매 — 독립 상태
   const [camelDollSaving, setCamelDollSaving] = useState(false);
 
   // 픽드랍 — 독립 상태
@@ -354,6 +353,49 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const [dropDateEdit, setDropDateEdit] = useState<string>('');
   const [pickupDropEditing, setPickupDropEditing] = useState(false);
   const [pickupDropSaving, setPickupDropSaving] = useState(false);
+
+  const { updateUser } = useUpdateUser();
+  const { uploadUserAttachment, loading: uploadingUserAttachment } = useUploadUserAttachment();
+
+  const [directEditOpen, setDirectEditOpen] = useState(false);
+  const [directEditSaving, setDirectEditSaving] = useState(false);
+  const [mTravelStart, setMTravelStart] = useState('');
+  const [mTravelEnd, setMTravelEnd] = useState('');
+  const [mPickup, setMPickup] = useState('');
+  const [mDrop, setMDrop] = useState('');
+  const [mDestination, setMDestination] = useState('');
+  const [mPaxCount, setMPaxCount] = useState('');
+  const [mRentalGear, setMRentalGear] = useState(false);
+  const [mRentalDrone, setMRentalDrone] = useState(false);
+  const [mRentalStarlink, setMRentalStarlink] = useState(false);
+  const [mRentalPowerbank, setMRentalPowerbank] = useState(false);
+  const [mRecruiting, setMRecruiting] = useState(false);
+  const [mDeposit, setMDeposit] = useState('');
+  const [mBalance, setMBalance] = useState('');
+  const [mTotal, setMTotal] = useState('');
+  const [mSecurityDeposit, setMSecurityDeposit] = useState('');
+  const [mGroupTotal, setMGroupTotal] = useState('');
+  const [mAttachments, setMAttachments] = useState<AttachmentItem[]>([]);
+
+  const planVersionForPricing = trip?.planVersion ?? null;
+  const planVersionPricingRaw = planVersionForPricing?.pricing ?? null;
+  const effectivePlanPricing = useMemo(() => {
+    if (!planVersionForPricing || !planVersionPricingRaw) return null;
+    const counted = countMainPlanStopRows(planVersionForPricing.planStops ?? []);
+    const totalDays =
+      counted > 0 ? counted : planVersionForPricing.totalDays > 0 ? planVersionForPricing.totalDays : 1;
+    return buildEffectivePricing(
+      planVersionPricingRaw,
+      { headcountTotal: planVersionForPricing.meta?.headcountTotal ?? 0, totalDays },
+      planVersionPricingRaw.manualPricing ?? null,
+      planVersionPricingRaw.savedManualDepositAmountKrw ?? undefined,
+    );
+  }, [planVersionForPricing, planVersionPricingRaw]);
+
+  const effectiveTotalsForCard = useMemo(
+    () => (effectivePlanPricing ? sliceEffectiveTotalsForUi(effectivePlanPricing) : null),
+    [effectivePlanPricing],
+  );
 
   if (!tripId) {
     return <section className="py-8 text-sm text-slate-600">잘못된 접근입니다.</section>;
@@ -382,53 +424,6 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     }
     return null;
   })();
-
-  const startEditMode = () => {
-    const hasGuideEntity = !!trip.guide;
-    const hasDriverEntity = !!trip.driver;
-    setGuideId(trip.guide?.id ?? null);
-    setDriverId(trip.driver?.id ?? null);
-    setGuideName(trip.guideName ?? '');
-    setDriverName(trip.driverName ?? '');
-    setGuideManual(!hasGuideEntity);
-    setDriverManual(!hasDriverEntity);
-    setAssignedVehicle(trip.assignedVehicle ?? '');
-    setAccommodationNote(trip.accommodationNote ?? '');
-    setOperationNote(trip.operationNote ?? '');
-    setEditing(true);
-  };
-
-  const handleSave = async () => {
-    try {
-      const resolvedGuideId = guideManual ? null : guideId;
-      const resolvedDriverId = driverManual ? null : driverId;
-
-      let resolvedGuideName = guideName.trim() || null;
-      let resolvedDriverName = driverName.trim() || null;
-
-      if (!guideManual && resolvedGuideId) {
-        const g = guides.find((x) => x.id === resolvedGuideId);
-        if (g) resolvedGuideName = g.nameKo;
-      }
-      if (!driverManual && resolvedDriverId) {
-        const d = drivers.find((x) => x.id === resolvedDriverId);
-        if (d) resolvedDriverName = d.nameMn;
-      }
-
-      await updateConfirmedTrip(tripId, {
-        guideName: resolvedGuideName,
-        driverName: resolvedDriverName,
-        guideId: resolvedGuideId,
-        driverId: resolvedDriverId,
-        assignedVehicle: assignedVehicle.trim() || null,
-        accommodationNote: accommodationNote.trim() || null,
-        operationNote: operationNote.trim() || null,
-      });
-      setEditing(false);
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
-    }
-  };
 
   const handleCancel = async () => {
     if (!window.confirm('정말 이 확정 건을 취소하시겠습니까?')) return;
@@ -480,6 +475,68 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const hasPdf = pdfAttachments.length > 0;
   const showRightPanel = isPlanTrip || hasPdf;
 
+  const openDirectEditModal = () => {
+    setMTravelStart(toDateInputValue(getTripStartDate(trip)));
+    setMTravelEnd(toDateInputValue(getTripEndDate(trip)));
+    setMPickup(toDateInputValue(getTripPickupDate(trip)));
+    setMDrop(toDateInputValue(getTripDropDate(trip)));
+    setMDestination(getTripDestination(trip) || '');
+    setMPaxCount(getTripHeadcount(trip) != null ? String(getTripHeadcount(trip)) : '');
+    setMRentalGear(trip.rentalGear);
+    setMRentalDrone(trip.rentalDrone);
+    setMRentalStarlink(trip.rentalStarlink);
+    setMRentalPowerbank(trip.rentalPowerbank);
+    setMRecruiting(trip.isRecruitingOpen);
+    setMDeposit(trip.depositAmountKrw != null ? String(trip.depositAmountKrw) : '');
+    setMBalance(trip.balanceAmountKrw != null ? String(trip.balanceAmountKrw) : '');
+    setMTotal(trip.totalAmountKrw != null ? String(trip.totalAmountKrw) : '');
+    setMSecurityDeposit(trip.securityDepositAmountKrw != null ? String(trip.securityDepositAmountKrw) : '');
+    setMGroupTotal(trip.groupTotalAmountKrw != null ? String(trip.groupTotalAmountKrw) : '');
+    setMAttachments(trip.user.attachments.map((a) => ({ ...a })));
+    setDirectEditOpen(true);
+  };
+
+  const handleDirectEditSave = async () => {
+    setDirectEditSaving(true);
+    try {
+      await updateConfirmedTrip(tripId, {
+        travelStart: mTravelStart.trim() || null,
+        travelEnd: mTravelEnd.trim() || null,
+        pickupDate: mPickup.trim() || null,
+        dropDate: mDrop.trim() || null,
+        destination: mDestination.trim() || null,
+        paxCount: parseNullableInt(mPaxCount),
+        rentalGear: mRentalGear,
+        rentalDrone: mRentalDrone,
+        rentalStarlink: mRentalStarlink,
+        rentalPowerbank: mRentalPowerbank,
+        isRecruitingOpen: mRecruiting,
+        depositAmountKrw: parseNullableInt(mDeposit),
+        balanceAmountKrw: parseNullableInt(mBalance),
+        totalAmountKrw: parseNullableInt(mTotal),
+        securityDepositAmountKrw: parseNullableInt(mSecurityDeposit),
+        groupTotalAmountKrw: parseNullableInt(mGroupTotal),
+      });
+
+      await updateUser(
+        trip.user.id,
+        {
+          attachments: mAttachments.map((a) => ({
+            filename: a.filename,
+            url: a.url,
+            type: (a.type === 'pdf' ? 'pdf' : 'image') as 'pdf' | 'image',
+          })),
+        },
+        { refetchConfirmedTripId: tripId },
+      );
+      setDirectEditOpen(false);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
+    } finally {
+      setDirectEditSaving(false);
+    }
+  };
+
   return (
     <section className="grid gap-6">
       <header className="flex items-start justify-between gap-3">
@@ -511,9 +568,32 @@ export function ConfirmedTripDetailPage(): JSX.Element {
               견적서 상세
             </Button>
           ) : null}
-          {trip.status === 'ACTIVE' && !editing ? (
-            <Button variant="primary" onClick={startEditMode}>
-              운영 정보 편집
+          {trip.status === 'ACTIVE' ? (
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (isPlanTrip) {
+                  if (
+                    !window.confirm(
+                      '확정 견적의 일정을 바꾸려면 일정 빌더에서 새 버전을 만듭니다. 저장 시 이 확정 건이 가리키는 견적 버전만 바뀌며, 기존에 입력한 숙소·운영 배정은 그대로 둡니다. 계속할까요?',
+                    )
+                  ) {
+                    return;
+                  }
+                  const params = new URLSearchParams({
+                    userId: trip.userId,
+                    planId: trip.planId!,
+                    parentVersionId: trip.planVersionId!,
+                    confirmedTripId: trip.id,
+                    changeNote: '확정 일정 수정',
+                  });
+                  navigate(`/itinerary-builder?${params.toString()}`);
+                  return;
+                }
+                openDirectEditModal();
+              }}
+            >
+              수정
             </Button>
           ) : null}
           {trip.status === 'ACTIVE' ? (
@@ -627,22 +707,42 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                 <div>
                   <span className="text-slate-500">총액</span>
                   <p className="text-lg font-semibold text-slate-900">
-                    {formatKrw(pricing.totalAmountKrw)}
+                    {formatKrw(
+                      effectiveTotalsForCard?.totalAmountKrw ?? pricing.totalAmountKrw,
+                    )}
                   </p>
                 </div>
                 <div>
                   <span className="text-slate-500">보증금</span>
-                  <p className="font-medium">{formatKrw(pricing.securityDepositAmountKrw)}</p>
+                  <p className="font-medium">
+                    {effectiveTotalsForCard &&
+                    toSecurityDepositScope(effectiveTotalsForCard.securityDepositMode) !== '-'
+                      ? `${formatKrw(effectiveTotalsForCard.securityDepositUnitPriceKrw)} (${toSecurityDepositScope(
+                          effectiveTotalsForCard.securityDepositMode,
+                        )})`
+                      : formatKrw(
+                          effectiveTotalsForCard?.securityDepositAmountKrw ??
+                            pricing.securityDepositAmountKrw,
+                        )}
+                  </p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <span className="text-slate-500">예약금</span>
-                  <p className="font-medium">{formatKrw(pricing.depositAmountKrw)}</p>
+                  <p className="font-medium">
+                    {formatKrw(
+                      effectiveTotalsForCard?.depositAmountKrw ?? pricing.depositAmountKrw,
+                    )}
+                  </p>
                 </div>
                 <div>
                   <span className="text-slate-500">잔금</span>
-                  <p className="font-medium">{formatKrw(pricing.balanceAmountKrw)}</p>
+                  <p className="font-medium">
+                    {formatKrw(
+                      effectiveTotalsForCard?.balanceAmountKrw ?? pricing.balanceAmountKrw,
+                    )}
+                  </p>
                 </div>
               </div>
             </div>
@@ -798,137 +898,17 @@ export function ConfirmedTripDetailPage(): JSX.Element {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900">운영정보 (가이드/기사/숙소)</h2>
           <div className="flex gap-2">
-            {!editing && trip.status === 'ACTIVE' && (
+            {trip.status === 'ACTIVE' ? (
               <Button
                 variant="primary"
                 onClick={() => navigate(`/confirmed-trips/${tripId}/assign`)}
               >
                 배정하기
               </Button>
-            )}
-            {editing ? (
-              <>
-                <Button variant="outline" onClick={() => setEditing(false)} disabled={updating}>
-                  취소
-                </Button>
-                <Button variant="primary" onClick={handleSave} disabled={updating}>
-                  {updating ? '저장 중...' : '저장'}
-                </Button>
-              </>
             ) : null}
           </div>
         </div>
-        {editing ? (
-          <div className="grid gap-4 text-sm md:grid-cols-2">
-            {/* 가이드 */}
-            <div className="grid gap-1">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">가이드</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setGuideManual((prev) => !prev);
-                    setGuideId(null);
-                    setGuideName('');
-                  }}
-                  className="text-xs text-blue-500 hover:underline"
-                >
-                  {guideManual ? '마스터에서 선택' : '직접 입력'}
-                </button>
-              </div>
-              {guideManual ? (
-                <input
-                  className="rounded-xl border border-slate-200 px-3 py-2"
-                  value={guideName}
-                  onChange={(e) => setGuideName(e.target.value)}
-                  placeholder="가이드 이름 직접 입력"
-                />
-              ) : (
-                <select
-                  className="rounded-xl border border-slate-200 px-3 py-2 bg-white"
-                  value={guideId ?? ''}
-                  onChange={(e) => setGuideId(e.target.value || null)}
-                >
-                  <option value="">가이드 선택</option>
-                  {guides.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.nameKo} ({g.level})
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            {/* 기사 */}
-            <div className="grid gap-1">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">기사</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDriverManual((prev) => !prev);
-                    setDriverId(null);
-                    setDriverName('');
-                  }}
-                  className="text-xs text-blue-500 hover:underline"
-                >
-                  {driverManual ? '마스터에서 선택' : '직접 입력'}
-                </button>
-              </div>
-              {driverManual ? (
-                <input
-                  className="rounded-xl border border-slate-200 px-3 py-2"
-                  value={driverName}
-                  onChange={(e) => setDriverName(e.target.value)}
-                  placeholder="기사 이름 직접 입력"
-                />
-              ) : (
-                <select
-                  className="rounded-xl border border-slate-200 px-3 py-2 bg-white"
-                  value={driverId ?? ''}
-                  onChange={(e) => setDriverId(e.target.value || null)}
-                >
-                  <option value="">기사 선택</option>
-                  {drivers.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.nameMn} ({d.vehicleType})
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-            <label className="grid gap-1">
-              <span className="text-slate-500">배차 차량</span>
-              <input
-                className="rounded-xl border border-slate-200 px-3 py-2"
-                value={assignedVehicle}
-                onChange={(e) => setAssignedVehicle(e.target.value)}
-                placeholder="실제 배차 차량"
-              />
-            </label>
-            <label className="grid gap-1 md:col-span-2">
-              <span className="text-slate-500">숙소 확정 메모</span>
-              <textarea
-                className="rounded-xl border border-slate-200 px-3 py-2"
-                rows={3}
-                value={accommodationNote}
-                onChange={(e) => setAccommodationNote(e.target.value)}
-                placeholder="확정된 숙소 정보를 기록하세요"
-              />
-            </label>
-            <label className="grid gap-1 md:col-span-2">
-              <span className="text-slate-500">운영 비고</span>
-              <textarea
-                className="rounded-xl border border-slate-200 px-3 py-2"
-                rows={3}
-                value={operationNote}
-                onChange={(e) => setOperationNote(e.target.value)}
-                placeholder="내부 운영 메모"
-              />
-            </label>
-          </div>
-        ) : (
-          <div className="grid gap-4 text-sm text-slate-700 sm:grid-cols-2">
+        <div className="grid gap-4 text-sm text-slate-700 sm:grid-cols-2">
             {/* 가이드 */}
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
@@ -996,8 +976,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                 <p className="whitespace-pre-wrap font-medium">{trip.operationNote}</p>
               </div>
             ) : null}
-          </div>
-        )}
+        </div>
         {/* 구분선 + 숙소 */}
         <div className="mt-5 pt-4 border-t border-slate-100">
           <LodgingSection
@@ -1056,6 +1035,222 @@ export function ConfirmedTripDetailPage(): JSX.Element {
         </div>
       )}
       </div>{/* end outer grid */}
+
+      {directEditOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 overflow-y-auto">
+          <Card className="my-8 w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-5 shadow-xl max-h-[calc(100vh-4rem)] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-slate-900">확정 건 수정</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              노션·직접 등록 확정 건의 여행 일정·금액·고객 첨부를 수정합니다.
+            </p>
+
+            <div className="mt-5 grid gap-5 text-sm">
+              <section className="grid gap-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">여행</h4>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1">
+                    <span className="text-slate-500">여행 시작</span>
+                    <input
+                      type="date"
+                      className="rounded-xl border border-slate-200 px-3 py-2"
+                      value={mTravelStart}
+                      onChange={(e) => setMTravelStart(e.target.value)}
+                    />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-slate-500">여행 종료</span>
+                    <input
+                      type="date"
+                      className="rounded-xl border border-slate-200 px-3 py-2"
+                      value={mTravelEnd}
+                      onChange={(e) => setMTravelEnd(e.target.value)}
+                    />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-slate-500">픽업일</span>
+                    <input
+                      type="date"
+                      className="rounded-xl border border-slate-200 px-3 py-2"
+                      value={mPickup}
+                      onChange={(e) => setMPickup(e.target.value)}
+                    />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-slate-500">드랍일</span>
+                    <input
+                      type="date"
+                      className="rounded-xl border border-slate-200 px-3 py-2"
+                      value={mDrop}
+                      onChange={(e) => setMDrop(e.target.value)}
+                    />
+                  </label>
+                </div>
+                <label className="grid gap-1">
+                  <span className="text-slate-500">여행지</span>
+                  <input
+                    className="rounded-xl border border-slate-200 px-3 py-2"
+                    value={mDestination}
+                    onChange={(e) => setMDestination(e.target.value)}
+                  />
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-slate-500">인원</span>
+                  <input
+                    type="number"
+                    min={1}
+                    className="rounded-xl border border-slate-200 px-3 py-2"
+                    value={mPaxCount}
+                    onChange={(e) => setMPaxCount(e.target.value)}
+                  />
+                </label>
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={mRentalGear} onChange={(e) => setMRentalGear(e.target.checked)} />
+                    <span className="text-slate-700">대여 물품</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={mRentalDrone} onChange={(e) => setMRentalDrone(e.target.checked)} />
+                    <span className="text-slate-700">드론</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={mRentalStarlink}
+                      onChange={(e) => setMRentalStarlink(e.target.checked)}
+                    />
+                    <span className="text-slate-700">스타링크</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={mRentalPowerbank}
+                      onChange={(e) => setMRentalPowerbank(e.target.checked)}
+                    />
+                    <span className="text-slate-700">파워뱅크</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={mRecruiting} onChange={(e) => setMRecruiting(e.target.checked)} />
+                    <span className="text-slate-700">모집 공개</span>
+                  </label>
+                </div>
+              </section>
+
+              <section className="grid gap-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">금액 (원)</h4>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1">
+                    <span className="text-slate-500">총액</span>
+                    <input
+                      type="number"
+                      min={0}
+                      className="rounded-xl border border-slate-200 px-3 py-2"
+                      value={mTotal}
+                      onChange={(e) => setMTotal(e.target.value)}
+                    />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-slate-500">예약금</span>
+                    <input
+                      type="number"
+                      min={0}
+                      className="rounded-xl border border-slate-200 px-3 py-2"
+                      value={mDeposit}
+                      onChange={(e) => setMDeposit(e.target.value)}
+                    />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-slate-500">잔금</span>
+                    <input
+                      type="number"
+                      min={0}
+                      className="rounded-xl border border-slate-200 px-3 py-2"
+                      value={mBalance}
+                      onChange={(e) => setMBalance(e.target.value)}
+                    />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-slate-500">보증금</span>
+                    <input
+                      type="number"
+                      min={0}
+                      className="rounded-xl border border-slate-200 px-3 py-2"
+                      value={mSecurityDeposit}
+                      onChange={(e) => setMSecurityDeposit(e.target.value)}
+                    />
+                  </label>
+                  <label className="grid gap-1 sm:col-span-2">
+                    <span className="text-slate-500">팀별 총액</span>
+                    <input
+                      type="number"
+                      min={0}
+                      className="rounded-xl border border-slate-200 px-3 py-2"
+                      value={mGroupTotal}
+                      onChange={(e) => setMGroupTotal(e.target.value)}
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <section className="grid gap-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">첨부</h4>
+                <label className="grid gap-1">
+                  <span className="text-slate-500">파일 추가 (PDF 또는 이미지)</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    disabled={uploadingUserAttachment || directEditSaving}
+                    className="text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5"
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = '';
+                      if (!file) return;
+                      try {
+                        const uploaded = await uploadUserAttachment(trip.user.id, file);
+                        setMAttachments((prev) => [...prev, uploaded]);
+                      } catch (error) {
+                        window.alert(error instanceof Error ? error.message : '업로드에 실패했습니다.');
+                      }
+                    }}
+                  />
+                </label>
+                {mAttachments.length === 0 ? (
+                  <p className="text-xs text-slate-400">첨부 없음</p>
+                ) : (
+                  <ul className="grid gap-2">
+                    {mAttachments.map((item) => (
+                      <li
+                        key={item.url}
+                        className="flex items-start justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-slate-800">{item.filename}</p>
+                          <p className="text-slate-400">{item.type}</p>
+                        </div>
+                        <button
+                          type="button"
+                          className="shrink-0 text-rose-600 hover:underline"
+                          onClick={() => setMAttachments((prev) => prev.filter((x) => x.url !== item.url))}
+                        >
+                          삭제
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-4">
+              <Button variant="outline" onClick={() => setDirectEditOpen(false)} disabled={directEditSaving}>
+                취소
+              </Button>
+              <Button variant="primary" onClick={() => void handleDirectEditSave()} disabled={directEditSaving}>
+                {directEditSaving ? '저장 중…' : '저장'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </section>
   );
 }

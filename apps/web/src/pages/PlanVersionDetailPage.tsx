@@ -10,7 +10,7 @@ import { buildExternalTransferDirectionText } from '../features/plan/external-tr
 import { usePlanVersionDetail, useSetCurrentPlanVersion } from '../features/plan/hooks';
 import { useConfirmTrip } from '../features/confirmed-trip/hooks';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
-import { buildEffectivePricing } from '../features/pricing/manual-pricing';
+import { buildEffectivePricing, sliceEffectiveTotalsForUi } from '../features/pricing/manual-pricing';
 import { formatPricingDetailFormula, resolveDisplayLeadAmount } from '../features/pricing/pricing-line-presenter';
 import { toVariantLabel } from '../features/plan/variant-label';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
@@ -123,6 +123,7 @@ export function PlanVersionDetailPage(): JSX.Element {
         version.pricing.savedManualDepositAmountKrw ?? undefined,
       )
     : null;
+  const effectiveTotalsForUi = effectivePricing ? sliceEffectiveTotalsForUi(effectivePricing) : null;
   const originalPricingSnapshot = version.pricing?.originalPricing ?? null;
   const autoPricingBuckets = version.pricing
     ? buildPricingViewBuckets(
@@ -446,8 +447,14 @@ export function PlanVersionDetailPage(): JSX.Element {
                   <p className="mt-1 text-[11px] text-blue-800">저장된 수동 출력값 기준으로 분리 표시합니다.</p>
                 ) : null}
                 <div className="mt-2 grid gap-2 text-sm text-blue-900">
-                  <div>기본금: {formatKrw(effectivePricing.baseAmountKrw)}</div>
-                  <div>추가금: {formatKrw(effectivePricing.addonAmountKrw)}</div>
+                  <div>기본금: {formatKrw(effectiveTotalsForUi?.baseAmountKrw ?? effectivePricing.baseAmountKrw)}</div>
+                  <div>
+                    추가금:{' '}
+                    {formatKrw(
+                      (effectiveTotalsForUi ?? effectivePricing).totalAmountKrw -
+                        (effectiveTotalsForUi ?? effectivePricing).baseAmountKrw,
+                    )}
+                  </div>
                   {effectivePricing.adjustmentLines.length === 0 ? (
                     <p className="text-xs text-blue-700">추가금 항목이 없습니다.</p>
                   ) : (
@@ -472,13 +479,19 @@ export function PlanVersionDetailPage(): JSX.Element {
                       <div className="px-2 py-2">보증금(팀당/인당)</div>
                     </div>
                     <div className="grid grid-cols-4 text-center text-sm text-slate-900">
-                      <div className="border-r border-slate-200 px-2 py-4 font-semibold">{formatKrw(effectivePricing.totalAmountKrw)}</div>
-                      <div className="border-r border-slate-200 px-2 py-4">{formatKrw(effectivePricing.depositAmountKrw)}</div>
-                      <div className="border-r border-slate-200 px-2 py-4">{formatKrw(effectivePricing.balanceAmountKrw)}</div>
+                      <div className="border-r border-slate-200 px-2 py-4 font-semibold">
+                        {formatKrw((effectiveTotalsForUi ?? effectivePricing).totalAmountKrw)}
+                      </div>
+                      <div className="border-r border-slate-200 px-2 py-4">
+                        {formatKrw((effectiveTotalsForUi ?? effectivePricing).depositAmountKrw)}
+                      </div>
+                      <div className="border-r border-slate-200 px-2 py-4">
+                        {formatKrw((effectiveTotalsForUi ?? effectivePricing).balanceAmountKrw)}
+                      </div>
                       <div className="px-2 py-4">
-                        {effectivePricing.securityDepositMode === 'NONE'
-                          ? formatKrw(0)
-                          : `${formatKrw(effectivePricing.securityDepositUnitPriceKrw)} (${formatSecurityDepositScope(effectivePricing.securityDepositMode)})`}
+                        {(effectiveTotalsForUi ?? effectivePricing).securityDepositMode === 'NONE'
+                          ? formatKrw((effectiveTotalsForUi ?? effectivePricing).securityDepositAmountKrw)
+                          : `${formatKrw((effectiveTotalsForUi ?? effectivePricing).securityDepositUnitPriceKrw)} (${formatSecurityDepositScope((effectiveTotalsForUi ?? effectivePricing).securityDepositMode)})`}
                       </div>
                     </div>
                   </div>

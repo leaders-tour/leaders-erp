@@ -157,6 +157,8 @@ input ConfirmedTripUpdateInput {
   assignedVehicle: String
   accommodationNote: String
   operationNote: String
+  """플랜에 연결된 ACTIVE 확정 건만 허용. 동일 plan 소속 버전으로만 변경 가능."""
+  planVersionId: ID
   status: ConfirmedTripStatus
   travelStart: DateTime
   travelEnd: DateTime

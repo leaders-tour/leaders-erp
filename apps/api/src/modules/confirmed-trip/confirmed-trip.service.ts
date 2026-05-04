@@ -107,19 +107,50 @@ export class ConfirmedTripService {
 
     const trip = await this.prisma.confirmedTrip.findUnique({
       where: { id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, planId: true },
     });
     if (!trip) {
       throw new DomainError('NOT_FOUND', 'Confirmed trip not found');
     }
 
-    const { status, ...rest } = parsed.data;
+    const { status, planVersionId: nextPlanVersionId, ...rest } = parsed.data;
+
+    if (nextPlanVersionId !== undefined) {
+      if (trip.status !== 'ACTIVE') {
+        throw new DomainError(
+          'VALIDATION_FAILED',
+          'planVersionId can only be updated on an active confirmed trip',
+        );
+      }
+      if (!trip.planId) {
+        throw new DomainError(
+          'VALIDATION_FAILED',
+          'This confirmed trip is not linked to a plan; cannot set planVersionId',
+        );
+      }
+      const version = await this.prisma.planVersion.findUnique({
+        where: { id: nextPlanVersionId },
+        select: { id: true, planId: true },
+      });
+      if (!version) {
+        throw new DomainError('NOT_FOUND', 'Plan version not found');
+      }
+      if (version.planId !== trip.planId) {
+        throw new DomainError(
+          'VALIDATION_FAILED',
+          'Plan version does not belong to the confirmed trip plan',
+        );
+      }
+    }
 
     const updateData: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(rest)) {
       if (value !== undefined) {
         updateData[key] = value;
       }
+    }
+    if (nextPlanVersionId !== undefined) {
+      updateData.planVersionId = nextPlanVersionId;
     }
     if (status !== undefined) {
       updateData.status = status;

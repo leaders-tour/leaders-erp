@@ -10,12 +10,19 @@ export const userCreateSchema = z.object({
   ownerEmployeeId: z.string().min(1).nullable().optional(),
 });
 
+export const userAttachmentInputSchema = z.object({
+  filename: z.string().min(1).max(500),
+  url: z.string().url().max(4096),
+  type: z.enum(['pdf', 'image']),
+});
+
 export const userUpdateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   email: z.string().email().nullable().optional(),
   ownerEmployeeId: z.string().min(1).nullable().optional(),
   dealStage: dealStageSchema.optional(),
   dealStageOrder: z.number().int().min(0).optional(),
+  attachments: z.array(userAttachmentInputSchema).max(30).optional(),
 });
 
 export const dealPipelineCardUpdateSchema = z.object({

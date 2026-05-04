@@ -1,5 +1,19 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
+import { useState } from 'react';
+import { useAuth } from '../auth/context';
+import { CONFIRMED_TRIP_QUERY } from '../confirmed-trip/hooks';
+import { runUploadMutation } from '../../lib/upload-mutation';
+import { PLAN_VERSION_PRICING_EFFECTIVE_FIELDS_FRAGMENT } from './plan-version-pricing-fragment';
 
+const UPLOAD_USER_ATTACHMENT_MUTATION_STR = `
+  mutation UploadUserAttachment($userId: ID!, $file: Upload!) {
+    uploadUserAttachment(userId: $userId, file: $file) {
+      filename
+      url
+      type
+    }
+  }
+`;
 export type DealStageValue =
   | 'CONSULTING'
   | 'CONTRACTING'
@@ -580,6 +594,7 @@ const PLAN_VERSIONS_QUERY = gql`
 `;
 
 const PLAN_VERSION_DETAIL_QUERY = gql`
+  ${PLAN_VERSION_PRICING_EFFECTIVE_FIELDS_FRAGMENT}
   query PlanVersionDetail($id: ID!) {
     planVersion(id: $id) {
       id
@@ -735,170 +750,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         updatedAt
       }
       pricing {
-        id
-        planVersionId
-        policyId
-        currencyCode
-        baseAmountKrw
-        addonAmountKrw
-        totalAmountKrw
-        depositAmountKrw
-        balanceAmountKrw
-        securityDepositAmountKrw
-        securityDepositUnitPriceKrw
-        securityDepositQuantity
-        securityDepositMode
-        securityDepositEvent {
-          id
-          name
-        }
-        longDistanceSegmentCount
-        extraLodgingCount
-        savedManualAdjustments {
-          kind
-          title
-          chargeScope
-          personMode
-          countValue
-          amountKrw
-          customDisplayText
-        }
-        savedManualDepositAmountKrw
-        manualPricing {
-          enabled
-          adjustmentLines {
-            id
-            type
-            rowKey
-            teamOrderIndex
-            label
-            leadAmountKrw
-            formula
-            strikethrough
-            deleted
-          }
-          summary {
-            baseAmountKrw
-            totalAmountKrw
-            depositAmountKrw
-            balanceAmountKrw
-            securityDepositAmountKrw
-          }
-          teamSummaries {
-            teamOrderIndex
-            baseAmountKrw
-            totalAmountKrw
-            depositAmountKrw
-            balanceAmountKrw
-            securityDepositAmountKrw
-          }
-          lineOverrides {
-            rowKey
-            amountKrw
-          }
-        }
-        originalPricing {
-          baseAmountKrw
-          addonAmountKrw
-          totalAmountKrw
-          depositAmountKrw
-          balanceAmountKrw
-          securityDepositAmountKrw
-          teamPricings {
-            teamOrderIndex
-            teamName
-            headcount
-            baseAmountKrw
-            addonAmountKrw
-            totalAmountKrw
-            depositAmountKrw
-            balanceAmountKrw
-            securityDepositAmountKrw
-            securityDepositUnitPriceKrw
-            securityDepositQuantity
-            securityDepositMode
-            lines {
-              id
-              ruleType
-              lineCode
-              sourceType
-              description
-              ruleId
-              unitPriceKrw
-              quantity
-              amountKrw
-              displayBasis
-              displayLabel
-              displayUnitAmountKrw
-              displayCount
-              displayDivisorPerson
-              displayText
-              teamOrderIndex
-              teamName
-              headcount
-            }
-          }
-        }
-        teamPricings {
-          teamOrderIndex
-          teamName
-          headcount
-          baseAmountKrw
-          addonAmountKrw
-          totalAmountKrw
-          depositAmountKrw
-          balanceAmountKrw
-          securityDepositAmountKrw
-          securityDepositUnitPriceKrw
-          securityDepositQuantity
-          securityDepositMode
-          securityDepositEvent {
-            id
-            name
-          }
-          lines {
-            id
-            ruleType
-            lineCode
-            sourceType
-            description
-            ruleId
-            unitPriceKrw
-            quantity
-            amountKrw
-            displayBasis
-            displayLabel
-            displayUnitAmountKrw
-            displayCount
-            displayDivisorPerson
-            displayText
-            teamOrderIndex
-            teamName
-            headcount
-          }
-        }
-        createdAt
-        updatedAt
-        lines {
-          id
-            ruleType
-          lineCode
-          sourceType
-          description
-          ruleId
-          unitPriceKrw
-          quantity
-          amountKrw
-          displayBasis
-          displayLabel
-          displayUnitAmountKrw
-          displayCount
-          displayDivisorPerson
-          displayText
-          teamOrderIndex
-          teamName
-          headcount
-        }
+        ...PlanVersionPricingEffectiveFields
       }
     }
   }
@@ -938,6 +790,11 @@ const UPDATE_USER_MUTATION = gql`
       }
       dealStage
       dealStageOrder
+      attachments {
+        filename
+        url
+        type
+      }
       createdAt
       updatedAt
     }
@@ -1097,14 +954,17 @@ export function useUpdateUser() {
         ownerEmployeeId?: string | null;
         dealStage?: DealStageValue;
         dealStageOrder?: number;
+        attachments?: UserAttachmentItem[];
       },
+      options?: { refetchConfirmedTripId?: string },
     ): Promise<UserRow> => {
+      const extraRefetch =
+        options?.refetchConfirmedTripId != null
+          ? [{ query: CONFIRMED_TRIP_QUERY, variables: { id: options.refetchConfirmedTripId } }]
+          : [];
       const result = await mutate({
         variables: { id, input },
-        refetchQueries: [
-          { query: USERS_QUERY },
-          { query: USER_QUERY, variables: { id } },
-        ],
+        refetchQueries: [{ query: USERS_QUERY }, { query: USER_QUERY, variables: { id } }, ...extraRefetch],
       });
 
       if (!result.data?.updateUser) {
@@ -1112,6 +972,31 @@ export function useUpdateUser() {
       }
 
       return result.data.updateUser;
+    },
+  };
+}
+
+export function useUploadUserAttachment() {
+  const { ensureAccessToken } = useAuth();
+  const [loading, setLoading] = useState(false);
+
+  return {
+    loading,
+    uploadUserAttachment: async (userId: string, file: File): Promise<UserAttachmentItem> => {
+      setLoading(true);
+      try {
+        const accessToken = await ensureAccessToken();
+        const data = await runUploadMutation<{ uploadUserAttachment: UserAttachmentItem }>(
+          UPLOAD_USER_ATTACHMENT_MUTATION_STR,
+          { userId, file: null },
+          [file],
+          ['variables.file'],
+          accessToken,
+        );
+        return data.uploadUserAttachment;
+      } finally {
+        setLoading(false);
+      }
     },
   };
 }

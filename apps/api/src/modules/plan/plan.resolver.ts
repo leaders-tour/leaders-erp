@@ -1,5 +1,6 @@
 import type { MovementIntensity } from '@prisma/client';
 import type { AppContext } from '../../context';
+import type { UploadFile } from '../../lib/file-storage/client';
 import { calculateAverageMovementIntensity } from '../../lib/movement-intensity';
 import { PlanService } from './plan.service';
 import type {
@@ -137,6 +138,11 @@ export const planResolver = {
     createUser: (_parent: unknown, args: UserCreateArgs, ctx: AppContext) => new PlanService(ctx.prisma).createUser(args.input),
     updateUser: (_parent: unknown, args: UserUpdateArgs, ctx: AppContext) =>
       new PlanService(ctx.prisma).updateUser(args.id, args.input),
+    uploadUserAttachment: (
+      _parent: unknown,
+      args: { userId: string; file: UploadFile | Promise<UploadFile> },
+      ctx: AppContext,
+    ) => new PlanService(ctx.prisma).uploadUserAttachment(args.userId, args.file),
     reorderDealPipeline: (_parent: unknown, args: DealPipelineReorderArgs, ctx: AppContext) =>
       new PlanService(ctx.prisma).reorderDealPipeline(args.input),
     createUserNote: (_parent: unknown, args: UserNoteCreateArgs, ctx: AppContext) =>
