@@ -524,12 +524,10 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
     () =>
       buildMultiDayBlockOptions({
         filteredMultiDayBlocks: filteredOvernightStays,
-        filteredSegments,
-        startLocationId,
         selectedRoute,
         totalDays,
       }),
-    [filteredOvernightStays, filteredSegments, selectedRoute, startLocationId, totalDays],
+    [filteredOvernightStays, selectedRoute, totalDays],
   );
 
   const suggestedTemplateTitle = useMemo(

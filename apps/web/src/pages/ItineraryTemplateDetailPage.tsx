@@ -14,10 +14,12 @@ import {
   buildNextOptions,
   buildMultiDayBlockOptions,
   buildTemplateStopsFromRouteAndRows,
+  findMultiDayBlockConnection,
   findSegment,
   formatSegmentVersionLabel,
   formatLocationVersion,
   getConsumedRouteDayCount,
+  getDefaultMultiDayBlockConnectionVersionId,
   getDefaultSegmentVersionId,
   getDefaultVersionId,
   getRouteStopEndDayIndex,
@@ -573,12 +575,10 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
     () =>
       buildMultiDayBlockOptions({
         filteredMultiDayBlocks: filteredOvernightStays,
-        filteredSegments,
-        startLocationId,
         selectedRoute,
         totalDays: formTotalDays,
       }),
-    [filteredOvernightStays, filteredSegments, selectedRoute, startLocationId, formTotalDays],
+    [filteredOvernightStays, selectedRoute, formTotalDays],
   );
 
   const autoRows = useMemo(
@@ -1299,9 +1299,9 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                         setSelectedRoute((prev) => {
                           const lastStop = prev[prev.length - 1];
                           if (lastStop?.kind === 'MULTI_DAY_BLOCK') {
-                            const segment = findSegment(
-                              filteredSegments,
-                              lastStop.locationId,
+                            const connection = findMultiDayBlockConnection(
+                              filteredOvernightStayConnections,
+                              lastStop.multiDayBlockId,
                               location.id,
                             );
                             return [
@@ -1310,8 +1310,9 @@ export function ItineraryTemplateDetailPage(): JSX.Element {
                                 kind: 'LOCATION',
                                 locationId: location.id,
                                 locationVersionId: getDefaultVersionId(location),
-                                segmentId: segment?.id,
-                                segmentVersionId: getDefaultSegmentVersionId(segment) || undefined,
+                                multiDayBlockConnectionId: connection?.id,
+                                multiDayBlockConnectionVersionId:
+                                  getDefaultMultiDayBlockConnectionVersionId(connection) || undefined,
                               },
                             ];
                           }

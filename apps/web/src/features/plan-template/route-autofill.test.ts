@@ -504,6 +504,42 @@ const overnightStayB3: MultiDayBlockOption = {
   ],
 };
 
+const overnightStayC2: MultiDayBlockOption = {
+  id: 'stay-c-2',
+  regionId: 'region-1',
+  regionIds: ['region-1'],
+  locationId: locationC.id,
+  isNightTrain: false,
+  name: '목적지 C 연박',
+  title: '목적지 C 연박',
+  isActive: true,
+  sortOrder: 1,
+  days: [
+    {
+      id: 'stay-c-2-day-1',
+      dayOrder: 1,
+      displayLocationId: locationC.id,
+      averageDistanceKm: 0,
+      averageTravelHours: 0,
+      timeCellText: '08:00',
+      scheduleCellText: '연박 1일차',
+      lodgingCellText: '',
+      mealCellText: '',
+    },
+    {
+      id: 'stay-c-2-day-2',
+      dayOrder: 2,
+      displayLocationId: locationC.id,
+      averageDistanceKm: 0,
+      averageTravelHours: 0,
+      timeCellText: '09:00',
+      scheduleCellText: '연박 2일차',
+      lodgingCellText: '',
+      mealCellText: '',
+    },
+  ],
+};
+
 describe('route-autofill', () => {
   it('limits day 1 candidates to first-day eligible locations', () => {
     expect(buildFirstDayOptions([locationA, locationB, locationC]).map((location) => location.id)).toEqual(['loc-a']);
@@ -576,13 +612,46 @@ describe('route-autofill', () => {
   it('filters overnight stay options by remaining days per stay length', () => {
     const optionsForTwoDaysLeft = buildMultiDayBlockOptions({
       filteredMultiDayBlocks: [overnightStayB2, overnightStayB3],
-      filteredSegments: [segmentAB],
-      startLocationId: locationA.id,
       selectedRoute: [],
       totalDays: 3,
     });
 
     expect(optionsForTwoDaysLeft.map((overnightStay) => overnightStay.id)).toEqual(['stay-b-2']);
+  });
+
+  it('uses the same stay-length rules after a multi-day block as after the same consumed day count', () => {
+    const blocks = [overnightStayB2, overnightStayB3, overnightStayC2];
+    const afterBlock = buildMultiDayBlockOptions({
+      filteredMultiDayBlocks: blocks,
+      selectedRoute: [
+        {
+          kind: 'MULTI_DAY_BLOCK',
+          multiDayBlockId: overnightStayB2.id,
+          stayLength: 2,
+          locationId: locationB.id,
+          locationVersionId: locationBVersion.id,
+        },
+      ],
+      totalDays: 10,
+    });
+    const afterSameSpanFromLocations = buildMultiDayBlockOptions({
+      filteredMultiDayBlocks: blocks,
+      selectedRoute: [
+        {
+          kind: 'LOCATION',
+          locationId: locationA.id,
+          locationVersionId: locationAVersion.id,
+        },
+        {
+          kind: 'LOCATION',
+          locationId: locationB.id,
+          locationVersionId: locationBVersion.id,
+        },
+      ],
+      totalDays: 10,
+    });
+
+    expect(afterBlock.map((b) => b.id).sort()).toEqual(afterSameSpanFromLocations.map((b) => b.id).sort());
   });
 
   it('resolves a date-matched segment version before falling back to default', () => {

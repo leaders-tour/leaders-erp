@@ -1033,17 +1033,11 @@ export function buildNextOptions(input: {
 
 export function buildMultiDayBlockOptions(input: {
   filteredMultiDayBlocks: MultiDayBlockOption[];
-  filteredSegments: SegmentOption[];
-  startLocationId: string;
   selectedRoute: RouteSelection[];
   totalDays: number;
 }): MultiDayBlockOption[] {
-  const { filteredMultiDayBlocks, filteredSegments, startLocationId, selectedRoute, totalDays } = input;
+  const { filteredMultiDayBlocks, selectedRoute, totalDays } = input;
   const usedDays = 1 + getConsumedRouteDayCount(selectedRoute);
-  const context = getCurrentContext(selectedRoute, startLocationId);
-  if (context.kind === 'MULTI_DAY_BLOCK') {
-    return [];
-  }
 
   return filteredMultiDayBlocks.filter(
     (multiDayBlock) =>
