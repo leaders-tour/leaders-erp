@@ -216,6 +216,7 @@ export class ConfirmedTripRepository {
       totalAmountKrw: number | null;
       securityDepositAmountKrw: number | null;
       groupTotalAmountKrw: number | null;
+      planId: string | null;
       planVersionId: string | null;
     }>,
   ) {

@@ -357,6 +357,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const { updateUser } = useUpdateUser();
   const { uploadUserAttachment, loading: uploadingUserAttachment } = useUploadUserAttachment();
 
+  const [migrationEditChoiceOpen, setMigrationEditChoiceOpen] = useState(false);
   const [directEditOpen, setDirectEditOpen] = useState(false);
   const [directEditSaving, setDirectEditSaving] = useState(false);
   const [mTravelStart, setMTravelStart] = useState('');
@@ -590,7 +591,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                   navigate(`/itinerary-builder?${params.toString()}`);
                   return;
                 }
-                openDirectEditModal();
+                setMigrationEditChoiceOpen(true);
               }}
             >
               수정
@@ -1035,6 +1036,51 @@ export function ConfirmedTripDetailPage(): JSX.Element {
         </div>
       )}
       </div>{/* end outer grid */}
+
+      {migrationEditChoiceOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <Card className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-900">수정 방법 선택</h3>
+            <p className="mt-2 text-sm text-slate-600">플랜(견적)이 붙어 있지 않은 확정 건입니다.</p>
+            <div className="mt-5 grid gap-3">
+              <Button
+                variant="outline"
+                className="flex h-auto w-full flex-col items-start justify-start gap-1 whitespace-normal px-4 py-3 text-left text-sm font-medium leading-snug"
+                onClick={() => {
+                  setMigrationEditChoiceOpen(false);
+                  openDirectEditModal();
+                }}
+              >
+                이 화면에서만 수정
+                <span className="text-xs font-normal text-slate-500">일정·금액·첨부 등 기존 입력란만 고칩니다.</span>
+              </Button>
+              <Button
+                variant="primary"
+                className="flex h-auto w-full flex-col items-start justify-start gap-1 whitespace-normal px-4 py-3 text-left text-sm font-medium leading-snug bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => {
+                  setMigrationEditChoiceOpen(false);
+                  const params = new URLSearchParams({
+                    userId: trip.userId,
+                    confirmedTripId: trip.id,
+                    changeNote: '노션 확정 건 신규 견적 연결',
+                  });
+                  navigate(`/itinerary-builder?${params.toString()}`);
+                }}
+              >
+                새 견적 작성
+                <span className="text-xs font-normal text-white/90">
+                  일정 빌더에서 견적을 저장하면 이 확정 건에 플랜이 붙습니다.
+                </span>
+              </Button>
+            </div>
+            <div className="mt-5 flex justify-end border-t border-slate-100 pt-4">
+              <Button variant="outline" onClick={() => setMigrationEditChoiceOpen(false)}>
+                닫기
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
 
       {directEditOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 overflow-y-auto">

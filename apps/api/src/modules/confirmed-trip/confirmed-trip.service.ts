@@ -107,7 +107,7 @@ export class ConfirmedTripService {
 
     const trip = await this.prisma.confirmedTrip.findUnique({
       where: { id },
-      select: { id: true, status: true, planId: true },
+      select: { id: true, status: true, planId: true, userId: true },
     });
     if (!trip) {
       throw new DomainError('NOT_FOUND', 'Confirmed trip not found');
@@ -115,6 +115,7 @@ export class ConfirmedTripService {
 
     const { status, planVersionId: nextPlanVersionId, ...rest } = parsed.data;
 
+    let migrationLinkedPlanId: string | undefined;
     if (nextPlanVersionId !== undefined) {
       if (trip.status !== 'ACTIVE') {
         throw new DomainError(
@@ -122,24 +123,33 @@ export class ConfirmedTripService {
           'planVersionId can only be updated on an active confirmed trip',
         );
       }
-      if (!trip.planId) {
-        throw new DomainError(
-          'VALIDATION_FAILED',
-          'This confirmed trip is not linked to a plan; cannot set planVersionId',
-        );
-      }
       const version = await this.prisma.planVersion.findUnique({
         where: { id: nextPlanVersionId },
-        select: { id: true, planId: true },
+        select: {
+          id: true,
+          planId: true,
+          plan: { select: { userId: true } },
+        },
       });
       if (!version) {
         throw new DomainError('NOT_FOUND', 'Plan version not found');
       }
-      if (version.planId !== trip.planId) {
-        throw new DomainError(
-          'VALIDATION_FAILED',
-          'Plan version does not belong to the confirmed trip plan',
-        );
+
+      if (trip.planId) {
+        if (version.planId !== trip.planId) {
+          throw new DomainError(
+            'VALIDATION_FAILED',
+            'Plan version does not belong to the confirmed trip plan',
+          );
+        }
+      } else {
+        if (version.plan.userId !== trip.userId) {
+          throw new DomainError(
+            'VALIDATION_FAILED',
+            'Plan version does not belong to this trip user; cannot link',
+          );
+        }
+        migrationLinkedPlanId = version.planId;
       }
     }
 
@@ -151,6 +161,9 @@ export class ConfirmedTripService {
     }
     if (nextPlanVersionId !== undefined) {
       updateData.planVersionId = nextPlanVersionId;
+      if (migrationLinkedPlanId) {
+        updateData.planId = migrationLinkedPlanId;
+      }
     }
     if (status !== undefined) {
       updateData.status = status;

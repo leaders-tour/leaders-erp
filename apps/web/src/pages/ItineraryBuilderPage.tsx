@@ -1543,6 +1543,7 @@ const CREATE_PLAN_MUTATION = gql`
   mutation CreatePlanFromBuilder($input: PlanCreateInput!) {
     createPlan(input: $input) {
       id
+      currentVersionId
     }
   }
 `;
@@ -2672,9 +2673,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     },
   );
 
-  const [createPlan, { loading: creatingPlan }] = useMutation<{ createPlan: { id: string } }>(
-    CREATE_PLAN_MUTATION,
-  );
+  const [createPlan, { loading: creatingPlan }] = useMutation<{
+    createPlan: { id: string; currentVersionId?: string | null };
+  }>(CREATE_PLAN_MUTATION);
   const [createPlanVersion, { loading: creatingVersion }] = useMutation<{
     createPlanVersion: { id: string; versionNumber: number };
   }>(CREATE_PLAN_VERSION_MUTATION);
@@ -5040,9 +5041,35 @@ export function ItineraryBuilderPage(): JSX.Element {
                       },
                     });
 
-                    const createdPlanId = result.data?.createPlan.id ?? '';
+                    const createdPlan = result.data?.createPlan;
+                    const createdPlanId = createdPlan?.id ?? '';
+                    const linkedVersionId = createdPlan?.currentVersionId ?? '';
                     setCreatedId(createdPlanId);
                     if (createdPlanId) {
+                      if (confirmedTripId) {
+                        if (!linkedVersionId) {
+                          window.alert(
+                            '생성된 견적 초기 버전 ID를 받지 못했습니다. 플랜 상세에서 수동으로 이 확정 건과 연결해 주세요.',
+                          );
+                          navigate(`/plans/${createdPlanId}`);
+                          return;
+                        }
+                        try {
+                          await updateConfirmedTrip(confirmedTripId, {
+                            planVersionId: linkedVersionId,
+                          });
+                        } catch (error) {
+                          window.alert(
+                            error instanceof Error
+                              ? error.message
+                              : '확정 건과 견적을 연결하는 데 실패했습니다.',
+                          );
+                          navigate(`/plans/${createdPlanId}`);
+                          return;
+                        }
+                        navigate(`/confirmed-trips/${confirmedTripId}`);
+                        return;
+                      }
                       navigate(`/plans/${createdPlanId}`);
                     }
                   }}
