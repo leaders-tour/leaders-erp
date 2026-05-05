@@ -48,9 +48,7 @@ type MultiDayBlockConnection {
   fromMultiDayBlock: MultiDayBlock!
   toLocation: Location!
   scheduleTimeBlocks: [MultiDayBlockConnectionTimeBlock!]!
-  earlyScheduleTimeBlocks: [MultiDayBlockConnectionTimeBlock!]!
   extendScheduleTimeBlocks: [MultiDayBlockConnectionTimeBlock!]!
-  earlyExtendScheduleTimeBlocks: [MultiDayBlockConnectionTimeBlock!]!
   versions: [MultiDayBlockConnectionVersion!]!
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -67,9 +65,7 @@ type MultiDayBlockConnectionVersion {
   sortOrder: Int!
   isDefault: Boolean!
   scheduleTimeBlocks: [MultiDayBlockConnectionVersionTimeBlock!]!
-  earlyScheduleTimeBlocks: [MultiDayBlockConnectionVersionTimeBlock!]!
   extendScheduleTimeBlocks: [MultiDayBlockConnectionVersionTimeBlock!]!
-  earlyExtendScheduleTimeBlocks: [MultiDayBlockConnectionVersionTimeBlock!]!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -159,9 +155,7 @@ input MultiDayBlockConnectionVersionInput {
   averageTravelHours: Float!
   isLongDistance: Boolean!
   timeSlots: [MultiDayBlockConnectionTimeSlotInput!]!
-  earlyTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
   extendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
-  earlyExtendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
   isDefault: Boolean
 }
 
@@ -172,9 +166,7 @@ input MultiDayBlockConnectionCreateInput {
   averageTravelHours: Float!
   isLongDistance: Boolean!
   timeSlots: [MultiDayBlockConnectionTimeSlotInput!]!
-  earlyTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
   extendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
-  earlyExtendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
   versions: [MultiDayBlockConnectionVersionInput!]
 }
 
@@ -185,9 +177,7 @@ input MultiDayBlockConnectionBulkCreateInput {
   averageTravelHours: Float!
   isLongDistance: Boolean!
   timeSlots: [MultiDayBlockConnectionTimeSlotInput!]!
-  earlyTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
   extendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
-  earlyExtendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
   versions: [MultiDayBlockConnectionVersionInput!]
 }
 
@@ -198,9 +188,7 @@ input MultiDayBlockConnectionUpdateInput {
   averageTravelHours: Float
   isLongDistance: Boolean
   timeSlots: [MultiDayBlockConnectionTimeSlotInput!]
-  earlyTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
   extendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
-  earlyExtendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
   versions: [MultiDayBlockConnectionVersionInput!]
 }
 

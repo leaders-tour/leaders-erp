@@ -33,9 +33,7 @@ const multiDayBlockConnectionVersionSchema = z.object({
   averageTravelHours: z.number().positive(),
   isLongDistance: z.boolean(),
   timeSlots: multiDayBlockConnectionTimeSlotsSchema,
-  earlyTimeSlots: multiDayBlockConnectionTimeSlotsSchema.optional(),
   extendTimeSlots: multiDayBlockConnectionTimeSlotsSchema.optional(),
-  earlyExtendTimeSlots: multiDayBlockConnectionTimeSlotsSchema.optional(),
   isDefault: z.boolean().optional(),
 });
 
@@ -46,9 +44,7 @@ const multiDayBlockConnectionBaseSchema = z.object({
   averageTravelHours: z.number().positive(),
   isLongDistance: z.boolean(),
   timeSlots: multiDayBlockConnectionTimeSlotsSchema,
-  earlyTimeSlots: multiDayBlockConnectionTimeSlotsSchema.optional(),
   extendTimeSlots: multiDayBlockConnectionTimeSlotsSchema.optional(),
-  earlyExtendTimeSlots: multiDayBlockConnectionTimeSlotsSchema.optional(),
   versions: z.array(multiDayBlockConnectionVersionSchema).min(1).max(20).optional(),
 });
 

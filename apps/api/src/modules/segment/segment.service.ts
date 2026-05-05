@@ -23,7 +23,7 @@ import { calculateMovementIntensity } from '../../lib/movement-intensity';
 import { SegmentRepository } from './segment.repository';
 import type { SegmentBulkCreateDto, SegmentCreateDto, SegmentUpdateDto, SegmentUpdateWithAdditionalFromsDto } from './segment.types';
 
-type SegmentScheduleVariant = 'basic' | 'early' | 'extend' | 'earlyExtend';
+type SegmentScheduleVariant = 'basic' | 'extend';
 
 interface NormalizedTimeSlot {
   startTime: string;
@@ -33,9 +33,7 @@ interface NormalizedTimeSlot {
 
 interface VariantTimeSlotMap {
   basic: SegmentTimeSlotInput[];
-  early?: SegmentTimeSlotInput[];
   extend?: SegmentTimeSlotInput[];
-  earlyExtend?: SegmentTimeSlotInput[];
 }
 
 interface NormalizedSegmentVersion {
@@ -53,7 +51,6 @@ interface NormalizedSegmentVersion {
   mealsOverride: NormalizedMealsOverride | null;
   isDefault: boolean;
   timeSlotsByVariant: VariantTimeSlotMap;
-  earlyExtendProvided?: boolean;
 }
 
 interface PreparedSegmentUpdate {
@@ -61,7 +58,7 @@ interface PreparedSegmentUpdate {
   nextToLocationId: string;
   endpoints: { fromLocation: SegmentEndpointLocation; toLocation: SegmentEndpointLocation };
   owningRegion: { id: string; name: string };
-  /** Primary from/to에 맞게 early·extend·earlyExtend 키가 잘라진 버전(저장·검증) */
+  /** Primary from/to에 맞게 extend 키가 잘라진 버전(저장·검증) */
   nextVersions: NormalizedSegmentVersion[];
   /** 병합 직후 값. 추가 출발지 생성 시 출발지별로 다시 잘라 씀 */
   rawMergedNextVersions: NormalizedSegmentVersion[];
@@ -141,7 +138,7 @@ interface SegmentEndpointLocation {
   isLastDayEligible: boolean;
 }
 
-const SEGMENT_SCHEDULE_VARIANTS: SegmentScheduleVariant[] = ['basic', 'early', 'extend', 'earlyExtend'];
+const SEGMENT_SCHEDULE_VARIANTS: SegmentScheduleVariant[] = ['basic', 'extend'];
 
 export class SegmentService {
   private readonly repository: SegmentRepository;
@@ -196,15 +193,12 @@ export class SegmentService {
 
   private normalizeVariantTimeSlots(input: {
     timeSlots: SegmentTimeSlotInput[];
-    earlyTimeSlots?: SegmentTimeSlotInput[];
     extendTimeSlots?: SegmentTimeSlotInput[];
-    earlyExtendTimeSlots?: SegmentTimeSlotInput[];
   }): VariantTimeSlotMap {
+    const extend = this.cloneTimeSlots(input.extendTimeSlots);
     return {
       basic: this.cloneTimeSlots(input.timeSlots) ?? [],
-      early: this.cloneTimeSlots(input.earlyTimeSlots),
-      extend: this.cloneTimeSlots(input.extendTimeSlots),
-      earlyExtend: this.cloneTimeSlots(input.earlyExtendTimeSlots),
+      ...(extend && extend.length > 0 ? { extend } : {}),
     };
   }
 
@@ -316,15 +310,11 @@ export class SegmentService {
       | ExistingSegmentLike['versions'][number]['scheduleTimeBlocks'],
   ): VariantTimeSlotMap {
     const basic = this.mapScheduleTimeBlocksToTimeSlots(timeBlocks, 'basic');
-    const early = this.mapScheduleTimeBlocksToTimeSlots(timeBlocks, 'early');
     const extend = this.mapScheduleTimeBlocksToTimeSlots(timeBlocks, 'extend');
-    const earlyExtend = this.mapScheduleTimeBlocksToTimeSlots(timeBlocks, 'earlyExtend');
 
     return {
       basic,
-      ...(early.length > 0 ? { early } : {}),
       ...(extend.length > 0 ? { extend } : {}),
-      ...(earlyExtend.length > 0 ? { earlyExtend } : {}),
     };
   }
 
@@ -333,9 +323,7 @@ export class SegmentService {
     averageTravelHours: number;
     isLongDistance: boolean;
     timeSlots: SegmentTimeSlotInput[];
-    earlyTimeSlots?: SegmentTimeSlotInput[];
     extendTimeSlots?: SegmentTimeSlotInput[];
-    earlyExtendTimeSlots?: SegmentTimeSlotInput[];
   }): NormalizedSegmentVersion {
     return {
       id: undefined,
@@ -352,7 +340,6 @@ export class SegmentService {
       mealsOverride: null,
       isDefault: true,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(input),
-      earlyExtendProvided: input.earlyExtendTimeSlots !== undefined,
     };
   }
 
@@ -382,7 +369,6 @@ export class SegmentService {
           mealsOverride: this.buildMealsOverrideFromExisting(version),
           isDefault: version.isDefault,
           timeSlotsByVariant: this.mapTimeBlocksToVariantTimeSlots(version.scheduleTimeBlocks),
-          earlyExtendProvided: true,
         }));
     }
 
@@ -392,9 +378,7 @@ export class SegmentService {
         averageTravelHours: existing.averageTravelHours,
         isLongDistance: existing.isLongDistance,
         timeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'basic'),
-        earlyTimeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'early'),
         extendTimeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'extend'),
-        earlyExtendTimeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'earlyExtend'),
       }),
     ];
   }
@@ -415,38 +399,7 @@ export class SegmentService {
       mealsOverride: this.normalizeMealsOverride(version.mealsOverride),
       isDefault: version.isDefault !== false,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(version),
-      earlyExtendProvided: Object.prototype.hasOwnProperty.call(version, 'earlyExtendTimeSlots'),
     }));
-  }
-
-  private preserveMissingEarlyExtendSchedules(
-    versions: NormalizedSegmentVersion[],
-    existingVersions: NormalizedSegmentVersion[],
-  ): NormalizedSegmentVersion[] {
-    const existingVersionById = new Map(
-      existingVersions
-        .filter((version): version is NormalizedSegmentVersion & { id: string } => Boolean(version.id))
-        .map((version) => [version.id, version]),
-    );
-
-    return versions.map((version) => {
-      if (version.earlyExtendProvided || !version.id) {
-        return version;
-      }
-
-      const existingVersion = existingVersionById.get(version.id);
-      if (!existingVersion?.timeSlotsByVariant.earlyExtend) {
-        return version;
-      }
-
-      return {
-        ...version,
-        timeSlotsByVariant: {
-          ...version.timeSlotsByVariant,
-          earlyExtend: existingVersion.timeSlotsByVariant.earlyExtend,
-        },
-      };
-    });
   }
 
   private hasLegacyDirectUpdates(input: SegmentUpdateDto): boolean {
@@ -455,9 +408,7 @@ export class SegmentService {
       input.averageTravelHours !== undefined ||
       input.isLongDistance !== undefined ||
       input.timeSlots !== undefined ||
-      input.earlyTimeSlots !== undefined ||
-      input.extendTimeSlots !== undefined ||
-      input.earlyExtendTimeSlots !== undefined
+      input.extendTimeSlots !== undefined
     );
   }
 
@@ -469,11 +420,8 @@ export class SegmentService {
     return defaultVersion;
   }
 
-  private getRequiredVariants(fromLocation: SegmentEndpointLocation, toLocation: SegmentEndpointLocation): SegmentScheduleVariant[] {
+  private getRequiredVariants(_fromLocation: SegmentEndpointLocation, toLocation: SegmentEndpointLocation): SegmentScheduleVariant[] {
     const variants: SegmentScheduleVariant[] = ['basic'];
-    if (fromLocation.isFirstDayEligible) {
-      variants.push('early');
-    }
     if (toLocation.isLastDayEligible) {
       variants.push('extend');
     }
@@ -532,9 +480,7 @@ export class SegmentService {
   ): void {
     const versionLabel = version.name || 'Default';
     const variantsToCheck =
-      version.kind === 'FLIGHT'
-        ? requiredVariants.filter((variant) => variant !== 'early' && variant !== 'extend')
-        : requiredVariants;
+      version.kind === 'FLIGHT' ? requiredVariants.filter((variant) => variant !== 'extend') : requiredVariants;
 
     variantsToCheck.forEach((variant) => {
       const timeSlots = version.timeSlotsByVariant[variant];
@@ -966,9 +912,7 @@ export class SegmentService {
             averageTravelHours: parsed.data.averageTravelHours,
             isLongDistance: parsed.data.isLongDistance,
             timeSlots: parsed.data.timeSlots,
-            earlyTimeSlots: parsed.data.earlyTimeSlots,
             extendTimeSlots: parsed.data.extendTimeSlots,
-            earlyExtendTimeSlots: parsed.data.earlyExtendTimeSlots,
           }),
         ];
 
@@ -1033,8 +977,8 @@ export class SegmentService {
 
   private stripSegmentVersionIds(versions: NormalizedSegmentVersion[]): NormalizedSegmentVersion[] {
     return versions.map((version) => {
-      const { id: _dropped, earlyExtendProvided: _prev, ...rest } = version;
-      return { ...rest, earlyExtendProvided: false };
+      const { id: _dropped, ...rest } = version;
+      return rest;
     });
   }
 
@@ -1042,23 +986,17 @@ export class SegmentService {
     return structuredClone(versions);
   }
 
-  /** from/to eligibility에 맞지 않는 variant의 일정(early·extend·earlyExtend) 키를 제거 */
+  /** from/to eligibility에 맞지 않는 variant의 일정(extend) 키를 제거 */
   private stripSegmentSchedulesForEndpointEligibility(
-    fromLocation: SegmentEndpointLocation,
+    _fromLocation: SegmentEndpointLocation,
     toLocation: SegmentEndpointLocation,
     versions: NormalizedSegmentVersion[],
   ): NormalizedSegmentVersion[] {
     return versions.map((version) => {
       const tv = version.timeSlotsByVariant;
       const next: VariantTimeSlotMap = { basic: tv.basic };
-      if (fromLocation.isFirstDayEligible && tv.early) {
-        next.early = tv.early;
-      }
       if (toLocation.isLastDayEligible && tv.extend) {
         next.extend = tv.extend;
-      }
-      if (fromLocation.isFirstDayEligible && toLocation.isLastDayEligible && tv.earlyExtend) {
-        next.earlyExtend = tv.earlyExtend;
       }
       return { ...version, timeSlotsByVariant: next };
     });
@@ -1078,9 +1016,6 @@ export class SegmentService {
     const hasLegacyDirectUpdates = this.hasLegacyDirectUpdates(data);
 
     let nextVersions = data.versions ? this.normalizeVersionsFromInput(data.versions) : existingVersions;
-    if (data.versions) {
-      nextVersions = this.preserveMissingEarlyExtendSchedules(nextVersions, existingVersions);
-    }
 
     if (!data.versions && hasLegacyDirectUpdates) {
       nextVersions = existingVersions.map((version) =>
@@ -1093,9 +1028,7 @@ export class SegmentService {
               isLongDistance: data.isLongDistance ?? version.isLongDistance,
               timeSlotsByVariant: {
                 basic: data.timeSlots ?? version.timeSlotsByVariant.basic,
-                early: data.earlyTimeSlots ?? version.timeSlotsByVariant.early,
                 extend: data.extendTimeSlots ?? version.timeSlotsByVariant.extend,
-                earlyExtend: data.earlyExtendTimeSlots ?? version.timeSlotsByVariant.earlyExtend,
               },
             }
           : version,

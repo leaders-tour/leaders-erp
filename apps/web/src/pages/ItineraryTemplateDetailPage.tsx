@@ -178,27 +178,7 @@ const SEGMENTS_QUERY = gql`
           orderIndex
         }
       }
-      earlyScheduleTimeBlocks {
-        id
-        startTime
-        orderIndex
-        activities {
-          id
-          description
-          orderIndex
-        }
-      }
       extendScheduleTimeBlocks {
-        id
-        startTime
-        orderIndex
-        activities {
-          id
-          description
-          orderIndex
-        }
-      }
-      earlyExtendScheduleTimeBlocks {
         id
         startTime
         orderIndex
@@ -244,27 +224,7 @@ const SEGMENTS_QUERY = gql`
             orderIndex
           }
         }
-        earlyScheduleTimeBlocks {
-          id
-          startTime
-          orderIndex
-          activities {
-            id
-            description
-            orderIndex
-          }
-        }
         extendScheduleTimeBlocks {
-          id
-          startTime
-          orderIndex
-          activities {
-            id
-            description
-            orderIndex
-          }
-        }
-        earlyExtendScheduleTimeBlocks {
           id
           startTime
           orderIndex
@@ -374,27 +334,7 @@ const MULTI_DAY_BLOCK_CONNECTIONS_QUERY = gql`
           orderIndex
         }
       }
-      earlyScheduleTimeBlocks {
-        id
-        startTime
-        orderIndex
-        activities {
-          id
-          description
-          orderIndex
-        }
-      }
       extendScheduleTimeBlocks {
-        id
-        startTime
-        orderIndex
-        activities {
-          id
-          description
-          orderIndex
-        }
-      }
-      earlyExtendScheduleTimeBlocks {
         id
         startTime
         orderIndex
@@ -424,27 +364,7 @@ const MULTI_DAY_BLOCK_CONNECTIONS_QUERY = gql`
             orderIndex
           }
         }
-        earlyScheduleTimeBlocks {
-          id
-          startTime
-          orderIndex
-          activities {
-            id
-            description
-            orderIndex
-          }
-        }
         extendScheduleTimeBlocks {
-          id
-          startTime
-          orderIndex
-          activities {
-            id
-            description
-            orderIndex
-          }
-        }
-        earlyExtendScheduleTimeBlocks {
           id
           startTime
           orderIndex

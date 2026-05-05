@@ -13,7 +13,7 @@ export interface Segment {
   updatedAt: Date;
 }
 
-export type SegmentScheduleVariant = 'basic' | 'early' | 'extend' | 'earlyExtend';
+export type SegmentScheduleVariant = 'basic' | 'extend';
 
 export interface SegmentVersion {
   id: string;

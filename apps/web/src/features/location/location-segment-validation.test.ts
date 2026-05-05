@@ -104,7 +104,7 @@ describe('location first-day validation', () => {
 });
 
 describe('segment variant validation shape', () => {
-  it('accepts early/extend/earlyExtend time slot arrays', () => {
+  it('accepts basic and extend time slot arrays', () => {
     const result = segmentCreateSchema.safeParse({
       regionId: 'region-1',
       fromLocationId: 'loc-a',
@@ -113,19 +113,16 @@ describe('segment variant validation shape', () => {
       averageTravelHours: 1,
       isLongDistance: false,
       timeSlots: [{ startTime: '08:00', activities: ['기본'] }],
-      earlyTimeSlots: [{ startTime: '05:00', activities: ['얼리'] }],
       extendTimeSlots: [{ startTime: '20:00', activities: ['연장'] }],
-      earlyExtendTimeSlots: [{ startTime: '05:00', activities: ['얼리+연장'] }],
       versions: [
         {
           name: '기본',
           averageDistanceKm: 10,
           averageTravelHours: 1,
           isLongDistance: false,
+          kind: 'DEFAULT',
           timeSlots: [{ startTime: '08:00', activities: ['기본'] }],
-          earlyTimeSlots: [{ startTime: '05:00', activities: ['얼리'] }],
           extendTimeSlots: [{ startTime: '20:00', activities: ['연장'] }],
-          earlyExtendTimeSlots: [{ startTime: '05:00', activities: ['얼리+연장'] }],
           isDefault: true,
         },
       ],

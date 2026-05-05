@@ -25,29 +25,7 @@ const LIST = gql`
           orderIndex
         }
       }
-      earlyScheduleTimeBlocks {
-        id
-        variant
-        startTime
-        orderIndex
-        activities {
-          id
-          description
-          orderIndex
-        }
-      }
       extendScheduleTimeBlocks {
-        id
-        variant
-        startTime
-        orderIndex
-        activities {
-          id
-          description
-          orderIndex
-        }
-      }
-      earlyExtendScheduleTimeBlocks {
         id
         variant
         startTime
@@ -94,29 +72,7 @@ const LIST = gql`
             orderIndex
           }
         }
-        earlyScheduleTimeBlocks {
-          id
-          variant
-          startTime
-          orderIndex
-          activities {
-            id
-            description
-            orderIndex
-          }
-        }
         extendScheduleTimeBlocks {
-          id
-          variant
-          startTime
-          orderIndex
-          activities {
-            id
-            description
-            orderIndex
-          }
-        }
-        earlyExtendScheduleTimeBlocks {
           id
           variant
           startTime
@@ -154,29 +110,7 @@ const LIST = gql`
           orderIndex
         }
       }
-      earlyScheduleTimeBlocks {
-        id
-        variant
-        startTime
-        orderIndex
-        activities {
-          id
-          description
-          orderIndex
-        }
-      }
       extendScheduleTimeBlocks {
-        id
-        variant
-        startTime
-        orderIndex
-        activities {
-          id
-          description
-          orderIndex
-        }
-      }
-      earlyExtendScheduleTimeBlocks {
         id
         variant
         startTime
@@ -207,29 +141,7 @@ const LIST = gql`
             orderIndex
           }
         }
-        earlyScheduleTimeBlocks {
-          id
-          variant
-          startTime
-          orderIndex
-          activities {
-            id
-            description
-            orderIndex
-          }
-        }
         extendScheduleTimeBlocks {
-          id
-          variant
-          startTime
-          orderIndex
-          activities {
-            id
-            description
-            orderIndex
-          }
-        }
-        earlyExtendScheduleTimeBlocks {
           id
           variant
           startTime
@@ -342,6 +254,8 @@ export interface SegmentVersionMealsOverrideFormInput {
   dinner: MealOption | null;
 }
 
+export type ConnectionScheduleVariant = 'basic' | 'extend';
+
 export interface SegmentFormInput {
   sourceType: ConnectionSourceType;
   regionId?: string;
@@ -352,9 +266,7 @@ export interface SegmentFormInput {
   averageTravelHours: number;
   isLongDistance: boolean;
   timeSlots: SegmentTimeSlotFormInput[];
-  earlyTimeSlots?: SegmentTimeSlotFormInput[];
   extendTimeSlots?: SegmentTimeSlotFormInput[];
-  earlyExtendTimeSlots?: SegmentTimeSlotFormInput[];
   versions?: SegmentVersionFormInput[];
 }
 
@@ -368,9 +280,7 @@ export interface SegmentBulkFormInput {
   averageTravelHours: number;
   isLongDistance: boolean;
   timeSlots: SegmentTimeSlotFormInput[];
-  earlyTimeSlots?: SegmentTimeSlotFormInput[];
   extendTimeSlots?: SegmentTimeSlotFormInput[];
-  earlyExtendTimeSlots?: SegmentTimeSlotFormInput[];
   versions?: SegmentVersionFormInput[];
 }
 
@@ -392,9 +302,7 @@ export interface SegmentVersionFormInput {
   lodgingOverride?: SegmentVersionLodgingOverrideFormInput;
   mealsOverride?: SegmentVersionMealsOverrideFormInput;
   timeSlots: SegmentTimeSlotFormInput[];
-  earlyTimeSlots?: SegmentTimeSlotFormInput[];
   extendTimeSlots?: SegmentTimeSlotFormInput[];
-  earlyExtendTimeSlots?: SegmentTimeSlotFormInput[];
   isDefault?: boolean;
 }
 
@@ -410,9 +318,7 @@ function toMultiDayBlockConnectionVersionInputs(versions: SegmentVersionFormInpu
     averageTravelHours: v.averageTravelHours,
     isLongDistance: v.isLongDistance,
     timeSlots: v.timeSlots,
-    ...(v.earlyTimeSlots ? { earlyTimeSlots: v.earlyTimeSlots } : {}),
     ...(v.extendTimeSlots ? { extendTimeSlots: v.extendTimeSlots } : {}),
-    ...(v.earlyExtendTimeSlots ? { earlyExtendTimeSlots: v.earlyExtendTimeSlots } : {}),
     ...(v.isDefault !== undefined ? { isDefault: v.isDefault } : {}),
   }));
 }
@@ -432,18 +338,7 @@ export interface SegmentRow {
   isLongDistance: boolean;
   scheduleTimeBlocks: Array<{
     id: string;
-    variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
-    startTime: string;
-    orderIndex: number;
-    activities: Array<{
-      id: string;
-      description: string;
-      orderIndex: number;
-    }>;
-  }>;
-  earlyScheduleTimeBlocks: Array<{
-    id: string;
-    variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
+    variant: ConnectionScheduleVariant;
     startTime: string;
     orderIndex: number;
     activities: Array<{
@@ -454,18 +349,7 @@ export interface SegmentRow {
   }>;
   extendScheduleTimeBlocks: Array<{
     id: string;
-    variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
-    startTime: string;
-    orderIndex: number;
-    activities: Array<{
-      id: string;
-      description: string;
-      orderIndex: number;
-    }>;
-  }>;
-  earlyExtendScheduleTimeBlocks: Array<{
-    id: string;
-    variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
+    variant: ConnectionScheduleVariant;
     startTime: string;
     orderIndex: number;
     activities: Array<{
@@ -491,18 +375,7 @@ export interface SegmentRow {
     isDefault: boolean;
     scheduleTimeBlocks: Array<{
       id: string;
-      variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
-      startTime: string;
-      orderIndex: number;
-      activities: Array<{
-        id: string;
-        description: string;
-        orderIndex: number;
-      }>;
-    }>;
-    earlyScheduleTimeBlocks: Array<{
-      id: string;
-      variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
+      variant: ConnectionScheduleVariant;
       startTime: string;
       orderIndex: number;
       activities: Array<{
@@ -513,18 +386,7 @@ export interface SegmentRow {
     }>;
     extendScheduleTimeBlocks: Array<{
       id: string;
-      variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
-      startTime: string;
-      orderIndex: number;
-      activities: Array<{
-        id: string;
-        description: string;
-        orderIndex: number;
-      }>;
-    }>;
-    earlyExtendScheduleTimeBlocks: Array<{
-      id: string;
-      variant: 'basic' | 'early' | 'extend' | 'earlyExtend';
+      variant: ConnectionScheduleVariant;
       startTime: string;
       orderIndex: number;
       activities: Array<{
@@ -552,9 +414,7 @@ export function useSegmentCrud() {
       averageTravelHours: number;
       isLongDistance: boolean;
       scheduleTimeBlocks: SegmentRow['scheduleTimeBlocks'];
-      earlyScheduleTimeBlocks: SegmentRow['earlyScheduleTimeBlocks'];
       extendScheduleTimeBlocks: SegmentRow['extendScheduleTimeBlocks'];
-      earlyExtendScheduleTimeBlocks: SegmentRow['earlyExtendScheduleTimeBlocks'];
       versions: Array<{
         id: string;
         multiDayBlockConnectionId: string;
@@ -565,9 +425,7 @@ export function useSegmentCrud() {
         sortOrder: number;
         isDefault: boolean;
         scheduleTimeBlocks: SegmentRow['versions'][number]['scheduleTimeBlocks'];
-        earlyScheduleTimeBlocks: SegmentRow['versions'][number]['earlyScheduleTimeBlocks'];
         extendScheduleTimeBlocks: SegmentRow['versions'][number]['extendScheduleTimeBlocks'];
-        earlyExtendScheduleTimeBlocks: SegmentRow['versions'][number]['earlyExtendScheduleTimeBlocks'];
       }>;
     }>;
   }>(LIST);
@@ -590,9 +448,7 @@ export function useSegmentCrud() {
     averageTravelHours: row.averageTravelHours,
     isLongDistance: row.isLongDistance,
     scheduleTimeBlocks: row.scheduleTimeBlocks,
-    earlyScheduleTimeBlocks: row.earlyScheduleTimeBlocks,
     extendScheduleTimeBlocks: row.extendScheduleTimeBlocks,
-    earlyExtendScheduleTimeBlocks: row.earlyExtendScheduleTimeBlocks,
     versions: row.versions.map((version) => ({
       id: version.id,
       segmentId: version.multiDayBlockConnectionId,
@@ -606,9 +462,7 @@ export function useSegmentCrud() {
       sortOrder: version.sortOrder,
       isDefault: version.isDefault,
       scheduleTimeBlocks: version.scheduleTimeBlocks,
-      earlyScheduleTimeBlocks: version.earlyScheduleTimeBlocks,
       extendScheduleTimeBlocks: version.extendScheduleTimeBlocks,
-      earlyExtendScheduleTimeBlocks: version.earlyExtendScheduleTimeBlocks,
     })),
   }));
 
@@ -627,9 +481,7 @@ export function useSegmentCrud() {
             averageTravelHours: input.averageTravelHours,
             isLongDistance: input.isLongDistance,
             timeSlots: input.timeSlots,
-            ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
             ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
-            ...(input.earlyExtendTimeSlots ? { earlyExtendTimeSlots: input.earlyExtendTimeSlots } : {}),
             ...(input.versions ? { versions: toMultiDayBlockConnectionVersionInputs(input.versions) } : {}),
           },
         },
@@ -646,7 +498,6 @@ export function useSegmentCrud() {
             averageTravelHours: input.averageTravelHours,
             isLongDistance: input.isLongDistance,
             timeSlots: input.timeSlots,
-            ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
             ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
             ...(input.versions ? { versions: input.versions } : {}),
           },
@@ -668,9 +519,7 @@ export function useSegmentCrud() {
             averageTravelHours: input.averageTravelHours,
             isLongDistance: input.isLongDistance,
             timeSlots: input.timeSlots,
-            ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
             ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
-            ...(input.earlyExtendTimeSlots ? { earlyExtendTimeSlots: input.earlyExtendTimeSlots } : {}),
             ...(input.versions ? { versions: toMultiDayBlockConnectionVersionInputs(input.versions) } : {}),
           },
         },
@@ -687,7 +536,6 @@ export function useSegmentCrud() {
             averageTravelHours: input.averageTravelHours,
             isLongDistance: input.isLongDistance,
             timeSlots: input.timeSlots,
-            ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
             ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
             ...(input.versions ? { versions: input.versions } : {}),
           },
@@ -721,9 +569,7 @@ export function useSegmentCrud() {
             averageTravelHours: input.averageTravelHours,
             isLongDistance: input.isLongDistance,
             timeSlots: input.timeSlots,
-            ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
             ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
-            ...(input.earlyExtendTimeSlots ? { earlyExtendTimeSlots: input.earlyExtendTimeSlots } : {}),
             ...(input.versions ? { versions: toMultiDayBlockConnectionVersionInputs(input.versions) } : {}),
           },
         },
@@ -741,7 +587,6 @@ export function useSegmentCrud() {
             averageTravelHours: input.averageTravelHours,
             isLongDistance: input.isLongDistance,
             timeSlots: input.timeSlots,
-            ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
             ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
             ...(input.versions ? { versions: input.versions } : {}),
           },
@@ -783,9 +628,7 @@ export function useSegmentCrud() {
               averageTravelHours: input.averageTravelHours,
               isLongDistance: input.isLongDistance,
               timeSlots: input.timeSlots,
-              ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
               ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
-              ...(input.earlyExtendTimeSlots ? { earlyExtendTimeSlots: input.earlyExtendTimeSlots } : {}),
               ...(input.versions ? { versions: toMultiDayBlockConnectionVersionInputs(input.versions) } : {}),
             },
             additionalFromMultiDayBlockIds: additional,
@@ -811,9 +654,7 @@ export function useSegmentCrud() {
               averageTravelHours: input.averageTravelHours,
               isLongDistance: input.isLongDistance,
               timeSlots: input.timeSlots,
-              ...(input.earlyTimeSlots ? { earlyTimeSlots: input.earlyTimeSlots } : {}),
               ...(input.extendTimeSlots ? { extendTimeSlots: input.extendTimeSlots } : {}),
-              ...(input.earlyExtendTimeSlots ? { earlyExtendTimeSlots: input.earlyExtendTimeSlots } : {}),
               ...(input.versions ? { versions: input.versions } : {}),
             },
             additionalFromLocationIds: additional,

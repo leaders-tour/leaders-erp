@@ -41,22 +41,22 @@ function createVersion(kind: 'DEFAULT' | 'SEASON' | 'FLIGHT') {
 }
 
 describe('SegmentService required variant schedules', () => {
-  it('does not require early or extend schedules for flight versions', () => {
+  it('does not require extend schedules for flight versions', () => {
     const service = createService();
     const version = createVersion('FLIGHT');
 
     expect(() =>
-      (service as any).assertRequiredVariantSchedules(version, ['basic', 'early', 'extend']),
+      (service as any).assertRequiredVariantSchedules(version, ['basic', 'extend']),
     ).not.toThrow();
   });
 
-  it('still requires early schedules for non-flight versions', () => {
+  it('still requires extend schedules for non-flight versions when extend is required', () => {
     const service = createService();
     const version = createVersion('SEASON');
 
     expect(() =>
-      (service as any).assertRequiredVariantSchedules(version, ['basic', 'early']),
-    ).toThrowError(new DomainError('VALIDATION_FAILED', 'Segment version "테스트 버전" requires early schedules'));
+      (service as any).assertRequiredVariantSchedules(version, ['basic', 'extend']),
+    ).toThrowError(new DomainError('VALIDATION_FAILED', 'Segment version "테스트 버전" requires extend schedules'));
   });
 });
 
@@ -148,15 +148,13 @@ const endpoint = (first: boolean, last: boolean) => ({
 });
 
 describe('SegmentService stripSegmentSchedulesForEndpointEligibility', () => {
-  it('drops early and earlyExtend when from is not first-day eligible', () => {
+  it('keeps extend when destination is last-day eligible', () => {
     const service = createService();
     const version = {
       ...createVersion('SEASON'),
       timeSlotsByVariant: {
         basic: [{ startTime: '08:00', activities: [] }],
-        early: [{ startTime: '05:00', activities: [] }],
         extend: [{ startTime: '18:00', activities: [] }],
-        earlyExtend: [{ startTime: '04:00', activities: [] }],
       },
     };
     const out = (service as any).stripSegmentSchedulesForEndpointEligibility(
@@ -164,20 +162,16 @@ describe('SegmentService stripSegmentSchedulesForEndpointEligibility', () => {
       endpoint(true, true),
       [version],
     );
-    expect(out[0]!.timeSlotsByVariant.early).toBeUndefined();
-    expect(out[0]!.timeSlotsByVariant.earlyExtend).toBeUndefined();
     expect(out[0]!.timeSlotsByVariant.extend?.length).toBeGreaterThan(0);
   });
 
-  it('drops extend and earlyExtend when to is not last-day eligible', () => {
+  it('drops extend when destination is not last-day eligible', () => {
     const service = createService();
     const version = {
       ...createVersion('SEASON'),
       timeSlotsByVariant: {
         basic: [{ startTime: '08:00', activities: [] }],
-        early: [{ startTime: '05:00', activities: [] }],
         extend: [{ startTime: '18:00', activities: [] }],
-        earlyExtend: [{ startTime: '04:00', activities: [] }],
       },
     };
     const out = (service as any).stripSegmentSchedulesForEndpointEligibility(
@@ -186,7 +180,5 @@ describe('SegmentService stripSegmentSchedulesForEndpointEligibility', () => {
       [version],
     );
     expect(out[0]!.timeSlotsByVariant.extend).toBeUndefined();
-    expect(out[0]!.timeSlotsByVariant.earlyExtend).toBeUndefined();
-    expect(out[0]!.timeSlotsByVariant.early?.length).toBeGreaterThan(0);
   });
 });

@@ -22,7 +22,7 @@ import type {
   MultiDayBlockUpdateDto,
 } from './multi-day-block.types';
 
-type SegmentScheduleVariant = 'basic' | 'early' | 'extend' | 'earlyExtend';
+type SegmentScheduleVariant = 'basic' | 'extend';
 
 interface OvernightStayListFilter {
   regionIds?: string[];
@@ -54,9 +54,7 @@ interface NormalizedTimeSlot {
 
 interface VariantTimeSlotMap {
   basic: MultiDayBlockConnectionTimeSlotInput[];
-  early?: MultiDayBlockConnectionTimeSlotInput[];
   extend?: MultiDayBlockConnectionTimeSlotInput[];
-  earlyExtend?: MultiDayBlockConnectionTimeSlotInput[];
 }
 
 interface NormalizedConnectionVersion {
@@ -124,7 +122,7 @@ interface PreparedMdbConnectionUpdate {
   data: MultiDayBlockConnectionUpdateInput;
 }
 
-const SEGMENT_SCHEDULE_VARIANTS: SegmentScheduleVariant[] = ['basic', 'early', 'extend', 'earlyExtend'];
+const SEGMENT_SCHEDULE_VARIANTS: SegmentScheduleVariant[] = ['basic', 'extend'];
 
 export class MultiDayBlockService {
   private readonly repository: MultiDayBlockRepository;
@@ -353,15 +351,12 @@ export class MultiDayBlockConnectionService {
 
   private normalizeVariantTimeSlots(input: {
     timeSlots: MultiDayBlockConnectionTimeSlotInput[];
-    earlyTimeSlots?: MultiDayBlockConnectionTimeSlotInput[];
     extendTimeSlots?: MultiDayBlockConnectionTimeSlotInput[];
-    earlyExtendTimeSlots?: MultiDayBlockConnectionTimeSlotInput[];
   }): VariantTimeSlotMap {
+    const extend = this.cloneTimeSlots(input.extendTimeSlots);
     return {
       basic: this.cloneTimeSlots(input.timeSlots) ?? [],
-      early: this.cloneTimeSlots(input.earlyTimeSlots),
-      extend: this.cloneTimeSlots(input.extendTimeSlots),
-      earlyExtend: this.cloneTimeSlots(input.earlyExtendTimeSlots),
+      ...(extend && extend.length > 0 ? { extend } : {}),
     };
   }
 
@@ -390,15 +385,11 @@ export class MultiDayBlockConnectionService {
       | ExistingConnectionLike['versions'][number]['scheduleTimeBlocks'],
   ): VariantTimeSlotMap {
     const basic = this.mapScheduleTimeBlocksToTimeSlots(timeBlocks, 'basic');
-    const early = this.mapScheduleTimeBlocksToTimeSlots(timeBlocks, 'early');
     const extend = this.mapScheduleTimeBlocksToTimeSlots(timeBlocks, 'extend');
-    const earlyExtend = this.mapScheduleTimeBlocksToTimeSlots(timeBlocks, 'earlyExtend');
 
     return {
       basic,
-      ...(early.length > 0 ? { early } : {}),
       ...(extend.length > 0 ? { extend } : {}),
-      ...(earlyExtend.length > 0 ? { earlyExtend } : {}),
     };
   }
 
@@ -407,9 +398,7 @@ export class MultiDayBlockConnectionService {
     averageTravelHours: number;
     isLongDistance: boolean;
     timeSlots: MultiDayBlockConnectionTimeSlotInput[];
-    earlyTimeSlots?: MultiDayBlockConnectionTimeSlotInput[];
     extendTimeSlots?: MultiDayBlockConnectionTimeSlotInput[];
-    earlyExtendTimeSlots?: MultiDayBlockConnectionTimeSlotInput[];
   }): NormalizedConnectionVersion {
     return {
       name: '기본',
@@ -444,9 +433,7 @@ export class MultiDayBlockConnectionService {
         averageTravelHours: existing.averageTravelHours,
         isLongDistance: existing.isLongDistance,
         timeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'basic'),
-        earlyTimeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'early'),
         extendTimeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'extend'),
-        earlyExtendTimeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'earlyExtend'),
       }),
     ];
   }
@@ -469,9 +456,7 @@ export class MultiDayBlockConnectionService {
       input.averageTravelHours !== undefined ||
       input.isLongDistance !== undefined ||
       input.timeSlots !== undefined ||
-      input.earlyTimeSlots !== undefined ||
-      input.extendTimeSlots !== undefined ||
-      input.earlyExtendTimeSlots !== undefined
+      input.extendTimeSlots !== undefined
     );
   }
 
@@ -861,9 +846,7 @@ export class MultiDayBlockConnectionService {
             averageTravelHours: parsed.data.averageTravelHours,
             isLongDistance: parsed.data.isLongDistance,
             timeSlots: parsed.data.timeSlots,
-            earlyTimeSlots: parsed.data.earlyTimeSlots,
             extendTimeSlots: parsed.data.extendTimeSlots,
-            earlyExtendTimeSlots: parsed.data.earlyExtendTimeSlots,
           }),
         ];
     await this.validateVersions(toLocation, nextVersions);
@@ -931,9 +914,7 @@ export class MultiDayBlockConnectionService {
               isLongDistance: data.isLongDistance ?? version.isLongDistance,
               timeSlotsByVariant: {
                 basic: data.timeSlots ?? version.timeSlotsByVariant.basic,
-                early: data.earlyTimeSlots ?? version.timeSlotsByVariant.early,
                 extend: data.extendTimeSlots ?? version.timeSlotsByVariant.extend,
-                earlyExtend: data.earlyExtendTimeSlots ?? version.timeSlotsByVariant.earlyExtend,
               },
             }
           : version,

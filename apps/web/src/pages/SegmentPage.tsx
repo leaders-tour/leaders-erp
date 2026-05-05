@@ -117,10 +117,7 @@ interface SegmentFormState {
   isLongDistance: boolean;
   mealsOverride: SegmentVersionMealsOverrideFormInput;
   timeSlots: SegmentTimeSlotFormInput[];
-  earlyTimeSlots: SegmentTimeSlotFormInput[];
   extendTimeSlots: SegmentTimeSlotFormInput[];
-  earlyExtendTimeSlots: SegmentTimeSlotFormInput[];
-  earlySameAsBasic: boolean;
   versions: SegmentVersionDraft[];
 }
 
@@ -137,10 +134,7 @@ interface SegmentVersionDraft {
   lodgingOverride: SegmentVersionLodgingOverrideFormInput;
   mealsOverride: SegmentVersionMealsOverrideFormInput;
   timeSlots: SegmentTimeSlotFormInput[];
-  earlyTimeSlots: SegmentTimeSlotFormInput[];
   extendTimeSlots: SegmentTimeSlotFormInput[];
-  earlyExtendTimeSlots: SegmentTimeSlotFormInput[];
-  earlySameAsBasic: boolean;
 }
 
 function createTimeSlot(startTime: string): SegmentTimeSlotFormInput {
@@ -208,10 +202,7 @@ function createVersionDraft(): SegmentVersionDraft {
     lodgingOverride: createEmptyLodgingOverride(),
     mealsOverride: createEmptyMealsOverride(),
     timeSlots: createDefaultTimeSlots(),
-    earlyTimeSlots: createDefaultTimeSlots(),
     extendTimeSlots: createDefaultTimeSlots(),
-    earlyExtendTimeSlots: createDefaultTimeSlots(),
-    earlySameAsBasic: false,
   };
 }
 
@@ -220,16 +211,6 @@ function cloneTimeSlotDrafts(timeSlots: SegmentTimeSlotFormInput[]): SegmentTime
     startTime: slot.startTime,
     activities: [...slot.activities],
   }));
-}
-
-function timeSlotsAreEqual(a: SegmentTimeSlotFormInput[], b: SegmentTimeSlotFormInput[]): boolean {
-  if (a.length !== b.length) return false;
-  return a.every((slot, i) => {
-    const other = b[i]!;
-    if (slot.startTime !== other.startTime) return false;
-    if (slot.activities.length !== other.activities.length) return false;
-    return slot.activities.every((act, j) => act === other.activities[j]);
-  });
 }
 
 function createVersionDraftFromPrevious(previous: SegmentVersionDraft | undefined): SegmentVersionDraft {
@@ -243,10 +224,7 @@ function createVersionDraftFromPrevious(previous: SegmentVersionDraft | undefine
     lodgingOverride: { ...previous.lodgingOverride },
     mealsOverride: { ...previous.mealsOverride },
     timeSlots: cloneTimeSlotDrafts(previous.timeSlots),
-    earlyTimeSlots: cloneTimeSlotDrafts(previous.earlyTimeSlots),
     extendTimeSlots: cloneTimeSlotDrafts(previous.extendTimeSlots),
-    earlyExtendTimeSlots: cloneTimeSlotDrafts(previous.earlyExtendTimeSlots),
-    earlySameAsBasic: previous.earlySameAsBasic,
   };
 }
 
@@ -274,7 +252,7 @@ function createVersionDraftFromPreviousWithKind(
 
 function createVersionDraftFromBase(base: Pick<
   SegmentFormState,
-  'averageDistanceKm' | 'averageTravelHours' | 'isLongDistance' | 'timeSlots' | 'earlyTimeSlots' | 'extendTimeSlots' | 'earlyExtendTimeSlots' | 'earlySameAsBasic'
+  'averageDistanceKm' | 'averageTravelHours' | 'isLongDistance' | 'timeSlots' | 'extendTimeSlots'
 >): SegmentVersionDraft {
   return {
     ...createVersionDraft(),
@@ -282,17 +260,14 @@ function createVersionDraftFromBase(base: Pick<
     averageTravelHours: base.averageTravelHours,
     isLongDistance: base.isLongDistance,
     timeSlots: cloneTimeSlotDrafts(base.timeSlots),
-    earlyTimeSlots: cloneTimeSlotDrafts(base.earlyTimeSlots),
     extendTimeSlots: cloneTimeSlotDrafts(base.extendTimeSlots),
-    earlyExtendTimeSlots: cloneTimeSlotDrafts(base.earlyExtendTimeSlots),
-    earlySameAsBasic: base.earlySameAsBasic,
   };
 }
 
 function createVersionDraftFromBaseWithKind(
   base: Pick<
     SegmentFormState,
-    'averageDistanceKm' | 'averageTravelHours' | 'isLongDistance' | 'timeSlots' | 'earlyTimeSlots' | 'extendTimeSlots' | 'earlyExtendTimeSlots' | 'earlySameAsBasic'
+    'averageDistanceKm' | 'averageTravelHours' | 'isLongDistance' | 'timeSlots' | 'extendTimeSlots'
   >,
   kind: SegmentVersionDraft['kind'],
 ): SegmentVersionDraft {
@@ -396,10 +371,7 @@ function createEmptyForm(): SegmentFormState {
     isLongDistance: false,
     mealsOverride: createEmptyMealsOverride(),
     timeSlots: createDefaultTimeSlots(),
-    earlyTimeSlots: createDefaultTimeSlots(),
     extendTimeSlots: createDefaultTimeSlots(),
-    earlyExtendTimeSlots: createDefaultTimeSlots(),
-    earlySameAsBasic: false,
     versions: [],
   };
 }
@@ -474,13 +446,9 @@ function parseSegmentTimeSlots(timeCellText: string, scheduleCellText: string): 
 function toFormTimeSlots(
   timeBlocks:
     | SegmentRow['scheduleTimeBlocks']
-    | SegmentRow['earlyScheduleTimeBlocks']
     | SegmentRow['extendScheduleTimeBlocks']
-    | SegmentRow['earlyExtendScheduleTimeBlocks']
     | SegmentRow['versions'][number]['scheduleTimeBlocks']
-    | SegmentRow['versions'][number]['earlyScheduleTimeBlocks']
     | SegmentRow['versions'][number]['extendScheduleTimeBlocks']
-    | SegmentRow['versions'][number]['earlyExtendScheduleTimeBlocks']
     | undefined,
 ): SegmentTimeSlotFormInput[] {
   if (!timeBlocks || timeBlocks.length === 0) {
@@ -502,13 +470,9 @@ function toFormTimeSlots(
 function buildScheduleLines(
   timeBlocks:
     | SegmentRow['scheduleTimeBlocks']
-    | SegmentRow['earlyScheduleTimeBlocks']
     | SegmentRow['extendScheduleTimeBlocks']
-    | SegmentRow['earlyExtendScheduleTimeBlocks']
     | SegmentRow['versions'][number]['scheduleTimeBlocks']
-    | SegmentRow['versions'][number]['earlyScheduleTimeBlocks']
     | SegmentRow['versions'][number]['extendScheduleTimeBlocks']
-    | SegmentRow['versions'][number]['earlyExtendScheduleTimeBlocks']
     | undefined,
 ): Array<{ time: string; activity: string }> {
   if (!timeBlocks || timeBlocks.length === 0) {
@@ -572,36 +536,24 @@ function toVersionDrafts(segment: SegmentRow | undefined): SegmentVersionDraft[]
         ? sanitizeMealsOverride(version.mealsOverride)
         : createEmptyMealsOverride(),
       timeSlots: toFormTimeSlots(version.scheduleTimeBlocks),
-      earlyTimeSlots: toFormTimeSlots(version.earlyScheduleTimeBlocks),
       extendTimeSlots: toFormTimeSlots(version.extendScheduleTimeBlocks),
-      earlyExtendTimeSlots: toFormTimeSlots(version.earlyExtendScheduleTimeBlocks),
-      earlySameAsBasic: timeSlotsAreEqual(
-        toFormTimeSlots(version.scheduleTimeBlocks),
-        toFormTimeSlots(version.earlyScheduleTimeBlocks),
-      ),
     }));
 }
 
 function buildVariantTimeSlotInput(
   value: {
     timeSlots: SegmentTimeSlotFormInput[];
-    earlyTimeSlots: SegmentTimeSlotFormInput[];
     extendTimeSlots: SegmentTimeSlotFormInput[];
-    earlySameAsBasic?: boolean;
   },
   input: {
-    includeEarly: boolean;
     includeExtend: boolean;
   },
 ): {
   timeSlots: SegmentTimeSlotFormInput[];
-  earlyTimeSlots?: SegmentTimeSlotFormInput[];
   extendTimeSlots?: SegmentTimeSlotFormInput[];
 } {
-  const earlyTimeSlots = value.earlySameAsBasic ? cloneTimeSlotDrafts(value.timeSlots) : value.earlyTimeSlots;
   return {
     timeSlots: value.timeSlots,
-    ...(input.includeEarly ? { earlyTimeSlots } : {}),
     ...(input.includeExtend ? { extendTimeSlots: value.extendTimeSlots } : {}),
   };
 }
@@ -907,7 +859,6 @@ function TimeSlotEditor(props: {
 function buildVersionInputs(
   form: SegmentFormState,
   input: {
-    includeEarly: boolean;
     includeExtend: boolean;
     fixedFlightVersionName?: string;
   },
@@ -944,7 +895,6 @@ function buildVersionInputs(
         ? { mealsOverride: sanitizeMealsOverride(version.mealsOverride) }
         : {}),
       ...buildVariantTimeSlotInput(version, {
-        includeEarly: version.kind === 'FLIGHT' ? false : input.includeEarly,
         includeExtend: version.kind === 'FLIGHT' ? false : input.includeExtend,
       }),
       isDefault: false,
@@ -1069,15 +1019,14 @@ function AlternativeVersionEditor(props: {
   value: SegmentVersionDraft[];
   baseDraft: Pick<
     SegmentFormState,
-    'averageDistanceKm' | 'averageTravelHours' | 'isLongDistance' | 'timeSlots' | 'earlyTimeSlots' | 'extendTimeSlots' | 'earlyExtendTimeSlots' | 'earlySameAsBasic'
+    'averageDistanceKm' | 'averageTravelHours' | 'isLongDistance' | 'timeSlots' | 'extendTimeSlots'
   >;
   showDateRange: boolean;
-  includeEarly: boolean;
   includeExtend: boolean;
   onChange: (nextValue: SegmentVersionDraft[]) => void;
   pasteHelperResetNonce?: number;
 }): JSX.Element {
-  const { value, baseDraft, showDateRange, includeEarly, includeExtend, onChange, pasteHelperResetNonce } = props;
+  const { value, baseDraft, showDateRange, includeExtend, onChange, pasteHelperResetNonce } = props;
   const updateVersion = (clientId: string, updater: (current: SegmentVersionDraft) => SegmentVersionDraft) => {
     onChange(value.map((item) => (item.clientId === clientId ? updater(item) : item)));
   };
@@ -1212,57 +1161,6 @@ function AlternativeVersionEditor(props: {
                     pasteHelperResetNonce={pasteHelperResetNonce}
                     onChange={(nextTimeSlots) => updateVersion(version.clientId, (item) => ({ ...item, timeSlots: nextTimeSlots }))}
                   />
-                  {includeEarly ? (
-                    version.earlySameAsBasic ? (
-                      <div className="grid gap-3 self-start rounded-2xl border border-slate-200 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="grid gap-1">
-                            <h3 className="text-sm font-semibold text-slate-800">버전 얼리 일정</h3>
-                            <p className="text-xs text-slate-500">첫날 얼리 조건의 연결 자동 채움에 사용됩니다.</p>
-                          </div>
-                          <label className="flex shrink-0 items-center gap-2 text-sm text-slate-700">
-                            <input
-                              type="checkbox"
-                              checked={version.earlySameAsBasic}
-                              onChange={(event) =>
-                                updateVersion(version.clientId, (item) => ({ ...item, earlySameAsBasic: event.target.checked }))
-                              }
-                            />
-                            기본과 동일
-                          </label>
-                        </div>
-                        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                          기본 연결과 동일한 일정이 얼리에 적용됩니다.
-                        </div>
-                      </div>
-                    ) : (
-                      <TimeSlotEditor
-                        title="버전 얼리 일정"
-                        description="첫날 얼리 조건의 연결 자동 채움에 사용됩니다."
-                        value={version.earlyTimeSlots}
-                        pasteHelperResetNonce={pasteHelperResetNonce}
-                        onChange={(nextTimeSlots) =>
-                          updateVersion(version.clientId, (item) => ({ ...item, earlyTimeSlots: nextTimeSlots }))
-                        }
-                        headerRight={
-                          <label className="flex shrink-0 items-center gap-2 text-sm text-slate-700">
-                            <input
-                              type="checkbox"
-                              checked={version.earlySameAsBasic}
-                              onChange={(event) =>
-                                updateVersion(version.clientId, (item) => ({ ...item, earlySameAsBasic: event.target.checked }))
-                              }
-                            />
-                            기본과 동일
-                          </label>
-                        }
-                      />
-                    )
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-                      얼리 조건이 가능한 출발지/도착지일 때 얼리 일정 입력 영역이 나타납니다.
-                    </div>
-                  )}
                 </div>
 
                 {includeExtend ? (
@@ -1300,7 +1198,7 @@ function FlightAlternativeVersionPanel(props: {
   value: SegmentVersionDraft[];
   baseDraft: Pick<
     SegmentFormState,
-    'averageDistanceKm' | 'averageTravelHours' | 'isLongDistance' | 'timeSlots' | 'earlyTimeSlots' | 'extendTimeSlots' | 'earlyExtendTimeSlots' | 'earlySameAsBasic'
+    'averageDistanceKm' | 'averageTravelHours' | 'isLongDistance' | 'timeSlots' | 'extendTimeSlots'
   >;
   includeExtend: boolean;
   fixedName: string;
@@ -1555,16 +1453,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
   const editToLabel = formatLocationNameInline(selectedEditToLocation?.name ?? [editForm.toLocationId || '-']);
   const createFlightVersionName = buildFlightVersionName(createFromLabel, createToLabel);
   const editFlightVersionName = buildFlightVersionName(editFromLabel, editToLabel);
-  const includeCreateEarly =
-    form.sourceType === 'LOCATION' &&
-    (form.bulkMode
-      ? form.bulkFromLocationIds.some((id) => Boolean(locationById.get(id)?.isFirstDayEligible))
-      : Boolean(selectedFromLocation?.isFirstDayEligible));
   const includeCreateExtend = Boolean(selectedToLocation?.isLastDayEligible);
-  const includeEditEarly =
-    editForm.sourceType === 'LOCATION' &&
-    (Boolean(selectedEditFromLocation?.isFirstDayEligible) ||
-      editForm.editExtraFromLocationIds.some((id) => Boolean(locationById.get(id)?.isFirstDayEligible)));
   const includeEditExtend = Boolean(selectedEditToLocation?.isLastDayEligible);
   const filteredEditExtraFromLocations = useMemo(() => {
     const keyword = editExtraFromSearch.trim().toLowerCase();
@@ -1890,11 +1779,9 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                   averageTravelHours: Number(form.averageTravelHours),
                   isLongDistance: form.isLongDistance,
                   ...buildVariantTimeSlotInput(form, {
-                    includeEarly: includeCreateEarly,
                     includeExtend: includeCreateExtend,
                   }),
                   versions: buildVersionInputs(form, {
-                    includeEarly: includeCreateEarly,
                     includeExtend: includeCreateExtend,
                     fixedFlightVersionName: createFlightVersionName,
                   }),
@@ -1911,11 +1798,9 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                   averageTravelHours: Number(form.averageTravelHours),
                   isLongDistance: form.isLongDistance,
                   ...buildVariantTimeSlotInput(form, {
-                    includeEarly: includeCreateEarly,
                     includeExtend: includeCreateExtend,
                   }),
                   versions: buildVersionInputs(form, {
-                    includeEarly: includeCreateEarly,
                     includeExtend: includeCreateExtend,
                     fixedFlightVersionName: createFlightVersionName,
                   }),
@@ -2322,53 +2207,6 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                     onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
                   />
                 </div>
-                <div>
-                  {includeCreateEarly ? (
-                    form.earlySameAsBasic ? (
-                      <div className="grid gap-3 self-start rounded-2xl border border-slate-200 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="grid gap-1">
-                            <h3 className="text-sm font-semibold text-slate-800">출발지가 얼리일 때</h3>
-                            <p className="text-xs text-slate-500">첫날 얼리 조건의 연결 일정입니다.</p>
-                          </div>
-                          <label className="flex shrink-0 items-center gap-2 text-sm text-slate-700">
-                            <input
-                              type="checkbox"
-                              checked={form.earlySameAsBasic}
-                              onChange={(event) => setForm((prev) => ({ ...prev, earlySameAsBasic: event.target.checked }))}
-                            />
-                            기본과 동일
-                          </label>
-                        </div>
-                        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                          기본 연결과 동일한 일정이 얼리에 적용됩니다.
-                        </div>
-                      </div>
-                    ) : (
-                      <TimeSlotEditor
-                        title="출발지가 얼리일 때"
-                        description="첫날 얼리 조건의 연결 일정입니다."
-                        value={form.earlyTimeSlots}
-                        pasteHelperResetNonce={createPasteHelperResetNonce}
-                        onChange={(nextTimeSlots) => setForm((prev) => ({ ...prev, earlyTimeSlots: nextTimeSlots }))}
-                        headerRight={
-                          <label className="flex shrink-0 items-center gap-2 text-sm text-slate-700">
-                            <input
-                              type="checkbox"
-                              checked={form.earlySameAsBasic}
-                              onChange={(event) => setForm((prev) => ({ ...prev, earlySameAsBasic: event.target.checked }))}
-                            />
-                            기본과 동일
-                          </label>
-                        }
-                      />
-                    )
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-                      얼리 조건이 가능한 출발지/도착지일 때 얼리 일정 입력 영역이 나타납니다.
-                    </div>
-                  )}
-                </div>
                 {includeCreateExtend ? (
                   <div>
                     <TimeSlotEditor
@@ -2401,7 +2239,6 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 value={form.versions.filter((version) => version.kind !== 'FLIGHT')}
                 baseDraft={form}
                 showDateRange={form.sourceType === 'LOCATION'}
-                includeEarly={includeCreateEarly}
                 includeExtend={includeCreateExtend}
                 pasteHelperResetNonce={createPasteHelperResetNonce}
                 onChange={(nextVersions) =>
@@ -2543,7 +2380,6 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                         setErrorMessage(null);
                         setEditingSegmentId(row.id);
                         const basicSlots = toFormTimeSlots(row.scheduleTimeBlocks);
-                        const earlySlots = toFormTimeSlots(row.earlyScheduleTimeBlocks);
                         const defaultVersionMeals = row.versions.find((v) => v.isDefault)?.mealsOverride;
                         setEditForm({
                           sourceType: row.sourceType,
@@ -2560,10 +2396,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                           isLongDistance: row.isLongDistance,
                           mealsOverride: defaultVersionMeals ? sanitizeMealsOverride(defaultVersionMeals) : createEmptyMealsOverride(),
                           timeSlots: basicSlots,
-                          earlyTimeSlots: earlySlots,
                           extendTimeSlots: toFormTimeSlots(row.extendScheduleTimeBlocks),
-                          earlyExtendTimeSlots: toFormTimeSlots(row.earlyExtendScheduleTimeBlocks),
-                          earlySameAsBasic: timeSlotsAreEqual(basicSlots, earlySlots),
                           versions: toVersionDrafts(row),
                         });
                         setEditFromSearch(formatFromSourceLabel({ row, locationById }));
@@ -2679,11 +2512,9 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                   averageTravelHours: Number(editForm.averageTravelHours),
                   isLongDistance: editForm.isLongDistance,
                   ...buildVariantTimeSlotInput(editForm, {
-                    includeEarly: includeEditEarly,
                     includeExtend: includeEditExtend,
                   }),
                   versions: buildVersionInputs(editForm, {
-                    includeEarly: includeEditEarly,
                     includeExtend: includeEditExtend,
                     fixedFlightVersionName: editFlightVersionName,
                   }),
@@ -3129,93 +2960,49 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
               </div>
 
               <div className="grid gap-6">
-                <div className="grid items-start gap-6 lg:grid-cols-2">
-                  <TimeSlotEditor
-                    title="기본 버전 일정"
-                    description="기본 직결 버전의 시간/일정입니다."
-                    value={editForm.timeSlots}
-                    pasteHelperResetNonce={editPasteHelperResetNonce}
-                    onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
-                  />
-                  {includeEditEarly ? (
-                    editForm.earlySameAsBasic ? (
-                      <div className="grid gap-3 self-start rounded-2xl border border-slate-200 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="grid gap-1">
-                            <h3 className="text-sm font-semibold text-slate-800">기본 버전 얼리 일정</h3>
-                            <p className="text-xs text-slate-500">첫날 얼리 조건의 연결 일정입니다.</p>
-                          </div>
-                          <label className="flex shrink-0 items-center gap-2 text-sm text-slate-700">
-                            <input
-                              type="checkbox"
-                              checked={editForm.earlySameAsBasic}
-                              onChange={(event) => setEditForm((prev) => ({ ...prev, earlySameAsBasic: event.target.checked }))}
-                            />
-                            기본과 동일
-                          </label>
-                        </div>
-                        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                          기본 연결과 동일한 일정이 얼리에 적용됩니다.
-                        </div>
-                      </div>
-                    ) : (
-                      <TimeSlotEditor
-                        title="기본 버전 얼리 일정"
-                        description="첫날 얼리 조건의 연결 일정입니다."
-                        value={editForm.earlyTimeSlots}
-                        pasteHelperResetNonce={editPasteHelperResetNonce}
-                        onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, earlyTimeSlots: nextTimeSlots }))}
-                        headerRight={
-                          <label className="flex shrink-0 items-center gap-2 text-sm text-slate-700">
-                            <input
-                              type="checkbox"
-                              checked={editForm.earlySameAsBasic}
-                              onChange={(event) => setEditForm((prev) => ({ ...prev, earlySameAsBasic: event.target.checked }))}
-                            />
-                            기본과 동일
-                          </label>
-                        }
-                      />
-                    )
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500">
-                      얼리 조건이 가능한 출발지/도착지일 때 얼리 일정 입력 영역이 나타납니다.
-                    </div>
-                  )}
-                </div>
-                <p className="text-xs text-slate-500">기본 버전은 상시 적용 버전으로 날짜 범위를 설정하지 않습니다.</p>
-                {includeEditExtend ? (
+                <div className="grid items-start gap-6 xl:grid-cols-2">
                   <div>
                     <TimeSlotEditor
-                      title="기본 버전 연장 일정"
-                      description="마지막날 연장 조건의 연결 일정입니다."
-                      value={editForm.extendTimeSlots}
+                      title="기본 버전 일정"
+                      description="기본 직결 버전의 시간/일정입니다."
+                      value={editForm.timeSlots}
                       pasteHelperResetNonce={editPasteHelperResetNonce}
-                      onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
+                      onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, timeSlots: nextTimeSlots }))}
                     />
                   </div>
-                ) : null}
-                {includeEditExtend ? (
-                  <FlightAlternativeVersionPanel
-                    value={editForm.versions.filter((version) => version.kind === 'FLIGHT')}
-                    baseDraft={editForm}
-                    includeExtend={includeEditExtend}
-                    fixedName={editFlightVersionName}
-                    pasteHelperResetNonce={editPasteHelperResetNonce}
-                    onChange={(nextVersions) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        versions: replaceVersionDraftsByKind(prev.versions, nextVersions, 'FLIGHT'),
-                      }))
-                    }
-                  />
-                ) : null}
+                  {includeEditExtend ? (
+                    <div>
+                      <TimeSlotEditor
+                        title="기본 버전 연장 일정"
+                        description="마지막날 연장 조건의 연결 일정입니다."
+                        value={editForm.extendTimeSlots}
+                        pasteHelperResetNonce={editPasteHelperResetNonce}
+                        onChange={(nextTimeSlots) => setEditForm((prev) => ({ ...prev, extendTimeSlots: nextTimeSlots }))}
+                      />
+                    </div>
+                  ) : null}
+                  {includeEditExtend ? (
+                    <FlightAlternativeVersionPanel
+                      value={editForm.versions.filter((version) => version.kind === 'FLIGHT')}
+                      baseDraft={editForm}
+                      includeExtend={includeEditExtend}
+                      fixedName={editFlightVersionName}
+                      pasteHelperResetNonce={editPasteHelperResetNonce}
+                      onChange={(nextVersions) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          versions: replaceVersionDraftsByKind(prev.versions, nextVersions, 'FLIGHT'),
+                        }))
+                      }
+                    />
+                  ) : null}
+                </div>
+                <p className="text-xs text-slate-500">기본 버전은 상시 적용 버전으로 날짜 범위를 설정하지 않습니다.</p>
 
                 <AlternativeVersionEditor
                   value={editForm.versions.filter((version) => version.kind !== 'FLIGHT')}
                   baseDraft={editForm}
                   showDateRange={editForm.sourceType === 'LOCATION'}
-                  includeEarly={includeEditEarly}
                   includeExtend={includeEditExtend}
                   pasteHelperResetNonce={editPasteHelperResetNonce}
                   onChange={(nextVersions) =>

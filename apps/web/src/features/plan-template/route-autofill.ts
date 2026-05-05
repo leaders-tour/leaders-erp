@@ -4,7 +4,7 @@ import { formatLocationNameMultiline, toFacilityLabel, toMealLabel } from '../lo
 import { getBaseLodgingText } from '../lodging-selection/model';
 import { buildEmptyPlanRow, buildPlaceholderPlanRows, type TemplatePlanRow } from './editor-utils';
 
-export type SegmentScheduleVariant = 'basic' | 'early' | 'extend' | 'earlyExtend';
+export type SegmentScheduleVariant = 'basic' | 'extend';
 export type SegmentVersionKindValue = 'DEFAULT' | 'SEASON' | 'FLIGHT';
 type LocationTimeBlockProfile = 'FIRST_DAY' | 'FIRST_DAY_EARLY';
 
@@ -85,9 +85,7 @@ export interface SegmentVersionOption {
   sortOrder: number;
   isDefault: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
-  earlyScheduleTimeBlocks: TimeBlockOption[];
   extendScheduleTimeBlocks: TimeBlockOption[];
-  earlyExtendScheduleTimeBlocks: TimeBlockOption[];
 }
 
 export interface SegmentOption {
@@ -101,9 +99,7 @@ export interface SegmentOption {
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
   isLongDistance?: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
-  earlyScheduleTimeBlocks: TimeBlockOption[];
   extendScheduleTimeBlocks: TimeBlockOption[];
-  earlyExtendScheduleTimeBlocks: TimeBlockOption[];
   versions?: SegmentVersionOption[];
 }
 
@@ -124,9 +120,7 @@ interface ResolvedSegmentVersionOption {
   sortOrder: number;
   isDefault: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
-  earlyScheduleTimeBlocks: TimeBlockOption[];
   extendScheduleTimeBlocks: TimeBlockOption[];
-  earlyExtendScheduleTimeBlocks: TimeBlockOption[];
 }
 
 export interface MultiDayBlockDayOption {
@@ -166,9 +160,7 @@ export interface MultiDayBlockConnectionVersionOption {
   sortOrder: number;
   isDefault: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
-  earlyScheduleTimeBlocks: TimeBlockOption[];
   extendScheduleTimeBlocks: TimeBlockOption[];
-  earlyExtendScheduleTimeBlocks: TimeBlockOption[];
 }
 
 export interface MultiDayBlockConnectionOption {
@@ -182,9 +174,7 @@ export interface MultiDayBlockConnectionOption {
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
   isLongDistance?: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
-  earlyScheduleTimeBlocks: TimeBlockOption[];
   extendScheduleTimeBlocks: TimeBlockOption[];
-  earlyExtendScheduleTimeBlocks: TimeBlockOption[];
   versions?: MultiDayBlockConnectionVersionOption[];
 }
 
@@ -199,9 +189,7 @@ interface ResolvedMultiDayBlockConnectionVersionOption {
   sortOrder: number;
   isDefault: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
-  earlyScheduleTimeBlocks: TimeBlockOption[];
   extendScheduleTimeBlocks: TimeBlockOption[];
-  earlyExtendScheduleTimeBlocks: TimeBlockOption[];
 }
 
 export interface LocationRouteSelection {
@@ -331,79 +319,6 @@ function getOrderedTimeBlocks(timeBlocks: TimeBlockOption[]): TimeBlockOption[] 
   return timeBlocks.slice().sort((a, b) => a.orderIndex - b.orderIndex);
 }
 
-function mergeTimeBlockActivities(blocks: TimeBlockOption[]): TimeBlockOption['activities'] {
-  const mergedActivities = new Map<string, TimeBlockOption['activities'][number]>();
-
-  blocks.forEach((block) => {
-    block.activities
-      .slice()
-      .sort((a, b) => a.orderIndex - b.orderIndex)
-      .forEach((activity) => {
-        const key = activity.description.trim() || activity.id;
-        if (!mergedActivities.has(key)) {
-          mergedActivities.set(key, {
-            id: activity.id,
-            description: activity.description,
-            orderIndex: mergedActivities.size,
-          });
-        }
-      });
-  });
-
-  return Array.from(mergedActivities.values());
-}
-
-function mergeTimeBlocksForEarlyExtend(
-  explicitBlocks: TimeBlockOption[],
-  earlyBlocks: TimeBlockOption[],
-  extendBlocks: TimeBlockOption[],
-): TimeBlockOption[] {
-  if (explicitBlocks.length > 0) {
-    return explicitBlocks;
-  }
-
-  const groupedByStartTime = new Map<string, TimeBlockOption[]>();
-  [...getOrderedTimeBlocks(earlyBlocks), ...getOrderedTimeBlocks(extendBlocks)].forEach((block) => {
-    const key = block.startTime.trim() || `__empty__:${block.id}`;
-    const group = groupedByStartTime.get(key);
-    if (group) {
-      group.push(block);
-      return;
-    }
-    groupedByStartTime.set(key, [block]);
-  });
-
-  return Array.from(groupedByStartTime.entries())
-    .map(([startTime, blocks], index) => ({
-      id: `merged-early-extend-${index}`,
-      startTime: startTime.startsWith('__empty__:') ? '' : startTime,
-      orderIndex: index,
-      activities: mergeTimeBlockActivities(blocks),
-    }))
-    .sort((left, right) => {
-      const leftMinutes = parseTimeToMinutes(left.startTime);
-      const rightMinutes = parseTimeToMinutes(right.startTime);
-      if (leftMinutes !== null && rightMinutes !== null && leftMinutes !== rightMinutes) {
-        return leftMinutes - rightMinutes;
-      }
-      if (leftMinutes !== null) {
-        return -1;
-      }
-      if (rightMinutes !== null) {
-        return 1;
-      }
-      return left.orderIndex - right.orderIndex;
-    })
-    .map((block, blockIndex) => ({
-      ...block,
-      orderIndex: blockIndex,
-      activities: block.activities.map((activity, activityIndex) => ({
-        ...activity,
-        orderIndex: activityIndex,
-      })),
-    }));
-}
-
 function toTimeCellFromTimeBlocks(
   timeBlocks: TimeBlockOption[],
   options?: {
@@ -464,9 +379,7 @@ function buildLegacyDirectVersion(segment: SegmentOption): ResolvedSegmentVersio
     sortOrder: 0,
     isDefault: true,
     scheduleTimeBlocks: segment.scheduleTimeBlocks,
-    earlyScheduleTimeBlocks: segment.earlyScheduleTimeBlocks,
     extendScheduleTimeBlocks: segment.extendScheduleTimeBlocks,
-    earlyExtendScheduleTimeBlocks: segment.earlyExtendScheduleTimeBlocks,
   };
 }
 
@@ -484,9 +397,7 @@ function buildLegacyDirectMultiDayBlockConnectionVersion(
     sortOrder: 0,
     isDefault: true,
     scheduleTimeBlocks: connection.scheduleTimeBlocks,
-    earlyScheduleTimeBlocks: connection.earlyScheduleTimeBlocks,
     extendScheduleTimeBlocks: connection.extendScheduleTimeBlocks,
-    earlyExtendScheduleTimeBlocks: connection.earlyExtendScheduleTimeBlocks,
   };
 }
 
@@ -515,18 +426,8 @@ function getSegmentScheduleTimeBlocks(
     return [];
   }
 
-  if (variant === 'early') {
-    return segmentVersion.earlyScheduleTimeBlocks ?? [];
-  }
   if (variant === 'extend') {
     return segmentVersion.extendScheduleTimeBlocks ?? [];
-  }
-  if (variant === 'earlyExtend') {
-    return mergeTimeBlocksForEarlyExtend(
-      segmentVersion.earlyExtendScheduleTimeBlocks ?? [],
-      segmentVersion.earlyScheduleTimeBlocks ?? [],
-      segmentVersion.extendScheduleTimeBlocks ?? [],
-    );
   }
   return segmentVersion.scheduleTimeBlocks ?? [];
 }
@@ -539,14 +440,8 @@ function getMultiDayBlockConnectionScheduleTimeBlocks(
     return [];
   }
 
-  if (variant === 'early') {
-    return connectionVersion.earlyScheduleTimeBlocks ?? [];
-  }
   if (variant === 'extend') {
     return connectionVersion.extendScheduleTimeBlocks ?? [];
-  }
-  if (variant === 'earlyExtend') {
-    return connectionVersion.earlyExtendScheduleTimeBlocks ?? [];
   }
   return connectionVersion.scheduleTimeBlocks ?? [];
 }
@@ -949,16 +844,9 @@ export function resolveSegmentScheduleVariant(input: {
   toDayIndex: number;
   totalDays: number;
 }): SegmentScheduleVariant {
-  const { useEarlyFirstDay, useExtendLastDay } = resolveTemplateVariantFlags(input);
-  const sourceContextIsEarly = input.fromDayIndex === 1 && useEarlyFirstDay;
+  const { useExtendLastDay } = resolveTemplateVariantFlags(input);
   const targetContextIsExtend = input.toDayIndex === input.totalDays && useExtendLastDay;
 
-  if (sourceContextIsEarly && targetContextIsExtend) {
-    return 'earlyExtend';
-  }
-  if (sourceContextIsEarly) {
-    return 'early';
-  }
   if (targetContextIsExtend) {
     return 'extend';
   }

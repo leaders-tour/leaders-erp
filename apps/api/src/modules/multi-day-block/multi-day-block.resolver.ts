@@ -137,18 +137,12 @@ export const multiDayBlockResolver = {
     fromMultiDayBlock: (parent: any, _args: unknown, ctx: AppContext) =>
       new MultiDayBlockService(ctx.prisma).get(parent.fromOvernightStayId),
     scheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'basic'),
-    earlyScheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'early'),
     extendScheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'extend'),
-    earlyExtendScheduleTimeBlocks: (parent: any) =>
-      (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'earlyExtend'),
   },
   MultiDayBlockConnectionVersion: {
     multiDayBlockConnectionId: (parent: { overnightStayConnectionId: string }) => parent.overnightStayConnectionId,
     scheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'basic'),
-    earlyScheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'early'),
     extendScheduleTimeBlocks: (parent: any) => (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'extend'),
-    earlyExtendScheduleTimeBlocks: (parent: any) =>
-      (parent.scheduleTimeBlocks ?? []).filter((timeBlock: any) => timeBlock.variant === 'earlyExtend'),
   },
   MultiDayBlockConnectionVersionTimeBlock: {
     multiDayBlockConnectionVersionId: (parent: { overnightStayConnectionVersionId: string }) =>

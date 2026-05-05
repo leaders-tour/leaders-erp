@@ -18,9 +18,7 @@ type Segment {
   movementIntensity: MovementIntensity!
   isLongDistance: Boolean!
   scheduleTimeBlocks: [SegmentTimeBlock!]!
-  earlyScheduleTimeBlocks: [SegmentTimeBlock!]!
   extendScheduleTimeBlocks: [SegmentTimeBlock!]!
-  earlyExtendScheduleTimeBlocks: [SegmentTimeBlock!]!
   versions: [SegmentVersion!]!
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -31,9 +29,7 @@ type Segment {
 
 enum SegmentScheduleVariant {
   basic
-  early
   extend
-  earlyExtend
 }
 
 enum SegmentVersionKind {
@@ -63,9 +59,7 @@ type SegmentVersion {
   sortOrder: Int!
   isDefault: Boolean!
   scheduleTimeBlocks: [SegmentVersionTimeBlock!]!
-  earlyScheduleTimeBlocks: [SegmentVersionTimeBlock!]!
   extendScheduleTimeBlocks: [SegmentVersionTimeBlock!]!
-  earlyExtendScheduleTimeBlocks: [SegmentVersionTimeBlock!]!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -148,9 +142,7 @@ input SegmentVersionInput {
   lodgingOverride: LocationProfileLodgingInput
   mealsOverride: LocationProfileMealsInput
   timeSlots: [SegmentTimeSlotInput!]!
-  earlyTimeSlots: [SegmentTimeSlotInput!]
   extendTimeSlots: [SegmentTimeSlotInput!]
-  earlyExtendTimeSlots: [SegmentTimeSlotInput!]
   isDefault: Boolean
 }
 
@@ -162,9 +154,7 @@ input SegmentCreateInput {
   averageTravelHours: Float!
   isLongDistance: Boolean!
   timeSlots: [SegmentTimeSlotInput!]!
-  earlyTimeSlots: [SegmentTimeSlotInput!]
   extendTimeSlots: [SegmentTimeSlotInput!]
-  earlyExtendTimeSlots: [SegmentTimeSlotInput!]
   versions: [SegmentVersionInput!]
 }
 
@@ -176,9 +166,7 @@ input SegmentBulkCreateInput {
   averageTravelHours: Float!
   isLongDistance: Boolean!
   timeSlots: [SegmentTimeSlotInput!]!
-  earlyTimeSlots: [SegmentTimeSlotInput!]
   extendTimeSlots: [SegmentTimeSlotInput!]
-  earlyExtendTimeSlots: [SegmentTimeSlotInput!]
   versions: [SegmentVersionInput!]
 }
 
@@ -190,9 +178,7 @@ input SegmentUpdateInput {
   averageTravelHours: Float
   isLongDistance: Boolean
   timeSlots: [SegmentTimeSlotInput!]
-  earlyTimeSlots: [SegmentTimeSlotInput!]
   extendTimeSlots: [SegmentTimeSlotInput!]
-  earlyExtendTimeSlots: [SegmentTimeSlotInput!]
   versions: [SegmentVersionInput!]
 }
 

@@ -24,9 +24,7 @@ const segmentVersionSchema = z.object({
   lodgingOverride: locationProfileLodgingSchema.optional(),
   mealsOverride: locationProfileMealsSchema.optional(),
   timeSlots: segmentTimeSlotsSchema,
-  earlyTimeSlots: segmentTimeSlotsSchema.optional(),
   extendTimeSlots: segmentTimeSlotsSchema.optional(),
-  earlyExtendTimeSlots: segmentTimeSlotsSchema.optional(),
   isDefault: z.boolean().optional(),
 }).superRefine((value, ctx) => {
   const hasStartDate = Boolean(value.startDate);
@@ -124,9 +122,7 @@ const segmentBaseSchema = z.object({
   averageTravelHours: z.number().positive(),
   isLongDistance: z.boolean(),
   timeSlots: segmentTimeSlotsSchema,
-  earlyTimeSlots: segmentTimeSlotsSchema.optional(),
   extendTimeSlots: segmentTimeSlotsSchema.optional(),
-  earlyExtendTimeSlots: segmentTimeSlotsSchema.optional(),
   versions: z.array(segmentVersionSchema).min(1).max(20).optional(),
 });
 
