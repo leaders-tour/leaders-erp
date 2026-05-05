@@ -8,7 +8,7 @@ import { useEstimateLocationGuides } from '../features/estimate/hooks/use-estima
 import { applyLocationGuides } from '../features/estimate/utils/apply-location-guides';
 import { VersionSnapshotView } from '../features/plan/components';
 import { buildExternalTransferDirectionText } from '../features/plan/external-transfer';
-import { usePlanVersionDetail, useSetCurrentPlanVersion } from '../features/plan/hooks';
+import { usePlanVersionDetail } from '../features/plan/hooks';
 import { useConfirmTrip } from '../features/confirmed-trip/hooks';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
 import { buildEffectivePricing, sliceEffectiveTotalsForUi } from '../features/pricing/manual-pricing';
@@ -115,9 +115,7 @@ export function PlanVersionDetailPage(): JSX.Element {
   const { downloading, phase, downloadEstimatePdf } = useEstimatePdfDownload();
   const { version, loading } = usePlanVersionDetail(versionId);
   const { guideRows, loading: guidesLoading } = useEstimateLocationGuides();
-  const { setCurrentPlanVersion, loading: settingCurrent } = useSetCurrentPlanVersion();
   const { confirmTrip, loading: confirmingTrip } = useConfirmTrip();
-  const [confirming, setConfirming] = useState(false);
   const [confirmingTripModal, setConfirmingTripModal] = useState(false);
   const [activePane, setActivePane] = useState<'detail' | 'preview'>('detail');
   const estimateDocumentData = useMemo(
@@ -137,7 +135,6 @@ export function PlanVersionDetailPage(): JSX.Element {
     return <section className="py-8 text-sm text-slate-600">버전을 찾을 수 없습니다.</section>;
   }
 
-  const isCurrent = version.plan.currentVersionId === version.id;
   const pricingCtx = {
     headcountTotal: version.meta?.headcountTotal ?? 0,
     totalDays: version.totalDays,
@@ -297,13 +294,6 @@ export function PlanVersionDetailPage(): JSX.Element {
             }}
           >
             이 버전 기반 새 버전 생성
-          </Button>
-          <Button
-            variant="outline"
-            disabled={isCurrent || settingCurrent}
-            onClick={() => setConfirming(true)}
-          >
-            {isCurrent ? '현재 버전' : '현재 버전으로 지정'}
           </Button>
           <Button
             variant="primary"
@@ -704,28 +694,6 @@ export function PlanVersionDetailPage(): JSX.Element {
           <div className="p-4 sm:p-6 lg:sticky lg:top-0 lg:p-6">{previewPanel}</div>
         </aside>
       </div>
-
-      {confirming ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <Card className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-900">현재 버전 변경</h3>
-            <p className="mt-1 text-sm text-slate-600">v{version.versionNumber}을 현재 버전으로 지정하시겠습니까?</p>
-            <div className="mt-5 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setConfirming(false)}>
-                취소
-              </Button>
-              <Button
-                onClick={async () => {
-                  await setCurrentPlanVersion(planId, version.id);
-                  setConfirming(false);
-                }}
-              >
-                지정
-              </Button>
-            </div>
-          </Card>
-        </div>
-      ) : null}
 
       {confirmingTripModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
