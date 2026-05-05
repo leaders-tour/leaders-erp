@@ -1,7 +1,8 @@
 import { Button, Card } from '@tour/ui';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getEstimatePdfDownloadLabel, useEstimatePdfDownload } from '../features/estimate/hooks/use-estimate-pdf-download';
+import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { fromVersion } from '../features/estimate/adapters';
 import { useEstimateLocationGuides } from '../features/estimate/hooks/use-estimate-location-guides';
 import { applyLocationGuides } from '../features/estimate/utils/apply-location-guides';
@@ -11,7 +12,7 @@ import { usePlanVersionDetail, useSetCurrentPlanVersion } from '../features/plan
 import { useConfirmTrip } from '../features/confirmed-trip/hooks';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
 import { buildEffectivePricing, sliceEffectiveTotalsForUi } from '../features/pricing/manual-pricing';
-import { formatPricingDetailFormula, resolveDisplayLeadAmount } from '../features/pricing/pricing-line-presenter';
+import { resolveDisplayLeadAmount } from '../features/pricing/pricing-line-presenter';
 import { toVariantLabel } from '../features/plan/variant-label';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
 
@@ -33,6 +34,31 @@ function formatSecurityDepositScope(mode: 'NONE' | 'PER_PERSON' | 'PER_TEAM'): s
 
 function formatSignedKrw(value: number): string {
   return value > 0 ? `+${formatKrw(value)}` : value < 0 ? `-${formatKrw(Math.abs(value))}` : formatKrw(0);
+}
+
+function formatVersionDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('ko-KR');
+}
+
+/** ConfirmedTripDetailPage 여행 정보 카드와 동일한 라벨·본문 톤 */
+function DetailLabel({ children }: { children: ReactNode }): JSX.Element {
+  return <span className="text-slate-500">{children}</span>;
+}
+
+function DetailValue({
+  children,
+  muted,
+}: {
+  children: ReactNode;
+  muted?: boolean;
+}): JSX.Element {
+  return (
+    <p
+      className={`mt-0.5 whitespace-pre-wrap font-medium ${muted ? 'text-slate-500' : 'text-slate-900'}`}
+    >
+      {children}
+    </p>
+  );
 }
 
 function formatPricingLineUnitDisplay(
@@ -93,6 +119,7 @@ export function PlanVersionDetailPage(): JSX.Element {
   const { confirmTrip, loading: confirmingTrip } = useConfirmTrip();
   const [confirming, setConfirming] = useState(false);
   const [confirmingTripModal, setConfirmingTripModal] = useState(false);
+  const [activePane, setActivePane] = useState<'detail' | 'preview'>('detail');
   const estimateDocumentData = useMemo(
     () => (version ? applyLocationGuides(fromVersion(version), guideRows) : null),
     [guideRows, version],
@@ -177,8 +204,61 @@ export function PlanVersionDetailPage(): JSX.Element {
           version.meta?.externalDropPlaceCustomText,
         );
 
+  const previewPanel = (
+    <div className="estimate-preview-panel rounded-[28px] border border-slate-200 bg-white/90 p-4 shadow-xl backdrop-blur sm:p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">견적서·일정표 미리보기</h2>
+          <p className="mt-1 text-xs text-slate-600">PDF와 동일한 레이아웃으로 확인할 수 있습니다.</p>
+        </div>
+        <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600">
+          {guidesLoading ? '여행지 안내 동기화 중' : '저장된 버전'}
+        </div>
+      </div>
+      {estimateDocumentData ? (
+        <div className="estimate-preview-frame">
+          <EstimateDocument data={estimateDocumentData} viewMode="screen-preview" />
+        </div>
+      ) : (
+        <Card className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
+          미리보기 데이터를 준비 중입니다...
+        </Card>
+      )}
+    </div>
+  );
+
   return (
-    <section className="grid gap-6">
+    <div className="min-h-screen text-slate-900 lg:h-screen lg:min-h-0">
+      <div className="border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
+        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
+          <button
+            type="button"
+            onClick={() => setActivePane('detail')}
+            className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+              activePane === 'detail' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600'
+            }`}
+          >
+            상세
+          </button>
+          <button
+            type="button"
+            onClick={() => setActivePane('preview')}
+            className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+              activePane === 'preview' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600'
+            }`}
+          >
+            미리보기
+          </button>
+        </div>
+      </div>
+
+      <div className="lg:grid lg:h-full lg:min-h-0 lg:grid-cols-2">
+        <div
+          className={`${
+            activePane === 'detail' ? 'block' : 'hidden'
+          } border-b border-slate-200 bg-slate-50 lg:block lg:h-full lg:overflow-y-auto lg:border-b-0 lg:border-r lg:border-slate-200`}
+        >
+          <div className="space-y-6 px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
@@ -188,7 +268,7 @@ export function PlanVersionDetailPage(): JSX.Element {
             고객: {version.plan.user.name} · 지역 세트: {regionSetName}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => navigate(`/plans/${planId}`)}>
             Plan 상세로
           </Button>
@@ -236,39 +316,153 @@ export function PlanVersionDetailPage(): JSX.Element {
         </div>
       </header>
 
-      <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-2 text-sm text-slate-700">
-          <div>부모 버전: {version.parentVersionId ? version.parentVersionId.slice(0, 8) : '-'}</div>
-          <div>타입: {toVariantLabel(version.variantType)}</div>
-          <div>일수: {version.totalDays}</div>
-          <div>변경 메모: {version.changeNote ?? '-'}</div>
+      <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-4 text-sm font-semibold text-slate-900">버전 정보</h2>
+        <div className="grid gap-3 text-sm text-slate-700">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3">
+            <div>
+              <DetailLabel>부모 버전</DetailLabel>
+              <DetailValue muted={!version.parentVersionId}>
+                {version.parentVersionId ? version.parentVersionId.slice(0, 8) : '-'}
+              </DetailValue>
+            </div>
+            <div>
+              <DetailLabel>타입</DetailLabel>
+              <DetailValue>{toVariantLabel(version.variantType)}</DetailValue>
+            </div>
+            <div>
+              <DetailLabel>일수</DetailLabel>
+              <DetailValue>{version.totalDays}일</DetailValue>
+            </div>
+            <div>
+              <DetailLabel>변경 메모</DetailLabel>
+              <DetailValue muted={!version.changeNote?.trim()}>
+                {version.changeNote?.trim() ? version.changeNote : '-'}
+              </DetailValue>
+            </div>
+          </div>
         </div>
       </Card>
 
       {version.meta ? (
-        <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">운영 정보</h2>
-          <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
-            <div>대표자명: {version.meta.leaderName}</div>
-            <div>문서번호: {version.meta.documentNumber}</div>
-            <div>
-              여행기간: {new Date(version.meta.travelStartDate).toLocaleDateString('ko-KR')} ~{' '}
-              {new Date(version.meta.travelEndDate).toLocaleDateString('ko-KR')}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-sm font-semibold text-slate-900">여행 정보</h2>
+            <div className="grid gap-3 text-sm text-slate-700">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <DetailLabel>대표자</DetailLabel>
+                  <DetailValue muted={!version.meta.leaderName?.trim()}>
+                    {version.meta.leaderName?.trim() || '-'}
+                  </DetailValue>
+                </div>
+                <div>
+                  <DetailLabel>여행지</DetailLabel>
+                  <DetailValue>{regionSetName}</DetailValue>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <DetailLabel>여행기간</DetailLabel>
+                  <DetailValue>
+                    {`${formatVersionDate(version.meta.travelStartDate)} ~ ${formatVersionDate(version.meta.travelEndDate)}`}
+                  </DetailValue>
+                </div>
+                <div>
+                  <DetailLabel>인원</DetailLabel>
+                  <DetailValue>
+                    총 {version.meta.headcountTotal}명 (남 {version.meta.headcountMale} / 여{' '}
+                    {version.meta.headcountFemale})
+                  </DetailValue>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <DetailLabel>차량</DetailLabel>
+                  <DetailValue muted={!version.meta.vehicleType?.trim()}>
+                    {version.meta.vehicleType?.trim() || '-'}
+                  </DetailValue>
+                </div>
+                <div>
+                  <DetailLabel>문서번호</DetailLabel>
+                  <DetailValue muted={!version.meta.documentNumber?.trim()}>
+                    {version.meta.documentNumber?.trim() || '-'}
+                  </DetailValue>
+                </div>
+              </div>
+              <div>
+                <DetailLabel>참여 이벤트</DetailLabel>
+                <DetailValue muted={version.meta.events.length === 0}>
+                  {version.meta.events.length > 0
+                    ? version.meta.events.map((item) => item.name).join(', ')
+                    : '-'}
+                </DetailValue>
+              </div>
+              <div>
+                <DetailLabel>숙소 추가 (일차/개수)</DetailLabel>
+                <DetailValue muted={version.meta.extraLodgings.length === 0}>
+                  {version.meta.extraLodgings.length > 0
+                    ? version.meta.extraLodgings
+                        .map((item) => `${item.dayIndex}일차 · ${item.lodgingCount}개`)
+                        .join(' · ')
+                    : '-'}
+                </DetailValue>
+              </div>
+              <div>
+                <DetailLabel>특이사항</DetailLabel>
+                <DetailValue muted={!version.meta.specialNote?.trim()}>
+                  {version.meta.specialNote?.trim() ?? '-'}
+                </DetailValue>
+              </div>
+              <div>
+                <DetailLabel>대여물품</DetailLabel>
+                <div className="mt-1 whitespace-pre-wrap rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900">
+                  {version.meta.rentalItemsText?.trim() ? version.meta.rentalItemsText : '-'}
+                </div>
+              </div>
+              <div>
+                <DetailLabel>비고</DetailLabel>
+                <DetailValue muted={!version.meta.remark?.trim()}>
+                  {version.meta.remark?.trim() ?? '-'}
+                </DetailValue>
+              </div>
             </div>
-            <div>
-              인원: 총 {version.meta.headcountTotal} (남 {version.meta.headcountMale} / 여 {version.meta.headcountFemale})
-            </div>
-            <div>차량: {version.meta.vehicleType}</div>
-            <div>
-              항공권 IN: <span className="whitespace-pre-wrap">{flightInText}</span>
-            </div>
-            <div className="whitespace-pre-wrap">항공권 OUT: {flightOutText}</div>
-            <div>참여 이벤트: {version.meta.events.length > 0 ? version.meta.events.map((item) => item.name).join(', ') : '-'}</div>
-            <div className="whitespace-pre-wrap">픽업: {pickupText}</div>
-            <div className="whitespace-pre-wrap">드랍: {dropText}</div>
-            <div className="whitespace-pre-wrap">실투어 외 픽업: {externalPickupText}</div>
-            <div className="whitespace-pre-wrap">실투어 외 드랍: {externalDropText}</div>
-            {(!version.meta.externalPickupDate &&
+          </Card>
+
+          <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-sm font-semibold text-slate-900">항공 및 픽드랍</h2>
+            <div className="grid gap-3 text-sm text-slate-700">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <DetailLabel>항공권 IN</DetailLabel>
+                  <DetailValue>{flightInText}</DetailValue>
+                </div>
+                <div>
+                  <DetailLabel>항공권 OUT</DetailLabel>
+                  <DetailValue>{flightOutText}</DetailValue>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <DetailLabel>픽업</DetailLabel>
+                  <DetailValue>{pickupText}</DetailValue>
+                </div>
+                <div>
+                  <DetailLabel>드랍</DetailLabel>
+                  <DetailValue>{dropText}</DetailValue>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <DetailLabel>실투어 외 픽업</DetailLabel>
+                  <DetailValue>{externalPickupText}</DetailValue>
+                </div>
+                <div>
+                  <DetailLabel>실투어 외 드랍</DetailLabel>
+                  <DetailValue>{externalDropText}</DetailValue>
+                </div>
+              </div>
+              {!version.meta.externalPickupDate &&
               !version.meta.externalPickupTime &&
               !version.meta.externalPickupPlaceType &&
               !version.meta.externalPickupPlaceCustomText &&
@@ -276,20 +470,15 @@ export function PlanVersionDetailPage(): JSX.Element {
               !version.meta.externalDropTime &&
               !version.meta.externalDropPlaceType &&
               !version.meta.externalDropPlaceCustomText &&
-              version.meta.externalPickupDropNote) ? (
-              <div className="md:col-span-2 whitespace-pre-wrap">실투어 외 픽드랍: {version.meta.externalPickupDropNote}</div>
-            ) : null}
-            <div className="md:col-span-2 whitespace-pre-wrap">특이사항: {version.meta.specialNote ?? '-'}</div>
-            <div className="md:col-span-2">
-              숙소 추가(일차/개수):{' '}
-              {version.meta.extraLodgings.length > 0
-                ? version.meta.extraLodgings.map((item) => `${item.dayIndex}일차:${item.lodgingCount}개`).join(', ')
-                : '-'}
+              version.meta.externalPickupDropNote ? (
+                <div>
+                  <DetailLabel>실투어 외 픽드랍</DetailLabel>
+                  <DetailValue>{version.meta.externalPickupDropNote}</DetailValue>
+                </div>
+              ) : null}
             </div>
-            <div className="md:col-span-2 whitespace-pre-wrap">기본 대여물품: {version.meta.rentalItemsText}</div>
-            <div className="md:col-span-2 whitespace-pre-wrap">비고: {version.meta.remark ?? '-'}</div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       ) : null}
 
       {effectivePricing ? (
@@ -504,6 +693,18 @@ export function PlanVersionDetailPage(): JSX.Element {
 
       <VersionSnapshotView version={version} />
 
+          </div>
+        </div>
+
+        <aside
+          className={`${
+            activePane === 'preview' ? 'block' : 'hidden'
+          } bg-slate-100/80 lg:block lg:h-full lg:overflow-y-auto`}
+        >
+          <div className="p-4 sm:p-6 lg:sticky lg:top-0 lg:p-6">{previewPanel}</div>
+        </aside>
+      </div>
+
       {confirming ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
           <Card className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-xl">
@@ -564,6 +765,6 @@ export function PlanVersionDetailPage(): JSX.Element {
           </Card>
         </div>
       ) : null}
-    </section>
+    </div>
   );
 }
