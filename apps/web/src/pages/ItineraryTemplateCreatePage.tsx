@@ -2,7 +2,7 @@ import { gql, useMutation, useQuery } from '@apollo/client';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatLocationNameMultiline, normalizeLocationNameLines, type LocationNameLike } from '../features/location/display';
+import { formatLocationNameMultiline } from '../features/location/display';
 import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
 import { useSpecialMealDestinationRules } from '../features/plan/hooks/use-special-meal-destination-rules';
 import { getAssignmentsFromPlanRows } from '../features/plan/special-meals';
@@ -319,14 +319,11 @@ function buildTemplateTimingLabel(useEarlyFirstDay: boolean, useExtendLastDay: b
 
 function buildSuggestedTemplateTitle(
   regionSetName: string | undefined,
-  locationName: LocationNameLike,
   totalDays: number,
   useEarlyFirstDay: boolean,
   useExtendLastDay: boolean,
 ): string {
-  const fromLocation = normalizeLocationNameLines(locationName)[0] ?? '';
-  const fromSet = regionSetName?.trim() ?? '';
-  const place = fromLocation || fromSet;
+  const place = regionSetName?.trim() ?? '';
   if (!place) {
     return '';
   }
@@ -448,24 +445,8 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
   );
 
   const suggestedTemplateTitle = useMemo(
-    () =>
-      buildSuggestedTemplateTitle(
-        selectedRegionSetName,
-        (() => {
-          const first = selectedRoute[0];
-          if (!first) {
-            return undefined;
-          }
-          if (first.kind === 'MULTI_DAY_BLOCK') {
-            return filteredOvernightStays.find((b) => b.id === first.multiDayBlockId)?.title;
-          }
-          return locationById.get(first.locationId)?.name;
-        })(),
-        totalDays,
-        useEarlyFirstDay,
-        useExtendLastDay,
-      ),
-    [locationById, selectedRegionSetName, selectedRoute, totalDays, useEarlyFirstDay, useExtendLastDay, filteredOvernightStays],
+    () => buildSuggestedTemplateTitle(selectedRegionSetName, totalDays, useEarlyFirstDay, useExtendLastDay),
+    [selectedRegionSetName, totalDays, useEarlyFirstDay, useExtendLastDay],
   );
 
   useEffect(() => {
