@@ -7,6 +7,9 @@ mutation CreatePlan($input: PlanCreateInput!) {
 mutation UpdatePlan($id: ID!, $input: PlanUpdateInput!) {
   updatePlan(id: $id, input: $input) {
     id
+    documentNumberBase
+    title
+    currentVersionId
   }
 }
 

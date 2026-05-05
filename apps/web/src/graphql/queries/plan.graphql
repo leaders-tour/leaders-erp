@@ -4,6 +4,7 @@ query Plans($userId: ID!) {
     userId
     regionSetId
     title
+    documentNumberBase
     currentVersionId
   }
 }

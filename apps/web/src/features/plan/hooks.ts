@@ -368,6 +368,7 @@ export interface PlanRow {
   userId: string;
   regionSetId: string;
   title: string;
+  documentNumberBase: string;
   currentVersionId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -496,6 +497,7 @@ const PLANS_BY_USER_QUERY = gql`
       userId
       regionSetId
       title
+      documentNumberBase
       currentVersionId
       createdAt
       updatedAt
@@ -523,6 +525,7 @@ const PLAN_DETAIL_QUERY = gql`
       userId
       regionSetId
       title
+      documentNumberBase
       currentVersionId
       createdAt
       updatedAt
@@ -576,6 +579,17 @@ const PLAN_DETAIL_QUERY = gql`
   }
 `;
 
+const UPDATE_PLAN_MUTATION = gql`
+  mutation UpdatePlanDetail($id: ID!, $input: PlanUpdateInput!) {
+    updatePlan(id: $id, input: $input) {
+      id
+      documentNumberBase
+      title
+      currentVersionId
+    }
+  }
+`;
+
 const PLAN_VERSIONS_QUERY = gql`
   query PlanVersions($planId: ID!) {
     planVersions(planId: $planId) {
@@ -617,6 +631,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         userId
         regionSetId
         title
+        documentNumberBase
         currentVersionId
         createdAt
         updatedAt
@@ -916,6 +931,37 @@ export function usePlanDetail(id: string | undefined) {
   });
 
   return { plan: data?.plan ?? null, loading, refetch };
+}
+
+export function useUpdatePlan() {
+  const [mutate, { loading }] = useMutation<{
+    updatePlan: Pick<PlanRow, 'id' | 'documentNumberBase' | 'title' | 'currentVersionId'>;
+  }>(UPDATE_PLAN_MUTATION);
+
+  return {
+    loading,
+    updatePlan: async (
+      id: string,
+      input: {
+        title?: string;
+        currentVersionId?: string;
+        documentNumberBase?: string;
+      },
+    ): Promise<Pick<PlanRow, 'id' | 'documentNumberBase' | 'title' | 'currentVersionId'>> => {
+      const result = await mutate({
+        variables: { id, input },
+        awaitRefetchQueries: true,
+        refetchQueries: [
+          { query: PLAN_DETAIL_QUERY, variables: { id } },
+          { query: PLAN_VERSIONS_QUERY, variables: { planId: id } },
+        ],
+      });
+      if (!result.data?.updatePlan) {
+        throw new Error('Plan 업데이트에 실패했습니다.');
+      }
+      return result.data.updatePlan;
+    },
+  };
 }
 
 export function usePlanVersions(planId: string | undefined) {

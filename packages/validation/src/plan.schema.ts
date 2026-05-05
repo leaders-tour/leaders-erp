@@ -523,6 +523,14 @@ export const planCreateSchema = z.object({
 export const planUpdateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   currentVersionId: z.string().min(1).optional(),
+  documentNumberBase: z
+    .preprocess((val) => {
+      if (val == null || val === '') {
+        return undefined;
+      }
+      const s = String(val).trim();
+      return s === '' ? undefined : s;
+    }, planDocumentNumberBaseSchema.optional()),
 });
 
 export const planVersionCreateSchema = z

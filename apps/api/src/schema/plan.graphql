@@ -60,6 +60,7 @@ type Plan {
   userId: String!
   regionSetId: String!
   title: String!
+  documentNumberBase: String!
   currentVersionId: String
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -441,6 +442,8 @@ input PlanVersionSeedInput {
 input PlanUpdateInput {
   title: String
   currentVersionId: String
+  """9-digit numeric base. When set and changed, all version meta documentNumbers are recomputed."""
+  documentNumberBase: String
 }
 
 input PlanVersionCreateInput {

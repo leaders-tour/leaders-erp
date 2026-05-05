@@ -984,6 +984,77 @@ export class PlanService {
       }
     }
 
+    const newBase = parsed.data.documentNumberBase;
+    const baseChanged = newBase !== undefined && newBase !== existing.documentNumberBase;
+
+    if (baseChanged) {
+      return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const taken = await tx.plan.findFirst({
+          where: { documentNumberBase: newBase, id: { not: id } },
+          select: { id: true },
+        });
+        if (taken) {
+          throw new DomainError('VALIDATION_FAILED', '이미 사용 중인 문서번호 베이스입니다.');
+        }
+
+        const versions = await tx.planVersion.findMany({
+          where: { planId: id },
+          select: { id: true, versionNumber: true },
+          orderBy: { versionNumber: 'asc' },
+        });
+
+        const newDocNumbers = versions.map((v) => this.buildVersionDocumentNumber(newBase, v.versionNumber));
+
+        if (newDocNumbers.length > 0) {
+          const conflictingMeta = await tx.planVersionMeta.findFirst({
+            where: {
+              documentNumber: { in: newDocNumbers },
+              planVersion: { planId: { not: id } },
+            },
+            select: { documentNumber: true },
+          });
+          if (conflictingMeta) {
+            throw new DomainError(
+              'VALIDATION_FAILED',
+              '다른 견적에서 이미 사용 중인 문서번호와 충돌합니다. 다른 베이스를 입력해 주세요.',
+            );
+          }
+        }
+
+        await tx.plan.update({
+          where: { id },
+          data: {
+            documentNumberBase: newBase,
+            ...(parsed.data.title !== undefined ? { title: parsed.data.title.trim() } : {}),
+            ...(parsed.data.currentVersionId !== undefined
+              ? { currentVersionId: parsed.data.currentVersionId }
+              : {}),
+          },
+        });
+
+        await Promise.all(
+          versions.map((v) =>
+            (async () => {
+              const meta = await tx.planVersionMeta.findUnique({
+                where: { planVersionId: v.id },
+                select: { id: true },
+              });
+              if (!meta) {
+                return;
+              }
+              const documentNumber = this.buildVersionDocumentNumber(newBase, v.versionNumber);
+              await tx.planVersionMeta.update({
+                where: { planVersionId: v.id },
+                data: { documentNumber },
+              });
+            })(),
+          ),
+        );
+
+        return new PlanRepository(tx).findById(id);
+      });
+    }
+
     return new PlanRepository(this.prisma).updatePlan(id, parsed.data);
   }
 

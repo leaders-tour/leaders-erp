@@ -1,9 +1,15 @@
 import { ApolloError } from '@apollo/client';
 import { Button, Card } from '@tour/ui';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CreateVersionModal, VersionListPanel, VersionTreePanel } from '../features/plan/components';
-import { useDeletePlanVersion, usePlanDetail, usePlanVersions, type PlanVersionRow } from '../features/plan/hooks';
+import {
+  useDeletePlanVersion,
+  usePlanDetail,
+  usePlanVersions,
+  useUpdatePlan,
+  type PlanVersionRow,
+} from '../features/plan/hooks';
 
 type TabKey = 'versions' | 'meta' | 'history';
 
@@ -17,11 +23,24 @@ export function PlanDetailPage(): JSX.Element {
   const { plan, loading: planLoading } = usePlanDetail(planId);
   const { versions, loading: versionsLoading } = usePlanVersions(planId);
   const { deletePlanVersion, loading: deleteVersionLoading } = useDeletePlanVersion();
+  const { updatePlan, loading: updatePlanLoading } = useUpdatePlan();
+
+  const [documentNumberDraft, setDocumentNumberDraft] = useState('');
+  const [documentNumberMessage, setDocumentNumberMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(
+    null,
+  );
 
   const sortedVersions = useMemo(
     () => versions.slice().sort((a, b) => b.versionNumber - a.versionNumber),
     [versions],
   );
+
+  useEffect(() => {
+    if (!plan) {
+      return;
+    }
+    setDocumentNumberDraft(plan.documentNumberBase);
+  }, [plan?.id, plan?.documentNumberBase]);
 
   const openCreateVersion = (versionId: string) => {
     setDefaultParentVersionId(versionId);
@@ -165,10 +184,72 @@ export function PlanDetailPage(): JSX.Element {
           <h2 className="text-sm font-semibold text-slate-900">Plan 메타데이터</h2>
           <div className="mt-3 grid gap-2 text-sm text-slate-700">
             <div>Plan ID: {plan.id}</div>
+            <div>문서번호 베이스: {plan.documentNumberBase}</div>
             <div>Owner User ID: {plan.userId}</div>
             <div>RegionSet ID: {plan.regionSetId}</div>
             <div>생성일: {new Date(plan.createdAt).toLocaleString('ko-KR')}</div>
             <div>수정일: {new Date(plan.updatedAt).toLocaleString('ko-KR')}</div>
+          </div>
+
+          <div className="mt-4 border-t border-slate-200 pt-4">
+            <h3 className="text-sm font-semibold text-slate-900">문서번호 베이스 변경</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              저장하면 이 플랜의 모든 버전 견적 문서번호(예: …V1, …V2)가 새 베이스에 맞게 함께 바뀝니다.
+            </p>
+            <div className="mt-3 flex max-w-md flex-col gap-2 sm:flex-row sm:items-end">
+              <label className="grid min-w-0 flex-1 gap-1 text-sm">
+                <span className="text-xs text-slate-600">9자리 숫자</span>
+                <input
+                  value={documentNumberDraft}
+                  onChange={(event) => {
+                    setDocumentNumberDraft(event.target.value.replace(/\D/g, '').slice(0, 9));
+                    setDocumentNumberMessage(null);
+                  }}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-mono tracking-wide"
+                  placeholder="예: 260505001"
+                />
+              </label>
+              <Button
+                type="button"
+                variant="primary"
+                className="shrink-0"
+                disabled={
+                  updatePlanLoading ||
+                  documentNumberDraft === plan.documentNumberBase ||
+                  !/^[0-9]{9}$/.test(documentNumberDraft)
+                }
+                onClick={async () => {
+                  setDocumentNumberMessage(null);
+                  try {
+                    await updatePlan(plan.id, { documentNumberBase: documentNumberDraft });
+                    setDocumentNumberMessage({ kind: 'ok', text: '문서번호 베이스가 저장되었습니다.' });
+                  } catch (error) {
+                    const text =
+                      error instanceof ApolloError
+                        ? error.graphQLErrors
+                            .map((g) => g.message.trim())
+                            .filter(Boolean)
+                            .join(' ') || error.message.trim()
+                        : error instanceof Error
+                          ? error.message
+                          : '저장에 실패했습니다.';
+                    setDocumentNumberMessage({ kind: 'err', text: text.length > 0 ? text : '저장에 실패했습니다.' });
+                  }
+                }}
+              >
+                {updatePlanLoading ? '저장 중...' : '저장'}
+              </Button>
+            </div>
+            {documentNumberMessage ? (
+              <p
+                className={`mt-2 text-sm ${documentNumberMessage.kind === 'ok' ? 'text-emerald-700' : 'text-rose-700'}`}
+                role={documentNumberMessage.kind === 'err' ? 'alert' : undefined}
+              >
+                {documentNumberMessage.text}
+              </p>
+            ) : null}
           </div>
         </Card>
       ) : null}
