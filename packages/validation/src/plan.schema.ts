@@ -101,7 +101,7 @@ export const manualPricingLineOverrideInputSchema = z.object({
 });
 
 export const manualPricingAdjustmentLineInputSchema = z.object({
-  id: z.string().min(1).max(100),
+  id: z.string().min(1).max(500),
   type: z.enum(['AUTO', 'MANUAL']),
   rowKey: z.string().min(1).max(500).nullable().optional(),
   teamOrderIndex: z.number().int().min(0).nullable().optional(),
