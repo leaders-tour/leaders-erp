@@ -123,6 +123,7 @@ type Mutation {
   updatePlan(id: ID!, input: PlanUpdateInput!): Plan!
   createPlanVersion(input: PlanVersionCreateInput!): PlanVersion!
   setCurrentPlanVersion(planId: ID!, versionId: ID!): Plan!
+  deletePlanVersion(id: ID!): Boolean!
   deletePlan(id: ID!): Boolean!
   createPricingPolicy(input: PricingPolicyCreateInput!): PricingPolicy!
   updatePricingPolicy(id: ID!, input: PricingPolicyUpdateInput!): PricingPolicy!

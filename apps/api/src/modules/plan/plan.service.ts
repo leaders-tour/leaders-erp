@@ -1064,6 +1064,63 @@ export class PlanService {
     return new PlanRepository(this.prisma).setCurrentVersion(planId, versionId);
   }
 
+  async deletePlanVersion(versionId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const version = await tx.planVersion.findUnique({
+        where: { id: versionId },
+        select: { id: true, planId: true },
+      });
+      if (!version) {
+        throw new DomainError('NOT_FOUND', 'Plan version not found');
+      }
+
+      const [versionCount, childCount, tripCount, plan] = await Promise.all([
+        tx.planVersion.count({ where: { planId: version.planId } }),
+        tx.planVersion.count({ where: { parentVersionId: versionId } }),
+        tx.confirmedTrip.count({ where: { planVersionId: versionId } }),
+        tx.plan.findUnique({
+          where: { id: version.planId },
+          select: { id: true, currentVersionId: true },
+        }),
+      ]);
+
+      if (!plan) {
+        throw new DomainError('NOT_FOUND', 'Plan not found');
+      }
+
+      if (versionCount <= 1) {
+        throw new DomainError('VALIDATION_FAILED', '플랜의 마지막 버전은 삭제할 수 없습니다.');
+      }
+      if (childCount > 0) {
+        throw new DomainError(
+          'VALIDATION_FAILED',
+          '하위 버전이 있는 버전은 삭제할 수 없습니다. 먼저 하위 버전을 삭제하세요.',
+        );
+      }
+      if (tripCount > 0) {
+        throw new DomainError('VALIDATION_FAILED', '확정 여행에 연결된 버전은 삭제할 수 없습니다.');
+      }
+
+      const wasCurrent = plan.currentVersionId === versionId;
+
+      await tx.planVersion.delete({ where: { id: versionId } });
+
+      if (wasCurrent) {
+        const nextCurrent = await tx.planVersion.findFirst({
+          where: { planId: version.planId },
+          orderBy: { versionNumber: 'desc' },
+          select: { id: true },
+        });
+        await tx.plan.update({
+          where: { id: version.planId },
+          data: { currentVersionId: nextCurrent?.id ?? null },
+        });
+      }
+    });
+
+    return true;
+  }
+
   delete(id: string) {
     return new PlanRepository(this.prisma).delete(id);
   }

@@ -9,6 +9,8 @@ interface VersionListPanelProps {
   onOpenVersion: (versionId: string) => void;
   onOpenEstimatePdf: (versionId: string) => void;
   onCreateVersion: (versionId: string) => void;
+  onDeleteVersion: (versionId: string) => void;
+  deleteVersionLoading?: boolean;
 }
 
 export function VersionListPanel({
@@ -18,8 +20,21 @@ export function VersionListPanel({
   onOpenVersion,
   onOpenEstimatePdf,
   onCreateVersion,
+  onDeleteVersion,
+  deleteVersionLoading = false,
 }: VersionListPanelProps): JSX.Element {
   const versionNumberById = new Map(versions.map((version) => [version.id, version.versionNumber]));
+
+  const deleteTitle = (version: PlanVersionRow): string | undefined => {
+    if (versions.length <= 1) {
+      return '플랜에 버전이 하나뿐이면 삭제할 수 없습니다.';
+    }
+    const childCount = version.childVersions?.length ?? 0;
+    if (childCount > 0) {
+      return '하위 버전이 있으면 삭제할 수 없습니다. 먼저 하위 버전을 삭제하세요.';
+    }
+    return undefined;
+  };
 
   return (
     <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -69,6 +84,16 @@ export function VersionListPanel({
                     </Button>
                     <Button variant="primary" onClick={() => onCreateVersion(version.id)}>
                       새 버전 생성
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      disabled={
+                        deleteVersionLoading || versions.length <= 1 || (version.childVersions?.length ?? 0) > 0
+                      }
+                      title={deleteTitle(version)}
+                      onClick={() => onDeleteVersion(version.id)}
+                    >
+                      삭제
                     </Button>
                   </div>
                 </Td>

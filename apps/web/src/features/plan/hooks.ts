@@ -127,6 +127,7 @@ export interface PlanVersionRow {
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
   createdAt: string;
   updatedAt: string;
+  childVersions?: Array<{ id: string }>;
   regionSet?: {
     id: string;
     name: string;
@@ -589,6 +590,9 @@ const PLAN_VERSIONS_QUERY = gql`
       movementIntensity
       createdAt
       updatedAt
+      childVersions {
+        id
+      }
     }
   }
 `;
@@ -810,6 +814,12 @@ const SET_CURRENT_VERSION_MUTATION = gql`
   }
 `;
 
+const DELETE_PLAN_VERSION_MUTATION = gql`
+  mutation DeletePlanVersion($id: ID!) {
+    deletePlanVersion(id: $id)
+  }
+`;
+
 const REORDER_DEAL_PIPELINE_MUTATION = gql`
   mutation ReorderDealPipeline($input: DealPipelineReorderInput!) {
     reorderDealPipeline(input: $input)
@@ -1015,6 +1025,26 @@ export function useSetCurrentPlanVersion() {
           { query: PLAN_VERSION_DETAIL_QUERY, variables: { id: versionId } },
         ],
       });
+    },
+  };
+}
+
+export function useDeletePlanVersion() {
+  const [mutate, { loading }] = useMutation<{ deletePlanVersion: boolean }>(DELETE_PLAN_VERSION_MUTATION);
+
+  return {
+    loading,
+    deletePlanVersion: async (versionId: string, planId: string): Promise<void> => {
+      const result = await mutate({
+        variables: { id: versionId },
+        refetchQueries: [
+          { query: PLAN_DETAIL_QUERY, variables: { id: planId } },
+          { query: PLAN_VERSIONS_QUERY, variables: { planId } },
+        ],
+      });
+      if (!result.data?.deletePlanVersion) {
+        throw new Error('버전 삭제에 실패했습니다.');
+      }
     },
   };
 }

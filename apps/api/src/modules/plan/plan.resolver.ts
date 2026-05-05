@@ -157,6 +157,8 @@ export const planResolver = {
       new PlanService(ctx.prisma).createVersion(args.input),
     setCurrentPlanVersion: (_parent: unknown, args: SetCurrentPlanVersionArgs, ctx: AppContext) =>
       new PlanService(ctx.prisma).setCurrentVersion(args.planId, args.versionId),
+    deletePlanVersion: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
+      new PlanService(ctx.prisma).deletePlanVersion(args.id),
     deletePlan: (_parent: unknown, args: IdArgs, ctx: AppContext) => new PlanService(ctx.prisma).delete(args.id),
   },
   User: {

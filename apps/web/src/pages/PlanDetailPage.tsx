@@ -1,8 +1,9 @@
+import { ApolloError } from '@apollo/client';
 import { Button, Card } from '@tour/ui';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CreateVersionModal, VersionListPanel, VersionTreePanel } from '../features/plan/components';
-import { usePlanDetail, usePlanVersions, type PlanVersionRow } from '../features/plan/hooks';
+import { useDeletePlanVersion, usePlanDetail, usePlanVersions, type PlanVersionRow } from '../features/plan/hooks';
 
 type TabKey = 'versions' | 'meta' | 'history';
 
@@ -15,6 +16,7 @@ export function PlanDetailPage(): JSX.Element {
 
   const { plan, loading: planLoading } = usePlanDetail(planId);
   const { versions, loading: versionsLoading } = usePlanVersions(planId);
+  const { deletePlanVersion, loading: deleteVersionLoading } = useDeletePlanVersion();
 
   const sortedVersions = useMemo(
     () => versions.slice().sort((a, b) => b.versionNumber - a.versionNumber),
@@ -24,6 +26,31 @@ export function PlanDetailPage(): JSX.Element {
   const openCreateVersion = (versionId: string) => {
     setDefaultParentVersionId(versionId);
     setModalOpen(true);
+  };
+
+  const handleDeleteVersion = async (versionId: string) => {
+    const target = sortedVersions.find((v) => v.id === versionId);
+    if (!target || !planId || !plan) {
+      return;
+    }
+    if (
+      !window.confirm(
+        `v${target.versionNumber} 버전을 삭제할까요? 저장된 일정·견적 데이터가 함께 삭제되며 되돌릴 수 없습니다.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await deletePlanVersion(versionId, planId);
+    } catch (error) {
+      const message =
+        error instanceof ApolloError
+          ? error.graphQLErrors[0]?.message?.trim()
+          : error instanceof Error
+            ? error.message
+            : null;
+      window.alert(message && message.length > 0 ? message : '버전 삭제에 실패했습니다.');
+    }
   };
 
   if (!planId) {
@@ -122,6 +149,8 @@ export function PlanDetailPage(): JSX.Element {
               )
             }
             onCreateVersion={openCreateVersion}
+            onDeleteVersion={handleDeleteVersion}
+            deleteVersionLoading={deleteVersionLoading}
           />
           <VersionTreePanel
             versions={sortedVersions}
