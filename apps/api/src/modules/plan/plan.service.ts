@@ -932,7 +932,20 @@ export class PlanService {
         manualDepositAmountKrw: parsed.data.initialVersion.manualDepositAmountKrw,
       });
 
-      const documentNumberBase = await this.generatePlanDocumentNumberBase(parsed.data.initialVersion.meta.travelStartDate);
+      const documentNumberBase = await (async () => {
+        const manualBase = parsed.data.documentNumberBase;
+        if (manualBase) {
+          const taken = await tx.plan.findUnique({
+            where: { documentNumberBase: manualBase },
+            select: { id: true },
+          });
+          if (taken) {
+            throw new DomainError('VALIDATION_FAILED', '이미 사용 중인 문서번호 베이스입니다.');
+          }
+          return manualBase;
+        }
+        return this.generatePlanDocumentNumberBase(parsed.data.initialVersion.meta.travelStartDate);
+      })();
       const documentNumber = this.buildVersionDocumentNumber(documentNumberBase, 1);
       const repository = new PlanRepository(tx);
       const createdPlan = await repository.createWithInitialVersion(parsed.data, documentNumberBase, documentNumber);

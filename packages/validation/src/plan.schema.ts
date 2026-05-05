@@ -501,10 +501,22 @@ const planVersionSeedSchema = z
     });
   });
 
+const planDocumentNumberBaseSchema = z
+  .string()
+  .regex(/^[0-9]{9}$/, 'documentNumberBase must be exactly 9 digits');
+
 export const planCreateSchema = z.object({
   userId: z.string().min(1),
   regionSetId: z.string().min(1),
   title: z.string().min(1).max(200),
+  documentNumberBase: z
+    .preprocess((val) => {
+      if (val == null || val === '') {
+        return undefined;
+      }
+      const s = String(val).trim();
+      return s === '' ? undefined : s;
+    }, planDocumentNumberBaseSchema.optional()),
   initialVersion: planVersionSeedSchema,
 });
 

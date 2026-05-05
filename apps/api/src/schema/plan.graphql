@@ -422,6 +422,8 @@ input PlanCreateInput {
   userId: String!
   regionSetId: String!
   title: String!
+  """9-digit numeric base (YYMMDD + seq). Omit or empty for server auto-allocation."""
+  documentNumberBase: String
   initialVersion: PlanVersionSeedInput!
 }
 

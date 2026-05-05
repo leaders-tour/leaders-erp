@@ -1,4 +1,4 @@
-import { gql, useMutation, useQuery } from '@apollo/client';
+import { ApolloError, gql, useMutation, useQuery } from '@apollo/client';
 import { pickDefaultLocationMealSet, type PricingManualSnapshot } from '@tour/domain';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
@@ -1693,6 +1693,32 @@ function formatSignedKrw(value: number): string {
   return value > 0 ? `+${formatKrw(value)}` : value < 0 ? `-${formatKrw(Math.abs(value))}` : formatKrw(0);
 }
 
+function mutationErrorMessages(error: unknown): string[] {
+  if (error instanceof ApolloError) {
+    const fromGql = error.graphQLErrors
+      .map((e) => e.message?.trim())
+      .filter((m): m is string => Boolean(m && m.length > 0));
+    if (fromGql.length > 0) {
+      return [...new Set(fromGql)];
+    }
+    const net = error.networkError;
+    if (net && typeof net === 'object' && 'message' in net && typeof (net as { message: unknown }).message === 'string') {
+      const msg = String((net as { message: string }).message).trim();
+      if (msg) {
+        return [msg];
+      }
+    }
+    if (error.message.trim()) {
+      return [error.message.trim()];
+    }
+    return ['요청에 실패했습니다.'];
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return [error.message.trim()];
+  }
+  return ['알 수 없는 오류가 발생했습니다.'];
+}
+
 /** 부모 클론 후 사용자가 루트를 바꿨는지 비교용 */
 function serializeSelectedRouteBaseline(route: RouteSelection[]): string {
   return JSON.stringify(
@@ -2411,6 +2437,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [totalDays, setTotalDays] = useState<number>(6);
   const [regionSetId, setRegionSetId] = useState<string>('');
   const [planTitle, setPlanTitle] = useState<string>(() => buildDefaultPlanTitle(''));
+  const [planDocumentNumberBase, setPlanDocumentNumberBase] = useState<string>('');
   const [changeNote, setChangeNote] = useState<string>(initialChangeNote);
   const [leaderName, setLeaderName] = useState<string>('');
   const [travelStartDate, setTravelStartDate] = useState<string>('');
@@ -2465,6 +2492,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     lineOverrides: [],
   });
   const [createdId, setCreatedId] = useState<string>('');
+  const [planSaveErrorMessages, setPlanSaveErrorMessages] = useState<string[]>([]);
   const [isValidationOpen, setIsValidationOpen] = useState<boolean>(false);
   const [isPayloadPreviewOpen, setIsPayloadPreviewOpen] = useState<boolean>(false);
   const [isPreviewEnabled, setIsPreviewEnabled] = useState<boolean>(true);
@@ -4198,7 +4226,10 @@ export function ItineraryBuilderPage(): JSX.Element {
     selectedRoute.every(isRouteSelectionStopComplete) &&
     getConsumedRouteDayCount(selectedRoute) === totalDays &&
     planRows.length === totalDays &&
-    (!isVersionMode ? planTitle.trim() : true),
+    (!isVersionMode ? planTitle.trim() : true) &&
+    (!isVersionMode
+      ? !planDocumentNumberBase.trim() || /^[0-9]{9}$/.test(planDocumentNumberBase.trim())
+      : true),
   );
 
   const effectivePlanTitle = isVersionMode && planContext ? planContext.title : planTitle;
@@ -4717,7 +4748,8 @@ export function ItineraryBuilderPage(): JSX.Element {
               <div>
                 <h1 className="text-2xl font-semibold tracking-tight">여행 일정 빌더</h1>
               </div>
-              <div className="flex gap-2 no-print">
+              <div className="flex max-w-xl flex-col items-stretch gap-2 md:items-end">
+                <div className="flex flex-wrap justify-end gap-2 no-print">
                 <Button variant="outline" onClick={() => setIsPreviewEnabled((prev) => !prev)}>
                   {isPreviewEnabled ? '미리보기 끄기' : '미리보기 켜기'}
                 </Button>
@@ -4752,250 +4784,268 @@ export function ItineraryBuilderPage(): JSX.Element {
                       return;
                     }
 
-                    if (isVersionMode) {
-                      const result = await createPlanVersion({
+                    setPlanSaveErrorMessages([]);
+
+                    try {
+                      if (isVersionMode) {
+                        const result = await createPlanVersion({
+                          variables: {
+                            input: {
+                              planId,
+                              regionSetId,
+                              parentVersionId,
+                              variantType,
+                              totalDays,
+                              changeNote: changeNote.trim() || undefined,
+                              meta: {
+                                leaderName: leaderName.trim(),
+                                travelStartDate: toIsoDateTime(travelStartDate),
+                                travelEndDate: toIsoDateTime(travelEndDate),
+                                headcountTotal,
+                                headcountMale,
+                                headcountFemale,
+                                vehicleType,
+                                flightInTime: primaryTransportGroup?.flightInTime ?? '02:45',
+                                flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:15',
+                                pickupDate: primaryTransportGroup?.pickupDate
+                                  ? toIsoDateTime(primaryTransportGroup.pickupDate)
+                                  : undefined,
+                                pickupTime: primaryTransportGroup?.pickupTime.trim() || undefined,
+                                dropDate: primaryTransportGroup?.dropDate
+                                  ? toIsoDateTime(primaryTransportGroup.dropDate)
+                                  : undefined,
+                                dropTime: primaryTransportGroup?.dropTime.trim() || undefined,
+                                pickupPlaceType:
+                                  primaryTransportGroup?.pickupPlaceType ??
+                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                                pickupPlaceCustomText: normalizePickupDropCustomText(
+                                  primaryTransportGroup?.pickupPlaceType ??
+                                    DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                                  primaryTransportGroup?.pickupPlaceCustomText,
+                                ),
+                                dropPlaceType:
+                                  primaryTransportGroup?.dropPlaceType ??
+                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                                dropPlaceCustomText: normalizePickupDropCustomText(
+                                  primaryTransportGroup?.dropPlaceType ??
+                                    DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                                  primaryTransportGroup?.dropPlaceCustomText,
+                                ),
+                                pickupDropNote: undefined,
+                                externalPickupDropNote: undefined,
+                                externalTransfers: normalizedExternalTransfers.map((transfer) => ({
+                                  ...transfer,
+                                  travelDate: toIsoDateTime(transfer.travelDate),
+                                })),
+                                specialNote: specialNote.trim() || undefined,
+                                includeRentalItems,
+                                rentalItemsText,
+                                eventIds,
+                                extraLodgings,
+                                lodgingSelections,
+                                transportGroups: normalizedTransportGroups.map((group) => ({
+                                  teamName: group.teamName.trim(),
+                                  headcount: group.headcount,
+                                  flightInDate: toIsoDateTime(group.flightInDate),
+                                  flightInTime: group.flightInTime.trim(),
+                                  flightOutDate: toIsoDateTime(group.flightOutDate),
+                                  flightOutTime: group.flightOutTime.trim(),
+                                  pickupDate: group.pickupDate
+                                    ? toIsoDateTime(group.pickupDate)
+                                    : undefined,
+                                  pickupTime: group.pickupTime.trim() || undefined,
+                                  pickupPlaceType: group.pickupPlaceType,
+                                  pickupPlaceCustomText: normalizePickupDropCustomText(
+                                    group.pickupPlaceType,
+                                    group.pickupPlaceCustomText,
+                                  ),
+                                  dropDate: group.dropDate
+                                    ? toIsoDateTime(group.dropDate)
+                                    : undefined,
+                                  dropTime: group.dropTime.trim() || undefined,
+                                  dropPlaceType: group.dropPlaceType,
+                                  dropPlaceCustomText: normalizePickupDropCustomText(
+                                    group.dropPlaceType,
+                                    group.dropPlaceCustomText,
+                                  ),
+                                })),
+                                remark: remark.trim() || undefined,
+                              },
+                              planStops: planStopsForMutation,
+                              manualAdjustments: normalizedManualAdjustments,
+                              manualDepositAmountKrw: normalizedManualDepositAmountKrw,
+                              manualPricing: serializedManualPricingSnapshot,
+                            },
+                          },
+                        });
+
+                        const createdVersionId = result.data?.createPlanVersion.id ?? '';
+                        setCreatedId(createdVersionId);
+                        if (createdVersionId) {
+                          if (confirmedTripId) {
+                            try {
+                              await updateConfirmedTrip(confirmedTripId, {
+                                planVersionId: createdVersionId,
+                              });
+                            } catch (error) {
+                              setPlanSaveErrorMessages(mutationErrorMessages(error));
+                              return;
+                            }
+                            setPlanSaveErrorMessages([]);
+                            navigate(`/confirmed-trips/${confirmedTripId}`);
+                            return;
+                          }
+                          setPlanSaveErrorMessages([]);
+                          navigate(`/plans/${planId}/versions/${createdVersionId}`);
+                        }
+                        return;
+                      }
+
+                      const trimmedDocBase = planDocumentNumberBase.trim();
+                      const result = await createPlan({
                         variables: {
                           input: {
-                            planId,
+                            userId,
                             regionSetId,
-                            parentVersionId,
-                            variantType,
-                            totalDays,
-                            changeNote: changeNote.trim() || undefined,
-                            meta: {
-                              leaderName: leaderName.trim(),
-                              travelStartDate: toIsoDateTime(travelStartDate),
-                              travelEndDate: toIsoDateTime(travelEndDate),
-                              headcountTotal,
-                              headcountMale,
-                              headcountFemale,
-                              vehicleType,
-                              flightInTime: primaryTransportGroup?.flightInTime ?? '02:45',
-                              flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:15',
-                              pickupDate: primaryTransportGroup?.pickupDate
-                                ? toIsoDateTime(primaryTransportGroup.pickupDate)
-                                : undefined,
-                              pickupTime: primaryTransportGroup?.pickupTime.trim() || undefined,
-                              dropDate: primaryTransportGroup?.dropDate
-                                ? toIsoDateTime(primaryTransportGroup.dropDate)
-                                : undefined,
-                              dropTime: primaryTransportGroup?.dropTime.trim() || undefined,
-                              pickupPlaceType:
-                                primaryTransportGroup?.pickupPlaceType ??
-                                DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                              pickupPlaceCustomText: normalizePickupDropCustomText(
-                                primaryTransportGroup?.pickupPlaceType ??
-                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                                primaryTransportGroup?.pickupPlaceCustomText,
-                              ),
-                              dropPlaceType:
-                                primaryTransportGroup?.dropPlaceType ??
-                                DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                              dropPlaceCustomText: normalizePickupDropCustomText(
-                                primaryTransportGroup?.dropPlaceType ??
-                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                                primaryTransportGroup?.dropPlaceCustomText,
-                              ),
-                              pickupDropNote: undefined,
-                              externalPickupDropNote: undefined,
-                              externalTransfers: normalizedExternalTransfers.map((transfer) => ({
-                                ...transfer,
-                                travelDate: toIsoDateTime(transfer.travelDate),
-                              })),
-                              specialNote: specialNote.trim() || undefined,
-                              includeRentalItems,
-                              rentalItemsText,
-                              eventIds,
-                              extraLodgings,
-                              lodgingSelections,
-                              transportGroups: normalizedTransportGroups.map((group) => ({
-                                teamName: group.teamName.trim(),
-                                headcount: group.headcount,
-                                flightInDate: toIsoDateTime(group.flightInDate),
-                                flightInTime: group.flightInTime.trim(),
-                                flightOutDate: toIsoDateTime(group.flightOutDate),
-                                flightOutTime: group.flightOutTime.trim(),
-                                pickupDate: group.pickupDate
-                                  ? toIsoDateTime(group.pickupDate)
+                            title: planTitle,
+                            ...(trimmedDocBase.length > 0 ? { documentNumberBase: trimmedDocBase } : {}),
+                            initialVersion: {
+                              variantType,
+                              totalDays,
+                              changeNote: undefined,
+                              meta: {
+                                leaderName: leaderName.trim(),
+                                travelStartDate: toIsoDateTime(travelStartDate),
+                                travelEndDate: toIsoDateTime(travelEndDate),
+                                headcountTotal,
+                                headcountMale,
+                                headcountFemale,
+                                vehicleType,
+                                flightInTime: primaryTransportGroup?.flightInTime ?? '02:45',
+                                flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:15',
+                                pickupDate: primaryTransportGroup?.pickupDate
+                                  ? toIsoDateTime(primaryTransportGroup.pickupDate)
                                   : undefined,
-                                pickupTime: group.pickupTime.trim() || undefined,
-                                pickupPlaceType: group.pickupPlaceType,
+                                pickupTime: primaryTransportGroup?.pickupTime.trim() || undefined,
+                                dropDate: primaryTransportGroup?.dropDate
+                                  ? toIsoDateTime(primaryTransportGroup.dropDate)
+                                  : undefined,
+                                dropTime: primaryTransportGroup?.dropTime.trim() || undefined,
+                                pickupPlaceType:
+                                  primaryTransportGroup?.pickupPlaceType ??
+                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
                                 pickupPlaceCustomText: normalizePickupDropCustomText(
-                                  group.pickupPlaceType,
-                                  group.pickupPlaceCustomText,
+                                  primaryTransportGroup?.pickupPlaceType ??
+                                    DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                                  primaryTransportGroup?.pickupPlaceCustomText,
                                 ),
-                                dropDate: group.dropDate
-                                  ? toIsoDateTime(group.dropDate)
-                                  : undefined,
-                                dropTime: group.dropTime.trim() || undefined,
-                                dropPlaceType: group.dropPlaceType,
+                                dropPlaceType:
+                                  primaryTransportGroup?.dropPlaceType ??
+                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
                                 dropPlaceCustomText: normalizePickupDropCustomText(
-                                  group.dropPlaceType,
-                                  group.dropPlaceCustomText,
+                                  primaryTransportGroup?.dropPlaceType ??
+                                    DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                                  primaryTransportGroup?.dropPlaceCustomText,
                                 ),
-                              })),
-                              remark: remark.trim() || undefined,
+                                pickupDropNote: undefined,
+                                externalPickupDropNote: undefined,
+                                externalTransfers: normalizedExternalTransfers.map((transfer) => ({
+                                  ...transfer,
+                                  travelDate: toIsoDateTime(transfer.travelDate),
+                                })),
+                                specialNote: specialNote.trim() || undefined,
+                                includeRentalItems,
+                                rentalItemsText,
+                                eventIds,
+                                extraLodgings,
+                                lodgingSelections,
+                                transportGroups: normalizedTransportGroups.map((group) => ({
+                                  teamName: group.teamName.trim(),
+                                  headcount: group.headcount,
+                                  flightInDate: toIsoDateTime(group.flightInDate),
+                                  flightInTime: group.flightInTime.trim(),
+                                  flightOutDate: toIsoDateTime(group.flightOutDate),
+                                  flightOutTime: group.flightOutTime.trim(),
+                                  pickupDate: group.pickupDate
+                                    ? toIsoDateTime(group.pickupDate)
+                                    : undefined,
+                                  pickupTime: group.pickupTime.trim() || undefined,
+                                  pickupPlaceType: group.pickupPlaceType,
+                                  pickupPlaceCustomText: normalizePickupDropCustomText(
+                                    group.pickupPlaceType,
+                                    group.pickupPlaceCustomText,
+                                  ),
+                                  dropDate: group.dropDate
+                                    ? toIsoDateTime(group.dropDate)
+                                    : undefined,
+                                  dropTime: group.dropTime.trim() || undefined,
+                                  dropPlaceType: group.dropPlaceType,
+                                  dropPlaceCustomText: normalizePickupDropCustomText(
+                                    group.dropPlaceType,
+                                    group.dropPlaceCustomText,
+                                  ),
+                                })),
+                                remark: remark.trim() || undefined,
+                              },
+                              planStops: planStopsForMutation,
+                              manualAdjustments: normalizedManualAdjustments,
+                              manualDepositAmountKrw: normalizedManualDepositAmountKrw,
+                              manualPricing: serializedManualPricingSnapshot,
                             },
-                            planStops: planStopsForMutation,
-                            manualAdjustments: normalizedManualAdjustments,
-                            manualDepositAmountKrw: normalizedManualDepositAmountKrw,
-                            manualPricing: serializedManualPricingSnapshot,
                           },
                         },
                       });
 
-                      const createdVersionId = result.data?.createPlanVersion.id ?? '';
-                      setCreatedId(createdVersionId);
-                      if (createdVersionId) {
+                      const createdPlan = result.data?.createPlan;
+                      const createdPlanId = createdPlan?.id ?? '';
+                      const linkedVersionId = createdPlan?.currentVersionId ?? '';
+                      setCreatedId(createdPlanId);
+                      if (createdPlanId) {
                         if (confirmedTripId) {
-                          try {
-                            await updateConfirmedTrip(confirmedTripId, {
-                              planVersionId: createdVersionId,
-                            });
-                          } catch (error) {
-                            window.alert(
-                              error instanceof Error
-                                ? error.message
-                                : '확정 건 견적 버전 갱신에 실패했습니다.',
-                            );
+                          if (!linkedVersionId) {
+                            setPlanSaveErrorMessages([
+                              '생성된 견적 초기 버전 ID를 받지 못했습니다. 플랜 상세에서 수동으로 이 확정 건과 연결해 주세요.',
+                            ]);
+                            navigate(`/plans/${createdPlanId}`);
                             return;
                           }
+                          try {
+                            await updateConfirmedTrip(confirmedTripId, {
+                              planVersionId: linkedVersionId,
+                            });
+                          } catch (error) {
+                            setPlanSaveErrorMessages(mutationErrorMessages(error));
+                            navigate(`/plans/${createdPlanId}`);
+                            return;
+                          }
+                          setPlanSaveErrorMessages([]);
                           navigate(`/confirmed-trips/${confirmedTripId}`);
                           return;
                         }
-                        navigate(`/plans/${planId}/versions/${createdVersionId}`);
+                        setPlanSaveErrorMessages([]);
+                        navigate(`/plans/${createdPlanId}`);
                       }
-                      return;
-                    }
-
-                    const result = await createPlan({
-                      variables: {
-                        input: {
-                          userId,
-                          regionSetId,
-                          title: planTitle,
-                          initialVersion: {
-                            variantType,
-                            totalDays,
-                            changeNote: undefined,
-                            meta: {
-                              leaderName: leaderName.trim(),
-                              travelStartDate: toIsoDateTime(travelStartDate),
-                              travelEndDate: toIsoDateTime(travelEndDate),
-                              headcountTotal,
-                              headcountMale,
-                              headcountFemale,
-                              vehicleType,
-                              flightInTime: primaryTransportGroup?.flightInTime ?? '02:45',
-                              flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:15',
-                              pickupDate: primaryTransportGroup?.pickupDate
-                                ? toIsoDateTime(primaryTransportGroup.pickupDate)
-                                : undefined,
-                              pickupTime: primaryTransportGroup?.pickupTime.trim() || undefined,
-                              dropDate: primaryTransportGroup?.dropDate
-                                ? toIsoDateTime(primaryTransportGroup.dropDate)
-                                : undefined,
-                              dropTime: primaryTransportGroup?.dropTime.trim() || undefined,
-                              pickupPlaceType:
-                                primaryTransportGroup?.pickupPlaceType ??
-                                DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                              pickupPlaceCustomText: normalizePickupDropCustomText(
-                                primaryTransportGroup?.pickupPlaceType ??
-                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                                primaryTransportGroup?.pickupPlaceCustomText,
-                              ),
-                              dropPlaceType:
-                                primaryTransportGroup?.dropPlaceType ??
-                                DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                              dropPlaceCustomText: normalizePickupDropCustomText(
-                                primaryTransportGroup?.dropPlaceType ??
-                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                                primaryTransportGroup?.dropPlaceCustomText,
-                              ),
-                              pickupDropNote: undefined,
-                              externalPickupDropNote: undefined,
-                              externalTransfers: normalizedExternalTransfers.map((transfer) => ({
-                                ...transfer,
-                                travelDate: toIsoDateTime(transfer.travelDate),
-                              })),
-                              specialNote: specialNote.trim() || undefined,
-                              includeRentalItems,
-                              rentalItemsText,
-                              eventIds,
-                              extraLodgings,
-                              lodgingSelections,
-                              transportGroups: normalizedTransportGroups.map((group) => ({
-                                teamName: group.teamName.trim(),
-                                headcount: group.headcount,
-                                flightInDate: toIsoDateTime(group.flightInDate),
-                                flightInTime: group.flightInTime.trim(),
-                                flightOutDate: toIsoDateTime(group.flightOutDate),
-                                flightOutTime: group.flightOutTime.trim(),
-                                pickupDate: group.pickupDate
-                                  ? toIsoDateTime(group.pickupDate)
-                                  : undefined,
-                                pickupTime: group.pickupTime.trim() || undefined,
-                                pickupPlaceType: group.pickupPlaceType,
-                                pickupPlaceCustomText: normalizePickupDropCustomText(
-                                  group.pickupPlaceType,
-                                  group.pickupPlaceCustomText,
-                                ),
-                                dropDate: group.dropDate
-                                  ? toIsoDateTime(group.dropDate)
-                                  : undefined,
-                                dropTime: group.dropTime.trim() || undefined,
-                                dropPlaceType: group.dropPlaceType,
-                                dropPlaceCustomText: normalizePickupDropCustomText(
-                                  group.dropPlaceType,
-                                  group.dropPlaceCustomText,
-                                ),
-                              })),
-                              remark: remark.trim() || undefined,
-                            },
-                            planStops: planStopsForMutation,
-                            manualAdjustments: normalizedManualAdjustments,
-                            manualDepositAmountKrw: normalizedManualDepositAmountKrw,
-                            manualPricing: serializedManualPricingSnapshot,
-                          },
-                        },
-                      },
-                    });
-
-                    const createdPlan = result.data?.createPlan;
-                    const createdPlanId = createdPlan?.id ?? '';
-                    const linkedVersionId = createdPlan?.currentVersionId ?? '';
-                    setCreatedId(createdPlanId);
-                    if (createdPlanId) {
-                      if (confirmedTripId) {
-                        if (!linkedVersionId) {
-                          window.alert(
-                            '생성된 견적 초기 버전 ID를 받지 못했습니다. 플랜 상세에서 수동으로 이 확정 건과 연결해 주세요.',
-                          );
-                          navigate(`/plans/${createdPlanId}`);
-                          return;
-                        }
-                        try {
-                          await updateConfirmedTrip(confirmedTripId, {
-                            planVersionId: linkedVersionId,
-                          });
-                        } catch (error) {
-                          window.alert(
-                            error instanceof Error
-                              ? error.message
-                              : '확정 건과 견적을 연결하는 데 실패했습니다.',
-                          );
-                          navigate(`/plans/${createdPlanId}`);
-                          return;
-                        }
-                        navigate(`/confirmed-trips/${confirmedTripId}`);
-                        return;
-                      }
-                      navigate(`/plans/${createdPlanId}`);
+                    } catch (error) {
+                      setPlanSaveErrorMessages(mutationErrorMessages(error));
                     }
                   }}
                 >
                   {creating ? '저장 중...' : isVersionMode ? '새 버전 생성' : 'Plan 생성'}
                 </Button>
+                </div>
+                {planSaveErrorMessages.length > 0 ? (
+                  <div
+                    className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900"
+                    role="alert"
+                  >
+                    <p className="mb-1 font-medium text-rose-950">저장할 수 없습니다</p>
+                    <ul className="list-inside list-disc space-y-0.5 text-rose-800">
+                      {planSaveErrorMessages.map((msg, index) => (
+                        <li key={`${index}-${msg.slice(0, 32)}`}>{msg}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             </header>
 
@@ -5053,6 +5103,25 @@ export function ItineraryBuilderPage(): JSX.Element {
                         onChange={(event) => setPlanTitle(event.target.value)}
                         className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
                         placeholder={buildDefaultPlanTitle(leaderName)}
+                      />
+                    </label>
+                  ) : null}
+
+                  {!isVersionMode && hasPlanContext ? (
+                    <label className="grid gap-1 text-sm">
+                      <span className="text-xs text-slate-600">
+                        문서번호 베이스 <span className="ml-1 text-slate-400">9자리 숫자, 비우면 자동</span>
+                      </span>
+                      <input
+                        value={planDocumentNumberBase}
+                        onChange={(event) => {
+                          const next = event.target.value.replace(/\D/g, '').slice(0, 9);
+                          setPlanDocumentNumberBase(next);
+                        }}
+                        inputMode="numeric"
+                        autoComplete="off"
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-mono tracking-wide"
+                        placeholder="예: 260505001"
                       />
                     </label>
                   ) : null}
@@ -7212,6 +7281,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                               userId,
                               regionSetId,
                               title: planTitle,
+                              documentNumberBase: planDocumentNumberBase.trim() || undefined,
                               variantType,
                               totalDays,
                               changeNote,
