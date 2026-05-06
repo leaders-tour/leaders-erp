@@ -1,3 +1,5 @@
+import { roundBaseAmountKrwToThousands } from '../lib/round-base-amount-krw';
+
 const BASE_RULE_TYPES = new Set(['BASE', 'PERCENT_UPLIFT', 'LONG_DISTANCE']);
 const BASE_LINE_CODES = new Set(['BASE', 'BASE_PERCENT', 'BASE_UPLIFT_5PLUS_5PCT', 'BASE_UPLIFT_5PLUS_10PCT', 'LONG_DISTANCE']);
 const FIXED_LODGING_DAY_LEVEL = /^(\d+)일차 (LV[124])$/;
@@ -313,7 +315,8 @@ export function buildPricingManualPresentation<TLine extends PricingManualSource
 
   const originalBaseTotal = originalBaseRows.reduce((sum, row) => sum + row.originalAmountKrw, 0);
   const originalAddonTotal = originalAddonRows.reduce((sum, row) => sum + row.originalAmountKrw, 0);
-  const effectiveBaseTotal = baseRows.reduce((sum, row) => sum + row.amountKrw, 0);
+  const effectiveBaseTotalRaw = baseRows.reduce((sum, row) => sum + row.amountKrw, 0);
+  const effectiveBaseTotal = roundBaseAmountKrwToThousands(effectiveBaseTotalRaw);
   const effectiveAddonTotal = addonRows.reduce((sum, row) => sum + row.amountKrw, 0);
 
   return {

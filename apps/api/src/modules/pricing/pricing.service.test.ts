@@ -619,4 +619,34 @@ describe('PricingService.preview', () => {
     });
     expect(result.teamPricings[1]?.lines.find((line) => line.lineCode === 'EARLY')).toBeUndefined();
   });
+
+  it('rounds base amount to nearest ₩1,000 and adjusts total, deposit, balance, and team totals', async () => {
+    const service = makeService([
+      makeRule({
+        id: 'base-rule',
+        priceItemPreset: 'BASE',
+        ruleType: 'BASE',
+        title: '기본금',
+        lineCode: 'BASE',
+        amountKrw: 813_750,
+      }),
+    ]);
+
+    const result = await service.preview(makeInput());
+
+    expect(result.baseAmountKrw).toBe(814_000);
+    expect(result.addonAmountKrw).toBe(0);
+    expect(result.totalAmountKrw).toBe(814_000);
+    expect(result.depositAmountKrw).toBe(84_000);
+    expect(result.balanceAmountKrw).toBe(730_000);
+
+    expect(result.teamPricings).toHaveLength(1);
+    expect(result.teamPricings[0]).toMatchObject({
+      baseAmountKrw: 814_000,
+      addonAmountKrw: 0,
+      totalAmountKrw: 814_000,
+      depositAmountKrw: 84_000,
+      balanceAmountKrw: 730_000,
+    });
+  });
 });

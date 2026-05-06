@@ -35,7 +35,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
   const pricingTotals = pricing ? sliceEffectiveTotalsForUi(pricing) : null;
   const pricingBuckets =
     pricing && pricingTotals ? buildPricingViewBuckets(pricing.lines, pricingTotals.totalAmountKrw) : null;
-  const basePricePerPersonKrw = pricingBuckets?.baseTotal ?? pricingTotals?.baseAmountKrw ?? null;
+  const basePricePerPersonKrw = pricingTotals?.baseAmountKrw ?? pricingBuckets?.baseTotal ?? null;
   const externalTransfers = meta?.externalTransfers ?? [];
   const externalPickupTextFromTransfers = buildExternalTransferDirectionText(externalTransfers, meta?.transportGroups, 'PICKUP');
   const externalDropTextFromTransfers = buildExternalTransferDirectionText(externalTransfers, meta?.transportGroups, 'DROP');

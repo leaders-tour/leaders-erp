@@ -8,7 +8,7 @@ import {
   PrismaClient,
 } from '@prisma/client';
 import type { VariantType } from '@tour/domain';
-import { buildPricingManualPresentation } from '@tour/domain';
+import { buildPricingManualPresentation, roundBaseAmountKrwToThousands } from '@tour/domain';
 import { DomainError } from '../../lib/errors';
 import type {
   LodgingSelectionPricingInputDto,
@@ -422,8 +422,13 @@ export class PricingService {
       }),
     }));
 
-    const baseAmountKrw = baseRawAmount + baseUpliftAmount + longDistanceAmount;
-    const totalAmountKrw = linesWithDisplay.reduce((sum, line) => sum + line.amountKrw, 0);
+    const baseAmountKrwRaw = baseRawAmount + baseUpliftAmount + longDistanceAmount;
+    let baseAmountKrw = baseAmountKrwRaw;
+    let totalAmountKrw = linesWithDisplay.reduce((sum, line) => sum + line.amountKrw, 0);
+    const baseRounded = roundBaseAmountKrwToThousands(baseAmountKrwRaw);
+    const baseRoundDelta = baseRounded - baseAmountKrwRaw;
+    baseAmountKrw = baseRounded;
+    totalAmountKrw += baseRoundDelta;
     const addonAmountKrw = totalAmountKrw - baseAmountKrw;
     const { depositAmountKrw, balanceAmountKrw } = this.computeDepositAndBalance(totalAmountKrw, input.manualDepositAmountKrw);
     const securityDeposit = this.computeSecurityDeposit({
@@ -716,10 +721,14 @@ export class PricingService {
           }),
         )
         .filter((line): line is PricingComputedLine => line !== null);
-      const baseAmountKrw = teamLines
+      const baseAmountKrwRaw = teamLines
         .filter((line) => this.isBaseLine(line))
         .reduce((sum, line) => sum + line.amountKrw, 0);
-      const totalAmountKrw = teamLines.reduce((sum, line) => sum + line.amountKrw, 0);
+      let totalAmountKrw = teamLines.reduce((sum, line) => sum + line.amountKrw, 0);
+      const baseRounded = roundBaseAmountKrwToThousands(baseAmountKrwRaw);
+      const baseRoundDelta = baseRounded - baseAmountKrwRaw;
+      const baseAmountKrw = baseRounded;
+      totalAmountKrw += baseRoundDelta;
       const addonAmountKrw = totalAmountKrw - baseAmountKrw;
       const { depositAmountKrw, balanceAmountKrw } = this.computeDepositAndBalance(totalAmountKrw);
       const securityDeposit = this.computeTeamSecurityDeposit({

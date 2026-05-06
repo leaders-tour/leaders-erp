@@ -11,7 +11,7 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
   const pricingBuckets = snapshot.pricing
     ? buildPricingViewBuckets(snapshot.pricing.lines, snapshot.pricing.totalAmountKrw)
     : null;
-  const basePricePerPersonKrw = pricingBuckets?.baseTotal ?? snapshot.pricing?.baseAmountKrw ?? null;
+  const basePricePerPersonKrw = snapshot.pricing?.baseAmountKrw ?? pricingBuckets?.baseTotal ?? null;
   const externalPickupText = buildExternalTransferDirectionText(snapshot.externalTransfers, snapshot.transportGroups, 'PICKUP');
   const externalDropText = buildExternalTransferDirectionText(snapshot.externalTransfers, snapshot.transportGroups, 'DROP');
   const pricingCtx = {

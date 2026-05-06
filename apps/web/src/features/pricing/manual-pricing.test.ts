@@ -329,4 +329,50 @@ describe('buildEffectivePricing', () => {
       strikethrough: true,
     });
   });
+
+  it('rounds auto base total to nearest ₩1,000 for totals', () => {
+    const effectivePricing = buildEffectivePricing(
+      {
+        baseAmountKrw: 813_750,
+        addonAmountKrw: 30_000,
+        totalAmountKrw: 843_750,
+        depositAmountKrw: 0,
+        balanceAmountKrw: 0,
+        securityDepositAmountKrw: 0,
+        securityDepositEvent: null,
+        securityDepositUnitPriceKrw: 0,
+        securityDepositQuantity: 0,
+        securityDepositMode: 'NONE',
+        lines: [
+          {
+            ruleType: 'BASE',
+            lineCode: 'BASE',
+            sourceType: 'RULE',
+            description: '기본금',
+            ruleId: 'rule-base',
+            unitPriceKrw: 813_750,
+            quantity: 1,
+            amountKrw: 813_750,
+          },
+          {
+            ruleType: 'CONDITIONAL_ADDON',
+            lineCode: 'EARLY',
+            sourceType: 'RULE',
+            description: '얼리 스타트',
+            ruleId: 'rule-early',
+            unitPriceKrw: 30_000,
+            quantity: 1,
+            amountKrw: 30_000,
+          },
+        ],
+      },
+      { headcountTotal: 8, totalDays: 1 },
+    );
+
+    expect(effectivePricing.baseAmountKrw).toBe(814_000);
+    expect(effectivePricing.addonAmountKrw).toBe(30_000);
+    expect(effectivePricing.totalAmountKrw).toBe(844_000);
+    expect(effectivePricing.depositAmountKrw).toBe(94_000);
+    expect(effectivePricing.balanceAmountKrw).toBe(750_000);
+  });
 });
