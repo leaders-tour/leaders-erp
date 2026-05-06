@@ -341,14 +341,14 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
       });
     }
 
-    // samgyeopsal-recommendation-deviation (warning)
-    const samgyeopsalAssignment = assignments.find((a) => a.specialMeal === '삼겹살파티');
-    if (samgyeopsalAssignment) {
+    // samgyeopsal-recommendation-deviation (warning) — 삼겹살 배치가 여러 곳이면 각각 검사
+    const samgyeopsalAssignments = assignments.filter((a) => a.specialMeal === '삼겹살파티');
+    const recoHint = formatSamgyeopsalRecommendationHint(specialMealDestinationRules);
+    for (const samgyeopsalAssignment of samgyeopsalAssignments) {
       const ctx = rowContexts.find(
         (c) => c.dayIndex === samgyeopsalAssignment.dayIndex && c.mealSlot === samgyeopsalAssignment.mealSlot,
       );
       if (ctx && !isSamgyeopsalRecommended(ctx, specialMealDestinationRules)) {
-        const recoHint = formatSamgyeopsalRecommendationHint(specialMealDestinationRules);
         results.push({
           id: 'samgyeopsal-recommendation-deviation',
           severity: 'warning',

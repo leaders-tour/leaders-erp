@@ -108,7 +108,8 @@ export interface SpecialMealSelectionValue {
   mealSlot: MealSlot;
 }
 
-export type SpecialMealSelectionMap = Record<SpecialMealKind, SpecialMealSelectionValue | null>;
+/** 특식 종류별 (일차·끼니) 배치. 빈 배열 = 해당 종 미배치. 동일 종·동일 일차는 UI에서 끼니 하나만 유지. */
+export type SpecialMealSelectionMap = Record<SpecialMealKind, SpecialMealSelectionValue[]>;
 
 export interface PlanRowForSpecialMeals {
   mealCellText: string;
@@ -354,43 +355,6 @@ export function applyAssignmentToPlanRows(
   });
 }
 
-/** 특정 특식을 특정 (dayIndex, mealSlot)에 배치했을 때 전체 rows의 mealCellText 반영.
- * 기존 같은 특식 배치는 제거하고, 새 위치에만 넣음. */
-export function setAssignmentInPlanRows(
-  rows: PlanRowForSpecialMeals[],
-  specialMeal: SpecialMealKind,
-  dayIndex: number,
-  mealSlot: MealSlot,
-): PlanRowForSpecialMeals[] {
-  // 1) 기존 해당 특식 배치 제거 (같은 특식이 다른 slot에 있으면 제거)
-  let next = rows.map((row) => {
-    const fields = parseMealCellText(row.mealCellText);
-    const removeSpecial = (content: string) =>
-      content
-        .split(/[,/]/)
-        .map((s) => s.trim())
-        .filter((s) => s && !s.includes(specialMeal))
-        .join(', ');
-    return {
-      ...row,
-      mealCellText: toMealCellText({
-        breakfast: removeSpecial(fields.breakfast),
-        lunch: removeSpecial(fields.lunch),
-        dinner: removeSpecial(fields.dinner),
-      }),
-    };
-  });
-  // 2) 목표 위치에 해당 특식 설정
-  next = next.map((row, i) => {
-    if (i !== dayIndex) return row;
-    return {
-      ...row,
-      mealCellText: setSpecialMealInMealCellText(row.mealCellText, mealSlot, specialMeal),
-    };
-  });
-  return next;
-}
-
 function containsSpecialMeal(value: string): boolean {
   return SPECIAL_MEAL_KINDS.some((specialMeal) => value.includes(specialMeal));
 }
@@ -411,6 +375,24 @@ export function buildSpecialMealOriginalSlotValues(
   return result;
 }
 
+function dedupeSelectionsBySlot(list: SpecialMealSelectionValue[]): SpecialMealSelectionValue[] {
+  const seen = new Set<string>();
+  const out: SpecialMealSelectionValue[] = [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const s = list[i];
+    if (!s) {
+      continue;
+    }
+    const k = getSpecialMealSlotKey(s.dayIndex, s.mealSlot);
+    if (seen.has(k)) {
+      continue;
+    }
+    seen.add(k);
+    out.unshift(s);
+  }
+  return out;
+}
+
 export function applySpecialMealSelections(input: {
   rows: PlanRowForSpecialMeals[];
   selections: SpecialMealSelectionMap;
@@ -422,19 +404,18 @@ export function applySpecialMealSelections(input: {
   const nextOriginalSlotValues: SpecialMealOriginalSlotValues = { ...input.originalSlotValues };
 
   (SPECIAL_MEAL_KINDS as readonly SpecialMealKind[]).forEach((specialMeal) => {
-    const selection = input.selections[specialMeal];
-    if (!selection) {
-      return;
-    }
-    const row = input.rows[selection.dayIndex];
-    if (!row) {
-      return;
-    }
-    const fields = parseMealCellText(row.mealCellText);
-    const currentValue = fields[selection.mealSlot].trim();
-    const key = getSpecialMealSlotKey(selection.dayIndex, selection.mealSlot);
-    if (!(key in nextOriginalSlotValues) && !containsSpecialMeal(currentValue)) {
-      nextOriginalSlotValues[key] = currentValue;
+    const list = input.selections[specialMeal] ?? [];
+    for (const selection of dedupeSelectionsBySlot(list)) {
+      const row = input.rows[selection.dayIndex];
+      if (!row) {
+        continue;
+      }
+      const fields = parseMealCellText(row.mealCellText);
+      const currentValue = fields[selection.mealSlot].trim();
+      const key = getSpecialMealSlotKey(selection.dayIndex, selection.mealSlot);
+      if (!(key in nextOriginalSlotValues) && !containsSpecialMeal(currentValue)) {
+        nextOriginalSlotValues[key] = currentValue;
+      }
     }
   });
 
@@ -458,11 +439,21 @@ export function applySpecialMealSelections(input: {
   });
 
   (SPECIAL_MEAL_KINDS as readonly SpecialMealKind[]).forEach((specialMeal) => {
-    const selection = input.selections[specialMeal];
-    if (!selection) {
-      return;
+    const list = dedupeSelectionsBySlot(input.selections[specialMeal] ?? []);
+    for (const selection of list) {
+      if (!input.rows[selection.dayIndex]) {
+        continue;
+      }
+      nextRows = nextRows.map((row, i) => {
+        if (i !== selection.dayIndex) {
+          return row;
+        }
+        return {
+          ...row,
+          mealCellText: setSpecialMealInMealCellText(row.mealCellText, selection.mealSlot, specialMeal),
+        };
+      });
     }
-    nextRows = setAssignmentInPlanRows(nextRows, specialMeal, selection.dayIndex, selection.mealSlot);
   });
 
   return {

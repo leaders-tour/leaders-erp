@@ -1,9 +1,9 @@
 /**
  * 특식 4종 규칙 기반 배치 모달.
- * 흐름: 특식 선택 -> 일차 선택 -> 식사 선택
+ * 흐름: 특식 선택 -> 일차 선택(선택 일차 아래 아침·점심·저녁) -> 배치 요약
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Button, Card } from '@tour/ui';
 import {
   applySpecialMealSelections,
@@ -16,6 +16,8 @@ import {
   type SpecialMealDestinationRules,
   type SpecialMealOriginalSlotValues,
   type SpecialMealKind,
+  type SpecialMealSelectionMap,
+  type SpecialMealSelectionValue,
   type SpecialMealRowContext,
   MEAL_SLOTS,
   SPECIAL_MEAL_KINDS,
@@ -31,18 +33,11 @@ export interface SpecialMealsModalProps {
   specialMealDestinationRules?: SpecialMealDestinationRules;
 }
 
-type SelectionValue = {
-  dayIndex: number;
-  mealSlot: MealSlot;
-};
-
-type SelectionMap = Record<SpecialMealKind, SelectionValue | null>;
-
-const EMPTY_SELECTIONS: SelectionMap = {
-  샤브샤브: null,
-  삼겹살파티: null,
-  허르헉: null,
-  샤슬릭: null,
+const EMPTY_SELECTIONS: SpecialMealSelectionMap = {
+  샤브샤브: [],
+  삼겹살파티: [],
+  허르헉: [],
+  샤슬릭: [],
 };
 
 function getDestinationLabel(value: string | null | undefined): string {
@@ -62,16 +57,32 @@ function toRowContext(row: PlanRowForSpecialMeals, dayIndex: number, mealSlot: M
   };
 }
 
-function buildInitialSelections(rows: PlanRowForSpecialMeals[]): SelectionMap {
-  const next: SelectionMap = { ...EMPTY_SELECTIONS };
+function buildInitialSelections(rows: PlanRowForSpecialMeals[]): SpecialMealSelectionMap {
+  const next: SpecialMealSelectionMap = {
+    샤브샤브: [],
+    삼겹살파티: [],
+    허르헉: [],
+    샤슬릭: [],
+  };
   const assignments = getAssignmentsFromPlanRows(rows);
-  assignments.forEach((assignment) => {
-    next[assignment.specialMeal] = {
+  for (const assignment of assignments) {
+    next[assignment.specialMeal].push({
       dayIndex: assignment.dayIndex,
       mealSlot: assignment.mealSlot,
-    };
-  });
+    });
+  }
   return next;
+}
+
+function uniqueSortedDayIndices(placements: SpecialMealSelectionValue[]): number[] {
+  return [...new Set(placements.map((p) => p.dayIndex))].sort((a, b) => a - b);
+}
+
+function formatMealPlacementsSummary(list: SpecialMealSelectionValue[]): string {
+  if (list.length === 0) {
+    return '미배치';
+  }
+  return list.map((p) => `${p.dayIndex + 1}일차 ${mealSlotToLabel(p.mealSlot)}`).join(', ');
 }
 
 function getAllowedMealSlots(
@@ -87,22 +98,6 @@ function getAllowedMealSlots(
   return [...MEAL_SLOTS];
 }
 
-function getDefaultMealSlotForSpecialMeal(
-  specialMeal: SpecialMealKind,
-  allowedSlots: MealSlot[],
-): MealSlot {
-  if ((specialMeal === '삼겹살파티' || specialMeal === '허르헉') && allowedSlots.includes('dinner')) {
-    return 'dinner';
-  }
-  if (specialMeal === '샤브샤브' && allowedSlots.includes('dinner')) {
-    return 'dinner';
-  }
-  if (specialMeal === '샤슬릭' && allowedSlots.includes('lunch')) {
-    return 'lunch';
-  }
-  return allowedSlots[0] ?? 'breakfast';
-}
-
 export function SpecialMealsModal({
   open,
   rows,
@@ -112,29 +107,24 @@ export function SpecialMealsModal({
 }: SpecialMealsModalProps): JSX.Element | null {
   const specialMealDestinationRules = rulesProp ?? DEFAULT_SPECIAL_MEAL_DESTINATION_RULES;
 
-  const [draftSelections, setDraftSelections] = useState<SelectionMap>(EMPTY_SELECTIONS);
+  const [draftSelections, setDraftSelections] = useState<SpecialMealSelectionMap>(EMPTY_SELECTIONS);
   const [activeMeal, setActiveMeal] = useState<SpecialMealKind>('샤브샤브');
+  const [selectedDayIndices, setSelectedDayIndices] = useState<number[]>([]);
   const [originalSlotValues, setOriginalSlotValues] = useState<SpecialMealOriginalSlotValues>({});
 
   useEffect(() => {
     if (!open) {
       return;
     }
-    setDraftSelections(buildInitialSelections(rows));
+    const initial = buildInitialSelections(rows);
+    setDraftSelections(initial);
     setOriginalSlotValues((prev) => ({
       ...buildSpecialMealOriginalSlotValues(rows),
       ...prev,
     }));
     setActiveMeal('샤브샤브');
+    setSelectedDayIndices(uniqueSortedDayIndices(initial.샤브샤브));
   }, [open, rows]);
-
-  const activeSelection = draftSelections[activeMeal];
-  const selectedDayIndex = activeSelection?.dayIndex ?? null;
-  const selectedDayRow = selectedDayIndex !== null ? rows[selectedDayIndex] : undefined;
-  const allowedSlotsForSelectedDay =
-    selectedDayIndex !== null
-      ? getAllowedMealSlots(activeMeal, selectedDayRow, selectedDayIndex, specialMealDestinationRules)
-      : [];
 
   const dayOptions = useMemo(
     () =>
@@ -163,55 +153,55 @@ export function SpecialMealsModal({
     [activeMeal, rows, specialMealDestinationRules],
   );
 
-  const isCurrentSelectionInvalid =
-    activeSelection !== null &&
-    !getAllowedMealSlots(activeMeal, rows[activeSelection.dayIndex], activeSelection.dayIndex, specialMealDestinationRules).includes(
-      activeSelection.mealSlot,
-    );
+  const handleActivateMeal = (meal: SpecialMealKind): void => {
+    setActiveMeal(meal);
+    setSelectedDayIndices(uniqueSortedDayIndices(draftSelections[meal]));
+  };
 
-  const handleSelectDay = (dayIndex: number): void => {
+  const toggleDay = (dayIndex: number): void => {
     const allowedSlots = getAllowedMealSlots(activeMeal, rows[dayIndex], dayIndex, specialMealDestinationRules);
     if (allowedSlots.length === 0) {
       return;
     }
-    setDraftSelections((prev) => ({
-      ...prev,
-      [activeMeal]: {
-        dayIndex,
-        mealSlot:
-          prev[activeMeal]?.dayIndex === dayIndex && prev[activeMeal] && allowedSlots.includes(prev[activeMeal].mealSlot)
-            ? prev[activeMeal].mealSlot
-            : getDefaultMealSlotForSpecialMeal(activeMeal, allowedSlots),
-      },
-    }));
+    setSelectedDayIndices((prev) => {
+      if (prev.includes(dayIndex)) {
+        return prev.filter((d) => d !== dayIndex);
+      }
+      return [...prev, dayIndex].sort((a, b) => a - b);
+    });
   };
 
-  const handleSelectMealSlot = (mealSlot: MealSlot): void => {
-    if (selectedDayIndex === null) {
+  /** 해당 일차만 현재 특식 + 끼니로 갱신(같은 일차의 기존 해당 특식 배치는 덮어씀). */
+  const handleSelectMealForDay = (dayIndex: number, mealSlot: MealSlot): void => {
+    const row = rows[dayIndex];
+    if (!row) {
       return;
     }
-    const allowedSlots = getAllowedMealSlots(
-      activeMeal,
-      rows[selectedDayIndex],
-      selectedDayIndex,
-      specialMealDestinationRules,
-    );
-    if (!allowedSlots.includes(mealSlot)) {
+    const allowed = getAllowedMealSlots(activeMeal, row, dayIndex, specialMealDestinationRules);
+    if (!allowed.includes(mealSlot)) {
       return;
     }
-    setDraftSelections((prev) => ({
-      ...prev,
-      [activeMeal]: {
-        dayIndex: selectedDayIndex,
-        mealSlot,
-      },
-    }));
+    setDraftSelections((prev) => {
+      const kept = prev[activeMeal].filter((p) => p.dayIndex !== dayIndex);
+      return {
+        ...prev,
+        [activeMeal]: [...kept, { dayIndex, mealSlot }],
+      };
+    });
   };
 
   const handleClearActiveMeal = (): void => {
     setDraftSelections((prev) => ({
       ...prev,
-      [activeMeal]: null,
+      [activeMeal]: [],
+    }));
+    setSelectedDayIndices([]);
+  };
+
+  const removePlacement = (meal: SpecialMealKind, index: number): void => {
+    setDraftSelections((prev) => ({
+      ...prev,
+      [meal]: prev[meal].filter((_, i) => i !== index),
     }));
   };
 
@@ -239,7 +229,9 @@ export function SpecialMealsModal({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-slate-900">특식 4종 배치</h2>
-                <p className="mt-1 text-sm text-slate-600">특식 선택, 일차 선택, 식사 선택 순서로 배치합니다.</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  특식 선택 → 일차 선택(일차 아래 끼니 지정) 후 요약을 확인하세요.
+                </p>
               </div>
               <Button variant="outline" onClick={onClose}>
                 닫기
@@ -256,24 +248,26 @@ export function SpecialMealsModal({
                   <div className="text-xs font-semibold text-slate-500">1. 특식 선택</div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(SPECIAL_MEAL_KINDS as readonly SpecialMealKind[]).map((specialMeal) => {
-                      const selection = draftSelections[specialMeal];
+                      const list = draftSelections[specialMeal];
                       const isActive = specialMeal === activeMeal;
                       return (
                         <button
                           key={specialMeal}
                           type="button"
-                          onClick={() => setActiveMeal(specialMeal)}
-                          className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                          onClick={() => handleActivateMeal(specialMeal)}
+                          className={`max-w-[220px] rounded-xl border px-3 py-2 text-left text-sm transition ${
                             isActive
                               ? 'border-slate-900 bg-slate-900 text-white'
                               : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                           }`}
                         >
                           <div className="font-medium">{specialMeal}</div>
-                          <div className={`mt-1 text-xs ${isActive ? 'text-slate-200' : 'text-slate-500'}`}>
-                            {selection
-                              ? `${selection.dayIndex + 1}일차 ${mealSlotToLabel(selection.mealSlot)}`
-                              : '미배치'}
+                          <div
+                            className={`mt-1 whitespace-pre-wrap break-words text-xs ${
+                              isActive ? 'text-slate-200' : 'text-slate-500'
+                            }`}
+                          >
+                            {formatMealPlacementsSummary(list)}
                           </div>
                         </button>
                       );
@@ -292,87 +286,130 @@ export function SpecialMealsModal({
                       현재 특식 해제
                     </Button>
                   </div>
-                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  <p className="mt-2 text-xs text-slate-500">
+                    일차를 선택하면 카드 바로 아래에 <span className="font-medium text-slate-600">아침·점심·저녁</span>이
+                    펼쳐집니다. 끼니를 누르면 그 일차만 배치됩니다.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-3">
                     {dayOptions.map((option) => {
-                      const isSelected = activeSelection?.dayIndex === option.dayIndex;
+                      const isSelected = selectedDayIndices.includes(option.dayIndex);
+                      const placementForDay = draftSelections[activeMeal].find((p) => p.dayIndex === option.dayIndex);
                       return (
-                        <button
-                          key={`${activeMeal}-day-${option.dayIndex}`}
-                          type="button"
-                          disabled={!option.isSelectable}
-                          onClick={() => handleSelectDay(option.dayIndex)}
-                          className={`rounded-2xl border px-4 py-3 text-left transition ${
-                            isSelected
-                              ? 'border-slate-900 bg-slate-900 text-white'
-                              : option.isRecommended
-                                ? 'border-emerald-300 bg-emerald-50 text-slate-900 hover:bg-emerald-100'
-                                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                          } ${!option.isSelectable ? 'cursor-not-allowed opacity-50' : ''}`}
-                        >
-                          <div className="text-sm font-medium">{option.dayIndex + 1}일차</div>
-                          <div className={`mt-1 text-xs ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>
-                            {option.destinationLabel}
-                          </div>
-                          {option.recommendationRank !== null ? (
-                            <div className={`mt-2 text-[11px] ${isSelected ? 'text-emerald-200' : 'text-emerald-700'}`}>
-                              추천 {option.recommendationRank}순위
+                        <div key={`${activeMeal}-day-block-${option.dayIndex}`} className="min-w-0">
+                          <button
+                            type="button"
+                            disabled={!option.isSelectable}
+                            aria-pressed={isSelected}
+                            aria-expanded={isSelected}
+                            onClick={() => toggleDay(option.dayIndex)}
+                            className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                              isSelected
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : option.isRecommended
+                                  ? 'border-emerald-300 bg-emerald-50 text-slate-900 hover:bg-emerald-100'
+                                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                            } ${!option.isSelectable ? 'cursor-not-allowed opacity-50' : ''}`}
+                          >
+                            <div className="text-sm font-medium">{option.dayIndex + 1}일차</div>
+                            <div className={`mt-1 text-xs ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>
+                              {option.destinationLabel}
                             </div>
-                          ) : option.isRecommended ? (
-                            <div className={`mt-2 text-[11px] ${isSelected ? 'text-emerald-200' : 'text-emerald-700'}`}>
-                              추천 목적지
+                            {option.recommendationRank !== null ? (
+                              <div className={`mt-2 text-[11px] ${isSelected ? 'text-emerald-200' : 'text-emerald-700'}`}>
+                                추천 {option.recommendationRank}순위
+                              </div>
+                            ) : option.isRecommended ? (
+                              <div className={`mt-2 text-[11px] ${isSelected ? 'text-emerald-200' : 'text-emerald-700'}`}>
+                                추천 목적지
+                              </div>
+                            ) : null}
+                          </button>
+                          {isSelected ? (
+                            <div className="mt-2 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
+                              <div className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                {option.dayIndex + 1}일차 선택
+                              </div>
+                              <div className="flex flex-wrap items-center gap-x-0 gap-y-2">
+                                {(MEAL_SLOTS as readonly MealSlot[]).map((mealSlot, slotIdx) => {
+                                  const allowed = option.allowedSlots.includes(mealSlot);
+                                  const picked = placementForDay?.mealSlot === mealSlot;
+                                  return (
+                                    <Fragment key={`${activeMeal}-d${option.dayIndex}-${mealSlot}`}>
+                                      {slotIdx > 0 ? (
+                                        <span className="mx-2 select-none text-slate-300" aria-hidden="true">
+                                          |
+                                        </span>
+                                      ) : null}
+                                      <button
+                                        type="button"
+                                        disabled={!allowed}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleSelectMealForDay(option.dayIndex, mealSlot);
+                                        }}
+                                        className={`min-w-[3.25rem] rounded-lg border px-3 py-2 text-center text-sm transition ${
+                                          picked
+                                            ? 'border-slate-900 bg-slate-900 text-white'
+                                            : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-white'
+                                        } ${!allowed ? 'cursor-not-allowed opacity-40' : ''}`}
+                                      >
+                                        {mealSlotToLabel(mealSlot)}
+                                      </button>
+                                    </Fragment>
+                                  );
+                                })}
+                              </div>
                             </div>
                           ) : null}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="text-xs font-semibold text-slate-500">3. 식사 선택</div>
-                  {selectedDayIndex === null ? (
-                    <div className="mt-3 rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-                      먼저 일차를 선택해 주세요.
-                    </div>
-                  ) : (
-                    <>
-                      <div className="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
-                        {selectedDayIndex + 1}일차 · {getDestinationLabel(selectedDayRow?.destinationCellText)}
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {(MEAL_SLOTS as readonly MealSlot[]).map((mealSlot) => {
-                          const enabled = allowedSlotsForSelectedDay.includes(mealSlot);
-                          const isSelected = activeSelection?.mealSlot === mealSlot;
-                          return (
-                            <button
-                              key={`${activeMeal}-${mealSlot}`}
-                              type="button"
-                              disabled={!enabled}
-                              onClick={() => handleSelectMealSlot(mealSlot)}
-                              className={`rounded-xl border px-3 py-2 text-sm transition ${
-                                isSelected
-                                  ? 'border-slate-900 bg-slate-900 text-white'
-                                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                              } ${!enabled ? 'cursor-not-allowed opacity-40' : ''}`}
-                            >
-                              {mealSlotToLabel(mealSlot)}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
+                  <div className="text-xs font-semibold text-slate-500">3. 배치 요약</div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    저장 전 현재까지 설정한 특식 배치입니다. 항목 옆 삭제로 한 건만 제거할 수 있습니다.
+                  </p>
+                  <ul className="mt-3 grid gap-3 text-sm">
+                    {(SPECIAL_MEAL_KINDS as readonly SpecialMealKind[]).map((specialMeal) => (
+                      <li key={`summary-${specialMeal}`} className="rounded-xl border border-slate-200 bg-white p-3">
+                        <div className="font-medium text-slate-800">{specialMeal}</div>
+                        {draftSelections[specialMeal].length === 0 ? (
+                          <p className="mt-1 text-xs text-slate-500">미배치</p>
+                        ) : (
+                          <ul className="mt-2 space-y-1.5">
+                            {draftSelections[specialMeal].map((p, idx) => (
+                              <li
+                                key={`${specialMeal}-${p.dayIndex}-${p.mealSlot}-${idx}`}
+                                className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-700"
+                              >
+                                <span>
+                                  {p.dayIndex + 1}일차 {mealSlotToLabel(p.mealSlot)} ·{' '}
+                                  {getDestinationLabel(rows[p.dayIndex]?.destinationCellText)}
+                                </span>
+                                <button
+                                  type="button"
+                                  className="shrink-0 rounded-lg border border-slate-200 px-2 py-0.5 text-[11px] text-slate-600 hover:bg-slate-50"
+                                  onClick={() => removePlacement(specialMeal, idx)}
+                                >
+                                  삭제
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-
-                {isCurrentSelectionInvalid ? (
-                  <p className="text-xs text-rose-600">현재 선택은 규칙에 맞지 않습니다. 일차 또는 식사를 다시 선택해 주세요.</p>
-                ) : null}
 
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="outline" onClick={onClose}>
                     취소
                   </Button>
-                  <Button onClick={handleSave} disabled={isCurrentSelectionInvalid}>
+                  <Button onClick={handleSave}>
                     저장
                   </Button>
                 </div>
