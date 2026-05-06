@@ -127,6 +127,32 @@ describe('external-transfer formatting', () => {
     );
   });
 
+  it('strips Apollo __typename so mutation variables stay valid', () => {
+    const withTypename = {
+      __typename: 'ExternalTransfer' as const,
+      direction: 'PICKUP' as const,
+      presetCode: 'PICKUP_AIRPORT_OZHOUSE' as const,
+      travelDate: '2026-08-06',
+      departureTime: '01:30',
+      arrivalTime: '02:30',
+      departurePlace: '공항',
+      arrivalPlace: '오즈하우스',
+      selectedTeamOrderIndexes: [0],
+    };
+    expect(normalizeExternalTransfers([withTypename])).toEqual([
+      {
+        direction: 'PICKUP',
+        presetCode: 'PICKUP_AIRPORT_OZHOUSE',
+        travelDate: '2026-08-06',
+        departureTime: '01:30',
+        arrivalTime: '02:30',
+        departurePlace: '공항',
+        arrivalPlace: '오즈하우스',
+        selectedTeamOrderIndexes: [0],
+      },
+    ]);
+  });
+
   it('dedupes identical transfers and duplicate team indexes', () => {
     expect(
       normalizeExternalTransfers([

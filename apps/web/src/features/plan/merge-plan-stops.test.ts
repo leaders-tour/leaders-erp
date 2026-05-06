@@ -90,4 +90,36 @@ describe('buildMergedPlanStops external transfer rows', () => {
       mealCellText: 'X',
     });
   });
+
+  it('ignores persisted EXTERNAL_TRANSFER rows in mainRows so meta-driven rows are not duplicated', () => {
+    const staleExternalRow: PlanStopRowBase = {
+      rowType: 'EXTERNAL_TRANSFER',
+      locationId: null,
+      locationVersionId: null,
+      movementIntensity: null,
+      dateCellText: '기간외',
+      destinationCellText: '오즈게스트하우스',
+      timeCellText: '00:00\n00:30',
+      scheduleCellText: 'stale snapshot',
+      lodgingCellText: '오즈게스트하우스',
+      mealCellText: 'X',
+    };
+    const transfers: ExternalTransfer[] = [
+      {
+        direction: 'PICKUP',
+        presetCode: 'PICKUP_AIRPORT_OZHOUSE',
+        travelDate: '2026-05-01',
+        departureTime: '10:00',
+        arrivalTime: '11:00',
+        departurePlace: '공항',
+        arrivalPlace: '오즈하우스',
+        selectedTeamOrderIndexes: [0, 1],
+      },
+    ];
+
+    const merged = buildMergedPlanStops([staleExternalRow, ...mainRows], transfers, teams);
+    const externalRows = merged.filter((row) => row.rowType === 'EXTERNAL_TRANSFER');
+    expect(externalRows).toHaveLength(1);
+    expect(externalRows[0]?.timeCellText).toBe('10:00\n11:00');
+  });
 });

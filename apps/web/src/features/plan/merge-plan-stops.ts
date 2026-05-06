@@ -1,5 +1,5 @@
 import type { ExternalTransfer, ExternalTransferTeamLike } from './external-transfer';
-import type { PlanStopRowBase } from './plan-stop-row';
+import { isMainPlanStopRow, type PlanStopRowBase } from './plan-stop-row';
 
 function resolveTransferDestinationLabel(place: string): string {
   const trimmed = place.trim();
@@ -111,11 +111,12 @@ export function buildMergedPlanStops<T extends PlanStopRowBase>(
 ): Array<T | PlanStopRowBase> {
   const normalizedTransfers = transfers ?? [];
   const normalizedTeams = teams ?? [];
+  const mainOnlyRows = mainRows.filter((row): row is T => isMainPlanStopRow(row));
   if (normalizedTransfers.length === 0) {
-    return mainRows;
+    return mainOnlyRows;
   }
 
   const pickupRows = buildTransferRows(normalizedTransfers, normalizedTeams, 'PICKUP');
   const dropRows = buildTransferRows(normalizedTransfers, normalizedTeams, 'DROP');
-  return [...pickupRows, ...mainRows, ...dropRows];
+  return [...pickupRows, ...mainOnlyRows, ...dropRows];
 }

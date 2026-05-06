@@ -358,15 +358,18 @@ export function normalizeExternalTransfers(transfers: ExternalTransfer[] | null 
 
   const seen = new Set<string>();
   return transfers
-    .map((transfer) => ({
-      ...transfer,
-      travelDate: transfer.travelDate.trim(),
-      departureTime: transfer.departureTime.trim(),
-      arrivalTime: transfer.arrivalTime.trim(),
-      departurePlace: transfer.departurePlace.trim(),
-      arrivalPlace: transfer.arrivalPlace.trim(),
-      selectedTeamOrderIndexes: normalizeExternalTransferTeamIndexes(transfer.selectedTeamOrderIndexes),
-    }))
+    .map((transfer) => {
+      const { __typename: _omitTypename, ...rest } = transfer as ExternalTransfer & { __typename?: string };
+      return {
+        ...rest,
+        travelDate: rest.travelDate.trim(),
+        departureTime: rest.departureTime.trim(),
+        arrivalTime: rest.arrivalTime.trim(),
+        departurePlace: rest.departurePlace.trim(),
+        arrivalPlace: rest.arrivalPlace.trim(),
+        selectedTeamOrderIndexes: normalizeExternalTransferTeamIndexes(rest.selectedTeamOrderIndexes),
+      };
+    })
     .filter((transfer) => {
       const signature = getExternalTransferSignature(transfer);
       if (seen.has(signature)) {

@@ -3645,24 +3645,28 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   const lodgingSelections = useMemo(
     () =>
-      planRows.map((row, index) => ({
-        dayIndex: index + 1,
-        level: row.lodgingSelectionLevel,
-        customLodgingId: row.lodgingSelectionLevel === 'CUSTOM' ? row.customLodgingId : undefined,
-      })),
+      planRows
+        .filter((row) => isMainPlanStopRow(row))
+        .map((row, index) => ({
+          dayIndex: index + 1,
+          level: row.lodgingSelectionLevel,
+          customLodgingId: row.lodgingSelectionLevel === 'CUSTOM' ? row.customLodgingId : undefined,
+        })),
     [planRows],
   );
   const lodgingUpgradeRows = useMemo(
     () =>
-      planRows.map((row, index) => ({
-        dayIndex: index + 1,
-        locationLabel: formatLocationNameInline(
-          locationById.get(row.locationId ?? '')?.name ?? row.locationId ?? '목적지 미정',
-        ),
-        lodgingSelectionLevel: row.lodgingSelectionLevel,
-        lodgingCellText: row.lodgingCellText,
-        customLodgingId: row.customLodgingId,
-      })),
+      planRows
+        .filter((row) => isMainPlanStopRow(row))
+        .map((row, index) => ({
+          dayIndex: index + 1,
+          locationLabel: formatLocationNameInline(
+            locationById.get(row.locationId ?? '')?.name ?? row.locationId ?? '목적지 미정',
+          ),
+          lodgingSelectionLevel: row.lodgingSelectionLevel,
+          lodgingCellText: row.lodgingCellText,
+          customLodgingId: row.customLodgingId,
+        })),
     [locationById, planRows],
   );
   const planStopInputs = useMemo(
