@@ -3,6 +3,7 @@ import {
   type PricingManualAdjustmentLine,
   type PricingManualSnapshot,
   type PricingManualSourceLine,
+  type PricingManualTeamSummarySnapshot,
 } from '@tour/domain';
 import { formatPricingDetailFormula, resolveDisplayLeadAmount } from './pricing-line-presenter';
 import { getPricingLineLabel } from './view-model';
@@ -114,6 +115,58 @@ function hasNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value);
 }
 
+/**
+ * 팀 단위 수동 요약만 넣어둔 스냅샷에서 `baseAmountKrw` 등이 비어 있으면
+ * 글로벌 `summary`를 폴백한다. 그렇지 않으면 단일 팀일 때 `sliceEffectiveTotalsForUi`가
+ * 팀 라인 자동 합(천 원 반올림 기본금)만 쓰게 되어 빌더에서 저장한 수동 기본금이 상세 UI에서 빠진다.
+ */
+function mergeManualSummaryForTeamScope(
+  globalSummary: PricingManualSnapshot['summary'] | null | undefined,
+  teamRow: PricingManualTeamSummarySnapshot | null | undefined,
+): PricingManualSnapshot['summary'] | null {
+  if (!globalSummary && !teamRow) {
+    return null;
+  }
+  if (!teamRow) {
+    return globalSummary ?? null;
+  }
+  if (!globalSummary) {
+    const { teamOrderIndex: _t, ...rest } = teamRow;
+    return rest;
+  }
+
+  const pickInt = (
+    teamVal: number | null | undefined,
+    globalVal: number | null | undefined,
+  ): number | null | undefined => {
+    if (hasNumber(teamVal)) {
+      return teamVal;
+    }
+    if (hasNumber(globalVal)) {
+      return globalVal;
+    }
+    return teamVal ?? globalVal ?? null;
+  };
+
+  const teamMode = teamRow.securityDepositMode;
+  const globalMode = globalSummary.securityDepositMode;
+  const securityDepositMode =
+    teamMode === 'NONE' || teamMode === 'PER_PERSON' || teamMode === 'PER_TEAM'
+      ? teamMode
+      : globalMode === 'NONE' || globalMode === 'PER_PERSON' || globalMode === 'PER_TEAM'
+        ? globalMode
+        : null;
+
+  return {
+    baseAmountKrw: pickInt(teamRow.baseAmountKrw, globalSummary.baseAmountKrw),
+    totalAmountKrw: pickInt(teamRow.totalAmountKrw, globalSummary.totalAmountKrw),
+    depositAmountKrw: pickInt(teamRow.depositAmountKrw, globalSummary.depositAmountKrw),
+    balanceAmountKrw: pickInt(teamRow.balanceAmountKrw, globalSummary.balanceAmountKrw),
+    securityDepositAmountKrw: pickInt(teamRow.securityDepositAmountKrw, globalSummary.securityDepositAmountKrw),
+    securityDepositMode,
+  };
+}
+
 function filterManualPricingForScope(
   manualPricing: PricingManualSnapshot | null | undefined,
   teamOrderIndex: number | null,
@@ -133,7 +186,10 @@ function filterManualPricingForScope(
   const summary =
     teamOrderIndex === null
       ? manualPricing.summary ?? null
-      : (manualPricing.teamSummaries ?? []).find((item) => item.teamOrderIndex === teamOrderIndex) ?? null;
+      : mergeManualSummaryForTeamScope(
+          manualPricing.summary ?? null,
+          (manualPricing.teamSummaries ?? []).find((item) => item.teamOrderIndex === teamOrderIndex) ?? null,
+        );
 
   return {
     enabled: true,

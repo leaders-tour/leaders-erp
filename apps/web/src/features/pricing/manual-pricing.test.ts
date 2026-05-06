@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PricingManualSourceLine } from '@tour/domain';
-import { buildEffectivePricing } from './manual-pricing';
+import { buildEffectivePricing, sliceEffectiveTotalsForUi } from './manual-pricing';
 
 describe('buildEffectivePricing', () => {
   it('applies manual output overrides to merged display rows', () => {
@@ -528,5 +528,95 @@ describe('buildEffectivePricing', () => {
     expect(team?.securityDepositQuantity).toBe(4);
     expect(team?.securityDepositUnitPriceKrw).toBe(12_500);
     expect(team?.securityDepositAmountKrw).toBe(50_000);
+  });
+
+  it('단일 팀일 때 글로벌 수동 summary 기본금을 팀 슬라이스에 폴백한다', () => {
+    const commonLines: PricingManualSourceLine[] = [
+      {
+        ruleType: 'BASE',
+        lineCode: 'BASE',
+        sourceType: 'RULE',
+        description: '기본금',
+        ruleId: 'rule-base',
+        unitPriceKrw: 813_750,
+        quantity: 1,
+        amountKrw: 813_750,
+      },
+      {
+        ruleType: 'CONDITIONAL_ADDON',
+        lineCode: 'EARLY',
+        sourceType: 'RULE',
+        description: '얼리',
+        ruleId: 'rule-early',
+        unitPriceKrw: 30_000,
+        quantity: 1,
+        amountKrw: 30_000,
+      },
+      {
+        ruleType: 'CONDITIONAL_ADDON',
+        lineCode: 'LODGING_SELECTION',
+        sourceType: 'RULE',
+        description: '숙소',
+        ruleId: 'rule-lv',
+        unitPriceKrw: 50_000,
+        quantity: 2,
+        amountKrw: 100_000,
+      },
+    ];
+
+    const effectivePricing = buildEffectivePricing(
+      {
+        baseAmountKrw: 814_000,
+        addonAmountKrw: 130_000,
+        totalAmountKrw: 944_000,
+        depositAmountKrw: 74_000,
+        balanceAmountKrw: 870_000,
+        securityDepositAmountKrw: 300_000,
+        securityDepositEvent: null,
+        securityDepositUnitPriceKrw: 300_000,
+        securityDepositQuantity: 1,
+        securityDepositMode: 'PER_TEAM',
+        lines: commonLines,
+        teamPricings: [
+          {
+            teamOrderIndex: 0,
+            teamName: 'A팀',
+            headcount: 8,
+            baseAmountKrw: 814_000,
+            addonAmountKrw: 130_000,
+            totalAmountKrw: 944_000,
+            depositAmountKrw: 74_000,
+            balanceAmountKrw: 870_000,
+            securityDepositAmountKrw: 300_000,
+            securityDepositUnitPriceKrw: 300_000,
+            securityDepositQuantity: 1,
+            securityDepositMode: 'PER_TEAM',
+            securityDepositEvent: null,
+            lines: commonLines.map((line) => ({
+              ...line,
+              teamOrderIndex: 0,
+              teamName: 'A팀',
+              headcount: 8,
+            })),
+          },
+        ],
+      },
+      { headcountTotal: 8, totalDays: 4 },
+      {
+        enabled: true,
+        adjustmentLines: [],
+        summary: {
+          baseAmountKrw: 1_000_000,
+          totalAmountKrw: 1_130_000,
+          depositAmountKrw: 74_000,
+          balanceAmountKrw: 1_056_000,
+        },
+        teamSummaries: [{ teamOrderIndex: 0 }],
+      },
+    );
+
+    expect(effectivePricing.teamPricings).toHaveLength(1);
+    expect(sliceEffectiveTotalsForUi(effectivePricing).baseAmountKrw).toBe(1_000_000);
+    expect(sliceEffectiveTotalsForUi(effectivePricing).totalAmountKrw).toBe(1_130_000);
   });
 });
