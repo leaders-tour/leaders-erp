@@ -10,7 +10,6 @@ import { formatPricingDetailFormula, resolveDisplayLeadAmount } from '../../pric
 import {
   addDays,
   buildPage2Title,
-  formatExternalPickupDropText,
   formatLegacyExternalTransferText,
   normalizeMultilineText,
   toSecurityDepositScope,
@@ -112,17 +111,10 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     dropText: '-',
     externalPickupText,
     externalDropText,
-    externalPickupDropText: formatExternalPickupDropText(
-      meta?.externalPickupDate,
-      meta?.externalPickupTime,
-      meta?.externalPickupPlaceType,
-      meta?.externalPickupPlaceCustomText,
-      meta?.externalDropDate,
-      meta?.externalDropTime,
-      meta?.externalDropPlaceType,
-      meta?.externalDropPlaceCustomText,
-      meta?.externalPickupDropNote,
-    ),
+    /** Page1 요약 행은 이 필드만 사용 — 빌더 draft와 동일하게 이전 방향 텍스트를 합친다. */
+    externalPickupDropText: [externalPickupText, externalDropText]
+      .filter((value) => value !== '-')
+      .join('\n'),
     specialNoteText: normalizeMultilineText(meta?.specialNote),
     rentalItemsText: meta?.includeRentalItems ? normalizeMultilineText(meta.rentalItemsText) : '-',
     eventText: meta?.events.length ? meta.events.map((event) => event.name).join(' / ') : '-',

@@ -127,6 +127,24 @@ describe('external-transfer formatting', () => {
     );
   });
 
+  it('formats travelDate when API returns full ISO DateTime (GraphQL DateTime)', () => {
+    const transfersIsoDate: ExternalTransfer[] = [
+      {
+        direction: 'DROP',
+        presetCode: 'DROP_ULAANBAATAR_AIRPORT',
+        travelDate: '2026-08-18T00:00:00.000Z',
+        departureTime: '13:30',
+        arrivalTime: '15:30',
+        departurePlace: '울란바토르',
+        arrivalPlace: '공항',
+        selectedTeamOrderIndexes: [0],
+      },
+    ];
+    expect(buildExternalTransferDirectionText(transfersIsoDate, teams, 'DROP')).toBe(
+      'A팀 08/18 13:30 울란바토르 > 15:30 공항',
+    );
+  });
+
   it('strips Apollo __typename so mutation variables stay valid', () => {
     const withTypename = {
       __typename: 'ExternalTransfer' as const,

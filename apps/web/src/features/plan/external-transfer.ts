@@ -110,7 +110,13 @@ export const EXTERNAL_TRANSFER_PRESET_OPTIONS: ExternalTransferPresetOption[] = 
 
 function parseIsoDate(value: string | null | undefined): { year: number; month: number; day: number } | null {
   const trimmed = value?.trim() ?? '';
-  const match = ISO_DATE_PATTERN.exec(trimmed);
+  if (!trimmed) {
+    return null;
+  }
+
+  // GraphQL DateTime은 보통 `YYYY-MM-DDTHH:mm:ss.sssZ` 로 직렬화되고, 빌더 로컬 상태는 `YYYY-MM-DD`만 쓴다.
+  const datePart = trimmed.includes('T') ? (trimmed.split('T')[0] ?? '') : (trimmed.split(' ')[0] ?? '');
+  const match = ISO_DATE_PATTERN.exec(datePart);
   if (!match) {
     return null;
   }
