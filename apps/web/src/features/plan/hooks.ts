@@ -302,6 +302,7 @@ export interface PlanVersionPricingRow {
       depositAmountKrw?: number | null;
       balanceAmountKrw?: number | null;
       securityDepositAmountKrw?: number | null;
+      securityDepositMode?: 'NONE' | 'PER_PERSON' | 'PER_TEAM' | null;
     } | null;
     teamSummaries: Array<{
       teamOrderIndex: number;
@@ -310,6 +311,7 @@ export interface PlanVersionPricingRow {
       depositAmountKrw?: number | null;
       balanceAmountKrw?: number | null;
       securityDepositAmountKrw?: number | null;
+      securityDepositMode?: 'NONE' | 'PER_PERSON' | 'PER_TEAM' | null;
     }>;
     lineOverrides: Array<{
       rowKey: string;

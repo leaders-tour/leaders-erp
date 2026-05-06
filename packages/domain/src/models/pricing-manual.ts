@@ -54,12 +54,16 @@ export interface PricingManualAdjustmentLine {
   deleted?: boolean;
 }
 
+export type SecurityDepositScopeMode = 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+
 export interface PricingManualSummarySnapshot {
   baseAmountKrw?: number | null;
   totalAmountKrw?: number | null;
   depositAmountKrw?: number | null;
   balanceAmountKrw?: number | null;
   securityDepositAmountKrw?: number | null;
+  /** Omit or null to follow computed pricing `securityDepositMode`. */
+  securityDepositMode?: SecurityDepositScopeMode | null;
 }
 
 export interface PricingManualTeamSummarySnapshot extends PricingManualSummarySnapshot {

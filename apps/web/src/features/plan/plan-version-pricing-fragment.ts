@@ -51,6 +51,7 @@ export const PLAN_VERSION_PRICING_EFFECTIVE_FIELDS_FRAGMENT = gql`
         depositAmountKrw
         balanceAmountKrw
         securityDepositAmountKrw
+        securityDepositMode
       }
       teamSummaries {
         teamOrderIndex
@@ -59,6 +60,7 @@ export const PLAN_VERSION_PRICING_EFFECTIVE_FIELDS_FRAGMENT = gql`
         depositAmountKrw
         balanceAmountKrw
         securityDepositAmountKrw
+        securityDepositMode
       }
       lineOverrides {
         rowKey

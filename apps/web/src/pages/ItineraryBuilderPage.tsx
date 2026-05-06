@@ -395,12 +395,16 @@ interface ManualPricingAdjustmentLineRow {
   deleted?: boolean;
 }
 
+type ManualPricingSecurityDepositMode = 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+
 interface ManualPricingSummaryState {
   baseAmountKrw?: number | null;
   totalAmountKrw?: number | null;
   depositAmountKrw?: number | null;
   balanceAmountKrw?: number | null;
   securityDepositAmountKrw?: number | null;
+  /** null/undefined = computed pricing mode 유지 */
+  securityDepositMode?: ManualPricingSecurityDepositMode | null;
 }
 
 interface ManualPricingTeamSummaryState extends ManualPricingSummaryState {
@@ -571,6 +575,12 @@ function normalizeManualPricingState(value?: ManualPricingState | null): ManualP
             securityDepositAmountKrw: Number.isInteger(value.summary.securityDepositAmountKrw)
               ? value.summary.securityDepositAmountKrw
               : null,
+            securityDepositMode:
+              value.summary.securityDepositMode === 'NONE' ||
+              value.summary.securityDepositMode === 'PER_PERSON' ||
+              value.summary.securityDepositMode === 'PER_TEAM'
+                ? value.summary.securityDepositMode
+                : null,
           }
         : null,
     teamSummaries: Array.isArray(value?.teamSummaries)
@@ -581,7 +591,11 @@ function normalizeManualPricingState(value?: ManualPricingState | null): ManualP
             (row.totalAmountKrw == null || Number.isInteger(row.totalAmountKrw)) &&
             (row.depositAmountKrw == null || Number.isInteger(row.depositAmountKrw)) &&
             (row.balanceAmountKrw == null || Number.isInteger(row.balanceAmountKrw)) &&
-            (row.securityDepositAmountKrw == null || Number.isInteger(row.securityDepositAmountKrw)),
+            (row.securityDepositAmountKrw == null || Number.isInteger(row.securityDepositAmountKrw)) &&
+            (row.securityDepositMode == null ||
+              row.securityDepositMode === 'NONE' ||
+              row.securityDepositMode === 'PER_PERSON' ||
+              row.securityDepositMode === 'PER_TEAM'),
         )
       : [],
     lineOverrides: Array.isArray(value?.lineOverrides)
@@ -602,11 +616,21 @@ function mergeManualPricingSummaryFields(
   stateSummary: ManualPricingSummaryState | null | undefined,
   fallback: ManualPricingSummaryState | null | undefined,
 ): ManualPricingSummaryState | null {
-  const pick = (k: keyof ManualPricingSummaryState): number | null => {
+  const pick = (
+    k: 'baseAmountKrw' | 'totalAmountKrw' | 'depositAmountKrw' | 'balanceAmountKrw' | 'securityDepositAmountKrw',
+  ): number | null => {
     const sv = stateSummary?.[k];
     if (typeof sv === 'number' && Number.isInteger(sv)) return sv;
     const fv = fallback?.[k];
     if (typeof fv === 'number' && Number.isInteger(fv)) return fv;
+    return null;
+  };
+
+  const pickSecurityMode = (): ManualPricingSecurityDepositMode | null => {
+    const sv = stateSummary?.securityDepositMode;
+    if (sv === 'NONE' || sv === 'PER_PERSON' || sv === 'PER_TEAM') return sv;
+    const fv = fallback?.securityDepositMode;
+    if (fv === 'NONE' || fv === 'PER_PERSON' || fv === 'PER_TEAM') return fv;
     return null;
   };
 
@@ -616,9 +640,16 @@ function mergeManualPricingSummaryFields(
     depositAmountKrw: pick('depositAmountKrw'),
     balanceAmountKrw: pick('balanceAmountKrw'),
     securityDepositAmountKrw: pick('securityDepositAmountKrw'),
+    securityDepositMode: pickSecurityMode(),
   };
 
-  const hasAny = Object.values(merged).some((v) => v !== null);
+  const hasNumeric =
+    merged.baseAmountKrw != null ||
+    merged.totalAmountKrw != null ||
+    merged.depositAmountKrw != null ||
+    merged.balanceAmountKrw != null ||
+    merged.securityDepositAmountKrw != null;
+  const hasAny = hasNumeric || merged.securityDepositMode != null;
   return hasAny ? merged : null;
 }
 
@@ -649,6 +680,7 @@ function toManualPricingSnapshot(
             depositAmountKrw: merged.depositAmountKrw ?? null,
             balanceAmountKrw: merged.balanceAmountKrw ?? null,
             securityDepositAmountKrw: merged.securityDepositAmountKrw ?? null,
+            securityDepositMode: merged.securityDepositMode ?? null,
           }
         : null,
     teamSummaries: (value.teamSummaries ?? []).map((summary) => ({
@@ -660,6 +692,12 @@ function toManualPricingSnapshot(
       securityDepositAmountKrw: Number.isInteger(summary.securityDepositAmountKrw)
         ? summary.securityDepositAmountKrw
         : null,
+      securityDepositMode:
+        summary.securityDepositMode === 'NONE' ||
+        summary.securityDepositMode === 'PER_PERSON' ||
+        summary.securityDepositMode === 'PER_TEAM'
+          ? summary.securityDepositMode
+          : null,
     })),
     lineOverrides: (value.lineOverrides ?? []).map((row) => ({
       rowKey: row.rowKey,
@@ -802,6 +840,51 @@ function setManualPricingAllTeamSummariesValue(
 ): ManualPricingState {
   return teamOrderIndexes.reduce(
     (state, teamOrderIndex) => setManualPricingTeamSummaryValue(state, teamOrderIndex, field, value),
+    current,
+  );
+}
+
+function setManualPricingSummarySecurityDepositMode(
+  current: ManualPricingState,
+  mode: 'PER_PERSON' | 'PER_TEAM',
+): ManualPricingState {
+  return {
+    ...current,
+    summary: {
+      ...(current.summary ?? {}),
+      securityDepositMode: mode,
+    },
+  };
+}
+
+function setManualPricingTeamSummarySecurityDepositMode(
+  current: ManualPricingState,
+  teamOrderIndex: number,
+  mode: 'PER_PERSON' | 'PER_TEAM',
+): ManualPricingState {
+  const existing = (current.teamSummaries ?? []).find((item) => item.teamOrderIndex === teamOrderIndex);
+  const nextRow: ManualPricingTeamSummaryState = {
+    teamOrderIndex,
+    ...(existing ?? {}),
+    securityDepositMode: mode,
+  };
+  const nextTeamSummaries =
+    existing == null
+      ? [...(current.teamSummaries ?? []), nextRow]
+      : (current.teamSummaries ?? []).map((item) => (item.teamOrderIndex === teamOrderIndex ? nextRow : item));
+  return {
+    ...current,
+    teamSummaries: nextTeamSummaries,
+  };
+}
+
+function setManualPricingAllTeamSummariesSecurityDepositMode(
+  current: ManualPricingState,
+  teamOrderIndexes: number[],
+  mode: 'PER_PERSON' | 'PER_TEAM',
+): ManualPricingState {
+  return teamOrderIndexes.reduce(
+    (state, teamOrderIndex) => setManualPricingTeamSummarySecurityDepositMode(state, teamOrderIndex, mode),
     current,
   );
 }
@@ -7107,54 +7190,169 @@ export function ItineraryBuilderPage(): JSX.Element {
                             <div key={key} className={`${index < 3 ? 'border-r border-slate-200' : ''} px-2 py-3`}>
                               <div className="space-y-2">
                                 {effectivePricingPreview.teamPricings.length === 0 ? (
-                                  <div className="text-center">
-                                    {field === 'securityDepositAmountKrw' &&
-                                    effectivePricingPreview.securityDepositMode !== 'NONE'
-                                      ? `${formatKrw(effectivePricingPreview.securityDepositUnitPriceKrw)} (${formatSecurityDepositScope(
-                                          effectivePricingPreview.securityDepositMode,
-                                        )})`
-                                      : formatKrw(effectivePricingPreview[key])}
-                                  </div>
+                                  manualPricing.enabled &&
+                                  field === 'securityDepositAmountKrw' &&
+                                  effectivePricingPreview.securityDepositMode !== 'NONE' ? (
+                                    <div className="flex flex-col items-stretch gap-1 sm:flex-row sm:items-center sm:justify-center">
+                                      <input
+                                        type="number"
+                                        step={1}
+                                        value={effectivePricingPreview.securityDepositAmountKrw}
+                                        onChange={(event) => {
+                                          const nextValue = Number(event.target.value);
+                                          if (!Number.isInteger(nextValue)) {
+                                            return;
+                                          }
+                                          setManualPricing((current) =>
+                                            setManualPricingSummaryValue(
+                                              current,
+                                              'securityDepositAmountKrw',
+                                              nextValue,
+                                            ),
+                                          );
+                                        }}
+                                        className="w-full max-w-[140px] rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-sm"
+                                      />
+                                      <select
+                                        value={
+                                          effectivePricingPreview.securityDepositMode === 'PER_TEAM'
+                                            ? 'PER_TEAM'
+                                            : 'PER_PERSON'
+                                        }
+                                        onChange={(event) => {
+                                          const mode = event.target.value as 'PER_PERSON' | 'PER_TEAM';
+                                          setManualPricing((current) =>
+                                            setManualPricingSummarySecurityDepositMode(current, mode),
+                                          );
+                                        }}
+                                        className="rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-xs text-slate-800"
+                                        aria-label="보증금 단위"
+                                      >
+                                        <option value="PER_PERSON">인당</option>
+                                        <option value="PER_TEAM">팀당</option>
+                                      </select>
+                                    </div>
+                                  ) : (
+                                    <div className="text-center">
+                                      {field === 'securityDepositAmountKrw' &&
+                                      effectivePricingPreview.securityDepositMode !== 'NONE'
+                                        ? `${formatKrw(effectivePricingPreview.securityDepositUnitPriceKrw)} (${formatSecurityDepositScope(
+                                            effectivePricingPreview.securityDepositMode,
+                                          )})`
+                                        : formatKrw(effectivePricingPreview[key])}
+                                    </div>
+                                  )
                                 ) : (
                                   pricingSummaryTeamsForDisplay.map((teamPricing) => (
                                     <div key={`${field}-${teamPricing.teamOrderIndex}`} className="grid gap-1">
                                       {manualPricing.enabled ? (
-                                        <div className="flex items-center justify-center gap-2">
+                                        <div className="flex flex-wrap items-center justify-center gap-2">
                                           {pricingSummaryShowTeamPrefix ? (
                                             <div className="text-xs font-medium text-slate-500">{`${teamPricing.teamName})`}</div>
                                           ) : null}
-                                          <input
-                                            type="number"
-                                            step={1}
-                                            value={teamPricing[field]}
-                                            onChange={(event) => {
-                                              const nextValue = Number(event.target.value);
-                                              if (!Number.isInteger(nextValue)) {
-                                                return;
-                                              }
-                                              const allTeamIndexes = effectivePricingPreview.teamPricings.map(
-                                                (t) => t.teamOrderIndex,
-                                              );
-                                              const syncAllTeams =
-                                                allTeamIndexes.length > 1 && !pricingSummaryShowTeamPrefix;
-                                              setManualPricing((current) =>
-                                                syncAllTeams
-                                                  ? setManualPricingAllTeamSummariesValue(
-                                                      current,
-                                                      allTeamIndexes,
-                                                      field,
-                                                      nextValue,
-                                                    )
-                                                  : setManualPricingTeamSummaryValue(
-                                                      current,
-                                                      teamPricing.teamOrderIndex,
-                                                      field,
-                                                      nextValue,
-                                                    ),
-                                              );
-                                            }}
-                                            className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-sm"
-                                          />
+                                          {field === 'securityDepositAmountKrw' &&
+                                          teamPricing.securityDepositMode !== 'NONE' ? (
+                                            <>
+                                              <input
+                                                type="number"
+                                                step={1}
+                                                value={teamPricing.securityDepositAmountKrw}
+                                                onChange={(event) => {
+                                                  const nextValue = Number(event.target.value);
+                                                  if (!Number.isInteger(nextValue)) {
+                                                    return;
+                                                  }
+                                                  const allTeamIndexes = effectivePricingPreview.teamPricings.map(
+                                                    (t) => t.teamOrderIndex,
+                                                  );
+                                                  const syncAllTeams =
+                                                    allTeamIndexes.length > 1 && !pricingSummaryShowTeamPrefix;
+                                                  setManualPricing((current) =>
+                                                    syncAllTeams
+                                                      ? setManualPricingAllTeamSummariesValue(
+                                                          current,
+                                                          allTeamIndexes,
+                                                          field,
+                                                          nextValue,
+                                                        )
+                                                      : setManualPricingTeamSummaryValue(
+                                                          current,
+                                                          teamPricing.teamOrderIndex,
+                                                          field,
+                                                          nextValue,
+                                                        ),
+                                                  );
+                                                }}
+                                                className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-sm"
+                                              />
+                                              <select
+                                                value={
+                                                  teamPricing.securityDepositMode === 'PER_TEAM'
+                                                    ? 'PER_TEAM'
+                                                    : 'PER_PERSON'
+                                                }
+                                                onChange={(event) => {
+                                                  const mode = event.target.value as 'PER_PERSON' | 'PER_TEAM';
+                                                  const allTeamIndexes = effectivePricingPreview.teamPricings.map(
+                                                    (t) => t.teamOrderIndex,
+                                                  );
+                                                  const syncAllTeams =
+                                                    allTeamIndexes.length > 1 && !pricingSummaryShowTeamPrefix;
+                                                  setManualPricing((current) =>
+                                                    syncAllTeams
+                                                      ? setManualPricingAllTeamSummariesSecurityDepositMode(
+                                                          current,
+                                                          allTeamIndexes,
+                                                          mode,
+                                                        )
+                                                      : setManualPricingTeamSummarySecurityDepositMode(
+                                                          current,
+                                                          teamPricing.teamOrderIndex,
+                                                          mode,
+                                                        ),
+                                                  );
+                                                }}
+                                                className="shrink-0 rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-xs text-slate-800"
+                                                aria-label="보증금 단위"
+                                              >
+                                                <option value="PER_PERSON">인당</option>
+                                                <option value="PER_TEAM">팀당</option>
+                                              </select>
+                                            </>
+                                          ) : (
+                                            <input
+                                              type="number"
+                                              step={1}
+                                              value={teamPricing[field]}
+                                              onChange={(event) => {
+                                                const nextValue = Number(event.target.value);
+                                                if (!Number.isInteger(nextValue)) {
+                                                  return;
+                                                }
+                                                const allTeamIndexes = effectivePricingPreview.teamPricings.map(
+                                                  (t) => t.teamOrderIndex,
+                                                );
+                                                const syncAllTeams =
+                                                  allTeamIndexes.length > 1 && !pricingSummaryShowTeamPrefix;
+                                                setManualPricing((current) =>
+                                                  syncAllTeams
+                                                    ? setManualPricingAllTeamSummariesValue(
+                                                        current,
+                                                        allTeamIndexes,
+                                                        field,
+                                                        nextValue,
+                                                      )
+                                                    : setManualPricingTeamSummaryValue(
+                                                        current,
+                                                        teamPricing.teamOrderIndex,
+                                                        field,
+                                                        nextValue,
+                                                      ),
+                                                );
+                                              }}
+                                              className="w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-center text-sm"
+                                            />
+                                          )}
                                         </div>
                                       ) : field === 'securityDepositAmountKrw' && teamPricing.securityDepositMode !== 'NONE' ? (
                                         <div className="text-center">{`${pricingSummaryShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${formatKrw(

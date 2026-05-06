@@ -11,6 +11,7 @@ import {
   PricingPolicy,
   Prisma,
   PrismaClient,
+  SecurityDepositMode,
 } from '@prisma/client';
 import { DomainError } from '../../lib/errors';
 import type {
@@ -130,6 +131,62 @@ export class PricingService {
     };
   }
 
+  private resolveSnapshotSecurityDeposit(
+    result: PricingComputationResult,
+    manualPricingSnapshot: PricingManualSnapshot | null,
+  ): {
+    securityDepositAmountKrw: number;
+    securityDepositUnitPriceKrw: number;
+    securityDepositQuantity: number;
+    securityDepositMode: SecurityDepositMode;
+  } {
+    const manualSummary = manualPricingSnapshot?.summary ?? null;
+    const touchAmount = typeof manualSummary?.securityDepositAmountKrw === 'number';
+    const touchMode =
+      manualSummary?.securityDepositMode === 'PER_PERSON' ||
+      manualSummary?.securityDepositMode === 'PER_TEAM' ||
+      manualSummary?.securityDepositMode === 'NONE';
+
+    const securityDepositAmountKrw = touchAmount
+      ? (manualSummary!.securityDepositAmountKrw as number)
+      : result.securityDepositAmountKrw;
+
+    if (!manualPricingSnapshot?.enabled || (!touchAmount && !touchMode)) {
+      return {
+        securityDepositAmountKrw,
+        securityDepositUnitPriceKrw: result.securityDepositUnitPriceKrw,
+        securityDepositQuantity: result.securityDepositQuantity,
+        securityDepositMode: result.securityDepositMode,
+      };
+    }
+
+    const effectiveMode: SecurityDepositMode = touchMode
+      ? (manualSummary!.securityDepositMode as SecurityDepositMode)
+      : result.securityDepositMode;
+
+    if (effectiveMode === 'NONE') {
+      return {
+        securityDepositAmountKrw,
+        securityDepositUnitPriceKrw: 0,
+        securityDepositQuantity: 0,
+        securityDepositMode: effectiveMode,
+      };
+    }
+
+    const headcountTotal =
+      typeof result.inputSnapshot.headcountTotal === 'number' ? result.inputSnapshot.headcountTotal : 0;
+    const quantity = effectiveMode === 'PER_PERSON' ? Math.max(1, headcountTotal) : 1;
+    const securityDepositUnitPriceKrw =
+      quantity > 0 ? Math.round(securityDepositAmountKrw / quantity) : securityDepositAmountKrw;
+
+    return {
+      securityDepositAmountKrw,
+      securityDepositUnitPriceKrw,
+      securityDepositQuantity: quantity,
+      securityDepositMode: effectiveMode,
+    };
+  }
+
   private normalizeManualPricingSnapshot(
     manualPricing?: PricingManualSnapshot | null,
   ): PricingManualSnapshot | null {
@@ -171,17 +228,43 @@ export class PricingService {
                 typeof manualPricing.summary.securityDepositAmountKrw === 'number'
                   ? manualPricing.summary.securityDepositAmountKrw
                   : null,
+              securityDepositMode:
+                manualPricing.summary.securityDepositMode === 'NONE' ||
+                manualPricing.summary.securityDepositMode === 'PER_PERSON' ||
+                manualPricing.summary.securityDepositMode === 'PER_TEAM'
+                  ? manualPricing.summary.securityDepositMode
+                  : null,
             }
           : null,
-      teamSummaries: (manualPricing.teamSummaries ?? []).filter(
-        (summary) =>
-          Number.isInteger(summary?.teamOrderIndex) &&
-          (summary.baseAmountKrw == null || typeof summary.baseAmountKrw === 'number') &&
-          (summary.totalAmountKrw == null || typeof summary.totalAmountKrw === 'number') &&
-          (summary.depositAmountKrw == null || typeof summary.depositAmountKrw === 'number') &&
-          (summary.balanceAmountKrw == null || typeof summary.balanceAmountKrw === 'number') &&
-          (summary.securityDepositAmountKrw == null || typeof summary.securityDepositAmountKrw === 'number'),
-      ),
+      teamSummaries: (manualPricing.teamSummaries ?? [])
+        .filter(
+          (summary) =>
+            Number.isInteger(summary?.teamOrderIndex) &&
+            (summary.baseAmountKrw == null || typeof summary.baseAmountKrw === 'number') &&
+            (summary.totalAmountKrw == null || typeof summary.totalAmountKrw === 'number') &&
+            (summary.depositAmountKrw == null || typeof summary.depositAmountKrw === 'number') &&
+            (summary.balanceAmountKrw == null || typeof summary.balanceAmountKrw === 'number') &&
+            (summary.securityDepositAmountKrw == null || typeof summary.securityDepositAmountKrw === 'number') &&
+            (summary.securityDepositMode == null ||
+              summary.securityDepositMode === 'NONE' ||
+              summary.securityDepositMode === 'PER_PERSON' ||
+              summary.securityDepositMode === 'PER_TEAM'),
+        )
+        .map((summary) => ({
+          teamOrderIndex: summary.teamOrderIndex as number,
+          baseAmountKrw: typeof summary.baseAmountKrw === 'number' ? summary.baseAmountKrw : null,
+          totalAmountKrw: typeof summary.totalAmountKrw === 'number' ? summary.totalAmountKrw : null,
+          depositAmountKrw: typeof summary.depositAmountKrw === 'number' ? summary.depositAmountKrw : null,
+          balanceAmountKrw: typeof summary.balanceAmountKrw === 'number' ? summary.balanceAmountKrw : null,
+          securityDepositAmountKrw:
+            typeof summary.securityDepositAmountKrw === 'number' ? summary.securityDepositAmountKrw : null,
+          securityDepositMode:
+            summary.securityDepositMode === 'NONE' ||
+            summary.securityDepositMode === 'PER_PERSON' ||
+            summary.securityDepositMode === 'PER_TEAM'
+              ? summary.securityDepositMode
+              : null,
+        })),
       lineOverrides: (manualPricing.lineOverrides ?? []).filter(
         (row) => typeof row?.rowKey === 'string' && Number.isInteger(row?.amountKrw),
       ),
@@ -215,10 +298,12 @@ export class PricingService {
             balanceAmountKrw: manualSummary.balanceAmountKrw,
           }
         : this.computeDepositAndBalance(totalAmountKrw, manualDepositAmountKrw);
-    const securityDepositAmountKrw =
-      typeof manualSummary?.securityDepositAmountKrw === 'number'
-        ? manualSummary.securityDepositAmountKrw
-        : result.securityDepositAmountKrw;
+    const {
+      securityDepositAmountKrw,
+      securityDepositUnitPriceKrw,
+      securityDepositQuantity,
+      securityDepositMode,
+    } = this.resolveSnapshotSecurityDeposit(result, manualPricingSnapshot);
 
     await tx.planVersionPricing.create({
       data: {
@@ -231,9 +316,9 @@ export class PricingService {
         depositAmountKrw,
         balanceAmountKrw,
         securityDepositAmountKrw,
-        securityDepositUnitPriceKrw: result.securityDepositUnitPriceKrw,
-        securityDepositQuantity: result.securityDepositQuantity,
-        securityDepositMode: result.securityDepositMode,
+        securityDepositUnitPriceKrw,
+        securityDepositQuantity,
+        securityDepositMode,
         securityDepositEventId: result.securityDepositEventId,
         inputSnapshot: result.inputSnapshot as Prisma.InputJsonValue,
         manualPricingSnapshot: manualPricingSnapshot

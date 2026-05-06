@@ -238,6 +238,29 @@ function mergeAdjustmentLines(
   return [...mergedAutoLines, ...manualRows];
 }
 
+type SecurityDepositScopeMode = 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+
+function resolveManualSecurityDepositMode(
+  summary: PricingManualSnapshot['summary'] | null | undefined,
+  fallback: SecurityDepositScopeMode,
+): SecurityDepositScopeMode {
+  const mode = summary?.securityDepositMode;
+  if (mode === 'NONE' || mode === 'PER_PERSON' || mode === 'PER_TEAM') {
+    return mode;
+  }
+  return fallback;
+}
+
+function resolveSecurityDepositHeadcount<TLine extends PricingManualSourceLine>(
+  pricing: PricingLike<TLine> | TeamPricingLike<TLine>,
+  ctx: { headcountTotal: number; totalDays: number },
+): number {
+  if ('teamOrderIndex' in pricing && Number.isInteger(pricing.headcount)) {
+    return pricing.headcount;
+  }
+  return ctx.headcountTotal;
+}
+
 function buildSingleEffectivePricing<TLine extends PricingManualSourceLine>(
   pricing: PricingLike<TLine> | TeamPricingLike<TLine>,
   ctx: { headcountTotal: number; totalDays: number },
@@ -272,11 +295,19 @@ function buildSingleEffectivePricing<TLine extends PricingManualSourceLine>(
   const securityDepositAmountKrw = hasNumber(summary?.securityDepositAmountKrw)
     ? summary.securityDepositAmountKrw
     : pricing.securityDepositAmountKrw;
-  const securityDepositUnitPriceKrw =
-    pricing.securityDepositMode === 'NONE'
+  const securityDepositMode = resolveManualSecurityDepositMode(summary, pricing.securityDepositMode);
+  const securityHeadcount = resolveSecurityDepositHeadcount(pricing, ctx);
+  const securityDepositQuantity =
+    securityDepositMode === 'NONE'
       ? 0
-      : pricing.securityDepositQuantity > 0
-        ? Math.round(securityDepositAmountKrw / pricing.securityDepositQuantity)
+      : securityDepositMode === 'PER_PERSON'
+        ? Math.max(1, securityHeadcount)
+        : 1;
+  const securityDepositUnitPriceKrw =
+    securityDepositMode === 'NONE'
+      ? 0
+      : securityDepositQuantity > 0
+        ? Math.round(securityDepositAmountKrw / securityDepositQuantity)
         : securityDepositAmountKrw;
 
   return {
@@ -287,8 +318,8 @@ function buildSingleEffectivePricing<TLine extends PricingManualSourceLine>(
     balanceAmountKrw,
     securityDepositAmountKrw,
     securityDepositUnitPriceKrw,
-    securityDepositQuantity: pricing.securityDepositQuantity,
-    securityDepositMode: pricing.securityDepositMode,
+    securityDepositQuantity,
+    securityDepositMode,
     adjustmentLines,
   };
 }

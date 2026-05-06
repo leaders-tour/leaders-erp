@@ -271,6 +271,8 @@ type ManualPricingSummarySnapshot {
   depositAmountKrw: Int
   balanceAmountKrw: Int
   securityDepositAmountKrw: Int
+  """Omit or null to follow computed pricing securityDepositMode."""
+  securityDepositMode: SecurityDepositMode
 }
 
 type ManualPricingTeamSummarySnapshot {
@@ -280,6 +282,7 @@ type ManualPricingTeamSummarySnapshot {
   depositAmountKrw: Int
   balanceAmountKrw: Int
   securityDepositAmountKrw: Int
+  securityDepositMode: SecurityDepositMode
 }
 
 type ManualPricingSnapshot {
@@ -571,6 +574,7 @@ input ManualPricingSummaryInput {
   depositAmountKrw: Int
   balanceAmountKrw: Int
   securityDepositAmountKrw: Int
+  securityDepositMode: SecurityDepositMode
 }
 
 input ManualPricingTeamSummaryInput {
@@ -580,6 +584,7 @@ input ManualPricingTeamSummaryInput {
   depositAmountKrw: Int
   balanceAmountKrw: Int
   securityDepositAmountKrw: Int
+  securityDepositMode: SecurityDepositMode
 }
 
 input ManualPricingInput {

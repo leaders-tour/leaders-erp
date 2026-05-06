@@ -112,12 +112,15 @@ export const manualPricingAdjustmentLineInputSchema = z.object({
   deleted: z.boolean().optional().default(false),
 });
 
+const securityDepositModeSchema = z.enum(['NONE', 'PER_PERSON', 'PER_TEAM']);
+
 export const manualPricingSummaryInputSchema = z.object({
   baseAmountKrw: z.number().int().nullable().optional(),
   totalAmountKrw: z.number().int().nullable().optional(),
   depositAmountKrw: z.number().int().nullable().optional(),
   balanceAmountKrw: z.number().int().nullable().optional(),
   securityDepositAmountKrw: z.number().int().nullable().optional(),
+  securityDepositMode: securityDepositModeSchema.nullable().optional(),
 });
 
 export const manualPricingTeamSummaryInputSchema = z.object({
@@ -127,6 +130,7 @@ export const manualPricingTeamSummaryInputSchema = z.object({
   depositAmountKrw: z.number().int().nullable().optional(),
   balanceAmountKrw: z.number().int().nullable().optional(),
   securityDepositAmountKrw: z.number().int().nullable().optional(),
+  securityDepositMode: securityDepositModeSchema.nullable().optional(),
 });
 
 export const manualPricingInputSchema = z
