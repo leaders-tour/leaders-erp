@@ -24,6 +24,8 @@ const LOCATIONS = gql`
     locations {
       id
       name
+      regionName
+      isFirstDayEligible
       guide {
         id
       }
@@ -87,6 +89,8 @@ export interface LocationGuideRow {
 export interface GuideLocationOption {
   id: string;
   name: string[];
+  regionName: string;
+  isFirstDayEligible: boolean;
   guide: {
     id: string;
   } | null;
@@ -96,7 +100,8 @@ export interface LocationGuideFormInput {
   title: string;
   description: string;
   images?: File[];
-  locationId: string;
+  /** Used only when creating; ignored on update. */
+  locationIds?: string[];
 }
 
 async function runUploadMutation(
@@ -161,16 +166,31 @@ export function useLocationGuideCrud() {
       if (!input.images || input.images.length === 0) {
         throw new Error('At least one image is required');
       }
+      const locationIds = input.locationIds ?? [];
+      if (locationIds.length === 0) {
+        throw new Error('At least one destination is required');
+      }
       const accessToken = await ensureAccessToken();
+      const inputPayload: {
+        title: string;
+        description?: string | null;
+        locationIds: string[];
+        images: null[];
+      } = {
+        title: input.title.trim(),
+        locationIds,
+        images: input.images.map(() => null),
+      };
+      const descriptionTrimmed = input.description.trim();
+      if (descriptionTrimmed.length > 0) {
+        inputPayload.description = descriptionTrimmed;
+      } else {
+        inputPayload.description = null;
+      }
       await runUploadMutation(
         CREATE_MUTATION,
         {
-          input: {
-            title: input.title.trim(),
-            description: input.description.trim(),
-            locationId: input.locationId,
-            images: input.images.map(() => null),
-          },
+          input: inputPayload,
         },
         input.images,
         (index) => `variables.input.images.${index}`,

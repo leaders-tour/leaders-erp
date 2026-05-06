@@ -11,9 +11,9 @@ type LocationGuide {
 
 input LocationGuideCreateInput {
   title: String!
-  description: String!
+  description: String
   images: [Upload!]!
-  locationId: String!
+  locationIds: [ID!]!
 }
 
 input LocationGuideUpdateInput {

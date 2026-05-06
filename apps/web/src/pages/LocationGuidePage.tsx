@@ -1,20 +1,20 @@
 import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { formatLocationNameInline } from '../features/location/display';
+import { formatLocationNameInline, includesLocationNameKeyword } from '../features/location/display';
 import { LocationSubNav } from '../features/location/sub-nav';
 import { useLocationGuideCrud } from '../features/location-guide/hooks';
 
 interface FormState {
   title: string;
   description: string;
-  locationId: string;
+  locationIds: string[];
 }
 
 const EMPTY_FORM: FormState = {
   title: '',
   description: '',
-  locationId: '',
+  locationIds: [],
 };
 
 function formatDate(value: string): string {
@@ -37,6 +37,9 @@ export function LocationGuidePage(): JSX.Element {
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewTitle, setPreviewTitle] = useState('');
+  const [destinationSearch, setDestinationSearch] = useState('');
+  const [destinationOpen, setDestinationOpen] = useState(false);
+  const [bulkMode, setBulkMode] = useState(true);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const closePreviewButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -44,11 +47,20 @@ export function LocationGuidePage(): JSX.Element {
   const availableLocations = crud.locations.filter(
     (item) => !item.guide || (editingRow && editingRow.locationId === item.id),
   );
+
+  const filteredDestinationOptions = useMemo(() => {
+    const keyword = destinationSearch.trim().toLowerCase();
+    if (!keyword) {
+      return availableLocations;
+    }
+    return availableLocations.filter(
+      (item) =>
+        includesLocationNameKeyword(item.name, keyword) || item.regionName.toLowerCase().includes(keyword),
+    );
+  }, [availableLocations, destinationSearch]);
   const canSubmit =
     form.title.trim().length > 0 &&
-    form.description.trim().length > 0 &&
-    form.locationId.length > 0 &&
-    (editingId ? true : selectedFiles.length > 0);
+    (editingId ? true : form.locationIds.length > 0 && selectedFiles.length > 0);
 
   const closePreview = (): void => {
     setPreviewOpen(false);
@@ -94,7 +106,9 @@ export function LocationGuidePage(): JSX.Element {
       <header className="grid gap-3">
         <LocationSubNav pathname={locationPath.pathname} />
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">여행지 안내사항</h1>
-        <p className="text-sm text-slate-600">소개를 생성하고 목적지와 1:1로 연결합니다.</p>
+        <p className="text-sm text-slate-600">
+          여러 목적지를 선택하면 동일한 제목·설명·이미지로 소개를 한 번에 연결합니다.
+        </p>
       </header>
 
       <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -112,18 +126,25 @@ export function LocationGuidePage(): JSX.Element {
               const payload = {
                 title: form.title,
                 description: form.description,
-                locationId: form.locationId,
+                locationIds: form.locationIds,
                 images: selectedFiles.length > 0 ? selectedFiles : undefined,
               };
 
               if (editingId) {
-                await crud.updateRow(editingId, payload);
+                await crud.updateRow(editingId, {
+                  title: payload.title,
+                  description: payload.description,
+                  images: payload.images,
+                });
               } else {
                 await crud.createRow(payload);
               }
               setForm(EMPTY_FORM);
               setEditingId('');
               setSelectedFiles([]);
+              setDestinationSearch('');
+              setDestinationOpen(false);
+              setBulkMode(true);
               if (fileInputRef.current) {
                 fileInputRef.current.value = '';
               }
@@ -141,12 +162,13 @@ export function LocationGuidePage(): JSX.Element {
             />
           </label>
           <label className="grid gap-1 text-sm">
-            <span>설명</span>
+            <span>설명 (선택)</span>
             <textarea
               value={form.description}
               onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
               rows={5}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+              placeholder="비워 두어도 됩니다."
             />
           </label>
           <label className="grid gap-1 text-sm">
@@ -170,26 +192,144 @@ export function LocationGuidePage(): JSX.Element {
               <span className="text-xs text-slate-600">선택된 새 이미지: {selectedFiles.length}개</span>
             ) : null}
           </label>
-          <label className="grid gap-1 text-sm">
-            <span>연결할 목적지 (필수)</span>
-            <select
-              value={form.locationId}
-              onChange={(event) => setForm((prev) => ({ ...prev, locationId: event.target.value }))}
-              disabled={Boolean(editingId)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-            >
-                <option value="">목적지 선택</option>
-                {availableLocations.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {formatLocationNameInline(item.name)}
-                  </option>
-                ))}
-              </select>
-              {!editingId && availableLocations.length === 0 ? (
-                <span className="text-xs text-amber-700">연결 가능한 목적지가 없습니다. 기존 연결을 먼저 해제해주세요.</span>
-              ) : null}
-              {editingId ? <span className="text-xs text-slate-500">연결 변경은 목적지 상세에서 해제/재연결로 처리합니다.</span> : null}
-            </label>
+          <div className="grid gap-2 text-sm">
+            {editingId && editingRow?.location ? (
+              <>
+                <span className="text-slate-700">연결된 목적지</span>
+                <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
+                  {formatLocationNameInline(editingRow.location.name)}
+                </p>
+                <span className="text-xs text-slate-500">연결 변경은 목적지 상세에서 해제/재연결로 처리합니다.</span>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                  <div className="grid gap-0.5">
+                    <span className="font-semibold text-slate-800">중복 모드</span>
+                    <span className="text-xs text-slate-500">
+                      동일한 소개를 여러 목적지에 한 번에 연결합니다.
+                    </span>
+                  </div>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                      checked={bulkMode}
+                      onChange={(event) => {
+                        const nextBulk = event.target.checked;
+                        setBulkMode(nextBulk);
+                        setDestinationSearch('');
+                        setDestinationOpen(false);
+                        setForm((prev) => ({
+                          ...prev,
+                          locationIds: nextBulk ? prev.locationIds : prev.locationIds.slice(0, 1),
+                        }));
+                      }}
+                    />
+                    <span className="text-slate-700">{bulkMode ? '켜짐' : '꺼짐'}</span>
+                  </label>
+                </div>
+                <span className="text-slate-700">
+                  {bulkMode ? '목적지 (여러 개 선택)' : '목적지'} <span className="text-red-600">*</span>
+                </span>
+                {availableLocations.length === 0 ? (
+                  <span className="text-xs text-amber-700">
+                    연결 가능한 목적지가 없습니다. 기존 연결을 먼저 해제해주세요.
+                  </span>
+                ) : (
+                  <>
+                    {form.locationIds.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2">
+                        {form.locationIds.map((id) => {
+                          const item = availableLocations.find((loc) => loc.id === id);
+                          const label = item
+                            ? formatLocationNameInline(item.name)
+                            : id;
+                          return (
+                            <span
+                              key={id}
+                              className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                            >
+                              {label}
+                              <button
+                                type="button"
+                                className="rounded-full px-1 text-blue-500 hover:bg-blue-100"
+                                onClick={() => {
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    locationIds: prev.locationIds.filter((existingId) => existingId !== id),
+                                  }));
+                                }}
+                                aria-label={`${label} 제거`}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                    <div className="relative min-w-0">
+                      <Input
+                        value={destinationSearch}
+                        onFocus={() => setDestinationOpen(true)}
+                        onBlur={() => setTimeout(() => setDestinationOpen(false), 120)}
+                        onChange={(event) => {
+                          setDestinationSearch(event.target.value);
+                          setDestinationOpen(true);
+                        }}
+                        placeholder="목적지 검색 후 클릭하여 추가"
+                        className="w-full"
+                      />
+                      {destinationOpen ? (
+                        <div className="absolute left-0 right-0 top-[44px] z-20 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                          {filteredDestinationOptions.length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-slate-500">검색 결과가 없습니다.</div>
+                          ) : (
+                            filteredDestinationOptions.map((item) => {
+                              const isSelected = form.locationIds.includes(item.id);
+                              const eligibilityTag = item.isFirstDayEligible ? '첫째날 가능' : '첫째날 불가';
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  disabled={isSelected}
+                                  onClick={() => {
+                                    if (isSelected) return;
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      locationIds: bulkMode
+                                        ? prev.locationIds.includes(item.id)
+                                          ? prev.locationIds
+                                          : [...prev.locationIds, item.id]
+                                        : [item.id],
+                                    }));
+                                    setDestinationSearch('');
+                                    setDestinationOpen(false);
+                                  }}
+                                  className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm ${isSelected ? 'bg-slate-100 text-slate-400' : 'hover:bg-slate-100'}`}
+                                >
+                                  <span className="min-w-0 flex-1">
+                                    {formatLocationNameInline(item.name)} ({item.regionName})
+                                    {isSelected ? ' · 추가됨' : ''}
+                                  </span>
+                                  <span
+                                    className={`shrink-0 text-[10px] font-medium ${item.isFirstDayEligible ? 'text-emerald-600' : 'text-slate-400'}`}
+                                  >
+                                    {eligibilityTag}
+                                  </span>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </div>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" variant={editingId ? 'default' : 'primary'} disabled={!canSubmit || submitting}>
               {submitting ? '저장 중...' : editingId ? '수정 저장' : '소개 생성'}
@@ -202,6 +342,9 @@ export function LocationGuidePage(): JSX.Element {
                   setEditingId('');
                   setForm(EMPTY_FORM);
                   setSelectedFiles([]);
+                  setDestinationSearch('');
+                  setDestinationOpen(false);
+                  setBulkMode(true);
                   if (fileInputRef.current) {
                     fileInputRef.current.value = '';
                   }
@@ -277,9 +420,11 @@ export function LocationGuidePage(): JSX.Element {
                         setForm({
                           title: row.title,
                           description: row.description,
-                          locationId: row.locationId ?? '',
+                          locationIds: row.locationId ? [row.locationId] : [],
                         });
                         setSelectedFiles([]);
+                        setDestinationSearch('');
+                        setDestinationOpen(false);
                         if (fileInputRef.current) {
                           fileInputRef.current.value = '';
                         }
@@ -298,6 +443,9 @@ export function LocationGuidePage(): JSX.Element {
                           setEditingId('');
                           setForm(EMPTY_FORM);
                           setSelectedFiles([]);
+                          setDestinationSearch('');
+                          setDestinationOpen(false);
+                          setBulkMode(true);
                           if (fileInputRef.current) {
                             fileInputRef.current.value = '';
                           }

@@ -75,7 +75,7 @@ type Mutation {
   updateLocationProfile(id: ID!, input: LocationProfileUpdateInput!): Location!
   updateLocation(id: ID!, input: LocationUpdateInput!): Location!
   deleteLocation(id: ID!): Boolean!
-  createLocationGuide(input: LocationGuideCreateInput!): LocationGuide!
+  createLocationGuide(input: LocationGuideCreateInput!): [LocationGuide!]!
   updateLocationGuide(id: ID!, input: LocationGuideUpdateInput!): LocationGuide!
   deleteLocationGuide(id: ID!): Boolean!
   connectLocationGuide(locationId: ID!, guideId: ID!): LocationGuide!

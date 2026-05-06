@@ -31,15 +31,28 @@ export class LocationGuideService {
       throw createValidationError('Invalid location guide input', parsed.error);
     }
 
-    const locationId = parsed.data.locationId.trim();
-    await this.assertLocationAvailable(locationId);
+    const locationIds = parsed.data.locationIds;
+    for (const locationId of locationIds) {
+      await this.assertLocationAvailable(locationId);
+    }
 
-    return this.repository.create({
-      title: parsed.data.title.trim(),
-      description: parsed.data.description.trim(),
-      imageUrls: await this.uploadImages(parsed.data.images as FileUploadLike[]),
-      locationId,
-    });
+    const title = parsed.data.title.trim();
+    const description = parsed.data.description;
+    const imageUrls = await this.uploadImages(parsed.data.images as FileUploadLike[]);
+
+    return this.prisma.$transaction(
+      locationIds.map((locationId) =>
+        this.prisma.locationGuide.create({
+          data: {
+            title,
+            description,
+            imageUrls,
+            locationId,
+          },
+          include: { location: true },
+        }),
+      ),
+    );
   }
 
   async update(id: string, input: LocationGuideUpdateDto) {
@@ -59,7 +72,8 @@ export class LocationGuideService {
 
     return this.repository.update(id, {
       title: parsed.data.title?.trim(),
-      description: parsed.data.description?.trim(),
+      description:
+        parsed.data.description !== undefined ? parsed.data.description.trim() : undefined,
       imageUrls: parsed.data.images ? await this.uploadImages(parsed.data.images as FileUploadLike[]) : undefined,
     });
   }
