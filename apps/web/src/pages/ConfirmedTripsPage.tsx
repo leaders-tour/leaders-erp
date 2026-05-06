@@ -11,6 +11,7 @@ import {
   useCreateConfirmedTripDirect,
   useUpdateCalendarNote,
   useDeleteCalendarNote,
+  useUpdateConfirmedTrip,
   getTripStartDate,
   getTripEndDate,
   getTripLeaderName,
@@ -428,14 +429,45 @@ function TripTableRow({
   trip,
   filter,
   onClick,
+  onSaveReservationDate,
 }: {
   trip: ConfirmedTripRow;
   filter: DateFilter;
   onClick: () => void;
+  onSaveReservationDate?: (tripId: string, dateYmd: string) => Promise<void>;
 }) {
+  const [reservationEditing, setReservationEditing] = useState(false);
+  const [reservationDraft, setReservationDraft] = useState('');
+  const [reservationSaving, setReservationSaving] = useState(false);
+
   const startStr = getTripStartDate(trip);
   const endStr = getTripEndDate(trip);
   const headcount = getTripHeadcount(trip);
+
+  function confirmedAtToInput(iso: string): string {
+    return iso.split('T')[0] ?? '';
+  }
+
+  async function commitReservationDate(): Promise<void> {
+    if (!onSaveReservationDate || !reservationDraft) {
+      setReservationEditing(false);
+      return;
+    }
+    const prev = confirmedAtToInput(trip.confirmedAt);
+    if (reservationDraft === prev) {
+      setReservationEditing(false);
+      return;
+    }
+    setReservationSaving(true);
+    try {
+      await onSaveReservationDate(trip.id, reservationDraft);
+      setReservationEditing(false);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
+    } finally {
+      setReservationSaving(false);
+    }
+  }
 
   return (
     <tr
@@ -444,8 +476,42 @@ function TripTableRow({
     >
       {/* 예약일 (예약표 전용) */}
       {filter === 'reserved' && (
-        <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">
-          {new Date(trip.confirmedAt).toLocaleDateString('ko-KR')}
+        <td
+          className="whitespace-nowrap px-4 py-3 text-xs text-slate-500"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {reservationEditing ? (
+            <input
+              type="date"
+              className="max-w-[11rem] rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-800"
+              value={reservationDraft}
+              disabled={reservationSaving}
+              onChange={(e) => setReservationDraft(e.target.value)}
+              onBlur={() => {
+                void commitReservationDate();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  (e.target as HTMLInputElement).blur();
+                }
+                if (e.key === 'Escape') {
+                  setReservationEditing(false);
+                }
+              }}
+              autoFocus
+            />
+          ) : (
+            <button
+              type="button"
+              className="rounded-lg px-1.5 py-0.5 text-left text-slate-500 underline-offset-2 hover:bg-slate-100 hover:text-slate-800 hover:underline"
+              onClick={() => {
+                setReservationDraft(confirmedAtToInput(trip.confirmedAt));
+                setReservationEditing(true);
+              }}
+            >
+              {new Date(trip.confirmedAt).toLocaleDateString('ko-KR')}
+            </button>
+          )}
         </td>
       )}
       {/* 대표자명 */}
@@ -513,6 +579,7 @@ function TripTableRow({
 export function ConfirmedTripsPage(): JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();
   const { trips: allTrips, loading } = useConfirmedTrips('ACTIVE');
+  const { updateConfirmedTrip } = useUpdateConfirmedTrip();
   const navigate = useNavigate();
 
   // ── 직접 추가 모달 상태 ───────────────────────────────────────────────────
@@ -1014,6 +1081,15 @@ export function ConfirmedTripsPage(): JSX.Element {
                       trip={trip}
                       filter={dateFilter}
                       onClick={() => navigate(`/confirmed-trips/${trip.id}`)}
+                      onSaveReservationDate={
+                        dateFilter === 'reserved'
+                          ? async (tripId, dateYmd) => {
+                              await updateConfirmedTrip(tripId, {
+                                confirmedAt: `${dateYmd}T00:00:00.000Z`,
+                              });
+                            }
+                          : undefined
+                      }
                     />
                   ))}
                 </tbody>

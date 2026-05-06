@@ -354,6 +354,10 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const [pickupDropEditing, setPickupDropEditing] = useState(false);
   const [pickupDropSaving, setPickupDropSaving] = useState(false);
 
+  const [reservationDateEditing, setReservationDateEditing] = useState(false);
+  const [reservationDateDraft, setReservationDateDraft] = useState('');
+  const [reservationDateSaving, setReservationDateSaving] = useState(false);
+
   const { updateUser } = useUpdateUser();
   const { uploadUserAttachment, loading: uploadingUserAttachment } = useUploadUserAttachment();
 
@@ -468,6 +472,29 @@ export function ConfirmedTripDetailPage(): JSX.Element {
       window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
     } finally {
       setPickupDropSaving(false);
+    }
+  };
+
+  const handleReservationDateSave = async () => {
+    if (!reservationDateDraft.trim()) {
+      setReservationDateEditing(false);
+      return;
+    }
+    const prev = toDateInputValue(trip.confirmedAt);
+    if (reservationDateDraft === prev) {
+      setReservationDateEditing(false);
+      return;
+    }
+    setReservationDateSaving(true);
+    try {
+      await updateConfirmedTrip(tripId, {
+        confirmedAt: `${reservationDateDraft}T00:00:00.000Z`,
+      });
+      setReservationDateEditing(false);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
+    } finally {
+      setReservationDateSaving(false);
     }
   };
 
@@ -626,6 +653,47 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                 <span className="text-slate-500">여행지</span>
                 <p className="font-medium">{getTripDestination(trip)}</p>
               </div>
+            </div>
+            <div>
+              <span className="text-slate-500">예약일</span>
+              {trip.status === 'ACTIVE' ? (
+                reservationDateEditing ? (
+                  <input
+                    type="date"
+                    className="mt-1 block max-w-[11rem] rounded-lg border border-slate-200 px-2 py-1.5 text-sm font-medium text-slate-800"
+                    value={reservationDateDraft}
+                    disabled={reservationDateSaving}
+                    onChange={(e) => setReservationDateDraft(e.target.value)}
+                    onBlur={() => {
+                      void handleReservationDateSave();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        (e.target as HTMLInputElement).blur();
+                      }
+                      if (e.key === 'Escape') {
+                        setReservationDateEditing(false);
+                      }
+                    }}
+                    autoFocus
+                  />
+                ) : (
+                  <p className="mt-0.5">
+                    <button
+                      type="button"
+                      className="font-medium text-slate-900 underline-offset-2 hover:underline"
+                      onClick={() => {
+                        setReservationDateDraft(toDateInputValue(trip.confirmedAt));
+                        setReservationDateEditing(true);
+                      }}
+                    >
+                      {formatDate(trip.confirmedAt)}
+                    </button>
+                  </p>
+                )
+              ) : (
+                <p className="mt-0.5 font-medium">{formatDate(trip.confirmedAt)}</p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -1004,10 +1072,6 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           <div>
             <span className="text-slate-500">확정자</span>
             <p className="font-medium">{trip.confirmedByEmployee?.name ?? '-'}</p>
-          </div>
-          <div>
-            <span className="text-slate-500">확정일</span>
-            <p className="font-medium">{formatDate(trip.confirmedAt)}</p>
           </div>
           <div>
             <span className="text-slate-500">상태</span>

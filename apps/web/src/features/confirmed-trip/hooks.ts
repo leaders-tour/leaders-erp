@@ -460,6 +460,7 @@ export function useUpdateConfirmedTrip() {
     totalAmountKrw?: number | null;
     securityDepositAmountKrw?: number | null;
     groupTotalAmountKrw?: number | null;
+    confirmedAt?: string;
   };
 
   return {

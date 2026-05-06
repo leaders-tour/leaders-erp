@@ -196,6 +196,7 @@ export class ConfirmedTripRepository {
       assignedVehicle: string | null;
       accommodationNote: string | null;
       operationNote: string | null;
+      confirmedAt: Date;
       status: ConfirmedTripStatus;
       travelStart: Date | null;
       travelEnd: Date | null;

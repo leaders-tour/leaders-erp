@@ -113,7 +113,15 @@ export class ConfirmedTripService {
       throw new DomainError('NOT_FOUND', 'Confirmed trip not found');
     }
 
-    const { status, planVersionId: nextPlanVersionId, ...rest } = parsed.data;
+    const { status, planVersionId: nextPlanVersionId, confirmedAt: nextConfirmedAt, ...rest } =
+      parsed.data;
+
+    if (nextConfirmedAt !== undefined && trip.status !== 'ACTIVE') {
+      throw new DomainError(
+        'VALIDATION_FAILED',
+        'confirmedAt can only be updated on an active confirmed trip',
+      );
+    }
 
     let migrationLinkedPlanId: string | undefined;
     if (nextPlanVersionId !== undefined) {
@@ -167,6 +175,9 @@ export class ConfirmedTripService {
     }
     if (status !== undefined) {
       updateData.status = status;
+    }
+    if (nextConfirmedAt !== undefined) {
+      updateData.confirmedAt = nextConfirmedAt;
     }
 
     return new ConfirmedTripRepository(this.prisma).update(id, updateData as Parameters<ConfirmedTripRepository['update']>[1]);
