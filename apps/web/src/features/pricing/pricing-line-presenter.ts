@@ -198,10 +198,7 @@ function inferLegacyPricingLineDisplay(
     }
     case 'MANUAL_ADJUSTMENT': {
       if (desc.includes('샤브') && desc.includes('누락')) {
-        return emptyResolved('PER_PERSON_SINGLE', {
-          unitAmountKrw: line.unitPriceKrw ?? line.amountKrw,
-          count: 1,
-        });
+        return emptyResolved('CUSTOM', { text: '울란바토르 미경유' });
       }
       if (desc === '야간열차') {
         if (line.unitPriceKrw !== null && line.quantity > 0) {

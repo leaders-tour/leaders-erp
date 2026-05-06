@@ -239,10 +239,7 @@ export function buildPricingLineDisplay(
     }
     case 'MANUAL_ADJUSTMENT': {
       if (meta && typeof meta === 'object' && 'reason' in meta && meta.reason === 'shabushabu_missing') {
-        return emptyDisplay('PER_PERSON_SINGLE', {
-          unitAmountKrw: line.unitPriceKrw ?? line.amountKrw,
-          count: 1,
-        });
+        return emptyDisplay('CUSTOM', { text: '울란바토르 미경유' });
       }
       if (desc === '야간열차' || (meta && typeof meta === 'object' && 'nightTrainBlockIds' in meta)) {
         if (line.unitPriceKrw !== null && line.quantity > 0) {

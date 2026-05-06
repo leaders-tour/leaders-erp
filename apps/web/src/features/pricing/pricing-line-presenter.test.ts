@@ -12,14 +12,26 @@ describe('pricing-line-presenter', () => {
       unitPriceKrw: -18_000,
       quantity: 1,
       amountKrw: -18_000,
-      displayBasis: 'PER_PERSON_SINGLE',
-      displayUnitAmountKrw: -18_000,
-      displayCount: 1,
+      displayBasis: 'CUSTOM',
+      displayUnitAmountKrw: null,
+      displayCount: null,
       displayDivisorPerson: null,
-      displayText: null,
+      displayText: '울란바토르 미경유',
     };
-    expect(formatPricingDetailFormula(line, ctx6)).toBe('-18,000원*1');
-    expect(resolvePricingLineDisplay(line, ctx6).basis).toBe('PER_PERSON_SINGLE');
+    expect(formatPricingDetailFormula(line, ctx6)).toBe('울란바토르 미경유');
+    expect(resolvePricingLineDisplay(line, ctx6).basis).toBe('CUSTOM');
+  });
+
+  it('infers shabu-missing detail text when API display fields are absent', () => {
+    const line = {
+      lineCode: 'MANUAL_ADJUSTMENT' as const,
+      sourceType: 'RULE' as const,
+      description: '샤브샤브 누락 할인',
+      unitPriceKrw: -18_000,
+      quantity: 1,
+      amountKrw: -18_000,
+    };
+    expect(formatPricingDetailFormula(line, ctx6)).toBe('울란바토르 미경유');
   });
 
   it('formats night-train line as amount/count', () => {
