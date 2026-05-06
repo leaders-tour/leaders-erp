@@ -1,9 +1,12 @@
+export { formatRegionLodgingDisplayLabel } from '@tour/domain';
+
 export type LodgingSelectionLevel = 'LV1' | 'LV2' | 'LV3' | 'LV4' | 'CUSTOM';
 
 export interface RegionLodgingOption {
   id: string;
   regionId: string;
   name: string;
+  subtitle: string | null;
   priceKrw: number | null;
   pricePerPersonKrw: number | null;
   pricePerTeamKrw: number | null;

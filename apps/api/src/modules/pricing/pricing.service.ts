@@ -1,4 +1,9 @@
-import type { PricingManualSnapshot } from '@tour/domain';
+import type { PricingManualSnapshot, VariantType } from '@tour/domain';
+import {
+  buildPricingManualPresentation,
+  regionLodgingNameOnlyFromStoredSnapshot,
+  roundBaseAmountKrwToThousands,
+} from '@tour/domain';
 import {
   Event,
   PricingCalcType,
@@ -7,8 +12,6 @@ import {
   Prisma,
   PrismaClient,
 } from '@prisma/client';
-import type { VariantType } from '@tour/domain';
-import { buildPricingManualPresentation, roundBaseAmountKrwToThousands } from '@tour/domain';
 import { DomainError } from '../../lib/errors';
 import type {
   LodgingSelectionPricingInputDto,
@@ -538,7 +541,7 @@ export class PricingService {
           lineCode: 'LODGING_SELECTION',
           sourceType: 'MANUAL',
           ruleId: null,
-          description: `${selection.dayIndex}일차 숙소지정: ${selection.customLodgingNameSnapshot ?? '-'}`,
+          description: regionLodgingNameOnlyFromStoredSnapshot(selection.customLodgingNameSnapshot),
           unitPriceKrw: price,
           quantity: 1,
           amountKrw: price,
@@ -563,7 +566,7 @@ export class PricingService {
           lineCode: 'LODGING_SELECTION',
           sourceType: 'MANUAL',
           ruleId: null,
-          description: `${selection.dayIndex}일차 숙소지정: ${selection.customLodgingNameSnapshot ?? '-'}`,
+          description: regionLodgingNameOnlyFromStoredSnapshot(selection.customLodgingNameSnapshot),
           unitPriceKrw: perPersonKrw,
           quantity: 1,
           amountKrw: perPersonKrw,
@@ -583,7 +586,7 @@ export class PricingService {
         lineCode: 'LODGING_SELECTION',
         sourceType: 'MANUAL',
         ruleId: null,
-        description: `${selection.dayIndex}일차 숙소지정: ${selection.customLodgingNameSnapshot ?? '-'}`,
+        description: regionLodgingNameOnlyFromStoredSnapshot(selection.customLodgingNameSnapshot),
         unitPriceKrw: price,
         quantity: 1,
         amountKrw: price,

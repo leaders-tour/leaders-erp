@@ -21,6 +21,7 @@ type RegionLodgingRow = {
   id: string;
   regionId: string;
   name: string;
+  subtitle?: string | null;
   priceKrw?: number | null;
   pricePerPersonKrw?: number | null;
   pricePerTeamKrw?: number | null;
@@ -37,6 +38,7 @@ type RegionLodgingPriceMode = 'PER_PERSON' | 'PER_TEAM';
 interface RegionLodgingFormState {
   regionId: string;
   name: string;
+  subtitle: string;
   priceMode: RegionLodgingPriceMode;
   priceValue: string;
 }
@@ -45,6 +47,7 @@ function createEmptyForm(regionId = ''): RegionLodgingFormState {
   return {
     regionId,
     name: '',
+    subtitle: '',
     priceMode: 'PER_PERSON',
     priceValue: '',
   };
@@ -58,6 +61,7 @@ function toFormState(row: RegionLodgingRow): RegionLodgingFormState {
   return {
     regionId: row.regionId,
     name: row.name,
+    subtitle: row.subtitle ?? '',
     priceMode,
     priceValue,
   };
@@ -88,6 +92,10 @@ function validateForm(form: RegionLodgingFormState): string | null {
 
   if (!form.name.trim()) {
     return '숙소명을 입력해 주세요.';
+  }
+
+  if (form.subtitle.trim().length > 191) {
+    return '구분은 191자 이하로 입력해 주세요.';
   }
 
   const priceValue = parseOptionalInt(form.priceValue);
@@ -173,6 +181,7 @@ export function RegionLodgingPage(): JSX.Element {
             const payload = {
               regionId: form.regionId,
               name: form.name.trim(),
+              subtitle: form.subtitle.trim() ? form.subtitle.trim() : null,
               pricePerPersonKrw: form.priceMode === 'PER_PERSON' ? parseOptionalInt(form.priceValue) : null,
               pricePerTeamKrw: form.priceMode === 'PER_TEAM' ? parseOptionalInt(form.priceValue) : null,
             };
@@ -234,6 +243,21 @@ export function RegionLodgingPage(): JSX.Element {
                 value={form.name}
                 onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
                 rows={3}
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
+            <div className="grid gap-1">
+              <h3 className="text-sm font-semibold text-slate-800">구분</h3>
+              <p className="text-xs text-slate-500">같은 숙소명의 등급·옵션을 짧게 구분합니다. 예: LV3, LV4</p>
+            </div>
+            <label className="grid gap-2 text-sm md:max-w-md">
+              <Input
+                type="text"
+                value={form.subtitle}
+                onChange={(event) => setForm((prev) => ({ ...prev, subtitle: event.target.value }))}
+                placeholder="예: LV3"
               />
             </label>
           </div>
@@ -305,6 +329,7 @@ export function RegionLodgingPage(): JSX.Element {
             <tr>
               <Th>지역</Th>
               <Th>숙소명</Th>
+              <Th>구분</Th>
               <Th>가격 구분</Th>
               <Th>가격</Th>
               <Th>액션</Th>
@@ -313,7 +338,7 @@ export function RegionLodgingPage(): JSX.Element {
           <tbody>
             {crud.rows.length === 0 ? (
               <tr>
-                <Td className="text-slate-500" colSpan={5}>
+                <Td className="text-slate-500" colSpan={6}>
                   데이터가 없습니다.
                 </Td>
               </tr>
@@ -322,6 +347,7 @@ export function RegionLodgingPage(): JSX.Element {
                 <tr key={row.id}>
                   <Td>{row.region?.name ?? regionNameById.get(row.regionId) ?? row.regionId}</Td>
                   <Td>{row.name}</Td>
+                  <Td className="text-slate-600">{row.subtitle?.trim() ? row.subtitle : '—'}</Td>
                   <Td>{formatPriceType(row)}</Td>
                   <Td>{formatPriceValue(row)}</Td>
                   <Td>

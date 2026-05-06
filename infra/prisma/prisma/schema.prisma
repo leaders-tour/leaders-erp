@@ -1396,6 +1396,7 @@ model RegionLodging {
   id                String  @id @default(uuid(7))
   regionId          String
   name              String
+  subtitle          String?
   priceKrw          Int?
   pricePerPersonKrw Int?
   pricePerTeamKrw   Int?

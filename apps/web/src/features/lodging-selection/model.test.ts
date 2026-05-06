@@ -1,7 +1,28 @@
 import { describe, expect, it } from 'vitest';
+import {
+  formatRegionLodgingDisplayLabel,
+  regionLodgingNameOnlyFromStoredSnapshot,
+} from '@tour/domain';
 import { buildLodgingCellText, formatRegionLodgingPrice, getBaseLodgingName, getBaseLodgingText } from './model';
 
 describe('lodging-selection model', () => {
+  it('formats region lodging display labels with optional subtitle', () => {
+    expect(formatRegionLodgingDisplayLabel({ name: '카라반세라이' })).toBe('카라반세라이');
+    expect(formatRegionLodgingDisplayLabel({ name: '카라반세라이', subtitle: null })).toBe('카라반세라이');
+    expect(formatRegionLodgingDisplayLabel({ name: ' 카라반세라이 ', subtitle: '  LV4  ' })).toBe('카라반세라이 · LV4');
+  });
+
+  it('strips subtitle suffix for pricing-style lodging description', () => {
+    expect(regionLodgingNameOnlyFromStoredSnapshot(null)).toBe('-');
+    expect(regionLodgingNameOnlyFromStoredSnapshot('   ')).toBe('-');
+    expect(regionLodgingNameOnlyFromStoredSnapshot('호텔만')).toBe('호텔만');
+    expect(
+      regionLodgingNameOnlyFromStoredSnapshot(
+        formatRegionLodgingDisplayLabel({ name: '카라반세라이', subtitle: 'LV4' }),
+      ),
+    ).toBe('카라반세라이');
+  });
+
   it('builds lodging cell text by level', () => {
     expect(buildLodgingCellText({ level: 'LV1', baseLodgingName: '여행자 캠프' })).toBe('LV.1 캠핑');
     expect(buildLodgingCellText({ level: 'LV2', baseLodgingName: '여행자 캠프' })).toBe('LV.2 전통게르');

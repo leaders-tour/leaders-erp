@@ -36,6 +36,7 @@ import {
 } from '../features/pricing/team-pricing-summary-display';
 import {
   buildLodgingCellText,
+  formatRegionLodgingDisplayLabel,
   getBaseLodgingText,
   type LodgingSelectionLevel,
   type RegionLodgingOption,
@@ -1133,6 +1134,7 @@ const REGION_LODGINGS_QUERY = gql`
       id
       regionId
       name
+      subtitle
       priceKrw
       pricePerPersonKrw
       pricePerTeamKrw
@@ -3625,7 +3627,11 @@ export function ItineraryBuilderPage(): JSX.Element {
           row.locationVersionId ? locationVersionById.get(row.locationVersionId) : undefined,
         );
         const customLodgingName =
-          level === 'CUSTOM' ? (customLodging?.name ?? row.customLodgingNameSnapshot ?? '') : null;
+          level === 'CUSTOM'
+            ? customLodging
+              ? formatRegionLodgingDisplayLabel(customLodging)
+              : (row.customLodgingNameSnapshot ?? '')
+            : null;
 
         return {
           ...row,

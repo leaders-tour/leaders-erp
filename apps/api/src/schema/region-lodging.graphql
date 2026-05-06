@@ -2,6 +2,7 @@ type RegionLodging {
   id: ID!
   regionId: String!
   name: String!
+  subtitle: String
   priceKrw: Int
   pricePerPersonKrw: Int
   pricePerTeamKrw: Int
@@ -15,6 +16,7 @@ type RegionLodging {
 input RegionLodgingCreateInput {
   regionId: String!
   name: String!
+  subtitle: String
   pricePerPersonKrw: Int
   pricePerTeamKrw: Int
   sortOrder: Int
@@ -23,6 +25,7 @@ input RegionLodgingCreateInput {
 input RegionLodgingUpdateInput {
   regionId: String
   name: String
+  subtitle: String
   pricePerPersonKrw: Int
   pricePerTeamKrw: Int
   sortOrder: Int

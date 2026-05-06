@@ -12,6 +12,7 @@ import {
   userNoteCreateSchema,
   userUpdateSchema,
 } from '@tour/validation';
+import { formatRegionLodgingDisplayLabel } from '@tour/domain';
 import { createValidationError, DomainError } from '../../lib/errors';
 import { FileStorageClient, type UploadFile } from '../../lib/file-storage/client';
 import { resolveRegionSetRegionIds } from '../../lib/resolve-region-set';
@@ -715,6 +716,7 @@ export class PlanService {
             select: {
               id: true,
               name: true,
+              subtitle: true,
               priceKrw: true,
               pricePerPersonKrw: true,
               pricePerTeamKrw: true,
@@ -747,10 +749,15 @@ export class PlanService {
         throw new DomainError('VALIDATION_FAILED', 'customLodgingId is required when level is CUSTOM');
       }
 
+      const customLodgingNameSnapshot = formatRegionLodgingDisplayLabel({
+        name: lodging.name,
+        subtitle: lodging.subtitle,
+      });
+
       if (lodging.pricePerPersonKrw !== null) {
         return {
           ...selection,
-          customLodgingNameSnapshot: lodging.name,
+          customLodgingNameSnapshot,
           pricingModeSnapshot: 'PER_PERSON',
           priceSnapshotKrw: lodging.pricePerPersonKrw,
         };
@@ -759,7 +766,7 @@ export class PlanService {
       if (lodging.pricePerTeamKrw !== null) {
         return {
           ...selection,
-          customLodgingNameSnapshot: lodging.name,
+          customLodgingNameSnapshot,
           pricingModeSnapshot: 'PER_TEAM',
           priceSnapshotKrw: lodging.pricePerTeamKrw,
         };
@@ -767,7 +774,7 @@ export class PlanService {
 
       return {
         ...selection,
-        customLodgingNameSnapshot: lodging.name,
+        customLodgingNameSnapshot,
         pricingModeSnapshot: 'FLAT',
         priceSnapshotKrw: lodging.priceKrw ?? 0,
       };

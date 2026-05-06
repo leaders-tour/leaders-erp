@@ -5,6 +5,7 @@ interface RegionLodgingRow {
   id: string;
   regionId: string;
   name: string;
+  subtitle: string | null;
   priceKrw: number | null;
   pricePerPersonKrw: number | null;
   pricePerTeamKrw: number | null;
@@ -22,6 +23,7 @@ const LIST = gql`
       id
       regionId
       name
+      subtitle
       priceKrw
       pricePerPersonKrw
       pricePerTeamKrw
@@ -60,12 +62,18 @@ const REMOVE = gql`
 export interface RegionLodgingFormInput {
   regionId: string;
   name: string;
+  subtitle?: string | null;
   pricePerPersonKrw?: number | null;
   pricePerTeamKrw?: number | null;
 }
 
 function normalizeNullableNumber(value: number | null | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function normalizeNullableSubtitle(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? '';
+  return trimmed === '' ? null : trimmed;
 }
 
 export function useRegionLodgingCrud() {
@@ -81,6 +89,7 @@ export function useRegionLodgingCrud() {
       input: {
         regionId: input.regionId.trim(),
         name: input.name.trim(),
+        subtitle: normalizeNullableSubtitle(input.subtitle),
         pricePerPersonKrw: normalizeNullableNumber(input.pricePerPersonKrw),
         pricePerTeamKrw: normalizeNullableNumber(input.pricePerTeamKrw),
       },
@@ -90,6 +99,7 @@ export function useRegionLodgingCrud() {
       input: {
         regionId: input.regionId.trim(),
         name: input.name.trim(),
+        subtitle: normalizeNullableSubtitle(input.subtitle),
         pricePerPersonKrw: normalizeNullableNumber(input.pricePerPersonKrw),
         pricePerTeamKrw: normalizeNullableNumber(input.pricePerTeamKrw),
       },

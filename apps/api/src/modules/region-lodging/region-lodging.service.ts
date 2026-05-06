@@ -40,6 +40,13 @@ export class RegionLodgingService {
     return this.repository.create({
       ...parsed.data,
       name: parsed.data.name.trim(),
+      ...(parsed.data.subtitle !== undefined
+        ? {
+            subtitle: parsed.data.subtitle?.trim()
+              ? parsed.data.subtitle.trim()
+              : null,
+          }
+        : {}),
       isActive: true,
       sortOrder: parsed.data.sortOrder ?? 0,
     });
@@ -63,6 +70,13 @@ export class RegionLodgingService {
     return this.repository.update(id, {
       ...parsed.data,
       ...(parsed.data.name !== undefined ? { name: parsed.data.name.trim() } : {}),
+      ...(parsed.data.subtitle !== undefined
+        ? {
+            subtitle: parsed.data.subtitle?.trim()
+              ? parsed.data.subtitle.trim()
+              : null,
+          }
+        : {}),
       isActive: true,
     });
   }

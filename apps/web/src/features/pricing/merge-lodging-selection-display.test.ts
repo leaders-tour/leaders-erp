@@ -102,7 +102,7 @@ describe('mergeLodgingSelectionDisplayLines', () => {
   it('ignores CUSTOM lodging descriptions', () => {
     const custom = line({
       lineCode: 'LODGING_SELECTION',
-      description: '2일차 숙소지정: 테스트',
+      description: '카라반세라이',
       unitPriceKrw: 80_000,
       quantity: 1,
       amountKrw: 80_000,

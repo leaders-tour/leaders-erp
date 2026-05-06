@@ -1,6 +1,6 @@
 import { Button, Card } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
-import { formatRegionLodgingPrice, type RegionLodgingOption } from '../model';
+import { formatRegionLodgingDisplayLabel, formatRegionLodgingPrice, type RegionLodgingOption } from '../model';
 
 interface RegionLodgingSelectModalProps {
   open: boolean;
@@ -74,7 +74,9 @@ export function RegionLodgingSelectModal({
             ) : (
               <>
                 <div className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                  {selected ? `${selected.name} · ${formatRegionLodgingPrice(selected)}` : '숙소를 선택해 주세요.'}
+                  {selected
+                    ? `${formatRegionLodgingDisplayLabel(selected)} · ${formatRegionLodgingPrice(selected)}`
+                    : '숙소를 선택해 주세요.'}
                 </div>
                 <div className="mt-5 grid gap-3 md:grid-cols-2">
                   {lodgings.map((lodging) => {
@@ -91,6 +93,13 @@ export function RegionLodgingSelectModal({
                         }`}
                       >
                         <div className="text-sm font-semibold">{lodging.name}</div>
+                        {lodging.subtitle?.trim() ? (
+                          <div
+                            className={`mt-1 text-xs font-medium ${isSelected ? 'text-slate-300' : 'text-slate-600'}`}
+                          >
+                            {lodging.subtitle.trim()}
+                          </div>
+                        ) : null}
                         <div className={`mt-2 text-xs ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>
                           {formatRegionLodgingPrice(lodging)}
                         </div>

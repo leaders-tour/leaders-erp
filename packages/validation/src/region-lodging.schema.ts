@@ -3,6 +3,7 @@ import { z } from 'zod';
 const regionLodgingBaseSchema = z.object({
   regionId: z.string().min(1),
   name: z.string().min(1).max(4000),
+  subtitle: z.string().max(191).nullable().optional(),
   pricePerPersonKrw: z.number().int().min(0).max(1_000_000_000).nullable().optional(),
   pricePerTeamKrw: z.number().int().min(0).max(1_000_000_000).nullable().optional(),
   sortOrder: z.number().int().min(0).max(10_000).optional(),
