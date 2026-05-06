@@ -1,5 +1,5 @@
 import { mergeLodgingSelectionDisplayLines } from '../../pricing/merge-lodging-selection-display';
-import { buildEffectivePricing, sliceEffectiveTotalsForUi } from '../../pricing/manual-pricing';
+import { buildEffectivePricing, sliceEffectiveTotalsForUi, resolveAdjustmentLinesForCustomerDocument } from '../../pricing/manual-pricing';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
 import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
 import type { PlanVersionDetail } from '../../plan/hooks';
@@ -121,20 +121,21 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     remarkText: normalizeMultilineText(meta?.remark),
     basePricePerPersonKrw,
     adjustmentLines:
-      pricing?.adjustmentLines.map((line) => ({
-        teamName: null,
-        label: line.label,
-        leadAmountKrw: line.leadAmountKrw,
-        formula: line.formula,
-        strikethrough: line.strikethrough === true,
-      })) ??
-      (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []).map((line) => ({
-        teamName: null,
-        label: getPricingLineLabel(line),
-        leadAmountKrw: resolveDisplayLeadAmount(line, pricingCtx),
-        formula: formatPricingDetailFormula(line, pricingCtx),
-        strikethrough: false,
-      })),
+      pricing
+        ? resolveAdjustmentLinesForCustomerDocument(pricing).map((line) => ({
+            teamName: null,
+            label: line.label,
+            leadAmountKrw: line.leadAmountKrw,
+            formula: line.formula,
+            strikethrough: line.strikethrough === true,
+          }))
+        : (pricingBuckets ? mergeLodgingSelectionDisplayLines(pricingBuckets.addonLines) : []).map((line) => ({
+            teamName: null,
+            label: getPricingLineLabel(line),
+            leadAmountKrw: resolveDisplayLeadAmount(line, pricingCtx),
+            formula: formatPricingDetailFormula(line, pricingCtx),
+            strikethrough: false,
+          })),
     teamPricings:
       pricing?.teamPricings.map((teamPricing) => ({
         teamOrderIndex: teamPricing.teamOrderIndex,

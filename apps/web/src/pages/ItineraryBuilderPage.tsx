@@ -1867,6 +1867,9 @@ function createEstimateDraftSnapshot(input: {
   pricingPreview: EffectivePricingRow | null;
   displayedPricingAdjustmentLines: DisplayedPricingAdjustmentLineRow[];
 }): EstimateBuilderDraftSnapshot {
+  const headlineTotals =
+    input.pricingPreview &&
+    sliceEffectiveTotalsForUi(input.pricingPreview as EffectivePricingResult);
   return {
     planTitle: input.planTitle,
     leaderName: input.leaderName,
@@ -1898,15 +1901,15 @@ function createEstimateDraftSnapshot(input: {
       lodgingCellText: row.lodgingCellText,
       mealCellText: row.mealCellText,
     })),
-    pricing: input.pricingPreview
+    pricing: input.pricingPreview && headlineTotals
       ? {
-          baseAmountKrw: input.pricingPreview.baseAmountKrw,
-          totalAmountKrw: input.pricingPreview.totalAmountKrw,
-          depositAmountKrw: input.pricingPreview.depositAmountKrw,
-          balanceAmountKrw: input.pricingPreview.balanceAmountKrw,
-          securityDepositTotalKrw: input.pricingPreview.securityDepositAmountKrw,
-          securityDepositUnitKrw: input.pricingPreview.securityDepositUnitPriceKrw,
-          securityDepositMode: input.pricingPreview.securityDepositMode,
+          baseAmountKrw: headlineTotals.baseAmountKrw,
+          totalAmountKrw: headlineTotals.totalAmountKrw,
+          depositAmountKrw: headlineTotals.depositAmountKrw,
+          balanceAmountKrw: headlineTotals.balanceAmountKrw,
+          securityDepositTotalKrw: headlineTotals.securityDepositAmountKrw,
+          securityDepositUnitKrw: headlineTotals.securityDepositUnitPriceKrw,
+          securityDepositMode: headlineTotals.securityDepositMode,
           adjustmentLines: input.displayedPricingAdjustmentLines.map((line) => ({
               teamName: !line.isSharedAcrossTeams ? line.teamNames[0] ?? null : null,
               label: line.label,
@@ -4212,6 +4215,12 @@ export function ItineraryBuilderPage(): JSX.Element {
       normalizedManualDepositAmountKrw,
     ) as unknown as EffectivePricingRow;
   }, [normalizedManualDepositAmountKrw, normalizedManualPricing, pricingPreview, pricingPreviewContext]);
+  const estimatePricingUiTotals = useMemo(() => {
+    if (!effectivePricingPreview) {
+      return null;
+    }
+    return sliceEffectiveTotalsForUi(effectivePricingPreview as EffectivePricingResult);
+  }, [effectivePricingPreview]);
   const serializedManualPricingSnapshot = useMemo(() => {
     if (!normalizedManualPricing.enabled) {
       return undefined;
@@ -4219,9 +4228,21 @@ export function ItineraryBuilderPage(): JSX.Element {
     if (!effectivePricingPreview) {
       return toManualPricingSnapshot(normalizedManualPricing);
     }
-    const totals = sliceEffectiveTotalsForUi(effectivePricingPreview as EffectivePricingResult);
-    return toManualPricingSnapshot(normalizedManualPricing, totals);
-  }, [effectivePricingPreview, normalizedManualPricing]);
+    const totals = estimatePricingUiTotals;
+    return toManualPricingSnapshot(
+      normalizedManualPricing,
+      totals
+        ? {
+            baseAmountKrw: totals.baseAmountKrw,
+            totalAmountKrw: totals.totalAmountKrw,
+            depositAmountKrw: totals.depositAmountKrw,
+            balanceAmountKrw: totals.balanceAmountKrw,
+            securityDepositAmountKrw: totals.securityDepositAmountKrw,
+            securityDepositMode: totals.securityDepositMode,
+          }
+        : null,
+    );
+  }, [effectivePricingPreview, estimatePricingUiTotals, normalizedManualPricing]);
   const hiddenManualPricingAutoLines = useMemo(
     () =>
       normalizedManualPricing.adjustmentLines.filter(
@@ -4377,7 +4398,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       rentalItemsText,
       selectedEventNames,
       remark,
-      planRows,
+      mergedPlanStops,
       effectivePricingPreview,
       displayedPricingAdjustmentLines,
     ],
@@ -6923,7 +6944,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                             <input
                               type="number"
                               step={1}
-                              value={effectivePricingPreview.baseAmountKrw}
+                              value={(estimatePricingUiTotals ?? effectivePricingPreview).baseAmountKrw}
                               onChange={(event) => {
                                 const nextValue = Number(event.target.value);
                                 if (!Number.isInteger(nextValue)) {
@@ -6940,7 +6961,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                             </p>
                           </div>
                         ) : (
-                          <div className="mt-2 text-slate-900">{formatKrw(effectivePricingPreview.baseAmountKrw)}</div>
+                          <div className="mt-2 text-slate-900">{formatKrw((estimatePricingUiTotals ?? effectivePricingPreview).baseAmountKrw)}</div>
                         )}
                       </div>
 

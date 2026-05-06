@@ -8,6 +8,8 @@ import {
 import { formatPricingDetailFormula, resolveDisplayLeadAmount } from './pricing-line-presenter';
 import { getPricingLineLabel } from './view-model';
 
+type SecurityDepositScopeMode = 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+
 interface PricingSummaryAmounts {
   baseAmountKrw: number;
   addonAmountKrw: number;
@@ -119,6 +121,10 @@ function hasNumber(value: unknown): value is number {
  * 팀 단위 수동 요약만 넣어둔 스냅샷에서 `baseAmountKrw` 등이 비어 있으면
  * 글로벌 `summary`를 폴백한다. 그렇지 않으면 단일 팀일 때 `sliceEffectiveTotalsForUi`가
  * 팀 라인 자동 합(천 원 반올림 기본금)만 쓰게 되어 빌더에서 저장한 수동 기본금이 상세 UI에서 빠진다.
+ *
+ * 총액·예약금·잔금은 글로벌 폴백을 하지 않는다. 저장 스냅샷에 남은 글로벌 요약이
+ * 팀 줄 재계산보다 우선하면 할인/추가 줄을 넣어도 총액이 고정되는 현상이 생긴다.
+ * (팀별 `teamSummaries`에 사용자가 입력한 값만 핀으로 유지한다.)
  */
 function mergeManualSummaryForTeamScope(
   globalSummary: PricingManualSnapshot['summary'] | null | undefined,
@@ -127,43 +133,64 @@ function mergeManualSummaryForTeamScope(
   if (!globalSummary && !teamRow) {
     return null;
   }
-  if (!teamRow) {
-    return globalSummary ?? null;
-  }
-  if (!globalSummary) {
-    const { teamOrderIndex: _t, ...rest } = teamRow;
-    return rest;
-  }
 
-  const pickInt = (
+  const mergeSecurityDepositMode = (
+    teamInner: PricingManualTeamSummarySnapshot | null | undefined,
+    globalInner: PricingManualSnapshot['summary'] | null | undefined,
+  ): SecurityDepositScopeMode | null => {
+    const teamMode = teamInner?.securityDepositMode;
+    const globalMode = globalInner?.securityDepositMode;
+    if (teamMode === 'NONE' || teamMode === 'PER_PERSON' || teamMode === 'PER_TEAM') {
+      return teamMode;
+    }
+    if (globalMode === 'NONE' || globalMode === 'PER_PERSON' || globalMode === 'PER_TEAM') {
+      return globalMode;
+    }
+    return null;
+  };
+
+  const pickSharedWithGlobal = (
     teamVal: number | null | undefined,
     globalVal: number | null | undefined,
-  ): number | null | undefined => {
+  ): number | null => {
     if (hasNumber(teamVal)) {
       return teamVal;
     }
     if (hasNumber(globalVal)) {
       return globalVal;
     }
-    return teamVal ?? globalVal ?? null;
+    return null;
   };
 
-  const teamMode = teamRow.securityDepositMode;
-  const globalMode = globalSummary.securityDepositMode;
-  const securityDepositMode =
-    teamMode === 'NONE' || teamMode === 'PER_PERSON' || teamMode === 'PER_TEAM'
-      ? teamMode
-      : globalMode === 'NONE' || globalMode === 'PER_PERSON' || globalMode === 'PER_TEAM'
-        ? globalMode
-        : null;
+  /** 예약금·잔금·총액: 팀 행에만 허용 (글로벌 폴백 금지) */
+  const pickTeamPinnedOnly = (teamVal: number | null | undefined): number | null =>
+    hasNumber(teamVal) ? teamVal : null;
+
+  if (!teamRow) {
+    if (!globalSummary) {
+      return null;
+    }
+    return {
+      baseAmountKrw: pickSharedWithGlobal(null, globalSummary.baseAmountKrw),
+      totalAmountKrw: null,
+      depositAmountKrw: null,
+      balanceAmountKrw: null,
+      securityDepositAmountKrw: pickSharedWithGlobal(null, globalSummary.securityDepositAmountKrw),
+      securityDepositMode: mergeSecurityDepositMode(null, globalSummary),
+    };
+  }
+  if (!globalSummary) {
+    const { teamOrderIndex: _t, ...rest } = teamRow;
+    return rest;
+  }
 
   return {
-    baseAmountKrw: pickInt(teamRow.baseAmountKrw, globalSummary.baseAmountKrw),
-    totalAmountKrw: pickInt(teamRow.totalAmountKrw, globalSummary.totalAmountKrw),
-    depositAmountKrw: pickInt(teamRow.depositAmountKrw, globalSummary.depositAmountKrw),
-    balanceAmountKrw: pickInt(teamRow.balanceAmountKrw, globalSummary.balanceAmountKrw),
-    securityDepositAmountKrw: pickInt(teamRow.securityDepositAmountKrw, globalSummary.securityDepositAmountKrw),
-    securityDepositMode,
+    baseAmountKrw: pickSharedWithGlobal(teamRow.baseAmountKrw, globalSummary.baseAmountKrw),
+    totalAmountKrw: pickTeamPinnedOnly(teamRow.totalAmountKrw),
+    depositAmountKrw: pickTeamPinnedOnly(teamRow.depositAmountKrw),
+    balanceAmountKrw: pickTeamPinnedOnly(teamRow.balanceAmountKrw),
+    securityDepositAmountKrw: pickSharedWithGlobal(teamRow.securityDepositAmountKrw, globalSummary.securityDepositAmountKrw),
+    securityDepositMode: mergeSecurityDepositMode(teamRow, globalSummary),
   };
 }
 
@@ -183,9 +210,21 @@ function filterManualPricingForScope(
     return rowTeamOrderIndex === null || rowTeamOrderIndex === teamOrderIndex;
   });
 
+  const rawGlobalSummary = manualPricing.summary ?? null;
+  /** 팀별 요약 행이 있으면 글로벌 총액·예약금·잔금은 롤업으로 신뢰하지 않는다. */
+  const globalSummaryForScope =
+    teamOrderIndex === null && (manualPricing.teamSummaries?.length ?? 0) > 0 && rawGlobalSummary
+      ? {
+          ...rawGlobalSummary,
+          totalAmountKrw: null,
+          depositAmountKrw: null,
+          balanceAmountKrw: null,
+        }
+      : rawGlobalSummary;
+
   const summary =
     teamOrderIndex === null
-      ? manualPricing.summary ?? null
+      ? globalSummaryForScope
       : mergeManualSummaryForTeamScope(
           manualPricing.summary ?? null,
           (manualPricing.teamSummaries ?? []).find((item) => item.teamOrderIndex === teamOrderIndex) ?? null,
@@ -293,8 +332,6 @@ function mergeAdjustmentLines(
 
   return [...mergedAutoLines, ...manualRows];
 }
-
-type SecurityDepositScopeMode = 'NONE' | 'PER_PERSON' | 'PER_TEAM';
 
 function resolveManualSecurityDepositMode(
   summary: PricingManualSnapshot['summary'] | null | undefined,
@@ -483,4 +520,19 @@ export function sliceEffectiveTotalsForUi<TLine extends PricingManualSourceLine>
     securityDepositUnitPriceKrw: effective.securityDepositUnitPriceKrw,
     securityDepositMode: effective.securityDepositMode,
   };
+}
+
+/**
+ * 견적서·버전 상세의 「추가 및 할인」 줄.
+ * `effective.adjustmentLines`(글로벌 스코프)만 쓰면 `teamOrderIndex`가 있는 AUTO·MANUAL 줄이
+ * 빠져 총액(`sliceEffectiveTotalsForUi`)에는 반영되는데 목록에는 안 나온다.
+ */
+export function resolveAdjustmentLinesForCustomerDocument<TLine extends PricingManualSourceLine>(
+  effective: EffectivePricingResult<TLine>,
+): PricingAdjustmentLineRow[] {
+  const teams = effective.teamPricings ?? [];
+  if (teams.length === 1 && teams[0]) {
+    return teams[0].adjustmentLines;
+  }
+  return effective.adjustmentLines;
 }

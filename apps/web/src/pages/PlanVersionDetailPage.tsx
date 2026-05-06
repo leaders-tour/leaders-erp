@@ -9,9 +9,10 @@ import { applyLocationGuides } from '../features/estimate/utils/apply-location-g
 import { VersionSnapshotView } from '../features/plan/components';
 import { buildExternalTransferDirectionText } from '../features/plan/external-transfer';
 import { usePlanVersionDetail } from '../features/plan/hooks';
+import { countMainPlanStopRows } from '../features/plan/plan-stop-row';
 import { useConfirmTrip } from '../features/confirmed-trip/hooks';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
-import { buildEffectivePricing, sliceEffectiveTotalsForUi } from '../features/pricing/manual-pricing';
+import { buildEffectivePricing, resolveAdjustmentLinesForCustomerDocument, sliceEffectiveTotalsForUi } from '../features/pricing/manual-pricing';
 import { resolveDisplayLeadAmount } from '../features/pricing/pricing-line-presenter';
 import { toVariantLabel } from '../features/plan/variant-label';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
@@ -137,7 +138,13 @@ export function PlanVersionDetailPage(): JSX.Element {
 
   const pricingCtx = {
     headcountTotal: version.meta?.headcountTotal ?? 0,
-    totalDays: version.totalDays,
+    totalDays: (() => {
+      const counted = countMainPlanStopRows(version.planStops ?? []);
+      if (counted > 0) {
+        return counted;
+      }
+      return version.totalDays > 0 ? version.totalDays : 1;
+    })(),
   };
   const effectivePricing = version.pricing
     ? buildEffectivePricing(
@@ -148,6 +155,9 @@ export function PlanVersionDetailPage(): JSX.Element {
       )
     : null;
   const effectiveTotalsForUi = effectivePricing ? sliceEffectiveTotalsForUi(effectivePricing) : null;
+  const customerAdjustmentLines = effectivePricing
+    ? resolveAdjustmentLinesForCustomerDocument(effectivePricing)
+    : [];
   const originalPricingSnapshot = version.pricing?.originalPricing ?? null;
   const autoPricingBuckets = version.pricing
     ? buildPricingViewBuckets(
@@ -634,11 +644,11 @@ export function PlanVersionDetailPage(): JSX.Element {
                         (effectiveTotalsForUi ?? effectivePricing).baseAmountKrw,
                     )}
                   </div>
-                  {effectivePricing.adjustmentLines.length === 0 ? (
+                  {customerAdjustmentLines.length === 0 ? (
                     <p className="text-xs text-blue-700">추가금 항목이 없습니다.</p>
                   ) : (
                     <div className="space-y-2 rounded-lg border border-blue-200 bg-white p-3">
-                      {effectivePricing.adjustmentLines.map((line) => (
+                      {customerAdjustmentLines.map((line) => (
                         <div
                           key={`customer-addon-${line.id}`}
                           className="grid gap-2 border-b border-blue-100 pb-2 last:border-b-0 last:pb-0 lg:grid-cols-[minmax(0,1.5fr)_140px_minmax(0,1fr)]"
