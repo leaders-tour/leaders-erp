@@ -9,6 +9,7 @@ import {
   buildEmptyExternalTransfer,
   buildExternalTransferFromPreset,
   isExternalTransferComplete,
+  syncExternalTransferTeamSelection,
   syncExternalTransferWithSelectedTeams,
   type ExternalTransfer,
   type ExternalTransferTeamLike,
@@ -69,7 +70,7 @@ function toggleSelection(values: number[], teamOrderIndex: number): number[] {
 
 function toInitialDraft(initialValue: ExternalTransfer | null | undefined, transportGroups: ExternalTransferTeamLike[]): ExternalTransfer | null {
   if (initialValue) {
-    return syncExternalTransferWithSelectedTeams(initialValue, transportGroups);
+    return syncExternalTransferTeamSelection(initialValue, transportGroups);
   }
 
   return null;

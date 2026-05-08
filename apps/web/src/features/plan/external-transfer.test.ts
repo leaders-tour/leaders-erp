@@ -3,6 +3,7 @@ import {
   buildExternalTransferDirectionText,
   buildExternalTransferFromPreset,
   normalizeExternalTransfers,
+  syncExternalTransferTeamSelection,
   type ExternalTransfer,
 } from './external-transfer';
 
@@ -207,5 +208,25 @@ describe('external-transfer formatting', () => {
         selectedTeamOrderIndexes: [0, 1],
       },
     ]);
+  });
+});
+
+describe('external-transfer team sync', () => {
+  it('preserves saved manual time adjustments while filtering invalid team indexes', () => {
+    const transfer: ExternalTransfer = {
+      direction: 'DROP',
+      presetCode: 'DROP_OZHOUSE_AIRPORT',
+      travelDate: '2026-08-17',
+      departureTime: '05:00',
+      arrivalTime: '05:40',
+      departurePlace: '오즈하우스',
+      arrivalPlace: '공항',
+      selectedTeamOrderIndexes: [1, 99, 1],
+    };
+
+    expect(syncExternalTransferTeamSelection(transfer, teams)).toEqual({
+      ...transfer,
+      selectedTeamOrderIndexes: [1],
+    });
   });
 });

@@ -56,7 +56,7 @@ import {
   buildEmptyExternalTransfer,
   isExternalTransferComplete,
   normalizeExternalTransfers,
-  syncExternalTransferWithSelectedTeams,
+  syncExternalTransferTeamSelection,
   type ExternalTransfer,
 } from '../features/plan/external-transfer';
 import { useBuilderValidation } from '../features/plan/builder-validation';
@@ -2621,6 +2621,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const lastAutoPlanTitleRef = useRef<string>(buildDefaultPlanTitle(''));
   const hasEditedHeadcountMaleRef = useRef<boolean>(false);
   const hasHydratedParentVersionRef = useRef<boolean>(false);
+  const isWaitingForParentTransportGroupsRef = useRef<boolean>(false);
   /** 부모 버전 하이드레이션과 같은 틱에서 autoRows merge가 돌면 setPlanRows가 엇갈려 일정이 비워짐 — 한 프레임 스킵 */
   const suppressAutoRowsMergeOnceRef = useRef<boolean>(false);
   /** 신규 버전(부모 복제) 직후: 사용자가 루트·일수·variant를 바꾸기 전까지 autoRows 병합으로 일정을 덮어쓰지 않음 */
@@ -2635,6 +2636,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   useEffect(() => {
     hasHydratedParentVersionRef.current = false;
+    isWaitingForParentTransportGroupsRef.current = false;
     suppressAutoRowsMergeOnceRef.current = false;
     skipAutoRowMergeForParentCloneRef.current = false;
     parentCloneScheduleBaselineRef.current = null;
@@ -2847,6 +2849,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     skipAutoRowMergeForParentCloneRef.current = true;
     parentCloneScheduleBaselineRef.current = null;
     hasHydratedParentVersionRef.current = true;
+    isWaitingForParentTransportGroupsRef.current = true;
     dirtyPlanRowFieldKeysRef.current.clear();
     setSkipNextAutoRowsSync(true);
 
@@ -3067,10 +3070,19 @@ export function ItineraryBuilderPage(): JSX.Element {
   }, [homeSelectedTemplateId, homeTemplateOptions]);
 
   useEffect(() => {
+    if (
+      isWaitingForParentTransportGroupsRef.current &&
+      parentVersion?.meta &&
+      transportGroups.length !== parentVersion.meta.transportGroups.length
+    ) {
+      return;
+    }
+    isWaitingForParentTransportGroupsRef.current = false;
+
     setExternalTransfers((current) =>
       normalizeExternalTransfers(
         current.map((transfer) =>
-          syncExternalTransferWithSelectedTeams(
+          syncExternalTransferTeamSelection(
             {
               ...transfer,
               selectedTeamOrderIndexes: transfer.selectedTeamOrderIndexes.filter(
@@ -3082,7 +3094,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         ),
       ),
     );
-  }, [transportGroups]);
+  }, [parentVersion?.meta, transportGroups]);
 
   const filteredLocations = locations;
   const filteredOvernightStays = overnightStays;

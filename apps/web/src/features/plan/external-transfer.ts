@@ -338,6 +338,19 @@ export function syncExternalTransferWithSelectedTeams(
   };
 }
 
+export function syncExternalTransferTeamSelection(
+  transfer: ExternalTransfer,
+  teams: ExternalTransferTeamLike[],
+): ExternalTransfer {
+  return {
+    ...transfer,
+    selectedTeamOrderIndexes: transfer.selectedTeamOrderIndexes
+      .filter((teamOrderIndex) => Number.isInteger(teamOrderIndex) && teamOrderIndex >= 0 && teamOrderIndex < teams.length)
+      .filter((teamOrderIndex, index, array) => array.indexOf(teamOrderIndex) === index)
+      .sort((left, right) => left - right),
+  };
+}
+
 function normalizeExternalTransferTeamIndexes(selectedTeamOrderIndexes: number[]): number[] {
   return Array.from(new Set(selectedTeamOrderIndexes.filter((teamOrderIndex) => Number.isInteger(teamOrderIndex)))).sort(
     (left, right) => left - right,
