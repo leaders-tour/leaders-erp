@@ -145,8 +145,8 @@ function PersonnelPanel({
   driverName: string | null;
   onSaved: () => void;
 }) {
-  const { guides, loading: guidesLoading } = useGuides({ status: 'ACTIVE_SEASON' });
-  const { drivers, loading: driversLoading } = useDrivers({ status: 'ACTIVE_SEASON' });
+  const { guides, loading: guidesLoading } = useGuides();
+  const { drivers, loading: driversLoading } = useDrivers();
   const { updateConfirmedTrip, loading: saving } = useUpdateConfirmedTrip();
 
   const [selectedGuideId, setSelectedGuideId] = useState<string | null>(guideId);
