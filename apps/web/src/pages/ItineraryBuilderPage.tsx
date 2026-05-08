@@ -64,7 +64,6 @@ import { useBuilderValidation } from '../features/plan/builder-validation';
 import { useSpecialMealDestinationRules } from '../features/plan/hooks/use-special-meal-destination-rules';
 import { buildMergedPlanStops } from '../features/plan/merge-plan-stops';
 import {
-  countMainPlanStopRows,
   isMainPlanStopRow,
   type PlanStopRowBase,
   type PlanStopRowType,
@@ -717,6 +716,17 @@ function createManualPricingAdjustmentLine(): ManualPricingAdjustmentLineRow {
     strikethrough: false,
     deleted: false,
   };
+}
+
+/** 수동 금액(추가·할인) 입력: '-'만 있는 중간 상태 허용 */
+const MANUAL_PRICING_ADJUSTMENT_AMOUNT_INPUT_PATTERN = /^-?\d*$/;
+
+function commitManualPricingAdjustmentAmountInput(raw: string): number {
+  if (raw === '' || raw === '-') {
+    return 0;
+  }
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) ? parsed : 0;
 }
 
 function upsertManualPricingAutoOverride(
@@ -2579,6 +2589,10 @@ export function ItineraryBuilderPage(): JSX.Element {
     teamSummaries: [],
     lineOverrides: [],
   });
+  const [manualPricingAdjustmentAmountDraft, setManualPricingAdjustmentAmountDraft] = useState<{
+    rowKey: string;
+    value: string;
+  } | null>(null);
   const [createdId, setCreatedId] = useState<string>('');
   const [planSaveErrorMessages, setPlanSaveErrorMessages] = useState<string[]>([]);
   const [isValidationOpen, setIsValidationOpen] = useState<boolean>(false);
@@ -2997,7 +3011,14 @@ export function ItineraryBuilderPage(): JSX.Element {
           : '',
     );
     setManualPricing(normalizeManualPricingState(pricing?.manualPricing));
+    setManualPricingAdjustmentAmountDraft(null);
   }, [isVersionMode, parentVersionId, parentVersionLoading, parentVersion]);
+
+  useEffect(() => {
+    if (!manualPricing.enabled) {
+      setManualPricingAdjustmentAmountDraft(null);
+    }
+  }, [manualPricing.enabled]);
 
   useEffect(() => {
     const trimmedName = selectedUserName.trim();
@@ -3826,39 +3847,6 @@ export function ItineraryBuilderPage(): JSX.Element {
       }),
     [mergedPlanStops],
   );
-  const pricingPreviewPlanStops = useMemo(
-    () =>
-      mergedPlanStops.map((row) => {
-        const overnightStayId = 'overnightStayId' in row ? row.overnightStayId : undefined;
-        const overnightStayDayOrder =
-          'overnightStayDayOrder' in row ? row.overnightStayDayOrder : undefined;
-
-        return {
-          rowType: row.rowType,
-          segmentId: 'segmentId' in row ? row.segmentId ?? undefined : undefined,
-          segmentVersionId: 'segmentVersionId' in row ? row.segmentVersionId ?? undefined : undefined,
-          multiDayBlockId:
-            'multiDayBlockId' in row ? row.multiDayBlockId ?? undefined : overnightStayId ?? undefined,
-          multiDayBlockDayOrder:
-            'multiDayBlockDayOrder' in row
-              ? row.multiDayBlockDayOrder ?? undefined
-              : overnightStayDayOrder ?? undefined,
-          multiDayBlockConnectionId:
-            'multiDayBlockConnectionId' in row ? row.multiDayBlockConnectionId ?? undefined : undefined,
-          multiDayBlockConnectionVersionId:
-            'multiDayBlockConnectionVersionId' in row ? row.multiDayBlockConnectionVersionId ?? undefined : undefined,
-          locationId: row.locationId ?? undefined,
-          locationVersionId: 'locationVersionId' in row ? row.locationVersionId ?? undefined : undefined,
-          dateCellText: '',
-          destinationCellText: '',
-          timeCellText: '',
-          scheduleCellText: '',
-          lodgingCellText: '',
-          mealCellText: 'mealCellText' in row ? row.mealCellText : '',
-        };
-      }),
-    [mergedPlanStops],
-  );
   const displayPlanRows = useMemo(() => {
     let mainRowIndex = 0;
     return buildMergedPlanStops(planRows, normalizedExternalTransfers, transportGroups).map((row) => {
@@ -4165,7 +4153,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         regionSetId,
         variantType,
         totalDays,
-        planStops: pricingPreviewPlanStops,
+        planStops: planStopsForMutation,
         travelStartDate: toIsoDateTime(travelStartDate),
         headcountTotal,
         transportGroupCount: normalizedTransportGroups.length,
@@ -4200,9 +4188,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   const pricingPreviewContext = useMemo(
     () => ({
       headcountTotal,
-      totalDays: countMainPlanStopRows(mergedPlanStops),
+      totalDays,
     }),
-    [headcountTotal, mergedPlanStops],
+    [headcountTotal, totalDays],
   );
   const effectivePricingPreview = useMemo<EffectivePricingRow | null>(() => {
     if (!pricingPreview) {
@@ -6978,9 +6966,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                           <p className="mt-2 text-xs text-slate-500">추가금 항목이 없습니다.</p>
                         ) : (
                           <div className="mt-3 space-y-2">
-                            {displayedPricingAdjustmentLines.map((line) => (
+                            {displayedPricingAdjustmentLines.map((line) => {
+                              const adjustmentLineRowKey = `${line.id}-${line.teamOrderIndexes.join(',') || 'global'}`;
+                              return (
                               <div
-                                key={`${line.id}-${line.teamOrderIndexes.join(',') || 'global'}`}
+                                key={adjustmentLineRowKey}
                                 className="grid gap-2 rounded-xl border border-slate-200 p-3 lg:grid-cols-[minmax(0,1.5fr)_160px_minmax(0,1fr)_auto]"
                               >
                                 {manualPricing.enabled ? (
@@ -7030,15 +7020,30 @@ export function ItineraryBuilderPage(): JSX.Element {
                                       />
                                     </div>
                                     <input
-                                      type="number"
-                                      step={1}
+                                      type="text"
+                                      inputMode="decimal"
+                                      autoComplete="off"
                                       disabled={line.strikethrough}
-                                      value={line.leadAmountKrw}
-                                      onChange={(event) => {
-                                        const nextAmount = Number(event.target.value);
-                                        if (!Number.isInteger(nextAmount)) {
+                                      value={
+                                        line.strikethrough
+                                          ? String(line.leadAmountKrw)
+                                          : manualPricingAdjustmentAmountDraft?.rowKey === adjustmentLineRowKey
+                                            ? manualPricingAdjustmentAmountDraft.value
+                                            : String(line.leadAmountKrw)
+                                      }
+                                      onFocus={() => {
+                                        if (line.strikethrough) {
                                           return;
                                         }
+                                        setManualPricingAdjustmentAmountDraft({
+                                          rowKey: adjustmentLineRowKey,
+                                          value: String(line.leadAmountKrw),
+                                        });
+                                      }}
+                                      onBlur={(event) => {
+                                        const nextAmount = commitManualPricingAdjustmentAmountInput(
+                                          event.target.value,
+                                        );
                                         setManualPricing((current) =>
                                           line.type === 'MANUAL'
                                             ? updateManualPricingCustomLine(current, line.sourceLines[0]!.id, {
@@ -7052,6 +7057,37 @@ export function ItineraryBuilderPage(): JSX.Element {
                                                 current,
                                               ),
                                         );
+                                        setManualPricingAdjustmentAmountDraft((draft) =>
+                                          draft?.rowKey === adjustmentLineRowKey ? null : draft,
+                                        );
+                                      }}
+                                      onChange={(event) => {
+                                        const nextRaw = event.target.value;
+                                        if (!MANUAL_PRICING_ADJUSTMENT_AMOUNT_INPUT_PATTERN.test(nextRaw)) {
+                                          return;
+                                        }
+                                        setManualPricingAdjustmentAmountDraft({
+                                          rowKey: adjustmentLineRowKey,
+                                          value: nextRaw,
+                                        });
+                                        if (nextRaw !== '' && nextRaw !== '-') {
+                                          const nextAmount = Number(nextRaw);
+                                          if (Number.isInteger(nextAmount)) {
+                                            setManualPricing((current) =>
+                                              line.type === 'MANUAL'
+                                                ? updateManualPricingCustomLine(current, line.sourceLines[0]!.id, {
+                                                    leadAmountKrw: nextAmount,
+                                                  })
+                                                : line.sourceLines.reduce(
+                                                    (nextState, sourceLine) =>
+                                                      upsertManualPricingAutoOverride(nextState, sourceLine, {
+                                                        leadAmountKrw: nextAmount,
+                                                      }),
+                                                    current,
+                                                  ),
+                                            );
+                                          }
+                                        }
                                       }}
                                       className={`rounded-xl border px-3 py-2 text-sm ${
                                         line.strikethrough
@@ -7168,7 +7204,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   </>
                                 )}
                               </div>
-                            ))}
+                            );
+                            })}
                           </div>
                         )}
                         {manualPricing.enabled && hiddenManualPricingAutoLines.length > 0 ? (
