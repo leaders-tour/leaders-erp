@@ -211,6 +211,41 @@ export function resolveAutoVariantType(
   return VariantType.Basic;
 }
 
+/** 픽업/드랍 시각만 보고 얼리·연장 신호가 있을 때의 Variant. 없으면 null (오후/기본 등은 호출부에서 유지). */
+export function inferVariantTypeFromTransportGroups(
+  groups: Array<Pick<TransportGroupLike, 'pickupTime' | 'dropTime'>>,
+): VariantType | null {
+  const hasEarlyPickup = groups.some((group) => isEarlyPickupTime(group.pickupTime));
+  const hasLateDrop = groups.some((group) => isExtendDropTime(group.dropTime));
+
+  if (hasEarlyPickup && hasLateDrop) {
+    return VariantType.EarlyExtend;
+  }
+  if (hasEarlyPickup) {
+    return VariantType.Early;
+  }
+  if (hasLateDrop) {
+    return VariantType.Extend;
+  }
+  return null;
+}
+
+/**
+ * 일정빌더: 사용자가 Variant를 수동으로 고정한 경우(transport 기반 자동 덮어쓰기 금지) null.
+ * 그렇지 않으면 resolveAutoVariantType과 동일하게 다음 값 또는 유지(null).
+ */
+export function computeAutoVariantSyncUpdate(
+  manualOverrideLocked: boolean,
+  variantType: VariantType,
+  groups: Array<Pick<TransportGroupLike, 'pickupTime' | 'dropTime'>>,
+): VariantType | null {
+  if (manualOverrideLocked) {
+    return null;
+  }
+  const nextVariantType = resolveAutoVariantType(variantType, groups);
+  return nextVariantType !== variantType ? nextVariantType : null;
+}
+
 export function getRecommendedDropTime(flightOutTime: string | null | undefined): string {
   const minutes = parseTimeToMinutes(flightOutTime);
   if (minutes === null) {

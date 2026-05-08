@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { VariantType } from '../../generated/graphql';
 import {
+  computeAutoVariantSyncUpdate,
   getRecommendedDropSchedule,
   getRecommendedPickupSchedule,
   getRecommendedPickupTime,
+  inferVariantTypeFromTransportGroups,
   isEarlyPickupTime,
   isExtendDropTime,
   resolveAutoVariantType,
@@ -134,5 +136,37 @@ describe('pickup-drop variant automation', () => {
     expect(resolveAutoVariantType(VariantType.Afternoon, [{ pickupTime: '08:00', dropTime: '19:00' }])).toBe(
       VariantType.Afternoon,
     );
+  });
+});
+
+describe('inferVariantTypeFromTransportGroups', () => {
+  it('returns null when no early pickup or extend drop signal', () => {
+    expect(inferVariantTypeFromTransportGroups([{ pickupTime: '08:00', dropTime: '19:00' }])).toBeNull();
+  });
+
+  it('returns earlyExtend when both signals present', () => {
+    expect(inferVariantTypeFromTransportGroups([{ pickupTime: '05:00', dropTime: '22:00' }])).toBe(
+      VariantType.EarlyExtend,
+    );
+  });
+});
+
+describe('computeAutoVariantSyncUpdate', () => {
+  it('returns null when manual override locks auto sync', () => {
+    expect(
+      computeAutoVariantSyncUpdate(true, VariantType.Basic, [{ pickupTime: '05:00', dropTime: '22:00' }]),
+    ).toBeNull();
+  });
+
+  it('returns inferred variant when unlocked and current differs', () => {
+    expect(
+      computeAutoVariantSyncUpdate(false, VariantType.Basic, [{ pickupTime: '05:00', dropTime: '22:00' }]),
+    ).toBe(VariantType.EarlyExtend);
+  });
+
+  it('returns null when unlocked and already in sync', () => {
+    expect(
+      computeAutoVariantSyncUpdate(false, VariantType.EarlyExtend, [{ pickupTime: '05:00', dropTime: '22:00' }]),
+    ).toBeNull();
   });
 });

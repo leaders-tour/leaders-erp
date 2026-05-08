@@ -69,15 +69,17 @@ import {
   type PlanStopRowType,
 } from '../features/plan/plan-stop-row';
 import {
+  computeAutoVariantSyncUpdate,
   DEFAULT_PICKUP_DROP_PLACE_TYPE,
+  inferVariantTypeFromTransportGroups,
   PICKUP_DROP_PLACE_OPTIONS,
   getRecommendedDropSchedule,
   getRecommendedPickupSchedule,
   parseTimeToMinutes,
-  resolveAutoVariantType,
   normalizePickupDropCustomText,
   type PickupDropPlaceType,
 } from '../features/plan/pickup-drop';
+import { toVariantLabel } from '../features/plan/variant-label';
 import {
   buildAutoRowsFromRoute,
   buildMultiDayBlockOptions,
@@ -2518,6 +2520,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const hasValidContext = hasPlanContext || isTemplateOnlyMode;
 
   const [variantType, setVariantType] = useState<VariantType>(VariantType.Basic);
+  /** true면 픽업/드랍 시각 기반 Variant 자동 덮어쓰기 비활성화 */
+  const [variantTypeManualLocked, setVariantTypeManualLocked] = useState(false);
   const [totalDays, setTotalDays] = useState<number>(6);
   const [regionSetId, setRegionSetId] = useState<string>('');
   const [planTitle, setPlanTitle] = useState<string>(() => buildDefaultPlanTitle(''));
@@ -2641,6 +2645,10 @@ export function ItineraryBuilderPage(): JSX.Element {
     skipAutoRowMergeForParentCloneRef.current = false;
     parentCloneScheduleBaselineRef.current = null;
   }, [parentVersionId]);
+
+  useEffect(() => {
+    setVariantTypeManualLocked(false);
+  }, [userId, planId, parentVersionId]);
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
@@ -2855,6 +2863,8 @@ export function ItineraryBuilderPage(): JSX.Element {
 
     setPlanTitle(parentVersion.plan.title);
     setVariantType(parentVersion.variantType as VariantType);
+    /** 부모에 저장된 Variant(운항과 불일치한 수동 값 포함)가 자동 동기화로 덮이지 않게 함 */
+    setVariantTypeManualLocked(true);
     setTotalDays(parentVersion.totalDays);
     setRegionSetId(parentVersion.regionSetId);
     setLeaderName(meta.leaderName);
@@ -3309,6 +3319,11 @@ export function ItineraryBuilderPage(): JSX.Element {
     variantType,
   ]);
 
+  const transportSuggestedVariant = useMemo(
+    () => inferVariantTypeFromTransportGroups(transportGroups),
+    [transportGroups],
+  );
+
   useEffect(() => {
     if (suppressAutoRowsMergeOnceRef.current) {
       suppressAutoRowsMergeOnceRef.current = false;
@@ -3680,11 +3695,15 @@ export function ItineraryBuilderPage(): JSX.Element {
   }, [headcountTotal, travelEndDate, travelStartDate]);
 
   useEffect(() => {
-    const nextVariantType = resolveAutoVariantType(variantType, transportGroups);
-    if (nextVariantType !== variantType) {
+    const nextVariantType = computeAutoVariantSyncUpdate(
+      variantTypeManualLocked,
+      variantType,
+      transportGroups,
+    );
+    if (nextVariantType !== null) {
       setVariantType(nextVariantType);
     }
-  }, [transportGroups, variantType]);
+  }, [transportGroups, variantType, variantTypeManualLocked]);
 
   useEffect(() => {
     const elements = document.querySelectorAll<HTMLTextAreaElement>('[data-plan-cell="true"]');
@@ -5646,7 +5665,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                         <button
                           key={variant.id}
                           type="button"
-                          onClick={() => setVariantType(variant.id)}
+                          onClick={() => {
+                            setVariantTypeManualLocked(true);
+                            setVariantType(variant.id);
+                          }}
                           className={`rounded-xl border px-3 py-1.5 text-sm ${
                             variantType === variant.id
                               ? 'border-slate-900 bg-slate-900 text-white'
@@ -5657,6 +5679,23 @@ export function ItineraryBuilderPage(): JSX.Element {
                         </button>
                       ))}
                     </div>
+                    {variantTypeManualLocked &&
+                    transportSuggestedVariant &&
+                    transportSuggestedVariant !== variantType ? (
+                      <p className="text-xs text-amber-700">
+                        픽업/드랍 기준 추천은 {toVariantLabel(transportSuggestedVariant)}입니다. 현재 선택을
+                        유지합니다.
+                      </p>
+                    ) : null}
+                    {variantTypeManualLocked ? (
+                      <button
+                        type="button"
+                        className="w-fit text-left text-xs text-slate-600 underline decoration-slate-400 hover:text-slate-900"
+                        onClick={() => setVariantTypeManualLocked(false)}
+                      >
+                        운항 기준으로 다시 자동 맞춤
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </Card>
