@@ -166,26 +166,27 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
     const transportGroupHeadcountTotal = transportGroups.reduce((sum, g) => sum + g.headcount, 0);
     const hasInvalidTransportGroups =
       transportGroups.length === 0 ||
-      transportGroups.some(
-        (g) =>
+      transportGroups.some((g) => {
+        const inDate = g.flightInDate?.trim() ?? '';
+        const inTime = g.flightInTime?.trim() ?? '';
+        const inPairInvalid = (inDate.length > 0) !== (inTime.length > 0);
+        const outDate = g.flightOutDate?.trim() ?? '';
+        const outTime = g.flightOutTime?.trim() ?? '';
+        const outPairInvalid = (outDate.length > 0) !== (outTime.length > 0);
+        return (
           g.teamName.trim().length === 0 ||
           g.headcount < 1 ||
-          !g.flightInDate ||
-          !g.flightInTime.trim() ||
-          !g.flightOutDate ||
-          !g.flightOutTime.trim() ||
-          !g.pickupDate ||
-          !g.pickupTime.trim() ||
-          !g.dropDate ||
-          !g.dropTime.trim(),
-      ) ||
+          inPairInvalid ||
+          outPairInvalid
+        );
+      }) ||
       transportGroupHeadcountTotal !== headcountTotal;
     if (hasInvalidTransportGroups) {
       results.push({
         id: 'invalid-transport-groups',
         severity: 'error',
         message:
-          '팀별 항공/픽업/드랍 세트의 팀명, 인원, 날짜/시간을 확인해주세요. 팀 인원 합계는 총 인원과 같아야 합니다.',
+          '팀별 정보를 확인해주세요. 항공권 IN/OUT은 날짜·시간을 함께 입력하거나 둘 다 비워 두세요(미정). 팀 인원 합계는 총 인원과 같아야 합니다.',
       });
     }
 
@@ -249,12 +250,15 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
       });
     }
 
-    // missing-custom-place-text (error)
-    const hasMissingCustomPlaceText = transportGroups.some(
-      (g) =>
-        (g.pickupPlaceType === 'CUSTOM' && g.pickupPlaceCustomText.trim().length === 0) ||
-        (g.dropPlaceType === 'CUSTOM' && g.dropPlaceCustomText.trim().length === 0),
-    );
+    // missing-custom-place-text (error) — 날짜·시간을 모두 넣은 픽업/드랍에만 직접입력 장소명 요구
+    const hasMissingCustomPlaceText = transportGroups.some((g) => {
+      const pickupComplete = Boolean((g.pickupDate?.trim() ?? '') && (g.pickupTime?.trim() ?? ''));
+      const dropComplete = Boolean((g.dropDate?.trim() ?? '') && (g.dropTime?.trim() ?? ''));
+      return (
+        (g.pickupPlaceType === 'CUSTOM' && pickupComplete && g.pickupPlaceCustomText.trim().length === 0) ||
+        (g.dropPlaceType === 'CUSTOM' && dropComplete && g.dropPlaceCustomText.trim().length === 0)
+      );
+    });
     if (hasMissingCustomPlaceText) {
       results.push({
         id: 'missing-custom-place-text',

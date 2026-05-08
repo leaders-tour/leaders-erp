@@ -48,10 +48,14 @@ describe('getRecommendedPickupSchedule', () => {
     });
   });
 
-  it('returns empty date with time when flightInDate is empty', () => {
+  it('returns empty pickup when flight IN date or time is missing', () => {
     expect(getRecommendedPickupSchedule('', '04:30', travelStart)).toEqual({
       date: '',
-      time: '04:30',
+      time: '',
+    });
+    expect(getRecommendedPickupSchedule('2024-08-11', '', travelStart)).toEqual({
+      date: '',
+      time: '',
     });
   });
 });
@@ -85,6 +89,11 @@ describe('getRecommendedDropSchedule', () => {
       date: '2024-08-14',
       time: '15:30',
     });
+  });
+
+  it('returns empty drop when flight OUT date or time is missing', () => {
+    expect(getRecommendedDropSchedule('', '18:15', travelEnd)).toEqual({ date: '', time: '' });
+    expect(getRecommendedDropSchedule('2024-08-16', '', travelEnd)).toEqual({ date: '', time: '' });
   });
 
   it('omitting travelEndDate keeps legacy flight-only behavior for late OUT', () => {

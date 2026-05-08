@@ -1623,6 +1623,9 @@ const FLIGHT_OUT_TIME_OPTIONS = [
   '18:15',
   '20:30',
 ] as const;
+/** 여행 기간 선택(또는 새 팀 추가) 시 IN/OUT 자동 맞춤에만 사용하는 추천 시각 — 「미정」또는 직접 수정 후에는 재적용되지 않음 */
+const DEFAULT_TRAVEL_SYNC_FLIGHT_IN_TIME = '02:45';
+const DEFAULT_TRAVEL_SYNC_FLIGHT_OUT_TIME = '18:15';
 const PICKUP_DROP_TIME_OPTIONS = [
   '04:00',
   '05:00',
@@ -1636,6 +1639,60 @@ const HALF_HOUR_MINUTE_OPTIONS = [0, 30] as const;
 
 function toIsoDateTime(value: string): string {
   return `${value}T00:00:00.000Z`;
+}
+
+function isFlightInPairComplete(group: Pick<EstimateTransportGroup, 'flightInDate' | 'flightInTime'>): boolean {
+  const d = group.flightInDate?.trim() ?? '';
+  const t = group.flightInTime?.trim() ?? '';
+  return Boolean(d && t);
+}
+
+function isFlightOutPairComplete(group: Pick<EstimateTransportGroup, 'flightOutDate' | 'flightOutTime'>): boolean {
+  const d = group.flightOutDate?.trim() ?? '';
+  const t = group.flightOutTime?.trim() ?? '';
+  return Boolean(d && t);
+}
+
+/** GraphQL/서버 계약: IN/OUT은 날짜·시간 완전 쌍일 때만 필드를 보냅니다. */
+function mapTransportGroupToPlanMutationInput(group: EstimateTransportGroup) {
+  const inC = isFlightInPairComplete(group);
+  const outC = isFlightOutPairComplete(group);
+  return {
+    teamName: group.teamName.trim(),
+    headcount: group.headcount,
+    ...(inC
+      ? { flightInDate: toIsoDateTime(group.flightInDate.trim()), flightInTime: group.flightInTime.trim() }
+      : {}),
+    ...(outC
+      ? {
+          flightOutDate: toIsoDateTime(group.flightOutDate.trim()),
+          flightOutTime: group.flightOutTime.trim(),
+        }
+      : {}),
+    pickupDate: group.pickupDate?.trim() ? toIsoDateTime(group.pickupDate.trim()) : undefined,
+    pickupTime: group.pickupTime.trim() || undefined,
+    pickupPlaceType: group.pickupPlaceType,
+    pickupPlaceCustomText: normalizePickupDropCustomText(group.pickupPlaceType, group.pickupPlaceCustomText),
+    dropDate: group.dropDate?.trim() ? toIsoDateTime(group.dropDate.trim()) : undefined,
+    dropTime: group.dropTime.trim() || undefined,
+    dropPlaceType: group.dropPlaceType,
+    dropPlaceCustomText: normalizePickupDropCustomText(group.dropPlaceType, group.dropPlaceCustomText),
+  };
+}
+
+function primaryMetaFlightFields(primary: EstimateTransportGroup | undefined): {
+  flightInTime?: string;
+  flightOutTime?: string;
+} {
+  if (!primary) {
+    return {};
+  }
+  const inC = isFlightInPairComplete(primary);
+  const outC = isFlightOutPairComplete(primary);
+  return {
+    ...(inC ? { flightInTime: primary.flightInTime.trim() } : {}),
+    ...(outC ? { flightOutTime: primary.flightOutTime.trim() } : {}),
+  };
 }
 
 function toAutoTravelEndDate(startDate: string, totalDays: number): string {
@@ -1871,6 +1928,10 @@ function createEstimateDraftSnapshot(input: {
 interface TransportGroupDraft extends EstimateTransportGroup {
   hasEditedPickup: boolean;
   hasEditedDrop: boolean;
+  /** 항공 IN을 직접 바꿨거나 「미정」을 누른 뒤에는 여행 기간만으로 IN을 다시 채우지 않음 */
+  hasEditedFlightIn: boolean;
+  /** 항공 OUT — 위와 동일 */
+  hasEditedFlightOut: boolean;
 }
 
 function getTransportGroupTeamName(index: number): string {
@@ -1904,27 +1965,48 @@ function createTransportGroupDraft(input: {
   headcount: number;
   travelStartDate: string;
   travelEndDate: string;
-  flightInTime: string;
-  flightOutTime: string;
+  flightInDate?: string;
+  flightInTime?: string;
+  flightOutDate?: string;
+  flightOutTime?: string;
 }): TransportGroupDraft {
-  const recommendedPickup = getRecommendedPickupSchedule(
-    input.travelStartDate,
-    input.flightInTime,
-    input.travelStartDate,
-  );
-  const recommendedDrop = getRecommendedDropSchedule(
-    input.travelEndDate,
-    input.flightOutTime,
-    input.travelEndDate,
-  );
+  const travelStart = input.travelStartDate?.trim() ?? '';
+  const travelEnd = input.travelEndDate?.trim() ?? '';
+
+  let flightInDate: string;
+  let flightInTime: string;
+  let flightOutDate: string;
+  let flightOutTime: string;
+
+  const inPairUnspecified = input.flightInDate === undefined && input.flightInTime === undefined;
+  const outPairUnspecified = input.flightOutDate === undefined && input.flightOutTime === undefined;
+
+  if (inPairUnspecified && travelStart) {
+    flightInDate = travelStart;
+    flightInTime = DEFAULT_TRAVEL_SYNC_FLIGHT_IN_TIME;
+  } else {
+    flightInDate = input.flightInDate ?? '';
+    flightInTime = input.flightInTime ?? '';
+  }
+
+  if (outPairUnspecified && travelEnd) {
+    flightOutDate = travelEnd;
+    flightOutTime = DEFAULT_TRAVEL_SYNC_FLIGHT_OUT_TIME;
+  } else {
+    flightOutDate = input.flightOutDate ?? '';
+    flightOutTime = input.flightOutTime ?? '';
+  }
+
+  const recommendedPickup = getRecommendedPickupSchedule(flightInDate, flightInTime, input.travelStartDate);
+  const recommendedDrop = getRecommendedDropSchedule(flightOutDate, flightOutTime, input.travelEndDate);
 
   return {
     teamName: getTransportGroupTeamName(input.index),
     headcount: Math.max(1, input.headcount),
-    flightInDate: input.travelStartDate,
-    flightInTime: input.flightInTime,
-    flightOutDate: input.travelEndDate,
-    flightOutTime: input.flightOutTime,
+    flightInDate,
+    flightInTime,
+    flightOutDate,
+    flightOutTime,
     pickupDate: recommendedPickup.date,
     pickupTime: recommendedPickup.date ? recommendedPickup.time : '',
     pickupPlaceType: DEFAULT_PICKUP_DROP_PLACE_TYPE,
@@ -1935,6 +2017,8 @@ function createTransportGroupDraft(input: {
     dropPlaceCustomText: '',
     hasEditedPickup: false,
     hasEditedDrop: false,
+    hasEditedFlightIn: false,
+    hasEditedFlightOut: false,
   };
 }
 
@@ -1974,8 +2058,6 @@ function buildTransportGroupsAfterAddTeam(
         headcount: remainingHeadcount,
         travelStartDate,
         travelEndDate,
-        flightInTime: '02:45',
-        flightOutTime: '18:15',
       }),
     ];
   }
@@ -1992,8 +2074,6 @@ function buildTransportGroupsAfterAddTeam(
       headcount: counts[current.length]!,
       travelStartDate,
       travelEndDate,
-      flightInTime: '02:45',
-      flightOutTime: '18:15',
     }),
   ];
 }
@@ -2455,8 +2535,6 @@ export function ItineraryBuilderPage(): JSX.Element {
       headcount: 6,
       travelStartDate: '',
       travelEndDate: '',
-      flightInTime: '02:45',
-      flightOutTime: '18:15',
     }),
   ]);
   const [externalTransfers, setExternalTransfers] = useState<ExternalTransfer[]>([]);
@@ -2820,15 +2898,13 @@ export function ItineraryBuilderPage(): JSX.Element {
               headcount: group.headcount,
               travelStartDate: meta.travelStartDate.slice(0, 10),
               travelEndDate: meta.travelEndDate.slice(0, 10),
-              flightInTime: group.flightInTime ?? '02:45',
-              flightOutTime: group.flightOutTime ?? '18:15',
             }),
             teamName: group.teamName,
             headcount: group.headcount,
-            flightInDate: group.flightInDate.slice(0, 10),
-            flightInTime: group.flightInTime,
-            flightOutDate: group.flightOutDate.slice(0, 10),
-            flightOutTime: group.flightOutTime,
+            flightInDate: group.flightInDate?.slice(0, 10) ?? '',
+            flightInTime: group.flightInTime ?? '',
+            flightOutDate: group.flightOutDate?.slice(0, 10) ?? '',
+            flightOutTime: group.flightOutTime ?? '',
             pickupDate: group.pickupDate?.slice(0, 10) ?? '',
             pickupTime: group.pickupTime ?? '',
             pickupPlaceType: (group.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE) as PickupDropPlaceType,
@@ -2837,16 +2913,24 @@ export function ItineraryBuilderPage(): JSX.Element {
             dropTime: group.dropTime ?? '',
             dropPlaceType: (group.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE) as PickupDropPlaceType,
             dropPlaceCustomText: group.dropPlaceCustomText ?? '',
+            hasEditedFlightIn: true,
+            hasEditedFlightOut: true,
           }))
         : [
-            createTransportGroupDraft({
-              index: 0,
-              headcount: meta.headcountTotal,
-              travelStartDate: meta.travelStartDate.slice(0, 10),
-              travelEndDate: meta.travelEndDate.slice(0, 10),
-              flightInTime: meta.flightInTime ?? '02:45',
-              flightOutTime: meta.flightOutTime ?? '18:15',
-            }),
+            {
+              ...createTransportGroupDraft({
+                index: 0,
+                headcount: meta.headcountTotal,
+                travelStartDate: meta.travelStartDate.slice(0, 10),
+                travelEndDate: meta.travelEndDate.slice(0, 10),
+                flightInDate: meta.flightInTime?.trim() ? meta.travelStartDate.slice(0, 10) : '',
+                flightInTime: meta.flightInTime ?? '',
+                flightOutDate: meta.flightOutTime?.trim() ? meta.travelEndDate.slice(0, 10) : '',
+                flightOutTime: meta.flightOutTime ?? '',
+              }),
+              hasEditedFlightIn: true,
+              hasEditedFlightOut: true,
+            },
           ];
     setTransportGroups(hydratedTransportGroups);
 
@@ -3360,6 +3444,13 @@ export function ItineraryBuilderPage(): JSX.Element {
           }
         }
 
+        if (field === 'flightInDate' || field === 'flightInTime') {
+          nextGroup.hasEditedFlightIn = true;
+        }
+        if (field === 'flightOutDate' || field === 'flightOutTime') {
+          nextGroup.hasEditedFlightOut = true;
+        }
+
         if (field === 'pickupDate' || field === 'pickupTime') {
           nextGroup.hasEditedPickup = true;
         }
@@ -3376,6 +3467,50 @@ export function ItineraryBuilderPage(): JSX.Element {
           nextGroup.dropPlaceCustomText = '';
         }
 
+        return nextGroup;
+      }),
+    );
+  };
+
+  const clearTransportGroupFlightIn = (index: number): void => {
+    setTransportGroups((current) =>
+      current.map((group, groupIndex) => {
+        if (groupIndex !== index) {
+          return group;
+        }
+        const nextGroup: TransportGroupDraft = {
+          ...group,
+          flightInDate: '',
+          flightInTime: '',
+          hasEditedFlightIn: true,
+        };
+        if (!group.hasEditedPickup) {
+          const recommendedPickup = getRecommendedPickupSchedule('', '', travelStartDate);
+          nextGroup.pickupDate = recommendedPickup.date;
+          nextGroup.pickupTime = recommendedPickup.time;
+        }
+        return nextGroup;
+      }),
+    );
+  };
+
+  const clearTransportGroupFlightOut = (index: number): void => {
+    setTransportGroups((current) =>
+      current.map((group, groupIndex) => {
+        if (groupIndex !== index) {
+          return group;
+        }
+        const nextGroup: TransportGroupDraft = {
+          ...group,
+          flightOutDate: '',
+          flightOutTime: '',
+          hasEditedFlightOut: true,
+        };
+        if (!group.hasEditedDrop) {
+          const recommendedDrop = getRecommendedDropSchedule('', '', travelEndDate);
+          nextGroup.dropDate = recommendedDrop.date;
+          nextGroup.dropTime = recommendedDrop.time;
+        }
         return nextGroup;
       }),
     );
@@ -3438,11 +3573,19 @@ export function ItineraryBuilderPage(): JSX.Element {
           nextGroup.teamName = getTransportGroupTeamName(index);
         }
 
-        if (!group.flightInDate && travelStartDate) {
+        const inTimeReady = Boolean(nextGroup.flightInTime?.trim());
+        if (
+          !group.hasEditedFlightIn &&
+          !group.flightInDate?.trim() &&
+          travelStartDate
+        ) {
           nextGroup.flightInDate = travelStartDate;
+          if (!nextGroup.flightInTime?.trim()) {
+            nextGroup.flightInTime = DEFAULT_TRAVEL_SYNC_FLIGHT_IN_TIME;
+          }
           if (!group.hasEditedPickup) {
             const recommendedPickup = getRecommendedPickupSchedule(
-              travelStartDate,
+              nextGroup.flightInDate,
               nextGroup.flightInTime,
               travelStartDate,
             );
@@ -3451,7 +3594,12 @@ export function ItineraryBuilderPage(): JSX.Element {
               nextGroup.pickupTime = recommendedPickup.time;
             }
           }
-        } else if (!group.hasEditedPickup && !group.pickupDate && group.flightInDate) {
+        } else if (
+          !group.hasEditedPickup &&
+          !group.pickupDate &&
+          group.flightInDate &&
+          inTimeReady
+        ) {
           const recommendedPickup = getRecommendedPickupSchedule(
             group.flightInDate,
             nextGroup.flightInTime,
@@ -3463,11 +3611,19 @@ export function ItineraryBuilderPage(): JSX.Element {
           }
         }
 
-        if (!group.flightOutDate && travelEndDate) {
+        const outTimeReady = Boolean(nextGroup.flightOutTime?.trim());
+        if (
+          !group.hasEditedFlightOut &&
+          !group.flightOutDate?.trim() &&
+          travelEndDate
+        ) {
           nextGroup.flightOutDate = travelEndDate;
+          if (!nextGroup.flightOutTime?.trim()) {
+            nextGroup.flightOutTime = DEFAULT_TRAVEL_SYNC_FLIGHT_OUT_TIME;
+          }
           if (!group.hasEditedDrop) {
             const recommendedDrop = getRecommendedDropSchedule(
-              travelEndDate,
+              nextGroup.flightOutDate,
               nextGroup.flightOutTime,
               travelEndDate,
             );
@@ -3490,8 +3646,6 @@ export function ItineraryBuilderPage(): JSX.Element {
             headcount: headcountTotal,
             travelStartDate,
             travelEndDate,
-            flightInTime: '02:45',
-            flightOutTime: '18:15',
           }),
         ];
       }
@@ -3540,10 +3694,10 @@ export function ItineraryBuilderPage(): JSX.Element {
         headcountMale === buildDefaultMaleHeadcount(6) &&
         vehicleType === '스타렉스' &&
         transportGroups.length === 1 &&
-        !transportGroups[0]?.flightInDate &&
-        !transportGroups[0]?.flightOutDate &&
-        transportGroups[0]?.flightInTime === '02:45' &&
-        transportGroups[0]?.flightOutTime === '18:15' &&
+        !transportGroups[0]?.flightInDate?.trim() &&
+        !transportGroups[0]?.flightOutDate?.trim() &&
+        !transportGroups[0]?.flightInTime?.trim() &&
+        !transportGroups[0]?.flightOutTime?.trim() &&
         !transportGroups[0]?.pickupDate &&
         !transportGroups[0]?.pickupTime &&
         transportGroups[0]?.pickupPlaceType === DEFAULT_PICKUP_DROP_PLACE_TYPE &&
@@ -3999,14 +4153,14 @@ export function ItineraryBuilderPage(): JSX.Element {
         headcount: draft.headcountTotal,
         travelStartDate: draft.travelStartDate,
         travelEndDate: draft.travelEndDate,
-        flightInTime: draft.flightInTime ?? '02:45',
-        flightOutTime: draft.flightOutTime ?? '18:15',
+        flightInDate: draft.flightInDate ?? '',
+        flightInTime: draft.flightInTime ?? '',
+        flightOutDate: draft.flightOutDate ?? '',
+        flightOutTime: draft.flightOutTime ?? '',
       });
       setTransportGroups([
         {
           ...primaryGroup,
-          flightInDate: draft.flightInDate ?? draft.travelStartDate ?? primaryGroup.flightInDate,
-          flightOutDate: draft.flightOutDate ?? draft.travelEndDate ?? primaryGroup.flightOutDate,
           pickupDate: draft.travelStartDate || primaryGroup.pickupDate,
           dropDate: draft.travelEndDate || primaryGroup.dropDate,
         },
@@ -4081,7 +4235,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         travelStartDate: toIsoDateTime(travelStartDate),
         headcountTotal,
         transportGroupCount: normalizedTransportGroups.length,
-        transportGroups: normalizedTransportGroups,
+        transportGroups: normalizedTransportGroups.map(mapTransportGroupToPlanMutationInput),
         vehicleType,
         includeRentalItems,
         eventIds,
@@ -4890,8 +5044,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 headcountMale,
                                 headcountFemale,
                                 vehicleType,
-                                flightInTime: primaryTransportGroup?.flightInTime ?? '02:45',
-                                flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:15',
+                                ...primaryMetaFlightFields(primaryTransportGroup),
                                 pickupDate: primaryTransportGroup?.pickupDate
                                   ? toIsoDateTime(primaryTransportGroup.pickupDate)
                                   : undefined,
@@ -4928,32 +5081,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 eventIds,
                                 extraLodgings,
                                 lodgingSelections,
-                                transportGroups: normalizedTransportGroups.map((group) => ({
-                                  teamName: group.teamName.trim(),
-                                  headcount: group.headcount,
-                                  flightInDate: toIsoDateTime(group.flightInDate),
-                                  flightInTime: group.flightInTime.trim(),
-                                  flightOutDate: toIsoDateTime(group.flightOutDate),
-                                  flightOutTime: group.flightOutTime.trim(),
-                                  pickupDate: group.pickupDate
-                                    ? toIsoDateTime(group.pickupDate)
-                                    : undefined,
-                                  pickupTime: group.pickupTime.trim() || undefined,
-                                  pickupPlaceType: group.pickupPlaceType,
-                                  pickupPlaceCustomText: normalizePickupDropCustomText(
-                                    group.pickupPlaceType,
-                                    group.pickupPlaceCustomText,
-                                  ),
-                                  dropDate: group.dropDate
-                                    ? toIsoDateTime(group.dropDate)
-                                    : undefined,
-                                  dropTime: group.dropTime.trim() || undefined,
-                                  dropPlaceType: group.dropPlaceType,
-                                  dropPlaceCustomText: normalizePickupDropCustomText(
-                                    group.dropPlaceType,
-                                    group.dropPlaceCustomText,
-                                  ),
-                                })),
+                                transportGroups: normalizedTransportGroups.map((group) =>
+                                  mapTransportGroupToPlanMutationInput(group),
+                                ),
                                 remark: remark.trim() || undefined,
                               },
                               planStops: planStopsForMutation,
@@ -5006,8 +5136,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 headcountMale,
                                 headcountFemale,
                                 vehicleType,
-                                flightInTime: primaryTransportGroup?.flightInTime ?? '02:45',
-                                flightOutTime: primaryTransportGroup?.flightOutTime ?? '18:15',
+                                ...primaryMetaFlightFields(primaryTransportGroup),
                                 pickupDate: primaryTransportGroup?.pickupDate
                                   ? toIsoDateTime(primaryTransportGroup.pickupDate)
                                   : undefined,
@@ -5044,32 +5173,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 eventIds,
                                 extraLodgings,
                                 lodgingSelections,
-                                transportGroups: normalizedTransportGroups.map((group) => ({
-                                  teamName: group.teamName.trim(),
-                                  headcount: group.headcount,
-                                  flightInDate: toIsoDateTime(group.flightInDate),
-                                  flightInTime: group.flightInTime.trim(),
-                                  flightOutDate: toIsoDateTime(group.flightOutDate),
-                                  flightOutTime: group.flightOutTime.trim(),
-                                  pickupDate: group.pickupDate
-                                    ? toIsoDateTime(group.pickupDate)
-                                    : undefined,
-                                  pickupTime: group.pickupTime.trim() || undefined,
-                                  pickupPlaceType: group.pickupPlaceType,
-                                  pickupPlaceCustomText: normalizePickupDropCustomText(
-                                    group.pickupPlaceType,
-                                    group.pickupPlaceCustomText,
-                                  ),
-                                  dropDate: group.dropDate
-                                    ? toIsoDateTime(group.dropDate)
-                                    : undefined,
-                                  dropTime: group.dropTime.trim() || undefined,
-                                  dropPlaceType: group.dropPlaceType,
-                                  dropPlaceCustomText: normalizePickupDropCustomText(
-                                    group.dropPlaceType,
-                                    group.dropPlaceCustomText,
-                                  ),
-                                })),
+                                transportGroups: normalizedTransportGroups.map((group) =>
+                                  mapTransportGroupToPlanMutationInput(group),
+                                ),
                                 remark: remark.trim() || undefined,
                               },
                               planStops: planStopsForMutation,
@@ -5644,7 +5750,19 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                             <div className="grid gap-3 md:grid-cols-2">
                               <div className="grid gap-2">
-                                <span className="text-xs text-slate-600">항공권 IN</span>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs text-slate-600">항공권 IN</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => clearTransportGroupFlightIn(index)}
+                                    disabled={
+                                      !group.flightInDate?.trim() && !group.flightInTime?.trim()
+                                    }
+                                    className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    미정
+                                  </button>
+                                </div>
                                 <div className="grid gap-2">
                                   <DateInputTrigger
                                     value={group.flightInDate}
@@ -5688,7 +5806,19 @@ export function ItineraryBuilderPage(): JSX.Element {
                               </div>
 
                               <div className="grid gap-2">
-                                <span className="text-xs text-slate-600">항공권 OUT</span>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs text-slate-600">항공권 OUT</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => clearTransportGroupFlightOut(index)}
+                                    disabled={
+                                      !group.flightOutDate?.trim() && !group.flightOutTime?.trim()
+                                    }
+                                    className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    미정
+                                  </button>
+                                </div>
                                 <div className="grid gap-2">
                                   <DateInputTrigger
                                     value={group.flightOutDate}
@@ -7527,8 +7657,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 headcountMale,
                                 headcountFemale,
                                 vehicleType,
-                                flightInTime: primaryTransportGroup?.flightInTime ?? '',
-                                flightOutTime: primaryTransportGroup?.flightOutTime ?? '',
+                                ...primaryMetaFlightFields(primaryTransportGroup),
                                 pickupDate: primaryTransportGroup?.pickupDate ?? '',
                                 pickupTime: primaryTransportGroup?.pickupTime ?? '',
                                 pickupPlaceType:
@@ -7544,7 +7673,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 dropPlaceCustomText:
                                   primaryTransportGroup?.dropPlaceCustomText ?? '',
                                 externalTransfers: normalizedExternalTransfers,
-                                transportGroups: normalizedTransportGroups,
+                                transportGroups: normalizedTransportGroups.map((group) =>
+                                  mapTransportGroupToPlanMutationInput(group),
+                                ),
                                 specialNote,
                                 includeRentalItems,
                                 rentalItemsText,
@@ -7575,8 +7706,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 headcountMale,
                                 headcountFemale,
                                 vehicleType,
-                                flightInTime: primaryTransportGroup?.flightInTime ?? '',
-                                flightOutTime: primaryTransportGroup?.flightOutTime ?? '',
+                                ...primaryMetaFlightFields(primaryTransportGroup),
                                 pickupDate: primaryTransportGroup?.pickupDate ?? '',
                                 pickupTime: primaryTransportGroup?.pickupTime ?? '',
                                 pickupPlaceType:
@@ -7592,7 +7722,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 dropPlaceCustomText:
                                   primaryTransportGroup?.dropPlaceCustomText ?? '',
                                 externalTransfers: normalizedExternalTransfers,
-                                transportGroups: normalizedTransportGroups,
+                                transportGroups: normalizedTransportGroups.map((group) =>
+                                  mapTransportGroupToPlanMutationInput(group),
+                                ),
                                 specialNote,
                                 includeRentalItems,
                                 rentalItemsText,

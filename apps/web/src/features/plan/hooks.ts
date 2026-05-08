@@ -146,8 +146,8 @@ export interface PlanVersionMetaRow {
   headcountMale: number;
   headcountFemale: number;
   vehicleType: string;
-  flightInTime: string;
-  flightOutTime: string;
+  flightInTime: string | null;
+  flightOutTime: string | null;
   pickupDate: string | null;
   pickupTime: string | null;
   dropDate: string | null;
@@ -210,10 +210,10 @@ export interface PlanVersionMetaRow {
     orderIndex: number;
     teamName: string;
     headcount: number;
-    flightInDate: string;
-    flightInTime: string;
-    flightOutDate: string;
-    flightOutTime: string;
+    flightInDate: string | null;
+    flightInTime: string | null;
+    flightOutDate: string | null;
+    flightOutTime: string | null;
     pickupDate: string | null;
     pickupTime: string | null;
     pickupPlaceType: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;

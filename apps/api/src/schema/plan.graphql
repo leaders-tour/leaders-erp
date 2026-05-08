@@ -103,8 +103,8 @@ type PlanVersionMeta {
   headcountMale: Int!
   headcountFemale: Int!
   vehicleType: String!
-  flightInTime: String!
-  flightOutTime: String!
+  flightInTime: String
+  flightOutTime: String
   pickupDate: DateTime
   pickupTime: String
   dropDate: DateTime
@@ -185,10 +185,10 @@ type PlanVersionTransportGroup {
   orderIndex: Int!
   teamName: String!
   headcount: Int!
-  flightInDate: DateTime!
-  flightInTime: String!
-  flightOutDate: DateTime!
-  flightOutTime: String!
+  flightInDate: DateTime
+  flightInTime: String
+  flightOutDate: DateTime
+  flightOutTime: String
   pickupDate: DateTime
   pickupTime: String
   pickupPlaceType: PlaceType
@@ -471,8 +471,8 @@ input PlanVersionMetaInput {
   headcountMale: Int!
   headcountFemale: Int!
   vehicleType: String!
-  flightInTime: String!
-  flightOutTime: String!
+  flightInTime: String
+  flightOutTime: String
   pickupDate: DateTime
   pickupTime: String
   dropDate: DateTime
@@ -522,10 +522,10 @@ input ExternalTransferInput {
 input PlanVersionTransportGroupInput {
   teamName: String!
   headcount: Int!
-  flightInDate: DateTime!
-  flightInTime: String!
-  flightOutDate: DateTime!
-  flightOutTime: String!
+  flightInDate: DateTime
+  flightInTime: String
+  flightOutDate: DateTime
+  flightOutTime: String
   pickupDate: DateTime
   pickupTime: String
   pickupPlaceType: PlaceType

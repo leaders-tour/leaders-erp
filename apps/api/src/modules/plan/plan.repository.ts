@@ -16,10 +16,10 @@ function toTransportGroupCreateManyInput(
   transportGroups: Array<{
     teamName: string;
     headcount: number;
-    flightInDate: string;
-    flightInTime: string;
-    flightOutDate: string;
-    flightOutTime: string;
+    flightInDate?: string | null;
+    flightInTime?: string | null;
+    flightOutDate?: string | null;
+    flightOutTime?: string | null;
     pickupDate?: string;
     pickupTime?: string;
     pickupPlaceType?: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM';
@@ -34,10 +34,10 @@ function toTransportGroupCreateManyInput(
     orderIndex: index,
     teamName: group.teamName,
     headcount: group.headcount,
-    flightInDate: new Date(group.flightInDate),
-    flightInTime: group.flightInTime,
-    flightOutDate: new Date(group.flightOutDate),
-    flightOutTime: group.flightOutTime,
+    flightInDate: group.flightInDate ? new Date(group.flightInDate) : null,
+    flightInTime: group.flightInTime ?? null,
+    flightOutDate: group.flightOutDate ? new Date(group.flightOutDate) : null,
+    flightOutTime: group.flightOutTime ?? null,
     pickupDate: group.pickupDate ? new Date(group.pickupDate) : null,
     pickupTime: group.pickupTime ?? null,
     pickupPlaceType: group.pickupPlaceType ?? null,
@@ -58,8 +58,8 @@ function buildPlanVersionMetaCreateInput(
     headcountMale: number;
     headcountFemale: number;
     vehicleType: string;
-    flightInTime: string;
-    flightOutTime: string;
+    flightInTime?: string | null;
+    flightOutTime?: string | null;
     pickupDate?: string;
     pickupTime?: string;
     dropDate?: string;
@@ -88,10 +88,10 @@ function buildPlanVersionMetaCreateInput(
     transportGroups: Array<{
       teamName: string;
       headcount: number;
-      flightInDate: string;
-      flightInTime: string;
-      flightOutDate: string;
-      flightOutTime: string;
+      flightInDate?: string | null;
+      flightInTime?: string | null;
+      flightOutDate?: string | null;
+      flightOutTime?: string | null;
       pickupDate?: string;
       pickupTime?: string;
       pickupPlaceType?: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM';
@@ -115,8 +115,8 @@ function buildPlanVersionMetaCreateInput(
     headcountMale: meta.headcountMale,
     headcountFemale: meta.headcountFemale,
     vehicleType: meta.vehicleType,
-    flightInTime: firstTransportGroup?.flightInTime ?? meta.flightInTime,
-    flightOutTime: firstTransportGroup?.flightOutTime ?? meta.flightOutTime,
+    flightInTime: firstTransportGroup?.flightInTime ?? meta.flightInTime ?? null,
+    flightOutTime: firstTransportGroup?.flightOutTime ?? meta.flightOutTime ?? null,
     pickupDate: firstTransportGroup?.pickupDate
       ? new Date(firstTransportGroup.pickupDate)
       : meta.pickupDate

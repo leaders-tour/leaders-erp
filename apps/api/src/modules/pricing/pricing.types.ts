@@ -32,10 +32,10 @@ export interface LodgingSelectionPricingInputDto {
 export interface TransportGroupPricingInputDto {
   teamName: string;
   headcount: number;
-  flightInDate: string;
-  flightInTime: string;
-  flightOutDate: string;
-  flightOutTime: string;
+  flightInDate?: string | null;
+  flightInTime?: string | null;
+  flightOutDate?: string | null;
+  flightOutTime?: string | null;
   pickupDate?: string | null;
   pickupTime?: string | null;
   pickupPlaceType?: string | null;

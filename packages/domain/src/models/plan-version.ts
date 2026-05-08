@@ -22,8 +22,8 @@ export interface PlanVersion {
     headcountMale: number;
     headcountFemale: number;
     vehicleType: string;
-    flightInTime: string;
-    flightOutTime: string;
+    flightInTime: string | null;
+    flightOutTime: string | null;
     pickupDate: Date | null;
     pickupTime: string | null;
     dropDate: Date | null;
@@ -74,10 +74,10 @@ export interface PlanVersion {
       orderIndex: number;
       teamName: string;
       headcount: number;
-      flightInDate: Date;
-      flightInTime: string;
-      flightOutDate: Date;
-      flightOutTime: string;
+      flightInDate: Date | null;
+      flightInTime: string | null;
+      flightOutDate: Date | null;
+      flightOutTime: string | null;
       pickupDate: Date | null;
       pickupTime: string | null;
       pickupPlaceType: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;

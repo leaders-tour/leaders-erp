@@ -8,8 +8,15 @@ const planStopRowTypes = ['MAIN', 'EXTERNAL_TRANSFER'] as const;
 const movementIntensityLevels = ['LEVEL_1', 'LEVEL_2', 'LEVEL_3', 'LEVEL_4', 'LEVEL_5'] as const;
 const pricingChargeScopes = ['TEAM', 'PER_PERSON'] as const;
 const pricingPersonModes = ['SINGLE', 'PER_DAY', 'PER_NIGHT'] as const;
+function preprocessDateTimeInput(value: unknown): unknown {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? value : value.toISOString();
+  }
+  return value;
+}
+
 const dateTimeInputSchema = z.preprocess(
-  (value) => (value instanceof Date ? value.toISOString() : value),
+  preprocessDateTimeInput,
   z.string().datetime(),
 );
 
@@ -236,6 +243,27 @@ export const lodgingSelectionInputSchema = z
 
 const manualDepositInputSchema = z.number().int().min(0).max(1_000_000_000);
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+
+/** Optional ISO DateTime; empty string / null / undefined → omitted */
+const optionalDateTimeInputSchema = z.preprocess((value) => {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  if (typeof value === 'string' && value.trim().length === 0) {
+    return undefined;
+  }
+  return preprocessDateTimeInput(value);
+}, z.string().datetime().optional());
+
+const optionalTimeSchema = z.preprocess((value) => {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  if (typeof value === 'string' && value.trim().length === 0) {
+    return undefined;
+  }
+  return value;
+}, timeSchema.optional());
 const externalTransferDirections = ['PICKUP', 'DROP'] as const;
 const externalTransferPresetCodes = [
   'DROP_ULAANBAATAR_AIRPORT',
@@ -281,10 +309,10 @@ export const planVersionTransportGroupInputSchema = z
   .object({
     teamName: z.string().min(1).max(100),
     headcount: z.number().int().min(1).max(100),
-    flightInDate: dateTimeInputSchema,
-    flightInTime: timeSchema,
-    flightOutDate: dateTimeInputSchema,
-    flightOutTime: timeSchema,
+    flightInDate: optionalDateTimeInputSchema,
+    flightInTime: optionalTimeSchema,
+    flightOutDate: optionalDateTimeInputSchema,
+    flightOutTime: optionalTimeSchema,
     pickupDate: dateTimeInputSchema.optional(),
     pickupTime: timeSchema.optional(),
     pickupPlaceType: z.enum(placeTypes).optional(),
@@ -295,6 +323,26 @@ export const planVersionTransportGroupInputSchema = z
     dropPlaceCustomText: z.string().max(100).optional(),
   })
   .superRefine((value, ctx) => {
+    const inDatePresent = Boolean(value.flightInDate?.trim());
+    const inTimePresent = Boolean(value.flightInTime?.trim());
+    if (inDatePresent !== inTimePresent) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'flightInDate and flightInTime must both be set or both omitted',
+        path: inDatePresent ? ['flightInTime'] : ['flightInDate'],
+      });
+    }
+
+    const outDatePresent = Boolean(value.flightOutDate?.trim());
+    const outTimePresent = Boolean(value.flightOutTime?.trim());
+    if (outDatePresent !== outTimePresent) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'flightOutDate and flightOutTime must both be set or both omitted',
+        path: outDatePresent ? ['flightOutTime'] : ['flightOutDate'],
+      });
+    }
+
     const customPlaceFields = [
       ['pickupPlaceType', 'pickupPlaceCustomText'],
       ['dropPlaceType', 'dropPlaceCustomText'],
@@ -327,8 +375,8 @@ export const planVersionMetaInputSchema = z
     headcountMale: z.number().int().min(0).max(100),
     headcountFemale: z.number().int().min(0).max(100),
     vehicleType: z.enum(vehicleTypes),
-    flightInTime: timeSchema,
-    flightOutTime: timeSchema,
+    flightInTime: optionalTimeSchema,
+    flightOutTime: optionalTimeSchema,
     pickupDate: dateTimeInputSchema.optional(),
     pickupTime: timeSchema.optional(),
     dropDate: dateTimeInputSchema.optional(),

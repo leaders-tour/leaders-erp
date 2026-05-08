@@ -1048,8 +1048,8 @@ model PlanVersionMeta {
   headcountMale          Int
   headcountFemale        Int
   vehicleType            String
-  flightInTime           String
-  flightOutTime          String
+  flightInTime           String?
+  flightOutTime          String?
   pickupDate             DateTime?
   pickupTime             String?
   dropDate               DateTime?
@@ -1092,10 +1092,10 @@ model PlanVersionTransportGroup {
   orderIndex        Int
   teamName          String
   headcount         Int
-  flightInDate      DateTime
-  flightInTime      String
-  flightOutDate     DateTime
-  flightOutTime     String
+  flightInDate      DateTime?
+  flightInTime      String?
+  flightOutDate     DateTime?
+  flightOutTime     String?
   pickupDate        DateTime?
   pickupTime        String?
   pickupPlaceType   PlaceType?

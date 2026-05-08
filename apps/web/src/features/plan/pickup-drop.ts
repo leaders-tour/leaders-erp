@@ -165,11 +165,9 @@ export function getRecommendedPickupSchedule(
   travelStartDate?: string | null | undefined,
 ): { date: string; time: string } {
   const normalizedIn = flightInDate?.trim() ?? '';
-  if (normalizedIn.length === 0) {
-    return {
-      date: '',
-      time: getRecommendedPickupTime(flightInTime),
-    };
+  const normalizedTime = flightInTime?.trim() ?? '';
+  if (normalizedIn.length === 0 || normalizedTime.length === 0) {
+    return { date: '', time: '' };
   }
 
   const normalizedStart = travelStartDate?.trim() ?? '';
@@ -232,11 +230,9 @@ export function getRecommendedDropSchedule(
   travelEndDate?: string | null | undefined,
 ): { date: string; time: string } {
   const normalizedDate = flightOutDate?.trim() ?? '';
-  if (normalizedDate.length === 0) {
-    return {
-      date: '',
-      time: getRecommendedDropTime(flightOutTime),
-    };
+  const normalizedTime = flightOutTime?.trim() ?? '';
+  if (normalizedDate.length === 0 || normalizedTime.length === 0) {
+    return { date: '', time: '' };
   }
 
   const normalizedEnd = travelEndDate?.trim() ?? '';
@@ -350,16 +346,14 @@ export function formatTransportFlightLines(
           ? formatFlightDisplay(group.flightInDate, group.flightInTime)
           : formatFlightDisplay(group.flightOutDate, group.flightOutTime);
 
-      if (display === '-') {
-        return '';
-      }
+      const lineContent = display === '-' ? '항공권 미정' : display;
 
       const label = shouldShowLabel ? formatTransportGroupLabel(group.teamName, group.headcount) : '';
-      return label ? `${label} ${display}` : display;
+      return label ? `${label} ${lineContent}` : lineContent;
     })
     .filter((value) => value.length > 0);
 
-  return lines.length > 0 ? lines.join('\n') : '-';
+  return lines.length > 0 ? lines.join('\n') : '항공권 미정';
 }
 
 export function formatTransportPickupDropLines(

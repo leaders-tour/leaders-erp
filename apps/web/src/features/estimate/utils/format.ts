@@ -106,16 +106,9 @@ export function formatSignedCurrency(value: number): string {
 
 export function formatFlightText(date: string | null | undefined, time: string | null | undefined): string {
   const normalizedTime = time?.trim() ?? '';
-  if (!date && normalizedTime.length === 0) {
-    return '-';
-  }
-
-  if (!date) {
-    return normalizedTime;
-  }
-
-  if (normalizedTime.length === 0) {
-    return formatDateShort(date);
+  const normalizedDate = date?.trim() ?? '';
+  if (!normalizedDate || normalizedTime.length === 0) {
+    return '항공권 미정';
   }
 
   return `${formatDateShort(date)} - ${normalizedTime}`;
@@ -126,7 +119,7 @@ export function formatTransportFlightText(
   direction: 'IN' | 'OUT',
 ): string {
   if (!groups || groups.length === 0) {
-    return '-';
+    return '항공권 미정';
   }
 
   return formatTransportFlightLines(groups, direction);

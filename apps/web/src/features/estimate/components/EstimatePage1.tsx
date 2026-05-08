@@ -269,6 +269,19 @@ function TransportGroupEditor({
 
           {mode === 'flightIn' ? (
             <div className="grid gap-2">
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={!group.flightInDate?.trim() && !group.flightInTime?.trim()}
+                  onClick={() => {
+                    onFieldChange(index, 'flightInDate', '');
+                    onFieldChange(index, 'flightInTime', '');
+                  }}
+                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  미정
+                </button>
+              </div>
               <input
                 type="date"
                 value={group.flightInDate}
@@ -291,6 +304,19 @@ function TransportGroupEditor({
 
           {mode === 'flightOut' ? (
             <div className="grid gap-2">
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={!group.flightOutDate?.trim() && !group.flightOutTime?.trim()}
+                  onClick={() => {
+                    onFieldChange(index, 'flightOutDate', '');
+                    onFieldChange(index, 'flightOutTime', '');
+                  }}
+                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  미정
+                </button>
+              </div>
               <input
                 type="date"
                 value={group.flightOutDate}

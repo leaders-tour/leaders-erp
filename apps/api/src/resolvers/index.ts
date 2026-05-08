@@ -52,11 +52,15 @@ function protectSection(
 
 const dateTimeScalar = new GraphQLScalarType({
   name: 'DateTime',
-  serialize(value: unknown): string {
-    if (value instanceof Date) {
-      return value.toISOString();
+  serialize(value: unknown): string | null {
+    if (value == null) {
+      return null;
     }
-    return new Date(String(value)).toISOString();
+    const date = value instanceof Date ? value : new Date(String(value));
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toISOString();
   },
   parseValue(value: unknown): Date {
     return new Date(String(value));
