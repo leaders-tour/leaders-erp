@@ -172,6 +172,60 @@ function applyRentalItemFilter(
   return trips.filter((trip) => filters.every((filter) => matchesRentalItem(trip, filter)));
 }
 
+function normalizeTripSearchText(value: string): string {
+  return value.trim().toLocaleLowerCase('ko-KR');
+}
+
+function getTripSearchText(trip: ConfirmedTripRow): string {
+  const startStr = getTripStartDate(trip);
+  const endStr = getTripEndDate(trip);
+  const headcount = getTripHeadcount(trip);
+  const rentalItems = [
+    trip.rentalDrone ? '드론' : null,
+    trip.rentalStarlink ? '스타링크' : null,
+    trip.rentalPowerbank ? '파워뱅크' : null,
+    trip.camelDollPurchased ? '낙타인형' : null,
+  ];
+
+  return [
+    getTripLeaderName(trip),
+    trip.user.name,
+    trip.user.email,
+    startStr,
+    endStr,
+    startStr && endStr ? formatDateRange(startStr, endStr) : null,
+    headcount == null ? null : String(headcount),
+    trip.isRecruitingOpen ? '모집중' : '마감',
+    getTripDestination(trip),
+    trip.plan?.title,
+    trip.plan?.regionSet.name,
+    trip.planVersion?.meta?.documentNumber,
+    trip.guideName,
+    trip.guide?.nameKo,
+    trip.guide?.nameMn,
+    trip.driverName,
+    trip.driver?.nameMn,
+    trip.assignedVehicle,
+    trip.planVersion?.meta?.vehicleType,
+    getLodgingSummary(trip),
+    trip.accommodationNote,
+    trip.operationNote,
+    ...rentalItems,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(' ');
+}
+
+function applyTripSearch(trips: ConfirmedTripRow[], query: string): ConfirmedTripRow[] {
+  const tokens = normalizeTripSearchText(query).split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return trips;
+
+  return trips.filter((trip) => {
+    const haystack = normalizeTripSearchText(getTripSearchText(trip));
+    return tokens.every((token) => haystack.includes(token));
+  });
+}
+
 function parseRentalItemFilters(raw: string | null): RentalItemFilter[] {
   if (!raw) return [];
   const seen = new Set<RentalItemFilter>();
@@ -650,6 +704,8 @@ export function ConfirmedTripsPage(): JSX.Element {
   const rentalItemFilters = parseRentalItemFilters(searchParams.get('rentalItem'));
   const sortKey: SortKey = (searchParams.get('sortKey') as SortKey | null) ?? 'travelStart';
   const sortDir: SortDir = (searchParams.get('sortDir') as SortDir | null) ?? 'asc';
+  const listSearchQuery = searchParams.get('q') ?? '';
+  const normalizedListSearchQuery = normalizeTripSearchText(listSearchQuery);
 
   const aggFrom = searchParams.get('aggFrom') ?? '';
   const aggTo = searchParams.get('aggTo') ?? '';
@@ -678,20 +734,25 @@ export function ConfirmedTripsPage(): JSX.Element {
     [allTrips, dateFilter, rentalItemFilters, aggFrom, aggTo, aggRegions],
   );
 
+  const searchedTrips = useMemo(
+    () => applyTripSearch(tripsFilteredBase, listSearchQuery),
+    [tripsFilteredBase, listSearchQuery],
+  );
+
   const listViewStats = useMemo(() => {
     let paxSum = 0;
     let missingPax = 0;
-    for (const t of tripsFilteredBase) {
+    for (const t of searchedTrips) {
       const h = getTripHeadcount(t);
       if (h == null) missingPax += 1;
       else paxSum += h;
     }
-    return { teams: tripsFilteredBase.length, paxSum, missingPax };
-  }, [tripsFilteredBase]);
+    return { teams: searchedTrips.length, paxSum, missingPax };
+  }, [searchedTrips]);
 
   const trips = useMemo(
-    () => applySort(tripsFilteredBase, sortKey, sortDir),
-    [tripsFilteredBase, sortKey, sortDir],
+    () => applySort(searchedTrips, sortKey, sortDir),
+    [searchedTrips, sortKey, sortDir],
   );
 
   const calendarTrips = useMemo(
@@ -824,7 +885,9 @@ export function ConfirmedTripsPage(): JSX.Element {
     completed: '완료된 투어가 없습니다.',
   };
   const emptyMessage =
-    trips.length === 0 && (aggFilterActive || rentalItemFilters.length > 0) && allTrips.length > 0
+    trips.length === 0 &&
+    (aggFilterActive || rentalItemFilters.length > 0 || normalizedListSearchQuery) &&
+    allTrips.length > 0
       ? '선택한 필터 조건에 맞는 투어가 없습니다.'
       : baseEmptyByDate[dateFilter];
 
@@ -1058,6 +1121,45 @@ export function ConfirmedTripsPage(): JSX.Element {
         </Card>
       ) : (
         <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-start gap-2 border-b border-slate-100 bg-white px-4 py-3">
+            <label className="w-full min-w-[16rem] md:w-[28rem]">
+              <span className="sr-only">투어 리스트 검색</span>
+              <input
+                type="search"
+                value={listSearchQuery}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setSearchParams(
+                    (prev) => {
+                      if (value.trim()) prev.set('q', value);
+                      else prev.delete('q');
+                      return prev;
+                    },
+                    { replace: true },
+                  );
+                }}
+                placeholder="대표자, 여행지, 가이드, 기사, 차량, 숙소 검색"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900"
+              />
+            </label>
+            {normalizedListSearchQuery ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setSearchParams(
+                    (prev) => {
+                      prev.delete('q');
+                      return prev;
+                    },
+                    { replace: true },
+                  )
+                }
+                className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700"
+              >
+                검색 초기화
+              </button>
+            ) : null}
+          </div>
           <TripTableListSummaryBar
             teams={listViewStats.teams}
             paxSum={listViewStats.paxSum}
