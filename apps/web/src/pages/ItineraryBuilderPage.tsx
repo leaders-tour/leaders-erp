@@ -1089,6 +1089,15 @@ const REGION_SETS_QUERY = gql`
   }
 `;
 
+const REGIONS_FIRST_DAY_BOOST_QUERY = gql`
+  query ItineraryBuilderRegionsFirstDayBoost {
+    regions {
+      id
+      alwaysIncludeFirstDayStart
+    }
+  }
+`;
+
 const PLAN_CONTEXT_QUERY = gql`
   query BuilderPlanContext($id: ID!) {
     plan(id: $id) {
@@ -2580,6 +2589,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   const { data: regionSetData } = useQuery<{ regionSets: RegionSetRow[] }>(REGION_SETS_QUERY, {
     variables: { includeInactive: true },
   });
+  const { data: regionsFirstDayData } = useQuery<{
+    regions: Array<{ id: string; alwaysIncludeFirstDayStart: boolean }>;
+  }>(REGIONS_FIRST_DAY_BOOST_QUERY);
   const { data: locationData, loading: locationsLoading } = useQuery<{ locations: LocationRow[] }>(
     LOCATIONS_QUERY,
     {
@@ -2663,9 +2675,23 @@ export function ItineraryBuilderPage(): JSX.Element {
       ),
     [regionSetId, regionSets],
   );
+  const alwaysIncludeFirstDayStartRegionIds = useMemo(
+    () =>
+      new Set(
+        (regionsFirstDayData?.regions ?? [])
+          .filter((r) => r.alwaysIncludeFirstDayStart)
+          .map((r) => r.id),
+      ),
+    [regionsFirstDayData],
+  );
   const firstDayScopedLocations = useMemo(
-    () => locations.filter((location) => selectedRegionIds.has(location.regionId)),
-    [locations, selectedRegionIds],
+    () =>
+      locations.filter(
+        (location) =>
+          selectedRegionIds.has(location.regionId) ||
+          alwaysIncludeFirstDayStartRegionIds.has(location.regionId),
+      ),
+    [locations, selectedRegionIds, alwaysIncludeFirstDayStartRegionIds],
   );
 
   const templateOptions = useMemo(() => {

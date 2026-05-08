@@ -32,6 +32,7 @@ export class RegionService {
         data: {
           name: parsed.data.name,
           description: parsed.data.description ?? null,
+          alwaysIncludeFirstDayStart: parsed.data.alwaysIncludeFirstDayStart ?? false,
         },
       });
       await RegionSetService.createSingletonForRegion(tx, region.id, region.name);

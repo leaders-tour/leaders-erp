@@ -17,12 +17,35 @@ export function toRegionMutationErrorMessage(error: unknown, fallback: string): 
   return fallback;
 }
 
-export const regionCreateSchema = {
-  parse: (input: { name: string; description: string }) => ({
-    name: input.name,
-    description: input.description || null,
-  }),
-};
+export interface RegionCreateFormInput {
+  name: string;
+  description: string;
+  alwaysIncludeFirstDayStart: boolean;
+}
+
+export type RegionUpdateFormInput = Partial<Pick<RegionCreateFormInput, 'name' | 'description' | 'alwaysIncludeFirstDayStart'>>;
+
+function toCreateMutationInput(input: RegionCreateFormInput) {
+  return {
+    name: input.name.trim(),
+    description: input.description.trim() ? input.description.trim() : null,
+    alwaysIncludeFirstDayStart: input.alwaysIncludeFirstDayStart,
+  };
+}
+
+function toUpdateMutationInput(input: RegionUpdateFormInput): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  if (input.name !== undefined) {
+    patch.name = input.name.trim();
+  }
+  if (input.description !== undefined) {
+    patch.description = input.description.trim() ? input.description.trim() : null;
+  }
+  if (input.alwaysIncludeFirstDayStart !== undefined) {
+    patch.alwaysIncludeFirstDayStart = input.alwaysIncludeFirstDayStart;
+  }
+  return patch;
+}
 
 const LIST = gql`
   query Regions {
@@ -30,6 +53,7 @@ const LIST = gql`
       id
       name
       description
+      alwaysIncludeFirstDayStart
     }
   }
 `;
@@ -56,16 +80,11 @@ const REMOVE = gql`
   }
 `;
 
-export interface RegionFormInput {
-  name: string;
-  description: string;
-}
-
 export function useRegionCrud() {
-  return useCrudResource<Region, RegionFormInput, RegionFormInput>({
+  return useCrudResource<Region, RegionCreateFormInput, RegionUpdateFormInput>({
     docs: { list: LIST, create: CREATE, update: UPDATE, remove: REMOVE },
     keys: { listKey: 'regions', createKey: 'createRegion', updateKey: 'updateRegion', removeKey: 'deleteRegion' },
-    toCreateVariables: (input) => ({ input: regionCreateSchema.parse(input) }),
-    toUpdateVariables: (_id, input) => ({ input: regionCreateSchema.parse(input), id: _id }),
+    toCreateVariables: (input) => ({ input: toCreateMutationInput(input) }),
+    toUpdateVariables: (id, input) => ({ input: toUpdateMutationInput(input), id }),
   });
 }

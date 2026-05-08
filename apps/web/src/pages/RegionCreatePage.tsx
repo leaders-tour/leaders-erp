@@ -8,6 +8,7 @@ export function RegionCreatePage(): JSX.Element {
   const location = useLocation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [alwaysIncludeFirstDayStart, setAlwaysIncludeFirstDayStart] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   return (
@@ -58,9 +59,14 @@ export function RegionCreatePage(): JSX.Element {
             }
             setSubmitting(true);
             try {
-              await crud.createRow({ name: name.trim(), description: description.trim() });
+              await crud.createRow({
+                name: name.trim(),
+                description: description.trim(),
+                alwaysIncludeFirstDayStart,
+              });
               setName('');
               setDescription('');
+              setAlwaysIncludeFirstDayStart(false);
             } finally {
               setSubmitting(false);
             }
@@ -75,6 +81,18 @@ export function RegionCreatePage(): JSX.Element {
             <span className="text-slate-700">설명 (선택)</span>
             <Input value={description} onChange={(event) => setDescription(event.target.value)} />
             <span className="text-xs text-slate-500">*직원만 보입니다.</span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300"
+              checked={alwaysIncludeFirstDayStart}
+              onChange={(e) => setAlwaysIncludeFirstDayStart(e.target.checked)}
+            />
+            <span className="text-slate-700">
+              이 지역의 &quot;첫날 가능&quot; 목적지를 지역 세트와 관계없이 1일차 시작 후보에 항상 표시합니다.
+              <span className="mt-0.5 block text-xs font-normal text-slate-500">(예: 울란바토르)</span>
+            </span>
           </label>
           <div>
             <Button type="submit" variant="primary" disabled={submitting || !name.trim() || crud.loading}>

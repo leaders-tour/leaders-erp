@@ -473,6 +473,9 @@ model Region {
   name        String
   description String?
 
+  /// 지역세트에 포함되지 않아도 1일차 시작 후보(첫날 가능 목적지) 목록에 이 지역의 location을 포함
+  alwaysIncludeFirstDayStart Boolean @default(false)
+
   defaultRegionSetId String?  @unique
   defaultRegionSet   RegionSet? @relation("RegionDefaultRegionSet", fields: [defaultRegionSetId], references: [id], onDelete: Restrict)
 

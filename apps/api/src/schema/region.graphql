@@ -2,6 +2,7 @@ type Region {
   id: ID!
   name: String!
   description: String
+  alwaysIncludeFirstDayStart: Boolean!
   createdAt: DateTime!
   updatedAt: DateTime!
   locations: [Location!]!
@@ -12,9 +13,11 @@ type Region {
 input RegionCreateInput {
   name: String!
   description: String
+  alwaysIncludeFirstDayStart: Boolean
 }
 
 input RegionUpdateInput {
   name: String
   description: String
+  alwaysIncludeFirstDayStart: Boolean
 }
