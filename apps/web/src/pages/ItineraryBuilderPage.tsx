@@ -12,7 +12,6 @@ import { TimePickerModal } from '../components/date-picker/TimePickerModal';
 import { formatTimeTriggerLabel } from '../components/date-picker/time-picker-utils';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
-import { getEstimatePdfDownloadLabel, useEstimatePdfDownload } from '../features/estimate/hooks/use-estimate-pdf-download';
 import { averageMovementIntensity } from '../features/estimate/model/movement-intensity';
 import type {
   EstimateBuilderDraftSnapshot,
@@ -2414,7 +2413,6 @@ function TimeInputTrigger({
 
 export function ItineraryBuilderPage(): JSX.Element {
   const { employee } = useAuth();
-  const { downloading: downloadingEstimatePdf, phase: estimatePdfPhase, downloadEstimatePdf } = useEstimatePdfDownload();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -2494,6 +2492,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   } | null>(null);
   const [createdId, setCreatedId] = useState<string>('');
   const [planSaveErrorMessages, setPlanSaveErrorMessages] = useState<string[]>([]);
+  const [isCreateBlockedTooltipOpen, setIsCreateBlockedTooltipOpen] = useState<boolean>(false);
   const [isValidationOpen, setIsValidationOpen] = useState<boolean>(false);
   const [isPayloadPreviewOpen, setIsPayloadPreviewOpen] = useState<boolean>(false);
   const [isPreviewEnabled, setIsPreviewEnabled] = useState<boolean>(true);
@@ -4310,6 +4309,16 @@ export function ItineraryBuilderPage(): JSX.Element {
     planTitle,
     planDocumentNumberBase,
   ]);
+  const planCreateActionLabel = isVersionMode ? '새 버전 생성' : '생성';
+  const shouldShowPlanCreateBlockedTooltip =
+    !isTemplateOnlyMode && !canCreate && !creating && planCreateBlockedReasons.length > 0;
+  const planCreateBlockedTooltipId = 'plan-create-blocked-tooltip';
+
+  useEffect(() => {
+    if (!shouldShowPlanCreateBlockedTooltip) {
+      setIsCreateBlockedTooltipOpen(false);
+    }
+  }, [shouldShowPlanCreateBlockedTooltip]);
 
   const effectivePlanTitle = isVersionMode && planContext ? planContext.title : planTitle;
   const selectedEventNames = useMemo(
@@ -4435,19 +4444,6 @@ export function ItineraryBuilderPage(): JSX.Element {
       setRentalItemsText(value);
     },
     onRemarkTextChange: setRemark,
-  };
-
-  const openEstimatePdf = (): void => {
-    if (!previewEstimateData) {
-      window.alert('견적서 미리보기 데이터를 준비한 뒤 다시 시도해주세요.');
-      return;
-    }
-
-    void downloadEstimatePdf({
-      data: previewEstimateData,
-    }).catch((error) => {
-      window.alert(error instanceof Error ? error.message : '견적서 PDF 다운로드에 실패했습니다.');
-    });
   };
 
   if (!hasValidContext) {
@@ -4828,25 +4824,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                 <h1 className="text-2xl font-semibold tracking-tight">여행 일정 빌더</h1>
               </div>
               <div className="flex max-w-xl flex-col items-stretch gap-2 md:items-end">
-                <div className="flex flex-wrap justify-end gap-2 no-print">
+                <div className="relative flex flex-wrap justify-end gap-2 no-print">
                 <Button variant="outline" onClick={() => setIsPreviewEnabled((prev) => !prev)}>
                   {isPreviewEnabled ? '미리보기 끄기' : '미리보기 켜기'}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={openEstimatePdf}
-                  disabled={downloadingEstimatePdf || previewGuidesLoading || !previewEstimateData}
-                >
-                  {downloadingEstimatePdf ? getEstimatePdfDownloadLabel(estimatePdfPhase) : '견적서 PDF'}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    dirtyPlanRowFieldKeysRef.current.clear();
-                    setPlanRows(autoRows);
-                  }}
-                >
-                  자동값 다시 채우기
                 </Button>
                 <Button
                   variant="outline"
@@ -5109,25 +5089,42 @@ export function ItineraryBuilderPage(): JSX.Element {
                     }
                   }}
                 >
-                  {creating ? '저장 중...' : isVersionMode ? '새 버전 생성' : 'Plan 생성'}
+                  {creating ? '저장 중...' : planCreateActionLabel}
                 </Button>
-                </div>
-                {!isTemplateOnlyMode && !canCreate && !creating && planCreateBlockedReasons.length > 0 ? (
-                  <div
-                    className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    <p className="mb-1 font-medium">
-                      {isVersionMode ? '새 버전 생성' : 'Plan 생성'}을 하려면 아래를 완료해 주세요.
-                    </p>
-                    <ul className="list-inside list-disc space-y-0.5 text-amber-900">
-                      {planCreateBlockedReasons.map((msg, index) => (
-                        <li key={`${index}-${msg.slice(0, 48)}`}>{msg}</li>
-                      ))}
-                    </ul>
-                  </div>
+                {shouldShowPlanCreateBlockedTooltip ? (
+                  <>
+                    <button
+                      type="button"
+                      className="relative flex h-9 w-9 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-sm font-semibold text-amber-800 shadow-sm transition hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2"
+                      aria-label={`${planCreateActionLabel} 제한 사유 ${planCreateBlockedReasons.length}개 보기`}
+                      aria-expanded={isCreateBlockedTooltipOpen}
+                      aria-controls={planCreateBlockedTooltipId}
+                      onClick={() => setIsCreateBlockedTooltipOpen((prev) => !prev)}
+                    >
+                      <span aria-hidden="true">!</span>
+                      <span className="absolute right-1 top-0.5 text-[10px] leading-none">
+                        {planCreateBlockedReasons.length}
+                      </span>
+                    </button>
+                    {isCreateBlockedTooltipOpen ? (
+                      <div
+                        id={planCreateBlockedTooltipId}
+                        role="tooltip"
+                        className="absolute right-0 top-full z-30 mt-2 w-[min(24rem,calc(100vw-2rem))] rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-left text-sm text-amber-950 shadow-lg"
+                      >
+                        <p className="mb-1 font-medium">
+                          {planCreateActionLabel}을 하려면 아래 {planCreateBlockedReasons.length}개를 완료해 주세요.
+                        </p>
+                        <ul className="list-inside list-disc space-y-0.5 text-amber-900">
+                          {planCreateBlockedReasons.map((msg, index) => (
+                            <li key={`${index}-${msg.slice(0, 48)}`}>{msg}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </>
                 ) : null}
+                </div>
                 {planSaveErrorMessages.length > 0 ? (
                   <div
                     className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900"
