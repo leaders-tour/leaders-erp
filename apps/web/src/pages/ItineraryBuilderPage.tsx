@@ -4334,6 +4334,78 @@ export function ItineraryBuilderPage(): JSX.Element {
       : true),
   );
 
+  const planCreateBlockedReasons = useMemo(() => {
+    if (isTemplateOnlyMode) {
+      return [];
+    }
+    const reasons: string[] = [];
+    if (!userId) {
+      reasons.push('고객(userId)가 지정되지 않았습니다. 고객 상세 등에서 일정 빌더를 열어 주세요.');
+    } else if (isVersionMode && !parentVersionId) {
+      reasons.push('기준이 되는 플랜 버전이 없습니다. 플랜·버전 상세에서 다시 진입해 주세요.');
+    }
+    if (!regionSetId) {
+      reasons.push('지역 세트를 선택해 주세요.');
+    }
+    if (!leaderName.trim()) {
+      reasons.push('대표자명을 입력해 주세요.');
+    }
+    for (const err of validationResults) {
+      if (err.severity !== 'error') continue;
+      reasons.push(err.message);
+    }
+    if (includeRentalItems && !rentalItemsText.trim()) {
+      reasons.push('렌탈 항목 포함이 켜져 있으면 렌탈 항목 내용을 입력해 주세요.');
+    }
+    if (selectedRoute.length === 0) {
+      reasons.push('여행 루트에서 일정에 넣을 장소를 한 구간 이상 선택해 주세요.');
+    } else {
+      const incompleteStopIndexes = selectedRoute
+        .map((stop, i) => (isRouteSelectionStopComplete(stop) ? null : i + 1))
+        .filter((x): x is number => x !== null);
+      if (incompleteStopIndexes.length > 0) {
+        reasons.push(
+          `루트 ${incompleteStopIndexes.join(', ')}번째 구간의 장소·버전 선택을 마쳐 주세요.`,
+        );
+      }
+      const consumedDays = getConsumedRouteDayCount(selectedRoute);
+      if (consumedDays !== totalDays) {
+        reasons.push(
+          `루트에서 채운 일수(${consumedDays}일)가 총 여행 일수(${totalDays}일)와 같아야 합니다.`,
+        );
+      }
+    }
+    if (planRows.length !== totalDays) {
+      reasons.push(`일정표가 ${totalDays}일 분량으로 맞춰져야 합니다. (현재 ${planRows.length}일)`);
+    }
+    if (!isVersionMode && !planTitle.trim()) {
+      reasons.push('Plan 제목을 입력해 주세요.');
+    }
+    if (
+      !isVersionMode &&
+      planDocumentNumberBase.trim() &&
+      !/^[0-9]{9}$/.test(planDocumentNumberBase.trim())
+    ) {
+      reasons.push('문서번호 기준은 비워 두거나 9자리 숫자만 입력할 수 있습니다.');
+    }
+    return reasons;
+  }, [
+    isTemplateOnlyMode,
+    userId,
+    isVersionMode,
+    parentVersionId,
+    regionSetId,
+    leaderName,
+    validationResults,
+    includeRentalItems,
+    rentalItemsText,
+    selectedRoute,
+    totalDays,
+    planRows.length,
+    planTitle,
+    planDocumentNumberBase,
+  ]);
+
   const effectivePlanTitle = isVersionMode && planContext ? planContext.title : planTitle;
   const selectedEventNames = useMemo(
     () =>
@@ -5135,6 +5207,22 @@ export function ItineraryBuilderPage(): JSX.Element {
                   {creating ? '저장 중...' : isVersionMode ? '새 버전 생성' : 'Plan 생성'}
                 </Button>
                 </div>
+                {!isTemplateOnlyMode && !canCreate && !creating && planCreateBlockedReasons.length > 0 ? (
+                  <div
+                    className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <p className="mb-1 font-medium">
+                      {isVersionMode ? '새 버전 생성' : 'Plan 생성'}을 하려면 아래를 완료해 주세요.
+                    </p>
+                    <ul className="list-inside list-disc space-y-0.5 text-amber-900">
+                      {planCreateBlockedReasons.map((msg, index) => (
+                        <li key={`${index}-${msg.slice(0, 48)}`}>{msg}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 {planSaveErrorMessages.length > 0 ? (
                   <div
                     className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900"
