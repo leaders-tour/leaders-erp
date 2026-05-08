@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useConfirmedTrip, useUpdateConfirmedTrip } from '../features/confirmed-trip/hooks';
+import { useConfirmedTrip, useUpdateConfirmedTrip, sortTripAssignments } from '../features/confirmed-trip/hooks';
 import { LodgingSection } from '../features/confirmed-trip/LodgingSection';
 import { useGuides, type GuideRow } from '../features/guide/hooks';
 import { useDrivers, type DriverRow } from '../features/driver/hooks';
@@ -132,25 +132,21 @@ function DriverCard({
 
 function PersonnelPanel({
   tripId,
-  guideId,
-  driverId,
-  guideName,
-  driverName,
+  initialGuideIds,
+  initialDriverIds,
   onSaved,
 }: {
   tripId: string;
-  guideId: string | null;
-  driverId: string | null;
-  guideName: string | null;
-  driverName: string | null;
+  initialGuideIds: string[];
+  initialDriverIds: string[];
   onSaved: () => void;
 }) {
   const { guides, loading: guidesLoading } = useGuides();
   const { drivers, loading: driversLoading } = useDrivers();
   const { updateConfirmedTrip, loading: saving } = useUpdateConfirmedTrip();
 
-  const [selectedGuideId, setSelectedGuideId] = useState<string | null>(guideId);
-  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(driverId);
+  const [guideOrder, setGuideOrder] = useState<string[]>(() => [...initialGuideIds]);
+  const [driverOrder, setDriverOrder] = useState<string[]>(() => [...initialDriverIds]);
   const [guideSearch, setGuideSearch] = useState('');
   const [driverSearch, setDriverSearch] = useState('');
   const [dirty, setDirty] = useState(false);
@@ -164,33 +160,71 @@ function PersonnelPanel({
     : guides;
 
   const filteredDrivers = driverSearch.trim()
-    ? drivers.filter(
-        (d) =>
-          d.nameMn.toLowerCase().includes(driverSearch.toLowerCase()),
-      )
+    ? drivers.filter((d) => d.nameMn.toLowerCase().includes(driverSearch.toLowerCase()))
     : drivers;
 
   const handleSave = async () => {
-    const selectedGuide = guides.find((g) => g.id === selectedGuideId);
-    const selectedDriver = drivers.find((d) => d.id === selectedDriverId);
-
     await updateConfirmedTrip(tripId, {
-      guideId: selectedGuideId,
-      driverId: selectedDriverId,
-      guideName: selectedGuide?.nameKo ?? guideName ?? null,
-      driverName: selectedDriver?.nameMn ?? driverName ?? null,
+      guideAssignments: guideOrder.map((guideId, index) => ({
+        guideId,
+        sortOrder: index,
+        nameSnapshot: guides.find((g) => g.id === guideId)?.nameKo ?? null,
+      })),
+      driverAssignments: driverOrder.map((driverId, index) => ({
+        driverId,
+        sortOrder: index,
+        nameSnapshot: drivers.find((d) => d.id === driverId)?.nameMn ?? null,
+      })),
     });
     setDirty(false);
     onSaved();
   };
 
-  const selectGuide = (id: string) => {
-    setSelectedGuideId((prev) => (prev === id ? null : id));
+  const toggleGuide = (id: string) => {
+    setGuideOrder((prev) => {
+      const idx = prev.indexOf(id);
+      if (idx >= 0) return prev.filter((x) => x !== id);
+      return [...prev, id];
+    });
     setDirty(true);
   };
 
-  const selectDriver = (id: string) => {
-    setSelectedDriverId((prev) => (prev === id ? null : id));
+  const toggleDriver = (id: string) => {
+    setDriverOrder((prev) => {
+      const idx = prev.indexOf(id);
+      if (idx >= 0) return prev.filter((x) => x !== id);
+      return [...prev, id];
+    });
+    setDirty(true);
+  };
+
+  const moveGuide = (from: number, delta: number) => {
+    setGuideOrder((prev) => {
+      const to = from + delta;
+      if (to < 0 || to >= prev.length) return prev;
+      const next = [...prev];
+      const tmp = next[from];
+      const swap = next[to];
+      if (tmp === undefined || swap === undefined) return prev;
+      next[from] = swap;
+      next[to] = tmp;
+      return next;
+    });
+    setDirty(true);
+  };
+
+  const moveDriver = (from: number, delta: number) => {
+    setDriverOrder((prev) => {
+      const to = from + delta;
+      if (to < 0 || to >= prev.length) return prev;
+      const next = [...prev];
+      const tmp = next[from];
+      const swap = next[to];
+      if (tmp === undefined || swap === undefined) return prev;
+      next[from] = swap;
+      next[to] = tmp;
+      return next;
+    });
     setDirty(true);
   };
 
@@ -214,37 +248,65 @@ function PersonnelPanel({
       <div className="mb-6">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-900">가이드</h3>
-          {selectedGuideId && (
+          {guideOrder.length > 0 && (
             <button
               type="button"
-              onClick={() => { setSelectedGuideId(null); setDirty(true); }}
+              onClick={() => {
+                setGuideOrder([]);
+                setDirty(true);
+              }}
               className="text-xs text-slate-400 hover:text-slate-600"
             >
-              선택 해제
+              전체 해제
             </button>
           )}
         </div>
 
-        {/* 현재 선택된 가이드 강조 표시 */}
-        {selectedGuideId && (() => {
-          const g = guides.find((x) => x.id === selectedGuideId);
-          return g ? (
-            <div className="mb-3 flex items-center gap-3 rounded-2xl border-2 border-blue-400 bg-blue-50 px-3 py-2.5">
-              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-blue-200">
-                {g.profileImageUrl ? (
-                  <img src={g.profileImageUrl} alt={g.nameKo} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-lg text-blue-300">👤</div>
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-blue-900">{g.nameKo}</p>
-                {g.nameMn && <p className="text-xs text-blue-400">{g.nameMn}</p>}
-              </div>
-              <span className="ml-auto text-blue-500 text-sm font-bold">✓</span>
-            </div>
-          ) : null;
-        })()}
+        {/* 선택된 가이드 (표시 순서 · ↑↓로 변경) */}
+        {guideOrder.length > 0 && (
+          <div className="mb-3 flex flex-col gap-2">
+            {guideOrder.map((gid, idx) => {
+              const g = guides.find((x) => x.id === gid);
+              if (!g) return null;
+              return (
+                <div
+                  key={gid}
+                  className="flex items-center gap-2 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2"
+                >
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-blue-200 bg-white">
+                    {g.profileImageUrl ? (
+                      <img src={g.profileImageUrl} alt={g.nameKo} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-sm text-blue-300">👤</div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-blue-900">{g.nameKo}</p>
+                    {g.nameMn && <p className="truncate text-xs text-blue-400">{g.nameMn}</p>}
+                  </div>
+                  <div className="flex shrink-0 flex-col gap-0.5">
+                    <button
+                      type="button"
+                      disabled={idx === 0}
+                      onClick={() => moveGuide(idx, -1)}
+                      className="rounded px-1.5 text-xs text-blue-700 hover:bg-blue-100 disabled:opacity-30"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      disabled={idx === guideOrder.length - 1}
+                      onClick={() => moveGuide(idx, 1)}
+                      className="rounded px-1.5 text-xs text-blue-700 hover:bg-blue-100 disabled:opacity-30"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <input
           className="mb-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
@@ -264,8 +326,8 @@ function PersonnelPanel({
                 <GuideCard
                   key={g.id}
                   guide={g}
-                  selected={selectedGuideId === g.id}
-                  onClick={() => selectGuide(g.id)}
+                  selected={guideOrder.includes(g.id)}
+                  onClick={() => toggleGuide(g.id)}
                 />
               ))}
             </div>
@@ -279,37 +341,66 @@ function PersonnelPanel({
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-900">기사</h3>
-          {selectedDriverId && (
+          {driverOrder.length > 0 && (
             <button
               type="button"
-              onClick={() => { setSelectedDriverId(null); setDirty(true); }}
+              onClick={() => {
+                setDriverOrder([]);
+                setDirty(true);
+              }}
               className="text-xs text-slate-400 hover:text-slate-600"
             >
-              선택 해제
+              전체 해제
             </button>
           )}
         </div>
 
-        {/* 현재 선택된 기사 강조 표시 */}
-        {selectedDriverId && (() => {
-          const d = drivers.find((x) => x.id === selectedDriverId);
-          return d ? (
-            <div className="mb-3 flex items-center gap-3 rounded-2xl border-2 border-emerald-400 bg-emerald-50 px-3 py-2.5">
-              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-emerald-200">
-                {d.profileImageUrl ? (
-                  <img src={d.profileImageUrl} alt={d.nameMn} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-lg text-emerald-300">🚗</div>
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-emerald-900">{d.nameMn}</p>
-                <p className="text-xs text-emerald-400">{VEHICLE_TYPE_LABELS[d.vehicleType] ?? d.vehicleType}</p>
-              </div>
-              <span className="ml-auto text-emerald-500 text-sm font-bold">✓</span>
-            </div>
-          ) : null;
-        })()}
+        {driverOrder.length > 0 && (
+          <div className="mb-3 flex flex-col gap-2">
+            {driverOrder.map((did, idx) => {
+              const d = drivers.find((x) => x.id === did);
+              if (!d) return null;
+              return (
+                <div
+                  key={did}
+                  className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2"
+                >
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-emerald-200 bg-white">
+                    {d.profileImageUrl ? (
+                      <img src={d.profileImageUrl} alt={d.nameMn} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-sm text-emerald-300">🚗</div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-emerald-900">{d.nameMn}</p>
+                    <p className="truncate text-xs text-emerald-600">
+                      {VEHICLE_TYPE_LABELS[d.vehicleType] ?? d.vehicleType}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col gap-0.5">
+                    <button
+                      type="button"
+                      disabled={idx === 0}
+                      onClick={() => moveDriver(idx, -1)}
+                      className="rounded px-1.5 text-xs text-emerald-800 hover:bg-emerald-100 disabled:opacity-30"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      disabled={idx === driverOrder.length - 1}
+                      onClick={() => moveDriver(idx, 1)}
+                      className="rounded px-1.5 text-xs text-emerald-800 hover:bg-emerald-100 disabled:opacity-30"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <input
           className="mb-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
@@ -329,8 +420,8 @@ function PersonnelPanel({
                 <DriverCard
                   key={d.id}
                   driver={d}
-                  selected={selectedDriverId === d.id}
-                  onClick={() => selectDriver(d.id)}
+                  selected={driverOrder.includes(d.id)}
+                  onClick={() => toggleDriver(d.id)}
                 />
               ))}
             </div>
@@ -405,11 +496,10 @@ export function ConfirmedTripAssignPage(): JSX.Element {
         {/* 왼쪽: 가이드 + 기사 */}
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <PersonnelPanel
+            key={trip.updatedAt}
             tripId={tripId}
-            guideId={trip.guide?.id ?? null}
-            driverId={trip.driver?.id ?? null}
-            guideName={trip.guideName}
-            driverName={trip.driverName}
+            initialGuideIds={sortTripAssignments(trip.guideAssignments).map((a) => a.guideId)}
+            initialDriverIds={sortTripAssignments(trip.driverAssignments).map((a) => a.driverId)}
             onSaved={() => void refetch()}
           />
         </div>

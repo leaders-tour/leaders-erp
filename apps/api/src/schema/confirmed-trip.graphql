@@ -63,6 +63,28 @@ type LodgingConflictWarning {
   overlapEndDate: DateTime!
 }
 
+type ConfirmedTripGuideAssignment {
+  id: ID!
+  confirmedTripId: String!
+  guideId: String!
+  guide: Guide!
+  sortOrder: Int!
+  nameSnapshot: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ConfirmedTripDriverAssignment {
+  id: ID!
+  confirmedTripId: String!
+  driverId: String!
+  driver: Driver!
+  sortOrder: Int!
+  nameSnapshot: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
 type ConfirmedTripLodging {
   id: ID!
   confirmedTripId: String!
@@ -93,8 +115,6 @@ type ConfirmedTrip {
   confirmedAt: DateTime!
   confirmedByEmployeeId: String
 
-  guideName: String
-  driverName: String
   assignedVehicle: String
   accommodationNote: String
   operationNote: String
@@ -106,8 +126,6 @@ type ConfirmedTrip {
   dropDate: DateTime
   destination: String
   paxCount: Int
-  guideId: String
-  driverId: String
   rentalGear: Boolean!
   rentalDrone: Boolean!
   rentalStarlink: Boolean!
@@ -125,8 +143,8 @@ type ConfirmedTrip {
   plan: Plan
   planVersion: PlanVersion
   confirmedByEmployee: Employee
-  guide: Guide
-  driver: Driver
+  guideAssignments: [ConfirmedTripGuideAssignment!]!
+  driverAssignments: [ConfirmedTripDriverAssignment!]!
   lodgings: [ConfirmedTripLodging!]!
 
   createdAt: DateTime!
@@ -152,9 +170,19 @@ input CreateConfirmedTripDirectInput {
   confirmedByEmployeeId: ID
 }
 
+input ConfirmedTripGuideAssignmentInput {
+  guideId: ID!
+  sortOrder: Int
+  nameSnapshot: String
+}
+
+input ConfirmedTripDriverAssignmentInput {
+  driverId: ID!
+  sortOrder: Int
+  nameSnapshot: String
+}
+
 input ConfirmedTripUpdateInput {
-  guideName: String
-  driverName: String
   assignedVehicle: String
   accommodationNote: String
   operationNote: String
@@ -170,8 +198,9 @@ input ConfirmedTripUpdateInput {
   dropDate: DateTime
   destination: String
   paxCount: Int
-  guideId: ID
-  driverId: ID
+  """통째 교체: 미포함 시 기존 배정 유지. 빈 배열은 해당 역할 배정 전부 삭제."""
+  guideAssignments: [ConfirmedTripGuideAssignmentInput!]
+  driverAssignments: [ConfirmedTripDriverAssignmentInput!]
   rentalGear: Boolean
   rentalDrone: Boolean
   rentalStarlink: Boolean

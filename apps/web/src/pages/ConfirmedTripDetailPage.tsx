@@ -32,6 +32,7 @@ import {
   getTripDestination,
   getTripPickupDate,
   getTripDropDate,
+  sortTripAssignments,
 } from '../features/confirmed-trip/hooks';
 import { LodgingSection } from '../features/confirmed-trip/LodgingSection';
 import { useUpdateUser, useUploadUserAttachment } from '../features/plan/hooks';
@@ -1204,70 +1205,78 @@ export function ConfirmedTripDetailPage(): JSX.Element {
             </div>
             <div className="grid gap-4 text-sm text-slate-700 sm:grid-cols-2">
               {/* 가이드 */}
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
-                  {trip.guide?.profileImageUrl ? (
-                    <img
-                      src={trip.guide.profileImageUrl}
-                      alt={trip.guide.nameKo}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xl text-slate-300">
-                      👤
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs text-slate-400 mb-0.5">가이드</p>
-                  {trip.guide ? (
-                    <>
-                      <p className="font-semibold text-slate-800 leading-tight">
-                        {trip.guide.nameKo}
-                      </p>
-                      {trip.guide.nameMn && (
-                        <p className="text-xs text-slate-400">{trip.guide.nameMn}</p>
-                      )}
-                      <span className="mt-0.5 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
-                        {trip.guide.level}
-                      </span>
-                    </>
-                  ) : (
-                    <p className="font-medium">{trip.guideName ?? '-'}</p>
-                  )}
-                </div>
+              <div>
+                <p className="mb-2 text-xs text-slate-400">가이드</p>
+                {sortTripAssignments(trip.guideAssignments).length === 0 ? (
+                  <p className="font-medium text-slate-400">-</p>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {sortTripAssignments(trip.guideAssignments).map((a) => (
+                      <div key={a.id} className="flex items-center gap-3">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+                          {a.guide.profileImageUrl ? (
+                            <img
+                              src={a.guide.profileImageUrl}
+                              alt={a.guide.nameKo}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xl text-slate-300">
+                              👤
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold leading-tight text-slate-800">
+                            {a.guide.nameKo || a.nameSnapshot || '-'}
+                          </p>
+                          {a.guide.nameMn && (
+                            <p className="text-xs text-slate-400">{a.guide.nameMn}</p>
+                          )}
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
+                              {a.guide.level}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* 기사 */}
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
-                  {trip.driver?.profileImageUrl ? (
-                    <img
-                      src={trip.driver.profileImageUrl}
-                      alt={trip.driver.nameMn}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xl text-slate-300">
-                      🚗
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs text-slate-400 mb-0.5">기사</p>
-                  {trip.driver ? (
-                    <>
-                      <p className="font-semibold text-slate-800 leading-tight">
-                        {trip.driver.nameMn}
-                      </p>
-                      <span className="mt-0.5 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                        {trip.driver.vehicleType}
-                      </span>
-                    </>
-                  ) : (
-                    <p className="font-medium">{trip.driverName ?? '-'}</p>
-                  )}
-                </div>
+              <div>
+                <p className="mb-2 text-xs text-slate-400">기사</p>
+                {sortTripAssignments(trip.driverAssignments).length === 0 ? (
+                  <p className="font-medium text-slate-400">-</p>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {sortTripAssignments(trip.driverAssignments).map((a) => (
+                      <div key={a.id} className="flex items-center gap-3">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+                          {a.driver.profileImageUrl ? (
+                            <img
+                              src={a.driver.profileImageUrl}
+                              alt={a.driver.nameMn}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xl text-slate-300">
+                              🚗
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold leading-tight text-slate-800">{a.driver.nameMn}</p>
+                          <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                            {a.driver.vehicleType}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {(trip.assignedVehicle ?? meta?.vehicleType) ? (

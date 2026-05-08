@@ -914,8 +914,6 @@ model ConfirmedTrip {
   confirmedAt           DateTime            @default(now())
   confirmedByEmployeeId String?
 
-  guideName             String?
-  driverName            String?
   assignedVehicle       String?
   accommodationNote     String?   @db.Text
   operationNote         String?   @db.Text
@@ -927,8 +925,6 @@ model ConfirmedTrip {
   dropDate        DateTime?
   destination     String?
   paxCount        Int?
-  guideId         String?
-  driverId        String?
   rentalGear            Boolean   @default(false)
   rentalDrone           Boolean   @default(false)
   rentalStarlink        Boolean   @default(false)
@@ -946,22 +942,56 @@ model ConfirmedTrip {
   plan                Plan?       @relation(fields: [planId], references: [id], onDelete: Cascade)
   planVersion         PlanVersion? @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
   confirmedByEmployee Employee?   @relation("ConfirmedTripEmployee", fields: [confirmedByEmployeeId], references: [id], onDelete: SetNull)
-  guide               Guide?      @relation(fields: [guideId], references: [id], onDelete: SetNull)
-  driver              Driver?     @relation(fields: [driverId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  lodgings       ConfirmedTripLodging[]
-  calendarNotes  CalendarNote[]
+  lodgings           ConfirmedTripLodging[]
+  guideAssignments   ConfirmedTripGuideAssignment[]
+  driverAssignments  ConfirmedTripDriverAssignment[]
+  calendarNotes      CalendarNote[]
 
   @@index([userId])
   @@index([planId])
   @@index([planVersionId])
   @@index([status, confirmedAt])
-  @@index([guideId])
-  @@index([driverId])
   @@index([travelStart])
+}
+
+model ConfirmedTripGuideAssignment {
+  id              String       @id @default(uuid(7))
+  confirmedTripId String
+  guideId         String
+  sortOrder       Int          @default(0)
+  nameSnapshot    String?
+
+  confirmedTrip ConfirmedTrip @relation(fields: [confirmedTripId], references: [id], onDelete: Cascade)
+  guide         Guide         @relation(fields: [guideId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([confirmedTripId, guideId])
+  @@index([confirmedTripId])
+  @@index([guideId])
+}
+
+model ConfirmedTripDriverAssignment {
+  id              String       @id @default(uuid(7))
+  confirmedTripId String
+  driverId        String
+  sortOrder       Int          @default(0)
+  nameSnapshot    String?
+
+  confirmedTrip ConfirmedTrip @relation(fields: [confirmedTripId], references: [id], onDelete: Cascade)
+  driver        Driver        @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([confirmedTripId, driverId])
+  @@index([confirmedTripId])
+  @@index([driverId])
 }
 
 enum CalendarNoteKind {
@@ -1604,7 +1634,7 @@ model Guide {
   certImageUrls     Json         @default("[]")
   note              String?      @db.Text
 
-  confirmedTrips ConfirmedTrip[]
+  guideAssignments ConfirmedTripGuideAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1657,7 +1687,7 @@ model Driver {
   vehicleImageUrls  Json         @default("[]")
   note              String?      @db.Text
 
-  confirmedTrips ConfirmedTrip[]
+  driverAssignments ConfirmedTripDriverAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

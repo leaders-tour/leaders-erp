@@ -144,6 +144,36 @@ export function useDeleteCalendarNote() {
 
 // ── ConfirmedTrip ─────────────────────────────────────────────────────────────
 
+export interface ConfirmedTripGuideAssignmentRow {
+  id: string;
+  confirmedTripId: string;
+  guideId: string;
+  sortOrder: number;
+  nameSnapshot: string | null;
+  guide: {
+    id: string;
+    nameKo: string;
+    nameMn: string | null;
+    level: string;
+    profileImageUrl: string | null;
+  };
+}
+
+export interface ConfirmedTripDriverAssignmentRow {
+  id: string;
+  confirmedTripId: string;
+  driverId: string;
+  sortOrder: number;
+  nameSnapshot: string | null;
+  driver: {
+    id: string;
+    nameMn: string;
+    vehicleType: string;
+    level: string;
+    profileImageUrl: string | null;
+  };
+}
+
 export interface ConfirmedTripRow {
   id: string;
   userId: string;
@@ -152,8 +182,6 @@ export interface ConfirmedTripRow {
   status: 'ACTIVE' | 'CANCELLED';
   confirmedAt: string;
   confirmedByEmployeeId: string | null;
-  guideName: string | null;
-  driverName: string | null;
   assignedVehicle: string | null;
   accommodationNote: string | null;
   operationNote: string | null;
@@ -219,8 +247,8 @@ export interface ConfirmedTripRow {
     pricing: PlanVersionPricingRow | null;
   } | null;
   confirmedByEmployee: { id: string; name: string } | null;
-  guide: { id: string; nameKo: string; nameMn: string | null; level: string; profileImageUrl: string | null } | null;
-  driver: { id: string; nameMn: string; vehicleType: string; level: string; profileImageUrl: string | null } | null;
+  guideAssignments: ConfirmedTripGuideAssignmentRow[];
+  driverAssignments: ConfirmedTripDriverAssignmentRow[];
   lodgings: Array<{
     id: string;
     dayIndex: number;
@@ -250,8 +278,6 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
     status
     confirmedAt
     confirmedByEmployeeId
-    guideName
-    driverName
     assignedVehicle
     accommodationNote
     operationNote
@@ -334,19 +360,33 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
       id
       name
     }
-    guide {
+    guideAssignments {
       id
-      nameKo
-      nameMn
-      level
-      profileImageUrl
+      confirmedTripId
+      guideId
+      sortOrder
+      nameSnapshot
+      guide {
+        id
+        nameKo
+        nameMn
+        level
+        profileImageUrl
+      }
     }
-    driver {
+    driverAssignments {
       id
-      nameMn
-      vehicleType
-      level
-      profileImageUrl
+      confirmedTripId
+      driverId
+      sortOrder
+      nameSnapshot
+      driver {
+        id
+        nameMn
+        vehicleType
+        level
+        profileImageUrl
+      }
     }
     lodgings {
       id
@@ -465,11 +505,21 @@ export function useUpdateConfirmedTrip() {
     UPDATE_CONFIRMED_TRIP_MUTATION,
   );
 
+  type GuideAssignmentUpdateInput = {
+    guideId: string;
+    sortOrder?: number;
+    nameSnapshot?: string | null;
+  };
+
+  type DriverAssignmentUpdateInput = {
+    driverId: string;
+    sortOrder?: number;
+    nameSnapshot?: string | null;
+  };
+
   type UpdateConfirmedTripInput = {
-    guideName?: string | null;
-    driverName?: string | null;
-    guideId?: string | null;
-    driverId?: string | null;
+    guideAssignments?: GuideAssignmentUpdateInput[];
+    driverAssignments?: DriverAssignmentUpdateInput[];
     assignedVehicle?: string | null;
     accommodationNote?: string | null;
     operationNote?: string | null;
@@ -566,6 +616,11 @@ export function useCreateConfirmedTripDirect() {
       return result.data.createConfirmedTrip;
     },
   };
+}
+
+/** 배정 rows를 sortOrder 기준으로 정렬한 복사본 */
+export function sortTripAssignments<T extends { sortOrder: number }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 // ── 헬퍼: trip에서 여행 시작/종료 날짜를 가져옵니다 (planVersion.meta 또는 직접 필드) ──

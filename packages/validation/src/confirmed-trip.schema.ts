@@ -31,33 +31,44 @@ export type CalendarNoteUpdateInput = z.infer<typeof calendarNoteUpdateSchema>;
 
 export const confirmedTripStatusSchema = z.nativeEnum(ConfirmedTripStatus);
 
+export const confirmedTripGuideAssignmentInputSchema = z.object({
+  guideId: z.string().min(1),
+  sortOrder: z.number().int().min(0).optional(),
+  nameSnapshot: z.string().max(200).nullable().optional(),
+});
+
+export const confirmedTripDriverAssignmentInputSchema = z.object({
+  driverId: z.string().min(1),
+  sortOrder: z.number().int().min(0).optional(),
+  nameSnapshot: z.string().max(200).nullable().optional(),
+});
+
 export const confirmTripSchema = z.object({
   planId: z.string().min(1),
   planVersionId: z.string().min(1),
   confirmedByEmployeeId: z.string().min(1).optional(),
 });
 
-export const confirmedTripUpdateSchema = z.object({
-  planVersionId: z.string().min(1).optional(),
-  confirmedAt: z.coerce.date().optional(),
-  guideName: z.string().max(200).nullable().optional(),
-  driverName: z.string().max(200).nullable().optional(),
-  assignedVehicle: z.string().max(200).nullable().optional(),
-  accommodationNote: z.string().max(5000).nullable().optional(),
-  operationNote: z.string().max(5000).nullable().optional(),
-  openChatUrl: z.preprocess(
-    (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
-    z.string().url().max(2048).nullable().optional(),
-  ),
-  status: confirmedTripStatusSchema.optional(),
-  travelStart: z.coerce.date().nullable().optional(),
-  travelEnd: z.coerce.date().nullable().optional(),
-  pickupDate: z.coerce.date().nullable().optional(),
-  dropDate: z.coerce.date().nullable().optional(),
-  destination: z.string().max(500).nullable().optional(),
-  paxCount: z.number().int().min(1).max(9999).nullable().optional(),
-  guideId: z.string().nullable().optional(),
-  driverId: z.string().nullable().optional(),
+export const confirmedTripUpdateSchema = z
+  .object({
+    planVersionId: z.string().min(1).optional(),
+    confirmedAt: z.coerce.date().optional(),
+    assignedVehicle: z.string().max(200).nullable().optional(),
+    accommodationNote: z.string().max(5000).nullable().optional(),
+    operationNote: z.string().max(5000).nullable().optional(),
+    openChatUrl: z.preprocess(
+      (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+      z.string().url().max(2048).nullable().optional(),
+    ),
+    status: confirmedTripStatusSchema.optional(),
+    travelStart: z.coerce.date().nullable().optional(),
+    travelEnd: z.coerce.date().nullable().optional(),
+    pickupDate: z.coerce.date().nullable().optional(),
+    dropDate: z.coerce.date().nullable().optional(),
+    destination: z.string().max(500).nullable().optional(),
+    paxCount: z.number().int().min(1).max(9999).nullable().optional(),
+    guideAssignments: z.array(confirmedTripGuideAssignmentInputSchema).optional(),
+    driverAssignments: z.array(confirmedTripDriverAssignmentInputSchema).optional(),
   rentalGear: z.boolean().optional(),
   rentalDrone: z.boolean().optional(),
   rentalStarlink: z.boolean().optional(),
@@ -68,8 +79,30 @@ export const confirmedTripUpdateSchema = z.object({
   balanceAmountKrw: z.number().int().min(0).nullable().optional(),
   totalAmountKrw: z.number().int().min(0).nullable().optional(),
   securityDepositAmountKrw: z.number().int().min(0).nullable().optional(),
-  groupTotalAmountKrw: z.number().int().min(0).nullable().optional(),
-});
+    groupTotalAmountKrw: z.number().int().min(0).nullable().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.guideAssignments) {
+      const ids = data.guideAssignments.map((a) => a.guideId);
+      if (new Set(ids).size !== ids.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'guideAssignments contains duplicate guideId',
+          path: ['guideAssignments'],
+        });
+      }
+    }
+    if (data.driverAssignments) {
+      const ids = data.driverAssignments.map((a) => a.driverId);
+      if (new Set(ids).size !== ids.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'driverAssignments contains duplicate driverId',
+          path: ['driverAssignments'],
+        });
+      }
+    }
+  });
 
 export const createConfirmedTripDirectSchema = z.object({
   userId: z.string().min(1),
@@ -87,3 +120,5 @@ export const createConfirmedTripDirectSchema = z.object({
 export type ConfirmTripInput = z.infer<typeof confirmTripSchema>;
 export type CreateConfirmedTripDirectInput = z.infer<typeof createConfirmedTripDirectSchema>;
 export type ConfirmedTripUpdateInput = z.infer<typeof confirmedTripUpdateSchema>;
+export type ConfirmedTripGuideAssignmentInput = z.infer<typeof confirmedTripGuideAssignmentInputSchema>;
+export type ConfirmedTripDriverAssignmentInput = z.infer<typeof confirmedTripDriverAssignmentInputSchema>;

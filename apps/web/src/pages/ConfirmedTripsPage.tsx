@@ -19,6 +19,7 @@ import {
   getTripDestination,
   getTripPickupDate,
   getTripDropDate,
+  sortTripAssignments,
   type CalendarNoteRow,
   type ConfirmedTripRow,
 } from '../features/confirmed-trip/hooks';
@@ -176,6 +177,21 @@ function normalizeTripSearchText(value: string): string {
   return value.trim().toLocaleLowerCase('ko-KR');
 }
 
+/** 확정여행 목록·검색: 배정 기사 차종 라벨 (마스터 `vehicleType` enum 기준) */
+const DRIVER_VEHICLE_TYPE_LABELS: Record<string, string> = {
+  STAREX: '스타렉스',
+  HIACE_SHORT: '하이에이스(숏)',
+  HIACE_LONG: '하이에이스(롱)',
+  PURGON: '부르곤',
+  LAND_CRUISER: '랜드크루저',
+  ALPHARD: '알파드',
+  OTHER: '기타',
+};
+
+function driverVehicleLabel(vehicleType: string): string {
+  return DRIVER_VEHICLE_TYPE_LABELS[vehicleType] ?? vehicleType;
+}
+
 function getTripSearchText(trip: ConfirmedTripRow): string {
   const startStr = getTripStartDate(trip);
   const endStr = getTripEndDate(trip);
@@ -200,11 +216,17 @@ function getTripSearchText(trip: ConfirmedTripRow): string {
     trip.plan?.title,
     trip.plan?.regionSet.name,
     trip.planVersion?.meta?.documentNumber,
-    trip.guideName,
-    trip.guide?.nameKo,
-    trip.guide?.nameMn,
-    trip.driverName,
-    trip.driver?.nameMn,
+    ...sortTripAssignments(trip.guideAssignments).flatMap((a) => [
+      a.guide.nameKo,
+      a.guide.nameMn,
+      a.nameSnapshot,
+    ]),
+    ...sortTripAssignments(trip.driverAssignments).flatMap((a) => [
+      a.driver.nameMn,
+      a.nameSnapshot,
+      driverVehicleLabel(a.driver.vehicleType),
+      a.driver.vehicleType,
+    ]),
     trip.assignedVehicle,
     trip.planVersion?.meta?.vehicleType,
     getLodgingSummary(trip),
@@ -407,48 +429,171 @@ function getLodgingSummary(trip: ConfirmedTripRow): string {
   return summary.length > 0 ? summary.join(', ') : '-';
 }
 
+function guideAssignmentDisplayName(a: ConfirmedTripRow['guideAssignments'][number]): string {
+  return a.guide.nameKo || a.guide.nameMn || a.nameSnapshot || '';
+}
+
+function driverAssignmentDisplayName(a: ConfirmedTripRow['driverAssignments'][number]): string {
+  return a.driver.nameMn || a.nameSnapshot || '';
+}
+
 function DriverCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
-  const driver = trip.driver;
-  if (!driver) {
+  const sorted = sortTripAssignments(trip.driverAssignments);
+  if (sorted.length === 0) {
     return <span className="text-slate-300">-</span>;
   }
 
+  const first = sorted[0];
+  if (!first) {
+    return <span className="text-slate-300">-</span>;
+  }
+
+  const primary = driverAssignmentDisplayName(first) || '-';
+  const extra = sorted.length - 1;
+  const tooltipLines = sorted.map((a) => driverAssignmentDisplayName(a) || '(이름 없음)');
+
   return (
-    <div className="flex items-center gap-2">
-      <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
-        {driver.profileImageUrl ? (
-          <img src={driver.profileImageUrl} alt={driver.nameMn} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-slate-500">
-            {driver.nameMn.slice(0, 1)}
-          </div>
+    <div className="group relative flex min-w-0 items-center gap-2">
+      <div className="flex shrink-0 -space-x-2">
+        {sorted.slice(0, 3).map((a) => {
+          const d = a.driver;
+          const label = driverAssignmentDisplayName(a) || '?';
+          return (
+            <div
+              key={a.id}
+              title={label}
+              className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 ring-1 ring-slate-100"
+            >
+              {d.profileImageUrl ? (
+                <img src={d.profileImageUrl} alt={label} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-slate-500">
+                  {label.slice(0, 1)}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-1">
+          <span className="truncate">{primary}</span>
+          {extra > 0 && (
+            <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+              +{extra}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden min-w-[180px] max-w-xs rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-lg group-hover:block">
+        <p className="mb-2 text-xs font-semibold text-slate-500">전체 기사</p>
+        <ul className="space-y-1 text-xs text-slate-700">
+          {tooltipLines.map((line, i) => (
+            <li key={i}>{line}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/** 차량 컬럼: 배정 기사 프로필의 차종(다중 시 고유 종류 요약 + 호버로 기사별 상세) */
+function DriverVehiclesCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
+  const sorted = sortTripAssignments(trip.driverAssignments);
+  if (sorted.length === 0) {
+    return <span className="text-slate-300">-</span>;
+  }
+
+  const labelsOrdered = sorted.map((a) => driverVehicleLabel(a.driver.vehicleType));
+  const uniqueLabels = [...new Set(labelsOrdered)];
+  const primary = uniqueLabels[0];
+  if (!primary) {
+    return <span className="text-slate-300">-</span>;
+  }
+  const extraTypes = uniqueLabels.length - 1;
+  const tooltipLines = sorted.map((a) => {
+    const name = driverAssignmentDisplayName(a) || '(이름 없음)';
+    return `${name} · ${driverVehicleLabel(a.driver.vehicleType)}`;
+  });
+
+  return (
+    <div className="group relative flex min-w-0 items-center">
+      <div className="flex min-w-0 items-center gap-1">
+        <span className="truncate">{primary}</span>
+        {extraTypes > 0 && (
+          <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+            +{extraTypes}
+          </span>
         )}
       </div>
-      <span>{driver.nameMn}</span>
+      <div className="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden min-w-[200px] max-w-xs rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-lg group-hover:block">
+        <p className="mb-2 text-xs font-semibold text-slate-500">기사별 차량</p>
+        <ul className="space-y-1 text-xs text-slate-700">
+          {tooltipLines.map((line, i) => (
+            <li key={i}>{line}</li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
 
 function GuideCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
-  const guide = trip.guide;
-  if (!guide) {
+  const sorted = sortTripAssignments(trip.guideAssignments);
+  if (sorted.length === 0) {
     return <span className="text-slate-300">-</span>;
   }
 
-  const guideName = guide.nameKo || guide.nameMn || '-';
+  const first = sorted[0];
+  if (!first) {
+    return <span className="text-slate-300">-</span>;
+  }
+
+  const primary = guideAssignmentDisplayName(first) || '-';
+  const extra = sorted.length - 1;
+  const tooltipLines = sorted.map((a) => guideAssignmentDisplayName(a) || '(이름 없음)');
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
-        {guide.profileImageUrl ? (
-          <img src={guide.profileImageUrl} alt={guideName} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-slate-500">
-            {guideName.slice(0, 1)}
-          </div>
-        )}
+    <div className="group relative flex min-w-0 items-center gap-2">
+      <div className="flex shrink-0 -space-x-2">
+        {sorted.slice(0, 3).map((a) => {
+          const g = a.guide;
+          const label = guideAssignmentDisplayName(a) || '?';
+          return (
+            <div
+              key={a.id}
+              title={label}
+              className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 ring-1 ring-slate-100"
+            >
+              {g.profileImageUrl ? (
+                <img src={g.profileImageUrl} alt={label} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-slate-500">
+                  {label.slice(0, 1)}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
-      <span>{guideName}</span>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-1">
+          <span className="truncate">{primary}</span>
+          {extra > 0 && (
+            <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+              +{extra}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden min-w-[180px] max-w-xs rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-lg group-hover:block">
+        <p className="mb-2 text-xs font-semibold text-slate-500">전체 가이드</p>
+        <ul className="space-y-1 text-xs text-slate-700">
+          {tooltipLines.map((line, i) => (
+            <li key={i}>{line}</li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -508,7 +653,7 @@ function LodgingSummaryCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
 
 function WarningBadges({ trip }: { trip: ConfirmedTripRow }) {
   const badges: JSX.Element[] = [];
-  if (!trip.guide) {
+  if (trip.guideAssignments.length === 0) {
     badges.push(
       <span
         key="guide"
@@ -518,7 +663,7 @@ function WarningBadges({ trip }: { trip: ConfirmedTripRow }) {
       </span>,
     );
   }
-  if (!trip.driver) {
+  if (trip.driverAssignments.length === 0) {
     badges.push(
       <span
         key="driver"
@@ -750,10 +895,10 @@ function TripTableRow({
       <td className="whitespace-nowrap px-4 py-3 text-slate-700">
         <DriverCell trip={trip} />
       </td>
-      {/* 차량 (여행 완료 제외) */}
+      {/* 차량 (여행 완료 제외) — 배정 기사 마스터 차종 */}
       {filter !== 'completed' && (
-        <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-          {trip.assignedVehicle ?? trip.planVersion?.meta?.vehicleType ?? '-'}
+        <td className="max-w-[12rem] px-4 py-3 text-slate-700">
+          <DriverVehiclesCell trip={trip} />
         </td>
       )}
       {/* 숙소 (여행 완료 제외) */}

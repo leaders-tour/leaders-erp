@@ -1,4 +1,11 @@
-import type { CalendarNoteKind, ConfirmedTripStatus, LodgingAssignmentType, LodgingBookingStatus, PrismaClient } from '@prisma/client';
+import type {
+  CalendarNoteKind,
+  ConfirmedTripStatus,
+  LodgingAssignmentType,
+  LodgingBookingStatus,
+  Prisma,
+  PrismaClient,
+} from '@prisma/client';
 import {
   calendarNoteCreateSchema,
   calendarNoteUpdateSchema,
@@ -7,8 +14,9 @@ import {
   confirmedTripLodgingUpsertSchema,
   confirmedTripUpdateSchema,
 } from '@tour/validation';
+import type { ConfirmedTripDriverAssignmentInput, ConfirmedTripGuideAssignmentInput } from '@tour/validation';
 import { DomainError, createValidationError } from '../../lib/errors';
-import { ConfirmedTripRepository } from './confirmed-trip.repository';
+import { ConfirmedTripRepository, confirmedTripInclude } from './confirmed-trip.repository';
 import type {
   CalendarNoteCreateDto,
   CalendarNoteUpdateDto,
@@ -113,8 +121,14 @@ export class ConfirmedTripService {
       throw new DomainError('NOT_FOUND', 'Confirmed trip not found');
     }
 
-    const { status, planVersionId: nextPlanVersionId, confirmedAt: nextConfirmedAt, ...rest } =
-      parsed.data;
+    const {
+      status,
+      planVersionId: nextPlanVersionId,
+      confirmedAt: nextConfirmedAt,
+      guideAssignments,
+      driverAssignments,
+      ...scalarRest
+    } = parsed.data;
 
     if (nextConfirmedAt !== undefined && trip.status !== 'ACTIVE') {
       throw new DomainError(
@@ -162,7 +176,7 @@ export class ConfirmedTripService {
     }
 
     const updateData: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(rest)) {
+    for (const [key, value] of Object.entries(scalarRest)) {
       if (value !== undefined) {
         updateData[key] = value;
       }
@@ -180,7 +194,76 @@ export class ConfirmedTripService {
       updateData.confirmedAt = nextConfirmedAt;
     }
 
-    return new ConfirmedTripRepository(this.prisma).update(id, updateData as Parameters<ConfirmedTripRepository['update']>[1]);
+    return this.prisma.$transaction(async (tx) => {
+      const hasScalarUpdates = Object.keys(updateData).length > 0;
+      if (hasScalarUpdates) {
+        await tx.confirmedTrip.update({
+          where: { id },
+          data: updateData as Prisma.ConfirmedTripUpdateInput,
+        });
+      }
+
+      if (guideAssignments !== undefined) {
+        await tx.confirmedTripGuideAssignment.deleteMany({ where: { confirmedTripId: id } });
+        const normalizedGuides = normalizeGuideAssignmentsForPersistence(guideAssignments);
+        if (normalizedGuides.length > 0) {
+          const guideRows = await tx.guide.findMany({
+            where: { id: { in: normalizedGuides.map((r) => r.guideId) } },
+            select: { id: true },
+          });
+          if (guideRows.length !== normalizedGuides.length) {
+            throw new DomainError('VALIDATION_FAILED', 'One or more guide IDs are invalid');
+          }
+          await Promise.all(
+            normalizedGuides.map((row) =>
+              tx.confirmedTripGuideAssignment.create({
+                data: {
+                  confirmedTripId: id,
+                  guideId: row.guideId,
+                  sortOrder: row.sortOrder,
+                  nameSnapshot: row.nameSnapshot,
+                },
+              }),
+            ),
+          );
+        }
+      }
+
+      if (driverAssignments !== undefined) {
+        await tx.confirmedTripDriverAssignment.deleteMany({ where: { confirmedTripId: id } });
+        const normalizedDrivers = normalizeDriverAssignmentsForPersistence(driverAssignments);
+        if (normalizedDrivers.length > 0) {
+          const driverRows = await tx.driver.findMany({
+            where: { id: { in: normalizedDrivers.map((r) => r.driverId) } },
+            select: { id: true },
+          });
+          if (driverRows.length !== normalizedDrivers.length) {
+            throw new DomainError('VALIDATION_FAILED', 'One or more driver IDs are invalid');
+          }
+          await Promise.all(
+            normalizedDrivers.map((row) =>
+              tx.confirmedTripDriverAssignment.create({
+                data: {
+                  confirmedTripId: id,
+                  driverId: row.driverId,
+                  sortOrder: row.sortOrder,
+                  nameSnapshot: row.nameSnapshot,
+                },
+              }),
+            ),
+          );
+        }
+      }
+
+      const refreshed = await tx.confirmedTrip.findUnique({
+        where: { id },
+        include: confirmedTripInclude,
+      });
+      if (!refreshed) {
+        throw new DomainError('NOT_FOUND', 'Confirmed trip not found');
+      }
+      return refreshed;
+    });
   }
 
   async cancel(id: string) {
@@ -459,4 +542,38 @@ export class ConfirmedTripService {
       };
     });
   }
+}
+
+function normalizeGuideAssignmentsForPersistence(input: ConfirmedTripGuideAssignmentInput[]): Array<{
+  guideId: string;
+  sortOrder: number;
+  nameSnapshot: string | null;
+}> {
+  const decorated = input.map((row, originalIndex) => ({
+    row,
+    sortKey: row.sortOrder ?? originalIndex,
+  }));
+  decorated.sort((a, b) => a.sortKey - b.sortKey);
+  return decorated.map(({ row }, position) => ({
+    guideId: row.guideId,
+    sortOrder: row.sortOrder ?? position,
+    nameSnapshot: row.nameSnapshot ?? null,
+  }));
+}
+
+function normalizeDriverAssignmentsForPersistence(input: ConfirmedTripDriverAssignmentInput[]): Array<{
+  driverId: string;
+  sortOrder: number;
+  nameSnapshot: string | null;
+}> {
+  const decorated = input.map((row, originalIndex) => ({
+    row,
+    sortKey: row.sortOrder ?? originalIndex,
+  }));
+  decorated.sort((a, b) => a.sortKey - b.sortKey);
+  return decorated.map(({ row }, position) => ({
+    driverId: row.driverId,
+    sortOrder: row.sortOrder ?? position,
+    nameSnapshot: row.nameSnapshot ?? null,
+  }));
 }

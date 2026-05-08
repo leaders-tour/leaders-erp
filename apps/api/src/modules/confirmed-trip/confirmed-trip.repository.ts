@@ -19,8 +19,14 @@ export const confirmedTripInclude = {
     },
   },
   confirmedByEmployee: true,
-  guide: true,
-  driver: true,
+  guideAssignments: {
+    orderBy: { sortOrder: 'asc' as const },
+    include: { guide: true },
+  },
+  driverAssignments: {
+    orderBy: { sortOrder: 'asc' as const },
+    include: { driver: true },
+  },
   lodgings: {
     include: { accommodation: true },
     orderBy: { dayIndex: 'asc' as const },
@@ -55,7 +61,7 @@ export class ConfirmedTripRepository {
   findByGuideId(guideId: string, includeCancelled = false) {
     return this.prisma.confirmedTrip.findMany({
       where: {
-        guideId,
+        guideAssignments: { some: { guideId } },
         ...(includeCancelled ? {} : { status: 'ACTIVE' }),
       },
       include: confirmedTripInclude,
@@ -66,7 +72,7 @@ export class ConfirmedTripRepository {
   findByDriverId(driverId: string, includeCancelled = false) {
     return this.prisma.confirmedTrip.findMany({
       where: {
-        driverId,
+        driverAssignments: { some: { driverId } },
         ...(includeCancelled ? {} : { status: 'ACTIVE' }),
       },
       include: confirmedTripInclude,
@@ -191,8 +197,6 @@ export class ConfirmedTripRepository {
   update(
     id: string,
     data: Partial<{
-      guideName: string | null;
-      driverName: string | null;
       assignedVehicle: string | null;
       accommodationNote: string | null;
       operationNote: string | null;
@@ -205,8 +209,6 @@ export class ConfirmedTripRepository {
       dropDate: Date | null;
       destination: string | null;
       paxCount: number | null;
-      guideId: string | null;
-      driverId: string | null;
       rentalGear: boolean;
       rentalDrone: boolean;
       rentalStarlink: boolean;

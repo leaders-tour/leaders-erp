@@ -219,7 +219,7 @@ async function main() {
       driverId = driver.id;
     }
 
-    // 4) ConfirmedTrip 생성
+    // 4) ConfirmedTrip 생성 (가이드/기사는 assignment 테이블로 배정)
     await prisma.confirmedTrip.create({
       data: {
         userId: user.id,
@@ -229,16 +229,38 @@ async function main() {
         travelEnd: row.travelEnd,
         destination: row.destination || null,
         paxCount: row.paxCount,
-        guideId,
-        driverId,
-        guideName: row.guideName || null,
-        driverName: row.driverName || null,
         assignedVehicle: row.vehicle || null,
         accommodationNote: row.accommodationRaw || null,
         rentalGear: row.rentalGear,
         rentalDrone: row.rentalDrone,
         rentalStarlink: row.rentalStarlink,
         rentalPowerbank: row.rentalPowerbank,
+              ...(guideId
+          ? {
+              guideAssignments: {
+                create: [
+                  {
+                    guideId,
+                    sortOrder: 0,
+                    nameSnapshot: row.guideName || null,
+                  },
+                ],
+              },
+            }
+          : {}),
+        ...(driverId
+          ? {
+              driverAssignments: {
+                create: [
+                  {
+                    driverId,
+                    sortOrder: 0,
+                    nameSnapshot: row.driverName || null,
+                  },
+                ],
+              },
+            }
+          : {}),
       },
     });
     createdTrips++;
