@@ -157,6 +157,7 @@ export interface ConfirmedTripRow {
   assignedVehicle: string | null;
   accommodationNote: string | null;
   operationNote: string | null;
+  openChatUrl: string | null;
   /** 노션 마이그레이션 데이터용 직접 필드 (planVersion 없을 때 fallback) */
   travelStart: string | null;
   travelEnd: string | null;
@@ -239,6 +240,7 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
     assignedVehicle
     accommodationNote
     operationNote
+    openChatUrl
     travelStart
     travelEnd
     pickupDate
@@ -441,6 +443,7 @@ export function useUpdateConfirmedTrip() {
     assignedVehicle?: string | null;
     accommodationNote?: string | null;
     operationNote?: string | null;
+    openChatUrl?: string | null;
     status?: 'ACTIVE' | 'CANCELLED';
     camelDollPurchased?: boolean;
     pickupDate?: string | null;

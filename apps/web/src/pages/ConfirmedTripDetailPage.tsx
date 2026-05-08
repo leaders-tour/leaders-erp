@@ -370,6 +370,27 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ko-KR');
 }
 
+/** 인라인 수정 가능 필드 옆 표시용 (글쓰기/수정) */
+function InlineWriteIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </svg>
+  );
+}
+
 export function ConfirmedTripDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { tripId } = useParams<{ tripId: string }>();
@@ -388,6 +409,10 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const [reservationDateEditing, setReservationDateEditing] = useState(false);
   const [reservationDateDraft, setReservationDateDraft] = useState('');
   const [reservationDateSaving, setReservationDateSaving] = useState(false);
+
+  const [openChatUrlEditing, setOpenChatUrlEditing] = useState(false);
+  const [openChatUrlDraft, setOpenChatUrlDraft] = useState('');
+  const [openChatUrlSaving, setOpenChatUrlSaving] = useState(false);
 
   const { updateUser } = useUpdateUser();
   const { uploadUserAttachment, loading: uploadingUserAttachment } = useUploadUserAttachment();
@@ -411,6 +436,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const [mTotal, setMTotal] = useState('');
   const [mSecurityDeposit, setMSecurityDeposit] = useState('');
   const [mGroupTotal, setMGroupTotal] = useState('');
+  const [mOpenChatUrl, setMOpenChatUrl] = useState('');
   const [mAttachments, setMAttachments] = useState<AttachmentItem[]>([]);
 
   const planVersionForPricing = trip?.planVersion ?? null;
@@ -533,6 +559,36 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     }
   };
 
+  const handleOpenChatUrlSave = async () => {
+    const next = openChatUrlDraft.trim() || null;
+    const prev = trip.openChatUrl?.trim() || null;
+    if (next === prev) {
+      setOpenChatUrlEditing(false);
+      return;
+    }
+    if (next) {
+      try {
+        const u = new URL(next);
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+          window.alert('http(s) URL만 입력할 수 있습니다.');
+          return;
+        }
+      } catch {
+        window.alert('올바른 URL 형식이 아닙니다.');
+        return;
+      }
+    }
+    setOpenChatUrlSaving(true);
+    try {
+      await updateConfirmedTrip(tripId, { openChatUrl: next });
+      setOpenChatUrlEditing(false);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
+    } finally {
+      setOpenChatUrlSaving(false);
+    }
+  };
+
   const pdfAttachments = trip.user.attachments.filter((a) => a.type === 'pdf');
   const isPlanTrip = !!(trip.planId && trip.planVersionId);
   const hasPdf = pdfAttachments.length > 0;
@@ -557,6 +613,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
       trip.securityDepositAmountKrw != null ? String(trip.securityDepositAmountKrw) : '',
     );
     setMGroupTotal(trip.groupTotalAmountKrw != null ? String(trip.groupTotalAmountKrw) : '');
+    setMOpenChatUrl(trip.openChatUrl ?? '');
     setMAttachments(trip.user.attachments.map((a) => ({ ...a })));
     setDirectEditOpen(true);
   };
@@ -581,6 +638,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
         totalAmountKrw: parseNullableInt(mTotal),
         securityDepositAmountKrw: parseNullableInt(mSecurityDeposit),
         groupTotalAmountKrw: parseNullableInt(mGroupTotal),
+        openChatUrl: mOpenChatUrl.trim() || null,
       });
 
       await updateUser(
@@ -687,7 +745,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                   </div>
                 </div>
                 <div>
-                  <span className="text-slate-500">예약일</span>
+                  <span className="block text-slate-500">예약일</span>
                   {trip.status === 'ACTIVE' ? (
                     reservationDateEditing ? (
                       <input
@@ -710,10 +768,10 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                         autoFocus
                       />
                     ) : (
-                      <p className="mt-0.5">
+                      <div className="mt-0.5 flex w-max max-w-full items-center gap-0">
                         <button
                           type="button"
-                          className="font-medium text-slate-900 underline-offset-2 hover:underline"
+                          className="text-left font-medium text-slate-900 underline-offset-2 hover:underline"
                           onClick={() => {
                             setReservationDateDraft(toDateInputValue(trip.confirmedAt));
                             setReservationDateEditing(true);
@@ -721,7 +779,18 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                         >
                           {formatDate(trip.confirmedAt)}
                         </button>
-                      </p>
+                        <button
+                          type="button"
+                          className="-ml-0.5 inline-flex shrink-0 rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                          aria-label="예약일 수정"
+                          onClick={() => {
+                            setReservationDateDraft(toDateInputValue(trip.confirmedAt));
+                            setReservationDateEditing(true);
+                          }}
+                        >
+                          <InlineWriteIcon className="h-4 w-4" />
+                        </button>
+                      </div>
                     )
                   ) : (
                     <p className="mt-0.5 font-medium">{formatDate(trip.confirmedAt)}</p>
@@ -769,6 +838,114 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                     <p className="font-medium">{meta.documentNumber}</p>
                   </div>
                 ) : null}
+                <div>
+                  <span className="block text-slate-500">오픈채팅 링크</span>
+                  {trip.status === 'ACTIVE' ? (
+                    openChatUrlEditing ? (
+                      <input
+                        type="text"
+                        inputMode="url"
+                        autoComplete="url"
+                        placeholder="https://open.kakao.com/..."
+                        className="mt-1 block w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm font-medium text-slate-800"
+                        value={openChatUrlDraft}
+                        disabled={openChatUrlSaving}
+                        onChange={(e) => setOpenChatUrlDraft(e.target.value)}
+                        onBlur={() => {
+                          void handleOpenChatUrlSave();
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            (e.target as HTMLInputElement).blur();
+                          }
+                          if (e.key === 'Escape') {
+                            setOpenChatUrlEditing(false);
+                            setOpenChatUrlDraft(trip.openChatUrl ?? '');
+                          }
+                        }}
+                        autoFocus
+                      />
+                    ) : (
+                      <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                        {trip.openChatUrl ? (
+                          <>
+                            <span className="inline-flex max-w-full flex-wrap items-baseline gap-0">
+                              <button
+                                type="button"
+                                className="max-w-full break-all text-left font-medium text-slate-900 underline-offset-2 hover:underline"
+                                onClick={() => {
+                                  setOpenChatUrlDraft(trip.openChatUrl ?? '');
+                                  setOpenChatUrlEditing(true);
+                                }}
+                              >
+                                {trip.openChatUrl}
+                              </button>
+                              <button
+                                type="button"
+                                className="-ml-0.5 inline-flex shrink-0 rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                                aria-label="오픈채팅 링크 수정"
+                                onClick={() => {
+                                  setOpenChatUrlDraft(trip.openChatUrl ?? '');
+                                  setOpenChatUrlEditing(true);
+                                }}
+                              >
+                                <InlineWriteIcon className="h-4 w-4" />
+                              </button>
+                            </span>
+                            <a
+                              href={trip.openChatUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="shrink-0 text-sm font-medium text-emerald-700 underline decoration-emerald-700/30 hover:decoration-emerald-700"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              새 탭에서 열기
+                            </a>
+                          </>
+                        ) : (
+                          <span className="inline-flex items-baseline gap-0">
+                            <button
+                              type="button"
+                              className="font-medium text-slate-900 underline-offset-2 hover:underline"
+                              onClick={() => {
+                                setOpenChatUrlDraft('');
+                                setOpenChatUrlEditing(true);
+                              }}
+                            >
+                              등록하기
+                            </button>
+                            <button
+                              type="button"
+                              className="-ml-0.5 inline-flex shrink-0 rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                              aria-label="오픈채팅 링크 수정"
+                              onClick={() => {
+                                setOpenChatUrlDraft('');
+                                setOpenChatUrlEditing(true);
+                              }}
+                            >
+                              <InlineWriteIcon className="h-4 w-4" />
+                            </button>
+                          </span>
+                        )}
+                      </div>
+                    )
+                  ) : (
+                    <p className="mt-0.5 font-medium">
+                      {trip.openChatUrl ? (
+                        <a
+                          href={trip.openChatUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-emerald-700 underline decoration-emerald-700/30 underline-offset-2 hover:decoration-emerald-700 break-all"
+                        >
+                          {trip.openChatUrl}
+                        </a>
+                      ) : (
+                        '-'
+                      )}
+                    </p>
+                  )}
+                </div>
                 {meta?.specialNote ? (
                   <div>
                     <span className="text-slate-500">특이사항</span>
@@ -1329,6 +1506,20 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                     <span className="text-slate-700">모집중</span>
                   </label>
                 </div>
+                <label className="grid gap-1 sm:col-span-2">
+                  <span className="text-slate-500">오픈채팅방 링크 (선택)</span>
+                  <input
+                    type="text"
+                    inputMode="url"
+                    placeholder="https://open.kakao.com/..."
+                    className="rounded-xl border border-slate-200 px-3 py-2"
+                    value={mOpenChatUrl}
+                    onChange={(e) => setMOpenChatUrl(e.target.value)}
+                  />
+                  <span className="text-xs text-slate-400">
+                    비우고 저장하면 링크가 제거됩니다.
+                  </span>
+                </label>
               </section>
 
               <section className="grid gap-3">

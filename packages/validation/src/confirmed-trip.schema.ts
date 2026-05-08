@@ -45,6 +45,10 @@ export const confirmedTripUpdateSchema = z.object({
   assignedVehicle: z.string().max(200).nullable().optional(),
   accommodationNote: z.string().max(5000).nullable().optional(),
   operationNote: z.string().max(5000).nullable().optional(),
+  openChatUrl: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+    z.string().url().max(2048).nullable().optional(),
+  ),
   status: confirmedTripStatusSchema.optional(),
   travelStart: z.coerce.date().nullable().optional(),
   travelEnd: z.coerce.date().nullable().optional(),

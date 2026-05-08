@@ -919,6 +919,7 @@ model ConfirmedTrip {
   assignedVehicle       String?
   accommodationNote     String?   @db.Text
   operationNote         String?   @db.Text
+  openChatUrl           String?   @db.Text
 
   travelStart     DateTime?
   travelEnd       DateTime?
