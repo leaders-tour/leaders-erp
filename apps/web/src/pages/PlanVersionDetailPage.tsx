@@ -653,7 +653,10 @@ export function PlanVersionDetailPage(): JSX.Element {
                           key={`customer-addon-${line.id}`}
                           className="grid gap-2 border-b border-blue-100 pb-2 last:border-b-0 last:pb-0 lg:grid-cols-[minmax(0,1.5fr)_140px_minmax(0,1fr)]"
                         >
-                          <div className="font-medium text-slate-900">{line.label}</div>
+                          <div className="font-medium text-slate-900">
+                            {line.teamName ? `${line.teamName}) ` : ''}
+                            {line.label}
+                          </div>
                           <div className="font-semibold text-slate-900">{formatSignedKrw(line.leadAmountKrw)}</div>
                           <div className="text-slate-600">{line.formula || '-'}</div>
                         </div>

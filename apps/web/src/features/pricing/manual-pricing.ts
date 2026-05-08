@@ -50,6 +50,117 @@ export interface PricingAdjustmentLineRow {
   autoFormula?: string | null;
 }
 
+/** 일정 빌더·견적서 공통: 팀별 `adjustmentLines`를 고객용 목록으로 묶는다. */
+export interface DisplayedPricingAdjustmentLineRow extends PricingAdjustmentLineRow {
+  sourceLines: PricingAdjustmentLineRow[];
+  teamOrderIndexes: number[];
+  teamNames: string[];
+  isSharedAcrossTeams: boolean;
+}
+
+function buildAdjustmentGroupingKey(line: PricingAdjustmentLineRow): string {
+  return [
+    line.type,
+    line.label,
+    line.leadAmountKrw,
+    line.formula,
+    line.strikethrough ? 'strikethrough' : '',
+    line.isManual ? 'manual' : 'auto',
+    line.autoLabel ?? '',
+    line.autoLeadAmountKrw ?? '',
+    line.autoFormula ?? '',
+  ].join('|');
+}
+
+export function buildDisplayedPricingAdjustmentLines<TLine extends PricingManualSourceLine>(
+  effective: EffectivePricingResult<TLine>,
+): DisplayedPricingAdjustmentLineRow[] {
+  if (!effective.teamPricings || effective.teamPricings.length === 0) {
+    return effective.adjustmentLines.map((line) => ({
+      ...line,
+      sourceLines: [line],
+      teamOrderIndexes: line.teamOrderIndex != null ? [line.teamOrderIndex] : [],
+      teamNames: line.teamName ? [line.teamName] : [],
+      isSharedAcrossTeams: false,
+    }));
+  }
+
+  const rawTeamLines = effective.teamPricings.flatMap((teamPricing) =>
+    teamPricing.adjustmentLines.map((line) => ({
+      ...line,
+      teamOrderIndex: teamPricing.teamOrderIndex,
+      teamName: teamPricing.teamName,
+      headcount: teamPricing.headcount,
+    })),
+  );
+  const grouped = new Map<string, PricingAdjustmentLineRow[]>();
+  rawTeamLines.forEach((line) => {
+    const key = buildAdjustmentGroupingKey(line);
+    const current = grouped.get(key);
+    if (current) {
+      current.push(line);
+      return;
+    }
+    grouped.set(key, [line]);
+  });
+
+  const result: DisplayedPricingAdjustmentLineRow[] = [];
+  const teamCount = effective.teamPricings.length;
+  rawTeamLines.forEach((line) => {
+    const key = buildAdjustmentGroupingKey(line);
+    const sourceLines = grouped.get(key);
+    if (!sourceLines || sourceLines.length === 0) {
+      return;
+    }
+    grouped.delete(key);
+    const uniqueTeamOrderIndexes = Array.from(
+      new Set(
+        sourceLines
+          .map((item) => item.teamOrderIndex)
+          .filter((value): value is number => typeof value === 'number'),
+      ),
+    );
+    const uniqueTeamNames = Array.from(
+      new Set(sourceLines.map((item) => item.teamName).filter((value): value is string => typeof value === 'string')),
+    );
+    const isSharedAcrossTeams = uniqueTeamOrderIndexes.length === teamCount;
+    if (isSharedAcrossTeams) {
+      result.push({
+        ...line,
+        teamOrderIndex: null,
+        teamName: null,
+        sourceLines,
+        teamOrderIndexes: uniqueTeamOrderIndexes,
+        teamNames: uniqueTeamNames,
+        isSharedAcrossTeams: true,
+      });
+      return;
+    }
+    sourceLines.forEach((sourceLine) => {
+      result.push({
+        ...sourceLine,
+        sourceLines: [sourceLine],
+        teamOrderIndexes:
+          typeof sourceLine.teamOrderIndex === 'number' ? [sourceLine.teamOrderIndex] : [],
+        teamNames: sourceLine.teamName ? [sourceLine.teamName] : [],
+        isSharedAcrossTeams: false,
+      });
+    });
+  });
+  return result;
+}
+
+function displayedLineToPricingRow(line: DisplayedPricingAdjustmentLineRow): PricingAdjustmentLineRow {
+  const {
+    sourceLines: _sourceLines,
+    teamOrderIndexes: _teamOrderIndexes,
+    teamNames: _teamNames,
+    isSharedAcrossTeams: _isSharedAcrossTeams,
+    ...rest
+  } = line;
+  return rest;
+}
+
 export interface TeamPricingLike<TLine extends PricingManualSourceLine = PricingManualSourceLine> extends PricingSummaryAmounts {
   teamOrderIndex: number;
   teamName: string;
@@ -533,6 +644,9 @@ export function resolveAdjustmentLinesForCustomerDocument<TLine extends PricingM
   const teams = effective.teamPricings ?? [];
   if (teams.length === 1 && teams[0]) {
     return teams[0].adjustmentLines;
+  }
+  if (teams.length > 1) {
+    return buildDisplayedPricingAdjustmentLines(effective).map(displayedLineToPricingRow);
   }
   return effective.adjustmentLines;
 }

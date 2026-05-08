@@ -64,6 +64,7 @@ import { useBuilderValidation } from '../features/plan/builder-validation';
 import { useSpecialMealDestinationRules } from '../features/plan/hooks/use-special-meal-destination-rules';
 import { buildMergedPlanStops } from '../features/plan/merge-plan-stops';
 import {
+  countMainPlanStopRows,
   isMainPlanStopRow,
   type PlanStopRowBase,
   type PlanStopRowType,
@@ -114,7 +115,7 @@ import {
   type ManualAdjustmentDraftRow,
   type ManualAdjustmentPresetOption,
 } from '../features/pricing/components/ManualAdjustmentsModal';
-import { buildEffectivePricing, sliceEffectiveTotalsForUi, type PricingAdjustmentLineRow, type EffectivePricingResult } from '../features/pricing/manual-pricing';
+import { buildEffectivePricing, sliceEffectiveTotalsForUi, buildDisplayedPricingAdjustmentLines, type PricingAdjustmentLineRow, type DisplayedPricingAdjustmentLineRow, type EffectivePricingResult } from '../features/pricing/manual-pricing';
 import { MealOption, VariantType } from '../generated/graphql';
 import type { ConsultationDraft } from '../generated/graphql';
 import { usePlanVersionDetail } from '../features/plan/hooks';
@@ -431,27 +432,6 @@ interface EffectiveTeamPricingRow extends TeamPricingRow {
   adjustmentLines: PricingAdjustmentLineRow[];
 }
 
-interface DisplayedPricingAdjustmentLineRow extends PricingAdjustmentLineRow {
-  sourceLines: PricingAdjustmentLineRow[];
-  teamOrderIndexes: number[];
-  teamNames: string[];
-  isSharedAcrossTeams: boolean;
-}
-
-function buildAdjustmentGroupingKey(line: PricingAdjustmentLineRow): string {
-  return [
-    line.type,
-    line.label,
-    line.leadAmountKrw,
-    line.formula,
-    line.strikethrough ? 'strikethrough' : '',
-    line.isManual ? 'manual' : 'auto',
-    line.autoLabel ?? '',
-    line.autoLeadAmountKrw ?? '',
-    line.autoFormula ?? '',
-  ].join('|');
-}
-
 function builderTeamPricingRowSummarySignature(row: TeamPricingRow): string {
   return teamPricingSummarySignatureFromParts({
     totalAmountKrw: row.totalAmountKrw,
@@ -462,87 +442,6 @@ function builderTeamPricingRowSummarySignature(row: TeamPricingRow): string {
     securityDepositUnitKrw: row.securityDepositUnitPriceKrw,
     securityScopeWhenPresent: row.securityDepositMode,
   });
-}
-
-function buildDisplayedPricingAdjustmentLines(
-  effectivePricing: EffectivePricingRow | null,
-): DisplayedPricingAdjustmentLineRow[] {
-  if (!effectivePricing) {
-    return [];
-  }
-  if (!effectivePricing.teamPricings || effectivePricing.teamPricings.length === 0) {
-    return effectivePricing.adjustmentLines.map((line) => ({
-      ...line,
-      sourceLines: [line],
-      teamOrderIndexes: line.teamOrderIndex != null ? [line.teamOrderIndex] : [],
-      teamNames: line.teamName ? [line.teamName] : [],
-      isSharedAcrossTeams: false,
-    }));
-  }
-
-  const rawTeamLines = effectivePricing.teamPricings.flatMap((teamPricing) =>
-    teamPricing.adjustmentLines.map((line) => ({
-      ...line,
-      teamOrderIndex: teamPricing.teamOrderIndex,
-      teamName: teamPricing.teamName,
-      headcount: teamPricing.headcount,
-    })),
-  );
-  const grouped = new Map<string, PricingAdjustmentLineRow[]>();
-  rawTeamLines.forEach((line) => {
-    const key = buildAdjustmentGroupingKey(line);
-    const current = grouped.get(key);
-    if (current) {
-      current.push(line);
-      return;
-    }
-    grouped.set(key, [line]);
-  });
-
-  const result: DisplayedPricingAdjustmentLineRow[] = [];
-  const teamCount = effectivePricing.teamPricings.length;
-  rawTeamLines.forEach((line) => {
-    const key = buildAdjustmentGroupingKey(line);
-    const sourceLines = grouped.get(key);
-    if (!sourceLines || sourceLines.length === 0) {
-      return;
-    }
-    grouped.delete(key);
-    const uniqueTeamOrderIndexes = Array.from(
-      new Set(
-        sourceLines
-          .map((item) => item.teamOrderIndex)
-          .filter((value): value is number => typeof value === 'number'),
-      ),
-    );
-    const uniqueTeamNames = Array.from(
-      new Set(sourceLines.map((item) => item.teamName).filter((value): value is string => typeof value === 'string')),
-    );
-    const isSharedAcrossTeams = uniqueTeamOrderIndexes.length === teamCount;
-    if (isSharedAcrossTeams) {
-      result.push({
-        ...line,
-        teamOrderIndex: null,
-        teamName: null,
-        sourceLines,
-        teamOrderIndexes: uniqueTeamOrderIndexes,
-        teamNames: uniqueTeamNames,
-        isSharedAcrossTeams: true,
-      });
-      return;
-    }
-    sourceLines.forEach((sourceLine) => {
-      result.push({
-        ...sourceLine,
-        sourceLines: [sourceLine],
-        teamOrderIndexes:
-          typeof sourceLine.teamOrderIndex === 'number' ? [sourceLine.teamOrderIndex] : [],
-        teamNames: sourceLine.teamName ? [sourceLine.teamName] : [],
-        isSharedAcrossTeams: false,
-      });
-    });
-  });
-  return result;
 }
 
 function normalizeManualPricingState(value?: ManualPricingState | null): ManualPricingState {
@@ -4240,7 +4139,10 @@ export function ItineraryBuilderPage(): JSX.Element {
     [normalizedManualPricing],
   );
   const displayedPricingAdjustmentLines = useMemo(
-    () => buildDisplayedPricingAdjustmentLines(effectivePricingPreview),
+    () =>
+      effectivePricingPreview
+        ? buildDisplayedPricingAdjustmentLines(effectivePricingPreview as EffectivePricingResult)
+        : [],
     [effectivePricingPreview],
   );
   const pricingSummaryTeamsForDisplay = useMemo(
@@ -4327,7 +4229,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     selectedRoute.length > 0 &&
     selectedRoute.every(isRouteSelectionStopComplete) &&
     getConsumedRouteDayCount(selectedRoute) === totalDays &&
-    planRows.length === totalDays &&
+    countMainPlanStopRows(planRows) === totalDays &&
     (!isVersionMode ? planTitle.trim() : true) &&
     (!isVersionMode
       ? !planDocumentNumberBase.trim() || /^[0-9]{9}$/.test(planDocumentNumberBase.trim())
@@ -4375,8 +4277,11 @@ export function ItineraryBuilderPage(): JSX.Element {
         );
       }
     }
-    if (planRows.length !== totalDays) {
-      reasons.push(`일정표가 ${totalDays}일 분량으로 맞춰져야 합니다. (현재 ${planRows.length}일)`);
+    const mainPlanDayCount = countMainPlanStopRows(planRows);
+    if (mainPlanDayCount !== totalDays) {
+      reasons.push(
+        `일정표가 ${totalDays}일 분량으로 맞춰져야 합니다. (현재 본 일정 ${mainPlanDayCount}일)`,
+      );
     }
     if (!isVersionMode && !planTitle.trim()) {
       reasons.push('Plan 제목을 입력해 주세요.');
@@ -4401,7 +4306,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     rentalItemsText,
     selectedRoute,
     totalDays,
-    planRows.length,
+    planRows,
     planTitle,
     planDocumentNumberBase,
   ]);

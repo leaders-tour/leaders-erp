@@ -123,7 +123,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     adjustmentLines:
       pricing
         ? resolveAdjustmentLinesForCustomerDocument(pricing).map((line) => ({
-            teamName: null,
+            teamName: line.teamName ?? null,
             label: line.label,
             leadAmountKrw: line.leadAmountKrw,
             formula: line.formula,
