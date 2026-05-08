@@ -500,6 +500,10 @@ function buildSingleEffectivePricing<TLine extends PricingManualSourceLine>(
     ? summary.securityDepositAmountKrw
     : pricing.securityDepositAmountKrw;
   const securityDepositMode = resolveManualSecurityDepositMode(summary, pricing.securityDepositMode);
+  const hasManualSecurityDepositOverride =
+    hasNumber(summary?.securityDepositAmountKrw) ||
+    summary?.securityDepositMode === 'PER_PERSON' ||
+    summary?.securityDepositMode === 'PER_TEAM';
   const securityHeadcount = resolveSecurityDepositHeadcount(pricing, ctx);
   const securityDepositQuantity =
     securityDepositMode === 'NONE'
@@ -510,9 +514,9 @@ function buildSingleEffectivePricing<TLine extends PricingManualSourceLine>(
   const securityDepositUnitPriceKrw =
     securityDepositMode === 'NONE'
       ? 0
-      : securityDepositQuantity > 0
-        ? Math.round(securityDepositAmountKrw / securityDepositQuantity)
-        : securityDepositAmountKrw;
+      : hasManualSecurityDepositOverride || securityDepositQuantity <= 0
+        ? securityDepositAmountKrw
+        : Math.round(securityDepositAmountKrw / securityDepositQuantity);
 
   return {
     baseAmountKrw,

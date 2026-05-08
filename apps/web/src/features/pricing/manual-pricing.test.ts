@@ -451,7 +451,50 @@ describe('buildEffectivePricing', () => {
     expect(manualTeam.securityDepositAmountKrw).toBe(180_000);
   });
 
-  it('applies manual securityDepositMode PER_PERSON for team slice (same total)', () => {
+  it('keeps manual security deposit amount as display unit when mode is PER_PERSON', () => {
+    const effectivePricing = buildEffectivePricing(
+      {
+        baseAmountKrw: 500_000,
+        addonAmountKrw: 0,
+        totalAmountKrw: 500_000,
+        depositAmountKrw: 50_000,
+        balanceAmountKrw: 450_000,
+        securityDepositAmountKrw: 180_000,
+        securityDepositEvent: null,
+        securityDepositUnitPriceKrw: 180_000,
+        securityDepositQuantity: 1,
+        securityDepositMode: 'PER_TEAM',
+        lines: [
+          {
+            ruleType: 'BASE',
+            lineCode: 'BASE',
+            sourceType: 'RULE',
+            description: '기본금',
+            ruleId: 'rule-base',
+            unitPriceKrw: 500_000,
+            quantity: 1,
+            amountKrw: 500_000,
+          },
+        ],
+      },
+      { headcountTotal: 5, totalDays: 2 },
+      {
+        enabled: true,
+        adjustmentLines: [],
+        summary: {
+          securityDepositAmountKrw: 30_000,
+          securityDepositMode: 'PER_PERSON',
+        },
+      },
+    );
+
+    expect(effectivePricing.securityDepositMode).toBe('PER_PERSON');
+    expect(effectivePricing.securityDepositQuantity).toBe(5);
+    expect(effectivePricing.securityDepositUnitPriceKrw).toBe(30_000);
+    expect(effectivePricing.securityDepositAmountKrw).toBe(30_000);
+  });
+
+  it('applies manual securityDepositMode PER_PERSON for team slice without dividing manual amount', () => {
     const effectivePricing = buildEffectivePricing<PricingManualSourceLine>(
       {
         baseAmountKrw: 1_000_000,
@@ -526,7 +569,7 @@ describe('buildEffectivePricing', () => {
     const team = effectivePricing.teamPricings[0];
     expect(team?.securityDepositMode).toBe('PER_PERSON');
     expect(team?.securityDepositQuantity).toBe(4);
-    expect(team?.securityDepositUnitPriceKrw).toBe(12_500);
+    expect(team?.securityDepositUnitPriceKrw).toBe(50_000);
     expect(team?.securityDepositAmountKrw).toBe(50_000);
   });
 
