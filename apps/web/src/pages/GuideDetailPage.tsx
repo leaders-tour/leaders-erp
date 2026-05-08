@@ -72,7 +72,7 @@ export function GuideDetailPage(): JSX.Element {
       nameMn: guide.nameMn ?? '',
       level: guide.level,
       status: guide.status,
-      gender: guide.gender ?? '',
+      gender: guide.gender === 'MALE' ? 'MALE' : 'FEMALE',
       birthYear: guide.birthYear?.toString() ?? '',
       isSmoker: guide.isSmoker ? 'true' : 'false',
       experienceYears: guide.experienceYears?.toString() ?? '',
@@ -93,7 +93,7 @@ export function GuideDetailPage(): JSX.Element {
         nameMn: form.nameMn || null,
         level: form.level as any,
         status: form.status as any,
-        gender: (form.gender as any) || null,
+        gender: form.gender === 'MALE' ? 'MALE' : 'FEMALE',
         birthYear: form.birthYear ? parseInt(form.birthYear, 10) : null,
         isSmoker: form.isSmoker === 'true',
         experienceYears: form.experienceYears ? parseInt(form.experienceYears, 10) : null,
@@ -205,9 +205,7 @@ export function GuideDetailPage(): JSX.Element {
 
         {!editing ? (
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4 p-6 sm:grid-cols-3">
-            <Field label="성별">
-              {guide.gender === 'MALE' ? '남' : guide.gender === 'FEMALE' ? '여' : '-'}
-            </Field>
+            <Field label="성별">{guide.gender === 'MALE' ? '남' : '여'}</Field>
             <Field label="출생년도">{guide.birthYear ?? '-'}</Field>
             <Field label="흡연 여부">{guide.isSmoker ? '흡연' : '비흡연'}</Field>
             <Field label="경력">{guide.experienceYears != null ? `${guide.experienceYears}년차` : '-'}</Field>
@@ -275,7 +273,6 @@ export function GuideDetailPage(): JSX.Element {
                 onChange={(e) => setForm((prev) => ({ ...prev, gender: e.target.value }))}
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
               >
-                <option value="">-</option>
                 <option value="MALE">남</option>
                 <option value="FEMALE">여</option>
               </select>

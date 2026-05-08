@@ -18,6 +18,12 @@ const STATUS_LABEL: Record<string, string> = {
   OTHER: '기타',
 };
 
+function formatGuideGender(g: GuideRow['gender']): string {
+  if (g === 'MALE') return '남';
+  if (g === 'FEMALE') return '여';
+  return '여';
+}
+
 function LevelBadge({ level }: { level: GuideRow['level'] }) {
   const colors: Record<string, string> = {
     MAIN: 'bg-indigo-100 text-indigo-700',
@@ -77,7 +83,7 @@ function CreateGuideModal({
     nameMn: '',
     level: 'ROOKIE' as GuideRow['level'],
     status: 'INTERVIEW_DONE' as GuideRow['status'],
-    gender: '' as '' | 'MALE' | 'FEMALE',
+    gender: 'FEMALE' as 'MALE' | 'FEMALE',
     phone: '',
   });
   const { createGuide, loading } = useCreateGuide();
@@ -97,10 +103,10 @@ function CreateGuideModal({
         ...(form.nameMn.trim() ? { nameMn: form.nameMn.trim() } : {}),
         level: form.level,
         status: form.status,
-        ...(form.gender ? { gender: form.gender } : {}),
+        gender: form.gender ?? 'FEMALE',
         ...(form.phone.trim() ? { phone: form.phone.trim() } : {}),
       } as any);
-      setForm({ nameKo: '', nameMn: '', level: 'ROOKIE', status: 'INTERVIEW_DONE', gender: '', phone: '' });
+      setForm({ nameKo: '', nameMn: '', level: 'ROOKIE', status: 'INTERVIEW_DONE', gender: 'FEMALE', phone: '' });
       onClose();
       onCreated(result.id);
     } catch (e) {
@@ -168,10 +174,9 @@ function CreateGuideModal({
             <span className="text-xs font-medium text-slate-500">성별</span>
             <select
               value={form.gender}
-              onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value as '' | 'MALE' | 'FEMALE' }))}
+              onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value as 'MALE' | 'FEMALE' }))}
               className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
             >
-              <option value="">-</option>
               <option value="MALE">남</option>
               <option value="FEMALE">여</option>
             </select>
@@ -247,7 +252,9 @@ export function GuidesPage(): JSX.Element {
         return (
           g.nameKo.toLowerCase().includes(q) ||
           (g.nameMn?.toLowerCase().includes(q) ?? false) ||
-          (g.phone?.toLowerCase().includes(q) ?? false)
+          (g.phone?.toLowerCase().includes(q) ?? false) ||
+          formatGuideGender(g.gender).toLowerCase().includes(q) ||
+          (g.gender?.toLowerCase().includes(q) ?? false)
         );
       })
     : listGuides;
@@ -258,7 +265,9 @@ export function GuidesPage(): JSX.Element {
         return (
           g.nameKo.toLowerCase().includes(q) ||
           (g.nameMn?.toLowerCase().includes(q) ?? false) ||
-          (g.phone?.toLowerCase().includes(q) ?? false)
+          (g.phone?.toLowerCase().includes(q) ?? false) ||
+          formatGuideGender(g.gender).toLowerCase().includes(q) ||
+          (g.gender?.toLowerCase().includes(q) ?? false)
         );
       })
     : calGuides;
@@ -447,7 +456,7 @@ export function GuidesPage(): JSX.Element {
                       <StatusBadge status={guide.status} />
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                      {guide.gender === 'MALE' ? '남' : guide.gender === 'FEMALE' ? '여' : '-'}
+                      {formatGuideGender(guide.gender)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-slate-600">
                       {guide.birthYear ?? '-'}

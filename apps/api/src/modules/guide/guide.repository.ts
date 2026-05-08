@@ -1,4 +1,4 @@
-import type { GuideLevel, GuideStatus, PrismaClient } from '@prisma/client';
+import type { GuideGender, GuideLevel, GuideStatus, PrismaClient } from '@prisma/client';
 import type { GuideCreateDto, GuideUpdateDto } from './guide.types';
 
 export class GuideRepository {
@@ -25,7 +25,7 @@ export class GuideRepository {
         nameMn: data.nameMn ?? null,
         level: data.level ?? 'OTHER',
         status: data.status ?? 'OTHER',
-        gender: data.gender ?? null,
+        gender: (data.gender ?? 'FEMALE') as GuideGender,
         birthYear: data.birthYear ?? null,
         isSmoker: data.isSmoker ?? false,
         experienceYears: data.experienceYears ?? null,

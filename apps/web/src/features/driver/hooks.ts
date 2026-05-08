@@ -143,7 +143,14 @@ export function useCreateDriver() {
   const [mutate, { loading }] = useMutation<{ createDriver: DriverRow }>(CREATE_DRIVER_MUTATION);
   return {
     loading,
-    createDriver: async (input: { nameMn: string; vehicleType?: string; level?: string; status?: string }) => {
+    createDriver: async (input: {
+      nameMn: string;
+      vehicleType?: string;
+      level?: string;
+      status?: string;
+      gender?: string;
+      phone?: string;
+    }) => {
       const result = await mutate({
         variables: { input },
         refetchQueries: [{ query: DRIVERS_QUERY }],

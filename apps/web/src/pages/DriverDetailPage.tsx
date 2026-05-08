@@ -50,6 +50,17 @@ const VEHICLE_TYPE_OPTIONS: { value: DriverRow['vehicleType']; label: string }[]
   { value: 'OTHER', label: '기타' },
 ];
 
+const GENDER_OPTIONS: { value: 'MALE' | 'FEMALE'; label: string }[] = [
+  { value: 'MALE', label: '남' },
+  { value: 'FEMALE', label: '여' },
+];
+
+function driverGenderLabel(g: DriverRow['gender']): string {
+  if (g === 'MALE') return '남';
+  if (g === 'FEMALE') return '여';
+  return '남';
+}
+
 function InfoRow({
   label,
   value,
@@ -279,6 +290,12 @@ export function DriverDetailPage(): JSX.Element {
                   onChange={(v) => setDraft((p) => ({ ...p, status: v }))}
                 />
                 <SelectField
+                  label="성별"
+                  options={GENDER_OPTIONS}
+                  value={current.gender ?? 'MALE'}
+                  onChange={(v) => setDraft((p) => ({ ...p, gender: v }))}
+                />
+                <SelectField
                   label="차종"
                   options={VEHICLE_TYPE_OPTIONS}
                   value={current.vehicleType}
@@ -317,7 +334,7 @@ export function DriverDetailPage(): JSX.Element {
                 <InfoRow label="출생년도" value={driver.birthYear} />
                 <InfoRow label="입사연도" value={driver.joinYear} />
                 <InfoRow label="전화번호" value={driver.phone} />
-                <InfoRow label="성별" value={driver.gender === 'MALE' ? '남' : driver.gender === 'FEMALE' ? '여' : null} />
+                <InfoRow label="성별" value={driverGenderLabel(driver.gender)} />
                 <InfoRow label="흡연여부" value={driver.isSmoker ? '흡연' : '비흡연'} />
                 <InfoRow label="Tourist 허가" value={driver.hasTouristLicense ? '있음' : '없음'} />
                 <InfoRow label="특이사항" value={driver.note} />

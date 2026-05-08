@@ -187,6 +187,7 @@ async function main() {
           data: {
             nameKo: row.guideName,
             nameMn: row.guideName,
+            gender: 'FEMALE',
           },
         });
         createdGuides++;
@@ -209,6 +210,7 @@ async function main() {
         driver = await prisma.driver.create({
           data: {
             nameMn: row.driverName,
+            gender: 'MALE',
           },
         });
         createdDrivers++;

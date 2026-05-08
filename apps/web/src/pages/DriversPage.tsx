@@ -101,6 +101,12 @@ const STATUS_OPTIONS: { value: DriverRow['status']; label: string }[] = [
   { value: 'OTHER', label: '기타' },
 ];
 
+function formatDriverGender(g: DriverRow['gender']): string {
+  if (g === 'MALE') return '남';
+  if (g === 'FEMALE') return '여';
+  return '남';
+}
+
 function CreateDriverModal({
   open,
   onClose,
@@ -115,6 +121,7 @@ function CreateDriverModal({
     vehicleType: 'STAREX' as DriverRow['vehicleType'],
     level: 'ROOKIE' as DriverRow['level'],
     status: 'INTERVIEW_DONE' as DriverRow['status'],
+    gender: 'MALE' as 'MALE' | 'FEMALE',
     phone: '',
   });
   const { createDriver, loading } = useCreateDriver();
@@ -134,9 +141,10 @@ function CreateDriverModal({
         vehicleType: form.vehicleType,
         level: form.level,
         status: form.status,
+        gender: form.gender,
         ...(form.phone.trim() ? { phone: form.phone.trim() } : {}),
       } as any);
-      setForm({ nameMn: '', vehicleType: 'STAREX', level: 'ROOKIE', status: 'INTERVIEW_DONE', phone: '' });
+      setForm({ nameMn: '', vehicleType: 'STAREX', level: 'ROOKIE', status: 'INTERVIEW_DONE', gender: 'MALE', phone: '' });
       onClose();
       onCreated(result.id);
     } catch (e) {
@@ -203,6 +211,17 @@ function CreateDriverModal({
             </select>
           </label>
           <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500">성별</span>
+            <select
+              value={form.gender}
+              onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value as 'MALE' | 'FEMALE' }))}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+            >
+              <option value="MALE">남</option>
+              <option value="FEMALE">여</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
             <span className="text-xs font-medium text-slate-500">전화번호</span>
             <input
               type="text"
@@ -264,7 +283,9 @@ export function DriversPage(): JSX.Element {
         return (
           d.nameMn.toLowerCase().includes(q) ||
           (d.phone?.toLowerCase().includes(q) ?? false) ||
-          (d.vehicleNumber?.toLowerCase().includes(q) ?? false)
+          (d.vehicleNumber?.toLowerCase().includes(q) ?? false) ||
+          formatDriverGender(d.gender).toLowerCase().includes(q) ||
+          (d.gender?.toLowerCase().includes(q) ?? false)
         );
       })
     : listDrivers;
@@ -275,7 +296,9 @@ export function DriversPage(): JSX.Element {
         return (
           d.nameMn.toLowerCase().includes(q) ||
           (d.phone?.toLowerCase().includes(q) ?? false) ||
-          (d.vehicleNumber?.toLowerCase().includes(q) ?? false)
+          (d.vehicleNumber?.toLowerCase().includes(q) ?? false) ||
+          formatDriverGender(d.gender).toLowerCase().includes(q) ||
+          (d.gender?.toLowerCase().includes(q) ?? false)
         );
       })
     : calDrivers;
@@ -431,6 +454,7 @@ export function DriversPage(): JSX.Element {
                 <tr className="border-b border-slate-100 bg-slate-50">
                   <th className="w-12 px-3 py-3" />
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">이름 (몽골)</th>
+                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">성별</th>
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">레벨</th>
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">상태</th>
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">차종</th>
@@ -465,6 +489,9 @@ export function DriversPage(): JSX.Element {
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
                       {driver.nameMn}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+                      {formatDriverGender(driver.gender)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <LevelBadge level={driver.level} />

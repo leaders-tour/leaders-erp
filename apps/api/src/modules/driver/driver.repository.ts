@@ -1,4 +1,4 @@
-import type { DriverLevel, DriverStatus, PrismaClient, VehicleType } from '@prisma/client';
+import type { DriverLevel, DriverStatus, GuideGender, PrismaClient, VehicleType } from '@prisma/client';
 import type { DriverCreateDto, DriverUpdateDto } from './driver.types';
 
 export class DriverRepository {
@@ -30,7 +30,7 @@ export class DriverRepository {
         maxPassengers: data.maxPassengers ?? null,
         level: data.level ?? 'OTHER',
         status: data.status ?? 'OTHER',
-        gender: data.gender ?? null,
+        gender: (data.gender ?? 'MALE') as GuideGender,
         birthYear: data.birthYear ?? null,
         isSmoker: data.isSmoker ?? false,
         hasTouristLicense: data.hasTouristLicense ?? false,

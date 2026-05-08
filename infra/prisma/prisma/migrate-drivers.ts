@@ -143,10 +143,10 @@ function mapStatus(raw: string): 'ACTIVE_SEASON' | 'INTERVIEW_DONE' | 'BLACKLIST
   return 'OTHER';
 }
 
-function mapGender(raw: string): 'MALE' | 'FEMALE' | null {
+function mapGender(raw: string): 'MALE' | 'FEMALE' {
   if (raw === '남' || raw.toLowerCase() === 'm') return 'MALE';
   if (raw === '여' || raw.toLowerCase() === 'f') return 'FEMALE';
-  return null;
+  return 'MALE';
 }
 
 function parseBirthYear(raw: string): number | null {
