@@ -1720,7 +1720,7 @@ function toAutoTravelEndDate(startDate: string, totalDays: number): string {
 
 function buildDefaultRentalItems(total: number): string {
   const safeTotal = Math.max(1, total);
-  const sharedItemCount = safeTotal >= 5 ? 2 : 1;
+  const sharedItemCount = safeTotal >= 10 ? 4 : safeTotal >= 9 ? 3 : safeTotal >= 5 ? 2 : 1;
   return [
     `판초 ${safeTotal}개`,
     `모기장 ${safeTotal}개`,
