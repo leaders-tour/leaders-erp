@@ -221,6 +221,21 @@ export interface ConfirmedTripRow {
   confirmedByEmployee: { id: string; name: string } | null;
   guide: { id: string; nameKo: string; nameMn: string | null; level: string; profileImageUrl: string | null } | null;
   driver: { id: string; nameMn: string; vehicleType: string; level: string; profileImageUrl: string | null } | null;
+  lodgings: Array<{
+    id: string;
+    dayIndex: number;
+    lodgingNameSnapshot: string;
+    roomCount: number;
+    accommodation: {
+      id: string;
+      name: string;
+      coverImageUrl: string | null;
+      options: Array<{
+        id: string;
+        imageUrls: string[];
+      }>;
+    } | null;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -332,6 +347,21 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
       vehicleType
       level
       profileImageUrl
+    }
+    lodgings {
+      id
+      dayIndex
+      lodgingNameSnapshot
+      roomCount
+      accommodation {
+        id
+        name
+        coverImageUrl
+        options {
+          id
+          imageUrls
+        }
+      }
     }
     createdAt
     updatedAt

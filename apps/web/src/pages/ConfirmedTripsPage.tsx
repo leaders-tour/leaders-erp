@@ -359,18 +359,156 @@ function EventBadges({ trip }: { trip: ConfirmedTripRow }) {
   );
 }
 
+function getLodgingImageUrl(lodging: ConfirmedTripRow['lodgings'][number]): string | null {
+  return lodging.accommodation?.coverImageUrl?.trim() || lodging.accommodation?.options.flatMap((option) => option.imageUrls)[0] || null;
+}
+
+interface LodgingSummaryGroup {
+  name: string;
+  nights: number;
+  dayIndices: number[];
+  firstLodging: ConfirmedTripRow['lodgings'][number];
+}
+
+function getLodgingSummaryGroups(trip: ConfirmedTripRow): LodgingSummaryGroup[] {
+  const groupByName = new Map<string, LodgingSummaryGroup>();
+  const sortedLodgings = [...trip.lodgings].sort((a, b) => a.dayIndex - b.dayIndex);
+
+  for (const lodging of sortedLodgings) {
+    const name = lodging.lodgingNameSnapshot.trim();
+    if (!name) {
+      continue;
+    }
+
+    const existing = groupByName.get(name);
+    if (existing) {
+      existing.nights += 1;
+      existing.dayIndices.push(lodging.dayIndex);
+      continue;
+    }
+
+    groupByName.set(name, {
+      name,
+      nights: 1,
+      dayIndices: [lodging.dayIndex],
+      firstLodging: lodging,
+    });
+  }
+
+  return Array.from(groupByName.values());
+}
+
+function formatLodgingGroupLabel(group: LodgingSummaryGroup): string {
+  return group.nights > 1 ? `${group.name} · ${group.nights}박` : group.name;
+}
+
 function getLodgingSummary(trip: ConfirmedTripRow): string {
-  if (trip.accommodationNote) return trip.accommodationNote;
-  const selections = trip.planVersion?.meta?.lodgingSelections ?? [];
-  const names = [
-    ...new Set(selections.map((s) => s.customLodgingNameSnapshot).filter((n): n is string => !!n)),
-  ];
-  return names.length > 0 ? names.join(', ') : '-';
+  const summary = getLodgingSummaryGroups(trip).map((group) => group.name);
+  return summary.length > 0 ? summary.join(', ') : '-';
+}
+
+function DriverCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
+  const driver = trip.driver;
+  if (!driver) {
+    return <span className="text-slate-300">-</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+        {driver.profileImageUrl ? (
+          <img src={driver.profileImageUrl} alt={driver.nameMn} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-slate-500">
+            {driver.nameMn.slice(0, 1)}
+          </div>
+        )}
+      </div>
+      <span>{driver.nameMn}</span>
+    </div>
+  );
+}
+
+function GuideCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
+  const guide = trip.guide;
+  if (!guide) {
+    return <span className="text-slate-300">-</span>;
+  }
+
+  const guideName = guide.nameKo || guide.nameMn || '-';
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+        {guide.profileImageUrl ? (
+          <img src={guide.profileImageUrl} alt={guideName} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-slate-500">
+            {guideName.slice(0, 1)}
+          </div>
+        )}
+      </div>
+      <span>{guideName}</span>
+    </div>
+  );
+}
+
+function LodgingSummaryCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
+  const groups = getLodgingSummaryGroups(trip);
+  const firstGroup = groups[0];
+  if (!firstGroup) {
+    return <span className="text-xs text-slate-300">-</span>;
+  }
+
+  const imageUrl = getLodgingImageUrl(firstGroup.firstLodging);
+  const remainingCount = groups.length - 1;
+
+  return (
+    <div className="group relative flex items-center gap-2">
+      {imageUrl ? (
+        <img src={imageUrl} alt={firstGroup.name} className="h-8 w-10 shrink-0 rounded object-cover" />
+      ) : (
+        <div className="h-8 w-10 shrink-0 rounded bg-slate-100" />
+      )}
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-xs font-medium leading-snug text-slate-700">
+            {formatLodgingGroupLabel(firstGroup)}
+          </span>
+          {remainingCount > 0 && (
+            <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+              +{remainingCount}곳
+            </span>
+          )}
+        </div>
+        {groups.length > 1 && (
+          <p className="mt-0.5 truncate text-[10px] text-slate-400">
+            {groups.slice(1).map(formatLodgingGroupLabel).join(', ')}
+          </p>
+        )}
+      </div>
+      <div className="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden w-72 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-lg group-hover:block">
+        <p className="mb-2 text-xs font-semibold text-slate-500">전체 숙소</p>
+        <div className="grid gap-1.5">
+          {groups.map((group) => (
+            <div key={group.name} className="flex items-start gap-2 text-xs">
+              <span className="mt-0.5 shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                {group.dayIndices.join(', ')}일차
+              </span>
+              <span className="min-w-0 break-words font-medium text-slate-700">
+                {formatLodgingGroupLabel(group)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function WarningBadges({ trip }: { trip: ConfirmedTripRow }) {
   const badges: JSX.Element[] = [];
-  if (!trip.guideName) {
+  if (!trip.guide) {
     badges.push(
       <span
         key="guide"
@@ -380,7 +518,7 @@ function WarningBadges({ trip }: { trip: ConfirmedTripRow }) {
       </span>,
     );
   }
-  if (!trip.driverName) {
+  if (!trip.driver) {
     badges.push(
       <span
         key="driver"
@@ -605,9 +743,13 @@ function TripTableRow({
       {/* 여행지 */}
       <td className="whitespace-nowrap px-4 py-3 text-slate-700">{getTripDestination(trip)}</td>
       {/* 가이드 */}
-      <td className="whitespace-nowrap px-4 py-3 text-slate-700">{trip.guideName ?? '-'}</td>
+      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+        <GuideCell trip={trip} />
+      </td>
       {/* 기사 */}
-      <td className="whitespace-nowrap px-4 py-3 text-slate-700">{trip.driverName ?? '-'}</td>
+      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+        <DriverCell trip={trip} />
+      </td>
       {/* 차량 (여행 완료 제외) */}
       {filter !== 'completed' && (
         <td className="whitespace-nowrap px-4 py-3 text-slate-700">
@@ -617,7 +759,7 @@ function TripTableRow({
       {/* 숙소 (여행 완료 제외) */}
       {filter !== 'completed' && (
         <td className="max-w-[200px] px-4 py-3 text-slate-700">
-          <span className="line-clamp-2 text-xs leading-snug">{getLodgingSummary(trip)}</span>
+          <LodgingSummaryCell trip={trip} />
         </td>
       )}
       {/* 이벤트 (예약표 제외) */}

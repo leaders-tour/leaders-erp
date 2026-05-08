@@ -1,4 +1,5 @@
 import type { ConfirmedTripStatus } from '@prisma/client';
+import type { GraphQLResolveInfo, SelectionNode } from 'graphql';
 import type { AppContext } from '../../context';
 import { ConfirmedTripService } from './confirmed-trip.service';
 import type {
@@ -53,6 +54,30 @@ interface SeedLodgingsArgs {
   confirmedTripId: string;
 }
 
+function selectionIncludesField(
+  selections: readonly SelectionNode[] | undefined,
+  fieldName: string,
+  fragments: GraphQLResolveInfo['fragments'],
+): boolean {
+  if (!selections) {
+    return false;
+  }
+
+  return selections.some((selection) => {
+    if (selection.kind === 'Field') {
+      return (
+        selection.name.value === fieldName ||
+        selectionIncludesField(selection.selectionSet?.selections, fieldName, fragments)
+      );
+    }
+    if (selection.kind === 'InlineFragment') {
+      return selectionIncludesField(selection.selectionSet.selections, fieldName, fragments);
+    }
+    const fragment = fragments[selection.name.value];
+    return selectionIncludesField(fragment?.selectionSet.selections, fieldName, fragments);
+  });
+}
+
 export const confirmedTripResolver = {
   Query: {
     confirmedTrips: (_parent: unknown, args: ConfirmedTripsArgs, ctx: AppContext) =>
@@ -85,8 +110,22 @@ export const confirmedTripResolver = {
       new ConfirmedTripService(ctx.prisma).seedLodgingsFromPlan(args.confirmedTripId),
   },
   ConfirmedTrip: {
-    lodgings: async (parent: { id: string; lodgings?: unknown[] }, _args: unknown, ctx: AppContext) => {
+    lodgings: async (
+      parent: { id: string; lodgings?: unknown[] },
+      _args: unknown,
+      ctx: AppContext,
+      info: GraphQLResolveInfo,
+    ) => {
       if (Array.isArray(parent.lodgings)) {
+        if (
+          !selectionIncludesField(
+            info.fieldNodes.flatMap((node) => node.selectionSet?.selections ?? []),
+            'conflictWarnings',
+            info.fragments,
+          )
+        ) {
+          return parent.lodgings;
+        }
         return new ConfirmedTripService(ctx.prisma).getLodgingsWithConflicts(parent.id);
       }
       return [];
