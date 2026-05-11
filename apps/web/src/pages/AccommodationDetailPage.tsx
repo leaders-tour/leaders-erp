@@ -49,6 +49,27 @@ const LEVEL_OPTIONS: { value: AccommodationLevel; label: string }[] = [
 
 const REGIONS = ['고비사막', '중부', '홉스골', '울란바토르', '자브항', '울란곰'];
 
+/** 빈 문자열 → null, 유효하지 않으면 ok: false */
+function parseOptionalPriceInput(raw: string): { ok: true; value: number | null } | { ok: false } {
+  const t = raw.trim();
+  if (t === '') return { ok: true, value: null };
+  const n = Number.parseInt(t, 10);
+  if (!Number.isFinite(n) || n < 0) return { ok: false };
+  return { ok: true, value: n };
+}
+
+/** 편집 중에는 입력 문자열을 파싱해 미리보기, 파싱 실패 시 서버 값 유지 */
+function previewSeasonPrice(
+  editing: boolean,
+  raw: string,
+  mergedCurrent: number | null,
+  serverValue: number | null,
+): number | null {
+  if (!editing) return mergedCurrent;
+  const p = parseOptionalPriceInput(raw);
+  return p.ok ? p.value : serverValue;
+}
+
 function OptionCard({
   opt,
   accommodationId,
@@ -61,6 +82,8 @@ function OptionCard({
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Partial<AccommodationOption>>({});
+  const [priceOffSeasonStr, setPriceOffSeasonStr] = useState('');
+  const [pricePeakSeasonStr, setPricePeakSeasonStr] = useState('');
   const { updateOption, loading: saving } = useUpdateAccommodationOption();
   const { deleteOption, loading: deleting } = useDeleteAccommodationOption();
   const { uploadImages, loading: uploading } = useUploadAccommodationOptionImages();
@@ -68,12 +91,46 @@ function OptionCard({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const current = { ...opt, ...draft };
+  const displayPriceOffSeason = previewSeasonPrice(editing, priceOffSeasonStr, current.priceOffSeason, opt.priceOffSeason);
+  const displayPricePeakSeason = previewSeasonPrice(editing, pricePeakSeasonStr, current.pricePeakSeason, opt.pricePeakSeason);
+  const displayPaymentMethod =
+    editing && draft.paymentMethod !== undefined ? draft.paymentMethod : current.paymentMethod;
 
   async function handleSave() {
-    if (Object.keys(draft).length === 0) { setEditing(false); return; }
-    await updateOption(opt.id, accommodationId, draft);
+    const offParsed = parseOptionalPriceInput(priceOffSeasonStr);
+    const peakParsed = parseOptionalPriceInput(pricePeakSeasonStr);
+    if (!offParsed.ok || !peakParsed.ok) {
+      window.alert('가격은 비워두거나 0 이상의 정수로 입력해 주세요.');
+      return;
+    }
+
+    const priceOffSeason = offParsed.value;
+    const pricePeakSeason = peakParsed.value;
+
+    const unchanged =
+      priceOffSeason === opt.priceOffSeason &&
+      pricePeakSeason === opt.pricePeakSeason &&
+      (draft.note === undefined || draft.note === opt.note) &&
+      (draft.paymentMethod === undefined || draft.paymentMethod === opt.paymentMethod);
+
+    if (unchanged) {
+      setEditing(false);
+      setDraft({});
+      setPriceOffSeasonStr('');
+      setPricePeakSeasonStr('');
+      return;
+    }
+
+    await updateOption(opt.id, accommodationId, {
+      priceOffSeason,
+      pricePeakSeason,
+      ...(draft.note !== undefined ? { note: draft.note } : {}),
+      ...(draft.paymentMethod !== undefined ? { paymentMethod: draft.paymentMethod } : {}),
+    });
     setEditing(false);
     setDraft({});
+    setPriceOffSeasonStr('');
+    setPricePeakSeasonStr('');
   }
 
   async function handleDelete() {
@@ -168,12 +225,32 @@ function OptionCard({
             </button>
             {editing ? (
               <>
-                <button className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100" onClick={() => { setEditing(false); setDraft({}); }}>취소</button>
+                <button
+                  className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
+                  onClick={() => {
+                    setEditing(false);
+                    setDraft({});
+                    setPriceOffSeasonStr('');
+                    setPricePeakSeasonStr('');
+                  }}
+                >
+                  취소
+                </button>
                 <button className="rounded-lg bg-indigo-600 px-2 py-1 text-xs text-white hover:bg-indigo-700" onClick={handleSave} disabled={saving}>저장</button>
               </>
             ) : (
               <>
-                <button className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100" onClick={() => setEditing(true)}>편집</button>
+                <button
+                  className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
+                  onClick={() => {
+                    setDraft({});
+                    setPriceOffSeasonStr(opt.priceOffSeason != null ? String(opt.priceOffSeason) : '');
+                    setPricePeakSeasonStr(opt.pricePeakSeason != null ? String(opt.pricePeakSeason) : '');
+                    setEditing(true);
+                  }}
+                >
+                  편집
+                </button>
                 <button
                   className="rounded-lg px-2 py-1 text-xs text-rose-500 hover:bg-rose-50"
                   onClick={handleDelete}
@@ -188,15 +265,17 @@ function OptionCard({
 
         {/* 가격 */}
         <div className="mt-2 flex flex-wrap gap-3 text-sm">
-          {current.priceOffSeason != null && (
+          {displayPriceOffSeason != null && (
             <span className="text-slate-700">
-              비수기 <strong className="text-slate-900">₮{current.priceOffSeason.toLocaleString()}</strong>
-              {current.paymentMethod && <span className="text-slate-400 ml-1">/{PAYMENT_LABEL[current.paymentMethod]}</span>}
+              비수기 <strong className="text-slate-900">₮{displayPriceOffSeason.toLocaleString()}</strong>
+              {displayPaymentMethod && (
+                <span className="text-slate-400 ml-1">/{PAYMENT_LABEL[displayPaymentMethod]}</span>
+              )}
             </span>
           )}
-          {current.pricePeakSeason != null && (
+          {displayPricePeakSeason != null && (
             <span className="text-slate-700">
-              성수기 <strong className="text-slate-900">₮{current.pricePeakSeason.toLocaleString()}</strong>
+              성수기 <strong className="text-slate-900">₮{displayPricePeakSeason.toLocaleString()}</strong>
             </span>
           )}
         </div>
@@ -206,6 +285,48 @@ function OptionCard({
           <div className="mt-4 border-t border-slate-100 pt-4">
             {editing ? (
               <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-slate-500">비수기 가격 (₮)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={priceOffSeasonStr}
+                    onChange={(e) => setPriceOffSeasonStr(e.target.value)}
+                    placeholder="0"
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-slate-500">성수기 가격 (₮)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={pricePeakSeasonStr}
+                    onChange={(e) => setPricePeakSeasonStr(e.target.value)}
+                    placeholder="0"
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 sm:col-span-2">
+                  <span className="text-xs font-medium text-slate-500">결제 기준</span>
+                  <select
+                    value={draft.paymentMethod !== undefined ? (draft.paymentMethod ?? '') : (opt.paymentMethod ?? '')}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setDraft((p) => ({
+                        ...p,
+                        paymentMethod: v === '' ? null : (v as PaymentMethod),
+                      }));
+                    }}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none md:max-w-xs"
+                  >
+                    <option value="">미설정</option>
+                    <option value="PER_PERSON">{PAYMENT_LABEL.PER_PERSON}</option>
+                    <option value="PER_ROOM">{PAYMENT_LABEL.PER_ROOM}</option>
+                  </select>
+                </label>
                 <label className="flex flex-col gap-1 sm:col-span-2">
                   <span className="text-xs text-slate-500">특이사항</span>
                   <textarea
