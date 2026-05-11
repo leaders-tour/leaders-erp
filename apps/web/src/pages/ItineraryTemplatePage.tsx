@@ -90,7 +90,7 @@ export function ItineraryTemplatePage(): JSX.Element {
   const [searchParams] = useSearchParams();
   const initialSelectedTemplateId = searchParams.get('selectedTemplateId') ?? '';
   const [regionSetFilter, setRegionSetFilter] = useState<string>('');
-  const [dayFilter, setDayFilter] = useState<string>(initialSelectedTemplateId ? 'all' : '6');
+  const [dayFilter, setDayFilter] = useState<string>('all');
   const [activeOnly, setActiveOnly] = useState<boolean>(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initialSelectedTemplateId);
 
