@@ -33,13 +33,46 @@ export const confirmedTripInclude = {
   },
 } satisfies Prisma.ConfirmedTripInclude;
 
+/** 투어 리스트 `confirmedTrips` 조회용 — 견적 라인·planStop 일괄 로드·숙소 옵션 스택 등 생략 */
+export const confirmedTripListInclude = {
+  user: { include: { ownerEmployee: true } },
+  plan: { include: { regionSet: true } },
+  planVersion: {
+    include: {
+      meta: true,
+      regionSet: true,
+    },
+  },
+  confirmedByEmployee: true,
+  guideAssignments: {
+    orderBy: { sortOrder: 'asc' as const },
+    include: { guide: true },
+  },
+  driverAssignments: {
+    orderBy: { sortOrder: 'asc' as const },
+    include: { driver: true },
+  },
+  lodgings: {
+    orderBy: { dayIndex: 'asc' as const },
+    include: {
+      accommodation: {
+        select: {
+          id: true,
+          name: true,
+          coverImageUrl: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.ConfirmedTripInclude;
+
 export class ConfirmedTripRepository {
   constructor(private readonly prisma: PrismaLike) {}
 
   findMany(status?: ConfirmedTripStatus) {
     return this.prisma.confirmedTrip.findMany({
       where: status ? { status } : undefined,
-      include: confirmedTripInclude,
+      include: confirmedTripListInclude,
       orderBy: [{ travelStart: 'asc' }, { confirmedAt: 'desc' }],
     });
   }

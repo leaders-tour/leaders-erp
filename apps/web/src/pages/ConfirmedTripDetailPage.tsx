@@ -34,6 +34,7 @@ import {
   getTripDropDate,
   sortTripAssignments,
 } from '../features/confirmed-trip/hooks';
+import { markConfirmedTripRecentlyReturned } from '../features/confirmed-trip/recent-return';
 import { LodgingSection } from '../features/confirmed-trip/LodgingSection';
 import { useUpdateUser, useUploadUserAttachment } from '../features/plan/hooks';
 
@@ -395,6 +396,23 @@ function InlineWriteIcon({ className }: { className?: string }): JSX.Element {
 export function ConfirmedTripDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { tripId } = useParams<{ tripId: string }>();
+  const handleGoBack = useCallback(() => {
+    if (tripId) markConfirmedTripRecentlyReturned(tripId);
+    navigate(-1);
+  }, [navigate, tripId]);
+  useEffect(() => {
+    if (!tripId) return;
+    const onPopState = () => {
+      queueMicrotask(() => {
+        const normPath = window.location.pathname.replace(/\/+$/, '') || '/';
+        if (normPath === '/confirmed-trips') {
+          markConfirmedTripRecentlyReturned(tripId);
+        }
+      });
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [tripId]);
   const { trip, loading } = useConfirmedTrip(tripId);
   const { updateConfirmedTrip } = useUpdateConfirmedTrip();
   const { cancelConfirmedTrip, loading: cancelling } = useCancelConfirmedTrip();
@@ -465,15 +483,36 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   );
 
   if (!tripId) {
-    return <section className="py-8 text-sm text-slate-600">잘못된 접근입니다.</section>;
+    return (
+      <section className="grid gap-4 py-8">
+        <Button variant="outline" type="button" className="w-fit" onClick={handleGoBack}>
+          ← 뒤로가기
+        </Button>
+        <p className="text-sm text-slate-600">잘못된 접근입니다.</p>
+      </section>
+    );
   }
 
   if (loading) {
-    return <section className="py-8 text-sm text-slate-600">불러오는 중...</section>;
+    return (
+      <section className="grid gap-4 py-8">
+        <Button variant="outline" type="button" className="w-fit" onClick={handleGoBack}>
+          ← 뒤로가기
+        </Button>
+        <p className="text-sm text-slate-600">불러오는 중...</p>
+      </section>
+    );
   }
 
   if (!trip) {
-    return <section className="py-8 text-sm text-slate-600">확정 건을 찾을 수 없습니다.</section>;
+    return (
+      <section className="grid gap-4 py-8">
+        <Button variant="outline" type="button" className="w-fit" onClick={handleGoBack}>
+          ← 뒤로가기
+        </Button>
+        <p className="text-sm text-slate-600">확정 건을 찾을 수 없습니다.</p>
+      </section>
+    );
   }
 
   const meta = trip.planVersion?.meta ?? null;
@@ -590,7 +629,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     }
   };
 
-  const pdfAttachments = trip.user.attachments.filter((a) => a.type === 'pdf');
+  const pdfAttachments = (trip.user.attachments ?? []).filter((a) => a.type === 'pdf');
   const isPlanTrip = !!(trip.planId && trip.planVersionId);
   const hasPdf = pdfAttachments.length > 0;
   const showRightPanel = isPlanTrip || hasPdf;
@@ -615,7 +654,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     );
     setMGroupTotal(trip.groupTotalAmountKrw != null ? String(trip.groupTotalAmountKrw) : '');
     setMOpenChatUrl(trip.openChatUrl ?? '');
-    setMAttachments(trip.user.attachments.map((a) => ({ ...a })));
+    setMAttachments((trip.user.attachments ?? []).map((a) => ({ ...a })));
     setDirectEditOpen(true);
   };
 
@@ -663,6 +702,11 @@ export function ConfirmedTripDetailPage(): JSX.Element {
 
   return (
     <section className="grid gap-6">
+      <div>
+        <Button variant="outline" type="button" className="w-fit" onClick={handleGoBack}>
+          ← 뒤로가기
+        </Button>
+      </div>
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
@@ -677,7 +721,13 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           )}
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate('/confirmed-trips')}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              markConfirmedTripRecentlyReturned(trip.id);
+              navigate('/confirmed-trips');
+            }}
+          >
             목록으로
           </Button>
           {trip.planId && trip.planVersionId ? (
@@ -1332,8 +1382,8 @@ export function ConfirmedTripDetailPage(): JSX.Element {
             </div>
           </Card>
 
-          {trip.user.attachments.length > 0 ? (
-            <AttachmentsCard attachments={trip.user.attachments} />
+          {(trip.user.attachments ?? []).length > 0 ? (
+            <AttachmentsCard attachments={trip.user.attachments ?? []} />
           ) : null}
         </div>
         {/* end left column */}

@@ -1,5 +1,5 @@
 import { Card } from '@tour/ui';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarNoteModal } from '../features/confirmed-trip/CalendarNoteModal';
 import { ConfirmedTripCalendar } from '../features/confirmed-trip/ConfirmedTripCalendar';
@@ -23,6 +23,7 @@ import {
   type CalendarNoteRow,
   type ConfirmedTripRow,
 } from '../features/confirmed-trip/hooks';
+import { isConfirmedTripRecentReturn } from '../features/confirmed-trip/recent-return';
 import {
   tripMatchesAggRegions,
   parseAggRegionsParam,
@@ -382,7 +383,10 @@ function EventBadges({ trip }: { trip: ConfirmedTripRow }) {
 }
 
 function getLodgingImageUrl(lodging: ConfirmedTripRow['lodgings'][number]): string | null {
-  return lodging.accommodation?.coverImageUrl?.trim() || lodging.accommodation?.options.flatMap((option) => option.imageUrls)[0] || null;
+  const fromCover = lodging.accommodation?.coverImageUrl?.trim();
+  if (fromCover) return fromCover;
+  const urls = lodging.accommodation?.options?.flatMap((option) => option.imageUrls) ?? [];
+  return urls[0] ?? null;
 }
 
 interface LodgingSummaryGroup {
@@ -853,7 +857,12 @@ function TripTableRow({
       )}
       {/* 대표자명 */}
       <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
-        {getTripLeaderName(trip)}
+        <span className="inline-flex items-center gap-1.5">
+          <span>{getTripLeaderName(trip)}</span>
+          {isConfirmedTripRecentReturn(trip.id) ? (
+            <span className="text-xs font-medium text-blue-600">방금</span>
+          ) : null}
+        </span>
       </td>
       {/* 여행기간 */}
       <td className="whitespace-nowrap px-4 py-3 text-slate-700">
@@ -922,6 +931,11 @@ export function ConfirmedTripsPage(): JSX.Element {
   const { trips: allTrips, loading } = useConfirmedTrips('ACTIVE');
   const { updateConfirmedTrip } = useUpdateConfirmedTrip();
   const navigate = useNavigate();
+  const [, bumpRecentReturnUi] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    const id = window.setInterval(() => bumpRecentReturnUi(), 15_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   // ── 직접 추가 모달 상태 ───────────────────────────────────────────────────
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -1386,9 +1400,14 @@ export function ConfirmedTripsPage(): JSX.Element {
         ) : null}
       </div>
 
-      {loading ? (
+      {loading && allTrips.length === 0 ? (
         <p className="text-sm text-slate-500">불러오는 중...</p>
-      ) : viewMode === 'calendar' ? (
+      ) : (
+        <>
+          {loading && allTrips.length > 0 ? (
+            <p className="px-1 text-xs text-slate-500">목록을 최신 데이터와 동기화하는 중...</p>
+          ) : null}
+          {viewMode === 'calendar' ? (
         <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <TripTableListSummaryBar
             title="캘린더 합계 (예정·완료 탭 미적용)"
@@ -1486,6 +1505,8 @@ export function ConfirmedTripsPage(): JSX.Element {
             </div>
           )}
         </Card>
+          )}
+        </>
       )}
       <CalendarNoteModal
         open={noteModalOpen}

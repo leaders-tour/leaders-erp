@@ -210,7 +210,8 @@ export interface ConfirmedTripRow {
     email: string | null;
     ownerEmployeeId: string | null;
     ownerEmployee: { id: string; name: string; email: string } | null;
-    attachments: { filename: string; url: string; type: string }[];
+    /** 상세·파일 등에서만 조회 (투어 리스트 목록 쿼리에서는 생략 가능) */
+    attachments?: { filename: string; url: string; type: string }[];
   };
   plan: {
     id: string;
@@ -243,8 +244,9 @@ export interface ConfirmedTripRow {
         customLodgingNameSnapshot: string | null;
       }>;
     } | null;
-    planStops: Array<{ rowType?: 'MAIN' | 'EXTERNAL_TRANSFER' | null }>;
-    pricing: PlanVersionPricingRow | null;
+    /** 상세·견적 계산 등에서만 조회 (목록 쿼리에서는 생략 가능) */
+    planStops?: Array<{ rowType?: 'MAIN' | 'EXTERNAL_TRANSFER' | null }>;
+    pricing?: PlanVersionPricingRow | null;
   } | null;
   confirmedByEmployee: { id: string; name: string } | null;
   guideAssignments: ConfirmedTripGuideAssignmentRow[];
@@ -258,7 +260,8 @@ export interface ConfirmedTripRow {
       id: string;
       name: string;
       coverImageUrl: string | null;
-      options: Array<{
+      /** 목록에서는 생략하고 `coverImageUrl`만 사용할 수 있음 */
+      options?: Array<{
         id: string;
         imageUrls: string[];
       }>;
@@ -408,14 +411,145 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
   }
 `;
 
+/** 투어 리스트 등 테이블·캘린더 요약용 — 견적 라인·일정 스탑·첨부 등 무거운 필드 제외 */
+export const CONFIRMED_TRIP_LIST_FRAGMENT = gql`
+  fragment ConfirmedTripListFields on ConfirmedTrip {
+    id
+    userId
+    planId
+    planVersionId
+    status
+    confirmedAt
+    confirmedByEmployeeId
+    assignedVehicle
+    accommodationNote
+    operationNote
+    openChatUrl
+    travelStart
+    travelEnd
+    pickupDate
+    dropDate
+    destination
+    paxCount
+    rentalGear
+    rentalDrone
+    rentalStarlink
+    rentalPowerbank
+    camelDollPurchased
+    isRecruitingOpen
+    depositAmountKrw
+    balanceAmountKrw
+    totalAmountKrw
+    securityDepositAmountKrw
+    groupTotalAmountKrw
+    user {
+      id
+      name
+      email
+      ownerEmployeeId
+      ownerEmployee {
+        id
+        name
+        email
+      }
+    }
+    plan {
+      id
+      title
+      regionSet {
+        id
+        name
+      }
+    }
+    planVersion {
+      id
+      versionNumber
+      totalDays
+      variantType
+      meta {
+        leaderName
+        documentNumber
+        travelStartDate
+        travelEndDate
+        headcountTotal
+        headcountMale
+        headcountFemale
+        vehicleType
+        specialNote
+        includeRentalItems
+        rentalItemsText
+        remark
+        pickupDate
+        dropDate
+        lodgingSelections {
+          dayIndex
+          level
+          customLodgingNameSnapshot
+        }
+      }
+    }
+    confirmedByEmployee {
+      id
+      name
+    }
+    guideAssignments {
+      id
+      confirmedTripId
+      guideId
+      sortOrder
+      nameSnapshot
+      guide {
+        id
+        nameKo
+        nameMn
+        level
+        profileImageUrl
+      }
+    }
+    driverAssignments {
+      id
+      confirmedTripId
+      driverId
+      sortOrder
+      nameSnapshot
+      driver {
+        id
+        nameMn
+        vehicleType
+        level
+        profileImageUrl
+      }
+    }
+    lodgings {
+      id
+      dayIndex
+      lodgingNameSnapshot
+      roomCount
+      accommodation {
+        id
+        name
+        coverImageUrl
+      }
+    }
+    createdAt
+    updatedAt
+  }
+`;
+
 const CONFIRMED_TRIPS_QUERY = gql`
-  ${CONFIRMED_TRIP_FRAGMENT}
+  ${CONFIRMED_TRIP_LIST_FRAGMENT}
   query ConfirmedTrips($status: ConfirmedTripStatus) {
     confirmedTrips(status: $status) {
-      ...ConfirmedTripFields
+      ...ConfirmedTripListFields
     }
   }
 `;
+
+/** 목록 캐시 무효화 시 변수까지 맞춰야 동일 쿼리가 갱신됩니다. */
+export const CONFIRMED_TRIPS_ACTIVE_REFETCH = {
+  query: CONFIRMED_TRIPS_QUERY,
+  variables: { status: 'ACTIVE' as const },
+};
 
 export const CONFIRMED_TRIP_QUERY = gql`
   ${CONFIRMED_TRIP_FRAGMENT}
@@ -465,7 +599,11 @@ const CREATE_CONFIRMED_TRIP_DIRECT_MUTATION = gql`
 export function useConfirmedTrips(status?: 'ACTIVE' | 'CANCELLED') {
   const { data, loading, refetch } = useQuery<{ confirmedTrips: ConfirmedTripRow[] }>(
     CONFIRMED_TRIPS_QUERY,
-    { variables: { status }, fetchPolicy: 'cache-and-network' },
+    {
+      variables: { status },
+      fetchPolicy: 'cache-first',
+      nextFetchPolicy: 'cache-first',
+    },
   );
   return { trips: data?.confirmedTrips ?? [], loading, refetch };
 }
@@ -490,7 +628,7 @@ export function useConfirmTrip() {
     }): Promise<ConfirmedTripRow> => {
       const result = await mutate({
         variables: { input },
-        refetchQueries: [{ query: CONFIRMED_TRIPS_QUERY }],
+        refetchQueries: [CONFIRMED_TRIPS_ACTIVE_REFETCH],
       });
       if (!result.data?.confirmTrip) {
         throw new Error('Failed to confirm trip');
@@ -551,10 +689,7 @@ export function useUpdateConfirmedTrip() {
     updateConfirmedTrip: async (id: string, input: UpdateConfirmedTripInput): Promise<ConfirmedTripRow> => {
       const result = await mutate({
         variables: { id, input },
-        refetchQueries: [
-          { query: CONFIRMED_TRIPS_QUERY },
-          { query: CONFIRMED_TRIP_QUERY, variables: { id } },
-        ],
+        refetchQueries: [CONFIRMED_TRIPS_ACTIVE_REFETCH, { query: CONFIRMED_TRIP_QUERY, variables: { id } }],
       });
       if (!result.data?.updateConfirmedTrip) {
         throw new Error('Failed to update confirmed trip');
@@ -574,10 +709,7 @@ export function useCancelConfirmedTrip() {
     cancelConfirmedTrip: async (id: string): Promise<ConfirmedTripRow> => {
       const result = await mutate({
         variables: { id },
-        refetchQueries: [
-          { query: CONFIRMED_TRIPS_QUERY },
-          { query: CONFIRMED_TRIP_QUERY, variables: { id } },
-        ],
+        refetchQueries: [CONFIRMED_TRIPS_ACTIVE_REFETCH, { query: CONFIRMED_TRIP_QUERY, variables: { id } }],
       });
       if (!result.data?.cancelConfirmedTrip) {
         throw new Error('Failed to cancel confirmed trip');
@@ -608,7 +740,7 @@ export function useCreateConfirmedTripDirect() {
     }): Promise<ConfirmedTripRow> => {
       const result = await mutate({
         variables: { input },
-        refetchQueries: [{ query: CONFIRMED_TRIPS_QUERY }],
+        refetchQueries: [CONFIRMED_TRIPS_ACTIVE_REFETCH],
       });
       if (!result.data?.createConfirmedTrip) {
         throw new Error('Failed to create confirmed trip');
