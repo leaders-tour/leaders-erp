@@ -74,11 +74,29 @@ export class ConfirmedTripService {
       throw new DomainError('VALIDATION_FAILED', 'This plan already has an active confirmed trip. Cancel the existing one first.');
     }
 
+    const versionEvents = await this.prisma.planVersionEvent.findMany({
+      where: { planVersionId },
+      include: { event: { select: { tourListRentalItem: true } } },
+    });
+
+    let rentalDrone = false;
+    let rentalStarlink = false;
+    let rentalPowerbank = false;
+    for (const row of versionEvents) {
+      const item = row.event.tourListRentalItem;
+      if (item === 'DRONE') rentalDrone = true;
+      if (item === 'STARLINK') rentalStarlink = true;
+      if (item === 'POWERBANK') rentalPowerbank = true;
+    }
+
     return repo.create({
       userId: plan.userId,
       planId,
       planVersionId,
       confirmedByEmployeeId: confirmedByEmployeeId ?? null,
+      rentalDrone,
+      rentalStarlink,
+      rentalPowerbank,
     });
   }
 

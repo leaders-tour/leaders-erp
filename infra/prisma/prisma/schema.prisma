@@ -905,6 +905,13 @@ enum ConfirmedTripStatus {
   CANCELLED
 }
 
+/// 투어리스트(ConfirmedTrip) 렌탈 플래그와 연결되는 이벤트 의미. Event 마스터에만 둔다.
+enum TourListRentalItem {
+  DRONE
+  STARLINK
+  POWERBANK
+}
+
 model ConfirmedTrip {
   id                    String              @id @default(uuid(7))
   userId                String
@@ -1150,6 +1157,8 @@ model Event {
   isActive           Boolean @default(true)
   securityDepositKrw Int @default(0)
   sortOrder          Int @default(0)
+  /// 투어리스트 렌탈 항목으로 동기화할 때만 설정. NULL이면 견적 이벤트일 뿐 렌탈 플래그와 무관.
+  tourListRentalItem TourListRentalItem?
 
   planVersionEvents PlanVersionEvent[]
   securityDepositPlanVersionPricings PlanVersionPricing[]

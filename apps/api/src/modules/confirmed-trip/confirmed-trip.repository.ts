@@ -126,6 +126,9 @@ export class ConfirmedTripRepository {
     depositAmountKrw?: number | null;
     balanceAmountKrw?: number | null;
     securityDepositAmountKrw?: number | null;
+    rentalDrone?: boolean;
+    rentalStarlink?: boolean;
+    rentalPowerbank?: boolean;
   }) {
     return this.prisma.confirmedTrip.create({
       data: {
@@ -141,6 +144,9 @@ export class ConfirmedTripRepository {
         depositAmountKrw: data.depositAmountKrw ?? null,
         balanceAmountKrw: data.balanceAmountKrw ?? null,
         securityDepositAmountKrw: data.securityDepositAmountKrw ?? null,
+        ...(data.rentalDrone !== undefined ? { rentalDrone: data.rentalDrone } : {}),
+        ...(data.rentalStarlink !== undefined ? { rentalStarlink: data.rentalStarlink } : {}),
+        ...(data.rentalPowerbank !== undefined ? { rentalPowerbank: data.rentalPowerbank } : {}),
       },
       include: confirmedTripInclude,
     });
