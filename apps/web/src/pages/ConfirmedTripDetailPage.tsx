@@ -1551,6 +1551,26 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                     onChange={(e) => setMPaxCount(e.target.value)}
                   />
                 </label>
+                <label className="grid gap-1 sm:col-span-2">
+                  <span className="text-slate-500">오픈채팅방 링크 (선택)</span>
+                  <input
+                    type="text"
+                    inputMode="url"
+                    placeholder="https://open.kakao.com/..."
+                    className="rounded-xl border border-slate-200 px-3 py-2"
+                    value={mOpenChatUrl}
+                    onChange={(e) => setMOpenChatUrl(e.target.value)}
+                  />
+                  <span className="text-xs text-slate-400">
+                    비우고 저장하면 링크가 제거됩니다.
+                  </span>
+                </label>
+              </section>
+
+              <section className="grid gap-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  대여 물품
+                </h4>
                 <div className="flex flex-wrap gap-x-4 gap-y-2">
                   <label className="flex items-center gap-2">
                     <input
@@ -1584,28 +1604,20 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                     />
                     <span className="text-slate-700">파워뱅크</span>
                   </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={mRecruiting}
-                      onChange={(e) => setMRecruiting(e.target.checked)}
-                    />
-                    <span className="text-slate-700">모집중</span>
-                  </label>
                 </div>
-                <label className="grid gap-1 sm:col-span-2">
-                  <span className="text-slate-500">오픈채팅방 링크 (선택)</span>
+              </section>
+
+              <section className="grid gap-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  모집 상태
+                </h4>
+                <label className="flex items-center gap-2">
                   <input
-                    type="text"
-                    inputMode="url"
-                    placeholder="https://open.kakao.com/..."
-                    className="rounded-xl border border-slate-200 px-3 py-2"
-                    value={mOpenChatUrl}
-                    onChange={(e) => setMOpenChatUrl(e.target.value)}
+                    type="checkbox"
+                    checked={mRecruiting}
+                    onChange={(e) => setMRecruiting(e.target.checked)}
                   />
-                  <span className="text-xs text-slate-400">
-                    비우고 저장하면 링크가 제거됩니다.
-                  </span>
+                  <span className="text-slate-700">모집중</span>
                 </label>
               </section>
 
