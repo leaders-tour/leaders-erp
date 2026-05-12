@@ -610,11 +610,33 @@ type EffectivePricingTotalsSlice<TLine extends PricingManualSourceLine = Pricing
   | 'securityDepositMode'
 >;
 
+function hasSameTeamPricingSummary<TLine extends PricingManualSourceLine>(
+  teams: EffectiveTeamPricingResult<TLine>[],
+): boolean {
+  if (teams.length <= 1) {
+    return true;
+  }
+  const first = teams[0];
+  if (!first) {
+    return false;
+  }
+  return teams.every(
+    (team) =>
+      team.baseAmountKrw === first.baseAmountKrw &&
+      team.totalAmountKrw === first.totalAmountKrw &&
+      team.depositAmountKrw === first.depositAmountKrw &&
+      team.balanceAmountKrw === first.balanceAmountKrw &&
+      team.securityDepositAmountKrw === first.securityDepositAmountKrw &&
+      team.securityDepositUnitPriceKrw === first.securityDepositUnitPriceKrw &&
+      team.securityDepositMode === first.securityDepositMode,
+  );
+}
+
 export function sliceEffectiveTotalsForUi<TLine extends PricingManualSourceLine>(
   effective: EffectivePricingResult<TLine>,
 ): EffectivePricingTotalsSlice<TLine> {
   const teams = effective.teamPricings ?? [];
-  if (teams.length === 1 && teams[0]) {
+  if (teams.length > 0 && teams[0] && hasSameTeamPricingSummary(teams)) {
     const t = teams[0];
     return {
       baseAmountKrw: t.baseAmountKrw,

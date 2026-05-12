@@ -827,4 +827,89 @@ describe('buildEffectivePricing', () => {
     expect(docLines.some((l) => l.label === '팀 전용 할인')).toBe(true);
     expect(docLines.find((l) => l.label === '팀 전용 할인')?.leadAmountKrw).toBe(-25_000);
   });
+
+  it('여러 팀의 최종 요약이 같으면 UI 합계는 글로벌 재계산 대신 대표 팀 요약을 쓴다', () => {
+    const commonLine: PricingManualSourceLine = {
+      ruleType: 'BASE',
+      lineCode: 'BASE',
+      sourceType: 'RULE',
+      description: '기본금',
+      ruleId: 'rule-base',
+      unitPriceKrw: 1_019_000,
+      quantity: 1,
+      amountKrw: 1_019_000,
+    };
+
+    const effectivePricing = buildEffectivePricing(
+      {
+        baseAmountKrw: 1_019_000,
+        addonAmountKrw: 80_000,
+        totalAmountKrw: 1_099_000,
+        depositAmountKrw: 119_000,
+        balanceAmountKrw: 980_000,
+        securityDepositAmountKrw: 300_000,
+        securityDepositEvent: null,
+        securityDepositUnitPriceKrw: 300_000,
+        securityDepositQuantity: 1,
+        securityDepositMode: 'PER_TEAM',
+        lines: [commonLine],
+        teamPricings: [0, 1].map((teamOrderIndex) => ({
+          teamOrderIndex,
+          teamName: teamOrderIndex === 0 ? 'A팀' : 'B팀',
+          headcount: teamOrderIndex === 0 ? 5 : 3,
+          baseAmountKrw: 1_019_000,
+          addonAmountKrw: 80_000,
+          totalAmountKrw: 1_099_000,
+          depositAmountKrw: 119_000,
+          balanceAmountKrw: 980_000,
+          securityDepositAmountKrw: 300_000,
+          securityDepositUnitPriceKrw: 300_000,
+          securityDepositQuantity: 1,
+          securityDepositMode: 'PER_TEAM' as const,
+          securityDepositEvent: null,
+          lines: [
+            {
+              ...commonLine,
+              teamOrderIndex,
+              teamName: teamOrderIndex === 0 ? 'A팀' : 'B팀',
+              headcount: teamOrderIndex === 0 ? 5 : 3,
+            },
+          ],
+        })),
+      },
+      { headcountTotal: 8, totalDays: 6 },
+      {
+        enabled: true,
+        adjustmentLines: [],
+        summary: {
+          baseAmountKrw: 1_019_000,
+          totalAmountKrw: 1_099_000,
+        },
+        teamSummaries: [
+          {
+            teamOrderIndex: 0,
+            totalAmountKrw: 1_099_000,
+            depositAmountKrw: 99_000,
+            balanceAmountKrw: 1_000_000,
+            securityDepositAmountKrw: 300_000,
+            securityDepositMode: 'PER_TEAM',
+          },
+          {
+            teamOrderIndex: 1,
+            totalAmountKrw: 1_099_000,
+            depositAmountKrw: 99_000,
+            balanceAmountKrw: 1_000_000,
+            securityDepositAmountKrw: 300_000,
+            securityDepositMode: 'PER_TEAM',
+          },
+        ],
+      },
+    );
+
+    const totals = sliceEffectiveTotalsForUi(effectivePricing);
+    expect(totals.totalAmountKrw).toBe(1_099_000);
+    expect(totals.depositAmountKrw).toBe(99_000);
+    expect(totals.balanceAmountKrw).toBe(1_000_000);
+    expect(totals.securityDepositAmountKrw).toBe(300_000);
+  });
 });
