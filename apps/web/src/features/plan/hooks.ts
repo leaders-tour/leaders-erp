@@ -1,5 +1,5 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useAuth } from '../auth/context';
 import { CONFIRMED_TRIP_QUERY } from '../confirmed-trip/hooks';
 import { runUploadMutation } from '../../lib/upload-mutation';
@@ -803,6 +803,15 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
   }
 `;
 
+const UPDATE_PLAN_VERSION_CHANGE_NOTE_MUTATION = gql`
+  mutation UpdatePlanVersionChangeNote($planVersionId: ID!, $changeNote: String) {
+    updatePlanVersionChangeNote(planVersionId: $planVersionId, changeNote: $changeNote) {
+      id
+      changeNote
+    }
+  }
+`;
+
 const CREATE_USER_MUTATION = gql`
   mutation CreateUser($input: UserCreateInput!) {
     createUser(input: $input) {
@@ -1008,6 +1017,28 @@ export function usePlanVersionDetail(id: string | undefined) {
   });
 
   return { version: data?.planVersion ?? null, loading, refetch };
+}
+
+export function useUpdatePlanVersionChangeNote() {
+  const [mutate, { loading }] = useMutation<{
+    updatePlanVersionChangeNote: { id: string; changeNote: string | null };
+  }>(UPDATE_PLAN_VERSION_CHANGE_NOTE_MUTATION);
+
+  const updatePlanVersionChangeNote = useCallback(
+    async (planVersionId: string, changeNote: string | null) => {
+      const result = await mutate({
+        variables: { planVersionId, changeNote },
+        refetchQueries: [{ query: PLAN_VERSION_DETAIL_QUERY, variables: { id: planVersionId } }],
+      });
+      if (!result.data?.updatePlanVersionChangeNote) {
+        throw new Error('변경 메모 저장에 실패했습니다.');
+      }
+      return result.data.updatePlanVersionChangeNote;
+    },
+    [mutate],
+  );
+
+  return { loading, updatePlanVersionChangeNote };
 }
 
 export function useCreateUser() {

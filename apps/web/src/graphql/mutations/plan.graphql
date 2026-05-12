@@ -20,6 +20,13 @@ mutation CreatePlanVersion($input: PlanVersionCreateInput!) {
   }
 }
 
+mutation UpdatePlanVersionChangeNote($planVersionId: ID!, $changeNote: String) {
+  updatePlanVersionChangeNote(planVersionId: $planVersionId, changeNote: $changeNote) {
+    id
+    changeNote
+  }
+}
+
 mutation SetCurrentPlanVersion($planId: ID!, $versionId: ID!) {
   setCurrentPlanVersion(planId: $planId, versionId: $versionId) {
     id

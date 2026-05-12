@@ -1,5 +1,5 @@
 import { Button, Card } from '@tour/ui';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getEstimatePdfDownloadLabel, useEstimatePdfDownload } from '../features/estimate/hooks/use-estimate-pdf-download';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
@@ -8,7 +8,7 @@ import { useEstimateLocationGuides } from '../features/estimate/hooks/use-estima
 import { applyLocationGuides } from '../features/estimate/utils/apply-location-guides';
 import { VersionSnapshotView } from '../features/plan/components';
 import { buildExternalTransferDirectionText } from '../features/plan/external-transfer';
-import { usePlanVersionDetail } from '../features/plan/hooks';
+import { usePlanVersionDetail, useUpdatePlanVersionChangeNote } from '../features/plan/hooks';
 import { countMainPlanStopRows } from '../features/plan/plan-stop-row';
 import { useConfirmTrip } from '../features/confirmed-trip/hooks';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
@@ -114,11 +114,55 @@ function formatPricingLineQuantityDisplay(
   return String(line.quantity);
 }
 
+/** 인라인 수정 필드 옆 (확정여행 상세와 동일) */
+function InlineWriteIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </svg>
+  );
+}
+
 export function PlanVersionDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { planId, versionId } = useParams<{ planId: string; versionId: string }>();
+  const { version, loading, refetch } = usePlanVersionDetail(versionId);
+  const { updatePlanVersionChangeNote, loading: changeNoteSaving } = useUpdatePlanVersionChangeNote();
+  const [changeNoteEditing, setChangeNoteEditing] = useState(false);
+  const [changeNoteDraft, setChangeNoteDraft] = useState('');
+  const handleChangeNoteBlurSave = useCallback(async () => {
+    if (!versionId || !version) {
+      return;
+    }
+    const trimmed = changeNoteDraft.trim();
+    const next = trimmed === '' ? null : trimmed;
+    const prevRaw = version.changeNote;
+    const prev = prevRaw?.trim() ? prevRaw.trim() : null;
+    if (next === prev) {
+      setChangeNoteEditing(false);
+      return;
+    }
+    try {
+      await updatePlanVersionChangeNote(versionId, next);
+      setChangeNoteEditing(false);
+      await refetch();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '변경 메모 저장에 실패했습니다.');
+    }
+  }, [versionId, version, changeNoteDraft, updatePlanVersionChangeNote, refetch]);
   const { downloading, phase, downloadEstimatePdf } = useEstimatePdfDownload();
-  const { version, loading } = usePlanVersionDetail(versionId);
   const { guideRows, loading: guidesLoading } = useEstimateLocationGuides();
   const { confirmTrip, loading: confirmingTrip } = useConfirmTrip();
   const [confirmingTripModal, setConfirmingTripModal] = useState(false);
@@ -346,10 +390,80 @@ export function PlanVersionDetailPage(): JSX.Element {
               <DetailValue>{version.totalDays}일</DetailValue>
             </div>
             <div>
-              <DetailLabel>변경 메모</DetailLabel>
-              <DetailValue muted={!version.changeNote?.trim()}>
-                {version.changeNote?.trim() ? version.changeNote : '-'}
-              </DetailValue>
+              <span className="block text-slate-500">변경 메모</span>
+              {changeNoteEditing ? (
+                <textarea
+                  className="mt-1 block min-h-[4.5rem] w-full resize-y rounded-lg border border-slate-200 px-2 py-1.5 text-sm font-medium text-slate-900"
+                  rows={3}
+                  maxLength={1000}
+                  value={changeNoteDraft}
+                  disabled={changeNoteSaving}
+                  onChange={(e) => setChangeNoteDraft(e.target.value)}
+                  onBlur={() => {
+                    void handleChangeNoteBlurSave();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setChangeNoteEditing(false);
+                      setChangeNoteDraft(version.changeNote ?? '');
+                    }
+                  }}
+                  autoFocus
+                  placeholder="예: 숙소 동선 개선"
+                />
+              ) : (
+                <div className="mt-0.5 flex flex-wrap items-start gap-0 text-sm text-slate-700">
+                  {version.changeNote?.trim() ? (
+                    <span className="inline-flex max-w-full items-start gap-0">
+                      <button
+                        type="button"
+                        className="max-w-full whitespace-pre-wrap text-left font-medium text-slate-900 underline-offset-2 hover:underline"
+                        onClick={() => {
+                          setChangeNoteDraft(version.changeNote ?? '');
+                          setChangeNoteEditing(true);
+                        }}
+                      >
+                        {version.changeNote}
+                      </button>
+                      <button
+                        type="button"
+                        className="-ml-0.5 inline-flex shrink-0 rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                        aria-label="변경 메모 수정"
+                        onClick={() => {
+                          setChangeNoteDraft(version.changeNote ?? '');
+                          setChangeNoteEditing(true);
+                        }}
+                      >
+                        <InlineWriteIcon className="h-4 w-4" />
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-baseline gap-0">
+                      <button
+                        type="button"
+                        className="font-medium text-slate-900 underline-offset-2 hover:underline"
+                        onClick={() => {
+                          setChangeNoteDraft('');
+                          setChangeNoteEditing(true);
+                        }}
+                      >
+                        등록하기
+                      </button>
+                      <button
+                        type="button"
+                        className="-ml-0.5 inline-flex shrink-0 rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                        aria-label="변경 메모 수정"
+                        onClick={() => {
+                          setChangeNoteDraft('');
+                          setChangeNoteEditing(true);
+                        }}
+                      >
+                        <InlineWriteIcon className="h-4 w-4" />
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

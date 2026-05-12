@@ -737,6 +737,11 @@ export const planPricingPreviewSchema = z
     });
   });
 
+export const updatePlanVersionChangeNoteSchema = z.object({
+  planVersionId: z.string().min(1),
+  changeNote: z.string().max(1000).nullable(),
+});
+
 export type PlanCreateInput = z.infer<typeof planCreateSchema>;
 export type PlanUpdateInput = z.infer<typeof planUpdateSchema>;
 export type PlanVersionCreateInput = z.infer<typeof planVersionCreateSchema>;
@@ -755,3 +760,4 @@ export type CustomerPricingAdjustmentLineInput = z.infer<typeof customerPricingA
 export type CustomerPricingTeamRowInput = z.infer<typeof customerPricingTeamRowInputSchema>;
 export type LodgingSelectionInput = z.infer<typeof lodgingSelectionInputSchema>;
 export type PlanPricingPreviewInput = z.infer<typeof planPricingPreviewSchema>;
+export type UpdatePlanVersionChangeNoteInput = z.infer<typeof updatePlanVersionChangeNoteSchema>;

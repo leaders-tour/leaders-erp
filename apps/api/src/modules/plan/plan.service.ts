@@ -6,6 +6,7 @@ import {
   planPricingPreviewSchema,
   planUpdateSchema,
   planVersionCreateSchema,
+  updatePlanVersionChangeNoteSchema,
   userCreateSchema,
   userDealTodoStatusUpdateSchema,
   userDealTodosQuerySchema,
@@ -1135,6 +1136,30 @@ export class PlanService {
         manualPricing: parsed.data.manualPricing,
       });
       return repository.findVersionById(createdVersion.id);
+    });
+  }
+
+  async updatePlanVersionChangeNote(planVersionId: string, changeNote: string | null) {
+    const parsed = updatePlanVersionChangeNoteSchema.safeParse({ planVersionId, changeNote });
+    if (!parsed.success) {
+      throw createValidationError('변경 메모 저장 입력이 올바르지 않습니다.', parsed.error);
+    }
+    const normalized =
+      parsed.data.changeNote == null || parsed.data.changeNote.trim() === ''
+        ? null
+        : parsed.data.changeNote.trim();
+
+    const version = await this.prisma.planVersion.findUnique({
+      where: { id: parsed.data.planVersionId },
+      select: { id: true },
+    });
+    if (!version) {
+      throw new DomainError('NOT_FOUND', '플랜 버전을 찾을 수 없습니다.');
+    }
+
+    return this.prisma.planVersion.update({
+      where: { id: parsed.data.planVersionId },
+      data: { changeNote: normalized },
     });
   }
 
