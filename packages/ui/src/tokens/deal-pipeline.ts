@@ -103,3 +103,14 @@ export const dealPipelineTokens = {
     todoStatusButtonInactive: 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100',
   },
 } as const;
+
+/** 목록 화면 중첩 필터 — 칩 스타일은 dealPipelineTokens.drawer 할 일 상태 버튼과 동일 */
+export const listFiltersTokens = {
+  /** 세로선 대신 좌측 여백으로 들여쓰기 */
+  nestedRail: 'pl-4 sm:pl-5',
+  nestedChipRow: 'flex flex-wrap gap-1',
+  nestedChipBase: dealPipelineTokens.drawer.todoStatusButtonBase,
+  nestedChipActive: dealPipelineTokens.drawer.todoStatusButtonActive,
+  nestedChipInactive: dealPipelineTokens.drawer.todoStatusButtonInactive,
+  nestedEmptyHint: `${dealPipelineTokens.board.searchHint} mt-1.5 leading-snug`,
+} as const;

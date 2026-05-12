@@ -1,5 +1,5 @@
-import { Button, Card } from '@tour/ui';
-import { useState } from 'react';
+import { Button, Card, listFiltersTokens } from '@tour/ui';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   useAccommodations,
@@ -406,12 +406,18 @@ function CreateAccommodationModal({
 
 type BookingPriorityFilter = 'all' | 'unset' | (typeof BOOKING_PRIORITY_LABELS)[number];
 
+const LF = listFiltersTokens;
+
 export function AccommodationsPage(): JSX.Element {
   const [regionFilter, setRegionFilter] = useState<string | undefined>(undefined);
+  const [destinationFilter, setDestinationFilter] = useState<string | undefined>(undefined);
   const [levelFilter, setLevelFilter] = useState<AccommodationLevel | undefined>(undefined);
   const [bookingPriorityFilter, setBookingPriorityFilter] = useState<BookingPriorityFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+
+  /** 필터 칩용: 실데이터 기준 지역별 여행지 목록 (별도 쿼리) */
+  const { accommodations: allAccommodationsForMeta } = useAccommodations({});
 
   const bookingPriorityQuery =
     bookingPriorityFilter === 'all'
@@ -422,10 +428,22 @@ export function AccommodationsPage(): JSX.Element {
 
   const { accommodations, loading } = useAccommodations({
     region: regionFilter,
+    destination: destinationFilter,
     level: levelFilter,
     ...bookingPriorityQuery,
   });
   const navigate = useNavigate();
+
+  const destinationsForSelectedRegion = useMemo(() => {
+    if (!regionFilter) return [];
+    const seen = new Set<string>();
+    for (const acc of allAccommodationsForMeta) {
+      if (acc.region !== regionFilter) continue;
+      const d = acc.destination.trim();
+      if (d) seen.add(d);
+    }
+    return [...seen].sort((a, b) => a.localeCompare(b, 'ko'));
+  }, [regionFilter, allAccommodationsForMeta]);
 
   const filteredAcc = accommodations.filter((acc) => {
     if (levelFilter && !acc.options.some((o) => o.level === levelFilter)) return false;
@@ -497,7 +515,10 @@ export function AccommodationsPage(): JSX.Element {
         <div className="flex flex-wrap gap-1">
           <button
             className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${!regionFilter ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            onClick={() => setRegionFilter(undefined)}
+            onClick={() => {
+              setRegionFilter(undefined);
+              setDestinationFilter(undefined);
+            }}
           >
             전체 지역
           </button>
@@ -505,12 +526,47 @@ export function AccommodationsPage(): JSX.Element {
             <button
               key={r}
               className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${regionFilter === r ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-              onClick={() => setRegionFilter(r)}
+              onClick={() => {
+                setRegionFilter(r);
+                setDestinationFilter(undefined);
+              }}
             >
               {r}
             </button>
           ))}
         </div>
+        {regionFilter ? (
+          <div
+            key={regionFilter}
+            className={`motion-safe:animate-accommodation-destination-reveal ${LF.nestedRail}`}
+          >
+            <div className={LF.nestedChipRow}>
+              <button
+                type="button"
+                className={`${LF.nestedChipBase} ${!destinationFilter ? LF.nestedChipActive : LF.nestedChipInactive}`}
+                onClick={() => setDestinationFilter(undefined)}
+              >
+                전체
+              </button>
+              {destinationsForSelectedRegion.map((d) => (
+                <button
+                  type="button"
+                  key={d}
+                  className={`max-w-full truncate ${LF.nestedChipBase} ${destinationFilter === d ? LF.nestedChipActive : LF.nestedChipInactive}`}
+                  onClick={() => setDestinationFilter(d)}
+                  title={d}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+            {destinationsForSelectedRegion.length === 0 && (
+              <p className={LF.nestedEmptyHint}>
+                이 지역에 등록된 숙소가 없거나 여행지명이 비어 있습니다.
+              </p>
+            )}
+          </div>
+        ) : null}
         <div className="flex flex-wrap gap-1">
           <button
             className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${!levelFilter ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
