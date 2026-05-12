@@ -13,6 +13,10 @@ import { countMainPlanStopRows } from '../features/plan/plan-stop-row';
 import { useConfirmTrip } from '../features/confirmed-trip/hooks';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
 import { buildEffectivePricing, resolveAdjustmentLinesForCustomerDocument, sliceEffectiveTotalsForUi } from '../features/pricing/manual-pricing';
+import {
+  customerFacingAdjustmentLineRowsFromSnapshot,
+  customerFacingTotalsFromSnapshot,
+} from '../features/pricing/customer-pricing-snapshot';
 import { resolveDisplayLeadAmount } from '../features/pricing/pricing-line-presenter';
 import { toVariantLabel } from '../features/plan/variant-label';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
@@ -146,6 +150,7 @@ export function PlanVersionDetailPage(): JSX.Element {
       return version.totalDays > 0 ? version.totalDays : 1;
     })(),
   };
+  const customerPricingSnapshot = version.pricing?.manualPricing?.customerPricingSnapshot ?? null;
   const effectivePricing = version.pricing
     ? buildEffectivePricing(
         version.pricing,
@@ -154,10 +159,16 @@ export function PlanVersionDetailPage(): JSX.Element {
         version.pricing.savedManualDepositAmountKrw ?? undefined,
       )
     : null;
-  const effectiveTotalsForUi = effectivePricing ? sliceEffectiveTotalsForUi(effectivePricing) : null;
-  const customerAdjustmentLines = effectivePricing
-    ? resolveAdjustmentLinesForCustomerDocument(effectivePricing)
-    : [];
+  const effectiveTotalsForUi = customerPricingSnapshot
+    ? customerFacingTotalsFromSnapshot(customerPricingSnapshot)
+    : effectivePricing
+      ? sliceEffectiveTotalsForUi(effectivePricing)
+      : null;
+  const customerAdjustmentLines = customerPricingSnapshot
+    ? customerFacingAdjustmentLineRowsFromSnapshot(customerPricingSnapshot)
+    : effectivePricing
+      ? resolveAdjustmentLinesForCustomerDocument(effectivePricing)
+      : [];
   const originalPricingSnapshot = version.pricing?.originalPricing ?? null;
   const autoPricingBuckets = version.pricing
     ? buildPricingViewBuckets(

@@ -277,6 +277,10 @@ export const planResolver = {
             : null,
         teamSummaries: Array.isArray(snapshot.teamSummaries) ? snapshot.teamSummaries : [],
         lineOverrides: Array.isArray(snapshot.lineOverrides) ? snapshot.lineOverrides : [],
+        customerPricingSnapshot:
+          snapshot.customerPricingSnapshot && typeof snapshot.customerPricingSnapshot === 'object'
+            ? snapshot.customerPricingSnapshot
+            : null,
       };
     },
     originalPricing: (parent: { originalPricingSnapshot?: unknown }) => {

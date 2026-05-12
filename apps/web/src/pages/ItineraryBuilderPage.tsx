@@ -16,6 +16,7 @@ import { averageMovementIntensity } from '../features/estimate/model/movement-in
 import type {
   EstimateBuilderDraftSnapshot,
   EstimatePage1Editor,
+  EstimateSecurityDepositScope,
   EstimateTransportGroup,
 } from '../features/estimate/model/types';
 import { useAuth } from '../features/auth/context';
@@ -117,6 +118,7 @@ import {
   type ManualAdjustmentPresetOption,
 } from '../features/pricing/components/ManualAdjustmentsModal';
 import { buildEffectivePricing, sliceEffectiveTotalsForUi, buildDisplayedPricingAdjustmentLines, type PricingAdjustmentLineRow, type DisplayedPricingAdjustmentLineRow, type EffectivePricingResult } from '../features/pricing/manual-pricing';
+import { buildCustomerPricingSnapshot } from '../features/pricing/customer-pricing-snapshot';
 import { MealOption, VariantType } from '../generated/graphql';
 import type { ConsultationDraft } from '../generated/graphql';
 import { usePlanVersionDetail } from '../features/plan/hooks';
@@ -1843,9 +1845,13 @@ function createEstimateDraftSnapshot(input: {
   pricingPreview: EffectivePricingRow | null;
   displayedPricingAdjustmentLines: DisplayedPricingAdjustmentLineRow[];
 }): EstimateBuilderDraftSnapshot {
-  const headlineTotals =
-    input.pricingPreview &&
-    sliceEffectiveTotalsForUi(input.pricingPreview as EffectivePricingResult);
+  const customerSnap =
+    input.pricingPreview
+      ? buildCustomerPricingSnapshot(
+          input.pricingPreview as EffectivePricingResult,
+          input.displayedPricingAdjustmentLines,
+        )
+      : null;
   return {
     planTitle: input.planTitle,
     leaderName: input.leaderName,
@@ -1877,53 +1883,43 @@ function createEstimateDraftSnapshot(input: {
       lodgingCellText: row.lodgingCellText,
       mealCellText: row.mealCellText,
     })),
-    pricing: input.pricingPreview && headlineTotals
-      ? {
-          baseAmountKrw: headlineTotals.baseAmountKrw,
-          totalAmountKrw: headlineTotals.totalAmountKrw,
-          depositAmountKrw: headlineTotals.depositAmountKrw,
-          balanceAmountKrw: headlineTotals.balanceAmountKrw,
-          securityDepositTotalKrw: headlineTotals.securityDepositAmountKrw,
-          securityDepositUnitKrw: headlineTotals.securityDepositUnitPriceKrw,
-          securityDepositMode: headlineTotals.securityDepositMode,
-          adjustmentLines: input.displayedPricingAdjustmentLines.map((line) => ({
-              teamName: !line.isSharedAcrossTeams ? line.teamNames[0] ?? null : null,
-              label: line.label,
-              leadAmountKrw: line.leadAmountKrw,
-              formula: line.formula,
-              strikethrough: line.strikethrough === true,
+    pricing:
+      customerSnap && input.pricingPreview
+        ? {
+            baseAmountKrw: customerSnap.baseAmountKrw,
+            totalAmountKrw: customerSnap.totalAmountKrw,
+            depositAmountKrw: customerSnap.depositAmountKrw,
+            balanceAmountKrw: customerSnap.balanceAmountKrw,
+            securityDepositTotalKrw: customerSnap.securityDepositTotalKrw,
+            securityDepositUnitKrw: customerSnap.securityDepositUnitKrw,
+            securityDepositMode: customerSnap.securityDepositMode,
+            adjustmentLines: customerSnap.adjustmentLines,
+            teamPricings: customerSnap.teamPricings.map((row) => ({
+              teamOrderIndex: row.teamOrderIndex,
+              teamName: row.teamName,
+              totalAmountKrw: row.totalAmountKrw,
+              depositAmountKrw: row.depositAmountKrw,
+              balanceAmountKrw: row.balanceAmountKrw,
+              securityDepositAmountKrw: row.securityDepositAmountKrw,
+              securityDepositUnitKrw: row.securityDepositUnitKrw,
+              securityDepositScope: row.securityDepositScope as EstimateSecurityDepositScope,
             })),
-          teamPricings: input.pricingPreview.teamPricings.map((teamPricing) => ({
-            teamOrderIndex: teamPricing.teamOrderIndex,
-            teamName: teamPricing.teamName,
-            totalAmountKrw: teamPricing.totalAmountKrw,
-            depositAmountKrw: teamPricing.depositAmountKrw,
-            balanceAmountKrw: teamPricing.balanceAmountKrw,
-            securityDepositAmountKrw: teamPricing.securityDepositAmountKrw,
-            securityDepositUnitKrw: teamPricing.securityDepositUnitPriceKrw,
-            securityDepositScope:
-              teamPricing.securityDepositMode === 'PER_PERSON'
-                ? '인당'
-                : teamPricing.securityDepositMode === 'PER_TEAM'
-                  ? '팀당'
-                  : '-',
-          })),
-          lines: input.pricingPreview.lines.map((line) => ({
-            lineCode: line.lineCode,
-            sourceType: line.sourceType,
-            description: line.description,
-            unitPriceKrw: line.unitPriceKrw,
-            quantity: line.quantity,
-            amountKrw: line.amountKrw,
-            displayBasis: line.displayBasis,
-            displayLabel: line.displayLabel,
-            displayUnitAmountKrw: line.displayUnitAmountKrw,
-            displayCount: line.displayCount,
-            displayDivisorPerson: line.displayDivisorPerson,
-            displayText: line.displayText,
-          })),
-        }
-      : null,
+            lines: input.pricingPreview.lines.map((line) => ({
+              lineCode: line.lineCode,
+              sourceType: line.sourceType,
+              description: line.description,
+              unitPriceKrw: line.unitPriceKrw,
+              quantity: line.quantity,
+              amountKrw: line.amountKrw,
+              displayBasis: line.displayBasis,
+              displayLabel: line.displayLabel,
+              displayUnitAmountKrw: line.displayUnitAmountKrw,
+              displayCount: line.displayCount,
+              displayDivisorPerson: line.displayDivisorPerson,
+              displayText: line.displayText,
+            })),
+          }
+        : null,
   };
 }
 
@@ -4318,6 +4314,13 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
     return sliceEffectiveTotalsForUi(effectivePricingPreview as EffectivePricingResult);
   }, [effectivePricingPreview]);
+  const displayedPricingAdjustmentLines = useMemo(
+    () =>
+      effectivePricingPreview
+        ? buildDisplayedPricingAdjustmentLines(effectivePricingPreview as EffectivePricingResult)
+        : [],
+    [effectivePricingPreview],
+  );
   const serializedManualPricingSnapshot = useMemo(() => {
     if (!normalizedManualPricing.enabled) {
       return undefined;
@@ -4326,7 +4329,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       return toManualPricingSnapshot(normalizedManualPricing);
     }
     const totals = estimatePricingUiTotals;
-    return toManualPricingSnapshot(
+    const base = toManualPricingSnapshot(
       normalizedManualPricing,
       totals
         ? {
@@ -4339,7 +4342,20 @@ export function ItineraryBuilderPage(): JSX.Element {
           }
         : null,
     );
-  }, [effectivePricingPreview, estimatePricingUiTotals, normalizedManualPricing]);
+    const customerPricingSnapshot = buildCustomerPricingSnapshot(
+      effectivePricingPreview as EffectivePricingResult,
+      displayedPricingAdjustmentLines,
+    );
+    return {
+      ...base,
+      customerPricingSnapshot,
+    };
+  }, [
+    displayedPricingAdjustmentLines,
+    effectivePricingPreview,
+    estimatePricingUiTotals,
+    normalizedManualPricing,
+  ]);
   const hiddenManualPricingAutoLines = useMemo(
     () =>
       normalizedManualPricing.adjustmentLines.filter(
@@ -4347,13 +4363,6 @@ export function ItineraryBuilderPage(): JSX.Element {
           line.type === 'AUTO' && line.deleted === true && typeof line.rowKey === 'string',
       ),
     [normalizedManualPricing],
-  );
-  const displayedPricingAdjustmentLines = useMemo(
-    () =>
-      effectivePricingPreview
-        ? buildDisplayedPricingAdjustmentLines(effectivePricingPreview as EffectivePricingResult)
-        : [],
-    [effectivePricingPreview],
   );
   const pricingSummaryTeamsForDisplay = useMemo(
     () =>

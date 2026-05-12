@@ -66,6 +66,32 @@ export const PLAN_VERSION_PRICING_EFFECTIVE_FIELDS_FRAGMENT = gql`
         rowKey
         amountKrw
       }
+      customerPricingSnapshot {
+        baseAmountKrw
+        totalAmountKrw
+        depositAmountKrw
+        balanceAmountKrw
+        securityDepositTotalKrw
+        securityDepositUnitKrw
+        securityDepositMode
+        adjustmentLines {
+          teamName
+          label
+          leadAmountKrw
+          formula
+          strikethrough
+        }
+        teamPricings {
+          teamOrderIndex
+          teamName
+          totalAmountKrw
+          depositAmountKrw
+          balanceAmountKrw
+          securityDepositAmountKrw
+          securityDepositUnitKrw
+          securityDepositScope
+        }
+      }
     }
     originalPricing {
       baseAmountKrw

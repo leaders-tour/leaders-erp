@@ -317,6 +317,32 @@ export interface PlanVersionPricingRow {
       rowKey: string;
       amountKrw: number;
     }>;
+    customerPricingSnapshot?: {
+      baseAmountKrw: number;
+      totalAmountKrw: number;
+      depositAmountKrw: number;
+      balanceAmountKrw: number;
+      securityDepositTotalKrw: number;
+      securityDepositUnitKrw: number;
+      securityDepositMode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+      adjustmentLines: Array<{
+        teamName?: string | null;
+        label: string;
+        leadAmountKrw: number;
+        formula: string;
+        strikethrough: boolean;
+      }>;
+      teamPricings: Array<{
+        teamOrderIndex: number;
+        teamName: string;
+        totalAmountKrw: number;
+        depositAmountKrw: number;
+        balanceAmountKrw: number;
+        securityDepositAmountKrw: number;
+        securityDepositUnitKrw: number;
+        securityDepositScope: string;
+      }>;
+    } | null;
   } | null;
   originalPricing?: {
     baseAmountKrw: number;

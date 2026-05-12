@@ -11,6 +11,7 @@ import {
   buildEffectivePricing,
   sliceEffectiveTotalsForUi,
 } from '../features/pricing/manual-pricing';
+import { customerFacingTotalsFromSnapshot } from '../features/pricing/customer-pricing-snapshot';
 import { countMainPlanStopRows } from '../features/plan/plan-stop-row';
 import {
   useConfirmedTrip,
@@ -505,10 +506,13 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     );
   }, [planVersionForPricing, planVersionPricingRaw]);
 
-  const effectiveTotalsForCard = useMemo(
-    () => (effectivePlanPricing ? sliceEffectiveTotalsForUi(effectivePlanPricing) : null),
-    [effectivePlanPricing],
-  );
+  const effectiveTotalsForCard = useMemo(() => {
+    const snap = planVersionPricingRaw?.manualPricing?.customerPricingSnapshot ?? null;
+    if (snap) {
+      return customerFacingTotalsFromSnapshot(snap);
+    }
+    return effectivePlanPricing ? sliceEffectiveTotalsForUi(effectivePlanPricing) : null;
+  }, [planVersionPricingRaw?.manualPricing?.customerPricingSnapshot, effectivePlanPricing]);
 
   if (!tripId) {
     return (

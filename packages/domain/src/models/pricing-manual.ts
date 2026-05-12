@@ -70,11 +70,48 @@ export interface PricingManualTeamSummarySnapshot extends PricingManualSummarySn
   teamOrderIndex: number;
 }
 
+/** 빌더 PDF/견적서에 그대로 쓰는 고객용 금액 출력 (재해석 금지). */
+export interface CustomerPricingAdjustmentLineSnapshot {
+  teamName?: string | null;
+  label: string;
+  leadAmountKrw: number;
+  formula: string;
+  strikethrough?: boolean;
+}
+
+export interface CustomerPricingTeamRowSnapshot {
+  teamOrderIndex: number;
+  teamName: string;
+  totalAmountKrw: number;
+  depositAmountKrw: number;
+  balanceAmountKrw: number;
+  securityDepositAmountKrw: number;
+  securityDepositUnitKrw: number;
+  /** 견적 PDF 표시용: `-` | `인당` | `팀당` */
+  securityDepositScope: string;
+}
+
+export interface CustomerPricingSnapshot {
+  baseAmountKrw: number;
+  totalAmountKrw: number;
+  depositAmountKrw: number;
+  balanceAmountKrw: number;
+  securityDepositTotalKrw: number;
+  securityDepositUnitKrw: number;
+  securityDepositMode: SecurityDepositScopeMode;
+  adjustmentLines: CustomerPricingAdjustmentLineSnapshot[];
+  teamPricings: CustomerPricingTeamRowSnapshot[];
+}
+
 export interface PricingManualSnapshot {
   enabled: boolean;
   adjustmentLines?: PricingManualAdjustmentLine[];
   summary?: PricingManualSummarySnapshot | null;
   teamSummaries?: PricingManualTeamSummarySnapshot[];
+  /**
+   * 일정 빌더 저장 시점의 고객용 금액/라인 스냅샷. 있으면 상세·PDF는 이 값을 우선한다.
+   */
+  customerPricingSnapshot?: CustomerPricingSnapshot | null;
   /**
    * Legacy field kept for backward compatibility with early manual-pricing saves.
    * New writes should use `adjustmentLines`.

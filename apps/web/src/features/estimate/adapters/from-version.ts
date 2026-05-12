@@ -5,7 +5,7 @@ import { buildExternalTransferDirectionText } from '../../plan/external-transfer
 import type { PlanVersionDetail } from '../../plan/hooks';
 import { countMainPlanStopRows } from '../../plan/plan-stop-row';
 import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
-import type { EstimateDocumentData } from '../model/types';
+import type { EstimateDocumentData, EstimateSecurityDepositScope } from '../model/types';
 import { formatPricingDetailFormula, resolveDisplayLeadAmount } from '../../pricing/pricing-line-presenter';
 import {
   addDays,
@@ -16,6 +16,7 @@ import {
   todayIsoDate,
 } from '../utils/format';
 
+/** 플랜 버전 → 견적 문서. `customerPricingSnapshot`이 있으면 빌더 출력을 재계산 없이 사용한다(레거시는 폴백). */
 export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
   const meta = version.meta;
   const regionSetName = version.regionSet?.name ?? version.plan.regionSet.name;
@@ -23,18 +24,22 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     headcountTotal: meta?.headcountTotal ?? 0,
     totalDays: countMainPlanStopRows(version.planStops),
   };
-  const pricing = version.pricing
-    ? buildEffectivePricing(
-        version.pricing,
-        pricingCtx,
-        version.pricing.manualPricing ?? null,
-        version.pricing.savedManualDepositAmountKrw ?? undefined,
-      )
-    : null;
+  const customerPricingSnapshot = version.pricing?.manualPricing?.customerPricingSnapshot ?? null;
+  const pricing =
+    version.pricing && !customerPricingSnapshot
+      ? buildEffectivePricing(
+          version.pricing,
+          pricingCtx,
+          version.pricing.manualPricing ?? null,
+          version.pricing.savedManualDepositAmountKrw ?? undefined,
+        )
+      : null;
   const pricingTotals = pricing ? sliceEffectiveTotalsForUi(pricing) : null;
   const pricingBuckets =
     pricing && pricingTotals ? buildPricingViewBuckets(pricing.lines, pricingTotals.totalAmountKrw) : null;
-  const basePricePerPersonKrw = pricingTotals?.baseAmountKrw ?? pricingBuckets?.baseTotal ?? null;
+  const basePricePerPersonKrw = customerPricingSnapshot
+    ? customerPricingSnapshot.baseAmountKrw
+    : pricingTotals?.baseAmountKrw ?? pricingBuckets?.baseTotal ?? null;
   const externalTransfers = meta?.externalTransfers ?? [];
   const externalPickupTextFromTransfers = buildExternalTransferDirectionText(externalTransfers, meta?.transportGroups, 'PICKUP');
   const externalDropTextFromTransfers = buildExternalTransferDirectionText(externalTransfers, meta?.transportGroups, 'DROP');
@@ -120,8 +125,15 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     eventText: meta?.events.length ? meta.events.map((event) => event.name).join(' / ') : '-',
     remarkText: normalizeMultilineText(meta?.remark),
     basePricePerPersonKrw,
-    adjustmentLines:
-      pricing
+    adjustmentLines: customerPricingSnapshot
+      ? customerPricingSnapshot.adjustmentLines.map((line) => ({
+          teamName: line.teamName ?? null,
+          label: line.label,
+          leadAmountKrw: line.leadAmountKrw,
+          formula: line.formula,
+          strikethrough: line.strikethrough === true,
+        }))
+      : pricing
         ? resolveAdjustmentLinesForCustomerDocument(pricing).map((line) => ({
             teamName: line.teamName ?? null,
             label: line.label,
@@ -136,23 +148,47 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
             formula: formatPricingDetailFormula(line, pricingCtx),
             strikethrough: false,
           })),
-    teamPricings:
-      pricing?.teamPricings.map((teamPricing) => ({
-        teamOrderIndex: teamPricing.teamOrderIndex,
-        teamName: teamPricing.teamName,
-        totalAmountKrw: teamPricing.totalAmountKrw,
-        depositAmountKrw: teamPricing.depositAmountKrw,
-        balanceAmountKrw: teamPricing.balanceAmountKrw,
-        securityDepositAmountKrw: teamPricing.securityDepositAmountKrw,
-        securityDepositUnitKrw: teamPricing.securityDepositUnitPriceKrw,
-        securityDepositScope: toSecurityDepositScope(teamPricing.securityDepositMode),
-      })) ?? [],
-    totalPricePerPersonKrw: pricingTotals?.totalAmountKrw ?? null,
-    depositPricePerPersonKrw: pricingTotals?.depositAmountKrw ?? null,
-    balancePricePerPersonKrw: pricingTotals?.balanceAmountKrw ?? null,
-    securityDepositTotalKrw: pricingTotals?.securityDepositAmountKrw ?? null,
-    securityDepositUnitKrw: pricingTotals?.securityDepositUnitPriceKrw ?? null,
-    securityDepositScope: pricingTotals ? toSecurityDepositScope(pricingTotals.securityDepositMode) : '-',
+    teamPricings: customerPricingSnapshot
+      ? customerPricingSnapshot.teamPricings.map((row) => ({
+          teamOrderIndex: row.teamOrderIndex,
+          teamName: row.teamName,
+          totalAmountKrw: row.totalAmountKrw,
+          depositAmountKrw: row.depositAmountKrw,
+          balanceAmountKrw: row.balanceAmountKrw,
+          securityDepositAmountKrw: row.securityDepositAmountKrw,
+          securityDepositUnitKrw: row.securityDepositUnitKrw,
+          securityDepositScope: row.securityDepositScope as EstimateSecurityDepositScope,
+        }))
+      : pricing?.teamPricings.map((teamPricing) => ({
+          teamOrderIndex: teamPricing.teamOrderIndex,
+          teamName: teamPricing.teamName,
+          totalAmountKrw: teamPricing.totalAmountKrw,
+          depositAmountKrw: teamPricing.depositAmountKrw,
+          balanceAmountKrw: teamPricing.balanceAmountKrw,
+          securityDepositAmountKrw: teamPricing.securityDepositAmountKrw,
+          securityDepositUnitKrw: teamPricing.securityDepositUnitPriceKrw,
+          securityDepositScope: toSecurityDepositScope(teamPricing.securityDepositMode),
+        })) ?? [],
+    totalPricePerPersonKrw: customerPricingSnapshot
+      ? customerPricingSnapshot.totalAmountKrw
+      : pricingTotals?.totalAmountKrw ?? null,
+    depositPricePerPersonKrw: customerPricingSnapshot
+      ? customerPricingSnapshot.depositAmountKrw
+      : pricingTotals?.depositAmountKrw ?? null,
+    balancePricePerPersonKrw: customerPricingSnapshot
+      ? customerPricingSnapshot.balanceAmountKrw
+      : pricingTotals?.balanceAmountKrw ?? null,
+    securityDepositTotalKrw: customerPricingSnapshot
+      ? customerPricingSnapshot.securityDepositTotalKrw
+      : pricingTotals?.securityDepositAmountKrw ?? null,
+    securityDepositUnitKrw: customerPricingSnapshot
+      ? customerPricingSnapshot.securityDepositUnitKrw
+      : pricingTotals?.securityDepositUnitPriceKrw ?? null,
+    securityDepositScope: customerPricingSnapshot
+      ? toSecurityDepositScope(customerPricingSnapshot.securityDepositMode)
+      : pricingTotals
+        ? toSecurityDepositScope(pricingTotals.securityDepositMode)
+        : '-',
     validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
     movementIntensity: version.movementIntensity ?? null,
     planStops: version.planStops.map((row) => ({

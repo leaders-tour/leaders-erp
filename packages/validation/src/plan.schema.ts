@@ -140,6 +140,37 @@ export const manualPricingTeamSummaryInputSchema = z.object({
   securityDepositMode: securityDepositModeSchema.nullable().optional(),
 });
 
+export const customerPricingAdjustmentLineInputSchema = z.object({
+  teamName: z.string().min(0).max(200).nullable().optional(),
+  label: z.string().min(0).max(200),
+  leadAmountKrw: z.number().int(),
+  formula: z.string().min(0).max(500),
+  strikethrough: z.boolean().optional().default(false),
+});
+
+export const customerPricingTeamRowInputSchema = z.object({
+  teamOrderIndex: z.number().int().min(0),
+  teamName: z.string().min(1).max(200),
+  totalAmountKrw: z.number().int(),
+  depositAmountKrw: z.number().int(),
+  balanceAmountKrw: z.number().int(),
+  securityDepositAmountKrw: z.number().int(),
+  securityDepositUnitKrw: z.number().int(),
+  securityDepositScope: z.string().min(1).max(20),
+});
+
+export const customerPricingSnapshotInputSchema = z.object({
+  baseAmountKrw: z.number().int(),
+  totalAmountKrw: z.number().int(),
+  depositAmountKrw: z.number().int(),
+  balanceAmountKrw: z.number().int(),
+  securityDepositTotalKrw: z.number().int(),
+  securityDepositUnitKrw: z.number().int(),
+  securityDepositMode: securityDepositModeSchema,
+  adjustmentLines: z.array(customerPricingAdjustmentLineInputSchema),
+  teamPricings: z.array(customerPricingTeamRowInputSchema),
+});
+
 export const manualPricingInputSchema = z
   .object({
     enabled: z.boolean().default(false),
@@ -147,6 +178,7 @@ export const manualPricingInputSchema = z
     summary: manualPricingSummaryInputSchema.nullable().optional(),
     teamSummaries: z.array(manualPricingTeamSummaryInputSchema).default([]),
     lineOverrides: z.array(manualPricingLineOverrideInputSchema).default([]),
+    customerPricingSnapshot: customerPricingSnapshotInputSchema.optional(),
   })
   .superRefine((value, ctx) => {
     const seenAdjustmentIds = new Set<string>();
@@ -718,5 +750,8 @@ export type ManualPricingInput = z.infer<typeof manualPricingInputSchema>;
 export type ManualPricingAdjustmentLineInput = z.infer<typeof manualPricingAdjustmentLineInputSchema>;
 export type ManualPricingLineOverrideInput = z.infer<typeof manualPricingLineOverrideInputSchema>;
 export type ManualPricingSummaryInput = z.infer<typeof manualPricingSummaryInputSchema>;
+export type CustomerPricingSnapshotInput = z.infer<typeof customerPricingSnapshotInputSchema>;
+export type CustomerPricingAdjustmentLineInput = z.infer<typeof customerPricingAdjustmentLineInputSchema>;
+export type CustomerPricingTeamRowInput = z.infer<typeof customerPricingTeamRowInputSchema>;
 export type LodgingSelectionInput = z.infer<typeof lodgingSelectionInputSchema>;
 export type PlanPricingPreviewInput = z.infer<typeof planPricingPreviewSchema>;

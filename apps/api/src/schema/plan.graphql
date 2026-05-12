@@ -285,12 +285,45 @@ type ManualPricingTeamSummarySnapshot {
   securityDepositMode: SecurityDepositMode
 }
 
+type CustomerPricingAdjustmentLine {
+  teamName: String
+  label: String!
+  leadAmountKrw: Int!
+  formula: String!
+  strikethrough: Boolean!
+}
+
+type CustomerPricingTeamRow {
+  teamOrderIndex: Int!
+  teamName: String!
+  totalAmountKrw: Int!
+  depositAmountKrw: Int!
+  balanceAmountKrw: Int!
+  securityDepositAmountKrw: Int!
+  securityDepositUnitKrw: Int!
+  """견적 PDF 표시용 (- / 인당 / 팀당)"""
+  securityDepositScope: String!
+}
+
+type CustomerPricingSnapshot {
+  baseAmountKrw: Int!
+  totalAmountKrw: Int!
+  depositAmountKrw: Int!
+  balanceAmountKrw: Int!
+  securityDepositTotalKrw: Int!
+  securityDepositUnitKrw: Int!
+  securityDepositMode: SecurityDepositMode!
+  adjustmentLines: [CustomerPricingAdjustmentLine!]!
+  teamPricings: [CustomerPricingTeamRow!]!
+}
+
 type ManualPricingSnapshot {
   enabled: Boolean!
   adjustmentLines: [ManualPricingAdjustmentLine!]!
   summary: ManualPricingSummarySnapshot
   teamSummaries: [ManualPricingTeamSummarySnapshot!]!
   lineOverrides: [ManualPricingLineOverride!]!
+  customerPricingSnapshot: CustomerPricingSnapshot
 }
 
 type OriginalPricingSnapshot {
@@ -587,12 +620,44 @@ input ManualPricingTeamSummaryInput {
   securityDepositMode: SecurityDepositMode
 }
 
+input CustomerPricingAdjustmentLineInput {
+  teamName: String
+  label: String!
+  leadAmountKrw: Int!
+  formula: String!
+  strikethrough: Boolean
+}
+
+input CustomerPricingTeamRowInput {
+  teamOrderIndex: Int!
+  teamName: String!
+  totalAmountKrw: Int!
+  depositAmountKrw: Int!
+  balanceAmountKrw: Int!
+  securityDepositAmountKrw: Int!
+  securityDepositUnitKrw: Int!
+  securityDepositScope: String!
+}
+
+input CustomerPricingSnapshotInput {
+  baseAmountKrw: Int!
+  totalAmountKrw: Int!
+  depositAmountKrw: Int!
+  balanceAmountKrw: Int!
+  securityDepositTotalKrw: Int!
+  securityDepositUnitKrw: Int!
+  securityDepositMode: SecurityDepositMode!
+  adjustmentLines: [CustomerPricingAdjustmentLineInput!]!
+  teamPricings: [CustomerPricingTeamRowInput!]!
+}
+
 input ManualPricingInput {
   enabled: Boolean!
   adjustmentLines: [ManualPricingAdjustmentLineInput!]
   summary: ManualPricingSummaryInput
   teamSummaries: [ManualPricingTeamSummaryInput!]
   lineOverrides: [ManualPricingLineOverrideInput!]
+  customerPricingSnapshot: CustomerPricingSnapshotInput
 }
 
 enum ManualAdjustmentKind {

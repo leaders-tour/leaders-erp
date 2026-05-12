@@ -1,4 +1,4 @@
-import type { PricingManualSnapshot, VariantType } from '@tour/domain';
+import type { CustomerPricingSnapshot, PricingManualSnapshot, VariantType } from '@tour/domain';
 import {
   buildPricingManualPresentation,
   regionLodgingNameOnlyFromStoredSnapshot,
@@ -187,6 +187,103 @@ export class PricingService {
     };
   }
 
+  private normalizeCustomerPricingSnapshot(raw: unknown): CustomerPricingSnapshot | null {
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+    const o = raw as Record<string, unknown>;
+    const intFields = [
+      'baseAmountKrw',
+      'totalAmountKrw',
+      'depositAmountKrw',
+      'balanceAmountKrw',
+      'securityDepositTotalKrw',
+      'securityDepositUnitKrw',
+    ] as const;
+    for (const k of intFields) {
+      if (typeof o[k] !== 'number' || !Number.isInteger(o[k])) {
+        return null;
+      }
+    }
+    const mode = o.securityDepositMode;
+    if (mode !== 'NONE' && mode !== 'PER_PERSON' && mode !== 'PER_TEAM') {
+      return null;
+    }
+    if (!Array.isArray(o.adjustmentLines) || !Array.isArray(o.teamPricings)) {
+      return null;
+    }
+    const adjustmentLines: CustomerPricingSnapshot['adjustmentLines'] = [];
+    for (const line of o.adjustmentLines) {
+      if (!line || typeof line !== 'object') {
+        return null;
+      }
+      const L = line as Record<string, unknown>;
+      if (typeof L.label !== 'string' || typeof L.formula !== 'string') {
+        return null;
+      }
+      if (typeof L.leadAmountKrw !== 'number' || !Number.isInteger(L.leadAmountKrw)) {
+        return null;
+      }
+      if (L.teamName != null && typeof L.teamName !== 'string') {
+        return null;
+      }
+      adjustmentLines.push({
+        teamName: L.teamName == null ? null : L.teamName,
+        label: L.label,
+        leadAmountKrw: L.leadAmountKrw,
+        formula: L.formula,
+        strikethrough: L.strikethrough === true,
+      });
+    }
+    const teamPricings: CustomerPricingSnapshot['teamPricings'] = [];
+    for (const row of o.teamPricings) {
+      if (!row || typeof row !== 'object') {
+        return null;
+      }
+      const R = row as Record<string, unknown>;
+      if (typeof R.teamName !== 'string' || typeof R.securityDepositScope !== 'string') {
+        return null;
+      }
+      if (
+        typeof R.teamOrderIndex !== 'number' ||
+        !Number.isInteger(R.teamOrderIndex) ||
+        typeof R.totalAmountKrw !== 'number' ||
+        !Number.isInteger(R.totalAmountKrw) ||
+        typeof R.depositAmountKrw !== 'number' ||
+        !Number.isInteger(R.depositAmountKrw) ||
+        typeof R.balanceAmountKrw !== 'number' ||
+        !Number.isInteger(R.balanceAmountKrw) ||
+        typeof R.securityDepositAmountKrw !== 'number' ||
+        !Number.isInteger(R.securityDepositAmountKrw) ||
+        typeof R.securityDepositUnitKrw !== 'number' ||
+        !Number.isInteger(R.securityDepositUnitKrw)
+      ) {
+        return null;
+      }
+      teamPricings.push({
+        teamOrderIndex: R.teamOrderIndex,
+        teamName: R.teamName,
+        totalAmountKrw: R.totalAmountKrw,
+        depositAmountKrw: R.depositAmountKrw,
+        balanceAmountKrw: R.balanceAmountKrw,
+        securityDepositAmountKrw: R.securityDepositAmountKrw,
+        securityDepositUnitKrw: R.securityDepositUnitKrw,
+        securityDepositScope: R.securityDepositScope,
+      });
+    }
+    return {
+      baseAmountKrw: o.baseAmountKrw as number,
+      totalAmountKrw: o.totalAmountKrw as number,
+      depositAmountKrw: o.depositAmountKrw as number,
+      balanceAmountKrw: o.balanceAmountKrw as number,
+      securityDepositTotalKrw: o.securityDepositTotalKrw as number,
+      securityDepositUnitKrw: o.securityDepositUnitKrw as number,
+      securityDepositMode: mode,
+      adjustmentLines,
+      teamPricings,
+    };
+  }
+
   private normalizeManualPricingSnapshot(
     manualPricing?: PricingManualSnapshot | null,
   ): PricingManualSnapshot | null {
@@ -268,6 +365,7 @@ export class PricingService {
       lineOverrides: (manualPricing.lineOverrides ?? []).filter(
         (row) => typeof row?.rowKey === 'string' && Number.isInteger(row?.amountKrw),
       ),
+      customerPricingSnapshot: this.normalizeCustomerPricingSnapshot(manualPricing.customerPricingSnapshot),
     };
   }
 
