@@ -28,7 +28,8 @@ import {
 } from '../features/confirmed-trip/hooks';
 import { markConfirmedTripRecentlyReturned } from '../features/confirmed-trip/recent-return';
 import { LodgingSection } from '../features/confirmed-trip/LodgingSection';
-import { useUpdateUser, useUploadUserAttachment } from '../features/plan/hooks';
+import { usePlanVersions, useUpdateUser, useUploadUserAttachment } from '../features/plan/hooks';
+import { toVariantLabel } from '../features/plan/variant-label';
 import { API_BASE_URL } from '../lib/api-base-url';
 import { GRAPHQL_URL } from '../lib/graphql-endpoint';
 
@@ -443,6 +444,11 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     return () => window.removeEventListener('popstate', onPopState);
   }, [tripId]);
   const { trip, loading } = useConfirmedTrip(tripId);
+  const { versions: planVersions, loading: planVersionsLoading } = usePlanVersions(trip?.planId ?? undefined);
+  const sortedPlanVersions = useMemo(
+    () => [...planVersions].sort((a, b) => b.versionNumber - a.versionNumber),
+    [planVersions],
+  );
   const { updateConfirmedTrip } = useUpdateConfirmedTrip();
   const { cancelConfirmedTrip, loading: cancelling } = useCancelConfirmedTrip();
 
@@ -466,6 +472,9 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const { uploadUserAttachment, loading: uploadingUserAttachment } = useUploadUserAttachment();
 
   const [migrationEditChoiceOpen, setMigrationEditChoiceOpen] = useState(false);
+  const [planTripEditChoiceOpen, setPlanTripEditChoiceOpen] = useState(false);
+  const [selectedSwitchVersionId, setSelectedSwitchVersionId] = useState<string | null>(null);
+  const [planVersionSwitchSaving, setPlanVersionSwitchSaving] = useState(false);
   const [directEditOpen, setDirectEditOpen] = useState(false);
   const [directEditSaving, setDirectEditSaving] = useState(false);
   const [mTravelStart, setMTravelStart] = useState('');
@@ -666,6 +675,55 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const hasPdf = pdfAttachments.length > 0;
   const showRightPanel = isPlanTrip || hasPdf;
 
+  const openPlanTripEditChoice = () => {
+    setSelectedSwitchVersionId(null);
+    setPlanTripEditChoiceOpen(true);
+  };
+
+  const closePlanTripEditChoice = () => {
+    setPlanTripEditChoiceOpen(false);
+    setSelectedSwitchVersionId(null);
+  };
+
+  const handleApplyPlanVersionSwitch = async () => {
+    if (!selectedSwitchVersionId || selectedSwitchVersionId === trip.planVersionId) return;
+    if (
+      !window.confirm(
+        '선택한 견적 버전으로 연결만 바뀝니다. 기사·숙소·가이드·낙타인형 구매·오픈채팅·예약일 등 확정 건에 입력한 운영 정보는 그대로 유지됩니다. 진행할까요?',
+      )
+    ) {
+      return;
+    }
+    setPlanVersionSwitchSaving(true);
+    try {
+      await updateConfirmedTrip(trip.id, { planVersionId: selectedSwitchVersionId });
+      closePlanTripEditChoice();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
+    } finally {
+      setPlanVersionSwitchSaving(false);
+    }
+  };
+
+  const handleOpenItineraryBuilderForNewVersion = () => {
+    if (
+      !window.confirm(
+        '확정 견적의 일정을 바꾸려면 일정 빌더에서 새 버전을 만듭니다. 저장 시 이 확정 건이 가리키는 견적 버전만 바뀌며, 기존에 입력한 숙소·운영 배정은 그대로 둡니다. 계속할까요?',
+      )
+    ) {
+      return;
+    }
+    closePlanTripEditChoice();
+    const params = new URLSearchParams({
+      userId: trip.userId,
+      planId: trip.planId!,
+      parentVersionId: trip.planVersionId!,
+      confirmedTripId: trip.id,
+      changeNote: '확정 일정 수정',
+    });
+    navigate(`/itinerary-builder?${params.toString()}`);
+  };
+
   const openDirectEditModal = () => {
     setMTravelStart(toDateInputValue(getTripStartDate(trip)));
     setMTravelEnd(toDateInputValue(getTripEndDate(trip)));
@@ -775,21 +833,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
               variant="outline"
               onClick={() => {
                 if (isPlanTrip) {
-                  if (
-                    !window.confirm(
-                      '확정 견적의 일정을 바꾸려면 일정 빌더에서 새 버전을 만듭니다. 저장 시 이 확정 건이 가리키는 견적 버전만 바뀌며, 기존에 입력한 숙소·운영 배정은 그대로 둡니다. 계속할까요?',
-                    )
-                  ) {
-                    return;
-                  }
-                  const params = new URLSearchParams({
-                    userId: trip.userId,
-                    planId: trip.planId!,
-                    parentVersionId: trip.planVersionId!,
-                    confirmedTripId: trip.id,
-                    changeNote: '확정 일정 수정',
-                  });
-                  navigate(`/itinerary-builder?${params.toString()}`);
+                  openPlanTripEditChoice();
                   return;
                 }
                 setMigrationEditChoiceOpen(true);
@@ -1436,6 +1480,107 @@ export function ConfirmedTripDetailPage(): JSX.Element {
         )}
       </div>
       {/* end outer grid */}
+
+      {planTripEditChoiceOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <Card className="max-h-[calc(100vh-4rem)] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-900">수정 방법 선택</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              견적 버전 연결만 바꿉니다. 이 확정 건에 입력한 기사·숙소·가이드·낙타인형 구매 등 운영 정보는 유지됩니다.
+            </p>
+
+            <div className="mt-5 grid gap-6">
+              <section className="grid gap-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  기존 버전으로 교체
+                </h4>
+                {planVersionsLoading ? (
+                  <p className="text-sm text-slate-500">버전 목록을 불러오는 중...</p>
+                ) : sortedPlanVersions.length === 0 ? (
+                  <p className="text-sm text-slate-500">표시할 버전이 없습니다.</p>
+                ) : (
+                  <ul className="max-h-56 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">
+                    {sortedPlanVersions.map((v) => {
+                      const isCurrent = v.id === trip.planVersionId;
+                      return (
+                        <li key={v.id} className="flex gap-3 p-3 text-sm">
+                          <input
+                            type="radio"
+                            name="plan-version-switch"
+                            className="mt-1"
+                            checked={selectedSwitchVersionId === v.id}
+                            disabled={isCurrent}
+                            onChange={() => setSelectedSwitchVersionId(v.id)}
+                            aria-label={`버전 ${v.versionNumber} 선택`}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium text-slate-900">v{v.versionNumber}</span>
+                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                                {toVariantLabel(v.variantType)}
+                              </span>
+                              <span className="text-xs text-slate-500">{v.totalDays}일</span>
+                              {isCurrent ? (
+                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                                  현재 연결됨
+                                </span>
+                              ) : null}
+                            </div>
+                            {v.changeNote ? (
+                              <p className="mt-1 text-xs text-slate-600">{v.changeNote}</p>
+                            ) : null}
+                            <p className="mt-1 text-xs text-slate-400">
+                              생성 {new Date(v.createdAt).toLocaleString('ko-KR')}
+                            </p>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                <Button
+                  variant="primary"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  disabled={
+                    planVersionSwitchSaving ||
+                    !selectedSwitchVersionId ||
+                    selectedSwitchVersionId === trip.planVersionId
+                  }
+                  onClick={handleApplyPlanVersionSwitch}
+                >
+                  {planVersionSwitchSaving ? '저장 중...' : '선택한 버전으로 연결'}
+                </Button>
+              </section>
+
+              <section className="grid gap-3 border-t border-slate-100 pt-5">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  새 버전 생성
+                </h4>
+                <Button
+                  variant="outline"
+                  className="flex h-auto w-full flex-col items-start justify-start gap-1 whitespace-normal px-4 py-3 text-left text-sm font-medium leading-snug"
+                  onClick={handleOpenItineraryBuilderForNewVersion}
+                >
+                  일정 빌더에서 새 버전 만들기
+                  <span className="text-xs font-normal text-slate-500">
+                    일정 빌더에서 새 버전을 저장하면 이 확정 건의 연결 견적 버전이 바뀔 수 있습니다.
+                  </span>
+                </Button>
+              </section>
+            </div>
+
+            <div className="mt-5 flex justify-end border-t border-slate-100 pt-4">
+              <Button
+                variant="outline"
+                onClick={closePlanTripEditChoice}
+                disabled={planVersionSwitchSaving}
+              >
+                닫기
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
 
       {migrationEditChoiceOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
