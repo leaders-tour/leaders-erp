@@ -169,6 +169,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
           securityDepositUnitKrw: teamPricing.securityDepositUnitPriceKrw,
           securityDepositScope: toSecurityDepositScope(teamPricing.securityDepositMode),
         })) ?? [],
+    expandTeamPricingSummaryRows: version.pricing?.manualPricing?.expandTeamPricingSummaryRows === true,
     totalPricePerPersonKrw: customerPricingSnapshot
       ? customerPricingSnapshot.totalAmountKrw
       : pricingTotals?.totalAmountKrw ?? null,

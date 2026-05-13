@@ -66,6 +66,7 @@ export const PLAN_VERSION_PRICING_EFFECTIVE_FIELDS_FRAGMENT = gql`
         rowKey
         amountKrw
       }
+      expandTeamPricingSummaryRows
       customerPricingSnapshot {
         baseAmountKrw
         totalAmountKrw

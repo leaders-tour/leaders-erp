@@ -317,6 +317,7 @@ export interface PlanVersionPricingRow {
       rowKey: string;
       amountKrw: number;
     }>;
+    expandTeamPricingSummaryRows?: boolean | null;
     customerPricingSnapshot?: {
       baseAmountKrw: number;
       totalAmountKrw: number;

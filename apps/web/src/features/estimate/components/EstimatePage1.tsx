@@ -1,5 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type FocusEvent, type ReactNode } from 'react';
 import {
+  shouldShowTeamPrefixInPricingSummary,
   teamPricingsForSummaryDisplay,
   teamPricingSummarySignatureFromParts,
 } from '../../pricing/team-pricing-summary-display';
@@ -472,10 +473,19 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
     data.securityDepositUnitKrw === null
       ? ''
       : `${formatCurrency(data.securityDepositUnitKrw)} (${data.securityDepositScope})`;
-  const summaryTeamPricingsForDisplay = useMemo(
-    () => teamPricingsForSummaryDisplay(data.teamPricings, estimateTeamPricingSummarySignature),
-    [data.teamPricings],
-  );
+  const summaryTeamPricingsForDisplay = useMemo(() => {
+    const rows = data.teamPricings;
+    if (rows.length <= 1) {
+      return rows;
+    }
+    if (shouldShowTeamPrefixInPricingSummary(rows, estimateTeamPricingSummarySignature)) {
+      return rows;
+    }
+    if (data.expandTeamPricingSummaryRows === true) {
+      return rows;
+    }
+    return teamPricingsForSummaryDisplay(rows, estimateTeamPricingSummarySignature);
+  }, [data.teamPricings, data.expandTeamPricingSummaryRows]);
   const estimateSummaryShowTeamPrefix = summaryTeamPricingsForDisplay.length > 1;
   const travelPeriodCompact = formatTravelPeriodCompact(data.travelStartDate, data.travelEndDate);
   const headcountDisplay = blankIfDash(formatHeadcount(data.headcountTotal, data.headcountMale, data.headcountFemale));

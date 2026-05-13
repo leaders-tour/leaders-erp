@@ -20,6 +20,11 @@ import {
 import { resolveDisplayLeadAmount } from '../features/pricing/pricing-line-presenter';
 import { toVariantLabel } from '../features/plan/variant-label';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
+import {
+  shouldShowTeamPrefixInPricingSummary,
+  teamPricingsForSummaryDisplay,
+  teamPricingSummarySignatureFromParts,
+} from '../features/pricing/team-pricing-summary-display';
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
 
@@ -39,6 +44,25 @@ function formatSecurityDepositScope(mode: 'NONE' | 'PER_PERSON' | 'PER_TEAM'): s
 
 function formatSignedKrw(value: number): string {
   return value > 0 ? `+${formatKrw(value)}` : value < 0 ? `-${formatKrw(Math.abs(value))}` : formatKrw(0);
+}
+
+function detailCustomerSnapshotTeamSignature(row: {
+  totalAmountKrw: number;
+  depositAmountKrw: number;
+  balanceAmountKrw: number;
+  securityDepositAmountKrw: number;
+  securityDepositUnitKrw: number;
+  securityDepositScope: string;
+}): string {
+  return teamPricingSummarySignatureFromParts({
+    totalAmountKrw: row.totalAmountKrw,
+    depositAmountKrw: row.depositAmountKrw,
+    balanceAmountKrw: row.balanceAmountKrw,
+    securityNone: row.securityDepositScope === '-',
+    securityDepositAmountKrw: row.securityDepositAmountKrw,
+    securityDepositUnitKrw: row.securityDepositUnitKrw,
+    securityScopeWhenPresent: row.securityDepositScope === '-' ? '' : row.securityDepositScope,
+  });
 }
 
 function formatVersionDate(iso: string): string {
@@ -171,6 +195,30 @@ export function PlanVersionDetailPage(): JSX.Element {
     () => (version ? applyLocationGuides(fromVersion(version), guideRows) : null),
     [guideRows, version],
   );
+  const customerSnapshotSummaryTeams = useMemo(() => {
+    if (!version) {
+      return null;
+    }
+    const snap = version.pricing?.manualPricing?.customerPricingSnapshot ?? null;
+    const teams = snap?.teamPricings;
+    if (!teams || teams.length === 0) {
+      return null;
+    }
+    const expandTeamPricingSummaryRows = version.pricing?.manualPricing?.expandTeamPricingSummaryRows === true;
+    if (teams.length <= 1) {
+      return { rows: teams, showTeamPrefix: false };
+    }
+    if (shouldShowTeamPrefixInPricingSummary(teams, detailCustomerSnapshotTeamSignature)) {
+      return { rows: teams, showTeamPrefix: true };
+    }
+    if (expandTeamPricingSummaryRows) {
+      return { rows: teams, showTeamPrefix: true };
+    }
+    return {
+      rows: teamPricingsForSummaryDisplay(teams, detailCustomerSnapshotTeamSignature),
+      showTeamPrefix: false,
+    };
+  }, [version]);
 
   if (!planId || !versionId) {
     return <section className="py-8 text-sm text-slate-600">잘못된 접근입니다.</section>;
@@ -760,6 +808,13 @@ export function PlanVersionDetailPage(): JSX.Element {
                 {hasManualPricing ? (
                   <p className="mt-1 text-[11px] text-blue-800">저장된 수동 출력값 기준으로 분리 표시합니다.</p>
                 ) : null}
+                {version.pricing?.manualPricing?.expandTeamPricingSummaryRows === true &&
+                customerSnapshotSummaryTeams &&
+                customerSnapshotSummaryTeams.rows.length > 1 ? (
+                  <p className="mt-1 text-[11px] text-blue-800">
+                    팀별 요약을 펼쳐 표시하도록 저장된 버전입니다.
+                  </p>
+                ) : null}
                 <div className="mt-2 grid gap-2 text-sm text-blue-900">
                   <div>기본금: {formatKrw(effectiveTotalsForUi?.baseAmountKrw ?? effectivePricing.baseAmountKrw)}</div>
                   <div>
@@ -795,22 +850,51 @@ export function PlanVersionDetailPage(): JSX.Element {
                       <div className="border-r border-slate-200 px-2 py-2">잔금(1인)</div>
                       <div className="px-2 py-2">보증금(팀당/인당)</div>
                     </div>
-                    <div className="grid grid-cols-4 text-center text-sm text-slate-900">
-                      <div className="border-r border-slate-200 px-2 py-4 font-semibold">
-                        {formatKrw((effectiveTotalsForUi ?? effectivePricing).totalAmountKrw)}
+                    {customerSnapshotSummaryTeams && customerSnapshotSummaryTeams.rows.length > 0 ? (
+                      <div className="divide-y divide-slate-100">
+                        {customerSnapshotSummaryTeams.rows.map((t) => (
+                          <div
+                            key={`out-summary-${t.teamOrderIndex}`}
+                            className="grid grid-cols-4 text-center text-sm text-slate-900"
+                          >
+                            <div className="border-r border-slate-200 px-2 py-3 font-semibold">
+                              {customerSnapshotSummaryTeams.showTeamPrefix ? `${t.teamName}) ` : ''}
+                              {formatKrw(t.totalAmountKrw)}
+                            </div>
+                            <div className="border-r border-slate-200 px-2 py-3">
+                              {customerSnapshotSummaryTeams.showTeamPrefix ? `${t.teamName}) ` : ''}
+                              {formatKrw(t.depositAmountKrw)}
+                            </div>
+                            <div className="border-r border-slate-200 px-2 py-3">
+                              {customerSnapshotSummaryTeams.showTeamPrefix ? `${t.teamName}) ` : ''}
+                              {formatKrw(t.balanceAmountKrw)}
+                            </div>
+                            <div className="px-2 py-3">
+                              {t.securityDepositScope === '-'
+                                ? `${customerSnapshotSummaryTeams.showTeamPrefix ? `${t.teamName}) ` : ''}${formatKrw(t.securityDepositAmountKrw)}`
+                                : `${customerSnapshotSummaryTeams.showTeamPrefix ? `${t.teamName}) ` : ''}${formatKrw(t.securityDepositUnitKrw)} (${t.securityDepositScope})`}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div className="border-r border-slate-200 px-2 py-4">
-                        {formatKrw((effectiveTotalsForUi ?? effectivePricing).depositAmountKrw)}
+                    ) : (
+                      <div className="grid grid-cols-4 text-center text-sm text-slate-900">
+                        <div className="border-r border-slate-200 px-2 py-4 font-semibold">
+                          {formatKrw((effectiveTotalsForUi ?? effectivePricing).totalAmountKrw)}
+                        </div>
+                        <div className="border-r border-slate-200 px-2 py-4">
+                          {formatKrw((effectiveTotalsForUi ?? effectivePricing).depositAmountKrw)}
+                        </div>
+                        <div className="border-r border-slate-200 px-2 py-4">
+                          {formatKrw((effectiveTotalsForUi ?? effectivePricing).balanceAmountKrw)}
+                        </div>
+                        <div className="px-2 py-4">
+                          {(effectiveTotalsForUi ?? effectivePricing).securityDepositMode === 'NONE'
+                            ? formatKrw((effectiveTotalsForUi ?? effectivePricing).securityDepositAmountKrw)
+                            : `${formatKrw((effectiveTotalsForUi ?? effectivePricing).securityDepositUnitPriceKrw)} (${formatSecurityDepositScope((effectiveTotalsForUi ?? effectivePricing).securityDepositMode)})`}
+                        </div>
                       </div>
-                      <div className="border-r border-slate-200 px-2 py-4">
-                        {formatKrw((effectiveTotalsForUi ?? effectivePricing).balanceAmountKrw)}
-                      </div>
-                      <div className="px-2 py-4">
-                        {(effectiveTotalsForUi ?? effectivePricing).securityDepositMode === 'NONE'
-                          ? formatKrw((effectiveTotalsForUi ?? effectivePricing).securityDepositAmountKrw)
-                          : `${formatKrw((effectiveTotalsForUi ?? effectivePricing).securityDepositUnitPriceKrw)} (${formatSecurityDepositScope((effectiveTotalsForUi ?? effectivePricing).securityDepositMode)})`}
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

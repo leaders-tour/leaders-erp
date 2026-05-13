@@ -56,6 +56,8 @@ export interface EstimatePricingSnapshot {
   adjustmentLines?: EstimateAdjustmentLine[];
   teamPricings?: EstimateTeamPricing[];
   lines: EstimatePricingLineSnapshot[];
+  /** 빌더 「팀 분리해서 보기」 — 동일 금액이어도 팀별 요약 행 표시 */
+  expandTeamPricingSummaryRows?: boolean;
 }
 
 export interface EstimateTransportGroup {
@@ -165,6 +167,8 @@ export interface EstimateDocumentData {
   basePricePerPersonKrw: number | null;
   adjustmentLines: EstimateAdjustmentLine[];
   teamPricings: EstimateTeamPricing[];
+  /** 동일 금액일 때 팀별 요약 행 펼침 */
+  expandTeamPricingSummaryRows?: boolean;
   totalPricePerPersonKrw: number | null;
   depositPricePerPersonKrw: number | null;
   balancePricePerPersonKrw: number | null;

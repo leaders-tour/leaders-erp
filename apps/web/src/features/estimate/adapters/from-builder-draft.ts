@@ -76,6 +76,7 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
         strikethrough: false,
       })),
     teamPricings: snapshot.pricing?.teamPricings ?? [],
+    expandTeamPricingSummaryRows: snapshot.pricing?.expandTeamPricingSummaryRows === true,
     totalPricePerPersonKrw: snapshot.pricing?.totalAmountKrw ?? null,
     depositPricePerPersonKrw: snapshot.pricing?.depositAmountKrw ?? null,
     balancePricePerPersonKrw: snapshot.pricing?.balanceAmountKrw ?? null,
