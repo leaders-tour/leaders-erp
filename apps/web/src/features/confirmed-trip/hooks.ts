@@ -1,5 +1,6 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 
+import type { ExternalTransfer, ExternalTransferTeamLike } from '../plan/external-transfer';
 import type { PlanVersionPricingRow } from '../plan/hooks';
 import { PLAN_VERSION_PRICING_EFFECTIVE_FIELDS_FRAGMENT } from '../plan/plan-version-pricing-fragment';
 
@@ -174,6 +175,27 @@ export interface ConfirmedTripDriverAssignmentRow {
   };
 }
 
+/** `PlanVersionMeta.transportGroups` — 확정 건 상세 픽드랍 표시용 최소 필드 */
+export type PlanPickupDropPlaceType = 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM';
+
+export interface PlanVersionTransportGroupRow {
+  orderIndex: number;
+  teamName: string;
+  headcount: number;
+  flightInDate: string | null;
+  flightInTime: string | null;
+  flightOutDate: string | null;
+  flightOutTime: string | null;
+  pickupDate: string | null;
+  pickupTime: string | null;
+  pickupPlaceType: PlanPickupDropPlaceType | null;
+  pickupPlaceCustomText: string | null;
+  dropDate: string | null;
+  dropTime: string | null;
+  dropPlaceType: PlanPickupDropPlaceType | null;
+  dropPlaceCustomText: string | null;
+}
+
 export interface ConfirmedTripRow {
   id: string;
   userId: string;
@@ -237,7 +259,15 @@ export interface ConfirmedTripRow {
       rentalItemsText: string;
       remark: string | null;
       pickupDate: string | null;
+      pickupTime: string | null;
       dropDate: string | null;
+      dropTime: string | null;
+      pickupPlaceType: PlanPickupDropPlaceType | null;
+      pickupPlaceCustomText: string | null;
+      dropPlaceType: PlanPickupDropPlaceType | null;
+      dropPlaceCustomText: string | null;
+      externalTransfers: ExternalTransfer[];
+      transportGroups: PlanVersionTransportGroupRow[];
       lodgingSelections: Array<{
         dayIndex: number;
         level: string;
@@ -345,7 +375,40 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
         rentalItemsText
         remark
         pickupDate
+        pickupTime
         dropDate
+        dropTime
+        pickupPlaceType
+        pickupPlaceCustomText
+        dropPlaceType
+        dropPlaceCustomText
+        externalTransfers {
+          direction
+          presetCode
+          travelDate
+          departureTime
+          arrivalTime
+          departurePlace
+          arrivalPlace
+          selectedTeamOrderIndexes
+        }
+        transportGroups {
+          orderIndex
+          teamName
+          headcount
+          flightInDate
+          flightInTime
+          flightOutDate
+          flightOutTime
+          pickupDate
+          pickupTime
+          pickupPlaceType
+          pickupPlaceCustomText
+          dropDate
+          dropTime
+          dropPlaceType
+          dropPlaceCustomText
+        }
         lodgingSelections {
           dayIndex
           level
@@ -783,4 +846,26 @@ export function getTripPickupDate(trip: ConfirmedTripRow): string | null {
 
 export function getTripDropDate(trip: ConfirmedTripRow): string | null {
   return trip.planVersion?.meta?.dropDate ?? trip.dropDate ?? null;
+}
+
+/** 견적 메타의 실투어 외 픽드랍(여러 건). 플랜 미연결 시 빈 배열. */
+export function getTripExternalTransfers(trip: ConfirmedTripRow): ExternalTransfer[] {
+  return trip.planVersion?.meta?.externalTransfers ?? [];
+}
+
+/** `externalTransfers.selectedTeamOrderIndexes` 해석용 팀 배열 */
+export function getTripTransportGroupsForExternalTransfers(trip: ConfirmedTripRow): ExternalTransferTeamLike[] {
+  return (trip.planVersion?.meta?.transportGroups ?? []).map((group) => ({
+    orderIndex: group.orderIndex,
+    teamName: group.teamName,
+    headcount: group.headcount,
+    flightInDate: group.flightInDate,
+    flightInTime: group.flightInTime,
+    flightOutDate: group.flightOutDate,
+    flightOutTime: group.flightOutTime,
+    pickupDate: group.pickupDate,
+    pickupTime: group.pickupTime,
+    dropDate: group.dropDate,
+    dropTime: group.dropTime,
+  }));
 }

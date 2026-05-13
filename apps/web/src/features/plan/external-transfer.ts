@@ -449,3 +449,62 @@ export function buildExternalTransferDirectionText(
   return lines.length > 0 ? lines.join('\n') : '-';
 }
 
+/** 표시용: travelDate 문자열에서 YYYY-MM-DD 만 추출 (GraphQL DateTime·로컬 YYYY-MM-DD 모두 허용) */
+export function externalTransferTravelDateIso(value: string | null | undefined): string | null {
+  const parsed = parseIsoDate(value);
+  if (!parsed) {
+    return null;
+  }
+  return `${parsed.year}-${String(parsed.month).padStart(2, '0')}-${String(parsed.day).padStart(2, '0')}`;
+}
+
+export interface ExternalTransferDetailRow {
+  key: string;
+  teamLabel: string;
+  /** YYYY-MM-DD 또는 null — 상위에서 `Date` 표기로 변환 */
+  dateIso: string | null;
+  departureTime: string;
+  departurePlace: string;
+  arrivalTime: string;
+  arrivalPlace: string;
+}
+
+/** 확정 상세 등에서 픽업/드랍을 여러 줄로 렌더링할 때 사용 (팀별 행 분리). */
+export function listExternalTransferDetailRows(
+  transfers: ExternalTransfer[] | null | undefined,
+  teams: ExternalTransferTeamLike[] | null | undefined,
+  direction: ExternalTransferDirection,
+): ExternalTransferDetailRow[] {
+  if (!transfers || transfers.length === 0) {
+    return [];
+  }
+
+  const teamArr = teams ?? [];
+
+  return transfers.flatMap((transfer, transferIdx) => {
+    if (transfer.direction !== direction) {
+      return [];
+    }
+
+    return transfer.selectedTeamOrderIndexes
+      .slice()
+      .sort((left, right) => left - right)
+      .map((teamOrderIndex, seq) => {
+        const team = teamArr[teamOrderIndex];
+        const trimmedName = team?.teamName?.trim();
+        const teamLabel =
+          trimmedName && trimmedName.length > 0 ? trimmedName : `${teamOrderIndex + 1}번 팀`;
+
+        return {
+          key: `${direction}-${transferIdx}-${teamOrderIndex}-${seq}`,
+          teamLabel,
+          dateIso: externalTransferTravelDateIso(transfer.travelDate),
+          departureTime: transfer.departureTime,
+          departurePlace: transfer.departurePlace,
+          arrivalTime: transfer.arrivalTime,
+          arrivalPlace: transfer.arrivalPlace,
+        } satisfies ExternalTransferDetailRow;
+      });
+  });
+}
+

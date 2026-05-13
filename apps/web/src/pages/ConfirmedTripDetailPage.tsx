@@ -24,8 +24,16 @@ import {
   getTripDestination,
   getTripPickupDate,
   getTripDropDate,
+  getTripExternalTransfers,
+  getTripTransportGroupsForExternalTransfers,
   sortTripAssignments,
 } from '../features/confirmed-trip/hooks';
+import { listExternalTransferDetailRows } from '../features/plan/external-transfer';
+import {
+  formatPickupDropDisplay,
+  formatTransportPickupDropLines,
+  type TransportGroupLike,
+} from '../features/plan/pickup-drop';
 import { markConfirmedTripRecentlyReturned } from '../features/confirmed-trip/recent-return';
 import { LodgingSection } from '../features/confirmed-trip/LodgingSection';
 import { usePlanVersions, useUpdateUser, useUploadUserAttachment } from '../features/plan/hooks';
@@ -522,6 +530,94 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     }
     return effectivePlanPricing ? sliceEffectiveTotalsForUi(effectivePlanPricing) : null;
   }, [planVersionPricingRaw?.manualPricing?.customerPricingSnapshot, effectivePlanPricing]);
+
+  const externalPickDropRowsPickup = useMemo(() => {
+    if (!trip) return [];
+    return listExternalTransferDetailRows(
+      getTripExternalTransfers(trip),
+      getTripTransportGroupsForExternalTransfers(trip),
+      'PICKUP',
+    );
+  }, [trip]);
+
+  const externalPickDropRowsDrop = useMemo(() => {
+    if (!trip) return [];
+    return listExternalTransferDetailRows(
+      getTripExternalTransfers(trip),
+      getTripTransportGroupsForExternalTransfers(trip),
+      'DROP',
+    );
+  }, [trip]);
+
+  const basicPickupDisplay = useMemo(() => {
+    if (!trip) return '-';
+    const meta = trip.planVersion?.meta;
+    const groups = meta?.transportGroups ?? [];
+    if (groups.length > 0) {
+      const asLike: TransportGroupLike[] = groups.map((g) => ({
+        teamName: g.teamName,
+        headcount: g.headcount,
+        flightInDate: g.flightInDate,
+        flightInTime: g.flightInTime,
+        flightOutDate: g.flightOutDate,
+        flightOutTime: g.flightOutTime,
+        pickupDate: g.pickupDate,
+        pickupTime: g.pickupTime,
+        pickupPlaceType: g.pickupPlaceType ?? undefined,
+        pickupPlaceCustomText: g.pickupPlaceCustomText,
+        dropDate: g.dropDate,
+        dropTime: g.dropTime,
+        dropPlaceType: g.dropPlaceType ?? undefined,
+        dropPlaceCustomText: g.dropPlaceCustomText,
+      }));
+      return formatTransportPickupDropLines(asLike, 'pickup');
+    }
+    if (meta) {
+      return formatPickupDropDisplay(
+        meta.pickupDate,
+        meta.pickupTime,
+        meta.pickupPlaceType,
+        meta.pickupPlaceCustomText,
+      );
+    }
+    const d = getTripPickupDate(trip);
+    return d ? formatDate(d) : '-';
+  }, [trip]);
+
+  const basicDropDisplay = useMemo(() => {
+    if (!trip) return '-';
+    const meta = trip.planVersion?.meta;
+    const groups = meta?.transportGroups ?? [];
+    if (groups.length > 0) {
+      const asLike: TransportGroupLike[] = groups.map((g) => ({
+        teamName: g.teamName,
+        headcount: g.headcount,
+        flightInDate: g.flightInDate,
+        flightInTime: g.flightInTime,
+        flightOutDate: g.flightOutDate,
+        flightOutTime: g.flightOutTime,
+        pickupDate: g.pickupDate,
+        pickupTime: g.pickupTime,
+        pickupPlaceType: g.pickupPlaceType ?? undefined,
+        pickupPlaceCustomText: g.pickupPlaceCustomText,
+        dropDate: g.dropDate,
+        dropTime: g.dropTime,
+        dropPlaceType: g.dropPlaceType ?? undefined,
+        dropPlaceCustomText: g.dropPlaceCustomText,
+      }));
+      return formatTransportPickupDropLines(asLike, 'drop');
+    }
+    if (meta) {
+      return formatPickupDropDisplay(
+        meta.dropDate,
+        meta.dropTime,
+        meta.dropPlaceType,
+        meta.dropPlaceCustomText,
+      );
+    }
+    const d = getTripDropDate(trip);
+    return d ? formatDate(d) : '-';
+  }, [trip]);
 
   if (!tripId) {
     return (
@@ -1213,13 +1309,19 @@ export function ConfirmedTripDetailPage(): JSX.Element {
               {trip.status === 'ACTIVE' && !pickupDropEditing && (
                 <button
                   type="button"
-                  onClick={startPickupDropEdit}
+                  onClick={() => {
+                    if (trip.planId && trip.planVersionId) {
+                      openPlanTripEditChoice();
+                      return;
+                    }
+                    startPickupDropEdit();
+                  }}
                   className="rounded-full bg-slate-100 px-4 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-200"
                 >
-                  편집
+                  {trip.planId && trip.planVersionId ? '일정에서 수정' : '편집'}
                 </button>
               )}
-              {pickupDropEditing && (
+              {trip.status === 'ACTIVE' && pickupDropEditing && !(trip.planId && trip.planVersionId) && (
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -1240,7 +1342,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                 </div>
               )}
             </div>
-            {pickupDropEditing ? (
+            {pickupDropEditing && !(trip.planId && trip.planVersionId) ? (
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <label className="grid gap-1">
                   <span className="text-xs font-medium text-slate-500">픽업 날짜</span>
@@ -1262,19 +1364,86 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                 </label>
               </div>
             ) : (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2 text-sm">
-                <div>
-                  <span className="text-xs font-medium text-slate-500">픽업</span>
-                  <p className="mt-0.5 font-medium text-slate-800">
-                    {getTripPickupDate(trip) ? formatDate(getTripPickupDate(trip)!) : '-'}
-                  </p>
+              <div className="mt-3 grid gap-5 text-sm text-slate-800">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
+                  <div className="grid min-w-0 gap-2">
+                    <span className="text-xs font-medium text-slate-500">픽업</span>
+                    <p className="break-words whitespace-pre-wrap font-medium text-slate-900">
+                      {basicPickupDisplay}
+                    </p>
+                  </div>
+                  <div className="grid min-w-0 gap-2">
+                    <span className="text-xs font-medium text-slate-500">드랍</span>
+                    <p className="break-words whitespace-pre-wrap font-medium text-slate-900">
+                      {basicDropDisplay}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-xs font-medium text-slate-500">드랍</span>
-                  <p className="mt-0.5 font-medium text-slate-800">
-                    {getTripDropDate(trip) ? formatDate(getTripDropDate(trip)!) : '-'}
-                  </p>
+                <div className="border-t border-slate-100 pt-4">
+                  <span className="text-xs font-medium text-slate-500">실투어 외 픽드랍</span>
+                  <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-2">
+                      <span className="text-xs font-medium text-slate-400">실투어 외 픽업</span>
+                      {externalPickDropRowsPickup.length === 0 ? (
+                        <p className="font-medium text-slate-400">-</p>
+                      ) : (
+                        <ul className="grid gap-2">
+                          {externalPickDropRowsPickup.map((row) => (
+                            <li
+                              key={row.key}
+                              className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 text-sm"
+                            >
+                              <p className="font-semibold text-slate-900">{row.teamLabel}</p>
+                              <p className="mt-1 text-slate-700">
+                                <span className="text-slate-500">날짜</span>{' '}
+                                {row.dateIso ? formatDate(`${row.dateIso}T12:00:00.000Z`) : '-'}
+                              </p>
+                              <p className="mt-0.5 text-slate-700">
+                                출발 {row.departureTime} {row.departurePlace}
+                              </p>
+                              <p className="text-slate-700">
+                                도착 {row.arrivalTime} {row.arrivalPlace}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="grid gap-2">
+                      <span className="text-xs font-medium text-slate-400">실투어 외 드랍</span>
+                      {externalPickDropRowsDrop.length === 0 ? (
+                        <p className="font-medium text-slate-400">-</p>
+                      ) : (
+                        <ul className="grid gap-2">
+                          {externalPickDropRowsDrop.map((row) => (
+                            <li
+                              key={row.key}
+                              className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 text-sm"
+                            >
+                              <p className="font-semibold text-slate-900">{row.teamLabel}</p>
+                              <p className="mt-1 text-slate-700">
+                                <span className="text-slate-500">날짜</span>{' '}
+                                {row.dateIso ? formatDate(`${row.dateIso}T12:00:00.000Z`) : '-'}
+                              </p>
+                              <p className="mt-0.5 text-slate-700">
+                                출발 {row.departureTime} {row.departurePlace}
+                              </p>
+                              <p className="text-slate-700">
+                                도착 {row.arrivalTime} {row.arrivalPlace}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
                 </div>
+                {trip.planId && trip.planVersionId ? (
+                  <p className="text-xs leading-relaxed text-slate-500">
+                    픽업·드랍·실투어 외 픽드랍은 연결된 견적 버전 메타를 반영합니다. 변경은「일정에서 수정」에서 일정
+                    빌더 새 버전 또는 기존 버전 연결로 진행하세요.
+                  </p>
+                ) : null}
               </div>
             )}
           </Card>
