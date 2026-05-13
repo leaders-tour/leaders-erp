@@ -32,6 +32,7 @@ import { RegionLodgingSelectModal } from '../features/lodging-selection/componen
 import { ExtraLodgingsModal } from '../features/pricing/components/ExtraLodgingsModal';
 import {
   teamPricingsForSummaryDisplay,
+  shouldShowTeamPrefixInPricingSummary,
   teamPricingSummarySignatureFromParts,
 } from '../features/pricing/team-pricing-summary-display';
 import {
@@ -754,6 +755,41 @@ function setManualPricingAllTeamSummariesValue(
     (state, teamOrderIndex) => setManualPricingTeamSummaryValue(state, teamOrderIndex, field, value),
     current,
   );
+}
+
+/** 항공/픽업 팀 삭제 후 teamOrderIndex가 한 칸씩 당겨지므로 수동 금액 상태를 같이 맞춘다. */
+function remapManualPricingAfterTransportGroupRemoved(
+  manual: ManualPricingState,
+  removedIndex: number,
+): ManualPricingState {
+  const nextTeamSummaries = (manual.teamSummaries ?? [])
+    .filter((s) => s.teamOrderIndex !== removedIndex)
+    .map((s) =>
+      s.teamOrderIndex > removedIndex ? { ...s, teamOrderIndex: s.teamOrderIndex - 1 } : s,
+    );
+
+  const nextAdjustmentLines: ManualPricingAdjustmentLineRow[] = [];
+  for (const line of manual.adjustmentLines) {
+    const ti = line.teamOrderIndex;
+    if (ti === removedIndex) {
+      if (line.type === 'MANUAL') {
+        continue;
+      }
+      nextAdjustmentLines.push({ ...line, teamOrderIndex: null });
+      continue;
+    }
+    if (ti != null && ti > removedIndex) {
+      nextAdjustmentLines.push({ ...line, teamOrderIndex: ti - 1 });
+      continue;
+    }
+    nextAdjustmentLines.push(line);
+  }
+
+  return {
+    ...manual,
+    teamSummaries: nextTeamSummaries,
+    adjustmentLines: nextAdjustmentLines,
+  };
 }
 
 function setManualPricingSummarySecurityDepositMode(
@@ -1844,6 +1880,7 @@ function createEstimateDraftSnapshot(input: {
   planStops: PlanStopRowBase[];
   pricingPreview: EffectivePricingRow | null;
   displayedPricingAdjustmentLines: DisplayedPricingAdjustmentLineRow[];
+  expandTeamPricingSummaryRows?: boolean;
 }): EstimateBuilderDraftSnapshot {
   const customerSnap =
     input.pricingPreview
@@ -1918,6 +1955,7 @@ function createEstimateDraftSnapshot(input: {
               displayDivisorPerson: line.displayDivisorPerson,
               displayText: line.displayText,
             })),
+            expandTeamPricingSummaryRows: input.expandTeamPricingSummaryRows === true,
           }
         : null,
   };
@@ -2573,6 +2611,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     teamSummaries: [],
     lineOverrides: [],
   });
+  const [manualPricingSplitTeamRows, setManualPricingSplitTeamRows] = useState(false);
   const [manualPricingAdjustmentAmountDraft, setManualPricingAdjustmentAmountDraft] = useState<{
     rowKey: string;
     value: string;
@@ -3027,7 +3066,11 @@ export function ItineraryBuilderPage(): JSX.Element {
           ? String(pricing.depositAmountKrw)
           : '',
     );
-    setManualPricing(normalizeManualPricingState(pricing?.manualPricing));
+    const nextManualPricingState = normalizeManualPricingState(pricing?.manualPricing);
+    setManualPricing(nextManualPricingState);
+    setManualPricingSplitTeamRows(
+      nextManualPricingState.enabled === true && pricing?.manualPricing?.expandTeamPricingSummaryRows === true,
+    );
     setManualPricingAdjustmentAmountDraft(null);
   }, [isVersionMode, parentVersionId, parentVersionLoading, parentVersion]);
 
@@ -3494,6 +3537,32 @@ export function ItineraryBuilderPage(): JSX.Element {
       }),
     );
   };
+
+  const removeTransportGroupAt = useCallback((index: number) => {
+    setTransportGroups((current) =>
+      current.length <= 1 ? current : current.filter((_, groupIndex) => groupIndex !== index),
+    );
+    setManualPricing((current) => remapManualPricingAfterTransportGroupRemoved(current, index));
+    setManualPricingSplitTeamRows(false);
+  }, []);
+
+  const addTransportGroup = useCallback(() => {
+    let didAdd = false;
+    setTransportGroups((current) => {
+      const next = buildTransportGroupsAfterAddTeam(current, headcountTotal, travelStartDate, travelEndDate);
+      if (!next) {
+        window.alert(
+          '전체 인원은 팀 수 이상이어야 합니다. 인원을 늘리거나 팀을 줄여 주세요.',
+        );
+        return current;
+      }
+      didAdd = true;
+      return next;
+    });
+    if (didAdd) {
+      setManualPricingSplitTeamRows(false);
+    }
+  }, [headcountTotal, travelStartDate, travelEndDate]);
 
   const clearTransportGroupFlightIn = (index: number): void => {
     setTransportGroups((current) =>
@@ -4192,6 +4261,7 @@ export function ItineraryBuilderPage(): JSX.Element {
           dropDate: draft.travelEndDate || primaryGroup.dropDate,
         },
       ]);
+      setManualPricingSplitTeamRows(false);
       const recTemplateId = draft.recommendedTemplateId ?? null;
       if (recTemplateId) {
         setRoutePresetTemplateId(recTemplateId);
@@ -4326,7 +4396,10 @@ export function ItineraryBuilderPage(): JSX.Element {
       return undefined;
     }
     if (!effectivePricingPreview) {
-      return toManualPricingSnapshot(normalizedManualPricing);
+      return {
+        ...toManualPricingSnapshot(normalizedManualPricing),
+        expandTeamPricingSummaryRows: manualPricingSplitTeamRows,
+      };
     }
     const totals = estimatePricingUiTotals;
     const base = toManualPricingSnapshot(
@@ -4349,12 +4422,14 @@ export function ItineraryBuilderPage(): JSX.Element {
     return {
       ...base,
       customerPricingSnapshot,
+      expandTeamPricingSummaryRows: manualPricingSplitTeamRows,
     };
   }, [
     displayedPricingAdjustmentLines,
     effectivePricingPreview,
     estimatePricingUiTotals,
     normalizedManualPricing,
+    manualPricingSplitTeamRows,
   ]);
   const hiddenManualPricingAutoLines = useMemo(
     () =>
@@ -4364,15 +4439,41 @@ export function ItineraryBuilderPage(): JSX.Element {
       ),
     [normalizedManualPricing],
   );
-  const pricingSummaryTeamsForDisplay = useMemo(
+  const fullTeamPricingRows = effectivePricingPreview?.teamPricings ?? [];
+  const amountsDifferAcrossTeams = useMemo(
     () =>
-      teamPricingsForSummaryDisplay(
-        effectivePricingPreview?.teamPricings ?? [],
-        builderTeamPricingRowSummarySignature,
-      ),
-    [effectivePricingPreview],
+      fullTeamPricingRows.length > 1
+        ? shouldShowTeamPrefixInPricingSummary(fullTeamPricingRows, builderTeamPricingRowSummarySignature)
+        : false,
+    [fullTeamPricingRows],
   );
-  const pricingSummaryShowTeamPrefix = pricingSummaryTeamsForDisplay.length > 1;
+  const teamsForAmountSummaryGrid = useMemo(() => {
+    if (fullTeamPricingRows.length <= 1) {
+      return fullTeamPricingRows;
+    }
+    if (amountsDifferAcrossTeams) {
+      return fullTeamPricingRows;
+    }
+    if (manualPricing.enabled && manualPricingSplitTeamRows) {
+      return fullTeamPricingRows;
+    }
+    return teamPricingsForSummaryDisplay(fullTeamPricingRows, builderTeamPricingRowSummarySignature);
+  }, [
+    amountsDifferAcrossTeams,
+    fullTeamPricingRows,
+    manualPricing.enabled,
+    manualPricingSplitTeamRows,
+  ]);
+  const pricingSummaryShowTeamPrefix = teamsForAmountSummaryGrid.length > 1;
+  const manualPricingAmountSummaryCollapsed =
+    manualPricing.enabled &&
+    fullTeamPricingRows.length > 1 &&
+    !amountsDifferAcrossTeams &&
+    teamsForAmountSummaryGrid.length === 1;
+  const allTeamOrderIndexesForSummarySync = useMemo(
+    () => fullTeamPricingRows.map((t) => t.teamOrderIndex),
+    [fullTeamPricingRows],
+  );
   const { data: pricingPolicyManualPresetsData } = useQuery<PricingPolicyManualPresetQueryRow>(
     PRICING_POLICY_MANUAL_PRESETS_QUERY,
     {
@@ -4574,6 +4675,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         planStops: mergedPlanStops,
         pricingPreview: effectivePricingPreview,
         displayedPricingAdjustmentLines,
+        expandTeamPricingSummaryRows: manualPricing.enabled && manualPricingSplitTeamRows,
       }),
     [
       effectivePlanTitle,
@@ -4595,6 +4697,8 @@ export function ItineraryBuilderPage(): JSX.Element {
       mergedPlanStops,
       effectivePricingPreview,
       displayedPricingAdjustmentLines,
+      manualPricing.enabled,
+      manualPricingSplitTeamRows,
     ],
   );
   const { data: previewEstimateData, guidesLoading: previewGuidesLoading } =
@@ -4640,20 +4744,8 @@ export function ItineraryBuilderPage(): JSX.Element {
       }
     },
     onTransportGroupFieldChange: handlePreviewTransportGroupFieldChange,
-    onAddTransportGroup: () => {
-      setTransportGroups((current) => {
-        const next = buildTransportGroupsAfterAddTeam(current, headcountTotal, travelStartDate, travelEndDate);
-        if (!next) {
-          window.alert('전체 인원은 팀 수 이상이어야 합니다. 인원을 늘리거나 팀을 줄여 주세요.');
-          return current;
-        }
-        return next;
-      });
-    },
-    onRemoveTransportGroup: (index) =>
-      setTransportGroups((current) =>
-        current.length <= 1 ? current : current.filter((_, groupIndex) => groupIndex !== index),
-      ),
+    onAddTransportGroup: addTransportGroup,
+    onRemoveTransportGroup: removeTransportGroupAt,
     onToggleEventId: (value) =>
       setEventIds((current) =>
         current.includes(value) ? current.filter((id) => id !== value) : [...current, value],
@@ -5740,13 +5832,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                               <Button
                                 variant="outline"
                                 disabled={transportGroups.length <= 1}
-                                onClick={() =>
-                                  setTransportGroups((current) =>
-                                    current.length <= 1
-                                      ? current
-                                      : current.filter((_, groupIndex) => groupIndex !== index),
-                                  )
-                                }
+                                onClick={() => removeTransportGroupAt(index)}
                               >
                                 삭제
                               </Button>
@@ -6047,21 +6133,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                               : undefined
                           }
                           onClick={() => {
-                            setTransportGroups((current) => {
-                              const next = buildTransportGroupsAfterAddTeam(
-                                current,
-                                headcountTotal,
-                                travelStartDate,
-                                travelEndDate,
-                              );
-                              if (!next) {
-                                window.alert(
-                                  '전체 인원은 팀 수 이상이어야 합니다. 인원을 늘리거나 팀을 줄여 주세요.',
-                                );
-                                return current;
-                              }
-                              return next;
-                            });
+                            addTransportGroup();
                           }}
                           className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
                         >
@@ -7435,6 +7507,20 @@ export function ItineraryBuilderPage(): JSX.Element {
                         ) : null}
                       </div>
 
+                      {manualPricing.enabled &&
+                      fullTeamPricingRows.length > 1 &&
+                      !amountsDifferAcrossTeams ? (
+                        <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                            onClick={() => setManualPricingSplitTeamRows((prev) => !prev)}
+                          >
+                            {manualPricingSplitTeamRows ? '한 줄로 보기' : '팀 분리해서 보기'}
+                          </button>
+                        </div>
+                      ) : null}
+
                       <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
                         <div className="grid grid-cols-4 bg-slate-100 text-center text-[11px] font-medium text-slate-600">
                           <div className="border-r border-slate-200 px-2 py-2">총액(1인)</div>
@@ -7507,7 +7593,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                     </div>
                                   )
                                 ) : (
-                                  pricingSummaryTeamsForDisplay.map((teamPricing) => (
+                                  teamsForAmountSummaryGrid.map((teamPricing) => (
                                     <div key={`${field}-${teamPricing.teamOrderIndex}`} className="grid gap-1">
                                       {manualPricing.enabled ? (
                                         <div className="flex flex-wrap items-center justify-center gap-2">
@@ -7526,16 +7612,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                                                   if (!Number.isInteger(nextValue)) {
                                                     return;
                                                   }
-                                                  const allTeamIndexes = effectivePricingPreview.teamPricings.map(
-                                                    (t) => t.teamOrderIndex,
-                                                  );
-                                                  const syncAllTeams =
-                                                    allTeamIndexes.length > 1 && !pricingSummaryShowTeamPrefix;
                                                   setManualPricing((current) =>
-                                                    syncAllTeams
+                                                    manualPricingAmountSummaryCollapsed
                                                       ? setManualPricingAllTeamSummariesValue(
                                                           current,
-                                                          allTeamIndexes,
+                                                          allTeamOrderIndexesForSummarySync,
                                                           field,
                                                           nextValue,
                                                         )
@@ -7557,16 +7638,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                                                 }
                                                 onChange={(event) => {
                                                   const mode = event.target.value as 'PER_PERSON' | 'PER_TEAM';
-                                                  const allTeamIndexes = effectivePricingPreview.teamPricings.map(
-                                                    (t) => t.teamOrderIndex,
-                                                  );
-                                                  const syncAllTeams =
-                                                    allTeamIndexes.length > 1 && !pricingSummaryShowTeamPrefix;
                                                   setManualPricing((current) =>
-                                                    syncAllTeams
+                                                    manualPricingAmountSummaryCollapsed
                                                       ? setManualPricingAllTeamSummariesSecurityDepositMode(
                                                           current,
-                                                          allTeamIndexes,
+                                                          allTeamOrderIndexesForSummarySync,
                                                           mode,
                                                         )
                                                       : setManualPricingTeamSummarySecurityDepositMode(
@@ -7593,16 +7669,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                                                 if (!Number.isInteger(nextValue)) {
                                                   return;
                                                 }
-                                                const allTeamIndexes = effectivePricingPreview.teamPricings.map(
-                                                  (t) => t.teamOrderIndex,
-                                                );
-                                                const syncAllTeams =
-                                                  allTeamIndexes.length > 1 && !pricingSummaryShowTeamPrefix;
                                                 setManualPricing((current) =>
-                                                  syncAllTeams
+                                                  manualPricingAmountSummaryCollapsed
                                                     ? setManualPricingAllTeamSummariesValue(
                                                         current,
-                                                        allTeamIndexes,
+                                                        allTeamOrderIndexesForSummarySync,
                                                         field,
                                                         nextValue,
                                                       )
