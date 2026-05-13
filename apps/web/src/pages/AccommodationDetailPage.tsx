@@ -107,9 +107,12 @@ function OptionCard({
     const priceOffSeason = offParsed.value;
     const pricePeakSeason = peakParsed.value;
 
+    const effectiveMealIncluded = draft.mealIncluded !== undefined ? draft.mealIncluded : opt.mealIncluded;
+
     const unchanged =
       priceOffSeason === opt.priceOffSeason &&
       pricePeakSeason === opt.pricePeakSeason &&
+      effectiveMealIncluded === opt.mealIncluded &&
       (draft.note === undefined || draft.note === opt.note) &&
       (draft.paymentMethod === undefined || draft.paymentMethod === opt.paymentMethod);
 
@@ -124,6 +127,7 @@ function OptionCard({
     await updateOption(opt.id, accommodationId, {
       priceOffSeason,
       pricePeakSeason,
+      mealIncluded: effectiveMealIncluded,
       ...(draft.note !== undefined ? { note: draft.note } : {}),
       ...(draft.paymentMethod !== undefined ? { paymentMethod: draft.paymentMethod } : {}),
     });
@@ -210,7 +214,7 @@ function OptionCard({
                 {current.capacity}
               </span>
             )}
-            {opt.mealIncluded && (
+            {current.mealIncluded && (
               <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
                 식사 포함
               </span>
@@ -326,6 +330,15 @@ function OptionCard({
                     <option value="PER_PERSON">{PAYMENT_LABEL.PER_PERSON}</option>
                     <option value="PER_ROOM">{PAYMENT_LABEL.PER_ROOM}</option>
                   </select>
+                </label>
+                <label className="flex items-center gap-2 sm:col-span-2">
+                  <input
+                    type="checkbox"
+                    checked={current.mealIncluded}
+                    onChange={(e) => setDraft((p) => ({ ...p, mealIncluded: e.target.checked }))}
+                    className="h-4 w-4 accent-indigo-600"
+                  />
+                  <span className="text-sm text-slate-700">식사 포함</span>
                 </label>
                 <label className="flex flex-col gap-1 sm:col-span-2">
                   <span className="text-xs text-slate-500">특이사항</span>
