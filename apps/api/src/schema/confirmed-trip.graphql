@@ -70,6 +70,16 @@ type LodgingConflictWarning {
   overlapEndDate: DateTime!
 }
 
+"""확정 숙소 배정에 연결된 객실 옵션(복수) 및 옵션별 실수."""
+type ConfirmedTripLodgingOption {
+  id: ID!
+  accommodationOptionId: String!
+  roomCount: Int!
+  accommodationOption: AccommodationOption!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
 type ConfirmedTripGuideAssignment {
   id: ID!
   confirmedTripId: String!
@@ -101,10 +111,11 @@ type ConfirmedTripLodging {
   nights: Int!
   type: LodgingAssignmentType!
   accommodationId: String
-  accommodationOptionId: String
-  accommodation: Accommodation
-  lodgingNameSnapshot: String!
+  """옵션별 객실 수 합계(ACCOMMODATION 타입은 optionAssignments 기준)."""
   roomCount: Int!
+  accommodation: Accommodation
+  optionAssignments: [ConfirmedTripLodgingOption!]!
+  lodgingNameSnapshot: String!
   bookingStatus: LodgingBookingStatus!
   bookingMemo: String
   bookingReference: String
@@ -221,6 +232,11 @@ input ConfirmedTripUpdateInput {
   groupTotalAmountKrw: Int
 }
 
+input ConfirmedTripLodgingOptionUpsertInput {
+  accommodationOptionId: ID!
+  roomCount: Int!
+}
+
 input ConfirmedTripLodgingUpsertInput {
   id: ID
   confirmedTripId: ID!
@@ -229,10 +245,12 @@ input ConfirmedTripLodgingUpsertInput {
   checkOutDate: DateTime!
   type: LodgingAssignmentType!
   accommodationId: String
-  accommodationOptionId: String
+  """ACCOMMODATION일 때 필수·1개 이상. 그 외 타입은 빈 배열."""
+  optionAssignments: [ConfirmedTripLodgingOptionUpsertInput!]
   lodgingNameSnapshot: String!
   pricePerNightKrw: Int
-  roomCount: Int!
+  """ACCOMMODATION 제외 타입만 사용(optionAssignments 미사용). 기본값 1."""
+  roomCount: Int
   bookingStatus: LodgingBookingStatus
   bookingMemo: String
   bookingReference: String

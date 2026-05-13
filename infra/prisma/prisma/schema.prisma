@@ -1058,7 +1058,6 @@ model ConfirmedTripLodging {
 
   type                  LodgingAssignmentType
   accommodationId       String?
-  accommodationOptionId String?
 
   lodgingNameSnapshot String
   pricePerNightKrw    Int?
@@ -1075,8 +1074,28 @@ model ConfirmedTripLodging {
   confirmedTrip ConfirmedTrip  @relation(fields: [confirmedTripId], references: [id], onDelete: Cascade)
   accommodation Accommodation? @relation(fields: [accommodationId], references: [id])
 
+  optionAssignments ConfirmedTripLodgingOption[]
+
   @@index([confirmedTripId, dayIndex])
   @@index([accommodationId, checkInDate, checkOutDate])
+}
+
+/// 확정 숙소 1건에 대한 객실 옵션 선택(복수)·옵션별 객실 수
+model ConfirmedTripLodgingOption {
+  id                     String @id @default(cuid())
+  confirmedTripLodgingId String
+  accommodationOptionId  String
+  roomCount              Int    @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  confirmedTripLodging ConfirmedTripLodging @relation(fields: [confirmedTripLodgingId], references: [id], onDelete: Cascade)
+  accommodationOption  AccommodationOption  @relation(fields: [accommodationOptionId], references: [id], onDelete: Restrict)
+
+  @@unique([confirmedTripLodgingId, accommodationOptionId], map: "CTLO_lodging_opt_uq")
+  @@index([confirmedTripLodgingId], map: "CTLO_lodgingId_idx")
+  @@index([accommodationOptionId], map: "CTLO_accOptId_idx")
 }
 
 model PlanVersionMeta {
@@ -1763,6 +1782,8 @@ model AccommodationOption {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  confirmedTripLodgingOptions ConfirmedTripLodgingOption[]
 
   @@index([accommodationId])
   @@index([level])

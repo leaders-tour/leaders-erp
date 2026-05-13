@@ -18,6 +18,20 @@ export interface LodgingConflictWarning {
   overlapEndDate: string;
 }
 
+export interface ConfirmedTripLodgingOptionRow {
+  id: string;
+  accommodationOptionId: string;
+  roomCount: number;
+  accommodationOption: {
+    id: string;
+    roomType: string;
+    level: string;
+    imageUrls: string[];
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ConfirmedTripLodgingRow {
   id: string;
   confirmedTripId: string;
@@ -27,7 +41,7 @@ export interface ConfirmedTripLodgingRow {
   nights: number;
   type: LodgingAssignmentType;
   accommodationId: string | null;
-  accommodationOptionId: string | null;
+  optionAssignments: ConfirmedTripLodgingOptionRow[];
   accommodation: {
     id: string;
     name: string;
@@ -60,7 +74,19 @@ const LODGING_FRAGMENT = gql`
     nights
     type
     accommodationId
-    accommodationOptionId
+    optionAssignments {
+      id
+      accommodationOptionId
+      roomCount
+      accommodationOption {
+        id
+        roomType
+        level
+        imageUrls
+      }
+      createdAt
+      updatedAt
+    }
     accommodation {
       id
       name
@@ -156,10 +182,10 @@ export function useUpsertConfirmedTripLodging(confirmedTripId: string) {
       checkOutDate: string;
       type: LodgingAssignmentType;
       accommodationId?: string | null;
-      accommodationOptionId?: string | null;
+      optionAssignments?: Array<{ accommodationOptionId: string; roomCount: number }>;
       lodgingNameSnapshot: string;
       pricePerNightKrw?: number | null;
-      roomCount: number;
+      roomCount?: number;
       bookingStatus?: LodgingBookingStatus;
       bookingMemo?: string | null;
       bookingReference?: string | null;

@@ -16,7 +16,12 @@ import {
 } from '@tour/validation';
 import type { ConfirmedTripDriverAssignmentInput, ConfirmedTripGuideAssignmentInput } from '@tour/validation';
 import { DomainError, createValidationError } from '../../lib/errors';
-import { ConfirmedTripRepository, calendarNoteConfirmedTripInclude, confirmedTripInclude } from './confirmed-trip.repository';
+import {
+  ConfirmedTripRepository,
+  calendarNoteConfirmedTripInclude,
+  confirmedTripInclude,
+  confirmedTripLodgingInclude,
+} from './confirmed-trip.repository';
 import type {
   CalendarNoteCreateDto,
   CalendarNoteUpdateDto,
@@ -311,38 +316,82 @@ export class ConfirmedTripService {
       throw createValidationError('Invalid lodging input', parsed.error);
     }
 
-    const { checkInDate, checkOutDate, pricePerNightKrw, roomCount } = parsed.data;
-    const checkIn = new Date(checkInDate);
-    const checkOut = new Date(checkOutDate);
+    const d = parsed.data;
+    const optAssignments = d.optionAssignments;
+    const checkIn = new Date(d.checkInDate);
+    const checkOut = new Date(d.checkOutDate);
     const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-    const totalPriceKrw =
-      pricePerNightKrw != null ? pricePerNightKrw * nights * roomCount : null;
 
-    const repo = new ConfirmedTripRepository(this.prisma);
-    const lodging = await repo.upsertLodging({
-      id: parsed.data.id,
-      confirmedTripId: parsed.data.confirmedTripId,
-      dayIndex: parsed.data.dayIndex,
-      checkInDate: checkIn,
-      checkOutDate: checkOut,
-      nights,
-      type: parsed.data.type as LodgingAssignmentType,
-      accommodationId: parsed.data.accommodationId ?? null,
-      accommodationOptionId: parsed.data.accommodationOptionId ?? null,
-      lodgingNameSnapshot: parsed.data.lodgingNameSnapshot,
-      pricePerNightKrw: pricePerNightKrw ?? null,
-      roomCount,
-      totalPriceKrw,
-      bookingStatus: parsed.data.bookingStatus as LodgingBookingStatus,
-      bookingMemo: parsed.data.bookingMemo ?? null,
-      bookingReference: parsed.data.bookingReference ?? null,
+    const roomCount =
+      d.type === 'ACCOMMODATION' ? optAssignments.reduce((sum, o) => sum + o.roomCount, 0) : (d.roomCount ?? 1);
+
+    const accommodationId = d.accommodationId ?? null;
+    const pricePerNightKrw = d.pricePerNightKrw ?? null;
+    const totalPriceKrw = pricePerNightKrw != null ? pricePerNightKrw * nights * roomCount : null;
+
+    if (d.type === 'ACCOMMODATION' && accommodationId) {
+      const optionIds = [...new Set(optAssignments.map((o) => o.accommodationOptionId))];
+      const found = await this.prisma.accommodationOption.findMany({
+        where: { id: { in: optionIds }, accommodationId },
+        select: { id: true },
+      });
+      if (found.length !== optionIds.length) {
+        throw new DomainError(
+          'VALIDATION_FAILED',
+          'One or more accommodation options are invalid or do not belong to the selected accommodation',
+        );
+      }
+    }
+
+    const lodging = await this.prisma.$transaction(async (tx) => {
+      const repo = new ConfirmedTripRepository(tx);
+      const saved = await repo.upsertLodging({
+        id: d.id,
+        confirmedTripId: d.confirmedTripId,
+        dayIndex: d.dayIndex,
+        checkInDate: checkIn,
+        checkOutDate: checkOut,
+        nights,
+        type: d.type as LodgingAssignmentType,
+        accommodationId,
+        lodgingNameSnapshot: d.lodgingNameSnapshot,
+        pricePerNightKrw: pricePerNightKrw ?? null,
+        roomCount,
+        totalPriceKrw,
+        bookingStatus: d.bookingStatus as LodgingBookingStatus,
+        bookingMemo: d.bookingMemo ?? null,
+        bookingReference: d.bookingReference ?? null,
+      });
+
+      await tx.confirmedTripLodgingOption.deleteMany({
+        where: { confirmedTripLodgingId: saved.id },
+      });
+
+      if (optAssignments.length > 0) {
+        await Promise.all(
+          optAssignments.map((o) =>
+            tx.confirmedTripLodgingOption.create({
+              data: {
+                confirmedTripLodgingId: saved.id,
+                accommodationOptionId: o.accommodationOptionId,
+                roomCount: o.roomCount,
+              },
+            }),
+          ),
+        );
+      }
+
+      return tx.confirmedTripLodging.findUniqueOrThrow({
+        where: { id: saved.id },
+        include: confirmedTripLodgingInclude,
+      });
     });
 
     const conflictWarnings = await this.findConflictWarnings(
-      parsed.data.accommodationId ?? null,
+      accommodationId,
       checkIn,
       checkOut,
-      parsed.data.confirmedTripId,
+      d.confirmedTripId,
     );
 
     return { ...lodging, conflictWarnings };
@@ -424,7 +473,6 @@ export class ConfirmedTripService {
         nights: 1,
         type,
         accommodationId: null as string | null,
-        accommodationOptionId: null as string | null,
         lodgingNameSnapshot,
         pricePerNightKrw: null as number | null,
         roomCount: 1,

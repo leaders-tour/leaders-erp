@@ -156,6 +156,26 @@ export const confirmedTripResolver = {
   ConfirmedTripLodging: {
     conflictWarnings: (parent: { conflictWarnings?: unknown[] }) =>
       Array.isArray(parent.conflictWarnings) ? parent.conflictWarnings : [],
+    optionAssignments: async (
+      parent: { id?: string; optionAssignments?: unknown[] },
+      _args: unknown,
+      ctx: AppContext,
+    ) => {
+      if (Array.isArray(parent.optionAssignments)) {
+        return parent.optionAssignments;
+      }
+      if (!parent.id) return [];
+      const row = await ctx.prisma.confirmedTripLodging.findUnique({
+        where: { id: parent.id },
+        include: {
+          optionAssignments: {
+            orderBy: { id: 'asc' },
+            include: { accommodationOption: true },
+          },
+        },
+      });
+      return row?.optionAssignments ?? [];
+    },
   },
   CalendarNote: {
     occursOn(parent: { occursOn?: unknown }) {

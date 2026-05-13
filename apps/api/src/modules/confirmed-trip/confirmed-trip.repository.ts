@@ -2,6 +2,15 @@ import type { ConfirmedTripStatus, LodgingAssignmentType, LodgingBookingStatus, 
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
+/** ConfirmedTrip.lodgings·lodging 단건 조회용 — 객실 옵션 선택 포함 */
+export const confirmedTripLodgingInclude = {
+  accommodation: true,
+  optionAssignments: {
+    orderBy: { id: 'asc' as const },
+    include: { accommodationOption: true },
+  },
+} satisfies Prisma.ConfirmedTripLodgingInclude;
+
 export const confirmedTripInclude = {
   user: { include: { ownerEmployee: true } },
   plan: { include: { regionSet: true } },
@@ -28,7 +37,7 @@ export const confirmedTripInclude = {
     include: { driver: true },
   },
   lodgings: {
-    include: { accommodation: true },
+    include: confirmedTripLodgingInclude,
     orderBy: { dayIndex: 'asc' as const },
   },
 } satisfies Prisma.ConfirmedTripInclude;
@@ -60,6 +69,14 @@ export const confirmedTripListInclude = {
           id: true,
           name: true,
           coverImageUrl: true,
+        },
+      },
+      optionAssignments: {
+        orderBy: { id: 'asc' as const },
+        select: {
+          id: true,
+          roomCount: true,
+          accommodationOptionId: true,
         },
       },
     },
@@ -165,7 +182,7 @@ export class ConfirmedTripRepository {
   findLodgingById(id: string) {
     return this.prisma.confirmedTripLodging.findUnique({
       where: { id },
-      include: { accommodation: true, confirmedTrip: true },
+      include: { ...confirmedTripLodgingInclude, confirmedTrip: true },
     });
   }
 
@@ -178,7 +195,6 @@ export class ConfirmedTripRepository {
     nights: number;
     type: LodgingAssignmentType;
     accommodationId?: string | null;
-    accommodationOptionId?: string | null;
     lodgingNameSnapshot: string;
     pricePerNightKrw?: number | null;
     roomCount: number;
@@ -192,12 +208,10 @@ export class ConfirmedTripRepository {
       return this.prisma.confirmedTripLodging.update({
         where: { id },
         data: rest,
-        include: { accommodation: true },
       });
     }
     return this.prisma.confirmedTripLodging.create({
       data: rest,
-      include: { accommodation: true },
     });
   }
 
@@ -229,7 +243,6 @@ export class ConfirmedTripRepository {
     nights: number;
     type: LodgingAssignmentType;
     accommodationId?: string | null;
-    accommodationOptionId?: string | null;
     lodgingNameSnapshot: string;
     pricePerNightKrw?: number | null;
     roomCount: number;

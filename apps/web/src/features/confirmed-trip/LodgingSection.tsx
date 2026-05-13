@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAccommodations, accommodationDisplayImageUrl } from '../accommodation/hooks';
 import type { AccommodationRow } from '../accommodation/hooks';
 import {
@@ -32,6 +32,28 @@ function toInputDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+function sumSelectedRoomCounts(optionRoomCounts: Record<string, number>): number {
+  return Object.values(optionRoomCounts).reduce((s, n) => s + Math.max(0, n), 0);
+}
+
+/** 숙소 + 선택된 옵션 실수 기준 스냅샷 문구 생성 */
+function buildAccommodationLodgingSnapshot(
+  accommodations: AccommodationRow[],
+  accommodationId: string | null,
+  optionRoomCounts: Record<string, number>,
+): string {
+  if (!accommodationId) return '';
+  const acc = accommodations.find((a) => a.id === accommodationId);
+  if (!acc) return '';
+  const parts: string[] = [];
+  for (const opt of acc.options) {
+    const n = optionRoomCounts[opt.id];
+    if (n && n > 0) parts.push(`${opt.roomType}×${n}`);
+  }
+  if (parts.length === 0) return acc.name;
+  return `${acc.name} - ${parts.join(', ')}`;
+}
+
 // ── Chip ─────────────────────────────────────────────────────────────────────
 
 function TypeChip({ type }: { type: LodgingAssignmentType }) {
@@ -48,12 +70,16 @@ function TypeChip({ type }: { type: LodgingAssignmentType }) {
 
 function AccommodationPicker({
   accommodationId,
-  optionId,
-  onChange,
+  optionRoomCounts,
+  onPickAccommodation,
+  onClearAccommodation,
+  onSetOptionRoomCounts,
 }: {
   accommodationId: string | null;
-  optionId: string | null;
-  onChange: (accId: string | null, optId: string | null, name: string) => void;
+  optionRoomCounts: Record<string, number>;
+  onPickAccommodation: (accId: string, initialOptionRooms: Record<string, number>) => void;
+  onClearAccommodation: () => void;
+  onSetOptionRoomCounts: (next: Record<string, number>) => void;
 }) {
   const { accommodations } = useAccommodations();
   const [search, setSearch] = useState('');
@@ -67,6 +93,12 @@ function AccommodationPicker({
           a.region.toLowerCase().includes(search.toLowerCase()),
       )
     : accommodations;
+
+  const bumpOptionCount = (optionId: string, delta: number) => {
+    const cur = optionRoomCounts[optionId] ?? 0;
+    const nextVal = Math.min(999, Math.max(1, cur + delta));
+    onSetOptionRoomCounts({ ...optionRoomCounts, [optionId]: nextVal });
+  };
 
   if (selected) {
     return (
@@ -82,7 +114,7 @@ function AccommodationPicker({
           </div>
           <button
             type="button"
-            onClick={() => onChange(null, null, '')}
+            onClick={onClearAccommodation}
             className="text-xs text-blue-500 hover:underline"
           >
             변경
@@ -93,74 +125,103 @@ function AccommodationPicker({
             <p className="text-xs text-slate-400">옵션 없음</p>
           ) : (
             selected.options.map((opt) => {
-              const isSelected = optionId === opt.id;
+              const qty = optionRoomCounts[opt.id] ?? 0;
+              const isSelected = qty > 0;
               return (
-                <button
+                <div
                   key={opt.id}
-                  type="button"
-                  onClick={() => onChange(selected.id, opt.id, `${selected.name} - ${opt.roomType}`)}
                   className={`rounded-xl border p-3 text-left transition-all ${
                     isSelected
                       ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-300'
                       : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50'
                   }`}
                 >
-                  {/* 상단: 썸네일 + 정보 */}
                   <div className="flex gap-3">
-                    {/* 썸네일 */}
-                    <div className="h-16 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100">
-                      {opt.imageUrls[0] ? (
-                        <img src={opt.imageUrls[0]} alt={opt.roomType} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-2xl text-slate-300">🛏</div>
-                      )}
-                    </div>
-                    {/* 정보 */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-1">
-                        <p className="font-semibold text-sm text-slate-800 leading-tight">{opt.roomType}</p>
-                        {isSelected && (
-                          <span className="shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-blue-500 text-white text-xs">✓</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = { ...optionRoomCounts };
+                        if (isSelected) delete next[opt.id];
+                        else next[opt.id] = 1;
+                        onSetOptionRoomCounts(next);
+                      }}
+                      className="flex min-w-0 flex-1 gap-3 text-left"
+                    >
+                      <div className="h-16 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                        {opt.imageUrls[0] ? (
+                          <img src={opt.imageUrls[0]} alt={opt.roomType} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-2xl text-slate-300">🛏</div>
                         )}
                       </div>
-                      {/* 뱃지 행 */}
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {opt.capacity && (
-                          <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
-                            👤 {opt.capacity}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-1">
+                          <p className="font-semibold text-sm text-slate-800 leading-tight">{opt.roomType}</p>
+                          {isSelected ? (
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500 text-xs text-white">✓</span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 shrink-0">선택</span>
+                          )}
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {opt.capacity && (
+                            <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
+                              👤 {opt.capacity}
+                            </span>
+                          )}
+                          <span className="inline-flex items-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-xs font-medium text-indigo-600">
+                            {opt.level}
                           </span>
-                        )}
-                        <span className="inline-flex items-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-xs font-medium text-indigo-600">
-                          {opt.level}
-                        </span>
-                        {opt.mealIncluded && (
-                          <span className="inline-flex items-center rounded-md bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-600">
-                            🍽 식사포함
-                          </span>
+                          {opt.mealIncluded && (
+                            <span className="inline-flex items-center rounded-md bg-green-50 px-1.5 py-0.5 text-xs font-medium text-green-600">
+                              🍽 식사포함
+                            </span>
+                          )}
+                        </div>
+                        {opt.note && (
+                          <p className="mt-1.5 line-clamp-2 rounded-md bg-amber-50 px-2 py-1 text-xs leading-snug text-amber-700">
+                            ⚠ {opt.note}
+                          </p>
                         )}
                       </div>
-                      {/* 특이사항 */}
-                      {opt.note && (
-                        <p className="mt-1.5 text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1 leading-snug line-clamp-2">
-                          ⚠ {opt.note}
-                        </p>
-                      )}
-                    </div>
+                    </button>
                   </div>
-                  {/* 하단: 추가 사진 갤러리 */}
+
+                  {isSelected && (
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-blue-100 pt-2">
+                      <span className="text-xs text-slate-500">이 옵션 실수</span>
+                      <div className="flex items-center gap-0">
+                        <button
+                          type="button"
+                          onClick={() => bumpOptionCount(opt.id, -1)}
+                          className="flex h-8 w-8 items-center justify-center rounded-l-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                        >
+                          −
+                        </button>
+                        <span className="flex h-8 min-w-[2rem] items-center justify-center border-y border-slate-200 bg-slate-50 px-2 text-sm font-semibold text-slate-800">
+                          {qty}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => bumpOptionCount(opt.id, 1)}
+                          className="flex h-8 w-8 items-center justify-center rounded-r-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {opt.imageUrls.length > 1 && (
                     <div className="mt-2.5 flex gap-1.5 overflow-x-auto pb-0.5">
                       {opt.imageUrls.slice(1).map((url, i) => (
-                        <div
-                          key={i}
-                          className="h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100"
-                        >
+                        <div key={i} className="h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100">
                           <img src={url} alt={`${opt.roomType} ${i + 2}`} className="h-full w-full object-cover" />
                         </div>
                       ))}
                     </div>
                   )}
-                </button>
+                </div>
               );
             })
           )}
@@ -177,7 +238,7 @@ function AccommodationPicker({
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
-      <div className="max-h-44 overflow-y-auto grid gap-1 pr-0.5">
+      <div className="max-h-44 grid gap-1 overflow-y-auto pr-0.5">
         {filtered.length === 0 ? (
           <p className="py-3 text-center text-xs text-slate-400">결과 없음</p>
         ) : (
@@ -188,9 +249,9 @@ function AccommodationPicker({
               onSelect={() => {
                 const firstOpt = acc.options[0];
                 if (acc.options.length === 1 && firstOpt) {
-                  onChange(acc.id, firstOpt.id, `${acc.name} - ${firstOpt.roomType}`);
+                  onPickAccommodation(acc.id, { [firstOpt.id]: 1 });
                 } else {
-                  onChange(acc.id, null, acc.name);
+                  onPickAccommodation(acc.id, {});
                 }
               }}
             />
@@ -235,7 +296,8 @@ function AccommodationListItem({
 interface DayForm {
   type: LodgingAssignmentType;
   accommodationId: string | null;
-  accommodationOptionId: string | null;
+  /** 선택된 숙소 옵션 id → 해당 옵션 실수 */
+  optionRoomCounts: Record<string, number>;
   lodgingNameSnapshot: string;
   roomCount: number;
   bookingMemo: string;
@@ -243,10 +305,14 @@ interface DayForm {
 
 function makeDayForm(lodging?: ConfirmedTripLodgingRow | null): DayForm {
   if (lodging) {
+    const optionRoomCounts: Record<string, number> = {};
+    for (const o of lodging.optionAssignments ?? []) {
+      optionRoomCounts[o.accommodationOptionId] = o.roomCount;
+    }
     return {
       type: lodging.type,
       accommodationId: lodging.accommodationId,
-      accommodationOptionId: lodging.accommodationOptionId,
+      optionRoomCounts,
       lodgingNameSnapshot: lodging.lodgingNameSnapshot,
       roomCount: lodging.roomCount,
       bookingMemo: lodging.bookingMemo ?? '',
@@ -255,7 +321,7 @@ function makeDayForm(lodging?: ConfirmedTripLodgingRow | null): DayForm {
   return {
     type: 'ACCOMMODATION',
     accommodationId: null,
-    accommodationOptionId: null,
+    optionRoomCounts: {},
     lodgingNameSnapshot: '',
     roomCount: 1,
     bookingMemo: '',
@@ -280,26 +346,59 @@ function InlineForm({
   onCancel: () => void;
 }) {
   const [form, setForm] = useState<DayForm>(() => makeDayForm(existing));
+  const { accommodations } = useAccommodations();
   const { upsertLodging, loading } = useUpsertConfirmedTripLodging(tripId);
 
   const set = <K extends keyof DayForm>(k: K, v: DayForm[K]) =>
     setForm((prev) => ({ ...prev, [k]: v }));
 
+  useEffect(() => {
+    if (form.type !== 'ACCOMMODATION') return;
+    const snapshot = buildAccommodationLodgingSnapshot(
+      accommodations,
+      form.accommodationId,
+      form.optionRoomCounts,
+    );
+    setForm((prev) => (prev.lodgingNameSnapshot !== snapshot ? { ...prev, lodgingNameSnapshot: snapshot } : prev));
+  }, [accommodations, form.accommodationId, form.optionRoomCounts, form.type]);
+
   const handleSave = async () => {
     try {
-      await upsertLodging({
+      const basePayload = {
         id: existing?.id,
         confirmedTripId: tripId,
         dayIndex,
         checkInDate: toInputDate(checkInDate),
         checkOutDate: toInputDate(checkOutDate),
         type: form.type,
-        accommodationId: form.type === 'ACCOMMODATION' ? form.accommodationId : null,
-        accommodationOptionId: form.type === 'ACCOMMODATION' ? form.accommodationOptionId : null,
-        lodgingNameSnapshot: form.lodgingNameSnapshot || LODGING_TYPE_LABELS[form.type],
-        roomCount: form.roomCount,
+        lodgingNameSnapshot: form.lodgingNameSnapshot.trim() || LODGING_TYPE_LABELS[form.type],
         bookingMemo: form.bookingMemo.trim() || null,
-      });
+      };
+
+      if (form.type === 'ACCOMMODATION') {
+        if (!form.accommodationId) {
+          window.alert('숙소를 선택해 주세요.');
+          return;
+        }
+        const optionAssignments = Object.entries(form.optionRoomCounts)
+          .filter(([, c]) => c > 0)
+          .map(([accommodationOptionId, roomCount]) => ({ accommodationOptionId, roomCount }));
+        if (optionAssignments.length === 0) {
+          window.alert('객실 옵션을 1개 이상 선택해 주세요.');
+          return;
+        }
+        await upsertLodging({
+          ...basePayload,
+          accommodationId: form.accommodationId,
+          optionAssignments,
+        });
+      } else {
+        await upsertLodging({
+          ...basePayload,
+          accommodationId: null,
+          roomCount: form.roomCount,
+        });
+      }
       onSaved();
     } catch (e) {
       window.alert(e instanceof Error ? e.message : '저장 실패');
@@ -307,14 +406,18 @@ function InlineForm({
   };
 
   const changeType = (t: LodgingAssignmentType) => {
-    set('type', t);
-    if (t !== 'ACCOMMODATION') {
-      set('accommodationId', null);
-      set('accommodationOptionId', null);
-      if (t !== 'CUSTOM_TEXT') set('lodgingNameSnapshot', LODGING_TYPE_LABELS[t]);
-    } else {
-      set('lodgingNameSnapshot', '');
-    }
+    setForm((prev) => ({
+      ...prev,
+      type: t,
+      accommodationId: null,
+      optionRoomCounts: {},
+      roomCount: 1,
+      ...(t === 'ACCOMMODATION'
+        ? { lodgingNameSnapshot: '' }
+        : t !== 'CUSTOM_TEXT'
+          ? { lodgingNameSnapshot: LODGING_TYPE_LABELS[t] }
+          : {}),
+    }));
   };
 
   return (
@@ -329,35 +432,48 @@ function InlineForm({
         <div>
           <p className="mb-2 text-xs font-medium text-slate-400">타입</p>
           <div className="flex flex-wrap gap-1.5">
-            {(Object.keys(LODGING_TYPE_LABELS) as LodgingAssignmentType[]).filter((t) => t !== 'LV3' && t !== 'LV4').map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => changeType(t)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  form.type === t
-                    ? 'bg-slate-800 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {LODGING_TYPE_LABELS[t]}
-              </button>
-            ))}
+            {(Object.keys(LODGING_TYPE_LABELS) as LodgingAssignmentType[])
+              .filter((t) => t !== 'LV3' && t !== 'LV4')
+              .map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => changeType(t)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    form.type === t
+                      ? 'bg-slate-800 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {LODGING_TYPE_LABELS[t]}
+                </button>
+              ))}
           </div>
         </div>
 
         {/* ② 숙소 선택 또는 이름 입력 */}
         {form.type === 'ACCOMMODATION' ? (
           <div>
-            <p className="mb-2 text-xs font-medium text-slate-400">숙소 선택</p>
+            <p className="mb-2 text-xs font-medium text-slate-400">숙소 및 객실 옵션</p>
             <AccommodationPicker
               accommodationId={form.accommodationId}
-              optionId={form.accommodationOptionId}
-              onChange={(accId, optId, name) => {
-                set('accommodationId', accId);
-                set('accommodationOptionId', optId);
-                if (name) set('lodgingNameSnapshot', name);
+              optionRoomCounts={form.optionRoomCounts}
+              onPickAccommodation={(accId, initialOptionRooms) => {
+                setForm((prev) => ({
+                  ...prev,
+                  accommodationId: accId,
+                  optionRoomCounts: initialOptionRooms,
+                }));
               }}
+              onClearAccommodation={() => {
+                setForm((prev) => ({
+                  ...prev,
+                  accommodationId: null,
+                  optionRoomCounts: {},
+                  lodgingNameSnapshot: '',
+                }));
+              }}
+              onSetOptionRoomCounts={(next) => set('optionRoomCounts', next)}
             />
           </div>
         ) : (
@@ -374,28 +490,36 @@ function InlineForm({
 
         {/* ③ 객실수 + 메모 */}
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <p className="mb-2 text-xs font-medium text-slate-400">객실수</p>
-            <div className="flex items-center gap-0">
-              <button
-                type="button"
-                onClick={() => set('roomCount', Math.max(1, form.roomCount - 1))}
-                className="flex h-9 w-9 items-center justify-center rounded-l-xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 text-lg font-medium"
-              >
-                −
-              </button>
-              <span className="flex h-9 min-w-[2.5rem] items-center justify-center border-y border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800">
-                {form.roomCount}
-              </span>
-              <button
-                type="button"
-                onClick={() => set('roomCount', form.roomCount + 1)}
-                className="flex h-9 w-9 items-center justify-center rounded-r-xl border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 text-lg font-medium"
-              >
-                +
-              </button>
+          {form.type === 'ACCOMMODATION' ? (
+            <div>
+              <p className="mb-2 text-xs font-medium text-slate-400">객실 합계</p>
+              <p className="text-sm font-semibold text-slate-800">{sumSelectedRoomCounts(form.optionRoomCounts)}실</p>
+              <p className="mt-1 text-[10px] text-slate-400">옵션별 실수의 합이 저장됩니다</p>
             </div>
-          </div>
+          ) : (
+            <div>
+              <p className="mb-2 text-xs font-medium text-slate-400">객실수</p>
+              <div className="flex items-center gap-0">
+                <button
+                  type="button"
+                  onClick={() => set('roomCount', Math.max(1, form.roomCount - 1))}
+                  className="flex h-9 w-9 items-center justify-center rounded-l-xl border border-slate-200 bg-slate-50 text-lg font-medium text-slate-600 hover:bg-slate-100"
+                >
+                  −
+                </button>
+                <span className="flex h-9 min-w-[2.5rem] items-center justify-center border-y border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800">
+                  {form.roomCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => set('roomCount', form.roomCount + 1)}
+                  className="flex h-9 w-9 items-center justify-center rounded-r-xl border border-slate-200 bg-slate-50 text-lg font-medium text-slate-600 hover:bg-slate-100"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          )}
           <div>
             <p className="mb-2 text-xs font-medium text-slate-400">메모</p>
             <input
@@ -419,7 +543,7 @@ function InlineForm({
         </button>
         <button
           type="button"
-          onClick={handleSave}
+          onClick={() => void handleSave()}
           disabled={loading}
           className="rounded-xl bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
         >
@@ -451,7 +575,10 @@ function DayRow({
 }) {
   const [editing, setEditing] = useState(false);
 
-  const thumbUrl = lodging?.accommodation?.options.flatMap((o) => o.imageUrls)[0] ?? null;
+  const thumbUrl =
+    lodging?.optionAssignments.flatMap((a) => a.accommodationOption.imageUrls ?? [])[0] ??
+    lodging?.accommodation?.options.flatMap((o) => o.imageUrls)[0] ??
+    null;
 
   const inlineForm = editing && (
     <InlineForm
