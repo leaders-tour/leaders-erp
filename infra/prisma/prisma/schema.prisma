@@ -1007,6 +1007,7 @@ enum CalendarNoteKind {
   DROP
   CAMEL_DOLL
   CUSTOM
+  NOMADIC_SHOW
 }
 
 model CalendarNote {
@@ -1014,6 +1015,10 @@ model CalendarNote {
   occursOn        DateTime         @db.Date
   kind            CalendarNoteKind
   customText      String?          @db.VarChar(500)
+  /// 선택: 일정 시간 표시 (예: HH:mm)
+  timeText        String?          @db.VarChar(10)
+  /// 선택: 해당 일정 인원
+  headcount       Int?
   confirmedTripId String?
   memo            String?          @db.Text
 

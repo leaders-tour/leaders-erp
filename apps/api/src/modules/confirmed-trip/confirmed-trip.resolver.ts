@@ -16,6 +16,10 @@ interface CalendarNotesArgs {
   month: number;
 }
 
+interface ConfirmedTripCalendarNotesArgs {
+  confirmedTripId: string;
+}
+
 interface CreateCalendarNoteArgs {
   input: CalendarNoteCreateDto;
 }
@@ -54,6 +58,22 @@ interface SeedLodgingsArgs {
   confirmedTripId: string;
 }
 
+/** Prisma `@db.Date` → GraphQL `occursOn: String!` (YYYY-MM-DD, UTC 기준 날짜) */
+function calendarNoteOccursOnToIsoDate(value: unknown): string {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return '';
+    const y = value.getUTCFullYear();
+    const m = String(value.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(value.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  if (typeof value === 'string') {
+    const head = value.includes('T') ? (value.split('T')[0] ?? value) : value;
+    return head.slice(0, 10);
+  }
+  return '';
+}
+
 function selectionIncludesField(
   selections: readonly SelectionNode[] | undefined,
   fieldName: string,
@@ -86,6 +106,8 @@ export const confirmedTripResolver = {
       new ConfirmedTripService(ctx.prisma).get(args.id),
     calendarNotes: (_parent: unknown, args: CalendarNotesArgs, ctx: AppContext) =>
       new ConfirmedTripService(ctx.prisma).listCalendarNotes(args.year, args.month),
+    confirmedTripCalendarNotes: (_parent: unknown, args: ConfirmedTripCalendarNotesArgs, ctx: AppContext) =>
+      new ConfirmedTripService(ctx.prisma).listConfirmedTripCalendarNotes(args.confirmedTripId),
   },
   Mutation: {
     createCalendarNote: (_parent: unknown, args: CreateCalendarNoteArgs, ctx: AppContext) =>
@@ -134,5 +156,10 @@ export const confirmedTripResolver = {
   ConfirmedTripLodging: {
     conflictWarnings: (parent: { conflictWarnings?: unknown[] }) =>
       Array.isArray(parent.conflictWarnings) ? parent.conflictWarnings : [],
+  },
+  CalendarNote: {
+    occursOn(parent: { occursOn?: unknown }) {
+      return calendarNoteOccursOnToIsoDate(parent.occursOn);
+    },
   },
 };

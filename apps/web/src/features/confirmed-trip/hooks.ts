@@ -6,13 +6,21 @@ import { PLAN_VERSION_PRICING_EFFECTIVE_FIELDS_FRAGMENT } from '../plan/plan-ver
 
 // ── CalendarNote ──────────────────────────────────────────────────────────────
 
-export type CalendarNoteKind = 'GUEST_HOUSE' | 'PICKUP' | 'DROP' | 'CAMEL_DOLL' | 'CUSTOM';
+export type CalendarNoteKind =
+  | 'GUEST_HOUSE'
+  | 'PICKUP'
+  | 'DROP'
+  | 'CAMEL_DOLL'
+  | 'CUSTOM'
+  | 'NOMADIC_SHOW';
 
 export interface CalendarNoteRow {
   id: string;
   occursOn: string;
   kind: CalendarNoteKind;
   customText: string | null;
+  timeText: string | null;
+  headcount: number | null;
   confirmedTripId: string | null;
   memo: string | null;
   confirmedTrip: {
@@ -30,6 +38,8 @@ const CALENDAR_NOTE_FRAGMENT = gql`
     occursOn
     kind
     customText
+    timeText
+    headcount
     confirmedTripId
     memo
     confirmedTrip {
@@ -50,6 +60,15 @@ const CALENDAR_NOTES_QUERY = gql`
   ${CALENDAR_NOTE_FRAGMENT}
   query CalendarNotes($year: Int!, $month: Int!) {
     calendarNotes(year: $year, month: $month) {
+      ...CalendarNoteFields
+    }
+  }
+`;
+
+export const CONFIRMED_TRIP_CALENDAR_NOTES_QUERY = gql`
+  ${CALENDAR_NOTE_FRAGMENT}
+  query ConfirmedTripCalendarNotes($confirmedTripId: ID!) {
+    confirmedTripCalendarNotes(confirmedTripId: $confirmedTripId) {
       ...CalendarNoteFields
     }
   }
@@ -87,6 +106,14 @@ export function useCalendarNotes(year: number, month: number) {
   return { notes: data?.calendarNotes ?? [], loading, refetch };
 }
 
+export function useConfirmedTripCalendarNotes(confirmedTripId: string | undefined) {
+  const { data, loading, refetch } = useQuery<{ confirmedTripCalendarNotes: CalendarNoteRow[] }>(
+    CONFIRMED_TRIP_CALENDAR_NOTES_QUERY,
+    { variables: { confirmedTripId: confirmedTripId ?? '' }, skip: !confirmedTripId, fetchPolicy: 'cache-and-network' },
+  );
+  return { notes: data?.confirmedTripCalendarNotes ?? [], loading, refetch };
+}
+
 export function useCreateCalendarNote() {
   const [mutate, { loading }] = useMutation<{ createCalendarNote: CalendarNoteRow }>(
     CREATE_CALENDAR_NOTE_MUTATION,
@@ -97,6 +124,8 @@ export function useCreateCalendarNote() {
       occursOn: string;
       kind: CalendarNoteKind;
       customText?: string | null;
+      timeText?: string | null;
+      headcount?: number | null;
       confirmedTripId?: string | null;
       memo?: string | null;
     }): Promise<CalendarNoteRow> => {
@@ -119,6 +148,8 @@ export function useUpdateCalendarNote() {
         occursOn: string;
         kind: CalendarNoteKind;
         customText: string | null;
+        timeText: string | null;
+        headcount: number | null;
         confirmedTripId: string | null;
         memo: string | null;
       }>,
@@ -245,7 +276,7 @@ export interface ConfirmedTripRow {
     versionNumber: number;
     totalDays: number;
     variantType: string;
-    meta: {
+      meta: {
       leaderName: string;
       documentNumber: string;
       travelStartDate: string;
@@ -266,8 +297,9 @@ export interface ConfirmedTripRow {
       pickupPlaceCustomText: string | null;
       dropPlaceType: PlanPickupDropPlaceType | null;
       dropPlaceCustomText: string | null;
-      externalTransfers: ExternalTransfer[];
-      transportGroups: PlanVersionTransportGroupRow[];
+      /** 목록 쿼리에서 생략될 수 있음 → 캘린더 실외 픽드랍 표시 시 빈 배열로 취급 */
+      externalTransfers?: ExternalTransfer[];
+      transportGroups?: PlanVersionTransportGroupRow[];
       lodgingSelections: Array<{
         dayIndex: number;
         level: string;
@@ -548,6 +580,33 @@ export const CONFIRMED_TRIP_LIST_FRAGMENT = gql`
           dayIndex
           level
           customLodgingNameSnapshot
+        }
+        externalTransfers {
+          direction
+          presetCode
+          travelDate
+          departureTime
+          arrivalTime
+          departurePlace
+          arrivalPlace
+          selectedTeamOrderIndexes
+        }
+        transportGroups {
+          orderIndex
+          teamName
+          headcount
+          flightInDate
+          flightInTime
+          flightOutDate
+          flightOutTime
+          pickupDate
+          pickupTime
+          pickupPlaceType
+          pickupPlaceCustomText
+          dropDate
+          dropTime
+          dropPlaceType
+          dropPlaceCustomText
         }
       }
     }

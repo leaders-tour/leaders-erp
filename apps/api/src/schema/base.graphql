@@ -47,6 +47,8 @@ type Query {
   confirmedTrips(status: ConfirmedTripStatus): [ConfirmedTrip!]!
   confirmedTrip(id: ID!): ConfirmedTrip
   calendarNotes(year: Int!, month: Int!): [CalendarNote!]!
+  """해당 확정 건에 연결된 캘린더 일정 전체 (월 구분 없음)."""
+  confirmedTripCalendarNotes(confirmedTripId: ID!): [CalendarNote!]!
   guides(status: GuideStatus, level: GuideLevel): [Guide!]!
   guide(id: ID!): Guide
   drivers(status: DriverStatus, level: DriverLevel, vehicleType: VehicleType): [Driver!]!

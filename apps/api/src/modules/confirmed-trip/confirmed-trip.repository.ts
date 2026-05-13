@@ -66,6 +66,16 @@ export const confirmedTripListInclude = {
   },
 } satisfies Prisma.ConfirmedTripInclude;
 
+/** CalendarNote → confirmedTrip 서브셋 (GraphQL `ConfirmedTrip.user` 필수 등) */
+export const calendarNoteConfirmedTripInclude = {
+  user: true,
+  planVersion: {
+    include: {
+      meta: true,
+    },
+  },
+} satisfies Prisma.ConfirmedTripInclude;
+
 export class ConfirmedTripRepository {
   constructor(private readonly prisma: PrismaLike) {}
 

@@ -4,6 +4,7 @@ enum CalendarNoteKind {
   DROP
   CAMEL_DOLL
   CUSTOM
+  NOMADIC_SHOW
 }
 
 type CalendarNote {
@@ -11,6 +12,8 @@ type CalendarNote {
   occursOn: String!
   kind: CalendarNoteKind!
   customText: String
+  timeText: String
+  headcount: Int
   confirmedTripId: String
   confirmedTrip: ConfirmedTrip
   memo: String
@@ -22,6 +25,8 @@ input CalendarNoteCreateInput {
   occursOn: String!
   kind: CalendarNoteKind!
   customText: String
+  timeText: String
+  headcount: Int
   confirmedTripId: ID
   memo: String
 }
@@ -30,6 +35,8 @@ input CalendarNoteUpdateInput {
   occursOn: String
   kind: CalendarNoteKind
   customText: String
+  timeText: String
+  headcount: Int
   confirmedTripId: ID
   memo: String
 }

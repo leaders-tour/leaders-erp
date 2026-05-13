@@ -16,7 +16,7 @@ import {
 } from '@tour/validation';
 import type { ConfirmedTripDriverAssignmentInput, ConfirmedTripGuideAssignmentInput } from '@tour/validation';
 import { DomainError, createValidationError } from '../../lib/errors';
-import { ConfirmedTripRepository, confirmedTripInclude } from './confirmed-trip.repository';
+import { ConfirmedTripRepository, calendarNoteConfirmedTripInclude, confirmedTripInclude } from './confirmed-trip.repository';
 import type {
   CalendarNoteCreateDto,
   CalendarNoteUpdateDto,
@@ -25,6 +25,12 @@ import type {
   ConfirmedTripLodgingUpsertDto,
   ConfirmedTripUpdateDto,
 } from './confirmed-trip.types';
+
+const calendarNoteWithConfirmedTripInclude = {
+  confirmedTrip: {
+    include: calendarNoteConfirmedTripInclude,
+  },
+} satisfies Prisma.CalendarNoteInclude;
 
 export class ConfirmedTripService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -475,10 +481,16 @@ export class ConfirmedTripService {
       where: {
         occursOn: { gte: from, lte: to },
       },
-      include: {
-        confirmedTrip: true,
-      },
+      include: calendarNoteWithConfirmedTripInclude,
       orderBy: { occursOn: 'asc' },
+    });
+  }
+
+  listConfirmedTripCalendarNotes(confirmedTripId: string) {
+    return this.prisma.calendarNote.findMany({
+      where: { confirmedTripId },
+      include: calendarNoteWithConfirmedTripInclude,
+      orderBy: [{ occursOn: 'asc' }, { createdAt: 'asc' }],
     });
   }
 
@@ -487,16 +499,18 @@ export class ConfirmedTripService {
     if (!parsed.success) {
       throw createValidationError('Invalid calendar note input', parsed.error);
     }
-    const { occursOn, kind, customText, confirmedTripId, memo } = parsed.data;
+    const { occursOn, kind, customText, timeText, headcount, confirmedTripId, memo } = parsed.data;
     return this.prisma.calendarNote.create({
       data: {
         occursOn: new Date(occursOn),
         kind: kind as CalendarNoteKind,
         customText: customText ?? null,
+        timeText: timeText ?? null,
+        headcount: headcount ?? null,
         confirmedTripId: confirmedTripId ?? null,
         memo: memo ?? null,
       },
-      include: { confirmedTrip: true },
+      include: calendarNoteWithConfirmedTripInclude,
     });
   }
 
@@ -509,18 +523,20 @@ export class ConfirmedTripService {
     const existing = await this.prisma.calendarNote.findUnique({ where: { id } });
     if (!existing) throw new DomainError('NOT_FOUND', 'Calendar note not found');
 
-    const { occursOn, kind, customText, confirmedTripId, memo } = parsed.data;
+    const { occursOn, kind, customText, timeText, headcount, confirmedTripId, memo } = parsed.data;
     const data: Record<string, unknown> = {};
     if (occursOn !== undefined) data.occursOn = new Date(occursOn);
     if (kind !== undefined) data.kind = kind as CalendarNoteKind;
     if (customText !== undefined) data.customText = customText ?? null;
+    if (timeText !== undefined) data.timeText = timeText;
+    if (headcount !== undefined) data.headcount = headcount;
     if (confirmedTripId !== undefined) data.confirmedTripId = confirmedTripId ?? null;
     if (memo !== undefined) data.memo = memo ?? null;
 
     return this.prisma.calendarNote.update({
       where: { id },
       data,
-      include: { confirmedTrip: true },
+      include: calendarNoteWithConfirmedTripInclude,
     });
   }
 

@@ -13,9 +13,12 @@ import {
   getTripDestination,
   getTripPickupDate,
   getTripDropDate,
+  getTripExternalTransfers,
+  getTripTransportGroupsForExternalTransfers,
   type CalendarNoteRow,
   type ConfirmedTripRow,
 } from './hooks';
+import { listExternalTransferDetailRows } from '../plan/external-transfer';
 
 interface ConfirmedTripCalendarProps {
   trips: ConfirmedTripRow[];
@@ -223,12 +226,27 @@ function buildWeekBlocks(
 
   // 이달에 표시할 메모성 텍스트를 날짜별로 수집
   for (const trip of trips) {
-    const startStr = getTripStartDate(trip);
     const pickupStr = getTripPickupDate(trip);
     const dropStr = getTripDropDate(trip);
     if (pickupStr) addSingleDayNote(trip, pickupStr, '픽업');
     if (dropStr) addSingleDayNote(trip, dropStr, '드랍');
-    if (trip.camelDollPurchased && startStr) addSingleDayNote(trip, startStr, '낙타인형 구매');
+
+    const externals = getTripExternalTransfers(trip);
+    const teams = getTripTransportGroupsForExternalTransfers(trip);
+    if (externals.length > 0 && teams.length > 0) {
+      const pickupRows = listExternalTransferDetailRows(externals, teams, 'PICKUP');
+      for (const row of pickupRows) {
+        if (!row.dateIso) continue;
+        const label = `실외픽업 ${row.departureTime} ${row.teamLabel}`;
+        addSingleDayNote(trip, row.dateIso, label);
+      }
+      const dropRows = listExternalTransferDetailRows(externals, teams, 'DROP');
+      for (const row of dropRows) {
+        if (!row.dateIso) continue;
+        const label = `실외드랍 ${row.departureTime} ${row.teamLabel}`;
+        addSingleDayNote(trip, row.dateIso, label);
+      }
+    }
   }
 
   return { weekBlocks, weekNotes, weekCount };
@@ -240,11 +258,21 @@ const KIND_LABEL: Record<string, string> = {
   DROP: '드랍',
   CAMEL_DOLL: '낙타인형 구매',
   CUSTOM: '',
+  NOMADIC_SHOW: '노마딕쇼',
 };
 
 function getNoteDisplayLabel(note: CalendarNoteRow): string {
   if (note.kind === 'CUSTOM') return note.customText ?? '직접입력';
   return KIND_LABEL[note.kind] ?? note.kind;
+}
+
+function formatCalendarNoteLine(note: CalendarNoteRow): string {
+  const title = getNoteDisplayLabel(note);
+  const parts: string[] = [];
+  if (note.timeText) parts.push(note.timeText);
+  parts.push(title);
+  if (note.headcount != null) parts.push(`${note.headcount}명`);
+  return parts.join(' ');
 }
 
 function getNotePersonLabel(note: CalendarNoteRow): string {
@@ -433,7 +461,7 @@ export function ConfirmedTripCalendar({
                             ))}
                             {/* 수동 추가 CalendarNote */}
                             {calNotes.map((cn) => {
-                              const label = getNoteDisplayLabel(cn);
+                              const label = formatCalendarNoteLine(cn);
                               const person = getNotePersonLabel(cn);
                               return (
                                 <button

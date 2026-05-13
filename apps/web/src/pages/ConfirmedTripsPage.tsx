@@ -156,11 +156,18 @@ const RENTAL_ITEM_FILTER_VALUES = new Set<RentalItemFilter>([
   'drop',
 ]);
 
-function matchesRentalItem(trip: ConfirmedTripRow, filter: RentalItemFilter): boolean {
+function matchesRentalItem(
+  trip: ConfirmedTripRow,
+  filter: RentalItemFilter,
+  calendarNotes: CalendarNoteRow[],
+): boolean {
   if (filter === 'drone') return Boolean(trip.rentalDrone);
   if (filter === 'starlink') return Boolean(trip.rentalStarlink);
   if (filter === 'powerbank') return Boolean(trip.rentalPowerbank);
-  if (filter === 'camelDoll') return Boolean(trip.camelDollPurchased);
+  if (filter === 'camelDoll') {
+    if (trip.camelDollPurchased) return true;
+    return calendarNotes.some((n) => n.kind === 'CAMEL_DOLL' && n.confirmedTripId === trip.id);
+  }
   if (filter === 'pickup') return getTripPickupDate(trip) !== null;
   if (filter === 'drop') return getTripDropDate(trip) !== null;
   return false;
@@ -169,9 +176,10 @@ function matchesRentalItem(trip: ConfirmedTripRow, filter: RentalItemFilter): bo
 function applyRentalItemFilter(
   trips: ConfirmedTripRow[],
   filters: RentalItemFilter[],
+  calendarNotes: CalendarNoteRow[],
 ): ConfirmedTripRow[] {
   if (filters.length === 0) return trips;
-  return trips.filter((trip) => filters.every((filter) => matchesRentalItem(trip, filter)));
+  return trips.filter((trip) => filters.every((filter) => matchesRentalItem(trip, filter, calendarNotes)));
 }
 
 function normalizeTripSearchText(value: string): string {
@@ -1027,12 +1035,12 @@ export function ConfirmedTripsPage(): JSX.Element {
   const tripsFilteredBase = useMemo(
     () =>
       filterTripsByAggScope(
-        applyRentalItemFilter(applyDateFilter(allTrips, dateFilter), rentalItemFilters),
+        applyRentalItemFilter(applyDateFilter(allTrips, dateFilter), rentalItemFilters, notes),
         aggFrom,
         aggTo,
         aggRegions,
       ),
-    [allTrips, dateFilter, rentalItemFilters, aggFrom, aggTo, aggRegions],
+    [allTrips, dateFilter, rentalItemFilters, notes, aggFrom, aggTo, aggRegions],
   );
 
   const searchedTrips = useMemo(
@@ -1059,12 +1067,12 @@ export function ConfirmedTripsPage(): JSX.Element {
   const calendarTrips = useMemo(
     () =>
       filterTripsByAggScope(
-        applyRentalItemFilter(allTrips, rentalItemFilters),
+        applyRentalItemFilter(allTrips, rentalItemFilters, notes),
         aggFrom,
         aggTo,
         aggRegions,
       ),
-    [allTrips, rentalItemFilters, aggFrom, aggTo, aggRegions],
+    [allTrips, rentalItemFilters, notes, aggFrom, aggTo, aggRegions],
   );
 
   const calendarViewStats = useMemo(() => {

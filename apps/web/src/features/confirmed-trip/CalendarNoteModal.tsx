@@ -12,6 +12,8 @@ interface CalendarNoteModalProps {
     occursOn: string;
     kind: CalendarNoteKind;
     customText?: string | null;
+    timeText?: string | null;
+    headcount?: number | null;
     confirmedTripId?: string | null;
     memo?: string | null;
   }) => void;
@@ -25,9 +27,17 @@ const KIND_LABELS: Record<CalendarNoteKind, string> = {
   DROP: '드랍',
   CAMEL_DOLL: '낙타인형 구매',
   CUSTOM: '직접입력',
+  NOMADIC_SHOW: '노마딕쇼',
 };
 
-const KIND_OPTIONS: CalendarNoteKind[] = ['GUEST_HOUSE', 'PICKUP', 'DROP', 'CAMEL_DOLL', 'CUSTOM'];
+const KIND_OPTIONS: CalendarNoteKind[] = [
+  'GUEST_HOUSE',
+  'PICKUP',
+  'DROP',
+  'CAMEL_DOLL',
+  'NOMADIC_SHOW',
+  'CUSTOM',
+];
 
 export function CalendarNoteModal({
   open,
@@ -42,6 +52,8 @@ export function CalendarNoteModal({
   const [occursOn, setOccursOn] = useState('');
   const [kind, setKind] = useState<CalendarNoteKind>('PICKUP');
   const [customText, setCustomText] = useState('');
+  const [timeText, setTimeText] = useState('');
+  const [headcount, setHeadcount] = useState('');
   const [confirmedTripId, setConfirmedTripId] = useState<string>('');
   const [memo, setMemo] = useState('');
   const [tripSearch, setTripSearch] = useState('');
@@ -52,12 +64,16 @@ export function CalendarNoteModal({
       setOccursOn(note.occursOn.slice(0, 10));
       setKind(note.kind);
       setCustomText(note.customText ?? '');
+      setTimeText(note.timeText ?? '');
+      setHeadcount(note.headcount != null ? String(note.headcount) : '');
       setConfirmedTripId(note.confirmedTripId ?? '');
       setMemo(note.memo ?? '');
     } else {
       setOccursOn(initialDate ?? '');
       setKind('PICKUP');
       setCustomText('');
+      setTimeText('');
+      setHeadcount('');
       setConfirmedTripId('');
       setMemo('');
     }
@@ -74,10 +90,17 @@ export function CalendarNoteModal({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const headParsed = headcount.trim() === '' ? null : Number.parseInt(headcount, 10);
+    if (headcount.trim() !== '' && (!Number.isFinite(headParsed) || headParsed! < 1)) {
+      window.alert('인원은 1 이상의 숫자로 입력해 주세요.');
+      return;
+    }
     onSave({
       occursOn,
       kind,
       customText: kind === 'CUSTOM' ? (customText.trim() || null) : null,
+      timeText: timeText.trim() || null,
+      headcount: headParsed,
       confirmedTripId: confirmedTripId || null,
       memo: memo.trim() || null,
     });
@@ -151,6 +174,29 @@ export function CalendarNoteModal({
               />
             </div>
           )}
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">시간 (선택)</label>
+            <input
+              type="time"
+              value={timeText}
+              onChange={(e) => setTimeText(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">인원 (선택)</label>
+            <input
+              type="number"
+              min={1}
+              inputMode="numeric"
+              value={headcount}
+              onChange={(e) => setHeadcount(e.target.value)}
+              placeholder="예: 6"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
+            />
+          </div>
 
           {/* 고객 선택 */}
           <div>

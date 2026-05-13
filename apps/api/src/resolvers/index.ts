@@ -180,6 +180,7 @@ export const resolvers = {
   AccommodationOption: accommodationResolver.AccommodationOption,
   ConfirmedTrip: confirmedTripResolver.ConfirmedTrip,
   ConfirmedTripLodging: confirmedTripResolver.ConfirmedTripLodging,
+  CalendarNote: confirmedTripResolver.CalendarNote,
   PlanTemplate: mergeSection(planTemplateResolver.PlanTemplate ?? {}),
   PlanTemplateStop: mergeSection(planTemplateResolver.PlanTemplateStop ?? {}),
 };

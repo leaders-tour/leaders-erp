@@ -36,6 +36,7 @@ import {
 } from '../features/plan/pickup-drop';
 import { markConfirmedTripRecentlyReturned } from '../features/confirmed-trip/recent-return';
 import { LodgingSection } from '../features/confirmed-trip/LodgingSection';
+import { ConfirmedTripScheduleSection } from '../features/confirmed-trip/ConfirmedTripScheduleSection';
 import { usePlanVersions, useUpdateUser, useUploadUserAttachment } from '../features/plan/hooks';
 import { toVariantLabel } from '../features/plan/variant-label';
 import { API_BASE_URL } from '../lib/api-base-url';
@@ -460,8 +461,6 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const { updateConfirmedTrip } = useUpdateConfirmedTrip();
   const { cancelConfirmedTrip, loading: cancelling } = useCancelConfirmedTrip();
 
-  const [camelDollSaving, setCamelDollSaving] = useState(false);
-
   // 픽드랍 — 독립 상태
   const [pickupDateEdit, setPickupDateEdit] = useState<string>('');
   const [dropDateEdit, setDropDateEdit] = useState<string>('');
@@ -677,17 +676,6 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     }
   };
 
-  const handleCamelDollToggle = async (next: boolean) => {
-    setCamelDollSaving(true);
-    try {
-      await updateConfirmedTrip(tripId, { camelDollPurchased: next });
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
-    } finally {
-      setCamelDollSaving(false);
-    }
-  };
-
   const startPickupDropEdit = () => {
     const toDateInputValue = (iso: string | null) => {
       if (!iso) return '';
@@ -785,7 +773,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     if (!selectedSwitchVersionId || selectedSwitchVersionId === trip.planVersionId) return;
     if (
       !window.confirm(
-        '선택한 견적 버전으로 연결만 바뀝니다. 기사·숙소·가이드·낙타인형 구매·오픈채팅·예약일 등 확정 건에 입력한 운영 정보는 그대로 유지됩니다. 진행할까요?',
+        '선택한 견적 버전으로 연결만 바뀝니다. 기사·숙소·가이드·운영 일정·오픈채팅·예약일 등 확정 건에 입력한 운영 정보는 그대로 유지됩니다. 진행할까요?',
       )
     ) {
       return;
@@ -1448,41 +1436,17 @@ export function ConfirmedTripDetailPage(): JSX.Element {
             )}
           </Card>
 
-          {/* 낙타인형 구매 — 독립 카드 */}
-          <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-900">낙타인형 구매</h2>
-              {trip.status === 'ACTIVE' && (
-                <button
-                  type="button"
-                  disabled={camelDollSaving}
-                  onClick={() => handleCamelDollToggle(!trip.camelDollPurchased)}
-                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition disabled:opacity-50 ${
-                    trip.camelDollPurchased
-                      ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {camelDollSaving
-                    ? '저장 중...'
-                    : trip.camelDollPurchased
-                      ? '구매 취소'
-                      : '구매로 변경'}
-                </button>
-              )}
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              <span
-                className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${
-                  trip.camelDollPurchased
-                    ? 'bg-amber-100 text-amber-800'
-                    : 'bg-slate-100 text-slate-500'
-                }`}
-              >
-                {trip.camelDollPurchased ? '구매' : '미구매'}
-              </span>
-            </div>
-          </Card>
+          {/* 운영 일정 (낙타·노마딕·직접입력) */}
+          {trip ? (
+            <ConfirmedTripScheduleSection
+              tripId={trip.id}
+              tripActive={trip.status === 'ACTIVE'}
+              defaultDateIso={
+                (getTripStartDate(trip) ?? trip.travelStart)?.slice(0, 10) ??
+                new Date().toISOString().slice(0, 10)
+              }
+            />
+          ) : null}
 
           <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
@@ -1655,7 +1619,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           <Card className="max-h-[calc(100vh-4rem)] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-5 shadow-xl">
             <h3 className="text-lg font-semibold text-slate-900">수정 방법 선택</h3>
             <p className="mt-2 text-sm text-slate-600">
-              견적 버전 연결만 바꿉니다. 이 확정 건에 입력한 기사·숙소·가이드·낙타인형 구매 등 운영 정보는 유지됩니다.
+              견적 버전 연결만 바꿉니다. 이 확정 건에 입력한 기사·숙소·가이드·운영 일정 등 운영 정보는 유지됩니다.
             </p>
 
             <div className="mt-5 grid gap-6">
