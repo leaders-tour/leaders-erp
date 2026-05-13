@@ -179,6 +179,7 @@ export const manualPricingInputSchema = z
     teamSummaries: z.array(manualPricingTeamSummaryInputSchema).default([]),
     lineOverrides: z.array(manualPricingLineOverrideInputSchema).default([]),
     customerPricingSnapshot: customerPricingSnapshotInputSchema.optional(),
+    expandTeamPricingSummaryRows: z.boolean().optional(),
   })
   .superRefine((value, ctx) => {
     const seenAdjustmentIds = new Set<string>();

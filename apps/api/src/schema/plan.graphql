@@ -324,6 +324,8 @@ type ManualPricingSnapshot {
   teamSummaries: [ManualPricingTeamSummarySnapshot!]!
   lineOverrides: [ManualPricingLineOverride!]!
   customerPricingSnapshot: CustomerPricingSnapshot
+  """견적·PDF 요약에서 금액이 같아도 팀별 행을 펼쳐 표시할지 여부."""
+  expandTeamPricingSummaryRows: Boolean
 }
 
 type OriginalPricingSnapshot {
@@ -658,6 +660,7 @@ input ManualPricingInput {
   teamSummaries: [ManualPricingTeamSummaryInput!]
   lineOverrides: [ManualPricingLineOverrideInput!]
   customerPricingSnapshot: CustomerPricingSnapshotInput
+  expandTeamPricingSummaryRows: Boolean
 }
 
 enum ManualAdjustmentKind {

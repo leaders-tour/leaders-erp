@@ -366,6 +366,10 @@ export class PricingService {
         (row) => typeof row?.rowKey === 'string' && Number.isInteger(row?.amountKrw),
       ),
       customerPricingSnapshot: this.normalizeCustomerPricingSnapshot(manualPricing.customerPricingSnapshot),
+      expandTeamPricingSummaryRows:
+        typeof manualPricing.expandTeamPricingSummaryRows === 'boolean'
+          ? manualPricing.expandTeamPricingSummaryRows
+          : undefined,
     };
   }
 

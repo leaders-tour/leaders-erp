@@ -288,6 +288,10 @@ export const planResolver = {
           snapshot.customerPricingSnapshot && typeof snapshot.customerPricingSnapshot === 'object'
             ? snapshot.customerPricingSnapshot
             : null,
+        expandTeamPricingSummaryRows:
+          typeof snapshot.expandTeamPricingSummaryRows === 'boolean'
+            ? snapshot.expandTeamPricingSummaryRows
+            : null,
       };
     },
     originalPricing: (parent: { originalPricingSnapshot?: unknown }) => {

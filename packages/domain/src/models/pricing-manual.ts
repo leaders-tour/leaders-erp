@@ -108,6 +108,8 @@ export interface PricingManualSnapshot {
   adjustmentLines?: PricingManualAdjustmentLine[];
   summary?: PricingManualSummarySnapshot | null;
   teamSummaries?: PricingManualTeamSummarySnapshot[];
+  /** 견적 요약 표에서 동일 금액이어도 팀별로 펼침 */
+  expandTeamPricingSummaryRows?: boolean | null;
   /**
    * 일정 빌더 저장 시점의 고객용 금액/라인 스냅샷. 있으면 상세·PDF는 이 값을 우선한다.
    */
