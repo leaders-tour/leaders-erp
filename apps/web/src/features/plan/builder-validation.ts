@@ -15,6 +15,8 @@ import {
   type SpecialMealRowContext,
 } from './special-meals';
 import type { RouteSelection, SegmentOption } from '../plan-template/route-autofill';
+import type { PlanStopRowType } from './plan-stop-row';
+import { isMainPlanStopRow } from './plan-stop-row';
 
 export type ValidationSeverity = 'error' | 'warning';
 
@@ -27,7 +29,7 @@ export interface ValidationResult {
 
 const HH_MM_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
-function extractLastTimeFromCellText(timeCellText: string | null | undefined): string | null {
+export function extractLastTimeFromCellText(timeCellText: string | null | undefined): string | null {
   const text = timeCellText?.trim() ?? '';
   if (!text) return null;
   const lines = text.split('\n').map((s) => s.trim()).filter(Boolean);
@@ -40,11 +42,57 @@ function extractLastTimeFromCellText(timeCellText: string | null | undefined): s
   return null;
 }
 
+/** persisted EXTERNAL_TRANSFER(기간외) 행이 배열 후미 등에 붙더라도, 마지막 본 일정만 기준으로 삼음 */
+export function resolveLastMainPlanRowContext(planRows: PlanRowForValidation[]): {
+  lastMainPlanRowIndex: number;
+  lastMainRow: PlanRowForValidation;
+  previousMainLodgingRow: PlanRowForValidation | undefined;
+} | null {
+  let lastMainIndex = -1;
+  for (let i = planRows.length - 1; i >= 0; i -= 1) {
+    const row = planRows[i];
+    if (row && isMainPlanStopRow(row)) {
+      lastMainIndex = i;
+      break;
+    }
+  }
+  if (lastMainIndex < 0) return null;
+
+  let previousMainLodgingRow: PlanRowForValidation | undefined;
+  for (let i = lastMainIndex - 1; i >= 0; i -= 1) {
+    const row = planRows[i];
+    if (row && isMainPlanStopRow(row)) {
+      previousMainLodgingRow = row;
+      break;
+    }
+  }
+
+  const lastMainRow = planRows[lastMainIndex];
+  if (!lastMainRow) return null;
+
+  return { lastMainPlanRowIndex: lastMainIndex, lastMainRow, previousMainLodgingRow };
+}
+
+/** 일정 빌더 UI의 `mainRowIndex`(본 일행만 0부터 번호). `exclusiveEndIndex` 직전까지의 MAIN 행 개수 */
+export function countMainPlanRowsStrictlyBefore(
+  planRows: PlanRowForValidation[],
+  exclusiveEndIndex: number,
+): number {
+  let count = 0;
+  const end = Math.min(Math.max(exclusiveEndIndex, 0), planRows.length);
+  for (let i = 0; i < end; i += 1) {
+    if (isMainPlanStopRow(planRows[i]!)) count += 1;
+  }
+  return count;
+}
+
 export interface PlanRowForValidation {
   timeCellText: string;
   mealCellText: string;
   scheduleCellText: string;
   lodgingCellText: string;
+  /** 없으면 MAIN로 간주(하위 호환) */
+  rowType?: PlanStopRowType | null;
   /** 특식 규칙 검증(샤브샤브 지역 등)용, 있으면 사용 */
   destinationCellText?: string | null;
 }
@@ -105,9 +153,9 @@ export interface BuilderValidationInput {
   specialMealDestinationRules?: SpecialMealDestinationRules;
 }
 
-export function useBuilderValidation(input: BuilderValidationInput): ValidationResult[] {
-  return useMemo(() => {
-    const results: ValidationResult[] = [];
+/** 훅 밖 단위 테스트·호출자용 순수 검증 */
+export function computeBuilderValidationResults(input: BuilderValidationInput): ValidationResult[] {
+  const results: ValidationResult[] = [];
     const {
       planRows,
       selectedRoute,
@@ -301,20 +349,23 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
       });
     }
 
-    // drop-time-after-schedule (error) — 드랍시간이 마지막 날 마지막 일정보다 이르면 안됨
-    if (planRows.length > 0 && transportGroups[0]) {
-      const lastRow = planRows[planRows.length - 1];
-      const lastTimeInCell = extractLastTimeFromCellText(lastRow?.timeCellText);
-      const dropTime = transportGroups[0].dropTime?.trim();
-      const dropMinutes = parseTimeToMinutes(dropTime);
-      const lastMinutes = parseTimeToMinutes(lastTimeInCell);
-      if (dropTime && dropMinutes !== null && lastMinutes !== null && dropMinutes < lastMinutes) {
-        results.push({
-          id: 'drop-time-after-schedule',
-          severity: 'error',
-          message: `드랍시간(${dropTime})이 마지막 날 마지막 일정(${lastTimeInCell ?? ''})보다 이릅니다.`,
-          affectedCells: [{ rowIndex: planRows.length - 1, field: 'timeCellText' }],
-        });
+    // drop-time-after-schedule (error) — 드랍시간이 마지막 날 마지막 일정보다 이르면 안됨 (기간외 픽드랍 행은 제외)
+    if (transportGroups[0]) {
+      const lastMainCtx = resolveLastMainPlanRowContext(planRows);
+      if (lastMainCtx) {
+        const lastMainRowOrdinal = countMainPlanRowsStrictlyBefore(planRows, lastMainCtx.lastMainPlanRowIndex);
+        const lastTimeInCell = extractLastTimeFromCellText(lastMainCtx.lastMainRow.timeCellText);
+        const dropTime = transportGroups[0].dropTime?.trim();
+        const dropMinutes = parseTimeToMinutes(dropTime);
+        const lastMinutes = parseTimeToMinutes(lastTimeInCell);
+        if (dropTime && dropMinutes !== null && lastMinutes !== null && dropMinutes < lastMinutes) {
+          results.push({
+            id: 'drop-time-after-schedule',
+            severity: 'error',
+            message: `드랍시간(${dropTime})이 마지막 날 마지막 일정(${lastTimeInCell ?? ''})보다 이릅니다.`,
+            affectedCells: [{ rowIndex: lastMainRowOrdinal, field: 'timeCellText' }],
+          });
+        }
       }
     }
 
@@ -362,38 +413,42 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
       }
     }
 
-    // last-day-meal-x-rule (warning) — 드랍시간 기준으로 X 처리되어야 하는 식사 확인
-    if (planRows.length > 0 && transportGroups[0]) {
-      const lastRowIndex = planRows.length - 1;
-      const lastRow = planRows[lastRowIndex];
-      const previousRow = lastRowIndex > 0 ? planRows[lastRowIndex - 1] : undefined;
-      const requiredXMeals = getRequiredXMealsForLastDay({
-        travelEndDate,
-        dropDate: transportGroups[0].dropDate?.trim() ?? '',
-        dropTime: transportGroups[0].dropTime?.trim() ?? '',
-        flightOutTime: transportGroups[0].flightOutTime?.trim() ?? '',
-        previousLodgingCellText: previousRow?.lodgingCellText ?? null,
-      });
-      if (requiredXMeals.length > 0) {
-        const mealFields = parseMealCellText(lastRow?.mealCellText);
-        const invalidMeals = requiredXMeals.filter((mealKey) => {
-          const value = mealFields[mealKey].trim().toUpperCase();
-          return value !== 'X';
+    // last-day-meal-x-rule (warning) — 드랍시간 기준으로 X 처리되어야 하는 식사 확인 (기간외 행 제외)
+    if (transportGroups[0]) {
+      const lastMainCtx = resolveLastMainPlanRowContext(planRows);
+      if (lastMainCtx) {
+        const lastMainRowOrdinal = countMainPlanRowsStrictlyBefore(planRows, lastMainCtx.lastMainPlanRowIndex);
+        const requiredXMeals = getRequiredXMealsForLastDay({
+          travelEndDate,
+          dropDate: transportGroups[0].dropDate?.trim() ?? '',
+          dropTime: transportGroups[0].dropTime?.trim() ?? '',
+          flightOutTime: transportGroups[0].flightOutTime?.trim() ?? '',
+          previousLodgingCellText: lastMainCtx.previousMainLodgingRow?.lodgingCellText ?? null,
         });
-        if (invalidMeals.length > 0) {
-          const labels = invalidMeals.map((mealKey) => mealSlotToLabel(mealKey));
-          results.push({
-            id: 'last-day-meal-x-rule',
-            severity: 'warning',
-            message: `마지막 날 드랍시간 기준으로 ${labels.join(', ')} 식사는 X로 표시되어야 합니다.`,
-            affectedCells: [{ rowIndex: lastRowIndex, field: 'mealCellText' }],
+        if (requiredXMeals.length > 0) {
+          const mealFields = parseMealCellText(lastMainCtx.lastMainRow.mealCellText);
+          const invalidMeals = requiredXMeals.filter((mealKey) => {
+            const value = mealFields[mealKey].trim().toUpperCase();
+            return value !== 'X';
           });
+          if (invalidMeals.length > 0) {
+            const labels = invalidMeals.map((mealKey) => mealSlotToLabel(mealKey));
+            results.push({
+              id: 'last-day-meal-x-rule',
+              severity: 'warning',
+              message: `마지막 날 드랍시간 기준으로 ${labels.join(', ')} 식사는 X로 표시되어야 합니다.`,
+              affectedCells: [{ rowIndex: lastMainRowOrdinal, field: 'mealCellText' }],
+            });
+          }
         }
       }
     }
 
     return results;
-  }, [
+}
+
+export function useBuilderValidation(input: BuilderValidationInput): ValidationResult[] {
+  return useMemo(() => computeBuilderValidationResults(input), [
     input.planRows,
     input.selectedRoute,
     input.filteredSegments,

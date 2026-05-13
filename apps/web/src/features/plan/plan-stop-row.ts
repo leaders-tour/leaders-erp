@@ -16,13 +16,13 @@ export interface PlanStopRowBase {
 }
 
 export function isExternalTransferPlanStopRow(
-  row: Pick<PlanStopRowBase, 'rowType'> | null | undefined,
+  row: Pick<PlanStopRowBase, 'rowType'> | { rowType?: PlanStopRowType | null } | null | undefined,
 ): boolean {
   return row?.rowType === 'EXTERNAL_TRANSFER';
 }
 
 export function isMainPlanStopRow(
-  row: Pick<PlanStopRowBase, 'rowType'> | null | undefined,
+  row: Pick<PlanStopRowBase, 'rowType'> | { rowType?: PlanStopRowType | null } | null | undefined,
 ): boolean {
   return row?.rowType !== 'EXTERNAL_TRANSFER';
 }
