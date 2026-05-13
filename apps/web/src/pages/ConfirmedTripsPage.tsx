@@ -19,10 +19,12 @@ import {
   getTripDestination,
   getTripPickupDate,
   getTripDropDate,
+  getTripExternalTransfers,
   sortTripAssignments,
   type CalendarNoteRow,
   type ConfirmedTripRow,
 } from '../features/confirmed-trip/hooks';
+import { externalTransferTravelDateIso } from '../features/plan/external-transfer';
 import { isConfirmedTripRecentReturn } from '../features/confirmed-trip/recent-return';
 import {
   tripMatchesAggRegions,
@@ -62,12 +64,26 @@ function isDepartureInRange(tripStartIso: string | null, fromYmd: string, toYmd:
   return day >= from && day <= to;
 }
 
+/** 출발일은 구간 밖이어도 실투어 외 이송 일정(travelDate)이 구간에 들어오면 true — 캘린더 집계 전용. */
+function tripExternalTransfersIntersectAggRange(
+  trip: ConfirmedTripRow,
+  aggFrom: string,
+  aggTo: string,
+): boolean {
+  for (const transfer of getTripExternalTransfers(trip)) {
+    const iso = externalTransferTravelDateIso(transfer.travelDate);
+    if (iso && isDepartureInRange(iso, aggFrom, aggTo)) return true;
+  }
+  return false;
+}
+
 /** 집계·리스트·캘린더 공통: 지역(다중 OR) + (from·to 둘 다 있을 때만) 출발일 구간. */
 function filterTripsByAggScope(
   trips: ConfirmedTripRow[],
   aggFrom: string,
   aggTo: string,
   aggRegions: TripRegionBucket[],
+  options?: { calendarIncludeExternalTransferDates?: boolean },
 ): ConfirmedTripRow[] {
   const hasDateRange = Boolean(aggFrom && aggTo);
   let out = trips;
@@ -75,7 +91,12 @@ function filterTripsByAggScope(
     out = out.filter((t) => tripMatchesAggRegions(t, aggRegions));
   }
   if (hasDateRange) {
-    out = out.filter((t) => isDepartureInRange(getTripStartDate(t), aggFrom, aggTo));
+    const inclExt = options?.calendarIncludeExternalTransferDates === true;
+    out = out.filter((t) => {
+      if (isDepartureInRange(getTripStartDate(t), aggFrom, aggTo)) return true;
+      if (inclExt && tripExternalTransfersIntersectAggRange(t, aggFrom, aggTo)) return true;
+      return false;
+    });
   }
   return out;
 }
@@ -1071,6 +1092,7 @@ export function ConfirmedTripsPage(): JSX.Element {
         aggFrom,
         aggTo,
         aggRegions,
+        { calendarIncludeExternalTransferDates: true },
       ),
     [allTrips, rentalItemFilters, notes, aggFrom, aggTo, aggRegions],
   );

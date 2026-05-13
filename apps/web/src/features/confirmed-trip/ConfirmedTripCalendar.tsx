@@ -11,8 +11,6 @@ import {
   getTripLeaderName,
   getTripHeadcount,
   getTripDestination,
-  getTripPickupDate,
-  getTripDropDate,
   getTripExternalTransfers,
   getTripTransportGroupsForExternalTransfers,
   type CalendarNoteRow,
@@ -224,16 +222,11 @@ function buildWeekBlocks(
     });
   };
 
-  // 이달에 표시할 메모성 텍스트를 날짜별로 수집
+  // 이달에 표시할 메모성 텍스트를 날짜별로 수집 (실투어 외 픽드랍만; 일반 픽업·드랍 일정 메타는 표시하지 않음)
   for (const trip of trips) {
-    const pickupStr = getTripPickupDate(trip);
-    const dropStr = getTripDropDate(trip);
-    if (pickupStr) addSingleDayNote(trip, pickupStr, '픽업');
-    if (dropStr) addSingleDayNote(trip, dropStr, '드랍');
-
     const externals = getTripExternalTransfers(trip);
     const teams = getTripTransportGroupsForExternalTransfers(trip);
-    if (externals.length > 0 && teams.length > 0) {
+    if (externals.length > 0) {
       const pickupRows = listExternalTransferDetailRows(externals, teams, 'PICKUP');
       for (const row of pickupRows) {
         if (!row.dateIso) continue;
@@ -445,7 +438,7 @@ export function ConfirmedTripCalendar({
                             style={{ top: `${notesTopRem}rem` }}
                           >
 
-                            {/* 투어 파생 메모 (픽업/드랍/낙타인형) */}
+                            {/* 투어 파생 메모 (실투어 외 픽드랍) */}
                             {cellNotes.map((note) => (
                               <button
                                 key={note.key}

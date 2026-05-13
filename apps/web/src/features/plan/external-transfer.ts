@@ -486,25 +486,34 @@ export function listExternalTransferDetailRows(
       return [];
     }
 
-    return transfer.selectedTeamOrderIndexes
-      .slice()
+    const normalizedIndexes = transfer.selectedTeamOrderIndexes
+      .filter((teamOrderIndex) => Number.isInteger(teamOrderIndex) && teamOrderIndex >= 0)
       .sort((left, right) => left - right)
-      .map((teamOrderIndex, seq) => {
-        const team = teamArr[teamOrderIndex];
-        const trimmedName = team?.teamName?.trim();
-        const teamLabel =
-          trimmedName && trimmedName.length > 0 ? trimmedName : `${teamOrderIndex + 1}번 팀`;
+      .filter((teamOrderIndex, index, array) => array.indexOf(teamOrderIndex) === index);
 
-        return {
-          key: `${direction}-${transferIdx}-${teamOrderIndex}-${seq}`,
-          teamLabel,
-          dateIso: externalTransferTravelDateIso(transfer.travelDate),
-          departureTime: transfer.departureTime,
-          departurePlace: transfer.departurePlace,
-          arrivalTime: transfer.arrivalTime,
-          arrivalPlace: transfer.arrivalPlace,
-        } satisfies ExternalTransferDetailRow;
-      });
+    const orderIndexes =
+      normalizedIndexes.length > 0
+        ? normalizedIndexes
+        : teamArr.length > 0
+          ? teamArr.map((_, i) => i)
+          : [0];
+
+    return orderIndexes.map((teamOrderIndex, seq) => {
+      const team = teamArr[teamOrderIndex];
+      const trimmedName = team?.teamName?.trim();
+      const teamLabel =
+        trimmedName && trimmedName.length > 0 ? trimmedName : `${teamOrderIndex + 1}번 팀`;
+
+      return {
+        key: `${direction}-${transferIdx}-${teamOrderIndex}-${seq}`,
+        teamLabel,
+        dateIso: externalTransferTravelDateIso(transfer.travelDate),
+        departureTime: transfer.departureTime,
+        departurePlace: transfer.departurePlace,
+        arrivalTime: transfer.arrivalTime,
+        arrivalPlace: transfer.arrivalPlace,
+      } satisfies ExternalTransferDetailRow;
+    });
   });
 }
 
