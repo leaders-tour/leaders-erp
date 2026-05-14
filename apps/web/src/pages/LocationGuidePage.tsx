@@ -1,4 +1,4 @@
-import { Button, Card, Input, Table, Td, Th } from '@tour/ui';
+import { Button, Card, Input, Table, Td, Th, searchComboboxTokens } from '@tour/ui';
 import {
   findAnchorLineIndexForGuideLocationName,
   guideLocationNameContainsAnchorToken,
@@ -363,9 +363,9 @@ export function LocationGuidePage(): JSX.Element {
       <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
         <h2 className="mb-4 text-lg font-semibold">기준목적지로 이미지 일괄 반영</h2>
         <div className="grid gap-4 items-start lg:grid-cols-2">
-          <div className="grid gap-2">
-            <span className="text-sm font-semibold text-slate-800">1) 기준 목적지 선택</span>
-            <p className="text-[11px] leading-relaxed text-slate-500">단일 목적지만 검색됩니다 (경유지x)</p>
+          <div className={searchComboboxTokens.section.stack}>
+            <span className={searchComboboxTokens.section.stepTitle}>1) 기준 목적지 선택</span>
+            <p className={searchComboboxTokens.section.stepSubtitle}>단일 목적지만 검색됩니다 (경유지x)</p>
             {anchorPickSelectedSummary ? (
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
                 {formatLocationNameInline(anchorPickSelectedSummary.name)} ({anchorPickSelectedSummary.regionName})
@@ -382,7 +382,7 @@ export function LocationGuidePage(): JSX.Element {
               </div>
             ) : (
               <>
-                <div className="relative min-w-0">
+                <div className={searchComboboxTokens.field.relativeWrap}>
                   <Input
                     value={bulkAnchorPickSearch}
                     onFocus={() => setBulkAnchorPickOpen(true)}
@@ -392,12 +392,12 @@ export function LocationGuidePage(): JSX.Element {
                       setBulkAnchorPickOpen(true);
                     }}
                     placeholder="기준 목적지 검색"
-                    className="w-full"
+                    className={searchComboboxTokens.field.triggerInput}
                   />
                   {bulkAnchorPickOpen ? (
-                    <div className="absolute left-0 right-0 top-[44px] z-20 max-h-48 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                    <div className={searchComboboxTokens.panel}>
                       {filteredBulkAnchorPickOptions.length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-slate-500">
+                        <div className={searchComboboxTokens.emptyHint}>
                           {anchorBaseEligibleLocations.length === 0
                             ? '이 조건을 만족하는 목적지가 없습니다. (이름 줄 1개, 슬래시 경유 없음)'
                             : '검색 결과가 없습니다.'}
@@ -413,10 +413,10 @@ export function LocationGuidePage(): JSX.Element {
                               setBulkAnchorPickSearch('');
                               setBulkAnchorPickOpen(false);
                             }}
-                            className="flex w-full flex-col rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100"
+                            className={searchComboboxTokens.optionRow}
                           >
                             <span>{formatLocationNameInline(item.name)}</span>
-                            <span className="text-[11px] text-slate-500">{item.regionName}</span>
+                            <span className={searchComboboxTokens.optionSubtitle}>{item.regionName}</span>
                           </button>
                         ))
                       )}
@@ -851,9 +851,55 @@ export function LocationGuidePage(): JSX.Element {
                   <div className="mt-1 max-w-xl whitespace-pre-wrap text-xs text-slate-500">{row.description}</div>
                 </Td>
                 <Td>{formatLocationNameInline(row.location?.name) || '-'}</Td>
-                <Td className="w-[140px]">
+                <Td className="min-w-[13.5rem] max-w-[15rem]">
                   <div className="grid gap-1">
-                  {row.imageUrls.length > 0 ? (
+                  {nameLines.length > 1 && row.imageUrls.length > 0 ? (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="inline-flex shrink-0 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
+                        onClick={() => {
+                          setPreviewImages(row.imageUrls);
+                          setPreviewIndex(0);
+                          setPreviewTitle(row.title);
+                          setPreviewOpen(true);
+                        }}
+                        aria-label={`${row.title} 이미지 1 미리보기 열기`}
+                      >
+                        <img
+                          src={row.imageUrls[0]}
+                          alt={`${row.title} 첫 번째 줄 썸네일`}
+                          className="h-16 w-24 rounded-md border border-slate-200 object-cover"
+                          loading="lazy"
+                        />
+                      </button>
+                      {row.imageUrls[1] ? (
+                        <button
+                          type="button"
+                          className="inline-flex shrink-0 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
+                          onClick={() => {
+                            setPreviewImages(row.imageUrls);
+                            setPreviewIndex(1);
+                            setPreviewTitle(row.title);
+                            setPreviewOpen(true);
+                          }}
+                          aria-label={`${row.title} 이미지 2 미리보기 열기`}
+                        >
+                          <img
+                            src={row.imageUrls[1]}
+                            alt={`${row.title} 두 번째 줄 썸네일`}
+                            className="h-16 w-24 rounded-md border border-slate-200 object-cover"
+                            loading="lazy"
+                          />
+                        </button>
+                      ) : (
+                        <div
+                          className="h-16 w-24 shrink-0 rounded-md border border-dashed border-slate-300 bg-slate-100"
+                          aria-hidden
+                        />
+                      )}
+                    </div>
+                  ) : row.imageUrls.length > 0 ? (
                     <button
                       type="button"
                       className="relative inline-flex rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
