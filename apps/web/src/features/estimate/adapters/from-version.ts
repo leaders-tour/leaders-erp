@@ -6,6 +6,7 @@ import type { PlanVersionDetail } from '../../plan/hooks';
 import { countMainPlanStopRows } from '../../plan/plan-stop-row';
 import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
 import type { EstimateDocumentData, EstimateSecurityDepositScope } from '../model/types';
+import { normalizeEstimateGuideImagesPerPage, normalizeEstimateGuidePageSplits } from '../utils/guide-layout';
 import { formatPricingDetailFormula, resolveDisplayLeadAmount } from '../../pricing/pricing-line-presenter';
 import {
   addDays,
@@ -192,6 +193,8 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
         : '-',
     validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
     movementIntensity: version.movementIntensity ?? null,
+    estimateGuideImagesPerPage: normalizeEstimateGuideImagesPerPage(version.meta?.estimateGuideImagesPerPage),
+    estimateGuidePageSplits: normalizeEstimateGuidePageSplits(version.meta?.estimateGuidePageSplits),
     planStops: version.planStops.map((row) => ({
       rowType: row.rowType ?? 'MAIN',
       locationId: row.locationId ?? null,

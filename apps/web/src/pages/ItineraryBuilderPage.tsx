@@ -13,12 +13,20 @@ import { formatTimeTriggerLabel } from '../components/date-picker/time-picker-ut
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
 import { averageMovementIntensity } from '../features/estimate/model/movement-intensity';
+import {
+  formatEstimateGuidePageSplitsInput,
+  normalizeEstimateGuideImagesPerPage,
+  normalizeEstimateGuidePageSplits,
+  parseEstimateGuidePageSplitsInput,
+} from '../features/estimate/utils/guide-layout';
 import type {
   EstimateBuilderDraftSnapshot,
+  EstimateGuideImagesPerPage,
   EstimatePage1Editor,
   EstimateSecurityDepositScope,
   EstimateTransportGroup,
 } from '../features/estimate/model/types';
+import { ESTIMATE_GUIDE_IMAGES_PER_PAGE_DEFAULT } from '../features/estimate/model/constants';
 import { useAuth } from '../features/auth/context';
 import { useUpdateConfirmedTrip } from '../features/confirmed-trip/hooks';
 import {
@@ -1881,6 +1889,8 @@ function createEstimateDraftSnapshot(input: {
   pricingPreview: EffectivePricingRow | null;
   displayedPricingAdjustmentLines: DisplayedPricingAdjustmentLineRow[];
   expandTeamPricingSummaryRows?: boolean;
+  estimateGuideImagesPerPage?: EstimateGuideImagesPerPage;
+  estimateGuidePageSplits?: number[] | null;
 }): EstimateBuilderDraftSnapshot {
   const customerSnap =
     input.pricingPreview
@@ -1958,6 +1968,8 @@ function createEstimateDraftSnapshot(input: {
             expandTeamPricingSummaryRows: input.expandTeamPricingSummaryRows === true,
           }
         : null,
+    estimateGuideImagesPerPage: normalizeEstimateGuideImagesPerPage(input.estimateGuideImagesPerPage),
+    estimateGuidePageSplits: normalizeEstimateGuidePageSplits(input.estimateGuidePageSplits),
   };
 }
 
@@ -2582,6 +2594,10 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [rentalItemsText, setRentalItemsText] = useState<string>(buildDefaultRentalItems(6));
   const [eventIds, setEventIds] = useState<string[]>([]);
   const [remark, setRemark] = useState<string>('');
+  const [estimateGuideImagesPerPage, setEstimateGuideImagesPerPage] = useState<EstimateGuideImagesPerPage>(
+    ESTIMATE_GUIDE_IMAGES_PER_PAGE_DEFAULT,
+  );
+  const [estimateGuidePageSplitsText, setEstimateGuidePageSplitsText] = useState('');
 
 
   const [selectedRoute, setSelectedRoute] = useState<RouteSelection[]>([]);
@@ -2918,6 +2934,12 @@ export function ItineraryBuilderPage(): JSX.Element {
     setRentalItemsText(meta.rentalItemsText);
     setEventIds(meta.events.map((event) => event.id));
     setRemark(meta.remark ?? '');
+    setEstimateGuideImagesPerPage(normalizeEstimateGuideImagesPerPage(meta.estimateGuideImagesPerPage));
+    setEstimateGuidePageSplitsText(
+      formatEstimateGuidePageSplitsInput(
+        Array.isArray(meta.estimateGuidePageSplits) ? meta.estimateGuidePageSplits : null,
+      ),
+    );
     setRoutePresetTemplateId('');
     setIsMultiDayBlockSectionOpen(false);
 
@@ -4653,6 +4675,10 @@ export function ItineraryBuilderPage(): JSX.Element {
     () => regionSets.find((set) => set.id === regionSetId)?.name ?? '',
     [regionSetId, regionSets],
   );
+  const estimateGuidePageSplitsParsed = useMemo(() => {
+    const p = parseEstimateGuidePageSplitsInput(estimateGuidePageSplitsText);
+    return p && p.length > 0 ? p : null;
+  }, [estimateGuidePageSplitsText]);
   const estimateDraftSnapshot = useMemo<EstimateBuilderDraftSnapshot>(
     () =>
       createEstimateDraftSnapshot({
@@ -4676,6 +4702,8 @@ export function ItineraryBuilderPage(): JSX.Element {
         pricingPreview: effectivePricingPreview,
         displayedPricingAdjustmentLines,
         expandTeamPricingSummaryRows: manualPricing.enabled && manualPricingSplitTeamRows,
+        estimateGuideImagesPerPage,
+        estimateGuidePageSplits: estimateGuidePageSplitsParsed,
       }),
     [
       effectivePlanTitle,
@@ -4699,6 +4727,8 @@ export function ItineraryBuilderPage(): JSX.Element {
       displayedPricingAdjustmentLines,
       manualPricing.enabled,
       manualPricingSplitTeamRows,
+      estimateGuideImagesPerPage,
+      estimateGuidePageSplitsParsed,
     ],
   );
   const { data: previewEstimateData, guidesLoading: previewGuidesLoading } =
@@ -5217,6 +5247,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   mapTransportGroupToPlanMutationInput(group),
                                 ),
                                 remark: remark.trim() || undefined,
+                                estimateGuideImagesPerPage,
+                                estimateGuidePageSplits: estimateGuidePageSplitsParsed ?? undefined,
                               },
                               planStops: planStopsForMutation,
                               manualAdjustments: normalizedManualAdjustments,
@@ -5309,6 +5341,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   mapTransportGroupToPlanMutationInput(group),
                                 ),
                                 remark: remark.trim() || undefined,
+                                estimateGuideImagesPerPage,
+                                estimateGuidePageSplits: estimateGuidePageSplitsParsed ?? undefined,
                               },
                               planStops: planStopsForMutation,
                               manualAdjustments: normalizedManualAdjustments,
@@ -7889,17 +7923,56 @@ export function ItineraryBuilderPage(): JSX.Element {
           >
             <div className="p-4 sm:p-6 lg:sticky lg:top-0 lg:p-6">
               <div className="estimate-preview-panel rounded-[28px] border border-slate-200 bg-white/90 p-4 shadow-xl backdrop-blur sm:p-5">
-                <div className="mb-4 flex items-start justify-between gap-3">
-                  <div>
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 flex-1">
                     <h2 className="text-base font-semibold text-slate-900">
                       실시간 견적서 미리보기
                     </h2>
                     <p className="mt-1 text-xs text-slate-600">
                       좌측 입력값이 우측 문서에 바로 반영됩니다.
                     </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] font-medium text-slate-500">안내 이미지</span>
+                      {([1, 2, 3] as const).map((n) => (
+                        <button
+                          key={`guide-per-page-${n}`}
+                          type="button"
+                          onClick={() => setEstimateGuideImagesPerPage(n)}
+                          className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition ${
+                            estimateGuideImagesPerPage === n
+                              ? 'border-slate-900 bg-slate-900 text-white'
+                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {n === 1 ? '크게 · 1장' : n === 2 ? '추천 · 2장' : '압축 · 3장'}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-3 grid max-w-md gap-1">
+                      <label className="text-[11px] font-medium text-slate-500" htmlFor="estimate-guide-page-splits">
+                        페이지별 장수 (선택)
+                      </label>
+                      <input
+                        id="estimate-guide-page-splits"
+                        type="text"
+                        value={estimateGuidePageSplitsText}
+                        onChange={(event) => setEstimateGuidePageSplitsText(event.target.value)}
+                        placeholder="예: 3, 2, 2 · 비우면 균등(위 버튼)"
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] text-slate-800 placeholder:text-slate-400"
+                        autoComplete="off"
+                      />
+                      {estimateGuidePageSplitsText.trim().length > 0 &&
+                      parseEstimateGuidePageSplitsInput(estimateGuidePageSplitsText) === null ? (
+                        <p className="text-[11px] text-rose-600">
+                          숫자와 쉼표만 사용하세요. 인식할 수 없어 균등 설정으로 미리봅니다.
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600">
-                    {previewGuidesLoading ? '여행지 안내 동기화 중' : '실시간 반영'}
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                    <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600">
+                      {previewGuidesLoading ? '여행지 안내 동기화 중' : '실시간 반영'}
+                    </div>
                   </div>
                 </div>
 

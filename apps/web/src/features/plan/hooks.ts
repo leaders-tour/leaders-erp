@@ -226,6 +226,8 @@ export interface PlanVersionMetaRow {
     updatedAt: string;
   }>;
   remark: string | null;
+  estimateGuideImagesPerPage: number;
+  estimateGuidePageSplits: number[] | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -794,6 +796,8 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
           updatedAt
         }
         remark
+        estimateGuideImagesPerPage
+        estimateGuidePageSplits
         createdAt
         updatedAt
       }

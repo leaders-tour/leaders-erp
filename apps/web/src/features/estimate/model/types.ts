@@ -9,6 +9,9 @@ export type EstimateSecurityDepositMode = 'NONE' | 'PER_PERSON' | 'PER_TEAM';
 
 export type EstimateSecurityDepositScope = '-' | '인당' | '팀당';
 
+/** 견적서 3페이지 이후 여행지 안내 템플릿 이미지 배치 밀도 */
+export type EstimateGuideImagesPerPage = 1 | 2 | 3;
+
 export interface EstimatePlanStopRow {
   rowType: PlanStopRowType;
   locationId?: string | null;
@@ -97,6 +100,10 @@ export interface EstimateBuilderDraftSnapshot {
   movementIntensity?: MovementIntensityValue | null;
   planStops: EstimatePlanStopRow[];
   pricing: EstimatePricingSnapshot | null;
+  /** 빌더에서 선택한 안내 이미지 페이지당 개수 (플랜 저장 시 메타로 반영) */
+  estimateGuideImagesPerPage?: EstimateGuideImagesPerPage;
+  /** 페이지별 장수 직접 지정(예 [3,2,2]). 있으면 균등(estimateGuideImagesPerPage)보다 우선 */
+  estimateGuidePageSplits?: number[] | null;
 }
 
 export interface EstimateAdjustmentLine {
@@ -178,6 +185,10 @@ export interface EstimateDocumentData {
   validUntilDate: string | null;
   movementIntensity?: MovementIntensityValue | null;
   planStops: EstimatePlanStopRow[];
+  /** 여행지 안내 템플릿 이미지를 한 페이지에 몇 장까지 넣을지 (저장된 플랜 메타 또는 빌더 선택) */
+  estimateGuideImagesPerPage: EstimateGuideImagesPerPage;
+  /** null·빈 배열이 아니면 균등 분배 대신 이 순서로 페이지당 장수 적용 */
+  estimateGuidePageSplits: number[] | null;
   page3Blocks: EstimateGuideBlock[];
 }
 

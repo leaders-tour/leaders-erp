@@ -101,6 +101,8 @@ function buildPlanVersionMetaCreateInput(
       dropPlaceType?: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM';
       dropPlaceCustomText?: string;
     }>;
+    estimateGuideImagesPerPage?: number;
+    estimateGuidePageSplits?: number[];
   },
   documentNumber: string,
 ) {
@@ -147,6 +149,11 @@ function buildPlanVersionMetaCreateInput(
     extraLodgings: meta.extraLodgings,
     lodgingSelections: meta.lodgingSelections,
     remark: meta.remark,
+    estimateGuideImagesPerPage: meta.estimateGuideImagesPerPage ?? 2,
+    estimateGuidePageSplits:
+      Array.isArray(meta.estimateGuidePageSplits) && meta.estimateGuidePageSplits.length > 0
+        ? (meta.estimateGuidePageSplits as Prisma.InputJsonValue)
+        : undefined,
     transportGroups: {
       create: toTransportGroupCreateManyInput(meta.transportGroups),
     },

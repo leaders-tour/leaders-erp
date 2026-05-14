@@ -437,6 +437,17 @@ export const planVersionMetaInputSchema = z
     lodgingSelections: z.array(lodgingSelectionInputSchema).default([]),
     transportGroups: z.array(planVersionTransportGroupInputSchema).min(1),
     remark: z.string().max(2000).optional(),
+    estimateGuideImagesPerPage: z
+      .number()
+      .int()
+      .min(1)
+      .max(3)
+      .optional()
+      .transform((value) => (value === undefined ? 2 : value)),
+    estimateGuidePageSplits: z
+      .array(z.number().int().min(1).max(50))
+      .max(30)
+      .optional(),
   })
   .superRefine((value, ctx) => {
     const start = new Date(value.travelStartDate);

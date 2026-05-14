@@ -1,5 +1,6 @@
 import type { ExternalTransfer } from '../../plan/external-transfer';
 import type { EstimateBuilderDraftSnapshot } from '../model/types';
+import { normalizeEstimateGuideImagesPerPage, normalizeEstimateGuidePageSplits } from './guide-layout';
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -31,6 +32,8 @@ export function isEstimateDraftSnapshot(value: unknown): value is EstimateBuilde
 export function normalizeEstimateDraftSnapshot(snapshot: EstimateBuilderDraftSnapshot): EstimateBuilderDraftSnapshot {
   return {
     ...snapshot,
+    estimateGuideImagesPerPage: normalizeEstimateGuideImagesPerPage(snapshot.estimateGuideImagesPerPage),
+    estimateGuidePageSplits: normalizeEstimateGuidePageSplits(snapshot.estimateGuidePageSplits),
     transportGroups: snapshot.transportGroups.map((group) => ({
       teamName: group.teamName ?? '',
       headcount: group.headcount ?? 1,

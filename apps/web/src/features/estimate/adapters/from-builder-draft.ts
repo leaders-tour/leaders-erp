@@ -3,6 +3,7 @@ import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view
 import { countMainPlanStopRows } from '../../plan/plan-stop-row';
 import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
 import type { EstimateBuilderDraftSnapshot, EstimateDocumentData } from '../model/types';
+import { normalizeEstimateGuideImagesPerPage, normalizeEstimateGuidePageSplits } from '../utils/guide-layout';
 import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
 import { formatPricingDetailFormula, resolveDisplayLeadAmount } from '../../pricing/pricing-line-presenter';
 import { addDays, buildPage2Title, normalizeMultilineText, toSecurityDepositScope, todayIsoDate } from '../utils/format';
@@ -86,6 +87,8 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
     movementIntensity: snapshot.movementIntensity ?? null,
     planStops: snapshot.planStops,
+    estimateGuideImagesPerPage: normalizeEstimateGuideImagesPerPage(snapshot.estimateGuideImagesPerPage),
+    estimateGuidePageSplits: normalizeEstimateGuidePageSplits(snapshot.estimateGuidePageSplits),
     page3Blocks: [],
   };
 }

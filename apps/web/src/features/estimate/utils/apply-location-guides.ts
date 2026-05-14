@@ -59,12 +59,15 @@ export function applyLocationGuides(baseData: EstimateDocumentData, guideRows: E
         return null;
       }
 
+      const primaryImages = guide.imageUrls.filter(
+        (url): url is string => typeof url === 'string' && url.trim().length > 0,
+      );
       return {
         locationId,
         locationName: formatLocationNameMultiline(guide.location?.name) || stopLocationNameById.get(locationId) || guide.title,
         title: guide.title,
         description: guide.description,
-        imageUrls: guide.imageUrls.slice(0, 2),
+        imageUrls: primaryImages.slice(0, 1),
       };
     })
     .filter((block): block is NonNullable<typeof block> => block !== null);

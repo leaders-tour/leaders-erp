@@ -184,6 +184,23 @@ export const planResolver = {
       Array.isArray(parent.lodgingSelections) ? parent.lodgingSelections : [],
     transportGroups: (parent: { transportGroups?: unknown }) =>
       Array.isArray(parent.transportGroups) ? parent.transportGroups : [],
+    estimateGuidePageSplits: (parent: { estimateGuidePageSplits?: unknown }) => {
+      const v = parent.estimateGuidePageSplits;
+      if (v == null) {
+        return null;
+      }
+      if (!Array.isArray(v)) {
+        return null;
+      }
+      const out: number[] = [];
+      for (const item of v) {
+        if (typeof item !== 'number' || !Number.isInteger(item) || item < 1) {
+          return null;
+        }
+        out.push(item);
+      }
+      return out.length > 0 ? out : null;
+    },
     events: async (parent: { planVersionId: string }, _args: unknown, ctx: AppContext) => {
       const rows = await ctx.prisma.planVersionEvent.findMany({
         where: { planVersionId: parent.planVersionId },

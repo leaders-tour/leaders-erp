@@ -132,6 +132,9 @@ type PlanVersionMeta {
   lodgingSelections: [LodgingSelection!]!
   transportGroups: [PlanVersionTransportGroup!]!
   remark: String
+  estimateGuideImagesPerPage: Int!
+  """페이지마다 안내 이미지 개수(예: [3,2,2]). null이면 균등(estimateGuideImagesPerPage) 분할"""
+  estimateGuidePageSplits: [Int!]
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -535,6 +538,8 @@ input PlanVersionMetaInput {
   lodgingSelections: [LodgingSelectionInput!]!
   transportGroups: [PlanVersionTransportGroupInput!]!
   remark: String
+  estimateGuideImagesPerPage: Int
+  estimateGuidePageSplits: [Int!]
 }
 
 input LodgingSelectionInput {
