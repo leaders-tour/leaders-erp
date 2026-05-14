@@ -315,6 +315,50 @@ function getDaysFromToday(dateStr: string): number {
   return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+/** `dateCellText`에서 n일차 숫자 추출 (예: "3일차", "#3일차") */
+function parseDayIndexFromDateCellText(dateCellText: string): number | null {
+  const t = dateCellText.trim();
+  const labeled = t.match(/#?\s*(\d+)\s*일차/);
+  if (labeled) {
+    const n = Number(labeled[1]);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+/**
+ * 여행중 오늘 일차의 MAIN 목적지 라벨. plan 미연결·스탑 없음·매칭 실패 시 null.
+ * 일차는 `TripDayBadge`와 동일(출발일 대비 달력 일수). MAIN만 세고, 숫자 매칭 실패 시 n번째 MAIN 행을 n일차로 본다.
+ */
+function getOngoingTripCurrentDestinationText(trip: ConfirmedTripRow, startDateStr: string): string | null {
+  if (!trip.planId) return null;
+  const stops = trip.planVersion?.planStops;
+  if (!stops?.length) return null;
+  const mainStops = stops.filter((s) => s.rowType === 'MAIN');
+  if (!mainStops.length) return null;
+
+  const elapsed = -getDaysFromToday(startDateStr);
+  const day = elapsed + 1;
+  if (day < 1) return null;
+
+  for (const row of mainStops) {
+    const parsed = parseDayIndexFromDateCellText(row.dateCellText ?? '');
+    if (parsed === day) {
+      const dest = row.destinationCellText?.trim();
+      return dest && dest.length > 0 ? dest : null;
+    }
+  }
+
+  const idx = day - 1;
+  if (idx >= 0 && idx < mainStops.length) {
+    const rowAt = mainStops[idx];
+    if (rowAt === undefined) return null;
+    const dest = rowAt.destinationCellText?.trim();
+    return dest && dest.length > 0 ? dest : null;
+  }
+  return null;
+}
+
 // D-day 뱃지 (여행 출발까지 남은 일수)
 function DepartureBadge({ startDate }: { startDate: string }) {
   const days = getDaysFromToday(startDate);
@@ -813,6 +857,8 @@ function TripTableRow({
   const startStr = getTripStartDate(trip);
   const endStr = getTripEndDate(trip);
   const headcount = getTripHeadcount(trip);
+  const ongoingDestinationLabel =
+    filter === 'ongoing' && startStr ? getOngoingTripCurrentDestinationText(trip, startStr) : null;
 
   function confirmedAtToInput(iso: string): string {
     return iso.split('T')[0] ?? '';
@@ -905,8 +951,17 @@ function TripTableRow({
       )}
       {/* #일차 진행중 */}
       {filter === 'ongoing' && (
-        <td className="whitespace-nowrap px-4 py-3">
-          {startStr ? <TripDayBadge startDate={startStr} /> : '-'}
+        <td className="px-4 py-3 align-top">
+          {startStr ? (
+            <div className="flex max-w-[14rem] flex-col gap-0.5">
+              <TripDayBadge startDate={startStr} />
+              {ongoingDestinationLabel ? (
+                <span className="text-xs leading-snug text-slate-500">현재: {ongoingDestinationLabel}</span>
+              ) : null}
+            </div>
+          ) : (
+            '-'
+          )}
         </td>
       )}
       {/* D+day */}

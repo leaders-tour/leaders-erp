@@ -1,5 +1,13 @@
 import type { PrismaClient } from '@prisma/client';
-import { locationGuideCreateSchema, locationGuideUpdateSchema } from '@tour/validation';
+import {
+  findAnchorLineIndexInLocationName,
+  normalizeGuideLocationNameLines,
+  locationGuideBulkApplyAnchorSchema,
+  locationGuideCreateSchema,
+  locationGuideUpdateSchema,
+  type GuideLocationNameLike,
+  type LocationGuideBulkApplyAnchorInput,
+} from '@tour/validation';
 import { FileStorageClient, type UploadFile } from '../../lib/file-storage/client';
 import { createValidationError, DomainError } from '../../lib/errors';
 import { LocationGuideRepository } from './location-guide.repository';
@@ -117,6 +125,141 @@ export class LocationGuideService {
     }
 
     return this.repository.update(location.guide.id, { locationId: null });
+  }
+
+  async bulkApplyLocationGuideImageByAnchor(
+    fields: LocationGuideBulkApplyAnchorInput,
+    rawImage: FileUploadLike,
+  ): Promise<{ applied: Array<{ locationId: string; guideId: string; lineIndex: number }>; skipped: Array<{ locationId: string; reason: string }> }> {
+    const parsedFields = locationGuideBulkApplyAnchorSchema.safeParse(fields);
+    if (!parsedFields.success) {
+      throw createValidationError('Invalid bulk anchor image input', parsedFields.error);
+    }
+
+    const uploaded = await this.uploadImages([rawImage]);
+    const imageUrl = uploaded[0];
+    if (!imageUrl) {
+      throw new DomainError('VALIDATION_FAILED', 'Bulk anchor image upload produced no URL');
+    }
+
+    const applied: Array<{ locationId: string; guideId: string; lineIndex: number }> = [];
+    const skipped: Array<{ locationId: string; reason: string }> = [];
+    const { anchorToken } = parsedFields.data;
+
+    for (const locationId of parsedFields.data.locationIds) {
+      const location = await this.prisma.location.findUnique({
+        where: { id: locationId },
+        include: { guide: true },
+      });
+
+      if (!location) {
+        skipped.push({ locationId, reason: 'LOCATION_NOT_FOUND' });
+        continue;
+      }
+
+      const nameLines = normalizeGuideLocationNameLines(location.name as GuideLocationNameLike);
+      if (nameLines.length === 0) {
+        skipped.push({ locationId, reason: 'EMPTY_LOCATION_NAME' });
+        continue;
+      }
+
+      const lineIndex = findAnchorLineIndexInLocationName(nameLines, anchorToken);
+      if (lineIndex === null) {
+        skipped.push({ locationId, reason: 'ANCHOR_TOKEN_NOT_MATCHED_LOCATION_NAME' });
+        continue;
+      }
+
+      try {
+        if (location.guide) {
+          const nextUrls = this.buildPatchedImageUrls(location.guide.imageUrls, nameLines.length, lineIndex, imageUrl);
+          if (this.countNonEmptyImageSlots(nextUrls) > MAX_IMAGE_COUNT) {
+            skipped.push({ locationId, reason: 'IMAGE_SLOT_LIMIT_EXCEEDED' });
+            continue;
+          }
+
+          await this.repository.update(location.guide.id, { imageUrls: nextUrls });
+          applied.push({
+            locationId,
+            guideId: location.guide.id,
+            lineIndex,
+          });
+          continue;
+        }
+
+        if (!parsedFields.data.createGuideIfMissing) {
+          skipped.push({ locationId, reason: 'NO_GUIDE' });
+          continue;
+        }
+
+        await this.assertLocationAvailable(locationId);
+
+        const rawTitle =
+          parsedFields.data.titleForNewGuide != null && parsedFields.data.titleForNewGuide.length > 0
+            ? parsedFields.data.titleForNewGuide.trim()
+            : '목적지 안내';
+        const titleNew = rawTitle.length > 0 ? rawTitle : '목적지 안내';
+
+        const descNew =
+          parsedFields.data.descriptionForNewGuide != null && parsedFields.data.descriptionForNewGuide.length > 0
+            ? parsedFields.data.descriptionForNewGuide
+            : '';
+
+        const initialUrls = nameLines.map(() => '');
+        initialUrls[lineIndex] = imageUrl;
+        const created = await this.repository.create({
+          title: titleNew,
+          description: descNew,
+          imageUrls: initialUrls,
+          locationId,
+        });
+
+        applied.push({
+          locationId,
+          guideId: created.id,
+          lineIndex,
+        });
+      } catch (_err) {
+        skipped.push({
+          locationId,
+          reason: 'APPLY_FAILED',
+        });
+      }
+    }
+
+    return { applied, skipped };
+  }
+
+  private buildPatchedImageUrls(
+    stored: unknown,
+    normalizedLineCount: number,
+    targetLineIndex: number,
+    newUrl: string,
+  ): string[] {
+    const base = this.parseStoredImageUrls(stored);
+    const minLen = Math.max(base.length, normalizedLineCount, targetLineIndex + 1);
+    const out = [...base];
+    while (out.length < minLen) {
+      out.push('');
+    }
+    if (targetLineIndex >= 0 && targetLineIndex < out.length) {
+      out[targetLineIndex] = newUrl;
+    }
+    return out;
+  }
+
+  private parseStoredImageUrls(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    const out: string[] = [];
+    for (const item of value) {
+      out.push(typeof item === 'string' ? item : '');
+    }
+    return out;
+  }
+
+  private countNonEmptyImageSlots(urls: string[]): number {
+    return urls.filter((u) => typeof u === 'string' && u.trim().length > 0).length;
   }
 
   private async assertLocationAvailable(locationId: string) {

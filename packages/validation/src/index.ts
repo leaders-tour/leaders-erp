@@ -7,6 +7,7 @@ export * from './event.schema';
 export * from './lodging.schema';
 export * from './location.schema';
 export * from './location-guide.schema';
+export * from './location-name-anchor';
 export * from './meal-set.schema';
 export * from './multi-day-block.schema';
 export * from './override.schema';

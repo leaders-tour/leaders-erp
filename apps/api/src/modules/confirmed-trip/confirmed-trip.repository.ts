@@ -42,7 +42,7 @@ export const confirmedTripInclude = {
   },
 } satisfies Prisma.ConfirmedTripInclude;
 
-/** 투어 리스트 `confirmedTrips` 조회용 — 견적 라인·planStop 일괄 로드·숙소 옵션 스택 등 생략 */
+/** 투어 리스트 `confirmedTrips` 조회용 — 견적 라인·숙소 옵션 스택 등 생략. planStops는 목록용 최소 컬럼만. */
 export const confirmedTripListInclude = {
   user: { include: { ownerEmployee: true } },
   plan: { include: { regionSet: true } },
@@ -50,6 +50,14 @@ export const confirmedTripListInclude = {
     include: {
       meta: true,
       regionSet: true,
+      planStops: {
+        orderBy: { id: 'asc' as const },
+        select: {
+          rowType: true,
+          dateCellText: true,
+          destinationCellText: true,
+        },
+      },
     },
   },
   confirmedByEmployee: true,

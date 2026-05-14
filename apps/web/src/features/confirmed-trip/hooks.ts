@@ -306,8 +306,12 @@ export interface ConfirmedTripRow {
         customLodgingNameSnapshot: string | null;
       }>;
     } | null;
-    /** 상세·견적 계산 등에서만 조회 (목록 쿼리에서는 생략 가능) */
-    planStops?: Array<{ rowType?: 'MAIN' | 'EXTERNAL_TRANSFER' | null }>;
+    /** 상세는 `rowType`만, 목록은 진행 목적지 표시용 최소 필드 포함 */
+    planStops?: Array<{
+      rowType?: 'MAIN' | 'EXTERNAL_TRANSFER' | null;
+      dateCellText?: string;
+      destinationCellText?: string;
+    }>;
     pricing?: PlanVersionPricingRow | null;
   } | null;
   confirmedByEmployee: { id: string; name: string } | null;
@@ -449,6 +453,8 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
       }
       planStops {
         rowType
+        dateCellText
+        destinationCellText
       }
       pricing {
         ...PlanVersionPricingEffectiveFields
@@ -608,6 +614,11 @@ export const CONFIRMED_TRIP_LIST_FRAGMENT = gql`
           dropPlaceType
           dropPlaceCustomText
         }
+      }
+      planStops {
+        rowType
+        dateCellText
+        destinationCellText
       }
     }
     confirmedByEmployee {

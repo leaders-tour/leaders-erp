@@ -3,6 +3,27 @@ import { z } from 'zod';
 const DESCRIPTION_MAX = 50_000;
 const MAX_LOCATIONS_PER_CREATE = 100;
 
+export const locationGuideBulkApplyAnchorSchema = z.object({
+  anchorToken: z.string().min(1).max(160).trim(),
+  locationIds: z
+    .array(z.string().min(1))
+    .min(1)
+    .max(200)
+    .transform((ids) => [...new Set(ids.map((id) => id.trim()).filter((id) => id.length > 0))])
+    .refine((ids) => ids.length > 0, { message: 'At least one location id is required' }),
+  createGuideIfMissing: z.boolean(),
+  titleForNewGuide: z.string().min(1).max(160).trim().optional().nullable(),
+  descriptionForNewGuide: z
+    .string()
+    .max(DESCRIPTION_MAX)
+    .trim()
+    .optional()
+    .nullable()
+    .transform((value) => (value == null || value.length === 0 ? null : value)),
+});
+
+export type LocationGuideBulkApplyAnchorInput = z.infer<typeof locationGuideBulkApplyAnchorSchema>;
+
 export const locationGuideCreateSchema = z.object({
   title: z.string().min(1).max(120),
   description: z

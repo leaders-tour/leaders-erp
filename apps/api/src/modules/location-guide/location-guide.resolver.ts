@@ -1,6 +1,19 @@
 import type { AppContext } from '../../context';
+import type { UploadFile } from '../../lib/file-storage/client';
 import { LocationGuideService } from './location-guide.service';
+import type { LocationGuideBulkApplyAnchorInput } from '@tour/validation';
 import type { LocationGuideCreateDto, LocationGuideUpdateDto } from './location-guide.types';
+
+interface BulkApplyAnchorGuideArgs {
+  input: {
+    anchorToken: string;
+    locationIds: string[];
+    image: UploadFile | Promise<UploadFile>;
+    createGuideIfMissing: boolean;
+    titleForNewGuide?: string | null;
+    descriptionForNewGuide?: string | null;
+  };
+}
 
 interface GuideArgs {
   id: string;
@@ -40,5 +53,19 @@ export const locationGuideResolver = {
       new LocationGuideService(ctx.prisma).connect(args.locationId, args.guideId),
     disconnectLocationGuide: (_parent: unknown, args: DisconnectGuideArgs, ctx: AppContext) =>
       new LocationGuideService(ctx.prisma).disconnect(args.locationId),
+    bulkApplyLocationGuideImageByAnchor: async (_parent: unknown, args: BulkApplyAnchorGuideArgs, ctx: AppContext) => {
+      const { image, ...rest } = args.input;
+      const payload = await new LocationGuideService(ctx.prisma).bulkApplyLocationGuideImageByAnchor(
+        {
+          anchorToken: rest.anchorToken,
+          locationIds: rest.locationIds,
+          createGuideIfMissing: rest.createGuideIfMissing,
+          titleForNewGuide: rest.titleForNewGuide ?? null,
+          descriptionForNewGuide: rest.descriptionForNewGuide ?? null,
+        } satisfies LocationGuideBulkApplyAnchorInput,
+        await Promise.resolve(image),
+      );
+      return payload;
+    },
   },
 };

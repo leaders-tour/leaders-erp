@@ -1,17 +1,11 @@
+import { normalizeGuideLocationNameLines } from '@tour/validation';
 import { MealOption } from '../../generated/graphql';
 import type { FacilityAvailability } from './hooks';
 
 export type LocationNameLike = string[] | string | null | undefined;
 
 export function normalizeLocationNameLines(value: LocationNameLike): string[] {
-  if (Array.isArray(value)) {
-    return value.map((line) => line.trim()).filter((line) => line.length > 0);
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? [trimmed] : [];
-  }
-  return [];
+  return normalizeGuideLocationNameLines(value);
 }
 
 export function formatLocationNameMultiline(value: LocationNameLike): string {

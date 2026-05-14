@@ -1,6 +1,6 @@
 import type { EstimateLocationGuideRow } from '../hooks/use-estimate-location-guides';
 import type { EstimateDocumentData } from '../model/types';
-import { formatLocationNameMultiline } from '../../location/display';
+import { formatLocationNameInline, formatLocationNameMultiline, normalizeLocationNameLines } from '../../location/display';
 
 function parseStopDestinationText(value: string): string | null {
   const line = value
@@ -26,6 +26,15 @@ function parseStopDestinationText(value: string): string | null {
   return candidate.length > 0 ? candidate : null;
 }
 
+/** 하위 목적지명(한 줄) 기준 중복 제거 키 — 공백·대소문자 정규화(라틴 문자에 한함) */
+export function normalizeGuideSubLocationDedupeKey(line: string): string {
+  return line
+    .trim()
+    .replace(/\s+/g, ' ')
+    .normalize('NFC')
+    .toLocaleLowerCase();
+}
+
 export function applyLocationGuides(baseData: EstimateDocumentData, guideRows: EstimateLocationGuideRow[]): EstimateDocumentData {
   const guideByLocationId = new Map(
     guideRows
@@ -33,18 +42,13 @@ export function applyLocationGuides(baseData: EstimateDocumentData, guideRows: E
       .map((guide) => [guide.locationId, guide]),
   );
 
-  const orderedLocationIds: string[] = [];
-  const seenLocationIds = new Set<string>();
   const stopLocationNameById = new Map<string, string>();
 
   for (const planStop of baseData.planStops) {
     const locationId = planStop.locationId;
-    if (typeof locationId !== 'string' || locationId.length === 0 || seenLocationIds.has(locationId)) {
+    if (typeof locationId !== 'string' || locationId.length === 0) {
       continue;
     }
-
-    seenLocationIds.add(locationId);
-    orderedLocationIds.push(locationId);
 
     const parsedName = parseStopDestinationText(planStop.destinationCellText);
     if (parsedName) {
@@ -52,25 +56,79 @@ export function applyLocationGuides(baseData: EstimateDocumentData, guideRows: E
     }
   }
 
-  const page3Blocks = orderedLocationIds
-    .map((locationId) => {
-      const guide = guideByLocationId.get(locationId);
-      if (!guide) {
-        return null;
-      }
+  const page3Blocks: NonNullable<EstimateDocumentData['page3Blocks']> = [];
+  const seenSubLocationKeys = new Set<string>();
 
-      const primaryImages = guide.imageUrls.filter(
-        (url): url is string => typeof url === 'string' && url.trim().length > 0,
+  for (const planStop of baseData.planStops) {
+    if (planStop.rowType === 'EXTERNAL_TRANSFER') {
+      continue;
+    }
+
+    const locationId = planStop.locationId;
+    if (typeof locationId !== 'string' || locationId.length === 0) {
+      continue;
+    }
+
+    const guide = guideByLocationId.get(locationId);
+    if (!guide) {
+      continue;
+    }
+
+    const rawImageUrls = Array.isArray(guide.imageUrls) ? guide.imageUrls : [];
+    /** 줄 인덱스와 1:1 — 빈 슬롯은 그대로 두고 인덱스를 밀지 않는다 (필터하면 뒤쪽 URL이 앞 줄에 붙는 버그). */
+    const urlAt = (index: number): string | undefined => {
+      const u = rawImageUrls[index];
+      return typeof u === 'string' && u.trim().length > 0 ? u : undefined;
+    };
+
+    const nameLines = normalizeLocationNameLines(guide.location?.name);
+
+    if (nameLines.length === 0) {
+      const url = urlAt(0);
+      if (!url) {
+        continue;
+      }
+      const label =
+        formatLocationNameMultiline(guide.location?.name) ||
+        stopLocationNameById.get(locationId) ||
+        guide.title;
+      const dedupeKey = normalizeGuideSubLocationDedupeKey(
+        formatLocationNameInline(guide.location?.name) || guide.title || label,
       );
-      return {
+      if (seenSubLocationKeys.has(dedupeKey)) {
+        continue;
+      }
+      seenSubLocationKeys.add(dedupeKey);
+      page3Blocks.push({
         locationId,
-        locationName: formatLocationNameMultiline(guide.location?.name) || stopLocationNameById.get(locationId) || guide.title,
+        locationName: label,
         title: guide.title,
         description: guide.description,
-        imageUrls: primaryImages.slice(0, 1),
-      };
-    })
-    .filter((block): block is NonNullable<typeof block> => block !== null);
+        imageUrls: [url],
+      });
+      continue;
+    }
+
+    for (let index = 0; index < nameLines.length; index += 1) {
+      const line = nameLines[index] ?? '';
+      const url = urlAt(index);
+      if (!url) {
+        continue;
+      }
+      const dedupeKey = normalizeGuideSubLocationDedupeKey(line);
+      if (seenSubLocationKeys.has(dedupeKey)) {
+        continue;
+      }
+      seenSubLocationKeys.add(dedupeKey);
+      page3Blocks.push({
+        locationId,
+        locationName: formatLocationNameMultiline([line]),
+        title: guide.title,
+        description: guide.description,
+        imageUrls: [url],
+      });
+    }
+  }
 
   return {
     ...baseData,

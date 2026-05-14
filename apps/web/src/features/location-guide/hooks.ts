@@ -1,4 +1,9 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
+import { print } from 'graphql';
+import {
+  BulkApplyLocationGuideImageByAnchorDocument,
+  type BulkApplyLocationGuideImageByAnchorMutation,
+} from '../../generated/graphql';
 import { useAuth } from '../auth/context';
 import { GRAPHQL_URL } from '../../lib/graphql-endpoint';
 
@@ -104,13 +109,13 @@ export interface LocationGuideFormInput {
   locationIds?: string[];
 }
 
-async function runUploadMutation(
+async function runUploadMutation<TData = unknown>(
   query: string,
   variables: Record<string, unknown>,
   files: File[],
   mapPathFactory: (index: number) => string,
   accessToken: string | null,
-) {
+): Promise<TData> {
   const operations = {
     query,
     variables,
@@ -139,6 +144,7 @@ async function runUploadMutation(
   });
   const json = (await response.json()) as {
     errors?: Array<{ message?: string }>;
+    data?: TData;
   };
 
   if (!response.ok) {
@@ -147,6 +153,11 @@ async function runUploadMutation(
   if (json.errors && json.errors.length > 0) {
     throw new Error(json.errors[0]?.message ?? 'GraphQL upload failed');
   }
+  if (json.data == null) {
+    throw new Error('GraphQL multipart response missing data');
+  }
+
+  return json.data;
 }
 
 export function useLocationGuideCrud() {
@@ -233,6 +244,36 @@ export function useLocationGuideCrud() {
     disconnectGuide: async (locationId: string) => {
       await disconnectMutation({ variables: { locationId } });
       await refetch();
+    },
+    bulkApplyAnchorImage: async (input: {
+      anchorToken: string;
+      locationIds: string[];
+      image: File;
+      createGuideIfMissing: boolean;
+      titleForNewGuide?: string;
+      descriptionForNewGuide?: string;
+    }) => {
+      const accessToken = await ensureAccessToken();
+
+      const data = await runUploadMutation<BulkApplyLocationGuideImageByAnchorMutation>(
+        print(BulkApplyLocationGuideImageByAnchorDocument),
+        {
+          input: {
+            anchorToken: input.anchorToken.trim(),
+            locationIds: input.locationIds,
+            createGuideIfMissing: input.createGuideIfMissing,
+            titleForNewGuide: input.titleForNewGuide?.trim() || null,
+            descriptionForNewGuide: input.descriptionForNewGuide?.trim() || null,
+            image: null,
+          },
+        },
+        [input.image],
+        () => 'variables.input.image',
+        accessToken,
+      );
+
+      await refetch();
+      return data.bulkApplyLocationGuideImageByAnchor;
     },
     refetch,
   };

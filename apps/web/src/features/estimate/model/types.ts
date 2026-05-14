@@ -13,7 +13,7 @@ export type EstimateSecurityDepositScope = '-' | '인당' | '팀당';
 export type EstimateGuideImagesPerPage = 1 | 2 | 3;
 
 export interface EstimatePlanStopRow {
-  rowType: PlanStopRowType;
+  rowType?: PlanStopRowType | null;
   locationId?: string | null;
   dateCellText: string;
   destinationCellText: string;

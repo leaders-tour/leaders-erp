@@ -22,3 +22,34 @@ input LocationGuideUpdateInput {
   images: [Upload!]
   locationId: String
 }
+
+input BulkApplyLocationGuideImageByAnchorInput {
+  anchorToken: String!
+  locationIds: [ID!]!
+  image: Upload!
+  createGuideIfMissing: Boolean!
+  titleForNewGuide: String
+  descriptionForNewGuide: String
+}
+
+type AppliedAnchorImageLocation {
+  locationId: ID!
+  guideId: ID!
+  lineIndex: Int!
+}
+
+type SkippedAnchorImageLocation {
+  locationId: ID!
+  reason: String!
+}
+
+type BulkApplyLocationGuideImageByAnchorPayload {
+  applied: [AppliedAnchorImageLocation!]!
+  skipped: [SkippedAnchorImageLocation!]!
+}
+
+extend type Mutation {
+  bulkApplyLocationGuideImageByAnchor(
+    input: BulkApplyLocationGuideImageByAnchorInput!
+  ): BulkApplyLocationGuideImageByAnchorPayload!
+}
