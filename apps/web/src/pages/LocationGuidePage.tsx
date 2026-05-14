@@ -32,6 +32,50 @@ function formatDate(value: string): string {
   return date.toLocaleString('ko-KR');
 }
 
+function normalizeGuideListSearchText(value: string): string {
+  return value.trim().toLocaleLowerCase('ko-KR');
+}
+
+function buildGuideListSearchHaystack(
+  row: LocationGuideRow,
+  formattedUpdatedAt: string,
+  regionName: string | undefined,
+): string {
+  const rawName = row.location?.name;
+  const nameLines = rawName ? normalizeLocationNameLines(rawName) : [];
+  return [
+    row.title,
+    row.description,
+    row.id,
+    row.location?.id ?? '',
+    row.locationId ?? '',
+    formatLocationNameInline(rawName),
+    ...nameLines,
+    regionName,
+    formattedUpdatedAt,
+  ]
+    .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+    .join(' ');
+}
+
+function applyGuideListSearch(
+  rows: LocationGuideRow[],
+  query: string,
+  regionByLocationId: Map<string, string>,
+): LocationGuideRow[] {
+  const tokens = normalizeGuideListSearchText(query).split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) {
+    return rows;
+  }
+  return rows.filter((row) => {
+    const region = row.locationId ? regionByLocationId.get(row.locationId) : undefined;
+    const haystack = normalizeGuideListSearchText(
+      buildGuideListSearchHaystack(row, formatDate(row.updatedAt), region),
+    );
+    return tokens.every((token) => haystack.includes(token));
+  });
+}
+
 /** 일괄 반영 매칭 키 초깃값: 목적지명이 단일 줄이면 첫 `/` 왼쪽(또는 전체 줄) 문자열 제안 */
 function deriveDefaultBulkAnchorToken(locationNameLines: string[]): string {
   const lines = normalizeGuideLocationNameLines(locationNameLines);
@@ -112,7 +156,21 @@ export function LocationGuidePage(): JSX.Element {
     skipped: Array<{ locationId: string; reason: string }>;
   } | null>(null);
 
+  const [guideListSearchQuery, setGuideListSearchQuery] = useState('');
+
   const editingRow = editingId ? crud.rows.find((row) => row.id === editingId) : undefined;
+
+  const regionByLocationIdForGuideList = useMemo(
+    () => new Map(crud.locations.map((l) => [l.id, l.regionName])),
+    [crud.locations],
+  );
+
+  const filteredGuideRows = useMemo(
+    () => applyGuideListSearch(crud.rows, guideListSearchQuery, regionByLocationIdForGuideList),
+    [crud.rows, guideListSearchQuery, regionByLocationIdForGuideList],
+  );
+
+  const normalizedGuideListSearchQuery = normalizeGuideListSearchText(guideListSearchQuery);
 
   const anchorBaseEligibleLocations = useMemo(
     () => crud.locations.filter((item) => guideLocationNameHasNoWaypointInForm(item.name)),
@@ -742,9 +800,35 @@ export function LocationGuidePage(): JSX.Element {
       ) : null}
 
       <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 p-4">
-          <h2 className="text-lg font-semibold">소개 목록</h2>
+        <div className="border-b border-slate-200 px-4 py-3">
+          <h2 className="mb-3 text-lg font-semibold text-slate-900">소개 목록</h2>
+          <div className="flex flex-wrap items-center justify-start gap-2">
+            <label className="w-full min-w-[16rem] md:w-[28rem]">
+              <span className="sr-only">소개 목록 검색</span>
+              <input
+                type="search"
+                value={guideListSearchQuery}
+                onChange={(event) => setGuideListSearchQuery(event.target.value)}
+                placeholder="제목, 설명, 목적지, 지역 검색"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900"
+              />
+            </label>
+            {normalizedGuideListSearchQuery ? (
+              <button
+                type="button"
+                onClick={() => setGuideListSearchQuery('')}
+                className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700"
+              >
+                검색 초기화
+              </button>
+            ) : null}
+          </div>
         </div>
+        {filteredGuideRows.length === 0 ? (
+          <div className="p-6 text-sm text-slate-600">
+            {crud.rows.length === 0 ? '등록된 소개가 없습니다.' : '검색 결과가 없습니다.'}
+          </div>
+        ) : (
         <Table>
           <thead>
             <tr>
@@ -756,7 +840,7 @@ export function LocationGuidePage(): JSX.Element {
             </tr>
           </thead>
           <tbody>
-            {crud.rows.map((row) => {
+            {filteredGuideRows.map((row) => {
               const nameLines = normalizeLocationNameLines(row.location?.name);
               const expectedImages = nameLines.length > 0 ? nameLines.length : 1;
               const readyOk = row.imageUrls.length >= expectedImages;
@@ -862,6 +946,7 @@ export function LocationGuidePage(): JSX.Element {
             })}
           </tbody>
         </Table>
+        )}
       </Card>
 
       {previewOpen && previewImages.length > 0 ? (
