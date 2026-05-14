@@ -11,10 +11,12 @@ import {
 import { TimePickerModal } from '../components/date-picker/TimePickerModal';
 import { formatTimeTriggerLabel } from '../components/date-picker/time-picker-utils';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
+import { EstimateGuideLayoutControls } from '../features/estimate/components/EstimateGuideLayoutControls';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
 import { averageMovementIntensity } from '../features/estimate/model/movement-intensity';
 import {
   formatEstimateGuidePageSplitsInput,
+  estimateGuideSupportsThreePerPageChunks,
   normalizeEstimateGuideImagesPerPage,
   normalizeEstimateGuidePageSplits,
   parseEstimateGuidePageSplitsInput,
@@ -4733,6 +4735,23 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
   const { data: previewEstimateData, guidesLoading: previewGuidesLoading } =
     useBuilderEstimatePreview(estimateDraftSnapshot);
+
+  const showEstimateGuideCompressThreePreset = useMemo(() => {
+    if (previewEstimateData == null) {
+      return true;
+    }
+    return estimateGuideSupportsThreePerPageChunks(previewEstimateData.page3Blocks);
+  }, [previewEstimateData]);
+
+  useEffect(() => {
+    if (previewEstimateData == null) {
+      return;
+    }
+    if (!showEstimateGuideCompressThreePreset && estimateGuideImagesPerPage === 3) {
+      setEstimateGuideImagesPerPage(2);
+    }
+  }, [previewEstimateData, showEstimateGuideCompressThreePreset, estimateGuideImagesPerPage]);
+
   const handlePreviewTransportGroupFieldChange: EstimatePage1Editor['onTransportGroupFieldChange'] =
     (index, field, value) => {
       updateTransportGroup(
@@ -7744,6 +7763,23 @@ export function ItineraryBuilderPage(): JSX.Element {
               </Card>
 
               <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+                <h2 className="text-lg font-bold text-slate-900">안내 이미지</h2>
+                <p className="mt-2 text-xs text-slate-500">
+                  여행지 안내 페이지 이미지 장수와 페이지별 분할입니다. 변경 내용은 미리보기에 즉시 반영됩니다.
+                </p>
+                <EstimateGuideLayoutControls
+                  className="mt-4"
+                  density="compact"
+                  showCompressThreePreset={showEstimateGuideCompressThreePreset}
+                  estimateGuideImagesPerPage={estimateGuideImagesPerPage}
+                  onEstimateGuideImagesPerPage={setEstimateGuideImagesPerPage}
+                  estimateGuidePageSplitsText={estimateGuidePageSplitsText}
+                  onEstimateGuidePageSplitsText={setEstimateGuidePageSplitsText}
+                  splitsInputId="estimate-guide-page-splits-builder"
+                />
+              </Card>
+
+              <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
                 <button
                   type="button"
                   className="flex w-full items-center justify-between text-left"
@@ -7924,50 +7960,13 @@ export function ItineraryBuilderPage(): JSX.Element {
             <div className="p-4 sm:p-6 lg:sticky lg:top-0 lg:p-6">
               <div className="estimate-preview-panel rounded-[28px] border border-slate-200 bg-white/90 p-4 shadow-xl backdrop-blur sm:p-5">
                 <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 pr-2 sm:max-w-[min(100%,calc(100%-11rem))]">
                     <h2 className="text-base font-semibold text-slate-900">
                       실시간 견적서 미리보기
                     </h2>
                     <p className="mt-1 text-xs text-slate-600">
                       좌측 입력값이 우측 문서에 바로 반영됩니다.
                     </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <span className="text-[11px] font-medium text-slate-500">안내 이미지</span>
-                      {([1, 2, 3] as const).map((n) => (
-                        <button
-                          key={`guide-per-page-${n}`}
-                          type="button"
-                          onClick={() => setEstimateGuideImagesPerPage(n)}
-                          className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition ${
-                            estimateGuideImagesPerPage === n
-                              ? 'border-slate-900 bg-slate-900 text-white'
-                              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                          }`}
-                        >
-                          {n === 1 ? '크게 · 1장' : n === 2 ? '추천 · 2장' : '압축 · 3장'}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="mt-3 grid max-w-md gap-1">
-                      <label className="text-[11px] font-medium text-slate-500" htmlFor="estimate-guide-page-splits">
-                        페이지별 장수 (선택)
-                      </label>
-                      <input
-                        id="estimate-guide-page-splits"
-                        type="text"
-                        value={estimateGuidePageSplitsText}
-                        onChange={(event) => setEstimateGuidePageSplitsText(event.target.value)}
-                        placeholder="예: 3, 2, 2 · 비우면 균등(위 버튼)"
-                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] text-slate-800 placeholder:text-slate-400"
-                        autoComplete="off"
-                      />
-                      {estimateGuidePageSplitsText.trim().length > 0 &&
-                      parseEstimateGuidePageSplitsInput(estimateGuidePageSplitsText) === null ? (
-                        <p className="text-[11px] text-rose-600">
-                          숫자와 쉼표만 사용하세요. 인식할 수 없어 균등 설정으로 미리봅니다.
-                        </p>
-                      ) : null}
-                    </div>
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                     <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600">
@@ -7982,6 +7981,17 @@ export function ItineraryBuilderPage(): JSX.Element {
                       data={previewEstimateData}
                       viewMode="screen-preview"
                       page1Editor={previewPage1Editor}
+                      screenPreviewGuideOverlay={
+                        <EstimateGuideLayoutControls
+                          density="compact"
+                          showCompressThreePreset={showEstimateGuideCompressThreePreset}
+                          estimateGuideImagesPerPage={estimateGuideImagesPerPage}
+                          onEstimateGuideImagesPerPage={setEstimateGuideImagesPerPage}
+                          estimateGuidePageSplitsText={estimateGuidePageSplitsText}
+                          onEstimateGuidePageSplitsText={setEstimateGuidePageSplitsText}
+                          splitsInputId="estimate-guide-page-splits-preview"
+                        />
+                      }
                     />
                   </div>
                 ) : (

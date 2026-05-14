@@ -1,9 +1,4 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
-import { print } from 'graphql';
-import {
-  BulkApplyLocationGuideImageByAnchorDocument,
-  type BulkApplyLocationGuideImageByAnchorMutation,
-} from '../../generated/graphql';
 import { useAuth } from '../auth/context';
 import { GRAPHQL_URL } from '../../lib/graphql-endpoint';
 
@@ -244,36 +239,6 @@ export function useLocationGuideCrud() {
     disconnectGuide: async (locationId: string) => {
       await disconnectMutation({ variables: { locationId } });
       await refetch();
-    },
-    bulkApplyAnchorImage: async (input: {
-      anchorToken: string;
-      locationIds: string[];
-      image: File;
-      createGuideIfMissing: boolean;
-      titleForNewGuide?: string;
-      descriptionForNewGuide?: string;
-    }) => {
-      const accessToken = await ensureAccessToken();
-
-      const data = await runUploadMutation<BulkApplyLocationGuideImageByAnchorMutation>(
-        print(BulkApplyLocationGuideImageByAnchorDocument),
-        {
-          input: {
-            anchorToken: input.anchorToken.trim(),
-            locationIds: input.locationIds,
-            createGuideIfMissing: input.createGuideIfMissing,
-            titleForNewGuide: input.titleForNewGuide?.trim() || null,
-            descriptionForNewGuide: input.descriptionForNewGuide?.trim() || null,
-            image: null,
-          },
-        },
-        [input.image],
-        () => 'variables.input.image',
-        accessToken,
-      );
-
-      await refetch();
-      return data.bulkApplyLocationGuideImageByAnchor;
     },
     refetch,
   };

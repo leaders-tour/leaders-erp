@@ -289,13 +289,15 @@ export function AppLayout(): JSX.Element {
   const isConfirmedTripsPage = matchesPath('/confirmed-trips');
   const isTodoListPage = matchesPath('/todos/list');
   const isPlanVersionDetailPage = /^\/plans\/[^/]+\/versions\/[^/]+$/.test(location.pathname);
+  const isLocationGuidePage = location.pathname === '/location-guides';
   const pageShellClassName = isFullBleedPage
     ? 'max-w-none px-0 py-0'
     : isWideConnectionListPage ||
         isPricingAdminPage ||
         isConfirmedTripsPage ||
         isTodoListPage ||
-        isPlanVersionDetailPage
+        isPlanVersionDetailPage ||
+        isLocationGuidePage
       ? 'max-w-none'
       : isWideLocationProfilePage || isWideMultiDayBlockCreatePage
         ? 'max-w-[1800px]'

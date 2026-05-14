@@ -70,6 +70,11 @@ export function chunkEstimateGuidePages<T>(blocks: T[], perPage: EstimateGuideIm
   return chunks;
 }
 
+/** 균등하게 페이지당 3장일 때 안내 시트가 3장 이상 필요한 경우(그때만 «압축·3장» 프리셋 노출) */
+export function estimateGuideSupportsThreePerPageChunks<T>(blocks: readonly T[]): boolean {
+  return chunkEstimateGuidePages([...blocks], 3).length >= 3;
+}
+
 /**
  * 페이지별 장수 배열로 분할 (예 [3,2,2] → 첫 페이지 3장, 둘째 2장…).
  * 지정한 합이 안내 개수보다 짧으면 나머지는 마지막 한 페이지에 이어 붙입니다.

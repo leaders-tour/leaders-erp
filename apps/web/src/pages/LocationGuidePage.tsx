@@ -1,28 +1,27 @@
 import { Button, Card, Input, Table, Td, Th, searchComboboxTokens } from '@tour/ui';
-import {
-  findAnchorLineIndexForGuideLocationName,
-  guideLocationNameContainsAnchorToken,
-  guideLocationNameHasNoWaypointInForm,
-  normalizeGuideLocationNameLines,
-  splitLocationNameLineIntoSlashParts,
-} from '@tour/validation';
+import { guideLocationNameHasNoWaypointInForm } from '@tour/validation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { formatLocationNameInline, includesLocationNameKeyword, normalizeLocationNameLines } from '../features/location/display';
+import {
+  formatLocationNameInline,
+  includesLocationNameKeyword,
+  normalizeLocationNameLines,
+} from '../features/location/display';
 import { LocationSubNav } from '../features/location/sub-nav';
-import { useLocationGuideCrud, type GuideLocationOption, type LocationGuideRow } from '../features/location-guide/hooks';
+import { useLocationGuideCrud, type LocationGuideRow } from '../features/location-guide/hooks';
 
 interface FormState {
-  title: string;
   description: string;
-  locationIds: string[];
 }
 
 const EMPTY_FORM: FormState = {
-  title: '',
   description: '',
-  locationIds: [],
 };
+
+function autoGuideTitle(locationName: string[] | null | undefined): string {
+  const inline = formatLocationNameInline(locationName ?? undefined);
+  return inline.length > 0 ? inline : '목적지 안내';
+}
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -76,89 +75,55 @@ function applyGuideListSearch(
   });
 }
 
-/** 일괄 반영 매칭 키 초깃값: 목적지명이 단일 줄이면 첫 `/` 왼쪽(또는 전체 줄) 문자열 제안 */
-function deriveDefaultBulkAnchorToken(locationNameLines: string[]): string {
-  const lines = normalizeGuideLocationNameLines(locationNameLines);
-  if (lines.length === 1) {
-    const parts = splitLocationNameLineIntoSlashParts(lines[0]!);
-    if (parts.length >= 1) {
-      return parts[0]!.trim();
-    }
-  }
-  return '';
+/** 단일 목적지 정책에 맞는 가이드(편집 가능) */
+function isEditableSingleDestinationGuide(row: LocationGuideRow): boolean {
+  return row.location != null && guideLocationNameHasNoWaypointInForm(row.location.name);
 }
 
-function translateBulkAnchorSkipReason(reason: string): string {
-  const map: Record<string, string> = {
-    LOCATION_NOT_FOUND: '목적지 없음',
-    EMPTY_LOCATION_NAME: '목적지명이 비었음',
-    ANCHOR_TOKEN_NOT_MATCHED_LOCATION_NAME: '기준 이름과 맞는 조각이 이름 줄에 없음',
-    NO_GUIDE: '기존 소개 없음(생성 미선택)',
-    IMAGE_SLOT_LIMIT_EXCEEDED: '이미지 슬롯 20 초과가 됨',
-    APPLY_FAILED: '저장 단계 오류',
-  };
-  return map[reason] ?? reason;
-}
-
-/** 일괄 반영 UI: 소개 카드만 있어도 아니며, 현재 매칭 키 줄 슬롯에 이미지 URL이 있을 때만 true */
-function isBulkTargetGuideImageFilledForAnchorLine(
-  guidesById: Map<string, LocationGuideRow>,
-  loc: GuideLocationOption,
-  anchorToken: string,
-): boolean {
-  const lineIndex = findAnchorLineIndexForGuideLocationName(loc.name, anchorToken);
-  if (lineIndex == null || loc.guide == null) {
-    return false;
-  }
-  const guideRow = guidesById.get(loc.guide.id);
-  const url = guideRow?.imageUrls[lineIndex];
-  return typeof url === 'string' && url.trim().length > 0;
+/** 레거시: 경유/다줄 목적지명에 연결된 가이드 */
+function isLegacyCompositeGuide(row: LocationGuideRow): boolean {
+  return row.location != null && !guideLocationNameHasNoWaypointInForm(row.location.name);
 }
 
 export function LocationGuidePage(): JSX.Element {
   const locationPath = useLocation();
   const crud = useLocationGuideCrud();
 
-  const guidesById = useMemo(() => {
-    const m = new Map<string, LocationGuideRow>();
-    for (const row of crud.rows) {
-      m.set(row.id, row);
-    }
-    return m;
-  }, [crud.rows]);
-
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  /** 목적지명이 여러 줄일 때 줄마다 하나씩 선택 (인덱스 = 목적지명 순서) */
-  const [perLineFiles, setPerLineFiles] = useState<(File | null)[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewTitle, setPreviewTitle] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const perLineInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const closePreviewButtonRef = useRef<HTMLButtonElement | null>(null);
-  const bulkAnchorImageInputRef = useRef<HTMLInputElement | null>(null);
-
-  const [bulkAnchorPickSearch, setBulkAnchorPickSearch] = useState('');
-  const [bulkAnchorPickOpen, setBulkAnchorPickOpen] = useState(false);
-  const [bulkAnchorSelectedLocationId, setBulkAnchorSelectedLocationId] = useState<string>('');
-  const [bulkMatchingSelectedIds, setBulkMatchingSelectedIds] = useState<string[]>([]);
-  const [bulkAnchorImage, setBulkAnchorImage] = useState<File | null>(null);
-  const [bulkCreateGuideIfMissing, setBulkCreateGuideIfMissing] = useState(false);
-  const [bulkNewGuideTitle, setBulkNewGuideTitle] = useState('');
-  const [bulkNewGuideDesc, setBulkNewGuideDesc] = useState('');
-  const [bulkAnchorSubmitting, setBulkAnchorSubmitting] = useState(false);
-  const [bulkAnchorLastPayload, setBulkAnchorLastPayload] = useState<{
-    applied: Array<{ locationId: string; guideId: string; lineIndex: number }>;
-    skipped: Array<{ locationId: string; reason: string }>;
-  } | null>(null);
 
   const [guideListSearchQuery, setGuideListSearchQuery] = useState('');
 
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createPickSearch, setCreatePickSearch] = useState('');
+  const [createPickOpen, setCreatePickOpen] = useState(false);
+  const [createSelectedLocationId, setCreateSelectedLocationId] = useState('');
+  const [createDescription, setCreateDescription] = useState('');
+  const [createImage, setCreateImage] = useState<File | null>(null);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const createImageInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [pendingLocationsSearchQuery, setPendingLocationsSearchQuery] = useState('');
+
   const editingRow = editingId ? crud.rows.find((row) => row.id === editingId) : undefined;
+  const editingEligible =
+    editingRow != null &&
+    editingId.length > 0 &&
+    isEditableSingleDestinationGuide(editingRow);
+  const legacyLocked = editingRow != null && isLegacyCompositeGuide(editingRow);
+  const orphanedGuide =
+    editingRow != null &&
+    editingId.length > 0 &&
+    !editingEligible &&
+    !legacyLocked;
 
   const regionByLocationIdForGuideList = useMemo(
     () => new Map(crud.locations.map((l) => [l.id, l.regionName])),
@@ -172,130 +137,60 @@ export function LocationGuidePage(): JSX.Element {
 
   const normalizedGuideListSearchQuery = normalizeGuideListSearchText(guideListSearchQuery);
 
-  const anchorBaseEligibleLocations = useMemo(
+  const singleDestinationLocations = useMemo(
     () => crud.locations.filter((item) => guideLocationNameHasNoWaypointInForm(item.name)),
     [crud.locations],
   );
 
-  const filteredBulkAnchorPickOptions = useMemo(() => {
-    const keyword = bulkAnchorPickSearch.trim().toLowerCase();
-    if (!keyword) {
-      return anchorBaseEligibleLocations;
-    }
-    return anchorBaseEligibleLocations.filter(
-      (item) =>
-        includesLocationNameKeyword(item.name, keyword) || item.regionName.toLowerCase().includes(keyword),
-    );
-  }, [anchorBaseEligibleLocations, bulkAnchorPickSearch]);
+  /** 가이드가 아직 없는 단일 목적지만 새로 만들 수 있음 */
+  const creatableLocations = useMemo(
+    () => singleDestinationLocations.filter((item) => item.guide == null),
+    [singleDestinationLocations],
+  );
 
-  /** 기준 선택 UI 이후 데이터가 바뀌었을 때 등, 비자격 이름이 선택된 경우 자동 해제 */
-  useEffect(() => {
-    if (!bulkAnchorSelectedLocationId) {
-      return;
-    }
-    const selected = crud.locations.find((loc) => loc.id === bulkAnchorSelectedLocationId);
-    if (selected != null && !guideLocationNameHasNoWaypointInForm(selected.name)) {
-      setBulkAnchorSelectedLocationId('');
-    }
-  }, [bulkAnchorSelectedLocationId, crud.locations]);
-
-  const anchorPickSelectedSummary = bulkAnchorSelectedLocationId
-    ? crud.locations.find((loc) => loc.id === bulkAnchorSelectedLocationId)
-    : undefined;
-
-  const derivedBulkAnchorToken = useMemo(() => {
-    if (!anchorPickSelectedSummary) {
-      return '';
-    }
-    return deriveDefaultBulkAnchorToken(anchorPickSelectedSummary.name).trim();
-  }, [anchorPickSelectedSummary]);
-
-  const bulkMatchingLocations = useMemo(() => {
-    if (derivedBulkAnchorToken.length === 0) {
-      return [];
-    }
-    return crud.locations.filter((loc) => guideLocationNameContainsAnchorToken(loc.name, derivedBulkAnchorToken));
-  }, [derivedBulkAnchorToken, crud.locations]);
-
-  const bulkMatchingLocationsSorted = useMemo(
+  const sortedPendingLocations = useMemo(
     () =>
-      [...bulkMatchingLocations].sort((a, b) => {
+      [...creatableLocations].sort((a, b) => {
         const ra = `${a.regionName} ${formatLocationNameInline(a.name)}`;
         const rb = `${b.regionName} ${formatLocationNameInline(b.name)}`;
         return ra.localeCompare(rb, 'ko');
       }),
-    [bulkMatchingLocations],
+    [creatableLocations],
   );
 
-  const bulkMatchIdsSignature = useMemo(
-    () => bulkMatchingLocations.map((l) => l.id).sort().join('|'),
-    [bulkMatchingLocations],
-  );
-
-  useEffect(() => {
-    setBulkMatchingSelectedIds(bulkMatchingLocations.map((l) => l.id));
-  }, [bulkMatchingLocations, bulkMatchIdsSignature]);
-
-  const toggleBulkMatchingId = (id: string): void => {
-    setBulkMatchingSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
-
-  const canBulkApplyAnchorSubmit =
-    anchorPickSelectedSummary != null &&
-    derivedBulkAnchorToken.length > 0 &&
-    bulkMatchingSelectedIds.length > 0 &&
-    bulkAnchorImage instanceof File &&
-    !bulkAnchorSubmitting;
-
-  const editLocationLines = useMemo(
-    () => (editingRow?.location?.name ? normalizeLocationNameLines(editingRow.location.name) : []),
-    [editingRow?.location?.name],
-  );
-
-  const splitImageSlotCount = editingId && editLocationLines.length >= 2 ? editLocationLines.length : 0;
-
-  const splitLineLabels = editingId ? editLocationLines : [];
-
-  useEffect(() => {
-    if (splitImageSlotCount < 2) {
-      setPerLineFiles([]);
-      perLineInputRefs.current = [];
-      return;
+  const filteredPendingLocations = useMemo(() => {
+    const keyword = pendingLocationsSearchQuery.trim().toLowerCase();
+    if (!keyword) {
+      return sortedPendingLocations;
     }
-    setSelectedFiles([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    return sortedPendingLocations.filter(
+      (item) =>
+        includesLocationNameKeyword(item.name, keyword) || item.regionName.toLowerCase().includes(keyword),
+    );
+  }, [pendingLocationsSearchQuery, sortedPendingLocations]);
+
+  const normalizedPendingSearch = normalizeGuideListSearchText(pendingLocationsSearchQuery);
+
+  const filteredCreatePickOptions = useMemo(() => {
+    const keyword = createPickSearch.trim().toLowerCase();
+    if (!keyword) {
+      return creatableLocations;
     }
-    setPerLineFiles((prev) => {
-      if (prev.length === splitImageSlotCount) {
-        return prev;
-      }
-      return Array.from({ length: splitImageSlotCount }, () => null);
-    });
-    perLineInputRefs.current = Array.from({ length: splitImageSlotCount }, (_, i) => perLineInputRefs.current[i] ?? null);
-  }, [splitImageSlotCount]);
+    return creatableLocations.filter(
+      (item) =>
+        includesLocationNameKeyword(item.name, keyword) || item.regionName.toLowerCase().includes(keyword),
+    );
+  }, [creatableLocations, createPickSearch]);
 
-  const perLineImagesComplete =
-    splitImageSlotCount >= 2 && perLineFiles.length === splitImageSlotCount && perLineFiles.every((f): f is File => f instanceof File);
+  const createPickSelectedSummary = createSelectedLocationId
+    ? crud.locations.find((loc) => loc.id === createSelectedLocationId)
+    : undefined;
 
-  const partialPerLineSelection =
-    splitImageSlotCount >= 2 && perLineFiles.some((f) => f instanceof File) && !perLineImagesComplete;
-
-  const canSubmit =
-    editingId.trim().length > 0 &&
-    form.title.trim().length > 0 &&
-    !partialPerLineSelection;
-
-  /** 업로드 뮤테이션에 넘길 파일 목록 — 줄별 모드에서는 순서 고정 배열 */
-  const resolveImagesPayload = (): File[] | undefined => {
-    if (splitImageSlotCount >= 2 && perLineImagesComplete) {
-      return perLineFiles.filter((f): f is File => f instanceof File);
-    }
-    if (selectedFiles.length > 0) {
-      return selectedFiles;
-    }
-    return undefined;
-  };
+  const canCreateSubmit =
+    createPickSelectedSummary != null &&
+    createImage instanceof File &&
+    !createSubmitting &&
+    guideLocationNameHasNoWaypointInForm(createPickSelectedSummary.name);
 
   const closePreview = (): void => {
     setPreviewOpen(false);
@@ -307,296 +202,241 @@ export function LocationGuidePage(): JSX.Element {
   const resetLocationGuideEditModal = (): void => {
     setEditingId('');
     setForm(EMPTY_FORM);
-    setSelectedFiles([]);
-    setPerLineFiles([]);
+    setSelectedFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-    perLineInputRefs.current.forEach((el) => {
-      if (el) el.value = '';
-    });
-    perLineInputRefs.current = [];
   };
+
+  const resetCreateForm = (): void => {
+    setCreateModalOpen(false);
+    setCreatePickSearch('');
+    setCreatePickOpen(false);
+    setCreateSelectedLocationId('');
+    setCreateDescription('');
+    setCreateImage(null);
+    if (createImageInputRef.current) {
+      createImageInputRef.current.value = '';
+    }
+  };
+
+  function openCreateModal(presetLocationId?: string): void {
+    setCreatePickSearch('');
+    setCreatePickOpen(false);
+    setCreateDescription('');
+    setCreateImage(null);
+    if (createImageInputRef.current) {
+      createImageInputRef.current.value = '';
+    }
+    setCreateSelectedLocationId(presetLocationId ?? '');
+    setCreateModalOpen(true);
+  }
 
   useEffect(() => {
     if (!previewOpen) {
       return;
     }
-
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
         closePreview();
         return;
       }
-
       if (previewImages.length <= 1) {
         return;
       }
-
       if (event.key === 'ArrowRight') {
         setPreviewIndex((prev) => (prev + 1) % previewImages.length);
       }
-
       if (event.key === 'ArrowLeft') {
         setPreviewIndex((prev) => (prev - 1 + previewImages.length) % previewImages.length);
       }
     };
-
     window.addEventListener('keydown', onKeyDown);
     window.setTimeout(() => closePreviewButtonRef.current?.focus(), 0);
-
     return () => {
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [previewImages.length, previewOpen]);
 
+  function openGuidePreview(allUrls: string[], title: string, startIndex: number): void {
+    const urls = allUrls.filter((url) => typeof url === 'string' && url.trim().length > 0);
+    if (urls.length === 0) {
+      return;
+    }
+    const safeIndex = Math.min(Math.max(0, startIndex), urls.length - 1);
+    setPreviewImages(urls);
+    setPreviewIndex(safeIndex);
+    setPreviewTitle(title);
+    setPreviewOpen(true);
+  }
+
   return (
-    <section className="grid gap-6">
+    <section className="grid w-full max-w-none gap-6">
       <header className="grid gap-3">
         <LocationSubNav pathname={locationPath.pathname} />
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">여행지 안내사항</h1>
         <p className="text-sm text-slate-600">
-          견적서 3페이지에 들어가는 여행지 안내사항을 생성/수정 할 수 있습니다.
+          견적서 3페이지에 들어가는 여행지 안내사항을 생성/수정 할 수 있습니다. 단일 목적지당 이미지 1장만 등록합니다. 경유
+          일정은 각 목적지별 가이드를 따로 만들면 견적서에 자동으로 묶입니다.
         </p>
       </header>
 
-      <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold">기준목적지로 이미지 일괄 반영</h2>
-        <div className="grid gap-4 items-start lg:grid-cols-2">
-          <div className={searchComboboxTokens.section.stack}>
-            <span className={searchComboboxTokens.section.stepTitle}>1) 기준 목적지 선택</span>
-            <p className={searchComboboxTokens.section.stepSubtitle}>단일 목적지만 검색됩니다 (경유지x)</p>
-            {anchorPickSelectedSummary ? (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                {formatLocationNameInline(anchorPickSelectedSummary.name)} ({anchorPickSelectedSummary.regionName})
-                <button
-                  type="button"
-                  className="ml-2 text-xs text-blue-700 underline"
-                  onClick={() => {
-                    setBulkAnchorSelectedLocationId('');
-                    setBulkAnchorPickSearch('');
-                  }}
-                >
-                  해제
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className={searchComboboxTokens.field.relativeWrap}>
-                  <Input
-                    value={bulkAnchorPickSearch}
-                    onFocus={() => setBulkAnchorPickOpen(true)}
-                    onBlur={() => setTimeout(() => setBulkAnchorPickOpen(false), 120)}
-                    onChange={(event) => {
-                      setBulkAnchorPickSearch(event.target.value);
-                      setBulkAnchorPickOpen(true);
-                    }}
-                    placeholder="기준 목적지 검색"
-                    className={searchComboboxTokens.field.triggerInput}
-                  />
-                  {bulkAnchorPickOpen ? (
-                    <div className={searchComboboxTokens.panel}>
-                      {filteredBulkAnchorPickOptions.length === 0 ? (
-                        <div className={searchComboboxTokens.emptyHint}>
-                          {anchorBaseEligibleLocations.length === 0
-                            ? '이 조건을 만족하는 목적지가 없습니다. (이름 줄 1개, 슬래시 경유 없음)'
-                            : '검색 결과가 없습니다.'}
-                        </div>
-                      ) : (
-                        filteredBulkAnchorPickOptions.map((item) => (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => {
-                              setBulkAnchorSelectedLocationId(item.id);
-                              setBulkAnchorPickSearch('');
-                              setBulkAnchorPickOpen(false);
-                            }}
-                            className={searchComboboxTokens.optionRow}
-                          >
-                            <span>{formatLocationNameInline(item.name)}</span>
-                            <span className={searchComboboxTokens.optionSubtitle}>{item.regionName}</span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              </>
-            )}
-          </div>
-          <div className="grid gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-slate-800">2) 대상 목록</span>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="text-xs"
-                  onClick={() => setBulkMatchingSelectedIds(bulkMatchingLocations.map((l) => l.id))}
-                  disabled={bulkMatchingLocations.length === 0}
-                >
-                  전체 선택
-                </Button>
-                <Button type="button" variant="outline" className="text-xs" onClick={() => setBulkMatchingSelectedIds([])}>
-                  전체 해제
-                </Button>
-              </div>
+      {createModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="location-guide-create-title"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              resetCreateForm();
+            }
+          }}
+        >
+          <Card className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white p-0 shadow-xl">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+              <h2 id="location-guide-create-title" className="text-lg font-semibold text-slate-900">
+                여행지 안내 · 등록
+              </h2>
+              <Button type="button" variant="outline" onClick={() => resetCreateForm()}>
+                닫기
+              </Button>
             </div>
-            <p className="text-[11px] leading-relaxed text-slate-500">
-              경유지, 단일 목적지가 모두 목록에 포함됩니다. 해당 줄 칸의 기존 이미지는 새 이미지로 덮어씁니다.
-            </p>
-            <div className="max-h-52 overflow-auto rounded-xl border border-slate-200">
-              {!anchorPickSelectedSummary ? (
-                <div className="px-3 py-4 text-center text-xs text-slate-500">먼저 왼쪽에서 기준 목적지를 선택하세요.</div>
-              ) : derivedBulkAnchorToken.length === 0 ? (
-                <div className="px-3 py-4 text-center text-xs text-amber-800">
-                  기준 목적지명에서 매칭 키를 만들 수 없습니다.
-                </div>
-              ) : bulkMatchingLocationsSorted.length === 0 ? (
-                <div className="px-3 py-4 text-center text-xs text-amber-800">매칭되는 목적지가 없습니다.</div>
-              ) : (
-                <table className="w-full border-collapse text-left text-xs">
-                  <thead className="sticky top-0 bg-slate-100 text-slate-600">
-                    <tr>
-                      <th className="w-10 border-b border-slate-200 px-2 py-1.5"></th>
-                      <th className="border-b border-slate-200 px-2 py-1.5">목적지</th>
-                      <th className="border-b border-slate-200 px-2 py-1.5">기준 이미지</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bulkMatchingLocationsSorted.map((loc) => {
-                      const isAnchorRow = bulkAnchorSelectedLocationId === loc.id && bulkAnchorSelectedLocationId.length > 0;
-                      return (
-                        <tr
-                          key={loc.id}
-                          className={`border-t border-slate-100 ${isAnchorRow ? 'bg-blue-50/80' : 'bg-white'}`}
-                        >
-                          <td className="px-2 py-1.5 align-top">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-slate-300"
-                              checked={bulkMatchingSelectedIds.includes(loc.id)}
-                              onChange={() => toggleBulkMatchingId(loc.id)}
-                            />
-                          </td>
-                          <td className="px-2 py-1.5 align-top text-slate-800">
-                            {formatLocationNameInline(loc.name)}
-                            <div className="text-[10px] text-slate-500">{loc.regionName}</div>
-                          </td>
-                          <td className="px-2 py-1.5 align-top text-[11px] text-slate-600">
-                            {isBulkTargetGuideImageFilledForAnchorLine(guidesById, loc, derivedBulkAnchorToken) ? (
-                              '연결됨'
-                            ) : (
-                              <span className="text-amber-800">미연결</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <span className="text-sm font-semibold text-slate-800">3) 이미지 업로드 및 실행</span>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="flex cursor-pointer flex-wrap items-center gap-2 text-sm text-slate-700">
-              <input
-                ref={bulkAnchorImageInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="text-xs"
-                onChange={(event) => {
-                  const file = event.target.files?.[0] ?? null;
-                  setBulkAnchorImage(file instanceof File ? file : null);
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+              <form
+                className="grid items-start gap-4 lg:grid-cols-2"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (!canCreateSubmit || !(createImage instanceof File) || !createPickSelectedSummary) {
+                    return;
+                  }
+                  setCreateSubmitting(true);
+                  try {
+                    const title = autoGuideTitle(createPickSelectedSummary.name);
+                    await crud.createRow({
+                      title,
+                      description: createDescription,
+                      images: [createImage],
+                      locationIds: [createPickSelectedSummary.id],
+                    });
+                    resetCreateForm();
+                  } finally {
+                    setCreateSubmitting(false);
+                  }
                 }}
-              />
-            </label>
-            {bulkAnchorImage instanceof File ? (
-              <span className="text-xs text-slate-600">{bulkAnchorImage.name}</span>
-            ) : null}
-          </div>
-          <label className="flex flex-wrap items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 text-blue-600"
-              checked={bulkCreateGuideIfMissing}
-              onChange={(event) => setBulkCreateGuideIfMissing(event.target.checked)}
-            />
-            <span className="text-slate-700">소개가 없으면 새로 만들기</span>
-            <span className="text-[11px] text-slate-500">기본 제목 «목적지 안내», 나머지 줄 이미지는 빈 문자열 칸 유지</span>
-          </label>
-          {bulkCreateGuideIfMissing ? (
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label className="grid gap-1 text-sm">
-                <span>생성 시 제목(선택, 비우면 목적지 안내)</span>
-                <Input
-                  value={bulkNewGuideTitle}
-                  onChange={(event) => setBulkNewGuideTitle(event.target.value)}
-                  placeholder="목적지 안내"
-                />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span>생성 시 설명(선택)</span>
-                <Input value={bulkNewGuideDesc} onChange={(event) => setBulkNewGuideDesc(event.target.value)} placeholder="" />
-              </label>
+              >
+                <div className={`${searchComboboxTokens.section.stack} min-w-0`}>
+                  <span className={searchComboboxTokens.section.stepTitle}>목적지</span>
+                  <p className={searchComboboxTokens.section.stepSubtitle}>
+                    저장 시 제목은 목적지명으로 자동 맞춥니다.
+                  </p>
+                  <p className={searchComboboxTokens.section.stepSubtitle}>
+                    이름에 경유(슬래시·여러 줄)가 없고 안내가 없는 목적지만 선택할 수 있습니다.
+                  </p>
+                  {createPickSelectedSummary ? (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                      {formatLocationNameInline(createPickSelectedSummary.name)} ({createPickSelectedSummary.regionName})
+                      <button
+                        type="button"
+                        className="ml-2 text-xs text-blue-700 underline"
+                        onClick={() => {
+                          setCreateSelectedLocationId('');
+                          setCreatePickSearch('');
+                        }}
+                      >
+                        해제
+                      </button>
+                    </div>
+                  ) : (
+                    <div className={searchComboboxTokens.field.relativeWrap}>
+                      <Input
+                        value={createPickSearch}
+                        onFocus={() => setCreatePickOpen(true)}
+                        onBlur={() => setTimeout(() => setCreatePickOpen(false), 120)}
+                        onChange={(event) => {
+                          setCreatePickSearch(event.target.value);
+                          setCreatePickOpen(true);
+                        }}
+                        placeholder="목적지 검색"
+                        className={searchComboboxTokens.field.triggerInput}
+                      />
+                      {createPickOpen ? (
+                        <div className={searchComboboxTokens.panel}>
+                          {filteredCreatePickOptions.length === 0 ? (
+                            <div className={searchComboboxTokens.emptyHint}>
+                              {creatableLocations.length === 0
+                                ? '새로 등록 가능한 목적지가 없습니다. (단일 줄 이름·기존 안내 미연결 필요)'
+                                : '검색 결과가 없습니다.'}
+                            </div>
+                          ) : (
+                            filteredCreatePickOptions.map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={() => {
+                                  setCreateSelectedLocationId(item.id);
+                                  setCreatePickSearch('');
+                                  setCreatePickOpen(false);
+                                }}
+                                className={searchComboboxTokens.optionRow}
+                              >
+                                <span>{formatLocationNameInline(item.name)}</span>
+                                <span className={searchComboboxTokens.optionSubtitle}>{item.regionName}</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+                <div className="grid gap-3">
+                  <label className="grid gap-1 text-sm">
+                    <span>설명 (선택)</span>
+                    <textarea
+                      value={createDescription}
+                      onChange={(event) => setCreateDescription(event.target.value)}
+                      rows={5}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                      placeholder="비워 두어도 됩니다."
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    <span>이미지 (1장)</span>
+                    <input
+                      ref={createImageInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null;
+                        setCreateImage(file instanceof File ? file : null);
+                      }}
+                    />
+                    <span className="text-xs text-slate-500">
+                      jpg / png / webp, 파일당 최대 25MB. 신규 등록 시 이미지 1장이 필요합니다.
+                    </span>
+                    {createImage instanceof File ? (
+                      <span className="text-xs text-slate-600">선택: {createImage.name}</span>
+                    ) : null}
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" variant="primary" disabled={!canCreateSubmit || createSubmitting}>
+                      {createSubmitting ? '저장 중...' : '저장'}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => resetCreateForm()}>
+                      취소
+                    </Button>
+                  </div>
+                </div>
+              </form>
             </div>
-          ) : null}
-          <Button
-            type="button"
-            variant="primary"
-            disabled={!canBulkApplyAnchorSubmit}
-            onClick={async () => {
-              if (!canBulkApplyAnchorSubmit || !(bulkAnchorImage instanceof File)) {
-                return;
-              }
-              setBulkAnchorSubmitting(true);
-              try {
-                const payload = await crud.bulkApplyAnchorImage({
-                  anchorToken: derivedBulkAnchorToken,
-                  locationIds: bulkMatchingSelectedIds,
-                  image: bulkAnchorImage,
-                  createGuideIfMissing: bulkCreateGuideIfMissing,
-                  titleForNewGuide: bulkNewGuideTitle.trim() || undefined,
-                  descriptionForNewGuide: bulkNewGuideDesc.trim() || undefined,
-                });
-                setBulkAnchorLastPayload({ applied: payload.applied, skipped: payload.skipped });
-                setBulkAnchorImage(null);
-                if (bulkAnchorImageInputRef.current) {
-                  bulkAnchorImageInputRef.current.value = '';
-                }
-              } finally {
-                setBulkAnchorSubmitting(false);
-              }
-            }}
-          >
-            {bulkAnchorSubmitting ? '일괄 적용 중...' : '선택 목적지에 반영'}
-          </Button>
+          </Card>
         </div>
-        {bulkAnchorLastPayload ? (
-          <div className="mt-3 grid gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs text-slate-700">
-            <div>
-              적용 성공 <span className="font-semibold">{bulkAnchorLastPayload.applied.length}</span>건 · 건너뜀{' '}
-              <span className="font-semibold text-amber-800">{bulkAnchorLastPayload.skipped.length}</span>건
-            </div>
-            {bulkAnchorLastPayload.skipped.length > 0 ? (
-              <ul className="max-h-32 list-disc overflow-auto pl-4 text-[11px] text-slate-600">
-                {bulkAnchorLastPayload.skipped.map((row) => (
-                  <li key={row.locationId}>
-                    ID {row.locationId.slice(0, 8)}… — {translateBulkAnchorSkipReason(row.reason)}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        ) : null}
-      </Card>
+      ) : null}
 
-      {editingId ? (
+      {editingId && editingRow ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           role="dialog"
@@ -608,392 +448,345 @@ export function LocationGuidePage(): JSX.Element {
             }
           }}
         >
-          <Card className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+          <Card className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white p-0 shadow-xl">
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
               <h2 id="location-guide-edit-title" className="text-lg font-semibold text-slate-900">
-                소개 수정
+                {editingEligible
+                  ? '여행지 안내 · 수정'
+                  : orphanedGuide
+                    ? '여행지 안내 (연결 없음)'
+                    : '여행지 안내 (편집 제한)'}
               </h2>
               <Button type="button" variant="outline" onClick={() => resetLocationGuideEditModal()}>
                 닫기
               </Button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <form
-            className="grid gap-3"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              if (!canSubmit) {
-                return;
-              }
-
-              setSubmitting(true);
-              try {
-                const imagesPayload = resolveImagesPayload();
-
-                await crud.updateRow(editingId, {
-                  title: form.title,
-                  description: form.description,
-                  images: imagesPayload,
-                });
-                resetLocationGuideEditModal();
-              } finally {
-                setSubmitting(false);
-              }
-            }}
-          >
-            <label className="grid gap-1 text-sm">
-              <span>제목</span>
-              <Input
-                value={form.title}
-                onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-                placeholder="예: 바양작 A 경유 소개"
-              />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span>설명 (선택)</span>
-              <textarea
-                value={form.description}
-                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-                rows={5}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                placeholder="비워 두어도 됩니다."
-              />
-            </label>
-            <div className="grid gap-2 text-sm">
-              <span className="text-slate-700">연결된 목적지</span>
-              <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
-                {formatLocationNameInline(editingRow?.location?.name) || '-'}
-              </p>
-              <span className="text-xs text-slate-500">연결 변경은 목적지 상세에서 해제/재연결로 처리합니다.</span>
-            </div>
-            {splitImageSlotCount >= 2 ? (
-            <div className="grid gap-3">
-              <div className="text-sm">
-                <span className="font-semibold text-slate-800">
-                  이미지 (줄별, 선택 시 전체 교체)
-                </span>
-                <p className="mt-1 text-xs text-slate-500">
-                  경유 구간처럼 목적지명이 여러 줄이면 줄마다 파일 칸을 띄웁니다. jpg/png/webp, 파일당 최대 25MB. 순서는 위 목적지명
-                  줄과 같아야 합니다.
-                </p>
-              </div>
-              {splitLineLabels.map((lineLabel, index) => (
-                <div
-                  key={`${lineLabel}-${index}`}
-                  className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
-                >
-                  <span className="text-xs font-semibold text-slate-800">
-                    {index + 1}. {lineLabel || `목적지명 ${index + 1}줄`}
-                  </span>
-                  <input
-                    ref={(el) => {
-                      perLineInputRefs.current[index] = el;
-                    }}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0] ?? null;
-                      setPerLineFiles((prev) => {
-                        const base =
-                          prev.length === splitImageSlotCount
-                            ? [...prev]
-                            : Array.from({ length: splitImageSlotCount }, () => null);
-                        base[index] = file;
-                        return base;
-                      });
-                    }}
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm"
-                  />
-                  {perLineFiles[index] instanceof File ? (
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                      <span>선택: {(perLineFiles[index] as File).name}</span>
-                      <button
-                        type="button"
-                        className="text-blue-700 underline"
-                        onClick={() => {
-                          setPerLineFiles((prev) => {
-                            const next = [...prev];
-                            next[index] = null;
-                            return next;
-                          });
-                          const el = perLineInputRefs.current[index];
-                          if (el) el.value = '';
-                        }}
-                      >
-                        지우기
-                      </button>
-                    </div>
-                  ) : null}
+              {legacyLocked ? (
+                <div className="grid gap-3 text-sm text-slate-700">
+                  <p>
+                    이 안내는 <strong className="text-amber-800">경유·다줄 목적지명</strong>에 연결된 레거시 항목입니다. 새 정책에서는
+                    단일 목적지당 안내 1개만 수정할 수 있습니다.
+                  </p>
+                  <p>
+                    필요하면 삭제한 뒤, 각 목적지에 대해 <strong>«만들어진 것»</strong> 표에서{' '}
+                    <strong className="text-blue-800">생성</strong> 버튼으로 다시 등록해 주세요.
+                  </p>
+                  <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    연결 목적지:{' '}
+                    <span className="font-medium">{formatLocationNameInline(editingRow.location?.name) || '-'}</span>
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" onClick={() => resetLocationGuideEditModal()}>
+                      닫기
+                    </Button>
+                  </div>
                 </div>
-              ))}
-              {partialPerLineSelection ? (
-                <p className="text-xs text-amber-700">각 줄에 파일을 모두 선택하거나, 모두 비워 두세요.</p>
-              ) : null}
-              {editingRow ? (
-                <span className="text-xs text-slate-500">
-                  현재 저장된 이미지: {editingRow.imageUrls.length}개 · 목적지명 {editLocationLines.length}줄
-                </span>
-              ) : null}
-            </div>
-          ) : (
-            <label className="grid gap-1 text-sm">
-              <span>이미지 파일 (선택 시 전체 교체)</span>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                multiple
-                onChange={(event) => {
-                  const files = event.target.files ? Array.from(event.target.files) : [];
-                  setSelectedFiles(files);
-                }}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-              />
-              <span className="text-xs text-slate-500">
-                허용 형식: jpg/png/webp, 파일당 최대 25MB, 최대 20장. 목적지명이 두 줄 이상이면 위와 같이 줄별 칸이 열립니다.
-              </span>
-              {editingRow ? (
-                <span className="text-xs text-slate-500">
-                  현재 저장된 이미지: {editingRow.imageUrls.length}개
-                  {(() => {
-                    const lineCount = editingRow.location?.name
-                      ? normalizeLocationNameLines(editingRow.location.name).length
-                      : 0;
-                    if (lineCount <= 0) {
-                      return null;
+              ) : orphanedGuide ? (
+                <div className="grid gap-3 text-sm text-slate-700">
+                  <p>
+                    목적지에 연결되어 있지 않은 안내입니다. <strong className="text-amber-800">목적지 상세 페이지</strong>에서 연결하거나,
+                    필요 없으면 삭제해 주세요.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" onClick={() => resetLocationGuideEditModal()}>
+                      닫기
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <form
+                  className="grid items-start gap-4 lg:grid-cols-2"
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    if (!editingEligible || !editingRow) {
+                      return;
                     }
-                    const ok = editingRow.imageUrls.length >= lineCount;
-                    return ok ? (
-                      <>
-                        {' '}
-                        · 목적지명 {lineCount}줄 — <span className="text-emerald-700">권장 개수 충족</span>
-                      </>
-                    ) : (
-                      <>
-                        {' '}
-                        · 목적지명 {lineCount}줄 —{' '}
-                        <span className="text-amber-700">
-                          이미지를 {lineCount}장 이상 채우면 뒷줄 이름도 견적서에 반영됩니다
-                        </span>
-                      </>
-                    );
-                  })()}
-                </span>
-              ) : null}
-              {selectedFiles.length > 0 ? (
-                <span className="text-xs text-slate-600">선택된 새 이미지: {selectedFiles.length}개</span>
-              ) : null}
-            </label>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" variant="default" disabled={!canSubmit || submitting}>
-              {submitting ? '저장 중...' : '수정 저장'}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => resetLocationGuideEditModal()}>
-              취소
-            </Button>
-          </div>
-        </form>
+
+                    setSubmitting(true);
+                    try {
+                      const title = autoGuideTitle(editingRow.location?.name);
+                      const imgs = selectedFile instanceof File ? [selectedFile] : [];
+
+                      await crud.updateRow(editingId, {
+                        title,
+                        description: form.description,
+                        ...(imgs.length > 0 ? { images: imgs } : {}),
+                      });
+                      resetLocationGuideEditModal();
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                >
+                  <div className={`${searchComboboxTokens.section.stack} min-w-0`}>
+                    <span className={searchComboboxTokens.section.stepTitle}>목적지</span>
+                    <p className={searchComboboxTokens.section.stepSubtitle}>
+                      저장 시 제목은 목적지명으로 자동 맞춥니다.
+                    </p>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
+                      {formatLocationNameInline(editingRow.location?.name) || '-'}
+                    </div>
+                    <span className="text-[11px] text-slate-500">
+                      목적지 연결 변경은 목적지 상세에서 처리합니다.
+                    </span>
+                  </div>
+                  <div className="grid gap-3">
+                    <label className="grid gap-1 text-sm">
+                      <span>설명 (선택)</span>
+                      <textarea
+                        value={form.description}
+                        onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+                        rows={5}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                        placeholder="비워 두어도 됩니다."
+                      />
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      <span>이미지 (1장)</span>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0] ?? null;
+                          setSelectedFile(file instanceof File ? file : null);
+                        }}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                      />
+                      <span className="text-xs text-slate-500">
+                        jpg / png / webp, 파일당 최대 25MB. 변경하지 않으려면 선택하지 마세요. 현재 저장:{' '}
+                        {editingRow.imageUrls.filter((url) => url.trim().length > 0).length}개
+                        {editingRow.imageUrls.length > 1 ? (
+                          <span className="text-amber-800">
+                            {' '}
+                            · 다장(레거시)인 경우 새 파일 한 장만 보내면 순서 첫 칸부터 덮어씁니다.
+                          </span>
+                        ) : null}
+                      </span>
+                      {selectedFile instanceof File ? (
+                        <span className="text-xs text-slate-600">선택: {selectedFile.name}</span>
+                      ) : null}
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="submit" variant="primary" disabled={submitting}>
+                        {submitting ? '저장 중...' : '저장'}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={() => resetLocationGuideEditModal()}>
+                        취소
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              )}
             </div>
           </Card>
         </div>
       ) : null}
 
-      <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-4 py-3">
-          <h2 className="mb-3 text-lg font-semibold text-slate-900">소개 목록</h2>
-          <div className="flex flex-wrap items-center justify-start gap-2">
-            <label className="w-full min-w-[16rem] md:w-[28rem]">
-              <span className="sr-only">소개 목록 검색</span>
+      <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[1fr_minmax(0,1fr)]">
+        <Card className="min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-slate-900">만들어진 것</h2>
+              <Button type="button" variant="primary" onClick={() => openCreateModal()}>
+                생성
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-center justify-start gap-2">
+              <label className="w-full min-w-0 sm:max-w-md">
+                <span className="sr-only">등록 안내 검색</span>
+                <input
+                  type="search"
+                  value={guideListSearchQuery}
+                  onChange={(event) => setGuideListSearchQuery(event.target.value)}
+                  placeholder="목적지, 설명, 지역 검색"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900"
+                />
+              </label>
+              {normalizedGuideListSearchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setGuideListSearchQuery('')}
+                  className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700"
+                >
+                  검색 초기화
+                </button>
+              ) : null}
+            </div>
+          </div>
+          {filteredGuideRows.length === 0 ? (
+            <div className="p-6 text-sm text-slate-600">
+              {crud.rows.length === 0 ? '등록된 소개가 없습니다.' : '검색 결과가 없습니다.'}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>목적지·안내</Th>
+                    <Th>이미지</Th>
+                    <Th>수정일</Th>
+                    <Th>액션</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredGuideRows.map((row) => {
+                    const primaryName = formatLocationNameInline(row.location?.name) || row.title;
+                    const previewLabel = autoGuideTitle(row.location?.name);
+                    const legacy = isLegacyCompositeGuide(row);
+                    const editable = isEditableSingleDestinationGuide(row);
+                    const firstUrl = row.imageUrls.find((url) => url.trim().length > 0);
+                    const hasImage = firstUrl != null;
+                    return (
+                      <tr key={row.id}>
+                        <Td>
+                          <div className="font-medium text-slate-800">{primaryName}</div>
+                          {legacy ? (
+                            <div className="mt-1 text-[11px] font-medium text-amber-800">레거시(경유·다줄 연결)</div>
+                          ) : null}
+                          {row.description.trim().length > 0 ? (
+                            <div className="mt-1 max-w-xl whitespace-pre-wrap text-xs text-slate-500">
+                              {row.description}
+                            </div>
+                          ) : null}
+                        </Td>
+                        <Td className="min-w-[8rem] max-w-[12rem]">
+                          {hasImage ? (
+                            <button
+                              type="button"
+                              className="inline-flex rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
+                              onClick={() => openGuidePreview(row.imageUrls, previewLabel, 0)}
+                              aria-label={`${previewLabel} 이미지 미리보기`}
+                            >
+                              <img
+                                src={firstUrl}
+                                alt={`${previewLabel} 썸네일`}
+                                className="h-16 w-24 rounded-md border border-slate-200 object-cover"
+                                loading="lazy"
+                              />
+                              {row.imageUrls.filter((url) => url.trim().length > 0).length > 1 ? (
+                                <span className="sr-only">
+                                  저장된 이미지 {row.imageUrls.filter((u) => u.trim().length > 0).length}장(레거시)
+                                </span>
+                              ) : null}
+                            </button>
+                          ) : (
+                            <div className="flex h-16 w-24 items-center justify-center rounded-md border border-slate-300 bg-slate-100 text-[11px] text-slate-500">
+                              없음
+                            </div>
+                          )}
+                        </Td>
+                        <Td>{formatDate(row.updatedAt)}</Td>
+                        <Td>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setEditingId(row.id);
+                                setForm({
+                                  description: row.description,
+                                });
+                                setSelectedFile(null);
+                                if (fileInputRef.current) {
+                                  fileInputRef.current.value = '';
+                                }
+                              }}
+                            >
+                              {editable ? '수정' : '상세 보기'}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={async () => {
+                                if (!window.confirm('정말 삭제할까요?')) {
+                                  return;
+                                }
+                                await crud.deleteRow(row.id);
+                                if (editingId === row.id) {
+                                  resetLocationGuideEditModal();
+                                }
+                              }}
+                            >
+                              삭제
+                            </Button>
+                          </div>
+                        </Td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </div>
+          )}
+        </Card>
+
+        <Card className="min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <h2 className="mb-1 text-lg font-semibold text-slate-900">만들어야 하는 것</h2>
+            <p className="mb-3 text-xs text-slate-500">
+              단일 목적지 이름이고 아직 안내가 없습니다. 선택 시 <strong>생성</strong> 모달이 열리며 해당 목적지가 지정됩니다.
+            </p>
+            <label className="block w-full min-w-0 sm:max-w-md">
+              <span className="sr-only">미등록 목적지 검색</span>
               <input
                 type="search"
-                value={guideListSearchQuery}
-                onChange={(event) => setGuideListSearchQuery(event.target.value)}
-                placeholder="제목, 설명, 목적지, 지역 검색"
+                value={pendingLocationsSearchQuery}
+                onChange={(event) => setPendingLocationsSearchQuery(event.target.value)}
+                placeholder="목적지명, 지역 검색"
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900"
               />
             </label>
-            {normalizedGuideListSearchQuery ? (
+            {normalizedPendingSearch ? (
               <button
                 type="button"
-                onClick={() => setGuideListSearchQuery('')}
-                className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700"
+                onClick={() => setPendingLocationsSearchQuery('')}
+                className="mt-2 rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700"
               >
                 검색 초기화
               </button>
             ) : null}
           </div>
-        </div>
-        {filteredGuideRows.length === 0 ? (
-          <div className="p-6 text-sm text-slate-600">
-            {crud.rows.length === 0 ? '등록된 소개가 없습니다.' : '검색 결과가 없습니다.'}
-          </div>
-        ) : (
-        <Table>
-          <thead>
-            <tr>
-              <Th>제목</Th>
-              <Th>연결 목적지</Th>
-              <Th>이미지·준비</Th>
-              <Th>수정일</Th>
-              <Th>액션</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredGuideRows.map((row) => {
-              const nameLines = normalizeLocationNameLines(row.location?.name);
-              const expectedImages = nameLines.length > 0 ? nameLines.length : 1;
-              const readyOk = row.imageUrls.length >= expectedImages;
-              return (
-              <tr key={row.id}>
-                <Td>
-                  <div className="font-medium text-slate-800">{row.title}</div>
-                  <div className="mt-1 max-w-xl whitespace-pre-wrap text-xs text-slate-500">{row.description}</div>
-                </Td>
-                <Td>{formatLocationNameInline(row.location?.name) || '-'}</Td>
-                <Td className="min-w-[13.5rem] max-w-[15rem]">
-                  <div className="grid gap-1">
-                  {nameLines.length > 1 && row.imageUrls.length > 0 ? (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="inline-flex shrink-0 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
-                        onClick={() => {
-                          setPreviewImages(row.imageUrls);
-                          setPreviewIndex(0);
-                          setPreviewTitle(row.title);
-                          setPreviewOpen(true);
-                        }}
-                        aria-label={`${row.title} 이미지 1 미리보기 열기`}
-                      >
-                        <img
-                          src={row.imageUrls[0]}
-                          alt={`${row.title} 첫 번째 줄 썸네일`}
-                          className="h-16 w-24 rounded-md border border-slate-200 object-cover"
-                          loading="lazy"
-                        />
-                      </button>
-                      {row.imageUrls[1] ? (
-                        <button
+          {filteredPendingLocations.length === 0 ? (
+            <div className="p-6 text-sm text-slate-600">
+              {creatableLocations.length === 0
+                ? '추가로 만들 목적지가 없습니다.'
+                : '검색 결과가 없습니다.'}
+            </div>
+          ) : (
+            <div className="max-h-[min(70vh,52rem)] overflow-auto">
+              <Table>
+                <thead className="sticky top-0 z-[1] bg-white shadow-[0_1px_0_0_rgb(226_232_240)]">
+                  <tr>
+                    <Th>목적지</Th>
+                    <Th>지역</Th>
+                    <Th className="w-[7rem]">액션</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPendingLocations.map((loc) => (
+                    <tr key={loc.id}>
+                      <Td>
+                        <div className="font-medium text-slate-800">{formatLocationNameInline(loc.name)}</div>
+                      </Td>
+                      <Td className="text-sm text-slate-600">{loc.regionName}</Td>
+                      <Td>
+                        <Button
                           type="button"
-                          className="inline-flex shrink-0 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
-                          onClick={() => {
-                            setPreviewImages(row.imageUrls);
-                            setPreviewIndex(1);
-                            setPreviewTitle(row.title);
-                            setPreviewOpen(true);
-                          }}
-                          aria-label={`${row.title} 이미지 2 미리보기 열기`}
+                          variant="outline"
+                          className="text-xs whitespace-nowrap"
+                          onClick={() => openCreateModal(loc.id)}
                         >
-                          <img
-                            src={row.imageUrls[1]}
-                            alt={`${row.title} 두 번째 줄 썸네일`}
-                            className="h-16 w-24 rounded-md border border-slate-200 object-cover"
-                            loading="lazy"
-                          />
-                        </button>
-                      ) : (
-                        <div
-                          className="h-16 w-24 shrink-0 rounded-md border border-dashed border-slate-300 bg-slate-100"
-                          aria-hidden
-                        />
-                      )}
-                    </div>
-                  ) : row.imageUrls.length > 0 ? (
-                    <button
-                      type="button"
-                      className="relative inline-flex rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
-                      onClick={() => {
-                        setPreviewImages(row.imageUrls);
-                        setPreviewIndex(0);
-                        setPreviewTitle(row.title);
-                        setPreviewOpen(true);
-                      }}
-                      aria-label={`${row.title} 이미지 미리보기 열기`}
-                    >
-                      <img
-                        src={row.imageUrls[0]}
-                        alt={`${row.title} 썸네일`}
-                        className="h-16 w-24 rounded-md border border-slate-200 object-cover"
-                        loading="lazy"
-                      />
-                      {row.imageUrls.length > 1 ? (
-                        <span className="absolute -right-2 -top-2 rounded-full bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">
-                          +{row.imageUrls.length - 1}
-                        </span>
-                      ) : null}
-                    </button>
-                  ) : (
-                    <div className="flex h-16 w-24 items-center justify-center rounded-md border border-slate-300 bg-slate-100 text-[11px] text-slate-500">
-                      이미지 없음
-                    </div>
-                  )}
-                  <span
-                    className={`text-[10px] font-medium ${readyOk ? 'text-emerald-700' : 'text-amber-800'}`}
-                  >
-                    {row.imageUrls.length}/{expectedImages}장
-                    {nameLines.length > 1 ? ' · 경유명 줄 수 반영' : ''}
-                  </span>
-                  </div>
-                </Td>
-                <Td>{formatDate(row.updatedAt)}</Td>
-                <Td>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setEditingId(row.id);
-                        setForm({
-                          title: row.title,
-                          description: row.description,
-                          locationIds: row.locationId ? [row.locationId] : [],
-                        });
-                        setSelectedFiles([]);
-                        setPerLineFiles([]);
-                        if (fileInputRef.current) {
-                          fileInputRef.current.value = '';
-                        }
-                        perLineInputRefs.current.forEach((el) => {
-                          if (el) el.value = '';
-                        });
-                        perLineInputRefs.current = [];
-                      }}
-                    >
-                      수정
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={async () => {
-                        if (!window.confirm('정말 삭제할까요?')) {
-                          return;
-                        }
-                        await crud.deleteRow(row.id);
-                        if (editingId === row.id) {
-                          setEditingId('');
-                          setForm(EMPTY_FORM);
-                          setSelectedFiles([]);
-                          setPerLineFiles([]);
-                          if (fileInputRef.current) {
-                            fileInputRef.current.value = '';
-                          }
-                          perLineInputRefs.current.forEach((el) => {
-                            if (el) el.value = '';
-                          });
-                          perLineInputRefs.current = [];
-                        }
-                      }}
-                    >
-                      삭제
-                    </Button>
-                  </div>
-                </Td>
-              </tr>
-            );
-            })}
-          </tbody>
-        </Table>
-        )}
-      </Card>
+                          선택
+                        </Button>
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          )}
+        </Card>
+      </div>
 
       {previewOpen && previewImages.length > 0 ? (
         <div
