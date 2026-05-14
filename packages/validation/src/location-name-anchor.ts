@@ -90,3 +90,31 @@ export function guideLocationNameHasNoWaypointInForm(value: GuideLocationNameLik
   }
   return splitLocationNameLineIntoSlashParts(lines[0]!).length === 1;
 }
+
+/**
+ * 경유/다줄 `Location.name`에서 단일 목적지 가이드 조합을 찾기 위한 표시용 라벨을 수집한다.
+ * 줄은 위에서 아래, 줄 안에서는 `/`로 나뉜 순서대로 진행하고,
+ * 동일 문자열 정규화 결과는 첫 발생만 유지한다.
+ */
+export function collectWaypointSegmentLabelsInCompositeName(value: GuideLocationNameLike): string[] {
+  const lines = normalizeGuideLocationNameLines(value);
+  const seenNormalized = new Set<string>();
+  const out: string[] = [];
+
+  for (const rawLine of lines) {
+    const segments = splitLocationNameLineIntoSlashParts(rawLine);
+    for (const seg of segments) {
+      const n = normalizeLocationAnchorToken(seg);
+      if (!n.length) {
+        continue;
+      }
+      if (seenNormalized.has(n)) {
+        continue;
+      }
+      seenNormalized.add(n);
+      out.push(seg.trim());
+    }
+  }
+
+  return out;
+}

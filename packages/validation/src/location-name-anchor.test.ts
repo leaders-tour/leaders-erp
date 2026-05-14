@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  collectWaypointSegmentLabelsInCompositeName,
   findAnchorLineIndexForGuideLocationName,
   findAnchorLineIndexInLocationName,
   guideLocationNameContainsAnchorToken,
@@ -55,5 +56,19 @@ describe('guideLocationNameHasNoWaypointInForm', () => {
     expect(guideLocationNameHasNoWaypointInForm('욜린암')).toBe(true);
     expect(guideLocationNameHasNoWaypointInForm('a / b')).toBe(false);
     expect(guideLocationNameHasNoWaypointInForm(['차강', '욜린암'])).toBe(false);
+  });
+});
+
+describe('collectWaypointSegmentLabelsInCompositeName', () => {
+  it('두 줄 이름에서 두 줄 순서 및 슬래시 조각 순서를 유지한다', () => {
+    expect(collectWaypointSegmentLabelsInCompositeName(['차강 / 욜린암', '홍고린 엘스'])).toEqual([
+      '차강',
+      '욜린암',
+      '홍고린 엘스',
+    ]);
+  });
+
+  it('중복 라벨(정규화 동일)은 한 번만', () => {
+    expect(collectWaypointSegmentLabelsInCompositeName(['욜린암', '욜린암 / x'])).toEqual(['욜린암', 'x']);
   });
 });
