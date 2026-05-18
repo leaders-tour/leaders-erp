@@ -12,6 +12,10 @@ import {
   sliceEffectiveTotalsForUi,
 } from '../features/pricing/manual-pricing';
 import { customerFacingTotalsFromSnapshot } from '../features/pricing/customer-pricing-snapshot';
+import {
+  teamPricingsForSummaryDisplay,
+  teamPricingSummarySignatureFromParts,
+} from '../features/pricing/team-pricing-summary-display';
 import { countMainPlanStopRows } from '../features/plan/plan-stop-row';
 import {
   useConfirmedTrip,
@@ -407,6 +411,41 @@ function formatKrw(value: number): string {
   return `${currencyFormatter.format(value)}원`;
 }
 
+interface AmountCardTeamPricing {
+  teamOrderIndex: number;
+  teamName: string;
+  totalAmountKrw: number;
+  depositAmountKrw: number;
+  balanceAmountKrw: number;
+  securityDepositAmountKrw: number;
+  securityDepositUnitKrw: number;
+  securityDepositScope: string;
+}
+
+function amountCardTeamPricingSignature(row: AmountCardTeamPricing): string {
+  return teamPricingSummarySignatureFromParts({
+    totalAmountKrw: row.totalAmountKrw,
+    depositAmountKrw: row.depositAmountKrw,
+    balanceAmountKrw: row.balanceAmountKrw,
+    securityNone: row.securityDepositScope === '-',
+    securityDepositAmountKrw: row.securityDepositAmountKrw,
+    securityDepositUnitKrw: row.securityDepositUnitKrw,
+    securityScopeWhenPresent: row.securityDepositScope === '-' ? '' : row.securityDepositScope,
+  });
+}
+
+function formatSecurityDepositForCard(
+  row: Pick<
+    AmountCardTeamPricing,
+    'securityDepositAmountKrw' | 'securityDepositUnitKrw' | 'securityDepositScope'
+  >,
+): string {
+  if (row.securityDepositScope !== '-') {
+    return `${formatKrw(row.securityDepositUnitKrw)} (${row.securityDepositScope})`;
+  }
+  return formatKrw(row.securityDepositAmountKrw);
+}
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ko-KR');
 }
@@ -529,6 +568,42 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     }
     return effectivePlanPricing ? sliceEffectiveTotalsForUi(effectivePlanPricing) : null;
   }, [planVersionPricingRaw?.manualPricing?.customerPricingSnapshot, effectivePlanPricing]);
+
+  const amountCardTeamPricings = useMemo<AmountCardTeamPricing[]>(() => {
+    const snapRows = planVersionPricingRaw?.manualPricing?.customerPricingSnapshot?.teamPricings ?? [];
+    if (snapRows.length > 0) {
+      return snapRows.map((row) => ({
+        teamOrderIndex: row.teamOrderIndex,
+        teamName: row.teamName,
+        totalAmountKrw: row.totalAmountKrw,
+        depositAmountKrw: row.depositAmountKrw,
+        balanceAmountKrw: row.balanceAmountKrw,
+        securityDepositAmountKrw: row.securityDepositAmountKrw,
+        securityDepositUnitKrw: row.securityDepositUnitKrw,
+        securityDepositScope: row.securityDepositScope,
+      }));
+    }
+
+    return (effectivePlanPricing?.teamPricings ?? []).map((row) => ({
+      teamOrderIndex: row.teamOrderIndex,
+      teamName: row.teamName,
+      totalAmountKrw: row.totalAmountKrw,
+      depositAmountKrw: row.depositAmountKrw,
+      balanceAmountKrw: row.balanceAmountKrw,
+      securityDepositAmountKrw: row.securityDepositAmountKrw,
+      securityDepositUnitKrw: row.securityDepositUnitPriceKrw,
+      securityDepositScope: toSecurityDepositScope(row.securityDepositMode),
+    }));
+  }, [planVersionPricingRaw?.manualPricing?.customerPricingSnapshot?.teamPricings, effectivePlanPricing?.teamPricings]);
+
+  const amountCardTeamPricingsForDisplay = useMemo(() => {
+    if (planVersionPricingRaw?.manualPricing?.expandTeamPricingSummaryRows === true) {
+      return amountCardTeamPricings;
+    }
+    return teamPricingsForSummaryDisplay(amountCardTeamPricings, amountCardTeamPricingSignature);
+  }, [amountCardTeamPricings, planVersionPricingRaw?.manualPricing?.expandTeamPricingSummaryRows]);
+
+  const amountCardShowTeamPrefix = amountCardTeamPricingsForDisplay.length > 1;
 
   const externalPickDropRowsPickup = useMemo(() => {
     if (!trip) return [];
@@ -1201,50 +1276,89 @@ export function ConfirmedTripDetailPage(): JSX.Element {
             <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-4 text-sm font-semibold text-slate-900">금액 정보</h2>
               {pricing ? (
-                <div className="grid gap-3 text-sm text-slate-700">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-slate-500">총액</span>
-                      <p className="text-lg font-semibold text-slate-900">
-                        {formatKrw(
-                          effectiveTotalsForCard?.totalAmountKrw ?? pricing.totalAmountKrw,
-                        )}
-                      </p>
+                amountCardTeamPricingsForDisplay.length > 0 ? (
+                  <div className="grid gap-3 text-sm text-slate-700">
+                    {amountCardTeamPricingsForDisplay.map((row) => {
+                      const label =
+                        amountCardShowTeamPrefix || amountCardTeamPricings.length === 1
+                          ? row.teamName
+                          : '공통';
+                      return (
+                        <div
+                          key={`amount-card-team-${row.teamOrderIndex}`}
+                          className="grid gap-2 border-t border-slate-100 pt-3 first:border-t-0 first:pt-0"
+                        >
+                          <p className="text-xs font-semibold text-slate-500">{label}</p>
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                            <div>
+                              <span className="text-slate-500">총액</span>
+                              <p className="text-lg font-semibold text-slate-900">
+                                {formatKrw(row.totalAmountKrw)}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-slate-500">보증금</span>
+                              <p className="font-medium">{formatSecurityDepositForCard(row)}</p>
+                            </div>
+                            <div>
+                              <span className="text-slate-500">예약금</span>
+                              <p className="font-medium">{formatKrw(row.depositAmountKrw)}</p>
+                            </div>
+                            <div>
+                              <span className="text-slate-500">잔금</span>
+                              <p className="font-medium">{formatKrw(row.balanceAmountKrw)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="grid gap-3 text-sm text-slate-700">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-slate-500">총액</span>
+                        <p className="text-lg font-semibold text-slate-900">
+                          {formatKrw(
+                            effectiveTotalsForCard?.totalAmountKrw ?? pricing.totalAmountKrw,
+                          )}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">보증금</span>
+                        <p className="font-medium">
+                          {effectiveTotalsForCard &&
+                          toSecurityDepositScope(effectiveTotalsForCard.securityDepositMode) !== '-'
+                            ? `${formatKrw(effectiveTotalsForCard.securityDepositUnitPriceKrw)} (${toSecurityDepositScope(
+                                effectiveTotalsForCard.securityDepositMode,
+                              )})`
+                            : formatKrw(
+                                effectiveTotalsForCard?.securityDepositAmountKrw ??
+                                  pricing.securityDepositAmountKrw,
+                              )}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-slate-500">보증금</span>
-                      <p className="font-medium">
-                        {effectiveTotalsForCard &&
-                        toSecurityDepositScope(effectiveTotalsForCard.securityDepositMode) !== '-'
-                          ? `${formatKrw(effectiveTotalsForCard.securityDepositUnitPriceKrw)} (${toSecurityDepositScope(
-                              effectiveTotalsForCard.securityDepositMode,
-                            )})`
-                          : formatKrw(
-                              effectiveTotalsForCard?.securityDepositAmountKrw ??
-                                pricing.securityDepositAmountKrw,
-                            )}
-                      </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-slate-500">예약금</span>
+                        <p className="font-medium">
+                          {formatKrw(
+                            effectiveTotalsForCard?.depositAmountKrw ?? pricing.depositAmountKrw,
+                          )}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">잔금</span>
+                        <p className="font-medium">
+                          {formatKrw(
+                            effectiveTotalsForCard?.balanceAmountKrw ?? pricing.balanceAmountKrw,
+                          )}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-slate-500">예약금</span>
-                      <p className="font-medium">
-                        {formatKrw(
-                          effectiveTotalsForCard?.depositAmountKrw ?? pricing.depositAmountKrw,
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">잔금</span>
-                      <p className="font-medium">
-                        {formatKrw(
-                          effectiveTotalsForCard?.balanceAmountKrw ?? pricing.balanceAmountKrw,
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                )
               ) : trip.totalAmountKrw != null ? (
                 <div className="grid gap-3 text-sm text-slate-700">
                   <div className="grid grid-cols-2 gap-2">
