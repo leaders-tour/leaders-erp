@@ -113,10 +113,13 @@ function OptionCard({
       return;
     }
 
+    const capacity =
+      draft.capacity !== undefined ? draft.capacity?.trim() || null : opt.capacity;
     const effectiveMealIncluded = draft.mealIncluded !== undefined ? draft.mealIncluded : opt.mealIncluded;
 
     const unchanged =
       roomType === opt.roomType &&
+      capacity === opt.capacity &&
       priceOffSeason === opt.priceOffSeason &&
       pricePeakSeason === opt.pricePeakSeason &&
       effectiveMealIncluded === opt.mealIncluded &&
@@ -133,6 +136,7 @@ function OptionCard({
 
     await updateOption(opt.id, accommodationId, {
       roomType,
+      capacity,
       priceOffSeason,
       pricePeakSeason,
       mealIncluded: effectiveMealIncluded,
@@ -255,7 +259,7 @@ function OptionCard({
                 <button
                   className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
                   onClick={() => {
-                    setDraft({ roomType: opt.roomType });
+                    setDraft({ roomType: opt.roomType, capacity: opt.capacity });
                     setPriceOffSeasonStr(opt.priceOffSeason != null ? String(opt.priceOffSeason) : '');
                     setPricePeakSeasonStr(opt.pricePeakSeason != null ? String(opt.pricePeakSeason) : '');
                     setEditing(true);
@@ -304,6 +308,16 @@ function OptionCard({
                     value={current.roomType}
                     onChange={(e) => setDraft((p) => ({ ...p, roomType: e.target.value }))}
                     placeholder="예: 2인실 게르"
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 sm:col-span-2">
+                  <span className="text-xs font-medium text-slate-500">몇인실</span>
+                  <input
+                    type="text"
+                    value={current.capacity ?? ''}
+                    onChange={(e) => setDraft((p) => ({ ...p, capacity: e.target.value }))}
+                    placeholder="예: 1인실, 2인실, 2~3인실"
                     className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
                   />
                 </label>
