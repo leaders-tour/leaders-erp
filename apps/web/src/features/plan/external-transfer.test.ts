@@ -128,6 +128,14 @@ describe('external-transfer formatting', () => {
     );
   });
 
+  it('omits team label when there is only one transport team', () => {
+    expect(buildExternalTransferDirectionText(
+      [{ ...transfers[0]!, selectedTeamOrderIndexes: [0] }],
+      [teams[0]!],
+      'DROP',
+    )).toBe('05/03 13:45 테를지 > 15:15 공항');
+  });
+
   it('formats travelDate when API returns full ISO DateTime (GraphQL DateTime)', () => {
     const transfersIsoDate: ExternalTransfer[] = [
       {

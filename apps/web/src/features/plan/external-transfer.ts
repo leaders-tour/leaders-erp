@@ -410,12 +410,14 @@ export function isExternalTransferComplete(transfer: ExternalTransfer): boolean 
   );
 }
 
-export function formatExternalTransferLine(transfer: ExternalTransfer, teamName: string): string {
+export function formatExternalTransferLine(transfer: ExternalTransfer, teamName?: string | null): string {
   const parsed = parseIsoDate(transfer.travelDate);
   const dateLabel = parsed
     ? `${String(parsed.month).padStart(2, '0')}/${String(parsed.day).padStart(2, '0')}`
     : '--/--';
-  return `${teamName} ${dateLabel} ${transfer.departureTime} ${transfer.departurePlace} > ${transfer.arrivalTime} ${transfer.arrivalPlace}`;
+  const trimmedTeamName = teamName?.trim() ?? '';
+  const prefix = trimmedTeamName.length > 0 ? `${trimmedTeamName} ` : '';
+  return `${prefix}${dateLabel} ${transfer.departureTime} ${transfer.departurePlace} > ${transfer.arrivalTime} ${transfer.arrivalPlace}`;
 }
 
 export function buildExternalTransferDirectionText(
@@ -432,6 +434,7 @@ export function buildExternalTransferDirectionText(
       return [];
     }
 
+    const shouldShowTeamName = teams.length > 1;
     return transfer.selectedTeamOrderIndexes
       .slice()
       .sort((left, right) => left - right)
@@ -441,7 +444,8 @@ export function buildExternalTransferDirectionText(
           return null;
         }
 
-        return formatExternalTransferLine(transfer, team.teamName || `${teamOrderIndex + 1}번 팀`);
+        const teamName = shouldShowTeamName ? team.teamName || `${teamOrderIndex + 1}번 팀` : null;
+        return formatExternalTransferLine(transfer, teamName);
       })
       .filter((value): value is string => typeof value === 'string');
   });
@@ -516,4 +520,3 @@ export function listExternalTransferDetailRows(
     });
   });
 }
-

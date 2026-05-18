@@ -70,7 +70,11 @@ function toggleSelection(values: number[], teamOrderIndex: number): number[] {
 
 function toInitialDraft(initialValue: ExternalTransfer | null | undefined, transportGroups: ExternalTransferTeamLike[]): ExternalTransfer | null {
   if (initialValue) {
-    return syncExternalTransferTeamSelection(initialValue, transportGroups);
+    const synced = syncExternalTransferTeamSelection(initialValue, transportGroups);
+    if (transportGroups.length === 1 && synced.selectedTeamOrderIndexes.length === 0) {
+      return { ...synced, selectedTeamOrderIndexes: [0] };
+    }
+    return synced;
   }
 
   return null;
@@ -120,6 +124,7 @@ export function ExternalTransferModal({
   const timePickerAllowedMinutes = draft?.presetCode === 'CUSTOM' ? undefined : [0, 30];
   const title = initialValue ? '실투어 외 픽드랍 수정' : '실투어 외 픽드랍 추가';
   const selectedTeamCount = draft?.selectedTeamOrderIndexes.length ?? 0;
+  const shouldShowTeamSelection = transportGroups.length !== 1;
   const presetSections = [
     {
       title: '드랍',
@@ -139,8 +144,9 @@ export function ExternalTransferModal({
       return 'preset 또는 수동입력을 먼저 선택하세요.';
     }
 
-    return `${draft.direction === 'PICKUP' ? '픽업' : '드랍'} · ${selectedTeamCount}팀`;
-  }, [draft, selectedTeamCount]);
+    const directionLabel = draft.direction === 'PICKUP' ? '픽업' : '드랍';
+    return transportGroups.length === 1 ? directionLabel : `${directionLabel} · ${selectedTeamCount}팀`;
+  }, [draft, selectedTeamCount, transportGroups.length]);
 
   if (!open) {
     return null;
@@ -154,6 +160,7 @@ export function ExternalTransferModal({
             ...buildEmptyExternalTransfer(),
             direction: draft?.direction ?? 'PICKUP',
             presetCode: 'CUSTOM' as const,
+            selectedTeamOrderIndexes: transportGroups.length === 1 ? [0] : [],
           }
         : buildExternalTransferFromPreset(presetCode, defaultTeamOrderIndex, transportGroups);
     setDraft(nextDraft);
@@ -239,47 +246,49 @@ export function ExternalTransferModal({
                       </div>
                     </div>
 
-                    <div className="grid gap-2">
-                      <span className="text-xs font-medium text-slate-600">적용 팀</span>
-                      <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
-                        {transportGroups.length === 0 ? (
-                          <div className="text-sm text-slate-500">먼저 팀 이동 정보를 입력해주세요.</div>
-                        ) : (
-                          transportGroups.map((group, index) => {
-                            const isSelected = draft.selectedTeamOrderIndexes.includes(index);
-                            return (
-                              <label
-                                key={`${group.teamName}-${index}`}
-                                className={`flex cursor-pointer items-center justify-between rounded-2xl border px-3 py-2 text-sm transition ${
-                                  isSelected
-                                    ? 'border-slate-900 bg-slate-900 text-white'
-                                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                                }`}
-                              >
-                                <span>
-                                  {group.teamName || `${index + 1}번 팀`}
-                                  <span className={`ml-2 text-xs ${isSelected ? 'text-slate-200' : 'text-slate-400'}`}>
-                                    {group.flightInDate && group.flightOutDate ? `${group.flightInDate} ~ ${group.flightOutDate}` : '항공 일정 없음'}
+                    {shouldShowTeamSelection ? (
+                      <div className="grid gap-2">
+                        <span className="text-xs font-medium text-slate-600">적용 팀</span>
+                        <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
+                          {transportGroups.length === 0 ? (
+                            <div className="text-sm text-slate-500">먼저 팀 이동 정보를 입력해주세요.</div>
+                          ) : (
+                            transportGroups.map((group, index) => {
+                              const isSelected = draft.selectedTeamOrderIndexes.includes(index);
+                              return (
+                                <label
+                                  key={`${group.teamName}-${index}`}
+                                  className={`flex cursor-pointer items-center justify-between rounded-2xl border px-3 py-2 text-sm transition ${
+                                    isSelected
+                                      ? 'border-slate-900 bg-slate-900 text-white'
+                                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                                  }`}
+                                >
+                                  <span>
+                                    {group.teamName || `${index + 1}번 팀`}
+                                    <span className={`ml-2 text-xs ${isSelected ? 'text-slate-200' : 'text-slate-400'}`}>
+                                      {group.flightInDate && group.flightOutDate ? `${group.flightInDate} ~ ${group.flightOutDate}` : '항공 일정 없음'}
+                                    </span>
                                   </span>
-                                </span>
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => {
-                                    const nextSelectedTeamOrderIndexes = toggleSelection(draft.selectedTeamOrderIndexes, index);
-                                    const nextDraft = syncExternalTransferWithSelectedTeams(
-                                      { ...draft, selectedTeamOrderIndexes: nextSelectedTeamOrderIndexes },
-                                      transportGroups,
-                                    );
-                                    setDraft(nextDraft);
-                                  }}
-                                />
-                              </label>
-                            );
-                          })
-                        )}
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => {
+                                      const nextSelectedTeamOrderIndexes = toggleSelection(draft.selectedTeamOrderIndexes, index);
+                                      const nextDraft = syncExternalTransferWithSelectedTeams(
+                                        { ...draft, selectedTeamOrderIndexes: nextSelectedTeamOrderIndexes },
+                                        transportGroups,
+                                      );
+                                      setDraft(nextDraft);
+                                    }}
+                                  />
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
 
                   </div>
 
