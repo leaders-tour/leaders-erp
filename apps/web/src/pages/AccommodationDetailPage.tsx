@@ -107,9 +107,16 @@ function OptionCard({
     const priceOffSeason = offParsed.value;
     const pricePeakSeason = peakParsed.value;
 
+    const roomType = (draft.roomType !== undefined ? draft.roomType : opt.roomType).trim();
+    if (!roomType) {
+      window.alert('객실 유형을 입력해 주세요.');
+      return;
+    }
+
     const effectiveMealIncluded = draft.mealIncluded !== undefined ? draft.mealIncluded : opt.mealIncluded;
 
     const unchanged =
+      roomType === opt.roomType &&
       priceOffSeason === opt.priceOffSeason &&
       pricePeakSeason === opt.pricePeakSeason &&
       effectiveMealIncluded === opt.mealIncluded &&
@@ -125,6 +132,7 @@ function OptionCard({
     }
 
     await updateOption(opt.id, accommodationId, {
+      roomType,
       priceOffSeason,
       pricePeakSeason,
       mealIncluded: effectiveMealIncluded,
@@ -205,7 +213,7 @@ function OptionCard({
       <div className="p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-semibold text-slate-900">{opt.roomType}</h3>
+            <h3 className="font-semibold text-slate-900">{current.roomType}</h3>
             <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${LEVEL_COLORS[opt.level]}`}>
               {LEVEL_LABEL[opt.level]}
             </span>
@@ -247,7 +255,7 @@ function OptionCard({
                 <button
                   className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
                   onClick={() => {
-                    setDraft({});
+                    setDraft({ roomType: opt.roomType });
                     setPriceOffSeasonStr(opt.priceOffSeason != null ? String(opt.priceOffSeason) : '');
                     setPricePeakSeasonStr(opt.pricePeakSeason != null ? String(opt.pricePeakSeason) : '');
                     setEditing(true);
@@ -289,6 +297,16 @@ function OptionCard({
           <div className="mt-4 border-t border-slate-100 pt-4">
             {editing ? (
               <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-1 sm:col-span-2">
+                  <span className="text-xs font-medium text-slate-500">객실 유형 *</span>
+                  <input
+                    type="text"
+                    value={current.roomType}
+                    onChange={(e) => setDraft((p) => ({ ...p, roomType: e.target.value }))}
+                    placeholder="예: 2인실 게르"
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+                  />
+                </label>
                 <label className="flex flex-col gap-1">
                   <span className="text-xs font-medium text-slate-500">비수기 가격 (₮)</span>
                   <input
