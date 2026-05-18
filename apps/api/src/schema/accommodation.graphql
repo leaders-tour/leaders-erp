@@ -37,7 +37,7 @@ type AccommodationOption {
   pricePeakSeason: Int
   paymentMethod: PaymentMethod
   mealCostPerServing: Int
-  capacity: String
+  capacity: Int
   mealIncluded: Boolean!
   googleMapsUrl: String
   imageUrls: [String!]!
@@ -79,7 +79,7 @@ input AccommodationOptionCreateInput {
   pricePeakSeason: Int
   paymentMethod: PaymentMethod
   mealCostPerServing: Int
-  capacity: String
+  capacity: Int
   mealIncluded: Boolean
   googleMapsUrl: String
   imageUrls: [String!]
@@ -93,7 +93,7 @@ input AccommodationOptionUpdateInput {
   pricePeakSeason: Int
   paymentMethod: PaymentMethod
   mealCostPerServing: Int
-  capacity: String
+  capacity: Int
   mealIncluded: Boolean
   googleMapsUrl: String
   imageUrls: [String!]

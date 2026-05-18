@@ -58,6 +58,19 @@ function parseOptionalPriceInput(raw: string): { ok: true; value: number | null 
   return { ok: true, value: n };
 }
 
+function parseOptionalPositiveIntInput(raw: string): { ok: true; value: number | null } | { ok: false } {
+  const t = raw.trim();
+  if (t === '') return { ok: true, value: null };
+  if (!/^\d+$/.test(t)) return { ok: false };
+  const n = Number.parseInt(t, 10);
+  if (!Number.isFinite(n) || n < 1) return { ok: false };
+  return { ok: true, value: n };
+}
+
+function formatCapacity(capacity: number | null | undefined): string | null {
+  return capacity != null ? `${capacity}인실` : null;
+}
+
 /** 편집 중에는 입력 문자열을 파싱해 미리보기, 파싱 실패 시 서버 값 유지 */
 function previewSeasonPrice(
   editing: boolean,
@@ -84,6 +97,7 @@ function OptionCard({
   const [draft, setDraft] = useState<Partial<AccommodationOption>>({});
   const [priceOffSeasonStr, setPriceOffSeasonStr] = useState('');
   const [pricePeakSeasonStr, setPricePeakSeasonStr] = useState('');
+  const [capacityStr, setCapacityStr] = useState('');
   const { updateOption, loading: saving } = useUpdateAccommodationOption();
   const { deleteOption, loading: deleting } = useDeleteAccommodationOption();
   const { uploadImages, loading: uploading } = useUploadAccommodationOptionImages();
@@ -95,12 +109,20 @@ function OptionCard({
   const displayPricePeakSeason = previewSeasonPrice(editing, pricePeakSeasonStr, current.pricePeakSeason, opt.pricePeakSeason);
   const displayPaymentMethod =
     editing && draft.paymentMethod !== undefined ? draft.paymentMethod : current.paymentMethod;
+  const displayLevel = editing && draft.level !== undefined ? draft.level : current.level;
+  const displayCapacity = formatCapacity(current.capacity);
 
   async function handleSave() {
     const offParsed = parseOptionalPriceInput(priceOffSeasonStr);
     const peakParsed = parseOptionalPriceInput(pricePeakSeasonStr);
     if (!offParsed.ok || !peakParsed.ok) {
       window.alert('가격은 비워두거나 0 이상의 정수로 입력해 주세요.');
+      return;
+    }
+
+    const capacityParsed = parseOptionalPositiveIntInput(capacityStr);
+    if (!capacityParsed.ok) {
+      window.alert('몇인실은 비워두거나 1 이상의 정수로 입력해 주세요.');
       return;
     }
 
@@ -113,12 +135,13 @@ function OptionCard({
       return;
     }
 
-    const capacity =
-      draft.capacity !== undefined ? draft.capacity?.trim() || null : opt.capacity;
+    const capacity = capacityParsed.value;
+    const level = draft.level !== undefined ? draft.level : opt.level;
     const effectiveMealIncluded = draft.mealIncluded !== undefined ? draft.mealIncluded : opt.mealIncluded;
 
     const unchanged =
       roomType === opt.roomType &&
+      level === opt.level &&
       capacity === opt.capacity &&
       priceOffSeason === opt.priceOffSeason &&
       pricePeakSeason === opt.pricePeakSeason &&
@@ -131,11 +154,13 @@ function OptionCard({
       setDraft({});
       setPriceOffSeasonStr('');
       setPricePeakSeasonStr('');
+      setCapacityStr('');
       return;
     }
 
     await updateOption(opt.id, accommodationId, {
       roomType,
+      level,
       capacity,
       priceOffSeason,
       pricePeakSeason,
@@ -147,6 +172,7 @@ function OptionCard({
     setDraft({});
     setPriceOffSeasonStr('');
     setPricePeakSeasonStr('');
+    setCapacityStr('');
   }
 
   async function handleDelete() {
@@ -218,12 +244,12 @@ function OptionCard({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-semibold text-slate-900">{current.roomType}</h3>
-            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${LEVEL_COLORS[opt.level]}`}>
-              {LEVEL_LABEL[opt.level]}
+            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${LEVEL_COLORS[displayLevel]}`}>
+              {LEVEL_LABEL[displayLevel]}
             </span>
-            {current.capacity && (
+            {displayCapacity && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                {current.capacity}
+                {displayCapacity}
               </span>
             )}
             {current.mealIncluded && (
@@ -248,6 +274,7 @@ function OptionCard({
                     setDraft({});
                     setPriceOffSeasonStr('');
                     setPricePeakSeasonStr('');
+                    setCapacityStr('');
                   }}
                 >
                   취소
@@ -259,9 +286,10 @@ function OptionCard({
                 <button
                   className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
                   onClick={() => {
-                    setDraft({ roomType: opt.roomType, capacity: opt.capacity });
+                    setDraft({ roomType: opt.roomType, level: opt.level, capacity: opt.capacity });
                     setPriceOffSeasonStr(opt.priceOffSeason != null ? String(opt.priceOffSeason) : '');
                     setPricePeakSeasonStr(opt.pricePeakSeason != null ? String(opt.pricePeakSeason) : '');
+                    setCapacityStr(opt.capacity != null ? String(opt.capacity) : '');
                     setEditing(true);
                   }}
                 >
@@ -314,12 +342,30 @@ function OptionCard({
                 <label className="flex flex-col gap-1 sm:col-span-2">
                   <span className="text-xs font-medium text-slate-500">몇인실</span>
                   <input
-                    type="text"
-                    value={current.capacity ?? ''}
-                    onChange={(e) => setDraft((p) => ({ ...p, capacity: e.target.value }))}
-                    placeholder="예: 1인실, 2인실, 2~3인실"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={capacityStr}
+                    onChange={(e) => {
+                      setCapacityStr(e.target.value);
+                      const parsed = parseOptionalPositiveIntInput(e.target.value);
+                      if (parsed.ok) setDraft((p) => ({ ...p, capacity: parsed.value }));
+                    }}
+                    placeholder="예: 2"
                     className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
                   />
+                </label>
+                <label className="flex flex-col gap-1 sm:col-span-2">
+                  <span className="text-xs font-medium text-slate-500">객실 등급</span>
+                  <select
+                    value={displayLevel}
+                    onChange={(e) => setDraft((p) => ({ ...p, level: e.target.value as AccommodationLevel }))}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none md:max-w-xs"
+                  >
+                    {LEVEL_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
                 </label>
                 <label className="flex flex-col gap-1">
                   <span className="text-xs font-medium text-slate-500">비수기 가격 (₮)</span>
@@ -437,6 +483,11 @@ function AddOptionModal({
       setError('객실 유형을 입력해 주세요.');
       return;
     }
+    const capacityParsed = parseOptionalPositiveIntInput(form.capacity);
+    if (!capacityParsed.ok) {
+      setError('몇인실은 비워두거나 1 이상의 정수로 입력해 주세요.');
+      return;
+    }
     setError(null);
     try {
       await createOption({
@@ -445,7 +496,7 @@ function AddOptionModal({
         level: form.level,
         priceOffSeason: form.priceOffSeason ? parseInt(form.priceOffSeason, 10) : null,
         pricePeakSeason: form.pricePeakSeason ? parseInt(form.pricePeakSeason, 10) : null,
-        capacity: form.capacity || null,
+        capacity: capacityParsed.value,
         mealIncluded: form.mealIncluded,
         note: form.note || null,
       });
@@ -490,12 +541,14 @@ function AddOptionModal({
             </select>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-slate-500">정원</span>
+            <span className="text-xs font-medium text-slate-500">몇인실</span>
             <input
-              type="text"
+              type="number"
+              min={1}
+              step={1}
               value={form.capacity}
               onChange={(e) => setForm((p) => ({ ...p, capacity: e.target.value }))}
-              placeholder="예: 2~3인"
+              placeholder="예: 2"
               className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
             />
           </label>

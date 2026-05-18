@@ -15,7 +15,7 @@ export interface AccommodationOption {
   pricePeakSeason: number | null;
   paymentMethod: PaymentMethod | null;
   mealCostPerServing: number | null;
-  capacity: string | null;
+  capacity: number | null;
   mealIncluded: boolean;
   googleMapsUrl: string | null;
   imageUrls: string[];
@@ -329,7 +329,7 @@ export function useCreateAccommodationOption() {
       pricePeakSeason?: number | null;
       paymentMethod?: PaymentMethod | null;
       mealCostPerServing?: number | null;
-      capacity?: string | null;
+      capacity?: number | null;
       mealIncluded?: boolean;
       googleMapsUrl?: string | null;
       note?: string | null;

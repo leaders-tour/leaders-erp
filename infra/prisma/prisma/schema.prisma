@@ -1777,7 +1777,7 @@ model AccommodationOption {
   pricePeakSeason    Int?
   paymentMethod      PaymentMethod?
   mealCostPerServing Int?
-  capacity           String?
+  capacity           Int?
   mealIncluded       Boolean            @default(false)
   googleMapsUrl      String?            @db.Text
   imageUrls          Json               @default("[]")

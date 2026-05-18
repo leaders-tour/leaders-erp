@@ -166,7 +166,7 @@ function AccommodationPicker({
                         <div className="mt-1.5 flex flex-wrap gap-1">
                           {opt.capacity && (
                             <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
-                              👤 {opt.capacity}
+                              👤 {opt.capacity}인실
                             </span>
                           )}
                           <span className="inline-flex items-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-xs font-medium text-indigo-600">
