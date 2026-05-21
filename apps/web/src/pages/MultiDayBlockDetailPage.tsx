@@ -28,6 +28,7 @@ interface MultiDayBlockRow {
   name: string;
   title: string;
   isNightTrain: boolean;
+  longDistanceSegmentCount: number;
   sortOrder: number;
   isActive: boolean;
   days: Array<{
@@ -64,6 +65,7 @@ const MULTI_DAY_BLOCK_QUERY = gql`
       name
       title
       isNightTrain
+      longDistanceSegmentCount
       sortOrder
       isActive
       days {
@@ -170,6 +172,7 @@ export function MultiDayBlockDetailPage(): JSX.Element {
         <h2 className="mb-3 text-lg font-semibold">요약</h2>
         <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
           <div>야간열차 적용: {block.isNightTrain ? '예' : '아니오'}</div>
+          <div>장거리 구간 수: {block.longDistanceSegmentCount}</div>
           <div>상태: {block.isActive ? '활성' : '비활성'}</div>
           <div>정렬 순서: {block.sortOrder}</div>
           <div>일수: {orderedDays.length}일</div>

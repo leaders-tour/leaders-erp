@@ -217,6 +217,7 @@ export class MultiDayBlockService {
     const representativeRegionId = this.resolveRepresentativeRegionId(normalizedDays, locationRegionById);
     const legacyLocations = this.deriveLegacyLocationFields(normalizedDays);
     const isNightTrain = parsed.data.isNightTrain ?? false;
+    const longDistanceSegmentCount = parsed.data.longDistanceSegmentCount ?? 0;
 
     return this.prisma.$transaction(async (tx) => {
       const repository = new MultiDayBlockRepository(tx);
@@ -229,6 +230,7 @@ export class MultiDayBlockService {
           endLocationId: legacyLocations.endLocationId,
           name: parsed.data.name.trim(),
           isNightTrain,
+          longDistanceSegmentCount,
           sortOrder: parsed.data.sortOrder,
           isActive: parsed.data.isActive,
         },
@@ -278,6 +280,7 @@ export class MultiDayBlockService {
 
     const legacyLocations = this.deriveLegacyLocationFields(normalizedDays);
     const isNightTrain = parsed.data.isNightTrain ?? existing.isNightTrain ?? existing.blockType === 'TRANSFER';
+    const longDistanceSegmentCount = parsed.data.longDistanceSegmentCount ?? existing.longDistanceSegmentCount ?? 0;
 
     return this.prisma.$transaction(async (tx) => {
       const repository = new MultiDayBlockRepository(tx);
@@ -291,6 +294,7 @@ export class MultiDayBlockService {
           endLocationId: legacyLocations.endLocationId,
           ...(parsed.data.name !== undefined ? { name: parsed.data.name.trim() } : {}),
           isNightTrain,
+          longDistanceSegmentCount,
           ...(parsed.data.sortOrder !== undefined ? { sortOrder: parsed.data.sortOrder } : {}),
           ...(parsed.data.isActive !== undefined ? { isActive: parsed.data.isActive } : {}),
         },

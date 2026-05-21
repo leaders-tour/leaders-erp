@@ -7,6 +7,7 @@ type MultiDayBlock {
   name: String!
   title: String!
   isNightTrain: Boolean!
+  longDistanceSegmentCount: Int!
   isActive: Boolean!
   sortOrder: Int!
   region: Region!
@@ -130,6 +131,7 @@ input MultiDayBlockDayInput {
 input MultiDayBlockCreateInput {
   name: String!
   isNightTrain: Boolean
+  longDistanceSegmentCount: Int
   sortOrder: Int
   isActive: Boolean
   days: [MultiDayBlockDayInput!]!
@@ -138,6 +140,7 @@ input MultiDayBlockCreateInput {
 input MultiDayBlockUpdateInput {
   name: String
   isNightTrain: Boolean
+  longDistanceSegmentCount: Int
   sortOrder: Int
   isActive: Boolean
   days: [MultiDayBlockDayInput!]

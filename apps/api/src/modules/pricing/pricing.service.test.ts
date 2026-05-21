@@ -41,7 +41,7 @@ function makeRule(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function makeService(rules: unknown[]) {
+function makeService(rules: unknown[], overrides: Record<string, unknown> = {}) {
   const prisma = {
     pricingPolicy: {
       findFirst: vi.fn().mockResolvedValue({ id: 'policy-1' }),
@@ -61,6 +61,7 @@ function makeService(rules: unknown[]) {
     overnightStayConnection: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    ...overrides,
   } as unknown as ConstructorParameters<typeof PricingService>[0];
 
   return new PricingService(prisma);
@@ -647,6 +648,90 @@ describe('PricingService.preview', () => {
       totalAmountKrw: 814_000,
       depositAmountKrw: 84_000,
       balanceAmountKrw: 730_000,
+    });
+  });
+
+  it('adds multi-day block long-distance counts once per block and keeps outgoing connection counts', async () => {
+    const overnightStayFindMany = vi.fn().mockImplementation((args: { select?: { longDistanceSegmentCount?: boolean } }) => {
+      if (args?.select?.longDistanceSegmentCount) {
+        return Promise.resolve([
+          { id: 'block-1', longDistanceSegmentCount: 3 },
+        ]);
+      }
+      return Promise.resolve([
+        { id: 'block-1', blockType: 'STAY', isNightTrain: false },
+      ]);
+    });
+    const service = makeService(
+      [
+        makeRule({
+          id: 'base-rule',
+          priceItemPreset: 'BASE',
+          ruleType: 'BASE',
+          title: '기본금',
+          lineCode: 'BASE',
+          amountKrw: 1_000_000,
+        }),
+        makeRule({
+          id: 'long-distance-rule',
+          priceItemPreset: 'LONG_DISTANCE',
+          ruleType: 'LONG_DISTANCE',
+          title: '장거리 기본금',
+          lineCode: 'LONG_DISTANCE',
+          amountKrw: 100_000,
+          quantitySource: 'LONG_DISTANCE_SEGMENT_COUNT',
+        }),
+      ],
+      {
+        overnightStay: {
+          findMany: overnightStayFindMany,
+        },
+        overnightStayConnection: {
+          findMany: vi.fn().mockResolvedValue([{ id: 'conn-1', isLongDistance: true }]),
+        },
+      },
+    );
+
+    const result = await service.preview(
+      makeInput({
+        planStops: [
+          { rowType: 'MAIN', locationId: 'loc-start', mealCellText: '샤브샤브' },
+          {
+            rowType: 'MAIN',
+            locationId: 'block-day-1',
+            multiDayBlockId: 'block-1',
+            multiDayBlockDayOrder: 1,
+            multiDayBlockConnectionId: 'conn-1',
+            mealCellText: '캠프식',
+          },
+          {
+            rowType: 'MAIN',
+            locationId: 'block-day-2',
+            multiDayBlockId: 'block-1',
+            multiDayBlockDayOrder: 2,
+            mealCellText: '캠프식',
+          },
+          {
+            rowType: 'MAIN',
+            locationId: 'block-day-3',
+            multiDayBlockId: 'block-1',
+            multiDayBlockDayOrder: 3,
+            mealCellText: '캠프식',
+          },
+        ],
+      }),
+    );
+
+    const longDistanceLine = result.lines.find((line) => line.lineCode === 'LONG_DISTANCE');
+
+    expect(result.longDistanceSegmentCount).toBe(4);
+    expect(longDistanceLine).toMatchObject({
+      quantity: 4,
+      unitPriceKrw: 100_000,
+      amountKrw: 400_000,
+      meta: {
+        longDistanceSegmentCount: 4,
+      },
     });
   });
 });

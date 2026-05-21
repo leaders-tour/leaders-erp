@@ -614,6 +614,7 @@ model OvernightStay {
   endLocationId   String
   name            String
   isNightTrain    Boolean   @default(false)
+  longDistanceSegmentCount Int @default(0)
   isActive        Boolean   @default(true)
   sortOrder       Int       @default(0)
 

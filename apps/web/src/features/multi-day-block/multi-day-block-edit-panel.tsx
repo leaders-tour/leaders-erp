@@ -28,6 +28,7 @@ interface MultiDayBlockRow {
   name: string;
   title: string;
   isNightTrain: boolean;
+  longDistanceSegmentCount: number;
   sortOrder: number;
   isActive: boolean;
   days: Array<{
@@ -73,6 +74,7 @@ export const MULTI_DAY_BLOCK_EDIT_PANEL_QUERY = gql`
       name
       title
       isNightTrain
+      longDistanceSegmentCount
       sortOrder
       isActive
       days {
@@ -117,6 +119,10 @@ function createDayDraft(dayOrder: number): MultiDayBlockDayDraft {
   };
 }
 
+function normalizeLongDistanceSegmentCount(value: string): number {
+  return Math.max(0, Math.min(3, Math.trunc(Number(value) || 0)));
+}
+
 export interface MultiDayBlockEditPanelProps {
   blockId: string;
   onSaved?: () => void;
@@ -128,6 +134,7 @@ export function MultiDayBlockEditPanel({ blockId, onSaved, onDeleted, onClose }:
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [isNightTrain, setIsNightTrain] = useState(false);
+  const [longDistanceSegmentCount, setLongDistanceSegmentCount] = useState('0');
   const [sortOrder, setSortOrder] = useState('0');
   const [isActive, setIsActive] = useState(true);
   const [days, setDays] = useState<MultiDayBlockDayDraft[]>([createDayDraft(1), createDayDraft(2)]);
@@ -143,6 +150,7 @@ export function MultiDayBlockEditPanel({ blockId, onSaved, onDeleted, onClose }:
       }
       setName(block.name);
       setIsNightTrain(block.isNightTrain);
+      setLongDistanceSegmentCount(String(block.longDistanceSegmentCount ?? 0));
       setSortOrder(String(block.sortOrder));
       setIsActive(block.isActive);
       setDays(
@@ -210,6 +218,19 @@ export function MultiDayBlockEditPanel({ blockId, onSaved, onDeleted, onClose }:
               </label>
 
               <label className="grid gap-1 text-sm">
+                <span className="font-medium text-slate-900">장거리 구간 수</span>
+                <Input
+                  type="number"
+                  min={0}
+                  max={3}
+                  step={1}
+                  value={longDistanceSegmentCount}
+                  onChange={(event) => setLongDistanceSegmentCount(event.target.value)}
+                />
+                <span className="text-xs text-slate-500">0이면 가격 반영 없음, 2면 장거리 기본금 2회 적용.</span>
+              </label>
+
+              <label className="grid gap-1 text-sm">
                 <span className="font-medium text-slate-900">정렬 순서</span>
                 <Input type="number" min={0} value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} />
               </label>
@@ -244,6 +265,7 @@ export function MultiDayBlockEditPanel({ blockId, onSaved, onDeleted, onClose }:
                     input: {
                       name: name.trim(),
                       isNightTrain,
+                      longDistanceSegmentCount: normalizeLongDistanceSegmentCount(longDistanceSegmentCount),
                       sortOrder: Number(sortOrder) || 0,
                       isActive,
                       days: sortedDays.map((day) => {

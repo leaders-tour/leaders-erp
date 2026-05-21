@@ -14,6 +14,7 @@ const multiDayBlockDayInputSchema = z.object({
 const multiDayBlockBaseSchema = z.object({
   name: z.string().trim().min(1).max(120),
   isNightTrain: z.boolean().default(false),
+  longDistanceSegmentCount: z.number().int().min(0).max(3).default(0),
   sortOrder: z.number().int().min(0).max(100_000).default(0),
   isActive: z.boolean().default(true),
   days: z.array(multiDayBlockDayInputSchema).min(2).max(3),

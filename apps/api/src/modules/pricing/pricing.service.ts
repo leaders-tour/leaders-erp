@@ -1789,6 +1789,11 @@ export class PricingService {
     planStops: PricingPlanStopDto[],
   ): Promise<number> {
     const segmentTransitions: Array<{ fromLocationId: string; toLocationId: string }> = [];
+    const multiDayBlockIds = new Set(
+      planStops
+        .map((stop) => stop.multiDayBlockId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    );
     const blockConnectionIds = new Set<string>();
 
     for (let index = 1; index < planStops.length; index += 1) {
@@ -1845,19 +1850,30 @@ export class PricingService {
       return count + (segmentByKey.get(key) ? 1 : 0);
     }, 0);
 
-    if (blockConnectionIds.size === 0) {
-      return longDistanceSegmentCount;
-    }
-
-    const blockConnections = await prisma.overnightStayConnection.findMany({
-      where: { id: { in: Array.from(blockConnectionIds) } },
-      select: { id: true, isLongDistance: true },
-    });
+    const blockConnections =
+      blockConnectionIds.size > 0
+        ? await prisma.overnightStayConnection.findMany({
+            where: { id: { in: Array.from(blockConnectionIds) } },
+            select: { id: true, isLongDistance: true },
+          })
+        : [];
     const longDistanceBlockConnectionCount = blockConnections.reduce(
       (count, connection) => count + (connection.isLongDistance ? 1 : 0),
       0,
     );
 
-    return longDistanceSegmentCount + longDistanceBlockConnectionCount;
+    const multiDayBlocks =
+      multiDayBlockIds.size > 0
+        ? await prisma.overnightStay.findMany({
+            where: { id: { in: Array.from(multiDayBlockIds) } },
+            select: { id: true, longDistanceSegmentCount: true },
+          })
+        : [];
+    const multiDayBlockLongDistanceCount = multiDayBlocks.reduce(
+      (count, block) => count + Math.max(0, block.longDistanceSegmentCount),
+      0,
+    );
+
+    return longDistanceSegmentCount + longDistanceBlockConnectionCount + multiDayBlockLongDistanceCount;
   }
 }

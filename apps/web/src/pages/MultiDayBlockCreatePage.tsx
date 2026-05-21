@@ -67,10 +67,15 @@ function createDayDraft(dayOrder: number): MultiDayBlockDayDraft {
   };
 }
 
+function normalizeLongDistanceSegmentCount(value: string): number {
+  return Math.max(0, Math.min(3, Math.trunc(Number(value) || 0)));
+}
+
 export function MultiDayBlockCreatePage(): JSX.Element {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [isNightTrain, setIsNightTrain] = useState(false);
+  const [longDistanceSegmentCount, setLongDistanceSegmentCount] = useState('0');
   const [days, setDays] = useState<MultiDayBlockDayDraft[]>([createDayDraft(1), createDayDraft(2)]);
   const [dayEditorNonce, setDayEditorNonce] = useState(0);
 
@@ -132,6 +137,19 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                 야간열차 금액 규칙 적용
               </label>
 
+              <label className="grid gap-1 text-sm">
+                <span className="font-medium text-slate-900">장거리 구간 수</span>
+                <Input
+                  type="number"
+                  min={0}
+                  max={3}
+                  step={1}
+                  value={longDistanceSegmentCount}
+                  onChange={(event) => setLongDistanceSegmentCount(event.target.value)}
+                />
+                <span className="text-xs text-slate-500">0이면 가격 반영 없음, 2면 장거리 기본금 2회 적용.</span>
+              </label>
+
             </div>
 
             <div className="flex items-center gap-2 rounded-2xl border border-slate-200 p-4">
@@ -156,6 +174,7 @@ export function MultiDayBlockCreatePage(): JSX.Element {
                       input: {
                         name: name.trim(),
                         isNightTrain,
+                        longDistanceSegmentCount: normalizeLongDistanceSegmentCount(longDistanceSegmentCount),
                         sortOrder: 0,
                         isActive: true,
                         days: sortedDays.map((day) => {
