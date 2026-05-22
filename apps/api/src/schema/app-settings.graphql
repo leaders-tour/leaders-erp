@@ -1,0 +1,26 @@
+type MovementIntensityColorSetting {
+  level: MovementIntensity!
+  color: String!
+}
+
+type AppSettings {
+  movementIntensityColors: [MovementIntensityColorSetting!]!
+  updatedAt: DateTime!
+}
+
+input MovementIntensityColorSettingInput {
+  level: MovementIntensity!
+  color: String!
+}
+
+input AppSettingsInput {
+  movementIntensityColors: [MovementIntensityColorSettingInput!]!
+}
+
+extend type Query {
+  appSettings: AppSettings!
+}
+
+extend type Mutation {
+  updateAppSettings(input: AppSettingsInput!): AppSettings!
+}

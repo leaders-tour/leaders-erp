@@ -1,4 +1,11 @@
+import { APP_SETTINGS_DEFAULT } from '@tour/validation';
+
 export type MovementIntensityValue = 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
+
+export interface MovementIntensityColorSetting {
+  level: MovementIntensityValue;
+  color: string;
+}
 
 export interface MovementIntensityMeta {
   label: string;
@@ -9,7 +16,55 @@ export interface MovementIntensityMeta {
   textColor: string;
 }
 
-const MOVEMENT_INTENSITY_ORDER: readonly MovementIntensityValue[] = ['LEVEL_1', 'LEVEL_2', 'LEVEL_3', 'LEVEL_4', 'LEVEL_5'];
+export const MOVEMENT_INTENSITY_ORDER: readonly MovementIntensityValue[] = ['LEVEL_1', 'LEVEL_2', 'LEVEL_3', 'LEVEL_4', 'LEVEL_5'];
+
+export const DEFAULT_MOVEMENT_INTENSITY_COLOR_SETTINGS: readonly MovementIntensityColorSetting[] =
+  APP_SETTINGS_DEFAULT.movementIntensityColors;
+
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+
+function clampColorChannel(value: number): number {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function parseHexColor(value: string): { r: number; g: number; b: number } | null {
+  if (!HEX_COLOR_PATTERN.test(value)) {
+    return null;
+  }
+  return {
+    r: Number.parseInt(value.slice(1, 3), 16),
+    g: Number.parseInt(value.slice(3, 5), 16),
+    b: Number.parseInt(value.slice(5, 7), 16),
+  };
+}
+
+function toHexColor(input: { r: number; g: number; b: number }): string {
+  return `#${[input.r, input.g, input.b]
+    .map((value) => clampColorChannel(value).toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
+function mixHexColor(color: string, target: string, ratio: number): string {
+  const sourceRgb = parseHexColor(color);
+  const targetRgb = parseHexColor(target);
+  if (!sourceRgb || !targetRgb) {
+    return color;
+  }
+  return toHexColor({
+    r: sourceRgb.r + (targetRgb.r - sourceRgb.r) * ratio,
+    g: sourceRgb.g + (targetRgb.g - sourceRgb.g) * ratio,
+    b: sourceRgb.b + (targetRgb.b - sourceRgb.b) * ratio,
+  });
+}
+
+function getReadableTextColor(color: string): string {
+  const rgb = parseHexColor(color);
+  if (!rgb) {
+    return '#111111';
+  }
+  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+  return luminance > 0.58 ? mixHexColor(color, '#000000', 0.58) : mixHexColor(color, '#000000', 0.15);
+}
 
 const MOVEMENT_INTENSITY_META: Record<MovementIntensityValue, MovementIntensityMeta> = {
   LEVEL_1: {
@@ -54,12 +109,52 @@ const MOVEMENT_INTENSITY_META: Record<MovementIntensityValue, MovementIntensityM
   },
 };
 
-export function getMovementIntensityMeta(value: MovementIntensityValue | null | undefined): MovementIntensityMeta | null {
+export function normalizeMovementIntensityColorSettings(
+  colors: readonly MovementIntensityColorSetting[] | null | undefined,
+): MovementIntensityColorSetting[] {
+  const colorByLevel = new Map<MovementIntensityValue, string>();
+  for (const item of colors ?? []) {
+    if (MOVEMENT_INTENSITY_ORDER.includes(item.level) && HEX_COLOR_PATTERN.test(item.color)) {
+      colorByLevel.set(item.level, item.color.toLowerCase());
+    }
+  }
+
+  return DEFAULT_MOVEMENT_INTENSITY_COLOR_SETTINGS.map((item) => ({
+    level: item.level,
+    color: colorByLevel.get(item.level) ?? item.color,
+  }));
+}
+
+export function getMovementIntensityColor(
+  value: MovementIntensityValue | null | undefined,
+  colors?: readonly MovementIntensityColorSetting[] | null,
+): string | null {
+  if (!value) {
+    return null;
+  }
+  return normalizeMovementIntensityColorSettings(colors).find((item) => item.level === value)?.color ?? null;
+}
+
+export function getMovementIntensityMeta(
+  value: MovementIntensityValue | null | undefined,
+  colors?: readonly MovementIntensityColorSetting[] | null,
+): MovementIntensityMeta | null {
   if (!value) {
     return null;
   }
 
-  return MOVEMENT_INTENSITY_META[value] ?? null;
+  const base = MOVEMENT_INTENSITY_META[value] ?? null;
+  if (!base) {
+    return null;
+  }
+  const configuredColor = getMovementIntensityColor(value, colors) ?? base.color;
+  return {
+    ...base,
+    color: configuredColor,
+    backgroundColor: mixHexColor(configuredColor, '#ffffff', 0.82),
+    borderColor: mixHexColor(configuredColor, '#ffffff', 0.42),
+    textColor: getReadableTextColor(configuredColor),
+  };
 }
 
 export function movementIntensityToScore(value: MovementIntensityValue | null | undefined): number | null {

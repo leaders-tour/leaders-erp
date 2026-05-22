@@ -1665,6 +1665,15 @@ model SpecialMealDestinationRules {
   updatedAt DateTime @updatedAt
 }
 
+/// 범용 앱 설정 저장소. key별 JSON payload를 단일 row로 보관한다.
+model AppSetting {
+  key     String @id
+  payload Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 enum GuideLevel {
   MAIN
   JUNIOR

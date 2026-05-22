@@ -16,6 +16,7 @@ import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/
 type Documents = {
     "fragment RegionFields on Region {\n  id\n  name\n  description\n}": typeof types.RegionFieldsFragmentDoc,
     "mutation CreateActivity($input: ActivityCreateInput!) {\n  createActivity(input: $input) {\n    id\n  }\n}\n\nmutation UpdateActivity($id: ID!, $input: ActivityUpdateInput!) {\n  updateActivity(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteActivity($id: ID!) {\n  deleteActivity(id: $id)\n}": typeof types.CreateActivityDocument,
+    "mutation UpdateAppSettings($input: AppSettingsInput!) {\n  updateAppSettings(input: $input) {\n    movementIntensityColors {\n      level\n      color\n    }\n    updatedAt\n  }\n}": typeof types.UpdateAppSettingsDocument,
     "mutation ExtractConsultationForm($rawText: String!) {\n  extractConsultationForm(rawText: $rawText) {\n    leaderName\n    headcountTotal\n    headcountMale\n    headcountFemale\n    regionSetId\n    regionName\n    travelStartDate\n    travelEndDate\n    totalDays\n    vehicleType\n    flightInDate\n    flightInTime\n    flightOutDate\n    flightOutTime\n    movementIntensity\n    lodgingLevel\n    specialNote\n    remark\n    warnings\n    recommendedTemplateId\n    recommendedTemplateName\n    recommendedTemplateReason\n  }\n}": typeof types.ExtractConsultationFormDocument,
     "mutation CreateLocation($input: LocationCreateInput!) {\n  createLocation(input: $input) {\n    id\n  }\n}\n\nmutation UpdateLocation($id: ID!, $input: LocationUpdateInput!) {\n  updateLocation(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteLocation($id: ID!) {\n  deleteLocation(id: $id)\n}": typeof types.CreateLocationDocument,
     "mutation CreateLodging($input: LodgingCreateInput!) {\n  createLodging(input: $input) {\n    id\n  }\n}\n\nmutation UpdateLodging($id: ID!, $input: LodgingUpdateInput!) {\n  updateLodging(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteLodging($id: ID!) {\n  deleteLodging(id: $id)\n}": typeof types.CreateLodgingDocument,
@@ -27,6 +28,7 @@ type Documents = {
     "mutation UpdateSpecialMealDestinationRulesMutation($input: SpecialMealDestinationRulesInput!) {\n  updateSpecialMealDestinationRules(input: $input) {\n    shabushabuLocationIds\n    shabushabuLocations {\n      id\n      name\n    }\n    samgyeopsalRegionKeywordMap {\n      keyword\n      regionLabel\n    }\n    samgyeopsalPriorityByRegion {\n      regionLabel\n      orderedLocationKeywords\n    }\n    shashlikRegionKeywordMap {\n      keyword\n      regionLabel\n    }\n    shashlikPriorityByRegion {\n      regionLabel\n      orderedLocationKeywords\n    }\n    updatedAt\n  }\n}": typeof types.UpdateSpecialMealDestinationRulesMutationDocument,
     "mutation CreateTimeBlock($input: TimeBlockCreateInput!) {\n  createTimeBlock(input: $input) {\n    id\n  }\n}\n\nmutation UpdateTimeBlock($id: ID!, $input: TimeBlockUpdateInput!) {\n  updateTimeBlock(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteTimeBlock($id: ID!) {\n  deleteTimeBlock(id: $id)\n}": typeof types.CreateTimeBlockDocument,
     "query Activities {\n  activities {\n    id\n    timeBlockId\n    description\n    orderIndex\n    isOptional\n    conditionNote\n  }\n}": typeof types.ActivitiesDocument,
+    "query AppSettings {\n  appSettings {\n    movementIntensityColors {\n      level\n      color\n    }\n    updatedAt\n  }\n}": typeof types.AppSettingsDocument,
     "query Locations {\n  locations {\n    id\n    regionId\n    regionName\n    name\n    defaultLodgingType\n    latitude\n    longitude\n  }\n}": typeof types.LocationsDocument,
     "query Lodgings {\n  lodgings {\n    id\n    locationId\n    locationNameSnapshot\n    name\n    specialNotes\n  }\n}": typeof types.LodgingsDocument,
     "query MealSets {\n  mealSets {\n    id\n    locationId\n    locationNameSnapshot\n    setName\n    breakfast\n    lunch\n    dinner\n  }\n}": typeof types.MealSetsDocument,
@@ -41,6 +43,7 @@ type Documents = {
 const documents: Documents = {
     "fragment RegionFields on Region {\n  id\n  name\n  description\n}": types.RegionFieldsFragmentDoc,
     "mutation CreateActivity($input: ActivityCreateInput!) {\n  createActivity(input: $input) {\n    id\n  }\n}\n\nmutation UpdateActivity($id: ID!, $input: ActivityUpdateInput!) {\n  updateActivity(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteActivity($id: ID!) {\n  deleteActivity(id: $id)\n}": types.CreateActivityDocument,
+    "mutation UpdateAppSettings($input: AppSettingsInput!) {\n  updateAppSettings(input: $input) {\n    movementIntensityColors {\n      level\n      color\n    }\n    updatedAt\n  }\n}": types.UpdateAppSettingsDocument,
     "mutation ExtractConsultationForm($rawText: String!) {\n  extractConsultationForm(rawText: $rawText) {\n    leaderName\n    headcountTotal\n    headcountMale\n    headcountFemale\n    regionSetId\n    regionName\n    travelStartDate\n    travelEndDate\n    totalDays\n    vehicleType\n    flightInDate\n    flightInTime\n    flightOutDate\n    flightOutTime\n    movementIntensity\n    lodgingLevel\n    specialNote\n    remark\n    warnings\n    recommendedTemplateId\n    recommendedTemplateName\n    recommendedTemplateReason\n  }\n}": types.ExtractConsultationFormDocument,
     "mutation CreateLocation($input: LocationCreateInput!) {\n  createLocation(input: $input) {\n    id\n  }\n}\n\nmutation UpdateLocation($id: ID!, $input: LocationUpdateInput!) {\n  updateLocation(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteLocation($id: ID!) {\n  deleteLocation(id: $id)\n}": types.CreateLocationDocument,
     "mutation CreateLodging($input: LodgingCreateInput!) {\n  createLodging(input: $input) {\n    id\n  }\n}\n\nmutation UpdateLodging($id: ID!, $input: LodgingUpdateInput!) {\n  updateLodging(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteLodging($id: ID!) {\n  deleteLodging(id: $id)\n}": types.CreateLodgingDocument,
@@ -52,6 +55,7 @@ const documents: Documents = {
     "mutation UpdateSpecialMealDestinationRulesMutation($input: SpecialMealDestinationRulesInput!) {\n  updateSpecialMealDestinationRules(input: $input) {\n    shabushabuLocationIds\n    shabushabuLocations {\n      id\n      name\n    }\n    samgyeopsalRegionKeywordMap {\n      keyword\n      regionLabel\n    }\n    samgyeopsalPriorityByRegion {\n      regionLabel\n      orderedLocationKeywords\n    }\n    shashlikRegionKeywordMap {\n      keyword\n      regionLabel\n    }\n    shashlikPriorityByRegion {\n      regionLabel\n      orderedLocationKeywords\n    }\n    updatedAt\n  }\n}": types.UpdateSpecialMealDestinationRulesMutationDocument,
     "mutation CreateTimeBlock($input: TimeBlockCreateInput!) {\n  createTimeBlock(input: $input) {\n    id\n  }\n}\n\nmutation UpdateTimeBlock($id: ID!, $input: TimeBlockUpdateInput!) {\n  updateTimeBlock(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteTimeBlock($id: ID!) {\n  deleteTimeBlock(id: $id)\n}": types.CreateTimeBlockDocument,
     "query Activities {\n  activities {\n    id\n    timeBlockId\n    description\n    orderIndex\n    isOptional\n    conditionNote\n  }\n}": types.ActivitiesDocument,
+    "query AppSettings {\n  appSettings {\n    movementIntensityColors {\n      level\n      color\n    }\n    updatedAt\n  }\n}": types.AppSettingsDocument,
     "query Locations {\n  locations {\n    id\n    regionId\n    regionName\n    name\n    defaultLodgingType\n    latitude\n    longitude\n  }\n}": types.LocationsDocument,
     "query Lodgings {\n  lodgings {\n    id\n    locationId\n    locationNameSnapshot\n    name\n    specialNotes\n  }\n}": types.LodgingsDocument,
     "query MealSets {\n  mealSets {\n    id\n    locationId\n    locationNameSnapshot\n    setName\n    breakfast\n    lunch\n    dinner\n  }\n}": types.MealSetsDocument,
@@ -86,6 +90,10 @@ export function graphql(source: "fragment RegionFields on Region {\n  id\n  name
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "mutation CreateActivity($input: ActivityCreateInput!) {\n  createActivity(input: $input) {\n    id\n  }\n}\n\nmutation UpdateActivity($id: ID!, $input: ActivityUpdateInput!) {\n  updateActivity(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteActivity($id: ID!) {\n  deleteActivity(id: $id)\n}"): (typeof documents)["mutation CreateActivity($input: ActivityCreateInput!) {\n  createActivity(input: $input) {\n    id\n  }\n}\n\nmutation UpdateActivity($id: ID!, $input: ActivityUpdateInput!) {\n  updateActivity(id: $id, input: $input) {\n    id\n  }\n}\n\nmutation DeleteActivity($id: ID!) {\n  deleteActivity(id: $id)\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "mutation UpdateAppSettings($input: AppSettingsInput!) {\n  updateAppSettings(input: $input) {\n    movementIntensityColors {\n      level\n      color\n    }\n    updatedAt\n  }\n}"): (typeof documents)["mutation UpdateAppSettings($input: AppSettingsInput!) {\n  updateAppSettings(input: $input) {\n    movementIntensityColors {\n      level\n      color\n    }\n    updatedAt\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -130,6 +138,10 @@ export function graphql(source: "mutation CreateTimeBlock($input: TimeBlockCreat
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "query Activities {\n  activities {\n    id\n    timeBlockId\n    description\n    orderIndex\n    isOptional\n    conditionNote\n  }\n}"): (typeof documents)["query Activities {\n  activities {\n    id\n    timeBlockId\n    description\n    orderIndex\n    isOptional\n    conditionNote\n  }\n}"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "query AppSettings {\n  appSettings {\n    movementIntensityColors {\n      level\n      color\n    }\n    updatedAt\n  }\n}"): (typeof documents)["query AppSettings {\n  appSettings {\n    movementIntensityColors {\n      level\n      color\n    }\n    updatedAt\n  }\n}"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

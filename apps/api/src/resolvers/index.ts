@@ -1,5 +1,6 @@
 import { GraphQLScalarType, Kind } from 'graphql';
 import { activityResolver } from '../modules/activity/activity.resolver';
+import { appSettingsResolver } from '../modules/app-settings/app-settings.resolver';
 import { authResolver } from '../modules/auth/auth.resolver';
 import { eventResolver } from '../modules/event/event.resolver';
 import { lodgingResolver } from '../modules/lodging/lodging.resolver';
@@ -92,6 +93,7 @@ export const resolvers = {
   Query: protectSection(
     mergeSection(
       authResolver.Query,
+      appSettingsResolver.Query,
       regionResolver.Query,
       regionSetResolver.Query,
       locationResolver.Query,
@@ -123,6 +125,7 @@ export const resolvers = {
   Mutation: protectSection(
     mergeSection(
       authResolver.Mutation,
+      appSettingsResolver.Mutation,
       consultationResolver.Mutation,
       regionResolver.Mutation,
       regionSetResolver.Mutation,

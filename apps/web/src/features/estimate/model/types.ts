@@ -1,7 +1,7 @@
 import type { ExternalTransfer } from '../../plan/external-transfer';
 import type { PlanStopRowType } from '../../plan/plan-stop-row';
 import type { PickupDropPlaceType } from '../../plan/pickup-drop';
-import type { MovementIntensityValue } from './movement-intensity';
+import type { MovementIntensityColorSetting, MovementIntensityValue } from './movement-intensity';
 
 export type EstimateSourceMode = 'version' | 'draft';
 
@@ -184,6 +184,7 @@ export interface EstimateDocumentData {
   securityDepositScope: EstimateSecurityDepositScope;
   validUntilDate: string | null;
   movementIntensity?: MovementIntensityValue | null;
+  movementIntensityColors?: MovementIntensityColorSetting[] | null;
   planStops: EstimatePlanStopRow[];
   /** 여행지 안내 템플릿 이미지를 한 페이지에 몇 장까지 넣을지 (저장된 플랜 메타 또는 빌더 선택) */
   estimateGuideImagesPerPage: EstimateGuideImagesPerPage;

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   averageMovementIntensity,
   getMovementIntensityMeta,
+  getMovementIntensityColor,
   movementIntensityToScore,
   parseTravelHoursFromDestinationCellText,
   resolveMovementIntensityForEstimateStop,
@@ -10,7 +11,14 @@ import {
 describe('estimate movement-intensity model', () => {
   it('returns badge metadata for each level', () => {
     expect(getMovementIntensityMeta('LEVEL_1')?.label).toBe('이동강도1');
-    expect(getMovementIntensityMeta('LEVEL_5')?.textColor).toBe('#111111');
+    expect(getMovementIntensityMeta('LEVEL_5')?.color).toBe('#111111');
+  });
+
+  it('uses configured colors for movement intensity metadata', () => {
+    const colors = [{ level: 'LEVEL_2' as const, color: '#123456' }];
+
+    expect(getMovementIntensityColor('LEVEL_2', colors)).toBe('#123456');
+    expect(getMovementIntensityMeta('LEVEL_2', colors)?.color).toBe('#123456');
   });
 
   it('converts levels to numeric scores', () => {

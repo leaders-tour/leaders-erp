@@ -17,3 +17,12 @@ export function requireAdmin(ctx: AppContext) {
 
   return employee;
 }
+
+export function requireStaffOrAbove(ctx: AppContext) {
+  const employee = requireEmployee(ctx);
+  if (employee.role === 'OPS_STAFF') {
+    throw new DomainError('FORBIDDEN', 'Staff access is required');
+  }
+
+  return employee;
+}

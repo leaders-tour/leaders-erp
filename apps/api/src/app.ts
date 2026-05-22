@@ -5,6 +5,7 @@ import express from 'express';
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { Readable } from 'node:stream';
 import { createContext } from './context';
+import { AppSettingsService } from './modules/app-settings/app-settings.service';
 import {
   buildContentDisposition,
   buildEstimatePdfFilename,
@@ -260,8 +261,9 @@ export async function createApp(): Promise<express.Express> {
       }
 
       const request = parseEstimatePdfRequestBody(req.body);
+      const settings = await new AppSettingsService(context.prisma).get();
       const pdfBuffer = await renderEstimateDocumentPdf({
-        data: request.data,
+        data: { ...request.data, movementIntensityColors: settings.movementIntensityColors },
         renderBaseUrl: estimatePdfRenderBaseUrl,
       });
       const filename = buildEstimatePdfFilename({
@@ -288,8 +290,9 @@ export async function createApp(): Promise<express.Express> {
       }
 
       const request = parseEstimatePdfRequestBody(req.body);
+      const settings = await new AppSettingsService(context.prisma).get();
       const job = createEstimatePdfJob({
-        data: request.data,
+        data: { ...request.data, movementIntensityColors: settings.movementIntensityColors },
         renderBaseUrl: estimatePdfRenderBaseUrl,
       });
 

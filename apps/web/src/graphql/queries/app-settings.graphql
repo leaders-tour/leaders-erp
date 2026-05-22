@@ -1,0 +1,9 @@
+query AppSettings {
+  appSettings {
+    movementIntensityColors {
+      level
+      color
+    }
+    updatedAt
+  }
+}

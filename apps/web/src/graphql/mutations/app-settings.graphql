@@ -1,0 +1,9 @@
+mutation UpdateAppSettings($input: AppSettingsInput!) {
+  updateAppSettings(input: $input) {
+    movementIntensityColors {
+      level
+      color
+    }
+    updatedAt
+  }
+}

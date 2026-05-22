@@ -11,6 +11,7 @@ import { EstimatePage1 } from './EstimatePage1';
 import { EstimateImagePage } from './EstimateImagePage';
 import { EstimatePage2 } from './EstimatePage2';
 import { EstimatePage3 } from './EstimatePage3';
+import { useMovementIntensityColorSettings } from '../../app-settings/hooks';
 
 interface EstimateDocumentProps {
   data: EstimateDocumentData;
@@ -28,6 +29,8 @@ export function EstimateDocument({
   screenPreviewGuideOverlay,
   includeStaticImagePages = true,
 }: EstimateDocumentProps): JSX.Element {
+  const { colors: settingsMovementIntensityColors } = useMovementIntensityColorSettings();
+  const movementIntensityColors = data.movementIntensityColors ?? settingsMovementIntensityColors;
   const guideChunks = useMemo(() => {
     if (data.page3Blocks.length === 0) {
       return [];
@@ -44,7 +47,7 @@ export function EstimateDocument({
     <article className={`estimate-document ${viewMode === 'screen-preview' ? 'estimate-document--preview' : ''}`}>
       <EstimatePage1 data={data} editor={viewMode === 'screen-preview' ? page1Editor : undefined} />
       <div className="estimate-page-break">
-        <EstimatePage2 data={data} />
+        <EstimatePage2 data={data} movementIntensityColors={movementIntensityColors} />
       </div>
       {guideChunks.map((chunk, index) => {
         const isFirstGuidePage = index === 0;

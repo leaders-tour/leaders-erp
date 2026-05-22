@@ -3,14 +3,17 @@ import type { EstimateDocumentData } from '../model/types';
 import type { CSSProperties } from 'react';
 import {
   averageMovementIntensity,
+  getMovementIntensityColor,
   getMovementIntensityMeta,
   resolveMovementIntensityForEstimateStop,
+  type MovementIntensityColorSetting,
   type MovementIntensityValue,
 } from '../model/movement-intensity';
 import { isExternalTransferPlanStopRow } from '../../plan/plan-stop-row';
 
 interface EstimatePage2Props {
   data: EstimateDocumentData;
+  movementIntensityColors?: readonly MovementIntensityColorSetting[] | null;
 }
 
 function fallback(value: string | null | undefined): string {
@@ -43,23 +46,6 @@ function formatPage2Title(value: string | null | undefined): string {
   return normalized || title;
 }
 
-function getMovementIntensityChipColor(value: MovementIntensityValue | null | undefined): string | null {
-  switch (value) {
-    case 'LEVEL_1':
-      return '#8bb058';
-    case 'LEVEL_2':
-      return '#ffcd4a';
-    case 'LEVEL_3':
-      return '#fd9f28';
-    case 'LEVEL_4':
-      return '#fc5230';
-    case 'LEVEL_5':
-      return '#111111';
-    default:
-      return null;
-  }
-}
-
 const DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR = '#94a3b8';
 const DEFAULT_PAGE2_HEADER_BG_COLOR = '#6f8ca6';
 
@@ -80,7 +66,7 @@ function getPage2HeaderBgColor(destinationName: string | null | undefined): stri
   return matches[0]?.color ?? DEFAULT_PAGE2_HEADER_BG_COLOR;
 }
 
-export function EstimatePage2({ data }: EstimatePage2Props): JSX.Element {
+export function EstimatePage2({ data, movementIntensityColors }: EstimatePage2Props): JSX.Element {
   const rowCount = Math.max(data.planStops.length, 1);
   const tableStyle = {
     '--itinerary-row-count': String(rowCount),
@@ -101,9 +87,9 @@ export function EstimatePage2({ data }: EstimatePage2Props): JSX.Element {
   const overallMovementIntensity: MovementIntensityValue | null =
     averageMovementIntensity(resolvedMovementByMainRow) ?? data.movementIntensity ?? null;
 
-  const overallIntensity = getMovementIntensityMeta(overallMovementIntensity);
+  const overallIntensity = getMovementIntensityMeta(overallMovementIntensity, movementIntensityColors);
   const overallIntensityColor =
-    getMovementIntensityChipColor(overallMovementIntensity) ?? DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR;
+    getMovementIntensityColor(overallMovementIntensity, movementIntensityColors) ?? DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR;
 
   return (
     <section className="estimate-sheet estimate-sheet-page2 estimate-sheet-itinerary">
@@ -155,8 +141,8 @@ export function EstimatePage2({ data }: EstimatePage2Props): JSX.Element {
                       },
                       null,
                     );
-                const intensity = getMovementIntensityMeta(rowMovementIntensity);
-                const intensityColor = getMovementIntensityChipColor(rowMovementIntensity) ?? DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR;
+                const intensity = getMovementIntensityMeta(rowMovementIntensity, movementIntensityColors);
+                const intensityColor = getMovementIntensityColor(rowMovementIntensity, movementIntensityColors) ?? DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR;
 
                 return (
                   <tr key={`itinerary-row-${index + 1}`}>

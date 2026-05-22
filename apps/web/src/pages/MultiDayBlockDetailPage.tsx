@@ -6,6 +6,7 @@ import {
   calculateMovementIntensityByHours,
   getMovementIntensityMeta,
 } from '../features/estimate/model/movement-intensity';
+import { useMovementIntensityColorSettings } from '../features/app-settings/hooks';
 import { formatLocationNameInline } from '../features/location/display';
 import { formatMultiDayBlockRegionSummary, getMultiDayBlockRegionEntries } from '../features/multi-day-block/region-summary';
 import { RegionNameChip } from '../features/region/region-name-chip';
@@ -107,6 +108,7 @@ function buildScheduleLines(timeCellText: string, scheduleCellText: string): Arr
 }
 
 export function MultiDayBlockDetailPage(): JSX.Element {
+  const { colors: movementIntensityColors } = useMovementIntensityColorSettings();
   const navigate = useNavigate();
   const { stayId } = useParams<{ stayId: string }>();
   const { data: locationData } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
@@ -192,7 +194,10 @@ export function MultiDayBlockDetailPage(): JSX.Element {
             day.displayLocationId && locationById.get(day.displayLocationId)
               ? formatLocationNameInline(locationById.get(day.displayLocationId)!.name)
               : formatLocationNameInline(baseLocation?.name ?? [block.locationId]);
-          const movementMeta = getMovementIntensityMeta(calculateMovementIntensityByHours(day.averageTravelHours));
+          const movementMeta = getMovementIntensityMeta(
+            calculateMovementIntensityByHours(day.averageTravelHours),
+            movementIntensityColors,
+          );
           const scheduleLines = buildScheduleLines(day.timeCellText, day.scheduleCellText);
 
           return (

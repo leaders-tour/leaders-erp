@@ -1,4 +1,5 @@
 export * from './activity.schema';
+export * from './app-settings.schema';
 export * from './auth.schema';
 export * from './consultation-extraction.schema';
 export * from './consultation-template-pick.schema';

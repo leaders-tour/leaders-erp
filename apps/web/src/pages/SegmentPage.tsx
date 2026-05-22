@@ -7,6 +7,7 @@ import {
   calculateMovementIntensityByHours,
   getMovementIntensityMeta,
 } from '../features/estimate/model/movement-intensity';
+import { useMovementIntensityColorSettings } from '../features/app-settings/hooks';
 import { formatLocationNameInline, includesLocationNameKeyword } from '../features/location/display';
 import type { FacilityAvailability } from '../features/location/hooks';
 import {
@@ -1294,6 +1295,7 @@ interface SegmentPageProps {
 }
 
 export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
+  const { colors: movementIntensityColors } = useMovementIntensityColorSettings();
   const crud = useSegmentCrud();
   const location = useLocation();
   const { data: locationData, loading: locationsLoading } = useQuery<{ locations: LocationRow[] }>(LOCATIONS_QUERY);
@@ -1525,15 +1527,15 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
     if (!Number.isFinite(hours) || hours < 0) {
       return null;
     }
-    return getMovementIntensityMeta(calculateMovementIntensityByHours(hours));
-  }, [form.averageTravelHours]);
+    return getMovementIntensityMeta(calculateMovementIntensityByHours(hours), movementIntensityColors);
+  }, [form.averageTravelHours, movementIntensityColors]);
   const editMovementIntensityMeta = useMemo(() => {
     const hours = Number(editForm.averageTravelHours);
     if (!Number.isFinite(hours) || hours < 0) {
       return null;
     }
-    return getMovementIntensityMeta(calculateMovementIntensityByHours(hours));
-  }, [editForm.averageTravelHours]);
+    return getMovementIntensityMeta(calculateMovementIntensityByHours(hours), movementIntensityColors);
+  }, [editForm.averageTravelHours, movementIntensityColors]);
 
   const hasCreateSourceSingle = form.sourceType === 'LOCATION' ? Boolean(selectedFromLocation) : Boolean(selectedFromMultiDayBlock);
   const hasCreateSourceBulk =
@@ -2315,7 +2317,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                 <Td>{row.averageTravelHours}h</Td>
                 <Td>
                   {(() => {
-                    const meta = getMovementIntensityMeta(calculateMovementIntensityByHours(row.averageTravelHours));
+                    const meta = getMovementIntensityMeta(calculateMovementIntensityByHours(row.averageTravelHours), movementIntensityColors);
                     if (!meta) {
                       return '-';
                     }
