@@ -8,6 +8,7 @@ import type {
   ConfirmTripDto,
   CreateConfirmedTripDirectDto,
   ConfirmedTripLodgingUpsertDto,
+  ConfirmedTripKoreaTeamStageOptionCreateDto,
   ConfirmedTripUpdateDto,
 } from './confirmed-trip.types';
 
@@ -33,6 +34,10 @@ interface ConfirmedTripsArgs {
   status?: ConfirmedTripStatus;
 }
 
+interface ConfirmedTripKoreaTeamStageOptionsArgs {
+  activeOnly?: boolean;
+}
+
 interface IdArgs {
   id: string;
 }
@@ -43,6 +48,10 @@ interface ConfirmTripArgs {
 
 interface CreateConfirmedTripDirectArgs {
   input: CreateConfirmedTripDirectDto;
+}
+
+interface CreateConfirmedTripKoreaTeamStageOptionArgs {
+  input: ConfirmedTripKoreaTeamStageOptionCreateDto;
 }
 
 interface UpdateConfirmedTripArgs {
@@ -104,6 +113,11 @@ export const confirmedTripResolver = {
       new ConfirmedTripService(ctx.prisma).list(args.status),
     confirmedTrip: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
       new ConfirmedTripService(ctx.prisma).get(args.id),
+    confirmedTripKoreaTeamStageOptions: (
+      _parent: unknown,
+      args: ConfirmedTripKoreaTeamStageOptionsArgs,
+      ctx: AppContext,
+    ) => new ConfirmedTripService(ctx.prisma).listKoreaTeamStageOptions(args.activeOnly ?? true),
     calendarNotes: (_parent: unknown, args: CalendarNotesArgs, ctx: AppContext) =>
       new ConfirmedTripService(ctx.prisma).listCalendarNotes(args.year, args.month),
     confirmedTripCalendarNotes: (_parent: unknown, args: ConfirmedTripCalendarNotesArgs, ctx: AppContext) =>
@@ -120,6 +134,11 @@ export const confirmedTripResolver = {
       new ConfirmedTripService(ctx.prisma).confirm(args.input),
     createConfirmedTrip: (_parent: unknown, args: CreateConfirmedTripDirectArgs, ctx: AppContext) =>
       new ConfirmedTripService(ctx.prisma).createDirect(args.input),
+    createConfirmedTripKoreaTeamStageOption: (
+      _parent: unknown,
+      args: CreateConfirmedTripKoreaTeamStageOptionArgs,
+      ctx: AppContext,
+    ) => new ConfirmedTripService(ctx.prisma).createKoreaTeamStageOption(args.input),
     updateConfirmedTrip: (_parent: unknown, args: UpdateConfirmedTripArgs, ctx: AppContext) =>
       new ConfirmedTripService(ctx.prisma).update(args.id, args.input),
     cancelConfirmedTrip: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
@@ -132,6 +151,24 @@ export const confirmedTripResolver = {
       new ConfirmedTripService(ctx.prisma).seedLodgingsFromPlan(args.confirmedTripId),
   },
   ConfirmedTrip: {
+    koreaTeamStages: async (
+      parent: {
+        id: string;
+        koreaTeamStageSelections?: Array<{ option?: unknown }>;
+      },
+      _args: unknown,
+      ctx: AppContext,
+    ) => {
+      if (Array.isArray(parent.koreaTeamStageSelections)) {
+        return parent.koreaTeamStageSelections.map((selection) => selection.option).filter(Boolean);
+      }
+      const selections = await ctx.prisma.confirmedTripKoreaTeamStageSelection.findMany({
+        where: { confirmedTripId: parent.id },
+        include: { option: true },
+        orderBy: { option: { sortOrder: 'asc' } },
+      });
+      return selections.map((selection) => selection.option);
+    },
     lodgings: async (
       parent: { id: string; lodgings?: unknown[] },
       _args: unknown,

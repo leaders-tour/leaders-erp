@@ -247,17 +247,17 @@ enum PlaceType {
 }
 
 model Employee {
-  id           String              @id @default(uuid(7))
+  id           String       @id @default(uuid(7))
   name         String
-  email        String              @unique
+  email        String       @unique
   passwordHash String
-  role         EmployeeRole        @default(STAFF)
-  isActive     Boolean             @default(true)
+  role         EmployeeRole @default(STAFF)
+  isActive     Boolean      @default(true)
 
-  ownedUsers    User[]                @relation("UserOwnerEmployee")
-  refreshTokens EmployeeRefreshToken[]
+  ownedUsers             User[]                 @relation("UserOwnerEmployee")
+  refreshTokens          EmployeeRefreshToken[]
   reviewedOutreachDrafts OutreachDraft[]
-  confirmedTrips ConfirmedTrip[]     @relation("ConfirmedTripEmployee")
+  confirmedTrips         ConfirmedTrip[]        @relation("ConfirmedTripEmployee")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -266,12 +266,12 @@ model Employee {
 }
 
 model EmployeeRefreshToken {
-  id          String    @id @default(uuid(7))
-  employeeId  String
-  tokenHash   String    @unique
-  userAgent   String?
-  expiresAt   DateTime
-  revokedAt   DateTime?
+  id         String    @id @default(uuid(7))
+  employeeId String
+  tokenHash  String    @unique
+  userAgent  String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
@@ -323,7 +323,7 @@ model CafeLead {
   firstSeenAt     DateTime       @default(now())
   lastSeenAt      DateTime       @default(now())
 
-  cafeSource     CafeSource       @relation(fields: [cafeSourceId], references: [id], onDelete: Cascade)
+  cafeSource     CafeSource      @relation(fields: [cafeSourceId], references: [id], onDelete: Cascade)
   outreachDrafts OutreachDraft[]
 
   createdAt DateTime @default(now())
@@ -350,9 +350,9 @@ model OutreachDraft {
   reviewerId    String?
   reviewedAt    DateTime?
 
-  cafeLead          CafeLead           @relation(fields: [cafeLeadId], references: [id], onDelete: Cascade)
-  reviewer          Employee?          @relation(fields: [reviewerId], references: [id], onDelete: SetNull)
-  outboundMessages  OutboundMessage[]
+  cafeLead         CafeLead          @relation(fields: [cafeLeadId], references: [id], onDelete: Cascade)
+  reviewer         Employee?         @relation(fields: [reviewerId], references: [id], onDelete: SetNull)
+  outboundMessages OutboundMessage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -404,7 +404,7 @@ model User {
   ownerEmployeeId String?
   attachments     Json      @default("[]")
 
-  ownerEmployee  Employee?      @relation("UserOwnerEmployee", fields: [ownerEmployeeId], references: [id], onDelete: SetNull)
+  ownerEmployee  Employee?       @relation("UserOwnerEmployee", fields: [ownerEmployeeId], references: [id], onDelete: SetNull)
   plans          Plan[]
   notes          UserNote[]
   dealTodos      UserDealTodo[]
@@ -457,8 +457,8 @@ model UserDealTodo {
   status      DealTodoStatus @default(TODO)
   completedAt DateTime?
 
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  template  DealTodoTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template DealTodoTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -469,22 +469,22 @@ model UserDealTodo {
 }
 
 model Region {
-  id          String     @id @default(uuid(7))
+  id          String  @id @default(uuid(7))
   name        String
   description String?
 
   /// 지역세트에 포함되지 않아도 1일차 시작 후보(첫날 가능 목적지) 목록에 이 지역의 location을 포함
   alwaysIncludeFirstDayStart Boolean @default(false)
 
-  defaultRegionSetId String?  @unique
+  defaultRegionSetId String?    @unique
   defaultRegionSet   RegionSet? @relation("RegionDefaultRegionSet", fields: [defaultRegionSetId], references: [id], onDelete: Restrict)
 
-  locations Location[]
-  segments  Segment[]
-  overnightStays OvernightStay[]
+  locations                Location[]
+  segments                 Segment[]
+  overnightStays           OvernightStay[]
   overnightStayConnections OvernightStayConnection[]
-  regionSetItems RegionSetItem[]
-  regionLodgings RegionLodging[]
+  regionSetItems           RegionSetItem[]
+  regionLodgings           RegionLodging[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -538,22 +538,22 @@ model Location {
   longitude          Float?
   currentVersionId   String?
 
-  region       Region    @relation(fields: [regionId], references: [id], onDelete: Cascade)
-  fromSegments Segment[] @relation("FromLocation")
-  toSegments   Segment[] @relation("ToLocation")
-  overnightStays OvernightStay[]
-  overnightStaysAsStart OvernightStay[] @relation("OvernightStayStartLocation")
-  overnightStaysAsEnd OvernightStay[] @relation("OvernightStayEndLocation")
-  overnightStayDaysAsDisplay OvernightStayDay[] @relation("OvernightStayDayDisplayLocation")
+  region                     Region                    @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  fromSegments               Segment[]                 @relation("FromLocation")
+  toSegments                 Segment[]                 @relation("ToLocation")
+  overnightStays             OvernightStay[]
+  overnightStaysAsStart      OvernightStay[]           @relation("OvernightStayStartLocation")
+  overnightStaysAsEnd        OvernightStay[]           @relation("OvernightStayEndLocation")
+  overnightStayDaysAsDisplay OvernightStayDay[]        @relation("OvernightStayDayDisplayLocation")
   toOvernightStayConnections OvernightStayConnection[] @relation("OvernightStayConnectionToLocation")
-  versions     LocationVersion[] @relation("LocationVersions")
-  currentVersion LocationVersion? @relation("CurrentLocationVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
-  guide        LocationGuide?
-  lodgings     Lodging[]
-  mealSets     MealSet[]
-  timeBlocks   TimeBlock[]
-  planStops    PlanStop[]
-  planTemplateStops PlanTemplateStop[]
+  versions                   LocationVersion[]         @relation("LocationVersions")
+  currentVersion             LocationVersion?          @relation("CurrentLocationVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  guide                      LocationGuide?
+  lodgings                   Lodging[]
+  mealSets                   MealSet[]
+  timeBlocks                 TimeBlock[]
+  planStops                  PlanStop[]
+  planTemplateStops          PlanTemplateStop[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -578,25 +578,25 @@ model LocationGuide {
 }
 
 model LocationVersion {
-  id                     String @id @default(uuid(7))
-  locationId             String
-  versionNumber          Int
-  label                  String
-  changeNote             String?
-  locationNameSnapshot   Json
-  regionNameSnapshot     String
-  defaultLodgingType     String
+  id                         String             @id @default(uuid(7))
+  locationId                 String
+  versionNumber              Int
+  label                      String
+  changeNote                 String?
+  locationNameSnapshot       Json
+  regionNameSnapshot         String
+  defaultLodgingType         String
   firstDayAverageDistanceKm  Float?
   firstDayAverageTravelHours Float?
   firstDayMovementIntensity  MovementIntensity?
 
-  location      Location         @relation("LocationVersions", fields: [locationId], references: [id], onDelete: Cascade)
-  currentForLocations Location[] @relation("CurrentLocationVersion")
-  lodgings      Lodging[]
-  mealSets      MealSet[]
-  timeBlocks    TimeBlock[]
-  planStops     PlanStop[]
-  planTemplateStops PlanTemplateStop[]
+  location            Location           @relation("LocationVersions", fields: [locationId], references: [id], onDelete: Cascade)
+  currentForLocations Location[]         @relation("CurrentLocationVersion")
+  lodgings            Lodging[]
+  mealSets            MealSet[]
+  timeBlocks          TimeBlock[]
+  planStops           PlanStop[]
+  planTemplateStops   PlanTemplateStop[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -606,26 +606,26 @@ model LocationVersion {
 }
 
 model OvernightStay {
-  id              String    @id @default(uuid(7))
-  regionId        String
-  locationId      String
-  blockType      BlockType  @default(STAY)
-  startLocationId String
-  endLocationId   String
-  name            String
-  isNightTrain    Boolean   @default(false)
-  longDistanceSegmentCount Int @default(0)
-  isActive        Boolean   @default(true)
-  sortOrder       Int       @default(0)
+  id                       String    @id @default(uuid(7))
+  regionId                 String
+  locationId               String
+  blockType                BlockType @default(STAY)
+  startLocationId          String
+  endLocationId            String
+  name                     String
+  isNightTrain             Boolean   @default(false)
+  longDistanceSegmentCount Int       @default(0)
+  isActive                 Boolean   @default(true)
+  sortOrder                Int       @default(0)
 
-  region        Region    @relation(fields: [regionId], references: [id], onDelete: Cascade)
-  location      Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  startLocation Location  @relation("OvernightStayStartLocation", fields: [startLocationId], references: [id], onDelete: Cascade)
-  endLocation   Location  @relation("OvernightStayEndLocation", fields: [endLocationId], references: [id], onDelete: Cascade)
-  days          OvernightStayDay[]
-  outgoingConnections OvernightStayConnection[]
-  planStopsAsMultiDayBlock PlanStop[] @relation("PlanStopMultiDayBlock")
-  planTemplateStopsAsMultiDayBlock PlanTemplateStop[] @relation("PlanTemplateStopMultiDayBlock")
+  region                           Region                    @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  location                         Location                  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  startLocation                    Location                  @relation("OvernightStayStartLocation", fields: [startLocationId], references: [id], onDelete: Cascade)
+  endLocation                      Location                  @relation("OvernightStayEndLocation", fields: [endLocationId], references: [id], onDelete: Cascade)
+  days                             OvernightStayDay[]
+  outgoingConnections              OvernightStayConnection[]
+  planStopsAsMultiDayBlock         PlanStop[]                @relation("PlanStopMultiDayBlock")
+  planTemplateStopsAsMultiDayBlock PlanTemplateStop[]        @relation("PlanTemplateStopMultiDayBlock")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -637,102 +637,102 @@ model OvernightStay {
 }
 
 model OvernightStayDay {
-  id                 String  @id @default(uuid(7))
+  id                 String            @id @default(uuid(7))
   overnightStayId    String
   dayOrder           Int
   displayLocationId  String
   averageDistanceKm  Float
   averageTravelHours Float
   movementIntensity  MovementIntensity
-  timeCellText       String  @db.Text
-  scheduleCellText   String  @db.Text
-  lodgingCellText    String  @db.Text
-  mealCellText       String  @db.Text
+  timeCellText       String            @db.Text
+  scheduleCellText   String            @db.Text
+  lodgingCellText    String            @db.Text
+  mealCellText       String            @db.Text
 
   overnightStay   OvernightStay @relation(fields: [overnightStayId], references: [id], onDelete: Cascade)
-  displayLocation Location     @relation("OvernightStayDayDisplayLocation", fields: [displayLocationId], references: [id], onDelete: Cascade)
+  displayLocation Location      @relation("OvernightStayDayDisplayLocation", fields: [displayLocationId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([overnightStayId, dayOrder])
   @@index([overnightStayId])
   @@index([displayLocationId])
-  @@unique([overnightStayId, dayOrder])
 }
 
 model OvernightStayConnection {
-  id                 String @id @default(uuid(7))
-  regionId           String
-  regionName         String
+  id                  String            @id @default(uuid(7))
+  regionId            String
+  regionName          String
   fromOvernightStayId String
-  toLocationId       String
-  defaultVersionId   String?
-  averageDistanceKm  Float
-  averageTravelHours Float
-  movementIntensity  MovementIntensity
-  isLongDistance     Boolean @default(false)
+  toLocationId        String
+  defaultVersionId    String?
+  averageDistanceKm   Float
+  averageTravelHours  Float
+  movementIntensity   MovementIntensity
+  isLongDistance      Boolean           @default(false)
 
-  region Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
-  fromOvernightStay OvernightStay @relation(fields: [fromOvernightStayId], references: [id], onDelete: Cascade)
-  toLocation Location @relation("OvernightStayConnectionToLocation", fields: [toLocationId], references: [id])
-  defaultVersion OvernightStayConnectionVersion? @relation("OvernightStayConnectionDefaultVersion", fields: [defaultVersionId], references: [id], onDelete: SetNull)
-  versions OvernightStayConnectionVersion[] @relation("OvernightStayConnectionVersions")
-  scheduleTimeBlocks OvernightStayConnectionTimeBlock[]
-  planStopsAsMultiDayBlockConnection PlanStop[] @relation("PlanStopMultiDayBlockConnection")
-  planTemplateStopsAsMultiDayBlockConnection PlanTemplateStop[] @relation("PlanTemplateStopMultiDayBlockConnection")
+  region                                     Region                             @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  fromOvernightStay                          OvernightStay                      @relation(fields: [fromOvernightStayId], references: [id], onDelete: Cascade)
+  toLocation                                 Location                           @relation("OvernightStayConnectionToLocation", fields: [toLocationId], references: [id])
+  defaultVersion                             OvernightStayConnectionVersion?    @relation("OvernightStayConnectionDefaultVersion", fields: [defaultVersionId], references: [id], onDelete: SetNull)
+  versions                                   OvernightStayConnectionVersion[]   @relation("OvernightStayConnectionVersions")
+  scheduleTimeBlocks                         OvernightStayConnectionTimeBlock[]
+  planStopsAsMultiDayBlockConnection         PlanStop[]                         @relation("PlanStopMultiDayBlockConnection")
+  planTemplateStopsAsMultiDayBlockConnection PlanTemplateStop[]                 @relation("PlanTemplateStopMultiDayBlockConnection")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([fromOvernightStayId, toLocationId])
   @@index([regionId])
   @@index([defaultVersionId])
-  @@unique([fromOvernightStayId, toLocationId])
 }
 
 model OvernightStayConnectionVersion {
-  id                         String @id @default(uuid(7))
-  overnightStayConnectionId  String
-  name                       String
-  averageDistanceKm          Float
-  averageTravelHours         Float
-  movementIntensity          MovementIntensity
-  isLongDistance             Boolean @default(false)
-  sortOrder                  Int
-  isDefault                  Boolean @default(false)
+  id                        String            @id @default(uuid(7))
+  overnightStayConnectionId String
+  name                      String
+  averageDistanceKm         Float
+  averageTravelHours        Float
+  movementIntensity         MovementIntensity
+  isLongDistance            Boolean           @default(false)
+  sortOrder                 Int
+  isDefault                 Boolean           @default(false)
 
-  overnightStayConnection OvernightStayConnection @relation("OvernightStayConnectionVersions", fields: [overnightStayConnectionId], references: [id], onDelete: Cascade)
-  defaultForConnections OvernightStayConnection[] @relation("OvernightStayConnectionDefaultVersion")
-  scheduleTimeBlocks OvernightStayConnectionVersionTimeBlock[]
-  planStopsAsMultiDayBlockConnectionVersion PlanStop[] @relation("PlanStopMultiDayBlockConnectionVersion")
-  planTemplateStopsAsMultiDayBlockConnectionVersion PlanTemplateStop[] @relation("PlanTemplateStopMultiDayBlockConnectionVersion")
+  overnightStayConnection                           OvernightStayConnection                   @relation("OvernightStayConnectionVersions", fields: [overnightStayConnectionId], references: [id], onDelete: Cascade)
+  defaultForConnections                             OvernightStayConnection[]                 @relation("OvernightStayConnectionDefaultVersion")
+  scheduleTimeBlocks                                OvernightStayConnectionVersionTimeBlock[]
+  planStopsAsMultiDayBlockConnectionVersion         PlanStop[]                                @relation("PlanStopMultiDayBlockConnectionVersion")
+  planTemplateStopsAsMultiDayBlockConnectionVersion PlanTemplateStop[]                        @relation("PlanTemplateStopMultiDayBlockConnectionVersion")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([overnightStayConnectionId])
   @@unique([overnightStayConnectionId, sortOrder])
+  @@index([overnightStayConnectionId])
 }
 
 model OvernightStayConnectionVersionTimeBlock {
-  id                               String @id @default(uuid(7))
+  id                               String                 @id @default(uuid(7))
   overnightStayConnectionVersionId String
   variant                          SegmentScheduleVariant @default(basic)
   startTime                        String
   label                            String
   orderIndex                       Int
 
-  overnightStayConnectionVersion OvernightStayConnectionVersion @relation(fields: [overnightStayConnectionVersionId], references: [id], onDelete: Cascade)
-  activities OvernightStayConnectionVersionActivity[]
+  overnightStayConnectionVersion OvernightStayConnectionVersion           @relation(fields: [overnightStayConnectionVersionId], references: [id], onDelete: Cascade)
+  activities                     OvernightStayConnectionVersionActivity[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([overnightStayConnectionVersionId])
   @@unique([overnightStayConnectionVersionId, variant, orderIndex])
+  @@index([overnightStayConnectionVersionId])
 }
 
 model OvernightStayConnectionVersionActivity {
-  id                                        String @id @default(uuid(7))
+  id                                        String  @id @default(uuid(7))
   overnightStayConnectionVersionTimeBlockId String
   description                               String
   orderIndex                                Int
@@ -744,12 +744,12 @@ model OvernightStayConnectionVersionActivity {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([overnightStayConnectionVersionTimeBlockId])
   @@unique([overnightStayConnectionVersionTimeBlockId, orderIndex])
+  @@index([overnightStayConnectionVersionTimeBlockId])
 }
 
 model Segment {
-  id                 String @id @default(uuid(7))
+  id                 String            @id @default(uuid(7))
   regionId           String
   regionName         String
   fromLocationId     String
@@ -758,37 +758,37 @@ model Segment {
   averageDistanceKm  Float
   averageTravelHours Float
   movementIntensity  MovementIntensity
-  isLongDistance     Boolean @default(false)
+  isLongDistance     Boolean           @default(false)
 
-  region       Region   @relation(fields: [regionId], references: [id], onDelete: Cascade)
-  fromLocation Location @relation("FromLocation", fields: [fromLocationId], references: [id])
-  toLocation   Location @relation("ToLocation", fields: [toLocationId], references: [id])
-  defaultVersion SegmentVersion? @relation("SegmentDefaultVersion", fields: [defaultVersionId], references: [id], onDelete: SetNull)
-  versions     SegmentVersion[] @relation("SegmentVersions")
+  region             Region             @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  fromLocation       Location           @relation("FromLocation", fields: [fromLocationId], references: [id])
+  toLocation         Location           @relation("ToLocation", fields: [toLocationId], references: [id])
+  defaultVersion     SegmentVersion?    @relation("SegmentDefaultVersion", fields: [defaultVersionId], references: [id], onDelete: SetNull)
+  versions           SegmentVersion[]   @relation("SegmentVersions")
   scheduleTimeBlocks SegmentTimeBlock[]
-  planStops PlanStop[]
-  planTemplateStops PlanTemplateStop[]
+  planStops          PlanStop[]
+  planTemplateStops  PlanTemplateStop[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([fromLocationId, toLocationId])
   @@index([regionId])
   @@index([defaultVersionId])
-  @@unique([fromLocationId, toLocationId])
 }
 
 model SegmentVersion {
-  id                 String @id @default(uuid(7))
-  segmentId          String
-  name               String
-  averageDistanceKm  Float
-  averageTravelHours Float
-  movementIntensity  MovementIntensity
-  isLongDistance     Boolean @default(false)
-  kind               SegmentVersionKind @default(DEFAULT)
-  startDate          DateTime?
-  endDate            DateTime?
-  flightOutTimeBand  SegmentFlightOutTimeBand?
+  id                           String                    @id @default(uuid(7))
+  segmentId                    String
+  name                         String
+  averageDistanceKm            Float
+  averageTravelHours           Float
+  movementIntensity            MovementIntensity
+  isLongDistance               Boolean                   @default(false)
+  kind                         SegmentVersionKind        @default(DEFAULT)
+  startDate                    DateTime?
+  endDate                      DateTime?
+  flightOutTimeBand            SegmentFlightOutTimeBand?
   overrideLodgingIsUnspecified Boolean?
   overrideLodgingName          String?
   overrideHasElectricity       FacilityAvailability?
@@ -797,38 +797,38 @@ model SegmentVersion {
   overrideBreakfast            MealOption?
   overrideLunch                MealOption?
   overrideDinner               MealOption?
-  sortOrder          Int
-  isDefault          Boolean @default(false)
+  sortOrder                    Int
+  isDefault                    Boolean                   @default(false)
 
-  segment         Segment @relation("SegmentVersions", fields: [segmentId], references: [id], onDelete: Cascade)
-  defaultForSegments Segment[] @relation("SegmentDefaultVersion")
+  segment            Segment                   @relation("SegmentVersions", fields: [segmentId], references: [id], onDelete: Cascade)
+  defaultForSegments Segment[]                 @relation("SegmentDefaultVersion")
   scheduleTimeBlocks SegmentVersionTimeBlock[]
-  planStops       PlanStop[]
-  planTemplateStops PlanTemplateStop[]
+  planStops          PlanStop[]
+  planTemplateStops  PlanTemplateStop[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([segmentId])
   @@unique([segmentId, sortOrder])
+  @@index([segmentId])
 }
 
 model SegmentVersionTimeBlock {
-  id               String @id @default(uuid(7))
+  id               String                 @id @default(uuid(7))
   segmentVersionId String
   variant          SegmentScheduleVariant @default(basic)
   startTime        String
   label            String
   orderIndex       Int
 
-  segmentVersion SegmentVersion @relation(fields: [segmentVersionId], references: [id], onDelete: Cascade)
+  segmentVersion SegmentVersion           @relation(fields: [segmentVersionId], references: [id], onDelete: Cascade)
   activities     SegmentVersionActivity[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([segmentVersionId])
   @@unique([segmentVersionId, variant, orderIndex])
+  @@index([segmentVersionId])
 }
 
 model SegmentVersionActivity {
@@ -844,22 +844,22 @@ model SegmentVersionActivity {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([segmentVersionTimeBlockId])
   @@unique([segmentVersionTimeBlockId, orderIndex])
+  @@index([segmentVersionTimeBlockId])
 }
 
 model Plan {
-  id               String  @id @default(uuid(7))
-  userId           String
-  regionSetId      String
-  title            String
-  documentNumberBase String @unique
-  currentVersionId String?
+  id                 String  @id @default(uuid(7))
+  userId             String
+  regionSetId        String
+  title              String
+  documentNumberBase String  @unique
+  currentVersionId   String?
 
-  user           User          @relation(fields: [userId], references: [id])
-  regionSet      RegionSet     @relation(fields: [regionSetId], references: [id], onDelete: Restrict)
-  versions       PlanVersion[] @relation("PlanVersions")
-  currentVersion PlanVersion?  @relation("CurrentPlanVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  user           User            @relation(fields: [userId], references: [id])
+  regionSet      RegionSet       @relation(fields: [regionSetId], references: [id], onDelete: Restrict)
+  versions       PlanVersion[]   @relation("PlanVersions")
+  currentVersion PlanVersion?    @relation("CurrentPlanVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
   confirmedTrips ConfirmedTrip[]
 
   createdAt DateTime @default(now())
@@ -871,7 +871,7 @@ model Plan {
 }
 
 model PlanVersion {
-  id              String  @id @default(uuid(7))
+  id              String      @id @default(uuid(7))
   planId          String
   regionSetId     String
   parentVersionId String?
@@ -880,17 +880,17 @@ model PlanVersion {
   totalDays       Int
   changeNote      String?
 
-  plan          Plan          @relation("PlanVersions", fields: [planId], references: [id], onDelete: Cascade)
-  regionSet     RegionSet     @relation(fields: [regionSetId], references: [id], onDelete: Restrict)
-  parentVersion PlanVersion?  @relation("PlanVersionParentChild", fields: [parentVersionId], references: [id], onDelete: SetNull)
-  childVersions PlanVersion[] @relation("PlanVersionParentChild")
-  planAsCurrent Plan[]        @relation("CurrentPlanVersion")
-  meta          PlanVersionMeta?
-  pricing       PlanVersionPricing?
-  planStops     PlanStop[]
+  plan              Plan                @relation("PlanVersions", fields: [planId], references: [id], onDelete: Cascade)
+  regionSet         RegionSet           @relation(fields: [regionSetId], references: [id], onDelete: Restrict)
+  parentVersion     PlanVersion?        @relation("PlanVersionParentChild", fields: [parentVersionId], references: [id], onDelete: SetNull)
+  childVersions     PlanVersion[]       @relation("PlanVersionParentChild")
+  planAsCurrent     Plan[]              @relation("CurrentPlanVersion")
+  meta              PlanVersionMeta?
+  pricing           PlanVersionPricing?
+  planStops         PlanStop[]
   planVersionEvents PlanVersionEvent[]
-  overrides     Override[]
-  confirmedTrips ConfirmedTrip[]
+  overrides         Override[]
+  confirmedTrips    ConfirmedTrip[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -922,23 +922,23 @@ model ConfirmedTrip {
   confirmedAt           DateTime            @default(now())
   confirmedByEmployeeId String?
 
-  assignedVehicle       String?
-  accommodationNote     String?   @db.Text
-  operationNote         String?   @db.Text
-  openChatUrl           String?   @db.Text
+  assignedVehicle   String?
+  accommodationNote String? @db.Text
+  operationNote     String? @db.Text
+  openChatUrl       String? @db.Text
 
-  travelStart     DateTime?
-  travelEnd       DateTime?
-  pickupDate      DateTime?
-  dropDate        DateTime?
-  destination     String?
-  paxCount        Int?
-  rentalGear            Boolean   @default(false)
-  rentalDrone           Boolean   @default(false)
-  rentalStarlink        Boolean   @default(false)
-  rentalPowerbank       Boolean   @default(false)
-  camelDollPurchased    Boolean   @default(false)
-  isRecruitingOpen      Boolean   @default(false)
+  travelStart        DateTime?
+  travelEnd          DateTime?
+  pickupDate         DateTime?
+  dropDate           DateTime?
+  destination        String?
+  paxCount           Int?
+  rentalGear         Boolean   @default(false)
+  rentalDrone        Boolean   @default(false)
+  rentalStarlink     Boolean   @default(false)
+  rentalPowerbank    Boolean   @default(false)
+  camelDollPurchased Boolean   @default(false)
+  isRecruitingOpen   Boolean   @default(false)
 
   depositAmountKrw         Int?
   balanceAmountKrw         Int?
@@ -946,18 +946,19 @@ model ConfirmedTrip {
   securityDepositAmountKrw Int?
   groupTotalAmountKrw      Int?
 
-  user                User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan                Plan?       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                Plan?        @relation(fields: [planId], references: [id], onDelete: Cascade)
   planVersion         PlanVersion? @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
-  confirmedByEmployee Employee?   @relation("ConfirmedTripEmployee", fields: [confirmedByEmployeeId], references: [id], onDelete: SetNull)
+  confirmedByEmployee Employee?    @relation("ConfirmedTripEmployee", fields: [confirmedByEmployeeId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  lodgings           ConfirmedTripLodging[]
-  guideAssignments   ConfirmedTripGuideAssignment[]
-  driverAssignments  ConfirmedTripDriverAssignment[]
-  calendarNotes      CalendarNote[]
+  lodgings                 ConfirmedTripLodging[]
+  guideAssignments         ConfirmedTripGuideAssignment[]
+  driverAssignments        ConfirmedTripDriverAssignment[]
+  koreaTeamStageSelections ConfirmedTripKoreaTeamStageSelection[]
+  calendarNotes            CalendarNote[]
 
   @@index([userId])
   @@index([planId])
@@ -966,11 +967,39 @@ model ConfirmedTrip {
   @@index([travelStart])
 }
 
+model ConfirmedTripKoreaTeamStageOption {
+  id        String   @id @default(uuid(7))
+  label     String   @unique(map: "CTKTSO_label_uq")
+  colorTone String   @default("slate")
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  selections ConfirmedTripKoreaTeamStageSelection[]
+
+  @@index([isActive, sortOrder], map: "CTKTSO_active_sort_idx")
+}
+
+model ConfirmedTripKoreaTeamStageSelection {
+  id              String   @id @default(uuid(7))
+  confirmedTripId String
+  optionId        String
+  createdAt       DateTime @default(now())
+
+  confirmedTrip ConfirmedTrip                     @relation(fields: [confirmedTripId], references: [id], onDelete: Cascade, map: "CTKTSS_trip_fkey")
+  option        ConfirmedTripKoreaTeamStageOption @relation(fields: [optionId], references: [id], onDelete: Cascade, map: "CTKTSS_option_fkey")
+
+  @@unique([confirmedTripId, optionId], map: "CTKTSS_trip_option_uq")
+  @@index([confirmedTripId], map: "CTKTSS_trip_idx")
+  @@index([optionId], map: "CTKTSS_option_idx")
+}
+
 model ConfirmedTripGuideAssignment {
-  id              String       @id @default(uuid(7))
+  id              String  @id @default(uuid(7))
   confirmedTripId String
   guideId         String
-  sortOrder       Int          @default(0)
+  sortOrder       Int     @default(0)
   nameSnapshot    String?
 
   confirmedTrip ConfirmedTrip @relation(fields: [confirmedTripId], references: [id], onDelete: Cascade)
@@ -985,10 +1014,10 @@ model ConfirmedTripGuideAssignment {
 }
 
 model ConfirmedTripDriverAssignment {
-  id              String       @id @default(uuid(7))
+  id              String  @id @default(uuid(7))
   confirmedTripId String
   driverId        String
-  sortOrder       Int          @default(0)
+  sortOrder       Int     @default(0)
   nameSnapshot    String?
 
   confirmedTrip ConfirmedTrip @relation(fields: [confirmedTripId], references: [id], onDelete: Cascade)
@@ -1057,12 +1086,12 @@ model ConfirmedTripLodging {
   checkOutDate    DateTime
   nights          Int
 
-  type                  LodgingAssignmentType
-  accommodationId       String?
+  type            LodgingAssignmentType
+  accommodationId String?
 
   lodgingNameSnapshot String
   pricePerNightKrw    Int?
-  roomCount           Int                  @default(1)
+  roomCount           Int    @default(1)
   totalPriceKrw       Int?
 
   bookingStatus    LodgingBookingStatus @default(PENDING)
@@ -1100,50 +1129,50 @@ model ConfirmedTripLodgingOption {
 }
 
 model PlanVersionMeta {
-  id                     String   @id @default(uuid(7))
-  planVersionId          String   @unique
-  leaderName             String
-  documentNumber         String   @unique
-  travelStartDate        DateTime
-  travelEndDate          DateTime
-  headcountTotal         Int
-  headcountMale          Int
-  headcountFemale        Int
-  vehicleType            String
-  flightInTime           String?
-  flightOutTime          String?
-  pickupDate             DateTime?
-  pickupTime             String?
-  dropDate               DateTime?
-  dropTime               String?
-  pickupDropNote         String?
-  pickupPlaceType        PlaceType?
-  pickupPlaceCustomText  String?
-  dropPlaceType          PlaceType?
-  dropPlaceCustomText    String?
-  externalPickupDate     DateTime?
-  externalPickupTime     String?
+  id                            String     @id @default(uuid(7))
+  planVersionId                 String     @unique
+  leaderName                    String
+  documentNumber                String     @unique
+  travelStartDate               DateTime
+  travelEndDate                 DateTime
+  headcountTotal                Int
+  headcountMale                 Int
+  headcountFemale               Int
+  vehicleType                   String
+  flightInTime                  String?
+  flightOutTime                 String?
+  pickupDate                    DateTime?
+  pickupTime                    String?
+  dropDate                      DateTime?
+  dropTime                      String?
+  pickupDropNote                String?
+  pickupPlaceType               PlaceType?
+  pickupPlaceCustomText         String?
+  dropPlaceType                 PlaceType?
+  dropPlaceCustomText           String?
+  externalPickupDate            DateTime?
+  externalPickupTime            String?
   externalPickupPlaceType       PlaceType?
   externalPickupPlaceCustomText String?
-  externalDropDate       DateTime?
-  externalDropTime       String?
-  externalDropPlaceType        PlaceType?
-  externalDropPlaceCustomText  String?
-  externalPickupDropNote String?
-  externalTransfers      Json?
-  specialNote            String?  @db.Text
-  includeRentalItems     Boolean  @default(true)
-  rentalItemsText        String   @db.Text
-  eventCodes             Json
-  extraLodgings          Json
-  lodgingSelections      Json
-  remark                 String?  @db.Text
-  estimateGuideImagesPerPage Int @default(2)
+  externalDropDate              DateTime?
+  externalDropTime              String?
+  externalDropPlaceType         PlaceType?
+  externalDropPlaceCustomText   String?
+  externalPickupDropNote        String?
+  externalTransfers             Json?
+  specialNote                   String?    @db.Text
+  includeRentalItems            Boolean    @default(true)
+  rentalItemsText               String     @db.Text
+  eventCodes                    Json
+  extraLodgings                 Json
+  lodgingSelections             Json
+  remark                        String?    @db.Text
+  estimateGuideImagesPerPage    Int        @default(2)
   /// 견적서 여행지 안내 페이지별 장수(예: [3,2,2]). null이면 estimateGuideImagesPerPage로 균등 분할
-  estimateGuidePageSplits Json?
+  estimateGuidePageSplits       Json?
 
-  planVersion      PlanVersion               @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
-  transportGroups  PlanVersionTransportGroup[]
+  planVersion     PlanVersion                 @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+  transportGroups PlanVersionTransportGroup[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1152,43 +1181,43 @@ model PlanVersionMeta {
 }
 
 model PlanVersionTransportGroup {
-  id                String    @id @default(uuid(7))
-  planVersionMetaId String
-  orderIndex        Int
-  teamName          String
-  headcount         Int
-  flightInDate      DateTime?
-  flightInTime      String?
-  flightOutDate     DateTime?
-  flightOutTime     String?
-  pickupDate        DateTime?
-  pickupTime        String?
-  pickupPlaceType   PlaceType?
+  id                    String     @id @default(uuid(7))
+  planVersionMetaId     String
+  orderIndex            Int
+  teamName              String
+  headcount             Int
+  flightInDate          DateTime?
+  flightInTime          String?
+  flightOutDate         DateTime?
+  flightOutTime         String?
+  pickupDate            DateTime?
+  pickupTime            String?
+  pickupPlaceType       PlaceType?
   pickupPlaceCustomText String?
-  dropDate          DateTime?
-  dropTime          String?
-  dropPlaceType     PlaceType?
-  dropPlaceCustomText String?
+  dropDate              DateTime?
+  dropTime              String?
+  dropPlaceType         PlaceType?
+  dropPlaceCustomText   String?
 
   planVersionMeta PlanVersionMeta @relation(fields: [planVersionMetaId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([planVersionMetaId, orderIndex])
   @@unique([planVersionMetaId, orderIndex])
+  @@index([planVersionMetaId, orderIndex])
 }
 
 model Event {
-  id                 String @id @default(uuid(7))
+  id                 String              @id @default(uuid(7))
   name               String
-  isActive           Boolean @default(true)
-  securityDepositKrw Int @default(0)
-  sortOrder          Int @default(0)
+  isActive           Boolean             @default(true)
+  securityDepositKrw Int                 @default(0)
+  sortOrder          Int                 @default(0)
   /// 투어리스트 렌탈 항목으로 동기화할 때만 설정. NULL이면 견적 이벤트일 뿐 렌탈 플래그와 무관.
   tourListRentalItem TourListRentalItem?
 
-  planVersionEvents PlanVersionEvent[]
+  planVersionEvents                  PlanVersionEvent[]
   securityDepositPlanVersionPricings PlanVersionPricing[]
 
   createdAt DateTime @default(now())
@@ -1230,43 +1259,43 @@ model PricingPolicy {
 }
 
 model PricingRule {
-  id             String               @id @default(uuid(7))
-  policyId       String
-  priceItemPreset PricingPriceItemPreset
-  ruleType       PricingRuleType
-  title          String               @db.VarChar(191)
-  lineCode       PricingLineCode
-  calcType       PricingCalcType
-  targetLineCode PricingLineCode?
-  amountKrw      Int?
-  percentBps     Int?
-  quantitySource PricingQuantitySource
-  lodgingSelectionLevel PricingLodgingSelectionLevel?
-  headcountMin   Int?
-  headcountMax   Int?
-  dayMin         Int?
-  dayMax         Int?
-  travelDateFrom DateTime?
-  travelDateTo   DateTime?
-  vehicleType    String?
-  variantTypes   Json?
-  flightInTimeBand PricingTimeBand?
-  flightOutTimeBand PricingTimeBand?
-  pickupPlaceType String?             @db.VarChar(50)
-  dropPlaceType   String?             @db.VarChar(50)
-  externalTransferMode PricingExternalTransferMode?
-  externalTransferMinCount Int?
+  id                          String                        @id @default(uuid(7))
+  policyId                    String
+  priceItemPreset             PricingPriceItemPreset
+  ruleType                    PricingRuleType
+  title                       String                        @db.VarChar(191)
+  lineCode                    PricingLineCode
+  calcType                    PricingCalcType
+  targetLineCode              PricingLineCode?
+  amountKrw                   Int?
+  percentBps                  Int?
+  quantitySource              PricingQuantitySource
+  lodgingSelectionLevel       PricingLodgingSelectionLevel?
+  headcountMin                Int?
+  headcountMax                Int?
+  dayMin                      Int?
+  dayMax                      Int?
+  travelDateFrom              DateTime?
+  travelDateTo                DateTime?
+  vehicleType                 String?
+  variantTypes                Json?
+  flightInTimeBand            PricingTimeBand?
+  flightOutTimeBand           PricingTimeBand?
+  pickupPlaceType             String?                       @db.VarChar(50)
+  dropPlaceType               String?                       @db.VarChar(50)
+  externalTransferMode        PricingExternalTransferMode?
+  externalTransferMinCount    Int?
   externalTransferPresetCodes Json?
-  nightTrainRequired Boolean?
-  nightTrainMinCount Int?
-  longDistanceMinCount Int?
-  chargeScope    PricingChargeScope?
-  personMode     PricingPersonMode?
-  customDisplayText String?           @db.Text
-  isEnabled      Boolean              @default(true)
-  sortOrder      Int                  @default(0)
+  nightTrainRequired          Boolean?
+  nightTrainMinCount          Int?
+  longDistanceMinCount        Int?
+  chargeScope                 PricingChargeScope?
+  personMode                  PricingPersonMode?
+  customDisplayText           String?                       @db.Text
+  isEnabled                   Boolean                       @default(true)
+  sortOrder                   Int                           @default(0)
 
-  policy                  PricingPolicy           @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  policy                  PricingPolicy            @relation(fields: [policyId], references: [id], onDelete: Cascade)
   planVersionPricingLines PlanVersionPricingLine[]
 
   createdAt DateTime @default(now())
@@ -1277,27 +1306,27 @@ model PricingRule {
 }
 
 model PlanVersionPricing {
-  id             String @id @default(uuid(7))
-  planVersionId  String @unique
-  policyId       String
-  currencyCode   String @default("KRW")
-  baseAmountKrw  Int
-  addonAmountKrw Int
-  totalAmountKrw Int
-  depositAmountKrw Int
-  balanceAmountKrw Int
-  securityDepositAmountKrw    Int                @default(0)
-  securityDepositUnitPriceKrw Int                @default(0)
-  securityDepositQuantity     Int                @default(0)
+  id                          String              @id @default(uuid(7))
+  planVersionId               String              @unique
+  policyId                    String
+  currencyCode                String              @default("KRW")
+  baseAmountKrw               Int
+  addonAmountKrw              Int
+  totalAmountKrw              Int
+  depositAmountKrw            Int
+  balanceAmountKrw            Int
+  securityDepositAmountKrw    Int                 @default(0)
+  securityDepositUnitPriceKrw Int                 @default(0)
+  securityDepositQuantity     Int                 @default(0)
   securityDepositMode         SecurityDepositMode @default(NONE)
   securityDepositEventId      String?
-  inputSnapshot  Json
-  manualPricingSnapshot Json?
-  originalPricingSnapshot Json?
+  inputSnapshot               Json
+  manualPricingSnapshot       Json?
+  originalPricingSnapshot     Json?
 
-  planVersion          PlanVersion            @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
-  policy               PricingPolicy          @relation(fields: [policyId], references: [id])
-  securityDepositEvent Event?                 @relation(fields: [securityDepositEventId], references: [id], onDelete: SetNull)
+  planVersion          PlanVersion              @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+  policy               PricingPolicy            @relation(fields: [policyId], references: [id])
+  securityDepositEvent Event?                   @relation(fields: [securityDepositEventId], references: [id], onDelete: SetNull)
   lines                PlanVersionPricingLine[]
 
   createdAt DateTime @default(now())
@@ -1344,7 +1373,7 @@ model PlanTemplate {
   sortOrder   Int     @default(0)
   isActive    Boolean @default(true)
 
-  regionSet RegionSet @relation(fields: [regionSetId], references: [id], onDelete: Cascade)
+  regionSet RegionSet          @relation(fields: [regionSetId], references: [id], onDelete: Cascade)
   planStops PlanTemplateStop[]
 
   createdAt DateTime @default(now())
@@ -1354,32 +1383,32 @@ model PlanTemplate {
 }
 
 model PlanTemplateStop {
-  id                String @id @default(uuid(7))
-  planTemplateId    String
-  dayIndex          Int
-  segmentId         String?
-  segmentVersionId  String?
-  multiDayBlockId   String?
-  multiDayBlockDayOrder Int?
-  multiDayBlockConnectionId String?
+  id                               String  @id @default(uuid(7))
+  planTemplateId                   String
+  dayIndex                         Int
+  segmentId                        String?
+  segmentVersionId                 String?
+  multiDayBlockId                  String?
+  multiDayBlockDayOrder            Int?
+  multiDayBlockConnectionId        String?
   multiDayBlockConnectionVersionId String?
-  locationId        String?
-  locationVersionId String?
-  dateCellText      String @db.Text
-  destinationCellText String @db.Text
-  timeCellText      String @db.Text
-  scheduleCellText  String @db.Text
-  lodgingCellText   String @db.Text
-  mealCellText      String @db.Text
+  locationId                       String?
+  locationVersionId                String?
+  dateCellText                     String  @db.Text
+  destinationCellText              String  @db.Text
+  timeCellText                     String  @db.Text
+  scheduleCellText                 String  @db.Text
+  lodgingCellText                  String  @db.Text
+  mealCellText                     String  @db.Text
 
-  planTemplate    PlanTemplate    @relation(fields: [planTemplateId], references: [id], onDelete: Cascade)
-  segment         Segment?        @relation(fields: [segmentId], references: [id], onDelete: SetNull)
-  segmentVersion  SegmentVersion? @relation(fields: [segmentVersionId], references: [id], onDelete: SetNull)
-  multiDayBlock   OvernightStay?  @relation("PlanTemplateStopMultiDayBlock", fields: [multiDayBlockId], references: [id], onDelete: SetNull)
-  multiDayBlockConnection OvernightStayConnection? @relation("PlanTemplateStopMultiDayBlockConnection", fields: [multiDayBlockConnectionId], references: [id], onDelete: SetNull)
+  planTemplate                   PlanTemplate                    @relation(fields: [planTemplateId], references: [id], onDelete: Cascade)
+  segment                        Segment?                        @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  segmentVersion                 SegmentVersion?                 @relation(fields: [segmentVersionId], references: [id], onDelete: SetNull)
+  multiDayBlock                  OvernightStay?                  @relation("PlanTemplateStopMultiDayBlock", fields: [multiDayBlockId], references: [id], onDelete: SetNull)
+  multiDayBlockConnection        OvernightStayConnection?        @relation("PlanTemplateStopMultiDayBlockConnection", fields: [multiDayBlockConnectionId], references: [id], onDelete: SetNull)
   multiDayBlockConnectionVersion OvernightStayConnectionVersion? @relation("PlanTemplateStopMultiDayBlockConnectionVersion", fields: [multiDayBlockConnectionVersionId], references: [id], onDelete: SetNull)
-  location        Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  locationVersion LocationVersion? @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
+  location                       Location?                       @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  locationVersion                LocationVersion?                @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1401,32 +1430,32 @@ enum PlanStopRowType {
 }
 
 model PlanStop {
-  id                  String @id @default(uuid(7))
-  planVersionId       String
-  rowType             PlanStopRowType @default(MAIN)
-  segmentId           String?
-  segmentVersionId    String?
-  multiDayBlockId     String?
-  multiDayBlockDayOrder Int?
-  multiDayBlockConnectionId String?
+  id                               String          @id @default(uuid(7))
+  planVersionId                    String
+  rowType                          PlanStopRowType @default(MAIN)
+  segmentId                        String?
+  segmentVersionId                 String?
+  multiDayBlockId                  String?
+  multiDayBlockDayOrder            Int?
+  multiDayBlockConnectionId        String?
   multiDayBlockConnectionVersionId String?
-  locationId          String?
-  locationVersionId   String?
-  dateCellText        String @db.Text
-  destinationCellText String @db.Text
-  timeCellText        String @db.Text
-  scheduleCellText    String @db.Text
-  lodgingCellText     String @db.Text
-  mealCellText        String @db.Text
+  locationId                       String?
+  locationVersionId                String?
+  dateCellText                     String          @db.Text
+  destinationCellText              String          @db.Text
+  timeCellText                     String          @db.Text
+  scheduleCellText                 String          @db.Text
+  lodgingCellText                  String          @db.Text
+  mealCellText                     String          @db.Text
 
-  planVersion     PlanVersion     @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
-  segment         Segment?        @relation(fields: [segmentId], references: [id], onDelete: SetNull)
-  segmentVersion  SegmentVersion? @relation(fields: [segmentVersionId], references: [id], onDelete: SetNull)
-  multiDayBlock   OvernightStay?  @relation("PlanStopMultiDayBlock", fields: [multiDayBlockId], references: [id], onDelete: SetNull)
-  multiDayBlockConnection OvernightStayConnection? @relation("PlanStopMultiDayBlockConnection", fields: [multiDayBlockConnectionId], references: [id], onDelete: SetNull)
+  planVersion                    PlanVersion                     @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+  segment                        Segment?                        @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  segmentVersion                 SegmentVersion?                 @relation(fields: [segmentVersionId], references: [id], onDelete: SetNull)
+  multiDayBlock                  OvernightStay?                  @relation("PlanStopMultiDayBlock", fields: [multiDayBlockId], references: [id], onDelete: SetNull)
+  multiDayBlockConnection        OvernightStayConnection?        @relation("PlanStopMultiDayBlockConnection", fields: [multiDayBlockConnectionId], references: [id], onDelete: SetNull)
   multiDayBlockConnectionVersion OvernightStayConnectionVersion? @relation("PlanStopMultiDayBlockConnectionVersion", fields: [multiDayBlockConnectionVersionId], references: [id], onDelete: SetNull)
-  location        Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  locationVersion LocationVersion? @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
+  location                       Location?                       @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  locationVersion                LocationVersion?                @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1442,13 +1471,13 @@ model PlanStop {
 }
 
 model Lodging {
-  id                   String @id @default(uuid(7))
+  id                   String               @id @default(uuid(7))
   locationId           String
   locationVersionId    String?
   locationNameSnapshot Json
   name                 String
   specialNotes         String?
-  isUnspecified        Boolean @default(false)
+  isUnspecified        Boolean              @default(false)
   hasElectricity       FacilityAvailability @default(NO)
   hasShower            FacilityAvailability @default(NO)
   hasInternet          FacilityAvailability @default(NO)
@@ -1483,7 +1512,7 @@ model RegionLodging {
 }
 
 model MealSet {
-  id                   String     @id @default(uuid(7))
+  id                   String      @id @default(uuid(7))
   locationId           String
   locationVersionId    String?
   locationNameSnapshot Json
@@ -1498,19 +1527,19 @@ model MealSet {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([locationVersionId, setName])
   @@index([locationId])
   @@index([locationVersionId])
-  @@unique([locationVersionId, setName])
 }
 
 model TimeBlock {
-  id         String @id @default(uuid(7))
-  locationId String
+  id                String                   @id @default(uuid(7))
+  locationId        String
   locationVersionId String?
-  profile    LocationTimeBlockProfile @default(DEFAULT)
-  startTime  String
-  label      String
-  orderIndex Int
+  profile           LocationTimeBlockProfile @default(DEFAULT)
+  startTime         String
+  label             String
+  orderIndex        Int
 
   location        Location         @relation(fields: [locationId], references: [id], onDelete: Cascade)
   locationVersion LocationVersion? @relation(fields: [locationVersionId], references: [id], onDelete: SetNull)
@@ -1519,9 +1548,9 @@ model TimeBlock {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([locationVersionId, profile, orderIndex])
   @@index([locationId])
   @@index([locationVersionId])
-  @@unique([locationVersionId, profile, orderIndex])
 }
 
 model Activity {
@@ -1537,26 +1566,26 @@ model Activity {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([timeBlockId])
   @@unique([timeBlockId, orderIndex])
+  @@index([timeBlockId])
 }
 
 model SegmentTimeBlock {
-  id         String @id @default(uuid(7))
-  segmentId   String
+  id         String                 @id @default(uuid(7))
+  segmentId  String
   variant    SegmentScheduleVariant @default(basic)
   startTime  String
   label      String
   orderIndex Int
 
-  segment    Segment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  segment    Segment           @relation(fields: [segmentId], references: [id], onDelete: Cascade)
   activities SegmentActivity[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([segmentId])
   @@unique([segmentId, variant, orderIndex])
+  @@index([segmentId])
 }
 
 model SegmentActivity {
@@ -1572,52 +1601,52 @@ model SegmentActivity {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([segmentTimeBlockId])
   @@unique([segmentTimeBlockId, orderIndex])
+  @@index([segmentTimeBlockId])
 }
 
 model OvernightStayConnectionTimeBlock {
-  id                       String @id @default(uuid(7))
+  id                        String                 @id @default(uuid(7))
   overnightStayConnectionId String
-  variant                  SegmentScheduleVariant @default(basic)
-  startTime                String
-  label                    String
-  orderIndex               Int
+  variant                   SegmentScheduleVariant @default(basic)
+  startTime                 String
+  label                     String
+  orderIndex                Int
 
-  overnightStayConnection OvernightStayConnection @relation(fields: [overnightStayConnectionId], references: [id], onDelete: Cascade)
-  activities OvernightStayConnectionActivity[]
+  overnightStayConnection OvernightStayConnection           @relation(fields: [overnightStayConnectionId], references: [id], onDelete: Cascade)
+  activities              OvernightStayConnectionActivity[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([overnightStayConnectionId])
   @@unique([overnightStayConnectionId, variant, orderIndex])
+  @@index([overnightStayConnectionId])
 }
 
 model OvernightStayConnectionActivity {
-  id                             String @id @default(uuid(7))
+  id                                 String  @id @default(uuid(7))
   overnightStayConnectionTimeBlockId String
-  description                    String
-  orderIndex                     Int
-  isOptional                     Boolean @default(false)
-  conditionNote                  String?
+  description                        String
+  orderIndex                         Int
+  isOptional                         Boolean @default(false)
+  conditionNote                      String?
 
   overnightStayConnectionTimeBlock OvernightStayConnectionTimeBlock @relation(fields: [overnightStayConnectionTimeBlockId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([overnightStayConnectionTimeBlockId])
   @@unique([overnightStayConnectionTimeBlockId, orderIndex])
+  @@index([overnightStayConnectionTimeBlockId])
 }
 
 model Override {
-  id         String             @id @default(uuid(7))
+  id            String             @id @default(uuid(7))
   planVersionId String
-  targetType OverrideTargetType
-  targetId   String
-  fieldName  String
-  value      String
+  targetType    OverrideTargetType
+  targetId      String
+  fieldName     String
+  value         String
 
   planVersion PlanVersion @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
 
@@ -1656,20 +1685,20 @@ enum GuideGender {
 }
 
 model Guide {
-  id                String       @id @default(uuid(7))
-  nameKo            String
-  nameMn            String?
-  level             GuideLevel   @default(OTHER)
-  status            GuideStatus  @default(OTHER)
-  gender            GuideGender?
-  birthYear         Int?
-  isSmoker          Boolean      @default(false)
-  experienceYears   Int?
-  joinYear          Int?
-  phone             String?
-  profileImageUrl   String?
-  certImageUrls     Json         @default("[]")
-  note              String?      @db.Text
+  id              String       @id @default(uuid(7))
+  nameKo          String
+  nameMn          String?
+  level           GuideLevel   @default(OTHER)
+  status          GuideStatus  @default(OTHER)
+  gender          GuideGender?
+  birthYear       Int?
+  isSmoker        Boolean      @default(false)
+  experienceYears Int?
+  joinYear        Int?
+  phone           String?
+  profileImageUrl String?
+  certImageUrls   Json         @default("[]")
+  note            String?      @db.Text
 
   guideAssignments ConfirmedTripGuideAssignment[]
 
@@ -1746,20 +1775,20 @@ enum PaymentMethod {
 }
 
 model Accommodation {
-  id                String   @id @default(uuid(7))
-  name              String
-  destination       String
-  region            String
+  id              String   @id @default(uuid(7))
+  name            String
+  destination     String
+  region          String
   // 목록·상세 커버. 미설정 시 옵션 이미지 중 첫 번째 URL 사용
-  coverImageUrl     String?  @db.Text
-  phone             String?
-  facilities        String?
-  bookingMethod     String?
-  bookingPriority   String?
-  openingDate       String?
-  closingDate       String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  coverImageUrl   String?  @db.Text
+  phone           String?
+  facilities      String?
+  bookingMethod   String?
+  bookingPriority String?
+  openingDate     String?
+  closingDate     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   options  AccommodationOption[]
   lodgings ConfirmedTripLodging[]

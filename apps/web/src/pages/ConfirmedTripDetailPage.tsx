@@ -41,6 +41,7 @@ import {
 import { markConfirmedTripRecentlyReturned } from '../features/confirmed-trip/recent-return';
 import { LodgingSection } from '../features/confirmed-trip/LodgingSection';
 import { ConfirmedTripScheduleSection } from '../features/confirmed-trip/ConfirmedTripScheduleSection';
+import { KoreaTeamStageMultiSelect } from '../features/confirmed-trip/KoreaTeamStageMultiSelect';
 import { usePlanVersions, useUpdateUser, useUploadUserAttachment } from '../features/plan/hooks';
 import { toVariantLabel } from '../features/plan/variant-label';
 import { API_BASE_URL } from '../lib/api-base-url';
@@ -1124,6 +1125,20 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                     <p className="font-medium">{meta.documentNumber}</p>
                   </div>
                 ) : null}
+                <div>
+                  <span className="block text-slate-500">한국팀 진행단계</span>
+                  <div className="mt-1">
+                    <KoreaTeamStageMultiSelect
+                      selected={trip.koreaTeamStages}
+                      disabled={trip.status !== 'ACTIVE'}
+                      onChange={async (optionIds) => {
+                        await updateConfirmedTrip(trip.id, {
+                          koreaTeamStageOptionIds: optionIds,
+                        });
+                      }}
+                    />
+                  </div>
+                </div>
                 <div>
                   <span className="block text-slate-500">오픈채팅 링크</span>
                   {trip.status === 'ACTIVE' ? (

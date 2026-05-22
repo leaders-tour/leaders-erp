@@ -12,6 +12,7 @@ import {
   confirmTripSchema,
   createConfirmedTripDirectSchema,
   confirmedTripLodgingUpsertSchema,
+  confirmedTripKoreaTeamStageOptionCreateSchema,
   confirmedTripUpdateSchema,
 } from '@tour/validation';
 import type { ConfirmedTripDriverAssignmentInput, ConfirmedTripGuideAssignmentInput } from '@tour/validation';
@@ -28,6 +29,7 @@ import type {
   ConfirmTripDto,
   CreateConfirmedTripDirectDto,
   ConfirmedTripLodgingUpsertDto,
+  ConfirmedTripKoreaTeamStageOptionCreateDto,
   ConfirmedTripUpdateDto,
 } from './confirmed-trip.types';
 
@@ -50,6 +52,48 @@ export class ConfirmedTripService {
       throw new DomainError('NOT_FOUND', 'Confirmed trip not found');
     }
     return trip;
+  }
+
+  listKoreaTeamStageOptions(activeOnly = true) {
+    return this.prisma.confirmedTripKoreaTeamStageOption.findMany({
+      where: activeOnly ? { isActive: true } : undefined,
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async createKoreaTeamStageOption(input: ConfirmedTripKoreaTeamStageOptionCreateDto) {
+    const parsed = confirmedTripKoreaTeamStageOptionCreateSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid korea team stage option input', parsed.error);
+    }
+
+    const label = parsed.data.label;
+    const existing = await this.prisma.confirmedTripKoreaTeamStageOption.findUnique({
+      where: { label },
+    });
+    if (existing) return existing;
+
+    const last = await this.prisma.confirmedTripKoreaTeamStageOption.findFirst({
+      orderBy: { sortOrder: 'desc' },
+      select: { sortOrder: true },
+    });
+
+    try {
+      return await this.prisma.confirmedTripKoreaTeamStageOption.create({
+        data: {
+          label,
+          colorTone: 'slate',
+          sortOrder: (last?.sortOrder ?? -1) + 1,
+          isActive: true,
+        },
+      });
+    } catch {
+      const raced = await this.prisma.confirmedTripKoreaTeamStageOption.findUnique({
+        where: { label },
+      });
+      if (raced) return raced;
+      throw new DomainError('VALIDATION_FAILED', 'Failed to create korea team stage option');
+    }
   }
 
   async confirm(input: ConfirmTripDto) {
@@ -156,6 +200,7 @@ export class ConfirmedTripService {
       confirmedAt: nextConfirmedAt,
       guideAssignments,
       driverAssignments,
+      koreaTeamStageOptionIds,
       ...scalarRest
     } = parsed.data;
 
@@ -277,6 +322,29 @@ export class ConfirmedTripService {
                   driverId: row.driverId,
                   sortOrder: row.sortOrder,
                   nameSnapshot: row.nameSnapshot,
+                },
+              }),
+            ),
+          );
+        }
+      }
+
+      if (koreaTeamStageOptionIds !== undefined) {
+        await tx.confirmedTripKoreaTeamStageSelection.deleteMany({ where: { confirmedTripId: id } });
+        if (koreaTeamStageOptionIds.length > 0) {
+          const options = await tx.confirmedTripKoreaTeamStageOption.findMany({
+            where: { id: { in: koreaTeamStageOptionIds } },
+            select: { id: true },
+          });
+          if (options.length !== koreaTeamStageOptionIds.length) {
+            throw new DomainError('VALIDATION_FAILED', 'One or more korea team stage option IDs are invalid');
+          }
+          await Promise.all(
+            koreaTeamStageOptionIds.map((optionId) =>
+              tx.confirmedTripKoreaTeamStageSelection.create({
+                data: {
+                  confirmedTripId: id,
+                  optionId,
                 },
               }),
             ),

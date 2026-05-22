@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarNoteModal } from '../features/confirmed-trip/CalendarNoteModal';
 import { ConfirmedTripCalendar } from '../features/confirmed-trip/ConfirmedTripCalendar';
 import { CreateConfirmedTripModal } from '../features/confirmed-trip/CreateConfirmedTripModal';
+import { KoreaTeamStageMultiSelect } from '../features/confirmed-trip/KoreaTeamStageMultiSelect';
 import {
   useCalendarNotes,
   useConfirmedTrips,
@@ -823,6 +824,7 @@ function TripTableHead({
         {thSort('여행기간', 'travelStart')}
         {/* 상태 컬럼: D-day / #일차 / D+day */}
         {(filter === 'reserved' || filter === 'upcoming') && th('D-Day')}
+        {filter === 'upcoming' && th('한국팀 진행단계')}
         {filter === 'ongoing' && th('#일차')}
         {filter === 'completed' && th('D+day')}
         {th('인원')}
@@ -844,11 +846,13 @@ function TripTableRow({
   filter,
   onClick,
   onSaveReservationDate,
+  onSaveKoreaTeamStages,
 }: {
   trip: ConfirmedTripRow;
   filter: DateFilter;
   onClick: () => void;
   onSaveReservationDate?: (tripId: string, dateYmd: string) => Promise<void>;
+  onSaveKoreaTeamStages?: (tripId: string, optionIds: string[]) => Promise<void>;
 }) {
   const [reservationEditing, setReservationEditing] = useState(false);
   const [reservationDraft, setReservationDraft] = useState('');
@@ -947,6 +951,19 @@ function TripTableRow({
       {(filter === 'reserved' || filter === 'upcoming') && (
         <td className="whitespace-nowrap px-4 py-3">
           {startStr ? <DepartureBadge startDate={startStr} /> : '-'}
+        </td>
+      )}
+      {filter === 'upcoming' && (
+        <td className="min-w-[13rem] px-4 py-3 text-slate-700" onClick={(e) => e.stopPropagation()}>
+          <KoreaTeamStageMultiSelect
+            selected={trip.koreaTeamStages}
+            compact
+            onChange={async (optionIds) => {
+              if (onSaveKoreaTeamStages) {
+                await onSaveKoreaTeamStages(trip.id, optionIds);
+              }
+            }}
+          />
         </td>
       )}
       {/* #일차 진행중 */}
@@ -1583,6 +1600,11 @@ export function ConfirmedTripsPage(): JSX.Element {
                             }
                           : undefined
                       }
+                      onSaveKoreaTeamStages={async (tripId, optionIds) => {
+                        await updateConfirmedTrip(tripId, {
+                          koreaTeamStageOptionIds: optionIds,
+                        });
+                      }}
                     />
                   ))}
                 </tbody>

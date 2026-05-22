@@ -68,6 +68,10 @@ export const confirmedTripDriverAssignmentInputSchema = z.object({
   nameSnapshot: z.string().max(200).nullable().optional(),
 });
 
+export const confirmedTripKoreaTeamStageOptionCreateSchema = z.object({
+  label: z.string().trim().min(1).max(50),
+});
+
 export const confirmTripSchema = z.object({
   planId: z.string().min(1),
   planVersionId: z.string().min(1),
@@ -94,6 +98,7 @@ export const confirmedTripUpdateSchema = z
     paxCount: z.number().int().min(1).max(9999).nullable().optional(),
     guideAssignments: z.array(confirmedTripGuideAssignmentInputSchema).optional(),
     driverAssignments: z.array(confirmedTripDriverAssignmentInputSchema).optional(),
+    koreaTeamStageOptionIds: z.array(z.string().min(1)).optional(),
   rentalGear: z.boolean().optional(),
   rentalDrone: z.boolean().optional(),
   rentalStarlink: z.boolean().optional(),
@@ -127,6 +132,16 @@ export const confirmedTripUpdateSchema = z
         });
       }
     }
+    if (data.koreaTeamStageOptionIds) {
+      const ids = data.koreaTeamStageOptionIds;
+      if (new Set(ids).size !== ids.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'koreaTeamStageOptionIds contains duplicate optionId',
+          path: ['koreaTeamStageOptionIds'],
+        });
+      }
+    }
   });
 
 export const createConfirmedTripDirectSchema = z.object({
@@ -147,3 +162,4 @@ export type CreateConfirmedTripDirectInput = z.infer<typeof createConfirmedTripD
 export type ConfirmedTripUpdateInput = z.infer<typeof confirmedTripUpdateSchema>;
 export type ConfirmedTripGuideAssignmentInput = z.infer<typeof confirmedTripGuideAssignmentInputSchema>;
 export type ConfirmedTripDriverAssignmentInput = z.infer<typeof confirmedTripDriverAssignmentInputSchema>;
+export type ConfirmedTripKoreaTeamStageOptionCreateInput = z.infer<typeof confirmedTripKoreaTeamStageOptionCreateSchema>;
