@@ -1822,7 +1822,11 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                 {trip.status === 'ACTIVE' ? (
                   <Button
                     variant="primary"
-                    onClick={() => navigate(`/confirmed-trips/${tripId}/assign`)}
+                    onClick={() =>
+                      navigate(`/confirmed-trips/${tripId}/assign`, {
+                        state: { fromConfirmedTripDetail: true },
+                      })
+                    }
                   >
                     배정하기
                   </Button>

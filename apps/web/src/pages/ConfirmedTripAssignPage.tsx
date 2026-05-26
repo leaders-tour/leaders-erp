@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useConfirmedTrip, useUpdateConfirmedTrip, sortTripAssignments } from '../features/confirmed-trip/hooks';
 import { LodgingSection } from '../features/confirmed-trip/LodgingSection';
 import { useGuides, type GuideRow } from '../features/guide/hooks';
@@ -436,8 +436,14 @@ function PersonnelPanel({
 
 export function ConfirmedTripAssignPage(): JSX.Element {
   const navigate = useNavigate();
+  const location = useLocation();
   const { tripId } = useParams<{ tripId: string }>();
   const { trip, loading, refetch } = useConfirmedTrip(tripId);
+  const cameFromTripDetail =
+    typeof location.state === 'object' &&
+    location.state !== null &&
+    'fromConfirmedTripDetail' in location.state &&
+    location.state.fromConfirmedTripDetail === true;
 
   if (!tripId) {
     return <section className="py-8 text-sm text-slate-600">잘못된 접근입니다.</section>;
@@ -476,7 +482,13 @@ export function ConfirmedTripAssignPage(): JSX.Element {
       <header className="flex items-center gap-3">
         <button
           type="button"
-          onClick={() => navigate(`/confirmed-trips/${tripId}`, { replace: true })}
+          onClick={() => {
+            if (cameFromTripDetail) {
+              navigate(-1);
+              return;
+            }
+            navigate(`/confirmed-trips/${tripId}`, { replace: true });
+          }}
           className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
         >
           ← 상세로
