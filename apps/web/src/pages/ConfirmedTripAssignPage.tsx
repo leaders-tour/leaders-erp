@@ -476,7 +476,7 @@ export function ConfirmedTripAssignPage(): JSX.Element {
       <header className="flex items-center gap-3">
         <button
           type="button"
-          onClick={() => navigate(`/confirmed-trips/${tripId}`)}
+          onClick={() => navigate(`/confirmed-trips/${tripId}`, { replace: true })}
           className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
         >
           ← 상세로
