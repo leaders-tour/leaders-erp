@@ -486,6 +486,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
     }
     return teamPricingsForSummaryDisplay(rows, estimateTeamPricingSummarySignature);
   }, [data.teamPricings, data.expandTeamPricingSummaryRows]);
+  const estimateLineShowTeamPrefix = data.teamPricings.length > 1;
   const estimateSummaryShowTeamPrefix = summaryTeamPricingsForDisplay.length > 1;
   const travelPeriodCompact = formatTravelPeriodCompact(data.travelStartDate, data.travelEndDate);
   const headcountDisplay = blankIfDash(formatHeadcount(data.headcountTotal, data.headcountMale, data.headcountFemale));
@@ -976,7 +977,9 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                       <span className="estimate-page1-price-line-gutter" aria-hidden="true" />
                       <span className="estimate-page1-price-line-lead">
                         <span className="estimate-page1-price-line-label">
-                          {line.teamName ? <span className="estimate-page1-price-line-team">{`${line.teamName})`}</span> : null}
+                          {estimateLineShowTeamPrefix && line.teamName ? (
+                            <span className="estimate-page1-price-line-team">{`${line.teamName})`}</span>
+                          ) : null}
                           <span>{line.label}</span>
                         </span>
                         <strong className="estimate-page1-price-line-amount">

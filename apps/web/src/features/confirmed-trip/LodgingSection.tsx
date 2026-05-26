@@ -36,6 +36,181 @@ function sumSelectedRoomCounts(optionRoomCounts: Record<string, number>): number
   return Object.values(optionRoomCounts).reduce((s, n) => s + Math.max(0, n), 0);
 }
 
+type EstimateLodgingInfo = {
+  documentNumber: string | null;
+  lodgingSelections: Array<{
+    dayIndex: number;
+    level: string;
+    customLodgingNameSnapshot: string | null;
+  }>;
+  extraLodgings: Array<{
+    dayIndex: number;
+    lodgingCount: number;
+  }>;
+  extraLodgingCount: number;
+};
+
+type EstimateLodgingCardItem = {
+  key: string;
+  typeLabel: string;
+  title: string;
+  dayIndex: number | null;
+  detail: string;
+  tone: 'upgrade' | 'custom' | 'extra' | 'discount';
+  extraCount?: number;
+};
+
+const ESTIMATE_LODGING_CARD_TONES: Record<
+  EstimateLodgingCardItem['tone'],
+  { badge: string; border: string; day: string; dot: string }
+> = {
+  upgrade: {
+    badge: 'bg-indigo-50 text-indigo-700 ring-indigo-200',
+    border: 'border-indigo-100',
+    day: 'text-indigo-800',
+    dot: 'bg-indigo-500',
+  },
+  custom: {
+    badge: 'bg-sky-50 text-sky-700 ring-sky-200',
+    border: 'border-sky-100',
+    day: 'text-sky-800',
+    dot: 'bg-sky-500',
+  },
+  extra: {
+    badge: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+    border: 'border-emerald-100',
+    day: 'text-emerald-800',
+    dot: 'bg-emerald-500',
+  },
+  discount: {
+    badge: 'bg-slate-100 text-slate-700 ring-slate-200',
+    border: 'border-slate-200',
+    day: 'text-slate-800',
+    dot: 'bg-slate-400',
+  },
+};
+
+function buildEstimateLodgingCardItems(info: EstimateLodgingInfo | null | undefined): EstimateLodgingCardItem[] {
+  if (!info) return [];
+
+  const selectionItems = info.lodgingSelections
+    .filter((selection) => selection.level !== 'LV3')
+    .map((selection): EstimateLodgingCardItem | null => {
+      if (selection.level === 'LV4') {
+        return {
+          key: `selection-lv4-${selection.dayIndex}`,
+          typeLabel: '숙소 업그레이드',
+          title: '숙소를 LV4 디럭스로 업그레이드',
+          dayIndex: selection.dayIndex,
+          detail: selection.customLodgingNameSnapshot?.trim() || '견적서 추가 및 할인 사항에 반영',
+          tone: 'upgrade',
+        };
+      }
+      if (selection.level === 'CUSTOM') {
+        const lodgingName = selection.customLodgingNameSnapshot?.trim();
+        return {
+          key: `selection-custom-${selection.dayIndex}-${selection.customLodgingNameSnapshot ?? ''}`,
+          typeLabel: '숙소 지정',
+          title: lodgingName ? `숙소를 ${lodgingName}로 지정` : '숙소를 지정 숙소로 변경',
+          dayIndex: selection.dayIndex,
+          detail: '견적서에서 특정 숙소로 지정',
+          tone: 'custom',
+        };
+      }
+      if (selection.level === 'LV1' || selection.level === 'LV2') {
+        return {
+          key: `selection-${selection.level}-${selection.dayIndex}`,
+          typeLabel: '숙소 할인',
+          title: `숙소를 ${selection.level}로 조정`,
+          dayIndex: selection.dayIndex,
+          detail: '견적서 추가 및 할인 사항에 반영',
+          tone: 'discount',
+        };
+      }
+      return null;
+    })
+    .filter((item): item is EstimateLodgingCardItem => item !== null);
+
+  const extraItems = info.extraLodgings
+    .filter((item) => item.lodgingCount > 0)
+    .map((item): EstimateLodgingCardItem => ({
+      key: `extra-${item.dayIndex}`,
+      typeLabel: '숙소 추가',
+      title: `숙소를 ${item.lodgingCount}박 추가`,
+      dayIndex: item.dayIndex,
+      detail: '견적서 숙소 추가 항목에 반영',
+      tone: 'extra',
+      extraCount: item.lodgingCount,
+    }));
+
+  const items = [...selectionItems, ...extraItems].sort((a, b) => {
+    const aDay = a.dayIndex ?? Number.MAX_SAFE_INTEGER;
+    const bDay = b.dayIndex ?? Number.MAX_SAFE_INTEGER;
+    if (aDay !== bDay) return aDay - bDay;
+    return a.typeLabel.localeCompare(b.typeLabel);
+  });
+
+  const knownExtraCount = extraItems.reduce((sum, item) => sum + (item.extraCount ?? 0), 0);
+  if (info.extraLodgingCount > knownExtraCount) {
+    items.push({
+      key: 'extra-total',
+      typeLabel: '숙소 추가',
+      title: `숙소를 ${info.extraLodgingCount - knownExtraCount}박 추가`,
+      dayIndex: null,
+      detail: '견적 금액에는 반영되어 있으나 저장된 일차별 내역이 없습니다.',
+      tone: 'extra',
+    });
+  }
+
+  return items;
+}
+
+function EstimateLodgingItemsPanel({ info }: { info?: EstimateLodgingInfo | null }) {
+  const items = buildEstimateLodgingCardItems(info);
+  if (items.length === 0) return null;
+
+  return (
+    <div className="border-b border-slate-100 bg-slate-50/50 px-4 py-4">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">견적서 숙소 항목</p>
+          <p className="mt-1 text-sm font-semibold text-slate-900">일차별로 반영된 숙소 조건</p>
+        </div>
+        {info?.documentNumber ? (
+          <span className="inline-flex w-fit rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
+            {info.documentNumber}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-2">
+        {items.map((item) => {
+          const tone = ESTIMATE_LODGING_CARD_TONES[item.tone];
+          return (
+            <article key={item.key} className={`rounded-2xl border ${tone.border} bg-white p-3`}>
+              <div className="mb-2 flex items-start justify-between gap-3">
+                <p className={`text-lg font-bold leading-none ${tone.day}`}>
+                  {item.dayIndex != null ? `${item.dayIndex}일차` : '일차 미지정'}
+                </p>
+                <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${tone.badge}`}>
+                  {item.typeLabel}
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${tone.dot}`} aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                  <p className="mt-0.5 text-xs leading-5 text-slate-500">{item.detail}</p>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /** 숙소 + 선택된 옵션 실수 기준 스냅샷 문구 생성 */
 function buildAccommodationLodgingSnapshot(
   accommodations: AccommodationRow[],
@@ -750,12 +925,14 @@ export function LodgingSection({
   hasPlan,
   totalDays,
   travelStartDate,
+  estimateLodgingInfo,
   embedded = false,
 }: {
   tripId: string;
   hasPlan: boolean;
   totalDays?: number | null;
   travelStartDate?: string | null;
+  estimateLodgingInfo?: EstimateLodgingInfo | null;
   embedded?: boolean;
 }) {
   const { lodgings, loading } = useConfirmedTripLodgings(tripId);
@@ -933,6 +1110,7 @@ export function LodgingSection({
           <span className="text-xs text-slate-400">박</span>
         </div>
       )}
+      <EstimateLodgingItemsPanel info={estimateLodgingInfo} />
       <div className="p-4">{dayList}</div>
       {seedModal}
     </section>

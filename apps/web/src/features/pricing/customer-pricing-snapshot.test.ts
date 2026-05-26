@@ -25,7 +25,7 @@ function line(partial: Partial<PricingAdjustmentLineRow> & Pick<PricingAdjustmen
 }
 
 describe('buildCustomerPricingSnapshot', () => {
-  it('공유 할인 줄은 teamName 없이 스냅샷에 남긴다', () => {
+  it('단일 팀 견적 줄은 teamName 없이 스냅샷에 남긴다', () => {
     const adjustmentLines: PricingAdjustmentLineRow[] = [
       line({
         id: '1',
@@ -83,7 +83,7 @@ describe('buildCustomerPricingSnapshot', () => {
         sourceLines: adjustmentLines,
         teamOrderIndexes: [0],
         teamNames: ['A팀'],
-        isSharedAcrossTeams: true,
+        isSharedAcrossTeams: false,
       },
     ];
 
@@ -92,6 +92,75 @@ describe('buildCustomerPricingSnapshot', () => {
     expect(snap?.adjustmentLines[0]?.label).toBe('조기종료');
     expect(snap?.depositAmountKrw).toBe(99_000);
     expect(snap?.teamPricings[0]?.depositAmountKrw).toBe(99_000);
+  });
+
+  it('복수 팀의 특정 팀 견적 줄은 teamName을 스냅샷에 남긴다', () => {
+    const effective = {
+      baseAmountKrw: 1_000_000,
+      addonAmountKrw: 50_000,
+      totalAmountKrw: 1_050_000,
+      depositAmountKrw: 105_000,
+      balanceAmountKrw: 945_000,
+      securityDepositAmountKrw: 0,
+      securityDepositUnitPriceKrw: 0,
+      securityDepositQuantity: 0,
+      securityDepositMode: 'NONE' as const,
+      lines: [],
+      originalPricing: {} as EffectivePricingResult['originalPricing'],
+      manualPricing: null,
+      adjustmentLines: [],
+      teamPricings: [
+        {
+          teamOrderIndex: 0,
+          teamName: 'A팀',
+          headcount: 2,
+          baseAmountKrw: 1_000_000,
+          addonAmountKrw: 50_000,
+          totalAmountKrw: 1_050_000,
+          depositAmountKrw: 105_000,
+          balanceAmountKrw: 945_000,
+          securityDepositAmountKrw: 0,
+          securityDepositUnitPriceKrw: 0,
+          securityDepositQuantity: 0,
+          securityDepositMode: 'NONE' as const,
+          lines: [],
+          originalPricing: {} as EffectivePricingResult['teamPricings'][0]['originalPricing'],
+          manualPricing: null,
+          adjustmentLines: [],
+        },
+        {
+          teamOrderIndex: 1,
+          teamName: 'B팀',
+          headcount: 2,
+          baseAmountKrw: 1_000_000,
+          addonAmountKrw: 0,
+          totalAmountKrw: 1_000_000,
+          depositAmountKrw: 100_000,
+          balanceAmountKrw: 900_000,
+          securityDepositAmountKrw: 0,
+          securityDepositUnitPriceKrw: 0,
+          securityDepositQuantity: 0,
+          securityDepositMode: 'NONE' as const,
+          lines: [],
+          originalPricing: {} as EffectivePricingResult['teamPricings'][0]['originalPricing'],
+          manualPricing: null,
+          adjustmentLines: [],
+        },
+      ],
+    } satisfies EffectivePricingResult;
+
+    const displayed = [
+      {
+        ...line({ label: 'A팀 숙소 추가', leadAmountKrw: 50_000 }),
+        sourceLines: [],
+        teamOrderIndexes: [0],
+        teamNames: ['A팀'],
+        isSharedAcrossTeams: false,
+      },
+    ];
+
+    const snap = buildCustomerPricingSnapshot(effective, displayed);
+    expect(snap?.adjustmentLines[0]?.teamName).toBe('A팀');
   });
 });
 
@@ -116,7 +185,7 @@ describe('customerFacingTotalsFromSnapshot', () => {
 });
 
 describe('customerFacingAdjustmentLineRowsFromSnapshot', () => {
-  it('스냅샷 teamName을 그대로 쓴다', () => {
+  it('단일 팀 스냅샷은 저장된 teamName이 있어도 숨긴다', () => {
     const snap: CustomerPricingSnapshot = {
       baseAmountKrw: 1,
       totalAmountKrw: 2,
@@ -126,9 +195,20 @@ describe('customerFacingAdjustmentLineRowsFromSnapshot', () => {
       securityDepositUnitKrw: 0,
       securityDepositMode: 'NONE',
       adjustmentLines: [{ teamName: 'B팀', label: '할인', leadAmountKrw: -1, formula: 'x' }],
-      teamPricings: [],
+      teamPricings: [
+        {
+          teamOrderIndex: 0,
+          teamName: 'B팀',
+          totalAmountKrw: 2,
+          depositAmountKrw: 1,
+          balanceAmountKrw: 1,
+          securityDepositAmountKrw: 0,
+          securityDepositUnitKrw: 0,
+          securityDepositScope: '-',
+        },
+      ],
     };
     const rows = customerFacingAdjustmentLineRowsFromSnapshot(snap);
-    expect(rows[0]?.teamName).toBe('B팀');
+    expect(rows[0]?.teamName).toBeNull();
   });
 });

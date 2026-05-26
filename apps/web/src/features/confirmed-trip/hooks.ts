@@ -423,6 +423,10 @@ export interface ConfirmedTripRow {
       /** 목록 쿼리에서 생략될 수 있음 → 캘린더 실외 픽드랍 표시 시 빈 배열로 취급 */
       externalTransfers?: ExternalTransfer[];
       transportGroups?: PlanVersionTransportGroupRow[];
+      extraLodgings: Array<{
+        dayIndex: number;
+        lodgingCount: number;
+      }>;
       lodgingSelections: Array<{
         dayIndex: number;
         level: string;
@@ -568,6 +572,10 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
           dropTime
           dropPlaceType
           dropPlaceCustomText
+        }
+        extraLodgings {
+          dayIndex
+          lodgingCount
         }
         lodgingSelections {
           dayIndex
@@ -715,6 +723,10 @@ export const CONFIRMED_TRIP_LIST_FRAGMENT = gql`
         remark
         pickupDate
         dropDate
+        extraLodgings {
+          dayIndex
+          lodgingCount
+        }
         lodgingSelections {
           dayIndex
           level

@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { useConfirmedTrip, useUpdateConfirmedTrip, sortTripAssignments } from '../features/confirmed-trip/hooks';
+import {
+  useConfirmedTrip,
+  useUpdateConfirmedTrip,
+  sortTripAssignments,
+} from '../features/confirmed-trip/hooks';
 import { LodgingSection } from '../features/confirmed-trip/LodgingSection';
 import { useGuides, type GuideRow } from '../features/guide/hooks';
 import { useDrivers, type DriverRow } from '../features/driver/hooks';
@@ -522,6 +526,16 @@ export function ConfirmedTripAssignPage(): JSX.Element {
           hasPlan={!!(trip.planId && trip.planVersionId)}
           totalDays={computedTotalDays}
           travelStartDate={computedStartDate}
+          estimateLodgingInfo={
+            trip.planVersion?.meta
+              ? {
+                  documentNumber: trip.planVersion.meta.documentNumber,
+                  lodgingSelections: trip.planVersion.meta.lodgingSelections,
+                  extraLodgings: trip.planVersion.meta.extraLodgings,
+                  extraLodgingCount: trip.planVersion.pricing?.extraLodgingCount ?? 0,
+                }
+              : null
+          }
         />
       </div>
     </section>

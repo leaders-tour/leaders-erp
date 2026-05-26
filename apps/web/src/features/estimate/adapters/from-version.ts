@@ -26,6 +26,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     totalDays: countMainPlanStopRows(version.planStops),
   };
   const customerPricingSnapshot = version.pricing?.manualPricing?.customerPricingSnapshot ?? null;
+  const showCustomerSnapshotLineTeamName = (customerPricingSnapshot?.teamPricings.length ?? 0) > 1;
   const pricing =
     version.pricing && !customerPricingSnapshot
       ? buildEffectivePricing(
@@ -128,7 +129,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     basePricePerPersonKrw,
     adjustmentLines: customerPricingSnapshot
       ? customerPricingSnapshot.adjustmentLines.map((line) => ({
-          teamName: line.teamName ?? null,
+          teamName: showCustomerSnapshotLineTeamName ? line.teamName ?? null : null,
           label: line.label,
           leadAmountKrw: line.leadAmountKrw,
           formula: line.formula,

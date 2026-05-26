@@ -33,12 +33,13 @@ export function customerFacingTotalsFromSnapshot(snap: CustomerPricingSnapshot):
 export function customerFacingAdjustmentLineRowsFromSnapshot(
   snap: CustomerPricingSnapshot,
 ): PricingAdjustmentLineRow[] {
+  const showLineTeamName = snap.teamPricings.length > 1;
   return snap.adjustmentLines.map((line, index) => ({
     id: `customer-pricing-snapshot:${index}`,
     type: 'MANUAL',
     rowKey: null,
     teamOrderIndex: null,
-    teamName: line.teamName ?? null,
+    teamName: showLineTeamName ? line.teamName ?? null : null,
     headcount: null,
     label: line.label,
     leadAmountKrw: line.leadAmountKrw,
@@ -58,6 +59,7 @@ export function buildCustomerPricingSnapshot(
     return null;
   }
   const headlineTotals = sliceEffectiveTotalsForUi(pricingPreview);
+  const showLineTeamName = pricingPreview.teamPricings.length > 1;
   return {
     baseAmountKrw: headlineTotals.baseAmountKrw,
     totalAmountKrw: headlineTotals.totalAmountKrw,
@@ -67,7 +69,7 @@ export function buildCustomerPricingSnapshot(
     securityDepositUnitKrw: headlineTotals.securityDepositUnitPriceKrw,
     securityDepositMode: headlineTotals.securityDepositMode,
     adjustmentLines: displayedPricingAdjustmentLines.map((line) => ({
-      teamName: !line.isSharedAcrossTeams ? line.teamNames[0] ?? null : null,
+      teamName: showLineTeamName && !line.isSharedAcrossTeams ? line.teamNames[0] ?? null : null,
       label: line.label,
       leadAmountKrw: line.leadAmountKrw,
       formula: line.formula,
