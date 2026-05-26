@@ -539,9 +539,13 @@ export class PricingService {
       lines.push(longDistanceLine);
     });
 
+    let hasMorningFlightOutDiscount = false;
     this.findConditionalAddonRules(rules, context).forEach((rule) => {
       const addonLine = this.buildAmountRuleLine(rule, context);
       if (addonLine) {
+        if (this.isMorningFlightOutDiscountRule(rule, addonLine)) {
+          hasMorningFlightOutDiscount = true;
+        }
         lines.push(addonLine);
       }
     });
@@ -589,7 +593,7 @@ export class PricingService {
       .map((stop) => stop.mealCellText ?? '')
       .join(' ');
     const hasShabushabu = allMealCellTexts.includes('샤브샤브');
-    if (!hasShabushabu) {
+    if (!hasShabushabu && !hasMorningFlightOutDiscount) {
       const SHABUSHABU_DISCOUNT_KRW = -18_000;
       lines.push({
         ruleType: 'CONDITIONAL_ADDON',
@@ -1179,6 +1183,10 @@ export class PricingService {
         rule.lodgingSelectionLevel === null &&
         this.matchesRule(rule, context),
     );
+  }
+
+  private isMorningFlightOutDiscountRule(rule: PricingRuleRecord, line: PricingComputedLineDraft): boolean {
+    return rule.priceItemPreset === 'CONDITIONAL' && rule.flightOutTimeBand === 'MORNING' && line.amountKrw < 0;
   }
 
   private findFixedLodgingSelectionRule(

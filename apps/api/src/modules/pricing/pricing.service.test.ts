@@ -185,6 +185,197 @@ describe('PricingService.preview', () => {
     expect(result.totalAmountKrw).toBe(958_300);
   });
 
+  it('skips shabushabu missing discount when a morning flight-out discount applies', async () => {
+    const service = makeService([
+      makeRule({
+        id: 'base-rule',
+        priceItemPreset: 'BASE',
+        ruleType: 'BASE',
+        title: '기본금',
+        lineCode: 'BASE',
+        amountKrw: 1_000_000,
+      }),
+      makeRule({
+        id: 'morning-out-discount-rule',
+        priceItemPreset: 'CONDITIONAL',
+        ruleType: 'CONDITIONAL_ADDON',
+        title: '조기종료',
+        lineCode: 'CONDITIONAL',
+        amountKrw: -30_000,
+        flightOutTimeBand: 'MORNING',
+      }),
+    ]);
+
+    const result = await service.preview(
+      makeInput({
+        planStops: [{ rowType: 'MAIN', locationId: 'loc-1', mealCellText: '캠프식' }],
+        transportGroups: [
+          {
+            teamName: '1팀',
+            headcount: 6,
+            flightInDate: '2026-04-01',
+            flightInTime: '10:00',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '08:40',
+          },
+        ],
+      }),
+    );
+
+    expect(result.lines.find((line) => line.description === '조기종료')).toMatchObject({
+      amountKrw: -30_000,
+      lineCode: 'CONDITIONAL',
+    });
+    expect(result.lines.some((line) => line.description === '샤브샤브 누락 할인')).toBe(false);
+  });
+
+  it('keeps shabushabu missing discount when a morning flight-out discount does not match', async () => {
+    const service = makeService([
+      makeRule({
+        id: 'base-rule',
+        priceItemPreset: 'BASE',
+        ruleType: 'BASE',
+        title: '기본금',
+        lineCode: 'BASE',
+        amountKrw: 1_000_000,
+      }),
+      makeRule({
+        id: 'morning-out-discount-rule',
+        priceItemPreset: 'CONDITIONAL',
+        ruleType: 'CONDITIONAL_ADDON',
+        title: '조기종료',
+        lineCode: 'CONDITIONAL',
+        amountKrw: -30_000,
+        flightOutTimeBand: 'MORNING',
+      }),
+    ]);
+
+    const result = await service.preview(
+      makeInput({
+        planStops: [{ rowType: 'MAIN', locationId: 'loc-1', mealCellText: '캠프식' }],
+        transportGroups: [
+          {
+            teamName: '1팀',
+            headcount: 6,
+            flightInDate: '2026-04-01',
+            flightInTime: '10:00',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+          },
+        ],
+      }),
+    );
+
+    expect(result.lines.some((line) => line.description === '조기종료')).toBe(false);
+    expect(result.lines.find((line) => line.description === '샤브샤브 누락 할인')).toMatchObject({
+      amountKrw: -18_000,
+      meta: { reason: 'shabushabu_missing' },
+    });
+  });
+
+  it('keeps shabushabu missing discount when a morning flight-out rule is not a discount', async () => {
+    const service = makeService([
+      makeRule({
+        id: 'base-rule',
+        priceItemPreset: 'BASE',
+        ruleType: 'BASE',
+        title: '기본금',
+        lineCode: 'BASE',
+        amountKrw: 1_000_000,
+      }),
+      makeRule({
+        id: 'morning-out-addon-rule',
+        priceItemPreset: 'CONDITIONAL',
+        ruleType: 'CONDITIONAL_ADDON',
+        title: '오전 OUT 추가',
+        lineCode: 'CONDITIONAL',
+        amountKrw: 30_000,
+        flightOutTimeBand: 'MORNING',
+      }),
+    ]);
+
+    const result = await service.preview(
+      makeInput({
+        planStops: [{ rowType: 'MAIN', locationId: 'loc-1', mealCellText: '캠프식' }],
+        transportGroups: [
+          {
+            teamName: '1팀',
+            headcount: 6,
+            flightInDate: '2026-04-01',
+            flightInTime: '10:00',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '08:40',
+          },
+        ],
+      }),
+    );
+
+    expect(result.lines.find((line) => line.description === '오전 OUT 추가')).toMatchObject({
+      amountKrw: 30_000,
+    });
+    expect(result.lines.find((line) => line.description === '샤브샤브 누락 할인')).toMatchObject({
+      amountKrw: -18_000,
+    });
+  });
+
+  it('skips shabushabu missing discount globally when one team matches a morning flight-out discount', async () => {
+    const service = makeService([
+      makeRule({
+        id: 'base-rule',
+        priceItemPreset: 'BASE',
+        ruleType: 'BASE',
+        title: '기본금',
+        lineCode: 'BASE',
+        amountKrw: 1_000_000,
+      }),
+      makeRule({
+        id: 'morning-out-discount-rule',
+        priceItemPreset: 'CONDITIONAL',
+        ruleType: 'CONDITIONAL_ADDON',
+        title: '조기종료',
+        lineCode: 'CONDITIONAL',
+        amountKrw: -30_000,
+        flightOutTimeBand: 'MORNING',
+      }),
+    ]);
+
+    const result = await service.preview(
+      makeInput({
+        headcountTotal: 6,
+        transportGroupCount: 2,
+        planStops: [{ rowType: 'MAIN', locationId: 'loc-1', mealCellText: '캠프식' }],
+        transportGroups: [
+          {
+            teamName: 'A팀',
+            headcount: 2,
+            flightInDate: '2026-04-01',
+            flightInTime: '10:00',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '08:40',
+          },
+          {
+            teamName: 'B팀',
+            headcount: 4,
+            flightInDate: '2026-04-01',
+            flightInTime: '10:00',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+          },
+        ],
+      }),
+    );
+
+    expect(result.lines.find((line) => line.description === '조기종료')).toMatchObject({
+      amountKrw: -30_000,
+      meta: expect.objectContaining({
+        matchedTransportGroupOrderIndexes: [0],
+      }),
+    });
+    expect(result.lines.some((line) => line.description === '샤브샤브 누락 할인')).toBe(false);
+    expect(result.teamPricings[0]?.lines.some((line) => line.description === '조기종료')).toBe(true);
+    expect(result.teamPricings[1]?.lines.some((line) => line.description === '조기종료')).toBe(false);
+  });
+
   it('keeps shared TEAM charges common across all teams', async () => {
     const service = makeService([
       makeRule({
