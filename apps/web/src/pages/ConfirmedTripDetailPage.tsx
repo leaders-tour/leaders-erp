@@ -19,8 +19,13 @@ import {
 import { countMainPlanStopRows } from '../features/plan/plan-stop-row';
 import {
   useConfirmedTrip,
+  useConfirmedTripNotes,
+  useCreateConfirmedTripNote,
+  useUpdateConfirmedTripNote,
+  useDeleteConfirmedTripNote,
   useUpdateConfirmedTrip,
   useCancelConfirmedTrip,
+  type ConfirmedTripNoteRow,
   getTripStartDate,
   getTripEndDate,
   getTripLeaderName,
@@ -449,6 +454,237 @@ function formatSecurityDepositForCard(
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ko-KR');
+}
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('ko-KR');
+}
+
+const CONFIRMED_TRIP_NOTES_EXPANDED_STORAGE_KEY = 'confirmedTripNotes.expanded';
+
+function readConfirmedTripNotesExpandedPreference(): boolean {
+  if (typeof window === 'undefined') return true;
+  return window.localStorage.getItem(CONFIRMED_TRIP_NOTES_EXPANDED_STORAGE_KEY) !== 'false';
+}
+
+function ConfirmedTripNotesCard({ tripId }: { tripId: string }): JSX.Element {
+  const { employee } = useAuth();
+  const { notes, loading, refetch } = useConfirmedTripNotes(tripId);
+  const { createConfirmedTripNote, loading: creating } = useCreateConfirmedTripNote();
+  const { updateConfirmedTripNote, loading: updating } = useUpdateConfirmedTripNote();
+  const { deleteConfirmedTripNote, loading: deleting } = useDeleteConfirmedTripNote();
+  const [content, setContent] = useState('');
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState(readConfirmedTripNotesExpandedPreference);
+  const currentEmployeeInitial = employee?.name?.trim().slice(0, 1) || '?';
+  const displayNotes = [...notes].reverse();
+
+  const handleToggleExpanded = () => {
+    setIsExpanded((current) => {
+      const next = !current;
+      window.localStorage.setItem(CONFIRMED_TRIP_NOTES_EXPANDED_STORAGE_KEY, String(next));
+      return next;
+    });
+  };
+
+  const handleCreate = async () => {
+    const nextContent = content.trim();
+    if (!nextContent) {
+      setErrorMessage('노트 내용을 입력해주세요.');
+      return;
+    }
+
+    setErrorMessage(null);
+    try {
+      await createConfirmedTripNote({ confirmedTripId: tripId, content: nextContent });
+      setContent('');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '노트 저장에 실패했습니다.');
+    }
+  };
+
+  const startEdit = (note: ConfirmedTripNoteRow) => {
+    setEditingNoteId(note.id);
+    setEditingContent(note.content);
+    setErrorMessage(null);
+  };
+
+  const handleUpdate = async (noteId: string) => {
+    const nextContent = editingContent.trim();
+    if (!nextContent) {
+      setErrorMessage('노트 내용을 입력해주세요.');
+      return;
+    }
+
+    setErrorMessage(null);
+    try {
+      await updateConfirmedTripNote(noteId, nextContent);
+      setEditingNoteId(null);
+      setEditingContent('');
+      await refetch();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '노트 수정에 실패했습니다.');
+    }
+  };
+
+  const handleDelete = async (noteId: string) => {
+    if (!window.confirm('이 노트를 삭제하시겠습니까?')) return;
+
+    setErrorMessage(null);
+    try {
+      await deleteConfirmedTripNote(noteId);
+      await refetch();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '노트 삭제에 실패했습니다.');
+    }
+  };
+
+  return (
+    <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-0 shadow-sm">
+      <div className="flex items-center justify-between gap-3 rounded-t-3xl bg-slate-700 px-5 py-3.5 text-white">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold">댓글</h2>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="rounded-full bg-white/15 px-2.5 py-1 text-xs font-medium text-slate-50">
+            {notes.length}개
+          </span>
+          <button
+            type="button"
+            onClick={handleToggleExpanded}
+            aria-expanded={isExpanded}
+            className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-slate-50 transition hover:bg-white/25"
+          >
+            {isExpanded ? '접기' : '펼치기'}
+          </button>
+        </div>
+      </div>
+
+      {isExpanded ? (
+      <div className="grid gap-4 bg-slate-50 px-4 py-4">
+        <div className="flex gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
+            {currentEmployeeInitial}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="relative rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+              <span className="absolute -left-1.5 top-4 h-3 w-3 rotate-45 border-b border-l border-slate-200 bg-white" />
+              <textarea
+                rows={3}
+                value={content}
+                onChange={(event) => setContent(event.target.value)}
+                placeholder="댓글을 입력하세요."
+                className="min-h-20 w-full resize-y border-0 bg-transparent p-0 text-sm leading-6 text-slate-900 outline-none placeholder:text-slate-400"
+              />
+              <div className="mt-2 flex items-center justify-between gap-3 border-t border-slate-100 pt-2">
+                <p className="truncate text-xs text-slate-500">{employee?.name ?? '-'}</p>
+                <Button type="button" variant="primary" disabled={creating} onClick={handleCreate}>
+                  {creating ? '등록 중...' : '등록'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {errorMessage ? (
+          <p className="rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">{errorMessage}</p>
+        ) : null}
+
+        {loading ? <p className="text-sm text-slate-500">노트를 불러오는 중...</p> : null}
+
+        <div className="relative grid gap-3 pl-2">
+          {notes.length > 0 ? <span className="absolute bottom-2 left-[1.125rem] top-2 w-px bg-slate-200" /> : null}
+
+          {!loading && notes.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+              아직 작성된 노트가 없습니다.
+            </div>
+          ) : null}
+
+          {displayNotes.map((note) => {
+            const isAuthor = employee?.id === note.createdByEmployeeId;
+            const isEditing = editingNoteId === note.id;
+            const authorInitial = note.createdByName.trim().slice(0, 1) || '?';
+            return (
+              <div key={note.id} className="relative flex gap-3">
+                <div
+                  className={`z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ring-4 ring-slate-50 ${
+                    isAuthor ? 'bg-blue-600 text-white' : 'bg-slate-300 text-slate-700'
+                  }`}
+                >
+                  {authorInitial}
+                </div>
+                <div
+                  className={`min-w-0 flex-1 rounded-2xl border p-3 shadow-sm ${
+                    isAuthor ? 'border-blue-100 bg-blue-50/80' : 'border-slate-200 bg-white'
+                  }`}
+                >
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-900">{note.createdByName}</p>
+                      <p className="text-xs text-slate-500">{formatDateTime(note.createdAt)}</p>
+                    </div>
+                    {isAuthor ? (
+                      <div className="flex shrink-0 gap-2">
+                        {isEditing ? null : (
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-blue-700 hover:underline"
+                            onClick={() => startEdit(note)}
+                          >
+                            수정
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="text-xs font-medium text-rose-600 hover:underline disabled:text-rose-300"
+                          disabled={deleting}
+                          onClick={() => handleDelete(note.id)}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {isEditing ? (
+                    <div className="grid gap-2">
+                      <textarea
+                        rows={3}
+                        value={editingContent}
+                        onChange={(event) => setEditingContent(event.target.value)}
+                        className="min-h-20 w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingNoteId(null);
+                            setEditingContent('');
+                          }}
+                        >
+                          취소
+                        </Button>
+                        <Button type="button" variant="primary" disabled={updating} onClick={() => handleUpdate(note.id)}>
+                          {updating ? '저장 중...' : '저장'}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">{note.content}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      ) : null}
+    </Card>
+  );
 }
 
 /** 인라인 수정 가능 필드 옆 표시용 (글쓰기/수정) */
@@ -1418,6 +1654,8 @@ export function ConfirmedTripDetailPage(): JSX.Element {
               )}
             </Card>
           </div>
+
+          <ConfirmedTripNotesCard tripId={trip.id} />
 
           {/* 픽드랍 일정 — 독립 카드 */}
           <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">

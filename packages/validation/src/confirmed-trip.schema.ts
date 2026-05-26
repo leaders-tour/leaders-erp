@@ -54,6 +54,23 @@ export type CalendarNoteKind = z.infer<typeof calendarNoteKindSchema>;
 export type CalendarNoteCreateInput = z.infer<typeof calendarNoteCreateSchema>;
 export type CalendarNoteUpdateInput = z.infer<typeof calendarNoteUpdateSchema>;
 
+const confirmedTripNoteContentSchema = z
+  .string()
+  .transform((value) => value.trim())
+  .pipe(z.string().min(1).max(5000));
+
+export const confirmedTripNoteCreateSchema = z.object({
+  confirmedTripId: z.string().min(1),
+  content: confirmedTripNoteContentSchema,
+});
+
+export const confirmedTripNoteUpdateSchema = z.object({
+  content: confirmedTripNoteContentSchema,
+});
+
+export type ConfirmedTripNoteCreateInput = z.infer<typeof confirmedTripNoteCreateSchema>;
+export type ConfirmedTripNoteUpdateInput = z.infer<typeof confirmedTripNoteUpdateSchema>;
+
 export const confirmedTripStatusSchema = z.nativeEnum(ConfirmedTripStatus);
 
 export const confirmedTripGuideAssignmentInputSchema = z.object({

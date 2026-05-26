@@ -258,6 +258,7 @@ model Employee {
   refreshTokens          EmployeeRefreshToken[]
   reviewedOutreachDrafts OutreachDraft[]
   confirmedTrips         ConfirmedTrip[]        @relation("ConfirmedTripEmployee")
+  confirmedTripNotes     ConfirmedTripNote[]    @relation("ConfirmedTripNoteAuthor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -959,12 +960,30 @@ model ConfirmedTrip {
   driverAssignments        ConfirmedTripDriverAssignment[]
   koreaTeamStageSelections ConfirmedTripKoreaTeamStageSelection[]
   calendarNotes            CalendarNote[]
+  notes                    ConfirmedTripNote[]
 
   @@index([userId])
   @@index([planId])
   @@index([planVersionId])
   @@index([status, confirmedAt])
   @@index([travelStart])
+}
+
+model ConfirmedTripNote {
+  id                  String @id @default(uuid(7))
+  confirmedTripId     String
+  content             String @db.Text
+  createdByEmployeeId String
+  createdByName       String
+
+  confirmedTrip     ConfirmedTrip @relation(fields: [confirmedTripId], references: [id], onDelete: Cascade)
+  createdByEmployee Employee      @relation("ConfirmedTripNoteAuthor", fields: [createdByEmployeeId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([confirmedTripId, createdAt])
+  @@index([createdByEmployeeId])
 }
 
 model ConfirmedTripKoreaTeamStageOption {

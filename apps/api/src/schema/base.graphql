@@ -50,6 +50,7 @@ type Query {
   calendarNotes(year: Int!, month: Int!): [CalendarNote!]!
   """해당 확정 건에 연결된 캘린더 일정 전체 (월 구분 없음)."""
   confirmedTripCalendarNotes(confirmedTripId: ID!): [CalendarNote!]!
+  confirmedTripNotes(confirmedTripId: ID!): [ConfirmedTripNote!]!
   guides(status: GuideStatus, level: GuideLevel): [Guide!]!
   guide(id: ID!): Guide
   drivers(status: DriverStatus, level: DriverLevel, vehicleType: VehicleType): [Driver!]!
@@ -160,6 +161,9 @@ type Mutation {
   createCalendarNote(input: CalendarNoteCreateInput!): CalendarNote!
   updateCalendarNote(id: ID!, input: CalendarNoteUpdateInput!): CalendarNote!
   deleteCalendarNote(id: ID!): Boolean!
+  createConfirmedTripNote(input: ConfirmedTripNoteCreateInput!): ConfirmedTripNote!
+  updateConfirmedTripNote(id: ID!, input: ConfirmedTripNoteUpdateInput!): ConfirmedTripNote!
+  deleteConfirmedTripNote(id: ID!): Boolean!
 
   confirmTrip(input: ConfirmTripInput!): ConfirmedTrip!
   createConfirmedTrip(input: CreateConfirmedTripDirectInput!): ConfirmedTrip!

@@ -13,8 +13,11 @@ import {
   createConfirmedTripDirectSchema,
   confirmedTripLodgingUpsertSchema,
   confirmedTripKoreaTeamStageOptionCreateSchema,
+  confirmedTripNoteCreateSchema,
+  confirmedTripNoteUpdateSchema,
   confirmedTripUpdateSchema,
 } from '@tour/validation';
+import type { CurrentEmployee } from '../../context';
 import type { ConfirmedTripDriverAssignmentInput, ConfirmedTripGuideAssignmentInput } from '@tour/validation';
 import { DomainError, createValidationError } from '../../lib/errors';
 import {
@@ -30,6 +33,8 @@ import type {
   CreateConfirmedTripDirectDto,
   ConfirmedTripLodgingUpsertDto,
   ConfirmedTripKoreaTeamStageOptionCreateDto,
+  ConfirmedTripNoteCreateDto,
+  ConfirmedTripNoteUpdateDto,
   ConfirmedTripUpdateDto,
 } from './confirmed-trip.types';
 
@@ -608,6 +613,78 @@ export class ConfirmedTripService {
       include: calendarNoteWithConfirmedTripInclude,
       orderBy: [{ occursOn: 'asc' }, { createdAt: 'asc' }],
     });
+  }
+
+  async listConfirmedTripNotes(confirmedTripId: string) {
+    const trip = await this.prisma.confirmedTrip.findUnique({
+      where: { id: confirmedTripId },
+      select: { id: true },
+    });
+    if (!trip) {
+      throw new DomainError('NOT_FOUND', 'Confirmed trip not found');
+    }
+
+    return this.prisma.confirmedTripNote.findMany({
+      where: { confirmedTripId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+  }
+
+  async createConfirmedTripNote(input: ConfirmedTripNoteCreateDto, employee: CurrentEmployee) {
+    const parsed = confirmedTripNoteCreateSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid confirmed trip note input', parsed.error);
+    }
+
+    const trip = await this.prisma.confirmedTrip.findUnique({
+      where: { id: parsed.data.confirmedTripId },
+      select: { id: true },
+    });
+    if (!trip) {
+      throw new DomainError('NOT_FOUND', 'Confirmed trip not found');
+    }
+
+    return this.prisma.confirmedTripNote.create({
+      data: {
+        confirmedTripId: parsed.data.confirmedTripId,
+        content: parsed.data.content,
+        createdByEmployeeId: employee.id,
+        createdByName: employee.name,
+      },
+    });
+  }
+
+  async updateConfirmedTripNote(id: string, input: ConfirmedTripNoteUpdateDto, employee: CurrentEmployee) {
+    const parsed = confirmedTripNoteUpdateSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid confirmed trip note update input', parsed.error);
+    }
+
+    const existing = await this.prisma.confirmedTripNote.findUnique({ where: { id } });
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'Confirmed trip note not found');
+    }
+    if (existing.createdByEmployeeId !== employee.id) {
+      throw new DomainError('FORBIDDEN', 'Only the note author can update this note');
+    }
+
+    return this.prisma.confirmedTripNote.update({
+      where: { id },
+      data: { content: parsed.data.content },
+    });
+  }
+
+  async deleteConfirmedTripNote(id: string, employee: CurrentEmployee) {
+    const existing = await this.prisma.confirmedTripNote.findUnique({ where: { id } });
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'Confirmed trip note not found');
+    }
+    if (existing.createdByEmployeeId !== employee.id) {
+      throw new DomainError('FORBIDDEN', 'Only the note author can delete this note');
+    }
+
+    await this.prisma.confirmedTripNote.delete({ where: { id } });
+    return true;
   }
 
   async createCalendarNote(input: CalendarNoteCreateDto) {

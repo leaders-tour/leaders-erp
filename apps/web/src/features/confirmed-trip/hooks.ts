@@ -174,6 +174,119 @@ export function useDeleteCalendarNote() {
   };
 }
 
+// ── ConfirmedTripNote ────────────────────────────────────────────────────────
+
+export interface ConfirmedTripNoteRow {
+  id: string;
+  confirmedTripId: string;
+  content: string;
+  createdByEmployeeId: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const CONFIRMED_TRIP_NOTE_FRAGMENT = gql`
+  fragment ConfirmedTripNoteFields on ConfirmedTripNote {
+    id
+    confirmedTripId
+    content
+    createdByEmployeeId
+    createdByName
+    createdAt
+    updatedAt
+  }
+`;
+
+export const CONFIRMED_TRIP_NOTES_QUERY = gql`
+  ${CONFIRMED_TRIP_NOTE_FRAGMENT}
+  query ConfirmedTripNotes($confirmedTripId: ID!) {
+    confirmedTripNotes(confirmedTripId: $confirmedTripId) {
+      ...ConfirmedTripNoteFields
+    }
+  }
+`;
+
+const CREATE_CONFIRMED_TRIP_NOTE_MUTATION = gql`
+  ${CONFIRMED_TRIP_NOTE_FRAGMENT}
+  mutation CreateConfirmedTripNote($input: ConfirmedTripNoteCreateInput!) {
+    createConfirmedTripNote(input: $input) {
+      ...ConfirmedTripNoteFields
+    }
+  }
+`;
+
+const UPDATE_CONFIRMED_TRIP_NOTE_MUTATION = gql`
+  ${CONFIRMED_TRIP_NOTE_FRAGMENT}
+  mutation UpdateConfirmedTripNote($id: ID!, $input: ConfirmedTripNoteUpdateInput!) {
+    updateConfirmedTripNote(id: $id, input: $input) {
+      ...ConfirmedTripNoteFields
+    }
+  }
+`;
+
+const DELETE_CONFIRMED_TRIP_NOTE_MUTATION = gql`
+  mutation DeleteConfirmedTripNote($id: ID!) {
+    deleteConfirmedTripNote(id: $id)
+  }
+`;
+
+export function useConfirmedTripNotes(confirmedTripId: string | undefined) {
+  const { data, loading, refetch } = useQuery<{ confirmedTripNotes: ConfirmedTripNoteRow[] }>(
+    CONFIRMED_TRIP_NOTES_QUERY,
+    {
+      variables: { confirmedTripId: confirmedTripId ?? '' },
+      skip: !confirmedTripId,
+      fetchPolicy: 'cache-and-network',
+    },
+  );
+  return { notes: data?.confirmedTripNotes ?? [], loading, refetch };
+}
+
+export function useCreateConfirmedTripNote() {
+  const [mutate, { loading }] = useMutation<{ createConfirmedTripNote: ConfirmedTripNoteRow }>(
+    CREATE_CONFIRMED_TRIP_NOTE_MUTATION,
+  );
+  return {
+    loading,
+    createConfirmedTripNote: async (input: { confirmedTripId: string; content: string }): Promise<ConfirmedTripNoteRow> => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [{ query: CONFIRMED_TRIP_NOTES_QUERY, variables: { confirmedTripId: input.confirmedTripId } }],
+      });
+      if (!result.data?.createConfirmedTripNote) throw new Error('Failed to create confirmed trip note');
+      return result.data.createConfirmedTripNote;
+    },
+  };
+}
+
+export function useUpdateConfirmedTripNote() {
+  const [mutate, { loading }] = useMutation<{ updateConfirmedTripNote: ConfirmedTripNoteRow }>(
+    UPDATE_CONFIRMED_TRIP_NOTE_MUTATION,
+  );
+  return {
+    loading,
+    updateConfirmedTripNote: async (id: string, content: string): Promise<ConfirmedTripNoteRow> => {
+      const result = await mutate({ variables: { id, input: { content } } });
+      if (!result.data?.updateConfirmedTripNote) throw new Error('Failed to update confirmed trip note');
+      return result.data.updateConfirmedTripNote;
+    },
+  };
+}
+
+export function useDeleteConfirmedTripNote() {
+  const [mutate, { loading }] = useMutation<{ deleteConfirmedTripNote: boolean }>(
+    DELETE_CONFIRMED_TRIP_NOTE_MUTATION,
+  );
+  return {
+    loading,
+    deleteConfirmedTripNote: async (id: string): Promise<boolean> => {
+      const result = await mutate({ variables: { id } });
+      return result.data?.deleteConfirmedTripNote ?? false;
+    },
+  };
+}
+
 // ── ConfirmedTrip ─────────────────────────────────────────────────────────────
 
 export interface ConfirmedTripGuideAssignmentRow {

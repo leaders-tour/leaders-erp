@@ -9,8 +9,11 @@ import type {
   CreateConfirmedTripDirectDto,
   ConfirmedTripLodgingUpsertDto,
   ConfirmedTripKoreaTeamStageOptionCreateDto,
+  ConfirmedTripNoteCreateDto,
+  ConfirmedTripNoteUpdateDto,
   ConfirmedTripUpdateDto,
 } from './confirmed-trip.types';
+import { requireEmployee } from '../../lib/auth-guards';
 
 interface CalendarNotesArgs {
   year: number;
@@ -21,6 +24,10 @@ interface ConfirmedTripCalendarNotesArgs {
   confirmedTripId: string;
 }
 
+interface ConfirmedTripNotesArgs {
+  confirmedTripId: string;
+}
+
 interface CreateCalendarNoteArgs {
   input: CalendarNoteCreateDto;
 }
@@ -28,6 +35,15 @@ interface CreateCalendarNoteArgs {
 interface UpdateCalendarNoteArgs {
   id: string;
   input: CalendarNoteUpdateDto;
+}
+
+interface CreateConfirmedTripNoteArgs {
+  input: ConfirmedTripNoteCreateDto;
+}
+
+interface UpdateConfirmedTripNoteArgs {
+  id: string;
+  input: ConfirmedTripNoteUpdateDto;
 }
 
 interface ConfirmedTripsArgs {
@@ -122,6 +138,8 @@ export const confirmedTripResolver = {
       new ConfirmedTripService(ctx.prisma).listCalendarNotes(args.year, args.month),
     confirmedTripCalendarNotes: (_parent: unknown, args: ConfirmedTripCalendarNotesArgs, ctx: AppContext) =>
       new ConfirmedTripService(ctx.prisma).listConfirmedTripCalendarNotes(args.confirmedTripId),
+    confirmedTripNotes: (_parent: unknown, args: ConfirmedTripNotesArgs, ctx: AppContext) =>
+      new ConfirmedTripService(ctx.prisma).listConfirmedTripNotes(args.confirmedTripId),
   },
   Mutation: {
     createCalendarNote: (_parent: unknown, args: CreateCalendarNoteArgs, ctx: AppContext) =>
@@ -130,6 +148,12 @@ export const confirmedTripResolver = {
       new ConfirmedTripService(ctx.prisma).updateCalendarNote(args.id, args.input),
     deleteCalendarNote: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
       new ConfirmedTripService(ctx.prisma).deleteCalendarNote(args.id),
+    createConfirmedTripNote: (_parent: unknown, args: CreateConfirmedTripNoteArgs, ctx: AppContext) =>
+      new ConfirmedTripService(ctx.prisma).createConfirmedTripNote(args.input, requireEmployee(ctx)),
+    updateConfirmedTripNote: (_parent: unknown, args: UpdateConfirmedTripNoteArgs, ctx: AppContext) =>
+      new ConfirmedTripService(ctx.prisma).updateConfirmedTripNote(args.id, args.input, requireEmployee(ctx)),
+    deleteConfirmedTripNote: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
+      new ConfirmedTripService(ctx.prisma).deleteConfirmedTripNote(args.id, requireEmployee(ctx)),
     confirmTrip: (_parent: unknown, args: ConfirmTripArgs, ctx: AppContext) =>
       new ConfirmedTripService(ctx.prisma).confirm(args.input),
     createConfirmedTrip: (_parent: unknown, args: CreateConfirmedTripDirectArgs, ctx: AppContext) =>

@@ -21,6 +21,25 @@ type CalendarNote {
   updatedAt: DateTime!
 }
 
+type ConfirmedTripNote {
+  id: ID!
+  confirmedTripId: String!
+  content: String!
+  createdByEmployeeId: String!
+  createdByName: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input ConfirmedTripNoteCreateInput {
+  confirmedTripId: ID!
+  content: String!
+}
+
+input ConfirmedTripNoteUpdateInput {
+  content: String!
+}
+
 input CalendarNoteCreateInput {
   occursOn: String!
   kind: CalendarNoteKind!
