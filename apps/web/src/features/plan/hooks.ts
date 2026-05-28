@@ -70,6 +70,17 @@ export interface UserRow {
   dealStage: DealStageValue;
   dealStageOrder: number;
   attachments: UserAttachmentItem[];
+  plans?: Array<{
+    id?: string;
+    currentVersion: {
+      meta: {
+        documentNumber?: string;
+        headcountTotal?: number;
+        travelStartDate?: string;
+        travelEndDate?: string;
+      } | null;
+    } | null;
+  }>;
   userDealTodos?: UserDealTodoPreviewRow[];
   confirmedTrips?: UserConfirmedTripSummaryRow[];
   createdAt: string;
@@ -482,6 +493,15 @@ const USERS_QUERY = gql`
         status
         travelStart
         travelEnd
+      }
+      plans {
+        id
+        currentVersion {
+          meta {
+            documentNumber
+            headcountTotal
+          }
+        }
       }
       createdAt
       updatedAt

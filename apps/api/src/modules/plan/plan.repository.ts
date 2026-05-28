@@ -178,6 +178,8 @@ export class PlanRepository {
                   select: {
                     travelStartDate: true,
                     travelEndDate: true,
+                    documentNumber: true,
+                    headcountTotal: true,
                   },
                 },
               },

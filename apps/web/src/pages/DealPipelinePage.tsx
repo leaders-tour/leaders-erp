@@ -16,6 +16,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card, dealPipelineTokens } from '@tour/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../features/auth/context';
+import { useContractDocumentStatuses, type ContractDocumentStatusRow } from '../features/contract/hooks';
 import {
   useCreateUserNote,
   useReorderDealPipeline,
@@ -170,6 +171,39 @@ function todoStatusLabel(status: DealTodoStatusValue): string {
   return '완료';
 }
 
+function getUserContractDocumentNumber(user: UserRow): string | null {
+  return user.plans?.find((plan) => plan.currentVersion?.meta?.documentNumber)?.currentVersion?.meta?.documentNumber ?? null;
+}
+
+function normalizeContractDocumentNumberForLookup(value: string | null | undefined): string | null {
+  const normalized = value
+    ?.normalize('NFKC')
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(/[‐‑‒–—―-]/g, '-')
+    .toUpperCase();
+  return normalized || null;
+}
+
+function contractStatusLabel(status: ContractDocumentStatusRow | null): string {
+  if (!status) {
+    return '계약서 미작성';
+  }
+  if (status.status === 'COMPLETED') {
+    return '계약서 완료';
+  }
+  if (status.status === 'OVER_SUBMITTED') {
+    return `계약서 초과 ${status.submittedCount}/${status.expectedCount ?? '?'}`;
+  }
+  if (status.status === 'NEEDS_REVIEW') {
+    return '계약서 확인 필요';
+  }
+  if (status.submittedCount > 0 || status.expectedCount != null) {
+    return `계약서 ${status.submittedCount}/${status.expectedCount ?? '?'}`;
+  }
+  return '계약서 미작성';
+}
+
 function boardsEqual(left: BoardState, right: BoardState): boolean {
   for (const stage of STAGES) {
     const leftItems = left[stage.key];
@@ -196,10 +230,12 @@ function boardsEqual(left: BoardState, right: BoardState): boolean {
 function PipelineCard({
   user,
   disabled,
+  contractStatus,
   onClick,
 }: {
   user: UserRow;
   disabled: boolean;
+  contractStatus: ContractDocumentStatusRow | null;
   onClick: (userId: string) => void;
 }): JSX.Element {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -236,6 +272,7 @@ function PipelineCard({
         <div className="grid gap-1">
           <p className={dealPipelineTokens.card.title}>{user.name}</p>
           <p className={dealPipelineTokens.card.subtitle}>{user.email ?? '이메일 없음'}</p>
+          <p className="text-xs font-medium text-slate-600">{contractStatusLabel(contractStatus)}</p>
         </div>
 
         <div className={dealPipelineTokens.card.todoPreviewWrap}>
@@ -283,11 +320,13 @@ function PipelineColumn({
   stage,
   users,
   dragDisabled,
+  contractStatusByDocumentNumber,
   onCardClick,
 }: {
   stage: { key: DealStageValue; label: string };
   users: UserRow[];
   dragDisabled: boolean;
+  contractStatusByDocumentNumber: Map<string, ContractDocumentStatusRow>;
   onCardClick: (userId: string) => void;
 }): JSX.Element {
   const { setNodeRef, isOver } = useDroppable({ id: columnId(stage.key) });
@@ -311,7 +350,18 @@ function PipelineColumn({
           ) : null}
 
           {users.map((user) => (
-            <PipelineCard key={user.id} user={user} disabled={dragDisabled} onClick={onCardClick} />
+            (() => {
+              const documentNumber = normalizeContractDocumentNumberForLookup(getUserContractDocumentNumber(user));
+              return (
+                <PipelineCard
+                  key={user.id}
+                  user={user}
+                  disabled={dragDisabled}
+                  contractStatus={documentNumber ? contractStatusByDocumentNumber.get(documentNumber) ?? null : null}
+                  onClick={onCardClick}
+                />
+              );
+            })()
           ))}
         </div>
       </SortableContext>
@@ -653,6 +703,22 @@ export function DealPipelinePage(): JSX.Element {
 
   const normalizedKeyword = search.trim().toLowerCase();
   const dragDisabled = normalizedKeyword.length > 0 || reorderLoading;
+  const contractDocumentNumbers = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          users
+            .map(getUserContractDocumentNumber)
+            .filter((documentNumber): documentNumber is string => Boolean(documentNumber?.trim())),
+        ),
+      ),
+    [users],
+  );
+  const { statuses: contractStatuses } = useContractDocumentStatuses(contractDocumentNumbers);
+  const contractStatusByDocumentNumber = useMemo(
+    () => new Map(contractStatuses.map((status) => [status.documentNumberNorm, status])),
+    [contractStatuses],
+  );
 
   const displayedBoard = useMemo(() => {
     if (!normalizedKeyword) {
@@ -891,6 +957,7 @@ export function DealPipelinePage(): JSX.Element {
                 stage={stage}
                 users={displayedBoard[stage.key]}
                 dragDisabled={dragDisabled}
+                contractStatusByDocumentNumber={contractStatusByDocumentNumber}
                 onCardClick={setSelectedUserId}
               />
             ))}

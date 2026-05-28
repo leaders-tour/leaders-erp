@@ -200,6 +200,25 @@ enum DealTodoStatus {
   DONE
 }
 
+enum ContractSubmissionSourceType {
+  GOOGLE_SHEET
+  INTERNAL_FORM
+}
+
+enum ContractDocumentStatusValue {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  OVER_SUBMITTED
+  NEEDS_REVIEW
+}
+
+enum ContractSyncRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
 enum EmployeeRole {
   ADMIN
   STAFF
@@ -985,6 +1004,88 @@ model ConfirmedTripNote {
 
   @@index([confirmedTripId, createdAt])
   @@index([createdByEmployeeId])
+}
+
+model ContractSubmissionSource {
+  id        String                       @id @default(uuid(7))
+  type      ContractSubmissionSourceType
+  name      String
+  isActive  Boolean                      @default(true)
+  sheetId   String?
+  sheetGid  String?
+  headerRow Int?                         @default(1)
+
+  submissions ContractSubmission[]
+  syncRuns     ContractSyncRun[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type, isActive])
+}
+
+model ContractSubmission {
+  id                  String    @id @default(uuid(7))
+  sourceId            String
+  sourceRowNumber     Int?
+  sourceRecordKey     String
+  submittedAt         DateTime?
+  documentNumberRaw   String?
+  documentNumberNorm  String?
+  travelerName        String?
+  travelerPhone       String?
+  travelerPhoneDigits String?
+  leaderName          String?
+  representativeType  String?
+  totalCompanionCount Int?
+  receivedStatus      String?
+  rowDigest           String
+  rawJson             Json
+
+  source ContractSubmissionSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  importedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([sourceId, sourceRecordKey])
+  @@index([documentNumberNorm])
+  @@index([travelerName, travelerPhoneDigits])
+}
+
+model ContractDocumentStatus {
+  id                      String                      @id @default(uuid(7))
+  documentNumberNorm      String                      @unique
+  documentNumberRawSample String?
+  expectedCount           Int?
+  submittedCount          Int                         @default(0)
+  status                  ContractDocumentStatusValue @default(NOT_STARTED)
+  needsReviewReason       String?
+  firstSubmittedAt        DateTime?
+  lastSubmittedAt         DateTime?
+  matchedPlanVersionId    String?
+  matchedConfirmedTripId  String?
+  computedAt              DateTime                    @default(now())
+  updatedAt               DateTime                    @updatedAt
+
+  @@index([status])
+  @@index([matchedPlanVersionId])
+  @@index([matchedConfirmedTripId])
+}
+
+model ContractSyncRun {
+  id           String                @id @default(uuid(7))
+  sourceId     String
+  status       ContractSyncRunStatus
+  startedAt    DateTime              @default(now())
+  finishedAt   DateTime?
+  fetchedRows  Int                   @default(0)
+  upsertedRows Int                   @default(0)
+  skippedRows  Int                   @default(0)
+  errorMessage String?               @db.Text
+
+  source ContractSubmissionSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@index([sourceId, startedAt])
 }
 
 model ConfirmedTripKoreaTeamStageOption {

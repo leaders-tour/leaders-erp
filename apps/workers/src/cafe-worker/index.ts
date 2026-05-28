@@ -157,6 +157,9 @@ async function processOnce(runId: string, logger: ReturnType<typeof createRunCon
 
 async function main() {
   const env = getWorkerEnv();
+  if (!env.naverCafeBoardUrl || !env.naverCafeId || !env.naverCafeMenuId) {
+    throw new Error('NAVER_CAFE_BOARD_URL, NAVER_CAFE_ID, NAVER_CAFE_MENU_ID are required for worker-cafe');
+  }
   const startupContext = createRunContext('worker-cafe');
   startupContext.logger.info({ intervalMs: env.cafePollIntervalMs }, 'worker-cafe started');
 

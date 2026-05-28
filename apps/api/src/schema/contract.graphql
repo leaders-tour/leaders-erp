@@ -1,0 +1,68 @@
+enum ContractSubmissionSourceType {
+  GOOGLE_SHEET
+  INTERNAL_FORM
+}
+
+enum ContractDocumentStatusValue {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  OVER_SUBMITTED
+  NEEDS_REVIEW
+}
+
+enum ContractSyncRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+type ContractSubmissionSource {
+  id: ID!
+  type: ContractSubmissionSourceType!
+  name: String!
+  isActive: Boolean!
+  sheetId: String
+  sheetGid: String
+  headerRow: Int
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ContractDocumentStatus {
+  id: ID!
+  documentNumberNorm: String!
+  documentNumberRawSample: String
+  expectedCount: Int
+  submittedCount: Int!
+  status: ContractDocumentStatusValue!
+  needsReviewReason: String
+  firstSubmittedAt: DateTime
+  lastSubmittedAt: DateTime
+  matchedPlanVersionId: String
+  matchedConfirmedTripId: String
+  computedAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ContractSyncRun {
+  id: ID!
+  sourceId: String!
+  status: ContractSyncRunStatus!
+  startedAt: DateTime!
+  finishedAt: DateTime
+  fetchedRows: Int!
+  upsertedRows: Int!
+  skippedRows: Int!
+  errorMessage: String
+}
+
+extend type Query {
+  contractSubmissionSources: [ContractSubmissionSource!]!
+  contractDocumentStatuses(documentNumbers: [String!]!): [ContractDocumentStatus!]!
+  contractSyncRuns(sourceId: ID, limit: Int = 20): [ContractSyncRun!]!
+}
+
+extend type Mutation {
+  syncContractSubmissions(sourceId: ID!): ContractSyncRun!
+}

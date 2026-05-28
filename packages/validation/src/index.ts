@@ -3,6 +3,7 @@ export * from './app-settings.schema';
 export * from './auth.schema';
 export * from './consultation-extraction.schema';
 export * from './consultation-template-pick.schema';
+export * from './contract-submission';
 export * from './employee.schema';
 export * from './event.schema';
 export * from './lodging.schema';
