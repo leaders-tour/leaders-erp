@@ -3,6 +3,7 @@ import {
   computeBuilderValidationResults,
   countMainPlanRowsStrictlyBefore,
   extractLastTimeFromCellText,
+  resolveLatestDropTransportGroup,
   resolveLastMainPlanRowContext,
   type BuilderValidationInput,
   type PlanRowForValidation,
@@ -46,6 +47,17 @@ function minimalInput(planRows: PlanRowForValidation[], dropTime: string): Build
     manualDepositInput: '',
     pricingPreview: null,
     manualPricingEnabled: false,
+  };
+}
+
+function minimalInputWithGroups(
+  planRows: PlanRowForValidation[],
+  transportGroups: TransportGroupForValidation[],
+): BuilderValidationInput {
+  return {
+    ...minimalInput(planRows, '19:00'),
+    transportGroups,
+    headcountTotal: transportGroups.reduce((sum, group) => sum + group.headcount, 0),
   };
 }
 
@@ -106,6 +118,28 @@ describe('resolveLastMainPlanRowContext', () => {
   });
 });
 
+describe('resolveLatestDropTransportGroup', () => {
+  it('selects the latest valid drop date and time across teams', () => {
+    const latest = resolveLatestDropTransportGroup([
+      { ...baseTransport('21:00'), teamName: 'A팀', dropDate: '2026-05-06' },
+      { ...baseTransport('08:00'), teamName: 'B팀', dropDate: '2026-05-07' },
+      { ...baseTransport('23:00'), teamName: 'C팀', dropDate: '2026-05-06' },
+    ]);
+
+    expect(latest?.teamName).toBe('B팀');
+  });
+
+  it('ignores groups without a complete valid drop schedule', () => {
+    const latest = resolveLatestDropTransportGroup([
+      { ...baseTransport('19:00'), teamName: 'A팀', dropDate: '' },
+      { ...baseTransport('미정'), teamName: 'B팀', dropDate: '2026-05-07' },
+      { ...baseTransport('18:30'), teamName: 'C팀', dropDate: '2026-05-06' },
+    ]);
+
+    expect(latest?.teamName).toBe('C팀');
+  });
+});
+
 describe('drop-time-after-schedule', () => {
   it('does not compare drop time with trailing EXTERNAL_TRANSFER itinerary times', () => {
     const planRows = [
@@ -155,5 +189,73 @@ describe('drop-time-after-schedule', () => {
     const hit = results.find((r) => r.id === 'drop-time-after-schedule');
     expect(hit).toBeDefined();
     expect(hit?.affectedCells).toEqual([{ rowIndex: 1, field: 'timeCellText' }]);
+  });
+
+  it('allows the last schedule time when a later team drop time matches it', () => {
+    const planRows = [
+      row({
+        rowType: 'MAIN',
+        timeCellText: '08:00\n12:00\n17:30\n19:00',
+      }),
+    ];
+
+    const results = computeBuilderValidationResults(
+      minimalInputWithGroups(planRows, [
+        { ...baseTransport('17:30'), teamName: 'A팀', headcount: 1 },
+        { ...baseTransport('19:00'), teamName: 'B팀', headcount: 1 },
+      ]),
+    );
+
+    expect(results.filter((r) => r.id === 'drop-time-after-schedule')).toHaveLength(0);
+  });
+
+  it('uses the latest drop among three teams for the schedule comparison', () => {
+    const planRows = [
+      row({
+        rowType: 'MAIN',
+        timeCellText: '08:00\n12:00\n17:30\n19:00',
+      }),
+    ];
+
+    const passingResults = computeBuilderValidationResults(
+      minimalInputWithGroups(planRows, [
+        { ...baseTransport('17:30'), teamName: 'A팀', headcount: 1 },
+        { ...baseTransport('18:30'), teamName: 'B팀', headcount: 1 },
+        { ...baseTransport('19:00'), teamName: 'C팀', headcount: 1 },
+      ]),
+    );
+    expect(passingResults.filter((r) => r.id === 'drop-time-after-schedule')).toHaveLength(0);
+
+    const failingResults = computeBuilderValidationResults(
+      minimalInputWithGroups(planRows, [
+        { ...baseTransport('17:30'), teamName: 'A팀', headcount: 1 },
+        { ...baseTransport('18:00'), teamName: 'B팀', headcount: 1 },
+        { ...baseTransport('18:30'), teamName: 'C팀', headcount: 1 },
+      ]),
+    );
+    const hit = failingResults.find((r) => r.id === 'drop-time-after-schedule');
+    expect(hit).toBeDefined();
+    expect(hit?.message).toContain('드랍시간(18:30)');
+  });
+});
+
+describe('last-day-meal-x-rule', () => {
+  it('uses the latest team drop time for last-day meal monitoring', () => {
+    const planRows = [
+      row({
+        rowType: 'MAIN',
+        timeCellText: '08:00\n12:00\n17:30',
+        mealCellText: '호텔조식\n현지식\n샤브샤브',
+      }),
+    ];
+
+    const results = computeBuilderValidationResults(
+      minimalInputWithGroups(planRows, [
+        { ...baseTransport('10:30'), teamName: 'A팀', headcount: 1 },
+        { ...baseTransport('19:00'), teamName: 'B팀', headcount: 1 },
+      ]),
+    );
+
+    expect(results.filter((r) => r.id === 'last-day-meal-x-rule')).toHaveLength(0);
   });
 });

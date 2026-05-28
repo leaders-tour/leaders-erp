@@ -86,6 +86,31 @@ export function countMainPlanRowsStrictlyBefore(
   return count;
 }
 
+export function resolveLatestDropTransportGroup(
+  transportGroups: TransportGroupForValidation[],
+): TransportGroupForValidation | null {
+  let latestGroup: TransportGroupForValidation | null = null;
+  let latestDropDate = '';
+  let latestDropMinutes = -1;
+
+  for (const group of transportGroups) {
+    const dropDate = group.dropDate?.trim() ?? '';
+    const dropTime = group.dropTime?.trim() ?? '';
+    const dropMinutes = parseTimeToMinutes(dropTime);
+    if (!dropDate || dropMinutes === null) {
+      continue;
+    }
+
+    if (!latestGroup || dropDate > latestDropDate || (dropDate === latestDropDate && dropMinutes > latestDropMinutes)) {
+      latestGroup = group;
+      latestDropDate = dropDate;
+      latestDropMinutes = dropMinutes;
+    }
+  }
+
+  return latestGroup;
+}
+
 export interface PlanRowForValidation {
   timeCellText: string;
   mealCellText: string;
@@ -349,13 +374,15 @@ export function computeBuilderValidationResults(input: BuilderValidationInput): 
       });
     }
 
-    // drop-time-after-schedule (error) — 드랍시간이 마지막 날 마지막 일정보다 이르면 안됨 (기간외 픽드랍 행은 제외)
-    if (transportGroups[0]) {
+    const latestDropTransportGroup = resolveLatestDropTransportGroup(transportGroups);
+
+    // drop-time-after-schedule (error) — 가장 늦은 팀 드랍시간이 마지막 날 마지막 일정보다 이르면 안됨 (기간외 픽드랍 행은 제외)
+    if (latestDropTransportGroup) {
       const lastMainCtx = resolveLastMainPlanRowContext(planRows);
       if (lastMainCtx) {
         const lastMainRowOrdinal = countMainPlanRowsStrictlyBefore(planRows, lastMainCtx.lastMainPlanRowIndex);
         const lastTimeInCell = extractLastTimeFromCellText(lastMainCtx.lastMainRow.timeCellText);
-        const dropTime = transportGroups[0].dropTime?.trim();
+        const dropTime = latestDropTransportGroup.dropTime?.trim();
         const dropMinutes = parseTimeToMinutes(dropTime);
         const lastMinutes = parseTimeToMinutes(lastTimeInCell);
         if (dropTime && dropMinutes !== null && lastMinutes !== null && dropMinutes < lastMinutes) {
@@ -413,16 +440,16 @@ export function computeBuilderValidationResults(input: BuilderValidationInput): 
       }
     }
 
-    // last-day-meal-x-rule (warning) — 드랍시간 기준으로 X 처리되어야 하는 식사 확인 (기간외 행 제외)
-    if (transportGroups[0]) {
+    // last-day-meal-x-rule (warning) — 가장 늦은 팀 드랍시간 기준으로 X 처리되어야 하는 식사 확인 (기간외 행 제외)
+    if (latestDropTransportGroup) {
       const lastMainCtx = resolveLastMainPlanRowContext(planRows);
       if (lastMainCtx) {
         const lastMainRowOrdinal = countMainPlanRowsStrictlyBefore(planRows, lastMainCtx.lastMainPlanRowIndex);
         const requiredXMeals = getRequiredXMealsForLastDay({
           travelEndDate,
-          dropDate: transportGroups[0].dropDate?.trim() ?? '',
-          dropTime: transportGroups[0].dropTime?.trim() ?? '',
-          flightOutTime: transportGroups[0].flightOutTime?.trim() ?? '',
+          dropDate: latestDropTransportGroup.dropDate?.trim() ?? '',
+          dropTime: latestDropTransportGroup.dropTime?.trim() ?? '',
+          flightOutTime: latestDropTransportGroup.flightOutTime?.trim() ?? '',
           previousLodgingCellText: lastMainCtx.previousMainLodgingRow?.lodgingCellText ?? null,
         });
         if (requiredXMeals.length > 0) {
