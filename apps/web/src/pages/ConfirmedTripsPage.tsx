@@ -19,8 +19,6 @@ import {
   getTripLeaderName,
   getTripHeadcount,
   getTripDestination,
-  getTripPickupDate,
-  getTripDropDate,
   getTripExternalTransfers,
   sortTripAssignments,
   type CalendarNoteRow,
@@ -125,8 +123,8 @@ const RENTAL_ITEM_FILTER_OPTIONS: Array<{ value: RentalItemFilter; label: string
   { value: 'starlink', label: '스타링크' },
   { value: 'powerbank', label: '파워뱅크' },
   { value: 'camelDoll', label: '낙타인형 구매' },
-  { value: 'pickup', label: '픽업 있음' },
-  { value: 'drop', label: '드랍 있음' },
+  { value: 'pickup', label: '실투어 외 픽업' },
+  { value: 'drop', label: '실투어 외 드랍' },
 ];
 
 function getTodayMidnight(): Date {
@@ -191,8 +189,8 @@ function matchesRentalItem(
     if (trip.camelDollPurchased) return true;
     return calendarNotes.some((n) => n.kind === 'CAMEL_DOLL' && n.confirmedTripId === trip.id);
   }
-  if (filter === 'pickup') return getTripPickupDate(trip) !== null;
-  if (filter === 'drop') return getTripDropDate(trip) !== null;
+  if (filter === 'pickup') return getTripExternalTransfers(trip).some((transfer) => transfer.direction === 'PICKUP');
+  if (filter === 'drop') return getTripExternalTransfers(trip).some((transfer) => transfer.direction === 'DROP');
   return false;
 }
 
