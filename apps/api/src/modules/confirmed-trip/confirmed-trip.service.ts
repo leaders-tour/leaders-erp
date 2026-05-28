@@ -13,6 +13,7 @@ import {
   createConfirmedTripDirectSchema,
   confirmedTripLodgingUpsertSchema,
   confirmedTripKoreaTeamStageOptionCreateSchema,
+  confirmedTripPostTripTaskOptionCreateSchema,
   confirmedTripNoteCreateSchema,
   confirmedTripNoteUpdateSchema,
   confirmedTripUpdateSchema,
@@ -33,6 +34,7 @@ import type {
   CreateConfirmedTripDirectDto,
   ConfirmedTripLodgingUpsertDto,
   ConfirmedTripKoreaTeamStageOptionCreateDto,
+  ConfirmedTripPostTripTaskOptionCreateDto,
   ConfirmedTripNoteCreateDto,
   ConfirmedTripNoteUpdateDto,
   ConfirmedTripUpdateDto,
@@ -61,6 +63,13 @@ export class ConfirmedTripService {
 
   listKoreaTeamStageOptions(activeOnly = true) {
     return this.prisma.confirmedTripKoreaTeamStageOption.findMany({
+      where: activeOnly ? { isActive: true } : undefined,
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  listPostTripTaskOptions(activeOnly = true) {
+    return this.prisma.confirmedTripPostTripTaskOption.findMany({
       where: activeOnly ? { isActive: true } : undefined,
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
@@ -98,6 +107,41 @@ export class ConfirmedTripService {
       });
       if (raced) return raced;
       throw new DomainError('VALIDATION_FAILED', 'Failed to create korea team stage option');
+    }
+  }
+
+  async createPostTripTaskOption(input: ConfirmedTripPostTripTaskOptionCreateDto) {
+    const parsed = confirmedTripPostTripTaskOptionCreateSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid post-trip task option input', parsed.error);
+    }
+
+    const label = parsed.data.label;
+    const existing = await this.prisma.confirmedTripPostTripTaskOption.findUnique({
+      where: { label },
+    });
+    if (existing) return existing;
+
+    const last = await this.prisma.confirmedTripPostTripTaskOption.findFirst({
+      orderBy: { sortOrder: 'desc' },
+      select: { sortOrder: true },
+    });
+
+    try {
+      return await this.prisma.confirmedTripPostTripTaskOption.create({
+        data: {
+          label,
+          colorTone: 'slate',
+          sortOrder: (last?.sortOrder ?? -1) + 1,
+          isActive: true,
+        },
+      });
+    } catch {
+      const raced = await this.prisma.confirmedTripPostTripTaskOption.findUnique({
+        where: { label },
+      });
+      if (raced) return raced;
+      throw new DomainError('VALIDATION_FAILED', 'Failed to create post-trip task option');
     }
   }
 
@@ -206,6 +250,7 @@ export class ConfirmedTripService {
       guideAssignments,
       driverAssignments,
       koreaTeamStageOptionIds,
+      postTripTaskOptionIds,
       ...scalarRest
     } = parsed.data;
 
@@ -347,6 +392,29 @@ export class ConfirmedTripService {
           await Promise.all(
             koreaTeamStageOptionIds.map((optionId) =>
               tx.confirmedTripKoreaTeamStageSelection.create({
+                data: {
+                  confirmedTripId: id,
+                  optionId,
+                },
+              }),
+            ),
+          );
+        }
+      }
+
+      if (postTripTaskOptionIds !== undefined) {
+        await tx.confirmedTripPostTripTaskSelection.deleteMany({ where: { confirmedTripId: id } });
+        if (postTripTaskOptionIds.length > 0) {
+          const options = await tx.confirmedTripPostTripTaskOption.findMany({
+            where: { id: { in: postTripTaskOptionIds } },
+            select: { id: true },
+          });
+          if (options.length !== postTripTaskOptionIds.length) {
+            throw new DomainError('VALIDATION_FAILED', 'One or more post-trip task option IDs are invalid');
+          }
+          await Promise.all(
+            postTripTaskOptionIds.map((optionId) =>
+              tx.confirmedTripPostTripTaskSelection.create({
                 data: {
                   confirmedTripId: id,
                   optionId,

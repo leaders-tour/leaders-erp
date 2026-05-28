@@ -5,6 +5,7 @@ import type {
   CreateConfirmedTripDirectInput,
   ConfirmedTripLodgingUpsertInput,
   ConfirmedTripKoreaTeamStageOptionCreateInput,
+  ConfirmedTripPostTripTaskOptionCreateInput,
   ConfirmedTripNoteCreateInput,
   ConfirmedTripNoteUpdateInput,
   ConfirmedTripUpdateInput,
@@ -15,6 +16,7 @@ export type CreateConfirmedTripDirectDto = CreateConfirmedTripDirectInput;
 export type ConfirmedTripUpdateDto = ConfirmedTripUpdateInput;
 export type ConfirmedTripLodgingUpsertDto = ConfirmedTripLodgingUpsertInput;
 export type ConfirmedTripKoreaTeamStageOptionCreateDto = ConfirmedTripKoreaTeamStageOptionCreateInput;
+export type ConfirmedTripPostTripTaskOptionCreateDto = ConfirmedTripPostTripTaskOptionCreateInput;
 export type ConfirmedTripNoteCreateDto = ConfirmedTripNoteCreateInput;
 export type ConfirmedTripNoteUpdateDto = ConfirmedTripNoteUpdateInput;
 export type CalendarNoteCreateDto = CalendarNoteCreateInput;

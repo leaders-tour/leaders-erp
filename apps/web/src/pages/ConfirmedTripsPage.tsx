@@ -5,6 +5,7 @@ import { CalendarNoteModal } from '../features/confirmed-trip/CalendarNoteModal'
 import { ConfirmedTripCalendar } from '../features/confirmed-trip/ConfirmedTripCalendar';
 import { CreateConfirmedTripModal } from '../features/confirmed-trip/CreateConfirmedTripModal';
 import { KoreaTeamStageMultiSelect } from '../features/confirmed-trip/KoreaTeamStageMultiSelect';
+import { PostTripTaskMultiSelect } from '../features/confirmed-trip/PostTripTaskMultiSelect';
 import {
   useCalendarNotes,
   useConfirmedTrips,
@@ -263,6 +264,7 @@ function getTripSearchText(trip: ConfirmedTripRow): string {
     getLodgingSummary(trip),
     trip.accommodationNote,
     trip.operationNote,
+    ...trip.postTripTasks.map((task) => task.label),
     ...rentalItems,
   ]
     .filter((value): value is string => Boolean(value))
@@ -827,6 +829,7 @@ function TripTableHead({
         {filter === 'upcoming' && th('한국팀 진행단계')}
         {filter === 'ongoing' && th('#일차')}
         {filter === 'completed' && th('D+day')}
+        {filter === 'completed' && th('후처리')}
         {th('인원')}
         {(filter === 'reserved' || filter === 'upcoming') && th('모집유무')}
         {th('여행지')}
@@ -847,12 +850,14 @@ function TripTableRow({
   onClick,
   onSaveReservationDate,
   onSaveKoreaTeamStages,
+  onSavePostTripTasks,
 }: {
   trip: ConfirmedTripRow;
   filter: DateFilter;
   onClick: () => void;
   onSaveReservationDate?: (tripId: string, dateYmd: string) => Promise<void>;
   onSaveKoreaTeamStages?: (tripId: string, optionIds: string[]) => Promise<void>;
+  onSavePostTripTasks?: (tripId: string, optionIds: string[]) => Promise<void>;
 }) {
   const [reservationEditing, setReservationEditing] = useState(false);
   const [reservationDraft, setReservationDraft] = useState('');
@@ -985,6 +990,19 @@ function TripTableRow({
       {filter === 'completed' && (
         <td className="whitespace-nowrap px-4 py-3">
           {endStr ? <DPlusBadge endDate={endStr} /> : '-'}
+        </td>
+      )}
+      {filter === 'completed' && (
+        <td className="min-w-[13rem] px-4 py-3 text-slate-700" onClick={(e) => e.stopPropagation()}>
+          <PostTripTaskMultiSelect
+            selected={trip.postTripTasks}
+            compact
+            onChange={async (optionIds) => {
+              if (onSavePostTripTasks) {
+                await onSavePostTripTasks(trip.id, optionIds);
+              }
+            }}
+          />
         </td>
       )}
       {/* 인원 */}
@@ -1603,6 +1621,11 @@ export function ConfirmedTripsPage(): JSX.Element {
                       onSaveKoreaTeamStages={async (tripId, optionIds) => {
                         await updateConfirmedTrip(tripId, {
                           koreaTeamStageOptionIds: optionIds,
+                        });
+                      }}
+                      onSavePostTripTasks={async (tripId, optionIds) => {
+                        await updateConfirmedTrip(tripId, {
+                          postTripTaskOptionIds: optionIds,
                         });
                       }}
                     />

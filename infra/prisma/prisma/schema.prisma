@@ -959,6 +959,7 @@ model ConfirmedTrip {
   guideAssignments         ConfirmedTripGuideAssignment[]
   driverAssignments        ConfirmedTripDriverAssignment[]
   koreaTeamStageSelections ConfirmedTripKoreaTeamStageSelection[]
+  postTripTaskSelections   ConfirmedTripPostTripTaskSelection[]
   calendarNotes            CalendarNote[]
   notes                    ConfirmedTripNote[]
 
@@ -1012,6 +1013,34 @@ model ConfirmedTripKoreaTeamStageSelection {
   @@unique([confirmedTripId, optionId], map: "CTKTSS_trip_option_uq")
   @@index([confirmedTripId], map: "CTKTSS_trip_idx")
   @@index([optionId], map: "CTKTSS_option_idx")
+}
+
+model ConfirmedTripPostTripTaskOption {
+  id        String   @id @default(uuid(7))
+  label     String   @unique(map: "CTPTTO_label_uq")
+  colorTone String   @default("slate")
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  selections ConfirmedTripPostTripTaskSelection[]
+
+  @@index([isActive, sortOrder], map: "CTPTTO_active_sort_idx")
+}
+
+model ConfirmedTripPostTripTaskSelection {
+  id              String   @id @default(uuid(7))
+  confirmedTripId String
+  optionId        String
+  createdAt       DateTime @default(now())
+
+  confirmedTrip ConfirmedTrip                   @relation(fields: [confirmedTripId], references: [id], onDelete: Cascade, map: "CTPTTS_trip_fkey")
+  option        ConfirmedTripPostTripTaskOption @relation(fields: [optionId], references: [id], onDelete: Cascade, map: "CTPTTS_option_fkey")
+
+  @@unique([confirmedTripId, optionId], map: "CTPTTS_trip_option_uq")
+  @@index([confirmedTripId], map: "CTPTTS_trip_idx")
+  @@index([optionId], map: "CTPTTS_option_idx")
 }
 
 model ConfirmedTripGuideAssignment {

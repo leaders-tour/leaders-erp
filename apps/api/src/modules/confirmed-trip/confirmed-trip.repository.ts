@@ -40,6 +40,10 @@ export const confirmedTripInclude = {
     include: { option: true },
     orderBy: { option: { sortOrder: 'asc' as const } },
   },
+  postTripTaskSelections: {
+    include: { option: true },
+    orderBy: { option: { sortOrder: 'asc' as const } },
+  },
   lodgings: {
     include: confirmedTripLodgingInclude,
     orderBy: { dayIndex: 'asc' as const },
@@ -74,6 +78,10 @@ export const confirmedTripListInclude = {
     include: { driver: true },
   },
   koreaTeamStageSelections: {
+    include: { option: true },
+    orderBy: { option: { sortOrder: 'asc' as const } },
+  },
+  postTripTaskSelections: {
     include: { option: true },
     orderBy: { option: { sortOrder: 'asc' as const } },
   },

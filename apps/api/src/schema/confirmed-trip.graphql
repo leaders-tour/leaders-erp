@@ -131,6 +131,16 @@ type ConfirmedTripKoreaTeamStageOption {
   updatedAt: DateTime!
 }
 
+type ConfirmedTripPostTripTaskOption {
+  id: ID!
+  label: String!
+  colorTone: String!
+  sortOrder: Int!
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
 type ConfirmedTripLodging {
   id: ID!
   confirmedTripId: String!
@@ -193,6 +203,7 @@ type ConfirmedTrip {
   guideAssignments: [ConfirmedTripGuideAssignment!]!
   driverAssignments: [ConfirmedTripDriverAssignment!]!
   koreaTeamStages: [ConfirmedTripKoreaTeamStageOption!]!
+  postTripTasks: [ConfirmedTripPostTripTaskOption!]!
   lodgings: [ConfirmedTripLodging!]!
 
   createdAt: DateTime!
@@ -234,6 +245,10 @@ input ConfirmedTripKoreaTeamStageOptionCreateInput {
   label: String!
 }
 
+input ConfirmedTripPostTripTaskOptionCreateInput {
+  label: String!
+}
+
 input ConfirmedTripUpdateInput {
   assignedVehicle: String
   accommodationNote: String
@@ -255,6 +270,8 @@ input ConfirmedTripUpdateInput {
   driverAssignments: [ConfirmedTripDriverAssignmentInput!]
   """통째 교체: 미포함 시 기존 선택 유지. 빈 배열은 진행단계 선택 전부 삭제."""
   koreaTeamStageOptionIds: [ID!]
+  """통째 교체: 미포함 시 기존 선택 유지. 빈 배열은 후처리 선택 전부 삭제."""
+  postTripTaskOptionIds: [ID!]
   rentalGear: Boolean
   rentalDrone: Boolean
   rentalStarlink: Boolean

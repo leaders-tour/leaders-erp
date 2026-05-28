@@ -329,6 +329,16 @@ export interface ConfirmedTripKoreaTeamStageOptionRow {
   updatedAt: string;
 }
 
+export interface ConfirmedTripPostTripTaskOptionRow {
+  id: string;
+  label: string;
+  colorTone: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** `PlanVersionMeta.transportGroups` — 확정 건 상세 픽드랍 표시용 최소 필드 */
 export type PlanPickupDropPlaceType = 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM';
 
@@ -445,6 +455,7 @@ export interface ConfirmedTripRow {
   guideAssignments: ConfirmedTripGuideAssignmentRow[];
   driverAssignments: ConfirmedTripDriverAssignmentRow[];
   koreaTeamStages: ConfirmedTripKoreaTeamStageOptionRow[];
+  postTripTasks: ConfirmedTripPostTripTaskOptionRow[];
   lodgings: Array<{
     id: string;
     dayIndex: number;
@@ -633,6 +644,15 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
       createdAt
       updatedAt
     }
+    postTripTasks {
+      id
+      label
+      colorTone
+      sortOrder
+      isActive
+      createdAt
+      updatedAt
+    }
     lodgings {
       id
       dayIndex
@@ -807,6 +827,15 @@ export const CONFIRMED_TRIP_LIST_FRAGMENT = gql`
       createdAt
       updatedAt
     }
+    postTripTasks {
+      id
+      label
+      colorTone
+      sortOrder
+      isActive
+      createdAt
+      updatedAt
+    }
     lodgings {
       id
       dayIndex
@@ -911,6 +940,34 @@ const CREATE_KOREA_TEAM_STAGE_OPTION_MUTATION = gql`
   }
 `;
 
+const POST_TRIP_TASK_OPTIONS_QUERY = gql`
+  query ConfirmedTripPostTripTaskOptions($activeOnly: Boolean = true) {
+    confirmedTripPostTripTaskOptions(activeOnly: $activeOnly) {
+      id
+      label
+      colorTone
+      sortOrder
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+const CREATE_POST_TRIP_TASK_OPTION_MUTATION = gql`
+  mutation CreateConfirmedTripPostTripTaskOption($input: ConfirmedTripPostTripTaskOptionCreateInput!) {
+    createConfirmedTripPostTripTaskOption(input: $input) {
+      id
+      label
+      colorTone
+      sortOrder
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
 export function useConfirmedTrips(status?: 'ACTIVE' | 'CANCELLED') {
   const { data, loading, refetch } = useQuery<{ confirmedTrips: ConfirmedTripRow[] }>(
     CONFIRMED_TRIPS_QUERY,
@@ -949,6 +1006,36 @@ export function useCreateConfirmedTripKoreaTeamStageOption() {
         throw new Error('Failed to create korea team stage option');
       }
       return result.data.createConfirmedTripKoreaTeamStageOption;
+    },
+  };
+}
+
+export function useConfirmedTripPostTripTaskOptions(activeOnly = true) {
+  const { data, loading, refetch } = useQuery<{
+    confirmedTripPostTripTaskOptions: ConfirmedTripPostTripTaskOptionRow[];
+  }>(POST_TRIP_TASK_OPTIONS_QUERY, {
+    variables: { activeOnly },
+    fetchPolicy: 'cache-and-network',
+  });
+  return { options: data?.confirmedTripPostTripTaskOptions ?? [], loading, refetch };
+}
+
+export function useCreateConfirmedTripPostTripTaskOption() {
+  const [mutate, { loading }] = useMutation<{
+    createConfirmedTripPostTripTaskOption: ConfirmedTripPostTripTaskOptionRow;
+  }>(CREATE_POST_TRIP_TASK_OPTION_MUTATION);
+
+  return {
+    loading,
+    createOption: async (label: string): Promise<ConfirmedTripPostTripTaskOptionRow> => {
+      const result = await mutate({
+        variables: { input: { label } },
+        refetchQueries: [{ query: POST_TRIP_TASK_OPTIONS_QUERY, variables: { activeOnly: true } }],
+      });
+      if (!result.data?.createConfirmedTripPostTripTaskOption) {
+        throw new Error('Failed to create post-trip task option');
+      }
+      return result.data.createConfirmedTripPostTripTaskOption;
     },
   };
 }
@@ -1004,6 +1091,7 @@ export function useUpdateConfirmedTrip() {
     guideAssignments?: GuideAssignmentUpdateInput[];
     driverAssignments?: DriverAssignmentUpdateInput[];
     koreaTeamStageOptionIds?: string[];
+    postTripTaskOptionIds?: string[];
     assignedVehicle?: string | null;
     accommodationNote?: string | null;
     operationNote?: string | null;

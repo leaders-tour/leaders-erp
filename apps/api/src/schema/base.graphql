@@ -47,6 +47,7 @@ type Query {
   confirmedTrips(status: ConfirmedTripStatus): [ConfirmedTrip!]!
   confirmedTrip(id: ID!): ConfirmedTrip
   confirmedTripKoreaTeamStageOptions(activeOnly: Boolean = true): [ConfirmedTripKoreaTeamStageOption!]!
+  confirmedTripPostTripTaskOptions(activeOnly: Boolean = true): [ConfirmedTripPostTripTaskOption!]!
   calendarNotes(year: Int!, month: Int!): [CalendarNote!]!
   """해당 확정 건에 연결된 캘린더 일정 전체 (월 구분 없음)."""
   confirmedTripCalendarNotes(confirmedTripId: ID!): [CalendarNote!]!
@@ -168,6 +169,7 @@ type Mutation {
   confirmTrip(input: ConfirmTripInput!): ConfirmedTrip!
   createConfirmedTrip(input: CreateConfirmedTripDirectInput!): ConfirmedTrip!
   createConfirmedTripKoreaTeamStageOption(input: ConfirmedTripKoreaTeamStageOptionCreateInput!): ConfirmedTripKoreaTeamStageOption!
+  createConfirmedTripPostTripTaskOption(input: ConfirmedTripPostTripTaskOptionCreateInput!): ConfirmedTripPostTripTaskOption!
   updateConfirmedTrip(id: ID!, input: ConfirmedTripUpdateInput!): ConfirmedTrip!
   cancelConfirmedTrip(id: ID!): ConfirmedTrip!
   upsertConfirmedTripLodging(input: ConfirmedTripLodgingUpsertInput!): ConfirmedTripLodging!

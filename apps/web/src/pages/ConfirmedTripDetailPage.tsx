@@ -47,6 +47,7 @@ import { markConfirmedTripRecentlyReturned } from '../features/confirmed-trip/re
 import { LodgingSection } from '../features/confirmed-trip/LodgingSection';
 import { ConfirmedTripScheduleSection } from '../features/confirmed-trip/ConfirmedTripScheduleSection';
 import { KoreaTeamStageMultiSelect } from '../features/confirmed-trip/KoreaTeamStageMultiSelect';
+import { PostTripTaskMultiSelect } from '../features/confirmed-trip/PostTripTaskMultiSelect';
 import { usePlanVersions, useUpdateUser, useUploadUserAttachment } from '../features/plan/hooks';
 import { toVariantLabel } from '../features/plan/variant-label';
 import { API_BASE_URL } from '../lib/api-base-url';
@@ -1370,6 +1371,20 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                       onChange={async (optionIds) => {
                         await updateConfirmedTrip(trip.id, {
                           koreaTeamStageOptionIds: optionIds,
+                        });
+                      }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <span className="block text-slate-500">후처리</span>
+                  <div className="mt-1">
+                    <PostTripTaskMultiSelect
+                      selected={trip.postTripTasks}
+                      disabled={trip.status !== 'ACTIVE'}
+                      onChange={async (optionIds) => {
+                        await updateConfirmedTrip(trip.id, {
+                          postTripTaskOptionIds: optionIds,
                         });
                       }}
                     />
