@@ -21,3 +21,10 @@ export type ConfirmedTripNoteCreateDto = ConfirmedTripNoteCreateInput;
 export type ConfirmedTripNoteUpdateDto = ConfirmedTripNoteUpdateInput;
 export type CalendarNoteCreateDto = CalendarNoteCreateInput;
 export type CalendarNoteUpdateDto = CalendarNoteUpdateInput;
+
+export interface RentalItemAvailabilityDto {
+  travelStartDate: Date | string;
+  travelEndDate: Date | string;
+  excludeConfirmedTripId?: string | null;
+  excludePlanId?: string | null;
+}

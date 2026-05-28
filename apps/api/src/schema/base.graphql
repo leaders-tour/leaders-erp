@@ -46,6 +46,8 @@ type Query {
   override(id: ID!): Override
   confirmedTrips(status: ConfirmedTripStatus): [ConfirmedTrip!]!
   confirmedTrip(id: ID!): ConfirmedTrip
+  activeConfirmedTripByPlanVersion(planVersionId: ID!): ConfirmedTrip
+  rentalItemAvailability(input: RentalItemAvailabilityInput!): [RentalItemAvailability!]!
   confirmedTripKoreaTeamStageOptions(activeOnly: Boolean = true): [ConfirmedTripKoreaTeamStageOption!]!
   confirmedTripPostTripTaskOptions(activeOnly: Boolean = true): [ConfirmedTripPostTripTaskOption!]!
   calendarNotes(year: Int!, month: Int!): [CalendarNote!]!

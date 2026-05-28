@@ -142,6 +142,13 @@ export class ConfirmedTripRepository {
     });
   }
 
+  findActiveByPlanVersionId(planVersionId: string) {
+    return this.prisma.confirmedTrip.findFirst({
+      where: { planVersionId, status: 'ACTIVE' },
+      include: confirmedTripInclude,
+    });
+  }
+
   findByGuideId(guideId: string, includeCancelled = false) {
     return this.prisma.confirmedTrip.findMany({
       where: {

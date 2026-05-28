@@ -38,6 +38,7 @@ import type {
   ConfirmedTripNoteCreateDto,
   ConfirmedTripNoteUpdateDto,
   ConfirmedTripUpdateDto,
+  RentalItemAvailabilityDto,
 } from './confirmed-trip.types';
 
 const calendarNoteWithConfirmedTripInclude = {
@@ -45,6 +46,130 @@ const calendarNoteWithConfirmedTripInclude = {
     include: calendarNoteConfirmedTripInclude,
   },
 } satisfies Prisma.CalendarNoteInclude;
+
+const RENTAL_ITEM_STOCK = {
+  DRONE: { label: '드론', total: 10 },
+  STARLINK: { label: '스타링크', total: 5 },
+  POWERBANK: { label: '파워뱅크', total: 1 },
+} as const;
+
+type RentalAvailabilityItem = keyof typeof RENTAL_ITEM_STOCK;
+
+interface RentalItemFlags {
+  rentalDrone: boolean;
+  rentalStarlink: boolean;
+  rentalPowerbank: boolean;
+}
+
+function toDateOnlyUtc(value: Date | string): Date | null {
+  const raw = value instanceof Date ? value.toISOString() : value;
+  const datePart = raw.split('T')[0] ?? raw;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(datePart);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function rentalTripUsesItem(
+  trip: {
+    rentalDrone: boolean;
+    rentalStarlink: boolean;
+    rentalPowerbank: boolean;
+  },
+  item: RentalAvailabilityItem,
+): boolean {
+  if (item === 'DRONE') return trip.rentalDrone;
+  if (item === 'STARLINK') return trip.rentalStarlink;
+  return trip.rentalPowerbank;
+}
+
+async function getRentalItemFlagsForPlanVersion(
+  prisma: PrismaClient,
+  planVersionId: string,
+): Promise<RentalItemFlags> {
+  const versionEvents = await prisma.planVersionEvent.findMany({
+    where: { planVersionId },
+    include: { event: { select: { tourListRentalItem: true } } },
+  });
+
+  const flags: RentalItemFlags = {
+    rentalDrone: false,
+    rentalStarlink: false,
+    rentalPowerbank: false,
+  };
+  for (const row of versionEvents) {
+    const item = row.event.tourListRentalItem;
+    if (item === 'DRONE') flags.rentalDrone = true;
+    if (item === 'STARLINK') flags.rentalStarlink = true;
+    if (item === 'POWERBANK') flags.rentalPowerbank = true;
+  }
+  return flags;
+}
+
+export function buildRentalItemAvailability(
+  trips: Array<{
+    id: string;
+    planId?: string | null;
+    travelStart: Date | null;
+    travelEnd: Date | null;
+    rentalDrone: boolean;
+    rentalStarlink: boolean;
+    rentalPowerbank: boolean;
+    user: { name: string };
+    planVersion: {
+      meta: {
+        leaderName: string;
+        travelStartDate: Date;
+        travelEndDate: Date;
+      } | null;
+    } | null;
+  }>,
+  requestedStart: Date,
+  requestedEnd: Date,
+  options?: {
+    excludeConfirmedTripId?: string | null;
+    excludePlanId?: string | null;
+  },
+) {
+  return (Object.keys(RENTAL_ITEM_STOCK) as RentalAvailabilityItem[]).map((item) => {
+    const stock = RENTAL_ITEM_STOCK[item];
+    const conflicts = trips.flatMap((trip) => {
+      if (!rentalTripUsesItem(trip, item)) return [];
+
+      const start = toDateOnlyUtc(trip.planVersion?.meta?.travelStartDate ?? trip.travelStart ?? '');
+      const end = toDateOnlyUtc(trip.planVersion?.meta?.travelEndDate ?? trip.travelEnd ?? '');
+      if (!start || !end) return [];
+      if (start > requestedEnd || end < requestedStart) return [];
+
+      const excluded =
+        Boolean(options?.excludeConfirmedTripId && trip.id === options.excludeConfirmedTripId) ||
+        Boolean(options?.excludePlanId && trip.planId === options.excludePlanId);
+
+      return [
+        {
+          confirmedTripId: trip.id,
+          excluded,
+          leaderName: trip.planVersion?.meta?.leaderName?.trim() || trip.user.name,
+          travelStartDate: start,
+          travelEndDate: end,
+        },
+      ];
+    });
+    const used = conflicts.filter((conflict) => !conflict.excluded).length;
+
+    return {
+      item,
+      label: stock.label,
+      total: stock.total,
+      used,
+      available: stock.total - used,
+      conflicts,
+    };
+  });
+}
 
 export class ConfirmedTripService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -59,6 +184,54 @@ export class ConfirmedTripService {
       throw new DomainError('NOT_FOUND', 'Confirmed trip not found');
     }
     return trip;
+  }
+
+  findActiveByPlanVersionId(planVersionId: string) {
+    return new ConfirmedTripRepository(this.prisma).findActiveByPlanVersionId(planVersionId);
+  }
+
+  async getRentalItemAvailability(input: RentalItemAvailabilityDto) {
+    const requestedStart = toDateOnlyUtc(input.travelStartDate);
+    const requestedEnd = toDateOnlyUtc(input.travelEndDate);
+    if (!requestedStart || !requestedEnd) {
+      throw new DomainError('VALIDATION_FAILED', 'travelStartDate/travelEndDate must be valid dates');
+    }
+    if (requestedStart > requestedEnd) {
+      throw new DomainError('VALIDATION_FAILED', 'travelStartDate must be before or equal to travelEndDate');
+    }
+
+    const trips = await this.prisma.confirmedTrip.findMany({
+      where: {
+        status: 'ACTIVE',
+        OR: [{ rentalDrone: true }, { rentalStarlink: true }, { rentalPowerbank: true }],
+      },
+      select: {
+        id: true,
+        planId: true,
+        travelStart: true,
+        travelEnd: true,
+        rentalDrone: true,
+        rentalStarlink: true,
+        rentalPowerbank: true,
+        user: { select: { name: true } },
+        planVersion: {
+          select: {
+            meta: {
+              select: {
+                leaderName: true,
+                travelStartDate: true,
+                travelEndDate: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return buildRentalItemAvailability(trips, requestedStart, requestedEnd, {
+      excludeConfirmedTripId: input.excludeConfirmedTripId,
+      excludePlanId: input.excludePlanId,
+    });
   }
 
   listKoreaTeamStageOptions(activeOnly = true) {
@@ -178,29 +351,14 @@ export class ConfirmedTripService {
       throw new DomainError('VALIDATION_FAILED', 'This plan already has an active confirmed trip. Cancel the existing one first.');
     }
 
-    const versionEvents = await this.prisma.planVersionEvent.findMany({
-      where: { planVersionId },
-      include: { event: { select: { tourListRentalItem: true } } },
-    });
-
-    let rentalDrone = false;
-    let rentalStarlink = false;
-    let rentalPowerbank = false;
-    for (const row of versionEvents) {
-      const item = row.event.tourListRentalItem;
-      if (item === 'DRONE') rentalDrone = true;
-      if (item === 'STARLINK') rentalStarlink = true;
-      if (item === 'POWERBANK') rentalPowerbank = true;
-    }
+    const rentalItemFlags = await getRentalItemFlagsForPlanVersion(this.prisma, planVersionId);
 
     return repo.create({
       userId: plan.userId,
       planId,
       planVersionId,
       confirmedByEmployeeId: confirmedByEmployeeId ?? null,
-      rentalDrone,
-      rentalStarlink,
-      rentalPowerbank,
+      ...rentalItemFlags,
     });
   }
 
@@ -307,6 +465,7 @@ export class ConfirmedTripService {
     }
     if (nextPlanVersionId !== undefined) {
       updateData.planVersionId = nextPlanVersionId;
+      Object.assign(updateData, await getRentalItemFlagsForPlanVersion(this.prisma, nextPlanVersionId));
       if (migrationLinkedPlanId) {
         updateData.planId = migrationLinkedPlanId;
       }

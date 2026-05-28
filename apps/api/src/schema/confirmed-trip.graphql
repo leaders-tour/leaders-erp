@@ -65,6 +65,36 @@ enum ConfirmedTripStatus {
   CANCELLED
 }
 
+enum TourListRentalItem {
+  DRONE
+  STARLINK
+  POWERBANK
+}
+
+input RentalItemAvailabilityInput {
+  travelStartDate: DateTime!
+  travelEndDate: DateTime!
+  excludeConfirmedTripId: ID
+  excludePlanId: ID
+}
+
+type RentalItemAvailabilityConflict {
+  confirmedTripId: ID!
+  excluded: Boolean!
+  leaderName: String!
+  travelStartDate: DateTime!
+  travelEndDate: DateTime!
+}
+
+type RentalItemAvailability {
+  item: TourListRentalItem!
+  label: String!
+  total: Int!
+  used: Int!
+  available: Int!
+  conflicts: [RentalItemAvailabilityConflict!]!
+}
+
 enum LodgingAssignmentType {
   ACCOMMODATION
   LV1

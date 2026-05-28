@@ -10,7 +10,12 @@ import { VersionSnapshotView } from '../features/plan/components';
 import { buildExternalTransferDirectionText } from '../features/plan/external-transfer';
 import { usePlanVersionDetail, useUpdatePlanVersionChangeNote } from '../features/plan/hooks';
 import { countMainPlanStopRows } from '../features/plan/plan-stop-row';
-import { useConfirmTrip } from '../features/confirmed-trip/hooks';
+import {
+  useActiveConfirmedTripByPlanVersion,
+  useConfirmTrip,
+  useRentalItemAvailability,
+} from '../features/confirmed-trip/hooks';
+import { RentalItemAvailabilityBadges } from '../features/confirmed-trip/RentalItemAvailabilityBadges';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
 import { buildEffectivePricing, resolveAdjustmentLinesForCustomerDocument, sliceEffectiveTotalsForUi } from '../features/pricing/manual-pricing';
 import {
@@ -163,6 +168,14 @@ export function PlanVersionDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { planId, versionId } = useParams<{ planId: string; versionId: string }>();
   const { version, loading, refetch } = usePlanVersionDetail(versionId);
+  const { trip: activeConfirmedTripForVersion } = useActiveConfirmedTripByPlanVersion(versionId);
+  const { availability: rentalItemAvailability, loading: rentalItemAvailabilityLoading } =
+    useRentalItemAvailability({
+      travelStartDate: version?.meta?.travelStartDate ?? null,
+      travelEndDate: version?.meta?.travelEndDate ?? null,
+      excludeConfirmedTripId: activeConfirmedTripForVersion?.id ?? null,
+      excludePlanId: version?.planId ?? planId ?? null,
+    });
   const { updatePlanVersionChangeNote, loading: changeNoteSaving } = useUpdatePlanVersionChangeNote();
   const [changeNoteEditing, setChangeNoteEditing] = useState(false);
   const [changeNoteDraft, setChangeNoteDraft] = useState('');
@@ -591,6 +604,15 @@ export function PlanVersionDetailPage(): JSX.Element {
                 <DetailLabel>대여물품</DetailLabel>
                 <div className="mt-1 whitespace-pre-wrap rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900">
                   {version.meta.rentalItemsText?.trim() ? version.meta.rentalItemsText : '-'}
+                </div>
+              </div>
+              <div>
+                <DetailLabel>대여 가능 재고</DetailLabel>
+                <div className="mt-1">
+                  <RentalItemAvailabilityBadges
+                    availability={rentalItemAvailability}
+                    loading={rentalItemAvailabilityLoading}
+                  />
                 </div>
               </div>
               <div>

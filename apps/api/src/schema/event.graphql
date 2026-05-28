@@ -4,6 +4,7 @@ type Event {
   isActive: Boolean!
   securityDepositKrw: Int!
   sortOrder: Int!
+  tourListRentalItem: TourListRentalItem
   createdAt: DateTime!
   updatedAt: DateTime!
 }

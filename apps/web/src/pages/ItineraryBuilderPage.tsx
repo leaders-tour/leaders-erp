@@ -30,7 +30,12 @@ import type {
 } from '../features/estimate/model/types';
 import { ESTIMATE_GUIDE_IMAGES_PER_PAGE_DEFAULT } from '../features/estimate/model/constants';
 import { useAuth } from '../features/auth/context';
-import { useUpdateConfirmedTrip } from '../features/confirmed-trip/hooks';
+import {
+  useRentalItemAvailability,
+  useUpdateConfirmedTrip,
+  type TourListRentalItem,
+} from '../features/confirmed-trip/hooks';
+import { RentalItemAvailabilityBadges } from '../features/confirmed-trip/RentalItemAvailabilityBadges';
 import {
   formatLocationNameInline,
   formatLocationNameMultiline,
@@ -174,6 +179,7 @@ interface UserRow {
 interface EventOptionRow {
   id: string;
   name: string;
+  tourListRentalItem: TourListRentalItem | null;
 }
 
 interface PlanRow extends PlanStopRowBase {
@@ -1174,6 +1180,7 @@ const EVENTS_QUERY = gql`
     events(activeOnly: $activeOnly) {
       id
       name
+      tourListRentalItem
     }
   }
 `;
@@ -2802,6 +2809,17 @@ export function ItineraryBuilderPage(): JSX.Element {
   const planContext = planContextData?.plan ?? null;
   const selectedUserName = userData?.user?.name ?? '';
   const eventOptions = eventData?.events ?? [];
+  const { availability: rentalItemAvailability, loading: rentalItemAvailabilityLoading } =
+    useRentalItemAvailability({
+      travelStartDate,
+      travelEndDate,
+      excludeConfirmedTripId: confirmedTripId || null,
+      excludePlanId: planId || planContext?.id || null,
+    });
+  const rentalItemAvailabilityByItem = useMemo(
+    () => new Map(rentalItemAvailability.map((row) => [row.item, row] as const)),
+    [rentalItemAvailability],
+  );
   const regionLodgings = regionLodgingData?.regionLodgings ?? [];
   const activeTemplateRows = templateListData?.planTemplates ?? [];
   const templateById = templateByIdData?.planTemplate ?? null;
@@ -5769,9 +5787,28 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                     <div className="grid gap-1 text-sm">
                       <span className="text-xs text-slate-600">참여 이벤트</span>
+                      {travelStartDate && travelEndDate ? (
+                        <RentalItemAvailabilityBadges
+                          availability={rentalItemAvailability}
+                          loading={rentalItemAvailabilityLoading}
+                          compact
+                        />
+                      ) : (
+                        <p className="text-xs text-slate-500">여행기간을 입력하면 장비 재고가 표시됩니다.</p>
+                      )}
                       <div className="flex flex-wrap gap-2">
                         {eventOptions.map((eventOption) => {
                           const active = eventIds.includes(eventOption.id);
+                          const rentalAvailability = eventOption.tourListRentalItem
+                            ? rentalItemAvailabilityByItem.get(eventOption.tourListRentalItem)
+                            : null;
+                          const rentalUnavailable = Boolean(
+                            active &&
+                              travelStartDate &&
+                              travelEndDate &&
+                              rentalAvailability &&
+                              rentalAvailability.available <= 0,
+                          );
                           return (
                             <button
                               key={eventOption.id}
@@ -5784,12 +5821,19 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 )
                               }
                               className={`rounded-xl border px-3 py-1.5 text-sm ${
-                                active
+                                rentalUnavailable
+                                  ? 'border-rose-300 bg-rose-50 text-rose-800 ring-1 ring-rose-200'
+                                  : active
                                   ? 'border-slate-900 bg-slate-900 text-white'
                                   : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                               }`}
                             >
                               {eventOption.name}
+                              {rentalUnavailable ? (
+                                <span className="ml-1 text-xs font-medium">
+                                  재고 부족
+                                </span>
+                              ) : null}
                             </button>
                           );
                         })}

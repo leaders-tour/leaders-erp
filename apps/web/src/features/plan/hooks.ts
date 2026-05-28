@@ -1,7 +1,7 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { useCallback, useState } from 'react';
 import { useAuth } from '../auth/context';
-import { CONFIRMED_TRIP_QUERY } from '../confirmed-trip/hooks';
+import { CONFIRMED_TRIP_QUERY, type TourListRentalItem } from '../confirmed-trip/hooks';
 import { runUploadMutation } from '../../lib/upload-mutation';
 import { PLAN_VERSION_PRICING_EFFECTIVE_FIELDS_FRAGMENT } from './plan-version-pricing-fragment';
 
@@ -191,6 +191,7 @@ export interface PlanVersionMetaRow {
     name: string;
     securityDepositKrw: number;
     isActive: boolean;
+    tourListRentalItem: TourListRentalItem | null;
   }>;
   extraLodgings: Array<{
     dayIndex: number;
@@ -761,6 +762,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
           name
           securityDepositKrw
           isActive
+          tourListRentalItem
         }
         extraLodgings {
           dayIndex

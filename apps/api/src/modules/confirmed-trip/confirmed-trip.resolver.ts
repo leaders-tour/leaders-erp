@@ -13,6 +13,7 @@ import type {
   ConfirmedTripNoteCreateDto,
   ConfirmedTripNoteUpdateDto,
   ConfirmedTripUpdateDto,
+  RentalItemAvailabilityDto,
 } from './confirmed-trip.types';
 import { requireEmployee } from '../../lib/auth-guards';
 
@@ -51,6 +52,10 @@ interface ConfirmedTripsArgs {
   status?: ConfirmedTripStatus;
 }
 
+interface RentalItemAvailabilityArgs {
+  input: RentalItemAvailabilityDto;
+}
+
 interface ConfirmedTripKoreaTeamStageOptionsArgs {
   activeOnly?: boolean;
 }
@@ -61,6 +66,10 @@ interface ConfirmedTripPostTripTaskOptionsArgs {
 
 interface IdArgs {
   id: string;
+}
+
+interface PlanVersionIdArgs {
+  planVersionId: string;
 }
 
 interface ConfirmTripArgs {
@@ -138,6 +147,10 @@ export const confirmedTripResolver = {
       new ConfirmedTripService(ctx.prisma).list(args.status),
     confirmedTrip: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
       new ConfirmedTripService(ctx.prisma).get(args.id),
+    activeConfirmedTripByPlanVersion: (_parent: unknown, args: PlanVersionIdArgs, ctx: AppContext) =>
+      new ConfirmedTripService(ctx.prisma).findActiveByPlanVersionId(args.planVersionId),
+    rentalItemAvailability: (_parent: unknown, args: RentalItemAvailabilityArgs, ctx: AppContext) =>
+      new ConfirmedTripService(ctx.prisma).getRentalItemAvailability(args.input),
     confirmedTripKoreaTeamStageOptions: (
       _parent: unknown,
       args: ConfirmedTripKoreaTeamStageOptionsArgs,

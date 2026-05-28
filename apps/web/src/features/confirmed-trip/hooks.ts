@@ -339,6 +339,23 @@ export interface ConfirmedTripPostTripTaskOptionRow {
   updatedAt: string;
 }
 
+export type TourListRentalItem = 'DRONE' | 'STARLINK' | 'POWERBANK';
+
+export interface RentalItemAvailabilityRow {
+  item: TourListRentalItem;
+  label: string;
+  total: number;
+  used: number;
+  available: number;
+  conflicts: Array<{
+    confirmedTripId: string;
+    excluded: boolean;
+    leaderName: string;
+    travelStartDate: string;
+    travelEndDate: string;
+  }>;
+}
+
 /** `PlanVersionMeta.transportGroups` — 확정 건 상세 픽드랍 표시용 최소 필드 */
 export type PlanPickupDropPlaceType = 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM';
 
@@ -861,6 +878,35 @@ const CONFIRMED_TRIPS_QUERY = gql`
   }
 `;
 
+const RENTAL_ITEM_AVAILABILITY_QUERY = gql`
+  query RentalItemAvailability($input: RentalItemAvailabilityInput!) {
+    rentalItemAvailability(input: $input) {
+      item
+      label
+      total
+      used
+      available
+      conflicts {
+        confirmedTripId
+        excluded
+        leaderName
+        travelStartDate
+        travelEndDate
+      }
+    }
+  }
+`;
+
+const ACTIVE_CONFIRMED_TRIP_BY_PLAN_VERSION_QUERY = gql`
+  query ActiveConfirmedTripByPlanVersion($planVersionId: ID!) {
+    activeConfirmedTripByPlanVersion(planVersionId: $planVersionId) {
+      id
+      planVersionId
+      status
+    }
+  }
+`;
+
 /** 목록 캐시 무효화 시 변수까지 맞춰야 동일 쿼리가 갱신됩니다. */
 export const CONFIRMED_TRIPS_ACTIVE_REFETCH = {
   query: CONFIRMED_TRIPS_QUERY,
@@ -978,6 +1024,53 @@ export function useConfirmedTrips(status?: 'ACTIVE' | 'CANCELLED') {
     },
   );
   return { trips: data?.confirmedTrips ?? [], loading, refetch };
+}
+
+export function useRentalItemAvailability(input: {
+  travelStartDate?: string | null;
+  travelEndDate?: string | null;
+  excludeConfirmedTripId?: string | null;
+  excludePlanId?: string | null;
+}) {
+  const hasDateRange = Boolean(input.travelStartDate && input.travelEndDate);
+  const { data, loading, error, refetch } = useQuery<{
+    rentalItemAvailability: RentalItemAvailabilityRow[];
+  }>(RENTAL_ITEM_AVAILABILITY_QUERY, {
+    variables: {
+      input: {
+        travelStartDate: input.travelStartDate,
+        travelEndDate: input.travelEndDate,
+        excludeConfirmedTripId: input.excludeConfirmedTripId ?? null,
+        excludePlanId: input.excludePlanId ?? null,
+      },
+    },
+    skip: !hasDateRange,
+    fetchPolicy: 'cache-and-network',
+  });
+
+  return {
+    availability: data?.rentalItemAvailability ?? [],
+    loading,
+    error,
+    refetch,
+  };
+}
+
+export function useActiveConfirmedTripByPlanVersion(planVersionId: string | undefined) {
+  const { data, loading, error, refetch } = useQuery<{
+    activeConfirmedTripByPlanVersion: Pick<ConfirmedTripRow, 'id' | 'planVersionId' | 'status'> | null;
+  }>(ACTIVE_CONFIRMED_TRIP_BY_PLAN_VERSION_QUERY, {
+    variables: { planVersionId: planVersionId ?? '' },
+    skip: !planVersionId,
+    fetchPolicy: 'cache-and-network',
+  });
+
+  return {
+    trip: data?.activeConfirmedTripByPlanVersion ?? null,
+    loading,
+    error,
+    refetch,
+  };
 }
 
 export function useConfirmedTripKoreaTeamStageOptions(activeOnly = true) {
