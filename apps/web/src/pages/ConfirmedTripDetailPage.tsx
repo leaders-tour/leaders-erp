@@ -48,6 +48,7 @@ import { LodgingSection } from '../features/confirmed-trip/LodgingSection';
 import { ConfirmedTripScheduleSection } from '../features/confirmed-trip/ConfirmedTripScheduleSection';
 import { KoreaTeamStageMultiSelect } from '../features/confirmed-trip/KoreaTeamStageMultiSelect';
 import { PostTripTaskMultiSelect } from '../features/confirmed-trip/PostTripTaskMultiSelect';
+import { RecruitmentStatusToggle } from '../features/confirmed-trip/RecruitmentStatusToggle';
 import { usePlanVersions, useUpdateUser, useUploadUserAttachment } from '../features/plan/hooks';
 import { toVariantLabel } from '../features/plan/variant-label';
 import { API_BASE_URL } from '../lib/api-base-url';
@@ -751,6 +752,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const [openChatUrlEditing, setOpenChatUrlEditing] = useState(false);
   const [openChatUrlDraft, setOpenChatUrlDraft] = useState('');
   const [openChatUrlSaving, setOpenChatUrlSaving] = useState(false);
+  const [recruitmentSaving, setRecruitmentSaving] = useState(false);
 
   const { updateUser } = useUpdateUser();
   const { uploadUserAttachment, loading: uploadingUserAttachment } = useUploadUserAttachment();
@@ -1340,6 +1342,28 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                           ? `${getTripHeadcount(trip)}명`
                           : '-'}
                     </p>
+                  </div>
+                </div>
+                <div>
+                  <span className="block text-slate-500">모집 상태</span>
+                  <div className="mt-1">
+                    <RecruitmentStatusToggle
+                      open={trip.isRecruitingOpen}
+                      disabled={trip.status !== 'ACTIVE'}
+                      saving={recruitmentSaving}
+                      onToggle={async (nextOpen) => {
+                        setRecruitmentSaving(true);
+                        try {
+                          await updateConfirmedTrip(trip.id, {
+                            isRecruitingOpen: nextOpen,
+                          });
+                        } catch (error) {
+                          window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
+                        } finally {
+                          setRecruitmentSaving(false);
+                        }
+                      }}
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">

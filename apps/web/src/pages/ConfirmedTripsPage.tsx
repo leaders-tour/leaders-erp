@@ -6,6 +6,7 @@ import { ConfirmedTripCalendar } from '../features/confirmed-trip/ConfirmedTripC
 import { CreateConfirmedTripModal } from '../features/confirmed-trip/CreateConfirmedTripModal';
 import { KoreaTeamStageMultiSelect } from '../features/confirmed-trip/KoreaTeamStageMultiSelect';
 import { PostTripTaskMultiSelect } from '../features/confirmed-trip/PostTripTaskMultiSelect';
+import { RecruitmentStatusToggle } from '../features/confirmed-trip/RecruitmentStatusToggle';
 import {
   useCalendarNotes,
   useConfirmedTrips,
@@ -415,22 +416,6 @@ function DPlusBadge({ endDate }: { endDate: string }) {
   return (
     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
       D+{elapsed}
-    </span>
-  );
-}
-
-// 모집 뱃지
-function RecruitmentBadge({ open }: { open: boolean }) {
-  if (open) {
-    return (
-      <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
-        모집중
-      </span>
-    );
-  }
-  return (
-    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
-      마감
     </span>
   );
 }
@@ -849,6 +834,7 @@ function TripTableRow({
   onSaveReservationDate,
   onSaveKoreaTeamStages,
   onSavePostTripTasks,
+  onToggleRecruitment,
 }: {
   trip: ConfirmedTripRow;
   filter: DateFilter;
@@ -856,10 +842,12 @@ function TripTableRow({
   onSaveReservationDate?: (tripId: string, dateYmd: string) => Promise<void>;
   onSaveKoreaTeamStages?: (tripId: string, optionIds: string[]) => Promise<void>;
   onSavePostTripTasks?: (tripId: string, optionIds: string[]) => Promise<void>;
+  onToggleRecruitment?: (tripId: string, nextOpen: boolean) => Promise<void>;
 }) {
   const [reservationEditing, setReservationEditing] = useState(false);
   const [reservationDraft, setReservationDraft] = useState('');
   const [reservationSaving, setReservationSaving] = useState(false);
+  const [recruitmentSaving, setRecruitmentSaving] = useState(false);
 
   const startStr = getTripStartDate(trip);
   const endStr = getTripEndDate(trip);
@@ -1007,8 +995,23 @@ function TripTableRow({
       <td className="whitespace-nowrap px-4 py-3 text-slate-700">{headcount ?? '-'}</td>
       {/* 모집유무 */}
       {(filter === 'reserved' || filter === 'upcoming') && (
-        <td className="whitespace-nowrap px-4 py-3">
-          <RecruitmentBadge open={trip.isRecruitingOpen} />
+        <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
+          <RecruitmentStatusToggle
+            open={trip.isRecruitingOpen}
+            saving={recruitmentSaving}
+            disabled={!onToggleRecruitment}
+            onToggle={async (nextOpen) => {
+              if (!onToggleRecruitment) return;
+              setRecruitmentSaving(true);
+              try {
+                await onToggleRecruitment(trip.id, nextOpen);
+              } catch (error) {
+                window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
+              } finally {
+                setRecruitmentSaving(false);
+              }
+            }}
+          />
         </td>
       )}
       {/* 여행지 */}
@@ -1624,6 +1627,11 @@ export function ConfirmedTripsPage(): JSX.Element {
                       onSavePostTripTasks={async (tripId, optionIds) => {
                         await updateConfirmedTrip(tripId, {
                           postTripTaskOptionIds: optionIds,
+                        });
+                      }}
+                      onToggleRecruitment={async (tripId, nextOpen) => {
+                        await updateConfirmedTrip(tripId, {
+                          isRecruitingOpen: nextOpen,
                         });
                       }}
                     />
