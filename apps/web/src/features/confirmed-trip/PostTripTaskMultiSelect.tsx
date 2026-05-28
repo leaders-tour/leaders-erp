@@ -110,7 +110,7 @@ export function PostTripTaskMultiSelect({
             </span>
           ))
         ) : (
-          <span className="text-xs font-medium text-slate-400">후처리 선택</span>
+          <span className="text-xs font-medium text-slate-400">종료 후 안내 선택</span>
         )}
       </button>
 
@@ -165,7 +165,7 @@ export function PostTripTaskMultiSelect({
                   setOpen(false);
                 }
               }}
-              placeholder="새 후처리 추가"
+              placeholder="새 종료 후 안내 추가"
               className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm outline-none focus:border-slate-900"
             />
             <button

@@ -1401,7 +1401,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                   </div>
                 </div>
                 <div>
-                  <span className="block text-slate-500">후처리</span>
+                  <span className="block text-slate-500">종료 후 안내</span>
                   <div className="mt-1">
                     <PostTripTaskMultiSelect
                       selected={trip.postTripTasks}

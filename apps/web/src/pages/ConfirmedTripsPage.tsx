@@ -812,7 +812,7 @@ function TripTableHead({
         {filter === 'upcoming' && th('한국팀 진행단계')}
         {filter === 'ongoing' && th('#일차')}
         {filter === 'completed' && th('D+day')}
-        {filter === 'completed' && th('후처리')}
+        {filter === 'completed' && th('종료 후 안내')}
         {th('인원')}
         {(filter === 'reserved' || filter === 'upcoming') && th('모집유무')}
         {th('여행지')}
