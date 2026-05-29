@@ -494,6 +494,8 @@
 .estimate-page1-table td {
   background: #fff;
   font-weight: 500;
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 
 .estimate-page1-col-4-label {
