@@ -71,6 +71,38 @@ function VehicleTypeCellDisplay({ vehicleType }: { vehicleType: string | null | 
   );
 }
 
+function CommaBreakText({ value }: { value: string }): JSX.Element {
+  const lines = value.split('\n');
+
+  return (
+    <>
+      {lines.map((line, lineIndex) => {
+        const parts = line.split(',');
+
+        return (
+          <span key={`comma-line-${lineIndex}`} className="estimate-comma-break-line">
+            {parts.map((part, partIndex) => {
+              const isLast = partIndex === parts.length - 1;
+              const text = part.trim();
+
+              if (!text) {
+                return null;
+              }
+
+              return (
+                <span key={`comma-part-${lineIndex}-${partIndex}`} className="estimate-comma-break-item">
+                  {text}
+                  {isLast ? null : ','}
+                </span>
+              );
+            })}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
 interface EditableCellProps {
   field: EstimatePage1EditableField;
   activeField: EstimatePage1EditableField | null;
@@ -900,7 +932,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                 field="rentalItemsText"
                 activeField={activeField}
                 editor={editor}
-                displayValue={fallback(data.rentalItemsText)}
+                displayValue={<CommaBreakText value={fallback(data.rentalItemsText)} />}
                 multiline
                 className="estimate-page1-preline-cell"
                 input={

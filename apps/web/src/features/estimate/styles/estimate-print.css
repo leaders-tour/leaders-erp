@@ -519,6 +519,19 @@
   white-space: pre-line;
 }
 
+.estimate-comma-break-line {
+  display: block;
+}
+
+.estimate-comma-break-item {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.estimate-comma-break-item:not(:last-child) {
+  margin-right: 0.35em;
+}
+
 .estimate-page1-table--main td,
 .estimate-page1-table--main th {
   box-sizing: border-box;
