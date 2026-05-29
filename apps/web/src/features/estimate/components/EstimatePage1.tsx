@@ -27,6 +27,7 @@ import {
 const FLIGHT_IN_TIME_OPTIONS = ['00:05', '00:30', '00:50', '02:45', '04:30', '11:10', '12:40', '13:20', '17:00', '18:10', '23:05', '23:30'] as const;
 const FLIGHT_OUT_TIME_OPTIONS = ['00:25', '00:50', '01:30', '01:50', '02:05', '08:40', '11:00', '13:00', '13:40', '14:50', '18:15', '20:30'] as const;
 const PICKUP_DROP_TIME_OPTIONS = ['04:00', '05:00', '08:00', '15:30', '19:00', '21:00', '23:00'] as const;
+const MAX_ESTIMATE_PAGE1_FIT_SCALE = 1.16;
 
 interface EstimatePage1Props {
   data: EstimateDocumentData;
@@ -64,8 +65,8 @@ function VehicleTypeCellDisplay({ vehicleType }: { vehicleType: string | null | 
   }
   return (
     <span className="inline-flex flex-col items-center gap-0.5 text-center text-inherit">
-      <span className="block font-semibold leading-tight">{main}</span>
-      <span className="block text-[0.8125em] leading-snug text-inherit">{VEHICLE_PURGONG_PHOTO_NOTE}</span>
+      <span className="block font-bold leading-tight">{main}</span>
+      <span className="block text-[0.875em] leading-snug text-inherit">{VEHICLE_PURGONG_PHOTO_NOTE}</span>
     </span>
   );
 }
@@ -511,6 +512,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
       : formatPickupDropDisplay(data.dropDate, data.dropTime, data.dropPlaceType, data.dropPlaceCustomText),
   );
   const documentNumberText = data.documentNumber?.trim() ?? '';
+  const paymentBankOwnerShort = ESTIMATE_PAYMENT.bankOwner.replace(/\([^)]*\)/g, '').trim();
 
   useLayoutEffect(() => {
     if (typeof window === 'undefined') {
@@ -552,7 +554,27 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
       const naturalHeight = measureContentHeight(1);
 
       if (fitsInSlot(naturalHeight)) {
-        setScale(1);
+        const maxHeight = measureContentHeight(MAX_ESTIMATE_PAGE1_FIT_SCALE);
+        if (fitsInSlot(maxHeight)) {
+          setScale(MAX_ESTIMATE_PAGE1_FIT_SCALE);
+          return;
+        }
+
+        let low = 1;
+        let high = MAX_ESTIMATE_PAGE1_FIT_SCALE;
+        let best = low;
+
+        for (let index = 0; index < 8; index += 1) {
+          const mid = (low + high) / 2;
+          if (fitsInSlot(measureContentHeight(mid))) {
+            best = mid;
+            low = mid;
+          } else {
+            high = mid;
+          }
+        }
+
+        setScale(best);
         return;
       }
 
@@ -1077,13 +1099,12 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
         <div className="estimate-page1-company-meta estimate-page1-payment-bar-meta">
           <div className="estimate-page1-company-meta-group">
             <div>
-              결제 방식 예약금, 보증금 : {ESTIMATE_PAYMENT.reservationAndDepositMethod} / 잔금 : {ESTIMATE_PAYMENT.balanceMethod}{' '}
-              ({ESTIMATE_PAYMENT.vatText})
+              [결제] 예약/보증금: {ESTIMATE_PAYMENT.reservationAndDepositMethod} · 잔금: 현장결제(현금) [{ESTIMATE_PAYMENT.vatText}]
             </div>
           </div>
           <div className="estimate-page1-company-meta-group estimate-page1-company-meta-group--right">
             <div>
-              입금 계좌 {ESTIMATE_PAYMENT.bankAccount} {ESTIMATE_PAYMENT.bankName} {ESTIMATE_PAYMENT.bankOwner}
+              [입금] {ESTIMATE_PAYMENT.bankAccount} {ESTIMATE_PAYMENT.bankName} {paymentBankOwnerShort}
             </div>
           </div>
         </div>
