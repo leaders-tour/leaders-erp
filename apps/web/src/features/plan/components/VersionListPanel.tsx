@@ -45,7 +45,7 @@ export function VersionListPanel({
         <Table>
           <thead>
             <tr>
-              <Th>고객명</Th>
+              <Th>대표자명</Th>
               <Th>버전</Th>
               <Th>부모</Th>
               <Th>타입</Th>
@@ -57,7 +57,7 @@ export function VersionListPanel({
           <tbody>
             {versions.map((version) => (
               <tr key={version.id}>
-                <Td>{customerName}</Td>
+                <Td>{version.meta?.leaderName?.trim() || customerName}</Td>
                 <Td>
                   <span className="font-medium">v{version.versionNumber}</span>
                   {currentVersionId === version.id ? (

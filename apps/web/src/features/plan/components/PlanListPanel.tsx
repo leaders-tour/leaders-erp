@@ -21,6 +21,7 @@ export function PlanListPanel({ plans, onOpenPlan, onCreatePlan }: PlanListPanel
           <thead>
             <tr>
               <Th>제목</Th>
+              <Th>대표자명</Th>
               <Th>현재 버전</Th>
               <Th>수정일</Th>
               <Th>관리</Th>
@@ -30,6 +31,7 @@ export function PlanListPanel({ plans, onOpenPlan, onCreatePlan }: PlanListPanel
             {plans.map((plan) => (
               <tr key={plan.id}>
                 <Td>{plan.title}</Td>
+                <Td>{plan.currentVersion?.meta?.leaderName?.trim() || '-'}</Td>
                 <Td>{plan.currentVersion ? `v${plan.currentVersion.versionNumber}` : '-'}</Td>
                 <Td>{new Date(plan.updatedAt).toLocaleString('ko-KR')}</Td>
                 <Td>

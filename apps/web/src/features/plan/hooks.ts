@@ -545,6 +545,11 @@ const PLANS_BY_USER_QUERY = gql`
         movementIntensity
         createdAt
         updatedAt
+        meta {
+          id
+          planVersionId
+          leaderName
+        }
       }
     }
   }
@@ -593,6 +598,11 @@ const PLAN_DETAIL_QUERY = gql`
         movementIntensity
         createdAt
         updatedAt
+        meta {
+          id
+          planVersionId
+          leaderName
+        }
       }
       versions {
         id
@@ -606,6 +616,11 @@ const PLAN_DETAIL_QUERY = gql`
         movementIntensity
         createdAt
         updatedAt
+        meta {
+          id
+          planVersionId
+          leaderName
+        }
       }
     }
   }
@@ -638,6 +653,11 @@ const PLAN_VERSIONS_QUERY = gql`
       updatedAt
       childVersions {
         id
+      }
+      meta {
+        id
+        planVersionId
+        leaderName
       }
     }
   }
@@ -1086,7 +1106,12 @@ export function useUpdateUser() {
           : [];
       const result = await mutate({
         variables: { id, input },
-        refetchQueries: [{ query: USERS_QUERY }, { query: USER_QUERY, variables: { id } }, ...extraRefetch],
+        refetchQueries: [
+          { query: USERS_QUERY },
+          { query: USER_QUERY, variables: { id } },
+          { query: PLANS_BY_USER_QUERY, variables: { userId: id } },
+          ...extraRefetch,
+        ],
       });
 
       if (!result.data?.updateUser) {

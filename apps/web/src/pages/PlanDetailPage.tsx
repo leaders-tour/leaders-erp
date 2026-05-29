@@ -86,6 +86,11 @@ export function PlanDetailPage(): JSX.Element {
 
   const currentVersion = sortedVersions.find((version) => version.id === plan.currentVersionId) ?? null;
   const baseForCreate = defaultParentVersionId || currentVersion?.id || sortedVersions[0]?.id || '';
+  const currentLeaderName =
+    currentVersion?.meta?.leaderName?.trim() ||
+    plan.currentVersion?.meta?.leaderName?.trim() ||
+    sortedVersions[0]?.meta?.leaderName?.trim() ||
+    plan.user.name;
 
   return (
     <section className="grid gap-6">
@@ -94,7 +99,7 @@ export function PlanDetailPage(): JSX.Element {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{plan.title}</h1>
             <p className="mt-1 text-sm text-slate-600">
-              고객: {plan.user.name} · 지역 세트: {plan.regionSet.name}
+              대표자: {currentLeaderName} · 고객: {plan.user.name} · 지역 세트: {plan.regionSet.name}
             </p>
           </div>
           <div className="flex gap-2">

@@ -6,6 +6,14 @@ query Plans($userId: ID!) {
     title
     documentNumberBase
     currentVersionId
+    currentVersion {
+      id
+      meta {
+        id
+        planVersionId
+        leaderName
+      }
+    }
   }
 }
 
@@ -17,5 +25,10 @@ query PlanVersions($planId: ID!) {
     versionNumber
     variantType
     totalDays
+    meta {
+      id
+      planVersionId
+      leaderName
+    }
   }
 }

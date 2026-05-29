@@ -542,7 +542,36 @@ export class PlanService {
     }
 
     await this.validateOwnerEmployeeId(parsed.data.ownerEmployeeId);
-    return new PlanRepository(this.prisma).updateUser(id, parsed.data);
+
+    const nextName = parsed.data.name?.trim();
+    if (!nextName || nextName === existing.name.trim()) {
+      return new PlanRepository(this.prisma).updateUser(id, parsed.data);
+    }
+
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const repository = new PlanRepository(tx);
+      const updatedUser = await repository.updateUser(id, parsed.data);
+      await repository.updateUserPlanLeaderNames(id, nextName);
+
+      const titleUpdates = existing.plans
+        .filter((plan) => {
+          const currentLeaderName = plan.currentVersion?.meta?.leaderName?.trim();
+          const defaultTitleCandidates = [existing.name.trim(), currentLeaderName]
+            .filter((name): name is string => Boolean(name))
+            .map((name) => `${name} - 여행일정`);
+          return defaultTitleCandidates.includes(plan.title.trim());
+        })
+        .map((plan) => ({
+          id: plan.id,
+          title: `${nextName} - 여행일정`,
+        }));
+
+      if (titleUpdates.length > 0) {
+        await repository.updatePlanTitlesById(titleUpdates);
+      }
+
+      return updatedUser;
+    });
   }
 
   async uploadUserAttachment(userId: string, rawFile: UploadFile | Promise<UploadFile>) {

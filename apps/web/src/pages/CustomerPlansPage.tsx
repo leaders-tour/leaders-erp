@@ -9,7 +9,7 @@ export function CustomerPlansPage(): JSX.Element {
   const navigate = useNavigate();
   const { userId } = useParams<{ userId: string }>();
   const { user, loading: userLoading } = useUser(userId);
-  const { plans, loading: plansLoading } = usePlansByUser(userId);
+  const { plans, loading: plansLoading, refetch: refetchPlans } = usePlansByUser(userId);
   const { employees } = useEmployees(true);
   const { updateUser, loading: updatingUser } = useUpdateUser();
   const [name, setName] = useState('');
@@ -51,7 +51,9 @@ export function CustomerPlansPage(): JSX.Element {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">고객 정보</h2>
-              <p className="mt-1 text-sm text-slate-600">담당자와 기본 연락 정보를 수정할 수 있습니다.</p>
+              <p className="mt-1 text-sm text-slate-600">
+                고객명을 저장하면 이 고객의 일정 대표자명과 자동 제목도 함께 변경됩니다.
+              </p>
             </div>
             <Button
               variant="outline"
@@ -65,6 +67,7 @@ export function CustomerPlansPage(): JSX.Element {
                     email: email.trim() || null,
                     ownerEmployeeId: ownerEmployeeId || null,
                   });
+                  await refetchPlans();
                   setFeedback('고객 정보를 저장했습니다.');
                 } catch (error) {
                   setErrorMessage(error instanceof Error ? error.message : '고객 정보 저장에 실패했습니다.');

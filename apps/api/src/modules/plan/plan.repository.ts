@@ -244,6 +244,24 @@ export class PlanRepository {
     });
   }
 
+  updateUserPlanLeaderNames(userId: string, leaderName: string) {
+    return this.prisma.planVersionMeta.updateMany({
+      where: { planVersion: { plan: { userId } } },
+      data: { leaderName },
+    });
+  }
+
+  updatePlanTitlesById(input: Array<{ id: string; title: string }>) {
+    return Promise.all(
+      input.map((item) =>
+        this.prisma.plan.update({
+          where: { id: item.id },
+          data: { title: item.title },
+        }),
+      ),
+    );
+  }
+
   createUserNote(data: UserNoteCreateDto) {
     return this.prisma.userNote.create({ data });
   }

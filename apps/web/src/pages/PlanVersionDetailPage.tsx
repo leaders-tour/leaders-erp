@@ -179,6 +179,7 @@ export function PlanVersionDetailPage(): JSX.Element {
   const { updatePlanVersionChangeNote, loading: changeNoteSaving } = useUpdatePlanVersionChangeNote();
   const [changeNoteEditing, setChangeNoteEditing] = useState(false);
   const [changeNoteDraft, setChangeNoteDraft] = useState('');
+
   const handleChangeNoteBlurSave = useCallback(async () => {
     if (!versionId || !version) {
       return;
@@ -541,6 +542,7 @@ export function PlanVersionDetailPage(): JSX.Element {
                   <DetailValue muted={!version.meta.leaderName?.trim()}>
                     {version.meta.leaderName?.trim() || '-'}
                   </DetailValue>
+                  <p className="mt-1 text-xs text-slate-500">고객 정보의 고객명을 저장하면 함께 변경됩니다.</p>
                 </div>
                 <div>
                   <DetailLabel>여행지</DetailLabel>
