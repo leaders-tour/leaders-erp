@@ -698,7 +698,7 @@
 }
 
 .estimate-page1-price-line-amount {
-  font-weight: 800;
+  font-weight: inherit;
 }
 
 .estimate-page1-price-line-formula {

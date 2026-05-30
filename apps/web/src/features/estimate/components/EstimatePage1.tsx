@@ -65,7 +65,7 @@ function VehicleTypeCellDisplay({ vehicleType }: { vehicleType: string | null | 
   }
   return (
     <span className="inline-flex flex-col items-center gap-0.5 text-center text-inherit">
-      <span className="block font-bold leading-tight">{main}</span>
+      <span className="block leading-tight">{main}</span>
       <span className="block text-[0.875em] leading-snug text-inherit">{VEHICLE_PURGONG_PHOTO_NOTE}</span>
     </span>
   );
@@ -1036,9 +1036,9 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
                           ) : null}
                           <span>{line.label}</span>
                         </span>
-                        <strong className="estimate-page1-price-line-amount">
+                        <span className="estimate-page1-price-line-amount">
                         {formatSignedCurrency(line.leadAmountKrw)}
-                        </strong>
+                        </span>
                       </span>
                       <span className="estimate-page1-price-line-formula">{line.formula}</span>
                     </div>
