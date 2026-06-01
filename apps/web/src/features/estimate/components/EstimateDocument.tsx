@@ -44,6 +44,11 @@ function appendGuideFillersToLastChunk(chunks: EstimateGuideBlock[][]): Estimate
   return chunks.map((chunk, index) => (index === chunks.length - 1 ? [...chunk, ...fillers] : chunk));
 }
 
+function hasPrimaryGuideImage(block: EstimateGuideBlock): boolean {
+  const url = block.imageUrls[0];
+  return typeof url === 'string' && url.trim().length > 0;
+}
+
 export function EstimateDocument({
   data,
   viewMode = 'print',
@@ -54,14 +59,15 @@ export function EstimateDocument({
   const { colors: settingsMovementIntensityColors } = useMovementIntensityColorSettings();
   const movementIntensityColors = data.movementIntensityColors ?? settingsMovementIntensityColors;
   const guideChunks = useMemo(() => {
-    if (data.page3Blocks.length === 0) {
+    const guideBlocks = data.page3Blocks.filter(hasPrimaryGuideImage);
+    if (guideBlocks.length === 0) {
       return [];
     }
     const splits = data.estimateGuidePageSplits;
     const chunks = Array.isArray(splits) && splits.length > 0 && splits.every((n) => Number.isInteger(n) && n >= 1)
-      ? chunkGuidePagesBySplits(data.page3Blocks, splits)
+      ? chunkGuidePagesBySplits(guideBlocks, splits)
       : chunkEstimateGuidePages(
-          data.page3Blocks,
+          guideBlocks,
           normalizeEstimateGuideImagesPerPage(data.estimateGuideImagesPerPage),
         );
 

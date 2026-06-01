@@ -36,8 +36,13 @@
 }
 
 .estimate-document--preview .estimate-page-break {
+  width: min(100%, 760px);
   break-before: auto;
   page-break-before: auto;
+}
+
+.estimate-document--preview .estimate-page-break > .estimate-sheet {
+  width: 100%;
 }
 
 .estimate-document--preview .estimate-sheet {
@@ -857,6 +862,13 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  --itinerary-row-count: 1;
+  --itinerary-table-head-height: 24px;
+  --itinerary-body-grid-rows: repeat(1, minmax(0, 1fr));
+  --itinerary-row-font-size: 12px;
+  --itinerary-row-line-height: 1.25;
+  --itinerary-cell-padding: 4px;
+  --itinerary-cell-gap: 4px;
 }
 
 .estimate-document--preview .estimate-sheet-itinerary,
@@ -1010,7 +1022,7 @@
   margin: 0 0 2px auto;
   flex: 0 0 auto;
   display: inline-flex;
-  align-items: flex-center;
+  align-items: center;
   gap: 6px;
   text-align: center;
   font-size: 26px;
@@ -1059,45 +1071,52 @@
 }
 
 .estimate-itinerary-table {
-  --itinerary-row-count: 1;
   position: relative;
   z-index: 1;
+  display: grid;
+  grid-template-columns: 5% 20% 14% 36% 14% 11%;
+  grid-template-rows: var(--itinerary-table-head-height) var(--itinerary-body-grid-rows);
   height: 100%;
-  font-size: 12px;
-  table-layout: fixed;
+  border-top: 1px solid #cbd5e1;
+  border-left: 1px solid #cbd5e1;
+  font-size: var(--itinerary-row-font-size);
 }
 
-.estimate-itinerary-table th,
-.estimate-itinerary-table td {
-  padding: 4px;
-  line-height: 1.25;
+.estimate-itinerary-table-row {
+  display: contents;
+}
+
+.estimate-itinerary-table-header-cell,
+.estimate-itinerary-table-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 0;
+  border-right: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  padding: var(--itinerary-cell-padding);
+  line-height: var(--itinerary-row-line-height);
   word-break: break-word;
 }
 
-.estimate-itinerary-table th {
+.estimate-itinerary-table-header-cell {
   background: var(--estimate-page2-header-bg, #6f8ca6);
   color: #fff;
   border-color: rgba(255, 255, 255, 0.35);
   font-weight: 700;
+  height: var(--itinerary-table-head-height);
 }
 
-.estimate-itinerary-table td {
+.estimate-itinerary-table-cell {
   text-align: center;
-  vertical-align: middle;
   font-weight: 500;
 }
 
-.estimate-itinerary-table tbody tr {
-  height: calc(196mm / var(--itinerary-row-count));
-}
-
-.estimate-itinerary-table th:nth-child(1),
-.estimate-itinerary-table td:nth-child(1) {
-  width: 5%;
-}
-
 .estimate-itinerary-table-date-col,
-.estimate-itinerary-table td:nth-child(1) {
+.estimate-itinerary-table-row .estimate-itinerary-table-cell:first-child {
   padding-left: 2px;
   padding-right: 2px;
 }
@@ -1117,44 +1136,19 @@
   letter-spacing: 0.08em;
 }
 
-.estimate-itinerary-table th:nth-child(2),
-.estimate-itinerary-table td:nth-child(2) {
-  width: 20%;
-}
-
-.estimate-itinerary-table th:nth-child(3),
-.estimate-itinerary-table td:nth-child(3) {
-  width: 14%;
-}
-
-.estimate-itinerary-table th:nth-child(4),
-.estimate-itinerary-table td:nth-child(4) {
-  width: 36%;
-}
-
-.estimate-itinerary-table th:nth-child(5),
-.estimate-itinerary-table td:nth-child(5) {
-  width: 14%;
-}
-
-.estimate-itinerary-table th:nth-child(6),
-.estimate-itinerary-table td:nth-child(6) {
-  width: 11%;
-}
-
 .estimate-itinerary-footer {
-  margin: 10px 0 0;
+  margin: var(--itinerary-footer-margin-top, 10px) 0 0;
   padding-left: 0;
   list-style: none;
-  font-size: 11.5px;
+  font-size: var(--itinerary-footer-font-size, 11.5px);
   font-weight: 500;
-  line-height: 1.3;
+  line-height: var(--itinerary-footer-line-height, 1.3);
   flex-shrink: 0;
 }
 
 .estimate-itinerary-footer li {
   position: relative;
-  margin: 3px 0;
+  margin: var(--itinerary-footer-li-margin, 3px) 0;
   padding-left: 10px;
 }
 
@@ -1170,7 +1164,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: var(--itinerary-cell-gap);
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
   height: 100%;
   max-height: 100%;
   overflow: hidden;
@@ -1181,6 +1178,11 @@
 .estimate-itinerary-cell-text {
   display: block;
   width: 100%;
+}
+
+.estimate-itinerary-cell--schedule {
+  font-size: var(--itinerary-schedule-font-size, inherit);
+  line-height: var(--itinerary-schedule-line-height, var(--itinerary-row-line-height));
 }
 
 .estimate-movement-intensity-chip {
