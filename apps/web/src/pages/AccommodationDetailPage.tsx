@@ -12,6 +12,7 @@ import {
   useUploadAccommodationImages,
   useUploadAccommodationOptionImages,
   accommodationDisplayImageUrl,
+  type AccommodationPriceCurrencyCode,
   type AccommodationLevel,
   type AccommodationOption,
   type PaymentMethod,
@@ -31,6 +32,16 @@ const LEVEL_COLORS: Record<AccommodationLevel, string> = {
 const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   PER_PERSON: '인당',
   PER_ROOM: '객실당',
+};
+
+const PRICE_CURRENCY_LABEL: Record<AccommodationPriceCurrencyCode, string> = {
+  MNT: '투그릭',
+  USD: '달러',
+};
+
+const PRICE_CURRENCY_SYMBOL: Record<AccommodationPriceCurrencyCode, string> = {
+  MNT: '₮',
+  USD: '$',
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -71,6 +82,29 @@ function formatCapacity(capacity: number | null | undefined): string | null {
   return capacity != null ? `${capacity}인실` : null;
 }
 
+function formatAccommodationPrice(value: number, currencyCode: AccommodationPriceCurrencyCode): string {
+  return `${PRICE_CURRENCY_SYMBOL[currencyCode]}${value.toLocaleString()}`;
+}
+
+function formatLowestOffSeasonPrices(options: AccommodationOption[]): string {
+  const lowestByCurrency = new Map<AccommodationPriceCurrencyCode, number>();
+  for (const option of options) {
+    if (option.priceOffSeason == null) continue;
+    const current = lowestByCurrency.get(option.priceCurrencyCode);
+    if (current == null || option.priceOffSeason < current) {
+      lowestByCurrency.set(option.priceCurrencyCode, option.priceOffSeason);
+    }
+  }
+
+  const labels = (Object.keys(PRICE_CURRENCY_LABEL) as AccommodationPriceCurrencyCode[])
+    .flatMap((currencyCode) => {
+      const price = lowestByCurrency.get(currencyCode);
+      return price == null ? [] : `${formatAccommodationPrice(price, currencyCode)}~`;
+    });
+
+  return labels.length > 0 ? labels.join(' / ') : '-';
+}
+
 /** 편집 중에는 입력 문자열을 파싱해 미리보기, 파싱 실패 시 서버 값 유지 */
 function previewSeasonPrice(
   editing: boolean,
@@ -109,6 +143,8 @@ function OptionCard({
   const displayPricePeakSeason = previewSeasonPrice(editing, pricePeakSeasonStr, current.pricePeakSeason, opt.pricePeakSeason);
   const displayPaymentMethod =
     editing && draft.paymentMethod !== undefined ? draft.paymentMethod : current.paymentMethod;
+  const displayPriceCurrencyCode =
+    editing && draft.priceCurrencyCode !== undefined ? draft.priceCurrencyCode : current.priceCurrencyCode;
   const displayLevel = editing && draft.level !== undefined ? draft.level : current.level;
   const displayCapacity = formatCapacity(current.capacity);
 
@@ -145,6 +181,7 @@ function OptionCard({
       capacity === opt.capacity &&
       priceOffSeason === opt.priceOffSeason &&
       pricePeakSeason === opt.pricePeakSeason &&
+      displayPriceCurrencyCode === opt.priceCurrencyCode &&
       effectiveMealIncluded === opt.mealIncluded &&
       (draft.note === undefined || draft.note === opt.note) &&
       (draft.paymentMethod === undefined || draft.paymentMethod === opt.paymentMethod);
@@ -164,6 +201,7 @@ function OptionCard({
       capacity,
       priceOffSeason,
       pricePeakSeason,
+      priceCurrencyCode: displayPriceCurrencyCode,
       mealIncluded: effectiveMealIncluded,
       ...(draft.note !== undefined ? { note: draft.note } : {}),
       ...(draft.paymentMethod !== undefined ? { paymentMethod: draft.paymentMethod } : {}),
@@ -286,7 +324,7 @@ function OptionCard({
                 <button
                   className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
                   onClick={() => {
-                    setDraft({ roomType: opt.roomType, level: opt.level, capacity: opt.capacity });
+                    setDraft({ roomType: opt.roomType, level: opt.level, capacity: opt.capacity, priceCurrencyCode: opt.priceCurrencyCode });
                     setPriceOffSeasonStr(opt.priceOffSeason != null ? String(opt.priceOffSeason) : '');
                     setPricePeakSeasonStr(opt.pricePeakSeason != null ? String(opt.pricePeakSeason) : '');
                     setCapacityStr(opt.capacity != null ? String(opt.capacity) : '');
@@ -311,7 +349,7 @@ function OptionCard({
         <div className="mt-2 flex flex-wrap gap-3 text-sm">
           {displayPriceOffSeason != null && (
             <span className="text-slate-700">
-              비수기 <strong className="text-slate-900">₮{displayPriceOffSeason.toLocaleString()}</strong>
+              비수기 <strong className="text-slate-900">{formatAccommodationPrice(displayPriceOffSeason, displayPriceCurrencyCode)}</strong>
               {displayPaymentMethod && (
                 <span className="text-slate-400 ml-1">/{PAYMENT_LABEL[displayPaymentMethod]}</span>
               )}
@@ -319,7 +357,7 @@ function OptionCard({
           )}
           {displayPricePeakSeason != null && (
             <span className="text-slate-700">
-              성수기 <strong className="text-slate-900">₮{displayPricePeakSeason.toLocaleString()}</strong>
+              성수기 <strong className="text-slate-900">{formatAccommodationPrice(displayPricePeakSeason, displayPriceCurrencyCode)}</strong>
             </span>
           )}
         </div>
@@ -367,8 +405,19 @@ function OptionCard({
                     ))}
                   </select>
                 </label>
+                <label className="flex flex-col gap-1 sm:col-span-2">
+                  <span className="text-xs font-medium text-slate-500">가격 통화</span>
+                  <select
+                    value={displayPriceCurrencyCode}
+                    onChange={(e) => setDraft((p) => ({ ...p, priceCurrencyCode: e.target.value as AccommodationPriceCurrencyCode }))}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none md:max-w-xs"
+                  >
+                    <option value="MNT">{PRICE_CURRENCY_LABEL.MNT} (₮)</option>
+                    <option value="USD">{PRICE_CURRENCY_LABEL.USD} ($)</option>
+                  </select>
+                </label>
                 <label className="flex flex-col gap-1">
-                  <span className="text-xs font-medium text-slate-500">비수기 가격 (₮)</span>
+                  <span className="text-xs font-medium text-slate-500">비수기 가격 ({PRICE_CURRENCY_SYMBOL[displayPriceCurrencyCode]})</span>
                   <input
                     type="number"
                     min={0}
@@ -380,7 +429,7 @@ function OptionCard({
                   />
                 </label>
                 <label className="flex flex-col gap-1">
-                  <span className="text-xs font-medium text-slate-500">성수기 가격 (₮)</span>
+                  <span className="text-xs font-medium text-slate-500">성수기 가격 ({PRICE_CURRENCY_SYMBOL[displayPriceCurrencyCode]})</span>
                   <input
                     type="number"
                     min={0}
@@ -436,7 +485,7 @@ function OptionCard({
                     <dd><a href={current.googleMapsUrl} target="_blank" rel="noreferrer" className="text-indigo-600 text-xs hover:underline">Google Maps</a></dd>
                   </div>
                 )}
-                {current.mealCostPerServing != null && <div><dt className="text-slate-400 text-xs">끼니당</dt><dd className="text-slate-800">₮{current.mealCostPerServing.toLocaleString()}</dd></div>}
+                {current.mealCostPerServing != null && <div><dt className="text-slate-400 text-xs">끼니당</dt><dd className="text-slate-800">{formatAccommodationPrice(current.mealCostPerServing, current.priceCurrencyCode)}</dd></div>}
                 {current.note && <div className="sm:col-span-2"><dt className="text-slate-400 text-xs">특이사항</dt><dd className="text-slate-700 whitespace-pre-wrap">{current.note}</dd></div>}
               </dl>
             )}
@@ -462,6 +511,7 @@ function AddOptionModal({
     level: AccommodationLevel;
     priceOffSeason: string;
     pricePeakSeason: string;
+    priceCurrencyCode: AccommodationPriceCurrencyCode;
     capacity: string;
     mealIncluded: boolean;
     note: string;
@@ -470,6 +520,7 @@ function AddOptionModal({
     level: 'LV3',
     priceOffSeason: '',
     pricePeakSeason: '',
+    priceCurrencyCode: 'MNT',
     capacity: '',
     mealIncluded: false,
     note: '',
@@ -496,6 +547,7 @@ function AddOptionModal({
         level: form.level,
         priceOffSeason: form.priceOffSeason ? parseInt(form.priceOffSeason, 10) : null,
         pricePeakSeason: form.pricePeakSeason ? parseInt(form.pricePeakSeason, 10) : null,
+        priceCurrencyCode: form.priceCurrencyCode,
         capacity: capacityParsed.value,
         mealIncluded: form.mealIncluded,
         note: form.note || null,
@@ -552,8 +604,19 @@ function AddOptionModal({
               className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
             />
           </label>
+          <label className="flex flex-col gap-1 sm:col-span-2">
+            <span className="text-xs font-medium text-slate-500">가격 통화</span>
+            <select
+              value={form.priceCurrencyCode}
+              onChange={(e) => setForm((p) => ({ ...p, priceCurrencyCode: e.target.value as AccommodationPriceCurrencyCode }))}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none md:max-w-xs"
+            >
+              <option value="MNT">{PRICE_CURRENCY_LABEL.MNT} (₮)</option>
+              <option value="USD">{PRICE_CURRENCY_LABEL.USD} ($)</option>
+            </select>
+          </label>
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-slate-500">비수기 가격 (₮)</span>
+            <span className="text-xs font-medium text-slate-500">비수기 가격 ({PRICE_CURRENCY_SYMBOL[form.priceCurrencyCode]})</span>
             <input
               type="number"
               value={form.priceOffSeason}
@@ -563,7 +626,7 @@ function AddOptionModal({
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-slate-500">성수기 가격 (₮)</span>
+            <span className="text-xs font-medium text-slate-500">성수기 가격 ({PRICE_CURRENCY_SYMBOL[form.priceCurrencyCode]})</span>
             <input
               type="number"
               value={form.pricePeakSeason}
@@ -909,8 +972,7 @@ export function AccommodationDetailPage(): JSX.Element {
             <p className="text-slate-400 text-xs">최저 가격 (비수기)</p>
             <p className="font-semibold text-slate-900">
               {(() => {
-                const p = accommodation.options.map((o) => o.priceOffSeason).filter((v): v is number => v !== null).sort((a, b) => a - b)[0];
-                return p != null ? `₮${p.toLocaleString()}` : '-';
+                return formatLowestOffSeasonPrices(accommodation.options);
               })()}
             </p>
           </div>

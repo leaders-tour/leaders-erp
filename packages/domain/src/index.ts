@@ -41,3 +41,4 @@ export * from './enums/driver-status';
 export * from './enums/vehicle-type';
 export * from './enums/accommodation-level';
 export * from './enums/payment-method';
+export * from './enums/accommodation-price-currency-code';

@@ -1,4 +1,4 @@
-import type { AccommodationLevel, PaymentMethod } from '@prisma/client';
+import type { AccommodationLevel, AccommodationPriceCurrencyCode, PaymentMethod } from '@prisma/client';
 
 export interface AccommodationCreateDto {
   name: string;
@@ -31,6 +31,7 @@ export interface AccommodationOptionCreateDto {
   level?: AccommodationLevel;
   priceOffSeason?: number | null;
   pricePeakSeason?: number | null;
+  priceCurrencyCode?: AccommodationPriceCurrencyCode;
   paymentMethod?: PaymentMethod | null;
   mealCostPerServing?: number | null;
   capacity?: number | null;
@@ -45,6 +46,7 @@ export interface AccommodationOptionUpdateDto {
   level?: AccommodationLevel;
   priceOffSeason?: number | null;
   pricePeakSeason?: number | null;
+  priceCurrencyCode?: AccommodationPriceCurrencyCode;
   paymentMethod?: PaymentMethod | null;
   mealCostPerServing?: number | null;
   capacity?: number | null;

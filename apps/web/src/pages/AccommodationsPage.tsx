@@ -7,6 +7,7 @@ import {
   useAccommodation,
   useUpdateAccommodation,
   accommodationDisplayImageUrl,
+  type AccommodationPriceCurrencyCode,
   type AccommodationLevel,
   type AccommodationRow,
 } from '../features/accommodation/hooks';
@@ -33,6 +34,34 @@ const PRIORITY_CHIP_COLORS: Record<string, string> = {
   '3순위': 'bg-orange-100 text-orange-700',
   보류: 'bg-rose-100 text-rose-700',
 };
+
+const PRICE_CURRENCY_SYMBOL: Record<AccommodationPriceCurrencyCode, string> = {
+  MNT: '₮',
+  USD: '$',
+};
+
+function formatAccommodationPrice(value: number, currencyCode: AccommodationPriceCurrencyCode): string {
+  return `${PRICE_CURRENCY_SYMBOL[currencyCode]}${value.toLocaleString()}`;
+}
+
+function formatLowestOffSeasonPrices(acc: AccommodationRow): string | null {
+  const lowestByCurrency = new Map<AccommodationPriceCurrencyCode, number>();
+  for (const option of acc.options) {
+    if (option.priceOffSeason == null) continue;
+    const current = lowestByCurrency.get(option.priceCurrencyCode);
+    if (current == null || option.priceOffSeason < current) {
+      lowestByCurrency.set(option.priceCurrencyCode, option.priceOffSeason);
+    }
+  }
+
+  const labels = (Object.keys(PRICE_CURRENCY_SYMBOL) as AccommodationPriceCurrencyCode[])
+    .flatMap((currencyCode) => {
+      const price = lowestByCurrency.get(currencyCode);
+      return price == null ? [] : `${formatAccommodationPrice(price, currencyCode)}~`;
+    });
+
+  return labels.length > 0 ? labels.join(' / ') : null;
+}
 
 function LevelBadge({ level }: { level: AccommodationLevel }) {
   return (
@@ -161,10 +190,7 @@ function CoverImagePickerModal({
 function AccommodationCard({ acc, onClick }: { acc: AccommodationRow; onClick: () => void }) {
   const displayImage = accommodationDisplayImageUrl(acc);
   const levels = [...new Set(acc.options.map((o) => o.level))];
-  const minPrice = acc.options
-    .map((o) => o.priceOffSeason)
-    .filter((p): p is number => p !== null)
-    .sort((a, b) => a - b)[0];
+  const minPriceLabel = formatLowestOffSeasonPrices(acc);
   const [imgFailed, setImgFailed] = useState(false);
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
 
@@ -219,9 +245,9 @@ function AccommodationCard({ acc, onClick }: { acc: AccommodationRow; onClick: (
         </p>
         <div className="mt-2 flex items-center justify-between">
           <span className="text-xs text-slate-400">{acc.options.length}개 옵션</span>
-          {minPrice != null && (
+          {minPriceLabel && (
             <span className="text-xs font-medium text-indigo-600">
-              ₮{minPrice.toLocaleString()}~
+              {minPriceLabel}
             </span>
           )}
         </div>

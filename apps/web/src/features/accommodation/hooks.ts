@@ -4,6 +4,7 @@ import { useAuth } from '../auth/context';
 import { runUploadMutation } from '../../lib/upload-mutation';
 
 export type AccommodationLevel = 'LV2' | 'LV3' | 'LV4' | 'LV5';
+export type AccommodationPriceCurrencyCode = 'MNT' | 'USD';
 export type PaymentMethod = 'PER_PERSON' | 'PER_ROOM';
 
 export interface AccommodationOption {
@@ -13,6 +14,7 @@ export interface AccommodationOption {
   level: AccommodationLevel;
   priceOffSeason: number | null;
   pricePeakSeason: number | null;
+  priceCurrencyCode: AccommodationPriceCurrencyCode;
   paymentMethod: PaymentMethod | null;
   mealCostPerServing: number | null;
   capacity: number | null;
@@ -56,6 +58,7 @@ const OPTION_FRAGMENT = gql`
     level
     priceOffSeason
     pricePeakSeason
+    priceCurrencyCode
     paymentMethod
     mealCostPerServing
     capacity
@@ -169,7 +172,7 @@ const DELETE_ACCOMMODATION_OPTION_MUTATION = gql`
 `;
 
 const OPTION_FIELDS = `
-  id accommodationId roomType level priceOffSeason pricePeakSeason paymentMethod
+  id accommodationId roomType level priceOffSeason pricePeakSeason priceCurrencyCode paymentMethod
   mealCostPerServing capacity mealIncluded
   googleMapsUrl imageUrls note createdAt updatedAt
 `;
@@ -327,6 +330,7 @@ export function useCreateAccommodationOption() {
       level?: AccommodationLevel;
       priceOffSeason?: number | null;
       pricePeakSeason?: number | null;
+      priceCurrencyCode?: AccommodationPriceCurrencyCode;
       paymentMethod?: PaymentMethod | null;
       mealCostPerServing?: number | null;
       capacity?: number | null;

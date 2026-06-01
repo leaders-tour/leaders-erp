@@ -1,7 +1,8 @@
-import { AccommodationLevel, PaymentMethod } from '@tour/domain';
+import { AccommodationLevel, AccommodationPriceCurrencyCode, PaymentMethod } from '@tour/domain';
 import { z } from 'zod';
 
 export const accommodationLevelSchema = z.nativeEnum(AccommodationLevel);
+export const accommodationPriceCurrencyCodeSchema = z.nativeEnum(AccommodationPriceCurrencyCode);
 export const paymentMethodSchema = z.nativeEnum(PaymentMethod);
 
 export const accommodationCreateSchema = z.object({
@@ -35,6 +36,7 @@ export const accommodationOptionCreateSchema = z.object({
   level: accommodationLevelSchema.optional(),
   priceOffSeason: z.number().int().min(0).nullable().optional(),
   pricePeakSeason: z.number().int().min(0).nullable().optional(),
+  priceCurrencyCode: accommodationPriceCurrencyCodeSchema.optional(),
   paymentMethod: paymentMethodSchema.nullable().optional(),
   mealCostPerServing: z.number().int().min(0).nullable().optional(),
   capacity: z.number().int().min(1).nullable().optional(),
@@ -49,6 +51,7 @@ export const accommodationOptionUpdateSchema = z.object({
   level: accommodationLevelSchema.optional(),
   priceOffSeason: z.number().int().min(0).nullable().optional(),
   pricePeakSeason: z.number().int().min(0).nullable().optional(),
+  priceCurrencyCode: accommodationPriceCurrencyCodeSchema.optional(),
   paymentMethod: paymentMethodSchema.nullable().optional(),
   mealCostPerServing: z.number().int().min(0).nullable().optional(),
   capacity: z.number().int().min(1).nullable().optional(),

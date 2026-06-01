@@ -10,6 +10,11 @@ enum PaymentMethod {
   PER_ROOM
 }
 
+enum AccommodationPriceCurrencyCode {
+  MNT
+  USD
+}
+
 type Accommodation {
   id: ID!
   name: String!
@@ -35,6 +40,7 @@ type AccommodationOption {
   level: AccommodationLevel!
   priceOffSeason: Int
   pricePeakSeason: Int
+  priceCurrencyCode: AccommodationPriceCurrencyCode!
   paymentMethod: PaymentMethod
   mealCostPerServing: Int
   capacity: Int
@@ -77,6 +83,7 @@ input AccommodationOptionCreateInput {
   level: AccommodationLevel
   priceOffSeason: Int
   pricePeakSeason: Int
+  priceCurrencyCode: AccommodationPriceCurrencyCode
   paymentMethod: PaymentMethod
   mealCostPerServing: Int
   capacity: Int
@@ -91,6 +98,7 @@ input AccommodationOptionUpdateInput {
   level: AccommodationLevel
   priceOffSeason: Int
   pricePeakSeason: Int
+  priceCurrencyCode: AccommodationPriceCurrencyCode
   paymentMethod: PaymentMethod
   mealCostPerServing: Int
   capacity: Int

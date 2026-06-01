@@ -1831,6 +1831,11 @@ enum PaymentMethod {
   PER_ROOM
 }
 
+enum AccommodationPriceCurrencyCode {
+  MNT
+  USD
+}
+
 model Accommodation {
   id              String   @id @default(uuid(7))
   name            String
@@ -1862,6 +1867,7 @@ model AccommodationOption {
   level              AccommodationLevel @default(LV3)
   priceOffSeason     Int?
   pricePeakSeason    Int?
+  priceCurrencyCode  AccommodationPriceCurrencyCode @default(MNT)
   paymentMethod      PaymentMethod?
   mealCostPerServing Int?
   capacity           Int?
