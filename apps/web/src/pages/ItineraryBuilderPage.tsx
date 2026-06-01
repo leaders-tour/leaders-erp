@@ -1651,7 +1651,7 @@ const VARIANTS = [
   { id: VariantType.EarlyExtend, label: '얼리+연장' },
 ];
 
-const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스'] as const;
+const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스', '프리미엄 밴'] as const;
 const FLIGHT_IN_TIME_OPTIONS = [
   '00:05',
   '00:30',

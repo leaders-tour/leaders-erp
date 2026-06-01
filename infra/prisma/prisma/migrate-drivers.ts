@@ -117,11 +117,12 @@ function parseHtml(htmlPath: string): ParsedDriver[] {
 
 // ─── enum 매핑 ────────────────────────────────────────────────────────────────
 
-function mapVehicleType(raw: string): 'STAREX' | 'HIACE' | 'PURGON' | 'LAND_CRUISER' | 'ALPHARD' | 'OTHER' {
+function mapVehicleType(raw: string): 'STAREX' | 'HIACE_SHORT' | 'HIACE_LONG' | 'PURGON' | 'PREMIUM_VAN' | 'LAND_CRUISER' | 'ALPHARD' | 'OTHER' {
   const v = raw.toLowerCase();
   if (v.includes('스타렉스') || v.includes('starex')) return 'STAREX';
-  if (v.includes('하이에이스') || v.includes('hiace')) return 'HIACE';
+  if (v.includes('하이에이스') || v.includes('hiace')) return 'HIACE_SHORT';
   if (v.includes('푸르공') || v.includes('purgon')) return 'PURGON';
+  if (v.includes('프리미엄') || v.includes('premium')) return 'PREMIUM_VAN';
   if (v.includes('랜드크루저') || v.includes('land')) return 'LAND_CRUISER';
   if (v.includes('알파드') || v.includes('alphard')) return 'ALPHARD';
   return 'OTHER';

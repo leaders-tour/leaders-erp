@@ -7,7 +7,15 @@ import { CONFIRMED_TRIP_FRAGMENT, type ConfirmedTripRow } from '../confirmed-tri
 export interface DriverRow {
   id: string;
   nameMn: string;
-  vehicleType: 'STAREX' | 'HIACE_SHORT' | 'HIACE_LONG' | 'PURGON' | 'LAND_CRUISER' | 'ALPHARD' | 'OTHER';
+  vehicleType:
+    | 'STAREX'
+    | 'HIACE_SHORT'
+    | 'HIACE_LONG'
+    | 'PURGON'
+    | 'PREMIUM_VAN'
+    | 'LAND_CRUISER'
+    | 'ALPHARD'
+    | 'OTHER';
   vehicleNumber: string | null;
   vehicleOptions: string | null;
   vehicleYear: number | null;
