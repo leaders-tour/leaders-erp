@@ -9,7 +9,7 @@ export const RENTAL_ITEM_LABELS: Record<TourListRentalItem, string> = {
 const RENTAL_ITEM_TOTALS: Record<TourListRentalItem, number> = {
   DRONE: 10,
   STARLINK: 5,
-  POWERBANK: 1,
+  POWERBANK: 2,
 };
 
 export function RentalItemAvailabilityBadges({

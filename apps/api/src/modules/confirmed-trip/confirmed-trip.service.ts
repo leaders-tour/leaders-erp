@@ -50,7 +50,7 @@ const calendarNoteWithConfirmedTripInclude = {
 const RENTAL_ITEM_STOCK = {
   DRONE: { label: '드론', total: 10 },
   STARLINK: { label: '스타링크', total: 5 },
-  POWERBANK: { label: '파워뱅크', total: 1 },
+  POWERBANK: { label: '파워뱅크', total: 2 },
 } as const;
 
 type RentalAvailabilityItem = keyof typeof RENTAL_ITEM_STOCK;

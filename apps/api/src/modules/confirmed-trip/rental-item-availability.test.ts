@@ -73,7 +73,7 @@ describe('buildRentalItemAvailability', () => {
     );
 
     expect(availability.find((row) => row.item === 'DRONE')).toMatchObject({ used: 1, available: 9 });
-    expect(availability.find((row) => row.item === 'POWERBANK')).toMatchObject({ used: 1, available: 0 });
+    expect(availability.find((row) => row.item === 'POWERBANK')).toMatchObject({ used: 1, available: 1 });
   });
 
   it('uses the provided trip list as the exclusion boundary', () => {
