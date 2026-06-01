@@ -539,6 +539,10 @@
   text-align: center;
 }
 
+.estimate-page1-table--main td {
+  font-weight: 600;
+}
+
 /* border-collapse: collapse 에서 td min-height가 무시되는 경우가 있어, tr min-height + 세로 패딩으로 최소 행 높이 보장 */
 .estimate-page1-table--main tr.estimate-page1-tr--even-height {
   min-height: var(--estimate-page1-main-even-row-min-height);
