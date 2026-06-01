@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import '../styles/estimate-print.css';
-import { ESTIMATE_IMAGE_PAGE_SRCS } from '../model/constants';
-import type { EstimateDocumentData, EstimatePage1Editor } from '../model/types';
+import { ESTIMATE_GUIDE_FILLER_IMAGE_SRCS, ESTIMATE_IMAGE_PAGE_SRCS } from '../model/constants';
+import type { EstimateDocumentData, EstimateGuideBlock, EstimatePage1Editor } from '../model/types';
 import {
   chunkEstimateGuidePages,
   chunkGuidePagesBySplits,
@@ -22,6 +22,28 @@ interface EstimateDocumentProps {
   includeStaticImagePages?: boolean;
 }
 
+function appendGuideFillersToLastChunk(chunks: EstimateGuideBlock[][]): EstimateGuideBlock[][] {
+  if (chunks.length === 0) {
+    return chunks;
+  }
+
+  const lastChunk = chunks[chunks.length - 1] ?? [];
+  const fillerCount = lastChunk.length === 1 ? 2 : lastChunk.length === 2 ? 1 : 0;
+  if (fillerCount === 0) {
+    return chunks;
+  }
+
+  const fillers = ESTIMATE_GUIDE_FILLER_IMAGE_SRCS.slice(0, fillerCount).map((src, index) => ({
+    locationId: `estimate-guide-filler-${index + 1}`,
+    locationName: '',
+    title: '',
+    description: '',
+    imageUrls: [src],
+  }));
+
+  return chunks.map((chunk, index) => (index === chunks.length - 1 ? [...chunk, ...fillers] : chunk));
+}
+
 export function EstimateDocument({
   data,
   viewMode = 'print',
@@ -36,11 +58,14 @@ export function EstimateDocument({
       return [];
     }
     const splits = data.estimateGuidePageSplits;
-    if (Array.isArray(splits) && splits.length > 0 && splits.every((n) => Number.isInteger(n) && n >= 1)) {
-      return chunkGuidePagesBySplits(data.page3Blocks, splits);
-    }
-    const guidePerPage = normalizeEstimateGuideImagesPerPage(data.estimateGuideImagesPerPage);
-    return chunkEstimateGuidePages(data.page3Blocks, guidePerPage);
+    const chunks = Array.isArray(splits) && splits.length > 0 && splits.every((n) => Number.isInteger(n) && n >= 1)
+      ? chunkGuidePagesBySplits(data.page3Blocks, splits)
+      : chunkEstimateGuidePages(
+          data.page3Blocks,
+          normalizeEstimateGuideImagesPerPage(data.estimateGuideImagesPerPage),
+        );
+
+    return appendGuideFillersToLastChunk(chunks);
   }, [data.estimateGuidePageSplits, data.estimateGuideImagesPerPage, data.page3Blocks]);
 
   return (

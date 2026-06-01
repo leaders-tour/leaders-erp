@@ -32,6 +32,11 @@ export const ESTIMATE_PAGE3_TITLE = '여행지 안내사항';
 /** 견적서 여행지 안내 템플릿 이미지: 페이지당 배치 개수 기본값 */
 export const ESTIMATE_GUIDE_IMAGES_PER_PAGE_DEFAULT = 2 as const;
 
+export const ESTIMATE_GUIDE_FILLER_IMAGE_SRCS = [
+  '/estimate/guide-filler-01.jpg',
+  '/estimate/guide-filler-02.jpg',
+] as const;
+
 export const ESTIMATE_IMAGE_PAGE_SRCS = [
   '/estimate/page-04.webp',
   '/estimate/page-05.webp',
