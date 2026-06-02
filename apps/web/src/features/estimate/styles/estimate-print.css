@@ -869,6 +869,8 @@
   --itinerary-row-line-height: 1.25;
   --itinerary-cell-padding: 4px;
   --itinerary-cell-gap: 4px;
+  --itinerary-paired-line-font-size: inherit;
+  --itinerary-paired-line-height: var(--itinerary-row-line-height);
 }
 
 .estimate-document--preview .estimate-sheet-itinerary,
@@ -1180,9 +1182,22 @@
   width: 100%;
 }
 
-.estimate-itinerary-cell--schedule {
-  font-size: var(--itinerary-schedule-font-size, inherit);
-  line-height: var(--itinerary-schedule-line-height, var(--itinerary-row-line-height));
+.estimate-itinerary-cell--paired-lines {
+  display: grid;
+  grid-template-rows: repeat(var(--itinerary-paired-line-count, 1), minmax(0, 1fr));
+  gap: 0;
+  align-items: stretch;
+  justify-items: center;
+  font-size: var(--itinerary-paired-line-font-size);
+  line-height: var(--itinerary-paired-line-height);
+}
+
+.estimate-itinerary-line {
+  display: flex;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  white-space: pre-wrap;
 }
 
 .estimate-movement-intensity-chip {

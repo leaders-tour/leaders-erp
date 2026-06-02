@@ -40,8 +40,21 @@ function formatVerticalDateText(value: string): string {
   return Array.from(value.replace(/\s+/g, '')).join('\n');
 }
 
-function countDisplayLines(value: string): number {
-  return value.split('\n').filter((line) => line.trim().length > 0).length || 1;
+function getDisplayLines(value: string | null | undefined): string[] {
+  const lines = fallback(value)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  return lines.length > 0 ? lines : ['-'];
+}
+
+function padDisplayLines(lines: string[], lineCount: number): string[] {
+  if (lines.length >= lineCount) {
+    return lines;
+  }
+
+  return [...lines, ...Array.from({ length: lineCount - lines.length }, () => '')];
 }
 
 function formatPage2Title(value: string | null | undefined): string {
@@ -70,56 +83,89 @@ function getPage2HeaderBgColor(destinationName: string | null | undefined): stri
   return matches[0]?.color ?? DEFAULT_PAGE2_HEADER_BG_COLOR;
 }
 
-function getScheduleCellFitStyle(lineCount: number): CSSProperties | undefined {
+function getPairedLineCellFitStyle(lineCount: number): CSSProperties | undefined {
   if (lineCount <= 6) {
     return undefined;
   }
 
   if (lineCount >= 11) {
     return {
-      '--itinerary-schedule-font-size': '8px',
-      '--itinerary-schedule-line-height': '0.98',
+      '--itinerary-paired-line-font-size': '9.4px',
+      '--itinerary-paired-line-height': '1.05',
     } as CSSProperties;
   }
 
   if (lineCount === 10) {
     return {
-      '--itinerary-schedule-font-size': '8.8px',
-      '--itinerary-schedule-line-height': '1',
+      '--itinerary-paired-line-font-size': '10px',
+      '--itinerary-paired-line-height': '1.08',
     } as CSSProperties;
   }
 
   if (lineCount === 9) {
     return {
-      '--itinerary-schedule-font-size': '9.6px',
-      '--itinerary-schedule-line-height': '1.02',
+      '--itinerary-paired-line-font-size': '10.6px',
+      '--itinerary-paired-line-height': '1.1',
     } as CSSProperties;
   }
 
   if (lineCount === 8) {
     return {
-      '--itinerary-schedule-font-size': '10.4px',
-      '--itinerary-schedule-line-height': '1.03',
+      '--itinerary-paired-line-font-size': '11.2px',
+      '--itinerary-paired-line-height': '1.12',
     } as CSSProperties;
   }
 
   return {
-    '--itinerary-schedule-font-size': '11px',
-    '--itinerary-schedule-line-height': '1.05',
+    '--itinerary-paired-line-font-size': '11.6px',
+    '--itinerary-paired-line-height': '1.14',
   } as CSSProperties;
 }
 
+function getItineraryRowLineWeight(row: EstimatePlanStopRow): number {
+  return Math.max(getDisplayLines(row.timeCellText).length, getDisplayLines(row.scheduleCellText).length, 1);
+}
+
 function chunkItineraryRows(rows: EstimatePlanStopRow[]): EstimatePlanStopRow[][] {
-  if (rows.length <= 9) {
+  if (rows.length <= 8) {
     return [rows];
   }
 
-  const pageCount = Math.ceil(rows.length / 6);
-  const basePageSize = Math.ceil(rows.length / pageCount);
+  const weights = rows.map(getItineraryRowLineWeight);
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  const pageCount = Math.max(Math.ceil(rows.length / 6), Math.ceil(totalWeight / 42));
+  const targetWeight = Math.ceil(totalWeight / pageCount);
   const chunks: EstimatePlanStopRow[][] = [];
+  let currentChunk: EstimatePlanStopRow[] = [];
+  let currentWeight = 0;
+  let currentPageStartIndex = 0;
 
-  for (let index = 0; index < rows.length; index += basePageSize) {
-    chunks.push(rows.slice(index, index + basePageSize));
+  rows.forEach((row, index) => {
+    const remainingRows = rows.length - index;
+    const remainingPagesAfterThis = pageCount - chunks.length - 1;
+    const maxRowsForThisPage = Math.max(1, remainingRows - remainingPagesAfterThis);
+    const targetRowsForThisPage = Math.ceil((rows.length - currentPageStartIndex) / (pageCount - chunks.length));
+    const weight = weights[index] ?? getItineraryRowLineWeight(row);
+    const shouldStartNextPage =
+      currentChunk.length > 0 &&
+      chunks.length < pageCount - 1 &&
+      (currentChunk.length >= 6 ||
+        currentChunk.length >= maxRowsForThisPage ||
+        (currentChunk.length >= targetRowsForThisPage && currentWeight + weight > targetWeight));
+
+    if (shouldStartNextPage) {
+      chunks.push(currentChunk);
+      currentChunk = [];
+      currentWeight = 0;
+      currentPageStartIndex = index;
+    }
+
+    currentChunk.push(row);
+    currentWeight += weight;
+  });
+
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk);
   }
 
   return chunks;
@@ -220,60 +266,77 @@ export function EstimatePage2({ data, movementIntensityColors }: EstimatePage2Pr
                   식사
                 </div>
                 {chunk.map((row, index) => {
-            const rowMovementIntensity = isExternalTransferPlanStopRow(row)
-              ? null
-              : resolveMovementIntensityForEstimateStop(
-                  {
-                    rowType: row.rowType,
-                    movementIntensity: row.movementIntensity,
-                    destinationCellText: row.destinationCellText,
-                  },
-                  null,
-                );
-            const intensity = getMovementIntensityMeta(rowMovementIntensity, movementIntensityColors);
-            const intensityColor =
-              getMovementIntensityColor(rowMovementIntensity, movementIntensityColors) ?? DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR;
-            const scheduleCellText = fallback(row.scheduleCellText);
-            const scheduleFitStyle = getScheduleCellFitStyle(countDisplayLines(scheduleCellText));
+                  const rowMovementIntensity = isExternalTransferPlanStopRow(row)
+                    ? null
+                    : resolveMovementIntensityForEstimateStop(
+                        {
+                          rowType: row.rowType,
+                          movementIntensity: row.movementIntensity,
+                          destinationCellText: row.destinationCellText,
+                        },
+                        null,
+                      );
+                  const intensity = getMovementIntensityMeta(rowMovementIntensity, movementIntensityColors);
+                  const intensityColor =
+                    getMovementIntensityColor(rowMovementIntensity, movementIntensityColors) ?? DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR;
+                  const timeLines = getDisplayLines(row.timeCellText);
+                  const scheduleLines = getDisplayLines(row.scheduleCellText);
+                  const pairedLineCount = Math.max(timeLines.length, scheduleLines.length);
+                  const pairedLineStyle = {
+                    '--itinerary-paired-line-count': String(pairedLineCount),
+                    ...getPairedLineCellFitStyle(pairedLineCount),
+                  } as CSSProperties;
+                  const paddedTimeLines = padDisplayLines(timeLines, pairedLineCount);
+                  const paddedScheduleLines = padDisplayLines(scheduleLines, pairedLineCount);
 
-            return (
-              <div className="estimate-itinerary-table-row" role="row" key={`itinerary-row-${pageIndex + 1}-${index + 1}`}>
-                <div className="estimate-itinerary-table-cell estimate-itinerary-table-date-col" role="cell">
-                  <div className="estimate-itinerary-cell estimate-itinerary-cell--date">
-                    {formatVerticalDateText(fallback(row.dateCellText))}
-                  </div>
-                </div>
-                <div className="estimate-itinerary-table-cell" role="cell">
-                  <div className="estimate-itinerary-cell">
-                    {!isExternalTransferPlanStopRow(row) ? (
-                      <span
-                        className="estimate-movement-intensity-chip"
-                        aria-label={intensity?.label ?? '이동강도 미지정'}
-                        title={intensity?.label ?? '이동강도 미지정'}
-                        style={{
-                          backgroundColor: intensityColor,
-                        }}
-                      />
-                    ) : null}
-                    <span className="estimate-itinerary-cell-text">{fallback(row.destinationCellText)}</span>
-                  </div>
-                </div>
-                <div className="estimate-itinerary-table-cell" role="cell">
-                  <div className="estimate-itinerary-cell">{fallback(row.timeCellText)}</div>
-                </div>
-                <div className="estimate-itinerary-table-cell" role="cell">
-                  <div className="estimate-itinerary-cell estimate-itinerary-cell--schedule" style={scheduleFitStyle}>
-                    {scheduleCellText}
-                  </div>
-                </div>
-                <div className="estimate-itinerary-table-cell" role="cell">
-                  <div className="estimate-itinerary-cell">{fallback(row.lodgingCellText)}</div>
-                </div>
-                <div className="estimate-itinerary-table-cell" role="cell">
-                  <div className="estimate-itinerary-cell">{formatMealCellForEstimate(row.mealCellText)}</div>
-                </div>
-              </div>
-            );
+                  return (
+                    <div className="estimate-itinerary-table-row" role="row" key={`itinerary-row-${pageIndex + 1}-${index + 1}`}>
+                      <div className="estimate-itinerary-table-cell estimate-itinerary-table-date-col" role="cell">
+                        <div className="estimate-itinerary-cell estimate-itinerary-cell--date">
+                          {formatVerticalDateText(fallback(row.dateCellText))}
+                        </div>
+                      </div>
+                      <div className="estimate-itinerary-table-cell" role="cell">
+                        <div className="estimate-itinerary-cell">
+                          {!isExternalTransferPlanStopRow(row) ? (
+                            <span
+                              className="estimate-movement-intensity-chip"
+                              aria-label={intensity?.label ?? '이동강도 미지정'}
+                              title={intensity?.label ?? '이동강도 미지정'}
+                              style={{
+                                backgroundColor: intensityColor,
+                              }}
+                            />
+                          ) : null}
+                          <span className="estimate-itinerary-cell-text">{fallback(row.destinationCellText)}</span>
+                        </div>
+                      </div>
+                      <div className="estimate-itinerary-table-cell" role="cell">
+                        <div className="estimate-itinerary-cell estimate-itinerary-cell--paired-lines" style={pairedLineStyle}>
+                          {paddedTimeLines.map((line, lineIndex) => (
+                            <span className="estimate-itinerary-line" key={`time-line-${lineIndex + 1}`}>
+                              {line}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="estimate-itinerary-table-cell" role="cell">
+                        <div className="estimate-itinerary-cell estimate-itinerary-cell--paired-lines" style={pairedLineStyle}>
+                          {paddedScheduleLines.map((line, lineIndex) => (
+                            <span className="estimate-itinerary-line" key={`schedule-line-${lineIndex + 1}`}>
+                              {line}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="estimate-itinerary-table-cell" role="cell">
+                        <div className="estimate-itinerary-cell">{fallback(row.lodgingCellText)}</div>
+                      </div>
+                      <div className="estimate-itinerary-table-cell" role="cell">
+                        <div className="estimate-itinerary-cell">{formatMealCellForEstimate(row.mealCellText)}</div>
+                      </div>
+                    </div>
+                  );
                 })}
               </div>
             </div>
