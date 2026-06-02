@@ -500,6 +500,7 @@ const USERS_QUERY = gql`
           meta {
             documentNumber
             headcountTotal
+            travelStartDate
           }
         }
       }

@@ -283,6 +283,15 @@ function compactError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function stripDocumentVersionSuffix(documentNumberNorm: string): string {
+  return documentNumberNorm.replace(/V\d+$/i, '');
+}
+
+function documentNumberLookupKeys(documentNumberNorm: string): string[] {
+  const base = stripDocumentVersionSuffix(documentNumberNorm);
+  return base === documentNumberNorm ? [documentNumberNorm] : [documentNumberNorm, base];
+}
+
 function dedupeSubmissionCount(rows: Array<{ travelerName: string | null; travelerPhoneDigits: string | null }>): {
   count: number;
   hasCollision: boolean;
@@ -344,24 +353,28 @@ export class ContractSyncService {
     if (normalized.length === 0) {
       return [];
     }
+    const lookupKeys = Array.from(new Set(normalized.flatMap(documentNumberLookupKeys)));
     const rows = await this.prisma.contractDocumentStatus.findMany({
-      where: { documentNumberNorm: { in: normalized } },
+      where: { documentNumberNorm: { in: lookupKeys } },
     });
     const byNorm = new Map(rows.map((row) => [row.documentNumberNorm, row]));
-    return normalized.map((documentNumberNorm) => byNorm.get(documentNumberNorm) ?? {
-      id: `synthetic:${documentNumberNorm}`,
-      documentNumberNorm,
-      documentNumberRawSample: null,
-      expectedCount: null,
-      submittedCount: 0,
-      status: 'NOT_STARTED' as ContractDocumentStatusValue,
-      needsReviewReason: null,
-      firstSubmittedAt: null,
-      lastSubmittedAt: null,
-      matchedPlanVersionId: null,
-      matchedConfirmedTripId: null,
-      computedAt: new Date(0),
-      updatedAt: new Date(0),
+    return normalized.map((documentNumberNorm) => {
+      const fallback = documentNumberLookupKeys(documentNumberNorm).map((key) => byNorm.get(key)).find(isPresent);
+      return fallback ? { ...fallback, documentNumberNorm } : {
+        id: `synthetic:${documentNumberNorm}`,
+        documentNumberNorm,
+        documentNumberRawSample: null,
+        expectedCount: null,
+        submittedCount: 0,
+        status: 'NOT_STARTED' as ContractDocumentStatusValue,
+        needsReviewReason: null,
+        firstSubmittedAt: null,
+        lastSubmittedAt: null,
+        matchedPlanVersionId: null,
+        matchedConfirmedTripId: null,
+        computedAt: new Date(0),
+        updatedAt: new Date(0),
+      };
     });
   }
 
@@ -508,8 +521,9 @@ export class ContractSyncService {
   }
 
   private async recomputeDocumentStatus(documentNumberNorm: string) {
+    const submissionDocumentNumbers = documentNumberLookupKeys(documentNumberNorm);
     const submissions = await this.prisma.contractSubmission.findMany({
-      where: { documentNumberNorm },
+      where: { documentNumberNorm: { in: submissionDocumentNumbers } },
       orderBy: [{ submittedAt: 'asc' }, { importedAt: 'asc' }],
     });
     if (submissions.length === 0) {
@@ -532,7 +546,13 @@ export class ContractSyncService {
         },
       },
     });
-    const matchedMeta = metas.find((meta) => normalizeContractDocumentNumber(meta.documentNumber) === documentNumberNorm) ?? null;
+    const matchedMeta =
+      metas.find((meta) => normalizeContractDocumentNumber(meta.documentNumber) === documentNumberNorm)
+      ?? metas.find((meta) => {
+        const normalizedDocumentNumber = normalizeContractDocumentNumber(meta.documentNumber);
+        return normalizedDocumentNumber ? stripDocumentVersionSuffix(normalizedDocumentNumber) === stripDocumentVersionSuffix(documentNumberNorm) : false;
+      })
+      ?? null;
     const matchedTrip = matchedMeta?.planVersion.confirmedTrips[0] ?? null;
     const fallbackCount = submissions.find((row) => row.totalCompanionCount != null)?.totalCompanionCount ?? null;
     const expectedCount = matchedMeta?.headcountTotal ?? matchedTrip?.paxCount ?? fallbackCount;

@@ -33,7 +33,6 @@ import {
 } from '../features/plan/hooks';
 
 const STAGES: Array<{ key: DealStageValue; label: string }> = [
-  { key: 'CONSULTING', label: '컨설팅' },
   { key: 'CONTRACTING', label: '계약단계' },
   { key: 'CONTRACT_CONFIRMED', label: '계약확정' },
   { key: 'MONGOL_ASSIGNING', label: '몽골배정단계' },
@@ -91,7 +90,9 @@ function buildBoard(users: UserRow[]): BoardState {
 
   for (const user of users) {
     if (!next[user.dealStage]) {
-      next.CONSULTING.push({ ...user, dealStage: 'CONSULTING' });
+      if (user.dealStage === 'CONSULTING') {
+        next.CONTRACTING.push({ ...user, dealStage: 'CONTRACTING' });
+      }
       continue;
     }
     next[user.dealStage].push(user);
@@ -204,6 +205,62 @@ function contractStatusLabel(status: ContractDocumentStatusRow | null): string {
   return '계약서 미작성';
 }
 
+function getUserPlanMeta(user: UserRow): NonNullable<NonNullable<UserRow['plans']>[number]['currentVersion']>['meta'] | null {
+  return user.plans?.find((plan) => plan.currentVersion?.meta)?.currentVersion?.meta ?? null;
+}
+
+function getUserHeadcount(user: UserRow, contractStatus: ContractDocumentStatusRow | null): number | null {
+  return getUserPlanMeta(user)?.headcountTotal ?? contractStatus?.expectedCount ?? null;
+}
+
+function formatUserCardTitle(user: UserRow, contractStatus: ContractDocumentStatusRow | null): string {
+  const headcount = getUserHeadcount(user, contractStatus);
+  return `${user.name}${headcount ? ` ${headcount}명` : ''}`;
+}
+
+function getUserTravelStartDate(user: UserRow): string | null {
+  const planStartDate = getUserPlanMeta(user)?.travelStartDate;
+  if (planStartDate) {
+    return planStartDate;
+  }
+  return user.confirmedTrips?.find((trip) => trip.status === 'ACTIVE' && trip.travelStart)?.travelStart ?? null;
+}
+
+function formatDday(value: string | null): string {
+  if (!value) {
+    return 'D-day -';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'D-day -';
+  }
+
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const targetStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const diffDays = Math.ceil((targetStart - todayStart) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return 'D-day';
+  }
+  if (diffDays > 0) {
+    return `D-${diffDays}`;
+  }
+  return `D+${Math.abs(diffDays)}`;
+}
+
+function contractProgressValue(status: ContractDocumentStatusRow | null): { submitted: number; expected: number | null; percent: number } {
+  const submitted = status?.submittedCount ?? 0;
+  const expected = status?.expectedCount ?? null;
+  const percent = expected && expected > 0 ? Math.min(100, Math.round((submitted / expected) * 100)) : submitted > 0 ? 100 : 0;
+  return { submitted, expected, percent };
+}
+
+function isContractStarted(status: ContractDocumentStatusRow | null): boolean {
+  return (status?.submittedCount ?? 0) > 0;
+}
+
 function boardsEqual(left: BoardState, right: BoardState): boolean {
   for (const stage of STAGES) {
     const leftItems = left[stage.key];
@@ -253,6 +310,8 @@ function PipelineCard({
   };
   const stageTodos = (user.userDealTodos ?? []).filter((todo) => todo.stage === user.dealStage);
   const previewTodos = stageTodos.slice(0, 3);
+  const dday = formatDday(getUserTravelStartDate(user));
+  const progress = contractProgressValue(contractStatus);
 
   return (
     <div
@@ -270,9 +329,32 @@ function PipelineCard({
     >
       <Card className={`${dealPipelineTokens.card.base} ${isDragging ? dealPipelineTokens.card.dragging : ''}`}>
         <div className="grid gap-1">
-          <p className={dealPipelineTokens.card.title}>{user.name}</p>
-          <p className={dealPipelineTokens.card.subtitle}>{user.email ?? '이메일 없음'}</p>
-          <p className="text-xs font-medium text-slate-600">{contractStatusLabel(contractStatus)}</p>
+          <div className="flex items-start justify-between gap-2">
+            <p className={dealPipelineTokens.card.title}>{formatUserCardTitle(user, contractStatus)}</p>
+            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">{dday}</span>
+          </div>
+          <div className="grid gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-slate-600">{contractStatusLabel(contractStatus)}</p>
+              <span className="shrink-0 text-xs font-semibold text-slate-700">
+                {progress.submitted}/{progress.expected ?? '?'}
+              </span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  contractStatus?.status === 'OVER_SUBMITTED'
+                    ? 'bg-amber-500'
+                    : contractStatus?.status === 'NEEDS_REVIEW'
+                      ? 'bg-rose-500'
+                      : contractStatus?.status === 'COMPLETED'
+                        ? 'bg-emerald-500'
+                        : 'bg-slate-900'
+                }`}
+                style={{ width: `${progress.percent}%` }}
+              />
+            </div>
+          </div>
         </div>
 
         <div className={dealPipelineTokens.card.todoPreviewWrap}>
@@ -721,8 +803,23 @@ export function DealPipelinePage(): JSX.Element {
   );
 
   const displayedBoard = useMemo(() => {
+    const applyStageVisibility = (source: BoardState): BoardState => {
+      const next = createEmptyBoard();
+      for (const stage of STAGES) {
+        next[stage.key] =
+          stage.key === 'CONTRACTING'
+            ? source[stage.key].filter((user) => {
+                const documentNumber = normalizeContractDocumentNumberForLookup(getUserContractDocumentNumber(user));
+                const contractStatus = documentNumber ? contractStatusByDocumentNumber.get(documentNumber) ?? null : null;
+                return isContractStarted(contractStatus);
+              })
+            : source[stage.key];
+      }
+      return next;
+    };
+
     if (!normalizedKeyword) {
-      return board;
+      return applyStageVisibility(board);
     }
 
     const filtered = createEmptyBoard();
@@ -734,8 +831,8 @@ export function DealPipelinePage(): JSX.Element {
       });
     }
 
-    return filtered;
-  }, [board, normalizedKeyword]);
+    return applyStageVisibility(filtered);
+  }, [board, contractStatusByDocumentNumber, normalizedKeyword]);
 
   const activeUser = useMemo(() => {
     if (!activeUserId) {
@@ -968,8 +1065,7 @@ export function DealPipelinePage(): JSX.Element {
           {activeUser ? (
             <Card className="w-[248px] rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
               <div className="grid gap-1">
-                <p className="text-sm font-semibold text-slate-900">{activeUser.name}</p>
-                <p className="text-xs text-slate-500">{activeUser.email ?? '이메일 없음'}</p>
+                <p className="text-sm font-semibold text-slate-900">{formatUserCardTitle(activeUser, null)}</p>
               </div>
             </Card>
           ) : null}
