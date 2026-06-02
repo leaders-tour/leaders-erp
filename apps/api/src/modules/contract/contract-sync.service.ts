@@ -57,6 +57,35 @@ interface SyncCounts {
   skippedRows: number;
 }
 
+type PlanVersionMetaForContractMatch = Prisma.PlanVersionMetaGetPayload<{
+  select: {
+    planVersionId: true;
+    documentNumber: true;
+    headcountTotal: true;
+    planVersion: {
+      select: {
+        confirmedTrips: {
+          where: { status: 'ACTIVE' };
+          select: { id: true; paxCount: true };
+          take: 1;
+        };
+      };
+    };
+  };
+}>;
+
+type ContractSubmissionForStatus = Prisma.ContractSubmissionGetPayload<{
+  select: {
+    documentNumberNorm: true;
+    submittedAt: true;
+    importedAt: true;
+    documentNumberRaw: true;
+    totalCompanionCount: true;
+    travelerName: true;
+    travelerPhoneDigits: true;
+  };
+}>;
+
 const GOOGLE_SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
@@ -515,21 +544,6 @@ export class ContractSyncService {
           select: { documentNumberNorm: true },
         })).map((row) => row.documentNumberNorm).filter(isPresent);
 
-    for (const documentNumberNorm of normalized) {
-      await this.recomputeDocumentStatus(documentNumberNorm);
-    }
-  }
-
-  private async recomputeDocumentStatus(documentNumberNorm: string) {
-    const submissionDocumentNumbers = documentNumberLookupKeys(documentNumberNorm);
-    const submissions = await this.prisma.contractSubmission.findMany({
-      where: { documentNumberNorm: { in: submissionDocumentNumbers } },
-      orderBy: [{ submittedAt: 'asc' }, { importedAt: 'asc' }],
-    });
-    if (submissions.length === 0) {
-      return;
-    }
-
     const metas = await this.prisma.planVersionMeta.findMany({
       select: {
         planVersionId: true,
@@ -546,6 +560,46 @@ export class ContractSyncService {
         },
       },
     });
+    const submissionDocumentNumbers = Array.from(new Set(normalized.flatMap(documentNumberLookupKeys)));
+    const submissions = await this.prisma.contractSubmission.findMany({
+      where: { documentNumberNorm: { in: submissionDocumentNumbers } },
+      select: {
+        documentNumberNorm: true,
+        submittedAt: true,
+        importedAt: true,
+        documentNumberRaw: true,
+        totalCompanionCount: true,
+        travelerName: true,
+        travelerPhoneDigits: true,
+      },
+      orderBy: [{ submittedAt: 'asc' }, { importedAt: 'asc' }],
+    });
+    const submissionsByDocumentNumber = new Map<string, ContractSubmissionForStatus[]>();
+    for (const submission of submissions) {
+      if (!submission.documentNumberNorm) {
+        continue;
+      }
+      const items = submissionsByDocumentNumber.get(submission.documentNumberNorm) ?? [];
+      items.push(submission);
+      submissionsByDocumentNumber.set(submission.documentNumberNorm, items);
+    }
+
+    for (const documentNumberNorm of normalized) {
+      await this.recomputeDocumentStatus(documentNumberNorm, metas, submissionsByDocumentNumber);
+    }
+  }
+
+  private async recomputeDocumentStatus(
+    documentNumberNorm: string,
+    metas: PlanVersionMetaForContractMatch[],
+    submissionsByDocumentNumber: Map<string, ContractSubmissionForStatus[]>,
+  ) {
+    const submissionDocumentNumbers = documentNumberLookupKeys(documentNumberNorm);
+    const submissions = submissionDocumentNumbers.flatMap((lookupKey) => submissionsByDocumentNumber.get(lookupKey) ?? []);
+    if (submissions.length === 0) {
+      return;
+    }
+
     const matchedMeta =
       metas.find((meta) => normalizeContractDocumentNumber(meta.documentNumber) === documentNumberNorm)
       ?? metas.find((meta) => {
