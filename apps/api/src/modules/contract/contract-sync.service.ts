@@ -154,6 +154,29 @@ function parseOptionalDate(value: string | null): Date | null {
   if (!value) {
     return null;
   }
+  const koreanDateTime = value.match(
+    /^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\s*(오전|오후)\s*(\d{1,2}):(\d{2})(?::(\d{2}))?$/,
+  );
+  if (koreanDateTime) {
+    const [, year, month, day, meridiem, hourRaw, minuteRaw, secondRaw] = koreanDateTime;
+    let hour = Number(hourRaw);
+    if (meridiem === '오후' && hour < 12) {
+      hour += 12;
+    }
+    if (meridiem === '오전' && hour === 12) {
+      hour = 0;
+    }
+    const parsed = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      hour,
+      Number(minuteRaw),
+      Number(secondRaw ?? '0'),
+    );
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
@@ -217,12 +240,16 @@ function parseSheetRows(values: string[][], headerRow: number): ParsedSheetRow[]
   }
 
   const documentIndex = requireColumn(headers, ['계약서 상 문서번호', '문서번호', 'document number'], '문서번호');
-  const travelerIndex = requireColumn(headers, ['여행객 본인 성함', '여행객 성함', '본인 성함', 'traveler name'], '여행객 본인 성함');
+  const travelerIndex = requireColumn(
+    headers,
+    ['여행객 본인 성함', '여행객 한글 성명', '여행객 성함', '본인 성함', 'traveler name'],
+    '여행객 본인 성함',
+  );
   const submittedAtIndex = optionalColumn(headers, ['타임스탬프', 'timestamp', '제출일시']);
-  const phoneIndex = optionalColumn(headers, ['전화번호', '연락처', '휴대폰', 'phone']);
-  const leaderIndex = optionalColumn(headers, ['여행대표자 성함', '대표자 성함', 'leader name']);
-  const representativeIndex = optionalColumn(headers, ['팀별 대표자 여부 구분', '대표자 여부', '대표자구분']);
-  const totalCompanionIndex = optionalColumn(headers, ['총 동행 여행객수', '총동행여행객수', '총 인원', '인원']);
+  const phoneIndex = optionalColumn(headers, ['여행객 본인 연락처', '전화번호', '연락처', '휴대폰', 'phone']);
+  const leaderIndex = optionalColumn(headers, ['여행대표자 성함', '대표자 성명', '대표자 성함', 'leader name']);
+  const representativeIndex = optionalColumn(headers, ['팀별 대표자 여부 구분', '여행자 구분', '대표자 여부', '대표자구분']);
+  const totalCompanionIndex = optionalColumn(headers, ['총 동행 여행객수', '총동행여행객수', '견적서상 기준인원', '총 인원', '인원']);
   const receivedStatusIndex = optionalColumn(headers, ['서류 수신 여부 확인', '서류수신여부', '수신 여부']);
 
   return values.slice(headerIndex + 1).flatMap((row, offset) => {
