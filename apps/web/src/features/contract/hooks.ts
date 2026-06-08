@@ -53,6 +53,23 @@ export interface ContractSyncRunRow {
   errorMessage: string | null;
 }
 
+export interface ContractSubmissionRow {
+  id: string;
+  source: ContractSubmissionSourceRow;
+  sourceRowNumber: number | null;
+  submittedAt: string | null;
+  documentNumberRaw: string | null;
+  documentNumberNorm: string | null;
+  travelerName: string | null;
+  travelerPhone: string | null;
+  leaderName: string | null;
+  representativeType: string | null;
+  totalCompanionCount: number | null;
+  receivedStatus: string | null;
+  importedAt: string;
+  updatedAt: string;
+}
+
 export interface ContractPaymentSourceRow {
   id: string;
   type: ContractPaymentSourceType;
@@ -91,6 +108,19 @@ export interface ContractPaymentSyncRunRow {
   errorMessage: string | null;
 }
 
+export interface ContractPaymentReceiptRow {
+  id: string;
+  source: ContractPaymentSourceRow;
+  sourceRowNumber: number | null;
+  receivedAt: string | null;
+  payerNameRaw: string | null;
+  amountKrw: number | null;
+  matchedDocumentNumberNorm: string | null;
+  needsReviewReason: string | null;
+  importedAt: string;
+  updatedAt: string;
+}
+
 const CONTRACT_SUBMISSION_SOURCES_QUERY = gql`
   query ContractSubmissionSources {
     contractSubmissionSources {
@@ -123,6 +153,37 @@ const CONTRACT_DOCUMENT_STATUSES_QUERY = gql`
       matchedConfirmedTripId
       computedAt
       updatedAt
+    }
+  }
+`;
+
+const CONTRACT_SUBMISSIONS_QUERY = gql`
+  query ContractSubmissions($documentNumber: String!) {
+    contractSubmissions(documentNumber: $documentNumber) {
+      id
+      sourceRowNumber
+      submittedAt
+      documentNumberRaw
+      documentNumberNorm
+      travelerName
+      travelerPhone
+      leaderName
+      representativeType
+      totalCompanionCount
+      receivedStatus
+      importedAt
+      updatedAt
+      source {
+        id
+        type
+        name
+        isActive
+        sheetId
+        sheetGid
+        headerRow
+        createdAt
+        updatedAt
+      }
     }
   }
 `;
@@ -191,6 +252,33 @@ const CONTRACT_PAYMENT_STATUSES_QUERY = gql`
   }
 `;
 
+const CONTRACT_PAYMENT_RECEIPTS_QUERY = gql`
+  query ContractPaymentReceipts($documentNumber: String!) {
+    contractPaymentReceipts(documentNumber: $documentNumber) {
+      id
+      sourceRowNumber
+      receivedAt
+      payerNameRaw
+      amountKrw
+      matchedDocumentNumberNorm
+      needsReviewReason
+      importedAt
+      updatedAt
+      source {
+        id
+        type
+        name
+        isActive
+        sheetId
+        sheetGid
+        headerRow
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
 const CONTRACT_PAYMENT_SYNC_RUNS_QUERY = gql`
   query ContractPaymentSyncRuns($sourceId: ID, $limit: Int = 20) {
     contractPaymentSyncRuns(sourceId: $sourceId, limit: $limit) {
@@ -246,6 +334,18 @@ export function useContractDocumentStatuses(documentNumbers: string[]) {
   return { statuses: data?.contractDocumentStatuses ?? [], loading, refetch };
 }
 
+export function useContractSubmissions(documentNumber: string | null | undefined) {
+  const normalizedInput = useMemo(() => documentNumber?.trim() ?? '', [documentNumber]);
+  const { data, loading } = useQuery<{ contractSubmissions: ContractSubmissionRow[] }>(
+    CONTRACT_SUBMISSIONS_QUERY,
+    {
+      variables: { documentNumber: normalizedInput },
+      skip: normalizedInput.length === 0,
+    },
+  );
+  return { submissions: data?.contractSubmissions ?? [], loading };
+}
+
 export function useContractSyncRuns(sourceId?: string, limit = 20) {
   const { data, loading, refetch } = useQuery<{ contractSyncRuns: ContractSyncRunRow[] }>(
     CONTRACT_SYNC_RUNS_QUERY,
@@ -292,6 +392,18 @@ export function useContractPaymentStatuses(documentNumbers: string[]) {
     },
   );
   return { statuses: data?.contractPaymentStatuses ?? [], loading, refetch };
+}
+
+export function useContractPaymentReceipts(documentNumber: string | null | undefined) {
+  const normalizedInput = useMemo(() => documentNumber?.trim() ?? '', [documentNumber]);
+  const { data, loading } = useQuery<{ contractPaymentReceipts: ContractPaymentReceiptRow[] }>(
+    CONTRACT_PAYMENT_RECEIPTS_QUERY,
+    {
+      variables: { documentNumber: normalizedInput },
+      skip: normalizedInput.length === 0,
+    },
+  );
+  return { receipts: data?.contractPaymentReceipts ?? [], loading };
 }
 
 export function useContractPaymentSyncRuns(sourceId?: string, limit = 20) {

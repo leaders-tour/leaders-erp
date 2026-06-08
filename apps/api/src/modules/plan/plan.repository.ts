@@ -174,12 +174,24 @@ export class PlanRepository {
             id: true,
             currentVersion: {
               select: {
+                id: true,
                 meta: {
                   select: {
                     travelStartDate: true,
                     travelEndDate: true,
                     documentNumber: true,
                     headcountTotal: true,
+                  },
+                },
+                pricing: {
+                  select: {
+                    id: true,
+                    totalAmountKrw: true,
+                    depositAmountKrw: true,
+                    balanceAmountKrw: true,
+                    securityDepositAmountKrw: true,
+                    securityDepositMode: true,
+                    manualPricingSnapshot: true,
                   },
                 },
               },

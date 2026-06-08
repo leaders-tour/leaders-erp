@@ -6,6 +6,10 @@ interface ContractDocumentStatusesArgs {
   documentNumbers: string[];
 }
 
+interface ContractDocumentNumberArgs {
+  documentNumber: string;
+}
+
 interface ContractSyncRunsArgs {
   sourceId?: string;
   limit?: number;
@@ -38,6 +42,10 @@ export const contractResolver = {
       requireStaffOrAbove(ctx);
       return new ContractSyncService(ctx.prisma).listStatuses(args.documentNumbers);
     },
+    contractSubmissions: (_parent: unknown, args: ContractDocumentNumberArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractSyncService(ctx.prisma).listSubmissions(args.documentNumber);
+    },
     contractSyncRuns: (_parent: unknown, args: ContractSyncRunsArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
       return new ContractSyncService(ctx.prisma).listSyncRuns(args.sourceId, args.limit ?? 20);
@@ -49,6 +57,10 @@ export const contractResolver = {
     contractPaymentStatuses: (_parent: unknown, args: ContractPaymentStatusesArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
       return new ContractPaymentSyncService(ctx.prisma).listStatuses(args.documentNumbers);
+    },
+    contractPaymentReceipts: (_parent: unknown, args: ContractDocumentNumberArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractPaymentSyncService(ctx.prisma).listReceipts(args.documentNumber);
     },
     contractPaymentSyncRuns: (_parent: unknown, args: ContractPaymentSyncRunsArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);

@@ -73,11 +73,24 @@ export interface UserRow {
   plans?: Array<{
     id?: string;
     currentVersion: {
+      id?: string;
       meta: {
         documentNumber?: string;
         headcountTotal?: number;
         travelStartDate?: string;
         travelEndDate?: string;
+      } | null;
+      pricing?: Pick<
+        PlanVersionPricingRow,
+        'id' | 'totalAmountKrw' | 'depositAmountKrw' | 'balanceAmountKrw' | 'securityDepositAmountKrw' | 'securityDepositMode'
+      > & {
+        manualPricing?: {
+          customerPricingSnapshot?: {
+            depositAmountKrw: number;
+            securityDepositTotalKrw: number;
+            securityDepositMode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+          } | null;
+        } | null;
       } | null;
     } | null;
   }>;
@@ -497,10 +510,26 @@ const USERS_QUERY = gql`
       plans {
         id
         currentVersion {
+          id
           meta {
             documentNumber
             headcountTotal
             travelStartDate
+          }
+          pricing {
+            id
+            totalAmountKrw
+            depositAmountKrw
+            balanceAmountKrw
+            securityDepositAmountKrw
+            securityDepositMode
+            manualPricing {
+              customerPricingSnapshot {
+                depositAmountKrw
+                securityDepositTotalKrw
+                securityDepositMode
+              }
+            }
           }
         }
       }

@@ -18,10 +18,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../features/auth/context';
 import {
   useContractDocumentStatuses,
+  useContractPaymentReceipts,
   useContractPaymentStatuses,
+  useContractSubmissions,
   type ContractDocumentStatusRow,
+  type ContractPaymentReceiptRow,
   type ContractPaymentStatusRow,
+  type ContractSubmissionRow,
 } from '../features/contract/hooks';
+import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
+import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
 import {
   useCreateUserNote,
   useReorderDealPipeline,
@@ -152,6 +158,10 @@ function formatDateTime(value: string): string {
   return date.toLocaleString('ko-KR');
 }
 
+function formatOptionalDateTime(value: string | null | undefined): string {
+  return value ? formatDateTime(value) : '-';
+}
+
 function formatDateTimeParts(value: string): { date: string; time: string } {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -177,8 +187,12 @@ function todoStatusLabel(status: DealTodoStatusValue): string {
   return '완료';
 }
 
-function getUserContractDocumentNumber(user: UserRow): string | null {
-  return user.plans?.find((plan) => plan.currentVersion?.meta?.documentNumber)?.currentVersion?.meta?.documentNumber ?? null;
+function getUserContractDocumentNumber(user: UserRow | null | undefined): string | null {
+  return user?.plans?.find((plan) => plan.currentVersion?.meta?.documentNumber)?.currentVersion?.meta?.documentNumber ?? null;
+}
+
+function getUserCurrentPlanVersionId(user: UserRow | null | undefined): string | null {
+  return user?.plans?.find((plan) => plan.currentVersion?.id)?.currentVersion?.id ?? null;
 }
 
 function normalizeContractDocumentNumberForLookup(value: string | null | undefined): string | null {
@@ -212,6 +226,10 @@ function contractStatusLabel(status: ContractDocumentStatusRow | null): string {
 
 function getUserPlanMeta(user: UserRow): NonNullable<NonNullable<UserRow['plans']>[number]['currentVersion']>['meta'] | null {
   return user.plans?.find((plan) => plan.currentVersion?.meta)?.currentVersion?.meta ?? null;
+}
+
+function getUserPlanPricing(user: UserRow): NonNullable<NonNullable<UserRow['plans']>[number]['currentVersion']>['pricing'] | null {
+  return user.plans?.find((plan) => plan.currentVersion?.pricing)?.currentVersion?.pricing ?? null;
 }
 
 function getUserHeadcount(user: UserRow, contractStatus: ContractDocumentStatusRow | null): number | null {
@@ -262,8 +280,82 @@ function contractProgressValue(status: ContractDocumentStatusRow | null): { subm
   return { submitted, expected, percent };
 }
 
+function paymentProgressValue(status: ContractPaymentStatusRow | null): { received: number; required: number | null; percent: number } {
+  const received = status?.receivedAmountKrw ?? 0;
+  const required = status?.requiredAmountKrw ?? null;
+  const percent = required && required > 0 ? Math.min(100, Math.round((received / required) * 100)) : received > 0 ? 100 : 0;
+  return { received, required, percent };
+}
+
 function formatKrw(value: number | null | undefined): string {
   return value == null ? '?' : value.toLocaleString('ko-KR');
+}
+
+function formatContractPerson(submission: ContractSubmissionRow): string {
+  return submission.travelerName ?? submission.leaderName ?? '이름 없음';
+}
+
+function formatSubmissionMeta(submission: ContractSubmissionRow): string {
+  const parts = [
+    submission.representativeType,
+    submission.totalCompanionCount != null ? `동반 ${submission.totalCompanionCount}명` : null,
+    submission.receivedStatus,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : '추가 정보 없음';
+}
+
+function formatReceiptMeta(receipt: ContractPaymentReceiptRow): string {
+  const parts = [
+    formatOptionalDateTime(receipt.receivedAt),
+    receipt.sourceRowNumber != null ? `${receipt.source.name} ${receipt.sourceRowNumber}행` : receipt.source.name,
+  ].filter(Boolean);
+  return parts.join(' · ');
+}
+
+function normalizePersonNameForLookup(value: string | null | undefined): string | null {
+  const normalized = value?.normalize('NFKC').trim().replace(/\s+/g, '');
+  return normalized || null;
+}
+
+function contractSubmissionPersonKeys(submission: ContractSubmissionRow): string[] {
+  return Array.from(
+    new Set(
+      [submission.travelerName, submission.leaderName]
+        .map(normalizePersonNameForLookup)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+}
+
+function paymentBreakdownFromPricing(
+  pricing: ReturnType<typeof getUserPlanPricing>,
+  headcount: number | null,
+): {
+  depositPerPerson: number;
+  depositTotal: number;
+  securityMode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+  securityUnitAmount: number;
+  securityTotal: number;
+  requiredTotal: number;
+} | null {
+  if (!pricing) {
+    return null;
+  }
+  const people = headcount && headcount > 0 ? headcount : 1;
+  const customerSnapshot = pricing.manualPricing?.customerPricingSnapshot;
+  const depositPerPerson = customerSnapshot?.depositAmountKrw ?? pricing.depositAmountKrw;
+  const securityAmount = customerSnapshot?.securityDepositTotalKrw ?? pricing.securityDepositAmountKrw;
+  const securityMode = customerSnapshot?.securityDepositMode ?? pricing.securityDepositMode;
+  const securityTotal = securityMode === 'PER_PERSON' ? securityAmount * people : securityAmount;
+  const depositTotal = depositPerPerson * people;
+  return {
+    depositPerPerson,
+    depositTotal,
+    securityMode,
+    securityUnitAmount: securityAmount,
+    securityTotal,
+    requiredTotal: depositTotal + securityTotal,
+  };
 }
 
 function paymentStatusLabel(status: ContractPaymentStatusRow | null): string {
@@ -351,6 +443,7 @@ function PipelineCard({
   const previewTodos = stageTodos.slice(0, 3);
   const dday = formatDday(getUserTravelStartDate(user));
   const progress = contractProgressValue(contractStatus);
+  const paymentProgress = paymentProgressValue(paymentStatus);
 
   return (
     <div
@@ -394,19 +487,40 @@ function PipelineCard({
               />
             </div>
           </div>
-          <p
-            className={`text-xs font-medium ${
-              paymentStatus?.status === 'NEEDS_REVIEW'
-                ? 'text-rose-600'
-                : paymentStatus?.status === 'OVERPAID'
-                  ? 'text-amber-600'
-                  : isPaymentComplete(paymentStatus)
-                    ? 'text-emerald-600'
-                    : 'text-slate-600'
-            }`}
-          >
-            {paymentStatusLabel(paymentStatus)}
-          </p>
+          <div className="grid gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <p
+                className={`text-xs font-medium ${
+                  paymentStatus?.status === 'NEEDS_REVIEW'
+                    ? 'text-rose-600'
+                    : paymentStatus?.status === 'OVERPAID'
+                      ? 'text-amber-600'
+                      : isPaymentComplete(paymentStatus)
+                        ? 'text-emerald-600'
+                        : 'text-slate-600'
+                }`}
+              >
+                {paymentStatusLabel(paymentStatus)}
+              </p>
+              <span className="shrink-0 text-xs font-semibold text-slate-700">
+                {formatKrw(paymentProgress.received)}/{formatKrw(paymentProgress.required)}
+              </span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  paymentStatus?.status === 'NEEDS_REVIEW'
+                    ? 'bg-rose-500'
+                    : paymentStatus?.status === 'OVERPAID'
+                      ? 'bg-amber-500'
+                      : isPaymentComplete(paymentStatus)
+                        ? 'bg-emerald-500'
+                        : 'bg-orange-500'
+                }`}
+                style={{ width: `${paymentProgress.percent}%` }}
+              />
+            </div>
+          </div>
         </div>
 
         <div className={dealPipelineTokens.card.todoPreviewWrap}>
@@ -517,28 +631,66 @@ function UserDetailDrawer({
   onTodoChanged?: () => void;
 }): JSX.Element | null {
   const { employee } = useAuth();
-  const [activeTab, setActiveTab] = useState<'note' | 'todo' | 'estimate'>('note');
+  const [activeTab, setActiveTab] = useState<'contract' | 'note' | 'todo' | 'estimate'>('contract');
   const [isNoteComposerOpen, setIsNoteComposerOpen] = useState(false);
   const [noteContent, setNoteContent] = useState('');
   const [noteError, setNoteError] = useState<string | null>(null);
   const [todoError, setTodoError] = useState<string | null>(null);
 
   const userId = user?.id;
+  const documentNumber = normalizeContractDocumentNumberForLookup(getUserContractDocumentNumber(user));
+  const currentPlanVersionId = getUserCurrentPlanVersionId(user);
   const { notes, loading: notesLoading } = useUserNotes(userId);
   const { todos, loading: todosLoading, refetch: refetchTodos } = useUserDealTodos(userId, true);
+  const { submissions, loading: submissionsLoading } = useContractSubmissions(documentNumber);
+  const { receipts, loading: receiptsLoading } = useContractPaymentReceipts(documentNumber);
+  const { data: estimatePreviewData, loading: estimatePreviewLoading, errorMessage: estimatePreviewError } = useEstimateSource({
+    mode: 'version',
+    versionId: currentPlanVersionId,
+    draftKey: null,
+  });
   const { createUserNote, loading: noteCreating } = useCreateUserNote();
   const { updateUserDealTodoStatus, loading: todoUpdating } = useUpdateUserDealTodoStatus();
 
   useEffect(() => {
+    setActiveTab('contract');
     setIsNoteComposerOpen(false);
     setNoteContent('');
     setNoteError(null);
     setTodoError(null);
   }, [userId]);
 
+  const contractPaymentRows = useMemo(() => {
+    const unmatchedReceiptIds = new Set(receipts.map((receipt) => receipt.id));
+    const submissionRows = submissions.map((submission) => {
+      const keys = new Set(contractSubmissionPersonKeys(submission));
+      const matchedReceipts = receipts.filter((receipt) => {
+        const payerKey = normalizePersonNameForLookup(receipt.payerNameRaw);
+        return payerKey ? keys.has(payerKey) : false;
+      });
+      for (const receipt of matchedReceipts) {
+        unmatchedReceiptIds.delete(receipt.id);
+      }
+      return { submission, receipts: matchedReceipts };
+    });
+
+    return {
+      submissionRows,
+      unmatchedReceipts: receipts.filter((receipt) => unmatchedReceiptIds.has(receipt.id)),
+    };
+  }, [receipts, submissions]);
+
   if (!user) {
     return null;
   }
+
+  const pricing = getUserPlanPricing(user);
+  const pricingHeadcount = getUserPlanMeta(user)?.headcountTotal ?? null;
+  const paymentBreakdown = paymentBreakdownFromPricing(pricing, pricingHeadcount);
+  const requiredPaymentAmount = paymentBreakdown?.requiredTotal ?? null;
+  const receivedPaymentAmount = receipts.reduce((sum, receipt) => sum + (receipt.amountKrw ?? 0), 0);
+  const remainingPaymentAmount = requiredPaymentAmount == null ? null : Math.max(0, requiredPaymentAmount - receivedPaymentAmount);
+  const missingContractSubmissionCount = Math.max(0, (pricingHeadcount ?? 0) - submissions.length);
 
   const handleCreateNote = async () => {
     const content = noteContent.trim();
@@ -612,6 +764,10 @@ function UserDetailDrawer({
               <span className={dealPipelineTokens.drawer.infoEmphasis}>{stageLabel(user.dealStage)}</span>
             </div>
             <div className={dealPipelineTokens.drawer.infoRow}>
+              <span className={dealPipelineTokens.drawer.infoLabel}>문서번호</span>
+              <span>{documentNumber ?? '문서번호 없음'}</span>
+            </div>
+            <div className={dealPipelineTokens.drawer.infoRow}>
               <span className={dealPipelineTokens.drawer.infoLabel}>순서</span>
               <span>{user.dealStageOrder + 1}번째</span>
             </div>
@@ -621,6 +777,7 @@ function UserDetailDrawer({
         <div className={dealPipelineTokens.drawer.tabsWrap}>
           <div className={dealPipelineTokens.drawer.tabsRow}>
             {[
+              { key: 'contract', label: '계약/입금' },
               { key: 'note', label: '노트' },
               { key: 'todo', label: 'TODO' },
               { key: 'estimate', label: '견적서' },
@@ -628,7 +785,7 @@ function UserDetailDrawer({
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => setActiveTab(tab.key as 'note' | 'todo' | 'estimate')}
+                onClick={() => setActiveTab(tab.key as 'contract' | 'note' | 'todo' | 'estimate')}
                 className={`${dealPipelineTokens.drawer.tabButtonBase} ${
                   activeTab === tab.key
                     ? dealPipelineTokens.drawer.tabButtonActive
@@ -642,6 +799,197 @@ function UserDetailDrawer({
         </div>
 
         <div className={dealPipelineTokens.drawer.contentWrap}>
+          {activeTab === 'contract' ? (
+            <section className="grid gap-4">
+              <div className="grid gap-2">
+                <p className={dealPipelineTokens.drawer.sectionLabel}>견적서 기준 입금액</p>
+                <Card className={dealPipelineTokens.drawer.simpleCard}>
+                  {pricing ? (
+                    <div className="grid gap-3 text-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-slate-900">입금 필요액</p>
+                          <p className="mt-0.5 text-xs text-slate-500">예약금(1인) * 총인원 + 보증금</p>
+                        </div>
+                        <span className="text-base font-bold text-orange-600">
+                          {formatKrw(requiredPaymentAmount)}원
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-1.5 text-xs">
+                        <span className="text-slate-500">견적 총액</span>
+                        <span className="text-slate-900">{formatKrw(pricing.totalAmountKrw)}원</span>
+                        <span className="text-slate-500">총인원</span>
+                        <span className="text-slate-900">{pricingHeadcount ?? '?'}명</span>
+                        <span className="text-slate-500">예약금(1인)</span>
+                        <span className="text-slate-900">{formatKrw(paymentBreakdown?.depositPerPerson)}원</span>
+                        <span className="text-slate-500">예약금 합계</span>
+                        <span className="text-slate-900">{formatKrw(paymentBreakdown?.depositTotal)}원</span>
+                        {paymentBreakdown?.securityMode === 'PER_PERSON' ? (
+                          <>
+                            <span className="text-slate-500">보증금(1인)</span>
+                            <span className="text-slate-900">{formatKrw(paymentBreakdown.securityUnitAmount)}원</span>
+                            <span className="text-slate-500">보증금 합계</span>
+                            <span className="text-slate-900">{formatKrw(paymentBreakdown.securityTotal)}원</span>
+                          </>
+                        ) : paymentBreakdown?.securityMode === 'PER_TEAM' ? (
+                          <>
+                            <span className="text-slate-500">보증금(팀당)</span>
+                            <span className="text-slate-900">{formatKrw(paymentBreakdown.securityUnitAmount)}원</span>
+                            <span className="text-slate-500">보증금 합계</span>
+                            <span className="text-slate-900">{formatKrw(paymentBreakdown.securityTotal)}원</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-slate-500">보증금</span>
+                            <span className="text-slate-900">없음</span>
+                          </>
+                        )}
+                        <span className="text-slate-500">잔금</span>
+                        <span className="text-slate-900">{formatKrw(pricing.balanceAmountKrw)}원</span>
+                        <span className="text-slate-500">현재 입금합계</span>
+                        <span className="font-semibold text-slate-900">{formatKrw(receivedPaymentAmount)}원</span>
+                        <span className="text-slate-500">남은 입금액</span>
+                        <span className={remainingPaymentAmount === 0 ? 'font-semibold text-emerald-700' : 'font-semibold text-orange-600'}>
+                          {formatKrw(remainingPaymentAmount)}원
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500">현재 견적서 금액 정보가 없습니다.</p>
+                  )}
+                </Card>
+              </div>
+
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <p className={dealPipelineTokens.drawer.sectionLabel}>계약서/입금 매칭 내역</p>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                    {submissions.length}/{receipts.length}
+                  </span>
+                </div>
+
+                {!documentNumber ? (
+                  <Card className={dealPipelineTokens.drawer.notesEmptyCard}>연결된 문서번호가 없습니다.</Card>
+                ) : null}
+                {submissionsLoading ? <p className={dealPipelineTokens.drawer.notesLoading}>계약서 내역을 불러오는 중...</p> : null}
+                {receiptsLoading ? <p className={dealPipelineTokens.drawer.notesLoading}>입금 내역을 불러오는 중...</p> : null}
+                {documentNumber && submissions.length === 0 && receipts.length === 0 && !submissionsLoading && !receiptsLoading ? (
+                  <Card className={dealPipelineTokens.drawer.notesEmptyCard}>계약서 작성 내역이 없습니다.</Card>
+                ) : null}
+                {contractPaymentRows.submissionRows.map(({ submission, receipts: matchedReceipts }) => (
+                  <Card key={submission.id} className={dealPipelineTokens.drawer.simpleCard}>
+                    <div className="grid gap-3 text-sm md:grid-cols-2">
+                      <div className="rounded-2xl bg-slate-50 p-3">
+                        <div className="mb-2 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-slate-900">{formatContractPerson(submission)}</p>
+                            <p className="mt-0.5 text-xs text-slate-500">{formatSubmissionMeta(submission)}</p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                            작성
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-1.5 text-xs">
+                          <span className="text-slate-500">작성일</span>
+                          <span className="text-slate-900">{formatOptionalDateTime(submission.submittedAt)}</span>
+                          <span className="text-slate-500">연락처</span>
+                          <span className="text-slate-900">{submission.travelerPhone ?? '-'}</span>
+                          <span className="text-slate-500">문서번호</span>
+                          <span className="text-slate-900">{submission.documentNumberRaw ?? submission.documentNumberNorm ?? '-'}</span>
+                          <span className="text-slate-500">출처</span>
+                          <span className="text-slate-900">
+                            {submission.source.name}
+                            {submission.sourceRowNumber != null ? ` ${submission.sourceRowNumber}행` : ''}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl bg-orange-50/60 p-3">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">입금</p>
+                          <span className="text-xs font-semibold text-slate-600">{matchedReceipts.length}건</span>
+                        </div>
+                        {matchedReceipts.length === 0 ? (
+                          <p className="text-xs text-slate-500">이 작성자 이름으로 매칭된 입금이 없습니다.</p>
+                        ) : (
+                          <div className="grid gap-2">
+                            {matchedReceipts.map((receipt) => (
+                              <div key={receipt.id} className="rounded-xl bg-white p-2 shadow-sm">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <p className="font-semibold text-slate-900">{receipt.payerNameRaw ?? '입금자 미상'}</p>
+                                    <p className="mt-0.5 text-xs text-slate-500">{formatReceiptMeta(receipt)}</p>
+                                  </div>
+                                  <span className="shrink-0 font-bold text-orange-600">{formatKrw(receipt.amountKrw)}원</span>
+                                </div>
+                                {receipt.needsReviewReason ? (
+                                  <p className="mt-1 text-xs text-rose-600">{receipt.needsReviewReason}</p>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+                {Array.from({ length: missingContractSubmissionCount }, (_, index) => (
+                  <Card key={`missing-contract-submission-${index}`} className={dealPipelineTokens.drawer.simpleCard}>
+                    <div className="grid gap-3 text-sm md:grid-cols-2">
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3">
+                        <div className="mb-2 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-slate-500">? 작성자 미확인</p>
+                            <p className="mt-0.5 text-xs text-slate-500">
+                              총인원 {pricingHeadcount ?? '?'}명 중 계약서 작성 내역이 아직 부족합니다.
+                            </p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">
+                            미작성
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-1.5 text-xs">
+                          <span className="text-slate-500">작성일</span>
+                          <span className="text-slate-500">-</span>
+                          <span className="text-slate-500">연락처</span>
+                          <span className="text-slate-500">-</span>
+                          <span className="text-slate-500">문서번호</span>
+                          <span className="text-slate-500">{documentNumber ?? '-'}</span>
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-dashed border-orange-100 bg-orange-50/40 p-3">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">입금</p>
+                          <span className="text-xs font-semibold text-slate-500">0건</span>
+                        </div>
+                        <p className="text-xs text-slate-500">작성자 정보가 없어 입금 매칭을 기다리는 자리입니다.</p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+                {contractPaymentRows.unmatchedReceipts.map((receipt) => (
+                  <Card key={receipt.id} className={dealPipelineTokens.drawer.simpleCard}>
+                    <div className="grid gap-3 text-sm md:grid-cols-2">
+                      <div className="rounded-2xl bg-slate-50 p-3">
+                        <p className="font-semibold text-slate-500">계약서 작성자 미매칭</p>
+                        <p className="mt-1 text-xs text-slate-500">입금자 이름과 같은 계약서 작성자를 찾지 못했습니다.</p>
+                      </div>
+                      <div className="rounded-2xl bg-orange-50/60 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-semibold text-slate-900">{receipt.payerNameRaw ?? '입금자 미상'}</p>
+                            <p className="mt-0.5 text-xs text-slate-500">{formatReceiptMeta(receipt)}</p>
+                          </div>
+                          <span className="shrink-0 font-bold text-orange-600">{formatKrw(receipt.amountKrw)}원</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           {activeTab === 'note' ? (
             <section className="grid gap-3">
               <div className="flex items-center justify-between">
@@ -804,17 +1152,47 @@ function UserDetailDrawer({
 
           {activeTab === 'estimate' ? (
             <section className="grid gap-3">
-              <p className={dealPipelineTokens.drawer.sectionLabel}>견적서</p>
-              <Card className={dealPipelineTokens.drawer.simpleCard}>
-                <div className="grid grid-cols-[90px_minmax(0,1fr)] gap-2 text-sm">
-                  <span className="text-slate-500">고객명</span>
-                  <span className="text-slate-900">{user.name}</span>
-                  <span className="text-slate-500">현재 금액</span>
-                  <span className="font-medium text-slate-900">0 원</span>
-                  <span className="text-slate-500">상태</span>
-                  <span className="text-slate-900">초안</span>
+              <div className="flex items-center justify-between gap-3">
+                <p className={dealPipelineTokens.drawer.sectionLabel}>견적서 미리보기</p>
+                {currentPlanVersionId ? (
+                  <a
+                    href={`/documents/estimate?mode=version&versionId=${encodeURIComponent(currentPlanVersionId)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                  >
+                    크게 보기
+                  </a>
+                ) : null}
+              </div>
+
+              {!currentPlanVersionId ? (
+                <Card className={dealPipelineTokens.drawer.simpleCard}>
+                  <p className="text-sm text-slate-500">연결된 현재 견적서 버전이 없습니다.</p>
+                </Card>
+              ) : null}
+
+              {estimatePreviewLoading ? (
+                <Card className={dealPipelineTokens.drawer.simpleCard}>
+                  <p className="text-sm text-slate-500">견적서 미리보기를 불러오는 중입니다...</p>
+                </Card>
+              ) : null}
+
+              {!estimatePreviewLoading && estimatePreviewError ? (
+                <Card className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                  {estimatePreviewError}
+                </Card>
+              ) : null}
+
+              {!estimatePreviewLoading && !estimatePreviewError && estimatePreviewData ? (
+                <div className="rounded-3xl border border-slate-200 bg-slate-100/70 p-3">
+                  <div className="max-h-[72vh] overflow-auto rounded-2xl bg-white">
+                    <div className="estimate-preview-frame">
+                      <EstimateDocument data={estimatePreviewData} viewMode="screen-preview" />
+                    </div>
+                  </div>
                 </div>
-              </Card>
+              ) : null}
             </section>
           ) : null}
         </div>
@@ -881,21 +1259,19 @@ export function DealPipelinePage(): JSX.Element {
         new Map(STAGES.flatMap((stage) => source[stage.key]).map((user) => [user.id, user])).values(),
       );
 
-      next.CONTRACT_CONFIRMED = allUsers
-        .filter(isConfirmationCandidate)
-        .map((user, index) => ({ ...user, dealStage: 'CONTRACT_CONFIRMED', dealStageOrder: index }));
-      next.CONTRACTING = allUsers
-        .filter((user) => {
-          const { contractStatus } = getStatuses(user);
-          return isContractStarted(contractStatus) && !isConfirmationCandidate(user) && !hasActiveConfirmedTrip(user);
-        })
-        .map((user, index) => ({ ...user, dealStage: 'CONTRACTING', dealStageOrder: index }));
+      for (const user of allUsers) {
+        const { contractStatus } = getStatuses(user);
+        const visibleStage = isConfirmationCandidate(user)
+          ? 'CONTRACT_CONFIRMED'
+          : isContractStarted(contractStatus) && !hasActiveConfirmedTrip(user)
+            ? 'CONTRACTING'
+            : user.dealStage;
 
-      for (const stage of STAGES) {
-        if (stage.key === 'CONTRACTING' || stage.key === 'CONTRACT_CONFIRMED') {
-          continue;
-        }
-        next[stage.key] = source[stage.key].filter((user) => !isConfirmationCandidate(user));
+        next[visibleStage].push({
+          ...user,
+          dealStage: visibleStage,
+          dealStageOrder: next[visibleStage].length,
+        });
       }
       return next;
     };

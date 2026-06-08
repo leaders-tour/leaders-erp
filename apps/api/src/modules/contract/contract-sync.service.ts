@@ -123,12 +123,16 @@ type PlanVersionForPaymentMatch = Prisma.PlanVersionGetPayload<{
     meta: {
       select: {
         documentNumber: true;
+        headcountTotal: true;
       };
     };
     pricing: {
       select: {
         depositAmountKrw: true;
         securityDepositAmountKrw: true;
+        securityDepositMode: true;
+        inputSnapshot: true;
+        manualPricingSnapshot: true;
       };
     };
     confirmedTrips: {
@@ -539,6 +543,23 @@ export class ContractSyncService {
     });
   }
 
+  listSubmissions(documentNumber: string) {
+    const normalized = normalizeContractDocumentNumber(documentNumber);
+    if (!normalized) {
+      return [];
+    }
+
+    return this.prisma.contractSubmission.findMany({
+      where: { documentNumberNorm: { in: documentNumberLookupKeys(normalized) } },
+      include: { source: true },
+      orderBy: [
+        { submittedAt: 'desc' },
+        { importedAt: 'desc' },
+        { sourceRowNumber: 'asc' },
+      ],
+    });
+  }
+
   listSyncRuns(sourceId: string | undefined, limit: number) {
     return this.prisma.contractSyncRun.findMany({
       where: sourceId ? { sourceId } : undefined,
@@ -842,12 +863,60 @@ function getPaymentPlanVersionForDocument(
     ?? null;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function numberValue(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function headcountForPricing(planVersion: PlanVersionForPaymentMatch): number {
+  const metaHeadcount = planVersion.meta?.headcountTotal;
+  if (typeof metaHeadcount === 'number' && metaHeadcount > 0) {
+    return metaHeadcount;
+  }
+
+  const inputSnapshot = asRecord(planVersion.pricing?.inputSnapshot);
+  const inputHeadcount = numberValue(inputSnapshot?.headcountTotal);
+  return inputHeadcount && inputHeadcount > 0 ? inputHeadcount : 1;
+}
+
+function securityDepositTotalForPayment(input: {
+  amount: number | null;
+  mode: unknown;
+  headcount: number;
+}): number {
+  if (input.amount == null || input.amount <= 0 || input.mode === 'NONE') {
+    return 0;
+  }
+  return input.mode === 'PER_PERSON' ? input.amount * input.headcount : input.amount;
+}
+
 function requiredPaymentAmount(planVersion: PlanVersionForPaymentMatch | null): number | null {
   const pricing = planVersion?.pricing;
-  if (!pricing) {
+  if (!planVersion || !pricing) {
     return null;
   }
-  return pricing.depositAmountKrw + pricing.securityDepositAmountKrw;
+
+  const manualSnapshot = asRecord(pricing.manualPricingSnapshot);
+  const customerSnapshot = asRecord(manualSnapshot?.customerPricingSnapshot);
+  const customerDepositAmount = numberValue(customerSnapshot?.depositAmountKrw);
+  const customerSecurityAmount = numberValue(customerSnapshot?.securityDepositTotalKrw);
+  const headcount = headcountForPricing(planVersion);
+  if (customerDepositAmount != null || customerSecurityAmount != null) {
+    return (customerDepositAmount ?? 0) * headcount + securityDepositTotalForPayment({
+      amount: customerSecurityAmount,
+      mode: customerSnapshot?.securityDepositMode,
+      headcount,
+    });
+  }
+
+  return pricing.depositAmountKrw * headcount + securityDepositTotalForPayment({
+    amount: pricing.securityDepositAmountKrw,
+    mode: pricing.securityDepositMode,
+    headcount,
+  });
 }
 
 function matchPaymentRow(row: ParsedPaymentSheetRow, context: PaymentMatchContext): MatchedPaymentRow {
@@ -909,6 +978,23 @@ export class ContractPaymentSyncService {
         computedAt: new Date(0),
         updatedAt: new Date(0),
       };
+    });
+  }
+
+  listReceipts(documentNumber: string) {
+    const normalized = normalizeContractDocumentNumber(documentNumber);
+    if (!normalized) {
+      return [];
+    }
+
+    return this.prisma.contractPaymentReceipt.findMany({
+      where: { matchedDocumentNumberNorm: { in: documentNumberLookupKeys(normalized) } },
+      include: { source: true },
+      orderBy: [
+        { receivedAt: 'desc' },
+        { importedAt: 'desc' },
+        { sourceRowNumber: 'asc' },
+      ],
     });
   }
 
@@ -1002,12 +1088,16 @@ export class ContractPaymentSyncService {
           meta: {
             select: {
               documentNumber: true,
+              headcountTotal: true,
             },
           },
           pricing: {
             select: {
               depositAmountKrw: true,
               securityDepositAmountKrw: true,
+              securityDepositMode: true,
+              inputSnapshot: true,
+              manualPricingSnapshot: true,
             },
           },
           confirmedTrips: {
@@ -1140,12 +1230,16 @@ export class ContractPaymentSyncService {
         meta: {
           select: {
             documentNumber: true,
+            headcountTotal: true,
           },
         },
         pricing: {
           select: {
             depositAmountKrw: true,
             securityDepositAmountKrw: true,
+            securityDepositMode: true,
+            inputSnapshot: true,
+            manualPricingSnapshot: true,
           },
         },
         confirmedTrips: {

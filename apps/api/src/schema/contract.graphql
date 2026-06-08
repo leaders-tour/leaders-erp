@@ -63,6 +63,23 @@ type ContractDocumentStatus {
   updatedAt: DateTime!
 }
 
+type ContractSubmission {
+  id: ID!
+  source: ContractSubmissionSource!
+  sourceRowNumber: Int
+  submittedAt: DateTime
+  documentNumberRaw: String
+  documentNumberNorm: String
+  travelerName: String
+  travelerPhone: String
+  leaderName: String
+  representativeType: String
+  totalCompanionCount: Int
+  receivedStatus: String
+  importedAt: DateTime!
+  updatedAt: DateTime!
+}
+
 type ContractSyncRun {
   id: ID!
   sourceId: String!
@@ -99,6 +116,19 @@ type ContractPaymentStatus {
   updatedAt: DateTime!
 }
 
+type ContractPaymentReceipt {
+  id: ID!
+  source: ContractPaymentSource!
+  sourceRowNumber: Int
+  receivedAt: DateTime
+  payerNameRaw: String
+  amountKrw: Int
+  matchedDocumentNumberNorm: String
+  needsReviewReason: String
+  importedAt: DateTime!
+  updatedAt: DateTime!
+}
+
 type ContractPaymentSyncRun {
   id: ID!
   sourceId: String!
@@ -116,9 +146,11 @@ type ContractPaymentSyncRun {
 extend type Query {
   contractSubmissionSources: [ContractSubmissionSource!]!
   contractDocumentStatuses(documentNumbers: [String!]!): [ContractDocumentStatus!]!
+  contractSubmissions(documentNumber: String!): [ContractSubmission!]!
   contractSyncRuns(sourceId: ID, limit: Int = 20): [ContractSyncRun!]!
   contractPaymentSources: [ContractPaymentSource!]!
   contractPaymentStatuses(documentNumbers: [String!]!): [ContractPaymentStatus!]!
+  contractPaymentReceipts(documentNumber: String!): [ContractPaymentReceipt!]!
   contractPaymentSyncRuns(sourceId: ID, limit: Int = 20): [ContractPaymentSyncRun!]!
 }
 
