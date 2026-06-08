@@ -104,6 +104,7 @@ export interface EstimateBuilderDraftSnapshot {
   estimateGuideImagesPerPage?: EstimateGuideImagesPerPage;
   /** 페이지별 장수 직접 지정(예 [3,2,2]). 있으면 균등(estimateGuideImagesPerPage)보다 우선 */
   estimateGuidePageSplits?: number[] | null;
+  movementIntensityColors?: MovementIntensityColorSetting[] | null;
 }
 
 export interface EstimateAdjustmentLine {

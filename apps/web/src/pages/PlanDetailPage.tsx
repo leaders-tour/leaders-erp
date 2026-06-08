@@ -52,15 +52,21 @@ export function PlanDetailPage(): JSX.Element {
     if (!target || !planId || !plan) {
       return;
     }
+    const willDeletePlan = sortedVersions.length <= 1;
     if (
       !window.confirm(
-        `v${target.versionNumber} 버전을 삭제할까요? 저장된 일정·견적 데이터가 함께 삭제되며 되돌릴 수 없습니다.`,
+        willDeletePlan
+          ? `v${target.versionNumber} 버전을 삭제할까요? 마지막 버전이므로 이 여행일정도 함께 삭제되며 되돌릴 수 없습니다.`
+          : `v${target.versionNumber} 버전을 삭제할까요? 저장된 일정·견적 데이터가 함께 삭제되며 되돌릴 수 없습니다.`,
       )
     ) {
       return;
     }
     try {
       await deletePlanVersion(versionId, planId);
+      if (willDeletePlan) {
+        navigate(`/customers/${plan.userId}/plans`);
+      }
     } catch (error) {
       const message =
         error instanceof ApolloError

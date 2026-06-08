@@ -26,9 +26,6 @@ export function VersionListPanel({
   const versionNumberById = new Map(versions.map((version) => [version.id, version.versionNumber]));
 
   const deleteTitle = (version: PlanVersionRow): string | undefined => {
-    if (versions.length <= 1) {
-      return '플랜에 버전이 하나뿐이면 삭제할 수 없습니다.';
-    }
     const childCount = version.childVersions?.length ?? 0;
     if (childCount > 0) {
       return '하위 버전이 있으면 삭제할 수 없습니다. 먼저 하위 버전을 삭제하세요.';
@@ -88,7 +85,7 @@ export function VersionListPanel({
                     <Button
                       variant="destructive"
                       disabled={
-                        deleteVersionLoading || versions.length <= 1 || (version.childVersions?.length ?? 0) > 0
+                        deleteVersionLoading || (version.childVersions?.length ?? 0) > 0
                       }
                       title={deleteTitle(version)}
                       onClick={() => onDeleteVersion(version.id)}

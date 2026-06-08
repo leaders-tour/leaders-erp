@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo } from 'react';
+import { useMemo } from 'react';
 import { fromBuilderDraft } from '../adapters';
 import { useEstimateLocationGuides } from './use-estimate-location-guides';
 import type { EstimateBuilderDraftSnapshot, EstimateDocumentData } from '../model/types';
@@ -10,16 +10,15 @@ interface BuilderEstimatePreviewResult {
 }
 
 export function useBuilderEstimatePreview(snapshot: EstimateBuilderDraftSnapshot | null): BuilderEstimatePreviewResult {
-  const deferredSnapshot = useDeferredValue(snapshot);
   const { guideRows, loading: guidesLoading } = useEstimateLocationGuides();
 
   const data = useMemo<EstimateDocumentData | null>(() => {
-    if (!deferredSnapshot) {
+    if (!snapshot) {
       return null;
     }
 
-    return applyLocationGuides(fromBuilderDraft(deferredSnapshot), guideRows);
-  }, [deferredSnapshot, guideRows]);
+    return applyLocationGuides(fromBuilderDraft(snapshot), guideRows);
+  }, [snapshot, guideRows]);
 
   return {
     data,

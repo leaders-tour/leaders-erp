@@ -1219,8 +1219,7 @@ export class PlanService {
         throw new DomainError('NOT_FOUND', 'Plan version not found');
       }
 
-      const [versionCount, childCount, tripCount, plan] = await Promise.all([
-        tx.planVersion.count({ where: { planId: version.planId } }),
+      const [childCount, tripCount, plan] = await Promise.all([
         tx.planVersion.count({ where: { parentVersionId: versionId } }),
         tx.confirmedTrip.count({ where: { planVersionId: versionId } }),
         tx.plan.findUnique({
@@ -1233,9 +1232,6 @@ export class PlanService {
         throw new DomainError('NOT_FOUND', 'Plan not found');
       }
 
-      if (versionCount <= 1) {
-        throw new DomainError('VALIDATION_FAILED', '플랜의 마지막 버전은 삭제할 수 없습니다.');
-      }
       if (childCount > 0) {
         throw new DomainError(
           'VALIDATION_FAILED',
@@ -1250,15 +1246,21 @@ export class PlanService {
 
       await tx.planVersion.delete({ where: { id: versionId } });
 
+      const nextCurrent = await tx.planVersion.findFirst({
+        where: { planId: version.planId },
+        orderBy: { versionNumber: 'desc' },
+        select: { id: true },
+      });
+
+      if (!nextCurrent) {
+        await tx.plan.delete({ where: { id: version.planId } });
+        return;
+      }
+
       if (wasCurrent) {
-        const nextCurrent = await tx.planVersion.findFirst({
-          where: { planId: version.planId },
-          orderBy: { versionNumber: 'desc' },
-          select: { id: true },
-        });
         await tx.plan.update({
           where: { id: version.planId },
-          data: { currentVersionId: nextCurrent?.id ?? null },
+          data: { currentVersionId: nextCurrent.id },
         });
       }
     });

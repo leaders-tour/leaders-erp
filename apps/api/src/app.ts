@@ -262,8 +262,11 @@ export async function createApp(): Promise<express.Express> {
 
       const request = parseEstimatePdfRequestBody(req.body);
       const settings = await new AppSettingsService(context.prisma).get();
+      const movementIntensityColors = Array.isArray(request.data.movementIntensityColors)
+        ? request.data.movementIntensityColors
+        : settings.movementIntensityColors;
       const pdfBuffer = await renderEstimateDocumentPdf({
-        data: { ...request.data, movementIntensityColors: settings.movementIntensityColors },
+        data: { ...request.data, movementIntensityColors },
         renderBaseUrl: estimatePdfRenderBaseUrl,
       });
       const filename = buildEstimatePdfFilename({
@@ -291,8 +294,11 @@ export async function createApp(): Promise<express.Express> {
 
       const request = parseEstimatePdfRequestBody(req.body);
       const settings = await new AppSettingsService(context.prisma).get();
+      const movementIntensityColors = Array.isArray(request.data.movementIntensityColors)
+        ? request.data.movementIntensityColors
+        : settings.movementIntensityColors;
       const job = createEstimatePdfJob({
-        data: { ...request.data, movementIntensityColors: settings.movementIntensityColors },
+        data: { ...request.data, movementIntensityColors },
         renderBaseUrl: estimatePdfRenderBaseUrl,
       });
 

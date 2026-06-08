@@ -103,6 +103,7 @@ function buildPlanVersionMetaCreateInput(
     }>;
     estimateGuideImagesPerPage?: number;
     estimateGuidePageSplits?: number[];
+    movementIntensityColors?: Prisma.InputJsonValue;
   },
   documentNumber: string,
 ) {
@@ -154,6 +155,7 @@ function buildPlanVersionMetaCreateInput(
       Array.isArray(meta.estimateGuidePageSplits) && meta.estimateGuidePageSplits.length > 0
         ? (meta.estimateGuidePageSplits as Prisma.InputJsonValue)
         : undefined,
+    movementIntensityColors: Array.isArray(meta.movementIntensityColors) ? meta.movementIntensityColors : undefined,
     transportGroups: {
       create: toTransportGroupCreateManyInput(meta.transportGroups),
     },

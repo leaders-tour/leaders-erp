@@ -1218,6 +1218,7 @@ model PlanVersionMeta {
   estimateGuideImagesPerPage    Int        @default(2)
   /// 견적서 여행지 안내 페이지별 장수(예: [3,2,2]). null이면 estimateGuideImagesPerPage로 균등 분할
   estimateGuidePageSplits       Json?
+  movementIntensityColors       Json?
 
   planVersion     PlanVersion                 @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
   transportGroups PlanVersionTransportGroup[]

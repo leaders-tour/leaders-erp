@@ -8,6 +8,7 @@ import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants
 import type { EstimateDocumentData, EstimateSecurityDepositScope } from '../model/types';
 import { normalizeEstimateGuideImagesPerPage, normalizeEstimateGuidePageSplits } from '../utils/guide-layout';
 import { formatPricingDetailFormula, resolveDisplayLeadAmount } from '../../pricing/pricing-line-presenter';
+import { normalizeMovementIntensityColorSettings } from '../model/movement-intensity';
 import {
   addDays,
   buildPage2Title,
@@ -194,6 +195,9 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
         : '-',
     validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
     movementIntensity: version.movementIntensity ?? null,
+    movementIntensityColors: meta?.movementIntensityColors
+      ? normalizeMovementIntensityColorSettings(meta.movementIntensityColors)
+      : null,
     estimateGuideImagesPerPage: normalizeEstimateGuideImagesPerPage(version.meta?.estimateGuideImagesPerPage),
     estimateGuidePageSplits: normalizeEstimateGuidePageSplits(version.meta?.estimateGuidePageSplits),
     planStops: version.planStops.map((row) => ({

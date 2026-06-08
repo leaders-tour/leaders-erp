@@ -13,7 +13,14 @@ import { formatTimeTriggerLabel } from '../components/date-picker/time-picker-ut
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { EstimateGuideLayoutControls } from '../features/estimate/components/EstimateGuideLayoutControls';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
-import { averageMovementIntensity } from '../features/estimate/model/movement-intensity';
+import {
+  MOVEMENT_INTENSITY_ORDER,
+  averageMovementIntensity,
+  getMovementIntensityMeta,
+  normalizeMovementIntensityColorSettings,
+  type MovementIntensityColorSetting,
+  type MovementIntensityValue,
+} from '../features/estimate/model/movement-intensity';
 import {
   formatEstimateGuidePageSplitsInput,
   estimateGuideSupportsThreePerPageChunks,
@@ -138,6 +145,9 @@ import { buildCustomerPricingSnapshot } from '../features/pricing/customer-prici
 import { MealOption, VariantType } from '../generated/graphql';
 import type { ConsultationDraft } from '../generated/graphql';
 import { usePlanVersionDetail } from '../features/plan/hooks';
+import { useMovementIntensityColorSettings } from '../features/app-settings/hooks';
+
+const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
 interface RegionRow {
   id: string;
@@ -169,6 +179,10 @@ interface PlanContextRow {
   regionSetId: string;
   title: string;
   currentVersionId: string | null;
+  user: {
+    id: string;
+    name: string;
+  };
 }
 
 interface UserRow {
@@ -1162,6 +1176,10 @@ const PLAN_CONTEXT_QUERY = gql`
       regionSetId
       title
       currentVersionId
+      user {
+        id
+        name
+      }
     }
   }
 `;
@@ -1895,11 +1913,13 @@ function createEstimateDraftSnapshot(input: {
   eventNames: string[];
   remark: string;
   planStops: PlanStopRowBase[];
+  totalDays: number;
   pricingPreview: EffectivePricingRow | null;
   displayedPricingAdjustmentLines: DisplayedPricingAdjustmentLineRow[];
   expandTeamPricingSummaryRows?: boolean;
   estimateGuideImagesPerPage?: EstimateGuideImagesPerPage;
   estimateGuidePageSplits?: number[] | null;
+  movementIntensityColors?: MovementIntensityColorSetting[] | null;
 }): EstimateBuilderDraftSnapshot {
   const customerSnap =
     input.pricingPreview
@@ -1908,6 +1928,21 @@ function createEstimateDraftSnapshot(input: {
           input.displayedPricingAdjustmentLines,
         )
       : null;
+  const planStopsForPreview =
+    input.planStops.length > 0
+      ? input.planStops
+      : Array.from({ length: Math.max(1, input.totalDays) }, (_, index) => ({
+          rowType: 'MAIN' as const,
+          locationId: null,
+          locationVersionId: null,
+          movementIntensity: null,
+          dateCellText: `${index + 1}일차`,
+          destinationCellText: '',
+          timeCellText: '',
+          scheduleCellText: '',
+          lodgingCellText: '',
+          mealCellText: '',
+        }));
   return {
     planTitle: input.planTitle,
     leaderName: input.leaderName,
@@ -1926,9 +1961,9 @@ function createEstimateDraftSnapshot(input: {
     eventNames: input.eventNames,
     remark: input.remark,
     movementIntensity: averageMovementIntensity(
-      input.planStops.filter((row) => isMainPlanStopRow(row)).map((row) => row.movementIntensity),
+      planStopsForPreview.filter((row) => isMainPlanStopRow(row)).map((row) => row.movementIntensity),
     ),
-    planStops: input.planStops.map((row) => ({
+    planStops: planStopsForPreview.map((row) => ({
       rowType: row.rowType,
       locationId: row.locationId,
       dateCellText: row.dateCellText,
@@ -1979,7 +2014,99 @@ function createEstimateDraftSnapshot(input: {
         : null,
     estimateGuideImagesPerPage: normalizeEstimateGuideImagesPerPage(input.estimateGuideImagesPerPage),
     estimateGuidePageSplits: normalizeEstimateGuidePageSplits(input.estimateGuidePageSplits),
+    movementIntensityColors: input.movementIntensityColors
+      ? normalizeMovementIntensityColorSettings(input.movementIntensityColors)
+      : null,
   };
+}
+
+function MovementIntensityColorOverridesCard({
+  colors,
+  settingsColors,
+  onChange,
+}: {
+  colors: readonly MovementIntensityColorSetting[];
+  settingsColors: readonly MovementIntensityColorSetting[];
+  onChange: (colors: MovementIntensityColorSetting[]) => void;
+}): JSX.Element {
+  const colorByLevel = useMemo(
+    () => new Map(colors.map((item) => [item.level, item.color] as const)),
+    [colors],
+  );
+
+  const updateColor = useCallback(
+    (level: MovementIntensityValue, color: string) => {
+      const current = new Map(colors.map((item) => [item.level, item.color] as const));
+      current.set(level, color);
+      onChange(
+        MOVEMENT_INTENSITY_ORDER.map((itemLevel) => ({
+          level: itemLevel,
+          color: current.get(itemLevel) ?? '#000000',
+        })),
+      );
+    },
+    [colors, onChange],
+  );
+
+  return (
+    <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">이동강도 색상</h2>
+          <p className="mt-2 text-xs text-slate-500">
+            이 견적서 버전에만 저장되는 색상입니다. 변경 내용은 미리보기에 즉시 반영됩니다.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => onChange(normalizeMovementIntensityColorSettings(settingsColors))}
+        >
+          전역 기본값
+        </Button>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        {MOVEMENT_INTENSITY_ORDER.map((level) => {
+          const color = colorByLevel.get(level) ?? '#000000';
+          const meta = getMovementIntensityMeta(level, colors);
+          const isInvalid = !HEX_COLOR_PATTERN.test(color);
+
+          return (
+            <div key={level} className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span
+                  className="inline-flex h-8 min-w-[6rem] items-center justify-center rounded-full border px-3 text-xs font-semibold"
+                  style={{
+                    backgroundColor: meta?.backgroundColor,
+                    borderColor: meta?.borderColor,
+                    color: meta?.textColor,
+                  }}
+                >
+                  {meta?.label ?? level}
+                </span>
+                <input
+                  type="color"
+                  value={HEX_COLOR_PATTERN.test(color) ? color : '#000000'}
+                  aria-label={`${meta?.label ?? level} 색상`}
+                  onChange={(event) => updateColor(level, event.target.value)}
+                  className="h-9 w-14 cursor-pointer rounded-lg border border-slate-200 bg-white p-1"
+                />
+              </div>
+              <input
+                value={color}
+                onChange={(event) => updateColor(level, event.target.value)}
+                className={`h-9 w-full rounded-lg border px-3 text-sm font-mono uppercase ${
+                  isInvalid ? 'border-red-300 bg-red-50 text-red-900' : 'border-slate-200 text-slate-900'
+                }`}
+              />
+              {isInvalid ? <p className="text-xs text-red-600">#RRGGBB 형식</p> : null}
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
 }
 
 interface TransportGroupDraft extends EstimateTransportGroup {
@@ -2607,7 +2734,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     ESTIMATE_GUIDE_IMAGES_PER_PAGE_DEFAULT,
   );
   const [estimateGuidePageSplitsText, setEstimateGuidePageSplitsText] = useState('');
-
+  const [movementIntensityColors, setMovementIntensityColors] = useState<MovementIntensityColorSetting[]>(
+    () => normalizeMovementIntensityColorSettings(null),
+  );
 
   const [selectedRoute, setSelectedRoute] = useState<RouteSelection[]>([]);
   const [isMultiDayBlockSectionOpen, setIsMultiDayBlockSectionOpen] = useState<boolean>(false);
@@ -2684,6 +2813,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const pendingConsultationTemplateApplyIdRef = useRef<string | null>(null);
   const lastAutoPlanTitleRef = useRef<string>(buildDefaultPlanTitle(''));
   const hasEditedHeadcountMaleRef = useRef<boolean>(false);
+  const hasEditedMovementIntensityColorsRef = useRef<boolean>(false);
   const hasHydratedParentVersionRef = useRef<boolean>(false);
   const isWaitingForParentTransportGroupsRef = useRef<boolean>(false);
   /** 부모 버전 하이드레이션과 같은 틱에서 autoRows merge가 돌면 setPlanRows가 엇갈려 일정이 비워짐 — 한 프레임 스킵 */
@@ -2697,9 +2827,11 @@ export function ItineraryBuilderPage(): JSX.Element {
   } | null>(null);
 
   const { rules: specialMealDestinationRules } = useSpecialMealDestinationRules();
+  const { colors: settingsMovementIntensityColors } = useMovementIntensityColorSettings();
 
   useEffect(() => {
     hasHydratedParentVersionRef.current = false;
+    hasEditedMovementIntensityColorsRef.current = false;
     isWaitingForParentTransportGroupsRef.current = false;
     suppressAutoRowsMergeOnceRef.current = false;
     skipAutoRowMergeForParentCloneRef.current = false;
@@ -2709,6 +2841,13 @@ export function ItineraryBuilderPage(): JSX.Element {
   useEffect(() => {
     setVariantTypeManualLocked(false);
   }, [userId, planId, parentVersionId]);
+
+  useEffect(() => {
+    if (parentVersionId || hasEditedMovementIntensityColorsRef.current) {
+      return;
+    }
+    setMovementIntensityColors(normalizeMovementIntensityColorSettings(settingsMovementIntensityColors));
+  }, [parentVersionId, settingsMovementIntensityColors]);
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
@@ -2807,7 +2946,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         overnightStayConnectionsLoading),
   );
   const planContext = planContextData?.plan ?? null;
-  const selectedUserName = userData?.user?.name ?? '';
+  const selectedUserName = userData?.user?.name ?? planContext?.user.name ?? '';
   const eventOptions = eventData?.events ?? [];
   const { availability: rentalItemAvailability, loading: rentalItemAvailabilityLoading } =
     useRentalItemAvailability({
@@ -2959,6 +3098,9 @@ export function ItineraryBuilderPage(): JSX.Element {
       formatEstimateGuidePageSplitsInput(
         Array.isArray(meta.estimateGuidePageSplits) ? meta.estimateGuidePageSplits : null,
       ),
+    );
+    setMovementIntensityColors(
+      normalizeMovementIntensityColorSettings(meta.movementIntensityColors ?? settingsMovementIntensityColors),
     );
     setRoutePresetTemplateId('');
     setIsMultiDayBlockSectionOpen(false);
@@ -3114,7 +3256,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       nextManualPricingState.enabled === true && pricing?.manualPricing?.expandTeamPricingSummaryRows === true,
     );
     setManualPricingAdjustmentAmountDraft(null);
-  }, [isVersionMode, parentVersionId, parentVersionLoading, parentVersion]);
+  }, [isVersionMode, parentVersionId, parentVersionLoading, parentVersion, settingsMovementIntensityColors]);
 
   useEffect(() => {
     if (!manualPricing.enabled) {
@@ -4582,11 +4724,25 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
   }, [activePane, isPreviewEnabled]);
 
+  const movementIntensityColorInvalidLevels = useMemo(
+    () => movementIntensityColors.filter((item) => !HEX_COLOR_PATTERN.test(item.color)).map((item) => item.level),
+    [movementIntensityColors],
+  );
+  const normalizedMovementIntensityColors = useMemo(
+    () => normalizeMovementIntensityColorSettings(movementIntensityColors),
+    [movementIntensityColors],
+  );
+  const handleMovementIntensityColorsChange = useCallback((colors: MovementIntensityColorSetting[]) => {
+    hasEditedMovementIntensityColorsRef.current = true;
+    setMovementIntensityColors(colors);
+  }, []);
+
   const canCreate = Boolean(
     hasPlanContext &&
     regionSetId &&
     leaderName.trim() &&
     validationErrors.length === 0 &&
+    movementIntensityColorInvalidLevels.length === 0 &&
     (includeRentalItems ? rentalItemsText.trim() : true) &&
     selectedRoute.length > 0 &&
     selectedRoute.every(isRouteSelectionStopComplete) &&
@@ -4617,6 +4773,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     for (const err of validationResults) {
       if (err.severity !== 'error') continue;
       reasons.push(err.message);
+    }
+    if (movementIntensityColorInvalidLevels.length > 0) {
+      reasons.push('이동강도 색상은 #RRGGBB 형식이어야 합니다.');
     }
     if (includeRentalItems && !rentalItemsText.trim()) {
       reasons.push('렌탈 항목 포함이 켜져 있으면 렌탈 항목 내용을 입력해 주세요.');
@@ -4671,6 +4830,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     planRows,
     planTitle,
     planDocumentNumberBase,
+    movementIntensityColorInvalidLevels.length,
   ]);
   const planCreateActionLabel = isVersionMode ? '새 버전 생성' : '생성';
   const shouldShowPlanCreateBlockedTooltip =
@@ -4719,11 +4879,13 @@ export function ItineraryBuilderPage(): JSX.Element {
         eventNames: selectedEventNames,
         remark: remark.trim(),
         planStops: mergedPlanStops,
+        totalDays,
         pricingPreview: effectivePricingPreview,
         displayedPricingAdjustmentLines,
         expandTeamPricingSummaryRows: manualPricing.enabled && manualPricingSplitTeamRows,
         estimateGuideImagesPerPage,
         estimateGuidePageSplits: estimateGuidePageSplitsParsed,
+        movementIntensityColors: normalizedMovementIntensityColors,
       }),
     [
       effectivePlanTitle,
@@ -4743,12 +4905,14 @@ export function ItineraryBuilderPage(): JSX.Element {
       selectedEventNames,
       remark,
       mergedPlanStops,
+      totalDays,
       effectivePricingPreview,
       displayedPricingAdjustmentLines,
       manualPricing.enabled,
       manualPricingSplitTeamRows,
       estimateGuideImagesPerPage,
       estimateGuidePageSplitsParsed,
+      normalizedMovementIntensityColors,
     ],
   );
   const { data: previewEstimateData, guidesLoading: previewGuidesLoading } =
@@ -5286,6 +5450,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 remark: remark.trim() || undefined,
                                 estimateGuideImagesPerPage,
                                 estimateGuidePageSplits: estimateGuidePageSplitsParsed ?? undefined,
+                                movementIntensityColors: normalizedMovementIntensityColors,
                               },
                               planStops: planStopsForMutation,
                               manualAdjustments: normalizedManualAdjustments,
@@ -5380,6 +5545,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 remark: remark.trim() || undefined,
                                 estimateGuideImagesPerPage,
                                 estimateGuidePageSplits: estimateGuidePageSplitsParsed ?? undefined,
+                                movementIntensityColors: normalizedMovementIntensityColors,
                               },
                               planStops: planStopsForMutation,
                               manualAdjustments: normalizedManualAdjustments,
@@ -7823,6 +7989,12 @@ export function ItineraryBuilderPage(): JSX.Element {
                 />
               </Card>
 
+              <MovementIntensityColorOverridesCard
+                colors={movementIntensityColors}
+                settingsColors={settingsMovementIntensityColors}
+                onChange={handleMovementIntensityColorsChange}
+              />
+
               <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
                 <button
                   type="button"
@@ -7928,6 +8100,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 extraLodgings,
                                 lodgingSelections,
                                 remark,
+                                estimateGuideImagesPerPage,
+                                estimateGuidePageSplits: estimateGuidePageSplitsParsed ?? undefined,
+                                movementIntensityColors: normalizedMovementIntensityColors,
                               },
                               manualAdjustments: normalizedManualAdjustments,
                               manualDepositAmountKrw: normalizedManualDepositAmountKrw,
@@ -7977,6 +8152,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 extraLodgings,
                                 lodgingSelections,
                                 remark,
+                                estimateGuideImagesPerPage,
+                                estimateGuidePageSplits: estimateGuidePageSplitsParsed ?? undefined,
+                                movementIntensityColors: normalizedMovementIntensityColors,
                               },
                               manualAdjustments: normalizedManualAdjustments,
                               manualDepositAmountKrw: normalizedManualDepositAmountKrw,

@@ -201,6 +201,31 @@ export const planResolver = {
       }
       return out.length > 0 ? out : null;
     },
+    movementIntensityColors: (parent: { movementIntensityColors?: unknown }) => {
+      const v = parent.movementIntensityColors;
+      if (v == null) {
+        return null;
+      }
+      if (!Array.isArray(v)) {
+        return null;
+      }
+      const out: Array<{ level: string; color: string }> = [];
+      for (const item of v) {
+        if (
+          typeof item !== 'object' ||
+          item == null ||
+          !('level' in item) ||
+          !('color' in item) ||
+          typeof item.level !== 'string' ||
+          typeof item.color !== 'string' ||
+          !/^#[0-9A-Fa-f]{6}$/.test(item.color)
+        ) {
+          return null;
+        }
+        out.push({ level: item.level, color: item.color.toLowerCase() });
+      }
+      return out.length > 0 ? out : null;
+    },
     events: async (parent: { planVersionId: string }, _args: unknown, ctx: AppContext) => {
       const rows = await ctx.prisma.planVersionEvent.findMany({
         where: { planVersionId: parent.planVersionId },
