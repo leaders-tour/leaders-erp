@@ -9,6 +9,13 @@ import { createValidationError } from '../../lib/errors';
 
 export interface AppSettingsDto {
   movementIntensityColors: Array<{ level: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5'; color: string }>;
+  rentalItemPresets: Array<{
+    id: string;
+    name: string;
+    current: boolean;
+    sharedQuantityRules: Array<{ id: string; minHeadcount: number; maxHeadcount: number | null; quantity: number }>;
+    items: Array<{ id: string; label: string; unit: string; quantityFormula: string }>;
+  }>;
   updatedAt: Date;
 }
 

@@ -237,7 +237,16 @@ const baseNavItems: NavItem[] = [
       { path: '/events/create', label: '이벤트 생성' },
     ],
   },
-  { path: '/settings', label: '설정', icon: SettingsIcon },
+  {
+    path: '/settings',
+    label: '설정',
+    icon: SettingsIcon,
+    children: [
+      { path: '/settings', label: '설정 메뉴' },
+      { path: '/settings/movement-intensity', label: '이동강도' },
+      { path: '/settings/rental-items', label: '물품대여' },
+    ],
+  },
 ];
 
 const sidebarCollapsedStorageKey = 'tour-erp:sidebar-collapsed';

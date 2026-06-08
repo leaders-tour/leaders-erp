@@ -1,5 +1,53 @@
 import { describe, expect, it } from 'vitest';
-import { applyLastDayAutoRowAdjustments } from './ItineraryBuilderPage';
+import { APP_SETTINGS_DEFAULT } from '@tour/validation';
+import {
+  applyLastDayAutoRowAdjustments,
+  buildRentalItemsTextForHeadcountChange,
+} from './ItineraryBuilderPage';
+
+describe('buildRentalItemsTextForHeadcountChange', () => {
+  it('recalculates the current preset even when the current text was edited manually', () => {
+    const result = buildRentalItemsTextForHeadcountChange({
+      includeRentalItems: true,
+      currentText: '직접 수정한 텍스트',
+      nextTotal: 9,
+      preset: APP_SETTINGS_DEFAULT.rentalItemPresets[0]!,
+    });
+
+    expect(result).toBe(
+      '판초 9개, 모기장 9개, 썰매 9개, 돗자리 3개, 별레이저 1개, 랜턴 1개, 멀티탭 3개, 드라이기 1개, 보드게임 1종, 버너/냄비/팬 1set',
+    );
+  });
+
+  it('keeps the current text when rental items are excluded', () => {
+    const result = buildRentalItemsTextForHeadcountChange({
+      includeRentalItems: false,
+      currentText: '',
+      nextTotal: 9,
+      preset: APP_SETTINGS_DEFAULT.rentalItemPresets[0]!,
+    });
+
+    expect(result).toBe('');
+  });
+
+  it('uses preset-specific shared rules when recalculating rental items', () => {
+    const result = buildRentalItemsTextForHeadcountChange({
+      includeRentalItems: true,
+      currentText: '직접 수정한 텍스트',
+      nextTotal: 6,
+      preset: {
+        ...APP_SETTINGS_DEFAULT.rentalItemPresets[0]!,
+        sharedQuantityRules: [
+          { id: 'a', minHeadcount: 1, maxHeadcount: 3, quantity: 1 },
+          { id: 'b', minHeadcount: 4, maxHeadcount: null, quantity: 9 },
+        ],
+        items: [{ id: 'power-strip', label: '멀티탭', unit: '개', quantityFormula: 'shared' }],
+      },
+    });
+
+    expect(result).toBe('멀티탭 9개');
+  });
+});
 
 describe('applyLastDayAutoRowAdjustments', () => {
   it('keeps the final-day correction above auto-filled segment overrides when no flight-specific override applies', () => {

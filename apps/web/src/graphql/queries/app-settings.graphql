@@ -4,6 +4,23 @@ query AppSettings {
       level
       color
     }
+    rentalItemPresets {
+      id
+      name
+      current
+      sharedQuantityRules {
+        id
+        minHeadcount
+        maxHeadcount
+        quantity
+      }
+      items {
+        id
+        label
+        unit
+        quantityFormula
+      }
+    }
     updatedAt
   }
 }

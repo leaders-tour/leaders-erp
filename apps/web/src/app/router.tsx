@@ -48,7 +48,11 @@ import { RegionCreatePage } from '../pages/RegionCreatePage';
 import { RegionLodgingPage } from '../pages/RegionLodgingPage';
 import { RegionListPage } from '../pages/RegionListPage';
 import { RegionSetAdminPage } from '../pages/RegionSetAdminPage';
-import { SettingsPage } from '../pages/SettingsPage';
+import {
+  MovementIntensitySettingsPage,
+  RentalItemSettingsPage,
+  SettingsPage,
+} from '../pages/SettingsPage';
 import { SpecialMealDestinationRulesPage } from '../pages/SpecialMealDestinationRulesPage';
 import { TodoListPage } from '../pages/TodoListPage';
 
@@ -170,6 +174,14 @@ export const router = createBrowserRouter([
       {
         path: 'settings',
         element: <RequireStaffOrAbove><SettingsPage /></RequireStaffOrAbove>,
+      },
+      {
+        path: 'settings/movement-intensity',
+        element: <RequireStaffOrAbove><MovementIntensitySettingsPage /></RequireStaffOrAbove>,
+      },
+      {
+        path: 'settings/rental-items',
+        element: <RequireStaffOrAbove><RentalItemSettingsPage /></RequireStaffOrAbove>,
       },
       {
         path: 'settings/special-meal-destination-rules',

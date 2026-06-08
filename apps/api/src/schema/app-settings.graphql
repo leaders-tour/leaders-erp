@@ -3,8 +3,31 @@ type MovementIntensityColorSetting {
   color: String!
 }
 
+type RentalItemPresetItem {
+  id: String!
+  label: String!
+  unit: String!
+  quantityFormula: String!
+}
+
+type RentalItemSharedQuantityRule {
+  id: String!
+  minHeadcount: Int!
+  maxHeadcount: Int
+  quantity: Int!
+}
+
+type RentalItemPreset {
+  id: String!
+  name: String!
+  current: Boolean!
+  sharedQuantityRules: [RentalItemSharedQuantityRule!]!
+  items: [RentalItemPresetItem!]!
+}
+
 type AppSettings {
   movementIntensityColors: [MovementIntensityColorSetting!]!
+  rentalItemPresets: [RentalItemPreset!]!
   updatedAt: DateTime!
 }
 
@@ -13,8 +36,31 @@ input MovementIntensityColorSettingInput {
   color: String!
 }
 
+input RentalItemPresetItemInput {
+  id: String!
+  label: String!
+  unit: String!
+  quantityFormula: String!
+}
+
+input RentalItemSharedQuantityRuleInput {
+  id: String!
+  minHeadcount: Int!
+  maxHeadcount: Int
+  quantity: Int!
+}
+
+input RentalItemPresetInput {
+  id: String!
+  name: String!
+  current: Boolean!
+  sharedQuantityRules: [RentalItemSharedQuantityRuleInput!]!
+  items: [RentalItemPresetItemInput!]!
+}
+
 input AppSettingsInput {
   movementIntensityColors: [MovementIntensityColorSettingInput!]!
+  rentalItemPresets: [RentalItemPresetInput!]!
 }
 
 extend type Query {

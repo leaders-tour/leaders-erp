@@ -1,5 +1,6 @@
 import { ApolloError, gql, useMutation, useQuery } from '@apollo/client';
 import { pickDefaultLocationMealSet, type PricingManualSnapshot } from '@tour/domain';
+import { renderRentalItemPresetText, type RentalItemPreset } from '@tour/validation';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -145,7 +146,7 @@ import { buildCustomerPricingSnapshot } from '../features/pricing/customer-prici
 import { MealOption, VariantType } from '../generated/graphql';
 import type { ConsultationDraft } from '../generated/graphql';
 import { usePlanVersionDetail } from '../features/plan/hooks';
-import { useMovementIntensityColorSettings } from '../features/app-settings/hooks';
+import { useCurrentRentalItemPreset, useMovementIntensityColorSettings } from '../features/app-settings/hooks';
 
 const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
@@ -1793,23 +1794,6 @@ function toAutoTravelEndDate(startDate: string, totalDays: number): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function buildDefaultRentalItems(total: number): string {
-  const safeTotal = Math.max(1, total);
-  const sharedItemCount = safeTotal >= 10 ? 4 : safeTotal >= 9 ? 3 : safeTotal >= 5 ? 2 : 1;
-  return [
-    `판초 ${safeTotal}개`,
-    `모기장 ${safeTotal}개`,
-    `썰매 ${safeTotal}개`,
-    `돗자리 ${sharedItemCount}개`,
-    '별레이저 1개',
-    '랜턴 1개',
-    `멀티탭 ${sharedItemCount}개`,
-    '드라이기 1개',
-    '보드게임 1종',
-    '버너/냄비/팬 set',
-  ].join(', ');
-}
-
 function buildDefaultPlanTitle(leaderName: string): string {
   const trimmedLeaderName = leaderName.trim();
   return trimmedLeaderName ? `${trimmedLeaderName} - 여행일정` : '고객명 - 여행일정';
@@ -1817,6 +1801,18 @@ function buildDefaultPlanTitle(leaderName: string): string {
 
 function buildDefaultMaleHeadcount(total: number): number {
   return Math.ceil(Math.max(1, total) / 2);
+}
+
+export function buildRentalItemsTextForHeadcountChange(input: {
+  includeRentalItems: boolean;
+  currentText: string;
+  nextTotal: number;
+  preset: RentalItemPreset;
+}): string {
+  if (!input.includeRentalItems) {
+    return input.currentText;
+  }
+  return renderRentalItemPresetText(input.preset, input.nextTotal);
 }
 
 function formatKrw(value: number): string {
@@ -2727,7 +2723,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [externalTransfersDraft, setExternalTransfersDraft] = useState<ExternalTransfer[]>([]);
   const [specialNote, setSpecialNote] = useState<string>('');
   const [includeRentalItems, setIncludeRentalItems] = useState<boolean>(true);
-  const [rentalItemsText, setRentalItemsText] = useState<string>(buildDefaultRentalItems(6));
+  const [rentalItemsText, setRentalItemsText] = useState<string>('');
   const [eventIds, setEventIds] = useState<string[]>([]);
   const [remark, setRemark] = useState<string>('');
   const [estimateGuideImagesPerPage, setEstimateGuideImagesPerPage] = useState<EstimateGuideImagesPerPage>(
@@ -2815,6 +2811,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const hasEditedHeadcountMaleRef = useRef<boolean>(false);
   const hasEditedMovementIntensityColorsRef = useRef<boolean>(false);
   const hasHydratedParentVersionRef = useRef<boolean>(false);
+  const hasInitializedRentalItemsRef = useRef<boolean>(false);
   const isWaitingForParentTransportGroupsRef = useRef<boolean>(false);
   /** 부모 버전 하이드레이션과 같은 틱에서 autoRows merge가 돌면 setPlanRows가 엇갈려 일정이 비워짐 — 한 프레임 스킵 */
   const suppressAutoRowsMergeOnceRef = useRef<boolean>(false);
@@ -2828,10 +2825,16 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   const { rules: specialMealDestinationRules } = useSpecialMealDestinationRules();
   const { colors: settingsMovementIntensityColors } = useMovementIntensityColorSettings();
+  const { preset: currentRentalItemPreset } = useCurrentRentalItemPreset();
+  const buildRentalItemsText = useCallback(
+    (total: number) => renderRentalItemPresetText(currentRentalItemPreset, total),
+    [currentRentalItemPreset],
+  );
 
   useEffect(() => {
     hasHydratedParentVersionRef.current = false;
     hasEditedMovementIntensityColorsRef.current = false;
+    hasInitializedRentalItemsRef.current = false;
     isWaitingForParentTransportGroupsRef.current = false;
     suppressAutoRowsMergeOnceRef.current = false;
     skipAutoRowMergeForParentCloneRef.current = false;
@@ -2848,6 +2851,14 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
     setMovementIntensityColors(normalizeMovementIntensityColorSettings(settingsMovementIntensityColors));
   }, [parentVersionId, settingsMovementIntensityColors]);
+
+  useEffect(() => {
+    if (parentVersionId || hasInitializedRentalItemsRef.current || !includeRentalItems) {
+      return;
+    }
+    setRentalItemsText(buildRentalItemsText(headcountTotal));
+    hasInitializedRentalItemsRef.current = true;
+  }, [buildRentalItemsText, headcountTotal, includeRentalItems, parentVersionId]);
 
   const { data: planContextData } = useQuery<{ plan: PlanContextRow | null }>(PLAN_CONTEXT_QUERY, {
     variables: { id: planId },
@@ -3091,6 +3102,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     setSpecialNote(meta.specialNote ?? '');
     setIncludeRentalItems(meta.includeRentalItems);
     setRentalItemsText(meta.rentalItemsText);
+    hasInitializedRentalItemsRef.current = true;
     setEventIds(meta.events.map((event) => event.id));
     setRemark(meta.remark ?? '');
     setEstimateGuideImagesPerPage(normalizeEstimateGuideImagesPerPage(meta.estimateGuideImagesPerPage));
@@ -3989,7 +4001,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         externalTransfers.length === 0 &&
         !specialNote.trim() &&
         includeRentalItems &&
-        rentalItemsText.trim() === buildDefaultRentalItems(headcountTotal) &&
+        rentalItemsText.trim() === buildRentalItemsText(headcountTotal).trim() &&
         eventIds.length === 0 &&
         !remark.trim() &&
         selectedRoute.length === 0 &&
@@ -4016,6 +4028,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     eventIds,
     externalTransfers.length,
     extraLodgingCounts,
+    buildRentalItemsText,
     hasValidContext,
     headcountMale,
     headcountTotal,
@@ -4385,17 +4398,14 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   const headcountFemale = headcountTotal - headcountMale;
   const applyHeadcountTotalChange = (nextTotal: number): void => {
-    const previousTotal = headcountTotal;
-    setRentalItemsText((currentText) => {
-      if (!includeRentalItems) {
-        return currentText;
-      }
-      const prevDefault = buildDefaultRentalItems(previousTotal);
-      if (currentText.trim() === prevDefault.trim()) {
-        return buildDefaultRentalItems(nextTotal);
-      }
-      return currentText;
-    });
+    setRentalItemsText((currentText) =>
+      buildRentalItemsTextForHeadcountChange({
+        includeRentalItems,
+        currentText,
+        nextTotal,
+        preset: currentRentalItemPreset,
+      }),
+    );
     setHeadcountTotal(nextTotal);
     setHeadcountMale((current) =>
       hasEditedHeadcountMaleRef.current
@@ -5922,7 +5932,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           variant="outline"
                           disabled={!includeRentalItems}
                           onClick={() =>
-                            setRentalItemsText(buildDefaultRentalItems(headcountTotal))
+                            setRentalItemsText(buildRentalItemsText(headcountTotal))
                           }
                         >
                           초기화
@@ -5937,6 +5947,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                             setIncludeRentalItems(checked);
                             if (!checked) {
                               setRentalItemsText('');
+                            } else {
+                              setRentalItemsText(buildRentalItemsText(headcountTotal));
                             }
                           }}
                         />
