@@ -315,13 +315,18 @@ function normalizePersonNameForLookup(value: string | null | undefined): string 
 }
 
 function contractSubmissionPersonKeys(submission: ContractSubmissionRow): string[] {
-  return Array.from(
-    new Set(
-      [submission.travelerName, submission.leaderName]
-        .map(normalizePersonNameForLookup)
-        .filter((value): value is string => Boolean(value)),
-    ),
-  );
+  const travelerKey = normalizePersonNameForLookup(submission.travelerName);
+  const leaderKey = normalizePersonNameForLookup(submission.leaderName);
+  const keys: string[] = [];
+
+  if (travelerKey) {
+    keys.push(travelerKey);
+  }
+  if (leaderKey && leaderKey === travelerKey) {
+    keys.push(leaderKey);
+  }
+
+  return keys;
 }
 
 function paymentBreakdownFromPricing(
