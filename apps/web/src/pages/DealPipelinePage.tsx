@@ -101,9 +101,6 @@ function buildBoard(users: UserRow[]): BoardState {
 
   for (const user of users) {
     if (!next[user.dealStage]) {
-      if (user.dealStage === 'CONSULTING') {
-        next.CONTRACTING.push({ ...user, dealStage: 'CONTRACTING' });
-      }
       continue;
     }
     next[user.dealStage].push(user);
@@ -360,18 +357,18 @@ function paymentBreakdownFromPricing(
 
 function paymentStatusLabel(status: ContractPaymentStatusRow | null): string {
   if (!status || status.status === 'NOT_STARTED') {
-    return `입금 0/${formatKrw(status?.requiredAmountKrw)}`;
+    return '입금';
   }
   if (status.status === 'COMPLETED') {
     return '입금 완료';
   }
   if (status.status === 'OVERPAID') {
-    return `입금 초과 ${formatKrw(status.receivedAmountKrw)}/${formatKrw(status.requiredAmountKrw)}`;
+    return '입금 초과';
   }
   if (status.status === 'NEEDS_REVIEW') {
     return '입금 확인 필요';
   }
-  return `입금 ${formatKrw(status.receivedAmountKrw)}/${formatKrw(status.requiredAmountKrw)}`;
+  return '입금';
 }
 
 function isPaymentComplete(status: ContractPaymentStatusRow | null): boolean {
@@ -388,6 +385,41 @@ function isContractStarted(status: ContractDocumentStatusRow | null): boolean {
 
 function isContractComplete(status: ContractDocumentStatusRow | null): boolean {
   return status?.status === 'COMPLETED';
+}
+
+function resolveVisibleStage(
+  user: UserRow,
+  contractStatus: ContractDocumentStatusRow | null,
+  paymentStatus: ContractPaymentStatusRow | null,
+): DealStageValue | null {
+  const isConfirmationCandidate =
+    isContractComplete(contractStatus) && isPaymentComplete(paymentStatus) && !hasActiveConfirmedTrip(user);
+
+  if (isConfirmationCandidate) {
+    return 'CONTRACT_CONFIRMED';
+  }
+
+  if (isContractStarted(contractStatus)) {
+    const contractAndPaymentDone =
+      isContractComplete(contractStatus) && isPaymentComplete(paymentStatus);
+    if (!contractAndPaymentDone) {
+      return 'CONTRACTING';
+    }
+  }
+
+  if (user.dealStage === 'CONTRACTING' && !isContractStarted(contractStatus)) {
+    return null;
+  }
+
+  if (user.dealStage === 'CONTRACT_CONFIRMED' || user.dealStage === 'CONTRACTING') {
+    return null;
+  }
+
+  if (STAGES.some((stage) => stage.key === user.dealStage)) {
+    return user.dealStage;
+  }
+
+  return null;
 }
 
 function boardsEqual(left: BoardState, right: BoardState): boolean {
@@ -1249,23 +1281,15 @@ export function DealPipelinePage(): JSX.Element {
         paymentStatus: documentNumber ? paymentStatusByDocumentNumber.get(documentNumber) ?? null : null,
       };
     };
-    const isConfirmationCandidate = (user: UserRow): boolean => {
-      const { contractStatus, paymentStatus } = getStatuses(user);
-      return isContractComplete(contractStatus) && isPaymentComplete(paymentStatus) && !hasActiveConfirmedTrip(user);
-    };
-    const applyStageVisibility = (source: BoardState): BoardState => {
+    const applyStageVisibility = (sourceUsers: UserRow[]): BoardState => {
       const next = createEmptyBoard();
-      const allUsers = Array.from(
-        new Map(STAGES.flatMap((stage) => source[stage.key]).map((user) => [user.id, user])).values(),
-      );
 
-      for (const user of allUsers) {
-        const { contractStatus } = getStatuses(user);
-        const visibleStage = isConfirmationCandidate(user)
-          ? 'CONTRACT_CONFIRMED'
-          : isContractStarted(contractStatus) && !hasActiveConfirmedTrip(user)
-            ? 'CONTRACTING'
-            : user.dealStage;
+      for (const user of sourceUsers) {
+        const { contractStatus, paymentStatus } = getStatuses(user);
+        const visibleStage = resolveVisibleStage(user, contractStatus, paymentStatus);
+        if (visibleStage === null) {
+          continue;
+        }
 
         next[visibleStage].push({
           ...user,
@@ -1273,24 +1297,28 @@ export function DealPipelinePage(): JSX.Element {
           dealStageOrder: next[visibleStage].length,
         });
       }
+
+      for (const stage of STAGES) {
+        next[stage.key] = sortUsersInStage(next[stage.key]).map((user, index) => ({
+          ...user,
+          dealStage: stage.key,
+          dealStageOrder: index,
+        }));
+      }
+
       return next;
     };
 
-    if (!normalizedKeyword) {
-      return applyStageVisibility(board);
-    }
+    const visibleUsers = normalizedKeyword
+      ? users.filter((user) => {
+          const nameMatched = user.name.toLowerCase().includes(normalizedKeyword);
+          const emailMatched = user.email?.toLowerCase().includes(normalizedKeyword) ?? false;
+          return nameMatched || emailMatched;
+        })
+      : users;
 
-    const filtered = createEmptyBoard();
-    for (const stage of STAGES) {
-      filtered[stage.key] = board[stage.key].filter((user) => {
-        const nameMatched = user.name.toLowerCase().includes(normalizedKeyword);
-        const emailMatched = user.email?.toLowerCase().includes(normalizedKeyword) ?? false;
-        return nameMatched || emailMatched;
-      });
-    }
-
-    return applyStageVisibility(filtered);
-  }, [board, contractStatusByDocumentNumber, normalizedKeyword, paymentStatusByDocumentNumber]);
+    return applyStageVisibility(visibleUsers);
+  }, [contractStatusByDocumentNumber, normalizedKeyword, paymentStatusByDocumentNumber, users]);
 
   const activeUser = useMemo(() => {
     if (!activeUserId) {
@@ -1319,13 +1347,13 @@ export function DealPipelinePage(): JSX.Element {
       return null;
     }
     for (const stage of STAGES) {
-      const found = board[stage.key].find((user) => user.id === selectedUserId);
+      const found = displayedBoard[stage.key].find((user) => user.id === selectedUserId);
       if (found) {
         return found;
       }
     }
-    return null;
-  }, [board, selectedUserId]);
+    return users.find((user) => user.id === selectedUserId) ?? null;
+  }, [displayedBoard, selectedUserId, users]);
 
   const findContainer = (id: string): DealStageValue | null => {
     const asColumn = parseColumnId(id);
