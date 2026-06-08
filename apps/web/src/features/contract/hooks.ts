@@ -9,6 +9,9 @@ export type ContractDocumentStatusValue =
   | 'OVER_SUBMITTED'
   | 'NEEDS_REVIEW';
 export type ContractSyncRunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
+export type ContractPaymentSourceType = 'GOOGLE_SHEET';
+export type ContractPaymentStatusValue = 'NOT_STARTED' | 'PARTIAL' | 'COMPLETED' | 'OVERPAID' | 'NEEDS_REVIEW';
+export type ContractPaymentSyncRunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
 
 export interface ContractSubmissionSourceRow {
   id: string;
@@ -47,6 +50,44 @@ export interface ContractSyncRunRow {
   fetchedRows: number;
   upsertedRows: number;
   skippedRows: number;
+  errorMessage: string | null;
+}
+
+export interface ContractPaymentSourceRow {
+  id: string;
+  type: ContractPaymentSourceType;
+  name: string;
+  isActive: boolean;
+  sheetId: string | null;
+  sheetGid: string | null;
+  headerRow: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContractPaymentStatusRow {
+  id: string;
+  documentNumberNorm: string;
+  requiredAmountKrw: number | null;
+  receivedAmountKrw: number;
+  status: ContractPaymentStatusValue;
+  needsReviewReason: string | null;
+  matchedPlanVersionId: string | null;
+  computedAt: string;
+  updatedAt: string;
+}
+
+export interface ContractPaymentSyncRunRow {
+  id: string;
+  sourceId: string;
+  status: ContractPaymentSyncRunStatus;
+  startedAt: string;
+  finishedAt: string | null;
+  fetchedRows: number;
+  upsertedRows: number;
+  skippedRows: number;
+  matchedRows: number;
+  reviewRows: number;
   errorMessage: string | null;
 }
 
@@ -118,6 +159,74 @@ const SYNC_CONTRACT_SUBMISSIONS_MUTATION = gql`
   }
 `;
 
+const CONTRACT_PAYMENT_SOURCES_QUERY = gql`
+  query ContractPaymentSources {
+    contractPaymentSources {
+      id
+      type
+      name
+      isActive
+      sheetId
+      sheetGid
+      headerRow
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+const CONTRACT_PAYMENT_STATUSES_QUERY = gql`
+  query ContractPaymentStatuses($documentNumbers: [String!]!) {
+    contractPaymentStatuses(documentNumbers: $documentNumbers) {
+      id
+      documentNumberNorm
+      requiredAmountKrw
+      receivedAmountKrw
+      status
+      needsReviewReason
+      matchedPlanVersionId
+      computedAt
+      updatedAt
+    }
+  }
+`;
+
+const CONTRACT_PAYMENT_SYNC_RUNS_QUERY = gql`
+  query ContractPaymentSyncRuns($sourceId: ID, $limit: Int = 20) {
+    contractPaymentSyncRuns(sourceId: $sourceId, limit: $limit) {
+      id
+      sourceId
+      status
+      startedAt
+      finishedAt
+      fetchedRows
+      upsertedRows
+      skippedRows
+      matchedRows
+      reviewRows
+      errorMessage
+    }
+  }
+`;
+
+const SYNC_CONTRACT_PAYMENTS_MUTATION = gql`
+  mutation SyncContractPayments($sourceId: ID!) {
+    syncContractPayments(sourceId: $sourceId) {
+      id
+      sourceId
+      status
+      startedAt
+      finishedAt
+      fetchedRows
+      upsertedRows
+      skippedRows
+      matchedRows
+      reviewRows
+      errorMessage
+    }
+  }
+`;
+
 export function useContractSubmissionSources() {
   const { data, loading, refetch } = useQuery<{ contractSubmissionSources: ContractSubmissionSourceRow[] }>(
     CONTRACT_SUBMISSION_SOURCES_QUERY,
@@ -162,6 +271,54 @@ export function useSyncContractSubmissions() {
         throw new Error('Failed to sync contract submissions');
       }
       return result.data.syncContractSubmissions;
+    },
+  };
+}
+
+export function useContractPaymentSources() {
+  const { data, loading, refetch } = useQuery<{ contractPaymentSources: ContractPaymentSourceRow[] }>(
+    CONTRACT_PAYMENT_SOURCES_QUERY,
+  );
+  return { sources: data?.contractPaymentSources ?? [], loading, refetch };
+}
+
+export function useContractPaymentStatuses(documentNumbers: string[]) {
+  const normalizedInput = useMemo(() => documentNumbers.map((item) => item.trim()).filter(Boolean), [documentNumbers]);
+  const { data, loading, refetch } = useQuery<{ contractPaymentStatuses: ContractPaymentStatusRow[] }>(
+    CONTRACT_PAYMENT_STATUSES_QUERY,
+    {
+      variables: { documentNumbers: normalizedInput },
+      skip: normalizedInput.length === 0,
+    },
+  );
+  return { statuses: data?.contractPaymentStatuses ?? [], loading, refetch };
+}
+
+export function useContractPaymentSyncRuns(sourceId?: string, limit = 20) {
+  const { data, loading, refetch } = useQuery<{ contractPaymentSyncRuns: ContractPaymentSyncRunRow[] }>(
+    CONTRACT_PAYMENT_SYNC_RUNS_QUERY,
+    { variables: { sourceId, limit } },
+  );
+  return { runs: data?.contractPaymentSyncRuns ?? [], loading, refetch };
+}
+
+export function useSyncContractPayments() {
+  const [mutate, { loading }] = useMutation<{ syncContractPayments: ContractPaymentSyncRunRow }>(
+    SYNC_CONTRACT_PAYMENTS_MUTATION,
+  );
+  return {
+    loading,
+    syncContractPayments: async (sourceId: string): Promise<ContractPaymentSyncRunRow> => {
+      const result = await mutate({
+        variables: { sourceId },
+        refetchQueries: [
+          { query: CONTRACT_PAYMENT_SYNC_RUNS_QUERY, variables: { sourceId, limit: 20 } },
+        ],
+      });
+      if (!result.data?.syncContractPayments) {
+        throw new Error('Failed to sync contract payments');
+      }
+      return result.data.syncContractPayments;
     },
   };
 }

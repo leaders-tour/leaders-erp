@@ -17,6 +17,24 @@ enum ContractSyncRunStatus {
   FAILED
 }
 
+enum ContractPaymentSourceType {
+  GOOGLE_SHEET
+}
+
+enum ContractPaymentStatusValue {
+  NOT_STARTED
+  PARTIAL
+  COMPLETED
+  OVERPAID
+  NEEDS_REVIEW
+}
+
+enum ContractPaymentSyncRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
 type ContractSubmissionSource {
   id: ID!
   type: ContractSubmissionSourceType!
@@ -57,12 +75,54 @@ type ContractSyncRun {
   errorMessage: String
 }
 
+type ContractPaymentSource {
+  id: ID!
+  type: ContractPaymentSourceType!
+  name: String!
+  isActive: Boolean!
+  sheetId: String
+  sheetGid: String
+  headerRow: Int
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ContractPaymentStatus {
+  id: ID!
+  documentNumberNorm: String!
+  requiredAmountKrw: Int
+  receivedAmountKrw: Int!
+  status: ContractPaymentStatusValue!
+  needsReviewReason: String
+  matchedPlanVersionId: String
+  computedAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ContractPaymentSyncRun {
+  id: ID!
+  sourceId: String!
+  status: ContractPaymentSyncRunStatus!
+  startedAt: DateTime!
+  finishedAt: DateTime
+  fetchedRows: Int!
+  upsertedRows: Int!
+  skippedRows: Int!
+  matchedRows: Int!
+  reviewRows: Int!
+  errorMessage: String
+}
+
 extend type Query {
   contractSubmissionSources: [ContractSubmissionSource!]!
   contractDocumentStatuses(documentNumbers: [String!]!): [ContractDocumentStatus!]!
   contractSyncRuns(sourceId: ID, limit: Int = 20): [ContractSyncRun!]!
+  contractPaymentSources: [ContractPaymentSource!]!
+  contractPaymentStatuses(documentNumbers: [String!]!): [ContractPaymentStatus!]!
+  contractPaymentSyncRuns(sourceId: ID, limit: Int = 20): [ContractPaymentSyncRun!]!
 }
 
 extend type Mutation {
   syncContractSubmissions(sourceId: ID!): ContractSyncRun!
+  syncContractPayments(sourceId: ID!): ContractPaymentSyncRun!
 }

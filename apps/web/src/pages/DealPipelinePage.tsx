@@ -16,7 +16,12 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card, dealPipelineTokens } from '@tour/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../features/auth/context';
-import { useContractDocumentStatuses, type ContractDocumentStatusRow } from '../features/contract/hooks';
+import {
+  useContractDocumentStatuses,
+  useContractPaymentStatuses,
+  type ContractDocumentStatusRow,
+  type ContractPaymentStatusRow,
+} from '../features/contract/hooks';
 import {
   useCreateUserNote,
   useReorderDealPipeline,
@@ -257,8 +262,40 @@ function contractProgressValue(status: ContractDocumentStatusRow | null): { subm
   return { submitted, expected, percent };
 }
 
+function formatKrw(value: number | null | undefined): string {
+  return value == null ? '?' : value.toLocaleString('ko-KR');
+}
+
+function paymentStatusLabel(status: ContractPaymentStatusRow | null): string {
+  if (!status || status.status === 'NOT_STARTED') {
+    return `입금 0/${formatKrw(status?.requiredAmountKrw)}`;
+  }
+  if (status.status === 'COMPLETED') {
+    return '입금 완료';
+  }
+  if (status.status === 'OVERPAID') {
+    return `입금 초과 ${formatKrw(status.receivedAmountKrw)}/${formatKrw(status.requiredAmountKrw)}`;
+  }
+  if (status.status === 'NEEDS_REVIEW') {
+    return '입금 확인 필요';
+  }
+  return `입금 ${formatKrw(status.receivedAmountKrw)}/${formatKrw(status.requiredAmountKrw)}`;
+}
+
+function isPaymentComplete(status: ContractPaymentStatusRow | null): boolean {
+  return status?.status === 'COMPLETED' || status?.status === 'OVERPAID';
+}
+
+function hasActiveConfirmedTrip(user: UserRow): boolean {
+  return user.confirmedTrips?.some((trip) => trip.status === 'ACTIVE') ?? false;
+}
+
 function isContractStarted(status: ContractDocumentStatusRow | null): boolean {
   return (status?.submittedCount ?? 0) > 0;
+}
+
+function isContractComplete(status: ContractDocumentStatusRow | null): boolean {
+  return status?.status === 'COMPLETED';
 }
 
 function boardsEqual(left: BoardState, right: BoardState): boolean {
@@ -288,11 +325,13 @@ function PipelineCard({
   user,
   disabled,
   contractStatus,
+  paymentStatus,
   onClick,
 }: {
   user: UserRow;
   disabled: boolean;
   contractStatus: ContractDocumentStatusRow | null;
+  paymentStatus: ContractPaymentStatusRow | null;
   onClick: (userId: string) => void;
 }): JSX.Element {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -355,6 +394,19 @@ function PipelineCard({
               />
             </div>
           </div>
+          <p
+            className={`text-xs font-medium ${
+              paymentStatus?.status === 'NEEDS_REVIEW'
+                ? 'text-rose-600'
+                : paymentStatus?.status === 'OVERPAID'
+                  ? 'text-amber-600'
+                  : isPaymentComplete(paymentStatus)
+                    ? 'text-emerald-600'
+                    : 'text-slate-600'
+            }`}
+          >
+            {paymentStatusLabel(paymentStatus)}
+          </p>
         </div>
 
         <div className={dealPipelineTokens.card.todoPreviewWrap}>
@@ -403,12 +455,14 @@ function PipelineColumn({
   users,
   dragDisabled,
   contractStatusByDocumentNumber,
+  paymentStatusByDocumentNumber,
   onCardClick,
 }: {
   stage: { key: DealStageValue; label: string };
   users: UserRow[];
   dragDisabled: boolean;
   contractStatusByDocumentNumber: Map<string, ContractDocumentStatusRow>;
+  paymentStatusByDocumentNumber: Map<string, ContractPaymentStatusRow>;
   onCardClick: (userId: string) => void;
 }): JSX.Element {
   const { setNodeRef, isOver } = useDroppable({ id: columnId(stage.key) });
@@ -434,12 +488,14 @@ function PipelineColumn({
           {users.map((user) => (
             (() => {
               const documentNumber = normalizeContractDocumentNumberForLookup(getUserContractDocumentNumber(user));
+              const contractStatus = documentNumber ? contractStatusByDocumentNumber.get(documentNumber) ?? null : null;
               return (
                 <PipelineCard
                   key={user.id}
                   user={user}
                   disabled={dragDisabled}
-                  contractStatus={documentNumber ? contractStatusByDocumentNumber.get(documentNumber) ?? null : null}
+                  contractStatus={contractStatus}
+                  paymentStatus={documentNumber ? paymentStatusByDocumentNumber.get(documentNumber) ?? null : null}
                   onClick={onCardClick}
                 />
               );
@@ -801,19 +857,45 @@ export function DealPipelinePage(): JSX.Element {
     () => new Map(contractStatuses.map((status) => [status.documentNumberNorm, status])),
     [contractStatuses],
   );
+  const { statuses: paymentStatuses } = useContractPaymentStatuses(contractDocumentNumbers);
+  const paymentStatusByDocumentNumber = useMemo(
+    () => new Map(paymentStatuses.map((status) => [status.documentNumberNorm, status])),
+    [paymentStatuses],
+  );
 
   const displayedBoard = useMemo(() => {
+    const getStatuses = (user: UserRow) => {
+      const documentNumber = normalizeContractDocumentNumberForLookup(getUserContractDocumentNumber(user));
+      return {
+        contractStatus: documentNumber ? contractStatusByDocumentNumber.get(documentNumber) ?? null : null,
+        paymentStatus: documentNumber ? paymentStatusByDocumentNumber.get(documentNumber) ?? null : null,
+      };
+    };
+    const isConfirmationCandidate = (user: UserRow): boolean => {
+      const { contractStatus, paymentStatus } = getStatuses(user);
+      return isContractComplete(contractStatus) && isPaymentComplete(paymentStatus) && !hasActiveConfirmedTrip(user);
+    };
     const applyStageVisibility = (source: BoardState): BoardState => {
       const next = createEmptyBoard();
+      const allUsers = Array.from(
+        new Map(STAGES.flatMap((stage) => source[stage.key]).map((user) => [user.id, user])).values(),
+      );
+
+      next.CONTRACT_CONFIRMED = allUsers
+        .filter(isConfirmationCandidate)
+        .map((user, index) => ({ ...user, dealStage: 'CONTRACT_CONFIRMED', dealStageOrder: index }));
+      next.CONTRACTING = allUsers
+        .filter((user) => {
+          const { contractStatus } = getStatuses(user);
+          return isContractStarted(contractStatus) && !isConfirmationCandidate(user) && !hasActiveConfirmedTrip(user);
+        })
+        .map((user, index) => ({ ...user, dealStage: 'CONTRACTING', dealStageOrder: index }));
+
       for (const stage of STAGES) {
-        next[stage.key] =
-          stage.key === 'CONTRACTING'
-            ? source[stage.key].filter((user) => {
-                const documentNumber = normalizeContractDocumentNumberForLookup(getUserContractDocumentNumber(user));
-                const contractStatus = documentNumber ? contractStatusByDocumentNumber.get(documentNumber) ?? null : null;
-                return isContractStarted(contractStatus);
-              })
-            : source[stage.key];
+        if (stage.key === 'CONTRACTING' || stage.key === 'CONTRACT_CONFIRMED') {
+          continue;
+        }
+        next[stage.key] = source[stage.key].filter((user) => !isConfirmationCandidate(user));
       }
       return next;
     };
@@ -832,7 +914,7 @@ export function DealPipelinePage(): JSX.Element {
     }
 
     return applyStageVisibility(filtered);
-  }, [board, contractStatusByDocumentNumber, normalizedKeyword]);
+  }, [board, contractStatusByDocumentNumber, normalizedKeyword, paymentStatusByDocumentNumber]);
 
   const activeUser = useMemo(() => {
     if (!activeUserId) {
@@ -1055,6 +1137,7 @@ export function DealPipelinePage(): JSX.Element {
                 users={displayedBoard[stage.key]}
                 dragDisabled={dragDisabled}
                 contractStatusByDocumentNumber={contractStatusByDocumentNumber}
+                paymentStatusByDocumentNumber={paymentStatusByDocumentNumber}
                 onCardClick={setSelectedUserId}
               />
             ))}

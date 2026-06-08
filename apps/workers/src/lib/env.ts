@@ -19,6 +19,9 @@ interface WorkerEnv {
   contractFormSheetId: string | null;
   contractFormSheetGid: string;
   contractFormSourceId: string | null;
+  contractPaymentSheetId: string | null;
+  contractPaymentSheetGid: string;
+  contractPaymentSourceId: string | null;
 }
 
 let loaded = false;
@@ -155,6 +158,9 @@ export function getWorkerEnv(): WorkerEnv {
     contractFormSheetId: getOptionalNullable('CONTRACT_FORM_SHEET_ID'),
     contractFormSheetGid: getOptional('CONTRACT_FORM_SHEET_GID', '0'),
     contractFormSourceId: getOptionalNullable('CONTRACT_FORM_SOURCE_ID'),
+    contractPaymentSheetId: getOptionalNullable('CONTRACT_PAYMENT_SHEET_ID'),
+    contractPaymentSheetGid: getOptional('CONTRACT_PAYMENT_SHEET_GID', '0'),
+    contractPaymentSourceId: getOptionalNullable('CONTRACT_PAYMENT_SOURCE_ID'),
   };
 
   process.env.DATABASE_URL = cachedEnv.databaseUrl;

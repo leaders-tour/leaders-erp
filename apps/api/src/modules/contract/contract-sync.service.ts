@@ -1,5 +1,5 @@
 import { createHash, createSign } from 'node:crypto';
-import type { ContractDocumentStatusValue, Prisma, PrismaClient } from '@prisma/client';
+import type { ContractDocumentStatusValue, ContractPaymentStatusValue, Prisma, PrismaClient } from '@prisma/client';
 import {
   normalizeContractDocumentNumber,
   normalizeContractPersonName,
@@ -51,10 +51,26 @@ interface ParsedSheetRow {
   rawJson: Record<string, string>;
 }
 
+interface ParsedPaymentSheetRow {
+  rowNumber: number;
+  sourceRecordKey: string;
+  receivedAt: Date | null;
+  payerNameRaw: string | null;
+  payerNameNorm: string | null;
+  amountKrw: number | null;
+  rowDigest: string;
+  rawJson: Record<string, string>;
+}
+
 interface SyncCounts {
   fetchedRows: number;
   upsertedRows: number;
   skippedRows: number;
+}
+
+interface PaymentSyncCounts extends SyncCounts {
+  matchedRows: number;
+  reviewRows: number;
 }
 
 type PlanVersionMetaForContractMatch = Prisma.PlanVersionMetaGetPayload<{
@@ -83,6 +99,51 @@ type ContractSubmissionForStatus = Prisma.ContractSubmissionGetPayload<{
     totalCompanionCount: true;
     travelerName: true;
     travelerPhoneDigits: true;
+  };
+}>;
+
+type ContractSubmissionForPaymentMatch = Prisma.ContractSubmissionGetPayload<{
+  select: {
+    documentNumberNorm: true;
+    travelerName: true;
+    leaderName: true;
+  };
+}>;
+
+type PlanVersionForPaymentMatch = Prisma.PlanVersionGetPayload<{
+  select: {
+    id: true;
+    versionNumber: true;
+    plan: {
+      select: {
+        currentVersionId: true;
+        documentNumberBase: true;
+      };
+    };
+    meta: {
+      select: {
+        documentNumber: true;
+      };
+    };
+    pricing: {
+      select: {
+        depositAmountKrw: true;
+        securityDepositAmountKrw: true;
+      };
+    };
+    confirmedTrips: {
+      where: { status: 'ACTIVE' };
+      select: { id: true };
+      take: 1;
+    };
+  };
+}>;
+
+type ContractPaymentReceiptForStatus = Prisma.ContractPaymentReceiptGetPayload<{
+  select: {
+    matchedDocumentNumberNorm: true;
+    amountKrw: true;
+    needsReviewReason: true;
   };
 }>;
 
@@ -222,6 +283,19 @@ function parseOptionalInteger(value: string | null): number | null {
   return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
+function parsePaymentAmount(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+  const normalized = value.normalize('NFKC').replace(/[,₩원\s]/g, '');
+  const matched = normalized.match(/-?\d+/);
+  if (!matched) {
+    return null;
+  }
+  const parsed = Number(matched[0]);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
 function normalizeHeader(value: string): string {
   return value.normalize('NFKC').trim().replace(/\s+/g, '').toLowerCase();
 }
@@ -308,6 +382,37 @@ function parseSheetRows(values: string[][], headerRow: number): ParsedSheetRow[]
   });
 }
 
+function parsePaymentSheetRows(values: string[][], headerRow: number): ParsedPaymentSheetRow[] {
+  const headerIndex = Math.max(0, headerRow - 1);
+  const headers = values[headerIndex]?.map((value) => value.trim()) ?? [];
+  if (headers.length === 0) {
+    throw new DomainError('VALIDATION_FAILED', 'Payment sheet header row is empty');
+  }
+
+  const payerNameIndex = requireColumn(headers, ['입금자명', '성명', '이름', '보낸사람', '보내는분', 'payer name'], '입금자명');
+  const amountIndex = requireColumn(headers, ['금액', '입금액', '거래금액', 'amount'], '금액');
+  const receivedAtIndex = optionalColumn(headers, ['입금일', '거래일시', '거래일자', '날짜', '일시', 'date']);
+
+  return values.slice(headerIndex + 1).flatMap((row, offset) => {
+    if (row.every((value) => !value?.trim())) {
+      return [];
+    }
+    const rowNumber = headerIndex + offset + 2;
+    const rawJson = rawJsonFromRow(headers, row);
+    const payerNameRaw = cell(row[payerNameIndex]);
+    return [{
+      rowNumber,
+      sourceRecordKey: `row:${rowNumber}`,
+      receivedAt: receivedAtIndex == null ? null : parseOptionalDate(cell(row[receivedAtIndex])),
+      payerNameRaw,
+      payerNameNorm: normalizeContractPersonName(payerNameRaw),
+      amountKrw: parsePaymentAmount(cell(row[amountIndex])),
+      rowDigest: digestRow(rawJson),
+      rawJson,
+    }];
+  });
+}
+
 function compactError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -319,6 +424,33 @@ function stripDocumentVersionSuffix(documentNumberNorm: string): string {
 function documentNumberLookupKeys(documentNumberNorm: string): string[] {
   const base = stripDocumentVersionSuffix(documentNumberNorm);
   return base === documentNumberNorm ? [documentNumberNorm] : [documentNumberNorm, base];
+}
+
+function paymentStatusForAmounts(input: {
+  requiredAmountKrw: number | null;
+  receivedAmountKrw: number;
+  matchedPlanVersionId: string | null;
+  hasReviewReceipt: boolean;
+}): { status: ContractPaymentStatusValue; reason: string | null } {
+  if (input.hasReviewReceipt) {
+    return { status: 'NEEDS_REVIEW', reason: 'RECEIPT_REVIEW_REQUIRED' };
+  }
+  if (!input.matchedPlanVersionId) {
+    return { status: 'NEEDS_REVIEW', reason: 'NO_MATCHED_PLAN_VERSION' };
+  }
+  if (input.requiredAmountKrw == null) {
+    return { status: 'NEEDS_REVIEW', reason: 'MISSING_REQUIRED_AMOUNT' };
+  }
+  if (input.receivedAmountKrw <= 0) {
+    return { status: 'NOT_STARTED', reason: null };
+  }
+  if (input.receivedAmountKrw < input.requiredAmountKrw) {
+    return { status: 'PARTIAL', reason: null };
+  }
+  if (input.receivedAmountKrw === input.requiredAmountKrw) {
+    return { status: 'COMPLETED', reason: null };
+  }
+  return { status: 'OVERPAID', reason: null };
 }
 
 function dedupeSubmissionCount(rows: Array<{ travelerName: string | null; travelerPhoneDigits: string | null }>): {
@@ -646,5 +778,434 @@ export class ContractSyncService {
         computedAt: new Date(),
       },
     });
+  }
+}
+
+interface MatchedPaymentRow extends ParsedPaymentSheetRow {
+  matchedDocumentNumberNorm: string | null;
+  needsReviewReason: string | null;
+}
+
+interface PaymentMatchContext {
+  documentNumbersByName: Map<string, Set<string>>;
+  planVersions: PlanVersionForPaymentMatch[];
+}
+
+function buildPaymentMatchContext(
+  submissions: ContractSubmissionForPaymentMatch[],
+  planVersions: PlanVersionForPaymentMatch[],
+): PaymentMatchContext {
+  const documentNumbersByName = new Map<string, Set<string>>();
+  const addCandidate = (name: string | null, documentNumber: string | null) => {
+    const normalizedName = normalizeContractPersonName(name);
+    const normalizedDocumentNumber = normalizeContractDocumentNumber(documentNumber);
+    if (!normalizedName || !normalizedDocumentNumber) {
+      return;
+    }
+    const candidates = documentNumbersByName.get(normalizedName) ?? new Set<string>();
+    candidates.add(normalizedDocumentNumber);
+    documentNumbersByName.set(normalizedName, candidates);
+  };
+
+  for (const submission of submissions) {
+    addCandidate(submission.travelerName, submission.documentNumberNorm);
+    addCandidate(submission.leaderName, submission.documentNumberNorm);
+  }
+
+  return { documentNumbersByName, planVersions };
+}
+
+function planVersionDocumentNumber(planVersion: PlanVersionForPaymentMatch): string | null {
+  return normalizeContractDocumentNumber(planVersion.meta?.documentNumber);
+}
+
+function getPaymentPlanVersionForDocument(
+  documentNumberNorm: string,
+  planVersions: PlanVersionForPaymentMatch[],
+): PlanVersionForPaymentMatch | null {
+  const exact = planVersions.find((planVersion) => planVersionDocumentNumber(planVersion) === documentNumberNorm);
+  if (exact) {
+    return exact;
+  }
+
+  const base = stripDocumentVersionSuffix(documentNumberNorm);
+  const candidates = planVersions.filter((planVersion) => {
+    const normalized = planVersionDocumentNumber(planVersion);
+    return normalized ? stripDocumentVersionSuffix(normalized) === base : false;
+  });
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  return candidates.find((planVersion) => planVersion.id === planVersion.plan.currentVersionId)
+    ?? candidates.slice().sort((left, right) => right.versionNumber - left.versionNumber)[0]
+    ?? null;
+}
+
+function requiredPaymentAmount(planVersion: PlanVersionForPaymentMatch | null): number | null {
+  const pricing = planVersion?.pricing;
+  if (!pricing) {
+    return null;
+  }
+  return pricing.depositAmountKrw + pricing.securityDepositAmountKrw;
+}
+
+function matchPaymentRow(row: ParsedPaymentSheetRow, context: PaymentMatchContext): MatchedPaymentRow {
+  if (!row.payerNameNorm) {
+    return { ...row, matchedDocumentNumberNorm: null, needsReviewReason: 'MISSING_PAYER_NAME' };
+  }
+  if (row.amountKrw == null || row.amountKrw <= 0) {
+    return { ...row, matchedDocumentNumberNorm: null, needsReviewReason: 'INVALID_AMOUNT' };
+  }
+
+  const candidates = Array.from(context.documentNumbersByName.get(row.payerNameNorm) ?? []);
+  if (candidates.length === 0) {
+    return { ...row, matchedDocumentNumberNorm: null, needsReviewReason: 'NO_MATCHED_CONTRACT_SUBMISSION_NAME' };
+  }
+  if (candidates.length === 1) {
+    return { ...row, matchedDocumentNumberNorm: candidates[0] ?? null, needsReviewReason: null };
+  }
+
+  const amountMatched = candidates.filter((documentNumberNorm) => {
+    const planVersion = getPaymentPlanVersionForDocument(documentNumberNorm, context.planVersions);
+    return requiredPaymentAmount(planVersion) === row.amountKrw;
+  });
+  if (amountMatched.length === 1) {
+    return { ...row, matchedDocumentNumberNorm: amountMatched[0] ?? null, needsReviewReason: null };
+  }
+
+  return { ...row, matchedDocumentNumberNorm: null, needsReviewReason: 'AMBIGUOUS_PAYER_NAME' };
+}
+
+export class ContractPaymentSyncService {
+  constructor(private readonly prisma: PrismaLike) {}
+
+  listSources() {
+    return this.prisma.contractPaymentSource.findMany({
+      orderBy: [{ isActive: 'desc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async listStatuses(documentNumbers: string[]) {
+    const normalized = Array.from(new Set(documentNumbers.map(normalizeContractDocumentNumber).filter(isPresent)));
+    if (normalized.length === 0) {
+      return [];
+    }
+    const lookupKeys = Array.from(new Set(normalized.flatMap(documentNumberLookupKeys)));
+    const rows = await this.prisma.contractPaymentStatus.findMany({
+      where: { documentNumberNorm: { in: lookupKeys } },
+    });
+    const byNorm = new Map(rows.map((row) => [row.documentNumberNorm, row]));
+    return normalized.map((documentNumberNorm) => {
+      const fallback = documentNumberLookupKeys(documentNumberNorm).map((key) => byNorm.get(key)).find(isPresent);
+      return fallback ? { ...fallback, documentNumberNorm } : {
+        id: `synthetic:${documentNumberNorm}`,
+        documentNumberNorm,
+        requiredAmountKrw: null,
+        receivedAmountKrw: 0,
+        status: 'NOT_STARTED' as ContractPaymentStatusValue,
+        needsReviewReason: null,
+        matchedPlanVersionId: null,
+        computedAt: new Date(0),
+        updatedAt: new Date(0),
+      };
+    });
+  }
+
+  listSyncRuns(sourceId: string | undefined, limit: number) {
+    return this.prisma.contractPaymentSyncRun.findMany({
+      where: sourceId ? { sourceId } : undefined,
+      orderBy: { startedAt: 'desc' },
+      take: Math.min(Math.max(limit, 1), 100),
+    });
+  }
+
+  async syncGoogleSheetSource(sourceId: string) {
+    const run = await this.prisma.contractPaymentSyncRun.create({
+      data: { sourceId, status: 'RUNNING' },
+    });
+
+    try {
+      const counts = await this.processGoogleSheetSource(sourceId);
+      return this.prisma.contractPaymentSyncRun.update({
+        where: { id: run.id },
+        data: {
+          status: 'SUCCESS',
+          finishedAt: new Date(),
+          fetchedRows: counts.fetchedRows,
+          upsertedRows: counts.upsertedRows,
+          skippedRows: counts.skippedRows,
+          matchedRows: counts.matchedRows,
+          reviewRows: counts.reviewRows,
+        },
+      });
+    } catch (error) {
+      await this.prisma.contractPaymentSyncRun.update({
+        where: { id: run.id },
+        data: {
+          status: 'FAILED',
+          finishedAt: new Date(),
+          errorMessage: compactError(error),
+        },
+      });
+      throw error;
+    }
+  }
+
+  private async processGoogleSheetSource(sourceId: string): Promise<PaymentSyncCounts> {
+    const source = await this.prisma.contractPaymentSource.findUnique({ where: { id: sourceId } });
+    if (!source) {
+      throw new DomainError('NOT_FOUND', 'Contract payment source not found');
+    }
+    if (source.type !== 'GOOGLE_SHEET') {
+      throw new DomainError('VALIDATION_FAILED', 'Contract payment source is not a Google Sheet');
+    }
+
+    const sheetId = source.sheetId ?? process.env.CONTRACT_PAYMENT_SHEET_ID?.trim();
+    const sheetGid = source.sheetGid ?? process.env.CONTRACT_PAYMENT_SHEET_GID?.trim() ?? '0';
+    if (!sheetId) {
+      throw new DomainError('VALIDATION_FAILED', 'Contract payment sheet id is required');
+    }
+
+    const rows = parsePaymentSheetRows(await fetchGoogleSheetRows(sheetId, sheetGid), source.headerRow ?? 1);
+    const [existingRows, submissions, planVersions] = await Promise.all([
+      this.prisma.contractPaymentReceipt.findMany({
+        where: {
+          sourceId,
+          sourceRecordKey: { in: rows.map((row) => row.sourceRecordKey) },
+        },
+        select: {
+          sourceRecordKey: true,
+          rowDigest: true,
+          matchedDocumentNumberNorm: true,
+          needsReviewReason: true,
+        },
+      }),
+      this.prisma.contractSubmission.findMany({
+        where: { documentNumberNorm: { not: null } },
+        select: {
+          documentNumberNorm: true,
+          travelerName: true,
+          leaderName: true,
+        },
+      }),
+      this.prisma.planVersion.findMany({
+        select: {
+          id: true,
+          versionNumber: true,
+          plan: {
+            select: {
+              currentVersionId: true,
+              documentNumberBase: true,
+            },
+          },
+          meta: {
+            select: {
+              documentNumber: true,
+            },
+          },
+          pricing: {
+            select: {
+              depositAmountKrw: true,
+              securityDepositAmountKrw: true,
+            },
+          },
+          confirmedTrips: {
+            where: { status: 'ACTIVE' },
+            select: { id: true },
+            take: 1,
+          },
+        },
+      }),
+    ]);
+    const existingByKey = new Map(existingRows.map((row) => [row.sourceRecordKey, row]));
+    const context = buildPaymentMatchContext(submissions, planVersions);
+
+    let upsertedRows = 0;
+    let skippedRows = 0;
+    let matchedRows = 0;
+    let reviewRows = 0;
+    const affectedDocumentNumbers = new Set<string>();
+    const rowsToCreate: Prisma.ContractPaymentReceiptCreateManyInput[] = [];
+    const rowsToUpdate: Array<{ sourceRecordKey: string; data: Prisma.ContractPaymentReceiptUpdateInput }> = [];
+
+    for (const parsedRow of rows) {
+      const row = matchPaymentRow(parsedRow, context);
+      if (row.matchedDocumentNumberNorm) {
+        matchedRows += 1;
+        affectedDocumentNumbers.add(row.matchedDocumentNumberNorm);
+      }
+      if (row.needsReviewReason) {
+        reviewRows += 1;
+      }
+
+      const existing = existingByKey.get(row.sourceRecordKey);
+      if (
+        existing?.rowDigest === row.rowDigest
+        && existing.matchedDocumentNumberNorm === row.matchedDocumentNumberNorm
+        && existing.needsReviewReason === row.needsReviewReason
+      ) {
+        skippedRows += 1;
+        continue;
+      }
+
+      if (!existing) {
+        rowsToCreate.push({
+          sourceId,
+          sourceRowNumber: row.rowNumber,
+          sourceRecordKey: row.sourceRecordKey,
+          receivedAt: row.receivedAt,
+          payerNameRaw: row.payerNameRaw,
+          payerNameNorm: row.payerNameNorm,
+          amountKrw: row.amountKrw,
+          matchedDocumentNumberNorm: row.matchedDocumentNumberNorm,
+          needsReviewReason: row.needsReviewReason,
+          rowDigest: row.rowDigest,
+          rawJson: row.rawJson,
+        });
+      } else {
+        rowsToUpdate.push({
+          sourceRecordKey: row.sourceRecordKey,
+          data: {
+            sourceRowNumber: row.rowNumber,
+            receivedAt: row.receivedAt,
+            payerNameRaw: row.payerNameRaw,
+            payerNameNorm: row.payerNameNorm,
+            amountKrw: row.amountKrw,
+            matchedDocumentNumberNorm: row.matchedDocumentNumberNorm,
+            needsReviewReason: row.needsReviewReason,
+            rowDigest: row.rowDigest,
+            rawJson: row.rawJson,
+          },
+        });
+      }
+    }
+
+    if (rowsToCreate.length > 0) {
+      const created = await this.prisma.contractPaymentReceipt.createMany({
+        data: rowsToCreate,
+        skipDuplicates: true,
+      });
+      upsertedRows += created.count;
+    }
+
+    const updateBatchSize = 50;
+    for (let index = 0; index < rowsToUpdate.length; index += updateBatchSize) {
+      const batch = rowsToUpdate.slice(index, index + updateBatchSize);
+      await Promise.all(batch.map((row) => this.prisma.contractPaymentReceipt.update({
+        where: {
+          sourceId_sourceRecordKey: {
+            sourceId,
+            sourceRecordKey: row.sourceRecordKey,
+          },
+        },
+        data: row.data,
+      })));
+      upsertedRows += batch.length;
+    }
+
+    await this.recomputePaymentStatuses([...affectedDocumentNumbers], planVersions);
+
+    return {
+      fetchedRows: rows.length,
+      upsertedRows,
+      skippedRows,
+      matchedRows,
+      reviewRows,
+    };
+  }
+
+  async recomputePaymentStatuses(documentNumbers?: string[], planVersionsInput?: PlanVersionForPaymentMatch[]) {
+    const normalized = documentNumbers?.length
+      ? Array.from(new Set(documentNumbers.map(normalizeContractDocumentNumber).filter(isPresent)))
+      : (await this.prisma.contractPaymentReceipt.findMany({
+          where: { matchedDocumentNumberNorm: { not: null } },
+          distinct: ['matchedDocumentNumberNorm'],
+          select: { matchedDocumentNumberNorm: true },
+        })).map((row) => row.matchedDocumentNumberNorm).filter(isPresent);
+    if (normalized.length === 0) {
+      return;
+    }
+
+    const planVersions = planVersionsInput ?? await this.prisma.planVersion.findMany({
+      select: {
+        id: true,
+        versionNumber: true,
+        plan: {
+          select: {
+            currentVersionId: true,
+            documentNumberBase: true,
+          },
+        },
+        meta: {
+          select: {
+            documentNumber: true,
+          },
+        },
+        pricing: {
+          select: {
+            depositAmountKrw: true,
+            securityDepositAmountKrw: true,
+          },
+        },
+        confirmedTrips: {
+          where: { status: 'ACTIVE' },
+          select: { id: true },
+          take: 1,
+        },
+      },
+    });
+    const lookupKeys = Array.from(new Set(normalized.flatMap(documentNumberLookupKeys)));
+    const receipts = await this.prisma.contractPaymentReceipt.findMany({
+      where: { matchedDocumentNumberNorm: { in: lookupKeys } },
+      select: {
+        matchedDocumentNumberNorm: true,
+        amountKrw: true,
+        needsReviewReason: true,
+      },
+    });
+    const receiptsByDocumentNumber = new Map<string, ContractPaymentReceiptForStatus[]>();
+    for (const receipt of receipts) {
+      if (!receipt.matchedDocumentNumberNorm) {
+        continue;
+      }
+      const items = receiptsByDocumentNumber.get(receipt.matchedDocumentNumberNorm) ?? [];
+      items.push(receipt);
+      receiptsByDocumentNumber.set(receipt.matchedDocumentNumberNorm, items);
+    }
+
+    for (const documentNumberNorm of normalized) {
+      const paymentReceipts = documentNumberLookupKeys(documentNumberNorm).flatMap((key) => receiptsByDocumentNumber.get(key) ?? []);
+      const planVersion = getPaymentPlanVersionForDocument(documentNumberNorm, planVersions);
+      const requiredAmountKrw = requiredPaymentAmount(planVersion);
+      const receivedAmountKrw = paymentReceipts.reduce((sum, receipt) => sum + (receipt.amountKrw ?? 0), 0);
+      const status = paymentStatusForAmounts({
+        requiredAmountKrw,
+        receivedAmountKrw,
+        matchedPlanVersionId: planVersion?.id ?? null,
+        hasReviewReceipt: paymentReceipts.some((receipt) => Boolean(receipt.needsReviewReason)),
+      });
+
+      await this.prisma.contractPaymentStatus.upsert({
+        where: { documentNumberNorm },
+        create: {
+          documentNumberNorm,
+          requiredAmountKrw,
+          receivedAmountKrw,
+          status: status.status,
+          needsReviewReason: status.reason,
+          matchedPlanVersionId: planVersion?.id ?? null,
+          computedAt: new Date(),
+        },
+        update: {
+          requiredAmountKrw,
+          receivedAmountKrw,
+          status: status.status,
+          needsReviewReason: status.reason,
+          matchedPlanVersionId: planVersion?.id ?? null,
+          computedAt: new Date(),
+        },
+      });
+    }
   }
 }
