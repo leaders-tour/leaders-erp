@@ -1184,9 +1184,10 @@
 
 .estimate-itinerary-cell--paired-lines {
   display: grid;
-  grid-template-rows: repeat(var(--itinerary-paired-line-count, 1), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--itinerary-paired-line-count, 1), max-content);
   gap: 0;
-  align-items: stretch;
+  align-content: center;
+  align-items: center;
   justify-items: center;
   font-size: var(--itinerary-paired-line-font-size);
   line-height: var(--itinerary-paired-line-height);
