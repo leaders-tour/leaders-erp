@@ -37,8 +37,32 @@ export interface ContractDocumentStatusRow {
   lastSubmittedAt: string | null;
   matchedPlanVersionId: string | null;
   matchedConfirmedTripId: string | null;
+  manualMatchedPlanVersionId: string | null;
+  manualMatchedByEmployeeId: string | null;
+  manualMatchedAt: string | null;
+  manualMatchNote: string | null;
+  effectiveMatchedPlanVersionId: string | null;
   computedAt: string;
   updatedAt: string;
+}
+
+export interface ContractDocumentReviewItemRow {
+  statusRow: ContractDocumentStatusRow;
+  submissions: ContractSubmissionRow[];
+}
+
+export interface ContractMatchPlanVersionCandidateRow {
+  planVersionId: string;
+  planId: string;
+  planTitle: string;
+  versionNumber: number;
+  userId: string;
+  userName: string;
+  documentNumber: string;
+  leaderName: string;
+  headcountTotal: number;
+  travelStartDate: string;
+  travelEndDate: string;
 }
 
 export interface ContractSyncRunRow {
@@ -151,8 +175,110 @@ const CONTRACT_DOCUMENT_STATUSES_QUERY = gql`
       lastSubmittedAt
       matchedPlanVersionId
       matchedConfirmedTripId
+      manualMatchedPlanVersionId
+      manualMatchedByEmployeeId
+      manualMatchedAt
+      manualMatchNote
+      effectiveMatchedPlanVersionId
       computedAt
       updatedAt
+    }
+  }
+`;
+
+const CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY = gql`
+  query ContractDocumentReviewItems($statuses: [ContractDocumentStatusValue!], $keyword: String, $limit: Int = 100) {
+    contractDocumentReviewItems(statuses: $statuses, keyword: $keyword, limit: $limit) {
+      statusRow {
+        id
+        documentNumberNorm
+        documentNumberRawSample
+        expectedCount
+        submittedCount
+        status
+        needsReviewReason
+        firstSubmittedAt
+        lastSubmittedAt
+        matchedPlanVersionId
+        matchedConfirmedTripId
+        manualMatchedPlanVersionId
+        manualMatchedByEmployeeId
+        manualMatchedAt
+        manualMatchNote
+        effectiveMatchedPlanVersionId
+        computedAt
+        updatedAt
+      }
+      submissions {
+        id
+        sourceRowNumber
+        submittedAt
+        documentNumberRaw
+        documentNumberNorm
+        travelerName
+        travelerPhone
+        leaderName
+        representativeType
+        totalCompanionCount
+        receivedStatus
+        importedAt
+        updatedAt
+        source {
+          id
+          type
+          name
+        }
+      }
+    }
+  }
+`;
+
+const CONTRACT_MATCH_PLAN_VERSION_CANDIDATES_QUERY = gql`
+  query ContractMatchPlanVersionCandidates($keyword: String!, $limit: Int = 20) {
+    contractMatchPlanVersionCandidates(keyword: $keyword, limit: $limit) {
+      planVersionId
+      planId
+      planTitle
+      versionNumber
+      userId
+      userName
+      documentNumber
+      leaderName
+      headcountTotal
+      travelStartDate
+      travelEndDate
+    }
+  }
+`;
+
+const MATCH_CONTRACT_DOCUMENT_MUTATION = gql`
+  mutation MatchContractDocument($input: MatchContractDocumentInput!) {
+    matchContractDocument(input: $input) {
+      id
+      documentNumberNorm
+      status
+      needsReviewReason
+      matchedPlanVersionId
+      manualMatchedPlanVersionId
+      effectiveMatchedPlanVersionId
+      manualMatchedAt
+      manualMatchNote
+    }
+  }
+`;
+
+const UNMATCH_CONTRACT_DOCUMENT_MUTATION = gql`
+  mutation UnmatchContractDocument($input: UnmatchContractDocumentInput!) {
+    unmatchContractDocument(input: $input) {
+      id
+      documentNumberNorm
+      status
+      needsReviewReason
+      matchedPlanVersionId
+      manualMatchedPlanVersionId
+      effectiveMatchedPlanVersionId
+      manualMatchedAt
+      manualMatchNote
     }
   }
 `;
@@ -344,6 +470,75 @@ export function useContractSubmissions(documentNumber: string | null | undefined
     },
   );
   return { submissions: data?.contractSubmissions ?? [], loading };
+}
+
+export function useContractDocumentReviewItems(
+  statuses?: ContractDocumentStatusValue[],
+  keyword?: string,
+  limit = 100,
+) {
+  const normalizedKeyword = keyword?.trim() ?? '';
+  const { data, loading, refetch } = useQuery<{ contractDocumentReviewItems: ContractDocumentReviewItemRow[] }>(
+    CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY,
+    {
+      variables: {
+        statuses: statuses?.length ? statuses : undefined,
+        keyword: normalizedKeyword || undefined,
+        limit,
+      },
+    },
+  );
+  return { items: data?.contractDocumentReviewItems ?? [], loading, refetch };
+}
+
+export function useContractMatchPlanVersionCandidates(keyword: string, limit = 20) {
+  const normalizedKeyword = keyword.trim();
+  const { data, loading } = useQuery<{ contractMatchPlanVersionCandidates: ContractMatchPlanVersionCandidateRow[] }>(
+    CONTRACT_MATCH_PLAN_VERSION_CANDIDATES_QUERY,
+    {
+      variables: { keyword: normalizedKeyword, limit },
+      skip: normalizedKeyword.length === 0,
+    },
+  );
+  return { candidates: data?.contractMatchPlanVersionCandidates ?? [], loading };
+}
+
+export function useMatchContractDocument() {
+  const [mutate, { loading }] = useMutation<{ matchContractDocument: ContractDocumentStatusRow }>(
+    MATCH_CONTRACT_DOCUMENT_MUTATION,
+  );
+  return {
+    loading,
+    matchContractDocument: async (input: { documentNumber: string; planVersionId: string; note?: string | null }) => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [{ query: CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY }],
+      });
+      if (!result.data?.matchContractDocument) {
+        throw new Error('Failed to match contract document');
+      }
+      return result.data.matchContractDocument;
+    },
+  };
+}
+
+export function useUnmatchContractDocument() {
+  const [mutate, { loading }] = useMutation<{ unmatchContractDocument: ContractDocumentStatusRow }>(
+    UNMATCH_CONTRACT_DOCUMENT_MUTATION,
+  );
+  return {
+    loading,
+    unmatchContractDocument: async (documentNumber: string) => {
+      const result = await mutate({
+        variables: { input: { documentNumber } },
+        refetchQueries: [{ query: CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY }],
+      });
+      if (!result.data?.unmatchContractDocument) {
+        throw new Error('Failed to unmatch contract document');
+      }
+      return result.data.unmatchContractDocument;
+    },
+  };
 }
 
 export function useContractSyncRuns(sourceId?: string, limit = 20) {

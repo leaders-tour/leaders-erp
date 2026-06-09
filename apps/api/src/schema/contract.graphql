@@ -59,8 +59,42 @@ type ContractDocumentStatus {
   lastSubmittedAt: DateTime
   matchedPlanVersionId: String
   matchedConfirmedTripId: String
+  manualMatchedPlanVersionId: String
+  manualMatchedByEmployeeId: String
+  manualMatchedAt: DateTime
+  manualMatchNote: String
+  effectiveMatchedPlanVersionId: String
   computedAt: DateTime!
   updatedAt: DateTime!
+}
+
+type ContractDocumentReviewItem {
+  statusRow: ContractDocumentStatus!
+  submissions: [ContractSubmission!]!
+}
+
+type ContractMatchPlanVersionCandidate {
+  planVersionId: ID!
+  planId: ID!
+  planTitle: String!
+  versionNumber: Int!
+  userId: ID!
+  userName: String!
+  documentNumber: String!
+  leaderName: String!
+  headcountTotal: Int!
+  travelStartDate: DateTime!
+  travelEndDate: DateTime!
+}
+
+input MatchContractDocumentInput {
+  documentNumber: String!
+  planVersionId: ID!
+  note: String
+}
+
+input UnmatchContractDocumentInput {
+  documentNumber: String!
 }
 
 type ContractSubmission {
@@ -146,6 +180,8 @@ type ContractPaymentSyncRun {
 extend type Query {
   contractSubmissionSources: [ContractSubmissionSource!]!
   contractDocumentStatuses(documentNumbers: [String!]!): [ContractDocumentStatus!]!
+  contractDocumentReviewItems(statuses: [ContractDocumentStatusValue!], keyword: String, limit: Int = 100): [ContractDocumentReviewItem!]!
+  contractMatchPlanVersionCandidates(keyword: String!, limit: Int = 20): [ContractMatchPlanVersionCandidate!]!
   contractSubmissions(documentNumber: String!): [ContractSubmission!]!
   contractSyncRuns(sourceId: ID, limit: Int = 20): [ContractSyncRun!]!
   contractPaymentSources: [ContractPaymentSource!]!
@@ -157,4 +193,6 @@ extend type Query {
 extend type Mutation {
   syncContractSubmissions(sourceId: ID!): ContractSyncRun!
   syncContractPayments(sourceId: ID!): ContractPaymentSyncRun!
+  matchContractDocument(input: MatchContractDocumentInput!): ContractDocumentStatus!
+  unmatchContractDocument(input: UnmatchContractDocumentInput!): ContractDocumentStatus!
 }

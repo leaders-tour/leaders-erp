@@ -1,9 +1,12 @@
 import { createHash, createSign } from 'node:crypto';
 import type { ContractDocumentStatusValue, ContractPaymentStatusValue, Prisma, PrismaClient } from '@prisma/client';
 import {
+  compareContractDocumentNumbersByDateDesc,
+  matchContractDocumentInputSchema,
   normalizeContractDocumentNumber,
   normalizeContractPersonName,
   normalizeContractPhoneDigits,
+  unmatchContractDocumentInputSchema,
 } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
 
@@ -504,6 +507,23 @@ function resolveStatus(input: {
   return { status: 'OVER_SUBMITTED', reason: null };
 }
 
+function findMetaByPlanVersionId(
+  metas: PlanVersionMetaForContractMatch[],
+  planVersionId: string | null | undefined,
+): PlanVersionMetaForContractMatch | null {
+  if (!planVersionId) {
+    return null;
+  }
+  return metas.find((meta) => meta.planVersionId === planVersionId) ?? null;
+}
+
+function effectiveMatchedPlanVersionId(row: {
+  manualMatchedPlanVersionId: string | null;
+  matchedPlanVersionId: string | null;
+}): string | null {
+  return row.manualMatchedPlanVersionId ?? row.matchedPlanVersionId;
+}
+
 export class ContractSyncService {
   constructor(private readonly prisma: PrismaLike) {}
 
@@ -537,6 +557,10 @@ export class ContractSyncService {
         lastSubmittedAt: null,
         matchedPlanVersionId: null,
         matchedConfirmedTripId: null,
+        manualMatchedPlanVersionId: null,
+        manualMatchedByEmployeeId: null,
+        manualMatchedAt: null,
+        manualMatchNote: null,
         computedAt: new Date(0),
         updatedAt: new Date(0),
       };
@@ -753,6 +777,16 @@ export class ContractSyncService {
       return;
     }
 
+    const existing = await this.prisma.contractDocumentStatus.findUnique({
+      where: { documentNumberNorm },
+      select: {
+        manualMatchedPlanVersionId: true,
+        manualMatchedByEmployeeId: true,
+        manualMatchedAt: true,
+        manualMatchNote: true,
+      },
+    });
+
     const matchedMeta =
       metas.find((meta) => normalizeContractDocumentNumber(meta.documentNumber) === documentNumberNorm)
       ?? metas.find((meta) => {
@@ -760,14 +794,17 @@ export class ContractSyncService {
         return normalizedDocumentNumber ? stripDocumentVersionSuffix(normalizedDocumentNumber) === stripDocumentVersionSuffix(documentNumberNorm) : false;
       })
       ?? null;
-    const matchedTrip = matchedMeta?.planVersion.confirmedTrips[0] ?? null;
+    const autoPlanVersionId = matchedMeta?.planVersionId ?? null;
+    const effectivePlanVersionId = existing?.manualMatchedPlanVersionId ?? autoPlanVersionId;
+    const effectiveMeta = findMetaByPlanVersionId(metas, effectivePlanVersionId) ?? matchedMeta;
+    const matchedTrip = effectiveMeta?.planVersion.confirmedTrips[0] ?? null;
     const fallbackCount = submissions.find((row) => row.totalCompanionCount != null)?.totalCompanionCount ?? null;
-    const expectedCount = matchedMeta?.headcountTotal ?? matchedTrip?.paxCount ?? fallbackCount;
+    const expectedCount = effectiveMeta?.headcountTotal ?? matchedTrip?.paxCount ?? fallbackCount;
     const { count: submittedCount, hasCollision } = dedupeSubmissionCount(submissions);
     const status = resolveStatus({
       submittedCount,
       expectedCount,
-      matchedPlanVersionId: matchedMeta?.planVersionId ?? null,
+      matchedPlanVersionId: effectivePlanVersionId,
       hasCollision,
     });
 
@@ -782,8 +819,12 @@ export class ContractSyncService {
         needsReviewReason: status.reason,
         firstSubmittedAt: submissions.find((row) => row.submittedAt)?.submittedAt ?? null,
         lastSubmittedAt: submissions.slice().reverse().find((row) => row.submittedAt)?.submittedAt ?? null,
-        matchedPlanVersionId: matchedMeta?.planVersionId ?? null,
+        matchedPlanVersionId: autoPlanVersionId,
         matchedConfirmedTripId: matchedTrip?.id ?? null,
+        manualMatchedPlanVersionId: existing?.manualMatchedPlanVersionId ?? null,
+        manualMatchedByEmployeeId: existing?.manualMatchedByEmployeeId ?? null,
+        manualMatchedAt: existing?.manualMatchedAt ?? null,
+        manualMatchNote: existing?.manualMatchNote ?? null,
         computedAt: new Date(),
       },
       update: {
@@ -794,11 +835,245 @@ export class ContractSyncService {
         needsReviewReason: status.reason,
         firstSubmittedAt: submissions.find((row) => row.submittedAt)?.submittedAt ?? null,
         lastSubmittedAt: submissions.slice().reverse().find((row) => row.submittedAt)?.submittedAt ?? null,
-        matchedPlanVersionId: matchedMeta?.planVersionId ?? null,
+        matchedPlanVersionId: autoPlanVersionId,
         matchedConfirmedTripId: matchedTrip?.id ?? null,
         computedAt: new Date(),
       },
     });
+  }
+
+  async listReviewItems(input: {
+    statuses?: ContractDocumentStatusValue[];
+    keyword?: string;
+    limit?: number;
+  }) {
+    const statuses = input.statuses?.length
+      ? input.statuses
+      : (['NEEDS_REVIEW', 'OVER_SUBMITTED'] as ContractDocumentStatusValue[]);
+    const limit = Math.min(Math.max(input.limit ?? 100, 1), 200);
+    const keyword = input.keyword?.trim().toLowerCase() ?? '';
+
+    const rows = await this.prisma.contractDocumentStatus.findMany({
+      where: { status: { in: statuses } },
+    });
+
+    let filteredRows = rows;
+    if (keyword) {
+      const documentNumbers = rows.map((row) => row.documentNumberNorm);
+      const submissions = documentNumbers.length
+        ? await this.prisma.contractSubmission.findMany({
+            where: { documentNumberNorm: { in: documentNumbers } },
+            select: {
+              documentNumberNorm: true,
+              travelerName: true,
+              leaderName: true,
+              documentNumberRaw: true,
+            },
+          })
+        : [];
+      const submissionsByDocumentNumber = new Map<string, typeof submissions>();
+      for (const submission of submissions) {
+        if (!submission.documentNumberNorm) {
+          continue;
+        }
+        const items = submissionsByDocumentNumber.get(submission.documentNumberNorm) ?? [];
+        items.push(submission);
+        submissionsByDocumentNumber.set(submission.documentNumberNorm, items);
+      }
+
+      filteredRows = rows.filter((row) => {
+        if (row.documentNumberNorm.toLowerCase().includes(keyword)) {
+          return true;
+        }
+        if (row.documentNumberRawSample?.toLowerCase().includes(keyword)) {
+          return true;
+        }
+        const relatedSubmissions = submissionsByDocumentNumber.get(row.documentNumberNorm) ?? [];
+        return relatedSubmissions.some((submission) => {
+          return (
+            submission.travelerName?.toLowerCase().includes(keyword)
+            || submission.leaderName?.toLowerCase().includes(keyword)
+            || submission.documentNumberRaw?.toLowerCase().includes(keyword)
+          );
+        });
+      });
+    }
+
+    const selectedRows = filteredRows
+      .slice()
+      .sort((left, right) =>
+        compareContractDocumentNumbersByDateDesc(left.documentNumberNorm, right.documentNumberNorm),
+      )
+      .slice(0, limit);
+    const submissionsBySelected = selectedRows.length
+      ? await this.prisma.contractSubmission.findMany({
+          where: {
+            documentNumberNorm: {
+              in: selectedRows.flatMap((row) => documentNumberLookupKeys(row.documentNumberNorm)),
+            },
+          },
+          include: { source: true },
+          orderBy: [{ submittedAt: 'desc' }, { importedAt: 'desc' }, { sourceRowNumber: 'asc' }],
+        })
+      : [];
+
+    return selectedRows.map((statusRow) => ({
+      statusRow: {
+        ...statusRow,
+        effectiveMatchedPlanVersionId: effectiveMatchedPlanVersionId(statusRow),
+      },
+      submissions: submissionsBySelected.filter((submission) => {
+        if (!submission.documentNumberNorm) {
+          return false;
+        }
+        return documentNumberLookupKeys(statusRow.documentNumberNorm).includes(submission.documentNumberNorm);
+      }),
+    }));
+  }
+
+  async searchPlanVersionCandidates(keyword: string, limit = 20) {
+    const normalizedKeyword = keyword.trim();
+    if (!normalizedKeyword) {
+      return [];
+    }
+
+    const rows = await this.prisma.planVersionMeta.findMany({
+      where: {
+        OR: [
+          { documentNumber: { contains: normalizedKeyword } },
+          { leaderName: { contains: normalizedKeyword } },
+          { planVersion: { plan: { user: { name: { contains: normalizedKeyword } } } } },
+          { planVersion: { plan: { title: { contains: normalizedKeyword } } } },
+        ],
+      },
+      select: {
+        planVersionId: true,
+        documentNumber: true,
+        leaderName: true,
+        headcountTotal: true,
+        travelStartDate: true,
+        travelEndDate: true,
+        planVersion: {
+          select: {
+            versionNumber: true,
+            plan: {
+              select: {
+                id: true,
+                title: true,
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { travelStartDate: 'desc' },
+      take: Math.min(Math.max(limit, 1), 50),
+    });
+
+    return rows.map((row) => ({
+      planVersionId: row.planVersionId,
+      planId: row.planVersion.plan.id,
+      planTitle: row.planVersion.plan.title,
+      versionNumber: row.planVersion.versionNumber,
+      userId: row.planVersion.plan.user.id,
+      userName: row.planVersion.plan.user.name,
+      documentNumber: row.documentNumber,
+      leaderName: row.leaderName,
+      headcountTotal: row.headcountTotal,
+      travelStartDate: row.travelStartDate,
+      travelEndDate: row.travelEndDate,
+    }));
+  }
+
+  async matchContractDocument(input: unknown, employeeId: string) {
+    const parsed = matchContractDocumentInputSchema.parse(input);
+    const documentNumberNorm = normalizeContractDocumentNumber(parsed.documentNumber);
+    if (!documentNumberNorm) {
+      throw new DomainError('VALIDATION_FAILED', 'Invalid contract document number');
+    }
+
+    const planVersion = await this.prisma.planVersion.findUnique({
+      where: { id: parsed.planVersionId },
+      select: { id: true, meta: { select: { id: true } } },
+    });
+    if (!planVersion?.meta) {
+      throw new DomainError('NOT_FOUND', 'Plan version not found');
+    }
+
+    const submissionCount = await this.prisma.contractSubmission.count({
+      where: { documentNumberNorm: { in: documentNumberLookupKeys(documentNumberNorm) } },
+    });
+    if (submissionCount === 0) {
+      throw new DomainError('VALIDATION_FAILED', 'No contract submissions found for document number');
+    }
+
+    await this.prisma.contractDocumentStatus.upsert({
+      where: { documentNumberNorm },
+      create: {
+        documentNumberNorm,
+        submittedCount: submissionCount,
+        status: 'NEEDS_REVIEW',
+        manualMatchedPlanVersionId: parsed.planVersionId,
+        manualMatchedByEmployeeId: employeeId,
+        manualMatchedAt: new Date(),
+        manualMatchNote: parsed.note ?? null,
+        computedAt: new Date(),
+      },
+      update: {
+        manualMatchedPlanVersionId: parsed.planVersionId,
+        manualMatchedByEmployeeId: employeeId,
+        manualMatchedAt: new Date(),
+        manualMatchNote: parsed.note ?? null,
+      },
+    });
+
+    await this.recomputeDocumentStatuses([documentNumberNorm]);
+    const updated = await this.prisma.contractDocumentStatus.findUnique({ where: { documentNumberNorm } });
+    if (!updated) {
+      throw new DomainError('NOT_FOUND', 'Contract document status not found after match');
+    }
+    return {
+      ...updated,
+      effectiveMatchedPlanVersionId: effectiveMatchedPlanVersionId(updated),
+    };
+  }
+
+  async unmatchContractDocument(input: unknown) {
+    const parsed = unmatchContractDocumentInputSchema.parse(input);
+    const documentNumberNorm = normalizeContractDocumentNumber(parsed.documentNumber);
+    if (!documentNumberNorm) {
+      throw new DomainError('VALIDATION_FAILED', 'Invalid contract document number');
+    }
+
+    const existing = await this.prisma.contractDocumentStatus.findUnique({ where: { documentNumberNorm } });
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'Contract document status not found');
+    }
+
+    await this.prisma.contractDocumentStatus.update({
+      where: { documentNumberNorm },
+      data: {
+        manualMatchedPlanVersionId: null,
+        manualMatchedByEmployeeId: null,
+        manualMatchedAt: null,
+        manualMatchNote: null,
+      },
+    });
+
+    await this.recomputeDocumentStatuses([documentNumberNorm]);
+    const updated = await this.prisma.contractDocumentStatus.findUnique({ where: { documentNumberNorm } });
+    if (!updated) {
+      throw new DomainError('NOT_FOUND', 'Contract document status not found after unmatch');
+    }
+    return {
+      ...updated,
+      effectiveMatchedPlanVersionId: effectiveMatchedPlanVersionId(updated),
+    };
   }
 }
 

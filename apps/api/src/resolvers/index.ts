@@ -187,6 +187,8 @@ export const resolvers = {
   ConfirmedTrip: confirmedTripResolver.ConfirmedTrip,
   ConfirmedTripLodging: confirmedTripResolver.ConfirmedTripLodging,
   CalendarNote: confirmedTripResolver.CalendarNote,
+  ContractDocumentStatus: contractResolver.ContractDocumentStatus,
+  ContractDocumentReviewItem: contractResolver.ContractDocumentReviewItem,
   PlanTemplate: mergeSection(planTemplateResolver.PlanTemplate ?? {}),
   PlanTemplateStop: mergeSection(planTemplateResolver.PlanTemplateStop ?? {}),
 };

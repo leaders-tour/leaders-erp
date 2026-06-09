@@ -31,6 +31,13 @@ const PipelineIcon: NavIcon = ({ className }) => (
   </svg>
 );
 
+const ContractReviewIcon: NavIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8 4h8l2 4v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8l2-4Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6M9 16h4" />
+  </svg>
+);
+
 const OutreachIcon: NavIcon = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16v12H4z" />
@@ -168,6 +175,11 @@ const baseNavItems: NavItem[] = [
   { path: '/confirmed-trips', label: '투어 리스트', icon: TourListIcon },
   { path: '/confirmed-trips', search: 'view=calendar', label: '장비 재고확인', icon: EquipmentIcon },
   { path: '/deal-pipeline', label: '딜 파이프라인 ( 준비중 )', icon: PipelineIcon },
+  {
+    path: '/contracts/review',
+    label: '계약서 Review',
+    icon: ContractReviewIcon,
+  },
   { path: '/outreach/leads', label: '카페 리드 ( 준비중 )', icon: OutreachIcon },
   { path: '/todos/list', label: 'TODO', icon: TodoIcon },
   {

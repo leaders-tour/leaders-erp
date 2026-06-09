@@ -1080,14 +1080,19 @@ model ContractDocumentStatus {
   needsReviewReason       String?
   firstSubmittedAt        DateTime?
   lastSubmittedAt         DateTime?
-  matchedPlanVersionId    String?
-  matchedConfirmedTripId  String?
-  computedAt              DateTime                    @default(now())
-  updatedAt               DateTime                    @updatedAt
+  matchedPlanVersionId         String?
+  matchedConfirmedTripId       String?
+  manualMatchedPlanVersionId   String?
+  manualMatchedByEmployeeId    String?
+  manualMatchedAt              DateTime?
+  manualMatchNote              String?                     @db.Text
+  computedAt                   DateTime                    @default(now())
+  updatedAt                    DateTime                    @updatedAt
 
   @@index([status])
   @@index([matchedPlanVersionId])
   @@index([matchedConfirmedTripId])
+  @@index([manualMatchedPlanVersionId])
 }
 
 model ContractSyncRun {

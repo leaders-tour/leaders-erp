@@ -10,6 +10,17 @@ interface ContractDocumentNumberArgs {
   documentNumber: string;
 }
 
+interface ContractDocumentReviewItemsArgs {
+  statuses?: Array<'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'OVER_SUBMITTED' | 'NEEDS_REVIEW'>;
+  keyword?: string;
+  limit?: number;
+}
+
+interface ContractMatchPlanVersionCandidatesArgs {
+  keyword: string;
+  limit?: number;
+}
+
 interface ContractSyncRunsArgs {
   sourceId?: string;
   limit?: number;
@@ -32,7 +43,39 @@ interface SyncContractPaymentsArgs {
   sourceId: string;
 }
 
+interface MatchContractDocumentArgs {
+  input: {
+    documentNumber: string;
+    planVersionId: string;
+    note?: string | null;
+  };
+}
+
+interface UnmatchContractDocumentArgs {
+  input: {
+    documentNumber: string;
+  };
+}
+
+function effectiveMatchedPlanVersionId(parent: {
+  manualMatchedPlanVersionId?: string | null;
+  matchedPlanVersionId?: string | null;
+}): string | null {
+  return parent.manualMatchedPlanVersionId ?? parent.matchedPlanVersionId ?? null;
+}
+
 export const contractResolver = {
+  ContractDocumentStatus: {
+    effectiveMatchedPlanVersionId: (parent: {
+      manualMatchedPlanVersionId?: string | null;
+      matchedPlanVersionId?: string | null;
+      effectiveMatchedPlanVersionId?: string | null;
+    }) => parent.effectiveMatchedPlanVersionId ?? effectiveMatchedPlanVersionId(parent),
+  },
+  ContractDocumentReviewItem: {
+    statusRow: (parent: { statusRow: unknown }) => parent.statusRow,
+    submissions: (parent: { submissions: unknown[] }) => parent.submissions,
+  },
   Query: {
     contractSubmissionSources: (_parent: unknown, _args: unknown, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
@@ -41,6 +84,14 @@ export const contractResolver = {
     contractDocumentStatuses: (_parent: unknown, args: ContractDocumentStatusesArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
       return new ContractSyncService(ctx.prisma).listStatuses(args.documentNumbers);
+    },
+    contractDocumentReviewItems: (_parent: unknown, args: ContractDocumentReviewItemsArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractSyncService(ctx.prisma).listReviewItems(args);
+    },
+    contractMatchPlanVersionCandidates: (_parent: unknown, args: ContractMatchPlanVersionCandidatesArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractSyncService(ctx.prisma).searchPlanVersionCandidates(args.keyword, args.limit ?? 20);
     },
     contractSubmissions: (_parent: unknown, args: ContractDocumentNumberArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
@@ -75,6 +126,17 @@ export const contractResolver = {
     syncContractPayments: (_parent: unknown, args: SyncContractPaymentsArgs, ctx: AppContext) => {
       requireAdmin(ctx);
       return new ContractPaymentSyncService(ctx.prisma).syncGoogleSheetSource(args.sourceId);
+    },
+    matchContractDocument: (_parent: unknown, args: MatchContractDocumentArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      if (!ctx.employee) {
+        throw new Error('Unauthorized');
+      }
+      return new ContractSyncService(ctx.prisma).matchContractDocument(args.input, ctx.employee.id);
+    },
+    unmatchContractDocument: (_parent: unknown, args: UnmatchContractDocumentArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractSyncService(ctx.prisma).unmatchContractDocument(args.input);
     },
   },
 };
