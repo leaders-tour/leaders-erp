@@ -282,6 +282,7 @@ export function PlanDetailPage(): JSX.Element {
         open={modalOpen}
         versions={sortedVersions}
         defaultParentVersionId={baseForCreate}
+        documentNumberBase={plan.documentNumberBase}
         onClose={() => setModalOpen(false)}
         onConfirm={(parentVersionId, changeNote) => {
           const params = new URLSearchParams({

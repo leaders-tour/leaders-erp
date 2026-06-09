@@ -15,6 +15,7 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from '@dnd-kit/utilities';
 import { Card, dealPipelineTokens } from '@tour/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../features/auth/context';
 import {
   useContractDocumentStatuses,
@@ -1511,16 +1512,24 @@ export function DealPipelinePage(): JSX.Element {
           <p className="mt-1 text-sm text-slate-600">고객의 진행 단계를 칸반 보드로 확인합니다.</p>
         </div>
 
-        <label className="w-full md:w-[280px]">
-          <span className="sr-only">고객 검색</span>
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="고객명 또는 이메일 검색"
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-900"
-          />
-        </label>
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center md:w-auto">
+          <Link
+            to="/contracts/review"
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 shadow-sm transition-colors hover:bg-slate-100"
+          >
+            계약서 관리
+          </Link>
+          <label className="w-full sm:w-[280px]">
+            <span className="sr-only">고객 검색</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="고객명 또는 이메일 검색"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-900"
+            />
+          </label>
+        </div>
       </header>
 
       {normalizedKeyword ? <p className={dealPipelineTokens.board.searchHint}>검색 중에는 드래그를 잠시 비활성화합니다.</p> : null}

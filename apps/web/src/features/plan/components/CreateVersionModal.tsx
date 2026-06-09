@@ -1,12 +1,17 @@
 import { Button, Card, Input } from '@tour/ui';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { PlanVersionRow } from '../hooks';
 import { toVariantLabel } from '../variant-label';
+import {
+  PlanVersionContractCreateNotice,
+  buildPlanVersionDocumentNumber,
+} from './PlanVersionContractCreateNotice';
 
 interface CreateVersionModalProps {
   open: boolean;
   versions: PlanVersionRow[];
   defaultParentVersionId: string;
+  documentNumberBase: string;
   onClose: () => void;
   onConfirm: (parentVersionId: string, changeNote: string) => void;
 }
@@ -15,6 +20,7 @@ export function CreateVersionModal({
   open,
   versions,
   defaultParentVersionId,
+  documentNumberBase,
   onClose,
   onConfirm,
 }: CreateVersionModalProps): JSX.Element | null {
@@ -27,6 +33,20 @@ export function CreateVersionModal({
     }
     setParentVersionId(defaultParentVersionId);
   }, [defaultParentVersionId, open]);
+
+  const parentDocumentNumber = useMemo(() => {
+    const selectedVersion = versions.find((version) => version.id === parentVersionId);
+    if (!selectedVersion) {
+      return null;
+    }
+    if (selectedVersion.meta?.documentNumber?.trim()) {
+      return selectedVersion.meta.documentNumber.trim();
+    }
+    if (!documentNumberBase.trim()) {
+      return null;
+    }
+    return buildPlanVersionDocumentNumber(documentNumberBase.trim(), selectedVersion.versionNumber);
+  }, [documentNumberBase, parentVersionId, versions]);
 
   if (!open) {
     return null;
@@ -57,6 +77,7 @@ export function CreateVersionModal({
             <span className="text-xs text-slate-600">변경 메모</span>
             <Input value={changeNote} onChange={(event) => setChangeNote(event.target.value)} placeholder="예: 숙소 동선 개선" />
           </label>
+          <PlanVersionContractCreateNotice documentNumber={parentDocumentNumber} />
         </div>
 
         <div className="mt-5 flex justify-end gap-2">

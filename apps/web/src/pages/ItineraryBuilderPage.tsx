@@ -66,6 +66,7 @@ import {
   type RegionLodgingOption,
 } from '../features/lodging-selection/model';
 import { ConsultationPasteModal } from '../features/plan/components/ConsultationPasteModal';
+import { PlanVersionContractCreateNotice } from '../features/plan/components/PlanVersionContractCreateNotice';
 import { ExternalTransferModal } from '../features/plan/components/ExternalTransferModal';
 import { ExternalTransfersManagerModal } from '../features/plan/components/ExternalTransfersManagerModal';
 import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
@@ -5674,15 +5675,18 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </h2>
                 <div className="mt-4 grid gap-4 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-4">
                   {isVersionMode ? (
-                    <label className="grid gap-1 text-sm">
-                      <span className="text-xs text-slate-600">변경 메모</span>
-                      <input
-                        value={changeNote}
-                        onChange={(event) => setChangeNote(event.target.value)}
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                        placeholder="예: 숙소 동선 개선"
-                      />
-                    </label>
+                    <>
+                      <PlanVersionContractCreateNotice documentNumber={parentVersion?.meta?.documentNumber} />
+                      <label className="grid gap-1 text-sm">
+                        <span className="text-xs text-slate-600">변경 메모</span>
+                        <input
+                          value={changeNote}
+                          onChange={(event) => setChangeNote(event.target.value)}
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                          placeholder="예: 숙소 동선 개선"
+                        />
+                      </label>
+                    </>
                   ) : null}
 
                   <label className="grid gap-1 text-sm">

@@ -7,6 +7,7 @@ import { fromVersion } from '../features/estimate/adapters';
 import { useEstimateLocationGuides } from '../features/estimate/hooks/use-estimate-location-guides';
 import { applyLocationGuides } from '../features/estimate/utils/apply-location-guides';
 import { VersionSnapshotView } from '../features/plan/components';
+import { PlanVersionContractCreateNotice } from '../features/plan/components/PlanVersionContractCreateNotice';
 import { buildExternalTransferDirectionText } from '../features/plan/external-transfer';
 import { usePlanVersionDetail, useUpdatePlanVersionChangeNote } from '../features/plan/hooks';
 import { countMainPlanStopRows } from '../features/plan/plan-stop-row';
@@ -432,6 +433,8 @@ export function PlanVersionDetailPage(): JSX.Element {
           </Button>
         </div>
       </header>
+
+      <PlanVersionContractCreateNotice documentNumber={version.meta?.documentNumber} />
 
       <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold text-slate-900">버전 정보</h2>
