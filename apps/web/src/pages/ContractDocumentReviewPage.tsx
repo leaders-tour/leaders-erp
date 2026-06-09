@@ -3,17 +3,54 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   useContractDocumentReviewItems,
+  useContractDocumentReviewTabCounts,
   useContractMatchPlanVersionCandidates,
   useExcludeContractSubmissionFromCount,
   useMatchContractDocument,
   useRestoreContractSubmissionToCount,
   useUnmatchContractDocument,
   type ContractDocumentReviewItemRow,
+  type ContractDocumentReviewTabCountsRow,
   type ContractDocumentStatusValue,
   type ContractMatchPlanVersionCandidateRow,
+  type ContractMatchedPlanSummaryRow,
 } from '../features/contract/hooks';
 
-const REVIEW_STATUSES: ContractDocumentStatusValue[] = ['NEEDS_REVIEW', 'OVER_SUBMITTED'];
+type ReviewTabKey = 'needs_action' | 'over_submitted' | 'in_progress' | 'completed' | 'all';
+
+const ALL_REVIEW_STATUSES: ContractDocumentStatusValue[] = [
+  'NOT_STARTED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'OVER_SUBMITTED',
+  'NEEDS_REVIEW',
+];
+
+const REVIEW_TABS: Array<{ key: ReviewTabKey; label: string; statuses: ContractDocumentStatusValue[] }> = [
+  { key: 'needs_action', label: '조치 필요', statuses: ['NEEDS_REVIEW'] },
+  { key: 'over_submitted', label: '초과 제출', statuses: ['OVER_SUBMITTED'] },
+  { key: 'in_progress', label: '작성 중', statuses: ['IN_PROGRESS'] },
+  { key: 'completed', label: '작성 완료', statuses: ['COMPLETED'] },
+  { key: 'all', label: '전체', statuses: ALL_REVIEW_STATUSES },
+];
+
+function tabCount(key: ReviewTabKey, counts: ContractDocumentReviewTabCountsRow | null): number | null {
+  if (!counts) {
+    return null;
+  }
+  switch (key) {
+    case 'needs_action':
+      return counts.needsReview;
+    case 'over_submitted':
+      return counts.overSubmitted;
+    case 'in_progress':
+      return counts.inProgress;
+    case 'completed':
+      return counts.completed;
+    case 'all':
+      return counts.all;
+  }
+}
 
 function formatDateTime(value: string | null | undefined): string {
   if (!value) {
@@ -61,11 +98,15 @@ function statusLabel(status: ContractDocumentStatusValue): string {
   }
 }
 
-function reviewSummary(
-  statusRow: ContractDocumentReviewItemRow['statusRow'],
-): string {
+function reviewSummary(statusRow: ContractDocumentReviewItemRow['statusRow']): string {
   if (statusRow.status === 'OVER_SUBMITTED') {
     return `계약서 ${statusRow.submittedCount}/${statusRow.expectedCount ?? '?'} · 예상 인원보다 많이 제출됨`;
+  }
+  if (statusRow.status === 'COMPLETED') {
+    return `계약서 ${statusRow.submittedCount}/${statusRow.expectedCount ?? '?'} · 작성 완료`;
+  }
+  if (statusRow.status === 'IN_PROGRESS') {
+    return `계약서 ${statusRow.submittedCount}/${statusRow.expectedCount ?? '?'} · 작성 진행 중`;
   }
   if (statusRow.needsReviewReason) {
     return reviewReasonLabel(statusRow.needsReviewReason);
@@ -110,6 +151,34 @@ function ReviewStatusBadge({
     );
   }
 
+  if (status === 'COMPLETED') {
+    return (
+      <span
+        className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+          active
+            ? 'border-emerald-300 bg-emerald-400/20 text-emerald-100'
+            : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+        }`}
+      >
+        {label}
+      </span>
+    );
+  }
+
+  if (status === 'IN_PROGRESS') {
+    return (
+      <span
+        className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+          active
+            ? 'border-violet-300 bg-violet-400/20 text-violet-100'
+            : 'border-violet-200 bg-violet-50 text-violet-800'
+        }`}
+      >
+        {label}
+      </span>
+    );
+  }
+
   return <StatusBadge tone="auto" label={label} />;
 }
 
@@ -135,36 +204,96 @@ function resolveRepresentativeName(item: ContractDocumentReviewItemRow): string 
   return leaderName ?? null;
 }
 
-function buildNewEstimateAction(statusRow: ContractDocumentReviewItemRow['statusRow']): {
+function buildNewEstimateAction(
+  statusRow: ContractDocumentReviewItemRow['statusRow'],
+  matchedPlanSummary: ContractMatchedPlanSummaryRow | null,
+): {
   href: string;
   label: string;
+  title: string;
   description: string;
-} {
+} | null {
   const matchedVersionId = statusRow.effectiveMatchedPlanVersionId;
   const matchedPlanId = statusRow.effectiveMatchedPlanId;
+
   if (matchedVersionId && matchedPlanId) {
+    const baseHref = `/plans/${matchedPlanId}/versions/${matchedVersionId}`;
+    if (statusRow.status === 'OVER_SUBMITTED') {
+      return {
+        href: baseHref,
+        label: '매칭 견적에서 새 버전 만들기',
+        title: '실제 인원이 늘어난 경우',
+        description: `예상 인원(${statusRow.expectedCount ?? '?'})보다 더 많이 제출되었습니다. 매칭된 견적 상세로 이동해 「이 버전 기반 새 버전 생성」으로 인원에 맞는 견적을 만든 뒤, 이 화면에서 새 견적서에 매칭하세요.`,
+      };
+    }
     return {
-      href: `/plans/${matchedPlanId}/versions/${matchedVersionId}`,
+      href: baseHref,
       label: '매칭 견적에서 새 버전 만들기',
-      description: `예상 인원(${statusRow.expectedCount ?? '?'})보다 더 많이 제출되었습니다. 매칭된 견적 상세로 이동해 「이 버전 기반 새 버전 생성」으로 인원에 맞는 견적을 만든 뒤, 이 Review 화면에서 새 견적서에 매칭하세요.`,
+      title: '인원 또는 조건 변경',
+      description: matchedPlanSummary
+        ? `현재 매칭 견적(${matchedPlanSummary.userName} · v${matchedPlanSummary.versionNumber})을 기준으로 새 버전을 만들 수 있습니다. 변경 후 이 화면에서 새 견적서에 매칭하세요.`
+        : '매칭된 견적 상세로 이동해 「이 버전 기반 새 버전 생성」으로 조건을 조정한 뒤, 이 화면에서 새 견적서에 매칭하세요.',
     };
   }
 
-  const params = new URLSearchParams({
-    contractDocumentNumber: statusRow.documentNumberNorm,
-  });
-  if (statusRow.expectedCount != null) {
-    params.set('expectedHeadcount', String(statusRow.expectedCount));
+  if (statusRow.status === 'OVER_SUBMITTED') {
+    const params = new URLSearchParams({
+      contractDocumentNumber: statusRow.documentNumberNorm,
+    });
+    if (statusRow.expectedCount != null) {
+      params.set('expectedHeadcount', String(statusRow.expectedCount));
+    }
+    params.set('submittedCount', String(statusRow.submittedCount));
+    return {
+      href: `/itinerary-builder?${params.toString()}`,
+      label: '새 견적서 만들기',
+      title: '실제 인원이 늘어난 경우',
+      description: `예상 인원(${statusRow.expectedCount ?? '?'})보다 더 많이 제출되었습니다. 새 견적서를 만든 뒤 이 화면에서 해당 견적서에 매칭하세요.`,
+    };
   }
-  params.set('submittedCount', String(statusRow.submittedCount));
-  return {
-    href: `/itinerary-builder?${params.toString()}`,
-    label: '새 견적서 만들기',
-    description: `예상 인원(${statusRow.expectedCount ?? '?'})보다 더 많이 제출되었습니다. 새 견적서를 만든 뒤 이 Review 화면에서 해당 견적서에 매칭하세요.`,
-  };
+
+  return null;
+}
+
+function MatchedPlanSummaryCard({
+  summary,
+}: {
+  summary: ContractMatchedPlanSummaryRow;
+}): JSX.Element {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">매칭 견적</p>
+          <p className="mt-1 text-base font-semibold text-slate-900">
+            {summary.userName} · {summary.planTitle}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            v{summary.versionNumber}
+            {summary.isManualMatch ? ' · 수동 매칭' : ' · 자동 매칭'}
+          </p>
+        </div>
+        <Link
+          to={`/plans/${summary.planId}/versions/${summary.planVersionId}`}
+          className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+        >
+          견적 상세 보기
+        </Link>
+      </div>
+      <div className="mt-3 grid gap-1 text-xs text-slate-600 md:grid-cols-2">
+        <span>문서번호: {summary.documentNumber}</span>
+        <span>총인원: {summary.headcountTotal}명</span>
+        <span>팀장: {summary.leaderName}</span>
+        <span>
+          출발: {formatDate(summary.travelStartDate)} ~ {formatDate(summary.travelEndDate)}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 export function ContractDocumentReviewPage(): JSX.Element {
+  const [activeTab, setActiveTab] = useState<ReviewTabKey>('needs_action');
   const [search, setSearch] = useState('');
   const [selectedDocumentNumber, setSelectedDocumentNumber] = useState<string | null>(null);
   const [planSearch, setPlanSearch] = useState('');
@@ -175,13 +304,22 @@ export function ContractDocumentReviewPage(): JSX.Element {
   const [exclusionReason, setExclusionReason] = useState('');
   const [submissionActionError, setSubmissionActionError] = useState<string | null>(null);
 
+  const activeTabConfig = REVIEW_TABS.find((tab) => tab.key === activeTab) ?? REVIEW_TABS[0]!;
   const normalizedSearch = search.trim();
-  const { items, loading, refetch } = useContractDocumentReviewItems(REVIEW_STATUSES, normalizedSearch);
+  const { items, loading, refetch } = useContractDocumentReviewItems(
+    activeTabConfig.statuses,
+    normalizedSearch,
+  );
+  const { counts: tabCounts, refetch: refetchTabCounts } = useContractDocumentReviewTabCounts();
   const { candidates, loading: candidatesLoading } = useContractMatchPlanVersionCandidates(planSearch);
   const { matchContractDocument, loading: matching } = useMatchContractDocument();
   const { unmatchContractDocument, loading: unmatching } = useUnmatchContractDocument();
   const { excludeContractSubmissionFromCount, loading: excluding } = useExcludeContractSubmissionFromCount();
   const { restoreContractSubmissionToCount, loading: restoring } = useRestoreContractSubmissionToCount();
+
+  useEffect(() => {
+    setSelectedDocumentNumber(null);
+  }, [activeTab]);
 
   useEffect(() => {
     if (!selectedDocumentNumber && items.length > 0) {
@@ -199,9 +337,14 @@ export function ContractDocumentReviewPage(): JSX.Element {
 
   const newEstimateAction = useMemo(
     () =>
-      selectedItem?.statusRow.status === 'OVER_SUBMITTED'
-        ? buildNewEstimateAction(selectedItem.statusRow)
+      selectedItem
+        ? buildNewEstimateAction(selectedItem.statusRow, selectedItem.matchedPlanSummary)
         : null,
+    [selectedItem],
+  );
+
+  const excludedSubmissions = useMemo(
+    () => selectedItem?.submissions.filter((submission) => submission.excludedFromContractCount) ?? [],
     [selectedItem],
   );
 
@@ -214,6 +357,10 @@ export function ContractDocumentReviewPage(): JSX.Element {
     setExclusionReason('');
     setSubmissionActionError(null);
   }, [selectedDocumentNumber]);
+
+  const refreshPage = async () => {
+    await Promise.all([refetch(), refetchTabCounts()]);
+  };
 
   const handleMatch = async () => {
     if (!selectedItem || !selectedPlanVersionId) {
@@ -230,7 +377,7 @@ export function ContractDocumentReviewPage(): JSX.Element {
       });
       setSelectedPlanVersionId(null);
       setMatchNote('');
-      await refetch();
+      await refreshPage();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '계약서 매칭에 실패했습니다.');
     }
@@ -244,7 +391,7 @@ export function ContractDocumentReviewPage(): JSX.Element {
     setErrorMessage(null);
     try {
       await unmatchContractDocument(selectedItem.statusRow.documentNumberNorm);
-      await refetch();
+      await refreshPage();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '수동 매칭 해제에 실패했습니다.');
     }
@@ -259,7 +406,7 @@ export function ContractDocumentReviewPage(): JSX.Element {
       });
       setExclusionTargetId(null);
       setExclusionReason('');
-      await refetch();
+      await refreshPage();
     } catch (error) {
       setSubmissionActionError(error instanceof Error ? error.message : '계산 제외 처리에 실패했습니다.');
     }
@@ -269,7 +416,7 @@ export function ContractDocumentReviewPage(): JSX.Element {
     setSubmissionActionError(null);
     try {
       await restoreContractSubmissionToCount(submissionId);
-      await refetch();
+      await refreshPage();
     } catch (error) {
       setSubmissionActionError(error instanceof Error ? error.message : '제외 해제에 실패했습니다.');
     }
@@ -279,12 +426,12 @@ export function ContractDocumentReviewPage(): JSX.Element {
     <PageShell className="grid gap-6">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">계약서 Review 매칭</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">계약서 관리</h1>
           <p className="mt-1 text-sm text-slate-600">
-            자동으로 견적서와 연결되지 않은 계약서를 검토하고, 올바른 견적서에 수동 매칭합니다.
+            계약서 작성 현황을 확인하고, 견적 매칭·인원 조정·새 버전 생성을 처리합니다.
           </p>
         </div>
-        <Button variant="outline" onClick={() => void refetch()}>
+        <Button variant="outline" onClick={() => void refreshPage()}>
           새로고침
         </Button>
       </header>
@@ -295,24 +442,50 @@ export function ContractDocumentReviewPage(): JSX.Element {
           onChange={(event) => setSearch(event.target.value)}
           placeholder="문서번호, 작성자명 검색"
         />
-        <Button variant="primary" onClick={() => void refetch()}>
+        <Button variant="primary" onClick={() => void refreshPage()}>
           조회
         </Button>
       </Card>
+
+      <div className="flex flex-wrap gap-2">
+        {REVIEW_TABS.map((tab) => {
+          const active = tab.key === activeTab;
+          const count = tabCount(tab.key, tabCounts);
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
+                active
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              {tab.label}
+              {count != null ? (
+                <span className={active ? 'text-slate-300' : 'text-slate-500'}> {count}</span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <Card className="grid max-h-[78vh] gap-2 overflow-y-auto rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
           <div className="flex items-start justify-between gap-2 px-2 py-1">
             <div>
-              <p className="text-sm font-semibold text-slate-900">Review 대상</p>
+              <p className="text-sm font-semibold text-slate-900">{activeTabConfig.label}</p>
               <p className="mt-0.5 text-xs text-slate-500">구글 시트에서 가져온 데이터입니다</p>
             </div>
-            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">{items.length}</span>
+            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+              {items.length}
+            </span>
           </div>
 
           {loading ? <p className="px-2 py-4 text-sm text-slate-500">불러오는 중...</p> : null}
           {!loading && items.length === 0 ? (
-            <p className="px-2 py-4 text-sm text-slate-500">검토가 필요한 계약서가 없습니다.</p>
+            <p className="px-2 py-4 text-sm text-slate-500">표시할 계약서가 없습니다.</p>
           ) : null}
 
           {items.map((item) => {
@@ -326,7 +499,11 @@ export function ContractDocumentReviewPage(): JSX.Element {
                 className={`rounded-2xl border px-3 py-3 text-left transition ${
                   active
                     ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                    : item.statusRow.status === 'COMPLETED'
+                      ? 'border-emerald-200 bg-emerald-50/40 hover:border-emerald-300 hover:bg-emerald-50'
+                      : item.statusRow.status === 'IN_PROGRESS'
+                        ? 'border-violet-200 bg-violet-50/40 hover:border-violet-300 hover:bg-violet-50'
+                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -347,10 +524,13 @@ export function ContractDocumentReviewPage(): JSX.Element {
                       {reviewSummary(item.statusRow)}
                     </p>
                   </div>
-                  <ReviewStatusBadge status={item.statusRow.status} active={active} />
+                  <div className="flex flex-col items-end gap-1">
+                    <ReviewStatusBadge status={item.statusRow.status} active={active} />
+                  </div>
                 </div>
                 <p className={`mt-2 text-xs ${active ? 'text-slate-200' : 'text-slate-600'}`}>
-                  계약서 {item.statusRow.submittedCount}/{item.statusRow.expectedCount ?? '?'} · 작성 {item.submissions.length}건
+                  계약서 {item.statusRow.submittedCount}/{item.statusRow.expectedCount ?? '?'} · 작성{' '}
+                  {item.submissions.length}건
                 </p>
               </button>
             );
@@ -360,7 +540,7 @@ export function ContractDocumentReviewPage(): JSX.Element {
         <div className="grid gap-4">
           {!selectedItem ? (
             <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-              왼쪽에서 review 항목을 선택해주세요.
+              왼쪽에서 계약서를 선택해주세요.
             </Card>
           ) : (
             <>
@@ -395,26 +575,26 @@ export function ContractDocumentReviewPage(): JSX.Element {
                     </p>
                   </div>
                   <div>
-                    <span className="text-slate-500">자동 매칭 견적</span>
-                    <p className="font-medium text-slate-900">{selectedItem.statusRow.matchedPlanVersionId ?? '없음'}</p>
+                    <span className="text-slate-500">상태 계산 시각</span>
+                    <p className="font-medium text-slate-900">{formatDateTime(selectedItem.statusRow.computedAt)}</p>
                   </div>
                   <div>
-                    <span className="text-slate-500">수동 매칭 견적</span>
-                    <p className="font-medium text-slate-900">
-                      {selectedItem.statusRow.manualMatchedPlanVersionId ?? '없음'}
-                    </p>
+                    <span className="text-slate-500">최근 갱신</span>
+                    <p className="font-medium text-slate-900">{formatDateTime(selectedItem.statusRow.updatedAt)}</p>
                   </div>
                 </div>
 
-                {selectedItem.statusRow.manualMatchNote ? (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    수동 매칭 메모: {selectedItem.statusRow.manualMatchNote}
+                {selectedItem.matchedPlanSummary ? (
+                  <MatchedPlanSummaryCard summary={selectedItem.matchedPlanSummary} />
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                    매칭된 견적이 없습니다. 아래에서 견적서를 검색해 연결하세요.
                   </div>
-                ) : null}
+                )}
 
                 {newEstimateAction ? (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
-                    <p className="font-semibold">실제 인원이 늘어난 경우</p>
+                    <p className="font-semibold">{newEstimateAction.title}</p>
                     <p className="mt-1 text-amber-900">{newEstimateAction.description}</p>
                     <div className="mt-3">
                       <Link
@@ -436,101 +616,110 @@ export function ContractDocumentReviewPage(): JSX.Element {
                       const isExcluded = submission.excludedFromContractCount;
                       const showingExclusionForm = exclusionTargetId === submission.id;
                       return (
-                      <div
-                        key={submission.id}
-                        className={`rounded-2xl border px-4 py-3 text-sm ${
-                          isExcluded
-                            ? 'border-slate-300 bg-slate-100/80 opacity-70'
-                            : isRepresentative
-                            ? 'border-slate-900 bg-slate-100 shadow-sm ring-1 ring-slate-900/10'
-                            : 'border-slate-200 bg-white'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className={`font-semibold ${isExcluded ? 'text-slate-600 line-through' : 'text-slate-900'}`}>
-                                {submissionPersonLabel(submission)}
+                        <div
+                          key={submission.id}
+                          className={`rounded-2xl border px-4 py-3 text-sm ${
+                            isExcluded
+                              ? 'border-slate-300 bg-slate-100/80 opacity-70'
+                              : isRepresentative
+                                ? 'border-slate-900 bg-slate-100 shadow-sm ring-1 ring-slate-900/10'
+                                : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p
+                                  className={`font-semibold ${isExcluded ? 'text-slate-600 line-through' : 'text-slate-900'}`}
+                                >
+                                  {submissionPersonLabel(submission)}
+                                </p>
+                                {isRepresentative ? (
+                                  <span className="rounded-full border border-slate-900 bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white">
+                                    대표자
+                                  </span>
+                                ) : null}
+                                {isExcluded ? (
+                                  <span className="rounded-full border border-slate-400 bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                                    계산 제외
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p className="mt-1 text-xs text-slate-500">
+                                {submission.representativeType ?? '유형 미상'}
+                                {submission.totalCompanionCount != null
+                                  ? ` · 동반 ${submission.totalCompanionCount}명`
+                                  : ''}
                               </p>
-                              {isRepresentative ? (
-                                <span className="rounded-full border border-slate-900 bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white">
-                                  대표자
-                                </span>
+                              {isExcluded && submission.exclusionReason ? (
+                                <p className="mt-1 text-xs text-slate-600">제외 사유: {submission.exclusionReason}</p>
                               ) : null}
-                              {isExcluded ? (
-                                <span className="rounded-full border border-slate-400 bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                                  계산 제외
-                                </span>
+                              {isExcluded && submission.excludedAt ? (
+                                <p className="mt-1 text-xs text-slate-500">
+                                  제외 시각: {formatDateTime(submission.excludedAt)}
+                                </p>
                               ) : null}
                             </div>
-                            <p className="mt-1 text-xs text-slate-500">
-                              {submission.representativeType ?? '유형 미상'}
-                              {submission.totalCompanionCount != null ? ` · 동반 ${submission.totalCompanionCount}명` : ''}
-                            </p>
-                            {isExcluded && submission.exclusionReason ? (
-                              <p className="mt-1 text-xs text-slate-600">제외 사유: {submission.exclusionReason}</p>
-                            ) : null}
+                            <span className="text-xs text-slate-500">{formatDateTime(submission.submittedAt)}</span>
                           </div>
-                          <span className="text-xs text-slate-500">{formatDateTime(submission.submittedAt)}</span>
+                          <div className="mt-2 grid gap-1 text-xs text-slate-600 md:grid-cols-2">
+                            <span>연락처: {submission.travelerPhone ?? '-'}</span>
+                            <span>
+                              출처: {submission.source.name}
+                              {submission.sourceRowNumber != null ? ` ${submission.sourceRowNumber}행` : ''}
+                            </span>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {isExcluded ? (
+                              <Button
+                                variant="outline"
+                                disabled={restoring}
+                                onClick={() => void handleRestoreSubmission(submission.id)}
+                              >
+                                {restoring ? '복원 중...' : '제외 해제'}
+                              </Button>
+                            ) : showingExclusionForm ? (
+                              <>
+                                <textarea
+                                  value={exclusionReason}
+                                  onChange={(event) => setExclusionReason(event.target.value)}
+                                  rows={2}
+                                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-900"
+                                  placeholder="제외 사유 (선택)"
+                                />
+                                <div className="flex flex-wrap gap-2">
+                                  <Button
+                                    variant="primary"
+                                    disabled={excluding}
+                                    onClick={() => void handleExcludeSubmission(submission.id)}
+                                  >
+                                    {excluding ? '처리 중...' : '제외 확정'}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                      setExclusionTargetId(null);
+                                      setExclusionReason('');
+                                    }}
+                                  >
+                                    취소
+                                  </Button>
+                                </div>
+                              </>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setExclusionTargetId(submission.id);
+                                  setExclusionReason('');
+                                  setSubmissionActionError(null);
+                                }}
+                              >
+                                계산에서 제외
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        <div className="mt-2 grid gap-1 text-xs text-slate-600 md:grid-cols-2">
-                          <span>연락처: {submission.travelerPhone ?? '-'}</span>
-                          <span>
-                            출처: {submission.source.name}
-                            {submission.sourceRowNumber != null ? ` ${submission.sourceRowNumber}행` : ''}
-                          </span>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {isExcluded ? (
-                            <Button
-                              variant="outline"
-                              disabled={restoring}
-                              onClick={() => void handleRestoreSubmission(submission.id)}
-                            >
-                              {restoring ? '복원 중...' : '제외 해제'}
-                            </Button>
-                          ) : showingExclusionForm ? (
-                            <>
-                              <textarea
-                                value={exclusionReason}
-                                onChange={(event) => setExclusionReason(event.target.value)}
-                                rows={2}
-                                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-900"
-                                placeholder="제외 사유 (선택)"
-                              />
-                              <div className="flex flex-wrap gap-2">
-                                <Button
-                                  variant="primary"
-                                  disabled={excluding}
-                                  onClick={() => void handleExcludeSubmission(submission.id)}
-                                >
-                                  {excluding ? '처리 중...' : '제외 확정'}
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  onClick={() => {
-                                    setExclusionTargetId(null);
-                                    setExclusionReason('');
-                                  }}
-                                >
-                                  취소
-                                </Button>
-                              </div>
-                            </>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                setExclusionTargetId(submission.id);
-                                setExclusionReason('');
-                                setSubmissionActionError(null);
-                              }}
-                            >
-                              계산에서 제외
-                            </Button>
-                          )}
-                        </div>
-                      </div>
                       );
                     })}
                   </div>
@@ -539,8 +728,62 @@ export function ContractDocumentReviewPage(): JSX.Element {
 
               <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div>
+                  <p className="text-sm font-semibold text-slate-900">운영 메모 / 이력</p>
+                  <p className="mt-1 text-sm text-slate-600">저장된 수동 매칭과 계산 제외 이력을 확인합니다.</p>
+                </div>
+                <div className="grid gap-3 text-sm">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p className="font-semibold text-slate-900">수동 매칭</p>
+                    {selectedItem.statusRow.manualMatchedPlanVersionId ? (
+                      <div className="mt-2 grid gap-1 text-slate-700">
+                        <span>견적 버전: {selectedItem.statusRow.manualMatchedPlanVersionId}</span>
+                        <span>매칭 시각: {formatDateTime(selectedItem.statusRow.manualMatchedAt)}</span>
+                        {selectedItem.statusRow.manualMatchedByEmployeeId ? (
+                          <span>처리자: {selectedItem.statusRow.manualMatchedByEmployeeId}</span>
+                        ) : null}
+                        {selectedItem.statusRow.manualMatchNote ? (
+                          <span>메모: {selectedItem.statusRow.manualMatchNote}</span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-slate-500">수동 매칭 이력 없음</p>
+                    )}
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p className="font-semibold text-slate-900">계산 제외 이력</p>
+                    {excludedSubmissions.length > 0 ? (
+                      <div className="mt-2 grid gap-2">
+                        {excludedSubmissions.map((submission) => (
+                          <div key={submission.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                            <p className="font-medium text-slate-900">{submissionPersonLabel(submission)}</p>
+                            <p className="mt-1 text-xs text-slate-600">
+                              {formatDateTime(submission.excludedAt)}
+                              {submission.exclusionReason ? ` · ${submission.exclusionReason}` : ''}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-slate-500">계산 제외 이력 없음</p>
+                    )}
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p className="font-semibold text-slate-900">동기화 기준</p>
+                    <div className="mt-2 grid gap-1 text-slate-700">
+                      <span>최초 작성: {formatDateTime(selectedItem.statusRow.firstSubmittedAt)}</span>
+                      <span>최근 작성: {formatDateTime(selectedItem.statusRow.lastSubmittedAt)}</span>
+                      <span>상태 계산: {formatDateTime(selectedItem.statusRow.computedAt)}</span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div>
                   <p className="text-sm font-semibold text-slate-900">견적서 매칭</p>
-                  <p className="mt-1 text-sm text-slate-600">고객명, 견적 문서번호, 팀장명으로 검색해 연결할 견적서를 선택하세요.</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    고객명, 견적 문서번호, 팀장명으로 검색해 연결할 견적서를 선택하세요.
+                  </p>
                 </div>
 
                 <Input

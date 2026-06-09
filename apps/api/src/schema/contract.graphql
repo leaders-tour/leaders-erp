@@ -69,9 +69,33 @@ type ContractDocumentStatus {
   updatedAt: DateTime!
 }
 
+type ContractMatchedPlanSummary {
+  planVersionId: ID!
+  planId: ID!
+  planTitle: String!
+  versionNumber: Int!
+  userId: ID!
+  userName: String!
+  documentNumber: String!
+  leaderName: String!
+  headcountTotal: Int!
+  travelStartDate: DateTime!
+  travelEndDate: DateTime!
+  isManualMatch: Boolean!
+}
+
+type ContractDocumentReviewTabCounts {
+  needsReview: Int!
+  overSubmitted: Int!
+  inProgress: Int!
+  completed: Int!
+  all: Int!
+}
+
 type ContractDocumentReviewItem {
   statusRow: ContractDocumentStatus!
   submissions: [ContractSubmission!]!
+  matchedPlanSummary: ContractMatchedPlanSummary
 }
 
 type ContractMatchPlanVersionCandidate {
@@ -194,6 +218,7 @@ extend type Query {
   contractSubmissionSources: [ContractSubmissionSource!]!
   contractDocumentStatuses(documentNumbers: [String!]!): [ContractDocumentStatus!]!
   contractDocumentReviewItems(statuses: [ContractDocumentStatusValue!], keyword: String, limit: Int = 100): [ContractDocumentReviewItem!]!
+  contractDocumentReviewTabCounts: ContractDocumentReviewTabCounts!
   contractMatchPlanVersionCandidates(keyword: String!, limit: Int = 20): [ContractMatchPlanVersionCandidate!]!
   contractSubmissions(documentNumber: String!): [ContractSubmission!]!
   contractSyncRuns(sourceId: ID, limit: Int = 20): [ContractSyncRun!]!

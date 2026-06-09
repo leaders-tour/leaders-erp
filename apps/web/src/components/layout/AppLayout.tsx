@@ -177,7 +177,7 @@ const baseNavItems: NavItem[] = [
   { path: '/deal-pipeline', label: '딜 파이프라인 ( 준비중 )', icon: PipelineIcon },
   {
     path: '/contracts/review',
-    label: '계약서 Review',
+    label: '계약서 관리',
     icon: ContractReviewIcon,
   },
   { path: '/outreach/leads', label: '카페 리드 ( 준비중 )', icon: OutreachIcon },

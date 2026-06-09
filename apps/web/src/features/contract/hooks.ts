@@ -47,9 +47,33 @@ export interface ContractDocumentStatusRow {
   updatedAt: string;
 }
 
+export interface ContractMatchedPlanSummaryRow {
+  planVersionId: string;
+  planId: string;
+  planTitle: string;
+  versionNumber: number;
+  userId: string;
+  userName: string;
+  documentNumber: string;
+  leaderName: string;
+  headcountTotal: number;
+  travelStartDate: string;
+  travelEndDate: string;
+  isManualMatch: boolean;
+}
+
 export interface ContractDocumentReviewItemRow {
   statusRow: ContractDocumentStatusRow;
   submissions: ContractSubmissionRow[];
+  matchedPlanSummary: ContractMatchedPlanSummaryRow | null;
+}
+
+export interface ContractDocumentReviewTabCountsRow {
+  needsReview: number;
+  overSubmitted: number;
+  inProgress: number;
+  completed: number;
+  all: number;
 }
 
 export interface ContractMatchPlanVersionCandidateRow {
@@ -214,6 +238,20 @@ const CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY = gql`
         computedAt
         updatedAt
       }
+      matchedPlanSummary {
+        planVersionId
+        planId
+        planTitle
+        versionNumber
+        userId
+        userName
+        documentNumber
+        leaderName
+        headcountTotal
+        travelStartDate
+        travelEndDate
+        isManualMatch
+      }
       submissions {
         id
         sourceRowNumber
@@ -237,6 +275,18 @@ const CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY = gql`
           name
         }
       }
+    }
+  }
+`;
+
+const CONTRACT_DOCUMENT_REVIEW_TAB_COUNTS_QUERY = gql`
+  query ContractDocumentReviewTabCounts {
+    contractDocumentReviewTabCounts {
+      needsReview
+      overSubmitted
+      inProgress
+      completed
+      all
     }
   }
 `;
@@ -519,6 +569,17 @@ export function useContractDocumentReviewItems(
     },
   );
   return { items: data?.contractDocumentReviewItems ?? [], loading, refetch };
+}
+
+export function useContractDocumentReviewTabCounts() {
+  const { data, loading, refetch } = useQuery<{ contractDocumentReviewTabCounts: ContractDocumentReviewTabCountsRow }>(
+    CONTRACT_DOCUMENT_REVIEW_TAB_COUNTS_QUERY,
+  );
+  return {
+    counts: data?.contractDocumentReviewTabCounts ?? null,
+    loading,
+    refetch,
+  };
 }
 
 export function useContractMatchPlanVersionCandidates(keyword: string, limit = 20) {

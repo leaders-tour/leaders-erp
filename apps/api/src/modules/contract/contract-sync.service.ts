@@ -923,6 +923,53 @@ export class ContractSyncService {
           })).map((row) => [row.id, row.planId] as const),
         )
       : new Map<string, string>();
+    const matchedPlanSummaryByVersionId = effectiveVersionIds.length
+      ? new Map(
+          (await this.prisma.planVersionMeta.findMany({
+            where: { planVersionId: { in: effectiveVersionIds } },
+            select: {
+              planVersionId: true,
+              documentNumber: true,
+              leaderName: true,
+              headcountTotal: true,
+              travelStartDate: true,
+              travelEndDate: true,
+              planVersion: {
+                select: {
+                  versionNumber: true,
+                  plan: {
+                    select: {
+                      id: true,
+                      title: true,
+                      user: {
+                        select: {
+                          id: true,
+                          name: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          })).map((row) => [row.planVersionId, row] as const),
+        )
+      : new Map<string, {
+        planVersionId: string;
+        documentNumber: string;
+        leaderName: string;
+        headcountTotal: number;
+        travelStartDate: Date;
+        travelEndDate: Date;
+        planVersion: {
+          versionNumber: number;
+          plan: {
+            id: string;
+            title: string;
+            user: { id: string; name: string };
+          };
+        };
+      }>();
     const submissionsBySelected = selectedRows.length
       ? await this.prisma.contractSubmission.findMany({
           where: {
@@ -935,22 +982,61 @@ export class ContractSyncService {
         })
       : [];
 
-    return selectedRows.map((statusRow) => ({
-      statusRow: {
-        ...statusRow,
-        effectiveMatchedPlanVersionId: effectiveMatchedPlanVersionId(statusRow),
-        effectiveMatchedPlanId: (() => {
-          const versionId = effectiveMatchedPlanVersionId(statusRow);
-          return versionId ? planIdByVersionId.get(versionId) ?? null : null;
-        })(),
-      },
-      submissions: submissionsBySelected.filter((submission) => {
-        if (!submission.documentNumberNorm) {
-          return false;
-        }
-        return documentNumberLookupKeys(statusRow.documentNumberNorm).includes(submission.documentNumberNorm);
-      }),
-    }));
+    return selectedRows.map((statusRow) => {
+      const versionId = effectiveMatchedPlanVersionId(statusRow);
+      const meta = versionId ? matchedPlanSummaryByVersionId.get(versionId) : null;
+      return {
+        statusRow: {
+          ...statusRow,
+          effectiveMatchedPlanVersionId: versionId,
+          effectiveMatchedPlanId: versionId ? planIdByVersionId.get(versionId) ?? null : null,
+        },
+        matchedPlanSummary: meta
+          ? {
+              planVersionId: meta.planVersionId,
+              planId: meta.planVersion.plan.id,
+              planTitle: meta.planVersion.plan.title,
+              versionNumber: meta.planVersion.versionNumber,
+              userId: meta.planVersion.plan.user.id,
+              userName: meta.planVersion.plan.user.name,
+              documentNumber: meta.documentNumber,
+              leaderName: meta.leaderName,
+              headcountTotal: meta.headcountTotal,
+              travelStartDate: meta.travelStartDate,
+              travelEndDate: meta.travelEndDate,
+              isManualMatch: Boolean(statusRow.manualMatchedPlanVersionId),
+            }
+          : null,
+        submissions: submissionsBySelected.filter((submission) => {
+          if (!submission.documentNumberNorm) {
+            return false;
+          }
+          return documentNumberLookupKeys(statusRow.documentNumberNorm).includes(submission.documentNumberNorm);
+        }),
+      };
+    });
+  }
+
+  async getReviewTabCounts() {
+    const counts = await this.prisma.contractDocumentStatus.groupBy({
+      by: ['status'],
+      _count: { _all: true },
+    });
+    const byStatus = new Map(counts.map((row) => [row.status, row._count._all]));
+    const tabStatuses: ContractDocumentStatusValue[] = [
+      'NOT_STARTED',
+      'IN_PROGRESS',
+      'COMPLETED',
+      'OVER_SUBMITTED',
+      'NEEDS_REVIEW',
+    ];
+    return {
+      needsReview: byStatus.get('NEEDS_REVIEW') ?? 0,
+      overSubmitted: byStatus.get('OVER_SUBMITTED') ?? 0,
+      inProgress: byStatus.get('IN_PROGRESS') ?? 0,
+      completed: byStatus.get('COMPLETED') ?? 0,
+      all: tabStatuses.reduce((sum, status) => sum + (byStatus.get(status) ?? 0), 0),
+    };
   }
 
   async searchPlanVersionCandidates(keyword: string, limit = 20) {

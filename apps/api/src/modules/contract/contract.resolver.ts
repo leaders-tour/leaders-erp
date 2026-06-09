@@ -111,6 +111,7 @@ export const contractResolver = {
   ContractDocumentReviewItem: {
     statusRow: (parent: { statusRow: unknown }) => parent.statusRow,
     submissions: (parent: { submissions: unknown[] }) => parent.submissions,
+    matchedPlanSummary: (parent: { matchedPlanSummary?: unknown }) => parent.matchedPlanSummary ?? null,
   },
   Query: {
     contractSubmissionSources: (_parent: unknown, _args: unknown, ctx: AppContext) => {
@@ -124,6 +125,10 @@ export const contractResolver = {
     contractDocumentReviewItems: (_parent: unknown, args: ContractDocumentReviewItemsArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
       return new ContractSyncService(ctx.prisma).listReviewItems(args);
+    },
+    contractDocumentReviewTabCounts: (_parent: unknown, _args: unknown, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractSyncService(ctx.prisma).getReviewTabCounts();
     },
     contractMatchPlanVersionCandidates: (_parent: unknown, args: ContractMatchPlanVersionCandidatesArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
