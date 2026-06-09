@@ -10,5 +10,16 @@ export const unmatchContractDocumentInputSchema = z.object({
   documentNumber: z.string().trim().min(1, '문서번호는 필수입니다.'),
 });
 
+export const excludeContractSubmissionFromCountInputSchema = z.object({
+  submissionId: z.string().trim().min(1, '작성 행 ID는 필수입니다.'),
+  reason: z.string().trim().max(2000).optional().nullable(),
+});
+
+export const restoreContractSubmissionToCountInputSchema = z.object({
+  submissionId: z.string().trim().min(1, '작성 행 ID는 필수입니다.'),
+});
+
 export type MatchContractDocumentInput = z.infer<typeof matchContractDocumentInputSchema>;
 export type UnmatchContractDocumentInput = z.infer<typeof unmatchContractDocumentInputSchema>;
+export type ExcludeContractSubmissionFromCountInput = z.infer<typeof excludeContractSubmissionFromCountInputSchema>;
+export type RestoreContractSubmissionToCountInput = z.infer<typeof restoreContractSubmissionToCountInputSchema>;

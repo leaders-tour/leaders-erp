@@ -4,7 +4,9 @@ import { Link } from 'react-router-dom';
 import {
   useContractDocumentReviewItems,
   useContractMatchPlanVersionCandidates,
+  useExcludeContractSubmissionFromCount,
   useMatchContractDocument,
+  useRestoreContractSubmissionToCount,
   useUnmatchContractDocument,
   type ContractDocumentReviewItemRow,
   type ContractDocumentStatusValue,
@@ -122,6 +124,46 @@ function isRepresentativeSubmission(
   return type.includes('대표');
 }
 
+function resolveRepresentativeName(item: ContractDocumentReviewItemRow): string | null {
+  const representativeSubmission = item.submissions.find(isRepresentativeSubmission);
+  if (representativeSubmission) {
+    const name = submissionPersonLabel(representativeSubmission);
+    return name === '이름 없음' ? null : name;
+  }
+
+  const leaderName = item.submissions.find((submission) => submission.leaderName?.trim())?.leaderName?.trim();
+  return leaderName ?? null;
+}
+
+function buildNewEstimateAction(statusRow: ContractDocumentReviewItemRow['statusRow']): {
+  href: string;
+  label: string;
+  description: string;
+} {
+  const matchedVersionId = statusRow.effectiveMatchedPlanVersionId;
+  const matchedPlanId = statusRow.effectiveMatchedPlanId;
+  if (matchedVersionId && matchedPlanId) {
+    return {
+      href: `/plans/${matchedPlanId}/versions/${matchedVersionId}`,
+      label: '매칭 견적에서 새 버전 만들기',
+      description: `예상 인원(${statusRow.expectedCount ?? '?'})보다 더 많이 제출되었습니다. 매칭된 견적 상세로 이동해 「이 버전 기반 새 버전 생성」으로 인원에 맞는 견적을 만든 뒤, 이 Review 화면에서 새 견적서에 매칭하세요.`,
+    };
+  }
+
+  const params = new URLSearchParams({
+    contractDocumentNumber: statusRow.documentNumberNorm,
+  });
+  if (statusRow.expectedCount != null) {
+    params.set('expectedHeadcount', String(statusRow.expectedCount));
+  }
+  params.set('submittedCount', String(statusRow.submittedCount));
+  return {
+    href: `/itinerary-builder?${params.toString()}`,
+    label: '새 견적서 만들기',
+    description: `예상 인원(${statusRow.expectedCount ?? '?'})보다 더 많이 제출되었습니다. 새 견적서를 만든 뒤 이 Review 화면에서 해당 견적서에 매칭하세요.`,
+  };
+}
+
 export function ContractDocumentReviewPage(): JSX.Element {
   const [search, setSearch] = useState('');
   const [selectedDocumentNumber, setSelectedDocumentNumber] = useState<string | null>(null);
@@ -129,12 +171,17 @@ export function ContractDocumentReviewPage(): JSX.Element {
   const [selectedPlanVersionId, setSelectedPlanVersionId] = useState<string | null>(null);
   const [matchNote, setMatchNote] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [exclusionTargetId, setExclusionTargetId] = useState<string | null>(null);
+  const [exclusionReason, setExclusionReason] = useState('');
+  const [submissionActionError, setSubmissionActionError] = useState<string | null>(null);
 
   const normalizedSearch = search.trim();
   const { items, loading, refetch } = useContractDocumentReviewItems(REVIEW_STATUSES, normalizedSearch);
   const { candidates, loading: candidatesLoading } = useContractMatchPlanVersionCandidates(planSearch);
   const { matchContractDocument, loading: matching } = useMatchContractDocument();
   const { unmatchContractDocument, loading: unmatching } = useUnmatchContractDocument();
+  const { excludeContractSubmissionFromCount, loading: excluding } = useExcludeContractSubmissionFromCount();
+  const { restoreContractSubmissionToCount, loading: restoring } = useRestoreContractSubmissionToCount();
 
   useEffect(() => {
     if (!selectedDocumentNumber && items.length > 0) {
@@ -150,11 +197,22 @@ export function ContractDocumentReviewPage(): JSX.Element {
     [items, selectedDocumentNumber],
   );
 
+  const newEstimateAction = useMemo(
+    () =>
+      selectedItem?.statusRow.status === 'OVER_SUBMITTED'
+        ? buildNewEstimateAction(selectedItem.statusRow)
+        : null,
+    [selectedItem],
+  );
+
   useEffect(() => {
     setSelectedPlanVersionId(null);
     setPlanSearch('');
     setMatchNote('');
     setErrorMessage(null);
+    setExclusionTargetId(null);
+    setExclusionReason('');
+    setSubmissionActionError(null);
   }, [selectedDocumentNumber]);
 
   const handleMatch = async () => {
@@ -189,6 +247,31 @@ export function ContractDocumentReviewPage(): JSX.Element {
       await refetch();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '수동 매칭 해제에 실패했습니다.');
+    }
+  };
+
+  const handleExcludeSubmission = async (submissionId: string) => {
+    setSubmissionActionError(null);
+    try {
+      await excludeContractSubmissionFromCount({
+        submissionId,
+        reason: exclusionReason.trim() || null,
+      });
+      setExclusionTargetId(null);
+      setExclusionReason('');
+      await refetch();
+    } catch (error) {
+      setSubmissionActionError(error instanceof Error ? error.message : '계산 제외 처리에 실패했습니다.');
+    }
+  };
+
+  const handleRestoreSubmission = async (submissionId: string) => {
+    setSubmissionActionError(null);
+    try {
+      await restoreContractSubmissionToCount(submissionId);
+      await refetch();
+    } catch (error) {
+      setSubmissionActionError(error instanceof Error ? error.message : '제외 해제에 실패했습니다.');
     }
   };
 
@@ -234,6 +317,7 @@ export function ContractDocumentReviewPage(): JSX.Element {
 
           {items.map((item) => {
             const active = item.statusRow.documentNumberNorm === selectedDocumentNumber;
+            const representativeName = resolveRepresentativeName(item);
             return (
               <button
                 key={item.statusRow.id}
@@ -247,7 +331,16 @@ export function ContractDocumentReviewPage(): JSX.Element {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className={`text-sm font-semibold ${active ? 'text-white' : 'text-slate-900'}`}>
+                    {representativeName ? (
+                      <p className={`text-sm font-semibold ${active ? 'text-white' : 'text-slate-900'}`}>
+                        {representativeName}
+                      </p>
+                    ) : null}
+                    <p
+                      className={`${
+                        representativeName ? 'mt-0.5 text-xs' : 'text-sm font-semibold'
+                      } ${active ? (representativeName ? 'text-slate-300' : 'text-white') : representativeName ? 'text-slate-500' : 'text-slate-900'}`}
+                    >
                       {item.statusRow.documentNumberRawSample ?? item.statusRow.documentNumberNorm}
                     </p>
                     <p className={`mt-1 text-xs ${active ? 'text-slate-200' : 'text-slate-500'}`}>
@@ -319,16 +412,36 @@ export function ContractDocumentReviewPage(): JSX.Element {
                   </div>
                 ) : null}
 
+                {newEstimateAction ? (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+                    <p className="font-semibold">실제 인원이 늘어난 경우</p>
+                    <p className="mt-1 text-amber-900">{newEstimateAction.description}</p>
+                    <div className="mt-3">
+                      <Link
+                        to={newEstimateAction.href}
+                        className="inline-flex items-center rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-900 transition hover:border-amber-400 hover:bg-amber-100"
+                      >
+                        {newEstimateAction.label}
+                      </Link>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="grid gap-2">
                   <p className="text-sm font-semibold text-slate-900">계약서 작성 내역</p>
+                  {submissionActionError ? <p className="text-sm text-rose-600">{submissionActionError}</p> : null}
                   <div className="grid gap-2">
                     {selectedItem.submissions.map((submission) => {
                       const isRepresentative = isRepresentativeSubmission(submission);
+                      const isExcluded = submission.excludedFromContractCount;
+                      const showingExclusionForm = exclusionTargetId === submission.id;
                       return (
                       <div
                         key={submission.id}
                         className={`rounded-2xl border px-4 py-3 text-sm ${
-                          isRepresentative
+                          isExcluded
+                            ? 'border-slate-300 bg-slate-100/80 opacity-70'
+                            : isRepresentative
                             ? 'border-slate-900 bg-slate-100 shadow-sm ring-1 ring-slate-900/10'
                             : 'border-slate-200 bg-white'
                         }`}
@@ -336,10 +449,17 @@ export function ContractDocumentReviewPage(): JSX.Element {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-semibold text-slate-900">{submissionPersonLabel(submission)}</p>
+                              <p className={`font-semibold ${isExcluded ? 'text-slate-600 line-through' : 'text-slate-900'}`}>
+                                {submissionPersonLabel(submission)}
+                              </p>
                               {isRepresentative ? (
                                 <span className="rounded-full border border-slate-900 bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white">
                                   대표자
+                                </span>
+                              ) : null}
+                              {isExcluded ? (
+                                <span className="rounded-full border border-slate-400 bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                                  계산 제외
                                 </span>
                               ) : null}
                             </div>
@@ -347,6 +467,9 @@ export function ContractDocumentReviewPage(): JSX.Element {
                               {submission.representativeType ?? '유형 미상'}
                               {submission.totalCompanionCount != null ? ` · 동반 ${submission.totalCompanionCount}명` : ''}
                             </p>
+                            {isExcluded && submission.exclusionReason ? (
+                              <p className="mt-1 text-xs text-slate-600">제외 사유: {submission.exclusionReason}</p>
+                            ) : null}
                           </div>
                           <span className="text-xs text-slate-500">{formatDateTime(submission.submittedAt)}</span>
                         </div>
@@ -356,6 +479,56 @@ export function ContractDocumentReviewPage(): JSX.Element {
                             출처: {submission.source.name}
                             {submission.sourceRowNumber != null ? ` ${submission.sourceRowNumber}행` : ''}
                           </span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {isExcluded ? (
+                            <Button
+                              variant="outline"
+                              disabled={restoring}
+                              onClick={() => void handleRestoreSubmission(submission.id)}
+                            >
+                              {restoring ? '복원 중...' : '제외 해제'}
+                            </Button>
+                          ) : showingExclusionForm ? (
+                            <>
+                              <textarea
+                                value={exclusionReason}
+                                onChange={(event) => setExclusionReason(event.target.value)}
+                                rows={2}
+                                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-900"
+                                placeholder="제외 사유 (선택)"
+                              />
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  variant="primary"
+                                  disabled={excluding}
+                                  onClick={() => void handleExcludeSubmission(submission.id)}
+                                >
+                                  {excluding ? '처리 중...' : '제외 확정'}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setExclusionTargetId(null);
+                                    setExclusionReason('');
+                                  }}
+                                >
+                                  취소
+                                </Button>
+                              </div>
+                            </>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setExclusionTargetId(submission.id);
+                                setExclusionReason('');
+                                setSubmissionActionError(null);
+                              }}
+                            >
+                              계산에서 제외
+                            </Button>
+                          )}
                         </div>
                       </div>
                       );

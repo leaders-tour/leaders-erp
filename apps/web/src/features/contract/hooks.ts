@@ -42,6 +42,7 @@ export interface ContractDocumentStatusRow {
   manualMatchedAt: string | null;
   manualMatchNote: string | null;
   effectiveMatchedPlanVersionId: string | null;
+  effectiveMatchedPlanId: string | null;
   computedAt: string;
   updatedAt: string;
 }
@@ -90,6 +91,9 @@ export interface ContractSubmissionRow {
   representativeType: string | null;
   totalCompanionCount: number | null;
   receivedStatus: string | null;
+  excludedFromContractCount: boolean;
+  excludedAt: string | null;
+  exclusionReason: string | null;
   importedAt: string;
   updatedAt: string;
 }
@@ -206,6 +210,7 @@ const CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY = gql`
         manualMatchedAt
         manualMatchNote
         effectiveMatchedPlanVersionId
+        effectiveMatchedPlanId
         computedAt
         updatedAt
       }
@@ -221,6 +226,9 @@ const CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY = gql`
         representativeType
         totalCompanionCount
         receivedStatus
+        excludedFromContractCount
+        excludedAt
+        exclusionReason
         importedAt
         updatedAt
         source {
@@ -229,6 +237,28 @@ const CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY = gql`
           name
         }
       }
+    }
+  }
+`;
+
+const EXCLUDE_CONTRACT_SUBMISSION_FROM_COUNT_MUTATION = gql`
+  mutation ExcludeContractSubmissionFromCount($input: ExcludeContractSubmissionFromCountInput!) {
+    excludeContractSubmissionFromCount(input: $input) {
+      id
+      excludedFromContractCount
+      excludedAt
+      exclusionReason
+    }
+  }
+`;
+
+const RESTORE_CONTRACT_SUBMISSION_TO_COUNT_MUTATION = gql`
+  mutation RestoreContractSubmissionToCount($input: RestoreContractSubmissionToCountInput!) {
+    restoreContractSubmissionToCount(input: $input) {
+      id
+      excludedFromContractCount
+      excludedAt
+      exclusionReason
     }
   }
 `;
@@ -537,6 +567,44 @@ export function useUnmatchContractDocument() {
         throw new Error('Failed to unmatch contract document');
       }
       return result.data.unmatchContractDocument;
+    },
+  };
+}
+
+export function useExcludeContractSubmissionFromCount() {
+  const [mutate, { loading }] = useMutation<{ excludeContractSubmissionFromCount: ContractSubmissionRow }>(
+    EXCLUDE_CONTRACT_SUBMISSION_FROM_COUNT_MUTATION,
+  );
+  return {
+    loading,
+    excludeContractSubmissionFromCount: async (input: { submissionId: string; reason?: string | null }) => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [{ query: CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY }],
+      });
+      if (!result.data?.excludeContractSubmissionFromCount) {
+        throw new Error('Failed to exclude contract submission from count');
+      }
+      return result.data.excludeContractSubmissionFromCount;
+    },
+  };
+}
+
+export function useRestoreContractSubmissionToCount() {
+  const [mutate, { loading }] = useMutation<{ restoreContractSubmissionToCount: ContractSubmissionRow }>(
+    RESTORE_CONTRACT_SUBMISSION_TO_COUNT_MUTATION,
+  );
+  return {
+    loading,
+    restoreContractSubmissionToCount: async (submissionId: string) => {
+      const result = await mutate({
+        variables: { input: { submissionId } },
+        refetchQueries: [{ query: CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY }],
+      });
+      if (!result.data?.restoreContractSubmissionToCount) {
+        throw new Error('Failed to restore contract submission to count');
+      }
+      return result.data.restoreContractSubmissionToCount;
     },
   };
 }

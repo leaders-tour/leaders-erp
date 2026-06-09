@@ -64,6 +64,7 @@ type ContractDocumentStatus {
   manualMatchedAt: DateTime
   manualMatchNote: String
   effectiveMatchedPlanVersionId: String
+  effectiveMatchedPlanId: String
   computedAt: DateTime!
   updatedAt: DateTime!
 }
@@ -97,6 +98,15 @@ input UnmatchContractDocumentInput {
   documentNumber: String!
 }
 
+input ExcludeContractSubmissionFromCountInput {
+  submissionId: ID!
+  reason: String
+}
+
+input RestoreContractSubmissionToCountInput {
+  submissionId: ID!
+}
+
 type ContractSubmission {
   id: ID!
   source: ContractSubmissionSource!
@@ -110,6 +120,9 @@ type ContractSubmission {
   representativeType: String
   totalCompanionCount: Int
   receivedStatus: String
+  excludedFromContractCount: Boolean!
+  excludedAt: DateTime
+  exclusionReason: String
   importedAt: DateTime!
   updatedAt: DateTime!
 }
@@ -195,4 +208,6 @@ extend type Mutation {
   syncContractPayments(sourceId: ID!): ContractPaymentSyncRun!
   matchContractDocument(input: MatchContractDocumentInput!): ContractDocumentStatus!
   unmatchContractDocument(input: UnmatchContractDocumentInput!): ContractDocumentStatus!
+  excludeContractSubmissionFromCount(input: ExcludeContractSubmissionFromCountInput!): ContractSubmission!
+  restoreContractSubmissionToCount(input: RestoreContractSubmissionToCountInput!): ContractSubmission!
 }

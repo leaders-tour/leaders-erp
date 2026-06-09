@@ -2,10 +2,12 @@ import { createHash, createSign } from 'node:crypto';
 import type { ContractDocumentStatusValue, ContractPaymentStatusValue, Prisma, PrismaClient } from '@prisma/client';
 import {
   compareContractDocumentNumbersByDateDesc,
+  excludeContractSubmissionFromCountInputSchema,
   matchContractDocumentInputSchema,
   normalizeContractDocumentNumber,
   normalizeContractPersonName,
   normalizeContractPhoneDigits,
+  restoreContractSubmissionToCountInputSchema,
   unmatchContractDocumentInputSchema,
 } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
@@ -102,6 +104,7 @@ type ContractSubmissionForStatus = Prisma.ContractSubmissionGetPayload<{
     totalCompanionCount: true;
     travelerName: true;
     travelerPhoneDigits: true;
+    excludedFromContractCount: true;
   };
 }>;
 
@@ -748,6 +751,7 @@ export class ContractSyncService {
         totalCompanionCount: true,
         travelerName: true,
         travelerPhoneDigits: true,
+        excludedFromContractCount: true,
       },
       orderBy: [{ submittedAt: 'asc' }, { importedAt: 'asc' }],
     });
@@ -800,7 +804,8 @@ export class ContractSyncService {
     const matchedTrip = effectiveMeta?.planVersion.confirmedTrips[0] ?? null;
     const fallbackCount = submissions.find((row) => row.totalCompanionCount != null)?.totalCompanionCount ?? null;
     const expectedCount = effectiveMeta?.headcountTotal ?? matchedTrip?.paxCount ?? fallbackCount;
-    const { count: submittedCount, hasCollision } = dedupeSubmissionCount(submissions);
+    const countedSubmissions = submissions.filter((row) => !row.excludedFromContractCount);
+    const { count: submittedCount, hasCollision } = dedupeSubmissionCount(countedSubmissions);
     const status = resolveStatus({
       submittedCount,
       expectedCount,
@@ -905,6 +910,19 @@ export class ContractSyncService {
         compareContractDocumentNumbersByDateDesc(left.documentNumberNorm, right.documentNumberNorm),
       )
       .slice(0, limit);
+    const effectiveVersionIds = Array.from(new Set(
+      selectedRows
+        .map((row) => effectiveMatchedPlanVersionId(row))
+        .filter(isPresent),
+    ));
+    const planIdByVersionId = effectiveVersionIds.length
+      ? new Map(
+          (await this.prisma.planVersion.findMany({
+            where: { id: { in: effectiveVersionIds } },
+            select: { id: true, planId: true },
+          })).map((row) => [row.id, row.planId] as const),
+        )
+      : new Map<string, string>();
     const submissionsBySelected = selectedRows.length
       ? await this.prisma.contractSubmission.findMany({
           where: {
@@ -921,6 +939,10 @@ export class ContractSyncService {
       statusRow: {
         ...statusRow,
         effectiveMatchedPlanVersionId: effectiveMatchedPlanVersionId(statusRow),
+        effectiveMatchedPlanId: (() => {
+          const versionId = effectiveMatchedPlanVersionId(statusRow);
+          return versionId ? planIdByVersionId.get(versionId) ?? null : null;
+        })(),
       },
       submissions: submissionsBySelected.filter((submission) => {
         if (!submission.documentNumberNorm) {
@@ -1074,6 +1096,62 @@ export class ContractSyncService {
       ...updated,
       effectiveMatchedPlanVersionId: effectiveMatchedPlanVersionId(updated),
     };
+  }
+
+  async excludeContractSubmissionFromCount(input: unknown, employeeId: string) {
+    const parsed = excludeContractSubmissionFromCountInputSchema.parse(input);
+    const submission = await this.prisma.contractSubmission.findUnique({
+      where: { id: parsed.submissionId },
+      select: { id: true, documentNumberNorm: true },
+    });
+    if (!submission) {
+      throw new DomainError('NOT_FOUND', 'Contract submission not found');
+    }
+    if (!submission.documentNumberNorm) {
+      throw new DomainError('VALIDATION_FAILED', 'Submission has no document number');
+    }
+
+    const updated = await this.prisma.contractSubmission.update({
+      where: { id: parsed.submissionId },
+      data: {
+        excludedFromContractCount: true,
+        excludedByEmployeeId: employeeId,
+        excludedAt: new Date(),
+        exclusionReason: parsed.reason ?? null,
+      },
+      include: { source: true },
+    });
+
+    await this.recomputeDocumentStatuses([submission.documentNumberNorm]);
+    return updated;
+  }
+
+  async restoreContractSubmissionToCount(input: unknown) {
+    const parsed = restoreContractSubmissionToCountInputSchema.parse(input);
+    const submission = await this.prisma.contractSubmission.findUnique({
+      where: { id: parsed.submissionId },
+      select: { id: true, documentNumberNorm: true },
+    });
+    if (!submission) {
+      throw new DomainError('NOT_FOUND', 'Contract submission not found');
+    }
+    if (!submission.documentNumberNorm) {
+      throw new DomainError('VALIDATION_FAILED', 'Submission has no document number');
+    }
+
+    const updated = await this.prisma.contractSubmission.update({
+      where: { id: parsed.submissionId },
+      data: {
+        excludedFromContractCount: false,
+        excludedByEmployeeId: null,
+        excludedAt: null,
+        exclusionReason: null,
+      },
+      include: { source: true },
+    });
+
+    await this.recomputeDocumentStatuses([submission.documentNumberNorm]);
+    return updated;
   }
 }
 

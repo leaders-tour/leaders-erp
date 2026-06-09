@@ -57,6 +57,19 @@ interface UnmatchContractDocumentArgs {
   };
 }
 
+interface ExcludeContractSubmissionFromCountArgs {
+  input: {
+    submissionId: string;
+    reason?: string | null;
+  };
+}
+
+interface RestoreContractSubmissionToCountArgs {
+  input: {
+    submissionId: string;
+  };
+}
+
 function effectiveMatchedPlanVersionId(parent: {
   manualMatchedPlanVersionId?: string | null;
   matchedPlanVersionId?: string | null;
@@ -71,6 +84,29 @@ export const contractResolver = {
       matchedPlanVersionId?: string | null;
       effectiveMatchedPlanVersionId?: string | null;
     }) => parent.effectiveMatchedPlanVersionId ?? effectiveMatchedPlanVersionId(parent),
+    effectiveMatchedPlanId: async (
+      parent: {
+        manualMatchedPlanVersionId?: string | null;
+        matchedPlanVersionId?: string | null;
+        effectiveMatchedPlanVersionId?: string | null;
+        effectiveMatchedPlanId?: string | null;
+      },
+      _args: unknown,
+      ctx: AppContext,
+    ) => {
+      if ('effectiveMatchedPlanId' in parent) {
+        return parent.effectiveMatchedPlanId ?? null;
+      }
+      const versionId = parent.effectiveMatchedPlanVersionId ?? effectiveMatchedPlanVersionId(parent);
+      if (!versionId) {
+        return null;
+      }
+      const version = await ctx.prisma.planVersion.findUnique({
+        where: { id: versionId },
+        select: { planId: true },
+      });
+      return version?.planId ?? null;
+    },
   },
   ContractDocumentReviewItem: {
     statusRow: (parent: { statusRow: unknown }) => parent.statusRow,
@@ -137,6 +173,17 @@ export const contractResolver = {
     unmatchContractDocument: (_parent: unknown, args: UnmatchContractDocumentArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
       return new ContractSyncService(ctx.prisma).unmatchContractDocument(args.input);
+    },
+    excludeContractSubmissionFromCount: (_parent: unknown, args: ExcludeContractSubmissionFromCountArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      if (!ctx.employee) {
+        throw new Error('Unauthorized');
+      }
+      return new ContractSyncService(ctx.prisma).excludeContractSubmissionFromCount(args.input, ctx.employee.id);
+    },
+    restoreContractSubmissionToCount: (_parent: unknown, args: RestoreContractSubmissionToCountArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractSyncService(ctx.prisma).restoreContractSubmissionToCount(args.input);
     },
   },
 };

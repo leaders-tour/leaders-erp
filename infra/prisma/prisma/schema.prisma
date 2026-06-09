@@ -1059,6 +1059,10 @@ model ContractSubmission {
   receivedStatus      String?
   rowDigest           String
   rawJson             Json
+  excludedFromContractCount Boolean @default(false)
+  excludedByEmployeeId      String?
+  excludedAt                  DateTime?
+  exclusionReason             String?   @db.Text
 
   source ContractSubmissionSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
 
