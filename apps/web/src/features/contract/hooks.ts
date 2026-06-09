@@ -173,6 +173,11 @@ export interface ContractPaymentReceiptRow {
   updatedAt: string;
 }
 
+export interface ContractPaymentReviewReceiptItemRow {
+  receipt: ContractPaymentReceiptRow;
+  candidateDocumentNumbers: string[];
+}
+
 const CONTRACT_SUBMISSION_SOURCES_QUERY = gql`
   query ContractSubmissionSources {
     contractSubmissionSources {
@@ -521,6 +526,74 @@ const SYNC_CONTRACT_PAYMENTS_MUTATION = gql`
   }
 `;
 
+const CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY = gql`
+  query ContractPaymentReviewReceipts($keyword: String, $reasons: [String!], $limit: Int = 100) {
+    contractPaymentReviewReceipts(keyword: $keyword, reasons: $reasons, limit: $limit) {
+      candidateDocumentNumbers
+      receipt {
+        id
+        sourceRowNumber
+        receivedAt
+        payerNameRaw
+        amountKrw
+        matchedDocumentNumberNorm
+        needsReviewReason
+        importedAt
+        updatedAt
+        source {
+          id
+          type
+          name
+          isActive
+          sheetId
+          sheetGid
+          headerRow
+          createdAt
+          updatedAt
+        }
+      }
+    }
+  }
+`;
+
+const CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY = gql`
+  query ContractPaymentReviewTabCount {
+    contractPaymentReviewTabCount
+  }
+`;
+
+const MATCH_CONTRACT_PAYMENT_RECEIPT_MUTATION = gql`
+  mutation MatchContractPaymentReceipt($input: MatchContractPaymentReceiptInput!) {
+    matchContractPaymentReceipt(input: $input) {
+      id
+      sourceRowNumber
+      receivedAt
+      payerNameRaw
+      amountKrw
+      matchedDocumentNumberNorm
+      needsReviewReason
+      importedAt
+      updatedAt
+    }
+  }
+`;
+
+const UNMATCH_CONTRACT_PAYMENT_RECEIPT_MUTATION = gql`
+  mutation UnmatchContractPaymentReceipt($input: UnmatchContractPaymentReceiptInput!) {
+    unmatchContractPaymentReceipt(input: $input) {
+      id
+      sourceRowNumber
+      receivedAt
+      payerNameRaw
+      amountKrw
+      matchedDocumentNumberNorm
+      needsReviewReason
+      importedAt
+      updatedAt
+    }
+  }
+`;
+
 export function useContractSubmissionSources() {
   const { data, loading, refetch } = useQuery<{ contractSubmissionSources: ContractSubmissionSourceRow[] }>(
     CONTRACT_SUBMISSION_SOURCES_QUERY,
@@ -755,6 +828,80 @@ export function useSyncContractPayments() {
         throw new Error('Failed to sync contract payments');
       }
       return result.data.syncContractPayments;
+    },
+  };
+}
+
+export function useContractPaymentReviewReceipts(keyword?: string, reasons?: string[], limit = 100) {
+  const normalizedKeyword = keyword?.trim() ?? '';
+  const normalizedReasons = useMemo(
+    () => Array.from(new Set((reasons ?? []).map((reason) => reason.trim()).filter(Boolean))),
+    [reasons],
+  );
+  const { data, loading, refetch } = useQuery<{ contractPaymentReviewReceipts: ContractPaymentReviewReceiptItemRow[] }>(
+    CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY,
+    {
+      variables: {
+        keyword: normalizedKeyword || undefined,
+        reasons: normalizedReasons.length > 0 ? normalizedReasons : undefined,
+        limit,
+      },
+    },
+  );
+  return { items: data?.contractPaymentReviewReceipts ?? [], loading, refetch };
+}
+
+export function useContractPaymentReviewTabCount() {
+  const { data, loading, refetch } = useQuery<{ contractPaymentReviewTabCount: number }>(
+    CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY,
+  );
+  return {
+    count: data?.contractPaymentReviewTabCount ?? null,
+    loading,
+    refetch,
+  };
+}
+
+export function useMatchContractPaymentReceipt() {
+  const [mutate, { loading }] = useMutation<{ matchContractPaymentReceipt: ContractPaymentReceiptRow }>(
+    MATCH_CONTRACT_PAYMENT_RECEIPT_MUTATION,
+  );
+  return {
+    loading,
+    matchContractPaymentReceipt: async (input: { receiptId: string; documentNumber: string }) => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [
+          { query: CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY },
+          { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY },
+        ],
+      });
+      if (!result.data?.matchContractPaymentReceipt) {
+        throw new Error('Failed to match contract payment receipt');
+      }
+      return result.data.matchContractPaymentReceipt;
+    },
+  };
+}
+
+export function useUnmatchContractPaymentReceipt() {
+  const [mutate, { loading }] = useMutation<{ unmatchContractPaymentReceipt: ContractPaymentReceiptRow }>(
+    UNMATCH_CONTRACT_PAYMENT_RECEIPT_MUTATION,
+  );
+  return {
+    loading,
+    unmatchContractPaymentReceipt: async (receiptId: string) => {
+      const result = await mutate({
+        variables: { input: { receiptId } },
+        refetchQueries: [
+          { query: CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY },
+          { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY },
+        ],
+      });
+      if (!result.data?.unmatchContractPaymentReceipt) {
+        throw new Error('Failed to unmatch contract payment receipt');
+      }
+      return result.data.unmatchContractPaymentReceipt;
     },
   };
 }

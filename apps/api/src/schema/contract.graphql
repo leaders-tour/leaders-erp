@@ -200,6 +200,20 @@ type ContractPaymentReceipt {
   updatedAt: DateTime!
 }
 
+type ContractPaymentReviewReceiptItem {
+  receipt: ContractPaymentReceipt!
+  candidateDocumentNumbers: [String!]!
+}
+
+input MatchContractPaymentReceiptInput {
+  receiptId: ID!
+  documentNumber: String!
+}
+
+input UnmatchContractPaymentReceiptInput {
+  receiptId: ID!
+}
+
 type ContractPaymentSyncRun {
   id: ID!
   sourceId: String!
@@ -225,6 +239,8 @@ extend type Query {
   contractPaymentSources: [ContractPaymentSource!]!
   contractPaymentStatuses(documentNumbers: [String!]!): [ContractPaymentStatus!]!
   contractPaymentReceipts(documentNumber: String!): [ContractPaymentReceipt!]!
+  contractPaymentReviewReceipts(keyword: String, reasons: [String!], limit: Int = 100): [ContractPaymentReviewReceiptItem!]!
+  contractPaymentReviewTabCount: Int!
   contractPaymentSyncRuns(sourceId: ID, limit: Int = 20): [ContractPaymentSyncRun!]!
 }
 
@@ -235,4 +251,6 @@ extend type Mutation {
   unmatchContractDocument(input: UnmatchContractDocumentInput!): ContractDocumentStatus!
   excludeContractSubmissionFromCount(input: ExcludeContractSubmissionFromCountInput!): ContractSubmission!
   restoreContractSubmissionToCount(input: RestoreContractSubmissionToCountInput!): ContractSubmission!
+  matchContractPaymentReceipt(input: MatchContractPaymentReceiptInput!): ContractPaymentReceipt!
+  unmatchContractPaymentReceipt(input: UnmatchContractPaymentReceiptInput!): ContractPaymentReceipt!
 }

@@ -347,15 +347,16 @@ function paymentBreakdownFromPricing(
   const people = headcount && headcount > 0 ? headcount : 1;
   const customerSnapshot = pricing.manualPricing?.customerPricingSnapshot;
   const depositPerPerson = customerSnapshot?.depositAmountKrw ?? pricing.depositAmountKrw;
-  const securityAmount = customerSnapshot?.securityDepositTotalKrw ?? pricing.securityDepositAmountKrw;
   const securityMode = customerSnapshot?.securityDepositMode ?? pricing.securityDepositMode;
-  const securityTotal = securityMode === 'PER_PERSON' ? securityAmount * people : securityAmount;
+  const securityTotal =
+    customerSnapshot?.securityDepositTotalKrw ??
+    (securityMode === 'PER_PERSON' ? pricing.securityDepositAmountKrw * people : pricing.securityDepositAmountKrw);
   const depositTotal = depositPerPerson * people;
   return {
     depositPerPerson,
     depositTotal,
     securityMode,
-    securityUnitAmount: securityAmount,
+    securityUnitAmount: pricing.securityDepositAmountKrw,
     securityTotal,
     requiredTotal: depositTotal + securityTotal,
   };
@@ -454,12 +455,14 @@ function boardsEqual(left: BoardState, right: BoardState): boolean {
 function PipelineCard({
   user,
   disabled,
+  clickDisabled = disabled,
   contractStatus,
   paymentStatus,
   onClick,
 }: {
   user: UserRow;
   disabled: boolean;
+  clickDisabled?: boolean;
   contractStatus: ContractDocumentStatusRow | null;
   paymentStatus: ContractPaymentStatusRow | null;
   onClick: (userId: string) => void;
@@ -489,9 +492,9 @@ function PipelineCard({
       style={style}
       {...attributes}
       {...listeners}
-      className={disabled ? undefined : dealPipelineTokens.card.wrapperCursor}
+      className={clickDisabled ? undefined : dealPipelineTokens.card.wrapperCursor}
       onClick={() => {
-        if (disabled) {
+        if (clickDisabled) {
           return;
         }
         onClick(user.id);
@@ -655,6 +658,54 @@ function PipelineColumn({
           ))}
         </div>
       </SortableContext>
+    </section>
+  );
+}
+
+function HiddenPipelineColumn({
+  users,
+  contractStatusByDocumentNumber,
+  paymentStatusByDocumentNumber,
+  onCardClick,
+}: {
+  users: UserRow[];
+  contractStatusByDocumentNumber: Map<string, ContractDocumentStatusRow>;
+  paymentStatusByDocumentNumber: Map<string, ContractPaymentStatusRow>;
+  onCardClick: (userId: string) => void;
+}): JSX.Element {
+  return (
+    <section className={dealPipelineTokens.column.base}>
+      <header className={dealPipelineTokens.column.header}>
+        <div>
+          <h2 className={dealPipelineTokens.column.title}>파이프라인 제외</h2>
+          <p className="mt-1 text-xs font-normal text-slate-500">현재 조건상 보드에 표시되지 않는 고객</p>
+        </div>
+        <span className={dealPipelineTokens.column.count}>{users.length}</span>
+      </header>
+
+      <div className={dealPipelineTokens.column.list}>
+        {users.length === 0 ? (
+          <Card className={dealPipelineTokens.column.emptyCard}>
+            제외된 고객이 없습니다.
+          </Card>
+        ) : null}
+
+        {users.map((user) => {
+          const documentNumber = normalizeContractDocumentNumberForLookup(getUserContractDocumentNumber(user));
+          const contractStatus = documentNumber ? contractStatusByDocumentNumber.get(documentNumber) ?? null : null;
+          return (
+            <PipelineCard
+              key={user.id}
+              user={user}
+              disabled
+              clickDisabled={false}
+              contractStatus={contractStatus}
+              paymentStatus={documentNumber ? paymentStatusByDocumentNumber.get(documentNumber) ?? null : null}
+              onClick={onCardClick}
+            />
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -1279,7 +1330,7 @@ export function DealPipelinePage(): JSX.Element {
     [paymentStatuses],
   );
 
-  const displayedBoard = useMemo(() => {
+  const pipelineVisibility = useMemo(() => {
     const getStatuses = (user: UserRow) => {
       const documentNumber = normalizeContractDocumentNumberForLookup(getUserContractDocumentNumber(user));
       return {
@@ -1287,13 +1338,15 @@ export function DealPipelinePage(): JSX.Element {
         paymentStatus: documentNumber ? paymentStatusByDocumentNumber.get(documentNumber) ?? null : null,
       };
     };
-    const applyStageVisibility = (sourceUsers: UserRow[]): BoardState => {
+    const applyStageVisibility = (sourceUsers: UserRow[]): { board: BoardState; hiddenUsers: UserRow[] } => {
       const next = createEmptyBoard();
+      const hiddenUsers: UserRow[] = [];
 
       for (const user of sourceUsers) {
         const { contractStatus, paymentStatus } = getStatuses(user);
         const visibleStage = resolveVisibleStage(user, contractStatus, paymentStatus);
         if (visibleStage === null) {
+          hiddenUsers.push(user);
           continue;
         }
 
@@ -1312,7 +1365,7 @@ export function DealPipelinePage(): JSX.Element {
         }));
       }
 
-      return next;
+      return { board: next, hiddenUsers: sortUsersInStage(hiddenUsers) };
     };
 
     const visibleUsers = normalizedKeyword
@@ -1325,6 +1378,9 @@ export function DealPipelinePage(): JSX.Element {
 
     return applyStageVisibility(visibleUsers);
   }, [contractStatusByDocumentNumber, normalizedKeyword, paymentStatusByDocumentNumber, users]);
+
+  const displayedBoard = pipelineVisibility.board;
+  const hiddenUsers = pipelineVisibility.hiddenUsers;
 
   const activeUser = useMemo(() => {
     if (!activeUserId) {
@@ -1559,6 +1615,12 @@ export function DealPipelinePage(): JSX.Element {
                 onCardClick={setSelectedUserId}
               />
             ))}
+            <HiddenPipelineColumn
+              users={hiddenUsers}
+              contractStatusByDocumentNumber={contractStatusByDocumentNumber}
+              paymentStatusByDocumentNumber={paymentStatusByDocumentNumber}
+              onCardClick={setSelectedUserId}
+            />
           </div>
         </div>
 

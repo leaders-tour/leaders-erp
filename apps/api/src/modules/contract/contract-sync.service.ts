@@ -4,11 +4,13 @@ import {
   compareContractDocumentNumbersByDateDesc,
   excludeContractSubmissionFromCountInputSchema,
   matchContractDocumentInputSchema,
+  matchContractPaymentReceiptInputSchema,
   normalizeContractDocumentNumber,
   normalizeContractPersonName,
   normalizeContractPhoneDigits,
   restoreContractSubmissionToCountInputSchema,
   unmatchContractDocumentInputSchema,
+  unmatchContractPaymentReceiptInputSchema,
 } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
 
@@ -250,6 +252,17 @@ function cell(value: string | undefined): string | null {
   return trimmed || null;
 }
 
+function inferYearForMonthDay(month: number, day: number): number {
+  const now = new Date();
+  let year = now.getFullYear();
+  const candidate = new Date(year, month - 1, day);
+  const futureThresholdMs = 45 * 24 * 60 * 60 * 1000;
+  if (candidate.getTime() > now.getTime() + futureThresholdMs) {
+    year -= 1;
+  }
+  return year;
+}
+
 function parseOptionalDate(value: string | null): Date | null {
   if (!value) {
     return null;
@@ -277,8 +290,44 @@ function parseOptionalDate(value: string | null): Date | null {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
+  const monthDayTime = value.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (monthDayTime) {
+    const [, monthRaw, dayRaw, hourRaw, minuteRaw, secondRaw] = monthDayTime;
+    const month = Number(monthRaw);
+    const day = Number(dayRaw);
+    const year = inferYearForMonthDay(month, day);
+    const parsed = new Date(
+      year,
+      month - 1,
+      day,
+      Number(hourRaw),
+      Number(minuteRaw),
+      Number(secondRaw ?? '0'),
+    );
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+const PAYMENT_RECEIVED_AT_RAW_KEYS = ['입금일시', '입금일', '거래일시', '거래일자', '날짜', '일시', 'date'];
+
+function parsePaymentReceivedAtFromRawJson(rawJson: Record<string, string>): Date | null {
+  for (const key of PAYMENT_RECEIVED_AT_RAW_KEYS) {
+    const parsed = parseOptionalDate(cell(rawJson[key]));
+    if (parsed) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function paymentReceivedAtEquals(
+  left: Date | null | undefined,
+  right: Date | null | undefined,
+): boolean {
+  return (left?.getTime() ?? null) === (right?.getTime() ?? null);
 }
 
 function parseOptionalInteger(value: string | null): number | null {
@@ -401,7 +450,7 @@ function parsePaymentSheetRows(values: string[][], headerRow: number): ParsedPay
 
   const payerNameIndex = requireColumn(headers, ['입금자명', '성명', '이름', '보낸사람', '보내는분', 'payer name'], '입금자명');
   const amountIndex = requireColumn(headers, ['금액', '입금액', '거래금액', 'amount'], '금액');
-  const receivedAtIndex = optionalColumn(headers, ['입금일', '거래일시', '거래일자', '날짜', '일시', 'date']);
+  const receivedAtIndex = optionalColumn(headers, ['입금일시', '입금일', '거래일시', '거래일자', '날짜', '일시', 'date']);
 
   return values.slice(headerIndex + 1).flatMap((row, offset) => {
     if (row.every((value) => !value?.trim())) {
@@ -1344,11 +1393,7 @@ function requiredPaymentAmount(planVersion: PlanVersionForPaymentMatch | null): 
   const customerSecurityAmount = numberValue(customerSnapshot?.securityDepositTotalKrw);
   const headcount = headcountForPricing(planVersion);
   if (customerDepositAmount != null || customerSecurityAmount != null) {
-    return (customerDepositAmount ?? 0) * headcount + securityDepositTotalForPayment({
-      amount: customerSecurityAmount,
-      mode: customerSnapshot?.securityDepositMode,
-      headcount,
-    });
+    return (customerDepositAmount ?? 0) * headcount + (customerSecurityAmount ?? 0);
   }
 
   return pricing.depositAmountKrw * headcount + securityDepositTotalForPayment({
@@ -1445,6 +1490,251 @@ export class ContractPaymentSyncService {
     });
   }
 
+  async getReviewTabCount() {
+    return this.prisma.contractPaymentReceipt.count({
+      where: {
+        OR: [
+          { matchedDocumentNumberNorm: null },
+          { needsReviewReason: { not: null } },
+        ],
+      },
+    });
+  }
+
+  async reparseStoredPaymentReceivedAt() {
+    const receipts = await this.prisma.contractPaymentReceipt.findMany({
+      select: {
+        id: true,
+        receivedAt: true,
+        rawJson: true,
+      },
+    });
+
+    let updated = 0;
+    const updateBatchSize = 50;
+    const pendingUpdates: Array<{ id: string; receivedAt: Date }> = [];
+
+    for (const receipt of receipts) {
+      const reparsed = parsePaymentReceivedAtFromRawJson(receipt.rawJson as Record<string, string>);
+      if (!reparsed || paymentReceivedAtEquals(receipt.receivedAt, reparsed)) {
+        continue;
+      }
+      pendingUpdates.push({ id: receipt.id, receivedAt: reparsed });
+    }
+
+    for (let index = 0; index < pendingUpdates.length; index += updateBatchSize) {
+      const batch = pendingUpdates.slice(index, index + updateBatchSize);
+      await Promise.all(batch.map((row) => this.prisma.contractPaymentReceipt.update({
+        where: { id: row.id },
+        data: { receivedAt: row.receivedAt },
+      })));
+      updated += batch.length;
+    }
+
+    return {
+      scanned: receipts.length,
+      updated,
+    };
+  }
+
+  async listReviewReceipts(args: { keyword?: string; reasons?: string[]; limit?: number }) {
+    const limit = Math.min(Math.max(args.limit ?? 100, 1), 200);
+    const keyword = args.keyword?.trim() ?? '';
+    const keywordLower = keyword.toLowerCase();
+    const reasons = Array.from(new Set((args.reasons ?? []).map((reason) => reason.trim()).filter(Boolean)));
+
+    const submissions = await this.prisma.contractSubmission.findMany({
+      where: { documentNumberNorm: { not: null } },
+      select: {
+        documentNumberNorm: true,
+        travelerName: true,
+        leaderName: true,
+      },
+    });
+    const context = buildPaymentMatchContext(submissions, []);
+
+    const keywordOr: Prisma.ContractPaymentReceiptWhereInput[] = [];
+    if (keyword) {
+      keywordOr.push(
+        { payerNameRaw: { contains: keyword } },
+        { payerNameNorm: { contains: keywordLower } },
+        { needsReviewReason: { contains: keyword } },
+        { matchedDocumentNumberNorm: { contains: keyword } },
+      );
+
+      const amountParsed = Number(keyword.replace(/,/g, ''));
+      if (Number.isSafeInteger(amountParsed) && amountParsed > 0) {
+        keywordOr.push({ amountKrw: amountParsed });
+      }
+
+      const rowNumberParsed = Number(keyword);
+      if (Number.isSafeInteger(rowNumberParsed) && rowNumberParsed > 0) {
+        keywordOr.push({ sourceRowNumber: rowNumberParsed });
+      }
+
+      const payerNormsFromDocKeyword: string[] = [];
+      for (const [nameNorm, documentNumbers] of context.documentNumbersByName) {
+        if ([...documentNumbers].some((documentNumber) => documentNumber.toLowerCase().includes(keywordLower))) {
+          payerNormsFromDocKeyword.push(nameNorm);
+        }
+      }
+      if (payerNormsFromDocKeyword.length > 0) {
+        keywordOr.push({ payerNameNorm: { in: payerNormsFromDocKeyword } });
+      }
+    }
+
+    const where: Prisma.ContractPaymentReceiptWhereInput = {
+      AND: [
+        {
+          OR: [
+            { matchedDocumentNumberNorm: null },
+            { needsReviewReason: { not: null } },
+          ],
+        },
+        ...(reasons.length > 0 ? [{ needsReviewReason: { in: reasons } }] : []),
+        ...(keywordOr.length > 0 ? [{ OR: keywordOr }] : []),
+      ],
+    };
+
+    const rows = await this.prisma.contractPaymentReceipt.findMany({
+      where,
+      include: { source: true },
+      orderBy: [
+        { importedAt: 'desc' },
+        { sourceRowNumber: 'desc' },
+      ],
+      take: limit,
+    });
+
+    return rows.map((receipt) => ({
+      receipt,
+      candidateDocumentNumbers: receipt.payerNameNorm
+        ? Array.from(context.documentNumbersByName.get(receipt.payerNameNorm) ?? []).sort()
+        : [],
+    }));
+  }
+
+  async matchContractPaymentReceipt(input: unknown) {
+    const parsed = matchContractPaymentReceiptInputSchema.parse(input);
+    const documentNumberNorm = normalizeContractDocumentNumber(parsed.documentNumber);
+    if (!documentNumberNorm) {
+      throw new DomainError('VALIDATION_FAILED', 'Invalid contract document number');
+    }
+
+    const receipt = await this.prisma.contractPaymentReceipt.findUnique({
+      where: { id: parsed.receiptId },
+      include: { source: true },
+    });
+    if (!receipt) {
+      throw new DomainError('NOT_FOUND', 'Contract payment receipt not found');
+    }
+
+    const submissionCount = await this.prisma.contractSubmission.count({
+      where: { documentNumberNorm: { in: documentNumberLookupKeys(documentNumberNorm) } },
+    });
+    if (submissionCount === 0) {
+      throw new DomainError('VALIDATION_FAILED', 'No contract submissions found for document number');
+    }
+
+    const previousDocumentNumberNorm = receipt.matchedDocumentNumberNorm;
+    const updated = await this.prisma.contractPaymentReceipt.update({
+      where: { id: parsed.receiptId },
+      data: {
+        matchedDocumentNumberNorm: documentNumberNorm,
+        needsReviewReason: null,
+      },
+      include: { source: true },
+    });
+
+    const affectedDocumentNumbers = Array.from(new Set(
+      [documentNumberNorm, previousDocumentNumberNorm].filter(isPresent),
+    ));
+    await this.recomputePaymentStatuses(affectedDocumentNumbers);
+    return updated;
+  }
+
+  async unmatchContractPaymentReceipt(input: unknown) {
+    const parsed = unmatchContractPaymentReceiptInputSchema.parse(input);
+    const receipt = await this.prisma.contractPaymentReceipt.findUnique({
+      where: { id: parsed.receiptId },
+    });
+    if (!receipt) {
+      throw new DomainError('NOT_FOUND', 'Contract payment receipt not found');
+    }
+
+    const previousDocumentNumberNorm = receipt.matchedDocumentNumberNorm;
+    const [submissions, planVersions] = await Promise.all([
+      this.prisma.contractSubmission.findMany({
+        where: { documentNumberNorm: { not: null } },
+        select: {
+          documentNumberNorm: true,
+          travelerName: true,
+          leaderName: true,
+        },
+      }),
+      this.prisma.planVersion.findMany({
+        select: {
+          id: true,
+          versionNumber: true,
+          plan: {
+            select: {
+              currentVersionId: true,
+              documentNumberBase: true,
+            },
+          },
+          meta: {
+            select: {
+              documentNumber: true,
+              headcountTotal: true,
+            },
+          },
+          pricing: {
+            select: {
+              depositAmountKrw: true,
+              securityDepositAmountKrw: true,
+              securityDepositMode: true,
+              inputSnapshot: true,
+              manualPricingSnapshot: true,
+            },
+          },
+          confirmedTrips: {
+            where: { status: 'ACTIVE' },
+            select: { id: true },
+            take: 1,
+          },
+        },
+      }),
+    ]);
+    const context = buildPaymentMatchContext(submissions, planVersions);
+    const rematched = matchPaymentRow({
+      rowNumber: receipt.sourceRowNumber ?? 0,
+      sourceRecordKey: receipt.sourceRecordKey,
+      receivedAt: receipt.receivedAt,
+      payerNameRaw: receipt.payerNameRaw,
+      payerNameNorm: receipt.payerNameNorm,
+      amountKrw: receipt.amountKrw,
+      rowDigest: receipt.rowDigest,
+      rawJson: receipt.rawJson as Record<string, string>,
+    }, context);
+
+    const updated = await this.prisma.contractPaymentReceipt.update({
+      where: { id: parsed.receiptId },
+      data: {
+        matchedDocumentNumberNorm: rematched.matchedDocumentNumberNorm,
+        needsReviewReason: rematched.needsReviewReason,
+      },
+      include: { source: true },
+    });
+
+    const affectedDocumentNumbers = Array.from(new Set(
+      [previousDocumentNumberNorm, rematched.matchedDocumentNumberNorm].filter(isPresent),
+    ));
+    if (affectedDocumentNumbers.length > 0) {
+      await this.recomputePaymentStatuses(affectedDocumentNumbers, planVersions);
+    }
+    return updated;
+  }
+
   async syncGoogleSheetSource(sourceId: string) {
     const run = await this.prisma.contractPaymentSyncRun.create({
       data: { sourceId, status: 'RUNNING' },
@@ -1504,6 +1794,7 @@ export class ContractPaymentSyncService {
           rowDigest: true,
           matchedDocumentNumberNorm: true,
           needsReviewReason: true,
+          receivedAt: true,
         },
       }),
       this.prisma.contractSubmission.findMany({
@@ -1573,6 +1864,7 @@ export class ContractPaymentSyncService {
         existing?.rowDigest === row.rowDigest
         && existing.matchedDocumentNumberNorm === row.matchedDocumentNumberNorm
         && existing.needsReviewReason === row.needsReviewReason
+        && paymentReceivedAtEquals(existing.receivedAt, row.receivedAt)
       ) {
         skippedRows += 1;
         continue;

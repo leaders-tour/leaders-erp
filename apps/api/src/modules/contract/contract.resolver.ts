@@ -70,6 +70,25 @@ interface RestoreContractSubmissionToCountArgs {
   };
 }
 
+interface ContractPaymentReviewReceiptsArgs {
+  keyword?: string;
+  reasons?: string[];
+  limit?: number;
+}
+
+interface MatchContractPaymentReceiptArgs {
+  input: {
+    receiptId: string;
+    documentNumber: string;
+  };
+}
+
+interface UnmatchContractPaymentReceiptArgs {
+  input: {
+    receiptId: string;
+  };
+}
+
 function effectiveMatchedPlanVersionId(parent: {
   manualMatchedPlanVersionId?: string | null;
   matchedPlanVersionId?: string | null;
@@ -113,6 +132,10 @@ export const contractResolver = {
     submissions: (parent: { submissions: unknown[] }) => parent.submissions,
     matchedPlanSummary: (parent: { matchedPlanSummary?: unknown }) => parent.matchedPlanSummary ?? null,
   },
+  ContractPaymentReviewReceiptItem: {
+    receipt: (parent: { receipt: unknown }) => parent.receipt,
+    candidateDocumentNumbers: (parent: { candidateDocumentNumbers: string[] }) => parent.candidateDocumentNumbers,
+  },
   Query: {
     contractSubmissionSources: (_parent: unknown, _args: unknown, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
@@ -154,6 +177,14 @@ export const contractResolver = {
       requireStaffOrAbove(ctx);
       return new ContractPaymentSyncService(ctx.prisma).listReceipts(args.documentNumber);
     },
+    contractPaymentReviewReceipts: (_parent: unknown, args: ContractPaymentReviewReceiptsArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractPaymentSyncService(ctx.prisma).listReviewReceipts(args);
+    },
+    contractPaymentReviewTabCount: (_parent: unknown, _args: unknown, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractPaymentSyncService(ctx.prisma).getReviewTabCount();
+    },
     contractPaymentSyncRuns: (_parent: unknown, args: ContractPaymentSyncRunsArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
       return new ContractPaymentSyncService(ctx.prisma).listSyncRuns(args.sourceId, args.limit ?? 20);
@@ -189,6 +220,14 @@ export const contractResolver = {
     restoreContractSubmissionToCount: (_parent: unknown, args: RestoreContractSubmissionToCountArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
       return new ContractSyncService(ctx.prisma).restoreContractSubmissionToCount(args.input);
+    },
+    matchContractPaymentReceipt: (_parent: unknown, args: MatchContractPaymentReceiptArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractPaymentSyncService(ctx.prisma).matchContractPaymentReceipt(args.input);
+    },
+    unmatchContractPaymentReceipt: (_parent: unknown, args: UnmatchContractPaymentReceiptArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractPaymentSyncService(ctx.prisma).unmatchContractPaymentReceipt(args.input);
     },
   },
 };
