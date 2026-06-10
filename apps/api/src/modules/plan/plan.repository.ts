@@ -175,12 +175,28 @@ export class PlanRepository {
             currentVersion: {
               select: {
                 id: true,
+                totalDays: true,
                 meta: {
                   select: {
                     travelStartDate: true,
                     travelEndDate: true,
                     documentNumber: true,
                     headcountTotal: true,
+                    pickupDate: true,
+                    pickupTime: true,
+                    pickupPlaceType: true,
+                    pickupPlaceCustomText: true,
+                    dropDate: true,
+                    dropTime: true,
+                    dropPlaceType: true,
+                    dropPlaceCustomText: true,
+                  },
+                },
+                planStops: {
+                  orderBy: { id: 'asc' },
+                  select: {
+                    dateCellText: true,
+                    destinationCellText: true,
                   },
                 },
                 pricing: {
@@ -204,7 +220,40 @@ export class PlanRepository {
           orderBy: [{ stage: 'asc' }, { createdAt: 'desc' }, { id: 'asc' }],
         },
         confirmedTrips: {
-          select: { id: true, status: true, travelStart: true, travelEnd: true },
+          select: {
+            id: true,
+            status: true,
+            travelStart: true,
+            travelEnd: true,
+            destination: true,
+            pickupDate: true,
+            dropDate: true,
+            guideAssignments: {
+              orderBy: { sortOrder: 'asc' },
+              select: {
+                id: true,
+                nameSnapshot: true,
+                guide: { select: { id: true, nameKo: true, nameMn: true } },
+              },
+            },
+            driverAssignments: {
+              orderBy: { sortOrder: 'asc' },
+              select: {
+                id: true,
+                nameSnapshot: true,
+                driver: { select: { id: true, nameMn: true } },
+              },
+            },
+            lodgings: {
+              orderBy: { dayIndex: 'asc' },
+              select: {
+                dayIndex: true,
+                nights: true,
+                checkInDate: true,
+                checkOutDate: true,
+              },
+            },
+          },
           orderBy: { travelStart: 'asc' },
         },
       },

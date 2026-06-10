@@ -43,23 +43,37 @@ import {
   type UserNoteRow,
   type UserRow,
 } from '../features/plan/hooks';
+import {
+  calculateTourDayNumber,
+  getActiveConfirmedTrip,
+  resolveTourOperationStages,
+  resolveVisibleStage,
+  type PipelineStageKey,
+  type TourOperationStageKey,
+  type VisibleDealStageKey,
+} from '../features/plan/deal-pipeline-stage';
+import { formatPickupDropDisplay } from '../features/plan/pickup-drop';
 
-const STAGES: Array<{ key: DealStageValue; label: string }> = [
+const MANUAL_STAGES: Array<{ key: VisibleDealStageKey; label: string }> = [
   { key: 'CONTRACTING', label: '계약단계' },
   { key: 'CONTRACT_CONFIRMED', label: '계약확정' },
   { key: 'MONGOL_ASSIGNING', label: '몽골배정단계' },
   { key: 'MONGOL_ASSIGNED', label: '몽골배정완료' },
-  { key: 'ON_HOLD', label: '대기중' },
-  { key: 'BEFORE_DEPARTURE_10D', label: '출발 10일이내' },
-  { key: 'BEFORE_DEPARTURE_3D', label: '출발 3일이내' },
-  { key: 'TRIP_COMPLETED', label: '여행 완료시' },
 ];
 
-type BoardState = Record<DealStageValue, UserRow[]>;
+const TOUR_STAGES: Array<{ key: TourOperationStageKey; label: string }> = [
+  { key: 'TOUR_START', label: '투어 시작' },
+  { key: 'TOUR_IN_PROGRESS', label: '투어 중' },
+  { key: 'TOUR_END', label: '투어 종료' },
+];
+
+const STAGES: Array<{ key: PipelineStageKey; label: string }> = [...MANUAL_STAGES, ...TOUR_STAGES];
+
+type BoardState = Record<PipelineStageKey, UserRow[]>;
 
 const COLUMN_PREFIX = 'column:';
 
-function columnId(stage: DealStageValue): string {
+function columnId(stage: string): string {
   return `${COLUMN_PREFIX}${stage}`;
 }
 
@@ -67,13 +81,17 @@ function isColumnId(id: string): boolean {
   return id.startsWith(COLUMN_PREFIX);
 }
 
-function parseColumnId(id: string): DealStageValue | null {
+function isManualStageKey(stage: string): stage is VisibleDealStageKey {
+  return MANUAL_STAGES.some((item) => item.key === stage);
+}
+
+function parseColumnId(id: string): VisibleDealStageKey | null {
   if (!isColumnId(id)) {
     return null;
   }
 
-  const stage = id.slice(COLUMN_PREFIX.length) as DealStageValue;
-  return STAGES.some((item) => item.key === stage) ? stage : null;
+  const stage = id.slice(COLUMN_PREFIX.length) as VisibleDealStageKey;
+  return MANUAL_STAGES.some((item) => item.key === stage) ? stage : null;
 }
 
 function createEmptyBoard(): BoardState {
@@ -101,7 +119,7 @@ function buildBoard(users: UserRow[]): BoardState {
   const next = createEmptyBoard();
 
   for (const user of users) {
-    if (!next[user.dealStage]) {
+    if (!isManualStageKey(user.dealStage)) {
       continue;
     }
     next[user.dealStage].push(user);
@@ -110,7 +128,7 @@ function buildBoard(users: UserRow[]): BoardState {
   for (const stage of STAGES) {
     next[stage.key] = sortUsersInStage(next[stage.key]).map((user, index) => ({
       ...user,
-      dealStage: stage.key,
+      dealStage: isManualStageKey(stage.key) ? stage.key : user.dealStage,
       dealStageOrder: index,
     }));
   }
@@ -124,7 +142,7 @@ function normalizeBoard(board: BoardState): BoardState {
   for (const stage of STAGES) {
     next[stage.key] = board[stage.key].map((user, index) => ({
       ...user,
-      dealStage: stage.key,
+      dealStage: isManualStageKey(stage.key) ? stage.key : user.dealStage,
       dealStageOrder: index,
     }));
   }
@@ -135,7 +153,7 @@ function normalizeBoard(board: BoardState): BoardState {
 function flattenBoardToUpdates(board: BoardState): DealPipelineCardUpdateInput[] {
   const updates: DealPipelineCardUpdateInput[] = [];
 
-  for (const stage of STAGES) {
+  for (const stage of MANUAL_STAGES) {
     for (const user of board[stage.key]) {
       updates.push({
         userId: user.id,
@@ -171,7 +189,7 @@ function formatDateTimeParts(value: string): { date: string; time: string } {
   };
 }
 
-function stageLabel(stage: DealStageValue): string {
+function stageLabel(stage: string): string {
   return STAGES.find((item) => item.key === stage)?.label ?? stage;
 }
 
@@ -385,51 +403,115 @@ function isPaymentComplete(status: ContractPaymentStatusRow | null): boolean {
   return status?.status === 'COMPLETED' || status?.status === 'OVERPAID';
 }
 
-function hasActiveConfirmedTrip(user: UserRow): boolean {
-  return user.confirmedTrips?.some((trip) => trip.status === 'ACTIVE') ?? false;
-}
-
-function isContractStarted(status: ContractDocumentStatusRow | null): boolean {
-  return (status?.submittedCount ?? 0) > 0;
-}
-
-function isContractComplete(status: ContractDocumentStatusRow | null): boolean {
-  return status?.status === 'COMPLETED';
-}
-
-function resolveVisibleStage(
+function resolveVisibleStageForPipeline(
   user: UserRow,
   contractStatus: ContractDocumentStatusRow | null,
   paymentStatus: ContractPaymentStatusRow | null,
-): DealStageValue | null {
-  const isConfirmationCandidate =
-    isContractComplete(contractStatus) && isPaymentComplete(paymentStatus) && !hasActiveConfirmedTrip(user);
+  today: Date,
+): VisibleDealStageKey | null {
+  return resolveVisibleStage(
+    user,
+    contractStatus,
+    paymentStatus,
+    MANUAL_STAGES.map((stage) => stage.key),
+    today,
+  ) as VisibleDealStageKey | null;
+}
 
-  if (isConfirmationCandidate) {
-    return 'CONTRACT_CONFIRMED';
+function formatTripNightsDays(user: UserRow): string {
+  const plan = user.plans?.find((item) => item.currentVersion)?.currentVersion;
+  const days = plan?.totalDays;
+  if (typeof days === 'number' && days > 0) {
+    return `${Math.max(0, days - 1)}박${days}일`;
   }
 
-  if (isContractStarted(contractStatus)) {
-    const contractAndPaymentDone =
-      isContractComplete(contractStatus) && isPaymentComplete(paymentStatus);
-    if (!contractAndPaymentDone) {
-      return 'CONTRACTING';
+  const start = plan?.meta?.travelStartDate;
+  const end = plan?.meta?.travelEndDate;
+  if (!start || !end) {
+    return '-';
+  }
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate < startDate) {
+    return '-';
+  }
+  const daysFromDates = Math.floor((endDate.getTime() - startDate.getTime()) / 86400000) + 1;
+  return `${Math.max(0, daysFromDates - 1)}박${daysFromDates}일`;
+}
+
+function formatTripDestination(user: UserRow): string {
+  const trip = getActiveConfirmedTrip(user);
+  const destination = trip?.destination?.trim();
+  if (destination) {
+    return destination;
+  }
+  const stops = user.plans?.find((item) => item.currentVersion?.planStops)?.currentVersion?.planStops ?? [];
+  const firstDestination = stops.map((stop) => stop.destinationCellText.trim()).find(Boolean);
+  return firstDestination ?? '-';
+}
+
+function formatAssignmentNames(
+  items: Array<{ nameSnapshot: string | null; guide?: { nameKo: string; nameMn: string | null }; driver?: { nameMn: string } }>,
+): string {
+  const names = items
+    .map((item) => item.nameSnapshot?.trim() || item.guide?.nameKo?.trim() || item.guide?.nameMn?.trim() || item.driver?.nameMn?.trim())
+    .filter((name): name is string => Boolean(name));
+  return names.length > 0 ? names.join(', ') : '-';
+}
+
+function formatTripPickup(user: UserRow): string {
+  const plan = user.plans?.find((item) => item.currentVersion)?.currentVersion;
+  const meta = plan?.meta;
+  return formatPickupDropDisplay(
+    meta?.pickupDate,
+    meta?.pickupTime,
+    meta?.pickupPlaceType,
+    meta?.pickupPlaceCustomText,
+  );
+}
+
+function formatTripDrop(user: UserRow): string {
+  const plan = user.plans?.find((item) => item.currentVersion)?.currentVersion;
+  const meta = plan?.meta;
+  return formatPickupDropDisplay(
+    meta?.dropDate,
+    meta?.dropTime,
+    meta?.dropPlaceType,
+    meta?.dropPlaceCustomText,
+  );
+}
+
+function formatTodayDestination(user: UserRow, today: Date): string {
+  const trip = getActiveConfirmedTrip(user);
+  if (!trip) {
+    return '-';
+  }
+  const dayNumber = calculateTourDayNumber(user, trip, today);
+  if (!dayNumber) {
+    return '-';
+  }
+
+  const stops = user.plans?.find((item) => item.currentVersion?.planStops)?.currentVersion?.planStops ?? [];
+  const destinationsByDateCell = new Map<string, string[]>();
+  for (const stop of stops) {
+    const dateCell = stop.dateCellText.trim();
+    const destination = stop.destinationCellText.trim();
+    if (!dateCell || !destination) {
+      continue;
     }
+    const items = destinationsByDateCell.get(dateCell) ?? [];
+    if (!items.includes(destination)) {
+      items.push(destination);
+    }
+    destinationsByDateCell.set(dateCell, items);
   }
 
-  if (user.dealStage === 'CONTRACTING' && !isContractStarted(contractStatus)) {
-    return null;
+  const distinctDateCells = Array.from(destinationsByDateCell.keys());
+  const byDayIndex = distinctDateCells[dayNumber - 1];
+  if (byDayIndex) {
+    return destinationsByDateCell.get(byDayIndex)?.join(' → ') || '-';
   }
-
-  if (user.dealStage === 'CONTRACT_CONFIRMED' || user.dealStage === 'CONTRACTING') {
-    return null;
-  }
-
-  if (STAGES.some((stage) => stage.key === user.dealStage)) {
-    return user.dealStage;
-  }
-
-  return null;
+  return trip.destination?.trim() || '-';
 }
 
 function boardsEqual(left: BoardState, right: BoardState): boolean {
@@ -608,22 +690,90 @@ function PipelineCard({
   );
 }
 
+function TourPipelineCard({
+  user,
+  stageKey,
+  today,
+  onClick,
+}: {
+  user: UserRow;
+  stageKey: TourOperationStageKey;
+  today: Date;
+  onClick: (userId: string) => void;
+}): JSX.Element {
+  const trip = getActiveConfirmedTrip(user);
+  const guideNames = formatAssignmentNames(trip?.guideAssignments ?? []);
+  const driverNames = formatAssignmentNames(trip?.driverAssignments ?? []);
+  const title = formatUserCardTitle(user, null);
+  const destination = formatTripDestination(user);
+  const nightsDays = formatTripNightsDays(user);
+
+  const rows =
+    stageKey === 'TOUR_IN_PROGRESS'
+      ? [
+          { label: '일차', value: `${calculateTourDayNumber(user, trip!, today) ?? '?'}일차` },
+          { label: '가이드', value: guideNames },
+          { label: '기사', value: driverNames },
+          { label: '오늘 목적지', value: formatTodayDestination(user, today) },
+        ]
+      : stageKey === 'TOUR_START'
+        ? [
+            { label: '여행', value: `${destination} · ${nightsDays}` },
+            { label: '가이드', value: guideNames },
+            { label: '기사', value: driverNames },
+            { label: '픽업', value: formatTripPickup(user) },
+          ]
+        : [
+            { label: '여행', value: `${destination} · ${nightsDays}` },
+            { label: '가이드', value: guideNames },
+            { label: '기사', value: driverNames },
+            { label: '드랍', value: formatTripDrop(user) },
+          ];
+
+  return (
+    <button type="button" className="w-full text-left" onClick={() => onClick(user.id)}>
+      <Card className={dealPipelineTokens.card.base}>
+        <div className="grid gap-2">
+          <div className="flex items-start justify-between gap-2">
+            <p className={dealPipelineTokens.card.title}>{title}</p>
+          </div>
+
+          <div className="grid gap-1">
+            {rows.map((row) => (
+              <div key={row.label} className="grid grid-cols-[64px_minmax(0,1fr)] gap-2 text-xs">
+                <span className="font-medium text-slate-500">{row.label}</span>
+                <span className="min-w-0 break-words font-semibold text-slate-800">{row.value || '-'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+    </button>
+  );
+}
+
 function PipelineColumn({
   stage,
   users,
   dragDisabled,
+  today,
   contractStatusByDocumentNumber,
   paymentStatusByDocumentNumber,
   onCardClick,
 }: {
-  stage: { key: DealStageValue; label: string };
+  stage: { key: PipelineStageKey; label: string };
   users: UserRow[];
   dragDisabled: boolean;
+  today: Date;
   contractStatusByDocumentNumber: Map<string, ContractDocumentStatusRow>;
   paymentStatusByDocumentNumber: Map<string, ContractPaymentStatusRow>;
   onCardClick: (userId: string) => void;
 }): JSX.Element {
-  const { setNodeRef, isOver } = useDroppable({ id: columnId(stage.key) });
+  const isManualStage = isManualStageKey(stage.key);
+  const { setNodeRef, isOver } = useDroppable({
+    id: isManualStage ? columnId(stage.key) : `readonly-column:${stage.key}`,
+    disabled: !isManualStage,
+  });
 
   return (
     <section
@@ -635,7 +785,10 @@ function PipelineColumn({
         <span className={dealPipelineTokens.column.count}>{users.length}</span>
       </header>
 
-      <SortableContext items={users.map((user) => user.id)} strategy={verticalListSortingStrategy}>
+      <SortableContext
+        items={isManualStage ? users.map((user) => user.id) : users.map((user) => `${stage.key}:${user.id}`)}
+        strategy={verticalListSortingStrategy}
+      >
         <div className={dealPipelineTokens.column.list}>
           {users.length === 0 ? (
             <Card className={dealPipelineTokens.column.emptyCard}>
@@ -643,22 +796,31 @@ function PipelineColumn({
             </Card>
           ) : null}
 
-          {users.map((user) => (
-            (() => {
-              const documentNumber = normalizeContractDocumentNumberForLookup(getUserContractDocumentNumber(user));
-              const contractStatus = documentNumber ? contractStatusByDocumentNumber.get(documentNumber) ?? null : null;
+          {users.map((user) => {
+            if (!isManualStage) {
               return (
-                <PipelineCard
-                  key={user.id}
+                <TourPipelineCard
+                  key={`${stage.key}:${user.id}`}
                   user={user}
-                  disabled={dragDisabled}
-                  contractStatus={contractStatus}
-                  paymentStatus={documentNumber ? paymentStatusByDocumentNumber.get(documentNumber) ?? null : null}
+                  stageKey={stage.key as TourOperationStageKey}
+                  today={today}
                   onClick={onCardClick}
                 />
               );
-            })()
-          ))}
+            }
+            const documentNumber = normalizeContractDocumentNumberForLookup(getUserContractDocumentNumber(user));
+            const contractStatus = documentNumber ? contractStatusByDocumentNumber.get(documentNumber) ?? null : null;
+            return (
+              <PipelineCard
+                key={user.id}
+                user={user}
+                disabled={dragDisabled}
+                contractStatus={contractStatus}
+                paymentStatus={documentNumber ? paymentStatusByDocumentNumber.get(documentNumber) ?? null : null}
+                onClick={onCardClick}
+              />
+            );
+          })}
         </div>
       </SortableContext>
     </section>
@@ -1303,6 +1465,7 @@ export function DealPipelinePage(): JSX.Element {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const previousBoardRef = useRef<BoardState | null>(null);
+  const today = useMemo(() => new Date(), []);
 
   useEffect(() => {
     const nextBoard = buildBoard(users);
@@ -1346,8 +1509,16 @@ export function DealPipelinePage(): JSX.Element {
       const hiddenUsers: UserRow[] = [];
 
       for (const user of sourceUsers) {
+        const tourStages = resolveTourOperationStages(user, today);
+        if (tourStages.length > 0) {
+          for (const tourStage of tourStages) {
+            next[tourStage].push(user);
+          }
+          continue;
+        }
+
         const { contractStatus, paymentStatus } = getStatuses(user);
-        const visibleStage = resolveVisibleStage(user, contractStatus, paymentStatus);
+        const visibleStage = resolveVisibleStageForPipeline(user, contractStatus, paymentStatus, today);
         if (visibleStage === null) {
           hiddenUsers.push(user);
           continue;
@@ -1363,7 +1534,7 @@ export function DealPipelinePage(): JSX.Element {
       for (const stage of STAGES) {
         next[stage.key] = sortUsersInStage(next[stage.key]).map((user, index) => ({
           ...user,
-          dealStage: stage.key,
+          dealStage: isManualStageKey(stage.key) ? stage.key : user.dealStage,
           dealStageOrder: index,
         }));
       }
@@ -1380,7 +1551,7 @@ export function DealPipelinePage(): JSX.Element {
       : users;
 
     return applyStageVisibility(visibleUsers);
-  }, [contractStatusByDocumentNumber, normalizedKeyword, paymentStatusByDocumentNumber, users]);
+  }, [contractStatusByDocumentNumber, normalizedKeyword, paymentStatusByDocumentNumber, today, users]);
 
   const displayedBoard = pipelineVisibility.board;
   const hiddenUsers = pipelineVisibility.hiddenUsers;
@@ -1420,13 +1591,13 @@ export function DealPipelinePage(): JSX.Element {
     return users.find((user) => user.id === selectedUserId) ?? null;
   }, [displayedBoard, selectedUserId, users]);
 
-  const findContainer = (id: string): DealStageValue | null => {
+  const findContainer = (id: string): VisibleDealStageKey | null => {
     const asColumn = parseColumnId(id);
     if (asColumn) {
       return asColumn;
     }
 
-    for (const stage of STAGES) {
+    for (const stage of MANUAL_STAGES) {
       if (board[stage.key].some((user) => user.id === id)) {
         return stage.key;
       }
@@ -1613,6 +1784,7 @@ export function DealPipelinePage(): JSX.Element {
                 stage={stage}
                 users={displayedBoard[stage.key]}
                 dragDisabled={dragDisabled}
+                today={today}
                 contractStatusByDocumentNumber={contractStatusByDocumentNumber}
                 paymentStatusByDocumentNumber={paymentStatusByDocumentNumber}
                 onCardClick={setSelectedUserId}

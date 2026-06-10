@@ -29,11 +29,32 @@ export type DealTodoStatusValue = 'TODO' | 'DOING' | 'DONE';
 
 export type ConfirmedTripStatusValue = 'ACTIVE' | 'CANCELLED';
 
+export interface UserConfirmedTripLodgingSummaryRow {
+  dayIndex: number;
+  nights: number;
+  checkInDate: string;
+  checkOutDate: string;
+}
+
 export interface UserConfirmedTripSummaryRow {
   id: string;
   status: ConfirmedTripStatusValue;
   travelStart: string | null;
   travelEnd: string | null;
+  destination: string | null;
+  pickupDate: string | null;
+  dropDate: string | null;
+  guideAssignments: Array<{
+    id: string;
+    nameSnapshot: string | null;
+    guide: { id: string; nameKo: string; nameMn: string | null };
+  }>;
+  driverAssignments: Array<{
+    id: string;
+    nameSnapshot: string | null;
+    driver: { id: string; nameMn: string };
+  }>;
+  lodgings: UserConfirmedTripLodgingSummaryRow[];
 }
 
 export interface EmployeeOwnerRow {
@@ -74,12 +95,25 @@ export interface UserRow {
     id?: string;
     currentVersion: {
       id?: string;
+      totalDays?: number;
       meta: {
         documentNumber?: string;
         headcountTotal?: number;
         travelStartDate?: string;
         travelEndDate?: string;
+        pickupDate?: string | null;
+        pickupTime?: string | null;
+        pickupPlaceType?: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;
+        pickupPlaceCustomText?: string | null;
+        dropDate?: string | null;
+        dropTime?: string | null;
+        dropPlaceType?: 'AIRPORT' | 'OZ_HOUSE' | 'ULAANBAATAR' | 'CUSTOM' | null;
+        dropPlaceCustomText?: string | null;
       } | null;
+      planStops?: Array<{
+        dateCellText: string;
+        destinationCellText: string;
+      }>;
       pricing?: Pick<
         PlanVersionPricingRow,
         'id' | 'totalAmountKrw' | 'depositAmountKrw' | 'balanceAmountKrw' | 'securityDepositAmountKrw' | 'securityDepositUnitPriceKrw' | 'securityDepositMode'
@@ -507,15 +541,55 @@ const USERS_QUERY = gql`
         status
         travelStart
         travelEnd
+        destination
+        pickupDate
+        dropDate
+        guideAssignments {
+          id
+          nameSnapshot
+          guide {
+            id
+            nameKo
+            nameMn
+          }
+        }
+        driverAssignments {
+          id
+          nameSnapshot
+          driver {
+            id
+            nameMn
+          }
+        }
+        lodgings {
+          dayIndex
+          nights
+          checkInDate
+          checkOutDate
+        }
       }
       plans {
         id
         currentVersion {
           id
+          totalDays
           meta {
             documentNumber
             headcountTotal
             travelStartDate
+            travelEndDate
+            pickupDate
+            pickupTime
+            pickupPlaceType
+            pickupPlaceCustomText
+            dropDate
+            dropTime
+            dropPlaceType
+            dropPlaceCustomText
+          }
+          planStops {
+            dateCellText
+            destinationCellText
           }
           pricing {
             id
