@@ -451,7 +451,7 @@ describe('buildEffectivePricing', () => {
     expect(manualTeam.securityDepositAmountKrw).toBe(180_000);
   });
 
-  it('keeps manual security deposit amount as display unit when mode is PER_PERSON', () => {
+  it('treats manual PER_PERSON security deposit amount as per-person unit price', () => {
     const effectivePricing = buildEffectivePricing(
       {
         baseAmountKrw: 500_000,
@@ -491,10 +491,10 @@ describe('buildEffectivePricing', () => {
     expect(effectivePricing.securityDepositMode).toBe('PER_PERSON');
     expect(effectivePricing.securityDepositQuantity).toBe(5);
     expect(effectivePricing.securityDepositUnitPriceKrw).toBe(30_000);
-    expect(effectivePricing.securityDepositAmountKrw).toBe(30_000);
+    expect(effectivePricing.securityDepositAmountKrw).toBe(150_000);
   });
 
-  it('applies manual securityDepositMode PER_PERSON for team slice without dividing manual amount', () => {
+  it('applies manual securityDepositMode PER_PERSON for team slice using unit times headcount', () => {
     const effectivePricing = buildEffectivePricing<PricingManualSourceLine>(
       {
         baseAmountKrw: 1_000_000,
@@ -570,7 +570,7 @@ describe('buildEffectivePricing', () => {
     expect(team?.securityDepositMode).toBe('PER_PERSON');
     expect(team?.securityDepositQuantity).toBe(4);
     expect(team?.securityDepositUnitPriceKrw).toBe(50_000);
-    expect(team?.securityDepositAmountKrw).toBe(50_000);
+    expect(team?.securityDepositAmountKrw).toBe(200_000);
   });
 
   it('단일 팀일 때 글로벌 수동 summary 기본금을 팀 슬라이스에 폴백한다', () => {

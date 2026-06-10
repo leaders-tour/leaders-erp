@@ -14,6 +14,14 @@ interface WorkerEnv {
   mailFrom: string | null;
   mailProvider: string;
   artifactBasePath: string;
+  googleServiceAccountEmail: string | null;
+  googleServiceAccountPrivateKey: string | null;
+  contractFormSheetId: string | null;
+  contractFormSheetGid: string;
+  contractFormSourceId: string | null;
+  contractPaymentSheetId: string | null;
+  contractPaymentSheetGid: string;
+  contractPaymentSourceId: string | null;
 }
 
 let loaded = false;
@@ -135,9 +143,9 @@ export function getWorkerEnv(): WorkerEnv {
   cachedEnv = {
     databaseUrl: getRequired('DATABASE_URL'),
     naverAuthStatePath: resolveFromRoot(getOptional('NAVER_AUTH_STATE_PATH', 'secrets/naver-auth.json')),
-    naverCafeBoardUrl: getRequired('NAVER_CAFE_BOARD_URL'),
-    naverCafeId: getRequired('NAVER_CAFE_ID'),
-    naverCafeMenuId: getRequired('NAVER_CAFE_MENU_ID'),
+    naverCafeBoardUrl: getOptional('NAVER_CAFE_BOARD_URL', ''),
+    naverCafeId: getOptional('NAVER_CAFE_ID', ''),
+    naverCafeMenuId: getOptional('NAVER_CAFE_MENU_ID', ''),
     cafePollIntervalMs: getNumber('CAFE_POLL_INTERVAL_MS', 180_000),
     openAiApiKey: getOptionalNullable('OPENAI_API_KEY'),
     gmailUser: getOptionalNullable('GMAIL_USER'),
@@ -145,6 +153,14 @@ export function getWorkerEnv(): WorkerEnv {
     mailFrom: getOptionalNullable('MAIL_FROM'),
     mailProvider: getOptional('MAIL_PROVIDER', 'gmail'),
     artifactBasePath: resolveFromRoot(getOptional('ARTIFACT_BASE_PATH', 'tmp/artifacts')),
+    googleServiceAccountEmail: getOptionalNullable('GOOGLE_SERVICE_ACCOUNT_EMAIL'),
+    googleServiceAccountPrivateKey: getOptionalNullable('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY'),
+    contractFormSheetId: getOptionalNullable('CONTRACT_FORM_SHEET_ID'),
+    contractFormSheetGid: getOptional('CONTRACT_FORM_SHEET_GID', '0'),
+    contractFormSourceId: getOptionalNullable('CONTRACT_FORM_SOURCE_ID'),
+    contractPaymentSheetId: getOptionalNullable('CONTRACT_PAYMENT_SHEET_ID'),
+    contractPaymentSheetGid: getOptional('CONTRACT_PAYMENT_SHEET_GID', '0'),
+    contractPaymentSourceId: getOptionalNullable('CONTRACT_PAYMENT_SOURCE_ID'),
   };
 
   process.env.DATABASE_URL = cachedEnv.databaseUrl;

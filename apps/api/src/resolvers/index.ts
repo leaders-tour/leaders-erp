@@ -2,6 +2,7 @@ import { GraphQLScalarType, Kind } from 'graphql';
 import { activityResolver } from '../modules/activity/activity.resolver';
 import { appSettingsResolver } from '../modules/app-settings/app-settings.resolver';
 import { authResolver } from '../modules/auth/auth.resolver';
+import { contractResolver } from '../modules/contract/contract.resolver';
 import { eventResolver } from '../modules/event/event.resolver';
 import { lodgingResolver } from '../modules/lodging/lodging.resolver';
 import { locationGuideResolver } from '../modules/location-guide/location-guide.resolver';
@@ -93,6 +94,7 @@ export const resolvers = {
   Query: protectSection(
     mergeSection(
       authResolver.Query,
+      contractResolver.Query,
       appSettingsResolver.Query,
       regionResolver.Query,
       regionSetResolver.Query,
@@ -125,6 +127,7 @@ export const resolvers = {
   Mutation: protectSection(
     mergeSection(
       authResolver.Mutation,
+      contractResolver.Mutation,
       appSettingsResolver.Mutation,
       consultationResolver.Mutation,
       regionResolver.Mutation,
@@ -184,6 +187,8 @@ export const resolvers = {
   ConfirmedTrip: confirmedTripResolver.ConfirmedTrip,
   ConfirmedTripLodging: confirmedTripResolver.ConfirmedTripLodging,
   CalendarNote: confirmedTripResolver.CalendarNote,
+  ContractDocumentStatus: contractResolver.ContractDocumentStatus,
+  ContractDocumentReviewItem: contractResolver.ContractDocumentReviewItem,
   PlanTemplate: mergeSection(planTemplateResolver.PlanTemplate ?? {}),
   PlanTemplateStop: mergeSection(planTemplateResolver.PlanTemplateStop ?? {}),
 };

@@ -11,6 +11,7 @@ const files = [
   'app-settings.graphql',
   'auth.graphql',
   'consultation.graphql',
+  'contract.graphql',
   'region.graphql',
   'region-set.graphql',
   'location.graphql',

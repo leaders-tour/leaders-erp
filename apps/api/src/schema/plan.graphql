@@ -10,11 +10,36 @@ input UserAttachmentInput {
   type: String!
 }
 
+type UserConfirmedTripGuideAssignmentSummary {
+  id: ID!
+  nameSnapshot: String
+  guide: Guide!
+}
+
+type UserConfirmedTripDriverAssignmentSummary {
+  id: ID!
+  nameSnapshot: String
+  driver: Driver!
+}
+
+type UserConfirmedTripLodgingSummary {
+  dayIndex: Int!
+  nights: Int!
+  checkInDate: DateTime!
+  checkOutDate: DateTime!
+}
+
 type UserConfirmedTripSummary {
   id: ID!
   status: ConfirmedTripStatus!
   travelStart: DateTime
   travelEnd: DateTime
+  destination: String
+  pickupDate: DateTime
+  dropDate: DateTime
+  guideAssignments: [UserConfirmedTripGuideAssignmentSummary!]!
+  driverAssignments: [UserConfirmedTripDriverAssignmentSummary!]!
+  lodgings: [UserConfirmedTripLodgingSummary!]!
 }
 
 type User {

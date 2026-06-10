@@ -200,6 +200,43 @@ enum DealTodoStatus {
   DONE
 }
 
+enum ContractSubmissionSourceType {
+  GOOGLE_SHEET
+  INTERNAL_FORM
+}
+
+enum ContractDocumentStatusValue {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  OVER_SUBMITTED
+  NEEDS_REVIEW
+}
+
+enum ContractSyncRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum ContractPaymentSourceType {
+  GOOGLE_SHEET
+}
+
+enum ContractPaymentStatusValue {
+  NOT_STARTED
+  PARTIAL
+  COMPLETED
+  OVERPAID
+  NEEDS_REVIEW
+}
+
+enum ContractPaymentSyncRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
 enum EmployeeRole {
   ADMIN
   STAFF
@@ -985,6 +1022,172 @@ model ConfirmedTripNote {
 
   @@index([confirmedTripId, createdAt])
   @@index([createdByEmployeeId])
+}
+
+model ContractSubmissionSource {
+  id        String                       @id @default(uuid(7))
+  type      ContractSubmissionSourceType
+  name      String
+  isActive  Boolean                      @default(true)
+  sheetId   String?
+  sheetGid  String?
+  headerRow Int?                         @default(1)
+
+  submissions ContractSubmission[]
+  syncRuns     ContractSyncRun[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type, isActive])
+}
+
+model ContractSubmission {
+  id                  String    @id @default(uuid(7))
+  sourceId            String
+  sourceRowNumber     Int?
+  sourceRecordKey     String
+  submittedAt         DateTime?
+  documentNumberRaw   String?
+  documentNumberNorm  String?
+  travelerName        String?
+  travelerPhone       String?
+  travelerPhoneDigits String?
+  leaderName          String?
+  representativeType  String?
+  totalCompanionCount Int?
+  receivedStatus      String?
+  rowDigest           String
+  rawJson             Json
+  excludedFromContractCount Boolean @default(false)
+  excludedByEmployeeId      String?
+  excludedAt                  DateTime?
+  exclusionReason             String?   @db.Text
+
+  source ContractSubmissionSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  importedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([sourceId, sourceRecordKey])
+  @@index([documentNumberNorm])
+  @@index([travelerName, travelerPhoneDigits])
+}
+
+model ContractDocumentStatus {
+  id                      String                      @id @default(uuid(7))
+  documentNumberNorm      String                      @unique
+  documentNumberRawSample String?
+  expectedCount           Int?
+  submittedCount          Int                         @default(0)
+  status                  ContractDocumentStatusValue @default(NOT_STARTED)
+  needsReviewReason       String?
+  firstSubmittedAt        DateTime?
+  lastSubmittedAt         DateTime?
+  matchedPlanVersionId         String?
+  matchedConfirmedTripId       String?
+  manualMatchedPlanVersionId   String?
+  manualMatchedByEmployeeId    String?
+  manualMatchedAt              DateTime?
+  manualMatchNote              String?                     @db.Text
+  computedAt                   DateTime                    @default(now())
+  updatedAt                    DateTime                    @updatedAt
+
+  @@index([status])
+  @@index([matchedPlanVersionId])
+  @@index([matchedConfirmedTripId])
+  @@index([manualMatchedPlanVersionId])
+}
+
+model ContractSyncRun {
+  id           String                @id @default(uuid(7))
+  sourceId     String
+  status       ContractSyncRunStatus
+  startedAt    DateTime              @default(now())
+  finishedAt   DateTime?
+  fetchedRows  Int                   @default(0)
+  upsertedRows Int                   @default(0)
+  skippedRows  Int                   @default(0)
+  errorMessage String?               @db.Text
+
+  source ContractSubmissionSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@index([sourceId, startedAt])
+}
+
+model ContractPaymentSource {
+  id        String                    @id @default(uuid(7))
+  type      ContractPaymentSourceType
+  name      String
+  isActive  Boolean                   @default(true)
+  sheetId   String?
+  sheetGid  String?
+  headerRow Int?                      @default(1)
+
+  receipts ContractPaymentReceipt[]
+  syncRuns ContractPaymentSyncRun[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type, isActive])
+}
+
+model ContractPaymentReceipt {
+  id                         String    @id @default(uuid(7))
+  sourceId                   String
+  sourceRowNumber            Int?
+  sourceRecordKey            String
+  receivedAt                 DateTime?
+  payerNameRaw               String?
+  payerNameNorm              String?
+  amountKrw                  Int?
+  matchedDocumentNumberNorm  String?
+  needsReviewReason          String?
+  rowDigest                  String
+  rawJson                    Json
+
+  source ContractPaymentSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  importedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([sourceId, sourceRecordKey])
+  @@index([payerNameNorm, amountKrw])
+  @@index([matchedDocumentNumberNorm])
+}
+
+model ContractPaymentStatus {
+  id                     String                     @id @default(uuid(7))
+  documentNumberNorm     String                     @unique
+  requiredAmountKrw      Int?
+  receivedAmountKrw      Int                        @default(0)
+  status                 ContractPaymentStatusValue @default(NOT_STARTED)
+  needsReviewReason      String?
+  matchedPlanVersionId   String?
+  computedAt             DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+
+  @@index([status])
+  @@index([matchedPlanVersionId])
+}
+
+model ContractPaymentSyncRun {
+  id           String                       @id @default(uuid(7))
+  sourceId     String
+  status       ContractPaymentSyncRunStatus
+  startedAt    DateTime                     @default(now())
+  finishedAt   DateTime?
+  fetchedRows  Int                          @default(0)
+  upsertedRows Int                          @default(0)
+  skippedRows  Int                          @default(0)
+  matchedRows  Int                          @default(0)
+  reviewRows   Int                          @default(0)
+  errorMessage String?                      @db.Text
+
+  source ContractPaymentSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  @@index([sourceId, startedAt])
 }
 
 model ConfirmedTripKoreaTeamStageOption {

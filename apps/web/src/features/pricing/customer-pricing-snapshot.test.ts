@@ -162,6 +162,30 @@ describe('buildCustomerPricingSnapshot', () => {
     const snap = buildCustomerPricingSnapshot(effective, displayed);
     expect(snap?.adjustmentLines[0]?.teamName).toBe('A팀');
   });
+
+  it('PER_PERSON 수동 보증금 30,000원·6명이면 총액 180,000·단가 30,000으로 스냅샷에 저장한다', () => {
+    const effective = {
+      baseAmountKrw: 500_000,
+      addonAmountKrw: 0,
+      totalAmountKrw: 500_000,
+      depositAmountKrw: 50_000,
+      balanceAmountKrw: 450_000,
+      securityDepositAmountKrw: 180_000,
+      securityDepositUnitPriceKrw: 30_000,
+      securityDepositQuantity: 6,
+      securityDepositMode: 'PER_PERSON' as const,
+      lines: [],
+      originalPricing: {} as EffectivePricingResult['originalPricing'],
+      manualPricing: null,
+      adjustmentLines: [],
+      teamPricings: [],
+    } satisfies EffectivePricingResult;
+
+    const snap = buildCustomerPricingSnapshot(effective, []);
+    expect(snap?.securityDepositUnitKrw).toBe(30_000);
+    expect(snap?.securityDepositTotalKrw).toBe(180_000);
+    expect(snap?.securityDepositMode).toBe('PER_PERSON');
+  });
 });
 
 describe('customerFacingTotalsFromSnapshot', () => {

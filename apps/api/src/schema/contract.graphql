@@ -1,0 +1,256 @@
+enum ContractSubmissionSourceType {
+  GOOGLE_SHEET
+  INTERNAL_FORM
+}
+
+enum ContractDocumentStatusValue {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  OVER_SUBMITTED
+  NEEDS_REVIEW
+}
+
+enum ContractSyncRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum ContractPaymentSourceType {
+  GOOGLE_SHEET
+}
+
+enum ContractPaymentStatusValue {
+  NOT_STARTED
+  PARTIAL
+  COMPLETED
+  OVERPAID
+  NEEDS_REVIEW
+}
+
+enum ContractPaymentSyncRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+type ContractSubmissionSource {
+  id: ID!
+  type: ContractSubmissionSourceType!
+  name: String!
+  isActive: Boolean!
+  sheetId: String
+  sheetGid: String
+  headerRow: Int
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ContractDocumentStatus {
+  id: ID!
+  documentNumberNorm: String!
+  documentNumberRawSample: String
+  expectedCount: Int
+  submittedCount: Int!
+  status: ContractDocumentStatusValue!
+  needsReviewReason: String
+  firstSubmittedAt: DateTime
+  lastSubmittedAt: DateTime
+  matchedPlanVersionId: String
+  matchedConfirmedTripId: String
+  manualMatchedPlanVersionId: String
+  manualMatchedByEmployeeId: String
+  manualMatchedAt: DateTime
+  manualMatchNote: String
+  effectiveMatchedPlanVersionId: String
+  effectiveMatchedPlanId: String
+  computedAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ContractMatchedPlanSummary {
+  planVersionId: ID!
+  planId: ID!
+  planTitle: String!
+  versionNumber: Int!
+  userId: ID!
+  userName: String!
+  documentNumber: String!
+  leaderName: String!
+  headcountTotal: Int!
+  travelStartDate: DateTime!
+  travelEndDate: DateTime!
+  isManualMatch: Boolean!
+}
+
+type ContractDocumentReviewTabCounts {
+  needsReview: Int!
+  overSubmitted: Int!
+  inProgress: Int!
+  completed: Int!
+  all: Int!
+}
+
+type ContractDocumentReviewItem {
+  statusRow: ContractDocumentStatus!
+  submissions: [ContractSubmission!]!
+  matchedPlanSummary: ContractMatchedPlanSummary
+}
+
+type ContractMatchPlanVersionCandidate {
+  planVersionId: ID!
+  planId: ID!
+  planTitle: String!
+  versionNumber: Int!
+  userId: ID!
+  userName: String!
+  documentNumber: String!
+  leaderName: String!
+  headcountTotal: Int!
+  travelStartDate: DateTime!
+  travelEndDate: DateTime!
+}
+
+input MatchContractDocumentInput {
+  documentNumber: String!
+  planVersionId: ID!
+  note: String
+}
+
+input UnmatchContractDocumentInput {
+  documentNumber: String!
+}
+
+input ExcludeContractSubmissionFromCountInput {
+  submissionId: ID!
+  reason: String
+}
+
+input RestoreContractSubmissionToCountInput {
+  submissionId: ID!
+}
+
+type ContractSubmission {
+  id: ID!
+  source: ContractSubmissionSource!
+  sourceRowNumber: Int
+  submittedAt: DateTime
+  documentNumberRaw: String
+  documentNumberNorm: String
+  travelerName: String
+  travelerPhone: String
+  leaderName: String
+  representativeType: String
+  totalCompanionCount: Int
+  receivedStatus: String
+  excludedFromContractCount: Boolean!
+  excludedAt: DateTime
+  exclusionReason: String
+  importedAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ContractSyncRun {
+  id: ID!
+  sourceId: String!
+  status: ContractSyncRunStatus!
+  startedAt: DateTime!
+  finishedAt: DateTime
+  fetchedRows: Int!
+  upsertedRows: Int!
+  skippedRows: Int!
+  errorMessage: String
+}
+
+type ContractPaymentSource {
+  id: ID!
+  type: ContractPaymentSourceType!
+  name: String!
+  isActive: Boolean!
+  sheetId: String
+  sheetGid: String
+  headerRow: Int
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ContractPaymentStatus {
+  id: ID!
+  documentNumberNorm: String!
+  requiredAmountKrw: Int
+  receivedAmountKrw: Int!
+  status: ContractPaymentStatusValue!
+  needsReviewReason: String
+  matchedPlanVersionId: String
+  computedAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ContractPaymentReceipt {
+  id: ID!
+  source: ContractPaymentSource!
+  sourceRowNumber: Int
+  receivedAt: DateTime
+  payerNameRaw: String
+  amountKrw: Int
+  matchedDocumentNumberNorm: String
+  needsReviewReason: String
+  importedAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ContractPaymentReviewReceiptItem {
+  receipt: ContractPaymentReceipt!
+  candidateDocumentNumbers: [String!]!
+}
+
+input MatchContractPaymentReceiptInput {
+  receiptId: ID!
+  documentNumber: String!
+}
+
+input UnmatchContractPaymentReceiptInput {
+  receiptId: ID!
+}
+
+type ContractPaymentSyncRun {
+  id: ID!
+  sourceId: String!
+  status: ContractPaymentSyncRunStatus!
+  startedAt: DateTime!
+  finishedAt: DateTime
+  fetchedRows: Int!
+  upsertedRows: Int!
+  skippedRows: Int!
+  matchedRows: Int!
+  reviewRows: Int!
+  errorMessage: String
+}
+
+extend type Query {
+  contractSubmissionSources: [ContractSubmissionSource!]!
+  contractDocumentStatuses(documentNumbers: [String!]!): [ContractDocumentStatus!]!
+  contractDocumentReviewItems(statuses: [ContractDocumentStatusValue!], keyword: String, limit: Int = 100): [ContractDocumentReviewItem!]!
+  contractDocumentReviewTabCounts: ContractDocumentReviewTabCounts!
+  contractMatchPlanVersionCandidates(keyword: String!, limit: Int = 20): [ContractMatchPlanVersionCandidate!]!
+  contractSubmissions(documentNumber: String!): [ContractSubmission!]!
+  contractSyncRuns(sourceId: ID, limit: Int = 20): [ContractSyncRun!]!
+  contractPaymentSources: [ContractPaymentSource!]!
+  contractPaymentStatuses(documentNumbers: [String!]!): [ContractPaymentStatus!]!
+  contractPaymentReceipts(documentNumber: String!): [ContractPaymentReceipt!]!
+  contractPaymentReviewReceipts(keyword: String, reasons: [String!], limit: Int = 100): [ContractPaymentReviewReceiptItem!]!
+  contractPaymentReviewTabCount: Int!
+  contractPaymentSyncRuns(sourceId: ID, limit: Int = 20): [ContractPaymentSyncRun!]!
+}
+
+extend type Mutation {
+  syncContractSubmissions(sourceId: ID!): ContractSyncRun!
+  syncContractPayments(sourceId: ID!): ContractPaymentSyncRun!
+  matchContractDocument(input: MatchContractDocumentInput!): ContractDocumentStatus!
+  unmatchContractDocument(input: UnmatchContractDocumentInput!): ContractDocumentStatus!
+  excludeContractSubmissionFromCount(input: ExcludeContractSubmissionFromCountInput!): ContractSubmission!
+  restoreContractSubmissionToCount(input: RestoreContractSubmissionToCountInput!): ContractSubmission!
+  matchContractPaymentReceipt(input: MatchContractPaymentReceiptInput!): ContractPaymentReceipt!
+  unmatchContractPaymentReceipt(input: UnmatchContractPaymentReceiptInput!): ContractPaymentReceipt!
+}

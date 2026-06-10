@@ -1,0 +1,907 @@
+import { gql, useMutation, useQuery } from '@apollo/client';
+import { useMemo } from 'react';
+
+export type ContractSubmissionSourceType = 'GOOGLE_SHEET' | 'INTERNAL_FORM';
+export type ContractDocumentStatusValue =
+  | 'NOT_STARTED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'OVER_SUBMITTED'
+  | 'NEEDS_REVIEW';
+export type ContractSyncRunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
+export type ContractPaymentSourceType = 'GOOGLE_SHEET';
+export type ContractPaymentStatusValue = 'NOT_STARTED' | 'PARTIAL' | 'COMPLETED' | 'OVERPAID' | 'NEEDS_REVIEW';
+export type ContractPaymentSyncRunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
+
+export interface ContractSubmissionSourceRow {
+  id: string;
+  type: ContractSubmissionSourceType;
+  name: string;
+  isActive: boolean;
+  sheetId: string | null;
+  sheetGid: string | null;
+  headerRow: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContractDocumentStatusRow {
+  id: string;
+  documentNumberNorm: string;
+  documentNumberRawSample: string | null;
+  expectedCount: number | null;
+  submittedCount: number;
+  status: ContractDocumentStatusValue;
+  needsReviewReason: string | null;
+  firstSubmittedAt: string | null;
+  lastSubmittedAt: string | null;
+  matchedPlanVersionId: string | null;
+  matchedConfirmedTripId: string | null;
+  manualMatchedPlanVersionId: string | null;
+  manualMatchedByEmployeeId: string | null;
+  manualMatchedAt: string | null;
+  manualMatchNote: string | null;
+  effectiveMatchedPlanVersionId: string | null;
+  effectiveMatchedPlanId: string | null;
+  computedAt: string;
+  updatedAt: string;
+}
+
+export interface ContractMatchedPlanSummaryRow {
+  planVersionId: string;
+  planId: string;
+  planTitle: string;
+  versionNumber: number;
+  userId: string;
+  userName: string;
+  documentNumber: string;
+  leaderName: string;
+  headcountTotal: number;
+  travelStartDate: string;
+  travelEndDate: string;
+  isManualMatch: boolean;
+}
+
+export interface ContractDocumentReviewItemRow {
+  statusRow: ContractDocumentStatusRow;
+  submissions: ContractSubmissionRow[];
+  matchedPlanSummary: ContractMatchedPlanSummaryRow | null;
+}
+
+export interface ContractDocumentReviewTabCountsRow {
+  needsReview: number;
+  overSubmitted: number;
+  inProgress: number;
+  completed: number;
+  all: number;
+}
+
+export interface ContractMatchPlanVersionCandidateRow {
+  planVersionId: string;
+  planId: string;
+  planTitle: string;
+  versionNumber: number;
+  userId: string;
+  userName: string;
+  documentNumber: string;
+  leaderName: string;
+  headcountTotal: number;
+  travelStartDate: string;
+  travelEndDate: string;
+}
+
+export interface ContractSyncRunRow {
+  id: string;
+  sourceId: string;
+  status: ContractSyncRunStatus;
+  startedAt: string;
+  finishedAt: string | null;
+  fetchedRows: number;
+  upsertedRows: number;
+  skippedRows: number;
+  errorMessage: string | null;
+}
+
+export interface ContractSubmissionRow {
+  id: string;
+  source: ContractSubmissionSourceRow;
+  sourceRowNumber: number | null;
+  submittedAt: string | null;
+  documentNumberRaw: string | null;
+  documentNumberNorm: string | null;
+  travelerName: string | null;
+  travelerPhone: string | null;
+  leaderName: string | null;
+  representativeType: string | null;
+  totalCompanionCount: number | null;
+  receivedStatus: string | null;
+  excludedFromContractCount: boolean;
+  excludedAt: string | null;
+  exclusionReason: string | null;
+  importedAt: string;
+  updatedAt: string;
+}
+
+export interface ContractPaymentSourceRow {
+  id: string;
+  type: ContractPaymentSourceType;
+  name: string;
+  isActive: boolean;
+  sheetId: string | null;
+  sheetGid: string | null;
+  headerRow: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContractPaymentStatusRow {
+  id: string;
+  documentNumberNorm: string;
+  requiredAmountKrw: number | null;
+  receivedAmountKrw: number;
+  status: ContractPaymentStatusValue;
+  needsReviewReason: string | null;
+  matchedPlanVersionId: string | null;
+  computedAt: string;
+  updatedAt: string;
+}
+
+export interface ContractPaymentSyncRunRow {
+  id: string;
+  sourceId: string;
+  status: ContractPaymentSyncRunStatus;
+  startedAt: string;
+  finishedAt: string | null;
+  fetchedRows: number;
+  upsertedRows: number;
+  skippedRows: number;
+  matchedRows: number;
+  reviewRows: number;
+  errorMessage: string | null;
+}
+
+export interface ContractPaymentReceiptRow {
+  id: string;
+  source: ContractPaymentSourceRow;
+  sourceRowNumber: number | null;
+  receivedAt: string | null;
+  payerNameRaw: string | null;
+  amountKrw: number | null;
+  matchedDocumentNumberNorm: string | null;
+  needsReviewReason: string | null;
+  importedAt: string;
+  updatedAt: string;
+}
+
+export interface ContractPaymentReviewReceiptItemRow {
+  receipt: ContractPaymentReceiptRow;
+  candidateDocumentNumbers: string[];
+}
+
+const CONTRACT_SUBMISSION_SOURCES_QUERY = gql`
+  query ContractSubmissionSources {
+    contractSubmissionSources {
+      id
+      type
+      name
+      isActive
+      sheetId
+      sheetGid
+      headerRow
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+const CONTRACT_DOCUMENT_STATUSES_QUERY = gql`
+  query ContractDocumentStatuses($documentNumbers: [String!]!) {
+    contractDocumentStatuses(documentNumbers: $documentNumbers) {
+      id
+      documentNumberNorm
+      documentNumberRawSample
+      expectedCount
+      submittedCount
+      status
+      needsReviewReason
+      firstSubmittedAt
+      lastSubmittedAt
+      matchedPlanVersionId
+      matchedConfirmedTripId
+      manualMatchedPlanVersionId
+      manualMatchedByEmployeeId
+      manualMatchedAt
+      manualMatchNote
+      effectiveMatchedPlanVersionId
+      computedAt
+      updatedAt
+    }
+  }
+`;
+
+const CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY = gql`
+  query ContractDocumentReviewItems($statuses: [ContractDocumentStatusValue!], $keyword: String, $limit: Int = 100) {
+    contractDocumentReviewItems(statuses: $statuses, keyword: $keyword, limit: $limit) {
+      statusRow {
+        id
+        documentNumberNorm
+        documentNumberRawSample
+        expectedCount
+        submittedCount
+        status
+        needsReviewReason
+        firstSubmittedAt
+        lastSubmittedAt
+        matchedPlanVersionId
+        matchedConfirmedTripId
+        manualMatchedPlanVersionId
+        manualMatchedByEmployeeId
+        manualMatchedAt
+        manualMatchNote
+        effectiveMatchedPlanVersionId
+        effectiveMatchedPlanId
+        computedAt
+        updatedAt
+      }
+      matchedPlanSummary {
+        planVersionId
+        planId
+        planTitle
+        versionNumber
+        userId
+        userName
+        documentNumber
+        leaderName
+        headcountTotal
+        travelStartDate
+        travelEndDate
+        isManualMatch
+      }
+      submissions {
+        id
+        sourceRowNumber
+        submittedAt
+        documentNumberRaw
+        documentNumberNorm
+        travelerName
+        travelerPhone
+        leaderName
+        representativeType
+        totalCompanionCount
+        receivedStatus
+        excludedFromContractCount
+        excludedAt
+        exclusionReason
+        importedAt
+        updatedAt
+        source {
+          id
+          type
+          name
+        }
+      }
+    }
+  }
+`;
+
+const CONTRACT_DOCUMENT_REVIEW_TAB_COUNTS_QUERY = gql`
+  query ContractDocumentReviewTabCounts {
+    contractDocumentReviewTabCounts {
+      needsReview
+      overSubmitted
+      inProgress
+      completed
+      all
+    }
+  }
+`;
+
+const EXCLUDE_CONTRACT_SUBMISSION_FROM_COUNT_MUTATION = gql`
+  mutation ExcludeContractSubmissionFromCount($input: ExcludeContractSubmissionFromCountInput!) {
+    excludeContractSubmissionFromCount(input: $input) {
+      id
+      excludedFromContractCount
+      excludedAt
+      exclusionReason
+    }
+  }
+`;
+
+const RESTORE_CONTRACT_SUBMISSION_TO_COUNT_MUTATION = gql`
+  mutation RestoreContractSubmissionToCount($input: RestoreContractSubmissionToCountInput!) {
+    restoreContractSubmissionToCount(input: $input) {
+      id
+      excludedFromContractCount
+      excludedAt
+      exclusionReason
+    }
+  }
+`;
+
+const CONTRACT_MATCH_PLAN_VERSION_CANDIDATES_QUERY = gql`
+  query ContractMatchPlanVersionCandidates($keyword: String!, $limit: Int = 20) {
+    contractMatchPlanVersionCandidates(keyword: $keyword, limit: $limit) {
+      planVersionId
+      planId
+      planTitle
+      versionNumber
+      userId
+      userName
+      documentNumber
+      leaderName
+      headcountTotal
+      travelStartDate
+      travelEndDate
+    }
+  }
+`;
+
+const MATCH_CONTRACT_DOCUMENT_MUTATION = gql`
+  mutation MatchContractDocument($input: MatchContractDocumentInput!) {
+    matchContractDocument(input: $input) {
+      id
+      documentNumberNorm
+      status
+      needsReviewReason
+      matchedPlanVersionId
+      manualMatchedPlanVersionId
+      effectiveMatchedPlanVersionId
+      manualMatchedAt
+      manualMatchNote
+    }
+  }
+`;
+
+const UNMATCH_CONTRACT_DOCUMENT_MUTATION = gql`
+  mutation UnmatchContractDocument($input: UnmatchContractDocumentInput!) {
+    unmatchContractDocument(input: $input) {
+      id
+      documentNumberNorm
+      status
+      needsReviewReason
+      matchedPlanVersionId
+      manualMatchedPlanVersionId
+      effectiveMatchedPlanVersionId
+      manualMatchedAt
+      manualMatchNote
+    }
+  }
+`;
+
+const CONTRACT_SUBMISSIONS_QUERY = gql`
+  query ContractSubmissions($documentNumber: String!) {
+    contractSubmissions(documentNumber: $documentNumber) {
+      id
+      sourceRowNumber
+      submittedAt
+      documentNumberRaw
+      documentNumberNorm
+      travelerName
+      travelerPhone
+      leaderName
+      representativeType
+      totalCompanionCount
+      receivedStatus
+      importedAt
+      updatedAt
+      source {
+        id
+        type
+        name
+        isActive
+        sheetId
+        sheetGid
+        headerRow
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
+const CONTRACT_SYNC_RUNS_QUERY = gql`
+  query ContractSyncRuns($sourceId: ID, $limit: Int = 20) {
+    contractSyncRuns(sourceId: $sourceId, limit: $limit) {
+      id
+      sourceId
+      status
+      startedAt
+      finishedAt
+      fetchedRows
+      upsertedRows
+      skippedRows
+      errorMessage
+    }
+  }
+`;
+
+const SYNC_CONTRACT_SUBMISSIONS_MUTATION = gql`
+  mutation SyncContractSubmissions($sourceId: ID!) {
+    syncContractSubmissions(sourceId: $sourceId) {
+      id
+      sourceId
+      status
+      startedAt
+      finishedAt
+      fetchedRows
+      upsertedRows
+      skippedRows
+      errorMessage
+    }
+  }
+`;
+
+const CONTRACT_PAYMENT_SOURCES_QUERY = gql`
+  query ContractPaymentSources {
+    contractPaymentSources {
+      id
+      type
+      name
+      isActive
+      sheetId
+      sheetGid
+      headerRow
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+const CONTRACT_PAYMENT_STATUSES_QUERY = gql`
+  query ContractPaymentStatuses($documentNumbers: [String!]!) {
+    contractPaymentStatuses(documentNumbers: $documentNumbers) {
+      id
+      documentNumberNorm
+      requiredAmountKrw
+      receivedAmountKrw
+      status
+      needsReviewReason
+      matchedPlanVersionId
+      computedAt
+      updatedAt
+    }
+  }
+`;
+
+const CONTRACT_PAYMENT_RECEIPTS_QUERY = gql`
+  query ContractPaymentReceipts($documentNumber: String!) {
+    contractPaymentReceipts(documentNumber: $documentNumber) {
+      id
+      sourceRowNumber
+      receivedAt
+      payerNameRaw
+      amountKrw
+      matchedDocumentNumberNorm
+      needsReviewReason
+      importedAt
+      updatedAt
+      source {
+        id
+        type
+        name
+        isActive
+        sheetId
+        sheetGid
+        headerRow
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
+const CONTRACT_PAYMENT_SYNC_RUNS_QUERY = gql`
+  query ContractPaymentSyncRuns($sourceId: ID, $limit: Int = 20) {
+    contractPaymentSyncRuns(sourceId: $sourceId, limit: $limit) {
+      id
+      sourceId
+      status
+      startedAt
+      finishedAt
+      fetchedRows
+      upsertedRows
+      skippedRows
+      matchedRows
+      reviewRows
+      errorMessage
+    }
+  }
+`;
+
+const SYNC_CONTRACT_PAYMENTS_MUTATION = gql`
+  mutation SyncContractPayments($sourceId: ID!) {
+    syncContractPayments(sourceId: $sourceId) {
+      id
+      sourceId
+      status
+      startedAt
+      finishedAt
+      fetchedRows
+      upsertedRows
+      skippedRows
+      matchedRows
+      reviewRows
+      errorMessage
+    }
+  }
+`;
+
+const CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY = gql`
+  query ContractPaymentReviewReceipts($keyword: String, $reasons: [String!], $limit: Int = 100) {
+    contractPaymentReviewReceipts(keyword: $keyword, reasons: $reasons, limit: $limit) {
+      candidateDocumentNumbers
+      receipt {
+        id
+        sourceRowNumber
+        receivedAt
+        payerNameRaw
+        amountKrw
+        matchedDocumentNumberNorm
+        needsReviewReason
+        importedAt
+        updatedAt
+        source {
+          id
+          type
+          name
+          isActive
+          sheetId
+          sheetGid
+          headerRow
+          createdAt
+          updatedAt
+        }
+      }
+    }
+  }
+`;
+
+const CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY = gql`
+  query ContractPaymentReviewTabCount {
+    contractPaymentReviewTabCount
+  }
+`;
+
+const MATCH_CONTRACT_PAYMENT_RECEIPT_MUTATION = gql`
+  mutation MatchContractPaymentReceipt($input: MatchContractPaymentReceiptInput!) {
+    matchContractPaymentReceipt(input: $input) {
+      id
+      sourceRowNumber
+      receivedAt
+      payerNameRaw
+      amountKrw
+      matchedDocumentNumberNorm
+      needsReviewReason
+      importedAt
+      updatedAt
+    }
+  }
+`;
+
+const UNMATCH_CONTRACT_PAYMENT_RECEIPT_MUTATION = gql`
+  mutation UnmatchContractPaymentReceipt($input: UnmatchContractPaymentReceiptInput!) {
+    unmatchContractPaymentReceipt(input: $input) {
+      id
+      sourceRowNumber
+      receivedAt
+      payerNameRaw
+      amountKrw
+      matchedDocumentNumberNorm
+      needsReviewReason
+      importedAt
+      updatedAt
+    }
+  }
+`;
+
+export function useContractSubmissionSources() {
+  const { data, loading, refetch } = useQuery<{ contractSubmissionSources: ContractSubmissionSourceRow[] }>(
+    CONTRACT_SUBMISSION_SOURCES_QUERY,
+  );
+  return { sources: data?.contractSubmissionSources ?? [], loading, refetch };
+}
+
+export function useContractDocumentStatuses(documentNumbers: string[]) {
+  const normalizedInput = useMemo(() => documentNumbers.map((item) => item.trim()).filter(Boolean), [documentNumbers]);
+  const { data, loading, refetch } = useQuery<{ contractDocumentStatuses: ContractDocumentStatusRow[] }>(
+    CONTRACT_DOCUMENT_STATUSES_QUERY,
+    {
+      variables: { documentNumbers: normalizedInput },
+      skip: normalizedInput.length === 0,
+    },
+  );
+  return { statuses: data?.contractDocumentStatuses ?? [], loading, refetch };
+}
+
+export function useContractSubmissions(documentNumber: string | null | undefined) {
+  const normalizedInput = useMemo(() => documentNumber?.trim() ?? '', [documentNumber]);
+  const { data, loading } = useQuery<{ contractSubmissions: ContractSubmissionRow[] }>(
+    CONTRACT_SUBMISSIONS_QUERY,
+    {
+      variables: { documentNumber: normalizedInput },
+      skip: normalizedInput.length === 0,
+    },
+  );
+  return { submissions: data?.contractSubmissions ?? [], loading };
+}
+
+export function useContractDocumentReviewItems(
+  statuses?: ContractDocumentStatusValue[],
+  keyword?: string,
+  limit = 100,
+) {
+  const normalizedKeyword = keyword?.trim() ?? '';
+  const { data, loading, refetch } = useQuery<{ contractDocumentReviewItems: ContractDocumentReviewItemRow[] }>(
+    CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY,
+    {
+      variables: {
+        statuses: statuses?.length ? statuses : undefined,
+        keyword: normalizedKeyword || undefined,
+        limit,
+      },
+    },
+  );
+  return { items: data?.contractDocumentReviewItems ?? [], loading, refetch };
+}
+
+export function useContractDocumentReviewTabCounts() {
+  const { data, loading, refetch } = useQuery<{ contractDocumentReviewTabCounts: ContractDocumentReviewTabCountsRow }>(
+    CONTRACT_DOCUMENT_REVIEW_TAB_COUNTS_QUERY,
+  );
+  return {
+    counts: data?.contractDocumentReviewTabCounts ?? null,
+    loading,
+    refetch,
+  };
+}
+
+export function useContractMatchPlanVersionCandidates(keyword: string, limit = 20) {
+  const normalizedKeyword = keyword.trim();
+  const { data, loading } = useQuery<{ contractMatchPlanVersionCandidates: ContractMatchPlanVersionCandidateRow[] }>(
+    CONTRACT_MATCH_PLAN_VERSION_CANDIDATES_QUERY,
+    {
+      variables: { keyword: normalizedKeyword, limit },
+      skip: normalizedKeyword.length === 0,
+    },
+  );
+  return { candidates: data?.contractMatchPlanVersionCandidates ?? [], loading };
+}
+
+export function useMatchContractDocument() {
+  const [mutate, { loading }] = useMutation<{ matchContractDocument: ContractDocumentStatusRow }>(
+    MATCH_CONTRACT_DOCUMENT_MUTATION,
+  );
+  return {
+    loading,
+    matchContractDocument: async (input: { documentNumber: string; planVersionId: string; note?: string | null }) => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [{ query: CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY }],
+      });
+      if (!result.data?.matchContractDocument) {
+        throw new Error('Failed to match contract document');
+      }
+      return result.data.matchContractDocument;
+    },
+  };
+}
+
+export function useUnmatchContractDocument() {
+  const [mutate, { loading }] = useMutation<{ unmatchContractDocument: ContractDocumentStatusRow }>(
+    UNMATCH_CONTRACT_DOCUMENT_MUTATION,
+  );
+  return {
+    loading,
+    unmatchContractDocument: async (documentNumber: string) => {
+      const result = await mutate({
+        variables: { input: { documentNumber } },
+        refetchQueries: [{ query: CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY }],
+      });
+      if (!result.data?.unmatchContractDocument) {
+        throw new Error('Failed to unmatch contract document');
+      }
+      return result.data.unmatchContractDocument;
+    },
+  };
+}
+
+export function useExcludeContractSubmissionFromCount() {
+  const [mutate, { loading }] = useMutation<{ excludeContractSubmissionFromCount: ContractSubmissionRow }>(
+    EXCLUDE_CONTRACT_SUBMISSION_FROM_COUNT_MUTATION,
+  );
+  return {
+    loading,
+    excludeContractSubmissionFromCount: async (input: { submissionId: string; reason?: string | null }) => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [{ query: CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY }],
+      });
+      if (!result.data?.excludeContractSubmissionFromCount) {
+        throw new Error('Failed to exclude contract submission from count');
+      }
+      return result.data.excludeContractSubmissionFromCount;
+    },
+  };
+}
+
+export function useRestoreContractSubmissionToCount() {
+  const [mutate, { loading }] = useMutation<{ restoreContractSubmissionToCount: ContractSubmissionRow }>(
+    RESTORE_CONTRACT_SUBMISSION_TO_COUNT_MUTATION,
+  );
+  return {
+    loading,
+    restoreContractSubmissionToCount: async (submissionId: string) => {
+      const result = await mutate({
+        variables: { input: { submissionId } },
+        refetchQueries: [{ query: CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY }],
+      });
+      if (!result.data?.restoreContractSubmissionToCount) {
+        throw new Error('Failed to restore contract submission to count');
+      }
+      return result.data.restoreContractSubmissionToCount;
+    },
+  };
+}
+
+export function useContractSyncRuns(sourceId?: string, limit = 20) {
+  const { data, loading, refetch } = useQuery<{ contractSyncRuns: ContractSyncRunRow[] }>(
+    CONTRACT_SYNC_RUNS_QUERY,
+    { variables: { sourceId, limit } },
+  );
+  return { runs: data?.contractSyncRuns ?? [], loading, refetch };
+}
+
+export function useSyncContractSubmissions() {
+  const [mutate, { loading }] = useMutation<{ syncContractSubmissions: ContractSyncRunRow }>(
+    SYNC_CONTRACT_SUBMISSIONS_MUTATION,
+  );
+  return {
+    loading,
+    syncContractSubmissions: async (sourceId: string): Promise<ContractSyncRunRow> => {
+      const result = await mutate({
+        variables: { sourceId },
+        refetchQueries: [
+          { query: CONTRACT_SYNC_RUNS_QUERY, variables: { sourceId, limit: 20 } },
+        ],
+      });
+      if (!result.data?.syncContractSubmissions) {
+        throw new Error('Failed to sync contract submissions');
+      }
+      return result.data.syncContractSubmissions;
+    },
+  };
+}
+
+export function useContractPaymentSources() {
+  const { data, loading, refetch } = useQuery<{ contractPaymentSources: ContractPaymentSourceRow[] }>(
+    CONTRACT_PAYMENT_SOURCES_QUERY,
+  );
+  return { sources: data?.contractPaymentSources ?? [], loading, refetch };
+}
+
+export function useContractPaymentStatuses(documentNumbers: string[]) {
+  const normalizedInput = useMemo(() => documentNumbers.map((item) => item.trim()).filter(Boolean), [documentNumbers]);
+  const { data, loading, refetch } = useQuery<{ contractPaymentStatuses: ContractPaymentStatusRow[] }>(
+    CONTRACT_PAYMENT_STATUSES_QUERY,
+    {
+      variables: { documentNumbers: normalizedInput },
+      skip: normalizedInput.length === 0,
+    },
+  );
+  return { statuses: data?.contractPaymentStatuses ?? [], loading, refetch };
+}
+
+export function useContractPaymentReceipts(documentNumber: string | null | undefined) {
+  const normalizedInput = useMemo(() => documentNumber?.trim() ?? '', [documentNumber]);
+  const { data, loading } = useQuery<{ contractPaymentReceipts: ContractPaymentReceiptRow[] }>(
+    CONTRACT_PAYMENT_RECEIPTS_QUERY,
+    {
+      variables: { documentNumber: normalizedInput },
+      skip: normalizedInput.length === 0,
+    },
+  );
+  return { receipts: data?.contractPaymentReceipts ?? [], loading };
+}
+
+export function useContractPaymentSyncRuns(sourceId?: string, limit = 20) {
+  const { data, loading, refetch } = useQuery<{ contractPaymentSyncRuns: ContractPaymentSyncRunRow[] }>(
+    CONTRACT_PAYMENT_SYNC_RUNS_QUERY,
+    { variables: { sourceId, limit } },
+  );
+  return { runs: data?.contractPaymentSyncRuns ?? [], loading, refetch };
+}
+
+export function useSyncContractPayments() {
+  const [mutate, { loading }] = useMutation<{ syncContractPayments: ContractPaymentSyncRunRow }>(
+    SYNC_CONTRACT_PAYMENTS_MUTATION,
+  );
+  return {
+    loading,
+    syncContractPayments: async (sourceId: string): Promise<ContractPaymentSyncRunRow> => {
+      const result = await mutate({
+        variables: { sourceId },
+        refetchQueries: [
+          { query: CONTRACT_PAYMENT_SYNC_RUNS_QUERY, variables: { sourceId, limit: 20 } },
+        ],
+      });
+      if (!result.data?.syncContractPayments) {
+        throw new Error('Failed to sync contract payments');
+      }
+      return result.data.syncContractPayments;
+    },
+  };
+}
+
+export function useContractPaymentReviewReceipts(keyword?: string, reasons?: string[], limit = 100) {
+  const normalizedKeyword = keyword?.trim() ?? '';
+  const normalizedReasons = useMemo(
+    () => Array.from(new Set((reasons ?? []).map((reason) => reason.trim()).filter(Boolean))),
+    [reasons],
+  );
+  const { data, loading, refetch } = useQuery<{ contractPaymentReviewReceipts: ContractPaymentReviewReceiptItemRow[] }>(
+    CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY,
+    {
+      variables: {
+        keyword: normalizedKeyword || undefined,
+        reasons: normalizedReasons.length > 0 ? normalizedReasons : undefined,
+        limit,
+      },
+    },
+  );
+  return { items: data?.contractPaymentReviewReceipts ?? [], loading, refetch };
+}
+
+export function useContractPaymentReviewTabCount() {
+  const { data, loading, refetch } = useQuery<{ contractPaymentReviewTabCount: number }>(
+    CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY,
+  );
+  return {
+    count: data?.contractPaymentReviewTabCount ?? null,
+    loading,
+    refetch,
+  };
+}
+
+export function useMatchContractPaymentReceipt() {
+  const [mutate, { loading }] = useMutation<{ matchContractPaymentReceipt: ContractPaymentReceiptRow }>(
+    MATCH_CONTRACT_PAYMENT_RECEIPT_MUTATION,
+  );
+  return {
+    loading,
+    matchContractPaymentReceipt: async (input: { receiptId: string; documentNumber: string }) => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [
+          { query: CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY },
+          { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY },
+        ],
+      });
+      if (!result.data?.matchContractPaymentReceipt) {
+        throw new Error('Failed to match contract payment receipt');
+      }
+      return result.data.matchContractPaymentReceipt;
+    },
+  };
+}
+
+export function useUnmatchContractPaymentReceipt() {
+  const [mutate, { loading }] = useMutation<{ unmatchContractPaymentReceipt: ContractPaymentReceiptRow }>(
+    UNMATCH_CONTRACT_PAYMENT_RECEIPT_MUTATION,
+  );
+  return {
+    loading,
+    unmatchContractPaymentReceipt: async (receiptId: string) => {
+      const result = await mutate({
+        variables: { input: { receiptId } },
+        refetchQueries: [
+          { query: CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY },
+          { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY },
+        ],
+      });
+      if (!result.data?.unmatchContractPaymentReceipt) {
+        throw new Error('Failed to unmatch contract payment receipt');
+      }
+      return result.data.unmatchContractPaymentReceipt;
+    },
+  };
+}

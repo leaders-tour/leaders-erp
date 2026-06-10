@@ -18,6 +18,7 @@ import { CustomerCreatePage } from '../pages/CustomerCreatePage';
 import { CustomerPage } from '../pages/CustomerPage';
 import { CustomerPlansPage } from '../pages/CustomerPlansPage';
 import { DealPipelinePage } from '../pages/DealPipelinePage';
+import { ContractDocumentReviewPage } from '../pages/ContractDocumentReviewPage';
 import { EmployeeAdminPage } from '../pages/EmployeeAdminPage';
 import { EstimatePdfRenderPage } from '../pages/EstimatePdfRenderPage';
 import { EstimatePrintPage } from '../pages/EstimatePrintPage';
@@ -133,6 +134,10 @@ export const router = createBrowserRouter([
       {
         path: 'deal-pipeline',
         element: <RequireStaffOrAbove><DealPipelinePage /></RequireStaffOrAbove>,
+      },
+      {
+        path: 'contracts/review',
+        element: <RequireStaffOrAbove><ContractDocumentReviewPage /></RequireStaffOrAbove>,
       },
       {
         path: 'outreach/leads',
