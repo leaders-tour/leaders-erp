@@ -348,15 +348,18 @@ function paymentBreakdownFromPricing(
   const customerSnapshot = pricing.manualPricing?.customerPricingSnapshot;
   const depositPerPerson = customerSnapshot?.depositAmountKrw ?? pricing.depositAmountKrw;
   const securityMode = customerSnapshot?.securityDepositMode ?? pricing.securityDepositMode;
+  const securityUnitAmount =
+    customerSnapshot?.securityDepositUnitKrw ?? pricing.securityDepositUnitPriceKrw;
   const securityTotal =
-    customerSnapshot?.securityDepositTotalKrw ??
-    (securityMode === 'PER_PERSON' ? pricing.securityDepositAmountKrw * people : pricing.securityDepositAmountKrw);
+    securityMode === 'PER_PERSON'
+      ? securityUnitAmount * people
+      : customerSnapshot?.securityDepositTotalKrw ?? pricing.securityDepositAmountKrw;
   const depositTotal = depositPerPerson * people;
   return {
     depositPerPerson,
     depositTotal,
     securityMode,
-    securityUnitAmount: pricing.securityDepositAmountKrw,
+    securityUnitAmount,
     securityTotal,
     requiredTotal: depositTotal + securityTotal,
   };

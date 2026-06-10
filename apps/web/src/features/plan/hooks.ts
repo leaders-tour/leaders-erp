@@ -82,12 +82,13 @@ export interface UserRow {
       } | null;
       pricing?: Pick<
         PlanVersionPricingRow,
-        'id' | 'totalAmountKrw' | 'depositAmountKrw' | 'balanceAmountKrw' | 'securityDepositAmountKrw' | 'securityDepositMode'
+        'id' | 'totalAmountKrw' | 'depositAmountKrw' | 'balanceAmountKrw' | 'securityDepositAmountKrw' | 'securityDepositUnitPriceKrw' | 'securityDepositMode'
       > & {
         manualPricing?: {
           customerPricingSnapshot?: {
             depositAmountKrw: number;
             securityDepositTotalKrw: number;
+            securityDepositUnitKrw: number;
             securityDepositMode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
           } | null;
         } | null;
@@ -522,11 +523,13 @@ const USERS_QUERY = gql`
             depositAmountKrw
             balanceAmountKrw
             securityDepositAmountKrw
+            securityDepositUnitPriceKrw
             securityDepositMode
             manualPricing {
               customerPricingSnapshot {
                 depositAmountKrw
                 securityDepositTotalKrw
+                securityDepositUnitKrw
                 securityDepositMode
               }
             }

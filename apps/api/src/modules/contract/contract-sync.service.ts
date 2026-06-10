@@ -144,6 +144,7 @@ type PlanVersionForPaymentMatch = Prisma.PlanVersionGetPayload<{
       select: {
         depositAmountKrw: true;
         securityDepositAmountKrw: true;
+        securityDepositUnitPriceKrw: true;
         securityDepositMode: true;
         inputSnapshot: true;
         manualPricingSnapshot: true;
@@ -1440,14 +1441,43 @@ function headcountForPricing(planVersion: PlanVersionForPaymentMatch): number {
 }
 
 function securityDepositTotalForPayment(input: {
-  amount: number | null;
+  totalAmount: number | null;
+  unitAmount: number | null;
   mode: unknown;
   headcount: number;
 }): number {
-  if (input.amount == null || input.amount <= 0 || input.mode === 'NONE') {
+  if (input.mode === 'NONE') {
     return 0;
   }
-  return input.mode === 'PER_PERSON' ? input.amount * input.headcount : input.amount;
+  if (input.mode === 'PER_PERSON') {
+    if (input.unitAmount != null && input.unitAmount > 0) {
+      return input.unitAmount * input.headcount;
+    }
+    return input.totalAmount ?? 0;
+  }
+  return input.totalAmount ?? input.unitAmount ?? 0;
+}
+
+function customerSecurityDepositTotalKrw(
+  customerSnapshot: Record<string, unknown> | null,
+  headcount: number,
+): number | null {
+  if (!customerSnapshot) {
+    return null;
+  }
+  const mode = customerSnapshot.securityDepositMode;
+  const unitKrw = numberValue(customerSnapshot.securityDepositUnitKrw);
+  const totalKrw = numberValue(customerSnapshot.securityDepositTotalKrw);
+  if (mode === 'NONE') {
+    return 0;
+  }
+  if (mode === 'PER_PERSON') {
+    if (unitKrw != null && unitKrw > 0) {
+      return unitKrw * headcount;
+    }
+    return totalKrw;
+  }
+  return totalKrw ?? unitKrw;
 }
 
 function requiredPaymentAmount(planVersion: PlanVersionForPaymentMatch | null): number | null {
@@ -1459,17 +1489,21 @@ function requiredPaymentAmount(planVersion: PlanVersionForPaymentMatch | null): 
   const manualSnapshot = asRecord(pricing.manualPricingSnapshot);
   const customerSnapshot = asRecord(manualSnapshot?.customerPricingSnapshot);
   const customerDepositAmount = numberValue(customerSnapshot?.depositAmountKrw);
-  const customerSecurityAmount = numberValue(customerSnapshot?.securityDepositTotalKrw);
+  const customerSecurityAmount = customerSecurityDepositTotalKrw(customerSnapshot, headcountForPricing(planVersion));
   const headcount = headcountForPricing(planVersion);
   if (customerDepositAmount != null || customerSecurityAmount != null) {
     return (customerDepositAmount ?? 0) * headcount + (customerSecurityAmount ?? 0);
   }
 
-  return pricing.depositAmountKrw * headcount + securityDepositTotalForPayment({
-    amount: pricing.securityDepositAmountKrw,
-    mode: pricing.securityDepositMode,
-    headcount,
-  });
+  return (
+    pricing.depositAmountKrw * headcount +
+    securityDepositTotalForPayment({
+      totalAmount: pricing.securityDepositAmountKrw,
+      unitAmount: pricing.securityDepositUnitPriceKrw,
+      mode: pricing.securityDepositMode,
+      headcount,
+    })
+  );
 }
 
 function matchPaymentRow(row: ParsedPaymentSheetRow, context: PaymentMatchContext): MatchedPaymentRow {
@@ -1761,6 +1795,7 @@ export class ContractPaymentSyncService {
             select: {
               depositAmountKrw: true,
               securityDepositAmountKrw: true,
+              securityDepositUnitPriceKrw: true,
               securityDepositMode: true,
               inputSnapshot: true,
               manualPricingSnapshot: true,
@@ -1894,6 +1929,7 @@ export class ContractPaymentSyncService {
             select: {
               depositAmountKrw: true,
               securityDepositAmountKrw: true,
+              securityDepositUnitPriceKrw: true,
               securityDepositMode: true,
               inputSnapshot: true,
               manualPricingSnapshot: true,
@@ -2033,6 +2069,7 @@ export class ContractPaymentSyncService {
           select: {
             depositAmountKrw: true,
             securityDepositAmountKrw: true,
+            securityDepositUnitPriceKrw: true,
             securityDepositMode: true,
             inputSnapshot: true,
             manualPricingSnapshot: true,

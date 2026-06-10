@@ -16,7 +16,8 @@
     "worker:ai": "pnpm --filter @tour/workers worker:ai",
     "worker:mail": "pnpm --filter @tour/workers worker:mail",
     "worker:contract-form-sync": "pnpm --filter @tour/workers worker:contract-form-sync",
-    "worker:contract-payment-sync": "pnpm --filter @tour/workers worker:contract-payment-sync"
+    "worker:contract-payment-sync": "pnpm --filter @tour/workers worker:contract-payment-sync",
+    "backfill:customer-pricing-security-deposit": "pnpm --filter @tour/workers exec tsx ../../scripts/backfill-customer-pricing-security-deposit.ts"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.56.0",

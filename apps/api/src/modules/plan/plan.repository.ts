@@ -190,6 +190,7 @@ export class PlanRepository {
                     depositAmountKrw: true,
                     balanceAmountKrw: true,
                     securityDepositAmountKrw: true,
+                    securityDepositUnitPriceKrw: true,
                     securityDepositMode: true,
                     manualPricingSnapshot: true,
                   },

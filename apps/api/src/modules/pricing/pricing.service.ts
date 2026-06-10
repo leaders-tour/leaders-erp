@@ -166,7 +166,7 @@ export class PricingService {
 
     if (effectiveMode === 'NONE') {
       return {
-        securityDepositAmountKrw,
+        securityDepositAmountKrw: 0,
         securityDepositUnitPriceKrw: 0,
         securityDepositQuantity: 0,
         securityDepositMode: effectiveMode,
@@ -176,6 +176,27 @@ export class PricingService {
     const headcountTotal =
       typeof result.inputSnapshot.headcountTotal === 'number' ? result.inputSnapshot.headcountTotal : 0;
     const quantity = effectiveMode === 'PER_PERSON' ? Math.max(1, headcountTotal) : 1;
+
+    if (touchAmount && effectiveMode === 'PER_PERSON') {
+      const unit = manualSummary!.securityDepositAmountKrw as number;
+      return {
+        securityDepositAmountKrw: unit * quantity,
+        securityDepositUnitPriceKrw: unit,
+        securityDepositQuantity: quantity,
+        securityDepositMode: effectiveMode,
+      };
+    }
+
+    if (touchAmount && effectiveMode === 'PER_TEAM') {
+      const total = manualSummary!.securityDepositAmountKrw as number;
+      return {
+        securityDepositAmountKrw: total,
+        securityDepositUnitPriceKrw: total,
+        securityDepositQuantity: 1,
+        securityDepositMode: effectiveMode,
+      };
+    }
+
     const securityDepositUnitPriceKrw =
       quantity > 0 ? Math.round(securityDepositAmountKrw / quantity) : securityDepositAmountKrw;
 

@@ -465,6 +465,56 @@ function resolveSecurityDepositHeadcount<TLine extends PricingManualSourceLine>(
   return ctx.headcountTotal;
 }
 
+function normalizeEffectiveSecurityDeposit(input: {
+  manualUnitKrw: number | null;
+  pricingTotalKrw: number;
+  pricingUnitKrw: number;
+  mode: SecurityDepositScopeMode;
+  quantity: number;
+}): {
+  securityDepositAmountKrw: number;
+  securityDepositUnitPriceKrw: number;
+  securityDepositQuantity: number;
+} {
+  const { manualUnitKrw, pricingTotalKrw, pricingUnitKrw, mode, quantity } = input;
+  if (mode === 'NONE') {
+    return {
+      securityDepositAmountKrw: 0,
+      securityDepositUnitPriceKrw: 0,
+      securityDepositQuantity: 0,
+    };
+  }
+  if (manualUnitKrw != null) {
+    if (mode === 'PER_PERSON') {
+      const unit = manualUnitKrw;
+      const effectiveQuantity = Math.max(1, quantity);
+      return {
+        securityDepositAmountKrw: unit * effectiveQuantity,
+        securityDepositUnitPriceKrw: unit,
+        securityDepositQuantity: effectiveQuantity,
+      };
+    }
+    return {
+      securityDepositAmountKrw: manualUnitKrw,
+      securityDepositUnitPriceKrw: manualUnitKrw,
+      securityDepositQuantity: 1,
+    };
+  }
+  const effectiveQuantity = mode === 'PER_PERSON' ? Math.max(1, quantity) : 1;
+  const total = pricingTotalKrw;
+  const unit =
+    pricingUnitKrw > 0
+      ? pricingUnitKrw
+      : effectiveQuantity > 0
+        ? Math.round(total / effectiveQuantity)
+        : total;
+  return {
+    securityDepositAmountKrw: total,
+    securityDepositUnitPriceKrw: unit,
+    securityDepositQuantity: effectiveQuantity,
+  };
+}
+
 function buildSingleEffectivePricing<TLine extends PricingManualSourceLine>(
   pricing: PricingLike<TLine> | TeamPricingLike<TLine>,
   ctx: { headcountTotal: number; totalDays: number },
@@ -496,14 +546,10 @@ function buildSingleEffectivePricing<TLine extends PricingManualSourceLine>(
           balanceAmountKrw: balanceOverride,
         }
       : computeDepositAndBalance(totalAmountKrw, depositOverride);
-  const securityDepositAmountKrw = hasNumber(summary?.securityDepositAmountKrw)
+  const manualSecurityDepositUnitKrw = hasNumber(summary?.securityDepositAmountKrw)
     ? summary.securityDepositAmountKrw
-    : pricing.securityDepositAmountKrw;
+    : null;
   const securityDepositMode = resolveManualSecurityDepositMode(summary, pricing.securityDepositMode);
-  const hasManualSecurityDepositOverride =
-    hasNumber(summary?.securityDepositAmountKrw) ||
-    summary?.securityDepositMode === 'PER_PERSON' ||
-    summary?.securityDepositMode === 'PER_TEAM';
   const securityHeadcount = resolveSecurityDepositHeadcount(pricing, ctx);
   const securityDepositQuantity =
     securityDepositMode === 'NONE'
@@ -511,12 +557,17 @@ function buildSingleEffectivePricing<TLine extends PricingManualSourceLine>(
       : securityDepositMode === 'PER_PERSON'
         ? Math.max(1, securityHeadcount)
         : 1;
-  const securityDepositUnitPriceKrw =
-    securityDepositMode === 'NONE'
-      ? 0
-      : hasManualSecurityDepositOverride || securityDepositQuantity <= 0
-        ? securityDepositAmountKrw
-        : Math.round(securityDepositAmountKrw / securityDepositQuantity);
+  const {
+    securityDepositAmountKrw,
+    securityDepositUnitPriceKrw,
+    securityDepositQuantity: normalizedSecurityDepositQuantity,
+  } = normalizeEffectiveSecurityDeposit({
+    manualUnitKrw: manualSecurityDepositUnitKrw,
+    pricingTotalKrw: pricing.securityDepositAmountKrw,
+    pricingUnitKrw: pricing.securityDepositUnitPriceKrw,
+    mode: securityDepositMode,
+    quantity: securityDepositQuantity,
+  });
 
   return {
     baseAmountKrw,
@@ -526,7 +577,7 @@ function buildSingleEffectivePricing<TLine extends PricingManualSourceLine>(
     balanceAmountKrw,
     securityDepositAmountKrw,
     securityDepositUnitPriceKrw,
-    securityDepositQuantity,
+    securityDepositQuantity: normalizedSecurityDepositQuantity,
     securityDepositMode,
     adjustmentLines,
   };
