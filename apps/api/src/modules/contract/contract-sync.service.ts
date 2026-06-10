@@ -87,6 +87,12 @@ type PlanVersionMetaForContractMatch = Prisma.PlanVersionMetaGetPayload<{
     headcountTotal: true;
     planVersion: {
       select: {
+        id: true;
+        plan: {
+          select: {
+            currentVersionId: true;
+          };
+        };
         confirmedTrips: {
           where: { status: 'ACTIVE' };
           select: { id: true; paxCount: true };
@@ -480,9 +486,41 @@ function stripDocumentVersionSuffix(documentNumberNorm: string): string {
   return documentNumberNorm.replace(/V\d+$/i, '');
 }
 
+function documentNumberBaseKey(documentNumberNorm: string): string {
+  return stripDocumentVersionSuffix(documentNumberNorm);
+}
+
 function documentNumberLookupKeys(documentNumberNorm: string): string[] {
-  const base = stripDocumentVersionSuffix(documentNumberNorm);
-  return base === documentNumberNorm ? [documentNumberNorm] : [documentNumberNorm, base];
+  const base = documentNumberBaseKey(documentNumberNorm);
+  return base === documentNumberNorm ? [documentNumberNorm] : [base, documentNumberNorm];
+}
+
+function documentNumberVariantFilter(documentNumberNorm: string): { equals: string } | { startsWith: string } {
+  return { startsWith: `${documentNumberBaseKey(documentNumberNorm)}V` };
+}
+
+function contractSubmissionDocumentWhere(documentNumbers: string[]): Prisma.ContractSubmissionWhereInput {
+  const bases = Array.from(new Set(documentNumbers.map(documentNumberBaseKey)));
+  return {
+    OR: bases.flatMap((base) => [
+      { documentNumberNorm: base },
+      { documentNumberNorm: documentNumberVariantFilter(base) },
+    ]),
+  };
+}
+
+function contractPaymentReceiptDocumentWhere(documentNumbers: string[]): Prisma.ContractPaymentReceiptWhereInput {
+  const bases = Array.from(new Set(documentNumbers.map(documentNumberBaseKey)));
+  return {
+    OR: bases.flatMap((base) => [
+      { matchedDocumentNumberNorm: base },
+      { matchedDocumentNumberNorm: documentNumberVariantFilter(base) },
+    ]),
+  };
+}
+
+function hasDocumentNumberBase(documentNumberNorm: string | null | undefined, base: string): boolean {
+  return documentNumberNorm ? documentNumberBaseKey(documentNumberNorm) === base : false;
 }
 
 function paymentStatusForAmounts(input: {
@@ -569,6 +607,23 @@ function findMetaByPlanVersionId(
   return metas.find((meta) => meta.planVersionId === planVersionId) ?? null;
 }
 
+function findCurrentMetaByDocumentBase(
+  metas: PlanVersionMetaForContractMatch[],
+  documentNumberNorm: string,
+): PlanVersionMetaForContractMatch | null {
+  const base = documentNumberBaseKey(documentNumberNorm);
+  const candidates = metas.filter((meta) => {
+    const normalized = normalizeContractDocumentNumber(meta.documentNumber);
+    return normalized ? documentNumberBaseKey(normalized) === base : false;
+  });
+  if (candidates.length === 0) {
+    return null;
+  }
+  return candidates.find((meta) => meta.planVersion.id === meta.planVersion.plan.currentVersionId)
+    ?? candidates[0]
+    ?? null;
+}
+
 function effectiveMatchedPlanVersionId(row: {
   manualMatchedPlanVersionId: string | null;
   matchedPlanVersionId: string | null;
@@ -626,7 +681,7 @@ export class ContractSyncService {
     }
 
     return this.prisma.contractSubmission.findMany({
-      where: { documentNumberNorm: { in: documentNumberLookupKeys(normalized) } },
+      where: contractSubmissionDocumentWhere([normalized]),
       include: { source: true },
       orderBy: [
         { submittedAt: 'desc' },
@@ -755,7 +810,11 @@ export class ContractSyncService {
       upsertedRows += 1;
     }
 
-    await this.recomputeDocumentStatuses([...affectedDocumentNumbers]);
+    const affectedDocumentNumberList = [...affectedDocumentNumbers];
+    await this.recomputeDocumentStatuses(affectedDocumentNumberList);
+    if (affectedDocumentNumberList.length > 0) {
+      await new ContractPaymentSyncService(this.prisma).recomputePaymentStatuses(affectedDocumentNumberList);
+    }
 
     return {
       fetchedRows: rows.length,
@@ -766,12 +825,16 @@ export class ContractSyncService {
 
   async recomputeDocumentStatuses(documentNumbers?: string[]) {
     const normalized = documentNumbers?.length
-      ? Array.from(new Set(documentNumbers.map(normalizeContractDocumentNumber).filter(isPresent)))
+      ? Array.from(new Set(documentNumbers.map(normalizeContractDocumentNumber).filter(isPresent).map(documentNumberBaseKey)))
       : (await this.prisma.contractSubmission.findMany({
           where: { documentNumberNorm: { not: null } },
           distinct: ['documentNumberNorm'],
           select: { documentNumberNorm: true },
-        })).map((row) => row.documentNumberNorm).filter(isPresent);
+        })).map((row) => row.documentNumberNorm).filter(isPresent).map(documentNumberBaseKey);
+    const documentNumberBases = Array.from(new Set(normalized));
+    if (documentNumberBases.length === 0) {
+      return;
+    }
 
     const metas = await this.prisma.planVersionMeta.findMany({
       select: {
@@ -780,6 +843,12 @@ export class ContractSyncService {
         headcountTotal: true,
         planVersion: {
           select: {
+            id: true,
+            plan: {
+              select: {
+                currentVersionId: true,
+              },
+            },
             confirmedTrips: {
               where: { status: 'ACTIVE' },
               select: { id: true, paxCount: true },
@@ -789,9 +858,8 @@ export class ContractSyncService {
         },
       },
     });
-    const submissionDocumentNumbers = Array.from(new Set(normalized.flatMap(documentNumberLookupKeys)));
     const submissions = await this.prisma.contractSubmission.findMany({
-      where: { documentNumberNorm: { in: submissionDocumentNumbers } },
+      where: contractSubmissionDocumentWhere(documentNumberBases),
       select: {
         documentNumberNorm: true,
         submittedAt: true,
@@ -809,12 +877,13 @@ export class ContractSyncService {
       if (!submission.documentNumberNorm) {
         continue;
       }
-      const items = submissionsByDocumentNumber.get(submission.documentNumberNorm) ?? [];
+      const key = documentNumberBaseKey(submission.documentNumberNorm);
+      const items = submissionsByDocumentNumber.get(key) ?? [];
       items.push(submission);
-      submissionsByDocumentNumber.set(submission.documentNumberNorm, items);
+      submissionsByDocumentNumber.set(key, items);
     }
 
-    for (const documentNumberNorm of normalized) {
+    for (const documentNumberNorm of documentNumberBases) {
       await this.recomputeDocumentStatus(documentNumberNorm, metas, submissionsByDocumentNumber);
     }
   }
@@ -824,29 +893,34 @@ export class ContractSyncService {
     metas: PlanVersionMetaForContractMatch[],
     submissionsByDocumentNumber: Map<string, ContractSubmissionForStatus[]>,
   ) {
-    const submissionDocumentNumbers = documentNumberLookupKeys(documentNumberNorm);
-    const submissions = submissionDocumentNumbers.flatMap((lookupKey) => submissionsByDocumentNumber.get(lookupKey) ?? []);
+    const documentNumberBase = documentNumberBaseKey(documentNumberNorm);
+    const submissions = submissionsByDocumentNumber.get(documentNumberBase) ?? [];
     if (submissions.length === 0) {
       return;
     }
 
-    const existing = await this.prisma.contractDocumentStatus.findUnique({
-      where: { documentNumberNorm },
+    const existingRows = await this.prisma.contractDocumentStatus.findMany({
+      where: {
+        OR: [
+          { documentNumberNorm: documentNumberBase },
+          { documentNumberNorm: { startsWith: `${documentNumberBase}V` } },
+        ],
+      },
       select: {
+        documentNumberNorm: true,
         manualMatchedPlanVersionId: true,
         manualMatchedByEmployeeId: true,
         manualMatchedAt: true,
         manualMatchNote: true,
       },
     });
-
-    const matchedMeta =
-      metas.find((meta) => normalizeContractDocumentNumber(meta.documentNumber) === documentNumberNorm)
-      ?? metas.find((meta) => {
-        const normalizedDocumentNumber = normalizeContractDocumentNumber(meta.documentNumber);
-        return normalizedDocumentNumber ? stripDocumentVersionSuffix(normalizedDocumentNumber) === stripDocumentVersionSuffix(documentNumberNorm) : false;
-      })
+    const existing =
+      existingRows.find((row) => row.documentNumberNorm === documentNumberBase)
+      ?? existingRows.find((row) => row.manualMatchedPlanVersionId)
+      ?? existingRows[0]
       ?? null;
+
+    const matchedMeta = findCurrentMetaByDocumentBase(metas, documentNumberNorm);
     const autoPlanVersionId = matchedMeta?.planVersionId ?? null;
     const effectivePlanVersionId = existing?.manualMatchedPlanVersionId ?? autoPlanVersionId;
     const effectiveMeta = findMetaByPlanVersionId(metas, effectivePlanVersionId) ?? matchedMeta;
@@ -863,9 +937,9 @@ export class ContractSyncService {
     });
 
     await this.prisma.contractDocumentStatus.upsert({
-      where: { documentNumberNorm },
+      where: { documentNumberNorm: documentNumberBase },
       create: {
-        documentNumberNorm,
+        documentNumberNorm: documentNumberBase,
         documentNumberRawSample: submissions.find((row) => row.documentNumberRaw)?.documentNumberRaw ?? null,
         expectedCount,
         submittedCount,
@@ -894,6 +968,9 @@ export class ContractSyncService {
         computedAt: new Date(),
       },
     });
+    await this.prisma.contractDocumentStatus.deleteMany({
+      where: { documentNumberNorm: { startsWith: `${documentNumberBase}V` } },
+    });
   }
 
   async listReviewItems(input: {
@@ -916,7 +993,7 @@ export class ContractSyncService {
       const documentNumbers = rows.map((row) => row.documentNumberNorm);
       const submissions = documentNumbers.length
         ? await this.prisma.contractSubmission.findMany({
-            where: { documentNumberNorm: { in: documentNumbers } },
+            where: contractSubmissionDocumentWhere(documentNumbers),
             select: {
               documentNumberNorm: true,
               travelerName: true,
@@ -930,9 +1007,10 @@ export class ContractSyncService {
         if (!submission.documentNumberNorm) {
           continue;
         }
-        const items = submissionsByDocumentNumber.get(submission.documentNumberNorm) ?? [];
+        const key = documentNumberBaseKey(submission.documentNumberNorm);
+        const items = submissionsByDocumentNumber.get(key) ?? [];
         items.push(submission);
-        submissionsByDocumentNumber.set(submission.documentNumberNorm, items);
+        submissionsByDocumentNumber.set(key, items);
       }
 
       filteredRows = rows.filter((row) => {
@@ -942,7 +1020,7 @@ export class ContractSyncService {
         if (row.documentNumberRawSample?.toLowerCase().includes(keyword)) {
           return true;
         }
-        const relatedSubmissions = submissionsByDocumentNumber.get(row.documentNumberNorm) ?? [];
+        const relatedSubmissions = submissionsByDocumentNumber.get(documentNumberBaseKey(row.documentNumberNorm)) ?? [];
         return relatedSubmissions.some((submission) => {
           return (
             submission.travelerName?.toLowerCase().includes(keyword)
@@ -1021,11 +1099,7 @@ export class ContractSyncService {
       }>();
     const submissionsBySelected = selectedRows.length
       ? await this.prisma.contractSubmission.findMany({
-          where: {
-            documentNumberNorm: {
-              in: selectedRows.flatMap((row) => documentNumberLookupKeys(row.documentNumberNorm)),
-            },
-          },
+          where: contractSubmissionDocumentWhere(selectedRows.map((row) => row.documentNumberNorm)),
           include: { source: true },
           orderBy: [{ submittedAt: 'desc' }, { importedAt: 'desc' }, { sourceRowNumber: 'asc' }],
         })
@@ -1060,7 +1134,7 @@ export class ContractSyncService {
           if (!submission.documentNumberNorm) {
             return false;
           }
-          return documentNumberLookupKeys(statusRow.documentNumberNorm).includes(submission.documentNumberNorm);
+          return hasDocumentNumberBase(submission.documentNumberNorm, documentNumberBaseKey(statusRow.documentNumberNorm));
         }),
       };
     });
@@ -1163,7 +1237,7 @@ export class ContractSyncService {
     }
 
     const submissionCount = await this.prisma.contractSubmission.count({
-      where: { documentNumberNorm: { in: documentNumberLookupKeys(documentNumberNorm) } },
+      where: contractSubmissionDocumentWhere([documentNumberNorm]),
     });
     if (submissionCount === 0) {
       throw new DomainError('VALIDATION_FAILED', 'No contract submissions found for document number');
@@ -1312,7 +1386,7 @@ function buildPaymentMatchContext(
       return;
     }
     const candidates = documentNumbersByName.get(normalizedName) ?? new Set<string>();
-    candidates.add(normalizedDocumentNumber);
+    candidates.add(documentNumberBaseKey(normalizedDocumentNumber));
     documentNumbersByName.set(normalizedName, candidates);
   };
 
@@ -1332,15 +1406,10 @@ function getPaymentPlanVersionForDocument(
   documentNumberNorm: string,
   planVersions: PlanVersionForPaymentMatch[],
 ): PlanVersionForPaymentMatch | null {
-  const exact = planVersions.find((planVersion) => planVersionDocumentNumber(planVersion) === documentNumberNorm);
-  if (exact) {
-    return exact;
-  }
-
-  const base = stripDocumentVersionSuffix(documentNumberNorm);
+  const base = documentNumberBaseKey(documentNumberNorm);
   const candidates = planVersions.filter((planVersion) => {
     const normalized = planVersionDocumentNumber(planVersion);
-    return normalized ? stripDocumentVersionSuffix(normalized) === base : false;
+    return normalized ? documentNumberBaseKey(normalized) === base : false;
   });
   if (candidates.length === 0) {
     return null;
@@ -1472,7 +1541,7 @@ export class ContractPaymentSyncService {
     }
 
     return this.prisma.contractPaymentReceipt.findMany({
-      where: { matchedDocumentNumberNorm: { in: documentNumberLookupKeys(normalized) } },
+      where: contractPaymentReceiptDocumentWhere([normalized]),
       include: { source: true },
       orderBy: [
         { receivedAt: 'desc' },
@@ -1630,7 +1699,7 @@ export class ContractPaymentSyncService {
     }
 
     const submissionCount = await this.prisma.contractSubmission.count({
-      where: { documentNumberNorm: { in: documentNumberLookupKeys(documentNumberNorm) } },
+      where: contractSubmissionDocumentWhere([documentNumberNorm]),
     });
     if (submissionCount === 0) {
       throw new DomainError('VALIDATION_FAILED', 'No contract submissions found for document number');
@@ -1938,12 +2007,8 @@ export class ContractPaymentSyncService {
 
   async recomputePaymentStatuses(documentNumbers?: string[], planVersionsInput?: PlanVersionForPaymentMatch[]) {
     const normalized = documentNumbers?.length
-      ? Array.from(new Set(documentNumbers.map(normalizeContractDocumentNumber).filter(isPresent)))
-      : (await this.prisma.contractPaymentReceipt.findMany({
-          where: { matchedDocumentNumberNorm: { not: null } },
-          distinct: ['matchedDocumentNumberNorm'],
-          select: { matchedDocumentNumberNorm: true },
-        })).map((row) => row.matchedDocumentNumberNorm).filter(isPresent);
+      ? Array.from(new Set(documentNumbers.map(normalizeContractDocumentNumber).filter(isPresent).map(documentNumberBaseKey)))
+      : await this.listPaymentStatusDocumentNumbers();
     if (normalized.length === 0) {
       return;
     }
@@ -1980,9 +2045,8 @@ export class ContractPaymentSyncService {
         },
       },
     });
-    const lookupKeys = Array.from(new Set(normalized.flatMap(documentNumberLookupKeys)));
     const receipts = await this.prisma.contractPaymentReceipt.findMany({
-      where: { matchedDocumentNumberNorm: { in: lookupKeys } },
+      where: contractPaymentReceiptDocumentWhere(normalized),
       select: {
         matchedDocumentNumberNorm: true,
         amountKrw: true,
@@ -1994,13 +2058,15 @@ export class ContractPaymentSyncService {
       if (!receipt.matchedDocumentNumberNorm) {
         continue;
       }
-      const items = receiptsByDocumentNumber.get(receipt.matchedDocumentNumberNorm) ?? [];
+      const key = documentNumberBaseKey(receipt.matchedDocumentNumberNorm);
+      const items = receiptsByDocumentNumber.get(key) ?? [];
       items.push(receipt);
-      receiptsByDocumentNumber.set(receipt.matchedDocumentNumberNorm, items);
+      receiptsByDocumentNumber.set(key, items);
     }
 
     for (const documentNumberNorm of normalized) {
-      const paymentReceipts = documentNumberLookupKeys(documentNumberNorm).flatMap((key) => receiptsByDocumentNumber.get(key) ?? []);
+      const documentNumberBase = documentNumberBaseKey(documentNumberNorm);
+      const paymentReceipts = receiptsByDocumentNumber.get(documentNumberBase) ?? [];
       const planVersion = getPaymentPlanVersionForDocument(documentNumberNorm, planVersions);
       const requiredAmountKrw = requiredPaymentAmount(planVersion);
       const receivedAmountKrw = paymentReceipts.reduce((sum, receipt) => sum + (receipt.amountKrw ?? 0), 0);
@@ -2012,9 +2078,9 @@ export class ContractPaymentSyncService {
       });
 
       await this.prisma.contractPaymentStatus.upsert({
-        where: { documentNumberNorm },
+        where: { documentNumberNorm: documentNumberBase },
         create: {
-          documentNumberNorm,
+          documentNumberNorm: documentNumberBase,
           requiredAmountKrw,
           receivedAmountKrw,
           status: status.status,
@@ -2031,6 +2097,29 @@ export class ContractPaymentSyncService {
           computedAt: new Date(),
         },
       });
+      await this.prisma.contractPaymentStatus.deleteMany({
+        where: { documentNumberNorm: { startsWith: `${documentNumberBase}V` } },
+      });
     }
+  }
+
+  private async listPaymentStatusDocumentNumbers(): Promise<string[]> {
+    const [receiptRows, submissionRows] = await Promise.all([
+      this.prisma.contractPaymentReceipt.findMany({
+        where: { matchedDocumentNumberNorm: { not: null } },
+        distinct: ['matchedDocumentNumberNorm'],
+        select: { matchedDocumentNumberNorm: true },
+      }),
+      this.prisma.contractSubmission.findMany({
+        where: { documentNumberNorm: { not: null } },
+        distinct: ['documentNumberNorm'],
+        select: { documentNumberNorm: true },
+      }),
+    ]);
+
+    return Array.from(new Set([
+      ...receiptRows.map((row) => row.matchedDocumentNumberNorm).filter(isPresent),
+      ...submissionRows.map((row) => row.documentNumberNorm).filter(isPresent),
+    ].map(normalizeContractDocumentNumber).filter(isPresent).map(documentNumberBaseKey)));
   }
 }
