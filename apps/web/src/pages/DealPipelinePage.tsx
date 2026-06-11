@@ -28,6 +28,7 @@ import {
   type ContractSubmissionRow,
 } from '../features/contract/hooks';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
+import { EstimatePreviewScaler } from '../features/estimate/components/EstimatePreviewScaler';
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
 import {
   useCreateUserNote,
@@ -1442,7 +1443,9 @@ function UserDetailDrawer({
                 <div className="rounded-3xl border border-slate-200 bg-slate-100/70 p-3">
                   <div className="max-h-[72vh] overflow-auto rounded-2xl bg-white">
                     <div className="estimate-preview-frame">
-                      <EstimateDocument data={estimatePreviewData} viewMode="screen-preview" />
+                      <EstimatePreviewScaler>
+                        <EstimateDocument data={estimatePreviewData} viewMode="screen-preview" />
+                      </EstimatePreviewScaler>
                     </div>
                   </div>
                 </div>

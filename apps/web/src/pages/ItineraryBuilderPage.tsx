@@ -13,6 +13,7 @@ import { TimePickerModal } from '../components/date-picker/TimePickerModal';
 import { formatTimeTriggerLabel } from '../components/date-picker/time-picker-utils';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { EstimateGuideLayoutControls } from '../features/estimate/components/EstimateGuideLayoutControls';
+import { EstimatePreviewScaler } from '../features/estimate/components/EstimatePreviewScaler';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
 import {
   MOVEMENT_INTENSITY_ORDER,
@@ -8226,22 +8227,24 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                 {previewEstimateData ? (
                   <div className="estimate-preview-frame">
-                    <EstimateDocument
-                      data={previewEstimateData}
-                      viewMode="screen-preview"
-                      page1Editor={previewPage1Editor}
-                      screenPreviewGuideOverlay={
-                        <EstimateGuideLayoutControls
-                          density="compact"
-                          showCompressThreePreset={showEstimateGuideCompressThreePreset}
-                          estimateGuideImagesPerPage={estimateGuideImagesPerPage}
-                          onEstimateGuideImagesPerPage={setEstimateGuideImagesPerPage}
-                          estimateGuidePageSplitsText={estimateGuidePageSplitsText}
-                          onEstimateGuidePageSplitsText={setEstimateGuidePageSplitsText}
-                          splitsInputId="estimate-guide-page-splits-preview"
-                        />
-                      }
-                    />
+                    <EstimatePreviewScaler>
+                      <EstimateDocument
+                        data={previewEstimateData}
+                        viewMode="screen-preview"
+                        page1Editor={previewPage1Editor}
+                        screenPreviewGuideOverlay={
+                          <EstimateGuideLayoutControls
+                            density="compact"
+                            showCompressThreePreset={showEstimateGuideCompressThreePreset}
+                            estimateGuideImagesPerPage={estimateGuideImagesPerPage}
+                            onEstimateGuideImagesPerPage={setEstimateGuideImagesPerPage}
+                            estimateGuidePageSplitsText={estimateGuidePageSplitsText}
+                            onEstimateGuidePageSplitsText={setEstimateGuidePageSplitsText}
+                            splitsInputId="estimate-guide-page-splits-preview"
+                          />
+                        }
+                      />
+                    </EstimatePreviewScaler>
                   </div>
                 ) : (
                   <Card className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600">

@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getEstimatePdfDownloadLabel, useEstimatePdfDownload } from '../features/estimate/hooks/use-estimate-pdf-download';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
+import { EstimatePreviewScaler } from '../features/estimate/components/EstimatePreviewScaler';
 import { fromVersion } from '../features/estimate/adapters';
 import { useEstimateLocationGuides } from '../features/estimate/hooks/use-estimate-location-guides';
 import { applyLocationGuides } from '../features/estimate/utils/apply-location-guides';
@@ -342,7 +343,9 @@ export function PlanVersionDetailPage(): JSX.Element {
       </div>
       {estimateDocumentData ? (
         <div className="estimate-preview-frame">
-          <EstimateDocument data={estimateDocumentData} viewMode="screen-preview" />
+          <EstimatePreviewScaler>
+            <EstimateDocument data={estimateDocumentData} viewMode="screen-preview" />
+          </EstimatePreviewScaler>
         </div>
       ) : (
         <Card className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600">

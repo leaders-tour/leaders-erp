@@ -27,12 +27,26 @@
   padding: 16px;
 }
 
+.estimate-preview-scaler {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.estimate-preview-scaler__content {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 760px;
+  transform-origin: top center;
+}
+
 .estimate-document--preview {
   justify-items: center;
   gap: 24px;
-  --estimate-page1-padding: clamp(16px, 3.2vw, 32px);
-  --estimate-page2-padding: clamp(16px, 3.2vw, 32px);
-  --estimate-page3-padding: clamp(16px, 3.2vw, 32px);
+  --estimate-page1-padding: 32px;
+  --estimate-page2-padding: 32px;
+  --estimate-page3-padding: 32px;
 }
 
 .estimate-document--preview .estimate-page-break {
