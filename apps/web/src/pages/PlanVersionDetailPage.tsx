@@ -13,9 +13,11 @@ import { buildExternalTransferDirectionText } from '../features/plan/external-tr
 import { usePlanVersionDetail, useUpdatePlanVersionChangeNote } from '../features/plan/hooks';
 import { countMainPlanStopRows } from '../features/plan/plan-stop-row';
 import {
+  useActiveConfirmedTripByPlan,
   useActiveConfirmedTripByPlanVersion,
   useConfirmTrip,
   useRentalItemAvailability,
+  useUpdateConfirmedTrip,
 } from '../features/confirmed-trip/hooks';
 import { RentalItemAvailabilityBadges } from '../features/confirmed-trip/RentalItemAvailabilityBadges';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
@@ -171,11 +173,12 @@ export function PlanVersionDetailPage(): JSX.Element {
   const { planId, versionId } = useParams<{ planId: string; versionId: string }>();
   const { version, loading, refetch } = usePlanVersionDetail(versionId);
   const { trip: activeConfirmedTripForVersion } = useActiveConfirmedTripByPlanVersion(versionId);
+  const { trip: activeConfirmedTripForPlan } = useActiveConfirmedTripByPlan(planId);
   const { availability: rentalItemAvailability, loading: rentalItemAvailabilityLoading } =
     useRentalItemAvailability({
       travelStartDate: version?.meta?.travelStartDate ?? null,
       travelEndDate: version?.meta?.travelEndDate ?? null,
-      excludeConfirmedTripId: activeConfirmedTripForVersion?.id ?? null,
+      excludeConfirmedTripId: activeConfirmedTripForPlan?.id ?? activeConfirmedTripForVersion?.id ?? null,
       excludePlanId: version?.planId ?? planId ?? null,
     });
   const { updatePlanVersionChangeNote, loading: changeNoteSaving } = useUpdatePlanVersionChangeNote();
@@ -205,7 +208,9 @@ export function PlanVersionDetailPage(): JSX.Element {
   const { downloading, phase, downloadEstimatePdf } = useEstimatePdfDownload();
   const { guideRows, loading: guidesLoading } = useEstimateLocationGuides();
   const { confirmTrip, loading: confirmingTrip } = useConfirmTrip();
+  const { updateConfirmedTrip, loading: updatingConfirmedTrip } = useUpdateConfirmedTrip();
   const [confirmingTripModal, setConfirmingTripModal] = useState(false);
+  const confirmTripSaving = confirmingTrip || updatingConfirmedTrip;
   const [activePane, setActivePane] = useState<'detail' | 'preview'>('detail');
   const estimateDocumentData = useMemo(
     () => (version ? applyLocationGuides(fromVersion(version), guideRows) : null),
@@ -247,6 +252,16 @@ export function PlanVersionDetailPage(): JSX.Element {
   if (!version) {
     return <section className="py-8 text-sm text-slate-600">버전을 찾을 수 없습니다.</section>;
   }
+
+  const isAlreadyConfirmedForThisVersion = activeConfirmedTripForVersion?.status === 'ACTIVE';
+  const isSwitchingConfirmedVersion =
+    !!activeConfirmedTripForPlan &&
+    activeConfirmedTripForPlan.planVersionId !== version.id;
+  const confirmFlowMode: 'alreadyConfirmed' | 'switchVersion' | 'newConfirm' = isAlreadyConfirmedForThisVersion
+    ? 'alreadyConfirmed'
+    : isSwitchingConfirmedVersion
+      ? 'switchVersion'
+      : 'newConfirm';
 
   const pricingCtx = {
     headcountTotal: version.meta?.headcountTotal ?? 0,
@@ -428,11 +443,11 @@ export function PlanVersionDetailPage(): JSX.Element {
           </Button>
           <Button
             variant="primary"
-            disabled={confirmingTrip}
+            disabled={confirmTripSaving}
             onClick={() => setConfirmingTripModal(true)}
             className="bg-emerald-600 hover:bg-emerald-700"
           >
-            이 견적으로 확정
+            {confirmFlowMode === 'alreadyConfirmed' ? '이미 확정된 견적' : '이 견적으로 확정'}
           </Button>
         </div>
       </header>
@@ -951,36 +966,78 @@ export function PlanVersionDetailPage(): JSX.Element {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
           <Card className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-xl">
             <h3 className="text-lg font-semibold text-slate-900">여행 확정</h3>
-            <p className="mt-1 text-sm text-slate-600">
-              v{version.versionNumber}을 확정 견적으로 지정하시겠습니까?
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              확정하면 이 견적 기준으로 투어 리스트에 등록됩니다.
-            </p>
+            {confirmFlowMode === 'alreadyConfirmed' ? (
+              <>
+                <p className="mt-1 text-sm text-slate-600">
+                  v{version.versionNumber}은 이미 확정 견적으로 지정되어 있습니다.
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  투어 리스트에서 이 확정 여행을 확인할 수 있습니다.
+                </p>
+              </>
+            ) : confirmFlowMode === 'switchVersion' ? (
+              <>
+                <p className="mt-1 text-sm text-slate-600">
+                  이 플랜은 이미{' '}
+                  {activeConfirmedTripForPlan?.planVersion?.versionNumber != null
+                    ? `v${activeConfirmedTripForPlan.planVersion.versionNumber}`
+                    : '다른 견적 버전'}
+                  으로 확정되어 있습니다. 확정 여행의 연결 견적을 v{version.versionNumber}으로
+                  갱신할까요?
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  기사·숙소·가이드·운영 일정·오픈채팅·예약일 등 확정 건에 입력한 운영 정보는 그대로
+                  유지되고, 견적 버전 연결과 렌탈 품목 기준만 새 버전으로 갱신됩니다.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-1 text-sm text-slate-600">
+                  v{version.versionNumber}을 확정 견적으로 지정하시겠습니까?
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  확정하면 이 견적 기준으로 투어 리스트에 등록됩니다.
+                </p>
+              </>
+            )}
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="outline" onClick={() => setConfirmingTripModal(false)}>
-                취소
+                {confirmFlowMode === 'alreadyConfirmed' ? '닫기' : '취소'}
               </Button>
-              <Button
-                className="bg-emerald-600 hover:bg-emerald-700"
-                disabled={confirmingTrip}
-                onClick={async () => {
-                  try {
-                    await confirmTrip({
-                      planId,
-                      planVersionId: version.id,
-                    });
-                    setConfirmingTripModal(false);
-                    navigate('/confirmed-trips');
-                  } catch (error) {
-                    window.alert(
-                      error instanceof Error ? error.message : '확정에 실패했습니다.',
-                    );
-                  }
-                }}
-              >
-                확정
-              </Button>
+              {confirmFlowMode !== 'alreadyConfirmed' ? (
+                <Button
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                  disabled={confirmTripSaving}
+                  onClick={async () => {
+                    try {
+                      if (confirmFlowMode === 'switchVersion' && activeConfirmedTripForPlan) {
+                        await updateConfirmedTrip(activeConfirmedTripForPlan.id, {
+                          planVersionId: version.id,
+                        });
+                        setConfirmingTripModal(false);
+                        navigate(`/confirmed-trips/${activeConfirmedTripForPlan.id}`);
+                        return;
+                      }
+                      await confirmTrip({
+                        planId,
+                        planVersionId: version.id,
+                      });
+                      setConfirmingTripModal(false);
+                      navigate('/confirmed-trips');
+                    } catch (error) {
+                      window.alert(
+                        error instanceof Error
+                          ? error.message
+                          : confirmFlowMode === 'switchVersion'
+                            ? '갱신에 실패했습니다.'
+                            : '확정에 실패했습니다.',
+                      );
+                    }
+                  }}
+                >
+                  {confirmFlowMode === 'switchVersion' ? '갱신' : '확정'}
+                </Button>
+              ) : null}
             </div>
           </Card>
         </div>

@@ -72,6 +72,10 @@ interface PlanVersionIdArgs {
   planVersionId: string;
 }
 
+interface PlanIdArgs {
+  planId: string;
+}
+
 interface ConfirmTripArgs {
   input: ConfirmTripDto;
 }
@@ -149,6 +153,8 @@ export const confirmedTripResolver = {
       new ConfirmedTripService(ctx.prisma).get(args.id),
     activeConfirmedTripByPlanVersion: (_parent: unknown, args: PlanVersionIdArgs, ctx: AppContext) =>
       new ConfirmedTripService(ctx.prisma).findActiveByPlanVersionId(args.planVersionId),
+    activeConfirmedTripByPlan: (_parent: unknown, args: PlanIdArgs, ctx: AppContext) =>
+      new ConfirmedTripService(ctx.prisma).findActiveByPlanId(args.planId),
     rentalItemAvailability: (_parent: unknown, args: RentalItemAvailabilityArgs, ctx: AppContext) =>
       new ConfirmedTripService(ctx.prisma).getRentalItemAvailability(args.input),
     confirmedTripKoreaTeamStageOptions: (

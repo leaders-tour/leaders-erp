@@ -907,6 +907,19 @@ const ACTIVE_CONFIRMED_TRIP_BY_PLAN_VERSION_QUERY = gql`
   }
 `;
 
+const ACTIVE_CONFIRMED_TRIP_BY_PLAN_QUERY = gql`
+  query ActiveConfirmedTripByPlan($planId: ID!) {
+    activeConfirmedTripByPlan(planId: $planId) {
+      id
+      planVersionId
+      status
+      planVersion {
+        versionNumber
+      }
+    }
+  }
+`;
+
 /** 목록 캐시 무효화 시 변수까지 맞춰야 동일 쿼리가 갱신됩니다. */
 export const CONFIRMED_TRIPS_ACTIVE_REFETCH = {
   query: CONFIRMED_TRIPS_QUERY,
@@ -1067,6 +1080,28 @@ export function useActiveConfirmedTripByPlanVersion(planVersionId: string | unde
 
   return {
     trip: data?.activeConfirmedTripByPlanVersion ?? null,
+    loading,
+    error,
+    refetch,
+  };
+}
+
+export function useActiveConfirmedTripByPlan(planId: string | undefined) {
+  const { data, loading, error, refetch } = useQuery<{
+    activeConfirmedTripByPlan: {
+      id: string;
+      planVersionId: string | null;
+      status: 'ACTIVE' | 'CANCELLED';
+      planVersion: { versionNumber: number } | null;
+    } | null;
+  }>(ACTIVE_CONFIRMED_TRIP_BY_PLAN_QUERY, {
+    variables: { planId: planId ?? '' },
+    skip: !planId,
+    fetchPolicy: 'cache-and-network',
+  });
+
+  return {
+    trip: data?.activeConfirmedTripByPlan ?? null,
     loading,
     error,
     refetch,

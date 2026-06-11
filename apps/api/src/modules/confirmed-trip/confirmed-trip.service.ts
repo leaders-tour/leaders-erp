@@ -244,6 +244,10 @@ export class ConfirmedTripService {
     return new ConfirmedTripRepository(this.prisma).findActiveByPlanVersionId(planVersionId);
   }
 
+  findActiveByPlanId(planId: string) {
+    return new ConfirmedTripRepository(this.prisma).findActiveByPlanId(planId);
+  }
+
   async getRentalItemAvailability(input: RentalItemAvailabilityDto) {
     const requestedStart = toDateOnlyUtc(input.travelStartDate);
     const requestedEnd = toDateOnlyUtc(input.travelEndDate);

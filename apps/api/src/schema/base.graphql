@@ -47,6 +47,7 @@ type Query {
   confirmedTrips(status: ConfirmedTripStatus): [ConfirmedTrip!]!
   confirmedTrip(id: ID!): ConfirmedTrip
   activeConfirmedTripByPlanVersion(planVersionId: ID!): ConfirmedTrip
+  activeConfirmedTripByPlan(planId: ID!): ConfirmedTrip
   rentalItemAvailability(input: RentalItemAvailabilityInput!): [RentalItemAvailability!]!
   confirmedTripKoreaTeamStageOptions(activeOnly: Boolean = true): [ConfirmedTripKoreaTeamStageOption!]!
   confirmedTripPostTripTaskOptions(activeOnly: Boolean = true): [ConfirmedTripPostTripTaskOption!]!
