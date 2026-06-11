@@ -1,10 +1,12 @@
+import { useMemo, useState } from 'react';
 import { ESTIMATE_PAGE2_BRAND, ESTIMATE_PAGE2_FOOTER_NOTICES } from '../model/constants';
-import type { EstimateDocumentData, EstimatePlanStopRow } from '../model/types';
+import type { EstimateDocumentData, EstimatePage2Editor, EstimatePlanStopRow } from '../model/types';
 import type { CSSProperties } from 'react';
+import { MovementIntensityColorSelectModal } from './MovementIntensityColorSelectModal';
 import {
   averageMovementIntensity,
-  getMovementIntensityColor,
   getMovementIntensityMeta,
+  resolveMovementIntensityChipColor,
   resolveMovementIntensityForEstimateStop,
   type MovementIntensityColorSetting,
   type MovementIntensityValue,
@@ -14,6 +16,24 @@ import { isExternalTransferPlanStopRow } from '../../plan/plan-stop-row';
 interface EstimatePage2Props {
   data: EstimateDocumentData;
   movementIntensityColors?: readonly MovementIntensityColorSetting[] | null;
+  editor?: EstimatePage2Editor;
+}
+
+interface PlanStopRowContext {
+  row: EstimatePlanStopRow;
+  mainRowIndex: number | null;
+}
+
+function buildPlanStopRowContexts(rows: EstimatePlanStopRow[]): PlanStopRowContext[] {
+  let mainRowIndex = 0;
+  return rows.map((row) => {
+    if (isExternalTransferPlanStopRow(row)) {
+      return { row, mainRowIndex: null };
+    }
+    const currentMainRowIndex = mainRowIndex;
+    mainRowIndex += 1;
+    return { row, mainRowIndex: currentMainRowIndex };
+  });
 }
 
 function fallback(value: string | null | undefined): string {
@@ -126,17 +146,17 @@ function getItineraryRowLineWeight(row: EstimatePlanStopRow): number {
   return Math.max(getDisplayLines(row.timeCellText).length, getDisplayLines(row.scheduleCellText).length, 1);
 }
 
-function chunkItineraryRows(rows: EstimatePlanStopRow[]): EstimatePlanStopRow[][] {
+function chunkItineraryRows(rows: PlanStopRowContext[]): PlanStopRowContext[][] {
   if (rows.length <= 8) {
     return [rows];
   }
 
-  const weights = rows.map(getItineraryRowLineWeight);
+  const weights = rows.map((entry) => getItineraryRowLineWeight(entry.row));
   const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
   const pageCount = Math.max(Math.ceil(rows.length / 6), Math.ceil(totalWeight / 42));
   const targetWeight = Math.ceil(totalWeight / pageCount);
-  const chunks: EstimatePlanStopRow[][] = [];
-  let currentChunk: EstimatePlanStopRow[] = [];
+  const chunks: PlanStopRowContext[][] = [];
+  let currentChunk: PlanStopRowContext[] = [];
   let currentWeight = 0;
   let currentPageStartIndex = 0;
 
@@ -145,7 +165,7 @@ function chunkItineraryRows(rows: EstimatePlanStopRow[]): EstimatePlanStopRow[][
     const remainingPagesAfterThis = pageCount - chunks.length - 1;
     const maxRowsForThisPage = Math.max(1, remainingRows - remainingPagesAfterThis);
     const targetRowsForThisPage = Math.ceil((rows.length - currentPageStartIndex) / (pageCount - chunks.length));
-    const weight = weights[index] ?? getItineraryRowLineWeight(row);
+    const weight = weights[index] ?? getItineraryRowLineWeight(row.row);
     const shouldStartNextPage =
       currentChunk.length > 0 &&
       chunks.length < pageCount - 1 &&
@@ -171,8 +191,24 @@ function chunkItineraryRows(rows: EstimatePlanStopRow[]): EstimatePlanStopRow[][
   return chunks;
 }
 
-export function EstimatePage2({ data, movementIntensityColors }: EstimatePage2Props): JSX.Element {
-  const mainItineraryRows = data.planStops.filter((row) => !isExternalTransferPlanStopRow(row));
+export function EstimatePage2({ data, movementIntensityColors, editor }: EstimatePage2Props): JSX.Element {
+  const [colorModalState, setColorModalState] = useState<{
+    pageIndex: number;
+    mainRowIndex: number;
+    rowLabel: string;
+    currentOverride: string | null;
+  } | null>(null);
+  const paletteColors = useMemo(
+    () => movementIntensityColors ?? [],
+    [movementIntensityColors],
+  );
+  const planStopRowContexts = useMemo(
+    () => buildPlanStopRowContexts(data.planStops),
+    [data.planStops],
+  );
+  const mainItineraryRows = planStopRowContexts
+    .filter((entry) => entry.mainRowIndex != null)
+    .map((entry) => entry.row);
   const resolvedMovementByMainRow = mainItineraryRows.map((row) =>
     resolveMovementIntensityForEstimateStop(
       {
@@ -187,9 +223,12 @@ export function EstimatePage2({ data, movementIntensityColors }: EstimatePage2Pr
     averageMovementIntensity(resolvedMovementByMainRow) ?? data.movementIntensity ?? null;
 
   const overallIntensity = getMovementIntensityMeta(overallMovementIntensity, movementIntensityColors);
-  const overallIntensityColor =
-    getMovementIntensityColor(overallMovementIntensity, movementIntensityColors) ?? DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR;
-  const itineraryPageChunks = chunkItineraryRows(data.planStops);
+  const overallIntensityColor = resolveMovementIntensityChipColor({
+    movementIntensity: overallMovementIntensity,
+    colors: movementIntensityColors,
+    fallbackColor: DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR,
+  });
+  const itineraryPageChunks = chunkItineraryRows(planStopRowContexts);
 
   return (
     <div className="estimate-page2-pages">
@@ -218,10 +257,25 @@ export function EstimatePage2({ data, movementIntensityColors }: EstimatePage2Pr
 
         return (
           <section
-            className={`estimate-sheet estimate-sheet-page2 estimate-sheet-itinerary${pageIndex > 0 ? ' estimate-page-break' : ''}`}
+            className={`estimate-sheet estimate-sheet-page2 estimate-sheet-itinerary${pageIndex > 0 ? ' estimate-page-break' : ''}${editor ? ' estimate-sheet-page2--editable' : ''}`}
             style={pageStyle}
             key={`estimate-page2-itinerary-${pageIndex + 1}`}
           >
+            {colorModalState?.pageIndex === pageIndex ? (
+              <MovementIntensityColorSelectModal
+                open
+                rowLabel={colorModalState.rowLabel}
+                colors={paletteColors}
+                currentOverride={colorModalState.currentOverride}
+                onClose={() => setColorModalState(null)}
+                onSelect={(color) => {
+                  if (editor == null) {
+                    return;
+                  }
+                  editor.onMovementIntensityColorOverrideChange(colorModalState.mainRowIndex, color);
+                }}
+              />
+            ) : null}
             <div className="estimate-itinerary-header">
               <img
                 className="estimate-itinerary-header-logo"
@@ -265,7 +319,7 @@ export function EstimatePage2({ data, movementIntensityColors }: EstimatePage2Pr
                 <div className="estimate-itinerary-table-header-cell" role="columnheader">
                   식사
                 </div>
-                {chunk.map((row, index) => {
+                {chunk.map(({ row, mainRowIndex }, index) => {
                   const rowMovementIntensity = isExternalTransferPlanStopRow(row)
                     ? null
                     : resolveMovementIntensityForEstimateStop(
@@ -277,8 +331,13 @@ export function EstimatePage2({ data, movementIntensityColors }: EstimatePage2Pr
                         null,
                       );
                   const intensity = getMovementIntensityMeta(rowMovementIntensity, movementIntensityColors);
-                  const intensityColor =
-                    getMovementIntensityColor(rowMovementIntensity, movementIntensityColors) ?? DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR;
+                  const intensityColor = resolveMovementIntensityChipColor({
+                    movementIntensity: rowMovementIntensity,
+                    movementIntensityColorOverride: row.movementIntensityColorOverride,
+                    colors: movementIntensityColors,
+                    fallbackColor: DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR,
+                  });
+                  const isChipEditable = editor != null && mainRowIndex != null;
                   const timeLines = getDisplayLines(row.timeCellText);
                   const scheduleLines = getDisplayLines(row.scheduleCellText);
                   const pairedLineCount = Math.max(timeLines.length, scheduleLines.length);
@@ -299,14 +358,37 @@ export function EstimatePage2({ data, movementIntensityColors }: EstimatePage2Pr
                       <div className="estimate-itinerary-table-cell" role="cell">
                         <div className="estimate-itinerary-cell">
                           {!isExternalTransferPlanStopRow(row) ? (
-                            <span
-                              className="estimate-movement-intensity-chip"
-                              aria-label={intensity?.label ?? '이동강도 미지정'}
-                              title={intensity?.label ?? '이동강도 미지정'}
-                              style={{
-                                backgroundColor: intensityColor,
-                              }}
-                            />
+                            isChipEditable ? (
+                              <button
+                                type="button"
+                                className="estimate-movement-intensity-chip estimate-movement-intensity-chip--editable"
+                                aria-label={`${intensity?.label ?? '이동강도 미지정'} 색상 변경`}
+                                title="클릭하여 이동강도 색상 선택"
+                                style={{
+                                  backgroundColor: intensityColor,
+                                }}
+                                onClick={() => {
+                                  if (mainRowIndex == null) {
+                                    return;
+                                  }
+                                  setColorModalState({
+                                    pageIndex,
+                                    mainRowIndex,
+                                    rowLabel: fallback(row.destinationCellText),
+                                    currentOverride: row.movementIntensityColorOverride ?? null,
+                                  });
+                                }}
+                              />
+                            ) : (
+                              <span
+                                className="estimate-movement-intensity-chip"
+                                aria-label={intensity?.label ?? '이동강도 미지정'}
+                                title={intensity?.label ?? '이동강도 미지정'}
+                                style={{
+                                  backgroundColor: intensityColor,
+                                }}
+                              />
+                            )
                           ) : null}
                           <span className="estimate-itinerary-cell-text">{fallback(row.destinationCellText)}</span>
                         </div>

@@ -1,7 +1,12 @@
 import { useMemo, type ReactNode } from 'react';
 import '../styles/estimate-print.css';
 import { ESTIMATE_GUIDE_FILLER_IMAGE_SRCS, ESTIMATE_IMAGE_PAGE_SRCS } from '../model/constants';
-import type { EstimateDocumentData, EstimateGuideBlock, EstimatePage1Editor } from '../model/types';
+import type {
+  EstimateDocumentData,
+  EstimateGuideBlock,
+  EstimatePage1Editor,
+  EstimatePage2Editor,
+} from '../model/types';
 import {
   chunkEstimateGuidePages,
   chunkGuidePagesBySplits,
@@ -17,6 +22,7 @@ interface EstimateDocumentProps {
   data: EstimateDocumentData;
   viewMode?: 'screen-preview' | 'print';
   page1Editor?: EstimatePage1Editor;
+  page2Editor?: EstimatePage2Editor;
   /** 미리보기에서 첫 안내 페이지(문서 3페이지) 우측 상단에 띄울 컨트롤 본문 */
   screenPreviewGuideOverlay?: ReactNode;
   includeStaticImagePages?: boolean;
@@ -53,11 +59,11 @@ export function EstimateDocument({
   data,
   viewMode = 'print',
   page1Editor,
+  page2Editor,
   screenPreviewGuideOverlay,
   includeStaticImagePages = true,
 }: EstimateDocumentProps): JSX.Element {
-  const { colors: settingsMovementIntensityColors } = useMovementIntensityColorSettings();
-  const movementIntensityColors = data.movementIntensityColors ?? settingsMovementIntensityColors;
+  const { colors: movementIntensityColors } = useMovementIntensityColorSettings();
   const guideChunks = useMemo(() => {
     const guideBlocks = data.page3Blocks.filter(hasPrimaryGuideImage);
     if (guideBlocks.length === 0) {
@@ -78,7 +84,11 @@ export function EstimateDocument({
     <article className={`estimate-document ${viewMode === 'screen-preview' ? 'estimate-document--preview' : ''}`}>
       <EstimatePage1 data={data} editor={viewMode === 'screen-preview' ? page1Editor : undefined} />
       <div className="estimate-page-break">
-        <EstimatePage2 data={data} movementIntensityColors={movementIntensityColors} />
+        <EstimatePage2
+          data={data}
+          movementIntensityColors={movementIntensityColors}
+          editor={viewMode === 'screen-preview' ? page2Editor : undefined}
+        />
       </div>
       {guideChunks.map((chunk, index) => {
         const isFirstGuidePage = index === 0;

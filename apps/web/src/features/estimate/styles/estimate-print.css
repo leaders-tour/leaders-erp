@@ -1232,6 +1232,32 @@
   border-radius: 6px;
 }
 
+.estimate-movement-intensity-chip--editable {
+  cursor: pointer;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  padding: 0;
+}
+
+.estimate-document--preview .estimate-movement-intensity-chip--editable:hover {
+  outline: 2px solid rgba(15, 23, 42, 0.35);
+  outline-offset: 1px;
+}
+
+.estimate-sheet-page2--editable {
+  position: relative;
+}
+
+.estimate-movement-intensity-color-modal-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.4);
+  padding: 16px;
+}
+
 .estimate-sheet-guides {
   height: 297mm;
   display: flex;

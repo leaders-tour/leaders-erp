@@ -1,6 +1,6 @@
 import { VariantType } from '@tour/domain';
 import { z } from 'zod';
-import { movementIntensityColorSchema } from './app-settings.schema';
+import { hexColorSchema } from './app-settings.schema';
 
 const vehicleTypes = ['스타렉스', '푸르공', '벨파이어', '하이에이스', '프리미엄 밴'] as const;
 const placeTypes = ['AIRPORT', 'OZ_HOUSE', 'ULAANBAATAR', 'CUSTOM'] as const;
@@ -32,6 +32,7 @@ export const planStopNestedSchema = z.object({
   locationId: z.string().min(1).optional(),
   locationVersionId: z.string().min(1).optional(),
   movementIntensity: z.enum(movementIntensityLevels).nullable().optional(),
+  movementIntensityColorOverride: hexColorSchema.nullable().optional(),
   dateCellText: z.string(),
   destinationCellText: z.string(),
   timeCellText: z.string(),
@@ -449,7 +450,6 @@ export const planVersionMetaInputSchema = z
       .array(z.number().int().min(1).max(50))
       .max(30)
       .optional(),
-    movementIntensityColors: z.array(movementIntensityColorSchema).optional(),
   })
   .superRefine((value, ctx) => {
     const start = new Date(value.travelStartDate);

@@ -288,10 +288,6 @@ export interface PlanVersionMetaRow {
   remark: string | null;
   estimateGuideImagesPerPage: number;
   estimateGuidePageSplits: number[] | null;
-  movementIntensityColors: Array<{
-    level: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
-    color: string;
-  }> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -502,6 +498,7 @@ export interface PlanVersionDetail extends PlanVersionRow {
     dateCellText: string;
     destinationCellText: string;
     movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
+    movementIntensityColorOverride?: string | null;
     timeCellText: string;
     scheduleCellText: string;
     lodgingCellText: string;
@@ -859,6 +856,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         dateCellText
         destinationCellText
         movementIntensity
+        movementIntensityColorOverride
         timeCellText
         scheduleCellText
         lodgingCellText
@@ -951,10 +949,6 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         remark
         estimateGuideImagesPerPage
         estimateGuidePageSplits
-        movementIntensityColors {
-          level
-          color
-        }
         createdAt
         updatedAt
       }

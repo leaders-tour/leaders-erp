@@ -1,11 +1,20 @@
 import { Card, Table, Td, Th } from '@tour/ui';
 import type { PlanVersionDetail } from '../hooks';
+import { isExternalTransferPlanStopRow } from '../plan-stop-row';
+import {
+  getMovementIntensityMeta,
+  resolveMovementIntensityChipColor,
+  resolveMovementIntensityForEstimateStop,
+} from '../../estimate/model/movement-intensity';
+import { useMovementIntensityColorSettings } from '../../app-settings/hooks';
 
 interface VersionSnapshotViewProps {
   version: PlanVersionDetail;
 }
 
 export function VersionSnapshotView({ version }: VersionSnapshotViewProps): JSX.Element {
+  const { colors: movementIntensityColors } = useMovementIntensityColorSettings();
+
   return (
     <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 p-4">
@@ -25,16 +34,47 @@ export function VersionSnapshotView({ version }: VersionSnapshotViewProps): JSX.
             </tr>
           </thead>
           <tbody>
-            {version.planStops.map((row) => (
-              <tr key={row.id}>
-                <Td className="whitespace-pre-wrap">{row.dateCellText}</Td>
-                <Td className="whitespace-pre-wrap">{row.destinationCellText}</Td>
-                <Td className="whitespace-pre-wrap">{row.timeCellText}</Td>
-                <Td className="whitespace-pre-wrap">{row.scheduleCellText}</Td>
-                <Td className="whitespace-pre-wrap">{row.lodgingCellText}</Td>
-                <Td className="whitespace-pre-wrap">{row.mealCellText}</Td>
-              </tr>
-            ))}
+            {version.planStops.map((row) => {
+              const rowMovementIntensity = isExternalTransferPlanStopRow(row)
+                ? null
+                : resolveMovementIntensityForEstimateStop(
+                    {
+                      rowType: row.rowType,
+                      movementIntensity: row.movementIntensity,
+                      destinationCellText: row.destinationCellText,
+                    },
+                    null,
+                  );
+              const intensity = getMovementIntensityMeta(rowMovementIntensity, movementIntensityColors);
+              const intensityColor = resolveMovementIntensityChipColor({
+                movementIntensity: rowMovementIntensity,
+                movementIntensityColorOverride: row.movementIntensityColorOverride,
+                colors: movementIntensityColors,
+              });
+
+              return (
+                <tr key={row.id}>
+                  <Td className="whitespace-pre-wrap">{row.dateCellText}</Td>
+                  <Td className="whitespace-pre-wrap">
+                    <div className="flex items-start gap-2">
+                      {!isExternalTransferPlanStopRow(row) ? (
+                        <span
+                          className="mt-0.5 inline-block h-3 w-3 shrink-0 rounded-sm border border-slate-300"
+                          aria-label={intensity?.label ?? '이동강도 미지정'}
+                          title={intensity?.label ?? '이동강도 미지정'}
+                          style={{ backgroundColor: intensityColor }}
+                        />
+                      ) : null}
+                      <span>{row.destinationCellText}</span>
+                    </div>
+                  </Td>
+                  <Td className="whitespace-pre-wrap">{row.timeCellText}</Td>
+                  <Td className="whitespace-pre-wrap">{row.scheduleCellText}</Td>
+                  <Td className="whitespace-pre-wrap">{row.lodgingCellText}</Td>
+                  <Td className="whitespace-pre-wrap">{row.mealCellText}</Td>
+                </tr>
+              );
+            })}
           </tbody>
         </Table>
       </div>

@@ -160,7 +160,6 @@ type PlanVersionMeta {
   estimateGuideImagesPerPage: Int!
   """페이지마다 안내 이미지 개수(예: [3,2,2]). null이면 균등(estimateGuideImagesPerPage) 분할"""
   estimateGuidePageSplits: [Int!]
-  movementIntensityColors: [MovementIntensityColorSetting!]
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -566,7 +565,6 @@ input PlanVersionMetaInput {
   remark: String
   estimateGuideImagesPerPage: Int
   estimateGuidePageSplits: [Int!]
-  movementIntensityColors: [MovementIntensityColorSettingInput!]
 }
 
 input LodgingSelectionInput {
@@ -739,6 +737,7 @@ type PlanStop {
   dateCellText: String!
   destinationCellText: String!
   movementIntensity: MovementIntensity
+  movementIntensityColorOverride: String
   timeCellText: String!
   scheduleCellText: String!
   lodgingCellText: String!
@@ -758,6 +757,7 @@ input PlanStopNestedInput {
   locationId: String
   locationVersionId: String
   movementIntensity: MovementIntensity
+  movementIntensityColorOverride: String
   dateCellText: String!
   destinationCellText: String!
   timeCellText: String!

@@ -7,6 +7,7 @@ export interface PlanStopRowBase {
   locationId?: string | null;
   locationVersionId?: string | null;
   movementIntensity?: MovementIntensityValue | null;
+  movementIntensityColorOverride?: string | null;
   dateCellText: string;
   destinationCellText: string;
   timeCellText: string;

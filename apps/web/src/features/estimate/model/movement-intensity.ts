@@ -135,6 +135,47 @@ export function getMovementIntensityColor(
   return normalizeMovementIntensityColorSettings(colors).find((item) => item.level === value)?.color ?? null;
 }
 
+export function matchMovementIntensityPaletteLevel(
+  color: string | null | undefined,
+  colors?: readonly MovementIntensityColorSetting[] | null,
+): MovementIntensityValue | null {
+  const normalized = color?.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  for (const level of MOVEMENT_INTENSITY_ORDER) {
+    const paletteColor = getMovementIntensityColor(level, colors);
+    if (paletteColor?.toLowerCase() === normalized) {
+      return level;
+    }
+  }
+  return null;
+}
+
+export function isMovementIntensityPaletteColor(
+  color: string | null | undefined,
+  colors?: readonly MovementIntensityColorSetting[] | null,
+): boolean {
+  return matchMovementIntensityPaletteLevel(color, colors) != null;
+}
+
+export function resolveMovementIntensityChipColor(input: {
+  movementIntensity?: MovementIntensityValue | null;
+  movementIntensityColorOverride?: string | null;
+  colors?: readonly MovementIntensityColorSetting[] | null;
+  fallbackColor?: string;
+}): string {
+  const override = input.movementIntensityColorOverride?.trim();
+  if (override && isMovementIntensityPaletteColor(override, input.colors)) {
+    return override.toLowerCase();
+  }
+  return (
+    getMovementIntensityColor(input.movementIntensity, input.colors) ??
+    input.fallbackColor ??
+    '#94a3b8'
+  );
+}
+
 export function getMovementIntensityMeta(
   value: MovementIntensityValue | null | undefined,
   colors?: readonly MovementIntensityColorSetting[] | null,

@@ -6,7 +6,6 @@ import type { EstimateBuilderDraftSnapshot, EstimateDocumentData } from '../mode
 import { normalizeEstimateGuideImagesPerPage, normalizeEstimateGuidePageSplits } from '../utils/guide-layout';
 import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
 import { formatPricingDetailFormula, resolveDisplayLeadAmount } from '../../pricing/pricing-line-presenter';
-import { normalizeMovementIntensityColorSettings } from '../model/movement-intensity';
 import { addDays, buildPage2Title, normalizeMultilineText, toSecurityDepositScope, todayIsoDate } from '../utils/format';
 
 export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): EstimateDocumentData {
@@ -87,9 +86,6 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     securityDepositScope: snapshot.pricing ? toSecurityDepositScope(snapshot.pricing.securityDepositMode) : '-',
     validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
     movementIntensity: snapshot.movementIntensity ?? null,
-    movementIntensityColors: snapshot.movementIntensityColors
-      ? normalizeMovementIntensityColorSettings(snapshot.movementIntensityColors)
-      : null,
     planStops: snapshot.planStops,
     estimateGuideImagesPerPage: normalizeEstimateGuideImagesPerPage(snapshot.estimateGuideImagesPerPage),
     estimateGuidePageSplits: normalizeEstimateGuidePageSplits(snapshot.estimateGuidePageSplits),

@@ -18,6 +18,7 @@ export interface EstimatePlanStopRow {
   dateCellText: string;
   destinationCellText: string;
   movementIntensity?: MovementIntensityValue | null;
+  movementIntensityColorOverride?: string | null;
   timeCellText: string;
   scheduleCellText: string;
   lodgingCellText: string;
@@ -104,7 +105,6 @@ export interface EstimateBuilderDraftSnapshot {
   estimateGuideImagesPerPage?: EstimateGuideImagesPerPage;
   /** 페이지별 장수 직접 지정(예 [3,2,2]). 있으면 균등(estimateGuideImagesPerPage)보다 우선 */
   estimateGuidePageSplits?: number[] | null;
-  movementIntensityColors?: MovementIntensityColorSetting[] | null;
 }
 
 export interface EstimateAdjustmentLine {
@@ -185,7 +185,6 @@ export interface EstimateDocumentData {
   securityDepositScope: EstimateSecurityDepositScope;
   validUntilDate: string | null;
   movementIntensity?: MovementIntensityValue | null;
-  movementIntensityColors?: MovementIntensityColorSetting[] | null;
   planStops: EstimatePlanStopRow[];
   /** 여행지 안내 템플릿 이미지를 한 페이지에 몇 장까지 넣을지 (저장된 플랜 메타 또는 빌더 선택) */
   estimateGuideImagesPerPage: EstimateGuideImagesPerPage;
@@ -241,4 +240,8 @@ export interface EstimatePage1Editor {
   onSpecialNoteTextChange: (value: string) => void;
   onRentalItemsTextChange: (value: string) => void;
   onRemarkTextChange: (value: string) => void;
+}
+
+export interface EstimatePage2Editor {
+  onMovementIntensityColorOverrideChange: (mainRowIndex: number, color: string | null) => void;
 }

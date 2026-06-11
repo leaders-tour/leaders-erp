@@ -3,6 +3,7 @@ import {
   averageMovementIntensity,
   getMovementIntensityMeta,
   getMovementIntensityColor,
+  resolveMovementIntensityChipColor,
   movementIntensityToScore,
   parseTravelHoursFromDestinationCellText,
   resolveMovementIntensityForEstimateStop,
@@ -19,6 +20,35 @@ describe('estimate movement-intensity model', () => {
 
     expect(getMovementIntensityColor('LEVEL_2', colors)).toBe('#123456');
     expect(getMovementIntensityMeta('LEVEL_2', colors)?.color).toBe('#123456');
+  });
+
+  it('prefers palette row color override over configured level colors', () => {
+    const colors = [
+      { level: 'LEVEL_2' as const, color: '#ff0000' },
+      { level: 'LEVEL_3' as const, color: '#123456' },
+    ];
+
+    expect(
+      resolveMovementIntensityChipColor({
+        movementIntensity: 'LEVEL_3',
+        movementIntensityColorOverride: '#ff0000',
+        colors,
+      }),
+    ).toBe('#ff0000');
+    expect(
+      resolveMovementIntensityChipColor({
+        movementIntensity: 'LEVEL_3',
+        movementIntensityColorOverride: '#999999',
+        colors,
+      }),
+    ).toBe('#123456');
+    expect(
+      resolveMovementIntensityChipColor({
+        movementIntensity: 'LEVEL_3',
+        movementIntensityColorOverride: null,
+        colors,
+      }),
+    ).toBe('#123456');
   });
 
   it('converts levels to numeric scores', () => {
