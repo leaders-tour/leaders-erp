@@ -1265,58 +1265,6 @@ export function ContractDocumentReviewPage(): JSX.Element {
               <>
               <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">운영 메모 / 이력</p>
-                  <p className="mt-1 text-sm text-slate-600">저장된 수동 매칭과 계산 제외 이력을 확인합니다.</p>
-                </div>
-                <div className="grid gap-3 text-sm">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <p className="font-semibold text-slate-900">수동 매칭</p>
-                    {selectedItem.statusRow.manualMatchedPlanVersionId ? (
-                      <div className="mt-2 grid gap-1 text-slate-700">
-                        <span>견적 버전: {selectedItem.statusRow.manualMatchedPlanVersionId}</span>
-                        <span>매칭 시각: {formatDateTime(selectedItem.statusRow.manualMatchedAt)}</span>
-                        {selectedItem.statusRow.manualMatchedByEmployeeId ? (
-                          <span>처리자: {selectedItem.statusRow.manualMatchedByEmployeeId}</span>
-                        ) : null}
-                        {selectedItem.statusRow.manualMatchNote ? (
-                          <span>메모: {selectedItem.statusRow.manualMatchNote}</span>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <p className="mt-2 text-slate-500">수동 매칭 이력 없음</p>
-                    )}
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <p className="font-semibold text-slate-900">계산 제외 이력</p>
-                    {excludedSubmissions.length > 0 ? (
-                      <div className="mt-2 grid gap-2">
-                        {excludedSubmissions.map((submission) => (
-                          <div key={submission.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                            <p className="font-medium text-slate-900">{submissionPersonLabel(submission)}</p>
-                            <p className="mt-1 text-xs text-slate-600">
-                              {formatDateTime(submission.excludedAt)}
-                              {submission.exclusionReason ? ` · ${submission.exclusionReason}` : ''}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-2 text-slate-500">계산 제외 이력 없음</p>
-                    )}
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <p className="font-semibold text-slate-900">동기화 기준</p>
-                    <div className="mt-2 grid gap-1 text-slate-700">
-                      <span>최초 작성: {formatDateTime(selectedItem.statusRow.firstSubmittedAt)}</span>
-                      <span>최근 작성: {formatDateTime(selectedItem.statusRow.lastSubmittedAt)}</span>
-                      <span>상태 계산: {formatDateTime(selectedItem.statusRow.computedAt)}</span>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div>
                   <p className="text-sm font-semibold text-slate-900">견적서 매칭</p>
                   <p className="mt-1 text-sm text-slate-600">
                     고객명, 견적 문서번호, 팀장명으로 검색해 연결할 견적서를 선택하세요.
@@ -1371,6 +1319,58 @@ export function ContractDocumentReviewPage(): JSX.Element {
                       {unmatching ? '해제 중...' : '수동 매칭 해제'}
                     </Button>
                   ) : null}
+                </div>
+              </Card>
+
+              <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">운영 메모 / 이력</p>
+                  <p className="mt-1 text-sm text-slate-600">저장된 수동 매칭과 계산 제외 이력을 확인합니다.</p>
+                </div>
+                <div className="grid gap-3 text-sm">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p className="font-semibold text-slate-900">수동 매칭</p>
+                    {selectedItem.statusRow.manualMatchedPlanVersionId ? (
+                      <div className="mt-2 grid gap-1 text-slate-700">
+                        <span>견적 버전: {selectedItem.statusRow.manualMatchedPlanVersionId}</span>
+                        <span>매칭 시각: {formatDateTime(selectedItem.statusRow.manualMatchedAt)}</span>
+                        {selectedItem.statusRow.manualMatchedByEmployeeId ? (
+                          <span>처리자: {selectedItem.statusRow.manualMatchedByEmployeeId}</span>
+                        ) : null}
+                        {selectedItem.statusRow.manualMatchNote ? (
+                          <span>메모: {selectedItem.statusRow.manualMatchNote}</span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-slate-500">수동 매칭 이력 없음</p>
+                    )}
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p className="font-semibold text-slate-900">계산 제외 이력</p>
+                    {excludedSubmissions.length > 0 ? (
+                      <div className="mt-2 grid gap-2">
+                        {excludedSubmissions.map((submission) => (
+                          <div key={submission.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                            <p className="font-medium text-slate-900">{submissionPersonLabel(submission)}</p>
+                            <p className="mt-1 text-xs text-slate-600">
+                              {formatDateTime(submission.excludedAt)}
+                              {submission.exclusionReason ? ` · ${submission.exclusionReason}` : ''}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-slate-500">계산 제외 이력 없음</p>
+                    )}
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <p className="font-semibold text-slate-900">동기화 기준</p>
+                    <div className="mt-2 grid gap-1 text-slate-700">
+                      <span>최초 작성: {formatDateTime(selectedItem.statusRow.firstSubmittedAt)}</span>
+                      <span>최근 작성: {formatDateTime(selectedItem.statusRow.lastSubmittedAt)}</span>
+                      <span>상태 계산: {formatDateTime(selectedItem.statusRow.computedAt)}</span>
+                    </div>
+                  </div>
                 </div>
               </Card>
               </>
