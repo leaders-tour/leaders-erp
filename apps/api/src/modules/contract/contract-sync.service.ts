@@ -1780,7 +1780,7 @@ export class ContractPaymentSyncService {
   }
 
   async listReviewReceipts(args: { keyword?: string; reasons?: string[]; limit?: number }) {
-    const limit = Math.min(Math.max(args.limit ?? 100, 1), 200);
+    const limit = args.limit == null ? undefined : Math.min(Math.max(args.limit, 1), 5000);
     const keyword = args.keyword?.trim() ?? '';
     const keywordLower = keyword.toLowerCase();
     const reasons = Array.from(new Set((args.reasons ?? []).map((reason) => reason.trim()).filter(Boolean)));
@@ -1845,7 +1845,7 @@ export class ContractPaymentSyncService {
         { importedAt: 'desc' },
         { sourceRowNumber: 'desc' },
       ],
-      take: limit,
+      ...(limit != null ? { take: limit } : {}),
     });
 
     return rows.map((receipt) => ({

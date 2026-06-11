@@ -38,6 +38,14 @@ const ContractReviewIcon: NavIcon = ({ className }) => (
   </svg>
 );
 
+const PaymentReviewIcon: NavIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <rect x="2" y="5" width="20" height="14" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2 10h20" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 15h2" />
+  </svg>
+);
+
 const OutreachIcon: NavIcon = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16v12H4z" />
@@ -179,6 +187,11 @@ const baseNavItems: NavItem[] = [
     path: '/contracts/review',
     label: '계약서 관리',
     icon: ContractReviewIcon,
+  },
+  {
+    path: '/contracts/payments',
+    label: '입금내역 관리',
+    icon: PaymentReviewIcon,
   },
   { path: '/outreach/leads', label: '카페 리드 ( 준비중 )', icon: OutreachIcon },
   { path: '/todos/list', label: 'TODO', icon: TodoIcon },

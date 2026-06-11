@@ -567,7 +567,7 @@ const SYNC_CONTRACT_PAYMENTS_MUTATION = gql`
 `;
 
 const CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY = gql`
-  query ContractPaymentReviewReceipts($keyword: String, $reasons: [String!], $limit: Int = 100) {
+  query ContractPaymentReviewReceipts($keyword: String, $reasons: [String!], $limit: Int) {
     contractPaymentReviewReceipts(keyword: $keyword, reasons: $reasons, limit: $limit) {
       candidateDocumentNumbers
       receipt {
@@ -918,7 +918,7 @@ export function useSyncContractPayments() {
   };
 }
 
-export function useContractPaymentReviewReceipts(keyword?: string, reasons?: string[], limit = 100) {
+export function useContractPaymentReviewReceipts(keyword?: string, reasons?: string[], limit?: number) {
   const normalizedKeyword = keyword?.trim() ?? '';
   const normalizedReasons = useMemo(
     () => Array.from(new Set((reasons ?? []).map((reason) => reason.trim()).filter(Boolean))),
@@ -930,7 +930,7 @@ export function useContractPaymentReviewReceipts(keyword?: string, reasons?: str
       variables: {
         keyword: normalizedKeyword || undefined,
         reasons: normalizedReasons.length > 0 ? normalizedReasons : undefined,
-        limit,
+        ...(limit != null ? { limit } : {}),
       },
     },
   );

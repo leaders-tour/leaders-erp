@@ -19,6 +19,7 @@ import { CustomerPage } from '../pages/CustomerPage';
 import { CustomerPlansPage } from '../pages/CustomerPlansPage';
 import { DealPipelinePage } from '../pages/DealPipelinePage';
 import { ContractDocumentReviewPage } from '../pages/ContractDocumentReviewPage';
+import { ContractPaymentReviewPage } from '../pages/ContractPaymentReviewPage';
 import { EmployeeAdminPage } from '../pages/EmployeeAdminPage';
 import { EstimatePdfRenderPage } from '../pages/EstimatePdfRenderPage';
 import { EstimatePrintPage } from '../pages/EstimatePrintPage';
@@ -138,6 +139,10 @@ export const router = createBrowserRouter([
       {
         path: 'contracts/review',
         element: <RequireStaffOrAbove><ContractDocumentReviewPage /></RequireStaffOrAbove>,
+      },
+      {
+        path: 'contracts/payments',
+        element: <RequireStaffOrAbove><ContractPaymentReviewPage /></RequireStaffOrAbove>,
       },
       {
         path: 'outreach/leads',

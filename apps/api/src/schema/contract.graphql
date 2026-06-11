@@ -258,7 +258,7 @@ extend type Query {
   contractPaymentSources: [ContractPaymentSource!]!
   contractPaymentStatuses(documentNumbers: [String!]!): [ContractPaymentStatus!]!
   contractPaymentReceipts(documentNumber: String!): [ContractPaymentReceipt!]!
-  contractPaymentReviewReceipts(keyword: String, reasons: [String!], limit: Int = 100): [ContractPaymentReviewReceiptItem!]!
+  contractPaymentReviewReceipts(keyword: String, reasons: [String!], limit: Int): [ContractPaymentReviewReceiptItem!]!
   contractPaymentReviewTabCount: Int!
   contractPaymentSyncRuns(sourceId: ID, limit: Int = 20): [ContractPaymentSyncRun!]!
 }
