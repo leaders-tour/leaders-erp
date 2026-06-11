@@ -14,6 +14,7 @@ interface ContractDocumentReviewItemsArgs {
   statuses?: Array<'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'OVER_SUBMITTED' | 'NEEDS_REVIEW'>;
   keyword?: string;
   limit?: number;
+  visibility?: 'VISIBLE' | 'HIDDEN';
 }
 
 interface ContractMatchPlanVersionCandidatesArgs {
@@ -67,6 +68,19 @@ interface ExcludeContractSubmissionFromCountArgs {
 interface RestoreContractSubmissionToCountArgs {
   input: {
     submissionId: string;
+  };
+}
+
+interface TrashContractDocumentReviewArgs {
+  input: {
+    documentNumber: string;
+    reason?: string | null;
+  };
+}
+
+interface RestoreContractDocumentReviewArgs {
+  input: {
+    documentNumber: string;
   };
 }
 
@@ -220,6 +234,17 @@ export const contractResolver = {
     restoreContractSubmissionToCount: (_parent: unknown, args: RestoreContractSubmissionToCountArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
       return new ContractSyncService(ctx.prisma).restoreContractSubmissionToCount(args.input);
+    },
+    trashContractDocumentReview: (_parent: unknown, args: TrashContractDocumentReviewArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      if (!ctx.employee) {
+        throw new Error('Unauthorized');
+      }
+      return new ContractSyncService(ctx.prisma).trashContractDocumentReview(args.input, ctx.employee.id);
+    },
+    restoreContractDocumentReview: (_parent: unknown, args: RestoreContractDocumentReviewArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractSyncService(ctx.prisma).restoreContractDocumentReview(args.input);
     },
     matchContractPaymentReceipt: (_parent: unknown, args: MatchContractPaymentReceiptArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);

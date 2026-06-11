@@ -8,6 +8,7 @@ export type ContractDocumentStatusValue =
   | 'COMPLETED'
   | 'OVER_SUBMITTED'
   | 'NEEDS_REVIEW';
+export type ContractDocumentReviewVisibility = 'VISIBLE' | 'HIDDEN';
 export type ContractSyncRunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
 export type ContractPaymentSourceType = 'GOOGLE_SHEET';
 export type ContractPaymentStatusValue = 'NOT_STARTED' | 'PARTIAL' | 'COMPLETED' | 'OVERPAID' | 'NEEDS_REVIEW';
@@ -41,6 +42,10 @@ export interface ContractDocumentStatusRow {
   manualMatchedByEmployeeId: string | null;
   manualMatchedAt: string | null;
   manualMatchNote: string | null;
+  reviewTrashedAt: string | null;
+  reviewTrashedByEmployeeId: string | null;
+  reviewTrashReason: string | null;
+  reviewTrashRestoredAt: string | null;
   effectiveMatchedPlanVersionId: string | null;
   effectiveMatchedPlanId: string | null;
   computedAt: string;
@@ -74,6 +79,7 @@ export interface ContractDocumentReviewTabCountsRow {
   inProgress: number;
   completed: number;
   all: number;
+  trashed: number;
 }
 
 export interface ContractMatchPlanVersionCandidateRow {
@@ -220,8 +226,13 @@ const CONTRACT_DOCUMENT_STATUSES_QUERY = gql`
 `;
 
 const CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY = gql`
-  query ContractDocumentReviewItems($statuses: [ContractDocumentStatusValue!], $keyword: String, $limit: Int = 100) {
-    contractDocumentReviewItems(statuses: $statuses, keyword: $keyword, limit: $limit) {
+  query ContractDocumentReviewItems(
+    $statuses: [ContractDocumentStatusValue!]
+    $keyword: String
+    $limit: Int = 100
+    $visibility: ContractDocumentReviewVisibility = VISIBLE
+  ) {
+    contractDocumentReviewItems(statuses: $statuses, keyword: $keyword, limit: $limit, visibility: $visibility) {
       statusRow {
         id
         documentNumberNorm
@@ -238,6 +249,10 @@ const CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY = gql`
         manualMatchedByEmployeeId
         manualMatchedAt
         manualMatchNote
+        reviewTrashedAt
+        reviewTrashedByEmployeeId
+        reviewTrashReason
+        reviewTrashRestoredAt
         effectiveMatchedPlanVersionId
         effectiveMatchedPlanId
         computedAt
@@ -292,6 +307,31 @@ const CONTRACT_DOCUMENT_REVIEW_TAB_COUNTS_QUERY = gql`
       inProgress
       completed
       all
+      trashed
+    }
+  }
+`;
+
+const TRASH_CONTRACT_DOCUMENT_REVIEW_MUTATION = gql`
+  mutation TrashContractDocumentReview($input: TrashContractDocumentReviewInput!) {
+    trashContractDocumentReview(input: $input) {
+      id
+      documentNumberNorm
+      status
+      reviewTrashedAt
+      reviewTrashReason
+    }
+  }
+`;
+
+const RESTORE_CONTRACT_DOCUMENT_REVIEW_MUTATION = gql`
+  mutation RestoreContractDocumentReview($input: RestoreContractDocumentReviewInput!) {
+    restoreContractDocumentReview(input: $input) {
+      id
+      documentNumberNorm
+      status
+      reviewTrashedAt
+      reviewTrashRestoredAt
     }
   }
 `;
@@ -629,6 +669,7 @@ export function useContractDocumentReviewItems(
   statuses?: ContractDocumentStatusValue[],
   keyword?: string,
   limit = 100,
+  visibility: ContractDocumentReviewVisibility = 'VISIBLE',
 ) {
   const normalizedKeyword = keyword?.trim() ?? '';
   const { data, loading, refetch } = useQuery<{ contractDocumentReviewItems: ContractDocumentReviewItemRow[] }>(
@@ -638,6 +679,7 @@ export function useContractDocumentReviewItems(
         statuses: statuses?.length ? statuses : undefined,
         keyword: normalizedKeyword || undefined,
         limit,
+        visibility,
       },
     },
   );
@@ -739,6 +781,50 @@ export function useRestoreContractSubmissionToCount() {
         throw new Error('Failed to restore contract submission to count');
       }
       return result.data.restoreContractSubmissionToCount;
+    },
+  };
+}
+
+export function useTrashContractDocumentReview() {
+  const [mutate, { loading }] = useMutation<{ trashContractDocumentReview: ContractDocumentStatusRow }>(
+    TRASH_CONTRACT_DOCUMENT_REVIEW_MUTATION,
+  );
+  return {
+    loading,
+    trashContractDocumentReview: async (input: { documentNumber: string; reason?: string | null }) => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [
+          { query: CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY },
+          { query: CONTRACT_DOCUMENT_REVIEW_TAB_COUNTS_QUERY },
+        ],
+      });
+      if (!result.data?.trashContractDocumentReview) {
+        throw new Error('Failed to trash contract document review item');
+      }
+      return result.data.trashContractDocumentReview;
+    },
+  };
+}
+
+export function useRestoreContractDocumentReview() {
+  const [mutate, { loading }] = useMutation<{ restoreContractDocumentReview: ContractDocumentStatusRow }>(
+    RESTORE_CONTRACT_DOCUMENT_REVIEW_MUTATION,
+  );
+  return {
+    loading,
+    restoreContractDocumentReview: async (documentNumber: string) => {
+      const result = await mutate({
+        variables: { input: { documentNumber } },
+        refetchQueries: [
+          { query: CONTRACT_DOCUMENT_REVIEW_ITEMS_QUERY },
+          { query: CONTRACT_DOCUMENT_REVIEW_TAB_COUNTS_QUERY },
+        ],
+      });
+      if (!result.data?.restoreContractDocumentReview) {
+        throw new Error('Failed to restore contract document review item');
+      }
+      return result.data.restoreContractDocumentReview;
     },
   };
 }

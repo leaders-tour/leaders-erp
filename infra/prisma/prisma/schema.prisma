@@ -1090,6 +1090,10 @@ model ContractDocumentStatus {
   manualMatchedByEmployeeId    String?
   manualMatchedAt              DateTime?
   manualMatchNote              String?                     @db.Text
+  reviewTrashedAt              DateTime?
+  reviewTrashedByEmployeeId    String?
+  reviewTrashReason            String?                     @db.Text
+  reviewTrashRestoredAt        DateTime?
   computedAt                   DateTime                    @default(now())
   updatedAt                    DateTime                    @updatedAt
 

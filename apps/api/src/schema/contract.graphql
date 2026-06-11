@@ -11,6 +11,11 @@ enum ContractDocumentStatusValue {
   NEEDS_REVIEW
 }
 
+enum ContractDocumentReviewVisibility {
+  VISIBLE
+  HIDDEN
+}
+
 enum ContractSyncRunStatus {
   RUNNING
   SUCCESS
@@ -63,6 +68,10 @@ type ContractDocumentStatus {
   manualMatchedByEmployeeId: String
   manualMatchedAt: DateTime
   manualMatchNote: String
+  reviewTrashedAt: DateTime
+  reviewTrashedByEmployeeId: String
+  reviewTrashReason: String
+  reviewTrashRestoredAt: DateTime
   effectiveMatchedPlanVersionId: String
   effectiveMatchedPlanId: String
   computedAt: DateTime!
@@ -90,6 +99,7 @@ type ContractDocumentReviewTabCounts {
   inProgress: Int!
   completed: Int!
   all: Int!
+  trashed: Int!
 }
 
 type ContractDocumentReviewItem {
@@ -129,6 +139,15 @@ input ExcludeContractSubmissionFromCountInput {
 
 input RestoreContractSubmissionToCountInput {
   submissionId: ID!
+}
+
+input TrashContractDocumentReviewInput {
+  documentNumber: String!
+  reason: String
+}
+
+input RestoreContractDocumentReviewInput {
+  documentNumber: String!
 }
 
 type ContractSubmission {
@@ -231,7 +250,7 @@ type ContractPaymentSyncRun {
 extend type Query {
   contractSubmissionSources: [ContractSubmissionSource!]!
   contractDocumentStatuses(documentNumbers: [String!]!): [ContractDocumentStatus!]!
-  contractDocumentReviewItems(statuses: [ContractDocumentStatusValue!], keyword: String, limit: Int = 100): [ContractDocumentReviewItem!]!
+  contractDocumentReviewItems(statuses: [ContractDocumentStatusValue!], keyword: String, limit: Int = 100, visibility: ContractDocumentReviewVisibility = VISIBLE): [ContractDocumentReviewItem!]!
   contractDocumentReviewTabCounts: ContractDocumentReviewTabCounts!
   contractMatchPlanVersionCandidates(keyword: String!, limit: Int = 20): [ContractMatchPlanVersionCandidate!]!
   contractSubmissions(documentNumber: String!): [ContractSubmission!]!
@@ -251,6 +270,8 @@ extend type Mutation {
   unmatchContractDocument(input: UnmatchContractDocumentInput!): ContractDocumentStatus!
   excludeContractSubmissionFromCount(input: ExcludeContractSubmissionFromCountInput!): ContractSubmission!
   restoreContractSubmissionToCount(input: RestoreContractSubmissionToCountInput!): ContractSubmission!
+  trashContractDocumentReview(input: TrashContractDocumentReviewInput!): ContractDocumentStatus!
+  restoreContractDocumentReview(input: RestoreContractDocumentReviewInput!): ContractDocumentStatus!
   matchContractPaymentReceipt(input: MatchContractPaymentReceiptInput!): ContractPaymentReceipt!
   unmatchContractPaymentReceipt(input: UnmatchContractPaymentReceiptInput!): ContractPaymentReceipt!
 }

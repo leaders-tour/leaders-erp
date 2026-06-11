@@ -10,11 +10,14 @@ import {
   useExcludeContractSubmissionFromCount,
   useMatchContractDocument,
   useMatchContractPaymentReceipt,
+  useRestoreContractDocumentReview,
   useRestoreContractSubmissionToCount,
+  useTrashContractDocumentReview,
   useUnmatchContractDocument,
   useUnmatchContractPaymentReceipt,
   type ContractDocumentReviewItemRow,
   type ContractDocumentReviewTabCountsRow,
+  type ContractDocumentReviewVisibility,
   type ContractDocumentStatusValue,
   type ContractMatchPlanVersionCandidateRow,
   type ContractMatchedPlanSummaryRow,
@@ -22,7 +25,7 @@ import {
 
 type PageMode = 'contracts' | 'payments';
 
-type ReviewTabKey = 'needs_action' | 'over_submitted' | 'in_progress' | 'completed' | 'all';
+type ReviewTabKey = 'needs_action' | 'over_submitted' | 'in_progress' | 'completed' | 'all' | 'trash';
 
 const ALL_REVIEW_STATUSES: ContractDocumentStatusValue[] = [
   'NOT_STARTED',
@@ -38,7 +41,19 @@ const REVIEW_TABS: Array<{ key: ReviewTabKey; label: string; statuses: ContractD
   { key: 'in_progress', label: '작성 중', statuses: ['IN_PROGRESS'] },
   { key: 'completed', label: '작성 완료', statuses: ['COMPLETED'] },
   { key: 'all', label: '전체', statuses: ALL_REVIEW_STATUSES },
+  { key: 'trash', label: '휴지통', statuses: ['NEEDS_REVIEW', 'OVER_SUBMITTED'] },
 ];
+
+const MAIN_REVIEW_TABS = REVIEW_TABS.filter((tab) => tab.key !== 'trash');
+const TRASH_REVIEW_TAB = REVIEW_TABS.find((tab) => tab.key === 'trash')!;
+
+function reviewVisibilityForTab(tab: ReviewTabKey): ContractDocumentReviewVisibility {
+  return tab === 'trash' ? 'HIDDEN' : 'VISIBLE';
+}
+
+function canTrashReviewItem(status: ContractDocumentStatusValue): boolean {
+  return status === 'NEEDS_REVIEW' || status === 'OVER_SUBMITTED';
+}
 
 function tabCount(key: ReviewTabKey, counts: ContractDocumentReviewTabCountsRow | null): number | null {
   if (!counts) {
@@ -49,6 +64,8 @@ function tabCount(key: ReviewTabKey, counts: ContractDocumentReviewTabCountsRow 
       return counts.needsReview;
     case 'over_submitted':
       return counts.overSubmitted;
+    case 'trash':
+      return counts.trashed;
     case 'in_progress':
       return counts.inProgress;
     case 'completed':
@@ -333,12 +350,16 @@ export function ContractDocumentReviewPage(): JSX.Element {
   const [exclusionTargetId, setExclusionTargetId] = useState<string | null>(null);
   const [exclusionReason, setExclusionReason] = useState('');
   const [submissionActionError, setSubmissionActionError] = useState<string | null>(null);
+  const [trashActionError, setTrashActionError] = useState<string | null>(null);
 
   const activeTabConfig = REVIEW_TABS.find((tab) => tab.key === activeTab) ?? REVIEW_TABS[0]!;
+  const isTrashView = activeTab === 'trash';
   const normalizedSearch = search.trim();
   const { items, loading, refetch } = useContractDocumentReviewItems(
     activeTabConfig.statuses,
     normalizedSearch,
+    100,
+    reviewVisibilityForTab(activeTab),
   );
   const { counts: tabCounts, refetch: refetchTabCounts } = useContractDocumentReviewTabCounts();
   const { count: paymentReviewCount, refetch: refetchPaymentReviewCount } = useContractPaymentReviewTabCount();
@@ -354,6 +375,8 @@ export function ContractDocumentReviewPage(): JSX.Element {
   const { unmatchContractDocument, loading: unmatching } = useUnmatchContractDocument();
   const { excludeContractSubmissionFromCount, loading: excluding } = useExcludeContractSubmissionFromCount();
   const { restoreContractSubmissionToCount, loading: restoring } = useRestoreContractSubmissionToCount();
+  const { trashContractDocumentReview, loading: trashing } = useTrashContractDocumentReview();
+  const { restoreContractDocumentReview, loading: restoringFromTrash } = useRestoreContractDocumentReview();
 
   useEffect(() => {
     if (pageMode !== 'payments') {
@@ -434,6 +457,7 @@ export function ContractDocumentReviewPage(): JSX.Element {
     setExclusionTargetId(null);
     setExclusionReason('');
     setSubmissionActionError(null);
+    setTrashActionError(null);
   }, [selectedDocumentNumber]);
 
   const refreshPage = async () => {
@@ -501,6 +525,38 @@ export function ContractDocumentReviewPage(): JSX.Element {
       await refreshPage();
     } catch (error) {
       setSubmissionActionError(error instanceof Error ? error.message : '제외 해제에 실패했습니다.');
+    }
+  };
+
+  const handleTrashDocument = async () => {
+    if (!selectedItem || !canTrashReviewItem(selectedItem.statusRow.status)) {
+      return;
+    }
+
+    setTrashActionError(null);
+    try {
+      await trashContractDocumentReview({
+        documentNumber: selectedItem.statusRow.documentNumberNorm,
+      });
+      setSelectedDocumentNumber(null);
+      await refreshPage();
+    } catch (error) {
+      setTrashActionError(error instanceof Error ? error.message : '휴지통 이동에 실패했습니다.');
+    }
+  };
+
+  const handleRestoreFromTrash = async () => {
+    if (!selectedItem) {
+      return;
+    }
+
+    setTrashActionError(null);
+    try {
+      await restoreContractDocumentReview(selectedItem.statusRow.documentNumberNorm);
+      setSelectedDocumentNumber(null);
+      await refreshPage();
+    } catch (error) {
+      setTrashActionError(error instanceof Error ? error.message : '휴지통 복원에 실패했습니다.');
     }
   };
 
@@ -831,36 +887,79 @@ export function ContractDocumentReviewPage(): JSX.Element {
         </Button>
       </Card>
 
-      <div className="flex flex-wrap gap-2">
-        {REVIEW_TABS.map((tab) => {
-          const active = tab.key === activeTab;
-          const count = tabCount(tab.key, tabCounts);
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
-                active
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-              }`}
-            >
-              {tab.label}
-              {count != null ? (
-                <span className={active ? 'text-slate-300' : 'text-slate-500'}> {count}</span>
-              ) : null}
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          {MAIN_REVIEW_TABS.map((tab) => {
+            const active = tab.key === activeTab;
+            const count = tabCount(tab.key, tabCounts);
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
+                  active
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                {tab.label}
+                {count != null ? (
+                  <span className={active ? 'text-slate-300' : 'text-slate-500'}> {count}</span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={() => setActiveTab(TRASH_REVIEW_TAB.key)}
+          className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
+            activeTab === TRASH_REVIEW_TAB.key
+              ? 'border-slate-900 bg-slate-900 text-white'
+              : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+          }`}
+        >
+          {TRASH_REVIEW_TAB.label}
+          {tabCount(TRASH_REVIEW_TAB.key, tabCounts) != null ? (
+            <span className={activeTab === TRASH_REVIEW_TAB.key ? 'text-slate-300' : 'text-slate-500'}>
+              {' '}
+              {tabCount(TRASH_REVIEW_TAB.key, tabCounts)}
+            </span>
+          ) : null}
+        </button>
       </div>
+
+      {isTrashView ? (
+        <Card className="rounded-3xl border border-sky-200 bg-sky-50 p-6 shadow-sm">
+          <p className="text-lg font-semibold tracking-tight text-sky-950">휴지통이란?</p>
+          <p className="mt-3 text-base leading-relaxed text-sky-900">
+            아래 두 가지 경우에 <span className="font-semibold text-sky-950">조치 필요</span>·
+            <span className="font-semibold text-sky-950">초과 제출</span> 항목이 휴지통으로 모입니다.
+          </p>
+          <ul className="mt-4 grid gap-3 text-base leading-relaxed md:grid-cols-2">
+            <li className="rounded-2xl border border-sky-200 bg-white/80 px-4 py-3">
+              <span className="font-semibold text-sky-950">수동 이동</span>
+              <p className="mt-1 text-sky-800">직접 휴지통으로 보낸 항목</p>
+            </li>
+            <li className="rounded-2xl border border-sky-200 bg-white/80 px-4 py-3">
+              <span className="font-semibold text-sky-950">자동 이동</span>
+              <p className="mt-1 text-sky-800">
+                문서번호 출발일 기준 7일이 지났는데, 검토·초과 제출 상태가 그대로인 항목
+              </p>
+            </li>
+          </ul>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <Card className="grid max-h-[78vh] gap-2 overflow-y-auto rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
           <div className="flex items-start justify-between gap-2 px-2 py-1">
             <div>
               <p className="text-sm font-semibold text-slate-900">{activeTabConfig.label}</p>
-              <p className="mt-0.5 text-xs text-slate-500">구글 시트에서 가져온 데이터입니다</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {isTrashView ? '자동·수동으로 이동된 항목입니다' : '구글 시트에서 가져온 데이터입니다'}
+              </p>
             </div>
             <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
               {items.length}
@@ -936,14 +1035,45 @@ export function ContractDocumentReviewPage(): JSX.Element {
                       {selectedItem.statusRow.documentNumberRawSample ?? selectedItem.statusRow.documentNumberNorm}
                     </h2>
                     <p className="mt-1 text-sm text-slate-600">
-                      {reviewSummary(selectedItem.statusRow)} · 최근 작성{' '}
-                      {formatDateTime(selectedItem.statusRow.lastSubmittedAt)}
+                      {reviewSummary(selectedItem.statusRow)}
+                      {!isTrashView ? (
+                        <> · 최근 작성 {formatDateTime(selectedItem.statusRow.lastSubmittedAt)}</>
+                      ) : null}
                     </p>
                   </div>
-                  <ReviewStatusBadge status={selectedItem.statusRow.status} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ReviewStatusBadge status={selectedItem.statusRow.status} />
+                    {isTrashView ? (
+                      <Button variant="outline" onClick={() => void handleRestoreFromTrash()} disabled={restoringFromTrash}>
+                        {restoringFromTrash ? '복원 중...' : '휴지통에서 복원'}
+                      </Button>
+                    ) : canTrashReviewItem(selectedItem.statusRow.status) &&
+                      (activeTab === 'needs_action' || activeTab === 'over_submitted') ? (
+                      <Button variant="outline" onClick={() => void handleTrashDocument()} disabled={trashing}>
+                        {trashing ? '이동 중...' : '휴지통으로 이동'}
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
 
-                <div className="grid gap-2 rounded-2xl bg-slate-50 p-4 text-sm md:grid-cols-2">
+                {trashActionError ? <p className="text-sm text-rose-600">{trashActionError}</p> : null}
+
+                {isTrashView ? (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                    {selectedItem.statusRow.reviewTrashedAt ? (
+                      <>
+                        수동으로 휴지통에 이동됨 · {formatDateTime(selectedItem.statusRow.reviewTrashedAt)}
+                        {selectedItem.statusRow.reviewTrashReason
+                          ? ` · ${selectedItem.statusRow.reviewTrashReason}`
+                          : ''}
+                      </>
+                    ) : (
+                      <>문서번호 날짜 기준 7일이 지나 자동으로 휴지통에 이동된 항목입니다.</>
+                    )}
+                  </div>
+                ) : null}
+
+                <div className={`grid gap-2 rounded-2xl bg-slate-50 p-4 text-sm ${isTrashView ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
                   <div>
                     <span className="text-slate-500">정규 문서번호</span>
                     <p className="font-medium text-slate-900">{selectedItem.statusRow.documentNumberNorm}</p>
@@ -958,25 +1088,30 @@ export function ContractDocumentReviewPage(): JSX.Element {
                       {selectedItem.statusRow.submittedCount}/{selectedItem.statusRow.expectedCount ?? '?'}
                     </p>
                   </div>
-                  <div>
-                    <span className="text-slate-500">상태 계산 시각</span>
-                    <p className="font-medium text-slate-900">{formatDateTime(selectedItem.statusRow.computedAt)}</p>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">최근 갱신</span>
-                    <p className="font-medium text-slate-900">{formatDateTime(selectedItem.statusRow.updatedAt)}</p>
-                  </div>
+                  {!isTrashView ? (
+                    <>
+                      <div>
+                        <span className="text-slate-500">상태 계산 시각</span>
+                        <p className="font-medium text-slate-900">{formatDateTime(selectedItem.statusRow.computedAt)}</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">최근 갱신</span>
+                        <p className="font-medium text-slate-900">{formatDateTime(selectedItem.statusRow.updatedAt)}</p>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
 
-                {selectedItem.matchedPlanSummary ? (
+                {!isTrashView && selectedItem.matchedPlanSummary ? (
                   <MatchedPlanSummaryCard summary={selectedItem.matchedPlanSummary} />
-                ) : (
+                ) : null}
+                {!isTrashView && !selectedItem.matchedPlanSummary ? (
                   <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
                     매칭된 견적이 없습니다. 아래에서 견적서를 검색해 연결하세요.
                   </div>
-                )}
+                ) : null}
 
-                {newEstimateAction ? (
+                {!isTrashView && newEstimateAction ? (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
                     <p className="font-semibold">{newEstimateAction.title}</p>
                     <p className="mt-1 text-amber-900">{newEstimateAction.description}</p>
@@ -993,9 +1128,25 @@ export function ContractDocumentReviewPage(): JSX.Element {
 
                 <div className="grid gap-2">
                   <p className="text-sm font-semibold text-slate-900">계약서 작성 내역</p>
-                  {submissionActionError ? <p className="text-sm text-rose-600">{submissionActionError}</p> : null}
+                  {!isTrashView && submissionActionError ? (
+                    <p className="text-sm text-rose-600">{submissionActionError}</p>
+                  ) : null}
                   <div className="grid gap-2">
                     {selectedItem.submissions.map((submission) => {
+                      if (isTrashView) {
+                        return (
+                          <div
+                            key={submission.id}
+                            className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
+                          >
+                            <p className="font-medium text-slate-900">{submissionPersonLabel(submission)}</p>
+                            <span className="shrink-0 text-xs text-slate-500">
+                              {formatDateTime(submission.submittedAt)}
+                            </span>
+                          </div>
+                        );
+                      }
+
                       const isRepresentative = isRepresentativeSubmission(submission);
                       const isExcluded = submission.excludedFromContractCount;
                       const showingExclusionForm = exclusionTargetId === submission.id;
@@ -1110,6 +1261,8 @@ export function ContractDocumentReviewPage(): JSX.Element {
                 </div>
               </Card>
 
+              {!isTrashView ? (
+              <>
               <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">운영 메모 / 이력</p>
@@ -1220,6 +1373,8 @@ export function ContractDocumentReviewPage(): JSX.Element {
                   ) : null}
                 </div>
               </Card>
+              </>
+              ) : null}
             </>
           )}
         </div>

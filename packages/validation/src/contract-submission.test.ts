@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   compareContractDocumentNumbersByDateDesc,
   contractDocumentDateSortKey,
+  isContractDocumentNumberExpiredByDays,
   normalizeContractDocumentNumber,
   normalizeContractPersonName,
   normalizeContractPhoneDigits,
+  parseContractDocumentDate,
 } from './contract-submission';
 
 describe('contract submission normalization', () => {
@@ -28,5 +30,23 @@ describe('contract submission normalization', () => {
   it('sorts document numbers by embedded date descending', () => {
     expect(compareContractDocumentNumbersByDateDesc('260101001', '261231001')).toBeGreaterThan(0);
     expect(compareContractDocumentNumbersByDateDesc('261231001', '260101001')).toBeLessThan(0);
+  });
+
+  it('parses YYMMDD from document numbers into local dates', () => {
+    const parsed = parseContractDocumentDate('260517456');
+    expect(parsed?.getFullYear()).toBe(2026);
+    expect(parsed?.getMonth()).toBe(4);
+    expect(parsed?.getDate()).toBe(17);
+    expect(parseContractDocumentDate('invalid')).toBeNull();
+    expect(parseContractDocumentDate('261331001')).toBeNull();
+  });
+
+  it('treats document numbers older than seven days as expired', () => {
+    const referenceDate = new Date(2026, 5, 11);
+
+    expect(isContractDocumentNumberExpiredByDays('260517456', 7, referenceDate)).toBe(true);
+    expect(isContractDocumentNumberExpiredByDays('260604001', 7, referenceDate)).toBe(false);
+    expect(isContractDocumentNumberExpiredByDays('260603001', 7, referenceDate)).toBe(true);
+    expect(isContractDocumentNumberExpiredByDays('invalid', 7, referenceDate)).toBe(false);
   });
 });

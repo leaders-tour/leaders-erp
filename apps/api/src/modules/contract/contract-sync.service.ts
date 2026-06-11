@@ -3,12 +3,15 @@ import type { ContractDocumentStatusValue, ContractPaymentStatusValue, Prisma, P
 import {
   compareContractDocumentNumbersByDateDesc,
   excludeContractSubmissionFromCountInputSchema,
+  isContractDocumentNumberExpiredByDays,
   matchContractDocumentInputSchema,
   matchContractPaymentReceiptInputSchema,
   normalizeContractDocumentNumber,
   normalizeContractPersonName,
   normalizeContractPhoneDigits,
+  restoreContractDocumentReviewInputSchema,
   restoreContractSubmissionToCountInputSchema,
+  trashContractDocumentReviewInputSchema,
   unmatchContractDocumentInputSchema,
   unmatchContractPaymentReceiptInputSchema,
 } from '@tour/validation';
@@ -524,6 +527,39 @@ function hasDocumentNumberBase(documentNumberNorm: string | null | undefined, ba
   return documentNumberNorm ? documentNumberBaseKey(documentNumberNorm) === base : false;
 }
 
+const REVIEW_EXPIRY_STATUSES: ContractDocumentStatusValue[] = ['NEEDS_REVIEW', 'OVER_SUBMITTED'];
+
+export type ContractDocumentReviewVisibility = 'VISIBLE' | 'HIDDEN';
+
+type ReviewTrashRow = {
+  status: ContractDocumentStatusValue;
+  documentNumberNorm: string;
+  reviewTrashedAt: Date | null;
+  reviewTrashRestoredAt: Date | null;
+};
+
+function isInReviewTrash(row: ReviewTrashRow, referenceDate = new Date()): boolean {
+  if (!REVIEW_EXPIRY_STATUSES.includes(row.status)) {
+    return false;
+  }
+  if (row.reviewTrashedAt) {
+    return true;
+  }
+  if (row.reviewTrashRestoredAt) {
+    return false;
+  }
+  return isContractDocumentNumberExpiredByDays(row.documentNumberNorm, 7, referenceDate);
+}
+
+function matchesReviewVisibility(
+  row: ReviewTrashRow,
+  visibility: ContractDocumentReviewVisibility,
+  referenceDate = new Date(),
+): boolean {
+  const trashed = isInReviewTrash(row, referenceDate);
+  return visibility === 'HIDDEN' ? trashed : !trashed;
+}
+
 function paymentStatusForAmounts(input: {
   requiredAmountKrw: number | null;
   receivedAmountKrw: number;
@@ -978,18 +1014,21 @@ export class ContractSyncService {
     statuses?: ContractDocumentStatusValue[];
     keyword?: string;
     limit?: number;
+    visibility?: ContractDocumentReviewVisibility;
   }) {
     const statuses = input.statuses?.length
       ? input.statuses
       : (['NEEDS_REVIEW', 'OVER_SUBMITTED'] as ContractDocumentStatusValue[]);
     const limit = Math.min(Math.max(input.limit ?? 100, 1), 200);
     const keyword = input.keyword?.trim().toLowerCase() ?? '';
+    const visibility = input.visibility ?? 'VISIBLE';
+    const referenceDate = new Date();
 
     const rows = await this.prisma.contractDocumentStatus.findMany({
       where: { status: { in: statuses } },
     });
 
-    let filteredRows = rows;
+    let filteredRows = rows.filter((row) => matchesReviewVisibility(row, visibility, referenceDate));
     if (keyword) {
       const documentNumbers = rows.map((row) => row.documentNumberNorm);
       const submissions = documentNumbers.length
@@ -1154,12 +1193,112 @@ export class ContractSyncService {
       'OVER_SUBMITTED',
       'NEEDS_REVIEW',
     ];
+    const expiryRows = await this.prisma.contractDocumentStatus.findMany({
+      where: { status: { in: REVIEW_EXPIRY_STATUSES } },
+      select: {
+        status: true,
+        documentNumberNorm: true,
+        reviewTrashedAt: true,
+        reviewTrashRestoredAt: true,
+      },
+    });
+    const referenceDate = new Date();
+    let trashedNeedsReview = 0;
+    let trashedOverSubmitted = 0;
+    for (const row of expiryRows) {
+      if (!isInReviewTrash(row, referenceDate)) {
+        continue;
+      }
+      if (row.status === 'NEEDS_REVIEW') {
+        trashedNeedsReview += 1;
+      } else if (row.status === 'OVER_SUBMITTED') {
+        trashedOverSubmitted += 1;
+      }
+    }
+
+    const rawNeedsReview = byStatus.get('NEEDS_REVIEW') ?? 0;
+    const rawOverSubmitted = byStatus.get('OVER_SUBMITTED') ?? 0;
+    const visibleNeedsReview = rawNeedsReview - trashedNeedsReview;
+    const visibleOverSubmitted = rawOverSubmitted - trashedOverSubmitted;
+    const inProgress = byStatus.get('IN_PROGRESS') ?? 0;
+    const completed = byStatus.get('COMPLETED') ?? 0;
+    const notStarted = byStatus.get('NOT_STARTED') ?? 0;
+
     return {
-      needsReview: byStatus.get('NEEDS_REVIEW') ?? 0,
-      overSubmitted: byStatus.get('OVER_SUBMITTED') ?? 0,
-      inProgress: byStatus.get('IN_PROGRESS') ?? 0,
-      completed: byStatus.get('COMPLETED') ?? 0,
-      all: tabStatuses.reduce((sum, status) => sum + (byStatus.get(status) ?? 0), 0),
+      needsReview: visibleNeedsReview,
+      overSubmitted: visibleOverSubmitted,
+      inProgress,
+      completed,
+      trashed: trashedNeedsReview + trashedOverSubmitted,
+      all: visibleNeedsReview + visibleOverSubmitted + inProgress + completed + notStarted,
+    };
+  }
+
+  async trashContractDocumentReview(input: unknown, employeeId: string) {
+    const parsed = trashContractDocumentReviewInputSchema.parse(input);
+    const documentNumberNorm = normalizeContractDocumentNumber(parsed.documentNumber);
+    if (!documentNumberNorm) {
+      throw new DomainError('VALIDATION_FAILED', 'Invalid document number');
+    }
+
+    const existing = await this.prisma.contractDocumentStatus.findUnique({ where: { documentNumberNorm } });
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'Contract document status not found');
+    }
+    if (!REVIEW_EXPIRY_STATUSES.includes(existing.status)) {
+      throw new DomainError('VALIDATION_FAILED', 'Only review or over-submitted documents can be trashed');
+    }
+
+    const updated = await this.prisma.contractDocumentStatus.update({
+      where: { documentNumberNorm },
+      data: {
+        reviewTrashedAt: new Date(),
+        reviewTrashedByEmployeeId: employeeId,
+        reviewTrashReason: parsed.reason ?? null,
+        reviewTrashRestoredAt: null,
+      },
+    });
+
+    return {
+      ...updated,
+      effectiveMatchedPlanVersionId: effectiveMatchedPlanVersionId(updated),
+    };
+  }
+
+  async restoreContractDocumentReview(input: unknown) {
+    const parsed = restoreContractDocumentReviewInputSchema.parse(input);
+    const documentNumberNorm = normalizeContractDocumentNumber(parsed.documentNumber);
+    if (!documentNumberNorm) {
+      throw new DomainError('VALIDATION_FAILED', 'Invalid document number');
+    }
+
+    const existing = await this.prisma.contractDocumentStatus.findUnique({ where: { documentNumberNorm } });
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'Contract document status not found');
+    }
+    if (!REVIEW_EXPIRY_STATUSES.includes(existing.status)) {
+      throw new DomainError('VALIDATION_FAILED', 'Only review or over-submitted documents can be restored');
+    }
+    if (!isInReviewTrash(existing)) {
+      throw new DomainError('VALIDATION_FAILED', 'Document is not in review trash');
+    }
+
+    const updated = await this.prisma.contractDocumentStatus.update({
+      where: { documentNumberNorm },
+      data: existing.reviewTrashedAt
+        ? {
+            reviewTrashedAt: null,
+            reviewTrashedByEmployeeId: null,
+            reviewTrashReason: null,
+          }
+        : {
+            reviewTrashRestoredAt: new Date(),
+          },
+    });
+
+    return {
+      ...updated,
+      effectiveMatchedPlanVersionId: effectiveMatchedPlanVersionId(updated),
     };
   }
 
