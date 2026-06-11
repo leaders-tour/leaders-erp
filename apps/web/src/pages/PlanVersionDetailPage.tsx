@@ -635,6 +635,8 @@ export function PlanVersionDetailPage(): JSX.Element {
                   <RentalItemAvailabilityBadges
                     availability={rentalItemAvailability}
                     loading={rentalItemAvailabilityLoading}
+                    travelStartDate={version.meta.travelStartDate}
+                    travelEndDate={version.meta.travelEndDate}
                   />
                 </div>
               </div>

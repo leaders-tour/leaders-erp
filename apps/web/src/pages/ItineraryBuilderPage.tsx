@@ -5889,6 +5889,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                           availability={rentalItemAvailability}
                           loading={rentalItemAvailabilityLoading}
                           compact
+                          travelStartDate={travelStartDate}
+                          travelEndDate={travelEndDate}
                         />
                       ) : (
                         <p className="text-xs text-slate-500">여행기간을 입력하면 장비 재고가 표시됩니다.</p>
