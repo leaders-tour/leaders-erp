@@ -4605,7 +4605,10 @@ export function ItineraryBuilderPage(): JSX.Element {
             totalAmountKrw: totals.totalAmountKrw,
             depositAmountKrw: totals.depositAmountKrw,
             balanceAmountKrw: totals.balanceAmountKrw,
-            securityDepositAmountKrw: totals.securityDepositAmountKrw,
+            securityDepositAmountKrw:
+              totals.securityDepositMode === 'PER_PERSON'
+                ? totals.securityDepositUnitPriceKrw
+                : totals.securityDepositAmountKrw,
             securityDepositMode: totals.securityDepositMode,
           }
         : null,
@@ -7826,7 +7829,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                                       <input
                                         type="number"
                                         step={1}
-                                        value={effectivePricingPreview.securityDepositAmountKrw}
+                                        value={
+                                          effectivePricingPreview.securityDepositMode === 'PER_PERSON'
+                                            ? effectivePricingPreview.securityDepositUnitPriceKrw
+                                            : effectivePricingPreview.securityDepositAmountKrw
+                                        }
                                         onChange={(event) => {
                                           const nextValue = Number(event.target.value);
                                           if (!Number.isInteger(nextValue)) {
@@ -7885,7 +7892,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                                               <input
                                                 type="number"
                                                 step={1}
-                                                value={teamPricing.securityDepositAmountKrw}
+                                                value={
+                                                  teamPricing.securityDepositMode === 'PER_PERSON'
+                                                    ? teamPricing.securityDepositUnitPriceKrw
+                                                    : teamPricing.securityDepositAmountKrw
+                                                }
                                                 onChange={(event) => {
                                                   const nextValue = Number(event.target.value);
                                                   if (!Number.isInteger(nextValue)) {

@@ -3,7 +3,7 @@
  * 흐름: 특식 선택 -> 일차 선택(선택 일차 아래 아침·점심·저녁) -> 배치 요약
  */
 
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Card } from '@tour/ui';
 import {
   applySpecialMealSelections,
@@ -111,11 +111,17 @@ export function SpecialMealsModal({
   const [activeMeal, setActiveMeal] = useState<SpecialMealKind>('샤브샤브');
   const [selectedDayIndices, setSelectedDayIndices] = useState<number[]>([]);
   const [originalSlotValues, setOriginalSlotValues] = useState<SpecialMealOriginalSlotValues>({});
+  const hasInitializedOpenSessionRef = useRef(false);
 
   useEffect(() => {
     if (!open) {
+      hasInitializedOpenSessionRef.current = false;
       return;
     }
+    if (hasInitializedOpenSessionRef.current) {
+      return;
+    }
+    hasInitializedOpenSessionRef.current = true;
     const initial = buildInitialSelections(rows);
     setDraftSelections(initial);
     setOriginalSlotValues((prev) => ({
