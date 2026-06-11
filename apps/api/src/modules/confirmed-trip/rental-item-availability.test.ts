@@ -36,6 +36,34 @@ function requested(date: string) {
 }
 
 describe('buildRentalItemAvailability', () => {
+  it('uses max concurrent occupancy instead of total overlapping trip count', () => {
+    const availability = buildRentalItemAvailability(
+      [
+        trip({ id: 'a', start: '2026-06-11', end: '2026-06-13', rentalDrone: true }),
+        trip({ id: 'b', start: '2026-06-14', end: '2026-06-18', rentalDrone: true }),
+      ],
+      requested('2026-06-13'),
+      requested('2026-06-18'),
+    );
+
+    const drone = availability.find((row) => row.item === 'DRONE');
+    expect(drone).toMatchObject({ total: 10, used: 1, available: 9 });
+    expect(drone?.conflicts).toHaveLength(2);
+  });
+
+  it('treats same-day end/start boundary as overlapping (no same-day reuse)', () => {
+    const availability = buildRentalItemAvailability(
+      [trip({ id: 'a', start: '2026-06-11', end: '2026-06-13', rentalStarlink: true })],
+      requested('2026-06-13'),
+      requested('2026-06-18'),
+    );
+
+    expect(availability.find((row) => row.item === 'STARLINK')).toMatchObject({
+      used: 1,
+      available: 4,
+    });
+  });
+
   it('counts inclusive overlapping confirmed trips by rental item', () => {
     const availability = buildRentalItemAvailability(
       [
@@ -119,7 +147,7 @@ describe('buildRentalItemAvailability', () => {
     );
   });
 
-  it('excludes matching planId from usage while keeping it visible as excluded conflict', () => {
+  it('excludes matching planId from max concurrent usage while keeping it visible as excluded conflict', () => {
     const availability = buildRentalItemAvailability(
       [
         trip({ id: 'self-plan', planId: 'plan-1', start: '2026-05-01', end: '2026-05-03', rentalStarlink: true }),
@@ -138,6 +166,40 @@ describe('buildRentalItemAvailability', () => {
         expect.objectContaining({ confirmedTripId: 'other-plan', excluded: false }),
       ]),
     );
+  });
+
+  it('excludes sequential non-overlapping trips from max concurrent when one is excluded', () => {
+    const availability = buildRentalItemAvailability(
+      [
+        trip({ id: 'self', start: '2026-06-11', end: '2026-06-13', rentalDrone: true }),
+        trip({ id: 'other', start: '2026-06-14', end: '2026-06-18', rentalDrone: true }),
+      ],
+      requested('2026-06-13'),
+      requested('2026-06-18'),
+      { excludeConfirmedTripId: 'self' },
+    );
+
+    const drone = availability.find((row) => row.item === 'DRONE');
+    expect(drone).toMatchObject({ used: 1, available: 9 });
+    expect(drone?.conflicts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ confirmedTripId: 'self', excluded: true }),
+        expect.objectContaining({ confirmedTripId: 'other', excluded: false }),
+      ]),
+    );
+  });
+
+  it('clips trip intervals to the requested range for max concurrent calculation', () => {
+    const availability = buildRentalItemAvailability(
+      [trip({ id: 'wide', start: '2026-06-10', end: '2026-06-20', rentalPowerbank: true })],
+      requested('2026-06-13'),
+      requested('2026-06-18'),
+    );
+
+    expect(availability.find((row) => row.item === 'POWERBANK')).toMatchObject({
+      used: 1,
+      available: 1,
+    });
   });
 
   it('looks up only the active confirmed trip for the requested plan version', async () => {

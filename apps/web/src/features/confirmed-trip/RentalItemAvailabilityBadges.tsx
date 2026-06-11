@@ -57,7 +57,7 @@ export function RentalItemAvailabilityBadges({
             )}
             {!compact && visibleConflictCount > 0 ? (
               <span className={isDepleted ? 'text-rose-600' : 'text-emerald-600'}>
-                겹침 {visibleConflictCount}팀
+                충돌 {visibleConflictCount}팀
               </span>
             ) : null}
             {hasConflicts ? (

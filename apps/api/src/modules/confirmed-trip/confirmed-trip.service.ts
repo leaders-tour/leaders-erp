@@ -86,6 +86,49 @@ function rentalTripUsesItem(
   return trip.rentalPowerbank;
 }
 
+function addUtcDays(date: Date, days: number): Date {
+  const next = new Date(date.getTime());
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+/** inclusive [start, end] 구간을 요청 기간으로 잘라낸다. 비어 있으면 null. */
+function clipInclusiveDateRange(
+  start: Date,
+  end: Date,
+  requestedStart: Date,
+  requestedEnd: Date,
+): { start: Date; end: Date } | null {
+  const clippedStart = start > requestedStart ? start : requestedStart;
+  const clippedEnd = end < requestedEnd ? end : requestedEnd;
+  if (clippedStart > clippedEnd) return null;
+  return { start: clippedStart, end: clippedEnd };
+}
+
+/**
+ * inclusive 날짜 구간들의 최대 동시 점유 수량.
+ * 종료일과 시작일이 같은 경우(같은 날 겹침)는 서로 다른 장비로 계산된다.
+ */
+function computeMaxConcurrentInclusiveRanges(intervals: Array<{ start: Date; end: Date }>): number {
+  if (intervals.length === 0) return 0;
+
+  const events: Array<{ day: number; delta: number }> = [];
+  for (const { start, end } of intervals) {
+    events.push({ day: start.getTime(), delta: 1 });
+    events.push({ day: addUtcDays(end, 1).getTime(), delta: -1 });
+  }
+
+  events.sort((a, b) => a.day - b.day);
+
+  let current = 0;
+  let max = 0;
+  for (const event of events) {
+    current += event.delta;
+    if (current > max) max = current;
+  }
+  return max;
+}
+
 async function getRentalItemFlagsForPlanVersion(
   prisma: PrismaClient,
   planVersionId: string,
@@ -158,7 +201,18 @@ export function buildRentalItemAvailability(
         },
       ];
     });
-    const used = conflicts.filter((conflict) => !conflict.excluded).length;
+    const activeIntervals = conflicts
+      .filter((conflict) => !conflict.excluded)
+      .map((conflict) =>
+        clipInclusiveDateRange(
+          conflict.travelStartDate,
+          conflict.travelEndDate,
+          requestedStart,
+          requestedEnd,
+        ),
+      )
+      .filter((interval): interval is { start: Date; end: Date } => interval !== null);
+    const used = computeMaxConcurrentInclusiveRanges(activeIntervals);
 
     return {
       item,
