@@ -1213,9 +1213,9 @@ function UserDetailDrawer({
           <div className={dealPipelineTokens.drawer.tabsRow}>
             {[
               { key: 'contract', label: '계약/입금' },
+              { key: 'estimate', label: '견적서' },
               { key: 'note', label: '노트' },
               { key: 'todo', label: 'TODO' },
-              { key: 'estimate', label: '견적서' },
             ].map((tab) => (
               <button
                 key={tab.key}
