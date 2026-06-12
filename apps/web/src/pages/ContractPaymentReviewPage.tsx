@@ -95,6 +95,16 @@ function paymentReviewReasonLabel(reason: string | null | undefined): string {
   }
 }
 
+function formatPaymentReviewCandidateLabel(
+  candidate: { representativeName: string; documentNumber: string },
+): string {
+  const name = candidate.representativeName.trim();
+  if (name && name !== '-') {
+    return `${name} 팀 · ${candidate.documentNumber}`;
+  }
+  return candidate.documentNumber;
+}
+
 export function ContractPaymentReviewPage(): JSX.Element {
   const [activeTab, setActiveTab] = useState<PaymentReviewTabKey>('ambiguous');
   const [paymentSearch, setPaymentSearch] = useState('');
@@ -312,11 +322,18 @@ export function ContractPaymentReviewPage(): JSX.Element {
                     <p className={`text-sm font-semibold ${active ? 'text-white' : 'text-slate-900'}`}>
                       {receipt.payerNameRaw ?? '이름 없음'}
                     </p>
-                    <p className={`mt-1 text-xs ${active ? 'text-slate-200' : 'text-slate-500'}`}>
-                      {formatDate(receipt.receivedAt)}
-                      {' · '}
-                      {formatKrw(receipt.amountKrw)}
-                      {receipt.sourceRowNumber != null ? ` · 시트 ${receipt.sourceRowNumber}행` : ''}
+                    <p className={`mt-1 flex flex-wrap items-baseline gap-x-1 text-xs ${active ? 'text-slate-300' : 'text-slate-500'}`}>
+                      <span className={`text-sm font-bold tabular-nums ${active ? 'text-white' : 'text-slate-900'}`}>
+                        {formatKrw(receipt.amountKrw)}
+                      </span>
+                      <span>·</span>
+                      <span>{formatDate(receipt.receivedAt)}</span>
+                      {receipt.sourceRowNumber != null ? (
+                        <>
+                          <span>·</span>
+                          <span>시트 {receipt.sourceRowNumber}행</span>
+                        </>
+                      ) : null}
                     </p>
                   </div>
                   <span
@@ -360,14 +377,18 @@ export function ContractPaymentReviewPage(): JSX.Element {
           ) : (
             <>
               <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">선택된 입금</p>
-                  <h2 className="mt-1 text-xl font-semibold text-slate-900">
-                    {selectedPaymentItem.receipt.payerNameRaw ?? '이름 없음'}
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-600">
-                    {formatKrw(selectedPaymentItem.receipt.amountKrw)} ·{' '}
-                    {paymentReviewReasonLabel(selectedPaymentItem.receipt.needsReviewReason)}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">선택된 입금</p>
+                    <h2 className="mt-1 text-xl font-semibold text-slate-900">
+                      {selectedPaymentItem.receipt.payerNameRaw ?? '이름 없음'}
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {paymentReviewReasonLabel(selectedPaymentItem.receipt.needsReviewReason)}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-right text-2xl font-bold tabular-nums tracking-tight text-slate-900">
+                    {formatKrw(selectedPaymentItem.receipt.amountKrw)}
                   </p>
                 </div>
 
@@ -415,7 +436,7 @@ export function ContractPaymentReviewPage(): JSX.Element {
                               }`}
                             >
                               <p className={`text-sm font-semibold ${selected ? 'text-white' : 'text-slate-900'}`}>
-                                {candidate.representativeName} · {candidate.documentNumber}
+                                {formatPaymentReviewCandidateLabel(candidate)}
                               </p>
                               {candidate.teamMemberNames.length > 0 ? (
                                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
