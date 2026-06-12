@@ -14,7 +14,7 @@ import {
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card, dealPipelineTokens } from '@tour/ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type TransitionEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../features/auth/context';
 import {
@@ -1030,6 +1030,8 @@ function UserDetailDrawer({
   onTodoChanged?: () => void;
 }): JSX.Element | null {
   const { employee } = useAuth();
+  const [displayUser, setDisplayUser] = useState<UserRow | null>(null);
+  const [isDrawerVisible, setIsDrawerVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<'contract' | 'note' | 'todo'>('contract');
   const [isEstimatePanelOpen, setIsEstimatePanelOpen] = useState(false);
   const [isNoteComposerOpen, setIsNoteComposerOpen] = useState(false);
@@ -1037,9 +1039,39 @@ function UserDetailDrawer({
   const [noteError, setNoteError] = useState<string | null>(null);
   const [todoError, setTodoError] = useState<string | null>(null);
 
-  const userId = user?.id;
-  const documentNumber = normalizeContractDocumentNumberForLookup(getUserContractDocumentNumber(user));
-  const currentPlanVersionId = getUserCurrentPlanVersionId(user);
+  const activeUser = user ?? displayUser;
+  const userId = activeUser?.id;
+  const documentNumber = normalizeContractDocumentNumberForLookup(getUserContractDocumentNumber(activeUser));
+  const currentPlanVersionId = getUserCurrentPlanVersionId(activeUser);
+
+  useEffect(() => {
+    if (user) {
+      setDisplayUser(user);
+      const frameId = window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => setIsDrawerVisible(true));
+      });
+      return () => window.cancelAnimationFrame(frameId);
+    }
+    setIsDrawerVisible(false);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user) {
+      setDisplayUser(user);
+    }
+  }, [user]);
+
+  const handleDrawerStackTransitionEnd = (event: TransitionEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+    if (event.propertyName !== 'transform' && event.propertyName !== 'opacity') {
+      return;
+    }
+    if (!isDrawerVisible && !user) {
+      setDisplayUser(null);
+    }
+  };
   const { notes, loading: notesLoading } = useUserNotes(userId);
   const { todos, loading: todosLoading, refetch: refetchTodos } = useUserDealTodos(userId, true);
   const { submissions, loading: submissionsLoading } = useContractSubmissions(documentNumber);
@@ -1081,12 +1113,12 @@ function UserDetailDrawer({
     };
   }, [receipts, submissions]);
 
-  if (!user) {
+  if (!displayUser) {
     return null;
   }
 
-  const pricing = getUserPlanPricing(user);
-  const pricingHeadcount = getUserPlanMeta(user)?.headcountTotal ?? null;
+  const pricing = getUserPlanPricing(displayUser);
+  const pricingHeadcount = getUserPlanMeta(displayUser)?.headcountTotal ?? null;
   const paymentBreakdown = paymentBreakdownFromPricing(pricing, pricingHeadcount);
   const teamPaymentReferences = teamPaymentReferencesFromPricing(pricing);
   const hasTeamPaymentReferences = teamPaymentReferences.length > 0;
@@ -1141,7 +1173,7 @@ function UserDetailDrawer({
     setNoteError(null);
     try {
       await createUserNote({
-        userId: user.id,
+        userId: displayUser.id,
         content,
         createdBy,
       });
@@ -1166,18 +1198,30 @@ function UserDetailDrawer({
     }
   };
 
-  const currentStageTodos = todos.filter((todo) => todo.stage === user.dealStage);
+  const currentStageTodos = todos.filter((todo) => todo.stage === displayUser.dealStage);
 
   return (
-    <div className={dealPipelineTokens.drawer.overlay}>
-      <button type="button" aria-label="닫기" className={dealPipelineTokens.drawer.backdrop} onClick={onClose} />
-      <div className="absolute right-0 top-0 flex h-full max-w-full items-stretch">
-      <aside className="h-full w-screen max-w-2xl overflow-y-auto border-l border-slate-200 bg-slate-50 shadow-2xl">
+    <div className={dealPipelineTokens.drawer.overlay} aria-hidden={!isDrawerVisible}>
+      <button
+        type="button"
+        aria-label="닫기"
+        className={`${dealPipelineTokens.drawer.backdrop} ${
+          isDrawerVisible ? dealPipelineTokens.drawer.backdropOpen : dealPipelineTokens.drawer.backdropClosed
+        }`}
+        onClick={onClose}
+      />
+      <div
+        className={`${dealPipelineTokens.drawer.stackShell} ${
+          isDrawerVisible ? dealPipelineTokens.drawer.stackShellOpen : dealPipelineTokens.drawer.stackShellClosed
+        }`}
+        onTransitionEnd={handleDrawerStackTransitionEnd}
+      >
+      <aside className={dealPipelineTokens.drawer.panel}>
         <header className={dealPipelineTokens.drawer.header}>
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className={dealPipelineTokens.drawer.headingTopLabel}>고객정보</p>
-              <h2 className={dealPipelineTokens.drawer.headingTitle}>{user.name}</h2>
+              <h2 className={dealPipelineTokens.drawer.headingTitle}>{displayUser.name}</h2>
             </div>
             <button
               type="button"
@@ -1191,11 +1235,11 @@ function UserDetailDrawer({
           <div className={dealPipelineTokens.drawer.infoCard}>
             <div className={dealPipelineTokens.drawer.infoRow}>
               <span className={dealPipelineTokens.drawer.infoLabel}>이메일</span>
-              <span>{user.email ?? '이메일 없음'}</span>
+              <span>{displayUser.email ?? '이메일 없음'}</span>
             </div>
             <div className={dealPipelineTokens.drawer.infoRow}>
               <span className={dealPipelineTokens.drawer.infoLabel}>현재 단계</span>
-              <span className={dealPipelineTokens.drawer.infoEmphasis}>{stageLabel(user.dealStage)}</span>
+              <span className={dealPipelineTokens.drawer.infoEmphasis}>{stageLabel(displayUser.dealStage)}</span>
             </div>
             <div className={dealPipelineTokens.drawer.infoRow}>
               <span className={dealPipelineTokens.drawer.infoLabel}>총인원</span>
@@ -1207,7 +1251,7 @@ function UserDetailDrawer({
             </div>
             <div className={dealPipelineTokens.drawer.infoRow}>
               <span className={dealPipelineTokens.drawer.infoLabel}>순서</span>
-              <span>{user.dealStageOrder + 1}번째</span>
+              <span>{displayUser.dealStageOrder + 1}번째</span>
             </div>
           </div>
         </header>
@@ -1524,7 +1568,7 @@ function UserDetailDrawer({
                         rows={4}
                         value={noteContent}
                         onChange={(event) => setNoteContent(event.target.value)}
-                        placeholder={`${user.name} 고객 관련 메모를 입력하세요.`}
+                        placeholder={`${displayUser.name} 고객 관련 메모를 입력하세요.`}
                         className={dealPipelineTokens.drawer.fieldTextarea}
                       />
                     </label>
@@ -1576,7 +1620,7 @@ function UserDetailDrawer({
 
           {activeTab === 'todo' ? (
             <section className="grid gap-3">
-              <p className={dealPipelineTokens.drawer.sectionLabel}>TODO · {stageLabel(user.dealStage)}</p>
+              <p className={dealPipelineTokens.drawer.sectionLabel}>TODO · {stageLabel(displayUser.dealStage)}</p>
 
               {todoError ? <p className={dealPipelineTokens.drawer.todoError}>{todoError}</p> : null}
               {todosLoading ? <p className={dealPipelineTokens.drawer.todoLoading}>TODO를 불러오는 중...</p> : null}
@@ -1657,8 +1701,21 @@ function UserDetailDrawer({
 
         </div>
       </aside>
-      {isEstimatePanelOpen ? (
-        <aside className="h-full w-screen max-w-4xl overflow-y-auto border-l border-slate-200 bg-slate-50 shadow-2xl">
+      <div
+        aria-hidden={!isEstimatePanelOpen}
+        className={`${dealPipelineTokens.drawer.estimatePanelWrap} ${
+          isEstimatePanelOpen
+            ? dealPipelineTokens.drawer.estimatePanelWrapOpen
+            : dealPipelineTokens.drawer.estimatePanelWrapClosed
+        }`}
+      >
+        <aside
+          className={`${dealPipelineTokens.drawer.estimatePanelShell} ${
+            isEstimatePanelOpen
+              ? dealPipelineTokens.drawer.estimatePanelShellOpen
+              : dealPipelineTokens.drawer.estimatePanelShellClosed
+          }`}
+        >
           <header className="border-b border-slate-200 bg-white px-6 py-5">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -1719,7 +1776,7 @@ function UserDetailDrawer({
             ) : null}
           </div>
         </aside>
-      ) : null}
+      </div>
       </div>
     </div>
   );

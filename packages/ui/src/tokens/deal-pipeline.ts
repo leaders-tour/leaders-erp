@@ -1,3 +1,5 @@
+import { uiMotionTokens } from './motion';
+
 export const dealPipelineTokens = {
   board: {
     section: 'grid gap-4 px-6 py-6 lg:px-8 lg:py-8',
@@ -40,8 +42,13 @@ export const dealPipelineTokens = {
   },
   drawer: {
     overlay: 'fixed inset-0 z-50',
-    backdrop: 'absolute inset-0 bg-black/30',
-    panel: 'absolute right-0 top-0 h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-slate-50 shadow-2xl',
+    backdrop: `absolute inset-0 bg-black/30 ${uiMotionTokens.transitionFade}`,
+    backdropOpen: 'opacity-100',
+    backdropClosed: 'pointer-events-none opacity-0',
+    stackShell: `absolute right-0 top-0 flex h-full max-w-full items-stretch transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none`,
+    stackShellOpen: 'translate-x-0 opacity-100',
+    stackShellClosed: 'pointer-events-none translate-x-full opacity-0 motion-reduce:translate-x-0',
+    panel: 'h-full w-screen max-w-2xl overflow-y-auto border-l border-slate-200 bg-slate-50 shadow-2xl',
     header: 'border-b border-slate-200 bg-white px-6 py-5',
     headingTopLabel: 'text-xs font-medium text-slate-500',
     headingTitle: 'mt-1 text-xl font-semibold tracking-tight text-slate-900',
@@ -101,6 +108,12 @@ export const dealPipelineTokens = {
     todoStatusButtonActive: 'border-slate-900 bg-slate-900 text-white',
     todoStatusButtonDoneActive: 'border-slate-300 bg-slate-300 text-slate-700',
     todoStatusButtonInactive: 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100',
+    estimatePanelWrap: `shrink-0 overflow-hidden ${uiMotionTokens.transitionPanelWidth}`,
+    estimatePanelWrapOpen: 'w-[min(100vw,56rem)]',
+    estimatePanelWrapClosed: 'w-0',
+    estimatePanelShell: `h-full w-[min(100vw,56rem)] overflow-y-auto border-l border-slate-200 bg-slate-50 shadow-2xl ${uiMotionTokens.transitionFade}`,
+    estimatePanelShellOpen: 'opacity-100',
+    estimatePanelShellClosed: 'pointer-events-none opacity-0',
   },
 } as const;
 

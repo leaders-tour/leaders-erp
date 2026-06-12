@@ -8,4 +8,5 @@ export * from './composite/section-header';
 export * from './composite/status-badge';
 export * from './layout/page-shell';
 export * from './tokens/deal-pipeline';
+export * from './tokens/motion';
 export * from './tokens/search-combobox';
