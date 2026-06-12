@@ -1284,24 +1284,18 @@ function UserDetailDrawer({
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-semibold text-slate-900">입금액 요약</p>
-                            {!hasTeamPaymentReferences ? (
-                              <p className="mt-0.5 text-xs text-slate-500">예약금(1인) * 총인원 + 보증금</p>
-                            ) : null}
                           </div>
-                          <span className="text-xl font-bold text-orange-600">
-                            {formatKrw(requiredPaymentAmount)}원
-                          </span>
                         </div>
-                        <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                          <div className="rounded-xl bg-white px-3 py-2">
-                            <span className="text-slate-500">입금 필요액</span>
-                            <p className="mt-1 font-semibold text-slate-900">{formatKrw(requiredPaymentAmount)}원</p>
-                          </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                           <div className="rounded-xl bg-white px-3 py-2">
                             <span className="text-slate-500">현재 입금합계</span>
                             <p className="mt-1 font-semibold text-slate-900">{formatKrw(receivedPaymentAmount)}원</p>
                           </div>
                           <div className="rounded-xl bg-white px-3 py-2">
+                            <span className="text-slate-500">입금 필요액</span>
+                            <p className="mt-1 font-semibold text-slate-900">{formatKrw(requiredPaymentAmount)}원</p>
+                          </div>
+                          <div className="col-span-2 rounded-xl bg-white px-3 py-2">
                             <span className="text-slate-500">남은 입금액</span>
                             <p className={remainingPaymentAmount === 0 ? 'mt-1 font-semibold text-emerald-700' : 'mt-1 font-semibold text-orange-600'}>
                               {formatKrw(remainingPaymentAmount)}원
