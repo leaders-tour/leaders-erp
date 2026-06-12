@@ -18,10 +18,14 @@ import { useEffect, useMemo, useRef, useState, type TransitionEvent } from 'reac
 import { Link } from 'react-router-dom';
 import { useAuth } from '../features/auth/context';
 import {
+  useContractDocumentReviewTabCounts,
   useContractDocumentStatuses,
   useContractPaymentReceipts,
+  useContractPaymentReviewTabCounts,
   useContractPaymentStatuses,
+  useContractPaymentSyncRuns,
   useContractSubmissions,
+  useContractSyncRuns,
   type ContractDocumentStatusRow,
   type ContractPaymentReceiptRow,
   type ContractPaymentStatusRow,
@@ -177,6 +181,26 @@ function formatDateTime(value: string): string {
 
 function formatOptionalDateTime(value: string | null | undefined): string {
   return value ? formatDateTime(value) : '-';
+}
+
+function formatRelativeTime(value: string | null | undefined): string {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const now = new Date();
+  const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / 60000);
+
+  if (diffInMinutes < 1) return '방금 전';
+  if (diffInMinutes < 60) return `${diffInMinutes}분 전`;
+  
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `${diffInHours}시간 전`;
+  
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 7) return `${diffInDays}일 전`;
+
+  return formatDateTimeParts(value).date;
 }
 
 function formatDateTimeParts(value: string): { date: string; time: string } {
@@ -1784,6 +1808,11 @@ function UserDetailDrawer({
 
 export function DealPipelinePage(): JSX.Element {
   const { users, loading, refetch: refetchUsers } = useUsers();
+
+  const { counts: contractReviewCounts } = useContractDocumentReviewTabCounts();
+  const { counts: paymentReviewCounts } = useContractPaymentReviewTabCounts();
+  const { runs: contractSyncRuns } = useContractSyncRuns(undefined, 1);
+  const { runs: paymentSyncRuns } = useContractPaymentSyncRuns(undefined, 1);
   const { reorderDealPipeline, loading: reorderLoading } = useReorderDealPipeline();
 
   const [search, setSearch] = useState('');
@@ -2072,11 +2101,33 @@ export function DealPipelinePage(): JSX.Element {
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center md:w-auto">
           <Link
             to="/contracts/review"
-            className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 shadow-sm transition-colors hover:bg-slate-100"
+            className="group flex flex-col justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm transition-colors hover:bg-slate-50"
           >
-            계약서 관리
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-semibold text-slate-900">계약서 관리</span>
+              <span className="text-[10px] font-medium text-slate-400">
+                {formatRelativeTime(contractSyncRuns[0]?.startedAt)} 동기화
+              </span>
+            </div>
+            <p className="mt-0.5 text-[11px] text-slate-500">
+              검토 필요 <span className="font-semibold text-slate-900">{contractReviewCounts?.needsReview ?? 0}</span>건 · 초과 제출 <span className="font-semibold text-slate-900">{contractReviewCounts?.overSubmitted ?? 0}</span>건
+            </p>
           </Link>
-          <label className="w-full sm:w-[280px]">
+          <Link
+            to="/contracts/payments/review"
+            className="group flex flex-col justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm transition-colors hover:bg-slate-50"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-semibold text-slate-900">입금 관리</span>
+              <span className="text-[10px] font-medium text-slate-400">
+                {formatRelativeTime(paymentSyncRuns[0]?.startedAt)} 동기화
+              </span>
+            </div>
+            <p className="mt-0.5 text-[11px] text-slate-500">
+              동명이인 <span className="font-semibold text-slate-900">{paymentReviewCounts?.ambiguousPayerName ?? 0}</span>건 · 이름 불일치 <span className="font-semibold text-slate-900">{paymentReviewCounts?.nameMismatch ?? 0}</span>건
+            </p>
+          </Link>
+          <label className="w-full sm:w-[240px]">
             <span className="sr-only">고객 검색</span>
             <input
               type="search"
