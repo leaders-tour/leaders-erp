@@ -1,6 +1,6 @@
 import { Button, Card, Input, PageShell } from '@tour/ui';
 import { normalizeContractPersonName } from '@tour/validation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   useContractMatchPlanVersionCandidates,
   useContractPaymentReviewReceipts,
@@ -16,19 +16,19 @@ type PaymentReviewTabKey = 'ambiguous' | 'name_mismatch';
 const PAYMENT_REVIEW_TABS: Array<{
   key: PaymentReviewTabKey;
   label: string;
-  description: string;
+  tooltip: string;
   reasons: string[];
 }> = [
   {
     key: 'ambiguous',
     label: '동명이인',
-    description: '같은 이름의 계약서가 여러 건이라 문서번호를 특정할 수 없습니다',
+    tooltip: '같은 이름의 계약서가 여러 건이라 문서번호를 특정할 수 없습니다',
     reasons: ['AMBIGUOUS_PAYER_NAME'],
   },
   {
     key: 'name_mismatch',
     label: '이름불일치',
-    description: '입금자명과 일치하는 계약서 작성자명 후보가 없습니다',
+    tooltip: '입금자명과 일치하는 계약서 작성자명 후보가 없습니다',
     reasons: ['NO_MATCHED_CONTRACT_SUBMISSION_NAME', 'MISSING_PAYER_NAME', 'INVALID_AMOUNT'],
   },
 ];
@@ -67,6 +67,63 @@ function paymentReceiptStatusChipLabel(
     return '동명이인';
   }
   return '이름불일치';
+}
+
+function HoverTooltip({
+  content,
+  align = 'left',
+  placement = 'below',
+  children,
+}: {
+  content: string;
+  align?: 'left' | 'right';
+  placement?: 'above' | 'below';
+  children: ReactNode;
+}): JSX.Element {
+  return (
+    <span className="group/tooltip relative inline-flex max-w-full">
+      {children}
+      <span
+        role="tooltip"
+        className={`pointer-events-none absolute z-50 hidden w-56 rounded-xl border border-slate-200 bg-white p-2.5 text-left text-xs font-normal leading-snug text-slate-600 shadow-lg group-hover/tooltip:block group-focus-within/tooltip:block ${
+          placement === 'above' ? 'bottom-full mb-2' : 'top-full mt-2'
+        } ${align === 'right' ? 'right-0' : 'left-0'}`}
+      >
+        {content}
+      </span>
+    </span>
+  );
+}
+
+function TooltipHelpIcon({
+  content,
+  align = 'left',
+  placement = 'below',
+  className,
+}: {
+  content: string;
+  align?: 'left' | 'right';
+  placement?: 'above' | 'below';
+  className?: string;
+}): JSX.Element {
+  return (
+    <HoverTooltip content={content} align={align} placement={placement}>
+      <span
+        role="button"
+        tabIndex={0}
+        aria-label="도움말"
+        className={`inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full border border-slate-300 bg-white text-[10px] font-bold leading-none text-slate-500 transition hover:border-slate-400 hover:text-slate-700 ${className ?? ''}`}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.stopPropagation();
+          }
+        }}
+      >
+        ?
+      </span>
+    </HoverTooltip>
+  );
 }
 
 function formatKrw(value: number | null | undefined): string {
@@ -356,17 +413,18 @@ export function ContractPaymentReviewPage(): JSX.Element {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <Card className="grid max-h-[78vh] gap-2 overflow-y-auto rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="flex items-start justify-between gap-2 px-2 py-1">
-            <div>
+        <Card className="flex max-h-[78vh] flex-col gap-2 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="flex shrink-0 items-start justify-between gap-2 px-2 py-1">
+            <div className="flex items-center gap-1.5">
               <p className="text-sm font-semibold text-slate-900">{activeTabConfig.label}</p>
-              <p className="mt-0.5 text-xs text-slate-500">{activeTabConfig.description}</p>
+              <TooltipHelpIcon content={activeTabConfig.tooltip} />
             </div>
             <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
               {paymentTabCount(activeTab, paymentTabCounts) ?? paymentItems.length}
             </span>
           </div>
 
+          <div className="grid min-h-0 flex-1 gap-2 overflow-y-auto">
           {paymentLoading ? <p className="px-2 py-4 text-sm text-slate-500">불러오는 중...</p> : null}
           {!paymentLoading && paymentItems.length === 0 ? (
             <p className="px-2 py-4 text-sm text-slate-500">표시할 입금 row가 없습니다.</p>
@@ -430,9 +488,11 @@ export function ContractPaymentReviewPage(): JSX.Element {
                     {paymentReceiptStatusChipLabel(isMatched, activeTab)}
                   </span>
                 </div>
-                <p className={`mt-2 text-xs ${active ? 'text-slate-200' : 'text-slate-600'}`}>
-                  {paymentReviewReasonLabel(receipt.needsReviewReason)}
-                </p>
+                {receipt.needsReviewReason !== 'AMBIGUOUS_PAYER_NAME' ? (
+                  <p className={`mt-2 text-xs ${active ? 'text-slate-200' : 'text-slate-600'}`}>
+                    {paymentReviewReasonLabel(receipt.needsReviewReason)}
+                  </p>
+                ) : null}
                 {receipt.matchedDocumentNumberNorm ? (
                   <p className={`mt-1 text-xs ${active ? 'text-slate-300' : 'text-slate-500'}`}>
                     문서번호: {receipt.matchedDocumentNumberNorm}
@@ -445,6 +505,7 @@ export function ContractPaymentReviewPage(): JSX.Element {
               </button>
             );
           })}
+          </div>
         </Card>
 
         <div className="grid gap-4">
