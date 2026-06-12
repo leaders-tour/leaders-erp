@@ -120,6 +120,7 @@ type ContractMatchPlanVersionCandidate {
   headcountTotal: Int!
   travelStartDate: DateTime!
   travelEndDate: DateTime!
+  isCurrent: Boolean!
 }
 
 input MatchContractDocumentInput {
@@ -219,10 +220,31 @@ type ContractPaymentReceipt {
   updatedAt: DateTime!
 }
 
+type ContractPaymentReviewTeamPaymentReference {
+  teamName: String!
+  headcount: Int!
+  depositAmountKrw: Int!
+  securityAmountKrw: Int!
+  securityLabel: String!
+  requiredReferenceKrw: Int!
+  requiredTotalKrw: Int!
+}
+
+type ContractPaymentReviewMemberDeposit {
+  name: String!
+  receivedAmountKrw: Int!
+  requiredReferenceAmountKrw: Int
+}
+
 type ContractPaymentReviewDocumentCandidate {
   documentNumber: String!
   representativeName: String!
   teamMemberNames: [String!]!
+  teamPaymentReferences: [ContractPaymentReviewTeamPaymentReference!]!
+  memberDeposits: [ContractPaymentReviewMemberDeposit!]!
+  requiredTotalKrw: Int
+  receivedTotalKrw: Int!
+  remainingTotalKrw: Int
 }
 
 type ContractPaymentReviewReceiptItem {

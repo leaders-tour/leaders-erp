@@ -153,6 +153,23 @@ export const contractResolver = {
         documentNumber: string;
         representativeName: string;
         teamMemberNames: string[];
+        teamPaymentReferences: Array<{
+          teamName: string;
+          headcount: number;
+          depositAmountKrw: number;
+          securityAmountKrw: number;
+          securityLabel: string;
+          requiredReferenceKrw: number;
+          requiredTotalKrw: number;
+        }>;
+        memberDeposits: Array<{
+          name: string;
+          receivedAmountKrw: number;
+          requiredReferenceAmountKrw: number | null;
+        }>;
+        requiredTotalKrw: number | null;
+        receivedTotalKrw: number;
+        remainingTotalKrw: number | null;
       }>;
     }) => parent.candidateDocumentNumbers,
   },

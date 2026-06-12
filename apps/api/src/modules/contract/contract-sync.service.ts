@@ -21,6 +21,9 @@ import {
   parsePaymentReceivedAtFromRawJson,
   paymentReceivedAtEquals,
 } from './contract-payment-date';
+import {
+  buildDocumentPaymentReviewSummary,
+} from './contract-payment-summary';
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
@@ -1257,6 +1260,7 @@ export class ContractSyncService {
               select: {
                 id: true,
                 title: true,
+                currentVersionId: true,
                 user: {
                   select: {
                     id: true,
@@ -1284,6 +1288,7 @@ export class ContractSyncService {
       headcountTotal: row.headcountTotal,
       travelStartDate: row.travelStartDate,
       travelEndDate: row.travelEndDate,
+      isCurrent: row.planVersionId === row.planVersion.plan.currentVersionId,
     }));
   }
 
@@ -1532,6 +1537,89 @@ function buildTeamMemberNamesByDocumentBase(
       Array.from(names).sort((left, right) => left.localeCompare(right, 'ko')),
     ]),
   );
+}
+
+type PlanVersionForPaymentReviewSummary = Prisma.PlanVersionGetPayload<{
+  select: {
+    id: true;
+    meta: {
+      select: {
+        headcountTotal: true;
+      };
+    };
+    pricing: {
+      select: {
+        depositAmountKrw: true;
+        securityDepositAmountKrw: true;
+        securityDepositUnitPriceKrw: true;
+        securityDepositMode: true;
+        inputSnapshot: true;
+        manualPricingSnapshot: true;
+      };
+    };
+  };
+}>;
+
+async function loadPlanVersionsByDocumentBase(
+  prisma: PrismaLike,
+  bases: string[],
+): Promise<Map<string, PlanVersionForPaymentReviewSummary>> {
+  const uniqueBases = Array.from(new Set(bases.filter(Boolean)));
+  if (uniqueBases.length === 0) {
+    return new Map();
+  }
+
+  const metas = await prisma.planVersionMeta.findMany({
+    where: {
+      OR: uniqueBases.flatMap((base) => [
+        { documentNumber: base },
+        { documentNumber: { startsWith: `${base}V` } },
+      ]),
+    },
+    select: {
+      documentNumber: true,
+      planVersion: {
+        select: {
+          id: true,
+          meta: {
+            select: {
+              headcountTotal: true,
+            },
+          },
+          pricing: {
+            select: {
+              depositAmountKrw: true,
+              securityDepositAmountKrw: true,
+              securityDepositUnitPriceKrw: true,
+              securityDepositMode: true,
+              inputSnapshot: true,
+              manualPricingSnapshot: true,
+            },
+          },
+          plan: {
+            select: {
+              currentVersionId: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const planVersionsByBase = new Map<string, PlanVersionForPaymentReviewSummary>();
+  for (const base of uniqueBases) {
+    const candidates = metas.filter((meta) => {
+      const normalized = normalizeContractDocumentNumber(meta.documentNumber);
+      return normalized ? documentNumberBaseKey(normalized) === base : false;
+    });
+    const preferred = candidates.find((meta) => meta.planVersion.id === meta.planVersion.plan.currentVersionId)
+      ?? candidates[0];
+    if (preferred?.planVersion) {
+      planVersionsByBase.set(base, preferred.planVersion);
+    }
+  }
+
+  return planVersionsByBase;
 }
 
 function buildPaymentMatchContext(
@@ -1917,17 +2005,58 @@ export class ContractPaymentSyncService {
       submissions,
       candidateDocumentBases,
     );
+    const planVersionsByDocumentBase = await loadPlanVersionsByDocumentBase(
+      this.prisma,
+      candidateDocumentBases,
+    );
+    const matchedReceipts = await this.prisma.contractPaymentReceipt.findMany({
+      where: {
+        AND: [
+          contractPaymentReceiptDocumentWhere(candidateDocumentBases),
+          { matchedDocumentNumberNorm: { not: null } },
+        ],
+      },
+      select: {
+        matchedDocumentNumberNorm: true,
+        payerNameRaw: true,
+        payerNameNorm: true,
+        amountKrw: true,
+      },
+    });
+    const matchedReceiptsByDocumentBase = new Map<string, typeof matchedReceipts>();
+    for (const receipt of matchedReceipts) {
+      if (!receipt.matchedDocumentNumberNorm) {
+        continue;
+      }
+      const base = documentNumberBaseKey(receipt.matchedDocumentNumberNorm);
+      const rows = matchedReceiptsByDocumentBase.get(base) ?? [];
+      rows.push(receipt);
+      matchedReceiptsByDocumentBase.set(base, rows);
+    }
 
     return rows.map((receipt) => ({
       receipt,
       candidateDocumentNumbers: receipt.payerNameNorm
         ? Array.from(context.documentNumbersByName.get(receipt.payerNameNorm) ?? [])
             .sort((left, right) => right.localeCompare(left, 'ko'))
-            .map((documentNumber) => ({
-              documentNumber,
-              representativeName: representativeNamesByDocumentBase.get(documentNumber) ?? '-',
-              teamMemberNames: teamMemberNamesByDocumentBase.get(documentNumber) ?? [],
-            }))
+            .map((documentNumber) => {
+              const teamMemberNames = teamMemberNamesByDocumentBase.get(documentNumber) ?? [];
+              const paymentSummary = buildDocumentPaymentReviewSummary({
+                planVersion: planVersionsByDocumentBase.get(documentNumber) ?? null,
+                teamMemberNames,
+                matchedReceipts: matchedReceiptsByDocumentBase.get(documentNumber) ?? [],
+              });
+              return {
+                documentNumber,
+                representativeName: representativeNamesByDocumentBase.get(documentNumber) ?? '-',
+                teamMemberNames,
+                teamPaymentReferences: paymentSummary.teamPaymentReferences,
+                memberDeposits: paymentSummary.memberDeposits,
+                requiredTotalKrw: paymentSummary.requiredTotalKrw,
+                receivedTotalKrw: paymentSummary.receivedTotalKrw,
+                remainingTotalKrw: paymentSummary.remainingTotalKrw,
+              };
+            })
         : [],
     }));
   }

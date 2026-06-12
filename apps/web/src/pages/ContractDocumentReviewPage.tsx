@@ -1021,8 +1021,19 @@ function PlanCandidateCard({
           <p className={`text-sm font-semibold ${selected ? 'text-white' : 'text-slate-900'}`}>{candidate.userName}</p>
           <p className={`mt-1 text-xs ${selected ? 'text-slate-200' : 'text-slate-500'}`}>{candidate.planTitle}</p>
         </div>
-        <span className={`text-xs font-semibold ${selected ? 'text-slate-200' : 'text-slate-600'}`}>
+        <span className={`flex items-center gap-2 text-xs font-semibold ${selected ? 'text-slate-200' : 'text-slate-600'}`}>
           v{candidate.versionNumber}
+          {candidate.isCurrent ? (
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+                selected
+                  ? 'border-emerald-400/40 bg-emerald-500/20 text-emerald-200'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              }`}
+            >
+              current
+            </span>
+          ) : null}
         </span>
       </div>
       <div className={`mt-3 grid gap-1 text-xs ${selected ? 'text-slate-200' : 'text-slate-600'} md:grid-cols-2`}>

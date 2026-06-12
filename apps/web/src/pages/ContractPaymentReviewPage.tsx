@@ -7,6 +7,7 @@ import {
   useContractPaymentReviewTabCounts,
   useMatchContractPaymentReceipt,
   useUnmatchContractPaymentReceipt,
+  type ContractPaymentReviewDocumentCandidateRow,
   type ContractPaymentReviewTabCountsRow,
 } from '../features/contract/hooks';
 
@@ -45,14 +46,6 @@ function paymentTabCount(
     case 'name_mismatch':
       return counts.nameMismatch;
   }
-}
-
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) {
-    return '-';
-  }
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString('ko-KR');
 }
 
 function formatDate(value: string | null | undefined): string {
@@ -105,11 +98,100 @@ function formatPaymentReviewCandidateLabel(
   return candidate.documentNumber;
 }
 
+function RoundedSelectionCheck({ className }: { className?: string }): JSX.Element {
+  return (
+    <span
+      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white ${className ?? ''}`}
+      aria-hidden
+    >
+      <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+        <path
+          fillRule="evenodd"
+          d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
+          clipRule="evenodd"
+        />
+      </svg>
+    </span>
+  );
+}
+
+function PaymentReviewCandidateDepositSummary({
+  candidate,
+}: {
+  candidate: ContractPaymentReviewDocumentCandidateRow;
+}): JSX.Element | null {
+  if (candidate.requiredTotalKrw == null && candidate.receivedTotalKrw === 0) {
+    return null;
+  }
+
+  const hasTeamPaymentReferences = candidate.teamPaymentReferences.length > 1;
+
+  return (
+    <div className="mt-3 rounded-2xl border border-orange-100 bg-orange-50/50 p-3">
+      <p className="text-sm font-semibold text-slate-900">입금액 요약</p>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div className="rounded-xl bg-white px-3 py-2">
+          <span className="text-slate-500">현재 입금합계</span>
+          <p className="mt-1 font-semibold text-slate-900">{formatKrw(candidate.receivedTotalKrw)}</p>
+        </div>
+        <div className="rounded-xl bg-white px-3 py-2">
+          <span className="text-slate-500">입금 필요액</span>
+          <p className="mt-1 font-semibold text-slate-900">{formatKrw(candidate.requiredTotalKrw)}</p>
+        </div>
+        <div className="col-span-2 rounded-xl bg-white px-3 py-2">
+          <span className="text-slate-500">남은 입금액</span>
+          <p
+            className={
+              candidate.remainingTotalKrw === 0
+                ? 'mt-1 font-semibold text-emerald-700'
+                : 'mt-1 font-semibold text-orange-600'
+            }
+          >
+            {formatKrw(candidate.remainingTotalKrw)}
+          </p>
+        </div>
+      </div>
+      {candidate.teamPaymentReferences.length > 0 ? (
+        <div className="mt-3 border-t border-orange-100 pt-3">
+          <p className="text-xs font-semibold text-slate-700">입금 계산 기준</p>
+          <div className="mt-2 grid gap-2">
+            {candidate.teamPaymentReferences.map((row) => (
+              <div key={`${candidate.documentNumber}-${row.teamName}`} className="rounded-xl bg-white px-3 py-2 text-xs text-slate-700">
+                <span className="font-medium text-slate-900">
+                  {row.teamName}({row.headcount}명)
+                </span>{' '}
+                예약금 {formatKrw(row.depositAmountKrw)}
+                {row.securityAmountKrw > 0 ? (
+                  <>
+                    {' '}
+                    + {row.securityLabel} {formatKrw(row.securityAmountKrw)}
+                  </>
+                ) : null}
+                {' = '}
+                <span className="font-semibold text-orange-600">
+                  {formatKrw(row.requiredReferenceKrw)}
+                </span>
+                {!hasTeamPaymentReferences ? null : (
+                  <span className="text-slate-500">
+                    {' '}
+                    * {row.headcount}명 기준 합계 {formatKrw(row.requiredTotalKrw)}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function ContractPaymentReviewPage(): JSX.Element {
   const [activeTab, setActiveTab] = useState<PaymentReviewTabKey>('ambiguous');
   const [paymentSearch, setPaymentSearch] = useState('');
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
-  const [documentNumberDraft, setDocumentNumberDraft] = useState('');
+  const [selectedSheetDocumentNumber, setSelectedSheetDocumentNumber] = useState('');
+  const [selectedPlanDocumentNumber, setSelectedPlanDocumentNumber] = useState('');
   const [planSearch, setPlanSearch] = useState('');
   const [paymentErrorMessage, setPaymentErrorMessage] = useState<string | null>(null);
 
@@ -144,26 +226,21 @@ export function ContractPaymentReviewPage(): JSX.Element {
 
   useEffect(() => {
     if (!selectedPaymentItem) {
-      setDocumentNumberDraft('');
+      setSelectedSheetDocumentNumber('');
+      setSelectedPlanDocumentNumber('');
       setPlanSearch('');
       setPaymentErrorMessage(null);
       return;
     }
-    const initialDocumentNumber =
-      selectedPaymentItem.receipt.matchedDocumentNumberNorm
-        ?? selectedPaymentItem.candidateDocumentNumbers[0]?.documentNumber
-        ?? '';
-    setDocumentNumberDraft(initialDocumentNumber);
-    setPlanSearch(
-      activeTab === 'ambiguous' && initialDocumentNumber && !selectedPaymentItem.receipt.matchedDocumentNumberNorm
-        ? initialDocumentNumber
-        : '',
-    );
+    const matchedDocumentNumber = selectedPaymentItem.receipt.matchedDocumentNumberNorm ?? '';
+    setSelectedSheetDocumentNumber('');
+    setSelectedPlanDocumentNumber(matchedDocumentNumber);
+    setPlanSearch(matchedDocumentNumber);
     setPaymentErrorMessage(null);
-  }, [activeTab, selectedPaymentItem?.receipt.id]);
+  }, [selectedPaymentItem?.receipt.id]);
 
   const handleSelectCandidateDocumentNumber = (documentNumber: string) => {
-    setDocumentNumberDraft(documentNumber);
+    setSelectedSheetDocumentNumber(documentNumber);
     setPlanSearch(documentNumber);
     setPaymentErrorMessage(null);
   };
@@ -176,7 +253,7 @@ export function ContractPaymentReviewPage(): JSX.Element {
     if (!selectedPaymentItem) {
       return;
     }
-    const documentNumber = documentNumberDraft.trim();
+    const documentNumber = (selectedPlanDocumentNumber || selectedSheetDocumentNumber).trim();
     if (!documentNumber) {
       setPaymentErrorMessage('연결할 문서번호를 후보 또는 견적 검색에서 선택해주세요.');
       return;
@@ -304,6 +381,7 @@ export function ContractPaymentReviewPage(): JSX.Element {
               <button
                 key={receipt.id}
                 type="button"
+                aria-pressed={active}
                 onClick={() => setSelectedReceiptId(receipt.id)}
                 className={`rounded-2xl border px-3 py-3 text-left transition ${
                   active
@@ -376,98 +454,88 @@ export function ContractPaymentReviewPage(): JSX.Element {
             </Card>
           ) : (
             <>
-              <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-4">
+              <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="space-y-3">
                   <div className="min-w-0">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">선택된 입금</p>
-                    <h2 className="mt-1 text-xl font-semibold text-slate-900">
-                      {selectedPaymentItem.receipt.payerNameRaw ?? '이름 없음'}
+                    <h2 className="flex flex-wrap items-baseline gap-x-2 text-xl font-semibold text-slate-900">
+                      <span>{selectedPaymentItem.receipt.payerNameRaw ?? '이름 없음'}</span>
+                      <span className="text-base font-normal text-slate-400">·</span>
+                      <span className="font-bold tabular-nums tracking-tight">
+                        {formatKrw(selectedPaymentItem.receipt.amountKrw)}
+                      </span>
                     </h2>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {paymentReviewReasonLabel(selectedPaymentItem.receipt.needsReviewReason)}
-                    </p>
                   </div>
-                  <p className="shrink-0 text-right text-2xl font-bold tabular-nums tracking-tight text-slate-900">
-                    {formatKrw(selectedPaymentItem.receipt.amountKrw)}
-                  </p>
-                </div>
-
-                <div className="grid gap-2 rounded-2xl bg-slate-50 p-4 text-sm md:grid-cols-2">
-                  <div>
-                    <span className="text-slate-500">입금일시</span>
-                    <p className="font-medium text-slate-900">
-                      {formatDateTime(selectedPaymentItem.receipt.receivedAt)}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">시트 행</span>
-                    <p className="font-medium text-slate-900">
-                      {selectedPaymentItem.receipt.sourceRowNumber ?? '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">현재 연결</span>
-                    <p className="font-medium text-slate-900">
-                      {selectedPaymentItem.receipt.matchedDocumentNumberNorm ?? '미연결'}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">출처</span>
-                    <p className="font-medium text-slate-900">{selectedPaymentItem.receipt.source.name}</p>
-                  </div>
-                </div>
 
                 {activeTab === 'ambiguous' ? (
                   selectedPaymentItem.candidateDocumentNumbers.length > 0 ? (
-                    <div className="grid gap-2">
-                      <p className="text-sm font-semibold text-slate-900">계약서 시트에서 찾았어요</p>
+                    <div className="space-y-3">
+                      <div className="space-y-0.5">
+                        <p className="text-sm leading-snug text-slate-600">
+                          <span className="font-normal">계약서 시트에서 </span>
+                          {selectedPaymentItem.receipt.payerNameRaw?.trim() ? (
+                            <>
+                              <span className="font-normal">&apos;</span>
+                              <span className="font-bold text-slate-900">
+                                {selectedPaymentItem.receipt.payerNameRaw.trim()}
+                              </span>
+                              <span className="font-normal">&apos; 님이 속한</span>
+                            </>
+                          ) : (
+                            <span className="font-normal">속한</span>
+                          )}
+                        </p>
+                        <p className="text-sm font-normal leading-snug text-slate-600">
+                          문서번호들을 모두 조회했어요
+                        </p>
+                      </div>
                       <div className="grid gap-2">
                         {selectedPaymentItem.candidateDocumentNumbers.map((candidate) => {
-                          const selected = documentNumberDraft === candidate.documentNumber;
+                          const selected = selectedSheetDocumentNumber === candidate.documentNumber;
                           return (
                             <button
                               key={candidate.documentNumber}
                               type="button"
+                              aria-pressed={selected}
                               onClick={() => handleSelectCandidateDocumentNumber(candidate.documentNumber)}
-                              className={`rounded-2xl border px-4 py-3 text-left transition ${
-                                selected
-                                  ? 'border-slate-900 bg-slate-900 text-white'
-                                  : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                              }`}
+                              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-300 hover:bg-slate-50"
                             >
-                              <p className={`text-sm font-semibold ${selected ? 'text-white' : 'text-slate-900'}`}>
-                                {formatPaymentReviewCandidateLabel(candidate)}
-                              </p>
-                              {candidate.teamMemberNames.length > 0 ? (
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="text-sm font-semibold text-slate-900">
+                                  {formatPaymentReviewCandidateLabel(candidate)}
+                                </p>
+                                {selected ? <RoundedSelectionCheck /> : null}
+                              </div>
+                              {candidate.memberDeposits.length > 0 ? (
                                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                  <span
-                                    className={`text-[11px] font-medium ${
-                                      selected ? 'text-slate-300' : 'text-slate-500'
-                                    }`}
-                                  >
-                                    팀원
-                                  </span>
-                                  {candidate.teamMemberNames.map((name) => {
+                                  <span className="text-[11px] font-medium text-slate-500">팀원</span>
+                                  {candidate.memberDeposits.map((deposit) => {
                                     const isMatchedMember =
-                                      payerNameKey != null && normalizeContractPersonName(name) === payerNameKey;
+                                      payerNameKey != null && normalizeContractPersonName(deposit.name) === payerNameKey;
                                     return (
-                                    <span
-                                      key={name}
-                                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                                        isMatchedMember
-                                          ? selected
-                                            ? 'bg-emerald-500 text-white'
-                                            : 'bg-emerald-100 text-emerald-800'
-                                          : selected
-                                            ? 'bg-slate-800 text-slate-200'
+                                      <span
+                                        key={deposit.name}
+                                        className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                                          isMatchedMember
+                                            ? 'bg-emerald-100 text-emerald-800'
                                             : 'bg-slate-100 text-slate-600'
-                                      }`}
-                                    >
-                                      {name}
-                                    </span>
+                                        }`}
+                                      >
+                                        {deposit.name}
+                                        {deposit.receivedAmountKrw > 0 ? (
+                                          <span className="tabular-nums"> · {formatKrw(deposit.receivedAmountKrw)}</span>
+                                        ) : !isMatchedMember && deposit.requiredReferenceAmountKrw != null ? (
+                                          <span className="text-slate-400">
+                                            {' '}
+                                            · 0/{formatKrw(deposit.requiredReferenceAmountKrw)}
+                                          </span>
+                                        ) : null}
+                                      </span>
                                     );
                                   })}
                                 </div>
+                              ) : null}
+                              {selected ? (
+                                <PaymentReviewCandidateDepositSummary candidate={candidate} />
                               ) : null}
                             </button>
                           );
@@ -480,6 +548,7 @@ export function ContractPaymentReviewPage(): JSX.Element {
                     </div>
                   )
                 ) : null}
+                </div>
               </Card>
 
               <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -504,25 +573,35 @@ export function ContractPaymentReviewPage(): JSX.Element {
                 ) : null}
 
                 <div className="grid gap-2">
-                  {paymentPlanCandidates.map((candidate) => (
+                  {paymentPlanCandidates.map((candidate) => {
+                    const planSelected = selectedPlanDocumentNumber === candidate.documentNumber;
+                    return (
                     <button
                       key={candidate.planVersionId}
                       type="button"
-                      onClick={() => setDocumentNumberDraft(candidate.documentNumber)}
-                      className={`rounded-2xl border px-4 py-3 text-left transition ${
-                        documentNumberDraft === candidate.documentNumber
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                      }`}
+                      aria-pressed={planSelected}
+                      onClick={() => setSelectedPlanDocumentNumber(candidate.documentNumber)}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-300 hover:bg-slate-50"
                     >
-                      <p className={`text-sm font-semibold ${documentNumberDraft === candidate.documentNumber ? 'text-white' : 'text-slate-900'}`}>
-                        {candidate.userName} · {candidate.documentNumber}
-                      </p>
-                      <p className={`mt-1 text-xs ${documentNumberDraft === candidate.documentNumber ? 'text-slate-200' : 'text-slate-500'}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-900">
+                          <span>
+                            {candidate.userName} · {candidate.documentNumber}
+                          </span>
+                          {candidate.isCurrent ? (
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                              current
+                            </span>
+                          ) : null}
+                        </p>
+                        {planSelected ? <RoundedSelectionCheck /> : null}
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
                         v{candidate.versionNumber} · {candidate.leaderName}
                       </p>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {paymentErrorMessage ? <p className="text-sm text-rose-600">{paymentErrorMessage}</p> : null}
@@ -530,7 +609,9 @@ export function ContractPaymentReviewPage(): JSX.Element {
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="primary"
-                    disabled={!documentNumberDraft.trim() || matchingPayment}
+                    disabled={
+                      !(selectedPlanDocumentNumber.trim() || selectedSheetDocumentNumber.trim()) || matchingPayment
+                    }
                     onClick={() => void handleMatchPayment()}
                   >
                     {matchingPayment ? '연결 중...' : '이 문서번호에 연결'}

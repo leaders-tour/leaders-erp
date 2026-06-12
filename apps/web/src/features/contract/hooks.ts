@@ -94,6 +94,7 @@ export interface ContractMatchPlanVersionCandidateRow {
   headcountTotal: number;
   travelStartDate: string;
   travelEndDate: string;
+  isCurrent: boolean;
 }
 
 export interface ContractSyncRunRow {
@@ -179,10 +180,31 @@ export interface ContractPaymentReceiptRow {
   updatedAt: string;
 }
 
+export interface ContractPaymentReviewTeamPaymentReferenceRow {
+  teamName: string;
+  headcount: number;
+  depositAmountKrw: number;
+  securityAmountKrw: number;
+  securityLabel: string;
+  requiredReferenceKrw: number;
+  requiredTotalKrw: number;
+}
+
+export interface ContractPaymentReviewMemberDepositRow {
+  name: string;
+  receivedAmountKrw: number;
+  requiredReferenceAmountKrw: number | null;
+}
+
 export interface ContractPaymentReviewDocumentCandidateRow {
   documentNumber: string;
   representativeName: string;
   teamMemberNames: string[];
+  teamPaymentReferences: ContractPaymentReviewTeamPaymentReferenceRow[];
+  memberDeposits: ContractPaymentReviewMemberDepositRow[];
+  requiredTotalKrw: number | null;
+  receivedTotalKrw: number;
+  remainingTotalKrw: number | null;
 }
 
 export interface ContractPaymentReviewReceiptItemRow {
@@ -384,6 +406,7 @@ const CONTRACT_MATCH_PLAN_VERSION_CANDIDATES_QUERY = gql`
       headcountTotal
       travelStartDate
       travelEndDate
+      isCurrent
     }
   }
 `;
@@ -585,6 +608,23 @@ const CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY = gql`
         documentNumber
         representativeName
         teamMemberNames
+        teamPaymentReferences {
+          teamName
+          headcount
+          depositAmountKrw
+          securityAmountKrw
+          securityLabel
+          requiredReferenceKrw
+          requiredTotalKrw
+        }
+        memberDeposits {
+          name
+          receivedAmountKrw
+          requiredReferenceAmountKrw
+        }
+        requiredTotalKrw
+        receivedTotalKrw
+        remainingTotalKrw
       }
       receipt {
         id
