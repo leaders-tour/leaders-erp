@@ -399,7 +399,7 @@ export function ContractPaymentReviewPage(): JSX.Element {
                 {activeTab === 'ambiguous' ? (
                   selectedPaymentItem.candidateDocumentNumbers.length > 0 ? (
                     <div className="grid gap-2">
-                      <p className="text-sm font-semibold text-slate-900">계약서 작성자명 기준 후보</p>
+                      <p className="text-sm font-semibold text-slate-900">계약서 시트에서 찾았어요</p>
                       <div className="grid gap-2">
                         {selectedPaymentItem.candidateDocumentNumbers.map((candidate) => {
                           const selected = documentNumberDraft === candidate.documentNumber;
@@ -463,7 +463,7 @@ export function ContractPaymentReviewPage(): JSX.Element {
 
               <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">문서번호 연결</p>
+                  <p className="text-sm font-semibold text-slate-900">ERP 견적서에 연결해요</p>
                   <p className="mt-1 text-sm text-slate-600">
                     견적 검색으로 찾아 연결할 문서번호를 선택하세요.
                   </p>
@@ -479,7 +479,7 @@ export function ContractPaymentReviewPage(): JSX.Element {
                   <p className="text-sm text-slate-500">견적 후보를 불러오는 중...</p>
                 ) : null}
                 {planSearch.trim() && !paymentCandidatesLoading && paymentPlanCandidates.length === 0 ? (
-                  <p className="text-sm text-slate-500">연결 가능한 견적서를 찾기 못했어요</p>
+                  <p className="text-sm text-slate-500">연결 가능한 견적서를 찾지 못했어요</p>
                 ) : null}
 
                 <div className="grid gap-2">
