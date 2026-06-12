@@ -297,9 +297,7 @@ function contractProgressValue(status: ContractDocumentStatusRow | null): { subm
   return { submitted, expected, percent };
 }
 
-function paymentProgressValue(status: ContractPaymentStatusRow | null): { received: number; required: number | null; percent: number } {
-  const received = status?.receivedAmountKrw ?? 0;
-  const required = status?.requiredAmountKrw ?? null;
+function paymentProgressFromAmounts(received: number, required: number | null): { received: number; required: number | null; percent: number } {
   const percent = required && required > 0 ? Math.min(100, Math.round((received / required) * 100)) : received > 0 ? 100 : 0;
   return { received, required, percent };
 }
@@ -363,6 +361,23 @@ function paymentBreakdownFromPricing(
   if (!pricing) {
     return null;
   }
+  const teamRows = teamPaymentReferencesFromPricing(pricing);
+  if (teamRows.length > 1) {
+    const depositTotal = teamRows.reduce((sum, row) => sum + row.depositTotalKrw, 0);
+    const securityTotal = teamRows.reduce((sum, row) => sum + row.securityTotalKrw, 0);
+    const people = teamRows.reduce((sum, row) => sum + row.headcount, 0);
+    const depositPerPerson = people > 0 ? Math.round(depositTotal / people) : pricing.depositAmountKrw;
+
+    return {
+      depositPerPerson,
+      depositTotal,
+      securityMode: teamRows.some((row) => row.securityScope === '팀당') ? 'PER_TEAM' : 'PER_PERSON',
+      securityUnitAmount: people > 0 ? Math.round(securityTotal / people) : 0,
+      securityTotal,
+      requiredTotal: depositTotal + securityTotal,
+    };
+  }
+
   const people = headcount && headcount > 0 ? headcount : 1;
   const customerSnapshot = pricing.manualPricing?.customerPricingSnapshot;
   const depositPerPerson = customerSnapshot?.depositAmountKrw ?? pricing.depositAmountKrw;
@@ -382,6 +397,128 @@ function paymentBreakdownFromPricing(
     securityTotal,
     requiredTotal: depositTotal + securityTotal,
   };
+}
+
+type TeamPaymentReferenceRow = {
+  teamOrderIndex: number;
+  teamName: string;
+  headcount: number;
+  totalAmountKrw: number;
+  depositAmountKrw: number;
+  balanceAmountKrw: number;
+  depositTotalKrw: number;
+  securityAmountKrw: number;
+  securityDepositAmountKrw: number;
+  securityTotalKrw: number;
+  securityScope: string;
+  securityLabel: string;
+  requiredReferenceKrw: number;
+  requiredTotalKrw: number;
+};
+
+function teamPaymentReferenceFromSnapshotRow(row: {
+  teamOrderIndex: number;
+  teamName: string;
+  totalAmountKrw: number;
+  depositAmountKrw: number;
+  balanceAmountKrw: number;
+  securityDepositAmountKrw: number;
+  securityDepositUnitKrw: number;
+  securityDepositScope: string;
+}, headcount: number): TeamPaymentReferenceRow {
+  const people = headcount > 0 ? headcount : 1;
+  const depositAmountKrw = row.depositAmountKrw;
+  const securityScope = row.securityDepositScope;
+  const securityAmountKrw =
+    securityScope === '인당' || securityScope === '팀당' ? row.securityDepositUnitKrw : 0;
+  const securityLabel = securityScope === '팀당' ? '보증금(팀당)' : '보증금';
+  const depositTotalKrw = depositAmountKrw * people;
+  const securityTotalKrw = securityScope === '팀당' ? securityAmountKrw : securityAmountKrw * people;
+
+  return {
+    teamOrderIndex: row.teamOrderIndex,
+    teamName: row.teamName,
+    headcount: people,
+    totalAmountKrw: row.totalAmountKrw,
+    depositAmountKrw,
+    balanceAmountKrw: row.balanceAmountKrw,
+    depositTotalKrw,
+    securityAmountKrw,
+    securityDepositAmountKrw: row.securityDepositAmountKrw,
+    securityTotalKrw,
+    securityScope,
+    securityLabel,
+    requiredReferenceKrw: depositAmountKrw + securityAmountKrw,
+    requiredTotalKrw: depositTotalKrw + securityTotalKrw,
+  };
+}
+
+function teamPaymentReferenceFromPricingRow(row: {
+  teamOrderIndex: number;
+  teamName: string;
+  headcount?: number | null;
+  totalAmountKrw: number;
+  depositAmountKrw: number;
+  balanceAmountKrw: number;
+  securityDepositAmountKrw: number;
+  securityDepositUnitPriceKrw: number;
+  securityDepositMode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+}): TeamPaymentReferenceRow {
+  const people = row.headcount && row.headcount > 0 ? row.headcount : 1;
+  const depositAmountKrw = row.depositAmountKrw;
+  const securityAmountKrw =
+    row.securityDepositMode === 'PER_PERSON' || row.securityDepositMode === 'PER_TEAM'
+      ? row.securityDepositUnitPriceKrw
+      : 0;
+  const securityScope =
+    row.securityDepositMode === 'PER_PERSON' ? '인당' : row.securityDepositMode === 'PER_TEAM' ? '팀당' : '-';
+  const securityLabel = row.securityDepositMode === 'PER_TEAM' ? '보증금(팀당)' : '보증금';
+  const depositTotalKrw = depositAmountKrw * people;
+  const securityTotalKrw = row.securityDepositMode === 'PER_TEAM' ? securityAmountKrw : securityAmountKrw * people;
+
+  return {
+    teamOrderIndex: row.teamOrderIndex,
+    teamName: row.teamName,
+    headcount: people,
+    totalAmountKrw: row.totalAmountKrw,
+    depositAmountKrw,
+    balanceAmountKrw: row.balanceAmountKrw,
+    depositTotalKrw,
+    securityAmountKrw,
+    securityDepositAmountKrw: row.securityDepositAmountKrw,
+    securityTotalKrw,
+    securityScope,
+    securityLabel,
+    requiredReferenceKrw: depositAmountKrw + securityAmountKrw,
+    requiredTotalKrw: depositTotalKrw + securityTotalKrw,
+  };
+}
+
+function teamPaymentReferencesFromPricing(
+  pricing: ReturnType<typeof getUserPlanPricing>,
+): TeamPaymentReferenceRow[] {
+  if (!pricing) {
+    return [];
+  }
+
+  const snapshotRows = pricing.manualPricing?.customerPricingSnapshot?.teamPricings ?? [];
+  const pricingRows = pricing.teamPricings ?? [];
+  if (snapshotRows.length > 1) {
+    const headcountsByTeamOrder = new Map(
+      pricingRows.map((row) => [row.teamOrderIndex, row.headcount && row.headcount > 0 ? row.headcount : 1]),
+    );
+    return snapshotRows
+      .map((row) => teamPaymentReferenceFromSnapshotRow(row, headcountsByTeamOrder.get(row.teamOrderIndex) ?? 1))
+      .sort((left, right) => left.teamOrderIndex - right.teamOrderIndex);
+  }
+
+  if (pricingRows.length > 1) {
+    return pricingRows
+      .map(teamPaymentReferenceFromPricingRow)
+      .sort((left, right) => left.teamOrderIndex - right.teamOrderIndex);
+  }
+
+  return [];
 }
 
 function paymentStatusLabel(status: ContractPaymentStatusRow | null): string {
@@ -570,7 +707,14 @@ function PipelineCard({
   const previewTodos = stageTodos.slice(0, 3);
   const dday = formatDday(getUserTravelStartDate(user));
   const progress = contractProgressValue(contractStatus);
-  const paymentProgress = paymentProgressValue(paymentStatus);
+  const cardPaymentBreakdown = paymentBreakdownFromPricing(
+    getUserPlanPricing(user),
+    getUserPlanMeta(user)?.headcountTotal ?? null,
+  );
+  const paymentProgress = paymentProgressFromAmounts(
+    paymentStatus?.receivedAmountKrw ?? 0,
+    cardPaymentBreakdown?.requiredTotal ?? paymentStatus?.requiredAmountKrw ?? null,
+  );
 
   return (
     <div
@@ -942,6 +1086,38 @@ function UserDetailDrawer({
   const pricing = getUserPlanPricing(user);
   const pricingHeadcount = getUserPlanMeta(user)?.headcountTotal ?? null;
   const paymentBreakdown = paymentBreakdownFromPricing(pricing, pricingHeadcount);
+  const teamPaymentReferences = teamPaymentReferencesFromPricing(pricing);
+  const hasTeamPaymentReferences = teamPaymentReferences.length > 0;
+  const customerSnapshot = pricing?.manualPricing?.customerPricingSnapshot ?? null;
+  const priceSummaryRows = pricing
+    ? hasTeamPaymentReferences
+      ? teamPaymentReferences.map((row) => ({
+          key: `team-price-${row.teamOrderIndex}`,
+          label: row.teamName,
+          totalAmountKrw: row.totalAmountKrw,
+          depositAmountKrw: row.depositAmountKrw,
+          balanceAmountKrw: row.balanceAmountKrw,
+          securityText:
+            row.securityScope === '-'
+              ? `${formatKrw(row.securityDepositAmountKrw)}원`
+              : `${formatKrw(row.securityAmountKrw)}원 (${row.securityScope})`,
+        }))
+      : [
+          {
+            key: 'single-price',
+            label: null,
+            totalAmountKrw: customerSnapshot?.totalAmountKrw ?? pricing.totalAmountKrw,
+            depositAmountKrw: customerSnapshot?.depositAmountKrw ?? pricing.depositAmountKrw,
+            balanceAmountKrw: customerSnapshot?.balanceAmountKrw ?? pricing.balanceAmountKrw,
+            securityText:
+              (customerSnapshot?.securityDepositMode ?? pricing.securityDepositMode) === 'NONE'
+                ? '없음'
+                : `${formatKrw(customerSnapshot?.securityDepositUnitKrw ?? pricing.securityDepositUnitPriceKrw)}원 (${
+                    (customerSnapshot?.securityDepositMode ?? pricing.securityDepositMode) === 'PER_TEAM' ? '팀당' : '인당'
+                  })`,
+          },
+        ]
+    : [];
   const requiredPaymentAmount = paymentBreakdown?.requiredTotal ?? null;
   const receivedPaymentAmount = receipts.reduce((sum, receipt) => sum + (receipt.amountKrw ?? 0), 0);
   const remainingPaymentAmount = requiredPaymentAmount == null ? null : Math.max(0, requiredPaymentAmount - receivedPaymentAmount);
@@ -1060,53 +1236,102 @@ function UserDetailDrawer({
                 <p className={dealPipelineTokens.drawer.sectionLabel}>견적서 기준 입금액</p>
                 <Card className={dealPipelineTokens.drawer.simpleCard}>
                   {pricing ? (
-                    <div className="grid gap-3 text-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-slate-900">입금 필요액</p>
-                          <p className="mt-0.5 text-xs text-slate-500">예약금(1인) * 총인원 + 보증금</p>
+                    <div className="grid gap-4 text-sm">
+                      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                        <div className="grid grid-cols-4 bg-slate-100 text-center text-xs font-semibold text-slate-700">
+                          <div className="border-r border-slate-200 px-2 py-2">총액 (1인)</div>
+                          <div className="border-r border-slate-200 px-2 py-2">예약금 (1인)</div>
+                          <div className="border-r border-slate-200 px-2 py-2">잔금 (1인)</div>
+                          <div className="px-2 py-2">대여 물품 보증금</div>
                         </div>
-                        <span className="text-base font-bold text-orange-600">
-                          {formatKrw(requiredPaymentAmount)}원
-                        </span>
+                        <div className="grid grid-cols-4 text-center text-sm font-semibold text-slate-900">
+                          {(['totalAmountKrw', 'depositAmountKrw', 'balanceAmountKrw', 'securityText'] as const).map((field, index) => (
+                            <div
+                              key={field}
+                              className={`grid min-h-[96px] content-center gap-1 px-2 py-4 ${
+                                index < 3 ? 'border-r border-slate-200' : ''
+                              }`}
+                            >
+                              {priceSummaryRows.map((row) => (
+                                <div key={`${field}-${row.key}`}>
+                                  {row.label ? <span>{row.label}) </span> : null}
+                                  {field === 'securityText'
+                                    ? row.securityText
+                                    : `${formatKrw(row[field])}원`}
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-1.5 text-xs">
-                        <span className="text-slate-500">견적 총액</span>
-                        <span className="text-slate-900">{formatKrw(pricing.totalAmountKrw)}원</span>
-                        <span className="text-slate-500">총인원</span>
-                        <span className="text-slate-900">{pricingHeadcount ?? '?'}명</span>
-                        <span className="text-slate-500">예약금(1인)</span>
-                        <span className="text-slate-900">{formatKrw(paymentBreakdown?.depositPerPerson)}원</span>
-                        <span className="text-slate-500">예약금 합계</span>
-                        <span className="text-slate-900">{formatKrw(paymentBreakdown?.depositTotal)}원</span>
-                        {paymentBreakdown?.securityMode === 'PER_PERSON' ? (
-                          <>
-                            <span className="text-slate-500">보증금(1인)</span>
-                            <span className="text-slate-900">{formatKrw(paymentBreakdown.securityUnitAmount)}원</span>
-                            <span className="text-slate-500">보증금 합계</span>
-                            <span className="text-slate-900">{formatKrw(paymentBreakdown.securityTotal)}원</span>
-                          </>
-                        ) : paymentBreakdown?.securityMode === 'PER_TEAM' ? (
-                          <>
-                            <span className="text-slate-500">보증금(팀당)</span>
-                            <span className="text-slate-900">{formatKrw(paymentBreakdown.securityUnitAmount)}원</span>
-                            <span className="text-slate-500">보증금 합계</span>
-                            <span className="text-slate-900">{formatKrw(paymentBreakdown.securityTotal)}원</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="text-slate-500">보증금</span>
-                            <span className="text-slate-900">없음</span>
-                          </>
-                        )}
-                        <span className="text-slate-500">잔금</span>
-                        <span className="text-slate-900">{formatKrw(pricing.balanceAmountKrw)}원</span>
-                        <span className="text-slate-500">현재 입금합계</span>
-                        <span className="font-semibold text-slate-900">{formatKrw(receivedPaymentAmount)}원</span>
-                        <span className="text-slate-500">남은 입금액</span>
-                        <span className={remainingPaymentAmount === 0 ? 'font-semibold text-emerald-700' : 'font-semibold text-orange-600'}>
-                          {formatKrw(remainingPaymentAmount)}원
-                        </span>
+
+                      <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">입금액 요약</p>
+                            {!hasTeamPaymentReferences ? (
+                              <p className="mt-0.5 text-xs text-slate-500">예약금(1인) * 총인원 + 보증금</p>
+                            ) : null}
+                          </div>
+                          <span className="text-xl font-bold text-orange-600">
+                            {formatKrw(requiredPaymentAmount)}원
+                          </span>
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                          <div className="rounded-xl bg-white px-3 py-2">
+                            <span className="text-slate-500">입금 필요액</span>
+                            <p className="mt-1 font-semibold text-slate-900">{formatKrw(requiredPaymentAmount)}원</p>
+                          </div>
+                          <div className="rounded-xl bg-white px-3 py-2">
+                            <span className="text-slate-500">현재 입금합계</span>
+                            <p className="mt-1 font-semibold text-slate-900">{formatKrw(receivedPaymentAmount)}원</p>
+                          </div>
+                          <div className="rounded-xl bg-white px-3 py-2">
+                            <span className="text-slate-500">남은 입금액</span>
+                            <p className={remainingPaymentAmount === 0 ? 'mt-1 font-semibold text-emerald-700' : 'mt-1 font-semibold text-orange-600'}>
+                              {formatKrw(remainingPaymentAmount)}원
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-3 border-t border-orange-100 pt-3">
+                          <p className="text-xs font-semibold text-slate-700">입금 계산 기준</p>
+                          {hasTeamPaymentReferences ? (
+                            <>
+                              <div className="mt-2 grid gap-2">
+                                {teamPaymentReferences.map((row) => (
+                                  <div
+                                    key={`team-payment-ref-${row.teamOrderIndex}`}
+                                    className="rounded-xl bg-white px-3 py-2 text-xs text-slate-700"
+                                  >
+                                    <span className="font-medium text-slate-900">{row.teamName}({row.headcount}명)</span>{' '}
+                                    예약금 {formatKrw(row.depositAmountKrw)}원
+                                    {row.securityAmountKrw > 0 ? (
+                                      <>
+                                        {' '}
+                                        + {row.securityLabel} {formatKrw(row.securityAmountKrw)}원
+                                      </>
+                                    ) : null}
+                                    {' = '}
+                                    <span className="font-semibold text-orange-600">
+                                      {formatKrw(row.requiredReferenceKrw)}원
+                                    </span>
+                                    <span className="text-slate-500">
+                                      {' '}
+                                      * {row.headcount}명 기준 합계 {formatKrw(row.requiredTotalKrw)}원
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          ) : (
+                            <p className="mt-1 text-xs text-slate-700">
+                              예약금 {formatKrw(paymentBreakdown?.depositPerPerson)}원 * {pricingHeadcount ?? '?'}명
+                              {paymentBreakdown?.securityTotal ? ` + 보증금 ${formatKrw(paymentBreakdown.securityTotal)}원` : ''}
+                              {' = '}
+                              <span className="font-semibold text-orange-600">{formatKrw(requiredPaymentAmount)}원</span>
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ) : (

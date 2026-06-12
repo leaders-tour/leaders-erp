@@ -120,12 +120,35 @@ export interface UserRow {
       > & {
         manualPricing?: {
           customerPricingSnapshot?: {
+            totalAmountKrw: number;
             depositAmountKrw: number;
+            balanceAmountKrw: number;
             securityDepositTotalKrw: number;
             securityDepositUnitKrw: number;
             securityDepositMode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+            teamPricings?: Array<{
+              teamOrderIndex: number;
+              teamName: string;
+              totalAmountKrw: number;
+              depositAmountKrw: number;
+              balanceAmountKrw: number;
+              securityDepositAmountKrw: number;
+              securityDepositUnitKrw: number;
+              securityDepositScope: string;
+            }>;
           } | null;
         } | null;
+        teamPricings?: Array<{
+          teamOrderIndex: number;
+          teamName: string;
+          headcount: number;
+          totalAmountKrw: number;
+          depositAmountKrw: number;
+          balanceAmountKrw: number;
+          securityDepositAmountKrw: number;
+          securityDepositUnitPriceKrw: number;
+          securityDepositMode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+        }>;
       } | null;
     } | null;
   }>;
@@ -598,11 +621,34 @@ const USERS_QUERY = gql`
             securityDepositMode
             manualPricing {
               customerPricingSnapshot {
+                totalAmountKrw
                 depositAmountKrw
+                balanceAmountKrw
                 securityDepositTotalKrw
                 securityDepositUnitKrw
                 securityDepositMode
+                teamPricings {
+                  teamOrderIndex
+                  teamName
+                  totalAmountKrw
+                  depositAmountKrw
+                  balanceAmountKrw
+                  securityDepositAmountKrw
+                  securityDepositUnitKrw
+                  securityDepositScope
+                }
               }
+            }
+            teamPricings {
+              teamOrderIndex
+              teamName
+              headcount
+              totalAmountKrw
+              depositAmountKrw
+              balanceAmountKrw
+              securityDepositAmountKrw
+              securityDepositUnitPriceKrw
+              securityDepositMode
             }
           }
         }
