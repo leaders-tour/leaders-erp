@@ -148,7 +148,13 @@ export const contractResolver = {
   },
   ContractPaymentReviewReceiptItem: {
     receipt: (parent: { receipt: unknown }) => parent.receipt,
-    candidateDocumentNumbers: (parent: { candidateDocumentNumbers: string[] }) => parent.candidateDocumentNumbers,
+    candidateDocumentNumbers: (parent: {
+      candidateDocumentNumbers: Array<{
+        documentNumber: string;
+        representativeName: string;
+        teamMemberNames: string[];
+      }>;
+    }) => parent.candidateDocumentNumbers,
   },
   Query: {
     contractSubmissionSources: (_parent: unknown, _args: unknown, ctx: AppContext) => {

@@ -179,9 +179,15 @@ export interface ContractPaymentReceiptRow {
   updatedAt: string;
 }
 
+export interface ContractPaymentReviewDocumentCandidateRow {
+  documentNumber: string;
+  representativeName: string;
+  teamMemberNames: string[];
+}
+
 export interface ContractPaymentReviewReceiptItemRow {
   receipt: ContractPaymentReceiptRow;
-  candidateDocumentNumbers: string[];
+  candidateDocumentNumbers: ContractPaymentReviewDocumentCandidateRow[];
 }
 
 export interface ContractPaymentReviewTabCountsRow {
@@ -575,7 +581,11 @@ const SYNC_CONTRACT_PAYMENTS_MUTATION = gql`
 const CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY = gql`
   query ContractPaymentReviewReceipts($keyword: String, $reasons: [String!], $limit: Int) {
     contractPaymentReviewReceipts(keyword: $keyword, reasons: $reasons, limit: $limit) {
-      candidateDocumentNumbers
+      candidateDocumentNumbers {
+        documentNumber
+        representativeName
+        teamMemberNames
+      }
       receipt {
         id
         sourceRowNumber

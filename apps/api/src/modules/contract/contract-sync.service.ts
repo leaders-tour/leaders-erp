@@ -1540,6 +1540,100 @@ interface PaymentMatchContext {
   planVersions: PlanVersionForPaymentMatch[];
 }
 
+async function loadRepresentativeNamesByDocumentBase(
+  prisma: PrismaLike,
+  bases: string[],
+): Promise<Map<string, string>> {
+  const uniqueBases = Array.from(new Set(bases.filter(Boolean)));
+  if (uniqueBases.length === 0) {
+    return new Map();
+  }
+
+  const metas = await prisma.planVersionMeta.findMany({
+    where: {
+      OR: uniqueBases.flatMap((base) => [
+        { documentNumber: base },
+        { documentNumber: { startsWith: `${base}V` } },
+      ]),
+    },
+    select: {
+      planVersionId: true,
+      documentNumber: true,
+      leaderName: true,
+      planVersion: {
+        select: {
+          id: true,
+          plan: {
+            select: {
+              currentVersionId: true,
+              user: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const representativeNames = new Map<string, string>();
+  for (const base of uniqueBases) {
+    const candidates = metas.filter((meta) => {
+      const normalized = normalizeContractDocumentNumber(meta.documentNumber);
+      return normalized ? documentNumberBaseKey(normalized) === base : false;
+    });
+    const preferred = candidates.find((meta) => meta.planVersion.id === meta.planVersion.plan.currentVersionId)
+      ?? candidates[0];
+    const representativeName = preferred?.leaderName?.trim()
+      || preferred?.planVersion.plan.user.name?.trim()
+      || '';
+    if (representativeName) {
+      representativeNames.set(base, representativeName);
+    }
+  }
+
+  return representativeNames;
+}
+
+function buildTeamMemberNamesByDocumentBase(
+  submissions: ContractSubmissionForPaymentMatch[],
+  bases: string[],
+): Map<string, string[]> {
+  const baseSet = new Set(bases.filter(Boolean));
+  if (baseSet.size === 0) {
+    return new Map();
+  }
+
+  const namesByBase = new Map<string, Set<string>>();
+  for (const submission of submissions) {
+    if (!submission.documentNumberNorm) {
+      continue;
+    }
+    const base = documentNumberBaseKey(submission.documentNumberNorm);
+    if (!baseSet.has(base)) {
+      continue;
+    }
+
+    const travelerName = submission.travelerName?.trim();
+    if (!travelerName) {
+      continue;
+    }
+
+    const names = namesByBase.get(base) ?? new Set<string>();
+    names.add(travelerName);
+    namesByBase.set(base, names);
+  }
+
+  return new Map(
+    Array.from(namesByBase.entries()).map(([base, names]) => [
+      base,
+      Array.from(names).sort((left, right) => left.localeCompare(right, 'ko')),
+    ]),
+  );
+}
+
 function buildPaymentMatchContext(
   submissions: ContractSubmissionForPaymentMatch[],
   planVersions: PlanVersionForPaymentMatch[],
@@ -1908,10 +2002,32 @@ export class ContractPaymentSyncService {
       ...(limit != null ? { take: limit } : {}),
     });
 
+    const candidateDocumentBases = Array.from(new Set(
+      rows.flatMap((receipt) => (
+        receipt.payerNameNorm
+          ? Array.from(context.documentNumbersByName.get(receipt.payerNameNorm) ?? [])
+          : []
+      )),
+    ));
+    const representativeNamesByDocumentBase = await loadRepresentativeNamesByDocumentBase(
+      this.prisma,
+      candidateDocumentBases,
+    );
+    const teamMemberNamesByDocumentBase = buildTeamMemberNamesByDocumentBase(
+      submissions,
+      candidateDocumentBases,
+    );
+
     return rows.map((receipt) => ({
       receipt,
       candidateDocumentNumbers: receipt.payerNameNorm
-        ? Array.from(context.documentNumbersByName.get(receipt.payerNameNorm) ?? []).sort()
+        ? Array.from(context.documentNumbersByName.get(receipt.payerNameNorm) ?? [])
+            .sort((left, right) => right.localeCompare(left, 'ko'))
+            .map((documentNumber) => ({
+              documentNumber,
+              representativeName: representativeNamesByDocumentBase.get(documentNumber) ?? '-',
+              teamMemberNames: teamMemberNamesByDocumentBase.get(documentNumber) ?? [],
+            }))
         : [],
     }));
   }

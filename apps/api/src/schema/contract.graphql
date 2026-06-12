@@ -219,9 +219,15 @@ type ContractPaymentReceipt {
   updatedAt: DateTime!
 }
 
+type ContractPaymentReviewDocumentCandidate {
+  documentNumber: String!
+  representativeName: String!
+  teamMemberNames: [String!]!
+}
+
 type ContractPaymentReviewReceiptItem {
   receipt: ContractPaymentReceipt!
-  candidateDocumentNumbers: [String!]!
+  candidateDocumentNumbers: [ContractPaymentReviewDocumentCandidate!]!
 }
 
 type ContractPaymentReviewTabCounts {
