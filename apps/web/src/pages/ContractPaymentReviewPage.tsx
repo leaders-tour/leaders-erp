@@ -85,6 +85,12 @@ export function ContractPaymentReviewPage(): JSX.Element {
     setPaymentErrorMessage(null);
   }, [selectedPaymentItem?.receipt.id]);
 
+  const handleSelectCandidateDocumentNumber = (documentNumber: string) => {
+    setDocumentNumberDraft(documentNumber);
+    setPlanSearch(documentNumber);
+    setPaymentErrorMessage(null);
+  };
+
   const refreshPage = async () => {
     await Promise.all([refetchPaymentItems(), refetchPaymentReviewCount()]);
   };
@@ -95,7 +101,7 @@ export function ContractPaymentReviewPage(): JSX.Element {
     }
     const documentNumber = documentNumberDraft.trim();
     if (!documentNumber) {
-      setPaymentErrorMessage('연결할 문서번호를 입력하거나 후보에서 선택해주세요.');
+      setPaymentErrorMessage('연결할 문서번호를 후보 또는 견적 검색에서 선택해주세요.');
       return;
     }
 
@@ -277,7 +283,7 @@ export function ContractPaymentReviewPage(): JSX.Element {
                         <button
                           key={documentNumber}
                           type="button"
-                          onClick={() => setDocumentNumberDraft(documentNumber)}
+                          onClick={() => handleSelectCandidateDocumentNumber(documentNumber)}
                           className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
                             documentNumberDraft === documentNumber
                               ? 'border-slate-900 bg-slate-900 text-white'
@@ -291,7 +297,7 @@ export function ContractPaymentReviewPage(): JSX.Element {
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                    계약서 작성자명과 일치하는 문서번호 후보가 없습니다. 아래에서 직접 검색하거나 문서번호를 입력하세요.
+                    계약서 작성자명과 일치하는 문서번호 후보가 없습니다. 아래에서 견적을 검색해 선택하세요.
                   </div>
                 )}
               </Card>
@@ -300,18 +306,9 @@ export function ContractPaymentReviewPage(): JSX.Element {
                 <div>
                   <p className="text-sm font-semibold text-slate-900">문서번호 연결</p>
                   <p className="mt-1 text-sm text-slate-600">
-                    연결할 계약 문서번호를 입력하거나 견적 검색으로 찾아 연결하세요.
+                    견적 검색으로 찾아 연결할 문서번호를 선택하세요.
                   </p>
                 </div>
-
-                <label className="grid gap-1 text-sm">
-                  <span className="font-medium text-slate-700">문서번호</span>
-                  <Input
-                    value={documentNumberDraft}
-                    onChange={(event) => setDocumentNumberDraft(event.target.value)}
-                    placeholder="예: 260610128"
-                  />
-                </label>
 
                 <Input
                   value={planSearch}
