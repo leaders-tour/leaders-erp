@@ -266,14 +266,13 @@ function inferYearForMonthDay(month: number, day: number): number {
   const now = new Date();
   let year = now.getFullYear();
   const candidate = new Date(year, month - 1, day);
-  const futureThresholdMs = 45 * 24 * 60 * 60 * 1000;
-  if (candidate.getTime() > now.getTime() + futureThresholdMs) {
+  if (candidate.getTime() > now.getTime()) {
     year -= 1;
   }
   return year;
 }
 
-function parseOptionalDate(value: string | null): Date | null {
+function parseOptionalDate(value: string | null, yearHint?: number | null): Date | null {
   if (!value) {
     return null;
   }
@@ -305,7 +304,7 @@ function parseOptionalDate(value: string | null): Date | null {
     const [, monthRaw, dayRaw, hourRaw, minuteRaw, secondRaw] = monthDayTime;
     const month = Number(monthRaw);
     const day = Number(dayRaw);
-    const year = inferYearForMonthDay(month, day);
+    const year = yearHint ?? inferYearForMonthDay(month, day);
     const parsed = new Date(
       year,
       month - 1,
@@ -322,15 +321,43 @@ function parseOptionalDate(value: string | null): Date | null {
 }
 
 const PAYMENT_RECEIVED_AT_RAW_KEYS = ['입금일시', '입금일', '거래일시', '거래일자', '날짜', '일시', 'date'];
+const PAYMENT_TIMESTAMP_RAW_KEYS = ['타임스탬프', 'timestamp'];
+
+function parseYearFromTimestamp(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+  const koreanDate = value.match(/^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
+  if (koreanDate) {
+    const year = Number(koreanDate[1]);
+    return Number.isSafeInteger(year) ? year : null;
+  }
+  const parsed = parseOptionalDate(value);
+  return parsed ? parsed.getFullYear() : null;
+}
+
+function paymentTimestampFromRawJson(rawJson: Record<string, string>): string | null {
+  for (const key of PAYMENT_TIMESTAMP_RAW_KEYS) {
+    const value = cell(rawJson[key]);
+    if (value) {
+      return value;
+    }
+  }
+  return null;
+}
 
 function parsePaymentReceivedAtFromRawJson(rawJson: Record<string, string>): Date | null {
+  const yearHint = parseYearFromTimestamp(paymentTimestampFromRawJson(rawJson));
+
   for (const key of PAYMENT_RECEIVED_AT_RAW_KEYS) {
-    const parsed = parseOptionalDate(cell(rawJson[key]));
+    const parsed = parseOptionalDate(cell(rawJson[key]), yearHint);
     if (parsed) {
       return parsed;
     }
   }
-  return null;
+
+  const timestampValue = paymentTimestampFromRawJson(rawJson);
+  return timestampValue ? parseOptionalDate(timestampValue) : null;
 }
 
 function paymentReceivedAtEquals(
@@ -460,7 +487,6 @@ function parsePaymentSheetRows(values: string[][], headerRow: number): ParsedPay
 
   const payerNameIndex = requireColumn(headers, ['입금자명', '성명', '이름', '보낸사람', '보내는분', 'payer name'], '입금자명');
   const amountIndex = requireColumn(headers, ['금액', '입금액', '거래금액', 'amount'], '금액');
-  const receivedAtIndex = optionalColumn(headers, ['입금일시', '입금일', '거래일시', '거래일자', '날짜', '일시', 'date']);
 
   return values.slice(headerIndex + 1).flatMap((row, offset) => {
     if (row.every((value) => !value?.trim())) {
@@ -472,7 +498,7 @@ function parsePaymentSheetRows(values: string[][], headerRow: number): ParsedPay
     return [{
       rowNumber,
       sourceRecordKey: `row:${rowNumber}`,
-      receivedAt: receivedAtIndex == null ? null : parseOptionalDate(cell(row[receivedAtIndex])),
+      receivedAt: parsePaymentReceivedAtFromRawJson(rawJson),
       payerNameRaw,
       payerNameNorm: normalizeContractPersonName(payerNameRaw),
       amountKrw: parsePaymentAmount(cell(row[amountIndex])),
