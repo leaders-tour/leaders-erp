@@ -4044,20 +4044,34 @@ export function ItineraryBuilderPage(): JSX.Element {
         })),
     [planRows],
   );
-  const lodgingUpgradeRows = useMemo(
+  const lodgingUpgradeRows = useMemo(() => {
+    let dayIndex = 0;
+
+    return planRows.flatMap((row, planRowIndex) => {
+      if (!isMainPlanStopRow(row)) {
+        return [];
+      }
+
+      dayIndex += 1;
+
+      return [{
+        dayIndex,
+        planRowIndex,
+        locationLabel: formatLocationNameInline(
+          locationById.get(row.locationId ?? '')?.name ?? row.locationId ?? '목적지 미정',
+        ),
+        lodgingSelectionLevel: row.lodgingSelectionLevel,
+        lodgingCellText: row.lodgingCellText,
+        customLodgingId: row.customLodgingId,
+      }];
+    });
+  }, [locationById, planRows]);
+  const selectedLodgingUpgradeRow = useMemo(
     () =>
-      planRows
-        .filter((row) => isMainPlanStopRow(row))
-        .map((row, index) => ({
-          dayIndex: index + 1,
-          locationLabel: formatLocationNameInline(
-            locationById.get(row.locationId ?? '')?.name ?? row.locationId ?? '목적지 미정',
-          ),
-          lodgingSelectionLevel: row.lodgingSelectionLevel,
-          lodgingCellText: row.lodgingCellText,
-          customLodgingId: row.customLodgingId,
-        })),
-    [locationById, planRows],
+      lodgingSelectionModalState.rowIndex === null
+        ? null
+        : (lodgingUpgradeRows.find((row) => row.planRowIndex === lodgingSelectionModalState.rowIndex) ?? null),
+    [lodgingSelectionModalState.rowIndex, lodgingUpgradeRows],
   );
   const planStopInputs = useMemo(
     () =>
@@ -8241,13 +8255,23 @@ export function ItineraryBuilderPage(): JSX.Element {
           open={lodgingUpgradeModalState.open}
           rows={lodgingUpgradeRows}
           onClose={() => setLodgingUpgradeModalState({ open: false })}
-          onChooseLevel={(rowIndex, level) => applyLodgingSelection(rowIndex, level)}
-          onChooseCustom={(rowIndex) =>
+          onChooseLevel={(rowIndex, level) => {
+            const row = lodgingUpgradeRows[rowIndex];
+            if (!row) {
+              return;
+            }
+            applyLodgingSelection(row.planRowIndex, level);
+          }}
+          onChooseCustom={(rowIndex) => {
+            const row = lodgingUpgradeRows[rowIndex];
+            if (!row) {
+              return;
+            }
             setLodgingSelectionModalState({
               open: true,
-              rowIndex,
-            })
-          }
+              rowIndex: row.planRowIndex,
+            });
+          }}
         />
 
         <SpecialMealsModal
@@ -8320,11 +8344,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
         <RegionLodgingSelectModal
           open={lodgingSelectionModalState.open}
-          dayIndex={
-            lodgingSelectionModalState.rowIndex !== null
-              ? lodgingSelectionModalState.rowIndex + 1
-              : null
-          }
+          dayIndex={selectedLodgingUpgradeRow?.dayIndex ?? null}
           lodgings={regionLodgings}
           initialSelectedId={
             lodgingSelectionModalState.rowIndex !== null

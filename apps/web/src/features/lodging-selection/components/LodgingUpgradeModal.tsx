@@ -3,6 +3,7 @@ import type { LodgingSelectionLevel } from '../model';
 
 export interface LodgingUpgradeRow {
   dayIndex: number;
+  planRowIndex: number;
   locationLabel: string;
   lodgingSelectionLevel: LodgingSelectionLevel;
   lodgingCellText: string;
