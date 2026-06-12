@@ -1030,7 +1030,8 @@ function UserDetailDrawer({
   onTodoChanged?: () => void;
 }): JSX.Element | null {
   const { employee } = useAuth();
-  const [activeTab, setActiveTab] = useState<'contract' | 'note' | 'todo' | 'estimate'>('contract');
+  const [activeTab, setActiveTab] = useState<'contract' | 'note' | 'todo'>('contract');
+  const [isEstimatePanelOpen, setIsEstimatePanelOpen] = useState(false);
   const [isNoteComposerOpen, setIsNoteComposerOpen] = useState(false);
   const [noteContent, setNoteContent] = useState('');
   const [noteError, setNoteError] = useState<string | null>(null);
@@ -1053,6 +1054,7 @@ function UserDetailDrawer({
 
   useEffect(() => {
     setActiveTab('contract');
+    setIsEstimatePanelOpen(false);
     setIsNoteComposerOpen(false);
     setNoteContent('');
     setNoteError(null);
@@ -1169,7 +1171,8 @@ function UserDetailDrawer({
   return (
     <div className={dealPipelineTokens.drawer.overlay}>
       <button type="button" aria-label="닫기" className={dealPipelineTokens.drawer.backdrop} onClick={onClose} />
-      <aside className={dealPipelineTokens.drawer.panel}>
+      <div className="absolute right-0 top-0 flex h-full max-w-full items-stretch">
+      <aside className="h-full w-screen max-w-2xl overflow-y-auto border-l border-slate-200 bg-slate-50 shadow-2xl">
         <header className={dealPipelineTokens.drawer.header}>
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -1210,26 +1213,39 @@ function UserDetailDrawer({
         </header>
 
         <div className={dealPipelineTokens.drawer.tabsWrap}>
-          <div className={dealPipelineTokens.drawer.tabsRow}>
-            {[
-              { key: 'contract', label: '계약/입금' },
-              { key: 'estimate', label: '견적서' },
-              { key: 'note', label: '노트' },
-              { key: 'todo', label: 'TODO' },
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key as 'contract' | 'note' | 'todo' | 'estimate')}
-                className={`${dealPipelineTokens.drawer.tabButtonBase} ${
-                  activeTab === tab.key
-                    ? dealPipelineTokens.drawer.tabButtonActive
-                    : dealPipelineTokens.drawer.tabButtonInactive
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="flex items-center justify-between gap-4">
+            <div className={dealPipelineTokens.drawer.tabsRow}>
+              {[
+                { key: 'contract', label: '계약/입금' },
+                { key: 'note', label: '노트' },
+                { key: 'todo', label: 'TODO' },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key as 'contract' | 'note' | 'todo')}
+                  className={`${dealPipelineTokens.drawer.tabButtonBase} ${
+                    activeTab === tab.key
+                      ? dealPipelineTokens.drawer.tabButtonActive
+                      : dealPipelineTokens.drawer.tabButtonInactive
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsEstimatePanelOpen((current) => !current)}
+              disabled={!currentPlanVersionId}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                isEstimatePanelOpen
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              {isEstimatePanelOpen ? '견적서 닫기' : '견적서 열기'}
+            </button>
           </div>
         </div>
 
@@ -1639,55 +1655,72 @@ function UserDetailDrawer({
             </section>
           ) : null}
 
-          {activeTab === 'estimate' ? (
-            <section className="grid gap-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className={dealPipelineTokens.drawer.sectionLabel}>견적서 미리보기</p>
+        </div>
+      </aside>
+      {isEstimatePanelOpen ? (
+        <aside className="h-full w-screen max-w-4xl overflow-y-auto border-l border-slate-200 bg-slate-50 shadow-2xl">
+          <header className="border-b border-slate-200 bg-white px-6 py-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className={dealPipelineTokens.drawer.headingTopLabel}>견적서</p>
+                <h2 className={dealPipelineTokens.drawer.headingTitle}>견적서 미리보기</h2>
+              </div>
+              <div className="flex items-center gap-2">
                 {currentPlanVersionId ? (
                   <a
                     href={`/documents/estimate?mode=version&versionId=${encodeURIComponent(currentPlanVersionId)}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                    className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
                   >
                     크게 보기
                   </a>
                 ) : null}
+                <button
+                  type="button"
+                  onClick={() => setIsEstimatePanelOpen(false)}
+                  className={dealPipelineTokens.drawer.closeButton}
+                >
+                  닫기
+                </button>
               </div>
+            </div>
+          </header>
 
-              {!currentPlanVersionId ? (
-                <Card className={dealPipelineTokens.drawer.simpleCard}>
-                  <p className="text-sm text-slate-500">연결된 현재 견적서 버전이 없습니다.</p>
-                </Card>
-              ) : null}
+          <div className={dealPipelineTokens.drawer.contentWrap}>
+            {!currentPlanVersionId ? (
+              <Card className={dealPipelineTokens.drawer.simpleCard}>
+                <p className="text-sm text-slate-500">연결된 현재 견적서 버전이 없습니다.</p>
+              </Card>
+            ) : null}
 
-              {estimatePreviewLoading ? (
-                <Card className={dealPipelineTokens.drawer.simpleCard}>
-                  <p className="text-sm text-slate-500">견적서 미리보기를 불러오는 중입니다...</p>
-                </Card>
-              ) : null}
+            {estimatePreviewLoading ? (
+              <Card className={dealPipelineTokens.drawer.simpleCard}>
+                <p className="text-sm text-slate-500">견적서 미리보기를 불러오는 중입니다...</p>
+              </Card>
+            ) : null}
 
-              {!estimatePreviewLoading && estimatePreviewError ? (
-                <Card className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-                  {estimatePreviewError}
-                </Card>
-              ) : null}
+            {!estimatePreviewLoading && estimatePreviewError ? (
+              <Card className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                {estimatePreviewError}
+              </Card>
+            ) : null}
 
-              {!estimatePreviewLoading && !estimatePreviewError && estimatePreviewData ? (
-                <div className="rounded-3xl border border-slate-200 bg-slate-100/70 p-3">
-                  <div className="max-h-[72vh] overflow-auto rounded-2xl bg-white">
-                    <div className="estimate-preview-frame">
-                      <EstimatePreviewScaler>
-                        <EstimateDocument data={estimatePreviewData} viewMode="screen-preview" />
-                      </EstimatePreviewScaler>
-                    </div>
+            {!estimatePreviewLoading && !estimatePreviewError && estimatePreviewData ? (
+              <div className="rounded-3xl border border-slate-200 bg-slate-100/70 p-3">
+                <div className="max-h-[calc(100vh-8rem)] overflow-auto rounded-2xl bg-white">
+                  <div className="estimate-preview-frame">
+                    <EstimatePreviewScaler>
+                      <EstimateDocument data={estimatePreviewData} viewMode="screen-preview" />
+                    </EstimatePreviewScaler>
                   </div>
                 </div>
-              ) : null}
-            </section>
-          ) : null}
-        </div>
-      </aside>
+              </div>
+            ) : null}
+          </div>
+        </aside>
+      ) : null}
+      </div>
     </div>
   );
 }
