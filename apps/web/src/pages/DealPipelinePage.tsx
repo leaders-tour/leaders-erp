@@ -1241,7 +1241,7 @@ function UserDetailDrawer({
                 <Card className={dealPipelineTokens.drawer.simpleCard}>
                   {pricing ? (
                     <div className="grid gap-4 text-sm">
-                      <div className="w-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                      <div className="w-1/4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
                         <div className="bg-slate-100 px-4 py-2 text-center text-xs font-semibold text-slate-700">
                           인원
                         </div>
