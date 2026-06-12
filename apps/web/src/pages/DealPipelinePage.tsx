@@ -1195,6 +1195,10 @@ function UserDetailDrawer({
               <span className={dealPipelineTokens.drawer.infoEmphasis}>{stageLabel(user.dealStage)}</span>
             </div>
             <div className={dealPipelineTokens.drawer.infoRow}>
+              <span className={dealPipelineTokens.drawer.infoLabel}>총인원</span>
+              <span>{pricingHeadcount != null ? `${pricingHeadcount}명` : '-'}</span>
+            </div>
+            <div className={dealPipelineTokens.drawer.infoRow}>
               <span className={dealPipelineTokens.drawer.infoLabel}>문서번호</span>
               <span>{documentNumber ?? '문서번호 없음'}</span>
             </div>
@@ -1237,6 +1241,17 @@ function UserDetailDrawer({
                 <Card className={dealPipelineTokens.drawer.simpleCard}>
                   {pricing ? (
                     <div className="grid gap-4 text-sm">
+                      <div className="w-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                        <div className="bg-slate-100 px-4 py-2 text-center text-xs font-semibold text-slate-700">
+                          인원
+                        </div>
+                        <div className="px-4 py-3 text-center text-sm font-semibold text-slate-900">
+                          {hasTeamPaymentReferences
+                            ? teamPaymentReferences.map((row) => `${row.teamName} ${row.headcount}명`).join(' / ')
+                            : `${pricingHeadcount ?? '?'}명`}
+                        </div>
+                      </div>
+
                       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                         <div className="grid grid-cols-4 bg-slate-100 text-center text-xs font-semibold text-slate-700">
                           <div className="border-r border-slate-200 px-2 py-2">총액 (1인)</div>
