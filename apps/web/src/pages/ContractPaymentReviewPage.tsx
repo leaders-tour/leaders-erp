@@ -3,10 +3,48 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   useContractMatchPlanVersionCandidates,
   useContractPaymentReviewReceipts,
-  useContractPaymentReviewTabCount,
+  useContractPaymentReviewTabCounts,
   useMatchContractPaymentReceipt,
   useUnmatchContractPaymentReceipt,
+  type ContractPaymentReviewTabCountsRow,
 } from '../features/contract/hooks';
+
+type PaymentReviewTabKey = 'ambiguous' | 'name_mismatch';
+
+const PAYMENT_REVIEW_TABS: Array<{
+  key: PaymentReviewTabKey;
+  label: string;
+  description: string;
+  reasons: string[];
+}> = [
+  {
+    key: 'ambiguous',
+    label: '동명이인',
+    description: '같은 이름의 계약서가 여러 건이라 문서번호를 특정할 수 없습니다',
+    reasons: ['AMBIGUOUS_PAYER_NAME'],
+  },
+  {
+    key: 'name_mismatch',
+    label: '이름 불일치',
+    description: '입금자명과 일치하는 계약서 작성자명 후보가 없습니다',
+    reasons: ['NO_MATCHED_CONTRACT_SUBMISSION_NAME', 'MISSING_PAYER_NAME', 'INVALID_AMOUNT'],
+  },
+];
+
+function paymentTabCount(
+  key: PaymentReviewTabKey,
+  counts: ContractPaymentReviewTabCountsRow | null,
+): number | null {
+  if (!counts) {
+    return null;
+  }
+  switch (key) {
+    case 'ambiguous':
+      return counts.ambiguousPayerName;
+    case 'name_mismatch':
+      return counts.nameMismatch;
+  }
+}
 
 function formatDateTime(value: string | null | undefined): string {
   if (!value) {
@@ -36,16 +74,18 @@ function paymentReviewReasonLabel(reason: string | null | undefined): string {
 }
 
 export function ContractPaymentReviewPage(): JSX.Element {
+  const [activeTab, setActiveTab] = useState<PaymentReviewTabKey>('ambiguous');
   const [paymentSearch, setPaymentSearch] = useState('');
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
   const [documentNumberDraft, setDocumentNumberDraft] = useState('');
   const [planSearch, setPlanSearch] = useState('');
   const [paymentErrorMessage, setPaymentErrorMessage] = useState<string | null>(null);
 
+  const activeTabConfig = PAYMENT_REVIEW_TABS.find((tab) => tab.key === activeTab) ?? PAYMENT_REVIEW_TABS[0]!;
   const normalizedPaymentSearch = paymentSearch.trim();
-  const { count: paymentReviewCount, refetch: refetchPaymentReviewCount } = useContractPaymentReviewTabCount();
+  const { counts: paymentTabCounts, refetch: refetchPaymentTabCounts } = useContractPaymentReviewTabCounts();
   const { items: paymentItems, loading: paymentLoading, refetch: refetchPaymentItems } =
-    useContractPaymentReviewReceipts(normalizedPaymentSearch);
+    useContractPaymentReviewReceipts(normalizedPaymentSearch, activeTabConfig.reasons);
   const { matchContractPaymentReceipt, loading: matchingPayment } = useMatchContractPaymentReceipt();
   const { unmatchContractPaymentReceipt, loading: unmatchingPayment } = useUnmatchContractPaymentReceipt();
   const { candidates: paymentPlanCandidates, loading: paymentCandidatesLoading } =
@@ -53,7 +93,7 @@ export function ContractPaymentReviewPage(): JSX.Element {
 
   useEffect(() => {
     setSelectedReceiptId(null);
-  }, [normalizedPaymentSearch]);
+  }, [normalizedPaymentSearch, activeTab]);
 
   useEffect(() => {
     if (!selectedReceiptId && paymentItems.length > 0) {
@@ -76,14 +116,18 @@ export function ContractPaymentReviewPage(): JSX.Element {
       setPaymentErrorMessage(null);
       return;
     }
-    setDocumentNumberDraft(
+    const initialDocumentNumber =
       selectedPaymentItem.receipt.matchedDocumentNumberNorm
         ?? selectedPaymentItem.candidateDocumentNumbers[0]
-        ?? '',
+        ?? '';
+    setDocumentNumberDraft(initialDocumentNumber);
+    setPlanSearch(
+      activeTab === 'ambiguous' && initialDocumentNumber && !selectedPaymentItem.receipt.matchedDocumentNumberNorm
+        ? initialDocumentNumber
+        : '',
     );
-    setPlanSearch('');
     setPaymentErrorMessage(null);
-  }, [selectedPaymentItem?.receipt.id]);
+  }, [activeTab, selectedPaymentItem?.receipt.id]);
 
   const handleSelectCandidateDocumentNumber = (documentNumber: string) => {
     setDocumentNumberDraft(documentNumber);
@@ -92,7 +136,7 @@ export function ContractPaymentReviewPage(): JSX.Element {
   };
 
   const refreshPage = async () => {
-    await Promise.all([refetchPaymentItems(), refetchPaymentReviewCount()]);
+    await Promise.all([refetchPaymentItems(), refetchPaymentTabCounts()]);
   };
 
   const handleMatchPayment = async () => {
@@ -138,8 +182,8 @@ export function ContractPaymentReviewPage(): JSX.Element {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">입금내역 관리</h1>
           <p className="mt-1 text-sm text-slate-600">
             입금 시트에서 가져온 미매칭·중복 row를 확인하고 계약 문서번호에 수동 연결합니다.
-            {paymentReviewCount != null ? (
-              <span className="ml-1 font-medium text-slate-800">검토 필요 {paymentReviewCount}건</span>
+            {paymentTabCounts?.all != null ? (
+              <span className="ml-1 font-medium text-slate-800">검토 필요 {paymentTabCounts.all}건</span>
             ) : null}
           </p>
         </div>
@@ -159,15 +203,39 @@ export function ContractPaymentReviewPage(): JSX.Element {
         </Button>
       </Card>
 
+      <div className="flex flex-wrap gap-2">
+        {PAYMENT_REVIEW_TABS.map((tab) => {
+          const active = tab.key === activeTab;
+          const count = paymentTabCount(tab.key, paymentTabCounts);
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
+                active
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              {tab.label}
+              {count != null ? (
+                <span className={active ? 'text-slate-300' : 'text-slate-500'}> {count}</span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <Card className="grid max-h-[78vh] gap-2 overflow-y-auto rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
           <div className="flex items-start justify-between gap-2 px-2 py-1">
             <div>
-              <p className="text-sm font-semibold text-slate-900">입금 검토</p>
-              <p className="mt-0.5 text-xs text-slate-500">미매칭 또는 확인 필요한 입금 row</p>
+              <p className="text-sm font-semibold text-slate-900">{activeTabConfig.label}</p>
+              <p className="mt-0.5 text-xs text-slate-500">{activeTabConfig.description}</p>
             </div>
             <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
-              {paymentReviewCount ?? paymentItems.length}
+              {paymentTabCount(activeTab, paymentTabCounts) ?? paymentItems.length}
             </span>
           </div>
 
@@ -275,31 +343,33 @@ export function ContractPaymentReviewPage(): JSX.Element {
                   </div>
                 </div>
 
-                {selectedPaymentItem.candidateDocumentNumbers.length > 0 ? (
-                  <div className="grid gap-2">
-                    <p className="text-sm font-semibold text-slate-900">계약서 작성자명 기준 후보</p>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedPaymentItem.candidateDocumentNumbers.map((documentNumber) => (
-                        <button
-                          key={documentNumber}
-                          type="button"
-                          onClick={() => handleSelectCandidateDocumentNumber(documentNumber)}
-                          className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
-                            documentNumberDraft === documentNumber
-                              ? 'border-slate-900 bg-slate-900 text-white'
-                              : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          {documentNumber}
-                        </button>
-                      ))}
+                {activeTab === 'ambiguous' ? (
+                  selectedPaymentItem.candidateDocumentNumbers.length > 0 ? (
+                    <div className="grid gap-2">
+                      <p className="text-sm font-semibold text-slate-900">계약서 작성자명 기준 후보</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedPaymentItem.candidateDocumentNumbers.map((documentNumber) => (
+                          <button
+                            key={documentNumber}
+                            type="button"
+                            onClick={() => handleSelectCandidateDocumentNumber(documentNumber)}
+                            className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                              documentNumberDraft === documentNumber
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                            }`}
+                          >
+                            {documentNumber}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                    계약서 작성자명과 일치하는 문서번호 후보가 없습니다. 아래에서 견적을 검색해 선택하세요.
-                  </div>
-                )}
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                      계약서 작성자명과 일치하는 문서번호 후보가 없습니다. 아래에서 견적을 검색해 선택하세요.
+                    </div>
+                  )
+                ) : null}
               </Card>
 
               <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">

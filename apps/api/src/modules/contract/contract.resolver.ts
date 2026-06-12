@@ -199,6 +199,10 @@ export const contractResolver = {
       requireStaffOrAbove(ctx);
       return new ContractPaymentSyncService(ctx.prisma).getReviewTabCount();
     },
+    contractPaymentReviewTabCounts: (_parent: unknown, _args: unknown, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractPaymentSyncService(ctx.prisma).getPaymentReviewTabCounts();
+    },
     contractPaymentSyncRuns: (_parent: unknown, args: ContractPaymentSyncRunsArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
       return new ContractPaymentSyncService(ctx.prisma).listSyncRuns(args.sourceId, args.limit ?? 20);

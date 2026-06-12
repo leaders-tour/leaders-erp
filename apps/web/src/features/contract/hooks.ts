@@ -184,6 +184,12 @@ export interface ContractPaymentReviewReceiptItemRow {
   candidateDocumentNumbers: string[];
 }
 
+export interface ContractPaymentReviewTabCountsRow {
+  ambiguousPayerName: number;
+  nameMismatch: number;
+  all: number;
+}
+
 const CONTRACT_SUBMISSION_SOURCES_QUERY = gql`
   query ContractSubmissionSources {
     contractSubmissionSources {
@@ -602,6 +608,16 @@ const CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY = gql`
   }
 `;
 
+const CONTRACT_PAYMENT_REVIEW_TAB_COUNTS_QUERY = gql`
+  query ContractPaymentReviewTabCounts {
+    contractPaymentReviewTabCounts {
+      ambiguousPayerName
+      nameMismatch
+      all
+    }
+  }
+`;
+
 const MATCH_CONTRACT_PAYMENT_RECEIPT_MUTATION = gql`
   mutation MatchContractPaymentReceipt($input: MatchContractPaymentReceiptInput!) {
     matchContractPaymentReceipt(input: $input) {
@@ -948,6 +964,17 @@ export function useContractPaymentReviewTabCount() {
   };
 }
 
+export function useContractPaymentReviewTabCounts() {
+  const { data, loading, refetch } = useQuery<{ contractPaymentReviewTabCounts: ContractPaymentReviewTabCountsRow }>(
+    CONTRACT_PAYMENT_REVIEW_TAB_COUNTS_QUERY,
+  );
+  return {
+    counts: data?.contractPaymentReviewTabCounts ?? null,
+    loading,
+    refetch,
+  };
+}
+
 export function useMatchContractPaymentReceipt() {
   const [mutate, { loading }] = useMutation<{ matchContractPaymentReceipt: ContractPaymentReceiptRow }>(
     MATCH_CONTRACT_PAYMENT_RECEIPT_MUTATION,
@@ -960,6 +987,7 @@ export function useMatchContractPaymentReceipt() {
         refetchQueries: [
           { query: CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY },
           { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY },
+          { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNTS_QUERY },
         ],
       });
       if (!result.data?.matchContractPaymentReceipt) {
@@ -982,6 +1010,7 @@ export function useUnmatchContractPaymentReceipt() {
         refetchQueries: [
           { query: CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY },
           { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY },
+          { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNTS_QUERY },
         ],
       });
       if (!result.data?.unmatchContractPaymentReceipt) {

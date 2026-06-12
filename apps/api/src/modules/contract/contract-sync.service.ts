@@ -1698,6 +1698,21 @@ function matchPaymentRow(row: ParsedPaymentSheetRow, context: PaymentMatchContex
   return { ...row, matchedDocumentNumberNorm: null, needsReviewReason: 'AMBIGUOUS_PAYER_NAME' };
 }
 
+function paymentReviewReceiptWhere(): Prisma.ContractPaymentReceiptWhereInput {
+  return {
+    OR: [
+      { matchedDocumentNumberNorm: null },
+      { needsReviewReason: { not: null } },
+    ],
+  };
+}
+
+const PAYMENT_REVIEW_NAME_MISMATCH_REASONS = [
+  'NO_MATCHED_CONTRACT_SUBMISSION_NAME',
+  'MISSING_PAYER_NAME',
+  'INVALID_AMOUNT',
+] as const;
+
 export class ContractPaymentSyncService {
   constructor(private readonly prisma: PrismaLike) {}
 
@@ -1760,13 +1775,37 @@ export class ContractPaymentSyncService {
 
   async getReviewTabCount() {
     return this.prisma.contractPaymentReceipt.count({
-      where: {
-        OR: [
-          { matchedDocumentNumberNorm: null },
-          { needsReviewReason: { not: null } },
-        ],
-      },
+      where: paymentReviewReceiptWhere(),
     });
+  }
+
+  async getPaymentReviewTabCounts() {
+    const baseWhere = paymentReviewReceiptWhere();
+    const [ambiguousPayerName, nameMismatch, all] = await Promise.all([
+      this.prisma.contractPaymentReceipt.count({
+        where: {
+          AND: [
+            baseWhere,
+            { needsReviewReason: 'AMBIGUOUS_PAYER_NAME' },
+          ],
+        },
+      }),
+      this.prisma.contractPaymentReceipt.count({
+        where: {
+          AND: [
+            baseWhere,
+            { needsReviewReason: { in: [...PAYMENT_REVIEW_NAME_MISMATCH_REASONS] } },
+          ],
+        },
+      }),
+      this.prisma.contractPaymentReceipt.count({ where: baseWhere }),
+    ]);
+
+    return {
+      ambiguousPayerName,
+      nameMismatch,
+      all,
+    };
   }
 
   async reparseStoredPaymentReceivedAt() {
@@ -1853,12 +1892,7 @@ export class ContractPaymentSyncService {
 
     const where: Prisma.ContractPaymentReceiptWhereInput = {
       AND: [
-        {
-          OR: [
-            { matchedDocumentNumberNorm: null },
-            { needsReviewReason: { not: null } },
-          ],
-        },
+        paymentReviewReceiptWhere(),
         ...(reasons.length > 0 ? [{ needsReviewReason: { in: reasons } }] : []),
         ...(keywordOr.length > 0 ? [{ OR: keywordOr }] : []),
       ],

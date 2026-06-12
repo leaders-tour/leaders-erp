@@ -224,6 +224,12 @@ type ContractPaymentReviewReceiptItem {
   candidateDocumentNumbers: [String!]!
 }
 
+type ContractPaymentReviewTabCounts {
+  ambiguousPayerName: Int!
+  nameMismatch: Int!
+  all: Int!
+}
+
 input MatchContractPaymentReceiptInput {
   receiptId: ID!
   documentNumber: String!
@@ -260,6 +266,7 @@ extend type Query {
   contractPaymentReceipts(documentNumber: String!): [ContractPaymentReceipt!]!
   contractPaymentReviewReceipts(keyword: String, reasons: [String!], limit: Int): [ContractPaymentReviewReceiptItem!]!
   contractPaymentReviewTabCount: Int!
+  contractPaymentReviewTabCounts: ContractPaymentReviewTabCounts!
   contractPaymentSyncRuns(sourceId: ID, limit: Int = 20): [ContractPaymentSyncRun!]!
 }
 
