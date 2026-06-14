@@ -85,6 +85,7 @@ import {
   type ExternalTransfer,
 } from '../features/plan/external-transfer';
 import { useBuilderValidation } from '../features/plan/builder-validation';
+import { resolveVehicleTypeForHeadcount } from '../features/plan/builder-vehicle';
 import { useSpecialMealDestinationRules } from '../features/plan/hooks/use-special-meal-destination-rules';
 import { buildMergedPlanStops } from '../features/plan/merge-plan-stops';
 import {
@@ -4335,6 +4336,9 @@ export function ItineraryBuilderPage(): JSX.Element {
         ? Math.min(current, nextTotal)
         : buildDefaultMaleHeadcount(nextTotal),
     );
+    setVehicleType((current) =>
+      resolveVehicleTypeForHeadcount(nextTotal, current, VEHICLES) as (typeof VEHICLES)[number],
+    );
   };
 
   const handleConsultationApply = useCallback(
@@ -4355,10 +4359,14 @@ export function ItineraryBuilderPage(): JSX.Element {
       setTravelEndDate(draft.travelEndDate);
       setTotalDays(Math.max(2, Math.min(12, draft.totalDays)));
       setSelectedRoute((prev) => trimRouteSelectionsToTotalDays(prev, draft.totalDays));
-      const vehicle = draft.vehicleType && VEHICLES.includes(draft.vehicleType as (typeof VEHICLES)[number])
-        ? (draft.vehicleType as (typeof VEHICLES)[number])
-        : '스타렉스';
-      setVehicleType(vehicle);
+      const draftHeadcount = Math.max(1, Math.min(30, draft.headcountTotal));
+      const draftVehicle =
+        draft.vehicleType && VEHICLES.includes(draft.vehicleType as (typeof VEHICLES)[number])
+          ? (draft.vehicleType as (typeof VEHICLES)[number])
+          : '스타렉스';
+      setVehicleType(
+        resolveVehicleTypeForHeadcount(draftHeadcount, draftVehicle, VEHICLES) as (typeof VEHICLES)[number],
+      );
       setSpecialNote(draft.specialNote);
       setRemark(draft.remark);
       const primaryGroup = createTransportGroupDraft({
