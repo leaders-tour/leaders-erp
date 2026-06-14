@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
+import '../styles/estimate-fonts.css';
 import '../styles/estimate-print.css';
 import { ESTIMATE_GUIDE_FILLER_IMAGE_SRCS, ESTIMATE_IMAGE_PAGE_SRCS } from '../model/constants';
 import type {
@@ -12,6 +13,7 @@ import {
   chunkGuidePagesBySplits,
   normalizeEstimateGuideImagesPerPage,
 } from '../utils/guide-layout';
+import { resolveEstimateDocumentClassName } from '../utils/resolve-estimate-document-class-name';
 import { EstimatePage1 } from './EstimatePage1';
 import { EstimateImagePage } from './EstimateImagePage';
 import { EstimatePage2 } from './EstimatePage2';
@@ -20,12 +22,15 @@ import { useMovementIntensityColorSettings } from '../../app-settings/hooks';
 
 interface EstimateDocumentProps {
   data: EstimateDocumentData;
-  viewMode?: 'screen-preview' | 'print';
+  /** screen-preview: 편집 UI 포함 미리보기, output: PDF/인쇄용 표준 레이아웃, print: output과 동일(하위 호환) */
+  viewMode?: 'screen-preview' | 'output' | 'print';
   page1Editor?: EstimatePage1Editor;
   page2Editor?: EstimatePage2Editor;
   /** 미리보기에서 첫 안내 페이지(문서 3페이지) 우측 상단에 띄울 컨트롤 본문 */
   screenPreviewGuideOverlay?: ReactNode;
   includeStaticImagePages?: boolean;
+  /** 1페이지 fit scale 계산이 끝난 뒤 호출 (PDF 렌더 ready 신호용) */
+  onPage1LayoutReady?: () => void;
 }
 
 function appendGuideFillersToLastChunk(chunks: EstimateGuideBlock[][]): EstimateGuideBlock[][] {
@@ -57,11 +62,12 @@ function hasPrimaryGuideImage(block: EstimateGuideBlock): boolean {
 
 export function EstimateDocument({
   data,
-  viewMode = 'print',
+  viewMode = 'output',
   page1Editor,
   page2Editor,
   screenPreviewGuideOverlay,
   includeStaticImagePages = true,
+  onPage1LayoutReady,
 }: EstimateDocumentProps): JSX.Element {
   const { colors: movementIntensityColors } = useMovementIntensityColorSettings();
   const guideChunks = useMemo(() => {
@@ -81,8 +87,12 @@ export function EstimateDocument({
   }, [data.estimateGuidePageSplits, data.estimateGuideImagesPerPage, data.page3Blocks]);
 
   return (
-    <article className={`estimate-document ${viewMode === 'screen-preview' ? 'estimate-document--preview' : ''}`}>
-      <EstimatePage1 data={data} editor={viewMode === 'screen-preview' ? page1Editor : undefined} />
+    <article className={resolveEstimateDocumentClassName(viewMode)}>
+      <EstimatePage1
+        data={data}
+        editor={viewMode === 'screen-preview' ? page1Editor : undefined}
+        onLayoutReady={onPage1LayoutReady}
+      />
       <div className="estimate-page-break">
         <EstimatePage2
           data={data}

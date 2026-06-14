@@ -32,6 +32,7 @@ const MAX_ESTIMATE_PAGE1_FIT_SCALE = 1.16;
 interface EstimatePage1Props {
   data: EstimateDocumentData;
   editor?: EstimatePage1Editor;
+  onLayoutReady?: () => void;
 }
 
 function fallback(value: string | null | undefined): string {
@@ -487,7 +488,7 @@ function EstimatePage1LogoMark(): JSX.Element {
   );
 }
 
-export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element {
+export function EstimatePage1({ data, editor, onLayoutReady }: EstimatePage1Props): JSX.Element {
   const adjustmentLines = data.adjustmentLines;
   const [activeField, setActiveField] = useState<EstimatePage1EditableField | null>(null);
   const pageRef = useRef<HTMLElement | null>(null);
@@ -570,15 +571,22 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
       }
     };
 
+    const markLayoutReady = () => {
+      pageElement.setAttribute('data-estimate-page1-layout-ready', 'true');
+      onLayoutReady?.();
+    };
+
     const measureContentHeight = (scale: number): number => {
       setScale(scale);
       return bodyFitElement.scrollHeight;
     };
 
     const recalcScale = () => {
+      pageElement.removeAttribute('data-estimate-page1-layout-ready');
       const availableHeight = bodyShellElement.clientHeight;
       if (availableHeight <= 0) {
         setScale(1);
+        markLayoutReady();
         return;
       }
 
@@ -589,6 +597,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
         const maxHeight = measureContentHeight(MAX_ESTIMATE_PAGE1_FIT_SCALE);
         if (fitsInSlot(maxHeight)) {
           setScale(MAX_ESTIMATE_PAGE1_FIT_SCALE);
+          markLayoutReady();
           return;
         }
 
@@ -607,12 +616,14 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
         }
 
         setScale(best);
+        markLayoutReady();
         return;
       }
 
       const minimumHeight = measureContentHeight(MIN_ESTIMATE_PAGE1_FIT_SCALE);
       if (!fitsInSlot(minimumHeight)) {
         setScale(MIN_ESTIMATE_PAGE1_FIT_SCALE);
+        markLayoutReady();
         return;
       }
 
@@ -631,6 +642,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
       }
 
       setScale(best);
+      markLayoutReady();
     };
 
     const scheduleRecalc = () => {
@@ -663,7 +675,7 @@ export function EstimatePage1({ data, editor }: EstimatePage1Props): JSX.Element
       window.removeEventListener('beforeprint', recalcScale);
       window.removeEventListener('afterprint', scheduleRecalc);
     };
-  }, [activeField, adjustmentLines, data, page1DensityClassName]);
+  }, [activeField, adjustmentLines, data, onLayoutReady, page1DensityClassName]);
 
   return (
     <section ref={pageRef} className={`estimate-sheet estimate-sheet-page1${page1DensityClassName}`}>

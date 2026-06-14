@@ -4,6 +4,7 @@ import { RouterProvider } from 'react-router-dom';
 import { AppProviders } from './app/providers';
 import { router } from './app/router';
 import './styles/globals.css';
+import 'pretendard/dist/web/static/pretendard.css';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

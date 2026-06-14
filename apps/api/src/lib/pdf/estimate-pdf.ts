@@ -171,11 +171,48 @@ async function waitForEstimatePageReady(page: Page): Promise<void> {
     throw new Error(renderState.errorMessage || '견적서 렌더링 중 오류가 발생했습니다.');
   }
 
+  await page.emulateMediaType('print');
+
   await page.evaluate(async () => {
     if ('fonts' in document && document.fonts?.ready) {
       await document.fonts.ready;
     }
 
+    const images = Array.from(document.querySelectorAll('.estimate-document img')) as HTMLImageElement[];
+    await Promise.all(
+      images.map(
+        (image) =>
+          new Promise<void>((resolve) => {
+            if (image.complete) {
+              resolve();
+              return;
+            }
+
+            image.addEventListener('load', () => resolve(), { once: true });
+            image.addEventListener('error', () => resolve(), { once: true });
+          }),
+      ),
+    );
+
+    window.dispatchEvent(new Event('resize'));
+
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+  });
+
+  await page.waitForFunction(
+    () => {
+      const root = document.querySelector('[data-estimate-layout-ready]');
+      const page1 = document.querySelector('[data-estimate-page1-layout-ready="true"]');
+      return root?.getAttribute('data-estimate-layout-ready') === 'true' && page1 != null;
+    },
+    { timeout: PDF_RENDER_TIMEOUT_MS },
+  );
+
+  await page.evaluate(async () => {
     await new Promise<void>((resolve) => {
       window.requestAnimationFrame(() => resolve());
     });
@@ -240,7 +277,6 @@ async function renderEstimatePdf(input: RenderEstimatePdfInput): Promise<Buffer>
     });
 
     await waitForEstimatePageReady(page);
-    await page.emulateMediaType('print');
 
     const pdf = await page.pdf({
       printBackground: true,

@@ -67,7 +67,7 @@ export function EstimatePrintPage(): JSX.Element {
         <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{downloadError}</Card>
       ) : null}
 
-      {!loading && !errorMessage && data ? <EstimateDocument data={data} /> : null}
+      {!loading && !errorMessage && data ? <EstimateDocument data={data} viewMode="output" /> : null}
     </section>
   );
 }

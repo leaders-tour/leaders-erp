@@ -41,10 +41,34 @@
   transform-origin: top center;
 }
 
+/* 미리보기·PDF가 공유하는 표준 출력 레이아웃 */
+.estimate-document--output {
+  --estimate-page1-padding: 0;
+  --estimate-page2-padding: 14mm;
+  --estimate-page3-padding: 14mm;
+}
+
+/* 벤치마크 비율: 전체 높이 1123px 대비 히어로(초록) — output/PDF 공통 고정 비율 */
+.estimate-document--output .estimate-sheet-page1 {
+  --estimate-page1-preview-hero-height: calc(100% * 254 / 1123);
+}
+
+.estimate-document--output .estimate-sheet-page1 .estimate-page1-hero {
+  flex: 0 0 var(--estimate-page1-preview-hero-height);
+  height: var(--estimate-page1-preview-hero-height);
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.estimate-document--output .estimate-sheet-itinerary,
+.estimate-document--output .estimate-sheet-guides {
+  height: 100%;
+}
+
 .estimate-document--preview {
   justify-items: center;
   gap: 24px;
-  --estimate-page1-padding: 32px;
   --estimate-page2-padding: 32px;
   --estimate-page3-padding: 32px;
 }
@@ -71,19 +95,6 @@
 .estimate-document--preview .estimate-sheet-page-image {
   box-sizing: border-box;
   height: 100%;
-}
-
-/* 벤치마크 비율: 전체 높이 1123px 대비 히어로(초록) — 미리보기에서만 고정 비율 */
-.estimate-document--preview .estimate-sheet-page1 {
-  --estimate-page1-preview-hero-height: calc(100% * 254 / 1123);
-}
-
-.estimate-document--preview .estimate-sheet-page1 .estimate-page1-hero {
-  flex: 0 0 var(--estimate-page1-preview-hero-height);
-  height: var(--estimate-page1-preview-hero-height);
-  min-height: 0;
-  overflow: hidden;
-  box-sizing: border-box;
 }
 
 .estimate-sheet {
@@ -887,11 +898,6 @@
   --itinerary-paired-line-height: var(--itinerary-row-line-height);
 }
 
-.estimate-document--preview .estimate-sheet-itinerary,
-.estimate-document--preview .estimate-sheet-guides {
-  height: 100%;
-}
-
 .estimate-editable-trigger {
   display: block;
   width: 100%;
@@ -1376,6 +1382,29 @@
 
   .estimate-sheet-page1 {
     padding: var(--estimate-page1-padding);
+  }
+
+  .estimate-document--output .estimate-sheet-page1 {
+    padding: 0;
+  }
+
+  .estimate-document--output .estimate-sheet-page2 {
+    padding: var(--estimate-page2-padding);
+  }
+
+  .estimate-document--output .estimate-sheet-page3 {
+    padding: var(--estimate-page3-padding);
+  }
+
+  .estimate-document--output .estimate-sheet-page3.estimate-sheet-guides--flush {
+    padding: 0 !important;
+  }
+
+  .estimate-document--output .estimate-sheet-itinerary,
+  .estimate-document--output .estimate-sheet-guides,
+  .estimate-document--output .estimate-sheet-full-page-image {
+    height: 297mm;
+    overflow: hidden;
   }
 
   .estimate-sheet-page2 {

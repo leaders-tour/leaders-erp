@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card } from '@tour/ui';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
@@ -34,9 +34,22 @@ export function EstimatePdfRenderPage(): JSX.Element {
   const [data, setData] = useState<EstimateDocumentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [page1LayoutReady, setPage1LayoutReady] = useState(false);
   const token = searchParams.get('token');
   const includeStaticImagePages = searchParams.get('staticPages') !== 'none';
-  const renderState = loading ? 'loading' : errorMessage ? 'error' : data ? 'ready' : 'idle';
+  const renderState = loading
+    ? 'loading'
+    : errorMessage
+      ? 'error'
+      : data && page1LayoutReady
+        ? 'ready'
+        : data
+          ? 'layout-pending'
+          : 'idle';
+
+  const handlePage1LayoutReady = useCallback(() => {
+    setPage1LayoutReady(true);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +58,7 @@ export function EstimatePdfRenderPage(): JSX.Element {
       setData(null);
       setErrorMessage('렌더 토큰이 없습니다.');
       setLoading(false);
+      setPage1LayoutReady(false);
       return () => {
         cancelled = true;
       };
@@ -52,6 +66,7 @@ export function EstimatePdfRenderPage(): JSX.Element {
 
     setLoading(true);
     setErrorMessage(null);
+    setPage1LayoutReady(false);
 
     void fetchRenderSession(token)
       .then((nextData) => {
@@ -84,6 +99,7 @@ export function EstimatePdfRenderPage(): JSX.Element {
     <section
       className="estimate-print-root"
       data-estimate-render-state={renderState}
+      data-estimate-layout-ready={page1LayoutReady ? 'true' : 'false'}
       data-estimate-error-message={errorMessage ?? ''}
     >
       {loading ? (
@@ -92,7 +108,14 @@ export function EstimatePdfRenderPage(): JSX.Element {
       {!loading && errorMessage ? (
         <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{errorMessage}</Card>
       ) : null}
-      {!loading && !errorMessage && data ? <EstimateDocument data={data} includeStaticImagePages={includeStaticImagePages} /> : null}
+      {!loading && !errorMessage && data ? (
+        <EstimateDocument
+          data={data}
+          viewMode="output"
+          includeStaticImagePages={includeStaticImagePages}
+          onPage1LayoutReady={handlePage1LayoutReady}
+        />
+      ) : null}
     </section>
   );
 }
