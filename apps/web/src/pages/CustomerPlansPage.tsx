@@ -1,9 +1,9 @@
 import { Button, Card, Input } from '@tour/ui';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { PlanListPanel } from '../features/plan/components';
+import { CustomerDeletePanel, PlanListPanel } from '../features/plan/components';
 import { useEmployees } from '../features/auth/hooks';
-import { usePlansByUser, useUpdateUser, useUser } from '../features/plan/hooks';
+import { useDeleteUser, usePlansByUser, useUpdateUser, useUser } from '../features/plan/hooks';
 
 export function CustomerPlansPage(): JSX.Element {
   const navigate = useNavigate();
@@ -12,11 +12,24 @@ export function CustomerPlansPage(): JSX.Element {
   const { plans, loading: plansLoading, refetch: refetchPlans } = usePlansByUser(userId);
   const { employees } = useEmployees(true);
   const { updateUser, loading: updatingUser } = useUpdateUser();
+  const { deleteUser, loading: deletingUser } = useDeleteUser();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [ownerEmployeeId, setOwnerEmployeeId] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deletePanelOpen, setDeletePanelOpen] = useState(false);
+
+  const deleteTargetUser = useMemo(() => {
+    if (!user) {
+      return null;
+    }
+
+    return {
+      ...user,
+      plans: user.plans ?? plans.map((plan) => ({ id: plan.id })),
+    };
+  }, [plans, user]);
 
   useEffect(() => {
     if (!user) {
@@ -55,27 +68,32 @@ export function CustomerPlansPage(): JSX.Element {
                 고객명을 저장하면 이 고객의 일정 대표자명과 자동 제목도 함께 변경됩니다.
               </p>
             </div>
-            <Button
-              variant="outline"
-              disabled={!name.trim() || updatingUser}
-              onClick={async () => {
-                setFeedback(null);
-                setErrorMessage(null);
-                try {
-                  await updateUser(user.id, {
-                    name: name.trim(),
-                    email: email.trim() || null,
-                    ownerEmployeeId: ownerEmployeeId || null,
-                  });
-                  await refetchPlans();
-                  setFeedback('고객 정보를 저장했습니다.');
-                } catch (error) {
-                  setErrorMessage(error instanceof Error ? error.message : '고객 정보 저장에 실패했습니다.');
-                }
-              }}
-            >
-              {updatingUser ? '저장 중...' : '정보 저장'}
-            </Button>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <Button
+                variant="outline"
+                disabled={!name.trim() || updatingUser}
+                onClick={async () => {
+                  setFeedback(null);
+                  setErrorMessage(null);
+                  try {
+                    await updateUser(user.id, {
+                      name: name.trim(),
+                      email: email.trim() || null,
+                      ownerEmployeeId: ownerEmployeeId || null,
+                    });
+                    await refetchPlans();
+                    setFeedback('고객 정보를 저장했습니다.');
+                  } catch (error) {
+                    setErrorMessage(error instanceof Error ? error.message : '고객 정보 저장에 실패했습니다.');
+                  }
+                }}
+              >
+                {updatingUser ? '저장 중...' : '정보 저장'}
+              </Button>
+              <Button variant="outline" onClick={() => setDeletePanelOpen((open) => !open)}>
+                {deletePanelOpen ? '삭제 취소' : '고객 삭제'}
+              </Button>
+            </div>
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -109,6 +127,18 @@ export function CustomerPlansPage(): JSX.Element {
           {feedback ? <p className="mt-3 rounded-2xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{feedback}</p> : null}
           {errorMessage ? <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{errorMessage}</p> : null}
         </Card>
+      ) : null}
+
+      {deletePanelOpen && deleteTargetUser ? (
+        <CustomerDeletePanel
+          user={deleteTargetUser}
+          deleting={deletingUser}
+          onCancel={() => setDeletePanelOpen(false)}
+          onConfirmDelete={async () => {
+            await deleteUser(deleteTargetUser.id);
+            navigate('/customers');
+          }}
+        />
       ) : null}
 
       <PlanListPanel

@@ -17,6 +17,7 @@ import { formatRegionLodgingDisplayLabel } from '@tour/domain';
 import { createValidationError, DomainError } from '../../lib/errors';
 import { FileStorageClient, type UploadFile } from '../../lib/file-storage/client';
 import { resolveRegionSetRegionIds } from '../../lib/resolve-region-set';
+import { UserDeleteIncompleteError, deleteUserGraph } from './delete-user';
 import { PricingService } from '../pricing/pricing.service';
 import { PlanRepository } from './plan.repository';
 import type {
@@ -597,8 +598,30 @@ export class PlanService {
     return { filename: file.filename, url, type };
   }
 
-  deleteUser(id: string) {
-    return new PlanRepository(this.prisma).deleteUser(id);
+  async deleteUser(id: string) {
+    const existing = await new PlanRepository(this.prisma).findUserById(id);
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'User not found');
+    }
+
+    try {
+      return await deleteUserGraph(this.prisma, id);
+    } catch (error) {
+      if (error instanceof UserDeleteIncompleteError) {
+        throw new DomainError('VALIDATION_FAILED', error.message);
+      }
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        (error as { code?: string }).code === 'P2003'
+      ) {
+        throw new DomainError(
+          'VALIDATION_FAILED',
+          '고객과 연결된 데이터가 남아 있어 삭제할 수 없습니다. 일정/확정여행 참조를 확인해주세요.',
+        );
+      }
+      throw error;
+    }
   }
 
   async createUserNote(input: UserNoteCreateDto) {

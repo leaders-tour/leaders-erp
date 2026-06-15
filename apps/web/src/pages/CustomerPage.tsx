@@ -1,7 +1,7 @@
 import { Card } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CustomerSelector, PlanListPanel } from '../features/plan/components';
+import { CustomerDeletePanel, CustomerSelector, PlanListPanel } from '../features/plan/components';
 import {
   CUSTOMER_TRIP_STATUS_LABELS,
   calcGroupCounts,
@@ -9,7 +9,7 @@ import {
   type CustomerTripStatus,
 } from '../features/plan/customerTripStatus';
 import type { DealStageValue } from '../features/plan/hooks';
-import { usePlansByUser, useUsers } from '../features/plan/hooks';
+import { useDeleteUser, usePlansByUser, useUsers } from '../features/plan/hooks';
 
 type StatusFilterKey = CustomerTripStatus | 'all';
 
@@ -28,9 +28,11 @@ const DEAL_STAGE_LABELS: Record<DealStageValue, string> = {
 export function CustomerPage(): JSX.Element {
   const navigate = useNavigate();
   const { users, loading } = useUsers();
+  const { deleteUser, loading: deletingUser } = useDeleteUser();
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [customerSearch, setCustomerSearch] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<StatusFilterKey>('all');
+  const [deletePanelOpen, setDeletePanelOpen] = useState(false);
 
   const groupCounts = useMemo(() => calcGroupCounts(users), [users]);
 
@@ -112,14 +114,36 @@ export function CustomerPage(): JSX.Element {
                       <span>일정 수: {plans.length}개</span>
                     </div>
                   </div>
-                  <Link
-                    to={`/customers/${selectedUser.id}/plans`}
-                    className="inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-                  >
-                    고객 정보 수정
-                  </Link>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <Link
+                      to={`/customers/${selectedUser.id}/plans`}
+                      className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                    >
+                      고객 정보 수정
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setDeletePanelOpen(true)}
+                      className="inline-flex items-center justify-center rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-700 shadow-sm hover:bg-rose-50"
+                    >
+                      삭제
+                    </button>
+                  </div>
                 </div>
               </Card>
+
+              {deletePanelOpen ? (
+                <CustomerDeletePanel
+                  user={selectedUser}
+                  deleting={deletingUser}
+                  onCancel={() => setDeletePanelOpen(false)}
+                  onConfirmDelete={async () => {
+                    await deleteUser(selectedUser.id);
+                    setDeletePanelOpen(false);
+                    setSelectedUserId('');
+                  }}
+                />
+              ) : null}
 
               <PlanListPanel
                 plans={plans}

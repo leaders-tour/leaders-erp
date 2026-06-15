@@ -426,7 +426,8 @@ export interface ConfirmedTripRow {
     versionNumber: number;
     totalDays: number;
     variantType: string;
-      meta: {
+    regionSet: { id: string; name: string };
+    meta: {
       leaderName: string;
       documentNumber: string;
       travelStartDate: string;
@@ -553,6 +554,10 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
       versionNumber
       totalDays
       variantType
+      regionSet {
+        id
+        name
+      }
       meta {
         leaderName
         documentNumber
@@ -745,6 +750,10 @@ export const CONFIRMED_TRIP_LIST_FRAGMENT = gql`
       versionNumber
       totalDays
       variantType
+      regionSet {
+        id
+        name
+      }
       meta {
         leaderName
         documentNumber
@@ -1336,7 +1345,7 @@ export function getTripHeadcount(trip: ConfirmedTripRow): number | null {
 }
 
 export function getTripDestination(trip: ConfirmedTripRow): string {
-  return trip.plan?.regionSet.name ?? trip.destination ?? '-';
+  return trip.planVersion?.regionSet.name ?? trip.plan?.regionSet.name ?? trip.destination ?? '-';
 }
 
 export function getTripPickupDate(trip: ConfirmedTripRow): string | null {

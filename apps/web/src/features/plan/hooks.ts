@@ -690,9 +690,22 @@ const USER_QUERY = gql`
         createdAt
         updatedAt
       }
+      confirmedTrips {
+        id
+        status
+      }
+      plans {
+        id
+      }
       createdAt
       updatedAt
     }
+  }
+`;
+
+const DELETE_USER_MUTATION = gql`
+  mutation DeleteUser($id: ID!) {
+    deleteUser(id: $id)
   }
 `;
 
@@ -1294,6 +1307,25 @@ export function useUpdateUser() {
       }
 
       return result.data.updateUser;
+    },
+  };
+}
+
+export function useDeleteUser() {
+  const [mutate, { loading }] = useMutation<{ deleteUser: boolean }>(DELETE_USER_MUTATION);
+
+  return {
+    loading,
+    deleteUser: async (id: string): Promise<void> => {
+      const result = await mutate({
+        variables: { id },
+        refetchQueries: [{ query: USERS_QUERY }],
+        awaitRefetchQueries: true,
+      });
+
+      if (!result.data?.deleteUser) {
+        throw new Error('고객 삭제에 실패했습니다.');
+      }
     },
   };
 }

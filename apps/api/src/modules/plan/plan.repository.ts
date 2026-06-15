@@ -1,4 +1,5 @@
 import type { DealStage, DealTodoStatus, Prisma, PrismaClient } from '@prisma/client';
+import { deleteUserGraph } from './delete-user';
 import { planInclude, planVersionInclude } from './plan.mapper';
 import type {
   DealPipelineCardUpdateDto,
@@ -393,8 +394,7 @@ export class PlanRepository {
   }
 
   async deleteUser(id: string): Promise<boolean> {
-    await this.prisma.user.delete({ where: { id } });
-    return true;
+    return deleteUserGraph(this.prisma as PrismaClient, id);
   }
 
   findManyByUser(userId: string) {

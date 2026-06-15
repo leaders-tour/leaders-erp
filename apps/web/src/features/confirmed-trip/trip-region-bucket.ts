@@ -40,7 +40,7 @@ function bucketFromText(text: string): TripRegionBucket | null {
 /** 플랜 지역명 + 목적지를 이어 붙인 검색용 문자열 */
 function getCombinedRegionSearchText(trip: ConfirmedTripRow): string {
   const parts: string[] = [];
-  const name = trip.plan?.regionSet?.name?.trim();
+  const name = trip.planVersion?.regionSet?.name?.trim() ?? trip.plan?.regionSet?.name?.trim();
   if (name) parts.push(name);
   const dest = trip.destination?.trim();
   if (dest) parts.push(dest);
@@ -80,7 +80,7 @@ export function tripMatchesAggRegions(trip: ConfirmedTripRow, regions: TripRegio
  * 단일 대표 버킷(첫 매칭) — 목록에 여러 태그가 없을 때 표시용.
  */
 export function getTripRegionBucket(trip: ConfirmedTripRow): TripRegionBucket {
-  const regionName = trip.plan?.regionSet?.name?.trim();
+  const regionName = trip.planVersion?.regionSet?.name?.trim() ?? trip.plan?.regionSet?.name?.trim();
   if (regionName) {
     const fromName = bucketFromText(regionName);
     if (fromName) return fromName;
