@@ -172,11 +172,7 @@ export function PlanDetailPage(): JSX.Element {
             customerName={plan.user.name}
             onOpenVersion={(versionId) => navigate(`/plans/${plan.id}/versions/${versionId}`)}
             onOpenEstimatePdf={(versionId) =>
-              window.open(
-                `/documents/estimate?mode=version&versionId=${encodeURIComponent(versionId)}`,
-                '_blank',
-                'noopener,noreferrer',
-              )
+              navigate(`/documents/estimate?mode=version&versionId=${encodeURIComponent(versionId)}`)
             }
             onCreateVersion={openCreateVersion}
             onDeleteVersion={handleDeleteVersion}

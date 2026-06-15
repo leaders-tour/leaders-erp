@@ -1748,14 +1748,12 @@ function UserDetailDrawer({
               </div>
               <div className="flex items-center gap-2">
                 {currentPlanVersionId ? (
-                  <a
-                    href={`/documents/estimate?mode=version&versionId=${encodeURIComponent(currentPlanVersionId)}`}
-                    target="_blank"
-                    rel="noreferrer"
+                  <Link
+                    to={`/documents/estimate?mode=version&versionId=${encodeURIComponent(currentPlanVersionId)}`}
                     className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
                   >
                     크게 보기
-                  </a>
+                  </Link>
                 ) : null}
                 <button
                   type="button"

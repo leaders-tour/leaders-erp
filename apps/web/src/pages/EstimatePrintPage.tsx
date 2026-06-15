@@ -17,11 +17,25 @@ export function EstimatePrintPage(): JSX.Element {
   const draftKey = searchParams.get('draftKey');
   const { downloading, phase, downloadEstimatePdf } = useEstimatePdfDownload();
 
-  const { data, loading, errorMessage } = useEstimateSource({
+  const { data, loading, errorMessage, version } = useEstimateSource({
     mode,
     versionId,
     draftKey,
   });
+
+  const handleBackClick = (): void => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+
+    if (mode === 'version' && version?.planId) {
+      navigate(`/plans/${version.planId}`);
+      return;
+    }
+
+    navigate('/itinerary-builder');
+  };
 
   const handleDownloadClick = async (): Promise<void> => {
     setDownloadError(null);
@@ -46,7 +60,7 @@ export function EstimatePrintPage(): JSX.Element {
           출력 소스: {mode === 'version' ? '저장된 버전' : '일정 빌더 임시본'}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => navigate(-1)}>
+          <Button variant="outline" onClick={handleBackClick}>
             이전 화면
           </Button>
           <Button onClick={() => void handleDownloadClick()} disabled={downloading || loading || !data}>

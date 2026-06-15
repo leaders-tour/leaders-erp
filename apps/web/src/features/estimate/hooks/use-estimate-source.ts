@@ -5,6 +5,7 @@ import type { EstimateBuilderDraftSnapshot, EstimateDocumentData, EstimateSource
 import { useEstimateLocationGuides } from './use-estimate-location-guides';
 import { applyLocationGuides } from '../utils/apply-location-guides';
 import { readEstimateDraftSnapshotFromSessionStorage } from '../utils/draft-snapshot';
+import type { PlanVersionDetail } from '../../plan/hooks';
 
 interface EstimateSourceParams {
   mode: EstimateSourceMode;
@@ -16,6 +17,7 @@ interface EstimateSourceResult {
   data: EstimateDocumentData | null;
   loading: boolean;
   errorMessage: string | null;
+  version: PlanVersionDetail | null;
 }
 
 export function useEstimateSource({ mode, versionId, draftKey }: EstimateSourceParams): EstimateSourceResult {
@@ -68,14 +70,14 @@ export function useEstimateSource({ mode, versionId, draftKey }: EstimateSourceP
 
   if (mode === 'version') {
     if (versionLoading || guidesLoading) {
-      return { data: null, loading: true, errorMessage: null };
+      return { data: null, loading: true, errorMessage: null, version: null };
     }
 
     if (!version) {
-      return { data: null, loading: false, errorMessage: '저장된 버전을 찾을 수 없습니다.' };
+      return { data: null, loading: false, errorMessage: '저장된 버전을 찾을 수 없습니다.', version: null };
     }
 
-    return { data, loading: false, errorMessage: null };
+    return { data, loading: false, errorMessage: null, version };
   }
 
   const loadingDraft = !draftError && (!draftSnapshot || guidesLoading);
@@ -83,5 +85,6 @@ export function useEstimateSource({ mode, versionId, draftKey }: EstimateSourceP
     data,
     loading: loadingDraft,
     errorMessage: draftError,
+    version: null,
   };
 }
