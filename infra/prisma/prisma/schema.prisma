@@ -238,6 +238,12 @@ enum ContractPaymentSyncRunStatus {
   FAILED
 }
 
+enum ContractPaymentReceiptMatchMode {
+  AUTO
+  MANUAL_MATCH
+  MANUAL_HOLD
+}
+
 enum EmployeeRole {
   ADMIN
   STAFF
@@ -1149,7 +1155,13 @@ model ContractPaymentReceipt {
   amountKrw                  Int?
   matchedDocumentNumberNorm  String?
   needsReviewReason          String?
-  memo                       String?   @db.Text
+  memo                       String?                       @db.Text
+  paymentMatchMode           ContractPaymentReceiptMatchMode @default(AUTO)
+  manualMatchedByEmployeeId  String?
+  manualMatchedAt            DateTime?
+  reviewTrashedAt            DateTime?
+  reviewTrashedByEmployeeId  String?
+  reviewTrashReason          String?                       @db.Text
   rowDigest                  String
   rawJson                    Json
 

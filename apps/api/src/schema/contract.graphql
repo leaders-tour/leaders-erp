@@ -41,6 +41,12 @@ enum ContractPaymentSyncRunStatus {
   FAILED
 }
 
+enum ContractPaymentReceiptMatchMode {
+  AUTO
+  MANUAL_MATCH
+  MANUAL_HOLD
+}
+
 type ContractSubmissionSource {
   id: ID!
   type: ContractSubmissionSourceType!
@@ -218,6 +224,12 @@ type ContractPaymentReceipt {
   matchedDocumentNumberNorm: String
   needsReviewReason: String
   memo: String
+  paymentMatchMode: ContractPaymentReceiptMatchMode!
+  manualMatchedByEmployeeId: String
+  manualMatchedAt: DateTime
+  reviewTrashedAt: DateTime
+  reviewTrashedByEmployeeId: String
+  reviewTrashReason: String
   importedAt: DateTime!
   updatedAt: DateTime!
 }
@@ -257,6 +269,7 @@ type ContractPaymentReviewReceiptItem {
 type ContractPaymentReviewTabCounts {
   ambiguousPayerName: Int!
   nameMismatch: Int!
+  trashed: Int!
   all: Int!
 }
 
@@ -290,6 +303,19 @@ input DeleteManualContractPaymentReceiptInput {
   receiptId: ID!
 }
 
+input ResetContractPaymentReceiptAutoMatchInput {
+  receiptId: ID!
+}
+
+input TrashContractPaymentReceiptReviewInput {
+  receiptId: ID!
+  reason: String
+}
+
+input RestoreContractPaymentReceiptReviewInput {
+  receiptId: ID!
+}
+
 type ContractPaymentSyncRun {
   id: ID!
   sourceId: String!
@@ -315,7 +341,7 @@ extend type Query {
   contractPaymentSources: [ContractPaymentSource!]!
   contractPaymentStatuses(documentNumbers: [String!]!): [ContractPaymentStatus!]!
   contractPaymentReceipts(documentNumber: String!): [ContractPaymentReceipt!]!
-  contractPaymentReviewReceipts(keyword: String, reasons: [String!], limit: Int): [ContractPaymentReviewReceiptItem!]!
+  contractPaymentReviewReceipts(keyword: String, reasons: [String!], limit: Int, visibility: ContractDocumentReviewVisibility = VISIBLE): [ContractPaymentReviewReceiptItem!]!
   contractPaymentReviewTabCount: Int!
   contractPaymentReviewTabCounts: ContractPaymentReviewTabCounts!
   contractPaymentSyncRuns(sourceId: ID, limit: Int = 20): [ContractPaymentSyncRun!]!
@@ -336,4 +362,7 @@ extend type Mutation {
   createManualContractPaymentReceipt(input: CreateManualContractPaymentReceiptInput!): ContractPaymentReceipt!
   updateManualContractPaymentReceipt(input: UpdateManualContractPaymentReceiptInput!): ContractPaymentReceipt!
   deleteManualContractPaymentReceipt(input: DeleteManualContractPaymentReceiptInput!): Boolean!
+  resetContractPaymentReceiptAutoMatch(input: ResetContractPaymentReceiptAutoMatchInput!): ContractPaymentReceipt!
+  trashContractPaymentReceiptReview(input: TrashContractPaymentReceiptReviewInput!): ContractPaymentReceipt!
+  restoreContractPaymentReceiptReview(input: RestoreContractPaymentReceiptReviewInput!): ContractPaymentReceipt!
 }

@@ -167,6 +167,8 @@ export interface ContractPaymentSyncRunRow {
   errorMessage: string | null;
 }
 
+export type ContractPaymentReceiptMatchMode = 'AUTO' | 'MANUAL_MATCH' | 'MANUAL_HOLD';
+
 export interface ContractPaymentReceiptRow {
   id: string;
   source: ContractPaymentSourceRow;
@@ -177,6 +179,12 @@ export interface ContractPaymentReceiptRow {
   matchedDocumentNumberNorm: string | null;
   needsReviewReason: string | null;
   memo: string | null;
+  paymentMatchMode: ContractPaymentReceiptMatchMode;
+  manualMatchedByEmployeeId: string | null;
+  manualMatchedAt: string | null;
+  reviewTrashedAt: string | null;
+  reviewTrashedByEmployeeId: string | null;
+  reviewTrashReason: string | null;
   importedAt: string;
   updatedAt: string;
 }
@@ -216,8 +224,11 @@ export interface ContractPaymentReviewReceiptItemRow {
 export interface ContractPaymentReviewTabCountsRow {
   ambiguousPayerName: number;
   nameMismatch: number;
+  trashed: number;
   all: number;
 }
+
+export type ContractPaymentReviewVisibility = 'VISIBLE' | 'HIDDEN';
 
 const CONTRACT_SUBMISSION_SOURCES_QUERY = gql`
   query ContractSubmissionSources {
@@ -550,6 +561,9 @@ const CONTRACT_PAYMENT_RECEIPTS_QUERY = gql`
       matchedDocumentNumberNorm
       needsReviewReason
       memo
+      paymentMatchMode
+      manualMatchedByEmployeeId
+      manualMatchedAt
       importedAt
       updatedAt
       source {
@@ -604,8 +618,18 @@ const SYNC_CONTRACT_PAYMENTS_MUTATION = gql`
 `;
 
 const CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY = gql`
-  query ContractPaymentReviewReceipts($keyword: String, $reasons: [String!], $limit: Int) {
-    contractPaymentReviewReceipts(keyword: $keyword, reasons: $reasons, limit: $limit) {
+  query ContractPaymentReviewReceipts(
+    $keyword: String
+    $reasons: [String!]
+    $limit: Int
+    $visibility: ContractDocumentReviewVisibility
+  ) {
+    contractPaymentReviewReceipts(
+      keyword: $keyword
+      reasons: $reasons
+      limit: $limit
+      visibility: $visibility
+    ) {
       candidateDocumentNumbers {
         documentNumber
         representativeName
@@ -636,6 +660,12 @@ const CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY = gql`
         amountKrw
         matchedDocumentNumberNorm
         needsReviewReason
+        paymentMatchMode
+        manualMatchedByEmployeeId
+        manualMatchedAt
+        reviewTrashedAt
+        reviewTrashedByEmployeeId
+        reviewTrashReason
         importedAt
         updatedAt
         source {
@@ -665,23 +695,35 @@ const CONTRACT_PAYMENT_REVIEW_TAB_COUNTS_QUERY = gql`
     contractPaymentReviewTabCounts {
       ambiguousPayerName
       nameMismatch
+      trashed
       all
     }
   }
 `;
 
+const CONTRACT_PAYMENT_RECEIPT_FIELDS = `
+  id
+  sourceRowNumber
+  receivedAt
+  payerNameRaw
+  amountKrw
+  matchedDocumentNumberNorm
+  needsReviewReason
+  memo
+  paymentMatchMode
+  manualMatchedByEmployeeId
+  manualMatchedAt
+  reviewTrashedAt
+  reviewTrashedByEmployeeId
+  reviewTrashReason
+  importedAt
+  updatedAt
+`;
+
 const MATCH_CONTRACT_PAYMENT_RECEIPT_MUTATION = gql`
   mutation MatchContractPaymentReceipt($input: MatchContractPaymentReceiptInput!) {
     matchContractPaymentReceipt(input: $input) {
-      id
-      sourceRowNumber
-      receivedAt
-      payerNameRaw
-      amountKrw
-      matchedDocumentNumberNorm
-      needsReviewReason
-      importedAt
-      updatedAt
+      ${CONTRACT_PAYMENT_RECEIPT_FIELDS}
     }
   }
 `;
@@ -689,16 +731,31 @@ const MATCH_CONTRACT_PAYMENT_RECEIPT_MUTATION = gql`
 const UNMATCH_CONTRACT_PAYMENT_RECEIPT_MUTATION = gql`
   mutation UnmatchContractPaymentReceipt($input: UnmatchContractPaymentReceiptInput!) {
     unmatchContractPaymentReceipt(input: $input) {
-      id
-      sourceRowNumber
-      receivedAt
-      payerNameRaw
-      amountKrw
-      matchedDocumentNumberNorm
-      needsReviewReason
-      memo
-      importedAt
-      updatedAt
+      ${CONTRACT_PAYMENT_RECEIPT_FIELDS}
+    }
+  }
+`;
+
+const RESTORE_CONTRACT_PAYMENT_RECEIPT_REVIEW_MUTATION = gql`
+  mutation RestoreContractPaymentReceiptReview($input: RestoreContractPaymentReceiptReviewInput!) {
+    restoreContractPaymentReceiptReview(input: $input) {
+      ${CONTRACT_PAYMENT_RECEIPT_FIELDS}
+    }
+  }
+`;
+
+const TRASH_CONTRACT_PAYMENT_RECEIPT_REVIEW_MUTATION = gql`
+  mutation TrashContractPaymentReceiptReview($input: TrashContractPaymentReceiptReviewInput!) {
+    trashContractPaymentReceiptReview(input: $input) {
+      ${CONTRACT_PAYMENT_RECEIPT_FIELDS}
+    }
+  }
+`;
+
+const RESET_CONTRACT_PAYMENT_RECEIPT_AUTO_MATCH_MUTATION = gql`
+  mutation ResetContractPaymentReceiptAutoMatch($input: ResetContractPaymentReceiptAutoMatchInput!) {
+    resetContractPaymentReceiptAutoMatch(input: $input) {
+      ${CONTRACT_PAYMENT_RECEIPT_FIELDS}
     }
   }
 `;
@@ -714,6 +771,9 @@ const MANUAL_CONTRACT_PAYMENT_RECEIPTS_QUERY = gql`
       matchedDocumentNumberNorm
       needsReviewReason
       memo
+      paymentMatchMode
+      manualMatchedByEmployeeId
+      manualMatchedAt
       importedAt
       updatedAt
       source {
@@ -742,6 +802,9 @@ const CREATE_MANUAL_CONTRACT_PAYMENT_RECEIPT_MUTATION = gql`
       matchedDocumentNumberNorm
       needsReviewReason
       memo
+      paymentMatchMode
+      manualMatchedByEmployeeId
+      manualMatchedAt
       importedAt
       updatedAt
       source {
@@ -764,6 +827,9 @@ const UPDATE_MANUAL_CONTRACT_PAYMENT_RECEIPT_MUTATION = gql`
       matchedDocumentNumberNorm
       needsReviewReason
       memo
+      paymentMatchMode
+      manualMatchedByEmployeeId
+      manualMatchedAt
       importedAt
       updatedAt
       source {
@@ -1026,14 +1092,14 @@ export function useContractPaymentStatuses(documentNumbers: string[]) {
 
 export function useContractPaymentReceipts(documentNumber: string | null | undefined) {
   const normalizedInput = useMemo(() => documentNumber?.trim() ?? '', [documentNumber]);
-  const { data, loading } = useQuery<{ contractPaymentReceipts: ContractPaymentReceiptRow[] }>(
+  const { data, loading, refetch } = useQuery<{ contractPaymentReceipts: ContractPaymentReceiptRow[] }>(
     CONTRACT_PAYMENT_RECEIPTS_QUERY,
     {
       variables: { documentNumber: normalizedInput },
       skip: normalizedInput.length === 0,
     },
   );
-  return { receipts: data?.contractPaymentReceipts ?? [], loading };
+  return { receipts: data?.contractPaymentReceipts ?? [], loading, refetch };
 }
 
 export function useContractPaymentSyncRuns(sourceId?: string, limit = 20) {
@@ -1065,7 +1131,12 @@ export function useSyncContractPayments() {
   };
 }
 
-export function useContractPaymentReviewReceipts(keyword?: string, reasons?: string[], limit?: number) {
+export function useContractPaymentReviewReceipts(
+  keyword?: string,
+  reasons?: string[],
+  limit?: number,
+  visibility: ContractPaymentReviewVisibility = 'VISIBLE',
+) {
   const normalizedKeyword = keyword?.trim() ?? '';
   const normalizedReasons = useMemo(
     () => Array.from(new Set((reasons ?? []).map((reason) => reason.trim()).filter(Boolean))),
@@ -1077,6 +1148,7 @@ export function useContractPaymentReviewReceipts(keyword?: string, reasons?: str
       variables: {
         keyword: normalizedKeyword || undefined,
         reasons: normalizedReasons.length > 0 ? normalizedReasons : undefined,
+        visibility,
         ...(limit != null ? { limit } : {}),
       },
     },
@@ -1119,6 +1191,7 @@ export function useMatchContractPaymentReceipt() {
           { query: CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY },
           { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY },
           { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNTS_QUERY },
+          'ContractPaymentReceipts',
         ],
       });
       if (!result.data?.matchContractPaymentReceipt) {
@@ -1142,12 +1215,85 @@ export function useUnmatchContractPaymentReceipt() {
           { query: CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY },
           { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY },
           { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNTS_QUERY },
+          'ContractPaymentReceipts',
         ],
       });
       if (!result.data?.unmatchContractPaymentReceipt) {
         throw new Error('Failed to unmatch contract payment receipt');
       }
       return result.data.unmatchContractPaymentReceipt;
+    },
+  };
+}
+
+export function useResetContractPaymentReceiptAutoMatch() {
+  const [mutate, { loading }] = useMutation<{ resetContractPaymentReceiptAutoMatch: ContractPaymentReceiptRow }>(
+    RESET_CONTRACT_PAYMENT_RECEIPT_AUTO_MATCH_MUTATION,
+  );
+  return {
+    loading,
+    resetContractPaymentReceiptAutoMatch: async (receiptId: string) => {
+      const result = await mutate({
+        variables: { input: { receiptId } },
+        refetchQueries: [
+          { query: CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY },
+          { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY },
+          { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNTS_QUERY },
+          'ContractPaymentReceipts',
+        ],
+      });
+      if (!result.data?.resetContractPaymentReceiptAutoMatch) {
+        throw new Error('Failed to reset contract payment receipt auto match');
+      }
+      return result.data.resetContractPaymentReceiptAutoMatch;
+    },
+  };
+}
+
+export function useTrashContractPaymentReceiptReview() {
+  const [mutate, { loading }] = useMutation<{ trashContractPaymentReceiptReview: ContractPaymentReceiptRow }>(
+    TRASH_CONTRACT_PAYMENT_RECEIPT_REVIEW_MUTATION,
+  );
+  return {
+    loading,
+    trashContractPaymentReceiptReview: async (input: { receiptId: string; reason?: string | null }) => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [
+          { query: CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY },
+          { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY },
+          { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNTS_QUERY },
+          'ContractPaymentReceipts',
+        ],
+      });
+      if (!result.data?.trashContractPaymentReceiptReview) {
+        throw new Error('Failed to trash contract payment receipt review');
+      }
+      return result.data.trashContractPaymentReceiptReview;
+    },
+  };
+}
+
+export function useRestoreContractPaymentReceiptReview() {
+  const [mutate, { loading }] = useMutation<{ restoreContractPaymentReceiptReview: ContractPaymentReceiptRow }>(
+    RESTORE_CONTRACT_PAYMENT_RECEIPT_REVIEW_MUTATION,
+  );
+  return {
+    loading,
+    restoreContractPaymentReceiptReview: async (receiptId: string) => {
+      const result = await mutate({
+        variables: { input: { receiptId } },
+        refetchQueries: [
+          { query: CONTRACT_PAYMENT_REVIEW_RECEIPTS_QUERY },
+          { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNT_QUERY },
+          { query: CONTRACT_PAYMENT_REVIEW_TAB_COUNTS_QUERY },
+          'ContractPaymentReceipts',
+        ],
+      });
+      if (!result.data?.restoreContractPaymentReceiptReview) {
+        throw new Error('Failed to restore contract payment receipt review');
+      }
+      return result.data.restoreContractPaymentReceiptReview;
     },
   };
 }

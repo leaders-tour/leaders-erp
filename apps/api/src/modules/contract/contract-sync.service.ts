@@ -14,6 +14,9 @@ import {
   trashContractDocumentReviewInputSchema,
   unmatchContractDocumentInputSchema,
   unmatchContractPaymentReceiptInputSchema,
+  resetContractPaymentReceiptAutoMatchInputSchema,
+  trashContractPaymentReceiptReviewInputSchema,
+  restoreContractPaymentReceiptReviewInputSchema,
   createManualContractPaymentReceiptInputSchema,
   updateManualContractPaymentReceiptInputSchema,
   deleteManualContractPaymentReceiptInputSchema,
@@ -1796,11 +1799,32 @@ function matchPaymentRow(row: ParsedPaymentSheetRow, context: PaymentMatchContex
   return { ...row, matchedDocumentNumberNorm: null, needsReviewReason: 'AMBIGUOUS_PAYER_NAME' };
 }
 
-function paymentReviewReceiptWhere(): Prisma.ContractPaymentReceiptWhereInput {
+function paymentReviewReceiptEligibleWhere(): Prisma.ContractPaymentReceiptWhereInput {
   return {
+    paymentMatchMode: 'AUTO',
     OR: [
       { matchedDocumentNumberNorm: null },
       { needsReviewReason: { not: null } },
+    ],
+  };
+}
+
+function paymentReviewReceiptWhere(
+  visibility: ContractDocumentReviewVisibility = 'VISIBLE',
+): Prisma.ContractPaymentReceiptWhereInput {
+  const eligible = paymentReviewReceiptEligibleWhere();
+  if (visibility === 'HIDDEN') {
+    return {
+      AND: [
+        eligible,
+        { reviewTrashedAt: { not: null } },
+      ],
+    };
+  }
+  return {
+    AND: [
+      eligible,
+      { reviewTrashedAt: null },
     ],
   };
 }
@@ -1907,12 +1931,13 @@ export class ContractPaymentSyncService {
   }
 
   async getPaymentReviewTabCounts() {
-    const baseWhere = paymentReviewReceiptWhere();
-    const [ambiguousPayerName, nameMismatch, all] = await Promise.all([
+    const visibleWhere = paymentReviewReceiptWhere('VISIBLE');
+    const hiddenWhere = paymentReviewReceiptWhere('HIDDEN');
+    const [ambiguousPayerName, nameMismatch, trashed, all] = await Promise.all([
       this.prisma.contractPaymentReceipt.count({
         where: {
           AND: [
-            baseWhere,
+            visibleWhere,
             { needsReviewReason: 'AMBIGUOUS_PAYER_NAME' },
           ],
         },
@@ -1920,17 +1945,19 @@ export class ContractPaymentSyncService {
       this.prisma.contractPaymentReceipt.count({
         where: {
           AND: [
-            baseWhere,
+            visibleWhere,
             { needsReviewReason: { in: [...PAYMENT_REVIEW_NAME_MISMATCH_REASONS] } },
           ],
         },
       }),
-      this.prisma.contractPaymentReceipt.count({ where: baseWhere }),
+      this.prisma.contractPaymentReceipt.count({ where: hiddenWhere }),
+      this.prisma.contractPaymentReceipt.count({ where: visibleWhere }),
     ]);
 
     return {
       ambiguousPayerName,
       nameMismatch,
+      trashed,
       all,
     };
   }
@@ -1971,11 +1998,17 @@ export class ContractPaymentSyncService {
     };
   }
 
-  async listReviewReceipts(args: { keyword?: string; reasons?: string[]; limit?: number }) {
+  async listReviewReceipts(args: {
+    keyword?: string;
+    reasons?: string[];
+    limit?: number;
+    visibility?: ContractDocumentReviewVisibility;
+  }) {
     const limit = args.limit == null ? undefined : Math.min(Math.max(args.limit, 1), 5000);
     const keyword = args.keyword?.trim() ?? '';
     const keywordLower = keyword.toLowerCase();
     const reasons = Array.from(new Set((args.reasons ?? []).map((reason) => reason.trim()).filter(Boolean)));
+    const visibility = args.visibility ?? 'VISIBLE';
 
     const submissions = await this.prisma.contractSubmission.findMany({
       where: { documentNumberNorm: { not: null } },
@@ -2019,7 +2052,7 @@ export class ContractPaymentSyncService {
 
     const where: Prisma.ContractPaymentReceiptWhereInput = {
       AND: [
-        paymentReviewReceiptWhere(),
+        paymentReviewReceiptWhere(visibility),
         ...(reasons.length > 0 ? [{ needsReviewReason: { in: reasons } }] : []),
         ...(keywordOr.length > 0 ? [{ OR: keywordOr }] : []),
       ],
@@ -2106,7 +2139,7 @@ export class ContractPaymentSyncService {
     }));
   }
 
-  async matchContractPaymentReceipt(input: unknown) {
+  async matchContractPaymentReceipt(input: unknown, employeeId: string) {
     const parsed = matchContractPaymentReceiptInputSchema.parse(input);
     const documentNumberNorm = normalizeContractDocumentNumber(parsed.documentNumber);
     if (!documentNumberNorm) {
@@ -2132,8 +2165,11 @@ export class ContractPaymentSyncService {
     const updated = await this.prisma.contractPaymentReceipt.update({
       where: { id: parsed.receiptId },
       data: {
+        paymentMatchMode: 'MANUAL_MATCH',
         matchedDocumentNumberNorm: documentNumberNorm,
         needsReviewReason: null,
+        manualMatchedAt: new Date(),
+        manualMatchedByEmployeeId: employeeId,
       },
       include: { source: true },
     });
@@ -2145,15 +2181,88 @@ export class ContractPaymentSyncService {
     return updated;
   }
 
-  async unmatchContractPaymentReceipt(input: unknown) {
-    const parsed = unmatchContractPaymentReceiptInputSchema.parse(input);
+  async unmatchContractPaymentReceipt(input: unknown, _employeeId: string) {
+    return this.resetContractPaymentReceiptAutoMatch(input);
+  }
+
+  async trashContractPaymentReceiptReview(input: unknown, employeeId: string) {
+    const parsed = trashContractPaymentReceiptReviewInputSchema.parse(input);
     const receipt = await this.prisma.contractPaymentReceipt.findUnique({
       where: { id: parsed.receiptId },
+      include: { source: true },
     });
     if (!receipt) {
       throw new DomainError('NOT_FOUND', 'Contract payment receipt not found');
     }
+    if (receipt.source.type !== 'GOOGLE_SHEET') {
+      throw new DomainError('VALIDATION_FAILED', 'Only Google Sheet payment receipts can be trashed from review');
+    }
+    if (receipt.reviewTrashedAt) {
+      throw new DomainError('VALIDATION_FAILED', 'Payment receipt is already in review trash');
+    }
 
+    const visibleCount = await this.prisma.contractPaymentReceipt.count({
+      where: {
+        AND: [
+          { id: parsed.receiptId },
+          paymentReviewReceiptWhere('VISIBLE'),
+        ],
+      },
+    });
+    if (visibleCount === 0) {
+      throw new DomainError('VALIDATION_FAILED', 'Payment receipt is not eligible for review trash');
+    }
+
+    return this.prisma.contractPaymentReceipt.update({
+      where: { id: parsed.receiptId },
+      data: {
+        reviewTrashedAt: new Date(),
+        reviewTrashedByEmployeeId: employeeId,
+        reviewTrashReason: parsed.reason ?? null,
+      },
+      include: { source: true },
+    });
+  }
+
+  async restoreContractPaymentReceiptReview(input: unknown) {
+    const parsed = restoreContractPaymentReceiptReviewInputSchema.parse(input);
+    const receipt = await this.prisma.contractPaymentReceipt.findUnique({
+      where: { id: parsed.receiptId },
+      include: { source: true },
+    });
+    if (!receipt) {
+      throw new DomainError('NOT_FOUND', 'Contract payment receipt not found');
+    }
+    if (!receipt.reviewTrashedAt) {
+      throw new DomainError('VALIDATION_FAILED', 'Payment receipt is not in review trash');
+    }
+    if (receipt.source.type !== 'GOOGLE_SHEET') {
+      throw new DomainError('VALIDATION_FAILED', 'Only Google Sheet payment receipts can be restored from review trash');
+    }
+
+    return this.reapplyGoogleSheetAutoMatch(receipt, { clearReviewTrash: true });
+  }
+
+  async resetContractPaymentReceiptAutoMatch(input: unknown) {
+    const parsed = resetContractPaymentReceiptAutoMatchInputSchema.parse(input);
+    const receipt = await this.prisma.contractPaymentReceipt.findUnique({
+      where: { id: parsed.receiptId },
+      include: { source: true },
+    });
+    if (!receipt) {
+      throw new DomainError('NOT_FOUND', 'Contract payment receipt not found');
+    }
+    if (receipt.source.type !== 'GOOGLE_SHEET') {
+      throw new DomainError('VALIDATION_FAILED', 'Only Google Sheet payment receipts can be reset to auto match');
+    }
+
+    return this.reapplyGoogleSheetAutoMatch(receipt);
+  }
+
+  private async reapplyGoogleSheetAutoMatch(
+    receipt: Prisma.ContractPaymentReceiptGetPayload<{ include: { source: true } }>,
+    options?: { clearReviewTrash?: boolean },
+  ) {
     const previousDocumentNumberNorm = receipt.matchedDocumentNumberNorm;
     const [submissions, planVersions] = await Promise.all([
       this.prisma.contractSubmission.findMany({
@@ -2211,10 +2320,20 @@ export class ContractPaymentSyncService {
     }, context);
 
     const updated = await this.prisma.contractPaymentReceipt.update({
-      where: { id: parsed.receiptId },
+      where: { id: receipt.id },
       data: {
+        paymentMatchMode: 'AUTO',
         matchedDocumentNumberNorm: rematched.matchedDocumentNumberNorm,
         needsReviewReason: rematched.needsReviewReason,
+        manualMatchedAt: null,
+        manualMatchedByEmployeeId: null,
+        ...(options?.clearReviewTrash
+          ? {
+              reviewTrashedAt: null,
+              reviewTrashedByEmployeeId: null,
+              reviewTrashReason: null,
+            }
+          : {}),
       },
       include: { source: true },
     });
@@ -2284,10 +2403,16 @@ export class ContractPaymentSyncService {
         },
         select: {
           sourceRecordKey: true,
+          sourceRowNumber: true,
           rowDigest: true,
+          paymentMatchMode: true,
+          reviewTrashedAt: true,
           matchedDocumentNumberNorm: true,
           needsReviewReason: true,
           receivedAt: true,
+          payerNameRaw: true,
+          payerNameNorm: true,
+          amountKrw: true,
         },
       }),
       this.prisma.contractSubmission.findMany({
@@ -2344,6 +2469,41 @@ export class ContractPaymentSyncService {
     const rowsToUpdate: Array<{ sourceRecordKey: string; data: Prisma.ContractPaymentReceiptUpdateInput }> = [];
 
     for (const parsedRow of rows) {
+      const existing = existingByKey.get(parsedRow.sourceRecordKey);
+
+      if (existing && (existing.paymentMatchMode !== 'AUTO' || existing.reviewTrashedAt)) {
+        const sheetFieldsUnchanged =
+          existing.rowDigest === parsedRow.rowDigest
+          && existing.sourceRowNumber === parsedRow.rowNumber
+          && existing.payerNameRaw === parsedRow.payerNameRaw
+          && existing.payerNameNorm === parsedRow.payerNameNorm
+          && existing.amountKrw === parsedRow.amountKrw
+          && paymentReceivedAtEquals(existing.receivedAt, parsedRow.receivedAt);
+
+        if (sheetFieldsUnchanged) {
+          skippedRows += 1;
+          continue;
+        }
+
+        if (existing.matchedDocumentNumberNorm) {
+          affectedDocumentNumbers.add(existing.matchedDocumentNumberNorm);
+        }
+
+        rowsToUpdate.push({
+          sourceRecordKey: parsedRow.sourceRecordKey,
+          data: {
+            sourceRowNumber: parsedRow.rowNumber,
+            receivedAt: parsedRow.receivedAt,
+            payerNameRaw: parsedRow.payerNameRaw,
+            payerNameNorm: parsedRow.payerNameNorm,
+            amountKrw: parsedRow.amountKrw,
+            rowDigest: parsedRow.rowDigest,
+            rawJson: parsedRow.rawJson,
+          },
+        });
+        continue;
+      }
+
       const row = matchPaymentRow(parsedRow, context);
       if (row.matchedDocumentNumberNorm) {
         matchedRows += 1;
@@ -2353,7 +2513,6 @@ export class ContractPaymentSyncService {
         reviewRows += 1;
       }
 
-      const existing = existingByKey.get(row.sourceRecordKey);
       if (
         existing?.rowDigest === row.rowDigest
         && existing.matchedDocumentNumberNorm === row.matchedDocumentNumberNorm

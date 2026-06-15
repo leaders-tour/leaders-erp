@@ -3,6 +3,7 @@ import { normalizeContractPersonName } from '@tour/validation';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   useContractMatchPlanVersionCandidates,
+  useContractPaymentReceipts,
   useContractPaymentReviewReceipts,
   useContractPaymentReviewTabCounts,
   useContractPaymentStatuses,
@@ -10,16 +11,21 @@ import {
   useDeleteManualContractPaymentReceipt,
   useManualContractPaymentReceipts,
   useMatchContractPaymentReceipt,
+  useRestoreContractPaymentReceiptReview,
+  useTrashContractPaymentReceiptReview,
   useUnmatchContractPaymentReceipt,
   useUpdateManualContractPaymentReceipt,
   type ContractMatchPlanVersionCandidateRow,
+  type ContractPaymentReceiptMatchMode,
   type ContractPaymentReceiptRow,
   type ContractPaymentReviewDocumentCandidateRow,
   type ContractPaymentReviewTabCountsRow,
+  type ContractPaymentReviewVisibility,
 } from '../features/contract/hooks';
 
-type PageMode = 'sheet_review' | 'manual_add';
-type PaymentReviewTabKey = 'ambiguous' | 'name_mismatch';
+type PageMode = 'sheet_review' | 'team_manage';
+type TeamManageTabKey = 'add' | 'unlink';
+type PaymentReviewTabKey = 'ambiguous' | 'name_mismatch' | 'trash';
 
 const PAGE_MODE_TABS: Array<{ key: PageMode; label: string; description: string }> = [
   {
@@ -28,9 +34,22 @@ const PAGE_MODE_TABS: Array<{ key: PageMode; label: string; description: string 
     description: '입금 시트 row를 문서번호에 연결합니다.',
   },
   {
-    key: 'manual_add',
-    label: '수동 추가',
-    description: '시트에 없는 입금/할인 row를 팀에 직접 추가합니다.',
+    key: 'team_manage',
+    label: '팀별 수동 관리',
+    description: '팀을 선택해 입금을 추가하거나 시트 연결을 해제합니다.',
+  },
+];
+
+const TEAM_MANAGE_TABS: Array<{ key: TeamManageTabKey; label: string; description: string }> = [
+  {
+    key: 'add',
+    label: '입금 추가',
+    description: '시트에 없는 할인·별도 입금 row를 추가합니다.',
+  },
+  {
+    key: 'unlink',
+    label: '자동매칭 되돌리기',
+    description: '이 팀에 연결된 시트 입금 row를 자동매칭 상태로 되돌립니다.',
   },
 ];
 
@@ -52,7 +71,20 @@ const PAYMENT_REVIEW_TABS: Array<{
     tooltip: '입금자명과 일치하는 계약서 작성자명 후보가 없습니다',
     reasons: ['NO_MATCHED_CONTRACT_SUBMISSION_NAME', 'MISSING_PAYER_NAME', 'INVALID_AMOUNT'],
   },
+  {
+    key: 'trash',
+    label: '휴지통',
+    tooltip: '검토에서 제외한 입금 row입니다. 복원하면 다시 검토 목록에 표시됩니다',
+    reasons: [],
+  },
 ];
+
+const MAIN_PAYMENT_REVIEW_TABS = PAYMENT_REVIEW_TABS.filter((tab) => tab.key !== 'trash');
+const TRASH_PAYMENT_REVIEW_TAB = PAYMENT_REVIEW_TABS.find((tab) => tab.key === 'trash')!;
+
+function reviewVisibilityForTab(tab: PaymentReviewTabKey): ContractPaymentReviewVisibility {
+  return tab === 'trash' ? 'HIDDEN' : 'VISIBLE';
+}
 
 function paymentTabCount(
   key: PaymentReviewTabKey,
@@ -66,7 +98,17 @@ function paymentTabCount(
       return counts.ambiguousPayerName;
     case 'name_mismatch':
       return counts.nameMismatch;
+    case 'trash':
+      return counts.trashed;
   }
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) {
+    return '-';
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString('ko-KR');
 }
 
 function formatDate(value: string | null | undefined): string {
@@ -80,7 +122,11 @@ function formatDate(value: string | null | undefined): string {
 function paymentReceiptStatusChipLabel(
   matched: boolean,
   tab: PaymentReviewTabKey,
+  needsReviewReason?: string | null,
 ): string {
+  if (tab === 'trash') {
+    return paymentReviewReasonLabel(needsReviewReason) ?? '휴지통';
+  }
   if (matched) {
     return '연결됨';
   }
@@ -88,6 +134,19 @@ function paymentReceiptStatusChipLabel(
     return '동명이인';
   }
   return '이름불일치';
+}
+
+function paymentMatchModeBadgeLabel(
+  paymentMatchMode: ContractPaymentReceiptMatchMode,
+  matched: boolean,
+): string | null {
+  if (paymentMatchMode === 'MANUAL_MATCH') {
+    return '수동 연결';
+  }
+  if (matched) {
+    return '자동 연결';
+  }
+  return null;
 }
 
 function HoverTooltip({
@@ -306,7 +365,8 @@ function manualReceiptKindLabel(amountKrw: number | null | undefined): string | 
   return amountKrw < 0 ? '환불' : '수동 추가';
 }
 
-function ManualPaymentAddSection(): JSX.Element {
+function TeamPaymentManageSection(): JSX.Element {
+  const [teamManageTab, setTeamManageTab] = useState<TeamManageTabKey>('add');
   const [teamSearch, setTeamSearch] = useState('');
   const [selectedDocumentNumber, setSelectedDocumentNumber] = useState('');
   const [selectedCandidate, setSelectedCandidate] = useState<ContractMatchPlanVersionCandidateRow | null>(null);
@@ -325,6 +385,9 @@ function ManualPaymentAddSection(): JSX.Element {
   );
   const { receipts: manualReceipts, loading: manualReceiptsLoading, refetch: refetchManualReceipts } =
     useManualContractPaymentReceipts(selectedDocumentNumber || undefined);
+  const { receipts: teamReceipts, loading: teamReceiptsLoading, refetch: refetchTeamReceipts } =
+    useContractPaymentReceipts(selectedDocumentNumber || undefined);
+  const { unmatchContractPaymentReceipt, loading: resettingSheetReceipt } = useUnmatchContractPaymentReceipt();
   const { createManualContractPaymentReceipt, loading: creatingManualReceipt } = useCreateManualContractPaymentReceipt();
   const { updateManualContractPaymentReceipt, loading: updatingManualReceipt } = useUpdateManualContractPaymentReceipt();
   const { deleteManualContractPaymentReceipt, loading: deletingManualReceipt } = useDeleteManualContractPaymentReceipt();
@@ -333,6 +396,11 @@ function ManualPaymentAddSection(): JSX.Element {
   const remainingAmountKrw = selectedPaymentStatus?.requiredAmountKrw == null
     ? null
     : Math.max(0, selectedPaymentStatus.requiredAmountKrw - selectedPaymentStatus.receivedAmountKrw);
+  const sheetLinkedReceipts = useMemo(
+    () => teamReceipts.filter((receipt) => receipt.source.type === 'GOOGLE_SHEET'),
+    [teamReceipts],
+  );
+  const teamManageTabConfig = TEAM_MANAGE_TABS.find((tab) => tab.key === teamManageTab) ?? TEAM_MANAGE_TABS[0]!;
 
   const resetManualForm = () => {
     setPayerName('');
@@ -363,6 +431,20 @@ function ManualPaymentAddSection(): JSX.Element {
 
   const refreshManualSection = async () => {
     await Promise.all([refetchManualReceipts(), refetchPaymentStatuses()]);
+  };
+
+  const refreshTeamSection = async () => {
+    await Promise.all([refetchTeamReceipts(), refetchPaymentStatuses(), refetchManualReceipts()]);
+  };
+
+  const handleResetSheetReceipt = async (receiptId: string) => {
+    setManualErrorMessage(null);
+    try {
+      await unmatchContractPaymentReceipt(receiptId);
+      await refreshTeamSection();
+    } catch (error) {
+      setManualErrorMessage(error instanceof Error ? error.message : '자동매칭 되돌리기에 실패했습니다.');
+    }
   };
 
   const handleSubmitManualReceipt = async () => {
@@ -417,11 +499,35 @@ function ManualPaymentAddSection(): JSX.Element {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+    <div className="grid gap-6">
+      <div className="flex flex-wrap gap-2">
+        {TEAM_MANAGE_TABS.map((tab) => {
+          const active = tab.key === teamManageTab;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => {
+                setTeamManageTab(tab.key);
+                setManualErrorMessage(null);
+              }}
+              className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
+                active
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
       <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div>
           <p className="text-sm font-semibold text-slate-900">팀/문서번호 검색</p>
-          <p className="mt-1 text-sm text-slate-600">먼저 입금을 추가할 팀을 선택하세요.</p>
+          <p className="mt-1 text-sm text-slate-600">{teamManageTabConfig.description}</p>
         </div>
         <Input
           value={teamSearch}
@@ -500,12 +606,18 @@ function ManualPaymentAddSection(): JSX.Element {
                   <p className="mt-1 font-semibold text-orange-600">{formatKrw(remainingAmountKrw)}</p>
                 </div>
                 <div className="rounded-xl bg-slate-50 px-3 py-2">
-                  <span className="text-slate-500">수동 추가 건수</span>
-                  <p className="mt-1 font-semibold text-slate-900">{manualReceipts.length}건</p>
+                  <span className="text-slate-500">
+                    {teamManageTab === 'add' ? '수동 추가 건수' : '시트 연결 건수'}
+                  </span>
+                  <p className="mt-1 font-semibold text-slate-900">
+                    {teamManageTab === 'add' ? manualReceipts.length : sheetLinkedReceipts.length}건
+                  </p>
                 </div>
               </div>
             </Card>
 
+            {teamManageTab === 'add' ? (
+              <>
             <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <div>
                 <p className="text-sm font-semibold text-slate-900">
@@ -622,9 +734,82 @@ function ManualPaymentAddSection(): JSX.Element {
                 ))}
               </div>
             </Card>
+              </>
+            ) : (
+            <Card className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">연결된 시트 입금</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    자동매칭 되돌리기를 누르면 연결이 해제되고, 동명이인 등 조건이면 검토 탭에 다시 표시됩니다.
+                  </p>
+                </div>
+                <Button variant="outline" onClick={() => void refreshTeamSection()}>
+                  새로고침
+                </Button>
+              </div>
+              {manualErrorMessage ? <p className="text-sm text-rose-600">{manualErrorMessage}</p> : null}
+              {teamReceiptsLoading ? <p className="text-sm text-slate-500">불러오는 중...</p> : null}
+              {!teamReceiptsLoading && sheetLinkedReceipts.length === 0 ? (
+                <p className="text-sm text-slate-500">이 팀에 연결된 시트 입금 row가 없습니다.</p>
+              ) : null}
+              <div className="grid gap-2">
+                {sheetLinkedReceipts.map((receipt) => {
+                  const matchModeBadge = paymentMatchModeBadgeLabel(
+                    receipt.paymentMatchMode,
+                    Boolean(receipt.matchedDocumentNumberNorm),
+                  );
+                  return (
+                    <div
+                      key={receipt.id}
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold text-slate-900">
+                              {receipt.payerNameRaw?.trim() || '이름 없음'}
+                            </p>
+                            {matchModeBadge ? (
+                              <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                                {matchModeBadge}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">
+                            <span className="text-sm font-bold tabular-nums text-slate-900">
+                              {formatKrw(receipt.amountKrw)}
+                            </span>
+                            {' · '}
+                            {formatDate(receipt.receivedAt)}
+                            {receipt.sourceRowNumber != null ? (
+                              <>
+                                {' · '}
+                                시트 {receipt.sourceRowNumber}행
+                              </>
+                            ) : null}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            disabled={resettingSheetReceipt}
+                            onClick={() => void handleResetSheetReceipt(receipt.id)}
+                          >
+                            {resettingSheetReceipt ? '되돌리는 중...' : '자동매칭 되돌리기'}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+            )}
           </>
         )}
       </div>
+    </div>
     </div>
   );
 }
@@ -639,12 +824,19 @@ function SheetReviewSection(): JSX.Element {
   const [paymentErrorMessage, setPaymentErrorMessage] = useState<string | null>(null);
 
   const activeTabConfig = PAYMENT_REVIEW_TABS.find((tab) => tab.key === activeTab) ?? PAYMENT_REVIEW_TABS[0]!;
+  const isTrashView = activeTab === 'trash';
   const normalizedPaymentSearch = paymentSearch.trim();
   const { counts: paymentTabCounts, refetch: refetchPaymentTabCounts } = useContractPaymentReviewTabCounts();
   const { items: paymentItems, loading: paymentLoading, refetch: refetchPaymentItems } =
-    useContractPaymentReviewReceipts(normalizedPaymentSearch, activeTabConfig.reasons);
+    useContractPaymentReviewReceipts(
+      normalizedPaymentSearch,
+      activeTabConfig.reasons,
+      undefined,
+      reviewVisibilityForTab(activeTab),
+    );
   const { matchContractPaymentReceipt, loading: matchingPayment } = useMatchContractPaymentReceipt();
-  const { unmatchContractPaymentReceipt, loading: unmatchingPayment } = useUnmatchContractPaymentReceipt();
+  const { trashContractPaymentReceiptReview, loading: trashingPayment } = useTrashContractPaymentReceiptReview();
+  const { restoreContractPaymentReceiptReview, loading: restoringPayment } = useRestoreContractPaymentReceiptReview();
   const { candidates: paymentPlanCandidates, loading: paymentCandidatesLoading } =
     useContractMatchPlanVersionCandidates(planSearch);
 
@@ -714,17 +906,40 @@ function SheetReviewSection(): JSX.Element {
     }
   };
 
-  const handleUnmatchPayment = async () => {
-    if (!selectedPaymentItem?.receipt.matchedDocumentNumberNorm) {
+  const handleTrashPayment = async () => {
+    if (!selectedPaymentItem || isTrashView) {
       return;
     }
 
     setPaymentErrorMessage(null);
     try {
-      await unmatchContractPaymentReceipt(selectedPaymentItem.receipt.id);
+      await trashContractPaymentReceiptReview({ receiptId: selectedPaymentItem.receipt.id });
       await refreshPage();
     } catch (error) {
-      setPaymentErrorMessage(error instanceof Error ? error.message : '입금 연결 해제에 실패했습니다.');
+      setPaymentErrorMessage(error instanceof Error ? error.message : '휴지통 이동에 실패했습니다.');
+    }
+  };
+
+  const handleRestorePayment = async () => {
+    if (!selectedPaymentItem || !isTrashView) {
+      return;
+    }
+
+    setPaymentErrorMessage(null);
+    try {
+      const restored = await restoreContractPaymentReceiptReview(selectedPaymentItem.receipt.id);
+      if (restored.needsReviewReason === 'AMBIGUOUS_PAYER_NAME') {
+        setActiveTab('ambiguous');
+      } else if (
+        restored.needsReviewReason === 'NO_MATCHED_CONTRACT_SUBMISSION_NAME'
+        || restored.needsReviewReason === 'MISSING_PAYER_NAME'
+        || restored.needsReviewReason === 'INVALID_AMOUNT'
+      ) {
+        setActiveTab('name_mismatch');
+      }
+      await refreshPage();
+    } catch (error) {
+      setPaymentErrorMessage(error instanceof Error ? error.message : '휴지통 복원에 실패했습니다.');
     }
   };
 
@@ -741,8 +956,8 @@ function SheetReviewSection(): JSX.Element {
         </Button>
       </Card>
 
-      <div className="flex flex-wrap gap-2">
-        {PAYMENT_REVIEW_TABS.map((tab) => {
+      <div className="flex flex-wrap items-center gap-2">
+        {MAIN_PAYMENT_REVIEW_TABS.map((tab) => {
           const active = tab.key === activeTab;
           const count = paymentTabCount(tab.key, paymentTabCounts);
           const isNameMismatchTab = tab.key === 'name_mismatch';
@@ -781,6 +996,23 @@ function SheetReviewSection(): JSX.Element {
             </button>
           );
         })}
+        <button
+          type="button"
+          onClick={() => setActiveTab(TRASH_PAYMENT_REVIEW_TAB.key)}
+          className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
+            activeTab === TRASH_PAYMENT_REVIEW_TAB.key
+              ? 'border-slate-900 bg-slate-900 text-white'
+              : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+          }`}
+        >
+          {TRASH_PAYMENT_REVIEW_TAB.label}
+          {paymentTabCount('trash', paymentTabCounts) != null ? (
+            <span className={activeTab === TRASH_PAYMENT_REVIEW_TAB.key ? 'text-slate-300' : 'text-slate-500'}>
+              {' '}
+              {paymentTabCount('trash', paymentTabCounts)}
+            </span>
+          ) : null}
+        </button>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
@@ -806,6 +1038,8 @@ function SheetReviewSection(): JSX.Element {
             const receipt = item.receipt;
             const isNameMismatchTab = activeTab === 'name_mismatch';
             const isMatched = Boolean(receipt.matchedDocumentNumberNorm);
+            const matchModeBadge = paymentMatchModeBadgeLabel(receipt.paymentMatchMode, isMatched);
+            const chipLabel = matchModeBadge ?? paymentReceiptStatusChipLabel(isMatched, activeTab, receipt.needsReviewReason);
             return (
               <button
                 key={receipt.id}
@@ -814,14 +1048,18 @@ function SheetReviewSection(): JSX.Element {
                 onClick={() => setSelectedReceiptId(receipt.id)}
                 className={`rounded-2xl border px-3 py-3 text-left transition ${
                   active
-                    ? isNameMismatchTab
-                      ? 'border-violet-600 bg-violet-600 text-white shadow-sm'
-                      : 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                    : isMatched
-                      ? 'border-emerald-200 bg-emerald-50/40 hover:border-emerald-300 hover:bg-emerald-50'
+                    ? isTrashView
+                      ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
                       : isNameMismatchTab
-                        ? 'border-violet-200 bg-violet-50/40 hover:border-violet-300 hover:bg-violet-50'
-                        : 'border-rose-200 bg-rose-50/40 hover:border-rose-300 hover:bg-rose-50'
+                        ? 'border-violet-600 bg-violet-600 text-white shadow-sm'
+                        : 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                    : isTrashView
+                      ? 'border-slate-200 bg-slate-50/80 hover:border-slate-300 hover:bg-slate-50'
+                      : isMatched
+                        ? 'border-emerald-200 bg-emerald-50/40 hover:border-emerald-300 hover:bg-emerald-50'
+                        : isNameMismatchTab
+                          ? 'border-violet-200 bg-violet-50/40 hover:border-violet-300 hover:bg-violet-50'
+                          : 'border-rose-200 bg-rose-50/40 hover:border-rose-300 hover:bg-rose-50'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -856,10 +1094,10 @@ function SheetReviewSection(): JSX.Element {
                             : 'border-rose-200 bg-rose-50 text-rose-700'
                     }`}
                   >
-                    {paymentReceiptStatusChipLabel(isMatched, activeTab)}
+                    {chipLabel}
                   </span>
                 </div>
-                {receipt.needsReviewReason !== 'AMBIGUOUS_PAYER_NAME' ? (
+                {!isTrashView && receipt.needsReviewReason !== 'AMBIGUOUS_PAYER_NAME' ? (
                   <p className={`mt-2 text-xs ${active ? 'text-slate-200' : 'text-slate-600'}`}>
                     {paymentReviewReasonLabel(receipt.needsReviewReason)}
                   </p>
@@ -896,9 +1134,40 @@ function SheetReviewSection(): JSX.Element {
                         {formatKrw(selectedPaymentItem.receipt.amountKrw)}
                       </span>
                     </h2>
+                    {(() => {
+                      const isMatched = Boolean(selectedPaymentItem.receipt.matchedDocumentNumberNorm);
+                      const matchModeBadge = paymentMatchModeBadgeLabel(
+                        selectedPaymentItem.receipt.paymentMatchMode,
+                        isMatched,
+                      );
+                      if (!matchModeBadge) {
+                        return null;
+                      }
+                      return (
+                        <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                          {matchModeBadge}
+                        </span>
+                      );
+                    })()}
                   </div>
 
-                {activeTab === 'ambiguous' ? (
+                {isTrashView ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-600">
+                      {paymentReviewReasonLabel(selectedPaymentItem.receipt.needsReviewReason)} row를 검토에서 제외한 상태입니다.
+                    </p>
+                    {selectedPaymentItem.receipt.reviewTrashedAt ? (
+                      <p className="text-sm text-slate-500">
+                        휴지통 이동 · {formatDateTime(selectedPaymentItem.receipt.reviewTrashedAt)}
+                      </p>
+                    ) : null}
+                    {selectedPaymentItem.receipt.reviewTrashReason ? (
+                      <p className="text-sm text-slate-600">사유: {selectedPaymentItem.receipt.reviewTrashReason}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {!isTrashView && activeTab === 'ambiguous' ? (
                   selectedPaymentItem.candidateDocumentNumbers.length > 0 ? (
                     <div className="space-y-3">
                       <div className="space-y-0.5">
@@ -983,6 +1252,7 @@ function SheetReviewSection(): JSX.Element {
                 </div>
               </Card>
 
+              {!isTrashView ? (
               <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">ERP 견적서에 연결해요</p>
@@ -1048,17 +1318,29 @@ function SheetReviewSection(): JSX.Element {
                   >
                     {matchingPayment ? '연결 중...' : '이 문서번호에 연결'}
                   </Button>
-                  {selectedPaymentItem.receipt.matchedDocumentNumberNorm ? (
-                    <Button
-                      variant="outline"
-                      disabled={unmatchingPayment}
-                      onClick={() => void handleUnmatchPayment()}
-                    >
-                      {unmatchingPayment ? '해제 중...' : '연결 해제'}
-                    </Button>
-                  ) : null}
+                  <Button
+                    variant="outline"
+                    disabled={trashingPayment}
+                    onClick={() => void handleTrashPayment()}
+                  >
+                    {trashingPayment ? '이동 중...' : '휴지통으로 이동'}
+                  </Button>
                 </div>
               </Card>
+              ) : (
+              <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                {paymentErrorMessage ? <p className="text-sm text-rose-600">{paymentErrorMessage}</p> : null}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="primary"
+                    disabled={restoringPayment}
+                    onClick={() => void handleRestorePayment()}
+                  >
+                    {restoringPayment ? '복원 중...' : '검토 목록으로 복원'}
+                  </Button>
+                </div>
+              </Card>
+              )}
             </>
           )}
         </div>
@@ -1114,7 +1396,7 @@ export function ContractPaymentReviewPage(): JSX.Element {
         })}
       </div>
 
-      {pageMode === 'sheet_review' ? <SheetReviewSection /> : <ManualPaymentAddSection />}
+      {pageMode === 'sheet_review' ? <SheetReviewSection /> : <TeamPaymentManageSection />}
     </PageShell>
   );
 }

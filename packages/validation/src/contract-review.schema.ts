@@ -58,6 +58,19 @@ export const deleteManualContractPaymentReceiptInputSchema = z.object({
   receiptId: z.string().trim().min(1, '입금 row ID는 필수입니다.'),
 });
 
+export const resetContractPaymentReceiptAutoMatchInputSchema = z.object({
+  receiptId: z.string().trim().min(1, '입금 row ID는 필수입니다.'),
+});
+
+export const trashContractPaymentReceiptReviewInputSchema = z.object({
+  receiptId: z.string().trim().min(1, '입금 row ID는 필수입니다.'),
+  reason: z.string().trim().max(2000).optional().nullable(),
+});
+
+export const restoreContractPaymentReceiptReviewInputSchema = z.object({
+  receiptId: z.string().trim().min(1, '입금 row ID는 필수입니다.'),
+});
+
 export type MatchContractDocumentInput = z.infer<typeof matchContractDocumentInputSchema>;
 export type UnmatchContractDocumentInput = z.infer<typeof unmatchContractDocumentInputSchema>;
 export type ExcludeContractSubmissionFromCountInput = z.infer<typeof excludeContractSubmissionFromCountInputSchema>;
@@ -69,3 +82,6 @@ export type UnmatchContractPaymentReceiptInput = z.infer<typeof unmatchContractP
 export type CreateManualContractPaymentReceiptInput = z.infer<typeof createManualContractPaymentReceiptInputSchema>;
 export type UpdateManualContractPaymentReceiptInput = z.infer<typeof updateManualContractPaymentReceiptInputSchema>;
 export type DeleteManualContractPaymentReceiptInput = z.infer<typeof deleteManualContractPaymentReceiptInputSchema>;
+export type ResetContractPaymentReceiptAutoMatchInput = z.infer<typeof resetContractPaymentReceiptAutoMatchInputSchema>;
+export type TrashContractPaymentReceiptReviewInput = z.infer<typeof trashContractPaymentReceiptReviewInputSchema>;
+export type RestoreContractPaymentReceiptReviewInput = z.infer<typeof restoreContractPaymentReceiptReviewInputSchema>;

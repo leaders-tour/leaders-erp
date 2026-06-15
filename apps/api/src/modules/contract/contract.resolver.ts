@@ -88,6 +88,20 @@ interface ContractPaymentReviewReceiptsArgs {
   keyword?: string;
   reasons?: string[];
   limit?: number;
+  visibility?: 'VISIBLE' | 'HIDDEN';
+}
+
+interface TrashContractPaymentReceiptReviewArgs {
+  input: {
+    receiptId: string;
+    reason?: string | null;
+  };
+}
+
+interface RestoreContractPaymentReceiptReviewArgs {
+  input: {
+    receiptId: string;
+  };
 }
 
 interface MatchContractPaymentReceiptArgs {
@@ -130,6 +144,12 @@ interface UpdateManualContractPaymentReceiptArgs {
 }
 
 interface DeleteManualContractPaymentReceiptArgs {
+  input: {
+    receiptId: string;
+  };
+}
+
+interface ResetContractPaymentReceiptAutoMatchArgs {
   input: {
     receiptId: string;
   };
@@ -314,11 +334,17 @@ export const contractResolver = {
     },
     matchContractPaymentReceipt: (_parent: unknown, args: MatchContractPaymentReceiptArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
-      return new ContractPaymentSyncService(ctx.prisma).matchContractPaymentReceipt(args.input);
+      if (!ctx.employee) {
+        throw new Error('Unauthorized');
+      }
+      return new ContractPaymentSyncService(ctx.prisma).matchContractPaymentReceipt(args.input, ctx.employee.id);
     },
     unmatchContractPaymentReceipt: (_parent: unknown, args: UnmatchContractPaymentReceiptArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
-      return new ContractPaymentSyncService(ctx.prisma).unmatchContractPaymentReceipt(args.input);
+      if (!ctx.employee) {
+        throw new Error('Unauthorized');
+      }
+      return new ContractPaymentSyncService(ctx.prisma).unmatchContractPaymentReceipt(args.input, ctx.employee.id);
     },
     createManualContractPaymentReceipt: (_parent: unknown, args: CreateManualContractPaymentReceiptArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
@@ -331,6 +357,21 @@ export const contractResolver = {
     deleteManualContractPaymentReceipt: (_parent: unknown, args: DeleteManualContractPaymentReceiptArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
       return new ContractPaymentSyncService(ctx.prisma).deleteManualContractPaymentReceipt(args.input);
+    },
+    resetContractPaymentReceiptAutoMatch: (_parent: unknown, args: ResetContractPaymentReceiptAutoMatchArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractPaymentSyncService(ctx.prisma).resetContractPaymentReceiptAutoMatch(args.input);
+    },
+    trashContractPaymentReceiptReview: (_parent: unknown, args: TrashContractPaymentReceiptReviewArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      if (!ctx.employee) {
+        throw new Error('Unauthorized');
+      }
+      return new ContractPaymentSyncService(ctx.prisma).trashContractPaymentReceiptReview(args.input, ctx.employee.id);
+    },
+    restoreContractPaymentReceiptReview: (_parent: unknown, args: RestoreContractPaymentReceiptReviewArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractPaymentSyncService(ctx.prisma).restoreContractPaymentReceiptReview(args.input);
     },
   },
 };
