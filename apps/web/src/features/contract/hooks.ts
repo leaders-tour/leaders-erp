@@ -10,7 +10,7 @@ export type ContractDocumentStatusValue =
   | 'NEEDS_REVIEW';
 export type ContractDocumentReviewVisibility = 'VISIBLE' | 'HIDDEN';
 export type ContractSyncRunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
-export type ContractPaymentSourceType = 'GOOGLE_SHEET';
+export type ContractPaymentSourceType = 'GOOGLE_SHEET' | 'MANUAL';
 export type ContractPaymentStatusValue = 'NOT_STARTED' | 'PARTIAL' | 'COMPLETED' | 'OVERPAID' | 'NEEDS_REVIEW';
 export type ContractPaymentSyncRunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
 
@@ -176,6 +176,7 @@ export interface ContractPaymentReceiptRow {
   amountKrw: number | null;
   matchedDocumentNumberNorm: string | null;
   needsReviewReason: string | null;
+  memo: string | null;
   importedAt: string;
   updatedAt: string;
 }
@@ -548,6 +549,7 @@ const CONTRACT_PAYMENT_RECEIPTS_QUERY = gql`
       amountKrw
       matchedDocumentNumberNorm
       needsReviewReason
+      memo
       importedAt
       updatedAt
       source {
@@ -694,9 +696,88 @@ const UNMATCH_CONTRACT_PAYMENT_RECEIPT_MUTATION = gql`
       amountKrw
       matchedDocumentNumberNorm
       needsReviewReason
+      memo
       importedAt
       updatedAt
     }
+  }
+`;
+
+const MANUAL_CONTRACT_PAYMENT_RECEIPTS_QUERY = gql`
+  query ManualContractPaymentReceipts($documentNumber: String, $limit: Int = 50) {
+    manualContractPaymentReceipts(documentNumber: $documentNumber, limit: $limit) {
+      id
+      sourceRowNumber
+      receivedAt
+      payerNameRaw
+      amountKrw
+      matchedDocumentNumberNorm
+      needsReviewReason
+      memo
+      importedAt
+      updatedAt
+      source {
+        id
+        type
+        name
+        isActive
+        sheetId
+        sheetGid
+        headerRow
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
+const CREATE_MANUAL_CONTRACT_PAYMENT_RECEIPT_MUTATION = gql`
+  mutation CreateManualContractPaymentReceipt($input: CreateManualContractPaymentReceiptInput!) {
+    createManualContractPaymentReceipt(input: $input) {
+      id
+      sourceRowNumber
+      receivedAt
+      payerNameRaw
+      amountKrw
+      matchedDocumentNumberNorm
+      needsReviewReason
+      memo
+      importedAt
+      updatedAt
+      source {
+        id
+        type
+        name
+      }
+    }
+  }
+`;
+
+const UPDATE_MANUAL_CONTRACT_PAYMENT_RECEIPT_MUTATION = gql`
+  mutation UpdateManualContractPaymentReceipt($input: UpdateManualContractPaymentReceiptInput!) {
+    updateManualContractPaymentReceipt(input: $input) {
+      id
+      sourceRowNumber
+      receivedAt
+      payerNameRaw
+      amountKrw
+      matchedDocumentNumberNorm
+      needsReviewReason
+      memo
+      importedAt
+      updatedAt
+      source {
+        id
+        type
+        name
+      }
+    }
+  }
+`;
+
+const DELETE_MANUAL_CONTRACT_PAYMENT_RECEIPT_MUTATION = gql`
+  mutation DeleteManualContractPaymentReceipt($input: DeleteManualContractPaymentReceiptInput!) {
+    deleteManualContractPaymentReceipt(input: $input)
   }
 `;
 
@@ -1067,6 +1148,99 @@ export function useUnmatchContractPaymentReceipt() {
         throw new Error('Failed to unmatch contract payment receipt');
       }
       return result.data.unmatchContractPaymentReceipt;
+    },
+  };
+}
+
+export function useManualContractPaymentReceipts(documentNumber?: string | null, limit = 50) {
+  const normalizedInput = documentNumber?.trim() ?? '';
+  const { data, loading, refetch } = useQuery<{ manualContractPaymentReceipts: ContractPaymentReceiptRow[] }>(
+    MANUAL_CONTRACT_PAYMENT_RECEIPTS_QUERY,
+    {
+      variables: {
+        documentNumber: normalizedInput || undefined,
+        limit,
+      },
+    },
+  );
+  return { receipts: data?.manualContractPaymentReceipts ?? [], loading, refetch };
+}
+
+export function useCreateManualContractPaymentReceipt() {
+  const [mutate, { loading }] = useMutation<{ createManualContractPaymentReceipt: ContractPaymentReceiptRow }>(
+    CREATE_MANUAL_CONTRACT_PAYMENT_RECEIPT_MUTATION,
+  );
+  return {
+    loading,
+    createManualContractPaymentReceipt: async (input: {
+      documentNumber: string;
+      payerName?: string | null;
+      amountKrw: number;
+      receivedAt?: string | null;
+      memo?: string | null;
+    }) => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [
+          { query: MANUAL_CONTRACT_PAYMENT_RECEIPTS_QUERY },
+          { query: CONTRACT_PAYMENT_STATUSES_QUERY },
+        ],
+      });
+      if (!result.data?.createManualContractPaymentReceipt) {
+        throw new Error('Failed to create manual contract payment receipt');
+      }
+      return result.data.createManualContractPaymentReceipt;
+    },
+  };
+}
+
+export function useUpdateManualContractPaymentReceipt() {
+  const [mutate, { loading }] = useMutation<{ updateManualContractPaymentReceipt: ContractPaymentReceiptRow }>(
+    UPDATE_MANUAL_CONTRACT_PAYMENT_RECEIPT_MUTATION,
+  );
+  return {
+    loading,
+    updateManualContractPaymentReceipt: async (input: {
+      receiptId: string;
+      documentNumber?: string;
+      payerName?: string | null;
+      amountKrw?: number;
+      receivedAt?: string | null;
+      memo?: string | null;
+    }) => {
+      const result = await mutate({
+        variables: { input },
+        refetchQueries: [
+          { query: MANUAL_CONTRACT_PAYMENT_RECEIPTS_QUERY },
+          { query: CONTRACT_PAYMENT_STATUSES_QUERY },
+        ],
+      });
+      if (!result.data?.updateManualContractPaymentReceipt) {
+        throw new Error('Failed to update manual contract payment receipt');
+      }
+      return result.data.updateManualContractPaymentReceipt;
+    },
+  };
+}
+
+export function useDeleteManualContractPaymentReceipt() {
+  const [mutate, { loading }] = useMutation<{ deleteManualContractPaymentReceipt: boolean }>(
+    DELETE_MANUAL_CONTRACT_PAYMENT_RECEIPT_MUTATION,
+  );
+  return {
+    loading,
+    deleteManualContractPaymentReceipt: async (receiptId: string) => {
+      const result = await mutate({
+        variables: { input: { receiptId } },
+        refetchQueries: [
+          { query: MANUAL_CONTRACT_PAYMENT_RECEIPTS_QUERY },
+          { query: CONTRACT_PAYMENT_STATUSES_QUERY },
+        ],
+      });
+      if (result.data?.deleteManualContractPaymentReceipt !== true) {
+        throw new Error('Failed to delete manual contract payment receipt');
+      }
+      return true;
     },
   };
 }

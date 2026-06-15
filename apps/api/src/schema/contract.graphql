@@ -24,6 +24,7 @@ enum ContractSyncRunStatus {
 
 enum ContractPaymentSourceType {
   GOOGLE_SHEET
+  MANUAL
 }
 
 enum ContractPaymentStatusValue {
@@ -216,6 +217,7 @@ type ContractPaymentReceipt {
   amountKrw: Int
   matchedDocumentNumberNorm: String
   needsReviewReason: String
+  memo: String
   importedAt: DateTime!
   updatedAt: DateTime!
 }
@@ -267,6 +269,27 @@ input UnmatchContractPaymentReceiptInput {
   receiptId: ID!
 }
 
+input CreateManualContractPaymentReceiptInput {
+  documentNumber: String!
+  payerName: String
+  amountKrw: Int!
+  receivedAt: DateTime
+  memo: String
+}
+
+input UpdateManualContractPaymentReceiptInput {
+  receiptId: ID!
+  documentNumber: String
+  payerName: String
+  amountKrw: Int
+  receivedAt: DateTime
+  memo: String
+}
+
+input DeleteManualContractPaymentReceiptInput {
+  receiptId: ID!
+}
+
 type ContractPaymentSyncRun {
   id: ID!
   sourceId: String!
@@ -296,6 +319,7 @@ extend type Query {
   contractPaymentReviewTabCount: Int!
   contractPaymentReviewTabCounts: ContractPaymentReviewTabCounts!
   contractPaymentSyncRuns(sourceId: ID, limit: Int = 20): [ContractPaymentSyncRun!]!
+  manualContractPaymentReceipts(documentNumber: String, limit: Int = 50): [ContractPaymentReceipt!]!
 }
 
 extend type Mutation {
@@ -309,4 +333,7 @@ extend type Mutation {
   restoreContractDocumentReview(input: RestoreContractDocumentReviewInput!): ContractDocumentStatus!
   matchContractPaymentReceipt(input: MatchContractPaymentReceiptInput!): ContractPaymentReceipt!
   unmatchContractPaymentReceipt(input: UnmatchContractPaymentReceiptInput!): ContractPaymentReceipt!
+  createManualContractPaymentReceipt(input: CreateManualContractPaymentReceiptInput!): ContractPaymentReceipt!
+  updateManualContractPaymentReceipt(input: UpdateManualContractPaymentReceiptInput!): ContractPaymentReceipt!
+  deleteManualContractPaymentReceipt(input: DeleteManualContractPaymentReceiptInput!): Boolean!
 }

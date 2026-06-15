@@ -1,4 +1,4 @@
-import { createHash, createSign } from 'node:crypto';
+import { createHash, createSign, randomUUID } from 'node:crypto';
 import type { ContractDocumentStatusValue, ContractPaymentStatusValue, Prisma, PrismaClient } from '@prisma/client';
 import {
   compareContractDocumentNumbersByDateDesc,
@@ -14,6 +14,9 @@ import {
   trashContractDocumentReviewInputSchema,
   unmatchContractDocumentInputSchema,
   unmatchContractPaymentReceiptInputSchema,
+  createManualContractPaymentReceiptInputSchema,
+  updateManualContractPaymentReceiptInputSchema,
+  deleteManualContractPaymentReceiptInputSchema,
 } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
 import {
@@ -1272,24 +1275,37 @@ export class ContractSyncService {
           },
         },
       },
-      orderBy: { travelStartDate: 'desc' },
+      orderBy: [
+        { planVersion: { versionNumber: 'desc' } },
+        { travelStartDate: 'desc' },
+      ],
       take: Math.min(Math.max(limit, 1), 50),
     });
 
-    return rows.map((row) => ({
-      planVersionId: row.planVersionId,
-      planId: row.planVersion.plan.id,
-      planTitle: row.planVersion.plan.title,
-      versionNumber: row.planVersion.versionNumber,
-      userId: row.planVersion.plan.user.id,
-      userName: row.planVersion.plan.user.name,
-      documentNumber: row.documentNumber,
-      leaderName: row.leaderName,
-      headcountTotal: row.headcountTotal,
-      travelStartDate: row.travelStartDate,
-      travelEndDate: row.travelEndDate,
-      isCurrent: row.planVersionId === row.planVersion.plan.currentVersionId,
-    }));
+    return rows
+      .map((row) => ({
+        planVersionId: row.planVersionId,
+        planId: row.planVersion.plan.id,
+        planTitle: row.planVersion.plan.title,
+        versionNumber: row.planVersion.versionNumber,
+        userId: row.planVersion.plan.user.id,
+        userName: row.planVersion.plan.user.name,
+        documentNumber: row.documentNumber,
+        leaderName: row.leaderName,
+        headcountTotal: row.headcountTotal,
+        travelStartDate: row.travelStartDate,
+        travelEndDate: row.travelEndDate,
+        isCurrent: row.planVersionId === row.planVersion.plan.currentVersionId,
+      }))
+      .sort((left, right) => {
+        if (left.isCurrent !== right.isCurrent) {
+          return left.isCurrent ? -1 : 1;
+        }
+        if (left.versionNumber !== right.versionNumber) {
+          return right.versionNumber - left.versionNumber;
+        }
+        return compareContractDocumentNumbersByDateDesc(left.documentNumber, right.documentNumber);
+      });
   }
 
   async matchContractDocument(input: unknown, employeeId: string) {
@@ -1794,6 +1810,35 @@ const PAYMENT_REVIEW_NAME_MISMATCH_REASONS = [
   'MISSING_PAYER_NAME',
   'INVALID_AMOUNT',
 ] as const;
+
+const MANUAL_PAYMENT_SOURCE_ID = 'contract-payment-manual-default';
+
+function manualPaymentRawJson(input: {
+  documentNumber: string;
+  payerName: string | null;
+  amountKrw: number;
+  memo: string | null;
+}): Record<string, string> {
+  return {
+    kind: 'MANUAL',
+    documentNumber: input.documentNumber,
+    ...(input.payerName ? { payerName: input.payerName } : {}),
+    amountKrw: String(input.amountKrw),
+    ...(input.memo ? { memo: input.memo } : {}),
+  };
+}
+
+async function assertDocumentHasContractSubmission(
+  prisma: PrismaLike,
+  documentNumberNorm: string,
+): Promise<void> {
+  const submissionCount = await prisma.contractSubmission.count({
+    where: contractSubmissionDocumentWhere([documentNumberNorm]),
+  });
+  if (submissionCount === 0) {
+    throw new DomainError('VALIDATION_FAILED', 'No contract submissions found for document number');
+  }
+}
 
 export class ContractPaymentSyncService {
   constructor(private readonly prisma: PrismaLike) {}
@@ -2502,5 +2547,162 @@ export class ContractPaymentSyncService {
       ...receiptRows.map((row) => row.matchedDocumentNumberNorm).filter(isPresent),
       ...submissionRows.map((row) => row.documentNumberNorm).filter(isPresent),
     ].map(normalizeContractDocumentNumber).filter(isPresent).map(documentNumberBaseKey)));
+  }
+
+  private async ensureManualPaymentSource() {
+    return this.prisma.contractPaymentSource.upsert({
+      where: { id: MANUAL_PAYMENT_SOURCE_ID },
+      create: {
+        id: MANUAL_PAYMENT_SOURCE_ID,
+        type: 'MANUAL',
+        name: 'ERP 수동 입금',
+        isActive: true,
+      },
+      update: {
+        isActive: true,
+      },
+    });
+  }
+
+  private async getManualReceiptOrThrow(receiptId: string) {
+    const receipt = await this.prisma.contractPaymentReceipt.findUnique({
+      where: { id: receiptId },
+      include: { source: true },
+    });
+    if (!receipt) {
+      throw new DomainError('NOT_FOUND', 'Contract payment receipt not found');
+    }
+    if (receipt.source.type !== 'MANUAL') {
+      throw new DomainError('VALIDATION_FAILED', 'Only manual payment receipts can be modified');
+    }
+    return receipt;
+  }
+
+  listManualContractPaymentReceipts(documentNumber?: string, limit = 50) {
+    const normalized = documentNumber ? normalizeContractDocumentNumber(documentNumber) : null;
+    return this.prisma.contractPaymentReceipt.findMany({
+      where: {
+        source: { type: 'MANUAL' },
+        ...(normalized ? contractPaymentReceiptDocumentWhere([normalized]) : {}),
+      },
+      include: { source: true },
+      orderBy: [
+        { importedAt: 'desc' },
+        { updatedAt: 'desc' },
+      ],
+      take: Math.min(Math.max(limit, 1), 500),
+    });
+  }
+
+  async createManualContractPaymentReceipt(input: unknown) {
+    const parsed = createManualContractPaymentReceiptInputSchema.parse(input);
+    const documentNumberNorm = normalizeContractDocumentNumber(parsed.documentNumber);
+    if (!documentNumberNorm) {
+      throw new DomainError('VALIDATION_FAILED', 'Invalid contract document number');
+    }
+
+    await assertDocumentHasContractSubmission(this.prisma, documentNumberNorm);
+
+    const source = await this.ensureManualPaymentSource();
+    const payerNameRaw = parsed.payerName?.trim() || null;
+    const payerNameNorm = normalizeContractPersonName(payerNameRaw);
+    const memo = parsed.memo?.trim() || null;
+    const rawJson = manualPaymentRawJson({
+      documentNumber: documentNumberNorm,
+      payerName: payerNameRaw,
+      amountKrw: parsed.amountKrw,
+      memo,
+    });
+
+    const created = await this.prisma.contractPaymentReceipt.create({
+      data: {
+        sourceId: source.id,
+        sourceRecordKey: `manual:${randomUUID()}`,
+        receivedAt: parsed.receivedAt ?? new Date(),
+        payerNameRaw,
+        payerNameNorm,
+        amountKrw: parsed.amountKrw,
+        matchedDocumentNumberNorm: documentNumberNorm,
+        needsReviewReason: null,
+        memo,
+        rowDigest: digestRow(rawJson),
+        rawJson,
+      },
+      include: { source: true },
+    });
+
+    await this.recomputePaymentStatuses([documentNumberNorm]);
+    return created;
+  }
+
+  async updateManualContractPaymentReceipt(input: unknown) {
+    const parsed = updateManualContractPaymentReceiptInputSchema.parse(input);
+    const receipt = await this.getManualReceiptOrThrow(parsed.receiptId);
+    const previousDocumentNumberNorm = receipt.matchedDocumentNumberNorm;
+
+    const documentNumberNorm = parsed.documentNumber == null
+      ? receipt.matchedDocumentNumberNorm
+      : normalizeContractDocumentNumber(parsed.documentNumber);
+    if (!documentNumberNorm) {
+      throw new DomainError('VALIDATION_FAILED', 'Invalid contract document number');
+    }
+
+    await assertDocumentHasContractSubmission(this.prisma, documentNumberNorm);
+
+    const payerNameRaw = parsed.payerName === undefined
+      ? receipt.payerNameRaw
+      : parsed.payerName?.trim() || null;
+    const payerNameNorm = normalizeContractPersonName(payerNameRaw);
+    const amountKrw = parsed.amountKrw ?? receipt.amountKrw;
+    if (amountKrw == null || amountKrw === 0) {
+      throw new DomainError('VALIDATION_FAILED', 'Amount must not be zero');
+    }
+    const memo = parsed.memo === undefined ? receipt.memo : parsed.memo?.trim() || null;
+    const receivedAt = parsed.receivedAt === undefined ? receipt.receivedAt : parsed.receivedAt;
+    const rawJson = manualPaymentRawJson({
+      documentNumber: documentNumberNorm,
+      payerName: payerNameRaw,
+      amountKrw,
+      memo,
+    });
+
+    const updated = await this.prisma.contractPaymentReceipt.update({
+      where: { id: parsed.receiptId },
+      data: {
+        receivedAt,
+        payerNameRaw,
+        payerNameNorm,
+        amountKrw,
+        matchedDocumentNumberNorm: documentNumberNorm,
+        needsReviewReason: null,
+        memo,
+        rowDigest: digestRow(rawJson),
+        rawJson,
+      },
+      include: { source: true },
+    });
+
+    const affectedDocumentNumbers = Array.from(new Set(
+      [previousDocumentNumberNorm, documentNumberNorm].filter(isPresent),
+    ));
+    if (affectedDocumentNumbers.length > 0) {
+      await this.recomputePaymentStatuses(affectedDocumentNumbers);
+    }
+    return updated;
+  }
+
+  async deleteManualContractPaymentReceipt(input: unknown) {
+    const parsed = deleteManualContractPaymentReceiptInputSchema.parse(input);
+    const receipt = await this.getManualReceiptOrThrow(parsed.receiptId);
+    const documentNumberNorm = receipt.matchedDocumentNumberNorm;
+
+    await this.prisma.contractPaymentReceipt.delete({
+      where: { id: parsed.receiptId },
+    });
+
+    if (documentNumberNorm) {
+      await this.recomputePaymentStatuses([documentNumberNorm]);
+    }
+    return true;
   }
 }

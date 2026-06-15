@@ -5,13 +5,34 @@ import {
   useContractMatchPlanVersionCandidates,
   useContractPaymentReviewReceipts,
   useContractPaymentReviewTabCounts,
+  useContractPaymentStatuses,
+  useCreateManualContractPaymentReceipt,
+  useDeleteManualContractPaymentReceipt,
+  useManualContractPaymentReceipts,
   useMatchContractPaymentReceipt,
   useUnmatchContractPaymentReceipt,
+  useUpdateManualContractPaymentReceipt,
+  type ContractMatchPlanVersionCandidateRow,
+  type ContractPaymentReceiptRow,
   type ContractPaymentReviewDocumentCandidateRow,
   type ContractPaymentReviewTabCountsRow,
 } from '../features/contract/hooks';
 
+type PageMode = 'sheet_review' | 'manual_add';
 type PaymentReviewTabKey = 'ambiguous' | 'name_mismatch';
+
+const PAGE_MODE_TABS: Array<{ key: PageMode; label: string; description: string }> = [
+  {
+    key: 'sheet_review',
+    label: '시트 검토',
+    description: '입금 시트 row를 문서번호에 연결합니다.',
+  },
+  {
+    key: 'manual_add',
+    label: '수동 추가',
+    description: '시트에 없는 입금/할인 row를 팀에 직접 추가합니다.',
+  },
+];
 
 const PAYMENT_REVIEW_TABS: Array<{
   key: PaymentReviewTabKey;
@@ -243,7 +264,372 @@ function PaymentReviewCandidateDepositSummary({
   );
 }
 
-export function ContractPaymentReviewPage(): JSX.Element {
+function formatDateInputValue(value: string | null | undefined): string {
+  if (!value) {
+    return '';
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+  return parsed.toISOString().slice(0, 10);
+}
+
+function paymentStatusLabel(status: string | null | undefined): string {
+  switch (status) {
+    case 'NOT_STARTED':
+      return '미입금';
+    case 'PARTIAL':
+      return '부분입금';
+    case 'COMPLETED':
+      return '입금완료';
+    case 'OVERPAID':
+      return '초과입금';
+    case 'NEEDS_REVIEW':
+      return '검토필요';
+    default:
+      return status ?? '-';
+  }
+}
+
+function formatSignedAmountInput(value: string): string {
+  const trimmed = value.trim();
+  const negative = trimmed.startsWith('-');
+  const digits = trimmed.replace(/-/g, '').replace(/[^\d]/g, '');
+  return negative ? `-${digits}` : digits;
+}
+
+function manualReceiptKindLabel(amountKrw: number | null | undefined): string | null {
+  if (amountKrw == null || amountKrw === 0) {
+    return null;
+  }
+  return amountKrw < 0 ? '환불' : '수동 추가';
+}
+
+function ManualPaymentAddSection(): JSX.Element {
+  const [teamSearch, setTeamSearch] = useState('');
+  const [selectedDocumentNumber, setSelectedDocumentNumber] = useState('');
+  const [selectedCandidate, setSelectedCandidate] = useState<ContractMatchPlanVersionCandidateRow | null>(null);
+  const [payerName, setPayerName] = useState('');
+  const [amountKrw, setAmountKrw] = useState('');
+  const [receivedAt, setReceivedAt] = useState(formatDateInputValue(new Date().toISOString()));
+  const [memo, setMemo] = useState('');
+  const [editingReceiptId, setEditingReceiptId] = useState<string | null>(null);
+  const [manualErrorMessage, setManualErrorMessage] = useState<string | null>(null);
+
+  const normalizedTeamSearch = teamSearch.trim();
+  const { candidates: teamCandidates, loading: teamCandidatesLoading } =
+    useContractMatchPlanVersionCandidates(normalizedTeamSearch);
+  const { statuses: paymentStatuses, refetch: refetchPaymentStatuses } = useContractPaymentStatuses(
+    selectedDocumentNumber ? [selectedDocumentNumber] : [],
+  );
+  const { receipts: manualReceipts, loading: manualReceiptsLoading, refetch: refetchManualReceipts } =
+    useManualContractPaymentReceipts(selectedDocumentNumber || undefined);
+  const { createManualContractPaymentReceipt, loading: creatingManualReceipt } = useCreateManualContractPaymentReceipt();
+  const { updateManualContractPaymentReceipt, loading: updatingManualReceipt } = useUpdateManualContractPaymentReceipt();
+  const { deleteManualContractPaymentReceipt, loading: deletingManualReceipt } = useDeleteManualContractPaymentReceipt();
+
+  const selectedPaymentStatus = paymentStatuses[0] ?? null;
+  const remainingAmountKrw = selectedPaymentStatus?.requiredAmountKrw == null
+    ? null
+    : Math.max(0, selectedPaymentStatus.requiredAmountKrw - selectedPaymentStatus.receivedAmountKrw);
+
+  const resetManualForm = () => {
+    setPayerName('');
+    setAmountKrw('');
+    setReceivedAt(formatDateInputValue(new Date().toISOString()));
+    setMemo('');
+    setEditingReceiptId(null);
+    setManualErrorMessage(null);
+  };
+
+  const handleSelectTeam = (candidate: ContractMatchPlanVersionCandidateRow) => {
+    setSelectedDocumentNumber(candidate.documentNumber);
+    setSelectedCandidate(candidate);
+    resetManualForm();
+  };
+
+  const handleEditManualReceipt = (receipt: ContractPaymentReceiptRow) => {
+    setEditingReceiptId(receipt.id);
+    setPayerName(receipt.payerNameRaw ?? '');
+    setAmountKrw(receipt.amountKrw != null ? String(receipt.amountKrw) : '');
+    setReceivedAt(formatDateInputValue(receipt.receivedAt));
+    setMemo(receipt.memo ?? '');
+    setManualErrorMessage(null);
+    if (receipt.matchedDocumentNumberNorm) {
+      setSelectedDocumentNumber(receipt.matchedDocumentNumberNorm);
+    }
+  };
+
+  const refreshManualSection = async () => {
+    await Promise.all([refetchManualReceipts(), refetchPaymentStatuses()]);
+  };
+
+  const handleSubmitManualReceipt = async () => {
+    if (!selectedDocumentNumber.trim()) {
+      setManualErrorMessage('먼저 팀/문서번호를 선택해주세요.');
+      return;
+    }
+
+    const parsedAmount = Number(amountKrw.replace(/,/g, ''));
+    if (!Number.isSafeInteger(parsedAmount) || parsedAmount === 0) {
+      setManualErrorMessage('금액은 0원이 아닌 정수로 입력해주세요. 환불은 마이너스(-)로 입력하세요.');
+      return;
+    }
+
+    setManualErrorMessage(null);
+    try {
+      const payload = {
+        documentNumber: selectedDocumentNumber.trim(),
+        payerName: payerName.trim() || null,
+        amountKrw: parsedAmount,
+        receivedAt: receivedAt ? new Date(`${receivedAt}T00:00:00`).toISOString() : null,
+        memo: memo.trim() || null,
+      };
+
+      if (editingReceiptId) {
+        await updateManualContractPaymentReceipt({
+          receiptId: editingReceiptId,
+          ...payload,
+        });
+      } else {
+        await createManualContractPaymentReceipt(payload);
+      }
+
+      resetManualForm();
+      await refreshManualSection();
+    } catch (error) {
+      setManualErrorMessage(error instanceof Error ? error.message : '수동 입금 저장에 실패했습니다.');
+    }
+  };
+
+  const handleDeleteManualReceipt = async (receiptId: string) => {
+    setManualErrorMessage(null);
+    try {
+      await deleteManualContractPaymentReceipt(receiptId);
+      if (editingReceiptId === receiptId) {
+        resetManualForm();
+      }
+      await refreshManualSection();
+    } catch (error) {
+      setManualErrorMessage(error instanceof Error ? error.message : '수동 입금 삭제에 실패했습니다.');
+    }
+  };
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">팀/문서번호 검색</p>
+          <p className="mt-1 text-sm text-slate-600">먼저 입금을 추가할 팀을 선택하세요.</p>
+        </div>
+        <Input
+          value={teamSearch}
+          onChange={(event) => setTeamSearch(event.target.value)}
+          placeholder="고객명, 문서번호, 팀장명 검색"
+        />
+        {teamCandidatesLoading ? <p className="text-sm text-slate-500">팀 후보를 불러오는 중...</p> : null}
+        {!teamCandidatesLoading && normalizedTeamSearch && teamCandidates.length === 0 ? (
+          <p className="text-sm text-slate-500">연결 가능한 팀을 찾지 못했어요</p>
+        ) : null}
+        <div className="grid max-h-[60vh] gap-2 overflow-y-auto">
+          {teamCandidates.map((candidate) => {
+            const selected = selectedDocumentNumber === candidate.documentNumber;
+            return (
+              <button
+                key={candidate.planVersionId}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => handleSelectTeam(candidate)}
+                className={`rounded-2xl border px-4 py-3 text-left transition ${
+                  selected
+                    ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className={`text-sm font-semibold ${selected ? 'text-white' : 'text-slate-900'}`}>
+                    {candidate.userName} · {candidate.documentNumber}
+                  </p>
+                  {selected ? <RoundedSelectionCheck /> : null}
+                </div>
+                <p className={`mt-1 text-xs ${selected ? 'text-slate-300' : 'text-slate-500'}`}>
+                  v{candidate.versionNumber} · {candidate.leaderName}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      <div className="grid gap-4">
+        {!selectedDocumentNumber ? (
+          <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
+            왼쪽에서 팀/문서번호를 선택해주세요.
+          </Card>
+        ) : (
+          <>
+            <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">선택한 팀</p>
+                  <h2 className="mt-1 text-xl font-semibold text-slate-900">
+                    {selectedCandidate?.userName ?? '-'} · {selectedDocumentNumber}
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {selectedCandidate ? `v${selectedCandidate.versionNumber} · ${selectedCandidate.leaderName}` : null}
+                  </p>
+                </div>
+                {selectedPaymentStatus ? (
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+                    {paymentStatusLabel(selectedPaymentStatus.status)}
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+                <div className="rounded-xl bg-slate-50 px-3 py-2">
+                  <span className="text-slate-500">현재 입금합계</span>
+                  <p className="mt-1 font-semibold text-slate-900">{formatKrw(selectedPaymentStatus?.receivedAmountKrw)}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 px-3 py-2">
+                  <span className="text-slate-500">입금 필요액</span>
+                  <p className="mt-1 font-semibold text-slate-900">{formatKrw(selectedPaymentStatus?.requiredAmountKrw)}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 px-3 py-2">
+                  <span className="text-slate-500">남은 입금액</span>
+                  <p className="mt-1 font-semibold text-orange-600">{formatKrw(remainingAmountKrw)}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 px-3 py-2">
+                  <span className="text-slate-500">수동 추가 건수</span>
+                  <p className="mt-1 font-semibold text-slate-900">{manualReceipts.length}건</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">
+                  {editingReceiptId ? '수동 입금 수정' : '수동 입금 추가'}
+                </p>
+                <p className="mt-1 text-sm text-slate-600">
+                  시트에 없는 할인카드·별도 입금은 양수, 환불은 마이너스(-)로 입력하세요.
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Input
+                  value={payerName}
+                  onChange={(event) => setPayerName(event.target.value)}
+                  placeholder="입금자명 (선택)"
+                />
+                <Input
+                  value={amountKrw}
+                  onChange={(event) => setAmountKrw(formatSignedAmountInput(event.target.value))}
+                  placeholder="금액 (원, 환불은 -)"
+                />
+                <Input
+                  type="date"
+                  value={receivedAt}
+                  onChange={(event) => setReceivedAt(event.target.value)}
+                />
+                <Input
+                  value={memo}
+                  onChange={(event) => setMemo(event.target.value)}
+                  placeholder="메모 (예: 할인카드, 현장 입금)"
+                />
+              </div>
+              {manualErrorMessage ? <p className="text-sm text-rose-600">{manualErrorMessage}</p> : null}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="primary"
+                  disabled={creatingManualReceipt || updatingManualReceipt}
+                  onClick={() => void handleSubmitManualReceipt()}
+                >
+                  {creatingManualReceipt || updatingManualReceipt
+                    ? '저장 중...'
+                    : editingReceiptId
+                      ? '수정 저장'
+                      : '수동 입금 추가'}
+                </Button>
+                {editingReceiptId ? (
+                  <Button variant="outline" onClick={resetManualForm}>
+                    수정 취소
+                  </Button>
+                ) : null}
+              </div>
+            </Card>
+
+            <Card className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">이 팀의 수동 입금 내역</p>
+                  <p className="mt-1 text-sm text-slate-600">수동으로 추가한 row만 표시됩니다.</p>
+                </div>
+                <Button variant="outline" onClick={() => void refreshManualSection()}>
+                  새로고침
+                </Button>
+              </div>
+              {manualReceiptsLoading ? <p className="text-sm text-slate-500">불러오는 중...</p> : null}
+              {!manualReceiptsLoading && manualReceipts.length === 0 ? (
+                <p className="text-sm text-slate-500">아직 수동으로 추가한 입금 row가 없습니다.</p>
+              ) : null}
+              <div className="grid gap-2">
+                {manualReceipts.map((receipt) => (
+                  <div
+                    key={receipt.id}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-slate-900">
+                            {receipt.payerNameRaw?.trim() || '이름 없음'}
+                          </p>
+                          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                            (receipt.amountKrw ?? 0) < 0
+                              ? 'border-rose-200 bg-rose-50 text-rose-700'
+                              : 'border-indigo-200 bg-indigo-50 text-indigo-700'
+                          }`}>
+                            {manualReceiptKindLabel(receipt.amountKrw) ?? '수동 추가'}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">
+                          <span className={`text-sm font-bold tabular-nums ${
+                            (receipt.amountKrw ?? 0) < 0 ? 'text-rose-700' : 'text-slate-900'
+                          }`}>
+                            {formatKrw(receipt.amountKrw)}
+                          </span>
+                          {' · '}
+                          {formatDate(receipt.receivedAt)}
+                        </p>
+                        {receipt.memo ? (
+                          <p className="mt-2 text-xs text-slate-600">{receipt.memo}</p>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" onClick={() => handleEditManualReceipt(receipt)}>
+                          수정
+                        </Button>
+                        <Button
+                          variant="outline"
+                          disabled={deletingManualReceipt}
+                          onClick={() => void handleDeleteManualReceipt(receipt.id)}
+                        >
+                          삭제
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SheetReviewSection(): JSX.Element {
   const [activeTab, setActiveTab] = useState<PaymentReviewTabKey>('ambiguous');
   const [paymentSearch, setPaymentSearch] = useState('');
   const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
@@ -343,22 +729,7 @@ export function ContractPaymentReviewPage(): JSX.Element {
   };
 
   return (
-    <PageShell className="grid gap-6">
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">입금내역 관리</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            입금 시트에서 가져온 미매칭·중복 row를 확인하고 계약 문서번호에 수동 연결합니다.
-            {paymentTabCounts?.all != null ? (
-              <span className="ml-1 font-medium text-slate-800">검토 필요 {paymentTabCounts.all}건</span>
-            ) : null}
-          </p>
-        </div>
-        <Button variant="outline" onClick={() => void refreshPage()}>
-          새로고침
-        </Button>
-      </header>
-
+    <>
       <Card className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[1fr_auto]">
         <Input
           value={paymentSearch}
@@ -692,6 +1063,58 @@ export function ContractPaymentReviewPage(): JSX.Element {
           )}
         </div>
       </div>
+    </>
+  );
+}
+
+export function ContractPaymentReviewPage(): JSX.Element {
+  const [pageMode, setPageMode] = useState<PageMode>('sheet_review');
+  const { counts: paymentTabCounts, refetch: refetchPaymentTabCounts } = useContractPaymentReviewTabCounts();
+
+  const refreshHeaderCounts = async () => {
+    await refetchPaymentTabCounts();
+  };
+
+  return (
+    <PageShell className="grid gap-6">
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">입금내역 관리</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            {PAGE_MODE_TABS.find((tab) => tab.key === pageMode)?.description}
+            {pageMode === 'sheet_review' && paymentTabCounts?.all != null ? (
+              <span className="ml-1 font-medium text-slate-800">검토 필요 {paymentTabCounts.all}건</span>
+            ) : null}
+          </p>
+        </div>
+        {pageMode === 'sheet_review' ? (
+          <Button variant="outline" onClick={() => void refreshHeaderCounts()}>
+            새로고침
+          </Button>
+        ) : null}
+      </header>
+
+      <div className="flex flex-wrap gap-2">
+        {PAGE_MODE_TABS.map((tab) => {
+          const active = tab.key === pageMode;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setPageMode(tab.key)}
+              className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                active
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {pageMode === 'sheet_review' ? <SheetReviewSection /> : <ManualPaymentAddSection />}
     </PageShell>
   );
 }

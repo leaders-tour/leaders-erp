@@ -103,6 +103,38 @@ interface UnmatchContractPaymentReceiptArgs {
   };
 }
 
+interface ManualContractPaymentReceiptsArgs {
+  documentNumber?: string;
+  limit?: number;
+}
+
+interface CreateManualContractPaymentReceiptArgs {
+  input: {
+    documentNumber: string;
+    payerName?: string | null;
+    amountKrw: number;
+    receivedAt?: string | null;
+    memo?: string | null;
+  };
+}
+
+interface UpdateManualContractPaymentReceiptArgs {
+  input: {
+    receiptId: string;
+    documentNumber?: string;
+    payerName?: string | null;
+    amountKrw?: number;
+    receivedAt?: string | null;
+    memo?: string | null;
+  };
+}
+
+interface DeleteManualContractPaymentReceiptArgs {
+  input: {
+    receiptId: string;
+  };
+}
+
 function effectiveMatchedPlanVersionId(parent: {
   manualMatchedPlanVersionId?: string | null;
   matchedPlanVersionId?: string | null;
@@ -230,6 +262,13 @@ export const contractResolver = {
       requireStaffOrAbove(ctx);
       return new ContractPaymentSyncService(ctx.prisma).listSyncRuns(args.sourceId, args.limit ?? 20);
     },
+    manualContractPaymentReceipts: (_parent: unknown, args: ManualContractPaymentReceiptsArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractPaymentSyncService(ctx.prisma).listManualContractPaymentReceipts(
+        args.documentNumber,
+        args.limit ?? 50,
+      );
+    },
   },
   Mutation: {
     syncContractSubmissions: (_parent: unknown, args: SyncContractSubmissionsArgs, ctx: AppContext) => {
@@ -280,6 +319,18 @@ export const contractResolver = {
     unmatchContractPaymentReceipt: (_parent: unknown, args: UnmatchContractPaymentReceiptArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
       return new ContractPaymentSyncService(ctx.prisma).unmatchContractPaymentReceipt(args.input);
+    },
+    createManualContractPaymentReceipt: (_parent: unknown, args: CreateManualContractPaymentReceiptArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractPaymentSyncService(ctx.prisma).createManualContractPaymentReceipt(args.input);
+    },
+    updateManualContractPaymentReceipt: (_parent: unknown, args: UpdateManualContractPaymentReceiptArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractPaymentSyncService(ctx.prisma).updateManualContractPaymentReceipt(args.input);
+    },
+    deleteManualContractPaymentReceipt: (_parent: unknown, args: DeleteManualContractPaymentReceiptArgs, ctx: AppContext) => {
+      requireStaffOrAbove(ctx);
+      return new ContractPaymentSyncService(ctx.prisma).deleteManualContractPaymentReceipt(args.input);
     },
   },
 };
