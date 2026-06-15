@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolveVehicleTypeForHeadcount } from './builder-vehicle';
 
-const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스', '프리미엄 밴'] as const;
+const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스', '프리미엄 밴', 'SUV'] as const;
 
 describe('resolveVehicleTypeForHeadcount', () => {
   it('8명 이상이면 하이에이스로 자동 선택한다', () => {

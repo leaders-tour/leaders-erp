@@ -2,7 +2,7 @@ import { VariantType } from '@tour/domain';
 import { z } from 'zod';
 import { hexColorSchema } from './app-settings.schema';
 
-const vehicleTypes = ['스타렉스', '푸르공', '벨파이어', '하이에이스', '프리미엄 밴'] as const;
+const vehicleTypes = ['스타렉스', '푸르공', '벨파이어', '하이에이스', '프리미엄 밴', 'SUV'] as const;
 const placeTypes = ['AIRPORT', 'OZ_HOUSE', 'ULAANBAATAR', 'CUSTOM'] as const;
 const lodgingSelectionLevels = ['LV1', 'LV2', 'LV3', 'LV4', 'CUSTOM'] as const;
 const planStopRowTypes = ['MAIN', 'EXTERNAL_TRANSFER'] as const;

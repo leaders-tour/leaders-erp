@@ -10,6 +10,7 @@ const VEHICLE_TYPE_LABEL: Record<string, string> = {
   HIACE_LONG: '하이에이스(롱)',
   PURGON: '푸르공',
   PREMIUM_VAN: '프리미엄 밴',
+  SUV: 'SUV',
   LAND_CRUISER: '랜드크루저',
   ALPHARD: '알파드',
   OTHER: '기타',
@@ -64,6 +65,7 @@ function VehicleBadge({ vehicleType }: { vehicleType: DriverRow['vehicleType'] }
     HIACE_LONG: 'bg-sky-100 text-sky-700',
     PURGON: 'bg-orange-100 text-orange-700',
     PREMIUM_VAN: 'bg-amber-100 text-amber-700',
+    SUV: 'bg-lime-100 text-lime-700',
     LAND_CRUISER: 'bg-teal-100 text-teal-700',
     ALPHARD: 'bg-pink-100 text-pink-700',
     OTHER: 'bg-slate-100 text-slate-500',
@@ -85,6 +87,7 @@ const VEHICLE_OPTIONS: { value: DriverRow['vehicleType']; label: string }[] = [
   { value: 'HIACE_LONG', label: '하이에이스(롱)' },
   { value: 'PURGON', label: '푸르공' },
   { value: 'PREMIUM_VAN', label: '프리미엄 밴' },
+  { value: 'SUV', label: 'SUV' },
   { value: 'LAND_CRUISER', label: '랜드크루저' },
   { value: 'ALPHARD', label: '알파드' },
   { value: 'OTHER', label: '기타' },
@@ -420,7 +423,7 @@ export function DriversPage(): JSX.Element {
           ))}
         </div>
         <div className="flex flex-wrap gap-1">
-          {([undefined, 'STAREX', 'HIACE_SHORT', 'HIACE_LONG', 'PURGON', 'PREMIUM_VAN', 'LAND_CRUISER', 'ALPHARD'] as (VehicleFilter | undefined)[]).map((v) => (
+          {([undefined, 'STAREX', 'HIACE_SHORT', 'HIACE_LONG', 'PURGON', 'PREMIUM_VAN', 'SUV', 'LAND_CRUISER', 'ALPHARD'] as (VehicleFilter | undefined)[]).map((v) => (
             <button
               key={String(v)}
               className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${

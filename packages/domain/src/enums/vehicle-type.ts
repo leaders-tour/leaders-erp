@@ -4,6 +4,7 @@ export enum VehicleType {
   HIACE_LONG = 'HIACE_LONG',
   PURGON = 'PURGON',
   PREMIUM_VAN = 'PREMIUM_VAN',
+  SUV = 'SUV',
   LAND_CRUISER = 'LAND_CRUISER',
   ALPHARD = 'ALPHARD',
   OTHER = 'OTHER',

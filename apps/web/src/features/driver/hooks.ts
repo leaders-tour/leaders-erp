@@ -13,6 +13,7 @@ export interface DriverRow {
     | 'HIACE_LONG'
     | 'PURGON'
     | 'PREMIUM_VAN'
+    | 'SUV'
     | 'LAND_CRUISER'
     | 'ALPHARD'
     | 'OTHER';

@@ -78,6 +78,7 @@ const VEHICLE_TYPE_LABELS: Record<string, string> = {
   HIACE_LONG: '하이에이스(롱)',
   PURGON: '부르곤',
   PREMIUM_VAN: '프리미엄 밴',
+  SUV: 'SUV',
   LAND_CRUISER: '랜드크루저',
   ALPHARD: '알파드',
   OTHER: '기타',
