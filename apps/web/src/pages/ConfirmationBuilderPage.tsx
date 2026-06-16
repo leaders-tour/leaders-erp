@@ -100,55 +100,68 @@ export function ConfirmationBuilderPage(): JSX.Element {
   };
 
   return (
-    <section className="grid gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">확정서 빌더</h1>
-          <p className="mt-1 text-sm text-slate-600">{trip.user.name} · {trip.planVersion?.meta?.leaderName ?? trip.destination ?? '확정 여행'}</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" type="button" onClick={() => navigate(`/confirmed-trips/${tripId}`)}>
-            확정 상세로
-          </Button>
-          <Button
-            variant="outline"
-            type="button"
-            onClick={() => navigate(`/documents/confirmation?confirmedTripId=${encodeURIComponent(tripId)}`)}
-          >
-            크게 보기
-          </Button>
-          <Button
-            type="button"
-            disabled={downloading || appendixLoading || !state}
-            onClick={() => void handleDownload()}
-          >
-            {getConfirmationPdfDownloadLabel(phase)}
-          </Button>
-        </div>
-      </div>
+    <section className="min-h-screen text-slate-900 lg:h-screen lg:min-h-0">
+      <div className="grid gap-6 lg:h-full lg:min-h-0 lg:grid-cols-2 lg:gap-0">
+        <main className="grid content-start gap-4 bg-slate-50 px-4 py-4 sm:px-6 lg:h-full lg:overflow-y-auto lg:px-8 lg:py-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-900">확정서 빌더</h1>
+              <p className="mt-1 text-sm text-slate-600">
+                {trip.user.name} · {trip.planVersion?.meta?.leaderName ?? trip.destination ?? '확정 여행'}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" type="button" onClick={() => navigate(-1)}>
+                뒤로가기
+              </Button>
+              <Button type="button" variant="outline" disabled={saving} onClick={() => void handleSave(false)}>
+                임시 저장
+              </Button>
+              <Button type="button" disabled={saving} onClick={() => void handleSave(true)}>
+                발행 저장
+              </Button>
+              <Button
+                type="button"
+                disabled={downloading || appendixLoading || !state}
+                onClick={() => void handleDownload()}
+              >
+                {getConfirmationPdfDownloadLabel(phase)}
+              </Button>
+            </div>
+          </div>
 
-      {downloadError ? (
-        <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{downloadError}</Card>
-      ) : null}
+          {downloadError ? (
+            <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{downloadError}</Card>
+          ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <ConfirmationBuilderForm
             value={state}
             onChange={setState}
-            saving={saving}
-            onSaveDraft={() => void handleSave(false)}
-            onPublish={() => void handleSave(true)}
           />
-        </Card>
+        </main>
 
-        <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold text-slate-700">미리보기</h2>
-          {appendixLoading ? (
-            <p className="mb-3 text-xs text-slate-500">일정표·안내 페이지를 불러오는 중...</p>
-          ) : null}
-          <ConfirmationDocument data={previewData} appendixData={appendixData} viewMode="screen-preview" />
-        </Card>
+        <aside className="bg-slate-100/80 px-4 py-4 sm:px-6 lg:h-full lg:overflow-y-auto lg:border-l lg:border-slate-200 lg:p-6">
+          <div className="estimate-preview-panel rounded-[28px] border border-slate-200 bg-white/90 p-4 shadow-xl backdrop-blur sm:p-5">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 flex-1 pr-2">
+                <h2 className="text-base font-semibold text-slate-900">실시간 확정서 미리보기</h2>
+                <p className="mt-1 text-xs text-slate-600">좌측 입력값이 문서에 바로 반영됩니다.</p>
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600">
+                  {appendixLoading ? '일정표·안내 동기화 중' : '실시간 반영'}
+                </div>
+              </div>
+            </div>
+
+            {appendixLoading ? (
+              <p className="mb-3 text-xs text-slate-500">일정표·안내 페이지를 불러오는 중...</p>
+            ) : null}
+            <div className="estimate-preview-frame">
+              <ConfirmationDocument data={previewData} appendixData={appendixData} viewMode="screen-preview" />
+            </div>
+          </div>
+        </aside>
       </div>
     </section>
   );

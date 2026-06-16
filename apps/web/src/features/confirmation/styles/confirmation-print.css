@@ -488,40 +488,212 @@
   gap: 16px;
 }
 
+.confirmation-builder-section {
+  display: grid;
+  gap: 14px;
+  align-self: stretch;
+  align-content: start;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 18px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.confirmation-builder-section__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.confirmation-builder-section__title-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.confirmation-builder-section__number {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.confirmation-builder-section__header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.confirmation-builder-section__header p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.confirmation-builder-section__action {
+  flex-shrink: 0;
+}
+
+.confirmation-builder-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.confirmation-builder-field--wide {
+  grid-column: 1 / -1;
+}
+
 .confirmation-builder-form label {
   display: grid;
   gap: 6px;
-  font-size: 13px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
   color: #334155;
 }
 
 .confirmation-builder-form input,
 .confirmation-builder-form textarea {
   width: 100%;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 10px 12px;
+  background: #f8fafc;
+  padding: 9px 11px;
   font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  color: #0f172a;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.confirmation-builder-form input:focus,
+.confirmation-builder-form textarea:focus {
+  border-color: #6d8aa3;
+  box-shadow: 0 0 0 3px rgba(109, 138, 163, 0.16);
 }
 
 .confirmation-builder-form textarea {
-  min-height: 88px;
+  min-height: 78px;
   resize: vertical;
+}
+
+.confirmation-builder-subsection {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 14px;
+}
+
+.confirmation-builder-subsection__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.confirmation-builder-subsection__header h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.confirmation-builder-subsection__header p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
 }
 
 .confirmation-traveler-row {
   display: grid;
-  gap: 8px;
-  padding: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  gap: 10px;
+  border-radius: 16px;
   background: #f8fafc;
+  padding: 12px;
+}
+
+.confirmation-traveler-row__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.confirmation-traveler-row__header > span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
 }
 
 .confirmation-traveler-row__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.confirmation-lodging-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+  border-radius: 16px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.confirmation-builder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 16px 0 0;
+}
+
+@media (min-width: 1280px) {
+  .confirmation-builder-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .confirmation-builder-section--wide,
+  .confirmation-builder-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .confirmation-builder-field-grid,
+  .confirmation-traveler-row__grid,
+  .confirmation-lodging-row {
+    grid-template-columns: 1fr;
+  }
+
+  .confirmation-builder-section__header,
+  .confirmation-builder-subsection__header {
+    flex-direction: column;
+  }
 }
 
 @media print {
