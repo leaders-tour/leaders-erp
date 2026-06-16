@@ -4,6 +4,8 @@ import {
   contractTravelerProfileFromSubmission,
   formatConfirmationAccommodationLine,
   formatConfirmationTravelerLine,
+  lodgingSelectionLevelByDay,
+  resolveConfirmationAccommodationLevelTag,
   resolveConfirmationAccommodationName,
   type ConfirmationDocumentSnapshotInput,
 } from '@tour/validation';
@@ -28,6 +30,8 @@ type TransportGroupLike = {
 };
 
 type LodgingLike = {
+  dayIndex: number;
+  type: string;
   lodgingNameSnapshot: string;
   roomCount: number;
   accommodation: { name: string } | null;
@@ -36,6 +40,7 @@ type LodgingLike = {
     accommodationOption: {
       roomType: string;
       capacity: number | null;
+      level: string;
     };
   }>;
 };
@@ -208,7 +213,10 @@ function resolveLodgingAccommodationName(lodging: LodgingLike): string {
   return resolveConfirmationAccommodationName(lodging.lodgingNameSnapshot, lodging.accommodation?.name);
 }
 
-function buildAccommodationLines(lodgings: LodgingLike[]): string[] {
+function buildAccommodationLines(
+  lodgings: LodgingLike[],
+  lodgingSelectionsByDay: Map<number, string>,
+): string[] {
   const grouped = new Map<
     string,
     {
@@ -216,10 +224,13 @@ function buildAccommodationLines(lodgings: LodgingLike[]): string[] {
       roomCount: number;
       capacity: number | null;
       roomType: string | null;
+      levelTag: string | null;
     }
   >();
 
   for (const lodging of lodgings) {
+    const planLodgingSelectionLevel = lodgingSelectionsByDay.get(lodging.dayIndex) ?? null;
+
     if (lodging.optionAssignments.length > 0) {
       for (const option of lodging.optionAssignments) {
         const name = resolveLodgingAccommodationName(lodging);
@@ -228,7 +239,12 @@ function buildAccommodationLines(lodgings: LodgingLike[]): string[] {
         }
         const capacity = option.accommodationOption.capacity;
         const roomType = option.accommodationOption.roomType;
-        const key = accommodationLineGroupKey({ name, capacity, roomType });
+        const levelTag = resolveConfirmationAccommodationLevelTag({
+          lodgingType: lodging.type,
+          optionLevel: option.accommodationOption.level,
+          planLodgingSelectionLevel,
+        });
+        const key = accommodationLineGroupKey({ name, capacity, roomType, levelTag });
         const existing = grouped.get(key);
         if (existing) {
           existing.roomCount += option.roomCount;
@@ -239,6 +255,7 @@ function buildAccommodationLines(lodgings: LodgingLike[]): string[] {
           roomCount: option.roomCount,
           capacity,
           roomType,
+          levelTag,
         });
       }
       continue;
@@ -248,7 +265,11 @@ function buildAccommodationLines(lodgings: LodgingLike[]): string[] {
     if (!name) {
       continue;
     }
-    const key = accommodationLineGroupKey({ name, capacity: null, roomType: null });
+    const levelTag = resolveConfirmationAccommodationLevelTag({
+      lodgingType: lodging.type,
+      planLodgingSelectionLevel,
+    });
+    const key = accommodationLineGroupKey({ name, capacity: null, roomType: null, levelTag });
     const existing = grouped.get(key);
     if (existing) {
       existing.roomCount += lodging.roomCount;
@@ -259,6 +280,7 @@ function buildAccommodationLines(lodgings: LodgingLike[]): string[] {
       roomCount: lodging.roomCount,
       capacity: null,
       roomType: null,
+      levelTag,
     });
   }
 
@@ -269,6 +291,7 @@ function buildAccommodationLines(lodgings: LodgingLike[]): string[] {
         roomCount: entry.roomCount,
         capacity: entry.capacity,
         roomType: entry.roomType,
+        levelTag: entry.levelTag,
       }),
     )
     .filter(Boolean);
@@ -344,6 +367,7 @@ export function buildConfirmationDraftDefaults(input: {
         externalDropPlaceCustomText: string | null;
         externalPickupDropNote: string | null;
         externalTransfers: unknown;
+        lodgingSelections: unknown;
       } | null;
       pricing: {
         balanceAmountKrw: number;
@@ -413,7 +437,10 @@ export function buildConfirmationDraftDefaults(input: {
     guideName: resolveGuideName(input.confirmedTrip.guideAssignments),
     meetingPlace: DEFAULT_MEETING_PLACE,
     travelers,
-    accommodationLines: buildAccommodationLines(input.confirmedTrip.lodgings),
+    accommodationLines: buildAccommodationLines(
+      input.confirmedTrip.lodgings,
+      lodgingSelectionLevelByDay(meta?.lodgingSelections),
+    ),
   };
 }
 

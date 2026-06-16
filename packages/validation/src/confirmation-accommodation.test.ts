@@ -1,10 +1,52 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatConfirmationAccommodationLine,
+  lodgingSelectionLevelByDay,
   normalizeConfirmationAccommodationLine,
+  resolveConfirmationAccommodationLevelTag,
   resolveConfirmationAccommodationName,
   splitConfirmationAccommodationDisplay,
 } from './confirmation-accommodation';
+
+describe('resolveConfirmationAccommodationLevelTag', () => {
+  it('returns LV4 only when one of the sources is LV4', () => {
+    expect(
+      resolveConfirmationAccommodationLevelTag({
+        lodgingType: 'ACCOMMODATION',
+        optionLevel: 'LV3',
+        planLodgingSelectionLevel: 'LV4',
+      }),
+    ).toBe('LV4');
+    expect(
+      resolveConfirmationAccommodationLevelTag({
+        lodgingType: 'LV4',
+      }),
+    ).toBe('LV4');
+    expect(
+      resolveConfirmationAccommodationLevelTag({
+        lodgingType: 'LV2',
+        planLodgingSelectionLevel: 'LV3',
+        optionLevel: 'LV3',
+      }),
+    ).toBeNull();
+  });
+});
+
+describe('lodgingSelectionLevelByDay', () => {
+  it('indexes plan lodging selections by day', () => {
+    expect(
+      lodgingSelectionLevelByDay([
+        { dayIndex: 4, level: 'LV4' },
+        { dayIndex: 6, level: 'LV4' },
+      ]),
+    ).toEqual(
+      new Map([
+        [4, 'LV4'],
+        [6, 'LV4'],
+      ]),
+    );
+  });
+});
 
 describe('resolveConfirmationAccommodationName', () => {
   it('prefers linked accommodation name over snapshot text', () => {
@@ -35,6 +77,10 @@ describe('splitConfirmationAccommodationDisplay', () => {
     expect(splitConfirmationAccommodationDisplay('CHIN CHANDMANI GER CAMP 4인실 1개')).toEqual({
       name: 'CHIN CHANDMANI GER CAMP',
       spec: '4인실 1개',
+    });
+    expect(splitConfirmationAccommodationDisplay('Govi urguu camp tsomtsog 4인실 2개 LV4')).toEqual({
+      name: 'Govi urguu camp tsomtsog',
+      spec: '4인실 2개 LV4',
     });
   });
 });
@@ -68,5 +114,16 @@ describe('formatConfirmationAccommodationLine', () => {
         roomType: 'Standard',
       }),
     ).toBe('Guest house 1개');
+  });
+
+  it('appends LV4 tag when provided', () => {
+    expect(
+      formatConfirmationAccommodationLine({
+        name: 'Govi urguu camp tsomtsog',
+        roomCount: 2,
+        capacity: 4,
+        levelTag: 'LV4',
+      }),
+    ).toBe('Govi urguu camp tsomtsog 4인실 2개 LV4');
   });
 });
