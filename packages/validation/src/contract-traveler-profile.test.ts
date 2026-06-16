@@ -34,6 +34,17 @@ describe('formatConfirmationTravelerLine', () => {
       }),
     ).toBe('정민우 남성 0601153');
   });
+
+  it('omits note when contract says there is none', () => {
+    expect(
+      formatConfirmationTravelerLine({
+        name: '박승원',
+        gender: '남성',
+        birthCode: '19990717',
+        note: '없음',
+      }),
+    ).toBe('박승원 남성 19990717');
+  });
 });
 
 describe('contractTravelerProfileFromSubmission', () => {

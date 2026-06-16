@@ -183,14 +183,20 @@ function normalizeMultiline(value: string | null | undefined): string {
   return value?.trim() ?? '';
 }
 
+function formatGuideAssignmentName(assignment: GuideAssignmentLike): string {
+  const ko = assignment.guide.nameKo?.trim() || '';
+  const mn = assignment.guide.nameMn?.trim() || '';
+  if (ko && mn) {
+    return `${ko} ${mn}`;
+  }
+  return assignment.nameSnapshot?.trim() || ko || mn || '';
+}
+
 function resolveGuideName(assignments: GuideAssignmentLike[]): string {
   if (assignments.length === 0) {
     return '';
   }
-  return assignments
-    .map((assignment) => assignment.nameSnapshot?.trim() || assignment.guide.nameMn?.trim() || assignment.guide.nameKo?.trim() || '')
-    .filter(Boolean)
-    .join(', ');
+  return assignments.map((assignment) => formatGuideAssignmentName(assignment)).filter(Boolean).join(', ');
 }
 
 function buildAccommodationLines(lodgings: LodgingLike[]): string[] {

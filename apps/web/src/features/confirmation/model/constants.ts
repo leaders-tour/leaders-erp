@@ -10,4 +10,4 @@ export const CONFIRMATION_COMPANY = {
 } as const;
 
 export const CONFIRMATION_FOOTER_NOTICE =
-  '항공편 지연·변경 등 긴급 상황은 카카오톡 채널로 알려주세요.';
+  '※ 항공편 지연 또는 결항 등 차질 발생 시 채널을 통하여 꼭 공유해 주시기 바랍니다.';

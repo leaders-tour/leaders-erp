@@ -14,72 +14,236 @@ interface ConfirmationDocumentProps {
   viewMode?: 'screen-preview' | 'output';
 }
 
-function InfoCell({ label, value }: { label: string; value: string }) {
+const VEHICLE_PURGONG_PHOTO_NOTE = '*푸르공 사진촬영 가능';
+
+function blankIfDash(value: string): string {
+  return value === '-' ? '' : value;
+}
+
+function vehicleTypeShowsPurgongPhotoNote(vehicleType: string | null | undefined): boolean {
+  const v = vehicleType?.trim();
+  return v === '스타렉스' || v === '하이에이스';
+}
+
+function VehicleTypeCellDisplay({ vehicleType }: { vehicleType: string | null | undefined }): JSX.Element {
+  const main = fallbackText(vehicleType);
+  if (main === '-' || !vehicleTypeShowsPurgongPhotoNote(vehicleType)) {
+    return <>{main}</>;
+  }
   return (
-    <div className="confirmation-info-cell">
-      <div className="confirmation-info-cell__label">{label}</div>
-      <div className="confirmation-info-cell__value">{value}</div>
-    </div>
+    <span className="confirmation-vehicle-note">
+      <span className="confirmation-vehicle-note__main">{main}</span>
+      <span className="confirmation-vehicle-note__sub">{VEHICLE_PURGONG_PHOTO_NOTE}</span>
+    </span>
+  );
+}
+
+function CommaBreakText({ value }: { value: string }): JSX.Element {
+  const lines = value.split('\n');
+
+  return (
+    <>
+      {lines.map((line, lineIndex) => {
+        const parts = line.split(',');
+
+        return (
+          <span key={`comma-line-${lineIndex}`} className="confirmation-comma-break-line">
+            {parts.map((part, partIndex) => {
+              const isLast = partIndex === parts.length - 1;
+              const text = part.trim();
+
+              if (!text) {
+                return null;
+              }
+
+              return (
+                <span key={`comma-part-${lineIndex}-${partIndex}`} className="confirmation-comma-break-item">
+                  {text}
+                  {isLast ? null : ','}
+                </span>
+              );
+            })}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+function formatTravelPeriodCompact(value: string): string {
+  if (value === '-') {
+    return '';
+  }
+
+  const firstParenIndex = value.indexOf(' (');
+  if (firstParenIndex < 0) {
+    return value;
+  }
+
+  return `${value.slice(0, firstParenIndex)}\n${value.slice(firstParenIndex + 1)}`;
+}
+
+function ConfirmationPage1LogoMark(): JSX.Element {
+  return (
+    <img
+      className="confirmation-page1-logo-mark"
+      src="/estimate/page1-hero-logo.png"
+      alt="Leaders Tour"
+      width={220}
+      height={92}
+      decoding="async"
+    />
   );
 }
 
 function ConfirmationPage({ data }: { data: ConfirmationDocumentData }) {
+  const travelPeriodCompact = formatTravelPeriodCompact(fallbackText(data.travelPeriodText));
+  const rentalItemsText = fallbackText(data.rentalItemsText);
+  const eventNamesText = fallbackText(data.eventNames);
+  const travelersText = fallbackText(data.travelersText);
+  const accommodationText = fallbackText(data.accommodationText);
+
   return (
-    <article className="confirmation-sheet">
-      <header className="confirmation-sheet__header">
-        <div className="confirmation-sheet__brand">
-          <img src="/estimate/page1-hero-logo.png" alt="" className="confirmation-sheet__logo" />
-          <div>
-            <p className="confirmation-sheet__tagline">{CONFIRMATION_TAGLINE}</p>
-            <h1 className="confirmation-sheet__title">{CONFIRMATION_TITLE}</h1>
+    <section className="confirmation-sheet confirmation-sheet-page1">
+      <header className="confirmation-page1-hero">
+        <div className="confirmation-page1-hero-copy">
+          <div className="confirmation-page1-hero-title-row">
+            <div className="confirmation-page1-hero-headline">
+              <p className="confirmation-page1-tagline">{CONFIRMATION_TAGLINE}</p>
+              <h1 className="confirmation-page1-title">{CONFIRMATION_TITLE}</h1>
+            </div>
+            <div className="confirmation-page1-hero-brand">
+              <ConfirmationPage1LogoMark />
+            </div>
           </div>
-        </div>
-        <div className="confirmation-sheet__company">
-          <p>사업자 등록번호 {CONFIRMATION_COMPANY.businessNumber}</p>
-          <p>네이버플레이스 {CONFIRMATION_COMPANY.naverPlace}</p>
-          <p>{CONFIRMATION_COMPANY.instagram} · 카카오톡 {CONFIRMATION_COMPANY.kakaoChannel}</p>
+
+          <div className="confirmation-page1-company-meta">
+            <div className="confirmation-page1-company-meta-group">
+              <div>사업자 등록번호 {CONFIRMATION_COMPANY.businessNumber}</div>
+              <div>네이버플레이스 {CONFIRMATION_COMPANY.naverPlace}</div>
+            </div>
+            <div className="confirmation-page1-company-meta-group confirmation-page1-company-meta-group--right">
+              <div>@ {CONFIRMATION_COMPANY.instagram.replace(/^@/, '')}</div>
+              <div>카카오톡 채널 {CONFIRMATION_COMPANY.kakaoChannel}</div>
+            </div>
+          </div>
         </div>
       </header>
 
-      <section className="confirmation-sheet__grid">
-        <InfoCell label="대표자명" value={fallbackText(data.leaderName)} />
-        <InfoCell label="문서번호" value={fallbackText(data.documentNumber)} />
-        <InfoCell label="여행지" value={fallbackText(data.destination)} />
-        <InfoCell label="인원" value={fallbackText(data.headcountText)} />
-        <InfoCell label="여행 기간" value={fallbackText(data.travelPeriodText)} />
-        <InfoCell label="차량" value={fallbackText(data.vehicleType)} />
-        <InfoCell label="항공권 IN" value={fallbackText(data.flightInText)} />
-        <InfoCell label="항공권 OUT" value={fallbackText(data.flightOutText)} />
-        <InfoCell label="픽업" value={fallbackText(data.pickupText)} />
-        <InfoCell label="드랍" value={fallbackText(data.dropText)} />
-        <InfoCell label="실투어 외 픽드랍" value={fallbackText(data.externalPickupDropText)} />
-        <InfoCell label="특이사항" value={fallbackText(data.specialNote)} />
-      </section>
+      <div className="confirmation-page1-body-shell">
+        <div className="confirmation-page1-body">
+          <table className="confirmation-table confirmation-page1-table confirmation-page1-table--main">
+            <colgroup>
+              <col className="confirmation-page1-col-4-label" />
+              <col className="confirmation-page1-col-4-value" />
+              <col className="confirmation-page1-col-4-label" />
+              <col className="confirmation-page1-col-4-value" />
+            </colgroup>
+            <tbody className="confirmation-page1-tbody--basic">
+              <tr className="confirmation-page1-tr--even-height">
+                <th>대표자명</th>
+                <td>{blankIfDash(fallbackText(data.leaderName))}</td>
+                <th>문서번호</th>
+                <td>{blankIfDash(fallbackText(data.documentNumber))}</td>
+              </tr>
+              <tr className="confirmation-page1-tr--even-height">
+                <th>여행지</th>
+                <td>{blankIfDash(fallbackText(data.destination))}</td>
+                <th>인원</th>
+                <td>{blankIfDash(fallbackText(data.headcountText))}</td>
+              </tr>
+              <tr className="confirmation-page1-tr--even-height">
+                <th>여행 기간</th>
+                <td className="confirmation-page1-preline-cell">
+                  <span className="whitespace-pre-line">{travelPeriodCompact}</span>
+                </td>
+                <th>차량</th>
+                <td>
+                  <VehicleTypeCellDisplay vehicleType={data.vehicleType} />
+                </td>
+              </tr>
+            </tbody>
+            <tbody className="confirmation-page1-tbody--logistics">
+              <tr className="confirmation-page1-tr--tbody-gap" aria-hidden="true">
+                <td colSpan={4} />
+              </tr>
+              <tr className="confirmation-page1-tr--even-height">
+                <th>항공권 IN</th>
+                <td className="confirmation-page1-preline-cell">
+                  <span className="whitespace-pre-wrap">{blankIfDash(fallbackText(data.flightInText))}</span>
+                </td>
+                <th>항공권 OUT</th>
+                <td className="confirmation-page1-preline-cell">
+                  <span className="whitespace-pre-wrap">{blankIfDash(fallbackText(data.flightOutText))}</span>
+                </td>
+              </tr>
+              <tr className="confirmation-page1-tr--even-height">
+                <th>픽업</th>
+                <td className="confirmation-page1-preline-cell">
+                  <span className="whitespace-pre-wrap">{blankIfDash(fallbackText(data.pickupText))}</span>
+                </td>
+                <th>드랍</th>
+                <td className="confirmation-page1-preline-cell">
+                  <span className="whitespace-pre-wrap">{blankIfDash(fallbackText(data.dropText))}</span>
+                </td>
+              </tr>
+              <tr>
+                <th>실투어 외 픽드랍</th>
+                <td className="confirmation-page1-preline-cell">{fallbackText(data.externalPickupDropText)}</td>
+                <th>특이사항</th>
+                <td className="confirmation-page1-preline-cell">{fallbackText(data.specialNote)}</td>
+              </tr>
+            </tbody>
+            <tbody className="confirmation-page1-tbody--extras">
+              <tr className="confirmation-page1-tr--tbody-gap" aria-hidden="true">
+                <td colSpan={4} />
+              </tr>
+              <tr>
+                <th>기본 대여물품</th>
+                <td className="confirmation-page1-preline-cell">
+                  <CommaBreakText value={rentalItemsText} />
+                </td>
+                <th>참여 이벤트</th>
+                <td className="confirmation-page1-preline-cell confirmation-page1-event-cell">{eventNamesText}</td>
+              </tr>
+              <tr>
+                <th>비고</th>
+                <td className="confirmation-page1-preline-cell" colSpan={3}>
+                  {fallbackText(data.remark)}
+                </td>
+              </tr>
+            </tbody>
+            <tbody className="confirmation-page1-tbody--closing">
+              <tr className="confirmation-page1-tr--tbody-gap" aria-hidden="true">
+                <td colSpan={4} />
+              </tr>
+              <tr className="confirmation-page1-tr--even-height">
+                <th>잔금(1인)</th>
+                <td colSpan={3}>{blankIfDash(fallbackText(data.balancePerPersonText))}</td>
+              </tr>
+              <tr className="confirmation-page1-tr--even-height">
+                <th>가이드님</th>
+                <td>{blankIfDash(fallbackText(data.guideName))}</td>
+                <th>미팅장소</th>
+                <td>{blankIfDash(fallbackText(data.meetingPlace))}</td>
+              </tr>
+              <tr className="confirmation-page1-tr--detail-row">
+                <th className="confirmation-page1-detail-label">여행객 명단 (특이사항)</th>
+                <td className="confirmation-page1-detail-cell">
+                  <span className="confirmation-page1-detail-text whitespace-pre-wrap">{travelersText}</span>
+                </td>
+                <th className="confirmation-page1-detail-label">숙소</th>
+                <td className="confirmation-page1-detail-cell">
+                  <span className="confirmation-page1-detail-text whitespace-pre-wrap">{accommodationText}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-      <section className="confirmation-sheet__grid confirmation-sheet__grid--compact">
-        <InfoCell label="기본 대여물품" value={fallbackText(data.rentalItemsText)} />
-        <InfoCell label="참여 이벤트" value={fallbackText(data.eventNames)} />
-        <InfoCell label="비고" value={fallbackText(data.remark)} />
-      </section>
-
-      <section className="confirmation-sheet__grid confirmation-sheet__grid--compact">
-        <InfoCell label="잔금(1인)" value={fallbackText(data.balancePerPersonText)} />
-        <InfoCell label="가이드님" value={fallbackText(data.guideName)} />
-        <InfoCell label="미팅장소" value={fallbackText(data.meetingPlace)} />
-      </section>
-
-      <section className="confirmation-sheet__detail-block">
-        <h2 className="confirmation-sheet__detail-title">여행객 명단 (특이사항)</h2>
-        <pre className="confirmation-sheet__detail-text">{fallbackText(data.travelersText)}</pre>
-      </section>
-
-      <section className="confirmation-sheet__detail-block">
-        <h2 className="confirmation-sheet__detail-title">숙소</h2>
-        <pre className="confirmation-sheet__detail-text">{fallbackText(data.accommodationText)}</pre>
-      </section>
-
-      <footer className="confirmation-sheet__footer">{CONFIRMATION_FOOTER_NOTICE}</footer>
-    </article>
+          <p className="confirmation-page1-notice">{CONFIRMATION_FOOTER_NOTICE}</p>
+        </div>
+      </div>
+    </section>
   );
 }
 

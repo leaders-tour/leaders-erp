@@ -136,6 +136,15 @@ export function shouldUpdateContractSubmissionTravelerProfile(
   );
 }
 
+function shouldDisplayTravelerNote(note: string): boolean {
+  const normalized = note.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  const hidden = new Set(['-', '없음', '해당없음', '해당 없음', 'none', 'n/a', 'na']);
+  return !hidden.has(normalized);
+}
+
 export function formatConfirmationTravelerLine(input: {
   name: string;
   gender?: string | null;
@@ -153,7 +162,7 @@ export function formatConfirmationTravelerLine(input: {
   if (input.birthCode?.trim()) {
     parts.push(input.birthCode.trim());
   }
-  if (input.note?.trim()) {
+  if (input.note?.trim() && shouldDisplayTravelerNote(input.note)) {
     parts.push(input.note.trim());
   }
   return parts.join(' ');
