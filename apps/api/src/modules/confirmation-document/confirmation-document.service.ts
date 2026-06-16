@@ -37,6 +37,16 @@ export class ConfirmationDocumentService {
     return document ? this.toGraphql(document) : null;
   }
 
+  async list(confirmedTripId: string) {
+    const documents = await this.repository.listByConfirmedTripId(confirmedTripId);
+    return documents.map((document) => this.toGraphql(document));
+  }
+
+  async listByUserId(userId: string) {
+    const documents = await this.repository.listByUserId(userId);
+    return documents.map((document) => this.toGraphql(document));
+  }
+
   async getDraftDefaults(confirmedTripId: string) {
     const trip = await this.loadConfirmedTrip(confirmedTripId);
     const documentNumber = trip.planVersion?.meta?.documentNumber ?? null;

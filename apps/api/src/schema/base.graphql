@@ -56,6 +56,8 @@ type Query {
   confirmedTripCalendarNotes(confirmedTripId: ID!): [CalendarNote!]!
   confirmedTripNotes(confirmedTripId: ID!): [ConfirmedTripNote!]!
   confirmationDocument(id: ID!): ConfirmationDocument!
+  confirmationDocuments(confirmedTripId: ID!): [ConfirmationDocument!]!
+  confirmationDocumentsByUserId(userId: ID!): [ConfirmationDocument!]!
   latestConfirmationDocument(confirmedTripId: ID!): ConfirmationDocument
   latestPublishedConfirmationDocument(confirmedTripId: ID!): ConfirmationDocument
   confirmationDraftDefaults(confirmedTripId: ID!): ConfirmationDraftDefaults!

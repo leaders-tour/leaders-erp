@@ -3,6 +3,7 @@ import type {
   ConfirmationBuilderState,
   ConfirmationDocumentRow,
   ConfirmationDraftDefaults,
+  ConfirmationTraveler,
 } from '../model/types';
 
 const CONFIRMATION_DOCUMENT_SNAPSHOT_FRAGMENT = gql`
@@ -76,6 +77,33 @@ const LATEST_CONFIRMATION_DOCUMENT_QUERY = gql`
   }
 `;
 
+const CONFIRMATION_DOCUMENTS_QUERY = gql`
+  ${CONFIRMATION_DOCUMENT_FRAGMENT}
+  query ConfirmationDocuments($confirmedTripId: ID!) {
+    confirmationDocuments(confirmedTripId: $confirmedTripId) {
+      ...ConfirmationDocumentFields
+    }
+  }
+`;
+
+const CONFIRMATION_DOCUMENTS_BY_USER_ID_QUERY = gql`
+  ${CONFIRMATION_DOCUMENT_FRAGMENT}
+  query ConfirmationDocumentsByUserId($userId: ID!) {
+    confirmationDocumentsByUserId(userId: $userId) {
+      ...ConfirmationDocumentFields
+    }
+  }
+`;
+
+const CONFIRMATION_DOCUMENT_QUERY = gql`
+  ${CONFIRMATION_DOCUMENT_FRAGMENT}
+  query ConfirmationDocument($id: ID!) {
+    confirmationDocument(id: $id) {
+      ...ConfirmationDocumentFields
+    }
+  }
+`;
+
 const LATEST_PUBLISHED_CONFIRMATION_DOCUMENT_QUERY = gql`
   ${CONFIRMATION_DOCUMENT_FRAGMENT}
   query LatestPublishedConfirmationDocument($confirmedTripId: ID!) {
@@ -93,6 +121,40 @@ const SAVE_CONFIRMATION_DOCUMENT_MUTATION = gql`
     }
   }
 `;
+
+function toConfirmationTravelerInput(traveler: ConfirmationTraveler): ConfirmationTraveler {
+  return {
+    name: traveler.name,
+    gender: traveler.gender ?? null,
+    birthCode: traveler.birthCode ?? null,
+    note: traveler.note ?? null,
+  };
+}
+
+function toConfirmationSnapshotInput(snapshot: ConfirmationBuilderState): ConfirmationBuilderState {
+  return {
+    leaderName: snapshot.leaderName,
+    documentNumber: snapshot.documentNumber ?? null,
+    destination: snapshot.destination,
+    headcountText: snapshot.headcountText,
+    travelPeriodText: snapshot.travelPeriodText,
+    vehicleType: snapshot.vehicleType,
+    flightInText: snapshot.flightInText,
+    flightOutText: snapshot.flightOutText,
+    pickupText: snapshot.pickupText,
+    dropText: snapshot.dropText,
+    externalPickupDropText: snapshot.externalPickupDropText,
+    specialNote: snapshot.specialNote,
+    rentalItemsText: snapshot.rentalItemsText,
+    eventNames: snapshot.eventNames,
+    remark: snapshot.remark,
+    balancePerPersonText: snapshot.balancePerPersonText,
+    guideName: snapshot.guideName,
+    meetingPlace: snapshot.meetingPlace,
+    travelers: snapshot.travelers.map(toConfirmationTravelerInput),
+    accommodationLines: [...snapshot.accommodationLines],
+  };
+}
 
 export function useConfirmationDraftDefaults(confirmedTripId: string | undefined) {
   const { data, loading, error, refetch } = useQuery<{ confirmationDraftDefaults: ConfirmationDraftDefaults }>(
@@ -130,6 +192,60 @@ export function useLatestConfirmationDocument(confirmedTripId: string | undefine
   };
 }
 
+export function useConfirmationDocuments(confirmedTripId: string | undefined) {
+  const { data, loading, error, refetch } = useQuery<{ confirmationDocuments: ConfirmationDocumentRow[] }>(
+    CONFIRMATION_DOCUMENTS_QUERY,
+    {
+      variables: { confirmedTripId: confirmedTripId ?? '' },
+      skip: !confirmedTripId,
+      fetchPolicy: 'cache-and-network',
+    },
+  );
+
+  return {
+    documents: data?.confirmationDocuments ?? [],
+    loading,
+    error,
+    refetch,
+  };
+}
+
+export function useConfirmationDocumentsByUserId(userId: string | undefined) {
+  const { data, loading, error, refetch } = useQuery<{ confirmationDocumentsByUserId: ConfirmationDocumentRow[] }>(
+    CONFIRMATION_DOCUMENTS_BY_USER_ID_QUERY,
+    {
+      variables: { userId: userId ?? '' },
+      skip: !userId,
+      fetchPolicy: 'cache-and-network',
+    },
+  );
+
+  return {
+    documents: data?.confirmationDocumentsByUserId ?? [],
+    loading,
+    error,
+    refetch,
+  };
+}
+
+export function useConfirmationDocument(documentId: string | undefined) {
+  const { data, loading, error, refetch } = useQuery<{ confirmationDocument: ConfirmationDocumentRow }>(
+    CONFIRMATION_DOCUMENT_QUERY,
+    {
+      variables: { id: documentId ?? '' },
+      skip: !documentId,
+      fetchPolicy: 'cache-and-network',
+    },
+  );
+
+  return {
+    document: data?.confirmationDocument ?? null,
+    loading,
+    error,
+    refetch,
+  };
+}
+
 export function useLatestPublishedConfirmationDocument(confirmedTripId: string | undefined) {
   const { data, loading, error, refetch } = useQuery<{ latestPublishedConfirmationDocument: ConfirmationDocumentRow | null }>(
     LATEST_PUBLISHED_CONFIRMATION_DOCUMENT_QUERY,
@@ -158,7 +274,7 @@ export function useSaveConfirmationDocument() {
       variables: {
         input: {
           confirmedTripId,
-          snapshot,
+          snapshot: toConfirmationSnapshotInput(snapshot),
           publish,
         },
       },

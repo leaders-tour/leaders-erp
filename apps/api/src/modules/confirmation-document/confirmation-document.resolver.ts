@@ -7,6 +7,10 @@ interface ConfirmedTripIdArgs {
   confirmedTripId: string;
 }
 
+interface UserIdArgs {
+  userId: string;
+}
+
 interface IdArgs {
   id: string;
 }
@@ -19,6 +23,10 @@ export const confirmationDocumentResolver = {
   Query: {
     confirmationDocument: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
       new ConfirmationDocumentService(ctx.prisma).getById(args.id),
+    confirmationDocuments: (_parent: unknown, args: ConfirmedTripIdArgs, ctx: AppContext) =>
+      new ConfirmationDocumentService(ctx.prisma).list(args.confirmedTripId),
+    confirmationDocumentsByUserId: (_parent: unknown, args: UserIdArgs, ctx: AppContext) =>
+      new ConfirmationDocumentService(ctx.prisma).listByUserId(args.userId),
     latestConfirmationDocument: (_parent: unknown, args: ConfirmedTripIdArgs, ctx: AppContext) =>
       new ConfirmationDocumentService(ctx.prisma).getLatest(args.confirmedTripId),
     latestPublishedConfirmationDocument: (_parent: unknown, args: ConfirmedTripIdArgs, ctx: AppContext) =>

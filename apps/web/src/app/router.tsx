@@ -5,7 +5,9 @@ import { RedirectAuthenticated, RequireAdmin, RequireAuth, RequireStaffOrAbove }
 import { AppLayout } from '../components/layout/AppLayout';
 import { ConfirmationPrintPage } from '../pages/ConfirmationPrintPage';
 import { ConfirmationPdfRenderPage } from '../pages/ConfirmationPdfRenderPage';
+import { ConfirmationBuilderHomePage } from '../pages/ConfirmationBuilderHomePage';
 import { ConfirmationBuilderPage } from '../pages/ConfirmationBuilderPage';
+import { ConfirmationDocumentDetailPage } from '../pages/ConfirmationDocumentDetailPage';
 import { ConfirmedTripsPage } from '../pages/ConfirmedTripsPage';
 import { ConfirmedTripDetailPage } from '../pages/ConfirmedTripDetailPage';
 import { ConfirmedTripAssignPage } from '../pages/ConfirmedTripAssignPage';
@@ -115,6 +117,14 @@ export const router = createBrowserRouter([
       {
         path: 'itinerary-builder',
         element: <RequireStaffOrAbove><ItineraryBuilderPage /></RequireStaffOrAbove>,
+      },
+      {
+        path: 'confirmation-builder',
+        element: <RequireStaffOrAbove><ConfirmationBuilderHomePage /></RequireStaffOrAbove>,
+      },
+      {
+        path: 'confirmation-documents/:documentId',
+        element: <RequireStaffOrAbove><ConfirmationDocumentDetailPage /></RequireStaffOrAbove>,
       },
       {
         path: 'itinerary-templates',

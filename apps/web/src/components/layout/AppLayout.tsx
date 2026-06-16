@@ -141,6 +141,15 @@ const TourListIcon: NavIcon = ({ className }) => (
   </svg>
 );
 
+const StampIcon: NavIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6l1.5 6h-9L9 12Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8 18h8a3 3 0 0 1 3 3H5a3 3 0 0 1 3-3Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12a4 4 0 1 1 6 0" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M10 21h4" />
+  </svg>
+);
+
 const GuideIcon: NavIcon = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
@@ -180,6 +189,7 @@ const resourceNavItems: NavItem[] = [
 
 const baseNavItems: NavItem[] = [
   { path: '/itinerary-builder', label: '일정 빌더', icon: ItineraryIcon },
+  { path: '/confirmation-builder', label: '확정서 빌더', icon: StampIcon },
   { path: '/confirmed-trips', label: '투어 리스트', icon: TourListIcon },
   { path: '/confirmed-trips', search: 'view=calendar', label: '장비 재고확인', icon: EquipmentIcon },
   { path: '/deal-pipeline', label: '딜 파이프라인 ( 준비중 )', icon: PipelineIcon },

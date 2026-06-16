@@ -9,10 +9,6 @@ import {
   useSaveConfirmationDocument,
 } from '../features/confirmation/hooks/use-confirmation-document';
 import { useConfirmationAppendixData } from '../features/confirmation/hooks/use-confirmation-appendix-data';
-import {
-  getConfirmationPdfDownloadLabel,
-  useConfirmationPdfDownload,
-} from '../features/confirmation/hooks/use-confirmation-pdf-download';
 import type { ConfirmationBuilderState } from '../features/confirmation/model/types';
 import { snapshotToDocumentData } from '../features/confirmation/utils/format';
 import { useConfirmedTrip } from '../features/confirmed-trip/hooks';
@@ -27,8 +23,6 @@ export function ConfirmationBuilderPage(): JSX.Element {
     shouldLoadDefaults ? tripId : undefined,
   );
   const { save, loading: saving } = useSaveConfirmationDocument();
-  const { downloading, phase, downloadConfirmationPdf } = useConfirmationPdfDownload();
-  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [state, setState] = useState<ConfirmationBuilderState | null>(null);
 
   useEffect(() => {
@@ -71,31 +65,16 @@ export function ConfirmationBuilderPage(): JSX.Element {
     );
   }
 
-  const handleSave = async (publish: boolean) => {
+  const handleSave = async () => {
     try {
-      const saved = await save(tripId, state, publish);
+      const saved = await save(tripId, state, true);
       if (!saved) {
         throw new Error('저장 결과가 없습니다.');
       }
       await refetchDocument();
-      if (publish) {
-        navigate(`/confirmed-trips/${tripId}`);
-      }
+      navigate(`/confirmation-documents/${saved.id}`);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
-    }
-  };
-
-  const handleDownload = async () => {
-    setDownloadError(null);
-    try {
-      await downloadConfirmationPdf({
-        snapshot: state,
-        appendixData: appendixData ?? null,
-        isDraft: document?.status !== 'PUBLISHED',
-      });
-    } catch (error) {
-      setDownloadError(error instanceof Error ? error.message : 'PDF 다운로드에 실패했습니다.');
     }
   };
 
@@ -114,25 +93,11 @@ export function ConfirmationBuilderPage(): JSX.Element {
               <Button variant="outline" type="button" onClick={() => navigate(-1)}>
                 뒤로가기
               </Button>
-              <Button type="button" variant="outline" disabled={saving} onClick={() => void handleSave(false)}>
-                임시 저장
-              </Button>
-              <Button type="button" disabled={saving} onClick={() => void handleSave(true)}>
+              <Button type="button" variant="primary" disabled={saving} onClick={() => void handleSave()}>
                 발행 저장
-              </Button>
-              <Button
-                type="button"
-                disabled={downloading || appendixLoading || !state}
-                onClick={() => void handleDownload()}
-              >
-                {getConfirmationPdfDownloadLabel(phase)}
               </Button>
             </div>
           </div>
-
-          {downloadError ? (
-            <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{downloadError}</Card>
-          ) : null}
 
           <ConfirmationBuilderForm
             value={state}

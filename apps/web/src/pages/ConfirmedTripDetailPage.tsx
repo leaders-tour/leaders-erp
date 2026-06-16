@@ -5,6 +5,8 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmationPreviewPanel } from '../features/confirmation/components/ConfirmationPreviewPanel';
+import { useConfirmationDocuments } from '../features/confirmation/hooks/use-confirmation-document';
+import type { ConfirmationDocumentRow } from '../features/confirmation/model/types';
 import { useAuth } from '../features/auth/context';
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
 import { toSecurityDepositScope } from '../features/estimate/utils/format';
@@ -76,6 +78,35 @@ function parseNullableInt(raw: string): number | null {
   if (trimmed === '') return null;
   const n = Number(trimmed);
   return Number.isFinite(n) ? Math.trunc(n) : null;
+}
+
+function getConfirmationStatusLabel(status: ConfirmationDocumentRow['status']): string {
+  switch (status) {
+    case 'DRAFT':
+      return '임시저장';
+    case 'PUBLISHED':
+      return '발행';
+    case 'ARCHIVED':
+      return '보관됨';
+    default:
+      return status;
+  }
+}
+
+function formatConfirmationDocumentDate(value: string | null | undefined): string {
+  if (!value) {
+    return '-';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 }
 
 function PdfPageViewer({ url, filename }: { url: string; filename: string }) {
@@ -732,6 +763,10 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     return () => window.removeEventListener('popstate', onPopState);
   }, [tripId]);
   const { trip, loading } = useConfirmedTrip(tripId);
+  const {
+    documents: confirmationDocuments,
+    loading: confirmationDocumentsLoading,
+  } = useConfirmationDocuments(tripId);
   const { versions: planVersions, loading: planVersionsLoading } = usePlanVersions(trip?.planId ?? undefined);
   const sortedPlanVersions = useMemo(
     () => [...planVersions].sort((a, b) => b.versionNumber - a.versionNumber),
@@ -761,6 +796,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const [migrationEditChoiceOpen, setMigrationEditChoiceOpen] = useState(false);
   const [planTripEditChoiceOpen, setPlanTripEditChoiceOpen] = useState(false);
   const [selectedSwitchVersionId, setSelectedSwitchVersionId] = useState<string | null>(null);
+  const [selectedConfirmationDocumentId, setSelectedConfirmationDocumentId] = useState<string | null>(null);
   const [planVersionSwitchSaving, setPlanVersionSwitchSaving] = useState(false);
   const [directEditOpen, setDirectEditOpen] = useState(false);
   const [directEditSaving, setDirectEditSaving] = useState(false);
@@ -1072,9 +1108,17 @@ export function ConfirmedTripDetailPage(): JSX.Element {
 
   const pdfAttachments = (trip.user.attachments ?? []).filter((a) => a.type === 'pdf');
   const publishedConfirmation = trip.latestPublishedConfirmationDocument ?? null;
+  const selectedConfirmationDocument = useMemo(
+    () =>
+      confirmationDocuments.find((document) => document.id === selectedConfirmationDocumentId)
+      ?? confirmationDocuments.find((document) => document.id === publishedConfirmation?.id)
+      ?? confirmationDocuments[0]
+      ?? null,
+    [confirmationDocuments, publishedConfirmation?.id, selectedConfirmationDocumentId],
+  );
   const isPlanTrip = !!(trip.planId && trip.planVersionId);
   const hasPdf = pdfAttachments.length > 0;
-  const showRightPanel = !!publishedConfirmation || isPlanTrip || hasPdf;
+  const showRightPanel = !!selectedConfirmationDocument || isPlanTrip || hasPdf;
 
   const openPlanTripEditChoice = () => {
     setSelectedSwitchVersionId(null);
@@ -1990,6 +2034,70 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           </Card>
 
           <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">확정서 저장 이력</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  임시저장·발행·보관된 확정서를 버전별로 확인합니다.
+                </p>
+              </div>
+              {trip.status === 'ACTIVE' ? (
+                <Button
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={() => navigate(`/confirmed-trips/${trip.id}/confirmation-builder`)}
+                >
+                  새로 작성
+                </Button>
+              ) : null}
+            </div>
+
+            {confirmationDocumentsLoading ? (
+              <p className="text-sm text-slate-500">확정서 이력을 불러오는 중...</p>
+            ) : null}
+
+            {!confirmationDocumentsLoading && confirmationDocuments.length === 0 ? (
+              <p className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-500">
+                저장된 확정서가 없습니다. 확정서 빌더에서 임시 저장 또는 발행 저장을 해주세요.
+              </p>
+            ) : null}
+
+            {!confirmationDocumentsLoading && confirmationDocuments.length > 0 ? (
+              <div className="grid gap-2">
+                {confirmationDocuments.map((document) => (
+                    <div
+                      key={document.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-slate-900">v{document.versionNumber}</span>
+                          <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                            {getConfirmationStatusLabel(document.status)}
+                          </span>
+                          {document.documentNumber ? (
+                            <span className="text-xs text-slate-500">{document.documentNumber}</span>
+                          ) : null}
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">
+                          저장 {formatConfirmationDocumentDate(document.updatedAt)}
+                          {document.publishedAt ? ` · 발행 ${formatConfirmationDocumentDate(document.publishedAt)}` : ''}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => navigate(`/confirmation-documents/${document.id}`)}
+                      >
+                        상세
+                      </Button>
+                    </div>
+                  ))}
+              </div>
+            ) : null}
+          </Card>
+
+          <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-sm font-semibold text-slate-900">관리 정보</h2>
             <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-2">
               <div>
@@ -2020,12 +2128,13 @@ export function ConfirmedTripDetailPage(): JSX.Element {
         {showRightPanel && (
           <div className="sticky top-6 grid gap-4 self-start">
             <h2 className="text-sm font-semibold text-slate-700">
-              {publishedConfirmation ? '확정서 미리보기' : 'PDF 미리보기'}
+              {selectedConfirmationDocument ? '확정서 미리보기' : 'PDF 미리보기'}
             </h2>
-            {publishedConfirmation ? (
+            {selectedConfirmationDocument ? (
               <ConfirmationPreviewPanel
-                snapshot={publishedConfirmation.snapshot}
-                planVersionId={trip.planVersionId}
+                snapshot={selectedConfirmationDocument.snapshot}
+                planVersionId={selectedConfirmationDocument.planVersionId ?? trip.planVersionId}
+                isDraft={selectedConfirmationDocument.status !== 'PUBLISHED'}
               />
             ) : isPlanTrip ? (
               <PlanPdfPreviewPanel planVersionId={trip.planVersionId!} />

@@ -60,6 +60,19 @@ export class ConfirmationDocumentRepository {
     });
   }
 
+  listByUserId(userId: string) {
+    return this.prisma.confirmationDocument.findMany({
+      where: {
+        confirmedTrip: {
+          userId,
+          status: 'ACTIVE',
+        },
+      },
+      include: confirmationDocumentInclude,
+      orderBy: [{ updatedAt: 'desc' }],
+    });
+  }
+
   getNextVersionNumber(confirmedTripId: string) {
     return this.prisma.confirmationDocument
       .aggregate({

@@ -18,9 +18,10 @@ interface CustomerSelectorProps {
   searchValue: string;
   onChangeSearch: (value: string) => void;
   onSelect: (userId: string) => void;
-  statusFilter: StatusFilterKey;
-  onChangeStatusFilter: (value: StatusFilterKey) => void;
-  groupCounts: Record<StatusFilterKey, number>;
+  statusFilter?: StatusFilterKey;
+  onChangeStatusFilter?: (value: StatusFilterKey) => void;
+  groupCounts?: Record<StatusFilterKey, number>;
+  hideStatusFilter?: boolean;
 }
 
 export function CustomerSelector({
@@ -32,6 +33,7 @@ export function CustomerSelector({
   statusFilter,
   onChangeStatusFilter,
   groupCounts,
+  hideStatusFilter = false,
 }: CustomerSelectorProps): JSX.Element {
   return (
     <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -45,32 +47,34 @@ export function CustomerSelector({
         />
       </div>
 
-      <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
-        {STATUS_FILTER_KEYS.map((key) => {
-          const isActive = statusFilter === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onChangeStatusFilter(key)}
-              className={`flex shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                isActive
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              {CUSTOMER_TRIP_STATUS_LABELS[key]}
-              <span
-                className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                  isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+      {!hideStatusFilter && statusFilter && onChangeStatusFilter && groupCounts ? (
+        <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
+          {STATUS_FILTER_KEYS.map((key) => {
+            const isActive = statusFilter === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onChangeStatusFilter(key)}
+                className={`flex shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                {groupCounts[key]}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+                {CUSTOMER_TRIP_STATUS_LABELS[key]}
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  {groupCounts[key]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
       <div className="mt-3 grid gap-2">
         {users.map((user) => {
