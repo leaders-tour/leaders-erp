@@ -145,6 +145,130 @@ function shouldDisplayTravelerNote(note: string): boolean {
   return !hidden.has(normalized);
 }
 
+function pad2(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
+function formatBirthDateYyMmDd(year: number, month: number, day: number): string | null {
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+  return `${pad2(year % 100)}.${pad2(month)}.${pad2(day)}`;
+}
+
+function inferFullYearFromTwoDigits(yy: number): number {
+  return yy >= 30 ? 1900 + yy : 2000 + yy;
+}
+
+function parseDottedBirthDate(raw: string): { year: number; month: number; day: number } | null {
+  const match = raw.match(/^(\d{2,4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})/);
+  if (!match?.[1] || !match[2] || !match[3]) {
+    return null;
+  }
+  const yearPart = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10);
+  const day = parseInt(match[3], 10);
+  const year = yearPart < 100 ? inferFullYearFromTwoDigits(yearPart) : yearPart;
+  return formatBirthDateYyMmDd(year, month, day) ? { year, month, day } : null;
+}
+
+function parseResidentRegistrationSevenDigits(digits: string): { year: number; month: number; day: number } | null {
+  const yy = parseInt(digits.slice(0, 2), 10);
+  const month = parseInt(digits.slice(2, 4), 10);
+  const day = parseInt(digits.slice(4, 6), 10);
+  const year = inferFullYearFromTwoDigits(yy);
+  return formatBirthDateYyMmDd(year, month, day) ? { year, month, day } : null;
+}
+
+function parseYearPrefixedSevenDigits(digits: string): { year: number; month: number; day: number } | null {
+  const year = parseInt(digits.slice(0, 4), 10);
+  if (year < 1900 || year > 2099) {
+    return null;
+  }
+  const tail = digits.slice(4);
+  if (tail.length !== 3) {
+    return null;
+  }
+
+  const monthFromOneDigit = parseInt(tail.slice(0, 1), 10);
+  const dayFromTwoDigits = parseInt(tail.slice(1, 3), 10);
+  const monthFromTwoDigits = parseInt(tail.slice(0, 2), 10);
+  const dayFromOneDigit = parseInt(tail.slice(2, 3), 10);
+
+  const monthDayFromSplit =
+    monthFromOneDigit >= 1
+    && monthFromOneDigit <= 12
+    && dayFromTwoDigits >= 1
+    && dayFromTwoDigits <= 31
+      ? { year, month: monthFromOneDigit, day: dayFromTwoDigits }
+      : null;
+  const monthDayFromCompact =
+    monthFromTwoDigits >= 1
+    && monthFromTwoDigits <= 12
+    && dayFromOneDigit >= 1
+    && dayFromOneDigit <= 9
+      ? { year, month: monthFromTwoDigits, day: dayFromOneDigit }
+      : null;
+
+  if (monthDayFromSplit && dayFromTwoDigits >= 13) {
+    return monthDayFromSplit;
+  }
+  if (monthDayFromCompact) {
+    return monthDayFromCompact;
+  }
+  if (monthDayFromSplit) {
+    return monthDayFromSplit;
+  }
+  return null;
+}
+
+export function normalizeConfirmationBirthCodeDisplay(value: string | null | undefined): string | null {
+  const raw = value?.trim();
+  if (!raw) {
+    return null;
+  }
+
+  const dotted = parseDottedBirthDate(raw);
+  if (dotted) {
+    return formatBirthDateYyMmDd(dotted.year, dotted.month, dotted.day);
+  }
+
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) {
+    return raw;
+  }
+
+  if (digits.length === 8) {
+    const year = parseInt(digits.slice(0, 4), 10);
+    const month = parseInt(digits.slice(4, 6), 10);
+    const day = parseInt(digits.slice(6, 8), 10);
+    return formatBirthDateYyMmDd(year, month, day);
+  }
+
+  if (digits.length === 6) {
+    const yy = parseInt(digits.slice(0, 2), 10);
+    const month = parseInt(digits.slice(2, 4), 10);
+    const day = parseInt(digits.slice(4, 6), 10);
+    return formatBirthDateYyMmDd(inferFullYearFromTwoDigits(yy), month, day);
+  }
+
+  if (digits.length === 7) {
+    const yearPrefix = parseInt(digits.slice(0, 4), 10);
+    if (yearPrefix >= 1900 && yearPrefix <= 2099) {
+      const parsed = parseYearPrefixedSevenDigits(digits);
+      if (parsed) {
+        return formatBirthDateYyMmDd(parsed.year, parsed.month, parsed.day);
+      }
+    }
+    const parsed = parseResidentRegistrationSevenDigits(digits);
+    if (parsed) {
+      return formatBirthDateYyMmDd(parsed.year, parsed.month, parsed.day);
+    }
+  }
+
+  return raw;
+}
+
 export function formatConfirmationTravelerLine(input: {
   name: string;
   gender?: string | null;
@@ -159,8 +283,9 @@ export function formatConfirmationTravelerLine(input: {
   if (input.gender?.trim()) {
     parts.push(input.gender.trim());
   }
-  if (input.birthCode?.trim()) {
-    parts.push(input.birthCode.trim());
+  const birthCode = normalizeConfirmationBirthCodeDisplay(input.birthCode);
+  if (birthCode) {
+    parts.push(birthCode);
   }
   if (input.note?.trim() && shouldDisplayTravelerNote(input.note)) {
     parts.push(input.note.trim());

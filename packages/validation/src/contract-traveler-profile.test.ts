@@ -3,6 +3,7 @@ import {
   contractTravelerProfileFieldsFromRawJson,
   contractTravelerProfileFromSubmission,
   formatConfirmationTravelerLine,
+  normalizeConfirmationBirthCodeDisplay,
   parseContractTravelerProfile,
   shouldUpdateContractSubmissionTravelerProfile,
 } from './contract-traveler-profile';
@@ -32,7 +33,7 @@ describe('formatConfirmationTravelerLine', () => {
         gender: '남성',
         birthCode: '0601153',
       }),
-    ).toBe('정민우 남성 0601153');
+    ).toBe('정민우 남성 06.01.15');
   });
 
   it('omits note when contract says there is none', () => {
@@ -43,7 +44,24 @@ describe('formatConfirmationTravelerLine', () => {
         birthCode: '19990717',
         note: '없음',
       }),
-    ).toBe('박승원 남성 19990717');
+    ).toBe('박승원 남성 99.07.17');
+  });
+});
+
+describe('normalizeConfirmationBirthCodeDisplay', () => {
+  it('normalizes dotted yyyy and spaced dates to yy.mm.dd', () => {
+    expect(normalizeConfirmationBirthCodeDisplay('2003. 2. 4')).toBe('03.02.04');
+    expect(normalizeConfirmationBirthCodeDisplay('2003. 8. 7')).toBe('03.08.07');
+    expect(normalizeConfirmationBirthCodeDisplay('03.02.04')).toBe('03.02.04');
+  });
+
+  it('normalizes mixed seven-digit team birth codes', () => {
+    expect(normalizeConfirmationBirthCodeDisplay('2007101')).toBe('07.10.01');
+    expect(normalizeConfirmationBirthCodeDisplay('2007322')).toBe('07.03.22');
+    expect(normalizeConfirmationBirthCodeDisplay('2006511')).toBe('06.05.11');
+    expect(normalizeConfirmationBirthCodeDisplay('2007102')).toBe('07.10.02');
+    expect(normalizeConfirmationBirthCodeDisplay('2003121')).toBe('03.01.21');
+    expect(normalizeConfirmationBirthCodeDisplay('2006529')).toBe('06.05.29');
   });
 });
 
