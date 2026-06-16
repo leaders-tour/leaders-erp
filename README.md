@@ -33,6 +33,14 @@ pnpm --filter @tour/workers bootstrap:naver-auth
 pnpm --filter @tour/workers worker:cafe
 pnpm --filter @tour/workers worker:ai
 pnpm --filter @tour/workers worker:mail
+pnpm --filter @tour/workers worker:contract-sync-daemon
+```
+
+계약서·입금 시트 동기화는 `worker:contract-sync-daemon`으로 5분 주기(기본) 상시 실행한다. 수동 1회 실행은 아래 CLI를 사용한다.
+
+```bash
+pnpm --filter @tour/workers worker:contract-form-sync
+pnpm --filter @tour/workers worker:contract-payment-sync
 ```
 
 ## 네이버 로그인 bootstrap

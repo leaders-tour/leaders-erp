@@ -22,6 +22,8 @@ interface WorkerEnv {
   contractPaymentSheetId: string | null;
   contractPaymentSheetGid: string;
   contractPaymentSourceId: string | null;
+  contractSyncIntervalMs: number;
+  contractSyncStaleRunningMs: number;
 }
 
 let loaded = false;
@@ -161,6 +163,8 @@ export function getWorkerEnv(): WorkerEnv {
     contractPaymentSheetId: getOptionalNullable('CONTRACT_PAYMENT_SHEET_ID'),
     contractPaymentSheetGid: getOptional('CONTRACT_PAYMENT_SHEET_GID', '0'),
     contractPaymentSourceId: getOptionalNullable('CONTRACT_PAYMENT_SOURCE_ID'),
+    contractSyncIntervalMs: getNumber('CONTRACT_SYNC_INTERVAL_MS', 300_000),
+    contractSyncStaleRunningMs: getNumber('CONTRACT_SYNC_STALE_RUNNING_MS', 30 * 60 * 1000),
   };
 
   process.env.DATABASE_URL = cachedEnv.databaseUrl;

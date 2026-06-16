@@ -139,3 +139,35 @@
 3. staging 기준 1회 리허설
    - API 배포 -> `db:deploy` -> Web 배포 -> smoke test
 4. 리허설 결과 기반으로 production 컷오버 일정 확정
+
+## 12) Contract Sync Worker (CloudType)
+
+계약서·입금 Google Sheet sync는 API와 분리된 **long-running worker 앱**으로 운영한다.
+
+| 항목 | API app | Contract sync worker app |
+|------|---------|--------------------------|
+| 시작 명령 | `node apps/api/dist/apps/api/src/index.js` (경로는 빌드 산출 기준 확정) | `pnpm worker:contract-sync-daemon` |
+| 프로세스 | HTTP server | daemon (내부 sleep loop) |
+| replica | 필요 시 scale | **1개 고정** (중복 sync 방지) |
+| sync 순서 | - | 계약서 시트 → 입금 시트 (한 cycle 내 순차) |
+| 기본 주기 | - | 5분 (`CONTRACT_SYNC_INTERVAL_MS=300000`) |
+
+### Worker 필수 env
+
+- `DATABASE_URL`
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+- `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`
+- `CONTRACT_FORM_SHEET_ID` 또는 `CONTRACT_FORM_SOURCE_ID`
+- `CONTRACT_PAYMENT_SHEET_ID` 또는 `CONTRACT_PAYMENT_SOURCE_ID`
+
+### Worker 선택 env
+
+- `CONTRACT_SYNC_INTERVAL_MS` (default: `300000`)
+- `CONTRACT_SYNC_STALE_RUNNING_MS` (default: `1800000`, 30분 이상 RUNNING이면 FAILED 처리 후 재시도)
+- `CONTRACT_FORM_SHEET_GID`, `CONTRACT_PAYMENT_SHEET_GID` (default: `0`)
+
+### 운영 메모
+
+- worker 앱은 API Dockerfile과 분리한다. CloudType에서 **별도 서비스**로 생성한다.
+- sync 이력은 DB `ContractSyncRun`, `ContractPaymentSyncRun`에서 확인한다.
+- 긴급 1회 sync: `pnpm worker:contract-form-sync` / `pnpm worker:contract-payment-sync`
