@@ -4,6 +4,7 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ConfirmationPreviewPanel } from '../features/confirmation/components/ConfirmationPreviewPanel';
 import { useAuth } from '../features/auth/context';
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
 import { toSecurityDepositScope } from '../features/estimate/utils/format';
@@ -1070,9 +1071,10 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   };
 
   const pdfAttachments = (trip.user.attachments ?? []).filter((a) => a.type === 'pdf');
+  const publishedConfirmation = trip.latestPublishedConfirmationDocument ?? null;
   const isPlanTrip = !!(trip.planId && trip.planVersionId);
   const hasPdf = pdfAttachments.length > 0;
-  const showRightPanel = isPlanTrip || hasPdf;
+  const showRightPanel = !!publishedConfirmation || isPlanTrip || hasPdf;
 
   const openPlanTripEditChoice = () => {
     setSelectedSwitchVersionId(null);
@@ -1219,6 +1221,14 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           >
             목록으로
           </Button>
+          {trip.status === 'ACTIVE' ? (
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/confirmed-trips/${trip.id}/confirmation-builder`)}
+            >
+              {publishedConfirmation ? '확정서 수정' : '확정서 만들기'}
+            </Button>
+          ) : null}
           {trip.planId && trip.planVersionId ? (
             <Button
               variant="outline"
@@ -2009,8 +2019,12 @@ export function ConfirmedTripDetailPage(): JSX.Element {
 
         {showRightPanel && (
           <div className="sticky top-6 grid gap-4 self-start">
-            <h2 className="text-sm font-semibold text-slate-700">PDF 미리보기</h2>
-            {isPlanTrip ? (
+            <h2 className="text-sm font-semibold text-slate-700">
+              {publishedConfirmation ? '확정서 미리보기' : 'PDF 미리보기'}
+            </h2>
+            {publishedConfirmation ? (
+              <ConfirmationPreviewPanel snapshot={publishedConfirmation.snapshot} />
+            ) : isPlanTrip ? (
               <PlanPdfPreviewPanel planVersionId={trip.planVersionId!} />
             ) : hasPdf ? (
               <div className="grid gap-8">

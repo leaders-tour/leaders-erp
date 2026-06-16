@@ -34,6 +34,9 @@ import {
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { EstimatePreviewScaler } from '../features/estimate/components/EstimatePreviewScaler';
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
+import { ConfirmationDocument } from '../features/confirmation/components/ConfirmationDocument';
+import { useLatestPublishedConfirmationDocument } from '../features/confirmation/hooks/use-confirmation-document';
+import { snapshotToDocumentData } from '../features/confirmation/utils/format';
 import {
   useCreateUserNote,
   useReorderDealPipeline,
@@ -1058,6 +1061,7 @@ function UserDetailDrawer({
   const [isDrawerVisible, setIsDrawerVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<'contract' | 'note' | 'todo'>('contract');
   const [isEstimatePanelOpen, setIsEstimatePanelOpen] = useState(false);
+  const [isConfirmationPanelOpen, setIsConfirmationPanelOpen] = useState(false);
   const [isNoteComposerOpen, setIsNoteComposerOpen] = useState(false);
   const [noteContent, setNoteContent] = useState('');
   const [noteError, setNoteError] = useState<string | null>(null);
@@ -1067,6 +1071,19 @@ function UserDetailDrawer({
   const userId = activeUser?.id;
   const documentNumber = normalizeContractDocumentNumberForLookup(getUserContractDocumentNumber(activeUser));
   const currentPlanVersionId = getUserCurrentPlanVersionId(activeUser);
+  const activeConfirmedTrip = activeUser ? getActiveConfirmedTrip(activeUser) : null;
+  const canPreviewConfirmation = !!activeConfirmedTrip?.latestPublishedConfirmationDocument?.id;
+  const { document: publishedConfirmationDocument, loading: confirmationPreviewLoading } =
+    useLatestPublishedConfirmationDocument(
+      isConfirmationPanelOpen ? activeConfirmedTrip?.id : undefined,
+    );
+  const confirmationPreviewData = useMemo(
+    () =>
+      publishedConfirmationDocument
+        ? snapshotToDocumentData(publishedConfirmationDocument.snapshot)
+        : null,
+    [publishedConfirmationDocument],
+  );
 
   useEffect(() => {
     if (user) {
@@ -1111,6 +1128,7 @@ function UserDetailDrawer({
   useEffect(() => {
     setActiveTab('contract');
     setIsEstimatePanelOpen(false);
+    setIsConfirmationPanelOpen(false);
     setIsNoteComposerOpen(false);
     setNoteContent('');
     setNoteError(null);
@@ -1302,18 +1320,38 @@ function UserDetailDrawer({
                 </button>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={() => setIsEstimatePanelOpen((current) => !current)}
-              disabled={!currentPlanVersionId}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                isEstimatePanelOpen
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              {isEstimatePanelOpen ? '견적서 닫기' : '견적서 열기'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsConfirmationPanelOpen(false);
+                  setIsEstimatePanelOpen((current) => !current);
+                }}
+                disabled={!currentPlanVersionId}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  isEstimatePanelOpen
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {isEstimatePanelOpen ? '견적서 닫기' : '견적서 열기'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEstimatePanelOpen(false);
+                  setIsConfirmationPanelOpen((current) => !current);
+                }}
+                disabled={!canPreviewConfirmation}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  isConfirmationPanelOpen
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {isConfirmationPanelOpen ? '확정서 닫기' : '확정서 열기'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1793,6 +1831,70 @@ function UserDetailDrawer({
                       <EstimateDocument data={estimatePreviewData} viewMode="screen-preview" />
                     </EstimatePreviewScaler>
                   </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </aside>
+      </div>
+      <div
+        aria-hidden={!isConfirmationPanelOpen}
+        className={`${dealPipelineTokens.drawer.estimatePanelWrap} ${
+          isConfirmationPanelOpen
+            ? dealPipelineTokens.drawer.estimatePanelWrapOpen
+            : dealPipelineTokens.drawer.estimatePanelWrapClosed
+        }`}
+      >
+        <aside
+          className={`${dealPipelineTokens.drawer.estimatePanelShell} ${
+            isConfirmationPanelOpen
+              ? dealPipelineTokens.drawer.estimatePanelShellOpen
+              : dealPipelineTokens.drawer.estimatePanelShellClosed
+          }`}
+        >
+          <header className="border-b border-slate-200 bg-white px-6 py-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className={dealPipelineTokens.drawer.headingTopLabel}>확정서</p>
+                <h2 className={dealPipelineTokens.drawer.headingTitle}>확정서 미리보기</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                {activeConfirmedTrip?.id ? (
+                  <Link
+                    to={`/documents/confirmation?confirmedTripId=${encodeURIComponent(activeConfirmedTrip.id)}`}
+                    className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100"
+                  >
+                    크게 보기
+                  </Link>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmationPanelOpen(false)}
+                  className={dealPipelineTokens.drawer.closeButton}
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <div className={dealPipelineTokens.drawer.contentWrap}>
+            {!canPreviewConfirmation ? (
+              <Card className={dealPipelineTokens.drawer.simpleCard}>
+                <p className="text-sm text-slate-500">발행된 확정서가 없습니다.</p>
+              </Card>
+            ) : null}
+
+            {confirmationPreviewLoading ? (
+              <Card className={dealPipelineTokens.drawer.simpleCard}>
+                <p className="text-sm text-slate-500">확정서 미리보기를 불러오는 중입니다...</p>
+              </Card>
+            ) : null}
+
+            {!confirmationPreviewLoading && confirmationPreviewData ? (
+              <div className="rounded-3xl border border-slate-200 bg-slate-100/70 p-3">
+                <div className="max-h-[calc(100vh-8rem)] overflow-auto rounded-2xl bg-white">
+                  <ConfirmationDocument data={confirmationPreviewData} viewMode="screen-preview" />
                 </div>
               </div>
             ) : null}

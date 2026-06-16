@@ -3,6 +3,8 @@ import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { useAuth } from '../features/auth/context';
 import { RedirectAuthenticated, RequireAdmin, RequireAuth, RequireStaffOrAbove } from './auth-guards';
 import { AppLayout } from '../components/layout/AppLayout';
+import { ConfirmationPrintPage } from '../pages/ConfirmationPrintPage';
+import { ConfirmationBuilderPage } from '../pages/ConfirmationBuilderPage';
 import { ConfirmedTripsPage } from '../pages/ConfirmedTripsPage';
 import { ConfirmedTripDetailPage } from '../pages/ConfirmedTripDetailPage';
 import { ConfirmedTripAssignPage } from '../pages/ConfirmedTripAssignPage';
@@ -69,6 +71,10 @@ function HomeRedirect(): JSX.Element {
 
 export const router = createBrowserRouter([
   {
+    path: '/documents/confirmation',
+    element: <ConfirmationPrintPage />,
+  },
+  {
     path: '/documents/estimate/render',
     element: <EstimatePdfRenderPage />,
   },
@@ -92,6 +98,7 @@ export const router = createBrowserRouter([
       // ── OPS_STAFF 포함 전체 접근 가능 (운영 4개 영역) ───────────────────────
       { path: 'confirmed-trips', element: <ConfirmedTripsPage /> },
       { path: 'confirmed-trips/:tripId', element: <ConfirmedTripDetailPage /> },
+      { path: 'confirmed-trips/:tripId/confirmation-builder', element: <ConfirmationBuilderPage /> },
       { path: 'confirmed-trips/:tripId/assign', element: <ConfirmedTripAssignPage /> },
       { path: 'guides', element: <GuidesPage /> },
       { path: 'guides/:guideId', element: <GuideDetailPage /> },

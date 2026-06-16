@@ -3,6 +3,7 @@ import type { AppContext } from '../../context';
 import type { UploadFile } from '../../lib/file-storage/client';
 import { calculateAverageMovementIntensity } from '../../lib/movement-intensity';
 import { PlanService } from './plan.service';
+import { ConfirmationDocumentService } from '../confirmation-document/confirmation-document.service';
 import type {
   DealPipelineReorderDto,
   PlanCreateDto,
@@ -174,6 +175,10 @@ export const planResolver = {
     plans: (parent: { plans?: unknown[] }) => (Array.isArray(parent.plans) ? parent.plans : []),
     confirmedTrips: (parent: { confirmedTrips?: unknown[] }) =>
       Array.isArray(parent.confirmedTrips) ? parent.confirmedTrips : [],
+  },
+  UserConfirmedTripSummary: {
+    latestPublishedConfirmationDocument: (parent: { id: string }, _args: unknown, ctx: AppContext) =>
+      new ConfirmationDocumentService(ctx.prisma).getLatestPublished(parent.id),
   },
   PlanVersionMeta: {
     externalTransfers: (parent: { externalTransfers?: unknown }) =>

@@ -1,0 +1,97 @@
+enum ConfirmationDocumentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+type ConfirmationTraveler {
+  name: String!
+  gender: String
+  birthCode: String
+  note: String
+}
+
+type ConfirmationDocumentSnapshot {
+  leaderName: String!
+  documentNumber: String
+  destination: String!
+  headcountText: String!
+  travelPeriodText: String!
+  vehicleType: String!
+  flightInText: String!
+  flightOutText: String!
+  pickupText: String!
+  dropText: String!
+  externalPickupDropText: String!
+  specialNote: String!
+  rentalItemsText: String!
+  eventNames: String!
+  remark: String!
+  balancePerPersonText: String!
+  guideName: String!
+  meetingPlace: String!
+  travelers: [ConfirmationTraveler!]!
+  accommodationLines: [String!]!
+}
+
+input ConfirmationTravelerInput {
+  name: String!
+  gender: String
+  birthCode: String
+  note: String
+}
+
+input ConfirmationDocumentSnapshotInput {
+  leaderName: String!
+  documentNumber: String
+  destination: String!
+  headcountText: String!
+  travelPeriodText: String!
+  vehicleType: String!
+  flightInText: String!
+  flightOutText: String!
+  pickupText: String!
+  dropText: String!
+  externalPickupDropText: String
+  specialNote: String
+  rentalItemsText: String
+  eventNames: String
+  remark: String
+  balancePerPersonText: String!
+  guideName: String
+  meetingPlace: String!
+  travelers: [ConfirmationTravelerInput!]!
+  accommodationLines: [String!]!
+}
+
+type ConfirmationDocument {
+  id: ID!
+  confirmedTripId: ID!
+  planVersionId: ID
+  documentNumber: String
+  versionNumber: Int!
+  status: ConfirmationDocumentStatus!
+  snapshot: ConfirmationDocumentSnapshot!
+  publishedAt: DateTime
+  publishedByEmployeeId: ID
+  createdByEmployeeId: ID
+  updatedByEmployeeId: ID
+  publishedByEmployee: Employee
+  createdByEmployee: Employee
+  updatedByEmployee: Employee
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ConfirmationDraftDefaults {
+  confirmedTripId: ID!
+  planVersionId: ID
+  documentNumber: String
+  snapshot: ConfirmationDocumentSnapshot!
+}
+
+input SaveConfirmationDocumentInput {
+  confirmedTripId: ID!
+  snapshot: ConfirmationDocumentSnapshotInput!
+  publish: Boolean
+}

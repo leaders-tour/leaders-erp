@@ -55,6 +55,10 @@ type Query {
   """해당 확정 건에 연결된 캘린더 일정 전체 (월 구분 없음)."""
   confirmedTripCalendarNotes(confirmedTripId: ID!): [CalendarNote!]!
   confirmedTripNotes(confirmedTripId: ID!): [ConfirmedTripNote!]!
+  confirmationDocument(id: ID!): ConfirmationDocument!
+  latestConfirmationDocument(confirmedTripId: ID!): ConfirmationDocument
+  latestPublishedConfirmationDocument(confirmedTripId: ID!): ConfirmationDocument
+  confirmationDraftDefaults(confirmedTripId: ID!): ConfirmationDraftDefaults!
   guides(status: GuideStatus, level: GuideLevel): [Guide!]!
   guide(id: ID!): Guide
   drivers(status: DriverStatus, level: DriverLevel, vehicleType: VehicleType): [Driver!]!
@@ -178,6 +182,8 @@ type Mutation {
   upsertConfirmedTripLodging(input: ConfirmedTripLodgingUpsertInput!): ConfirmedTripLodging!
   deleteConfirmedTripLodging(id: ID!): Boolean!
   seedConfirmedTripLodgingsFromPlan(confirmedTripId: ID!): [ConfirmedTripLodging!]!
+
+  saveConfirmationDocument(input: SaveConfirmationDocumentInput!): ConfirmationDocument!
 
   createGuide(input: GuideCreateInput!): Guide!
   updateGuide(id: ID!, input: GuideUpdateInput!): Guide!

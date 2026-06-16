@@ -2,6 +2,7 @@ import { gql, useMutation, useQuery } from '@apollo/client';
 
 import type { ExternalTransfer, ExternalTransferTeamLike } from '../plan/external-transfer';
 import type { PlanVersionPricingRow } from '../plan/hooks';
+import type { ConfirmationDocumentSnapshot } from '../confirmation/model/types';
 import { PLAN_VERSION_PRICING_EFFECTIVE_FIELDS_FRAGMENT } from '../plan/plan-version-pricing-fragment';
 
 // ── CalendarNote ──────────────────────────────────────────────────────────────
@@ -490,6 +491,13 @@ export interface ConfirmedTripRow {
       }>;
     } | null;
   }>;
+  latestPublishedConfirmationDocument?: {
+    id: string;
+    versionNumber: number;
+    status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+    publishedAt: string | null;
+    snapshot: ConfirmationDocumentSnapshot;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -688,6 +696,39 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
           id
           imageUrls
         }
+      }
+    }
+    latestPublishedConfirmationDocument {
+      id
+      versionNumber
+      status
+      publishedAt
+      snapshot {
+        leaderName
+        documentNumber
+        destination
+        headcountText
+        travelPeriodText
+        vehicleType
+        flightInText
+        flightOutText
+        pickupText
+        dropText
+        externalPickupDropText
+        specialNote
+        rentalItemsText
+        eventNames
+        remark
+        balancePerPersonText
+        guideName
+        meetingPlace
+        travelers {
+          name
+          gender
+          birthCode
+          note
+        }
+        accommodationLines
       }
     }
     createdAt

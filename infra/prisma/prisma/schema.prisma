@@ -302,8 +302,11 @@ model Employee {
   ownedUsers             User[]                 @relation("UserOwnerEmployee")
   refreshTokens          EmployeeRefreshToken[]
   reviewedOutreachDrafts OutreachDraft[]
-  confirmedTrips         ConfirmedTrip[]        @relation("ConfirmedTripEmployee")
-  confirmedTripNotes     ConfirmedTripNote[]    @relation("ConfirmedTripNoteAuthor")
+  confirmedTrips                   ConfirmedTrip[]        @relation("ConfirmedTripEmployee")
+  confirmedTripNotes             ConfirmedTripNote[]    @relation("ConfirmedTripNoteAuthor")
+  publishedConfirmationDocuments ConfirmationDocument[] @relation("ConfirmationDocumentPublisher")
+  createdConfirmationDocuments   ConfirmationDocument[] @relation("ConfirmationDocumentCreator")
+  updatedConfirmationDocuments   ConfirmationDocument[] @relation("ConfirmationDocumentUpdater")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -936,7 +939,8 @@ model PlanVersion {
   planStops         PlanStop[]
   planVersionEvents PlanVersionEvent[]
   overrides         Override[]
-  confirmedTrips    ConfirmedTrip[]
+  confirmedTrips          ConfirmedTrip[]
+  confirmationDocuments   ConfirmationDocument[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1007,12 +1011,46 @@ model ConfirmedTrip {
   postTripTaskSelections   ConfirmedTripPostTripTaskSelection[]
   calendarNotes            CalendarNote[]
   notes                    ConfirmedTripNote[]
+  confirmationDocuments    ConfirmationDocument[]
 
   @@index([userId])
   @@index([planId])
   @@index([planVersionId])
   @@index([status, confirmedAt])
   @@index([travelStart])
+}
+
+enum ConfirmationDocumentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model ConfirmationDocument {
+  id                    String                       @id @default(uuid(7))
+  confirmedTripId       String
+  planVersionId         String?
+  documentNumber        String?
+  versionNumber         Int
+  status                ConfirmationDocumentStatus   @default(DRAFT)
+  snapshot              Json
+  publishedAt           DateTime?
+  publishedByEmployeeId String?
+  createdByEmployeeId   String?
+  updatedByEmployeeId   String?
+
+  confirmedTrip       ConfirmedTrip @relation(fields: [confirmedTripId], references: [id], onDelete: Cascade)
+  planVersion         PlanVersion?  @relation(fields: [planVersionId], references: [id], onDelete: SetNull)
+  publishedByEmployee Employee?     @relation("ConfirmationDocumentPublisher", fields: [publishedByEmployeeId], references: [id], onDelete: SetNull)
+  createdByEmployee   Employee?     @relation("ConfirmationDocumentCreator", fields: [createdByEmployeeId], references: [id], onDelete: SetNull)
+  updatedByEmployee   Employee?     @relation("ConfirmationDocumentUpdater", fields: [updatedByEmployeeId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([confirmedTripId, versionNumber])
+  @@index([confirmedTripId, status])
+  @@index([confirmedTripId, publishedAt])
 }
 
 model ConfirmedTripNote {

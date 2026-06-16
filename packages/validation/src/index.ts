@@ -27,6 +27,8 @@ export * from './time-block.schema';
 export * from './user.schema';
 export * from './confirmed-trip.schema';
 export * from './confirmed-trip-lodging.schema';
+export * from './confirmation-document.schema';
+export * from './contract-traveler-profile';
 export * from './guide.schema';
 export * from './driver.schema';
 export * from './accommodation.schema';

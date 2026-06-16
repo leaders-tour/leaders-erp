@@ -22,6 +22,7 @@ import { segmentResolver } from '../modules/segment/segment.resolver';
 import { specialMealDestinationRulesResolver } from '../modules/special-meal-destination-rules/special-meal-destination-rules.resolver';
 import { timeBlockResolver } from '../modules/time-block/time-block.resolver';
 import { confirmedTripResolver } from '../modules/confirmed-trip/confirmed-trip.resolver';
+import { confirmationDocumentResolver } from '../modules/confirmation-document/confirmation-document.resolver';
 import { guideResolver } from '../modules/guide/guide.resolver';
 import { driverResolver } from '../modules/driver/driver.resolver';
 import { accommodationResolver } from '../modules/accommodation/accommodation.resolver';
@@ -115,6 +116,7 @@ export const resolvers = {
       outreachResolver.Query,
       specialMealDestinationRulesResolver.Query,
       confirmedTripResolver.Query,
+      confirmationDocumentResolver.Query,
       guideResolver.Query,
       driverResolver.Query,
       accommodationResolver.Query,
@@ -149,6 +151,7 @@ export const resolvers = {
       outreachResolver.Mutation,
       specialMealDestinationRulesResolver.Mutation,
       confirmedTripResolver.Mutation,
+      confirmationDocumentResolver.Mutation,
       guideResolver.Mutation,
       driverResolver.Mutation,
       accommodationResolver.Mutation,
@@ -184,7 +187,8 @@ export const resolvers = {
   Driver: driverResolver.Driver,
   Accommodation: accommodationResolver.Accommodation,
   AccommodationOption: accommodationResolver.AccommodationOption,
-  ConfirmedTrip: confirmedTripResolver.ConfirmedTrip,
+  ConfirmedTrip: mergeSection(confirmedTripResolver.ConfirmedTrip, confirmationDocumentResolver.ConfirmedTrip),
+  UserConfirmedTripSummary: planResolver.UserConfirmedTripSummary,
   ConfirmedTripLodging: confirmedTripResolver.ConfirmedTripLodging,
   CalendarNote: confirmedTripResolver.CalendarNote,
   ContractDocumentStatus: contractResolver.ContractDocumentStatus,

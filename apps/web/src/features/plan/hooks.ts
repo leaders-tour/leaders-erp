@@ -39,11 +39,18 @@ export interface UserConfirmedTripLodgingSummaryRow {
 export interface UserConfirmedTripSummaryRow {
   id: string;
   status: ConfirmedTripStatusValue;
+  planVersionId?: string | null;
   travelStart: string | null;
   travelEnd: string | null;
   destination: string | null;
   pickupDate: string | null;
   dropDate: string | null;
+  latestPublishedConfirmationDocument?: {
+    id: string;
+    versionNumber: number;
+    status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+    publishedAt: string | null;
+  } | null;
   guideAssignments: Array<{
     id: string;
     nameSnapshot: string | null;
@@ -559,11 +566,18 @@ const USERS_QUERY = gql`
       confirmedTrips {
         id
         status
+        planVersionId
         travelStart
         travelEnd
         destination
         pickupDate
         dropDate
+        latestPublishedConfirmationDocument {
+          id
+          versionNumber
+          status
+          publishedAt
+        }
         guideAssignments {
           id
           nameSnapshot

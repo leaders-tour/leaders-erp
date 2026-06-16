@@ -29,9 +29,17 @@ type UserConfirmedTripLodgingSummary {
   checkOutDate: DateTime!
 }
 
+type UserConfirmedTripConfirmationDocumentSummary {
+  id: ID!
+  versionNumber: Int!
+  status: ConfirmationDocumentStatus!
+  publishedAt: DateTime
+}
+
 type UserConfirmedTripSummary {
   id: ID!
   status: ConfirmedTripStatus!
+  planVersionId: ID
   travelStart: DateTime
   travelEnd: DateTime
   destination: String
@@ -40,6 +48,7 @@ type UserConfirmedTripSummary {
   guideAssignments: [UserConfirmedTripGuideAssignmentSummary!]!
   driverAssignments: [UserConfirmedTripDriverAssignmentSummary!]!
   lodgings: [UserConfirmedTripLodgingSummary!]!
+  latestPublishedConfirmationDocument: UserConfirmedTripConfirmationDocumentSummary
 }
 
 type User {

@@ -1,0 +1,178 @@
+import type { PrismaClient } from '@prisma/client';
+import {
+  confirmationDocumentSnapshotSchema,
+  saveConfirmationDocumentSchema,
+  type ConfirmationDocumentSnapshotInput,
+  type SaveConfirmationDocumentInput,
+} from '@tour/validation';
+import type { CurrentEmployee } from '../../context';
+import { DomainError, createValidationError } from '../../lib/errors';
+import { ContractSyncService } from '../contract/contract-sync.service';
+import { confirmedTripInclude } from '../confirmed-trip/confirmed-trip.repository';
+import { buildConfirmationDraftDefaults } from './confirmation-document.defaults';
+import { ConfirmationDocumentRepository } from './confirmation-document.repository';
+
+export class ConfirmationDocumentService {
+  private readonly repository: ConfirmationDocumentRepository;
+
+  constructor(private readonly prisma: PrismaClient) {
+    this.repository = new ConfirmationDocumentRepository(prisma);
+  }
+
+  async getById(id: string) {
+    const document = await this.repository.findById(id);
+    if (!document) {
+      throw new DomainError('NOT_FOUND', 'Confirmation document not found');
+    }
+    return this.toGraphql(document);
+  }
+
+  async getLatestPublished(confirmedTripId: string) {
+    const document = await this.repository.findLatestPublishedByConfirmedTripId(confirmedTripId);
+    return document ? this.toGraphql(document) : null;
+  }
+
+  async getLatest(confirmedTripId: string) {
+    const document = await this.repository.findLatestByConfirmedTripId(confirmedTripId);
+    return document ? this.toGraphql(document) : null;
+  }
+
+  async getDraftDefaults(confirmedTripId: string) {
+    const trip = await this.loadConfirmedTrip(confirmedTripId);
+    const documentNumber = trip.planVersion?.meta?.documentNumber ?? null;
+    const contractSubmissions = documentNumber
+      ? await new ContractSyncService(this.prisma).listSubmissions(documentNumber)
+      : [];
+    const snapshot = buildConfirmationDraftDefaults({
+      confirmedTrip: {
+        assignedVehicle: trip.assignedVehicle,
+        destination: trip.destination,
+        balanceAmountKrw: trip.balanceAmountKrw,
+        guideAssignments: trip.guideAssignments,
+        lodgings: trip.lodgings,
+        planVersion: trip.planVersion
+          ? {
+              id: trip.planVersion.id,
+              totalDays: trip.planVersion.totalDays,
+              regionSet: trip.planVersion.regionSet,
+              meta: trip.planVersion.meta,
+              pricing: trip.planVersion.pricing,
+              planVersionEvents: await this.prisma.planVersionEvent.findMany({
+                where: { planVersionId: trip.planVersion.id },
+                include: { event: true },
+                orderBy: { createdAt: 'asc' },
+              }),
+            }
+          : null,
+      },
+      contractSubmissions,
+    });
+
+    return {
+      confirmedTripId,
+      planVersionId: trip.planVersionId,
+      documentNumber,
+      snapshot,
+    };
+  }
+
+  async save(input: SaveConfirmationDocumentInput, employee: CurrentEmployee) {
+    const parsed = saveConfirmationDocumentSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid confirmation document input', parsed.error);
+    }
+
+    const snapshotParsed = confirmationDocumentSnapshotSchema.safeParse(parsed.data.snapshot);
+    if (!snapshotParsed.success) {
+      throw createValidationError('Invalid confirmation document snapshot', snapshotParsed.error);
+    }
+
+    const trip = await this.loadConfirmedTrip(parsed.data.confirmedTripId);
+    if (trip.status !== 'ACTIVE') {
+      throw new DomainError('VALIDATION_FAILED', 'ACTIVE 확정 여행만 확정서를 저장할 수 있습니다.');
+    }
+
+    const snapshot = snapshotParsed.data;
+    const publish = parsed.data.publish === true;
+    const existingDraft = publish ? null : await this.repository.findLatestDraftByConfirmedTripId(trip.id);
+
+    if (existingDraft && !publish) {
+      const updated = await this.repository.update(existingDraft.id, {
+        snapshot,
+        documentNumber: snapshot.documentNumber ?? null,
+        ...(trip.planVersionId
+          ? { planVersion: { connect: { id: trip.planVersionId } } }
+          : { planVersion: { disconnect: true } }),
+        updatedByEmployee: { connect: { id: employee.id } },
+      });
+      return this.toGraphql(updated);
+    }
+
+    const versionNumber = await this.repository.getNextVersionNumber(trip.id);
+    const created = await this.repository.create({
+      confirmedTrip: { connect: { id: trip.id } },
+      ...(trip.planVersionId ? { planVersion: { connect: { id: trip.planVersionId } } } : {}),
+      documentNumber: snapshot.documentNumber ?? null,
+      versionNumber,
+      status: publish ? 'PUBLISHED' : 'DRAFT',
+      snapshot,
+      publishedAt: publish ? new Date() : null,
+      ...(publish ? { publishedByEmployee: { connect: { id: employee.id } } } : {}),
+      createdByEmployee: { connect: { id: employee.id } },
+      updatedByEmployee: { connect: { id: employee.id } },
+    });
+
+    if (publish) {
+      await this.repository.archivePublished(trip.id, created.id);
+    }
+
+    return this.toGraphql(created);
+  }
+
+  private async loadConfirmedTrip(confirmedTripId: string) {
+    const trip = await this.prisma.confirmedTrip.findUnique({
+      where: { id: confirmedTripId },
+      include: {
+        ...confirmedTripInclude,
+        planVersion: {
+          include: {
+            meta: { include: { transportGroups: { orderBy: { orderIndex: 'asc' } } } },
+            pricing: true,
+            regionSet: true,
+          },
+        },
+      },
+    });
+    if (!trip) {
+      throw new DomainError('NOT_FOUND', 'Confirmed trip not found');
+    }
+    return trip;
+  }
+
+  private toGraphql(document: {
+    id: string;
+    confirmedTripId: string;
+    planVersionId: string | null;
+    documentNumber: string | null;
+    versionNumber: number;
+    status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+    snapshot: unknown;
+    publishedAt: Date | null;
+    publishedByEmployeeId: string | null;
+    createdByEmployeeId: string | null;
+    updatedByEmployeeId: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    publishedByEmployee: { id: string; name: string } | null;
+    createdByEmployee: { id: string; name: string } | null;
+    updatedByEmployee: { id: string; name: string } | null;
+  }) {
+    const snapshot = confirmationDocumentSnapshotSchema.parse(document.snapshot);
+    return {
+      ...document,
+      snapshot,
+    };
+  }
+}
+
+export type { ConfirmationDocumentSnapshotInput };

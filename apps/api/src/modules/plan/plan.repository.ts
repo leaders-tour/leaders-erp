@@ -222,6 +222,7 @@ export class PlanRepository {
           select: {
             id: true,
             status: true,
+            planVersionId: true,
             travelStart: true,
             travelEnd: true,
             destination: true,
