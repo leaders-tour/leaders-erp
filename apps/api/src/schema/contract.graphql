@@ -171,6 +171,9 @@ type ContractSubmission {
   representativeType: String
   totalCompanionCount: Int
   receivedStatus: String
+  travelerGender: String
+  travelerBirthCode: String
+  travelerNote: String
   excludedFromContractCount: Boolean!
   excludedAt: DateTime
   exclusionReason: String

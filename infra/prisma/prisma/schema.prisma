@@ -1103,6 +1103,9 @@ model ContractSubmission {
   representativeType  String?
   totalCompanionCount Int?
   receivedStatus      String?
+  travelerGender      String?
+  travelerBirthCode   String?
+  travelerNote        String?   @db.Text
   rowDigest           String
   rawJson             Json
   excludedFromContractCount Boolean @default(false)

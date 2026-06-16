@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatConfirmationTravelerLine, parseContractTravelerProfile } from './contract-traveler-profile';
+import {
+  contractTravelerProfileFieldsFromRawJson,
+  contractTravelerProfileFromSubmission,
+  formatConfirmationTravelerLine,
+  parseContractTravelerProfile,
+  shouldUpdateContractSubmissionTravelerProfile,
+} from './contract-traveler-profile';
 
 describe('parseContractTravelerProfile', () => {
   it('parses gender and birth code from rawJson headers', () => {
@@ -27,5 +33,48 @@ describe('formatConfirmationTravelerLine', () => {
         birthCode: '0601153',
       }),
     ).toBe('정민우 남성 0601153');
+  });
+});
+
+describe('contractTravelerProfileFromSubmission', () => {
+  it('prefers stored columns over rawJson', () => {
+    expect(
+      contractTravelerProfileFromSubmission({
+        travelerGender: '여성',
+        travelerBirthCode: '9901012',
+        rawJson: { 성별: '남성', '생년월일(7자리)': '0601153' },
+      }),
+    ).toEqual({
+      gender: '여성',
+      birthCode: '9901012',
+      note: null,
+    });
+  });
+
+  it('falls back to rawJson when stored columns are empty', () => {
+    expect(
+      contractTravelerProfileFromSubmission({
+        rawJson: { 성별: '남성', '생년월일(7자리)': '0601153', 특이사항: '비건' },
+      }),
+    ).toEqual({
+      gender: '남성',
+      birthCode: '0601153',
+      note: '비건',
+    });
+  });
+});
+
+describe('shouldUpdateContractSubmissionTravelerProfile', () => {
+  it('returns true when parsed profile differs from current columns', () => {
+    const parsed = contractTravelerProfileFieldsFromRawJson({
+      성별: '남성',
+      '생년월일(7자리)': '0601153',
+    });
+    expect(
+      shouldUpdateContractSubmissionTravelerProfile(
+        { travelerGender: null, travelerBirthCode: null, travelerNote: null },
+        parsed,
+      ),
+    ).toBe(true);
   });
 });

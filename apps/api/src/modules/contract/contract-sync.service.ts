@@ -20,6 +20,9 @@ import {
   createManualContractPaymentReceiptInputSchema,
   updateManualContractPaymentReceiptInputSchema,
   deleteManualContractPaymentReceiptInputSchema,
+  contractTravelerProfileFieldsFromRawJson,
+  rawJsonAsStringRecord,
+  shouldUpdateContractSubmissionTravelerProfile,
 } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
 import {
@@ -71,6 +74,9 @@ interface ParsedSheetRow {
   representativeType: string | null;
   totalCompanionCount: number | null;
   receivedStatus: string | null;
+  travelerGender: string | null;
+  travelerBirthCode: string | null;
+  travelerNote: string | null;
   rowDigest: string;
   rawJson: Record<string, string>;
 }
@@ -368,6 +374,7 @@ function parseSheetRows(values: string[][], headerRow: number): ParsedSheetRow[]
     const rawJson = rawJsonFromRow(headers, row);
     const documentNumberRaw = cell(row[documentIndex]);
     const travelerName = normalizeContractPersonName(cell(row[travelerIndex]));
+    const travelerProfile = contractTravelerProfileFieldsFromRawJson(rawJson);
     return [{
       rowNumber,
       sourceRecordKey: `row:${rowNumber}`,
@@ -381,6 +388,9 @@ function parseSheetRows(values: string[][], headerRow: number): ParsedSheetRow[]
       representativeType: representativeIndex == null ? null : cell(row[representativeIndex]),
       totalCompanionCount: totalCompanionIndex == null ? null : parseOptionalInteger(cell(row[totalCompanionIndex])),
       receivedStatus: receivedStatusIndex == null ? null : cell(row[receivedStatusIndex]),
+      travelerGender: travelerProfile.travelerGender,
+      travelerBirthCode: travelerProfile.travelerBirthCode,
+      travelerNote: travelerProfile.travelerNote,
       rowDigest: digestRow(rawJson),
       rawJson,
     }];
@@ -663,6 +673,39 @@ export class ContractSyncService {
     });
   }
 
+  async backfillContractSubmissionTravelerProfiles(options?: { sourceId?: string }) {
+    const rows = await this.prisma.contractSubmission.findMany({
+      where: options?.sourceId ? { sourceId: options.sourceId } : undefined,
+      select: {
+        id: true,
+        travelerGender: true,
+        travelerBirthCode: true,
+        travelerNote: true,
+        rawJson: true,
+      },
+    });
+
+    let updated = 0;
+    for (const row of rows) {
+      const parsed = contractTravelerProfileFieldsFromRawJson(rawJsonAsStringRecord(row.rawJson));
+      const current = {
+        travelerGender: row.travelerGender,
+        travelerBirthCode: row.travelerBirthCode,
+        travelerNote: row.travelerNote,
+      };
+      if (!shouldUpdateContractSubmissionTravelerProfile(current, parsed)) {
+        continue;
+      }
+      await this.prisma.contractSubmission.update({
+        where: { id: row.id },
+        data: parsed,
+      });
+      updated += 1;
+    }
+
+    return { scanned: rows.length, updated };
+  }
+
   listSyncRuns(sourceId: string | undefined, limit: number) {
     return this.prisma.contractSyncRun.findMany({
       where: sourceId ? { sourceId } : undefined,
@@ -760,6 +803,9 @@ export class ContractSyncService {
           representativeType: row.representativeType,
           totalCompanionCount: row.totalCompanionCount,
           receivedStatus: row.receivedStatus,
+          travelerGender: row.travelerGender,
+          travelerBirthCode: row.travelerBirthCode,
+          travelerNote: row.travelerNote,
           rowDigest: row.rowDigest,
           rawJson: row.rawJson,
         },
@@ -775,6 +821,9 @@ export class ContractSyncService {
           representativeType: row.representativeType,
           totalCompanionCount: row.totalCompanionCount,
           receivedStatus: row.receivedStatus,
+          travelerGender: row.travelerGender,
+          travelerBirthCode: row.travelerBirthCode,
+          travelerNote: row.travelerNote,
           rowDigest: row.rowDigest,
           rawJson: row.rawJson,
         },
@@ -787,6 +836,8 @@ export class ContractSyncService {
     if (affectedDocumentNumberList.length > 0) {
       await new ContractPaymentSyncService(this.prisma).recomputePaymentStatuses(affectedDocumentNumberList);
     }
+
+    await this.backfillContractSubmissionTravelerProfiles({ sourceId });
 
     return {
       fetchedRows: rows.length,

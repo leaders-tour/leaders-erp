@@ -1,7 +1,7 @@
 import type { PlaceType } from '@prisma/client';
 import {
   formatConfirmationTravelerLine,
-  parseContractTravelerProfile,
+  contractTravelerProfileFromSubmission,
   type ConfirmationDocumentSnapshotInput,
 } from '@tour/validation';
 
@@ -288,6 +288,9 @@ export function buildConfirmationDraftDefaults(input: {
   };
   contractSubmissions: Array<{
     travelerName: string | null;
+    travelerGender?: string | null;
+    travelerBirthCode?: string | null;
+    travelerNote?: string | null;
     rawJson: unknown;
     excludedFromContractCount: boolean;
   }>;
@@ -310,9 +313,7 @@ export function buildConfirmationDraftDefaults(input: {
       if (!name) {
         return [];
       }
-      const profile = parseContractTravelerProfile(
-        (submission.rawJson ?? {}) as Record<string, string>,
-      );
+      const profile = contractTravelerProfileFromSubmission(submission);
       return [{
         name,
         gender: profile.gender,

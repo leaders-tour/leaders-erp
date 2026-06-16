@@ -77,6 +77,65 @@ export function parseContractTravelerProfile(rawJson: Record<string, string>): C
   };
 }
 
+export function rawJsonAsStringRecord(rawJson: unknown): Record<string, string> {
+  if (!rawJson || typeof rawJson !== 'object' || Array.isArray(rawJson)) {
+    return {};
+  }
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(rawJson)) {
+    if (typeof value === 'string') {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+export interface ContractSubmissionTravelerProfileFields {
+  travelerGender: string | null;
+  travelerBirthCode: string | null;
+  travelerNote: string | null;
+}
+
+export function contractTravelerProfileFieldsFromRawJson(
+  rawJson: Record<string, string>,
+): ContractSubmissionTravelerProfileFields {
+  const profile = parseContractTravelerProfile(rawJson);
+  return {
+    travelerGender: profile.gender,
+    travelerBirthCode: profile.birthCode,
+    travelerNote: profile.note,
+  };
+}
+
+export function contractTravelerProfileFromSubmission(input: {
+  travelerGender?: string | null;
+  travelerBirthCode?: string | null;
+  travelerNote?: string | null;
+  rawJson?: unknown;
+}): ContractTravelerProfile {
+  const gender = input.travelerGender?.trim() || null;
+  const birthCode = input.travelerBirthCode?.trim() || null;
+  const note = input.travelerNote?.trim() || null;
+  if (gender || birthCode || note) {
+    return { gender, birthCode, note };
+  }
+  return parseContractTravelerProfile(rawJsonAsStringRecord(input.rawJson));
+}
+
+export function shouldUpdateContractSubmissionTravelerProfile(
+  current: ContractSubmissionTravelerProfileFields,
+  parsed: ContractSubmissionTravelerProfileFields,
+): boolean {
+  if (!parsed.travelerGender && !parsed.travelerBirthCode && !parsed.travelerNote) {
+    return false;
+  }
+  return (
+    parsed.travelerGender !== current.travelerGender
+    || parsed.travelerBirthCode !== current.travelerBirthCode
+    || parsed.travelerNote !== current.travelerNote
+  );
+}
+
 export function formatConfirmationTravelerLine(input: {
   name: string;
   gender?: string | null;
