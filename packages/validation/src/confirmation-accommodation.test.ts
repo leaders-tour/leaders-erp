@@ -3,6 +3,7 @@ import {
   formatConfirmationAccommodationLine,
   normalizeConfirmationAccommodationLine,
   resolveConfirmationAccommodationName,
+  splitConfirmationAccommodationDisplay,
 } from './confirmation-accommodation';
 
 describe('resolveConfirmationAccommodationName', () => {
@@ -26,6 +27,15 @@ describe('normalizeConfirmationAccommodationLine', () => {
         'khangai Resort - 창문 있는 게르×1, 창문 있는 게르×1 3인실 1개',
       ),
     ).toBe('khangai Resort 3인실 1개');
+  });
+});
+
+describe('splitConfirmationAccommodationDisplay', () => {
+  it('splits name and room spec for stacked display', () => {
+    expect(splitConfirmationAccommodationDisplay('CHIN CHANDMANI GER CAMP 4인실 1개')).toEqual({
+      name: 'CHIN CHANDMANI GER CAMP',
+      spec: '4인실 1개',
+    });
   });
 });
 

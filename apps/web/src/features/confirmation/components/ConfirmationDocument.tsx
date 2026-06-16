@@ -6,8 +6,10 @@ import {
   CONFIRMATION_TAGLINE,
   CONFIRMATION_TITLE,
 } from '../model/constants';
+import type { ConfirmationTraveler } from '../model/types';
 import type { ConfirmationDocumentData } from '../utils/format';
 import { fallbackText } from '../utils/format';
+import { confirmationTravelerDisplayParts, splitConfirmationAccommodationDisplay } from '@tour/validation';
 
 interface ConfirmationDocumentProps {
   data: ConfirmationDocumentData;
@@ -96,12 +98,61 @@ function ConfirmationPage1LogoMark(): JSX.Element {
   );
 }
 
+function ConfirmationTravelerList({ travelers }: { travelers: ConfirmationTraveler[] }): JSX.Element {
+  const entries = travelers
+    .map((traveler) => confirmationTravelerDisplayParts(traveler))
+    .filter((entry) => entry.core.length > 0);
+
+  if (entries.length === 0) {
+    return <span className="confirmation-page1-detail-empty">-</span>;
+  }
+
+  return (
+    <ul className="confirmation-page1-detail-list">
+      {entries.map((entry, index) => (
+        <li key={`traveler-${index}`} className="confirmation-page1-detail-entry">
+          <span className="confirmation-page1-traveler-core">{entry.core}</span>
+          {entry.note ? <span className="confirmation-page1-traveler-note">{entry.note}</span> : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ConfirmationAccommodationList({ lines }: { lines: string[] }): JSX.Element {
+  const entries = lines
+    .map((line) => splitConfirmationAccommodationDisplay(line))
+    .filter((entry) => entry.name.length > 0);
+
+  if (entries.length === 0) {
+    return <span className="confirmation-page1-detail-empty">-</span>;
+  }
+
+  return (
+    <ol className="confirmation-page1-detail-list confirmation-page1-detail-list--numbered">
+      {entries.map((entry, index) => (
+        <li key={`accommodation-${index}`} className="confirmation-page1-detail-entry">
+          <span className="confirmation-page1-accommodation-line">
+            <span className="confirmation-page1-accommodation-lead">
+              {index + 1}. {entry.name}
+            </span>
+            {entry.spec ? (
+              <>
+                {' '}
+                <span className="confirmation-page1-accommodation-spec-inline">{entry.spec}</span>
+              </>
+            ) : null}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function ConfirmationPage({ data }: { data: ConfirmationDocumentData }) {
   const travelPeriodCompact = formatTravelPeriodCompact(fallbackText(data.travelPeriodText));
   const rentalItemsText = fallbackText(data.rentalItemsText);
   const eventNamesText = fallbackText(data.eventNames);
-  const travelersText = fallbackText(data.travelersText);
-  const accommodationText = fallbackText(data.accommodationText);
 
   return (
     <section className="confirmation-sheet confirmation-sheet-page1">
@@ -230,11 +281,11 @@ function ConfirmationPage({ data }: { data: ConfirmationDocumentData }) {
               <tr className="confirmation-page1-tr--detail-row">
                 <th className="confirmation-page1-detail-label">여행객 명단 (특이사항)</th>
                 <td className="confirmation-page1-detail-cell">
-                  <span className="confirmation-page1-detail-text whitespace-pre-wrap">{travelersText}</span>
+                  <ConfirmationTravelerList travelers={data.travelers} />
                 </td>
                 <th className="confirmation-page1-detail-label">숙소</th>
                 <td className="confirmation-page1-detail-cell">
-                  <span className="confirmation-page1-detail-text whitespace-pre-wrap">{accommodationText}</span>
+                  <ConfirmationAccommodationList lines={data.accommodationLines} />
                 </td>
               </tr>
             </tbody>

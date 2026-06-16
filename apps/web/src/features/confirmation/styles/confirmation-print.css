@@ -399,10 +399,64 @@
   padding: 10px 12px;
 }
 
-.confirmation-page1-detail-cell .confirmation-page1-detail-text {
-  display: inline-block;
+.confirmation-page1-detail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
   text-align: center;
-  white-space: pre-wrap;
+}
+
+.confirmation-page1-detail-list--numbered {
+  counter-reset: confirmation-accommodation;
+}
+
+.confirmation-page1-detail-entry {
+  display: block;
+  text-align: center;
+}
+
+.confirmation-page1-detail-entry + .confirmation-page1-detail-entry {
+  margin-top: 0.4em;
+}
+
+.confirmation-page1-traveler-core,
+.confirmation-page1-traveler-note {
+  display: block;
+  text-align: center;
+}
+
+.confirmation-page1-traveler-core {
+  white-space: nowrap;
+}
+
+.confirmation-page1-accommodation-line {
+  display: inline-block;
+  max-width: 100%;
+  text-align: center;
+  line-height: 1.45;
+}
+
+.confirmation-page1-accommodation-lead {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.confirmation-page1-accommodation-spec-inline {
+  white-space: nowrap;
+}
+
+.confirmation-page1-traveler-note {
+  margin-top: 0.12em;
+  font-weight: 500;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.confirmation-page1-detail-empty {
+  display: inline-block;
 }
 
 .confirmation-page1-notice {

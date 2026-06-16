@@ -50,6 +50,25 @@ export function normalizeConfirmationAccommodationLine(line: string): string {
   return resolveConfirmationAccommodationName(trimmed);
 }
 
+export function splitConfirmationAccommodationDisplay(line: string): { name: string; spec: string } {
+  const normalized = normalizeConfirmationAccommodationLine(line);
+  if (!normalized) {
+    return { name: '', spec: '' };
+  }
+
+  const withCapacity = normalized.match(/^(.+?)\s+(\d+인실\s+\d+개)$/);
+  if (withCapacity?.[1] && withCapacity[2]) {
+    return { name: withCapacity[1], spec: withCapacity[2] };
+  }
+
+  const countOnly = normalized.match(/^(.+?)\s+(\d+개)$/);
+  if (countOnly?.[1] && countOnly[2]) {
+    return { name: countOnly[1], spec: countOnly[2] };
+  }
+
+  return { name: normalized, spec: '' };
+}
+
 export function formatConfirmationAccommodationLine(input: {
   name: string;
   roomCount: number;

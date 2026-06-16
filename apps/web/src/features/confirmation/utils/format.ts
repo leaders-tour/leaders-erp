@@ -1,4 +1,7 @@
-import { formatConfirmationTravelerLine, normalizeConfirmationAccommodationLine } from '@tour/validation';
+import {
+  formatConfirmationTravelerLine,
+  splitConfirmationAccommodationDisplay,
+} from '@tour/validation';
 import type { ConfirmationDocumentSnapshot, ConfirmationTraveler } from '../model/types';
 
 export function formatTravelersForDisplay(travelers: ConfirmationTraveler[]): string {
@@ -10,7 +13,14 @@ export function formatTravelersForDisplay(travelers: ConfirmationTraveler[]): st
 
 export function formatAccommodationForDisplay(lines: string[]): string {
   return lines
-    .map((line, index) => `${index + 1}. ${normalizeConfirmationAccommodationLine(line)}`)
+    .map((line, index) => {
+      const { name, spec } = splitConfirmationAccommodationDisplay(line);
+      if (!name) {
+        return '';
+      }
+      return spec ? `${index + 1}. ${name} ${spec}` : `${index + 1}. ${name}`;
+    })
+    .filter(Boolean)
     .join('\n');
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  confirmationTravelerDisplayParts,
   contractTravelerProfileFieldsFromRawJson,
   contractTravelerProfileFromSubmission,
   formatConfirmationTravelerLine,
@@ -45,6 +46,20 @@ describe('formatConfirmationTravelerLine', () => {
         note: '없음',
       }),
     ).toBe('박승원 남성 990717');
+  });
+
+  it('splits core profile and note for stacked display', () => {
+    expect(
+      confirmationTravelerDisplayParts({
+        name: '손하은',
+        gender: '여성',
+        birthCode: '970101',
+        note: '식단 알러지(갑각류-새우, / 게 포함-, 복숭아 등)',
+      }),
+    ).toEqual({
+      core: '손하은 여성 970101',
+      note: '식단 알러지(갑각류-새우, / 게 포함-, 복숭아 등)',
+    });
   });
 });
 

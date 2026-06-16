@@ -269,26 +269,38 @@ export function normalizeConfirmationBirthCodeDisplay(value: string | null | und
   return raw;
 }
 
+export function confirmationTravelerDisplayParts(input: {
+  name: string;
+  gender?: string | null;
+  birthCode?: string | null;
+  note?: string | null;
+}): { core: string; note: string | null } {
+  const name = input.name.trim();
+  if (!name) {
+    return { core: '', note: null };
+  }
+  const coreParts = [name];
+  if (input.gender?.trim()) {
+    coreParts.push(input.gender.trim());
+  }
+  const birthCode = normalizeConfirmationBirthCodeDisplay(input.birthCode);
+  if (birthCode) {
+    coreParts.push(birthCode);
+  }
+  const noteText = input.note?.trim();
+  const note = noteText && shouldDisplayTravelerNote(noteText) ? noteText : null;
+  return { core: coreParts.join(' '), note };
+}
+
 export function formatConfirmationTravelerLine(input: {
   name: string;
   gender?: string | null;
   birthCode?: string | null;
   note?: string | null;
 }): string {
-  const name = input.name.trim();
-  if (!name) {
+  const { core, note } = confirmationTravelerDisplayParts(input);
+  if (!core) {
     return '';
   }
-  const parts = [name];
-  if (input.gender?.trim()) {
-    parts.push(input.gender.trim());
-  }
-  const birthCode = normalizeConfirmationBirthCodeDisplay(input.birthCode);
-  if (birthCode) {
-    parts.push(birthCode);
-  }
-  if (input.note?.trim() && shouldDisplayTravelerNote(input.note)) {
-    parts.push(input.note.trim());
-  }
-  return parts.join(' ');
+  return note ? `${core} ${note}` : core;
 }
