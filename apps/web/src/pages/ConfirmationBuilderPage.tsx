@@ -8,6 +8,11 @@ import {
   useLatestConfirmationDocument,
   useSaveConfirmationDocument,
 } from '../features/confirmation/hooks/use-confirmation-document';
+import { useConfirmationAppendixData } from '../features/confirmation/hooks/use-confirmation-appendix-data';
+import {
+  getConfirmationPdfDownloadLabel,
+  useConfirmationPdfDownload,
+} from '../features/confirmation/hooks/use-confirmation-pdf-download';
 import type { ConfirmationBuilderState } from '../features/confirmation/model/types';
 import { snapshotToDocumentData } from '../features/confirmation/utils/format';
 import { useConfirmedTrip } from '../features/confirmed-trip/hooks';
@@ -22,6 +27,8 @@ export function ConfirmationBuilderPage(): JSX.Element {
     shouldLoadDefaults ? tripId : undefined,
   );
   const { save, loading: saving } = useSaveConfirmationDocument();
+  const { downloading, phase, downloadConfirmationPdf } = useConfirmationPdfDownload();
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [state, setState] = useState<ConfirmationBuilderState | null>(null);
 
   useEffect(() => {
@@ -41,6 +48,8 @@ export function ConfirmationBuilderPage(): JSX.Element {
   }, [document, documentLoading, defaults, defaultsLoading]);
 
   const previewData = useMemo(() => (state ? snapshotToDocumentData(state) : null), [state]);
+  const planVersionId = document?.planVersionId ?? defaults?.planVersionId ?? trip?.planVersionId ?? null;
+  const { appendixData, loading: appendixLoading } = useConfirmationAppendixData(planVersionId);
 
   if (tripLoading || documentLoading || (shouldLoadDefaults && defaultsLoading)) {
     return <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600">확정서 데이터를 불러오는 중...</Card>;
@@ -77,6 +86,19 @@ export function ConfirmationBuilderPage(): JSX.Element {
     }
   };
 
+  const handleDownload = async () => {
+    setDownloadError(null);
+    try {
+      await downloadConfirmationPdf({
+        snapshot: state,
+        appendixData: appendixData ?? null,
+        isDraft: document?.status !== 'PUBLISHED',
+      });
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : 'PDF 다운로드에 실패했습니다.');
+    }
+  };
+
   return (
     <section className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -95,8 +117,19 @@ export function ConfirmationBuilderPage(): JSX.Element {
           >
             크게 보기
           </Button>
+          <Button
+            type="button"
+            disabled={downloading || appendixLoading || !state}
+            onClick={() => void handleDownload()}
+          >
+            {getConfirmationPdfDownloadLabel(phase)}
+          </Button>
         </div>
       </div>
+
+      {downloadError ? (
+        <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{downloadError}</Card>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
         <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -111,7 +144,10 @@ export function ConfirmationBuilderPage(): JSX.Element {
 
         <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="mb-3 text-sm font-semibold text-slate-700">미리보기</h2>
-          <ConfirmationDocument data={previewData} viewMode="screen-preview" />
+          {appendixLoading ? (
+            <p className="mb-3 text-xs text-slate-500">일정표·안내 페이지를 불러오는 중...</p>
+          ) : null}
+          <ConfirmationDocument data={previewData} appendixData={appendixData} viewMode="screen-preview" />
         </Card>
       </div>
     </section>

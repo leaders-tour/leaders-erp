@@ -13,6 +13,12 @@
   gap: 24px;
 }
 
+.confirmation-document--preview .confirmation-document-pages {
+  display: grid;
+  gap: 24px;
+  width: 760px;
+}
+
 .confirmation-document--preview .confirmation-sheet {
   width: min(100%, 760px);
   min-height: auto;
@@ -21,7 +27,17 @@
 
 .confirmation-document--preview .confirmation-sheet-page1 {
   box-sizing: border-box;
-  height: 100%;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 210 / 297;
+}
+
+.confirmation-document--preview .confirmation-document-pages .estimate-document {
+  width: 100%;
+}
+
+.confirmation-document--output .confirmation-document-pages .estimate-document {
+  gap: 0;
 }
 
 .confirmation-document--output .confirmation-sheet-page1 {
@@ -511,6 +527,25 @@
 @media print {
   .confirmation-no-print {
     display: none !important;
+  }
+
+  .confirmation-document {
+    gap: 0;
+  }
+
+  .confirmation-page-break {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .confirmation-page-break--first {
+    break-before: auto;
+    page-break-before: auto;
+  }
+
+  .confirmation-document-pages .estimate-document .estimate-page-break:first-child {
+    break-before: page;
+    page-break-before: always;
   }
 
   .confirmation-sheet {

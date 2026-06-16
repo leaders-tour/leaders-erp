@@ -17,6 +17,16 @@ import {
   parseEstimatePdfRequestBody,
   renderEstimateDocumentPdf,
 } from './lib/pdf/estimate-pdf';
+import {
+  buildConfirmationPdfFilename,
+  consumeConfirmationPdfJobResult,
+  createConfirmationPdfJob,
+  getConfirmationPdfJob,
+  getConfirmationPdfRenderBaseUrl,
+  getConfirmationRenderSession,
+  parseConfirmationPdfRequestBody,
+  renderConfirmationDocumentPdf,
+} from './lib/pdf/confirmation-pdf';
 import { toGraphQLErrorExtensions } from './lib/errors';
 import type { UploadFile } from './lib/file-storage/client';
 import { resolvers } from './resolvers';
@@ -166,6 +176,7 @@ export async function createApp(): Promise<express.Express> {
   const allowedWebOrigins = new Set(getAllowedWebOrigins());
   const corsMiddleware = createCorsMiddleware(allowedWebOrigins);
   const estimatePdfRenderBaseUrl = getEstimatePdfRenderBaseUrl([...allowedWebOrigins]);
+  const confirmationPdfRenderBaseUrl = getConfirmationPdfRenderBaseUrl([...allowedWebOrigins]);
 
   const server = new ApolloServer({
     typeDefs,
@@ -387,6 +398,161 @@ export async function createApp(): Promise<express.Express> {
     }
 
     const session = getEstimateRenderSession(token);
+    if (!session) {
+      res.status(404).json({ message: '렌더 세션이 만료되었거나 존재하지 않습니다.' });
+      return;
+    }
+
+    res.status(200).json({
+      data: session.data,
+    });
+  });
+
+  app.options('/documents/confirmation/pdf', corsMiddleware);
+  app.options('/documents/confirmation/pdf-jobs', corsMiddleware);
+  app.options('/documents/confirmation/pdf-jobs/:jobId', corsMiddleware);
+  app.options('/documents/confirmation/pdf-jobs/:jobId/download', corsMiddleware);
+  app.options('/documents/confirmation/render-sessions/:token', corsMiddleware);
+
+  app.post('/documents/confirmation/pdf', corsMiddleware, express.json({ limit: '5mb' }), async (req, res, next) => {
+    try {
+      const context = await createContext({ req, res });
+      if (!context.employee) {
+        res.status(401).json({ message: '인증이 필요합니다.' });
+        return;
+      }
+
+      const request = parseConfirmationPdfRequestBody(req.body);
+      const settings = await new AppSettingsService(context.prisma).get();
+      const pdfBuffer = await renderConfirmationDocumentPdf({
+        data: {
+          snapshot: request.snapshot,
+          appendixData: request.appendixData,
+          isDraft: request.isDraft === true,
+          movementIntensityColors: settings.movementIntensityColors,
+        },
+        renderBaseUrl: confirmationPdfRenderBaseUrl,
+      });
+      const filename = buildConfirmationPdfFilename({
+        leaderName: request.snapshot.leaderName,
+        documentNumber: request.snapshot.documentNumber ?? null,
+        isDraft: request.isDraft === true,
+      });
+
+      res.setHeader('content-type', 'application/pdf');
+      res.setHeader('content-disposition', buildContentDisposition(filename));
+      res.setHeader('content-length', String(pdfBuffer.length));
+      res.status(200).send(pdfBuffer);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/documents/confirmation/pdf-jobs', corsMiddleware, express.json({ limit: '5mb' }), async (req, res, next) => {
+    try {
+      const context = await createContext({ req, res });
+      if (!context.employee) {
+        res.status(401).json({ message: '인증이 필요합니다.' });
+        return;
+      }
+
+      const request = parseConfirmationPdfRequestBody(req.body);
+      const settings = await new AppSettingsService(context.prisma).get();
+      const job = createConfirmationPdfJob({
+        data: {
+          snapshot: request.snapshot,
+          appendixData: request.appendixData,
+          isDraft: request.isDraft === true,
+          movementIntensityColors: settings.movementIntensityColors,
+        },
+        renderBaseUrl: confirmationPdfRenderBaseUrl,
+      });
+
+      res.status(202).json(job);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/documents/confirmation/pdf-jobs/:jobId', corsMiddleware, async (req, res, next) => {
+    try {
+      const context = await createContext({ req, res });
+      if (!context.employee) {
+        res.status(401).json({ message: '인증이 필요합니다.' });
+        return;
+      }
+
+      const jobId = req.params.jobId?.trim();
+      if (!jobId) {
+        res.status(400).json({ message: 'jobId가 필요합니다.' });
+        return;
+      }
+
+      const job = getConfirmationPdfJob(jobId);
+      if (!job) {
+        res.status(404).json({ message: 'PDF 생성 작업을 찾을 수 없거나 만료되었습니다.' });
+        return;
+      }
+
+      res.status(200).json(job);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/documents/confirmation/pdf-jobs/:jobId/download', corsMiddleware, async (req, res, next) => {
+    try {
+      const context = await createContext({ req, res });
+      if (!context.employee) {
+        res.status(401).json({ message: '인증이 필요합니다.' });
+        return;
+      }
+
+      const jobId = req.params.jobId?.trim();
+      if (!jobId) {
+        res.status(400).json({ message: 'jobId가 필요합니다.' });
+        return;
+      }
+
+      const job = getConfirmationPdfJob(jobId);
+      if (!job) {
+        res.status(404).json({ message: 'PDF 생성 작업을 찾을 수 없거나 만료되었습니다.' });
+        return;
+      }
+
+      if (job.status === 'failed') {
+        res.status(409).json({ message: job.errorMessage || 'PDF 생성에 실패했습니다.' });
+        return;
+      }
+
+      if (job.status !== 'succeeded') {
+        res.status(409).json({ message: 'PDF 생성이 아직 완료되지 않았습니다.' });
+        return;
+      }
+
+      const result = consumeConfirmationPdfJobResult(jobId);
+      if (!result) {
+        res.status(404).json({ message: 'PDF 생성 결과를 찾을 수 없거나 이미 다운로드되었습니다.' });
+        return;
+      }
+
+      res.setHeader('content-type', 'application/pdf');
+      res.setHeader('content-disposition', buildContentDisposition(result.filename));
+      res.setHeader('content-length', String(result.pdfBuffer.length));
+      res.status(200).send(result.pdfBuffer);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/documents/confirmation/render-sessions/:token', corsMiddleware, (req, res) => {
+    const token = req.params.token?.trim();
+    if (!token) {
+      res.status(400).json({ message: 'render token이 필요합니다.' });
+      return;
+    }
+
+    const session = getConfirmationRenderSession(token);
     if (!session) {
       res.status(404).json({ message: '렌더 세션이 만료되었거나 존재하지 않습니다.' });
       return;

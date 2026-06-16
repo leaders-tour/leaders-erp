@@ -2023,7 +2023,10 @@ export function ConfirmedTripDetailPage(): JSX.Element {
               {publishedConfirmation ? '확정서 미리보기' : 'PDF 미리보기'}
             </h2>
             {publishedConfirmation ? (
-              <ConfirmationPreviewPanel snapshot={publishedConfirmation.snapshot} />
+              <ConfirmationPreviewPanel
+                snapshot={publishedConfirmation.snapshot}
+                planVersionId={trip.planVersionId}
+              />
             ) : isPlanTrip ? (
               <PlanPdfPreviewPanel planVersionId={trip.planVersionId!} />
             ) : hasPdf ? (

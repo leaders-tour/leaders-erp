@@ -1,5 +1,7 @@
 import '../styles/confirmation-print.css';
 import { EstimatePreviewScaler } from '../../estimate/components/EstimatePreviewScaler';
+import type { EstimateDocumentData } from '../../estimate/model/types';
+import type { MovementIntensityColorSetting } from '../../estimate/model/movement-intensity';
 import {
   CONFIRMATION_COMPANY,
   CONFIRMATION_FOOTER_NOTICE,
@@ -10,9 +12,13 @@ import type { ConfirmationTraveler } from '../model/types';
 import type { ConfirmationDocumentData } from '../utils/format';
 import { fallbackText } from '../utils/format';
 import { confirmationTravelerDisplayParts, splitConfirmationAccommodationDisplay } from '@tour/validation';
+import { ConfirmationAppendixPages } from './ConfirmationAppendixPages';
 
 interface ConfirmationDocumentProps {
   data: ConfirmationDocumentData;
+  /** 견적 버전 기준 2~4페이지(일정표·안내·이동강도) 데이터 */
+  appendixData?: EstimateDocumentData | null;
+  appendixMovementIntensityColors?: readonly MovementIntensityColorSetting[] | null;
   viewMode?: 'screen-preview' | 'output';
 }
 
@@ -298,21 +304,35 @@ function ConfirmationPage({ data }: { data: ConfirmationDocumentData }) {
   );
 }
 
-export function ConfirmationDocument({ data, viewMode = 'screen-preview' }: ConfirmationDocumentProps) {
+export function ConfirmationDocument({
+  data,
+  appendixData,
+  appendixMovementIntensityColors,
+  viewMode = 'screen-preview',
+}: ConfirmationDocumentProps) {
   const className =
     viewMode === 'output'
       ? 'confirmation-document confirmation-document--output'
       : 'confirmation-document confirmation-document--preview';
 
+  const pages = (
+    <div className={viewMode === 'screen-preview' ? 'confirmation-document-pages' : undefined}>
+      <div className={viewMode === 'output' ? 'confirmation-page-break confirmation-page-break--first' : undefined}>
+        <ConfirmationPage data={data} />
+      </div>
+      {appendixData ? (
+        <ConfirmationAppendixPages
+          data={appendixData}
+          viewMode={viewMode}
+          movementIntensityColors={appendixMovementIntensityColors}
+        />
+      ) : null}
+    </div>
+  );
+
   return (
     <div className={className}>
-      {viewMode === 'screen-preview' ? (
-        <EstimatePreviewScaler>
-          <ConfirmationPage data={data} />
-        </EstimatePreviewScaler>
-      ) : (
-        <ConfirmationPage data={data} />
-      )}
+      {viewMode === 'screen-preview' ? <EstimatePreviewScaler>{pages}</EstimatePreviewScaler> : pages}
     </div>
   );
 }

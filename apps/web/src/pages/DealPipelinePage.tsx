@@ -36,6 +36,7 @@ import { EstimatePreviewScaler } from '../features/estimate/components/EstimateP
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
 import { ConfirmationDocument } from '../features/confirmation/components/ConfirmationDocument';
 import { useLatestPublishedConfirmationDocument } from '../features/confirmation/hooks/use-confirmation-document';
+import { useConfirmationAppendixData } from '../features/confirmation/hooks/use-confirmation-appendix-data';
 import { snapshotToDocumentData } from '../features/confirmation/utils/format';
 import {
   useCreateUserNote,
@@ -1084,6 +1085,10 @@ function UserDetailDrawer({
         : null,
     [publishedConfirmationDocument],
   );
+  const confirmationPlanVersionId =
+    publishedConfirmationDocument?.planVersionId ?? activeConfirmedTrip?.planVersionId ?? null;
+  const { appendixData: confirmationAppendixData, loading: confirmationAppendixLoading } =
+    useConfirmationAppendixData(isConfirmationPanelOpen ? confirmationPlanVersionId : undefined);
 
   useEffect(() => {
     if (user) {
@@ -1885,16 +1890,20 @@ function UserDetailDrawer({
               </Card>
             ) : null}
 
-            {confirmationPreviewLoading ? (
+            {confirmationPreviewLoading || confirmationAppendixLoading ? (
               <Card className={dealPipelineTokens.drawer.simpleCard}>
                 <p className="text-sm text-slate-500">확정서 미리보기를 불러오는 중입니다...</p>
               </Card>
             ) : null}
 
-            {!confirmationPreviewLoading && confirmationPreviewData ? (
+            {!confirmationPreviewLoading && !confirmationAppendixLoading && confirmationPreviewData ? (
               <div className="rounded-3xl border border-slate-200 bg-slate-100/70 p-3">
                 <div className="max-h-[calc(100vh-8rem)] overflow-auto rounded-2xl bg-white">
-                  <ConfirmationDocument data={confirmationPreviewData} viewMode="screen-preview" />
+                  <ConfirmationDocument
+                    data={confirmationPreviewData}
+                    appendixData={confirmationAppendixData}
+                    viewMode="screen-preview"
+                  />
                 </div>
               </div>
             ) : null}

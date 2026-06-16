@@ -234,7 +234,7 @@ async function launchBrowser(): Promise<Browser> {
   return browser;
 }
 
-async function getOrLaunchBrowser(): Promise<Browser> {
+export async function getOrLaunchBrowser(): Promise<Browser> {
   if (!browserInstancePromise) {
     browserInstancePromise = launchBrowser().catch((error) => {
       browserInstancePromise = null;

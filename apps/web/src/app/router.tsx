@@ -4,6 +4,7 @@ import { useAuth } from '../features/auth/context';
 import { RedirectAuthenticated, RequireAdmin, RequireAuth, RequireStaffOrAbove } from './auth-guards';
 import { AppLayout } from '../components/layout/AppLayout';
 import { ConfirmationPrintPage } from '../pages/ConfirmationPrintPage';
+import { ConfirmationPdfRenderPage } from '../pages/ConfirmationPdfRenderPage';
 import { ConfirmationBuilderPage } from '../pages/ConfirmationBuilderPage';
 import { ConfirmedTripsPage } from '../pages/ConfirmedTripsPage';
 import { ConfirmedTripDetailPage } from '../pages/ConfirmedTripDetailPage';
@@ -73,6 +74,10 @@ export const router = createBrowserRouter([
   {
     path: '/documents/confirmation',
     element: <ConfirmationPrintPage />,
+  },
+  {
+    path: '/documents/confirmation/render',
+    element: <ConfirmationPdfRenderPage />,
   },
   {
     path: '/documents/estimate/render',
