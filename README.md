@@ -36,7 +36,16 @@ pnpm --filter @tour/workers worker:mail
 pnpm --filter @tour/workers worker:contract-sync-daemon
 ```
 
-계약서·입금 시트 동기화는 `worker:contract-sync-daemon`으로 5분 주기(기본) 상시 실행한다. 수동 1회 실행은 아래 CLI를 사용한다.
+계약서·입금 시트 동기화는 `worker:contract-sync-daemon`으로 5분 주기(기본) 상시 실행한다.
+
+CloudType worker 앱 설정:
+
+- Dockerfile: `Dockerfile.worker` (권장)
+- 또는 설치: `pnpm install --frozen-lockfile --prod=false && pnpm --filter @tour/prisma db:generate`
+- 시작: `pnpm worker:contract-sync-daemon`
+- replica: 1
+
+수동 1회 실행은 아래 CLI를 사용한다.
 
 ```bash
 pnpm --filter @tour/workers worker:contract-form-sync

@@ -1,0 +1,14 @@
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+RUN npm install -g pnpm@9.12.2
+
+COPY . .
+
+ENV NODE_ENV=production
+
+RUN pnpm install --frozen-lockfile --prod=false
+RUN pnpm --filter @tour/prisma db:generate
+
+CMD ["pnpm", "worker:contract-sync-daemon"]

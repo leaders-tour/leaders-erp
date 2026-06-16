@@ -146,11 +146,16 @@
 
 | 항목 | API app | Contract sync worker app |
 |------|---------|--------------------------|
+| Dockerfile | `Dockerfile` | `Dockerfile.worker` |
+| 설치 명령 | (Dockerfile 내부) | `pnpm install --frozen-lockfile --prod=false && pnpm --filter @tour/prisma db:generate` |
 | 시작 명령 | `node apps/api/dist/apps/api/src/index.js` (경로는 빌드 산출 기준 확정) | `pnpm worker:contract-sync-daemon` |
+| 서브 디렉터리 | monorepo 루트 | monorepo 루트 (비움) |
 | 프로세스 | HTTP server | daemon (내부 sleep loop) |
 | replica | 필요 시 scale | **1개 고정** (중복 sync 방지) |
 | sync 순서 | - | 계약서 시트 → 입금 시트 (한 cycle 내 순차) |
 | 기본 주기 | - | 5분 (`CONTRACT_SYNC_INTERVAL_MS=300000`) |
+
+Dockerfile을 쓰지 않고 CloudType 빌드팩만 사용할 때는 **설치 명령을 반드시 설정**한다. 시작 명령만 두면 `node_modules`가 없어 `tsx: not found`로 실패한다.
 
 ### Worker 필수 env
 

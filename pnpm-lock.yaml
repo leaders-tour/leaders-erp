@@ -202,6 +202,9 @@ importers:
       playwright:
         specifier: ^1.54.2
         version: 1.58.2
+      tsx:
+        specifier: ^4.19.1
+        version: 4.21.0
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -212,9 +215,6 @@ importers:
       '@types/nodemailer':
         specifier: ^6.4.17
         version: 6.4.23
-      tsx:
-        specifier: ^4.19.1
-        version: 4.21.0
       typescript:
         specifier: ^5.6.2
         version: 5.9.3
