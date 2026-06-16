@@ -155,7 +155,7 @@
 | sync 순서 | - | 계약서 시트 → 입금 시트 (한 cycle 내 순차) |
 | 기본 주기 | - | 5분 (`CONTRACT_SYNC_INTERVAL_MS=300000`) |
 
-Dockerfile을 쓰지 않고 CloudType 빌드팩만 사용할 때는 **설치 명령을 반드시 설정**한다. 시작 명령만 두면 `node_modules`가 없어 `tsx: not found`로 실패한다.
+Dockerfile을 쓰지 않고 CloudType 빌드팩만 사용할 때는 **설치 명령을 반드시 설정**한다. 시작 명령만 두면 `node_modules`가 없어 `tsx: not found`로 실패한다. Debian/Ubuntu 런타임에서는 `openssl` 패키지가 필요하며, Prisma client는 `schema.prisma`의 `binaryTargets = ["native", "debian-openssl-3.0.x"]`로 생성한다.
 
 ### Worker 필수 env
 
