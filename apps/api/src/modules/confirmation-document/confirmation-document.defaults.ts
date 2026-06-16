@@ -1,7 +1,10 @@
 import type { PlaceType } from '@prisma/client';
 import {
-  formatConfirmationTravelerLine,
+  accommodationLineGroupKey,
   contractTravelerProfileFromSubmission,
+  formatConfirmationAccommodationLine,
+  formatConfirmationTravelerLine,
+  resolveConfirmationAccommodationName,
   type ConfirmationDocumentSnapshotInput,
 } from '@tour/validation';
 
@@ -27,10 +30,12 @@ type TransportGroupLike = {
 type LodgingLike = {
   lodgingNameSnapshot: string;
   roomCount: number;
+  accommodation: { name: string } | null;
   optionAssignments: Array<{
     roomCount: number;
     accommodationOption: {
       roomType: string;
+      capacity: number | null;
     };
   }>;
 };
@@ -199,20 +204,74 @@ function resolveGuideName(assignments: GuideAssignmentLike[]): string {
   return assignments.map((assignment) => formatGuideAssignmentName(assignment)).filter(Boolean).join(', ');
 }
 
+function resolveLodgingAccommodationName(lodging: LodgingLike): string {
+  return resolveConfirmationAccommodationName(lodging.lodgingNameSnapshot, lodging.accommodation?.name);
+}
+
 function buildAccommodationLines(lodgings: LodgingLike[]): string[] {
-  const grouped = new Map<string, number>();
+  const grouped = new Map<
+    string,
+    {
+      name: string;
+      roomCount: number;
+      capacity: number | null;
+      roomType: string | null;
+    }
+  >();
+
   for (const lodging of lodgings) {
     if (lodging.optionAssignments.length > 0) {
       for (const option of lodging.optionAssignments) {
-        const key = `${lodging.lodgingNameSnapshot} ${option.accommodationOption.roomType}`;
-        grouped.set(key, (grouped.get(key) ?? 0) + option.roomCount);
+        const name = resolveLodgingAccommodationName(lodging);
+        if (!name) {
+          continue;
+        }
+        const capacity = option.accommodationOption.capacity;
+        const roomType = option.accommodationOption.roomType;
+        const key = accommodationLineGroupKey({ name, capacity, roomType });
+        const existing = grouped.get(key);
+        if (existing) {
+          existing.roomCount += option.roomCount;
+          continue;
+        }
+        grouped.set(key, {
+          name,
+          roomCount: option.roomCount,
+          capacity,
+          roomType,
+        });
       }
       continue;
     }
-    const key = lodging.lodgingNameSnapshot;
-    grouped.set(key, (grouped.get(key) ?? 0) + lodging.roomCount);
+
+    const name = resolveLodgingAccommodationName(lodging);
+    if (!name) {
+      continue;
+    }
+    const key = accommodationLineGroupKey({ name, capacity: null, roomType: null });
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.roomCount += lodging.roomCount;
+      continue;
+    }
+    grouped.set(key, {
+      name,
+      roomCount: lodging.roomCount,
+      capacity: null,
+      roomType: null,
+    });
   }
-  return [...grouped.entries()].map(([label, count]) => `${label} ${count}개`);
+
+  return [...grouped.values()]
+    .map((entry) =>
+      formatConfirmationAccommodationLine({
+        name: entry.name,
+        roomCount: entry.roomCount,
+        capacity: entry.capacity,
+        roomType: entry.roomType,
+      }),
+    )
+    .filter(Boolean);
 }
 
 function buildExternalPickupDropText(meta: {

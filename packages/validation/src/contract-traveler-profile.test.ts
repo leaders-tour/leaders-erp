@@ -33,7 +33,7 @@ describe('formatConfirmationTravelerLine', () => {
         gender: '남성',
         birthCode: '0601153',
       }),
-    ).toBe('정민우 남성 06.01.15');
+    ).toBe('정민우 남성 060115');
   });
 
   it('omits note when contract says there is none', () => {
@@ -44,24 +44,24 @@ describe('formatConfirmationTravelerLine', () => {
         birthCode: '19990717',
         note: '없음',
       }),
-    ).toBe('박승원 남성 99.07.17');
+    ).toBe('박승원 남성 990717');
   });
 });
 
 describe('normalizeConfirmationBirthCodeDisplay', () => {
-  it('normalizes dotted yyyy and spaced dates to yy.mm.dd', () => {
-    expect(normalizeConfirmationBirthCodeDisplay('2003. 2. 4')).toBe('03.02.04');
-    expect(normalizeConfirmationBirthCodeDisplay('2003. 8. 7')).toBe('03.08.07');
-    expect(normalizeConfirmationBirthCodeDisplay('03.02.04')).toBe('03.02.04');
+  it('normalizes dotted yyyy and spaced dates to yymmdd', () => {
+    expect(normalizeConfirmationBirthCodeDisplay('2003. 2. 4')).toBe('030204');
+    expect(normalizeConfirmationBirthCodeDisplay('2003. 8. 7')).toBe('030807');
+    expect(normalizeConfirmationBirthCodeDisplay('03.02.04')).toBe('030204');
   });
 
   it('normalizes mixed seven-digit team birth codes', () => {
-    expect(normalizeConfirmationBirthCodeDisplay('2007101')).toBe('07.10.01');
-    expect(normalizeConfirmationBirthCodeDisplay('2007322')).toBe('07.03.22');
-    expect(normalizeConfirmationBirthCodeDisplay('2006511')).toBe('06.05.11');
-    expect(normalizeConfirmationBirthCodeDisplay('2007102')).toBe('07.10.02');
-    expect(normalizeConfirmationBirthCodeDisplay('2003121')).toBe('03.01.21');
-    expect(normalizeConfirmationBirthCodeDisplay('2006529')).toBe('06.05.29');
+    expect(normalizeConfirmationBirthCodeDisplay('2007101')).toBe('071001');
+    expect(normalizeConfirmationBirthCodeDisplay('2007322')).toBe('070322');
+    expect(normalizeConfirmationBirthCodeDisplay('2006511')).toBe('060511');
+    expect(normalizeConfirmationBirthCodeDisplay('2007102')).toBe('071002');
+    expect(normalizeConfirmationBirthCodeDisplay('2003121')).toBe('030121');
+    expect(normalizeConfirmationBirthCodeDisplay('2006529')).toBe('060529');
   });
 });
 

@@ -153,7 +153,7 @@ function formatBirthDateYyMmDd(year: number, month: number, day: number): string
   if (month < 1 || month > 12 || day < 1 || day > 31) {
     return null;
   }
-  return `${pad2(year % 100)}.${pad2(month)}.${pad2(day)}`;
+  return `${pad2(year % 100)}${pad2(month)}${pad2(day)}`;
 }
 
 function inferFullYearFromTwoDigits(yy: number): number {
