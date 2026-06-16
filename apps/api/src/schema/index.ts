@@ -22,6 +22,7 @@ const files = [
   'segment.graphql',
   'special-meal-destination-rules.graphql',
   'multi-day-block.graphql',
+  'confirmation-document.graphql',
   'plan.graphql',
   'pricing.graphql',
   'plan-template.graphql',
