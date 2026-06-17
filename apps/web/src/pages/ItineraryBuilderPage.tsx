@@ -69,6 +69,7 @@ import { PlanVersionContractCreateNotice } from '../features/plan/components/Pla
 import { ExternalTransferModal } from '../features/plan/components/ExternalTransferModal';
 import { ExternalTransfersManagerModal } from '../features/plan/components/ExternalTransfersManagerModal';
 import { SpecialMealsModal } from '../features/plan/components/SpecialMealsModal';
+import { TransportTeamHeadcountModal } from '../features/plan/components/TransportTeamHeadcountModal';
 import { adjustLastDayMealCellText } from '../features/plan/last-day-plan';
 import {
   getAssignmentsFromPlanRows,
@@ -112,6 +113,10 @@ import {
   isTransportGroupTravelLinked,
   type TransportGroupTravelSyncDraft,
 } from '../features/plan/transport-group-travel-sync';
+import {
+  applyTeamHeadcountsToGroups,
+  usesTransportTeamHeadcountModal,
+} from '../features/plan/transport-team-headcount';
 import { toVariantLabel } from '../features/plan/variant-label';
 import {
   buildAutoRowsFromRoute,
@@ -2676,6 +2681,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [extraLodgingsModalState, setExtraLodgingsModalState] = useState<ExtraLodgingsModalState>({
     open: false,
   });
+  const [transportTeamHeadcountModalOpen, setTransportTeamHeadcountModalOpen] =
+    useState<boolean>(false);
   const [manualAdjustments, setManualAdjustments] = useState<ManualAdjustmentRow[]>([]);
   const [manualAdjustmentsModalState, setManualAdjustmentsModalState] =
     useState<ManualAdjustmentsModalState>({
@@ -3562,6 +3569,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   ): void => {
     if (field === 'headcount') {
       setTransportGroups((current) => {
+        if (usesTransportTeamHeadcountModal(current.length)) {
+          return current;
+        }
         const raw = typeof value === 'number' && Number.isFinite(value) ? value : 1;
         return applyPartitionHeadcountOnTeamEdit(current, index, raw, headcountTotal);
       });
@@ -3726,6 +3736,11 @@ export function ItineraryBuilderPage(): JSX.Element {
     );
   };
 
+  const saveTransportTeamHeadcounts = useCallback((counts: number[]): void => {
+    setTransportGroups((current) => applyTeamHeadcountsToGroups(current, counts));
+    setTransportTeamHeadcountModalOpen(false);
+  }, []);
+
   const resyncTransportGroupTravelSchedule = useCallback(
     (index: number): void => {
       setTransportGroups((current) =>
@@ -3834,6 +3849,19 @@ export function ItineraryBuilderPage(): JSX.Element {
       const firstGroup = nextGroups[0];
       if (nextGroups.length === 1 && firstGroup && firstGroup.headcount !== headcountTotal) {
         nextGroups[0] = { ...firstGroup, headcount: headcountTotal };
+      }
+
+      if (usesTransportTeamHeadcountModal(nextGroups.length)) {
+        const currentSum = nextGroups.reduce((sum, group) => sum + group.headcount, 0);
+        if (currentSum !== headcountTotal) {
+          const counts = distributeHeadcountTotalAcrossTeams(headcountTotal, nextGroups.length);
+          if (counts) {
+            return nextGroups.map((group, index) => ({
+              ...group,
+              headcount: counts[index]!,
+            }));
+          }
+        }
       }
 
       return nextGroups;
@@ -6019,9 +6047,21 @@ export function ItineraryBuilderPage(): JSX.Element {
                   <div className="grid gap-3 text-sm">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-xs text-slate-600">팀별 항공 / 픽업 / 드랍</span>
-                      <span className="text-[11px] text-slate-500">
-                        「일정 연동」은 날짜만 여행 기간에 맞춥니다. 시각은 유지됩니다.
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {usesTransportTeamHeadcountModal(transportGroups.length) ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-8 shrink-0 whitespace-nowrap px-3 text-xs"
+                            onClick={() => setTransportTeamHeadcountModalOpen(true)}
+                          >
+                            팀별 인원 설정
+                          </Button>
+                        ) : null}
+                        <span className="text-[11px] text-slate-500">
+                          「일정 연동」은 날짜만 여행 기간에 맞춥니다. 시각은 유지됩니다.
+                        </span>
+                      </div>
                     </div>
 
                     <div className="grid gap-4">
@@ -6082,36 +6122,42 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 </label>
                                 <div className="grid gap-1">
                                   <span className="text-xs text-slate-600">인원</span>
-                                  <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        updateTransportGroup(index, 'headcount', group.headcount - 1)
-                                      }
-                                      disabled={group.headcount <= 1}
-                                      className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                      aria-label={`${group.teamName || `${index + 1}번 팀`} 인원 감소`}
-                                    >
-                                      -
-                                    </button>
-                                    <div className="min-w-0 flex-1 text-center text-base font-semibold text-slate-900">
+                                  {usesTransportTeamHeadcountModal(transportGroups.length) ? (
+                                    <div className="flex min-h-[42px] items-center rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-900">
                                       {group.headcount}명
                                     </div>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        updateTransportGroup(index, 'headcount', group.headcount + 1)
-                                      }
-                                      disabled={
-                                        group.headcount >=
-                                        headcountTotal - (transportGroups.length - 1)
-                                      }
-                                      className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                      aria-label={`${group.teamName || `${index + 1}번 팀`} 인원 증가`}
-                                    >
-                                      +
-                                    </button>
-                                  </div>
+                                  ) : (
+                                    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          updateTransportGroup(index, 'headcount', group.headcount - 1)
+                                        }
+                                        disabled={group.headcount <= 1}
+                                        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                        aria-label={`${group.teamName || `${index + 1}번 팀`} 인원 감소`}
+                                      >
+                                        -
+                                      </button>
+                                      <div className="min-w-0 flex-1 text-center text-base font-semibold text-slate-900">
+                                        {group.headcount}명
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          updateTransportGroup(index, 'headcount', group.headcount + 1)
+                                        }
+                                        disabled={
+                                          group.headcount >=
+                                          headcountTotal - (transportGroups.length - 1)
+                                        }
+                                        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-lg font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                        aria-label={`${group.teamName || `${index + 1}번 팀`} 인원 증가`}
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             ) : null}
@@ -8357,6 +8403,17 @@ export function ItineraryBuilderPage(): JSX.Element {
             )
           }
           onApplyUniform={(value) => setExtraLodgingCounts((prev) => prev.map(() => value))}
+        />
+
+        <TransportTeamHeadcountModal
+          open={transportTeamHeadcountModalOpen}
+          teams={transportGroups.map((group) => ({
+            teamName: group.teamName,
+            headcount: group.headcount,
+          }))}
+          headcountTotal={headcountTotal}
+          onClose={() => setTransportTeamHeadcountModalOpen(false)}
+          onSave={saveTransportTeamHeadcounts}
         />
 
         <ManualAdjustmentsModal
