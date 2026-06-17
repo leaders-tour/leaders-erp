@@ -10,6 +10,23 @@ type DisplayContext = {
   totalDays: number;
 };
 
+function resolveConfiguredDisplayLabel(
+  line: Pick<PricingComputedLine, 'description' | 'meta'>,
+): string | null {
+  const description = line.description?.trim();
+  if (description) {
+    return description;
+  }
+  const meta = line.meta;
+  if (meta && typeof meta === 'object' && 'title' in meta && typeof meta.title === 'string') {
+    const title = meta.title.trim();
+    if (title.length > 0) {
+      return title;
+    }
+  }
+  return null;
+}
+
 function configuredDisplayFromMeta(
   line: Pick<PricingComputedLine, 'description' | 'unitPriceKrw' | 'quantity' | 'amountKrw' | 'meta'>,
   ctx: DisplayContext,
@@ -57,33 +74,38 @@ function configuredDisplayFromMeta(
     });
   }
 
+  const configuredLabel = resolveConfiguredDisplayLabel(line);
+
   if (chargeScope === 'TEAM') {
     const divisorPerson = ctx.headcountTotal > 0 ? ctx.headcountTotal : null;
     if (line.unitPriceKrw !== null) {
       return emptyDisplay('TEAM_DIV_PERSON', {
-        label: line.description?.trim() || null,
+        label: configuredLabel,
         unitAmountKrw: line.unitPriceKrw,
         count: line.quantity,
         divisorPerson,
       });
     }
-    return emptyDisplay('TEAM_DIV_PERSON', { divisorPerson });
+    return emptyDisplay('TEAM_DIV_PERSON', { label: configuredLabel, divisorPerson });
   }
 
   if (chargeScope === 'PER_PERSON') {
     if (personMode === 'PER_DAY') {
       return emptyDisplay('PER_DAY', {
+        label: configuredLabel,
         unitAmountKrw: line.unitPriceKrw,
         count: line.quantity,
       });
     }
     if (personMode === 'PER_NIGHT') {
       return emptyDisplay('PER_NIGHT', {
+        label: configuredLabel,
         unitAmountKrw: line.unitPriceKrw,
         count: line.quantity,
       });
     }
     return emptyDisplay('PER_PERSON_SINGLE', {
+      label: configuredLabel,
       unitAmountKrw: line.unitPriceKrw ?? line.amountKrw,
       count: 1,
     });
@@ -166,20 +188,28 @@ export function buildPricingLineDisplay(
     case 'HIACE': {
       if (line.unitPriceKrw !== null && line.quantity > 0) {
         return emptyDisplay('PER_DAY', {
+          label: resolveConfiguredDisplayLabel(line),
           unitAmountKrw: line.unitPriceKrw,
           count: line.quantity,
         });
       }
-      return emptyDisplay('CUSTOM', { text: formatKrwNumber(line.amountKrw) });
+      return emptyDisplay('CUSTOM', {
+        label: resolveConfiguredDisplayLabel(line),
+        text: formatKrwNumber(line.amountKrw),
+      });
     }
     case 'EXTRA_LODGING': {
       if (line.unitPriceKrw !== null && line.quantity > 0) {
         return emptyDisplay('PER_NIGHT', {
+          label: resolveConfiguredDisplayLabel(line),
           unitAmountKrw: line.unitPriceKrw,
           count: line.quantity,
         });
       }
-      return emptyDisplay('CUSTOM', { text: formatKrwNumber(line.amountKrw) });
+      return emptyDisplay('CUSTOM', {
+        label: resolveConfiguredDisplayLabel(line),
+        text: formatKrwNumber(line.amountKrw),
+      });
     }
     case 'EARLY':
     case 'EXTEND': {
@@ -282,10 +312,7 @@ export function buildPricingLineDisplay(
       return emptyDisplay('CUSTOM', { text: formatKrwNumber(line.amountKrw) });
     }
     case 'CONDITIONAL': {
-      const title =
-        meta && typeof meta === 'object' && 'title' in meta && typeof meta.title === 'string' && meta.title.trim().length > 0
-          ? meta.title.trim()
-          : null;
+      const title = resolveConfiguredDisplayLabel(line);
       if (line.unitPriceKrw !== null && line.quantity > 0) {
         return emptyDisplay('CUSTOM', {
           label: title,

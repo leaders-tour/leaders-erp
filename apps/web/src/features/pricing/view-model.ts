@@ -26,6 +26,15 @@ export interface PricingViewBuckets<TLine extends PricingViewLine> {
 const BASE_RULE_TYPES = new Set(['BASE', 'PERCENT_UPLIFT', 'LONG_DISTANCE']);
 const BASE_LINE_CODES = new Set(['BASE', 'BASE_PERCENT', 'BASE_UPLIFT_5PLUS_5PCT', 'BASE_UPLIFT_5PLUS_10PCT', 'LONG_DISTANCE']);
 
+const CUSTOM_TITLE_LINE_CODES = new Set([
+  'CONDITIONAL',
+  'HIACE',
+  'EARLY',
+  'EXTEND',
+  'PICKUP_DROP',
+  'EXTRA_LODGING',
+]);
+
 const LINE_CODE_LABELS: Record<string, string> = {
   BASE: 'BASE 금액',
   BASE_PERCENT: '기본금 퍼센트',
@@ -81,7 +90,7 @@ export function getPricingLineLabel(
   if (displayLabel) {
     return displayLabel;
   }
-  if (line.lineCode === 'MANUAL_ADJUSTMENT' || line.lineCode === 'LODGING_SELECTION') {
+  if (line.lineCode === 'MANUAL_ADJUSTMENT' || line.lineCode === 'LODGING_SELECTION' || CUSTOM_TITLE_LINE_CODES.has(line.lineCode)) {
     const custom = line.description?.trim();
     if (custom) {
       return custom;
