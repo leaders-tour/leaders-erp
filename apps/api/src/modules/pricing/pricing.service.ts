@@ -1,6 +1,7 @@
 import type { CustomerPricingSnapshot, PricingManualSnapshot, VariantType } from '@tour/domain';
 import {
   buildPricingManualPresentation,
+  computeDepositAndBalanceKrw,
   regionLodgingNameOnlyFromStoredSnapshot,
   roundBaseAmountKrwToThousands,
 } from '@tour/domain';
@@ -1331,14 +1332,7 @@ export class PricingService {
       };
     }
 
-    const tenPercent = Math.round(totalAmountKrw * 0.1);
-    const rawBalance = totalAmountKrw - tenPercent;
-    const balanceSubTenThousand = rawBalance % 10_000;
-    const rawDeposit = tenPercent + balanceSubTenThousand;
-    const depositAmountKrw = Math.min(rawDeposit, totalAmountKrw);
-    const balanceAmountKrw = totalAmountKrw - depositAmountKrw;
-
-    return { depositAmountKrw, balanceAmountKrw };
+    return computeDepositAndBalanceKrw(totalAmountKrw, manualDepositAmountKrw);
   }
 
   private ensureAmount(rule: PricingRuleRecord): number {

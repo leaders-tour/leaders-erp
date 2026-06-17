@@ -829,16 +829,16 @@ describe('PricingService.preview', () => {
     expect(result.baseAmountKrw).toBe(814_000);
     expect(result.addonAmountKrw).toBe(0);
     expect(result.totalAmountKrw).toBe(814_000);
-    expect(result.depositAmountKrw).toBe(84_000);
-    expect(result.balanceAmountKrw).toBe(730_000);
+    expect(result.depositAmountKrw).toBe(74_000);
+    expect(result.balanceAmountKrw).toBe(740_000);
 
     expect(result.teamPricings).toHaveLength(1);
     expect(result.teamPricings[0]).toMatchObject({
       baseAmountKrw: 814_000,
       addonAmountKrw: 0,
       totalAmountKrw: 814_000,
-      depositAmountKrw: 84_000,
-      balanceAmountKrw: 730_000,
+      depositAmountKrw: 74_000,
+      balanceAmountKrw: 740_000,
     });
   });
 

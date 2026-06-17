@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PricingManualSourceLine } from '@tour/domain';
+import { computeDepositAndBalanceKrw } from '@tour/domain';
 import { buildEffectivePricing, resolveAdjustmentLinesForCustomerDocument, sliceEffectiveTotalsForUi } from './manual-pricing';
 
 describe('buildEffectivePricing', () => {
@@ -372,8 +373,8 @@ describe('buildEffectivePricing', () => {
     expect(effectivePricing.baseAmountKrw).toBe(814_000);
     expect(effectivePricing.addonAmountKrw).toBe(30_000);
     expect(effectivePricing.totalAmountKrw).toBe(844_000);
-    expect(effectivePricing.depositAmountKrw).toBe(94_000);
-    expect(effectivePricing.balanceAmountKrw).toBe(750_000);
+    expect(effectivePricing.depositAmountKrw).toBe(84_000);
+    expect(effectivePricing.balanceAmountKrw).toBe(760_000);
   });
 
   it('applies manual securityDepositMode PER_TEAM for display (same total)', () => {
@@ -911,5 +912,32 @@ describe('buildEffectivePricing', () => {
     expect(totals.depositAmountKrw).toBe(99_000);
     expect(totals.balanceAmountKrw).toBe(1_000_000);
     expect(totals.securityDepositAmountKrw).toBe(300_000);
+  });
+});
+
+describe('computeDepositAndBalanceKrw', () => {
+  it('ceil balance to ten-thousand won so deposit stays at or below 10%', () => {
+    expect(computeDepositAndBalanceKrw(814_000)).toEqual({
+      depositAmountKrw: 74_000,
+      balanceAmountKrw: 740_000,
+    });
+    expect(computeDepositAndBalanceKrw(726_000)).toEqual({
+      depositAmountKrw: 66_000,
+      balanceAmountKrw: 660_000,
+    });
+  });
+
+  it('keeps deposit at exactly 10% when raw balance is already a multiple of ten thousand', () => {
+    expect(computeDepositAndBalanceKrw(1_000_000)).toEqual({
+      depositAmountKrw: 100_000,
+      balanceAmountKrw: 900_000,
+    });
+  });
+
+  it('honors manual deposit override', () => {
+    expect(computeDepositAndBalanceKrw(814_000, 50_000)).toEqual({
+      depositAmountKrw: 50_000,
+      balanceAmountKrw: 764_000,
+    });
   });
 });

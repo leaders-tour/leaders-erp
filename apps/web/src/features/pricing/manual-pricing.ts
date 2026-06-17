@@ -1,5 +1,6 @@
 import {
   buildPricingManualPresentation,
+  computeDepositAndBalanceKrw,
   type PricingManualAdjustmentLine,
   type PricingManualSnapshot,
   type PricingManualSourceLine,
@@ -202,26 +203,6 @@ export interface EffectivePricingResult<TLine extends PricingManualSourceLine = 
   manualPricing: PricingManualSnapshot | null;
   adjustmentLines: PricingAdjustmentLineRow[];
   teamPricings: EffectiveTeamPricingResult<TLine>[];
-}
-
-function computeDepositAndBalance(
-  totalAmountKrw: number,
-  manualDepositAmountKrw?: number,
-): { depositAmountKrw: number; balanceAmountKrw: number } {
-  if (manualDepositAmountKrw !== undefined) {
-    return {
-      depositAmountKrw: manualDepositAmountKrw,
-      balanceAmountKrw: totalAmountKrw - manualDepositAmountKrw,
-    };
-  }
-
-  const tenPercent = Math.round(totalAmountKrw * 0.1);
-  const rawBalance = totalAmountKrw - tenPercent;
-  const balanceSubTenThousand = rawBalance % 10_000;
-  const rawDeposit = tenPercent + balanceSubTenThousand;
-  const depositAmountKrw = Math.min(rawDeposit, totalAmountKrw);
-  const balanceAmountKrw = totalAmountKrw - depositAmountKrw;
-  return { depositAmountKrw, balanceAmountKrw };
 }
 
 function hasNumber(value: unknown): value is number {
@@ -545,7 +526,7 @@ function buildSingleEffectivePricing<TLine extends PricingManualSourceLine>(
           depositAmountKrw: depositOverride,
           balanceAmountKrw: balanceOverride,
         }
-      : computeDepositAndBalance(totalAmountKrw, depositOverride);
+      : computeDepositAndBalanceKrw(totalAmountKrw, depositOverride);
   const manualSecurityDepositUnitKrw = hasNumber(summary?.securityDepositAmountKrw)
     ? summary.securityDepositAmountKrw
     : null;
