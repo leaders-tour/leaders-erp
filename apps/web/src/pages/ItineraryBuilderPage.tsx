@@ -105,6 +105,13 @@ import {
   normalizePickupDropCustomText,
   type PickupDropPlaceType,
 } from '../features/plan/pickup-drop';
+import {
+  applyTransportGroupTravelDateSync,
+  DEFAULT_TRAVEL_SYNC_FLIGHT_IN_TIME,
+  DEFAULT_TRAVEL_SYNC_FLIGHT_OUT_TIME,
+  isTransportGroupTravelLinked,
+  type TransportGroupTravelSyncDraft,
+} from '../features/plan/transport-group-travel-sync';
 import { toVariantLabel } from '../features/plan/variant-label';
 import {
   buildAutoRowsFromRoute,
@@ -1727,8 +1734,6 @@ const FLIGHT_OUT_TIME_OPTIONS = [
   '20:30',
 ] as const;
 /** 여행 기간 선택(또는 새 팀 추가) 시 IN/OUT 자동 맞춤에만 사용하는 추천 시각 — 「미정」또는 직접 수정 후에는 재적용되지 않음 */
-const DEFAULT_TRAVEL_SYNC_FLIGHT_IN_TIME = '02:45';
-const DEFAULT_TRAVEL_SYNC_FLIGHT_OUT_TIME = '18:15';
 const PICKUP_DROP_TIME_OPTIONS = [
   '04:00',
   '05:00',
@@ -2041,14 +2046,7 @@ function createEstimateDraftSnapshot(input: {
   };
 }
 
-interface TransportGroupDraft extends EstimateTransportGroup {
-  hasEditedPickup: boolean;
-  hasEditedDrop: boolean;
-  /** 항공 IN을 직접 바꿨거나 「미정」을 누른 뒤에는 여행 기간만으로 IN을 다시 채우지 않음 */
-  hasEditedFlightIn: boolean;
-  /** 항공 OUT — 위와 동일 */
-  hasEditedFlightOut: boolean;
-}
+type TransportGroupDraft = TransportGroupTravelSyncDraft;
 
 function getTransportGroupTeamName(index: number): string {
   const normalizedIndex = Math.max(0, index);
@@ -3728,6 +3726,23 @@ export function ItineraryBuilderPage(): JSX.Element {
     );
   };
 
+  const resyncTransportGroupTravelSchedule = useCallback(
+    (index: number): void => {
+      setTransportGroups((current) =>
+        current.map((group, groupIndex) =>
+          groupIndex === index
+            ? applyTransportGroupTravelDateSync(
+                group,
+                { travelStartDate, travelEndDate },
+                { clearManualPins: true },
+              )
+            : group,
+        ),
+      );
+    },
+    [travelEndDate, travelStartDate],
+  );
+
   const handleDatePickerChange = (nextIsoDate: string): void => {
     if (!datePickerTarget) {
       return;
@@ -3779,70 +3794,16 @@ export function ItineraryBuilderPage(): JSX.Element {
   useEffect(() => {
     setTransportGroups((current) =>
       current.map((group, index) => {
-        const nextGroup = { ...group };
+        let nextGroup = { ...group };
 
         if (index === 0 && group.teamName.trim().length === 0) {
           nextGroup.teamName = getTransportGroupTeamName(index);
         }
 
-        const inTimeReady = Boolean(nextGroup.flightInTime?.trim());
-        if (
-          !group.hasEditedFlightIn &&
-          !group.flightInDate?.trim() &&
-          travelStartDate
-        ) {
-          nextGroup.flightInDate = travelStartDate;
-          if (!nextGroup.flightInTime?.trim()) {
-            nextGroup.flightInTime = DEFAULT_TRAVEL_SYNC_FLIGHT_IN_TIME;
-          }
-          if (!group.hasEditedPickup) {
-            const recommendedPickup = getRecommendedPickupSchedule(
-              nextGroup.flightInDate,
-              nextGroup.flightInTime,
-              travelStartDate,
-            );
-            nextGroup.pickupDate = recommendedPickup.date;
-            if (!nextGroup.pickupTime.trim()) {
-              nextGroup.pickupTime = recommendedPickup.time;
-            }
-          }
-        } else if (
-          !group.hasEditedPickup &&
-          !group.pickupDate &&
-          group.flightInDate &&
-          inTimeReady
-        ) {
-          const recommendedPickup = getRecommendedPickupSchedule(
-            group.flightInDate,
-            nextGroup.flightInTime,
-            travelStartDate,
-          );
-          nextGroup.pickupDate = recommendedPickup.date;
-          if (!nextGroup.pickupTime.trim()) {
-            nextGroup.pickupTime = recommendedPickup.time;
-          }
-        }
-
-        const outTimeReady = Boolean(nextGroup.flightOutTime?.trim());
-        if (
-          !group.hasEditedFlightOut &&
-          !group.flightOutDate?.trim() &&
-          travelEndDate
-        ) {
-          nextGroup.flightOutDate = travelEndDate;
-          if (!nextGroup.flightOutTime?.trim()) {
-            nextGroup.flightOutTime = DEFAULT_TRAVEL_SYNC_FLIGHT_OUT_TIME;
-          }
-          if (!group.hasEditedDrop) {
-            const recommendedDrop = getRecommendedDropSchedule(
-              nextGroup.flightOutDate,
-              nextGroup.flightOutTime,
-              travelEndDate,
-            );
-            nextGroup.dropDate = recommendedDrop.date;
-            nextGroup.dropTime = recommendedDrop.time;
-          }
-        }
+        nextGroup = applyTransportGroupTravelDateSync(nextGroup, {
+          travelStartDate,
+          travelEndDate,
+        });
 
         return nextGroup;
       }),
@@ -6056,8 +6017,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </h2>
                 <div className="mt-5 grid gap-5 [&>*+*]:border-t [&>*+*]:border-slate-200 [&>*+*]:pt-5">
                   <div className="grid gap-3 text-sm">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-xs text-slate-600">팀별 항공 / 픽업 / 드랍</span>
+                      <span className="text-[11px] text-slate-500">
+                        「일정 연동」은 날짜만 여행 기간에 맞춥니다. 시각은 유지됩니다.
+                      </span>
                     </div>
 
                     <div className="grid gap-4">
@@ -6074,15 +6038,33 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 </p>
                               ) : null}
                             </div>
-                            {transportGroups.length > 1 ? (
+                            <div className="flex flex-wrap items-center gap-2">
                               <Button
+                                type="button"
                                 variant="outline"
-                                disabled={transportGroups.length <= 1}
-                                onClick={() => removeTransportGroupAt(index)}
+                                className="h-8 shrink-0 whitespace-nowrap px-3 text-xs"
+                                disabled={
+                                  !travelStartDate ||
+                                  !travelEndDate ||
+                                  isTransportGroupTravelLinked(group, {
+                                    travelStartDate,
+                                    travelEndDate,
+                                  })
+                                }
+                                onClick={() => resyncTransportGroupTravelSchedule(index)}
                               >
-                                삭제
+                                일정 연동
                               </Button>
-                            ) : null}
+                              {transportGroups.length > 1 ? (
+                                <Button
+                                  variant="outline"
+                                  disabled={transportGroups.length <= 1}
+                                  onClick={() => removeTransportGroupAt(index)}
+                                >
+                                  삭제
+                                </Button>
+                              ) : null}
+                            </div>
                           </div>
 
                           <div className="grid gap-3">
