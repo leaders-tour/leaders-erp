@@ -142,6 +142,7 @@ import {
   type ManualAdjustmentDraftRow,
   type ManualAdjustmentPresetOption,
 } from '../features/pricing/components/ManualAdjustmentsModal';
+import { PricingBaseLinesBreakdown } from '../features/pricing/components/PricingBaseLinesBreakdown';
 import { buildEffectivePricing, sliceEffectiveTotalsForUi, buildDisplayedPricingAdjustmentLines, type PricingAdjustmentLineRow, type DisplayedPricingAdjustmentLineRow, type EffectivePricingResult } from '../features/pricing/manual-pricing';
 import { buildCustomerPricingSnapshot } from '../features/pricing/customer-pricing-snapshot';
 import { MealOption, VariantType } from '../generated/graphql';
@@ -750,6 +751,33 @@ function setManualPricingSummaryValue(
       ...(current.summary ?? {}),
       [field]: value,
     },
+  };
+}
+
+function hasManualBaseAmountOverride(manual: ManualPricingState): boolean {
+  if (Number.isInteger(manual.summary?.baseAmountKrw)) {
+    return true;
+  }
+  return (manual.teamSummaries ?? []).some((row) => Number.isInteger(row.baseAmountKrw));
+}
+
+/** 수동 기본금 핀을 해제해 현재 자동 계산값을 다시 따르게 한다. */
+function resetManualPricingBaseAmount(current: ManualPricingState): ManualPricingState {
+  const nextSummary =
+    current.summary != null
+      ? {
+          ...current.summary,
+          baseAmountKrw: null,
+        }
+      : null;
+  const nextTeamSummaries = (current.teamSummaries ?? []).map((row) => ({
+    ...row,
+    baseAmountKrw: null,
+  }));
+  return {
+    ...current,
+    summary: nextSummary,
+    teamSummaries: nextTeamSummaries,
   };
 }
 
@@ -7423,29 +7451,52 @@ export function ItineraryBuilderPage(): JSX.Element {
                       <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
                         <div className="font-medium text-slate-900">기본금</div>
                         {manualPricing.enabled ? (
-                          <div className="mt-2 grid gap-2 lg:grid-cols-[200px_minmax(0,1fr)] lg:items-center">
-                            <input
-                              type="number"
-                              step={1}
-                              value={(estimatePricingUiTotals ?? effectivePricingPreview).baseAmountKrw}
-                              onChange={(event) => {
-                                const nextValue = Number(event.target.value);
-                                if (!Number.isInteger(nextValue)) {
-                                  return;
+                          <div className="mt-2 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                            <div className="flex gap-2">
+                              <input
+                                type="number"
+                                step={1}
+                                value={(estimatePricingUiTotals ?? effectivePricingPreview).baseAmountKrw}
+                                onChange={(event) => {
+                                  const nextValue = Number(event.target.value);
+                                  if (!Number.isInteger(nextValue)) {
+                                    return;
+                                  }
+                                  setManualPricing((current) =>
+                                    setManualPricingSummaryValue(current, 'baseAmountKrw', nextValue),
+                                  );
+                                }}
+                                className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="h-[42px] shrink-0 whitespace-nowrap px-3 text-xs"
+                                disabled={!pricingPreview || !hasManualBaseAmountOverride(manualPricing)}
+                                onClick={() =>
+                                  setManualPricing((current) => resetManualPricingBaseAmount(current))
                                 }
-                                setManualPricing((current) =>
-                                  setManualPricingSummaryValue(current, 'baseAmountKrw', nextValue),
-                                );
-                              }}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                            />
-                            <p className="text-xs text-slate-500">
+                              >
+                                초기화
+                              </Button>
+                            </div>
+                            <p className="text-xs text-slate-500 lg:max-w-xs">
                               기본금 단일값을 직접 수정하면 총액도 자동 재계산됩니다. 총액을 별도로 수정하면 그 값이 우선합니다.
+                              일수 변경 후 자동 기본금을 다시 반영하려면 초기화를 누르세요.
                             </p>
                           </div>
                         ) : (
                           <div className="mt-2 text-slate-900">{formatKrw((estimatePricingUiTotals ?? effectivePricingPreview).baseAmountKrw)}</div>
                         )}
+                        {pricingPreview && !manualPricing.enabled ? (
+                          <PricingBaseLinesBreakdown
+                            lines={pricingPreview.lines}
+                            grandTotal={pricingPreview.totalAmountKrw}
+                            headcountTotal={headcountTotal}
+                            totalDays={totalDays}
+                            showTeamPrefix={pricingSummaryShowTeamPrefix}
+                          />
+                        ) : null}
                       </div>
 
                       <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
