@@ -970,6 +970,16 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     return d ? formatDate(d) : '-';
   }, [trip]);
 
+  const publishedConfirmationId = trip?.latestPublishedConfirmationDocument?.id ?? null;
+  const selectedConfirmationDocument = useMemo(
+    () =>
+      confirmationDocuments.find((document) => document.id === selectedConfirmationDocumentId)
+      ?? confirmationDocuments.find((document) => document.id === publishedConfirmationId)
+      ?? confirmationDocuments[0]
+      ?? null,
+    [confirmationDocuments, publishedConfirmationId, selectedConfirmationDocumentId],
+  );
+
   if (!tripId) {
     return (
       <section className="grid gap-4 py-8">
@@ -1108,14 +1118,6 @@ export function ConfirmedTripDetailPage(): JSX.Element {
 
   const pdfAttachments = (trip.user.attachments ?? []).filter((a) => a.type === 'pdf');
   const publishedConfirmation = trip.latestPublishedConfirmationDocument ?? null;
-  const selectedConfirmationDocument = useMemo(
-    () =>
-      confirmationDocuments.find((document) => document.id === selectedConfirmationDocumentId)
-      ?? confirmationDocuments.find((document) => document.id === publishedConfirmation?.id)
-      ?? confirmationDocuments[0]
-      ?? null,
-    [confirmationDocuments, publishedConfirmation?.id, selectedConfirmationDocumentId],
-  );
   const isPlanTrip = !!(trip.planId && trip.planVersionId);
   const hasPdf = pdfAttachments.length > 0;
   const showRightPanel = !!selectedConfirmationDocument || isPlanTrip || hasPdf;
