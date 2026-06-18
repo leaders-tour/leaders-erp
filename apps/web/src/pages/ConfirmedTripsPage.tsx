@@ -4,6 +4,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarNoteModal } from '../features/confirmed-trip/CalendarNoteModal';
 import { ConfirmedTripCalendar } from '../features/confirmed-trip/ConfirmedTripCalendar';
 import { CreateConfirmedTripModal } from '../features/confirmed-trip/CreateConfirmedTripModal';
+import {
+  buildEquipmentRentalConflicts,
+  getEquipmentStockTotal,
+  getSingleEquipmentRentalFilter,
+} from '../features/confirmed-trip/equipment-rental-occupancy';
+import { countDailyOccupancy } from '../features/confirmed-trip/rental-occupancy-calendar';
+import { useTourListRentalItemStock } from '../features/app-settings/hooks';
 import { KoreaTeamStageMultiSelect } from '../features/confirmed-trip/KoreaTeamStageMultiSelect';
 import { PostTripTaskMultiSelect } from '../features/confirmed-trip/PostTripTaskMultiSelect';
 import { RecruitmentStatusToggle } from '../features/confirmed-trip/RecruitmentStatusToggle';
@@ -1201,6 +1208,17 @@ export function ConfirmedTripsPage(): JSX.Element {
     return { teams: calendarTrips.length, paxSum, missingPax };
   }, [calendarTrips]);
 
+  const equipmentRentalFilter = getSingleEquipmentRentalFilter(rentalItemFilters);
+  const { stock: tourListRentalStock } = useTourListRentalItemStock();
+  const dailyRentalOccupancy = useMemo(() => {
+    if (!equipmentRentalFilter) return null;
+    const conflicts = buildEquipmentRentalConflicts(allTrips, equipmentRentalFilter);
+    return {
+      total: getEquipmentStockTotal(tourListRentalStock, equipmentRentalFilter),
+      countsByDate: countDailyOccupancy(conflicts, calYear, calMonth),
+    };
+  }, [allTrips, calMonth, calYear, equipmentRentalFilter, tourListRentalStock]);
+
   function toggleSort(key: SortKey) {
     setSearchParams(
       (prev) => {
@@ -1546,6 +1564,7 @@ export function ConfirmedTripsPage(): JSX.Element {
             onChangeMonth={setCalendarMonth}
             onRequestAddNote={openAddNote}
             onRequestEditNote={openEditNote}
+            dailyRentalOccupancy={dailyRentalOccupancy}
           />
         </Card>
       ) : (

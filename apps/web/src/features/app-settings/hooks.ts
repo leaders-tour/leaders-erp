@@ -1,5 +1,5 @@
 import { useQuery } from '@apollo/client';
-import { APP_SETTINGS_DEFAULT, getCurrentRentalItemPreset, type RentalItemPreset } from '@tour/validation';
+import { APP_SETTINGS_DEFAULT, getCurrentRentalItemPreset, type RentalItemPreset, DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK } from '@tour/validation';
 import {
   AppSettingsDocument,
   type AppSettingsQuery,
@@ -72,4 +72,22 @@ export function useCurrentRentalItemPreset(): {
     preset: getCurrentRentalItemPreset(presets),
     loading,
   };
+}
+
+export function useTourListRentalItemStock(): {
+  stock: { drone: number; starlink: number; powerbank: number };
+  loading: boolean;
+} {
+  const { data, loading } = useQuery(AppSettingsDocument, {
+    fetchPolicy: 'cache-and-network',
+    errorPolicy: 'all',
+  });
+
+  const stock = data?.appSettings.tourListRentalItemStock ?? {
+    drone: DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK.DRONE,
+    starlink: DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK.STARLINK,
+    powerbank: DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK.POWERBANK,
+  };
+
+  return { stock, loading };
 }

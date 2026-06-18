@@ -26,6 +26,11 @@ interface ConfirmedTripCalendarProps {
   onChangeMonth: (year: number, month: number) => void;
   onRequestAddNote?: (date: string) => void;
   onRequestEditNote?: (note: CalendarNoteRow) => void;
+  /** 드론/스타링크/파워뱅크 단일 필터 시 날짜 옆 (사용/전체) 표시 */
+  dailyRentalOccupancy?: {
+    total: number;
+    countsByDate: ReadonlyMap<string, number>;
+  } | null;
 }
 
 interface CalendarBlock {
@@ -284,6 +289,7 @@ export function ConfirmedTripCalendar({
   onChangeMonth,
   onRequestAddNote,
   onRequestEditNote,
+  dailyRentalOccupancy,
 }: ConfirmedTripCalendarProps): JSX.Element {
   const navigate = useNavigate();
 
@@ -397,6 +403,10 @@ export function ConfirmedTripCalendar({
                   const isToday = isoDate === todayIso;
                   const cellNotes = currentNotes[colIdx] ?? [];
                   const calNotes = isoDate ? (notesByDate.get(isoDate) ?? []) : [];
+                  const rentalUsed = isoDate ? (dailyRentalOccupancy?.countsByDate.get(isoDate) ?? 0) : 0;
+                  const rentalTotal = dailyRentalOccupancy?.total ?? 0;
+                  const showRentalCount = Boolean(dailyRentalOccupancy);
+                  const isRentalOverCapacity = showRentalCount && rentalUsed > rentalTotal;
 
                   return (
                     <div
@@ -406,9 +416,9 @@ export function ConfirmedTripCalendar({
                     >
                       {isValid && (
                         <>
-                          <div className="flex items-center gap-0.5">
+                          <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
                             <span
-                              className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
+                              className={`inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full px-1 text-xs font-medium ${
                                 isToday
                                   ? 'bg-slate-900 text-white'
                                   : colIdx === 0
@@ -420,7 +430,20 @@ export function ConfirmedTripCalendar({
                             >
                               {dayNum}
                             </span>
-                            {onRequestAddNote && (
+                            {showRentalCount ? (
+                              <span
+                                className={`text-[10px] font-semibold ${
+                                  isRentalOverCapacity
+                                    ? 'text-rose-600'
+                                    : rentalUsed > 0
+                                      ? 'text-slate-600'
+                                      : 'text-slate-400'
+                                }`}
+                              >
+                                ({rentalUsed}/{rentalTotal})
+                              </span>
+                            ) : null}
+                            {onRequestAddNote ? (
                               <button
                                 type="button"
                                 onClick={() => onRequestAddNote(isoDate)}
@@ -431,7 +454,7 @@ export function ConfirmedTripCalendar({
                                   <path d="M8 3v10M3 8h10" strokeLinecap="round" />
                                 </svg>
                               </button>
-                            )}
+                            ) : null}
                           </div>
                           <div
                             className="absolute left-1.5 right-1.5 grid gap-0.5"
