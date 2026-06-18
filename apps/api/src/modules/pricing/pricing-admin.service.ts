@@ -158,9 +158,23 @@ function isAutoDisplayPreset(priceItemPreset: PricingPriceItemPresetValue): bool
     priceItemPreset === 'BASE' ||
     priceItemPreset === 'BASE_PERCENT' ||
     priceItemPreset === 'LONG_DISTANCE' ||
-    priceItemPreset === 'NIGHT_TRAIN' ||
     priceItemPreset === 'EXTRA_LODGING'
   );
+}
+
+function resolvePresetChargeScope(
+  priceItemPreset: PricingPriceItemPresetValue,
+): 'TEAM' | 'PER_PERSON' | null | undefined {
+  if (priceItemPreset === 'LODGING_SELECTION') {
+    return 'PER_PERSON';
+  }
+  if (priceItemPreset === 'NIGHT_TRAIN') {
+    return 'TEAM';
+  }
+  if (isAutoDisplayPreset(priceItemPreset)) {
+    return null;
+  }
+  return undefined;
 }
 
 /** DB 유일 제약용. 운영 식별은 GraphQL id·name 을 사용합니다. */
@@ -373,15 +387,12 @@ export class PricingAdminService {
       nightTrainMinCount: null,
       longDistanceMinCount: null,
       chargeScope:
-        parsed.data.priceItemPreset === 'LODGING_SELECTION'
-          ? 'PER_PERSON'
-          : autoDisplayPreset
-            ? null
-            : parsed.data.chargeScope ?? null,
+        resolvePresetChargeScope(parsed.data.priceItemPreset) ??
+        (autoDisplayPreset ? null : parsed.data.chargeScope ?? null),
       personMode:
         parsed.data.priceItemPreset === 'LODGING_SELECTION'
           ? 'PER_NIGHT'
-          : autoDisplayPreset
+          : parsed.data.priceItemPreset === 'NIGHT_TRAIN' || autoDisplayPreset
             ? null
             : parsed.data.personMode ?? null,
       customDisplayText: autoDisplayPreset || parsed.data.priceItemPreset === 'LODGING_SELECTION'
@@ -615,11 +626,8 @@ export class PricingAdminService {
           parsed.data.priceItemPreset !== undefined)
           ? {
               chargeScope:
-                nextPriceItemPreset === 'LODGING_SELECTION'
-                  ? 'PER_PERSON'
-                  : autoDisplayPreset
-                    ? null
-                    : parsed.data.chargeScope ?? existing.chargeScope,
+                resolvePresetChargeScope(nextPriceItemPreset) ??
+                (autoDisplayPreset ? null : parsed.data.chargeScope ?? existing.chargeScope),
             }
           : {}),
         ...((parsed.data.personMode !== undefined ||
@@ -630,7 +638,7 @@ export class PricingAdminService {
               personMode:
                 nextPriceItemPreset === 'LODGING_SELECTION'
                   ? 'PER_NIGHT'
-                  : autoDisplayPreset
+                  : nextPriceItemPreset === 'NIGHT_TRAIN' || autoDisplayPreset
                     ? null
                     : parsed.data.personMode ?? existing.personMode,
             }

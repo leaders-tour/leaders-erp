@@ -175,8 +175,17 @@ export function buildPricingLineDisplay(
     }
     case 'NIGHT_TRAIN': {
       if (line.unitPriceKrw !== null && line.quantity > 0) {
+        const label = resolveConfiguredDisplayLabel(line) ?? '야간열차';
+        if (ctx.headcountTotal > 0) {
+          return emptyDisplay('TEAM_DIV_PERSON', {
+            label,
+            unitAmountKrw: line.unitPriceKrw,
+            count: line.quantity,
+            divisorPerson: ctx.headcountTotal,
+          });
+        }
         return emptyDisplay('CUSTOM', {
-          label: '야간열차',
+          label,
           text: `${formatKrwNumber(line.unitPriceKrw)}×${line.quantity}회`,
         });
       }

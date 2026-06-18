@@ -125,8 +125,17 @@ function inferLegacyPricingLineDisplay(
     }
     case 'NIGHT_TRAIN': {
       if (line.unitPriceKrw !== null && line.quantity > 0) {
+        const label = line.displayLabel?.trim() || line.description?.trim() || '야간열차';
+        if (ctx.headcountTotal > 0) {
+          return emptyResolved('TEAM_DIV_PERSON', {
+            label,
+            unitAmountKrw: line.unitPriceKrw,
+            count: line.quantity,
+            divisorPerson: ctx.headcountTotal,
+          });
+        }
         return emptyResolved('CUSTOM', {
-          label: '야간열차',
+          label,
           text: `${formatKrw(line.unitPriceKrw)}×${line.quantity}회`,
         });
       }

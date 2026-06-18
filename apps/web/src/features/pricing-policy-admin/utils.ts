@@ -227,6 +227,13 @@ export function applyPriceItemOptionSelection(
         headcountMax: '',
         variantTypes: [],
       };
+    case 'NIGHT_TRAIN':
+      return {
+        ...baseNextForm,
+        title: ruleForm.title.trim() ? ruleForm.title : '야간 열차',
+        chargeScope: 'TEAM',
+        personMode: '',
+      };
     case 'LODGING_SELECTION':
       return {
         ...baseNextForm,
@@ -291,8 +298,11 @@ export function deriveRuleConstraints(ruleForm: RuleFormState): DerivedRuleConst
         effectiveQuantitySource: 'NIGHT_TRAIN_BLOCK_COUNT',
         quantitySourceLocked: true,
         quantitySourceReason: '야간 기차 항목은 운행 수 기준으로 자동 설정',
-        effectiveChargeScope: '',
-        displayLockedMessage: '야간 기차 항목은 표기 기준이 자동 계산됩니다.',
+        effectiveChargeScope: 'TEAM',
+        chargeScopeLocked: true,
+        effectivePersonMode: '',
+        personModeLocked: true,
+        displayLockedMessage: '야간 열차는 팀당 금액을 인원으로 나눠 표시합니다.',
       };
     case 'EXTRA_LODGING':
       return {
@@ -436,8 +446,8 @@ export function getPricingDisplayPreview(
   const formattedAmount = formatKrwAmount(rule.amountKrw);
   if (rule.priceItemPreset === 'NIGHT_TRAIN') {
     return {
-      label: '회당',
-      example: formattedAmount ? `${formattedAmount} * n회` : null,
+      label: '팀당',
+      example: formattedAmount ? `${formattedAmount} / n인` : null,
     };
   }
   if (rule.priceItemPreset === 'EXTRA_LODGING' || rule.priceItemPreset === 'LODGING_SELECTION') {

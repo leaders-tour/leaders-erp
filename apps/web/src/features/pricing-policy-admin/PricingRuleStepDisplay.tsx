@@ -18,6 +18,9 @@ function buildEstimateAdjustmentFormula(ruleForm: RuleFormState): string {
   }
 
   if (effectiveForm.priceItemPreset === 'NIGHT_TRAIN') {
+    if (effectiveForm.chargeScope === 'TEAM') {
+      return `${formatKrw(amountKrw)}/n인`;
+    }
     return `${formatKrw(amountKrw)}×n회`;
   }
   if (

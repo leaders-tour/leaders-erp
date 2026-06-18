@@ -297,7 +297,6 @@ function validateRuleInput(
     (priceItemPreset === 'BASE' ||
       priceItemPreset === 'BASE_PERCENT' ||
       priceItemPreset === 'LONG_DISTANCE' ||
-      priceItemPreset === 'NIGHT_TRAIN' ||
       priceItemPreset === 'EXTRA_LODGING')
   ) {
     ctx.addIssue({
@@ -305,6 +304,30 @@ function validateRuleInput(
       message: `${priceItemPreset} display inputs are fixed`,
       path: ['chargeScope'],
     });
+  }
+
+  if (priceItemPreset === 'NIGHT_TRAIN') {
+    if (chargeScope != null && chargeScope !== 'TEAM') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'NIGHT_TRAIN must use chargeScope TEAM',
+        path: ['chargeScope'],
+      });
+    }
+    if (personMode != null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'NIGHT_TRAIN must not use personMode',
+        path: ['personMode'],
+      });
+    }
+    if (value.customDisplayText != null && value.customDisplayText.trim().length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'NIGHT_TRAIN display text is fixed',
+        path: ['customDisplayText'],
+      });
+    }
   }
 
   if (usesPercent && hasDisplayInput) {

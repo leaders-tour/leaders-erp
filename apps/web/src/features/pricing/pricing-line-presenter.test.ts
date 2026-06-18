@@ -34,16 +34,17 @@ describe('pricing-line-presenter', () => {
     expect(formatPricingDetailFormula(line, ctx6)).toBe('울란바토르 미경유');
   });
 
-  it('formats night-train line as amount/count', () => {
+  it('formats night-train line as team amount divided by headcount', () => {
     const line = {
       lineCode: 'NIGHT_TRAIN',
       sourceType: 'RULE' as const,
-      description: '야간열차 추가금',
+      description: '야간 열차',
       unitPriceKrw: 420_000,
-      quantity: 2,
-      amountKrw: 840_000,
+      quantity: 1,
+      amountKrw: 70_000,
     };
-    expect(formatPricingDetailFormula(line, ctx6)).toBe('420,000원×2회');
+    expect(formatPricingDetailFormula(line, ctx6)).toBe('420,000원/6인');
+    expect(resolveDisplayLeadAmount(line, ctx6)).toBe(70_000);
   });
 
   it('formats team-div-person display using unit amount and count', () => {

@@ -925,4 +925,89 @@ describe('PricingService.preview', () => {
       },
     });
   });
+
+  it('adds night-train addon as team amount divided by headcount per block', async () => {
+    const overnightStayFindMany = vi.fn().mockImplementation((args: { where?: { id?: { in: string[] } } }) => {
+      const ids = args?.where?.id?.in ?? [];
+      if (ids.includes('night-block-1')) {
+        return Promise.resolve([
+          { id: 'night-block-1', blockType: 'TRANSFER', isNightTrain: true },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+    const service = makeService(
+      [
+        makeRule({
+          id: 'base-rule',
+          priceItemPreset: 'BASE',
+          ruleType: 'BASE',
+          title: '기본금',
+          lineCode: 'BASE',
+          amountKrw: 1_000_000,
+        }),
+        makeRule({
+          id: 'night-train-rule',
+          priceItemPreset: 'NIGHT_TRAIN',
+          ruleType: 'CONDITIONAL_ADDON',
+          title: '야간 열차',
+          lineCode: 'NIGHT_TRAIN',
+          amountKrw: 420_000,
+          quantitySource: 'NIGHT_TRAIN_BLOCK_COUNT',
+          chargeScope: 'TEAM',
+          personMode: null,
+        }),
+      ],
+      {
+        overnightStay: {
+          findMany: overnightStayFindMany,
+        },
+      },
+    );
+
+    const result = await service.preview(
+      makeInput({
+        headcountTotal: 4,
+        transportGroups: [
+          {
+            teamName: '1팀',
+            headcount: 4,
+            flightInDate: '2026-04-01',
+            flightInTime: '10:00',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+          },
+        ],
+        planStops: [
+          { rowType: 'MAIN', locationId: 'loc-1', mealCellText: '샤브샤브' },
+          {
+            rowType: 'MAIN',
+            locationId: 'block-day-1',
+            multiDayBlockId: 'night-block-1',
+            multiDayBlockDayOrder: 1,
+            mealCellText: '캠프식',
+          },
+        ],
+        totalDays: 2,
+      }),
+    );
+
+    const nightTrainLine = result.lines.find((line) => line.lineCode === 'NIGHT_TRAIN');
+
+    expect(nightTrainLine).toMatchObject({
+      description: '야간 열차',
+      unitPriceKrw: 420_000,
+      quantity: 1,
+      amountKrw: 105_000,
+      display: {
+        basis: 'TEAM_DIV_PERSON',
+        label: '야간 열차',
+        unitAmountKrw: 420_000,
+        count: 1,
+        divisorPerson: 4,
+      },
+    });
+    expect(result.addonAmountKrw).toBe(105_000);
+    expect(result.totalAmountKrw).toBe(1_105_000);
+  });
 });
