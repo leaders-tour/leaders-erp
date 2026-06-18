@@ -86,7 +86,7 @@ import {
   type ExternalTransfer,
 } from '../features/plan/external-transfer';
 import { useBuilderValidation } from '../features/plan/builder-validation';
-import { resolveVehicleTypeForHeadcount } from '../features/plan/builder-vehicle';
+import { HIACE_VEHICLE_HEADCOUNT_MIN, resolveVehicleTypeForHeadcount } from '../features/plan/builder-vehicle';
 import { useSpecialMealDestinationRules } from '../features/plan/hooks/use-special-meal-destination-rules';
 import { buildMergedPlanStops } from '../features/plan/merge-plan-stops';
 import {
@@ -4440,7 +4440,7 @@ export function ItineraryBuilderPage(): JSX.Element {
             (!item.customLodgingId || item.customLodgingId.trim().length === 0),
         ) &&
         !normalizedExternalTransfers.some((t) => !isExternalTransferComplete(t)) &&
-        (vehicleType !== '하이에이스' || headcountTotal >= 3),
+        (vehicleType !== '하이에이스' || headcountTotal >= HIACE_VEHICLE_HEADCOUNT_MIN),
       ),
     [
       regionSetId,
@@ -5858,17 +5858,17 @@ export function ItineraryBuilderPage(): JSX.Element {
                             key={vehicle}
                             type="button"
                             onClick={() => {
-                              if (vehicle === '하이에이스' && headcountTotal < 3) {
+                              if (vehicle === '하이에이스' && headcountTotal < HIACE_VEHICLE_HEADCOUNT_MIN) {
                                 return;
                               }
                               setVehicleType(vehicle);
                             }}
-                            disabled={vehicle === '하이에이스' && headcountTotal < 3}
+                            disabled={vehicle === '하이에이스' && headcountTotal < HIACE_VEHICLE_HEADCOUNT_MIN}
                             className={`rounded-xl border px-3 py-1.5 text-sm ${
                               vehicleType === vehicle
                                 ? 'border-slate-900 bg-slate-900 text-white'
                                 : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                            } ${vehicle === '하이에이스' && headcountTotal < 3 ? 'cursor-not-allowed opacity-40' : ''}`}
+                            } ${vehicle === '하이에이스' && headcountTotal < HIACE_VEHICLE_HEADCOUNT_MIN ? 'cursor-not-allowed opacity-40' : ''}`}
                           >
                             {vehicle}
                           </button>
@@ -5876,7 +5876,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       </div>
                       {hasValidation('hiace-headcount') ? (
                         <p className="text-xs text-rose-700">
-                          하이에이스는 3인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.
+                          하이에이스는 2인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.
                         </p>
                       ) : null}
                     </div>

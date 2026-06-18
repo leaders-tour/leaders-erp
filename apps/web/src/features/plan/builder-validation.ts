@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { HIACE_VEHICLE_HEADCOUNT_MIN } from './builder-vehicle';
 import type { ExternalTransfer } from './external-transfer';
 import { isExternalTransferComplete } from './external-transfer';
 import { getRequiredXMealsForLastDay } from './last-day-plan';
@@ -227,11 +228,11 @@ export function computeBuilderValidationResults(input: BuilderValidationInput): 
     }
 
     // hiace-headcount (error)
-    if (vehicleType === '하이에이스' && headcountTotal < 3) {
+    if (vehicleType === '하이에이스' && headcountTotal < HIACE_VEHICLE_HEADCOUNT_MIN) {
       results.push({
         id: 'hiace-headcount',
         severity: 'error',
-        message: '하이에이스는 3인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.',
+        message: '하이에이스는 2인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.',
       });
     }
 

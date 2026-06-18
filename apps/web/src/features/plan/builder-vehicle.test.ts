@@ -15,8 +15,12 @@ describe('resolveVehicleTypeForHeadcount', () => {
     expect(resolveVehicleTypeForHeadcount(5, '푸르공', VEHICLES)).toBe('푸르공');
   });
 
-  it('하이에이스는 6명 이하이면 스타렉스로 되돌린다', () => {
-    expect(resolveVehicleTypeForHeadcount(6, '하이에이스', VEHICLES)).toBe('스타렉스');
-    expect(resolveVehicleTypeForHeadcount(2, '하이에이스', VEHICLES)).toBe('스타렉스');
+  it('2~6명이면 수동 선택한 하이에이스를 유지한다', () => {
+    expect(resolveVehicleTypeForHeadcount(2, '하이에이스', VEHICLES)).toBe('하이에이스');
+    expect(resolveVehicleTypeForHeadcount(6, '하이에이스', VEHICLES)).toBe('하이에이스');
+  });
+
+  it('1명이면 하이에이스를 스타렉스로 되돌린다', () => {
+    expect(resolveVehicleTypeForHeadcount(1, '하이에이스', VEHICLES)).toBe('스타렉스');
   });
 });

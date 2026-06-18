@@ -215,7 +215,7 @@ export function applyPriceItemOptionSelection(
       return {
         ...baseNextForm,
         vehicleType: '하이에이스',
-        headcountMin: '3',
+        headcountMin: '2',
         headcountMax: '6',
         variantTypes: [],
       };

@@ -110,7 +110,7 @@ export const PRICE_ITEM_OPTIONS: PriceItemOption[] = [
     group: 'CONDITION',
     preset: 'CONDITIONAL',
     label: '하이에이스',
-    description: '하이에이스 + 3~6인 조건의 자동 규칙입니다.',
+    description: '하이에이스 + 2~6인 조건의 자동 규칙입니다.',
   },
   {
     value: 'CONDITIONAL_CUSTOM',

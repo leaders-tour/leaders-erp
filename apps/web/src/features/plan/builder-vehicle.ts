@@ -1,5 +1,5 @@
 export const HIACE_AUTO_VEHICLE_HEADCOUNT_MIN = 8;
-export const STAREX_AUTO_VEHICLE_HEADCOUNT_MAX = 6;
+export const HIACE_VEHICLE_HEADCOUNT_MIN = 2;
 
 export function resolveVehicleTypeForHeadcount(
   headcountTotal: number,
@@ -10,7 +10,7 @@ export function resolveVehicleTypeForHeadcount(
     return '하이에이스';
   }
 
-  if (currentVehicle === '하이에이스' && headcountTotal <= STAREX_AUTO_VEHICLE_HEADCOUNT_MAX) {
+  if (currentVehicle === '하이에이스' && headcountTotal < HIACE_VEHICLE_HEADCOUNT_MIN) {
     return vehicles.includes('스타렉스') ? '스타렉스' : (vehicles[0] ?? currentVehicle);
   }
 
