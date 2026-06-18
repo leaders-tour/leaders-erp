@@ -122,6 +122,12 @@ const SAVE_CONFIRMATION_DOCUMENT_MUTATION = gql`
   }
 `;
 
+const DELETE_CONFIRMATION_DOCUMENT_MUTATION = gql`
+  mutation DeleteConfirmationDocument($id: ID!) {
+    deleteConfirmationDocument(id: $id)
+  }
+`;
+
 function toConfirmationTravelerInput(traveler: ConfirmationTraveler): ConfirmationTraveler {
   return {
     name: traveler.name,
@@ -283,6 +289,24 @@ export function useSaveConfirmationDocument() {
   };
 
   return { save, loading };
+}
+
+export function useDeleteConfirmationDocument() {
+  const [mutate, { loading }] = useMutation<{ deleteConfirmationDocument: boolean }>(
+    DELETE_CONFIRMATION_DOCUMENT_MUTATION,
+  );
+
+  const deleteDocument = async (id: string, userId: string): Promise<void> => {
+    const result = await mutate({
+      variables: { id },
+      refetchQueries: [{ query: CONFIRMATION_DOCUMENTS_BY_USER_ID_QUERY, variables: { userId } }],
+    });
+    if (!result.data?.deleteConfirmationDocument) {
+      throw new Error('확정서 삭제에 실패했습니다.');
+    }
+  };
+
+  return { deleteDocument, loading };
 }
 
 export { LATEST_PUBLISHED_CONFIRMATION_DOCUMENT_QUERY, CONFIRMATION_DOCUMENT_FRAGMENT };

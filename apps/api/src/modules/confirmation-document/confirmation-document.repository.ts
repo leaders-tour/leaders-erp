@@ -107,4 +107,10 @@ export class ConfirmationDocumentRepository {
       data: { status: 'ARCHIVED' },
     });
   }
+
+  delete(id: string) {
+    return this.prisma.confirmationDocument.delete({
+      where: { id },
+    });
+  }
 }

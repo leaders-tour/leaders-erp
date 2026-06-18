@@ -186,6 +186,7 @@ type Mutation {
   seedConfirmedTripLodgingsFromPlan(confirmedTripId: ID!): [ConfirmedTripLodging!]!
 
   saveConfirmationDocument(input: SaveConfirmationDocumentInput!): ConfirmationDocument!
+  deleteConfirmationDocument(id: ID!): Boolean!
 
   createGuide(input: GuideCreateInput!): Guide!
   updateGuide(id: ID!, input: GuideUpdateInput!): Guide!

@@ -1,8 +1,12 @@
+import { ApolloError } from '@apollo/client';
 import { Button, Card } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ConfirmationListPanel } from '../features/confirmation/components/ConfirmationListPanel';
-import { useConfirmationDocumentsByUserId } from '../features/confirmation/hooks/use-confirmation-document';
+import {
+  useConfirmationDocumentsByUserId,
+  useDeleteConfirmationDocument,
+} from '../features/confirmation/hooks/use-confirmation-document';
 import type { ConfirmationDocumentRow } from '../features/confirmation/model/types';
 import { CustomerSelector } from '../features/plan/components';
 import { getCustomerTripStatus } from '../features/plan/customerTripStatus';
@@ -50,6 +54,8 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
 
   const selectedUser = users.find((user) => user.id === selectedUserId) ?? null;
   const { documents, loading: documentsLoading } = useConfirmationDocumentsByUserId(selectedUserId || undefined);
+  const { deleteDocument, loading: deleteDocumentLoading } = useDeleteConfirmationDocument();
+  const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
 
   const primaryActiveTripId = useMemo(() => {
     const activeTrips = (selectedUser?.confirmedTrips ?? [])
@@ -71,6 +77,54 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
       return;
     }
     navigate(`/confirmed-trips/${primaryActiveTripId}/confirmation-builder`);
+  };
+
+  const getDocumentTitle = (document: ConfirmationDocumentRow): string => {
+    const destination = document.snapshot.destination?.trim();
+    if (destination) {
+      return `${destination} 여정`;
+    }
+    return '확정 여정';
+  };
+
+  const getStatusLabel = (status: ConfirmationDocumentRow['status']): string => {
+    switch (status) {
+      case 'DRAFT':
+        return '임시저장';
+      case 'PUBLISHED':
+        return '발행';
+      case 'ARCHIVED':
+        return '보관됨';
+      default:
+        return status;
+    }
+  };
+
+  const handleDeleteDocument = async (document: ConfirmationDocumentRow) => {
+    if (!selectedUserId) {
+      return;
+    }
+    if (
+      !window.confirm(
+        `${getDocumentTitle(document)} v${document.versionNumber} (${getStatusLabel(document.status)}) 확정서를 삭제할까요? 되돌릴 수 없습니다.`,
+      )
+    ) {
+      return;
+    }
+    setDeletingDocumentId(document.id);
+    try {
+      await deleteDocument(document.id, selectedUserId);
+    } catch (error) {
+      const message =
+        error instanceof ApolloError
+          ? error.graphQLErrors[0]?.message?.trim()
+          : error instanceof Error
+            ? error.message
+            : null;
+      window.alert(message && message.length > 0 ? message : '확정서 삭제에 실패했습니다.');
+    } finally {
+      setDeletingDocumentId((current) => (current === document.id ? null : current));
+    }
   };
 
   return (
@@ -125,8 +179,11 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
                 documents={documents}
                 loading={documentsLoading}
                 onOpenDocument={handleOpenDocument}
+                onDeleteDocument={(document) => void handleDeleteDocument(document)}
                 onCreateDocument={handleCreateDocument}
                 canCreate={!!primaryActiveTripId}
+                deleteLoading={deleteDocumentLoading}
+                deletingDocumentId={deletingDocumentId}
               />
             </>
           ) : (

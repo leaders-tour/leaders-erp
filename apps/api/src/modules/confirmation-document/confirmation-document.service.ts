@@ -139,6 +139,15 @@ export class ConfirmationDocumentService {
     return this.toGraphql(created);
   }
 
+  async delete(id: string) {
+    const document = await this.repository.findById(id);
+    if (!document) {
+      throw new DomainError('NOT_FOUND', 'Confirmation document not found');
+    }
+    await this.repository.delete(id);
+    return true;
+  }
+
   private async loadConfirmedTrip(confirmedTripId: string) {
     const trip = await this.prisma.confirmedTrip.findUnique({
       where: { id: confirmedTripId },

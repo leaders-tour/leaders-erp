@@ -5,8 +5,11 @@ interface ConfirmationListPanelProps {
   documents: ConfirmationDocumentRow[];
   loading?: boolean;
   onOpenDocument: (document: ConfirmationDocumentRow) => void;
+  onDeleteDocument: (document: ConfirmationDocumentRow) => void;
   onCreateDocument: () => void;
   canCreate?: boolean;
+  deleteLoading?: boolean;
+  deletingDocumentId?: string | null;
 }
 
 function getDocumentTitle(document: ConfirmationDocumentRow): string {
@@ -34,8 +37,11 @@ export function ConfirmationListPanel({
   documents,
   loading = false,
   onOpenDocument,
+  onDeleteDocument,
   onCreateDocument,
   canCreate = true,
+  deleteLoading = false,
+  deletingDocumentId = null,
 }: ConfirmationListPanelProps): JSX.Element {
   return (
     <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -74,9 +80,18 @@ export function ConfirmationListPanel({
                   <Td>{`v${document.versionNumber}`}</Td>
                   <Td>{new Date(document.updatedAt).toLocaleString('ko-KR')}</Td>
                   <Td>
-                    <Button variant="outline" onClick={() => onOpenDocument(document)}>
-                      상세
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" onClick={() => onOpenDocument(document)}>
+                        상세
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        disabled={deleteLoading && deletingDocumentId === document.id}
+                        onClick={() => onDeleteDocument(document)}
+                      >
+                        {deleteLoading && deletingDocumentId === document.id ? '삭제 중...' : '삭제'}
+                      </Button>
+                    </div>
                   </Td>
                 </tr>
               ))}

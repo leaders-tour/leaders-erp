@@ -37,6 +37,8 @@ export const confirmationDocumentResolver = {
   Mutation: {
     saveConfirmationDocument: (_parent: unknown, args: SaveConfirmationDocumentArgs, ctx: AppContext) =>
       new ConfirmationDocumentService(ctx.prisma).save(args.input, requireEmployee(ctx)),
+    deleteConfirmationDocument: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
+      new ConfirmationDocumentService(ctx.prisma).delete(args.id),
   },
   ConfirmedTrip: {
     latestPublishedConfirmationDocument: (parent: { id: string }, _args: unknown, ctx: AppContext) =>
