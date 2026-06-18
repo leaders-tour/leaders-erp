@@ -21,6 +21,11 @@ mutation UpdateAppSettings($input: AppSettingsInput!) {
         quantityFormula
       }
     }
+    tourListRentalItemStock {
+      drone
+      starlink
+      powerbank
+    }
     updatedAt
   }
 }

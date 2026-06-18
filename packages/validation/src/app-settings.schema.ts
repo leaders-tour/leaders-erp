@@ -51,9 +51,18 @@ export const rentalItemPresetSchema = z.object({
   }
 });
 
+export const tourListRentalItemTypes = ['DRONE', 'STARLINK', 'POWERBANK'] as const;
+
+export const tourListRentalItemStockSchema = z.object({
+  DRONE: z.number().int().min(0).max(1000),
+  STARLINK: z.number().int().min(0).max(1000),
+  POWERBANK: z.number().int().min(0).max(1000),
+});
+
 export const appSettingsPayloadSchema = z.object({
   movementIntensityColors: z.array(movementIntensityColorSchema),
   rentalItemPresets: z.array(rentalItemPresetSchema).min(1).max(50),
+  tourListRentalItemStock: tourListRentalItemStockSchema,
 });
 
 export type AppSettingKey = z.infer<typeof appSettingKeySchema>;
@@ -62,6 +71,8 @@ export type MovementIntensityColor = z.infer<typeof movementIntensityColorSchema
 export type RentalItemSharedQuantityRule = z.infer<typeof rentalItemSharedQuantityRuleSchema>;
 export type RentalItemPresetItem = z.infer<typeof rentalItemPresetItemSchema>;
 export type RentalItemPreset = z.infer<typeof rentalItemPresetSchema>;
+export type TourListRentalItemType = (typeof tourListRentalItemTypes)[number];
+export type TourListRentalItemStock = z.infer<typeof tourListRentalItemStockSchema>;
 export type AppSettingsPayload = z.infer<typeof appSettingsPayloadSchema>;
 
 export const APP_SETTINGS_KEY_APPEARANCE: AppSettingKey = 'appearance';
@@ -102,9 +113,22 @@ export const DEFAULT_RENTAL_ITEM_PRESETS: RentalItemPreset[] = [
   },
 ];
 
+export const DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK: TourListRentalItemStock = {
+  DRONE: 10,
+  STARLINK: 5,
+  POWERBANK: 2,
+};
+
+export const TOUR_LIST_RENTAL_ITEM_LABELS: Record<TourListRentalItemType, string> = {
+  DRONE: '드론',
+  STARLINK: '스타링크',
+  POWERBANK: '파워뱅크',
+};
+
 export const APP_SETTINGS_DEFAULT: AppSettingsPayload = {
   movementIntensityColors: DEFAULT_MOVEMENT_INTENSITY_COLORS,
   rentalItemPresets: DEFAULT_RENTAL_ITEM_PRESETS,
+  tourListRentalItemStock: DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK,
 };
 
 type FormulaToken =
@@ -542,12 +566,17 @@ export function normalizeAppSettingsPayload(value: unknown): AppSettingsPayload 
     }
   }
 
+  const parsedStock = tourListRentalItemStockSchema.safeParse(raw.tourListRentalItemStock);
+
   return {
     movementIntensityColors: DEFAULT_MOVEMENT_INTENSITY_COLORS.map((item) => ({
       level: item.level,
       color: colorByLevel.get(item.level) ?? item.color,
     })),
     rentalItemPresets: normalizeRentalItemPresets(raw.rentalItemPresets),
+    tourListRentalItemStock: parsedStock.success
+      ? parsedStock.data
+      : DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK,
   };
 }
 

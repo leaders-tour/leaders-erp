@@ -21,6 +21,11 @@ query AppSettings {
         quantityFormula
       }
     }
+    tourListRentalItemStock {
+      drone
+      starlink
+      powerbank
+    }
     updatedAt
   }
 }

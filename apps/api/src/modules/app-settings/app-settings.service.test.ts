@@ -3,6 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { APP_SETTINGS_DEFAULT, APP_SETTINGS_KEY_APPEARANCE } from '@tour/validation';
 import { AppSettingsService } from './app-settings.service';
 
+const defaultStockInput = {
+  tourListRentalItemStock: {
+    drone: APP_SETTINGS_DEFAULT.tourListRentalItemStock.DRONE,
+    starlink: APP_SETTINGS_DEFAULT.tourListRentalItemStock.STARLINK,
+    powerbank: APP_SETTINGS_DEFAULT.tourListRentalItemStock.POWERBANK,
+  },
+};
+
 function createPrismaMock(initialRow: { payload: unknown; updatedAt: Date } | null = null): PrismaClient {
   type AppSettingMockRow = { key: string; payload: unknown; updatedAt: Date };
   let row: AppSettingMockRow | null = initialRow ? { key: APP_SETTINGS_KEY_APPEARANCE, ...initialRow } : null;
@@ -31,6 +39,7 @@ describe('AppSettingsService', () => {
 
     expect(result.movementIntensityColors).toEqual(APP_SETTINGS_DEFAULT.movementIntensityColors);
     expect(result.rentalItemPresets).toEqual(APP_SETTINGS_DEFAULT.rentalItemPresets);
+    expect(result.tourListRentalItemStock).toEqual(defaultStockInput.tourListRentalItemStock);
   });
 
   it('normalizes missing movement intensity levels on update', async () => {
@@ -39,6 +48,7 @@ describe('AppSettingsService', () => {
     const result = await service.update({
       movementIntensityColors: [{ level: 'LEVEL_3', color: '#123456' }],
       rentalItemPresets: APP_SETTINGS_DEFAULT.rentalItemPresets,
+      ...defaultStockInput,
     });
 
     expect(result.movementIntensityColors).toHaveLength(5);
@@ -63,6 +73,7 @@ describe('AppSettingsService', () => {
           items: [{ id: 'custom-1', label: '테스트', unit: '개', quantityFormula: 'ceil(total / 2)' }],
         },
       ],
+      ...defaultStockInput,
     });
 
     expect(result.rentalItemPresets).toHaveLength(1);
@@ -90,6 +101,7 @@ describe('AppSettingsService', () => {
           items: [{ id: 'custom-1', label: '멀티탭', unit: '개', quantityFormula: 'shared' }],
         },
       ],
+      ...defaultStockInput,
     });
 
     expect(result.rentalItemPresets[0]?.sharedQuantityRules[1]?.quantity).toBe(9);
@@ -118,6 +130,27 @@ describe('AppSettingsService', () => {
     expect(result.rentalItemPresets[0]?.sharedQuantityRules).toEqual(
       APP_SETTINGS_DEFAULT.rentalItemPresets[0]!.sharedQuantityRules,
     );
+    expect(result.tourListRentalItemStock).toEqual(defaultStockInput.tourListRentalItemStock);
+  });
+
+  it('stores custom tour list rental stock on update', async () => {
+    const service = new AppSettingsService(createPrismaMock());
+
+    const result = await service.update({
+      movementIntensityColors: APP_SETTINGS_DEFAULT.movementIntensityColors,
+      rentalItemPresets: APP_SETTINGS_DEFAULT.rentalItemPresets,
+      tourListRentalItemStock: {
+        drone: 12,
+        starlink: 6,
+        powerbank: 3,
+      },
+    });
+
+    expect(result.tourListRentalItemStock).toEqual({
+      drone: 12,
+      starlink: 6,
+      powerbank: 3,
+    });
   });
 
   it('rejects invalid colors', async () => {
@@ -127,6 +160,7 @@ describe('AppSettingsService', () => {
       service.update({
         movementIntensityColors: [{ level: 'LEVEL_1', color: 'red' }],
         rentalItemPresets: APP_SETTINGS_DEFAULT.rentalItemPresets,
+        ...defaultStockInput,
       }),
     ).rejects.toThrow('앱 설정 입력이 올바르지 않습니다.');
   });
@@ -146,6 +180,7 @@ describe('AppSettingsService', () => {
             items: [{ id: 'bad-1', label: 'Bad', unit: '개', quantityFormula: 'Date.now()' }],
           },
         ],
+        ...defaultStockInput,
       }),
     ).rejects.toThrow('앱 설정 입력이 올바르지 않습니다.');
   });

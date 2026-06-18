@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PrismaClient } from '@prisma/client';
+import { APP_SETTINGS_DEFAULT } from '@tour/validation';
 import { buildRentalItemAvailability, ConfirmedTripService } from './confirmed-trip.service';
 
 function trip(input: {
@@ -122,6 +123,13 @@ describe('buildRentalItemAvailability', () => {
     ]);
     const service = new ConfirmedTripService({
       confirmedTrip: { findMany },
+      appSetting: {
+        findUnique: vi.fn().mockResolvedValue({
+          key: 'appearance',
+          payload: APP_SETTINGS_DEFAULT,
+          updatedAt: new Date('2026-05-22T00:00:00.000Z'),
+        }),
+      },
     } as unknown as PrismaClient);
 
     const availability = await service.getRentalItemAvailability({

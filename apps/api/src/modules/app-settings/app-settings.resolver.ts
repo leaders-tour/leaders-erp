@@ -12,6 +12,11 @@ interface UpdateAppSettingsArgs {
       sharedQuantityRules: Array<{ id: string; minHeadcount: number; maxHeadcount: number | null; quantity: number }>;
       items: Array<{ id: string; label: string; unit: string; quantityFormula: string }>;
     }>;
+    tourListRentalItemStock: {
+      drone: number;
+      starlink: number;
+      powerbank: number;
+    };
   };
 }
 

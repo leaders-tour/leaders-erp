@@ -25,9 +25,16 @@ type RentalItemPreset {
   items: [RentalItemPresetItem!]!
 }
 
+type TourListRentalItemStock {
+  drone: Int!
+  starlink: Int!
+  powerbank: Int!
+}
+
 type AppSettings {
   movementIntensityColors: [MovementIntensityColorSetting!]!
   rentalItemPresets: [RentalItemPreset!]!
+  tourListRentalItemStock: TourListRentalItemStock!
   updatedAt: DateTime!
 }
 
@@ -58,9 +65,16 @@ input RentalItemPresetInput {
   items: [RentalItemPresetItemInput!]!
 }
 
+input TourListRentalItemStockInput {
+  drone: Int!
+  starlink: Int!
+  powerbank: Int!
+}
+
 input AppSettingsInput {
   movementIntensityColors: [MovementIntensityColorSettingInput!]!
   rentalItemPresets: [RentalItemPresetInput!]!
+  tourListRentalItemStock: TourListRentalItemStockInput!
 }
 
 extend type Query {

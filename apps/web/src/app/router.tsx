@@ -59,6 +59,7 @@ import {
   MovementIntensitySettingsPage,
   RentalItemSettingsPage,
   SettingsPage,
+  TourListRentalStockSettingsPage,
 } from '../pages/SettingsPage';
 import { SpecialMealDestinationRulesPage } from '../pages/SpecialMealDestinationRulesPage';
 import { TodoListPage } from '../pages/TodoListPage';
@@ -214,6 +215,10 @@ export const router = createBrowserRouter([
       {
         path: 'settings/rental-items',
         element: <RequireStaffOrAbove><RentalItemSettingsPage /></RequireStaffOrAbove>,
+      },
+      {
+        path: 'settings/tour-list-rental-stock',
+        element: <RequireStaffOrAbove><TourListRentalStockSettingsPage /></RequireStaffOrAbove>,
       },
       {
         path: 'settings/special-meal-destination-rules',

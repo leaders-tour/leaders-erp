@@ -17,6 +17,10 @@ import {
   confirmedTripNoteCreateSchema,
   confirmedTripNoteUpdateSchema,
   confirmedTripUpdateSchema,
+  DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK,
+  TOUR_LIST_RENTAL_ITEM_LABELS,
+  type TourListRentalItemStock,
+  type TourListRentalItemType,
 } from '@tour/validation';
 import type { CurrentEmployee } from '../../context';
 import type { ConfirmedTripDriverAssignmentInput, ConfirmedTripGuideAssignmentInput } from '@tour/validation';
@@ -27,6 +31,7 @@ import {
   confirmedTripInclude,
   confirmedTripLodgingInclude,
 } from './confirmed-trip.repository';
+import { AppSettingsService } from '../app-settings/app-settings.service';
 import type {
   CalendarNoteCreateDto,
   CalendarNoteUpdateDto,
@@ -47,13 +52,15 @@ const calendarNoteWithConfirmedTripInclude = {
   },
 } satisfies Prisma.CalendarNoteInclude;
 
-const RENTAL_ITEM_STOCK = {
-  DRONE: { label: '드론', total: 10 },
-  STARLINK: { label: '스타링크', total: 5 },
-  POWERBANK: { label: '파워뱅크', total: 2 },
-} as const;
+type RentalAvailabilityItem = TourListRentalItemType;
 
-type RentalAvailabilityItem = keyof typeof RENTAL_ITEM_STOCK;
+function rentalStockEntries(stock: TourListRentalItemStock): Array<{ item: RentalAvailabilityItem; label: string; total: number }> {
+  return (Object.keys(stock) as RentalAvailabilityItem[]).map((item) => ({
+    item,
+    label: TOUR_LIST_RENTAL_ITEM_LABELS[item],
+    total: stock[item],
+  }));
+}
 
 interface RentalItemFlags {
   rentalDrone: boolean;
@@ -175,10 +182,10 @@ export function buildRentalItemAvailability(
   options?: {
     excludeConfirmedTripId?: string | null;
     excludePlanId?: string | null;
+    stock?: TourListRentalItemStock;
   },
 ) {
-  return (Object.keys(RENTAL_ITEM_STOCK) as RentalAvailabilityItem[]).map((item) => {
-    const stock = RENTAL_ITEM_STOCK[item];
+  return rentalStockEntries(options?.stock ?? DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK).map(({ item, label, total }) => {
     const conflicts = trips.flatMap((trip) => {
       if (!rentalTripUsesItem(trip, item)) return [];
 
@@ -216,10 +223,10 @@ export function buildRentalItemAvailability(
 
     return {
       item,
-      label: stock.label,
-      total: stock.total,
+      label,
+      total,
       used,
-      available: stock.total - used,
+      available: total - used,
       conflicts,
     };
   });
@@ -286,9 +293,17 @@ export class ConfirmedTripService {
       },
     });
 
+    const settings = await new AppSettingsService(this.prisma).get();
+    const stock: TourListRentalItemStock = {
+      DRONE: settings.tourListRentalItemStock.drone,
+      STARLINK: settings.tourListRentalItemStock.starlink,
+      POWERBANK: settings.tourListRentalItemStock.powerbank,
+    };
+
     return buildRentalItemAvailability(trips, requestedStart, requestedEnd, {
       excludeConfirmedTripId: input.excludeConfirmedTripId,
       excludePlanId: input.excludePlanId,
+      stock,
     });
   }
 

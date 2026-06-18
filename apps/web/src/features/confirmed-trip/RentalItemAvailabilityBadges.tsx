@@ -1,18 +1,13 @@
 import { useRef, useState } from 'react';
+import {
+  DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK,
+  TOUR_LIST_RENTAL_ITEM_LABELS,
+  tourListRentalItemTypes,
+} from '@tour/validation';
 import type { RentalItemAvailabilityRow, TourListRentalItem } from './hooks';
 import { RentalItemOccupancyCalendar } from './RentalItemOccupancyCalendar';
 
-export const RENTAL_ITEM_LABELS: Record<TourListRentalItem, string> = {
-  DRONE: '드론',
-  STARLINK: '스타링크',
-  POWERBANK: '파워뱅크',
-};
-
-const RENTAL_ITEM_TOTALS: Record<TourListRentalItem, number> = {
-  DRONE: 10,
-  STARLINK: 5,
-  POWERBANK: 2,
-};
+export const RENTAL_ITEM_LABELS: Record<TourListRentalItem, string> = TOUR_LIST_RENTAL_ITEM_LABELS;
 
 const POPOVER_WIDTH = 600;
 const VIEWPORT_PADDING = 16;
@@ -138,12 +133,12 @@ export function RentalItemAvailabilityBadges({
 }): JSX.Element {
   const rows = availability.length > 0
     ? availability
-    : (Object.entries(RENTAL_ITEM_LABELS) as Array<[TourListRentalItem, string]>).map(([item, label]) => ({
+    : tourListRentalItemTypes.map((item) => ({
         item,
-        label,
-        total: RENTAL_ITEM_TOTALS[item],
+        label: TOUR_LIST_RENTAL_ITEM_LABELS[item],
+        total: DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK[item],
         used: 0,
-        available: RENTAL_ITEM_TOTALS[item],
+        available: DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK[item],
         conflicts: [],
       }));
 

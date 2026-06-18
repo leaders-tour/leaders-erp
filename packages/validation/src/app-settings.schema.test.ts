@@ -20,6 +20,7 @@ describe('app settings schema', () => {
         { level: 'LEVEL_5', color: '#111111' },
       ],
       rentalItemPresets: APP_SETTINGS_DEFAULT.rentalItemPresets,
+      tourListRentalItemStock: APP_SETTINGS_DEFAULT.tourListRentalItemStock,
     });
 
     expect(result.success).toBe(true);
@@ -32,6 +33,7 @@ describe('app settings schema', () => {
     const result = appSettingsPayloadSchema.safeParse({
       movementIntensityColors: [{ level: 'LEVEL_1', color: 'red' }],
       rentalItemPresets: APP_SETTINGS_DEFAULT.rentalItemPresets,
+      tourListRentalItemStock: APP_SETTINGS_DEFAULT.tourListRentalItemStock,
     });
 
     expect(result.success).toBe(false);
@@ -162,6 +164,15 @@ describe('app settings schema', () => {
     ).toContain('마지막 구간은 "이상"으로 설정해야 합니다.');
   });
 
+  it('fills missing tour list rental stock with defaults', () => {
+    const normalized = normalizeAppSettingsPayload({
+      movementIntensityColors: APP_SETTINGS_DEFAULT.movementIntensityColors,
+      rentalItemPresets: APP_SETTINGS_DEFAULT.rentalItemPresets,
+    });
+
+    expect(normalized.tourListRentalItemStock).toEqual(APP_SETTINGS_DEFAULT.tourListRentalItemStock);
+  });
+
   it('rejects invalid rental item formulas', () => {
     const result = appSettingsPayloadSchema.safeParse({
       movementIntensityColors: APP_SETTINGS_DEFAULT.movementIntensityColors,
@@ -174,6 +185,7 @@ describe('app settings schema', () => {
           items: [{ id: 'bad-1', label: 'Bad', unit: '개', quantityFormula: 'total.includes(1)' }],
         },
       ],
+      tourListRentalItemStock: APP_SETTINGS_DEFAULT.tourListRentalItemStock,
     });
 
     expect(result.success).toBe(false);

@@ -2,14 +2,19 @@ import { useMutation, useQuery } from '@apollo/client';
 import {
   APP_SETTINGS_DEFAULT,
   DEFAULT_RENTAL_ITEM_SHARED_QUANTITY_RULES,
+  DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK,
+  TOUR_LIST_RENTAL_ITEM_LABELS,
   evaluateRentalItemQuantityFormula,
   getSharedRentalItemCount,
   getCurrentRentalItemPreset,
   renderRentalItemPresetText,
+  tourListRentalItemTypes,
   validateRentalItemSharedQuantityRules,
   type RentalItemPreset,
   type RentalItemPresetItem,
   type RentalItemSharedQuantityRule,
+  type TourListRentalItemStock,
+  type TourListRentalItemType,
 } from '@tour/validation';
 import { Button, Card } from '@tour/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -58,9 +63,23 @@ function toRentalPresetDraft(presets: readonly RentalItemPreset[] | null | undef
   }));
 }
 
+function toTourListRentalStockDraft(
+  stock: { drone: number; starlink: number; powerbank: number } | null | undefined,
+): TourListRentalItemStock {
+  if (!stock) {
+    return { ...DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK };
+  }
+  return {
+    DRONE: stock.drone,
+    STARLINK: stock.starlink,
+    POWERBANK: stock.powerbank,
+  };
+}
+
 function toMutationInput(
   colors: readonly MovementIntensityColorSetting[],
   rentalItemPresets: readonly RentalItemPreset[],
+  tourListRentalItemStock: TourListRentalItemStock,
 ): AppSettingsInput {
   return {
     movementIntensityColors: colors.map((item) => ({
@@ -84,6 +103,11 @@ function toMutationInput(
         quantityFormula: item.quantityFormula,
       })),
     })),
+    tourListRentalItemStock: {
+      drone: tourListRentalItemStock.DRONE,
+      starlink: tourListRentalItemStock.STARLINK,
+      powerbank: tourListRentalItemStock.POWERBANK,
+    },
   };
 }
 
@@ -140,7 +164,7 @@ function createRentalPresetItem(): RentalItemPresetItem {
   };
 }
 
-type AppSettingsSection = 'movement-intensity' | 'rental-items';
+type AppSettingsSection = 'movement-intensity' | 'rental-items' | 'tour-list-rental-stock';
 
 const settingsMenuItems: Array<{
   path: string;
@@ -156,6 +180,11 @@ const settingsMenuItems: Array<{
     path: '/settings/rental-items',
     title: '물품대여',
     description: '일정빌더 기본 대여물품 프리셋과 수량 계산 조건을 관리합니다.',
+  },
+  {
+    path: '/settings/tour-list-rental-stock',
+    title: '투어리스트 장비 재고',
+    description: '드론, 스타링크, 파워뱅크의 최대 보유 수량을 관리합니다.',
   },
 ];
 
@@ -197,6 +226,9 @@ function AppSettingsSectionPage({ section }: { section: AppSettingsSection }): J
   const [rentalPresetDraft, setRentalPresetDraft] = useState<RentalItemPreset[]>(
     () => toRentalPresetDraft(APP_SETTINGS_DEFAULT.rentalItemPresets),
   );
+  const [tourListRentalStockDraft, setTourListRentalStockDraft] = useState<TourListRentalItemStock>(
+    () => ({ ...DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK }),
+  );
   const [customFormulaItemIds, setCustomFormulaItemIds] = useState<Set<string>>(() => new Set());
   const [feedback, setFeedback] = useState<{ type: 'ok' | 'err'; message: string } | null>(null);
 
@@ -225,6 +257,7 @@ function AppSettingsSectionPage({ section }: { section: AppSettingsSection }): J
           quantityFormula: item.quantityFormula,
         })),
       }))));
+      setTourListRentalStockDraft(toTourListRentalStockDraft(data.appSettings.tourListRentalItemStock));
       setCustomFormulaItemIds(new Set());
     }
   }, [data]);
@@ -273,7 +306,16 @@ function AppSettingsSectionPage({ section }: { section: AppSettingsSection }): J
       invalidRentalFormulaIds.length > 0,
     [invalidRentalFormulaIds.length, rentalPresetDraft, sharedRuleIssuesByPresetId],
   );
-  const canSave = invalidLevels.length === 0 && !hasInvalidRentalPreset && !saving;
+  const hasInvalidTourListRentalStock = useMemo(
+    () =>
+      tourListRentalItemTypes.some((item) => {
+        const value = tourListRentalStockDraft[item];
+        return !Number.isInteger(value) || value < 0 || value > 1000;
+      }),
+    [tourListRentalStockDraft],
+  );
+  const canSave =
+    invalidLevels.length === 0 && !hasInvalidRentalPreset && !hasInvalidTourListRentalStock && !saving;
 
   const colorByLevel = useMemo(
     () => new Map(colorDraft.map((item) => [item.level, item.color] as const)),
@@ -313,6 +355,16 @@ function AppSettingsSectionPage({ section }: { section: AppSettingsSection }): J
   const handleResetMovementIntensityDefaults = useCallback(() => {
     setColorDraft(APP_SETTINGS_DEFAULT.movementIntensityColors.map((item) => ({ ...item })));
     setFeedback({ type: 'ok', message: '이동강도 색상을 기본값으로 채웠습니다. 저장하면 반영됩니다.' });
+  }, []);
+
+  const handleResetTourListRentalStockDefaults = useCallback(() => {
+    setTourListRentalStockDraft({ ...DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK });
+    setFeedback({ type: 'ok', message: '투어리스트 장비 재고를 기본값으로 채웠습니다. 저장하면 반영됩니다.' });
+  }, []);
+
+  const updateTourListRentalStock = useCallback((item: TourListRentalItemType, total: number) => {
+    setTourListRentalStockDraft((current) => ({ ...current, [item]: total }));
+    setFeedback(null);
   }, []);
 
   const handleResetRentalItemDefaults = useCallback(() => {
@@ -469,7 +521,7 @@ function AppSettingsSectionPage({ section }: { section: AppSettingsSection }): J
     try {
       await updateSettings({
         variables: {
-          input: toMutationInput(colorDraft, rentalPresetDraft),
+          input: toMutationInput(colorDraft, rentalPresetDraft, tourListRentalStockDraft),
         },
       });
       await refetch();
@@ -480,14 +532,21 @@ function AppSettingsSectionPage({ section }: { section: AppSettingsSection }): J
         message: error instanceof Error ? error.message : '저장에 실패했습니다.',
       });
     }
-  }, [canSave, colorDraft, refetch, rentalPresetDraft, updateSettings]);
+  }, [canSave, colorDraft, refetch, rentalPresetDraft, tourListRentalStockDraft, updateSettings]);
 
   const updatedAt = formatUpdatedAt(data?.appSettings.updatedAt);
-  const pageTitle = section === 'movement-intensity' ? '이동강도 설정' : '물품대여 설정';
+  const pageTitle =
+    section === 'movement-intensity'
+      ? '이동강도 설정'
+      : section === 'rental-items'
+        ? '물품대여 설정'
+        : '투어리스트 장비 재고 설정';
   const pageDescription =
     section === 'movement-intensity'
       ? '내부 배지와 견적서 일정표 칩에 적용되는 이동강도 색상을 관리합니다.'
-      : '일정빌더 기본 대여물품 프리셋과 인원별 수량 계산 조건을 관리합니다.';
+      : section === 'rental-items'
+        ? '일정빌더 기본 대여물품 프리셋과 인원별 수량 계산 조건을 관리합니다.'
+        : '드론, 스타링크, 파워뱅크의 최대 보유 수량을 관리합니다. 투어리스트 잔여 수량 계산에 사용됩니다.';
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -853,6 +912,61 @@ function AppSettingsSectionPage({ section }: { section: AppSettingsSection }): J
         </div>
       </Card>
       ) : null}
+
+      {section === 'tour-list-rental-stock' ? (
+      <Card className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-medium text-slate-900">투어리스트 장비 재고</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              확정 투어와 일정빌더에서 표시되는 잔여 수량의 최대값입니다.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" onClick={handleResetTourListRentalStockDefaults} disabled={saving}>
+              기본값 복원
+            </Button>
+            <Button type="button" onClick={() => void handleSave()} disabled={!canSave || loading}>
+              {saving ? '저장 중...' : '저장'}
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3">
+          {tourListRentalItemTypes.map((item) => {
+            const value = tourListRentalStockDraft[item];
+            const isInvalid = !Number.isInteger(value) || value < 0 || value > 1000;
+            return (
+              <div
+                key={item}
+                className="grid gap-3 rounded-xl border border-slate-200 px-4 py-3 sm:grid-cols-[minmax(120px,1fr)_minmax(150px,180px)] sm:items-center"
+              >
+                <div>
+                  <div className="text-sm font-medium text-slate-900">{TOUR_LIST_RENTAL_ITEM_LABELS[item]}</div>
+                  <div className="mt-1 text-xs text-slate-500">{item}</div>
+                </div>
+                <div>
+                  <label className="grid gap-1 text-xs text-slate-600">
+                    최대 보유 수량
+                    <input
+                      type="number"
+                      min={0}
+                      max={1000}
+                      value={value}
+                      onChange={(event) => updateTourListRentalStock(item, Number(event.target.value))}
+                      className={`h-10 rounded-lg border px-3 text-sm ${
+                        isInvalid ? 'border-red-300 bg-red-50 text-red-900' : 'border-slate-200 text-slate-900'
+                      }`}
+                    />
+                  </label>
+                  {isInvalid ? <p className="mt-1 text-xs text-red-600">0~1000 사이 정수</p> : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+      ) : null}
     </div>
   );
 }
@@ -863,4 +977,8 @@ export function MovementIntensitySettingsPage(): JSX.Element {
 
 export function RentalItemSettingsPage(): JSX.Element {
   return <AppSettingsSectionPage section="rental-items" />;
+}
+
+export function TourListRentalStockSettingsPage(): JSX.Element {
+  return <AppSettingsSectionPage section="tour-list-rental-stock" />;
 }
