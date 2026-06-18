@@ -27,9 +27,22 @@
 
 .confirmation-document--preview .confirmation-sheet-page1 {
   box-sizing: border-box;
-  height: auto;
+  height: 100%;
   min-height: 0;
-  aspect-ratio: 210 / 297;
+}
+
+.confirmation-document--preview .confirmation-sheet-page1,
+.confirmation-document--output .confirmation-sheet-page1 {
+  --confirmation-page1-preview-hero-height: calc(100% * 254 / 1123);
+}
+
+.confirmation-document--preview .confirmation-sheet-page1 .confirmation-page1-hero,
+.confirmation-document--output .confirmation-sheet-page1 .confirmation-page1-hero {
+  flex: 0 0 var(--confirmation-page1-preview-hero-height);
+  height: var(--confirmation-page1-preview-hero-height);
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .confirmation-document--preview .confirmation-document-pages .estimate-document {
@@ -38,18 +51,6 @@
 
 .confirmation-document--output .confirmation-document-pages .estimate-document {
   gap: 0;
-}
-
-.confirmation-document--output .confirmation-sheet-page1 {
-  --confirmation-page1-preview-hero-height: calc(100% * 254 / 1123);
-}
-
-.confirmation-document--output .confirmation-sheet-page1 .confirmation-page1-hero {
-  flex: 0 0 var(--confirmation-page1-preview-hero-height);
-  height: var(--confirmation-page1-preview-hero-height);
-  min-height: 0;
-  overflow: hidden;
-  box-sizing: border-box;
 }
 
 .confirmation-sheet {
@@ -73,21 +74,40 @@
   flex-direction: column;
   overflow: hidden;
   height: 297mm;
+  --confirmation-page1-fit-scale: 1;
   --confirmation-page1-hero-padding-y: 11mm;
   --confirmation-page1-hero-padding-x: 11mm;
   --confirmation-page1-body-padding-x: 11mm;
   --confirmation-page1-body-padding-top: 5.5mm;
   --confirmation-page1-body-gap: 0;
-  --confirmation-page1-table-cell-padding-y: 6px;
-  --confirmation-page1-table-cell-padding-x: 8px;
-  --confirmation-page1-main-even-row-min-height: 52px;
-  --confirmation-page1-tbody-gap: 5px;
+  --confirmation-page1-table-cell-padding-y-base: 6px;
+  --confirmation-page1-table-cell-padding-x-base: 8px;
+  --confirmation-page1-table-cell-padding-y: calc(
+    var(--confirmation-page1-table-cell-padding-y-base) * var(--confirmation-page1-fit-scale)
+  );
+  --confirmation-page1-table-cell-padding-x: calc(
+    var(--confirmation-page1-table-cell-padding-x-base) * var(--confirmation-page1-fit-scale)
+  );
+  --confirmation-page1-main-even-row-min-height-base: 52px;
+  --confirmation-page1-main-even-row-min-height: calc(
+    var(--confirmation-page1-main-even-row-min-height-base) * var(--confirmation-page1-fit-scale)
+  );
+  --confirmation-page1-tbody-gap-base: 5px;
+  --confirmation-page1-tbody-gap: calc(
+    var(--confirmation-page1-tbody-gap-base) * var(--confirmation-page1-fit-scale)
+  );
   --confirmation-page1-table-border-width: 0.5px;
   --confirmation-page1-table-border-emphasis: 2px;
-  --confirmation-page1-table-font-size: 12px;
-  --confirmation-page1-cell-min-height: 40px;
-  --confirmation-page1-remark-block-min-height: calc(4 * 1.35em + 2 * var(--confirmation-page1-table-cell-padding-y) + 10px);
-  --confirmation-page1-detail-block-min-height: 168px;
+  --confirmation-page1-table-font-size: calc(12px * var(--confirmation-page1-fit-scale));
+  --confirmation-page1-cell-min-height: calc(40px * var(--confirmation-page1-fit-scale));
+  --confirmation-page1-remark-block-min-height: calc(
+    4 * 1.35em + 2 * var(--confirmation-page1-table-cell-padding-y) +
+      calc(10px * var(--confirmation-page1-fit-scale))
+  );
+  --confirmation-page1-detail-block-min-height-base: 168px;
+  --confirmation-page1-detail-block-min-height: calc(
+    var(--confirmation-page1-detail-block-min-height-base) * var(--confirmation-page1-fit-scale)
+  );
   --confirmation-page1-body-padding-bottom: 10px;
 }
 
@@ -476,7 +496,7 @@
 }
 
 .confirmation-page1-notice {
-  margin: 8px 0 0;
+  margin: 8px 0 calc(10px * var(--confirmation-page1-fit-scale, 1));
   font-size: 11px;
   font-weight: 400;
   line-height: 1.45;

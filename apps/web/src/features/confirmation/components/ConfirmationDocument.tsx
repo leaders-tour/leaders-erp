@@ -1,4 +1,6 @@
+import { useRef } from 'react';
 import '../styles/confirmation-print.css';
+import { usePage1FitScale } from '../../document-layout/use-page1-fit-scale';
 import { EstimatePreviewScaler } from '../../estimate/components/EstimatePreviewScaler';
 import type { EstimateDocumentData } from '../../estimate/model/types';
 import type { MovementIntensityColorSetting } from '../../estimate/model/movement-intensity';
@@ -20,6 +22,7 @@ interface ConfirmationDocumentProps {
   appendixData?: EstimateDocumentData | null;
   appendixMovementIntensityColors?: readonly MovementIntensityColorSetting[] | null;
   viewMode?: 'screen-preview' | 'output';
+  onPage1LayoutReady?: () => void;
 }
 
 const VEHICLE_PURGONG_PHOTO_NOTE = '*푸르공 사진촬영 가능';
@@ -155,14 +158,35 @@ function ConfirmationAccommodationList({ lines }: { lines: string[] }): JSX.Elem
   );
 }
 
-function ConfirmationPage({ data }: { data: ConfirmationDocumentData }) {
+function ConfirmationPage({
+  data,
+  onLayoutReady,
+}: {
+  data: ConfirmationDocumentData;
+  onLayoutReady?: () => void;
+}) {
+  const pageRef = useRef<HTMLElement | null>(null);
+  const heroRef = useRef<HTMLElement | null>(null);
+  const bodyShellRef = useRef<HTMLDivElement | null>(null);
+  const bodyFitRef = useRef<HTMLDivElement | null>(null);
   const travelPeriodCompact = formatTravelPeriodCompact(fallbackText(data.travelPeriodText));
   const rentalItemsText = fallbackText(data.rentalItemsText);
   const eventNamesText = fallbackText(data.eventNames);
 
+  usePage1FitScale({
+    pageRef,
+    heroRef,
+    bodyShellRef,
+    bodyFitRef,
+    fitScaleCssVar: '--confirmation-page1-fit-scale',
+    layoutReadyDataAttr: 'data-confirmation-page1-layout-ready',
+    onLayoutReady,
+    deps: [data, onLayoutReady],
+  });
+
   return (
-    <section className="confirmation-sheet confirmation-sheet-page1">
-      <header className="confirmation-page1-hero">
+    <section ref={pageRef} className="confirmation-sheet confirmation-sheet-page1">
+      <header ref={heroRef} className="confirmation-page1-hero">
         <div className="confirmation-page1-hero-copy">
           <div className="confirmation-page1-hero-title-row">
             <div className="confirmation-page1-hero-headline">
@@ -187,8 +211,8 @@ function ConfirmationPage({ data }: { data: ConfirmationDocumentData }) {
         </div>
       </header>
 
-      <div className="confirmation-page1-body-shell">
-        <div className="confirmation-page1-body">
+      <div ref={bodyShellRef} className="confirmation-page1-body-shell">
+        <div ref={bodyFitRef} className="confirmation-page1-body">
           <table className="confirmation-table confirmation-page1-table confirmation-page1-table--main">
             <colgroup>
               <col className="confirmation-page1-col-4-label" />
@@ -244,7 +268,7 @@ function ConfirmationPage({ data }: { data: ConfirmationDocumentData }) {
                   <span className="whitespace-pre-wrap">{blankIfDash(fallbackText(data.dropText))}</span>
                 </td>
               </tr>
-              <tr>
+              <tr className="confirmation-page1-tr--even-height">
                 <th>실투어 외 픽드랍</th>
                 <td className="confirmation-page1-preline-cell">{fallbackText(data.externalPickupDropText)}</td>
                 <th>특이사항</th>
@@ -255,7 +279,7 @@ function ConfirmationPage({ data }: { data: ConfirmationDocumentData }) {
               <tr className="confirmation-page1-tr--tbody-gap" aria-hidden="true">
                 <td colSpan={4} />
               </tr>
-              <tr>
+              <tr className="confirmation-page1-tr--even-height">
                 <th>기본 대여물품</th>
                 <td className="confirmation-page1-preline-cell">
                   <CommaBreakText value={rentalItemsText} />
@@ -309,6 +333,7 @@ export function ConfirmationDocument({
   appendixData,
   appendixMovementIntensityColors,
   viewMode = 'screen-preview',
+  onPage1LayoutReady,
 }: ConfirmationDocumentProps) {
   const className =
     viewMode === 'output'
@@ -318,7 +343,7 @@ export function ConfirmationDocument({
   const pages = (
     <div className={viewMode === 'screen-preview' ? 'confirmation-document-pages' : undefined}>
       <div className={viewMode === 'output' ? 'confirmation-page-break confirmation-page-break--first' : undefined}>
-        <ConfirmationPage data={data} />
+        <ConfirmationPage data={data} onLayoutReady={onPage1LayoutReady} />
       </div>
       {appendixData ? (
         <ConfirmationAppendixPages

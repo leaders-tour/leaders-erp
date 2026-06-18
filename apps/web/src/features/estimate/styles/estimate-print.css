@@ -97,6 +97,18 @@
   height: 100%;
 }
 
+.estimate-document--preview .estimate-sheet-page1 {
+  --estimate-page1-preview-hero-height: calc(100% * 254 / 1123);
+}
+
+.estimate-document--preview .estimate-sheet-page1 .estimate-page1-hero {
+  flex: 0 0 var(--estimate-page1-preview-hero-height);
+  height: var(--estimate-page1-preview-hero-height);
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
 .estimate-sheet {
   box-sizing: border-box;
   width: 210mm;

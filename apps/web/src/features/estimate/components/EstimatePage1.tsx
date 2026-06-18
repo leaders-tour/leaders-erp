@@ -1,4 +1,5 @@
-import { useLayoutEffect, useMemo, useRef, useState, type FocusEvent, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type FocusEvent, type ReactNode } from 'react';
+import { usePage1FitScale } from '../../document-layout/use-page1-fit-scale';
 import {
   shouldShowTeamPrefixInPricingSummary,
   teamPricingsForSummaryDisplay,
@@ -27,7 +28,6 @@ import {
 const FLIGHT_IN_TIME_OPTIONS = ['00:05', '00:30', '00:50', '02:45', '04:30', '11:10', '12:40', '13:20', '17:00', '18:10', '23:05', '23:30'] as const;
 const FLIGHT_OUT_TIME_OPTIONS = ['00:25', '00:50', '01:30', '01:50', '02:05', '08:40', '11:00', '13:00', '13:40', '14:50', '18:15', '20:30'] as const;
 const PICKUP_DROP_TIME_OPTIONS = ['04:00', '05:00', '08:00', '15:30', '19:00', '21:00', '23:00'] as const;
-const MAX_ESTIMATE_PAGE1_FIT_SCALE = 1.16;
 
 interface EstimatePage1Props {
   data: EstimateDocumentData;
@@ -459,8 +459,6 @@ function blankIfDash(value: string): string {
   return value === '-' ? '' : value;
 }
 
-const MIN_ESTIMATE_PAGE1_FIT_SCALE = 0.72;
-
 function formatTravelPeriodCompact(startDate: string | null | undefined, endDate: string | null | undefined): string {
   const travelPeriod = formatTravelPeriod(startDate, endDate);
   if (travelPeriod === '-') {
@@ -547,135 +545,17 @@ export function EstimatePage1({ data, editor, onLayoutReady }: EstimatePage1Prop
   const documentNumberText = data.documentNumber?.trim() ?? '';
   const paymentBankOwnerShort = ESTIMATE_PAYMENT.bankOwner.replace(/\([^)]*\)/g, '').trim();
 
-  useLayoutEffect(() => {
-    if (typeof window === 'undefined') {
-      return undefined;
-    }
-
-    const pageElement = pageRef.current;
-    const heroElement = heroRef.current;
-    const bodyShellElement = bodyShellRef.current;
-    const bodyFitElement = bodyFitRef.current;
-    const footerElement = footerRef.current;
-
-    if (!pageElement || !heroElement || !bodyShellElement || !bodyFitElement || !footerElement) {
-      return undefined;
-    }
-
-    let animationFrameId = 0;
-
-    const setScale = (value: number) => {
-      const nextValue = value.toFixed(4);
-      if (pageElement.style.getPropertyValue('--estimate-page1-fit-scale') !== nextValue) {
-        pageElement.style.setProperty('--estimate-page1-fit-scale', nextValue);
-      }
-    };
-
-    const markLayoutReady = () => {
-      pageElement.setAttribute('data-estimate-page1-layout-ready', 'true');
-      onLayoutReady?.();
-    };
-
-    const measureContentHeight = (scale: number): number => {
-      setScale(scale);
-      return bodyFitElement.scrollHeight;
-    };
-
-    const recalcScale = () => {
-      pageElement.removeAttribute('data-estimate-page1-layout-ready');
-      const availableHeight = bodyShellElement.clientHeight;
-      if (availableHeight <= 0) {
-        setScale(1);
-        markLayoutReady();
-        return;
-      }
-
-      const fitsInSlot = (height: number) => height <= availableHeight + 1;
-      const naturalHeight = measureContentHeight(1);
-
-      if (fitsInSlot(naturalHeight)) {
-        const maxHeight = measureContentHeight(MAX_ESTIMATE_PAGE1_FIT_SCALE);
-        if (fitsInSlot(maxHeight)) {
-          setScale(MAX_ESTIMATE_PAGE1_FIT_SCALE);
-          markLayoutReady();
-          return;
-        }
-
-        let low = 1;
-        let high = MAX_ESTIMATE_PAGE1_FIT_SCALE;
-        let best = low;
-
-        for (let index = 0; index < 8; index += 1) {
-          const mid = (low + high) / 2;
-          if (fitsInSlot(measureContentHeight(mid))) {
-            best = mid;
-            low = mid;
-          } else {
-            high = mid;
-          }
-        }
-
-        setScale(best);
-        markLayoutReady();
-        return;
-      }
-
-      const minimumHeight = measureContentHeight(MIN_ESTIMATE_PAGE1_FIT_SCALE);
-      if (!fitsInSlot(minimumHeight)) {
-        setScale(MIN_ESTIMATE_PAGE1_FIT_SCALE);
-        markLayoutReady();
-        return;
-      }
-
-      let low = MIN_ESTIMATE_PAGE1_FIT_SCALE;
-      let high = 1;
-      let best = low;
-
-      for (let index = 0; index < 8; index += 1) {
-        const mid = (low + high) / 2;
-        if (fitsInSlot(measureContentHeight(mid))) {
-          best = mid;
-          low = mid;
-        } else {
-          high = mid;
-        }
-      }
-
-      setScale(best);
-      markLayoutReady();
-    };
-
-    const scheduleRecalc = () => {
-      window.cancelAnimationFrame(animationFrameId);
-      animationFrameId = window.requestAnimationFrame(recalcScale);
-    };
-
-    scheduleRecalc();
-
-    const resizeObserver = new ResizeObserver(() => {
-      scheduleRecalc();
-    });
-
-    resizeObserver.observe(pageElement);
-    resizeObserver.observe(heroElement);
-    resizeObserver.observe(bodyShellElement);
-    resizeObserver.observe(footerElement);
-
-    window.addEventListener('resize', scheduleRecalc);
-    window.addEventListener('beforeprint', recalcScale);
-    window.addEventListener('afterprint', scheduleRecalc);
-    void document.fonts?.ready.then(() => {
-      scheduleRecalc();
-    });
-
-    return () => {
-      window.cancelAnimationFrame(animationFrameId);
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', scheduleRecalc);
-      window.removeEventListener('beforeprint', recalcScale);
-      window.removeEventListener('afterprint', scheduleRecalc);
-    };
-  }, [activeField, adjustmentLines, data, onLayoutReady, page1DensityClassName]);
+  usePage1FitScale({
+    pageRef,
+    heroRef,
+    bodyShellRef,
+    bodyFitRef,
+    footerRef,
+    fitScaleCssVar: '--estimate-page1-fit-scale',
+    layoutReadyDataAttr: 'data-estimate-page1-layout-ready',
+    onLayoutReady,
+    deps: [activeField, adjustmentLines, data, onLayoutReady, page1DensityClassName],
+  });
 
   return (
     <section ref={pageRef} className={`estimate-sheet estimate-sheet-page1${page1DensityClassName}`}>

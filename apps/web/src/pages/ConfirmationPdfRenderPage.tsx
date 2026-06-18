@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card } from '@tour/ui';
 import { ConfirmationDocument } from '../features/confirmation/components/ConfirmationDocument';
@@ -75,13 +75,18 @@ export function ConfirmationPdfRenderPage(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [layoutReady, setLayoutReady] = useState(false);
+  const [page1LayoutReady, setPage1LayoutReady] = useState(false);
   const token = searchParams.get('token');
+
+  const handlePage1LayoutReady = useCallback(() => {
+    setPage1LayoutReady(true);
+  }, []);
 
   const renderState = loading
     ? 'loading'
     : errorMessage
       ? 'error'
-      : sessionData && layoutReady
+      : sessionData && layoutReady && page1LayoutReady
         ? 'ready'
         : sessionData
           ? 'layout-pending'
@@ -95,6 +100,7 @@ export function ConfirmationPdfRenderPage(): JSX.Element {
       setErrorMessage('렌더 토큰이 없습니다.');
       setLoading(false);
       setLayoutReady(false);
+      setPage1LayoutReady(false);
       return () => {
         cancelled = true;
       };
@@ -103,6 +109,7 @@ export function ConfirmationPdfRenderPage(): JSX.Element {
     setLoading(true);
     setErrorMessage(null);
     setLayoutReady(false);
+    setPage1LayoutReady(false);
 
     void fetchRenderSession(token)
       .then((nextData) => {
@@ -136,6 +143,7 @@ export function ConfirmationPdfRenderPage(): JSX.Element {
 
     if (!sessionData) {
       setLayoutReady(false);
+      setPage1LayoutReady(false);
       return () => {
         cancelled = true;
       };
@@ -180,6 +188,7 @@ export function ConfirmationPdfRenderPage(): JSX.Element {
           appendixData={sessionData?.appendixData ?? null}
           appendixMovementIntensityColors={sessionData?.movementIntensityColors ?? null}
           viewMode="output"
+          onPage1LayoutReady={handlePage1LayoutReady}
         />
       ) : null}
     </section>
