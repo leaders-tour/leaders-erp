@@ -337,19 +337,12 @@ function parseDayIndexFromDateCellText(dateCellText: string): number | null {
   return null;
 }
 
-/**
- * 여행중 오늘 일차의 MAIN 목적지 라벨. plan 미연결·스탑 없음·매칭 실패 시 null.
- * 일차는 `TripDayBadge`와 동일(출발일 대비 달력 일수). MAIN만 세고, 숫자 매칭 실패 시 n번째 MAIN 행을 n일차로 본다.
- */
-function getOngoingTripCurrentDestinationText(trip: ConfirmedTripRow, startDateStr: string): string | null {
-  if (!trip.planId) return null;
-  const stops = trip.planVersion?.planStops;
-  if (!stops?.length) return null;
-  const mainStops = stops.filter((s) => s.rowType === 'MAIN');
-  if (!mainStops.length) return null;
+type PlanStopRow = NonNullable<NonNullable<ConfirmedTripRow['planVersion']>['planStops']>[number];
 
-  const elapsed = -getDaysFromToday(startDateStr);
-  const day = elapsed + 1;
+/**
+ * MAIN 일정 n일차 목적지. 숫자 매칭 실패 시 n번째 MAIN 행을 n일차로 본다.
+ */
+function getMainStopDestinationForDay(mainStops: PlanStopRow[], day: number): string | null {
   if (day < 1) return null;
 
   for (const row of mainStops) {
@@ -368,6 +361,32 @@ function getOngoingTripCurrentDestinationText(trip: ConfirmedTripRow, startDateS
     return dest && dest.length > 0 ? dest : null;
   }
   return null;
+}
+
+/**
+ * 여행중 오늘 일차의 출발지→목적지 라벨. plan 미연결·스탑 없음·매칭 실패 시 null.
+ * 일차는 `TripDayBadge`와 동일(출발일 대비 달력 일수). 2일차부터는 전일 목적지 → 당일 목적지.
+ */
+function getOngoingTripCurrentDestinationText(trip: ConfirmedTripRow, startDateStr: string): string | null {
+  if (!trip.planId) return null;
+  const stops = trip.planVersion?.planStops;
+  if (!stops?.length) return null;
+  const mainStops = stops.filter((s) => s.rowType === 'MAIN');
+  if (!mainStops.length) return null;
+
+  const elapsed = -getDaysFromToday(startDateStr);
+  const day = elapsed + 1;
+  if (day < 1) return null;
+
+  const current = getMainStopDestinationForDay(mainStops, day);
+  if (!current) return null;
+
+  if (day <= 1) return current;
+
+  const previous = getMainStopDestinationForDay(mainStops, day - 1);
+  if (!previous) return current;
+
+  return `${previous} → ${current}`;
 }
 
 // D-day 뱃지 (여행 출발까지 남은 일수)
