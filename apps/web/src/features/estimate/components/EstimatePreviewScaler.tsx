@@ -1,12 +1,16 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 
-const ESTIMATE_PREVIEW_BASE_WIDTH = 760;
+const DEFAULT_ESTIMATE_PREVIEW_BASE_WIDTH = 760;
 
 interface EstimatePreviewScalerProps {
   children: ReactNode;
+  baseWidth?: number;
 }
 
-export function EstimatePreviewScaler({ children }: EstimatePreviewScalerProps): JSX.Element {
+export function EstimatePreviewScaler({
+  children,
+  baseWidth = DEFAULT_ESTIMATE_PREVIEW_BASE_WIDTH,
+}: EstimatePreviewScalerProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [layout, setLayout] = useState({ scale: 1, height: 0 });
@@ -30,7 +34,7 @@ export function EstimatePreviewScaler({ children }: EstimatePreviewScalerProps):
       }
 
       const availableWidth = container.clientWidth;
-      const scale = availableWidth > 0 ? Math.min(1, availableWidth / ESTIMATE_PREVIEW_BASE_WIDTH) : 1;
+      const scale = availableWidth > 0 ? Math.min(1, availableWidth / baseWidth) : 1;
       const height = Math.ceil(content.scrollHeight * scale);
       setLayout((current) =>
         Math.abs(current.scale - scale) < 0.0001 && current.height === height
@@ -63,7 +67,7 @@ export function EstimatePreviewScaler({ children }: EstimatePreviewScalerProps):
       observer?.disconnect();
       window.removeEventListener('resize', scheduleMeasure);
     };
-  }, []);
+  }, [baseWidth]);
 
   return (
     <div
@@ -74,7 +78,7 @@ export function EstimatePreviewScaler({ children }: EstimatePreviewScalerProps):
       <div
         ref={contentRef}
         className="estimate-preview-scaler__content"
-        style={{ transform: `translateX(-50%) scale(${layout.scale})` }}
+        style={{ width: baseWidth, transform: `translateX(-50%) scale(${layout.scale})` }}
       >
         {children}
       </div>

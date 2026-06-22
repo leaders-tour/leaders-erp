@@ -23,6 +23,8 @@ interface ConfirmationDocumentProps {
   appendixMovementIntensityColors?: readonly MovementIntensityColorSetting[] | null;
   viewMode?: 'screen-preview' | 'output';
   onPage1LayoutReady?: () => void;
+  /** screen-preview에서 미리보기 스케일 기준 너비 */
+  previewBaseWidth?: number;
 }
 
 const VEHICLE_PURGONG_PHOTO_NOTE = '*푸르공 사진촬영 가능';
@@ -354,6 +356,7 @@ export function ConfirmationDocument({
   appendixMovementIntensityColors,
   viewMode = 'screen-preview',
   onPage1LayoutReady,
+  previewBaseWidth,
 }: ConfirmationDocumentProps) {
   const className =
     viewMode === 'output'
@@ -377,7 +380,11 @@ export function ConfirmationDocument({
 
   return (
     <div className={className}>
-      {viewMode === 'screen-preview' ? <EstimatePreviewScaler>{pages}</EstimatePreviewScaler> : pages}
+      {viewMode === 'screen-preview' ? (
+        <EstimatePreviewScaler baseWidth={previewBaseWidth}>{pages}</EstimatePreviewScaler>
+      ) : (
+        pages
+      )}
     </div>
   );
 }

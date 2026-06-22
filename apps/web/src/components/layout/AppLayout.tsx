@@ -331,10 +331,11 @@ export function AppLayout(): JSX.Element {
 
   const matchesPath = (path: string): boolean =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);
+  const isConfirmationBuilderPage = /^\/confirmed-trips\/[^/]+\/confirmation-builder$/.test(location.pathname);
   const isFullBleedPage =
     matchesPath('/itinerary-builder') ||
     matchesPath('/deal-pipeline') ||
-    /^\/confirmed-trips\/[^/]+\/confirmation-builder$/.test(location.pathname);
+    isConfirmationBuilderPage;
   const isPricingAdminPage = matchesPath('/admin/pricing-policies');
   const isWideLocationProfilePage =
     location.pathname === '/locations/create' ||
@@ -413,6 +414,12 @@ export function AppLayout(): JSX.Element {
       setOpenNavPath(activeExpandablePath);
     }
   }, [activeExpandablePath]);
+
+  useEffect(() => {
+    if (isConfirmationBuilderPage) {
+      setIsSidebarCollapsed(true);
+    }
+  }, [isConfirmationBuilderPage]);
 
   useEffect(() => {
     window.localStorage.setItem(sidebarCollapsedStorageKey, String(isSidebarCollapsed));

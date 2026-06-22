@@ -1,0 +1,150 @@
+.confirmation-builder-editor-column {
+  min-width: 0;
+}
+
+.confirmation-builder-preview-column {
+  min-width: 0;
+}
+
+.confirmation-builder-preview-column--confirmation {
+  min-width: 0;
+}
+
+.confirmation-builder-preview-frame {
+  padding: 10px;
+}
+
+.confirmation-builder-preview-frame--confirmation .confirmation-document--preview {
+  width: 100%;
+}
+
+.confirmation-builder-preview-frame--confirmation .confirmation-document--preview .confirmation-document-pages {
+  width: 760px;
+  max-width: none;
+}
+
+.confirmation-builder-preview-frame--confirmation .confirmation-document--preview .confirmation-sheet {
+  width: 760px;
+  max-width: none;
+}
+
+.confirmation-builder-preview-frame--confirmation .estimate-preview-scaler {
+  min-width: 0;
+}
+
+/* 견적서 미리보기 켜짐: 좁은 편집창 + 1열 폼 */
+.confirmation-builder-workspace--with-estimate .confirmation-builder-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+.confirmation-builder-workspace--with-estimate .confirmation-builder-section--wide,
+.confirmation-builder-workspace--with-estimate .confirmation-builder-actions {
+  grid-column: auto;
+}
+
+.confirmation-builder-workspace--with-estimate .confirmation-builder-section {
+  padding: 14px;
+  border-radius: 20px;
+  gap: 12px;
+}
+
+.confirmation-builder-workspace--with-estimate .confirmation-builder-section__header h3 {
+  font-size: 13px;
+}
+
+.confirmation-builder-workspace--with-estimate .confirmation-builder-section__header p {
+  font-size: 11px;
+}
+
+.confirmation-builder-workspace--with-estimate .confirmation-builder-field-grid,
+.confirmation-builder-workspace--with-estimate .confirmation-traveler-row__grid,
+.confirmation-builder-workspace--with-estimate .confirmation-lodging-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.confirmation-builder-workspace--with-estimate .confirmation-builder-form label {
+  font-size: 11px;
+}
+
+.confirmation-builder-workspace--with-estimate .confirmation-builder-form input,
+.confirmation-builder-workspace--with-estimate .confirmation-builder-form textarea {
+  font-size: 12px;
+  padding: 8px 10px;
+}
+
+@media (min-width: 1280px) {
+  .confirmation-builder-workspace--with-estimate .confirmation-builder-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .confirmation-builder-workspace--with-estimate {
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr) minmax(0, 1.05fr);
+  }
+
+  .confirmation-builder-workspace--without-estimate {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1440px) {
+  .confirmation-builder-workspace--with-estimate {
+    grid-template-columns: minmax(0, 380px) minmax(0, 1fr) minmax(0, 1.08fr);
+  }
+}
+
+/* 견적서 미리보기 꺼짐: 편집창·확정서 반반 + 2grid 폼 */
+.confirmation-builder-workspace--without-estimate .confirmation-builder-editor-column {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  padding-top: 1.25rem;
+  padding-bottom: 1.25rem;
+}
+
+.confirmation-builder-workspace--without-estimate .confirmation-builder-editor-header {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.confirmation-builder-workspace--without-estimate .confirmation-builder-editor-header h1 {
+  font-size: 1.5rem;
+  line-height: 2rem;
+}
+
+.confirmation-builder-workspace--without-estimate .confirmation-builder-editor-header p {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.confirmation-builder-workspace--without-estimate .confirmation-builder-editor-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.confirmation-builder-workspace--without-estimate .confirmation-builder-editor-actions button {
+  width: auto;
+}
+
+@media (min-width: 1280px) {
+  .confirmation-builder-workspace--without-estimate .confirmation-builder-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .confirmation-builder-workspace--without-estimate .confirmation-builder-section--wide,
+  .confirmation-builder-workspace--without-estimate .confirmation-builder-actions {
+    grid-column: 1 / -1;
+  }
+
+  .confirmation-builder-workspace--without-estimate .confirmation-builder-field-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
