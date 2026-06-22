@@ -1952,6 +1952,7 @@ function createEstimateDraftSnapshot(input: {
   expandTeamPricingSummaryRows?: boolean;
   estimateGuideImagesPerPage?: EstimateGuideImagesPerPage;
   estimateGuidePageSplits?: number[] | null;
+  overallMovementIntensityColorOverride?: string | null;
 }): EstimateBuilderDraftSnapshot {
   const customerSnap =
     input.pricingPreview
@@ -1996,6 +1997,7 @@ function createEstimateDraftSnapshot(input: {
     movementIntensity: averageMovementIntensity(
       planStopsForPreview.filter((row) => isMainPlanStopRow(row)).map((row) => row.movementIntensity),
     ),
+    overallMovementIntensityColorOverride: input.overallMovementIntensityColorOverride ?? null,
     planStops: planStopsForPreview.map((row) => ({
       rowType: row.rowType,
       locationId: row.locationId,
@@ -2671,6 +2673,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     ESTIMATE_GUIDE_IMAGES_PER_PAGE_DEFAULT,
   );
   const [estimateGuidePageSplitsText, setEstimateGuidePageSplitsText] = useState('');
+  const [overallMovementIntensityColorOverride, setOverallMovementIntensityColorOverride] = useState<
+    string | null
+  >(null);
 
   const [selectedRoute, setSelectedRoute] = useState<RouteSelection[]>([]);
   const [isMultiDayBlockSectionOpen, setIsMultiDayBlockSectionOpen] = useState<boolean>(false);
@@ -3042,6 +3047,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         Array.isArray(meta.estimateGuidePageSplits) ? meta.estimateGuidePageSplits : null,
       ),
     );
+    setOverallMovementIntensityColorOverride(meta.movementIntensityColorOverride ?? null);
     setRoutePresetTemplateId('');
     setIsMultiDayBlockSectionOpen(false);
 
@@ -4698,6 +4704,13 @@ export function ItineraryBuilderPage(): JSX.Element {
         .filter((x): x is number => x !== null),
     [planRows, settingsMovementIntensityColors],
   );
+  const overallMovementIntensityColorOverrideInvalid = useMemo(() => {
+    const value = overallMovementIntensityColorOverride?.trim();
+    if (!value) {
+      return false;
+    }
+    return !isMovementIntensityPaletteColor(value, settingsMovementIntensityColors);
+  }, [overallMovementIntensityColorOverride, settingsMovementIntensityColors]);
 
   const canCreate = Boolean(
     hasPlanContext &&
@@ -4705,6 +4718,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     leaderName.trim() &&
     validationErrors.length === 0 &&
     movementIntensityRowColorInvalidIndexes.length === 0 &&
+    !overallMovementIntensityColorOverrideInvalid &&
     (includeRentalItems ? rentalItemsText.trim() : true) &&
     selectedRoute.length > 0 &&
     selectedRoute.every(isRouteSelectionStopComplete) &&
@@ -4740,6 +4754,9 @@ export function ItineraryBuilderPage(): JSX.Element {
       reasons.push(
         `행별 이동강도 색상은 전역 기본 5색 중 하나여야 합니다. (${movementIntensityRowColorInvalidIndexes.join(', ')}행)`,
       );
+    }
+    if (overallMovementIntensityColorOverrideInvalid) {
+      reasons.push('전체 이동강도 색상은 전역 기본 5색 중 하나여야 합니다.');
     }
     if (includeRentalItems && !rentalItemsText.trim()) {
       reasons.push('렌탈 항목 포함이 켜져 있으면 렌탈 항목 내용을 입력해 주세요.');
@@ -4795,6 +4812,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     planTitle,
     planDocumentNumberBase,
     movementIntensityRowColorInvalidIndexes.length,
+    overallMovementIntensityColorOverrideInvalid,
   ]);
   const planCreateActionLabel = isVersionMode ? '새 버전 생성' : '생성';
   const shouldShowPlanCreateBlockedTooltip =
@@ -4849,6 +4867,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         expandTeamPricingSummaryRows: manualPricing.enabled && manualPricingSplitTeamRows,
         estimateGuideImagesPerPage,
         estimateGuidePageSplits: estimateGuidePageSplitsParsed,
+        overallMovementIntensityColorOverride,
       }),
     [
       effectivePlanTitle,
@@ -4875,6 +4894,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       manualPricingSplitTeamRows,
       estimateGuideImagesPerPage,
       estimateGuidePageSplitsParsed,
+      overallMovementIntensityColorOverride,
     ],
   );
   const { data: previewEstimateData, guidesLoading: previewGuidesLoading } =
@@ -4953,6 +4973,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   const previewPage2Editor: EstimatePage2Editor = {
     onMovementIntensityColorOverrideChange: (mainRowIndex, color) => {
       updateMovementIntensityColorOverride(mainRowIndex, color);
+    },
+    onOverallMovementIntensityColorOverrideChange: (color) => {
+      setOverallMovementIntensityColorOverride(color);
     },
   };
 
@@ -5417,6 +5440,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 remark: remark.trim() || undefined,
                                 estimateGuideImagesPerPage,
                                 estimateGuidePageSplits: estimateGuidePageSplitsParsed ?? undefined,
+                                movementIntensityColorOverride: overallMovementIntensityColorOverride,
                               },
                               planStops: planStopsForMutation,
                               manualAdjustments: normalizedManualAdjustments,
@@ -5511,6 +5535,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 remark: remark.trim() || undefined,
                                 estimateGuideImagesPerPage,
                                 estimateGuidePageSplits: estimateGuidePageSplitsParsed ?? undefined,
+                                movementIntensityColorOverride: overallMovementIntensityColorOverride,
                               },
                               planStops: planStopsForMutation,
                               manualAdjustments: normalizedManualAdjustments,
@@ -8137,6 +8162,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 remark,
                                 estimateGuideImagesPerPage,
                                 estimateGuidePageSplits: estimateGuidePageSplitsParsed ?? undefined,
+                                movementIntensityColorOverride: overallMovementIntensityColorOverride,
                               },
                               manualAdjustments: normalizedManualAdjustments,
                               manualDepositAmountKrw: normalizedManualDepositAmountKrw,
@@ -8188,6 +8214,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 remark,
                                 estimateGuideImagesPerPage,
                                 estimateGuidePageSplits: estimateGuidePageSplitsParsed ?? undefined,
+                                movementIntensityColorOverride: overallMovementIntensityColorOverride,
                               },
                               manualAdjustments: normalizedManualAdjustments,
                               manualDepositAmountKrw: normalizedManualDepositAmountKrw,

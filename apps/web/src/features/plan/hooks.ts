@@ -318,6 +318,7 @@ export interface PlanVersionMetaRow {
   remark: string | null;
   estimateGuideImagesPerPage: number;
   estimateGuidePageSplits: number[] | null;
+  movementIntensityColorOverride: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1022,6 +1023,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         remark
         estimateGuideImagesPerPage
         estimateGuidePageSplits
+        movementIntensityColorOverride
         createdAt
         updatedAt
       }

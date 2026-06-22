@@ -2,6 +2,7 @@ import { Card } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CustomerDeletePanel, CustomerSelector, PlanListPanel } from '../features/plan/components';
+import { matchesCustomerSearchKeyword } from '../features/plan/customerSearch';
 import {
   CUSTOMER_TRIP_STATUS_LABELS,
   calcGroupCounts,
@@ -37,13 +38,9 @@ export function CustomerPage(): JSX.Element {
   const groupCounts = useMemo(() => calcGroupCounts(users), [users]);
 
   const filteredUsers = useMemo(() => {
-    const keyword = customerSearch.trim().toLowerCase();
     return users.filter((user) => {
       if (statusFilter !== 'all' && getCustomerTripStatus(user) !== statusFilter) return false;
-      if (!keyword) return true;
-      const ownerNameMatched = user.ownerEmployee?.name.toLowerCase().includes(keyword) ?? false;
-      const ownerEmailMatched = user.ownerEmployee?.email.toLowerCase().includes(keyword) ?? false;
-      return user.name.toLowerCase().includes(keyword) || ownerNameMatched || ownerEmailMatched;
+      return matchesCustomerSearchKeyword(user, customerSearch);
     });
   }, [customerSearch, users, statusFilter]);
 

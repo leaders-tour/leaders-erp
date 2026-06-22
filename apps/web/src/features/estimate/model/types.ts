@@ -99,6 +99,8 @@ export interface EstimateBuilderDraftSnapshot {
   eventNames: string[];
   remark: string;
   movementIntensity?: MovementIntensityValue | null;
+  /** 견적서 일정표 상단 전체 이동강도 칩 색상 오버라이드 */
+  overallMovementIntensityColorOverride?: string | null;
   planStops: EstimatePlanStopRow[];
   pricing: EstimatePricingSnapshot | null;
   /** 빌더에서 선택한 안내 이미지 페이지당 개수 (플랜 저장 시 메타로 반영) */
@@ -185,6 +187,8 @@ export interface EstimateDocumentData {
   securityDepositScope: EstimateSecurityDepositScope;
   validUntilDate: string | null;
   movementIntensity?: MovementIntensityValue | null;
+  /** 견적서 일정표 상단 전체 이동강도 칩 색상 오버라이드 */
+  overallMovementIntensityColorOverride?: string | null;
   planStops: EstimatePlanStopRow[];
   /** 여행지 안내 템플릿 이미지를 한 페이지에 몇 장까지 넣을지 (저장된 플랜 메타 또는 빌더 선택) */
   estimateGuideImagesPerPage: EstimateGuideImagesPerPage;
@@ -244,4 +248,5 @@ export interface EstimatePage1Editor {
 
 export interface EstimatePage2Editor {
   onMovementIntensityColorOverrideChange: (mainRowIndex: number, color: string | null) => void;
+  onOverallMovementIntensityColorOverrideChange: (color: string | null) => void;
 }

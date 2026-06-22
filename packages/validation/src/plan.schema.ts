@@ -450,6 +450,7 @@ export const planVersionMetaInputSchema = z
       .array(z.number().int().min(1).max(50))
       .max(30)
       .optional(),
+    movementIntensityColorOverride: hexColorSchema.nullable().optional(),
   })
   .superRefine((value, ctx) => {
     const start = new Date(value.travelStartDate);

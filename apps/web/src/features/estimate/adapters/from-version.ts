@@ -194,6 +194,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
         : '-',
     validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
     movementIntensity: version.movementIntensity ?? null,
+    overallMovementIntensityColorOverride: version.meta?.movementIntensityColorOverride ?? null,
     estimateGuideImagesPerPage: normalizeEstimateGuideImagesPerPage(version.meta?.estimateGuideImagesPerPage),
     estimateGuidePageSplits: normalizeEstimateGuidePageSplits(version.meta?.estimateGuidePageSplits),
     planStops: version.planStops.map((row) => ({

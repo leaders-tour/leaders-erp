@@ -9,6 +9,7 @@ import {
 } from '../features/confirmation/hooks/use-confirmation-document';
 import type { ConfirmationDocumentRow } from '../features/confirmation/model/types';
 import { CustomerSelector } from '../features/plan/components';
+import { matchesCustomerSearchKeyword } from '../features/plan/customerSearch';
 import { getCustomerTripStatus } from '../features/plan/customerTripStatus';
 import { dateKey } from '../features/plan/deal-pipeline-stage';
 import { useUsers } from '../features/plan/hooks';
@@ -32,13 +33,9 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
   const [customerSearch, setCustomerSearch] = useState('');
 
   const filteredUsers = useMemo(() => {
-    const keyword = customerSearch.trim().toLowerCase();
     return users.filter((user) => {
       if (getCustomerTripStatus(user) !== 'confirmed') return false;
-      if (!keyword) return true;
-      const ownerNameMatched = user.ownerEmployee?.name.toLowerCase().includes(keyword) ?? false;
-      const ownerEmailMatched = user.ownerEmployee?.email.toLowerCase().includes(keyword) ?? false;
-      return user.name.toLowerCase().includes(keyword) || ownerNameMatched || ownerEmailMatched;
+      return matchesCustomerSearchKeyword(user, customerSearch);
     });
   }, [customerSearch, users]);
 

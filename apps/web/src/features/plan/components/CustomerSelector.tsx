@@ -42,7 +42,7 @@ export function CustomerSelector({
         <Input
           value={searchValue}
           onChange={(event) => onChangeSearch(event.target.value)}
-          placeholder="고객 검색"
+          placeholder="이름·담당자·문서번호"
           className="ml-auto h-8 w-1/2 text-xs"
         />
       </div>

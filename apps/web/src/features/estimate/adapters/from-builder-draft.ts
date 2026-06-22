@@ -86,6 +86,7 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     securityDepositScope: snapshot.pricing ? toSecurityDepositScope(snapshot.pricing.securityDepositMode) : '-',
     validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
     movementIntensity: snapshot.movementIntensity ?? null,
+    overallMovementIntensityColorOverride: snapshot.overallMovementIntensityColorOverride ?? null,
     planStops: snapshot.planStops,
     estimateGuideImagesPerPage: normalizeEstimateGuideImagesPerPage(snapshot.estimateGuideImagesPerPage),
     estimateGuidePageSplits: normalizeEstimateGuidePageSplits(snapshot.estimateGuidePageSplits),

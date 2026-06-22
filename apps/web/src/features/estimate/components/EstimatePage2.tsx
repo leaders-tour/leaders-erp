@@ -192,12 +192,21 @@ function chunkItineraryRows(rows: PlanStopRowContext[]): PlanStopRowContext[][] 
 }
 
 export function EstimatePage2({ data, movementIntensityColors, editor }: EstimatePage2Props): JSX.Element {
-  const [colorModalState, setColorModalState] = useState<{
-    pageIndex: number;
-    mainRowIndex: number;
-    rowLabel: string;
-    currentOverride: string | null;
-  } | null>(null);
+  const [colorModalState, setColorModalState] = useState<
+    | {
+        kind: 'overall';
+        pageIndex: number;
+        currentOverride: string | null;
+      }
+    | {
+        kind: 'row';
+        pageIndex: number;
+        mainRowIndex: number;
+        rowLabel: string;
+        currentOverride: string | null;
+      }
+    | null
+  >(null);
   const paletteColors = useMemo(
     () => movementIntensityColors ?? [],
     [movementIntensityColors],
@@ -225,9 +234,11 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
   const overallIntensity = getMovementIntensityMeta(overallMovementIntensity, movementIntensityColors);
   const overallIntensityColor = resolveMovementIntensityChipColor({
     movementIntensity: overallMovementIntensity,
+    movementIntensityColorOverride: data.overallMovementIntensityColorOverride,
     colors: movementIntensityColors,
     fallbackColor: DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR,
   });
+  const isOverallChipEditable = editor != null;
   const itineraryPageChunks = chunkItineraryRows(planStopRowContexts);
 
   return (
@@ -264,12 +275,20 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
             {colorModalState?.pageIndex === pageIndex ? (
               <MovementIntensityColorSelectModal
                 open
-                rowLabel={colorModalState.rowLabel}
+                rowLabel={
+                  colorModalState.kind === 'overall'
+                    ? '전체 이동강도'
+                    : colorModalState.rowLabel
+                }
                 colors={paletteColors}
                 currentOverride={colorModalState.currentOverride}
                 onClose={() => setColorModalState(null)}
                 onSelect={(color) => {
                   if (editor == null) {
+                    return;
+                  }
+                  if (colorModalState.kind === 'overall') {
+                    editor.onOverallMovementIntensityColorOverrideChange(color);
                     return;
                   }
                   editor.onMovementIntensityColorOverrideChange(colorModalState.mainRowIndex, color);
@@ -287,14 +306,33 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
                 <h1 className="estimate-itinerary-title">{pageTitle}</h1>
                 <p className="estimate-itinerary-intensity">
                   이동강도:{' '}
-                  <span
-                    className="estimate-movement-intensity-chip estimate-movement-intensity-chip--inline"
-                    aria-label={overallIntensity?.label ?? '이동강도 미지정'}
-                    title={overallIntensity?.label ?? '이동강도 미지정'}
-                    style={{
-                      backgroundColor: overallIntensityColor,
-                    }}
-                  />
+                  {isOverallChipEditable ? (
+                    <button
+                      type="button"
+                      className="estimate-movement-intensity-chip estimate-movement-intensity-chip--inline estimate-movement-intensity-chip--editable"
+                      aria-label={`${overallIntensity?.label ?? '이동강도 미지정'} 색상 변경`}
+                      title="클릭하여 전체 이동강도 색상 선택"
+                      style={{
+                        backgroundColor: overallIntensityColor,
+                      }}
+                      onClick={() => {
+                        setColorModalState({
+                          kind: 'overall',
+                          pageIndex,
+                          currentOverride: data.overallMovementIntensityColorOverride ?? null,
+                        });
+                      }}
+                    />
+                  ) : (
+                    <span
+                      className="estimate-movement-intensity-chip estimate-movement-intensity-chip--inline"
+                      aria-label={overallIntensity?.label ?? '이동강도 미지정'}
+                      title={overallIntensity?.label ?? '이동강도 미지정'}
+                      style={{
+                        backgroundColor: overallIntensityColor,
+                      }}
+                    />
+                  )}
                 </p>
               </div>
             </div>
@@ -372,6 +410,7 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
                                     return;
                                   }
                                   setColorModalState({
+                                    kind: 'row',
                                     pageIndex,
                                     mainRowIndex,
                                     rowLabel: fallback(row.destinationCellText),
