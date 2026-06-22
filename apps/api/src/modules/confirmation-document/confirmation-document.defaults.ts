@@ -12,6 +12,7 @@ import {
 } from '@tour/validation';
 
 const DEFAULT_MEETING_PLACE = '출국게이트 우측 버거킹 앞';
+const BALANCE_PAYMENT_NOTE = '(가이드 만나서 원화 현금 지불)';
 
 type TransportGroupLike = {
   teamName: string;
@@ -420,7 +421,7 @@ export function buildConfirmationDraftDefaults(input: {
     });
   const eventNames = input.confirmedTrip.planVersion?.planVersionEvents
     .map((row) => row.event.name)
-    .join(' / ') ?? '';
+    .join('\n') ?? '';
 
   return {
     leaderName: meta?.leaderName?.trim() || '-',
@@ -441,7 +442,7 @@ export function buildConfirmationDraftDefaults(input: {
     balancePerPersonText:
       balanceAmountKrw == null
         ? '-'
-        : `${formatCurrencyKrw(balanceAmountKrw)}원 (가이드 만나서 원화 현금 지불)`,
+        : `${formatCurrencyKrw(balanceAmountKrw)}원\n${BALANCE_PAYMENT_NOTE}`,
     guideName: resolveGuideName(input.confirmedTrip.guideAssignments),
     meetingPlace: DEFAULT_MEETING_PLACE,
     travelers,

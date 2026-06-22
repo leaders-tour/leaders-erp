@@ -119,7 +119,7 @@ export function ConfirmationBuilderForm({
         <div className="confirmation-builder-field-grid">
           <TextField label="특이사항" value={value.specialNote} onChange={(specialNote) => patch({ specialNote })} multiline />
           <TextField label="기본 대여물품" value={value.rentalItemsText} onChange={(rentalItemsText) => patch({ rentalItemsText })} multiline />
-          <TextField label="참여 이벤트" value={value.eventNames} onChange={(eventNames) => patch({ eventNames })} />
+          <TextField label="참여 이벤트" value={value.eventNames} onChange={(eventNames) => patch({ eventNames })} multiline />
           <TextField label="비고" value={value.remark} onChange={(remark) => patch({ remark })} multiline />
         </div>
       </FormSection>
@@ -130,6 +130,7 @@ export function ConfirmationBuilderForm({
             label="잔금(1인)"
             value={value.balancePerPersonText}
             onChange={(balancePerPersonText) => patch({ balancePerPersonText })}
+            multiline
             className="confirmation-builder-field--wide"
           />
         </div>

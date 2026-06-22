@@ -49,6 +49,23 @@ function VehicleTypeCellDisplay({ vehicleType }: { vehicleType: string | null | 
   );
 }
 
+function EventNamesText({ value }: { value: string }): JSX.Element {
+  const items = value
+    .split(/\n|\s+\/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return (
+    <>
+      {items.map((item, index) => (
+        <span key={`event-${index}`} className="confirmation-comma-break-line">
+          {item}
+        </span>
+      ))}
+    </>
+  );
+}
+
 function CommaBreakText({ value }: { value: string }): JSX.Element {
   const lines = value.split('\n');
 
@@ -285,7 +302,9 @@ function ConfirmationPage({
                   <CommaBreakText value={rentalItemsText} />
                 </td>
                 <th>참여 이벤트</th>
-                <td className="confirmation-page1-preline-cell confirmation-page1-event-cell">{eventNamesText}</td>
+                <td className="confirmation-page1-preline-cell confirmation-page1-event-cell">
+                  <EventNamesText value={eventNamesText} />
+                </td>
               </tr>
               <tr>
                 <th>비고</th>
@@ -300,7 +319,9 @@ function ConfirmationPage({
               </tr>
               <tr className="confirmation-page1-tr--even-height">
                 <th>잔금(1인)</th>
-                <td colSpan={3}>{blankIfDash(fallbackText(data.balancePerPersonText))}</td>
+                <td className="confirmation-page1-preline-cell" colSpan={3}>
+                  {blankIfDash(fallbackText(data.balancePerPersonText))}
+                </td>
               </tr>
               <tr className="confirmation-page1-tr--even-height">
                 <th>가이드님</th>
