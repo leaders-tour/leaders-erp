@@ -133,7 +133,7 @@ function toConfirmationTravelerInput(traveler: ConfirmationTraveler): Confirmati
     name: traveler.name,
     gender: traveler.gender ?? null,
     birthCode: traveler.birthCode ?? null,
-    note: traveler.note ?? null,
+    note: null,
   };
 }
 

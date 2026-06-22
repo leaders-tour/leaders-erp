@@ -147,7 +147,7 @@ export function ConfirmationBuilderForm({
             variant="outline"
             onClick={() =>
               patch({
-                travelers: [...value.travelers, { name: '', gender: '', birthCode: '', note: '' }],
+                travelers: [...value.travelers, { name: '', gender: '', birthCode: '' }],
               })
             }
           >
@@ -195,11 +195,6 @@ export function ConfirmationBuilderForm({
                 label="생년(7자리)"
                 value={traveler.birthCode ?? ''}
                 onChange={(birthCode) => patch({ travelers: updateTraveler(value.travelers, index, { birthCode }) })}
-              />
-              <TextField
-                label="특이사항"
-                value={traveler.note ?? ''}
-                onChange={(note) => patch({ travelers: updateTraveler(value.travelers, index, { note }) })}
               />
             </div>
           </div>

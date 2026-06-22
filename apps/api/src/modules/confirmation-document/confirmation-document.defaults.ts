@@ -416,7 +416,7 @@ export function buildConfirmationDraftDefaults(input: {
         name,
         gender: profile.gender,
         birthCode: profile.birthCode,
-        note: profile.note,
+        note: null,
       }];
     });
   const eventNames = input.confirmedTrip.planVersion?.planVersionEvents

@@ -136,15 +136,6 @@ export function shouldUpdateContractSubmissionTravelerProfile(
   );
 }
 
-function shouldDisplayTravelerNote(note: string): boolean {
-  const normalized = note.trim().toLowerCase();
-  if (!normalized) {
-    return false;
-  }
-  const hidden = new Set(['-', '없음', '해당없음', '해당 없음', 'none', 'n/a', 'na']);
-  return !hidden.has(normalized);
-}
-
 function pad2(value: number): string {
   return String(value).padStart(2, '0');
 }
@@ -287,9 +278,7 @@ export function confirmationTravelerDisplayParts(input: {
   if (birthCode) {
     coreParts.push(birthCode);
   }
-  const noteText = input.note?.trim();
-  const note = noteText && shouldDisplayTravelerNote(noteText) ? noteText : null;
-  return { core: coreParts.join(' '), note };
+  return { core: coreParts.join(' '), note: null };
 }
 
 export function formatConfirmationTravelerLine(input: {
@@ -298,9 +287,5 @@ export function formatConfirmationTravelerLine(input: {
   birthCode?: string | null;
   note?: string | null;
 }): string {
-  const { core, note } = confirmationTravelerDisplayParts(input);
-  if (!core) {
-    return '';
-  }
-  return note ? `${core} ${note}` : core;
+  return confirmationTravelerDisplayParts(input).core;
 }

@@ -138,7 +138,6 @@ function ConfirmationTravelerList({ travelers }: { travelers: ConfirmationTravel
       {entries.map((entry, index) => (
         <li key={`traveler-${index}`} className="confirmation-page1-detail-entry">
           <span className="confirmation-page1-traveler-core">{entry.core}</span>
-          {entry.note ? <span className="confirmation-page1-traveler-note">{entry.note}</span> : null}
         </li>
       ))}
     </ul>
@@ -330,7 +329,7 @@ function ConfirmationPage({
                 <td>{blankIfDash(fallbackText(data.meetingPlace))}</td>
               </tr>
               <tr className="confirmation-page1-tr--detail-row">
-                <th className="confirmation-page1-detail-label">여행객 명단 (특이사항)</th>
+                <th className="confirmation-page1-detail-label">여행객 명단</th>
                 <td className="confirmation-page1-detail-cell">
                   <ConfirmationTravelerList travelers={data.travelers} />
                 </td>

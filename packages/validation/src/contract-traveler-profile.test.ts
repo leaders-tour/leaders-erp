@@ -37,7 +37,7 @@ describe('formatConfirmationTravelerLine', () => {
     ).toBe('정민우 남성 060115');
   });
 
-  it('omits note when contract says there is none', () => {
+  it('does not include traveler note in confirmation line', () => {
     expect(
       formatConfirmationTravelerLine({
         name: '박승원',
@@ -48,7 +48,7 @@ describe('formatConfirmationTravelerLine', () => {
     ).toBe('박승원 남성 990717');
   });
 
-  it('splits core profile and note for stacked display', () => {
+  it('returns core profile only for stacked display', () => {
     expect(
       confirmationTravelerDisplayParts({
         name: '손하은',
@@ -58,7 +58,7 @@ describe('formatConfirmationTravelerLine', () => {
       }),
     ).toEqual({
       core: '손하은 여성 970101',
-      note: '식단 알러지(갑각류-새우, / 게 포함-, 복숭아 등)',
+      note: null,
     });
   });
 });
