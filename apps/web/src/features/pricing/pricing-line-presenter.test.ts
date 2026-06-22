@@ -115,4 +115,16 @@ describe('pricing-line-presenter', () => {
     };
     expect(formatPricingDetailFormula(line, ctx6)).toBe('기본금의 5%');
   });
+
+  it('infers PER_NIGHT for custom lodging selection without display fields', () => {
+    const line = {
+      lineCode: 'LODGING_SELECTION',
+      sourceType: 'MANUAL' as const,
+      description: '카라반세라이',
+      unitPriceKrw: 80_000,
+      quantity: 1,
+      amountKrw: 80_000,
+    };
+    expect(formatPricingDetailFormula(line, ctx6)).toBe('80,000원*1박');
+  });
 });

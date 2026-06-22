@@ -21,7 +21,11 @@ type MergeGroup<T> = {
   members: T[];
 };
 
-function parseFixedTierLodgingLine(line: PricingViewLine): { level: LodgingSelectionLevelKey; groupKey: string } | null {
+type ParsedLodgingSelectionLine =
+  | { kind: 'fixed'; level: LodgingSelectionLevelKey; groupKey: string }
+  | { kind: 'custom'; lodgingName: string; groupKey: string };
+
+function parseLodgingSelectionLine(line: PricingViewLine): ParsedLodgingSelectionLine | null {
   if (line.lineCode !== 'LODGING_SELECTION') {
     return null;
   }
@@ -35,12 +39,15 @@ function parseFixedTierLodgingLine(line: PricingViewLine): { level: LodgingSelec
   if (!text) {
     return null;
   }
-  const match = text.match(FIXED_LODGING_DAY_LEVEL);
-  if (!match) {
-    return null;
+  const fixedMatch = text.match(FIXED_LODGING_DAY_LEVEL);
+  if (fixedMatch) {
+    const level = fixedMatch[2] as LodgingSelectionLevelKey;
+    return { kind: 'fixed', level, groupKey: `${level}|${line.unitPriceKrw}` };
   }
-  const level = match[2] as LodgingSelectionLevelKey;
-  return { level, groupKey: `${level}|${line.unitPriceKrw}` };
+  if (line.sourceType === 'MANUAL') {
+    return { kind: 'custom', lodgingName: text, groupKey: `CUSTOM|${text}|${line.unitPriceKrw}` };
+  }
+  return null;
 }
 
 function buildMergeGroups<T extends PricingViewLine>(lines: T[]): Map<string, MergeGroup<T>> {
@@ -50,7 +57,7 @@ function buildMergeGroups<T extends PricingViewLine>(lines: T[]): Map<string, Me
     if (line === undefined) {
       continue;
     }
-    const parsed = parseFixedTierLodgingLine(line);
+    const parsed = parseLodgingSelectionLine(line);
     if (!parsed) {
       continue;
     }
@@ -62,6 +69,13 @@ function buildMergeGroups<T extends PricingViewLine>(lines: T[]): Map<string, Me
     }
   }
   return groups;
+}
+
+function mergedLodgingDescription(parsed: ParsedLodgingSelectionLine): string {
+  if (parsed.kind === 'fixed') {
+    return DISPLAY_LABEL_BY_LEVEL[parsed.level];
+  }
+  return parsed.lodgingName;
 }
 
 /**
@@ -79,7 +93,7 @@ export function mergeLodgingSelectionDisplayLines<T extends PricingViewLine>(
     if (line === undefined) {
       continue;
     }
-    const parsed = parseFixedTierLodgingLine(line);
+    const parsed = parseLodgingSelectionLine(line);
     if (!parsed) {
       result.push(line);
       continue;
@@ -113,7 +127,7 @@ export function mergeLodgingSelectionDisplayLines<T extends PricingViewLine>(
 
     result.push({
       ...first,
-      description: DISPLAY_LABEL_BY_LEVEL[parsed.level],
+      description: mergedLodgingDescription(parsed),
       quantity: nights,
       amountKrw,
       quantityDisplaySuffix: '박',

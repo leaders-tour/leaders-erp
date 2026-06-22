@@ -99,15 +99,57 @@ describe('mergeLodgingSelectionDisplayLines', () => {
     expect(merged[1]).toMatchObject({ description: '숙소 업그레이드', quantity: 2, amountKrw: 100_000 });
   });
 
-  it('ignores CUSTOM lodging descriptions', () => {
-    const custom = line({
+  it('merges same custom lodging across days at first occurrence', () => {
+    const customA = line({
       lineCode: 'LODGING_SELECTION',
+      sourceType: 'MANUAL',
       description: '카라반세라이',
       unitPriceKrw: 80_000,
       quantity: 1,
       amountKrw: 80_000,
     });
-    const merged = mergeLodgingSelectionDisplayLines([custom, custom]);
+    const customB = line({
+      lineCode: 'LODGING_SELECTION',
+      sourceType: 'MANUAL',
+      description: '카라반세라이',
+      unitPriceKrw: 80_000,
+      quantity: 1,
+      amountKrw: 80_000,
+    });
+
+    const merged = mergeLodgingSelectionDisplayLines([customA, customB]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({
+      lineCode: 'LODGING_SELECTION',
+      description: '카라반세라이',
+      unitPriceKrw: 80_000,
+      quantity: 2,
+      amountKrw: 160_000,
+      quantityDisplaySuffix: '박',
+      displayBasis: 'PER_NIGHT',
+      displayUnitAmountKrw: 80_000,
+      displayCount: 2,
+    });
+  });
+
+  it('does not merge custom lodging when price differs', () => {
+    const customA = line({
+      lineCode: 'LODGING_SELECTION',
+      sourceType: 'MANUAL',
+      description: '카라반세라이',
+      unitPriceKrw: 80_000,
+      quantity: 1,
+      amountKrw: 80_000,
+    });
+    const customB = line({
+      lineCode: 'LODGING_SELECTION',
+      sourceType: 'MANUAL',
+      description: '카라반세라이',
+      unitPriceKrw: 90_000,
+      quantity: 1,
+      amountKrw: 90_000,
+    });
+    const merged = mergeLodgingSelectionDisplayLines([customA, customB]);
     expect(merged).toHaveLength(2);
   });
 });

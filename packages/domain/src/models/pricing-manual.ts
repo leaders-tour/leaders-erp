@@ -158,7 +158,11 @@ function isBaseLine(line: PricingManualSourceLine): boolean {
   return BASE_LINE_CODES.has(line.lineCode);
 }
 
-function parseFixedTierLodgingLine(line: PricingManualSourceLine): { level: LodgingSelectionLevelKey; groupKey: string } | null {
+type ParsedLodgingSelectionLine =
+  | { kind: 'fixed'; level: LodgingSelectionLevelKey; groupKey: string }
+  | { kind: 'custom'; lodgingName: string; groupKey: string };
+
+function parseLodgingSelectionLine(line: PricingManualSourceLine): ParsedLodgingSelectionLine | null {
   if (line.lineCode !== 'LODGING_SELECTION') {
     return null;
   }
@@ -172,15 +176,23 @@ function parseFixedTierLodgingLine(line: PricingManualSourceLine): { level: Lodg
   if (!text) {
     return null;
   }
-  const match = text.match(FIXED_LODGING_DAY_LEVEL);
-  if (!match) {
-    return null;
+  const fixedMatch = text.match(FIXED_LODGING_DAY_LEVEL);
+  if (fixedMatch) {
+    const level = fixedMatch[2] as LodgingSelectionLevelKey;
+    return {
+      kind: 'fixed',
+      level,
+      groupKey: `${level}|${line.unitPriceKrw}`,
+    };
   }
-  const level = match[2] as LodgingSelectionLevelKey;
-  return {
-    level,
-    groupKey: `${level}|${line.unitPriceKrw}`,
-  };
+  if (line.sourceType === 'MANUAL') {
+    return {
+      kind: 'custom',
+      lodgingName: text,
+      groupKey: `CUSTOM|${text}|${line.unitPriceKrw}`,
+    };
+  }
+  return null;
 }
 
 function buildMergeGroups<TLine extends PricingManualSourceLine>(lines: TLine[]): Map<string, MergeGroup<TLine>> {
@@ -190,7 +202,7 @@ function buildMergeGroups<TLine extends PricingManualSourceLine>(lines: TLine[])
     if (!line) {
       continue;
     }
-    const parsed = parseFixedTierLodgingLine(line);
+    const parsed = parseLodgingSelectionLine(line);
     if (!parsed) {
       continue;
     }
@@ -205,6 +217,13 @@ function buildMergeGroups<TLine extends PricingManualSourceLine>(lines: TLine[])
     existing.members.push(line);
   }
   return groups;
+}
+
+function mergedLodgingDescription(parsed: ParsedLodgingSelectionLine): string {
+  if (parsed.kind === 'fixed') {
+    return DISPLAY_LABEL_BY_LEVEL[parsed.level];
+  }
+  return parsed.lodgingName;
 }
 
 function buildRowKey<TLine extends PricingManualSourceLine>(
@@ -248,7 +267,7 @@ function buildAddonRows<TLine extends PricingManualSourceLine>(
     if (!line) {
       continue;
     }
-    const parsed = parseFixedTierLodgingLine(line);
+    const parsed = parseLodgingSelectionLine(line);
     if (!parsed) {
       result.push({
         ...line,
@@ -265,6 +284,8 @@ function buildAddonRows<TLine extends PricingManualSourceLine>(
       continue;
     }
 
+    const mergedLevel = parsed.kind === 'fixed' ? parsed.level : undefined;
+
     if (group.members.length === 1) {
       result.push({
         ...line,
@@ -274,7 +295,7 @@ function buildAddonRows<TLine extends PricingManualSourceLine>(
         displayDivisorPerson: null,
         displayText: null,
         displayLabel: null,
-        rowKey: buildRowKey('ADDON', line, occurrenceBySignature, parsed.level),
+        rowKey: buildRowKey('ADDON', line, occurrenceBySignature, mergedLevel),
         category: 'ADDON',
         originalAmountKrw: line.amountKrw,
         isManualOverride: false,
@@ -290,7 +311,7 @@ function buildAddonRows<TLine extends PricingManualSourceLine>(
     const amountKrw = group.members.reduce((sum, member) => sum + member.amountKrw, 0);
     result.push({
       ...first,
-      description: DISPLAY_LABEL_BY_LEVEL[parsed.level],
+      description: mergedLodgingDescription(parsed),
       quantity: nights,
       amountKrw,
       quantityDisplaySuffix: '박',
@@ -300,7 +321,7 @@ function buildAddonRows<TLine extends PricingManualSourceLine>(
       displayDivisorPerson: null,
       displayText: null,
       displayLabel: null,
-      rowKey: buildRowKey('ADDON', first, occurrenceBySignature, parsed.level),
+      rowKey: buildRowKey('ADDON', first, occurrenceBySignature, mergedLevel),
       category: 'ADDON',
       originalAmountKrw: amountKrw,
       isManualOverride: false,

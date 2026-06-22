@@ -191,12 +191,6 @@ function inferLegacyPricingLineDisplay(
     case 'BASE_UPLIFT_5PLUS_10PCT':
       return emptyResolved('PERCENT', { text: '기본금의 10%' });
     case 'LODGING_SELECTION': {
-      if (line.sourceType === 'MANUAL' && line.quantity === 1) {
-        return emptyResolved('PER_PERSON_SINGLE', {
-          unitAmountKrw: line.unitPriceKrw ?? line.amountKrw,
-          count: 1,
-        });
-      }
       if (line.unitPriceKrw !== null && line.quantity > 0) {
         return emptyResolved('PER_NIGHT', {
           unitAmountKrw: line.unitPriceKrw,
