@@ -106,10 +106,14 @@ export function normalizeConfirmationAccommodationLine(line: string): string {
   return resolveConfirmationAccommodationName(trimmed);
 }
 
-export function splitConfirmationAccommodationDisplay(line: string): { name: string; spec: string } {
-  const normalized = normalizeConfirmationAccommodationLine(line);
-  if (!normalized) {
-    return { name: '', spec: '' };
+const ACCOMMODATION_SPEC_UNIT_PATTERN = '(?:\\d+인실 \\d+개(?: LV4)?|\\d+개(?: LV4)?)';
+
+function splitNameAndAccommodationSpec(normalized: string): { name: string; spec: string } {
+  const multiSpecMatch = normalized.match(
+    new RegExp(`^(.+?)\\s+(${ACCOMMODATION_SPEC_UNIT_PATTERN}(?:\\s+\\/\\s+${ACCOMMODATION_SPEC_UNIT_PATTERN})+)$`),
+  );
+  if (multiSpecMatch?.[1] && multiSpecMatch[2]) {
+    return { name: multiSpecMatch[1], spec: multiSpecMatch[2] };
   }
 
   const withCapacity = normalized.match(/^(.+?)\s+(\d+인실\s+\d+개(?:\s+LV4)?)$/);
@@ -123,6 +127,45 @@ export function splitConfirmationAccommodationDisplay(line: string): { name: str
   }
 
   return { name: normalized, spec: '' };
+}
+
+function parseAccommodationSpecPart(spec: string): {
+  roomCount: number;
+  capacity: number | null;
+  roomType: string | null;
+  levelTag: string | null;
+} | null {
+  const trimmed = spec.trim();
+  const withCapacity = trimmed.match(/^(\d+)인실\s+(\d+)개(?:\s+(LV4))?$/);
+  if (withCapacity?.[1] && withCapacity[2]) {
+    return {
+      roomCount: Number.parseInt(withCapacity[2], 10),
+      capacity: Number.parseInt(withCapacity[1], 10),
+      roomType: null,
+      levelTag: withCapacity[3] ?? null,
+    };
+  }
+
+  const countOnly = trimmed.match(/^(\d+)개(?:\s+(LV4))?$/);
+  if (countOnly?.[1]) {
+    return {
+      roomCount: Number.parseInt(countOnly[1], 10),
+      capacity: null,
+      roomType: null,
+      levelTag: countOnly[2] ?? null,
+    };
+  }
+
+  return null;
+}
+
+export function splitConfirmationAccommodationDisplay(line: string): { name: string; spec: string } {
+  const normalized = normalizeConfirmationAccommodationLine(line);
+  if (!normalized) {
+    return { name: '', spec: '' };
+  }
+
+  return splitNameAndAccommodationSpec(normalized);
 }
 
 export function formatConfirmationAccommodationLine(input: {
@@ -151,4 +194,116 @@ export function accommodationLineGroupKey(input: {
   const roomType = input.roomType?.trim() ?? '';
   const levelTag = input.levelTag?.trim() === DISPLAY_LODGING_LEVEL ? DISPLAY_LODGING_LEVEL : '';
   return `${name}|${capacityLabel ?? roomType}|${levelTag}`;
+}
+
+function lodgingDisplayGroupKey(name: string, levelTag?: string | null): string {
+  const normalizedLevelTag = levelTag?.trim() === DISPLAY_LODGING_LEVEL ? DISPLAY_LODGING_LEVEL : '';
+  return `${name.trim()}|${normalizedLevelTag}`;
+}
+
+export function consolidateConfirmationAccommodationEntries(
+  entries: Array<{
+    name: string;
+    roomCount: number;
+    capacity?: number | null;
+    roomType?: string | null;
+    levelTag?: string | null;
+  }>,
+): string[] {
+  const aggregated = new Map<
+    string,
+    {
+      name: string;
+      roomCount: number;
+      capacity: number | null;
+      roomType: string | null;
+      levelTag: string | null;
+    }
+  >();
+
+  for (const entry of entries) {
+    const name = entry.name.trim();
+    if (!name) {
+      continue;
+    }
+
+    const key = accommodationLineGroupKey({
+      name,
+      capacity: entry.capacity,
+      roomType: entry.roomType,
+      levelTag: entry.levelTag,
+    });
+    const existing = aggregated.get(key);
+    if (existing) {
+      existing.roomCount += entry.roomCount;
+      continue;
+    }
+
+    aggregated.set(key, {
+      name,
+      roomCount: entry.roomCount,
+      capacity: entry.capacity ?? null,
+      roomType: entry.roomType ?? null,
+      levelTag: entry.levelTag ?? null,
+    });
+  }
+
+  const byLodging = new Map<string, { name: string; specs: string[] }>();
+  for (const entry of aggregated.values()) {
+    const lodgingKey = lodgingDisplayGroupKey(entry.name, entry.levelTag);
+    const spec = buildAccommodationSpec(entry.roomCount, entry.capacity, entry.roomType, entry.levelTag);
+    const existing = byLodging.get(lodgingKey);
+    if (existing) {
+      existing.specs.push(spec);
+      continue;
+    }
+    byLodging.set(lodgingKey, { name: entry.name, specs: [spec] });
+  }
+
+  return [...byLodging.values()]
+    .map(({ name, specs }) => (specs.length > 0 ? `${name} ${specs.join(' / ')}` : name))
+    .filter(Boolean);
+}
+
+export function consolidateFormattedConfirmationAccommodationLines(lines: string[]): string[] {
+  const entries: Array<{
+    name: string;
+    roomCount: number;
+    capacity: number | null;
+    roomType: string | null;
+    levelTag: string | null;
+  }> = [];
+
+  for (const line of lines) {
+    const { name, spec } = splitConfirmationAccommodationDisplay(line);
+    if (!name) {
+      continue;
+    }
+    if (!spec) {
+      entries.push({
+        name,
+        roomCount: 1,
+        capacity: null,
+        roomType: null,
+        levelTag: null,
+      });
+      continue;
+    }
+
+    for (const part of spec.split(/\s+\/\s+/)) {
+      const parsed = parseAccommodationSpecPart(part);
+      if (!parsed) {
+        continue;
+      }
+      entries.push({
+        name,
+        roomCount: parsed.roomCount,
+        capacity: parsed.capacity,
+        roomType: parsed.roomType,
+        levelTag: parsed.levelTag,
+      });
+    }
+  }
+
+  return consolidateConfirmationAccommodationEntries(entries);
 }

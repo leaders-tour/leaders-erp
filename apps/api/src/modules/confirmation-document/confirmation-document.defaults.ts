@@ -1,9 +1,8 @@
 import type { PlaceType } from '@prisma/client';
 import { resolvePublishedBalancePerPersonKrw } from '@tour/domain';
 import {
-  accommodationLineGroupKey,
+  consolidateConfirmationAccommodationEntries,
   contractTravelerProfileFromSubmission,
-  formatConfirmationAccommodationLine,
   formatConfirmationTravelerLine,
   lodgingSelectionLevelByDay,
   resolveConfirmationAccommodationLevelTag,
@@ -219,16 +218,13 @@ function buildAccommodationLines(
   lodgings: LodgingLike[],
   lodgingSelectionsByDay: Map<number, string>,
 ): string[] {
-  const grouped = new Map<
-    string,
-    {
-      name: string;
-      roomCount: number;
-      capacity: number | null;
-      roomType: string | null;
-      levelTag: string | null;
-    }
-  >();
+  const entries: Array<{
+    name: string;
+    roomCount: number;
+    capacity: number | null;
+    roomType: string | null;
+    levelTag: string | null;
+  }> = [];
 
   for (const lodging of lodgings) {
     const planLodgingSelectionLevel = lodgingSelectionsByDay.get(lodging.dayIndex) ?? null;
@@ -239,25 +235,16 @@ function buildAccommodationLines(
         if (!name) {
           continue;
         }
-        const capacity = option.accommodationOption.capacity;
-        const roomType = option.accommodationOption.roomType;
-        const levelTag = resolveConfirmationAccommodationLevelTag({
-          lodgingType: lodging.type,
-          optionLevel: option.accommodationOption.level,
-          planLodgingSelectionLevel,
-        });
-        const key = accommodationLineGroupKey({ name, capacity, roomType, levelTag });
-        const existing = grouped.get(key);
-        if (existing) {
-          existing.roomCount += option.roomCount;
-          continue;
-        }
-        grouped.set(key, {
+        entries.push({
           name,
           roomCount: option.roomCount,
-          capacity,
-          roomType,
-          levelTag,
+          capacity: option.accommodationOption.capacity,
+          roomType: option.accommodationOption.roomType,
+          levelTag: resolveConfirmationAccommodationLevelTag({
+            lodgingType: lodging.type,
+            optionLevel: option.accommodationOption.level,
+            planLodgingSelectionLevel,
+          }),
         });
       }
       continue;
@@ -267,36 +254,19 @@ function buildAccommodationLines(
     if (!name) {
       continue;
     }
-    const levelTag = resolveConfirmationAccommodationLevelTag({
-      lodgingType: lodging.type,
-      planLodgingSelectionLevel,
-    });
-    const key = accommodationLineGroupKey({ name, capacity: null, roomType: null, levelTag });
-    const existing = grouped.get(key);
-    if (existing) {
-      existing.roomCount += lodging.roomCount;
-      continue;
-    }
-    grouped.set(key, {
+    entries.push({
       name,
       roomCount: lodging.roomCount,
       capacity: null,
       roomType: null,
-      levelTag,
+      levelTag: resolveConfirmationAccommodationLevelTag({
+        lodgingType: lodging.type,
+        planLodgingSelectionLevel,
+      }),
     });
   }
 
-  return [...grouped.values()]
-    .map((entry) =>
-      formatConfirmationAccommodationLine({
-        name: entry.name,
-        roomCount: entry.roomCount,
-        capacity: entry.capacity,
-        roomType: entry.roomType,
-        levelTag: entry.levelTag,
-      }),
-    )
-    .filter(Boolean);
+  return consolidateConfirmationAccommodationEntries(entries);
 }
 
 function buildExternalPickupDropText(meta: {

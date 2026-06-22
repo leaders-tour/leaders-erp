@@ -1,4 +1,5 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
+import { consolidateFormattedConfirmationAccommodationLines } from '@tour/validation';
 import type {
   ConfirmationBuilderState,
   ConfirmationDocumentRow,
@@ -158,7 +159,7 @@ function toConfirmationSnapshotInput(snapshot: ConfirmationBuilderState): Confir
     guideName: snapshot.guideName,
     meetingPlace: snapshot.meetingPlace,
     travelers: snapshot.travelers.map(toConfirmationTravelerInput),
-    accommodationLines: [...snapshot.accommodationLines],
+    accommodationLines: consolidateFormattedConfirmationAccommodationLines(snapshot.accommodationLines),
   };
 }
 

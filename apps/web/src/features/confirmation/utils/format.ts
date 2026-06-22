@@ -1,4 +1,5 @@
 import {
+  consolidateFormattedConfirmationAccommodationLines,
   formatConfirmationTravelerLine,
   splitConfirmationAccommodationDisplay,
 } from '@tour/validation';
@@ -30,10 +31,13 @@ export function fallbackText(value: string | null | undefined): string {
 }
 
 export function snapshotToDocumentData(snapshot: ConfirmationDocumentSnapshot) {
+  const accommodationLines = consolidateFormattedConfirmationAccommodationLines(snapshot.accommodationLines);
+
   return {
     ...snapshot,
+    accommodationLines,
     travelersText: formatTravelersForDisplay(snapshot.travelers),
-    accommodationText: formatAccommodationForDisplay(snapshot.accommodationLines),
+    accommodationText: formatAccommodationForDisplay(accommodationLines),
   };
 }
 

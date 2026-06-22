@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  consolidateConfirmationAccommodationEntries,
+  consolidateFormattedConfirmationAccommodationLines,
   formatConfirmationAccommodationLine,
   lodgingSelectionLevelByDay,
   normalizeConfirmationAccommodationLine,
@@ -82,6 +84,55 @@ describe('splitConfirmationAccommodationDisplay', () => {
       name: 'Govi urguu camp tsomtsog',
       spec: '4인실 2개 LV4',
     });
+  });
+
+  it('splits combined room specs for the same lodging', () => {
+    expect(splitConfirmationAccommodationDisplay('고비 카라반세라이 롯지 4인실 1개 / 3인실 1개')).toEqual({
+      name: '고비 카라반세라이 롯지',
+      spec: '4인실 1개 / 3인실 1개',
+    });
+  });
+});
+
+describe('consolidateConfirmationAccommodationEntries', () => {
+  it('groups room specs by lodging name', () => {
+    expect(
+      consolidateConfirmationAccommodationEntries([
+        { name: '고비 카라반세라이 롯지', roomCount: 1, capacity: 4 },
+        { name: '고비 카라반세라이 롯지', roomCount: 1, capacity: 3 },
+        { name: '만달 미라클', roomCount: 2, capacity: 4 },
+        { name: '브라이', roomCount: 1, capacity: 4 },
+        { name: '브라이', roomCount: 1, capacity: 3 },
+      ]),
+    ).toEqual([
+      '고비 카라반세라이 롯지 4인실 1개 / 3인실 1개',
+      '만달 미라클 4인실 2개',
+      '브라이 4인실 1개 / 3인실 1개',
+    ]);
+  });
+
+  it('sums duplicate room specs before grouping by lodging name', () => {
+    expect(
+      consolidateConfirmationAccommodationEntries([
+        { name: '만달 미라클', roomCount: 1, capacity: 4 },
+        { name: '만달 미라클', roomCount: 1, capacity: 4 },
+      ]),
+    ).toEqual(['만달 미라클 4인실 2개']);
+  });
+});
+
+describe('consolidateFormattedConfirmationAccommodationLines', () => {
+  it('merges legacy separate lines for the same lodging', () => {
+    expect(
+      consolidateFormattedConfirmationAccommodationLines([
+        '고비 카라반세라이 롯지 4인실 1개',
+        '고비 카라반세라이 롯지 3인실 1개',
+        '만달 미라클 4인실 2개',
+      ]),
+    ).toEqual([
+      '고비 카라반세라이 롯지 4인실 1개 / 3인실 1개',
+      '만달 미라클 4인실 2개',
+    ]);
   });
 });
 
