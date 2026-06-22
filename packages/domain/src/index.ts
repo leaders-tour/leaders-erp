@@ -12,6 +12,7 @@ export * from './enums/outbound-delivery-status';
 export * from './enums/outreach-review-status';
 export * from './lib/round-base-amount-krw';
 export * from './lib/compute-deposit-balance-krw';
+export * from './lib/resolve-published-pricing-totals';
 export * from './models/activity';
 export * from './models/cafe-lead';
 export * from './models/cafe-source';

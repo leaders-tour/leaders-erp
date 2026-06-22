@@ -21,11 +21,9 @@ import {
 } from '../features/confirmed-trip/hooks';
 import { RentalItemAvailabilityBadges } from '../features/confirmed-trip/RentalItemAvailabilityBadges';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
-import { buildEffectivePricing, resolveAdjustmentLinesForCustomerDocument, sliceEffectiveTotalsForUi } from '../features/pricing/manual-pricing';
-import {
-  customerFacingAdjustmentLineRowsFromSnapshot,
-  customerFacingTotalsFromSnapshot,
-} from '../features/pricing/customer-pricing-snapshot';
+import { buildEffectivePricing, resolveAdjustmentLinesForCustomerDocument } from '../features/pricing/manual-pricing';
+import { customerFacingAdjustmentLineRowsFromSnapshot } from '../features/pricing/customer-pricing-snapshot';
+import { publishedTotalsFromPlanVersionPricing } from '../features/pricing/published-pricing-totals';
 import { resolveDisplayLeadAmount } from '../features/pricing/pricing-line-presenter';
 import { toVariantLabel } from '../features/plan/variant-label';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../features/pricing/view-model';
@@ -282,11 +280,8 @@ export function PlanVersionDetailPage(): JSX.Element {
         version.pricing.savedManualDepositAmountKrw ?? undefined,
       )
     : null;
-  const effectiveTotalsForUi = customerPricingSnapshot
-    ? customerFacingTotalsFromSnapshot(customerPricingSnapshot)
-    : effectivePricing
-      ? sliceEffectiveTotalsForUi(effectivePricing)
-      : null;
+  /** 버전 저장 pricing / customerPricingSnapshot 기준 (live 재계산 아님) */
+  const publishedTotalsForUi = version.pricing ? publishedTotalsFromPlanVersionPricing(version.pricing) : null;
   const customerAdjustmentLines = customerPricingSnapshot
     ? customerFacingAdjustmentLineRowsFromSnapshot(customerPricingSnapshot)
     : effectivePricing
@@ -863,12 +858,12 @@ export function PlanVersionDetailPage(): JSX.Element {
                   </p>
                 ) : null}
                 <div className="mt-2 grid gap-2 text-sm text-blue-900">
-                  <div>기본금: {formatKrw(effectiveTotalsForUi?.baseAmountKrw ?? effectivePricing.baseAmountKrw)}</div>
+                  <div>기본금: {formatKrw(publishedTotalsForUi?.baseAmountKrw ?? effectivePricing.baseAmountKrw)}</div>
                   <div>
                     추가금:{' '}
                     {formatKrw(
-                      (effectiveTotalsForUi ?? effectivePricing).totalAmountKrw -
-                        (effectiveTotalsForUi ?? effectivePricing).baseAmountKrw,
+                      (publishedTotalsForUi ?? effectivePricing).totalAmountKrw -
+                        (publishedTotalsForUi ?? effectivePricing).baseAmountKrw,
                     )}
                   </div>
                   {customerAdjustmentLines.length === 0 ? (
@@ -927,18 +922,18 @@ export function PlanVersionDetailPage(): JSX.Element {
                     ) : (
                       <div className="grid grid-cols-4 text-center text-sm text-slate-900">
                         <div className="border-r border-slate-200 px-2 py-4 font-semibold">
-                          {formatKrw((effectiveTotalsForUi ?? effectivePricing).totalAmountKrw)}
+                          {formatKrw((publishedTotalsForUi ?? effectivePricing).totalAmountKrw)}
                         </div>
                         <div className="border-r border-slate-200 px-2 py-4">
-                          {formatKrw((effectiveTotalsForUi ?? effectivePricing).depositAmountKrw)}
+                          {formatKrw((publishedTotalsForUi ?? effectivePricing).depositAmountKrw)}
                         </div>
                         <div className="border-r border-slate-200 px-2 py-4">
-                          {formatKrw((effectiveTotalsForUi ?? effectivePricing).balanceAmountKrw)}
+                          {formatKrw((publishedTotalsForUi ?? effectivePricing).balanceAmountKrw)}
                         </div>
                         <div className="px-2 py-4">
-                          {(effectiveTotalsForUi ?? effectivePricing).securityDepositMode === 'NONE'
-                            ? formatKrw((effectiveTotalsForUi ?? effectivePricing).securityDepositAmountKrw)
-                            : `${formatKrw((effectiveTotalsForUi ?? effectivePricing).securityDepositUnitPriceKrw)} (${formatSecurityDepositScope((effectiveTotalsForUi ?? effectivePricing).securityDepositMode)})`}
+                          {(publishedTotalsForUi ?? effectivePricing).securityDepositMode === 'NONE'
+                            ? formatKrw((publishedTotalsForUi ?? effectivePricing).securityDepositAmountKrw)
+                            : `${formatKrw((publishedTotalsForUi ?? effectivePricing).securityDepositUnitPriceKrw)} (${formatSecurityDepositScope((publishedTotalsForUi ?? effectivePricing).securityDepositMode)})`}
                         </div>
                       </div>
                     )}

@@ -1,4 +1,5 @@
 import type { PlaceType } from '@prisma/client';
+import { resolvePublishedBalancePerPersonKrw } from '@tour/domain';
 import {
   accommodationLineGroupKey,
   contractTravelerProfileFromSubmission,
@@ -370,7 +371,14 @@ export function buildConfirmationDraftDefaults(input: {
         lodgingSelections: unknown;
       } | null;
       pricing: {
+        baseAmountKrw: number;
+        totalAmountKrw: number;
+        depositAmountKrw: number;
         balanceAmountKrw: number;
+        securityDepositAmountKrw: number;
+        securityDepositUnitPriceKrw: number;
+        securityDepositMode: 'NONE' | 'PER_PERSON' | 'PER_TEAM';
+        manualPricingSnapshot?: unknown;
       } | null;
       planVersionEvents: Array<{ event: { name: string } }>;
     } | null;
@@ -388,7 +396,7 @@ export function buildConfirmationDraftDefaults(input: {
   const transportGroups = meta?.transportGroups ?? [];
   const balanceAmountKrw =
     input.confirmedTrip.balanceAmountKrw
-    ?? input.confirmedTrip.planVersion?.pricing?.balanceAmountKrw
+    ?? resolvePublishedBalancePerPersonKrw(input.confirmedTrip.planVersion?.pricing ?? null)
     ?? null;
   const destination =
     input.confirmedTrip.destination?.trim()

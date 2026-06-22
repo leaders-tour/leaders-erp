@@ -1,6 +1,6 @@
 import {
   buildPricingManualPresentation,
-  computeDepositAndBalanceKrw,
+  resolveEffectiveDepositAndBalanceKrw,
   type PricingManualAdjustmentLine,
   type PricingManualSnapshot,
   type PricingManualSourceLine,
@@ -520,13 +520,13 @@ function buildSingleEffectivePricing<TLine extends PricingManualSourceLine>(
       ? totalAmountKrw - summary.balanceAmountKrw
       : manualDepositAmountKrw;
   const balanceOverride = hasNumber(summary?.balanceAmountKrw) ? summary.balanceAmountKrw : undefined;
-  const { depositAmountKrw, balanceAmountKrw } =
-    balanceOverride !== undefined && depositOverride !== undefined
-      ? {
-          depositAmountKrw: depositOverride,
-          balanceAmountKrw: balanceOverride,
-        }
-      : computeDepositAndBalanceKrw(totalAmountKrw, depositOverride);
+  const { depositAmountKrw, balanceAmountKrw } = resolveEffectiveDepositAndBalanceKrw({
+    storedDepositAmountKrw: pricing.depositAmountKrw,
+    storedBalanceAmountKrw: pricing.balanceAmountKrw,
+    totalAmountKrw,
+    depositOverride,
+    balanceOverride,
+  });
   const manualSecurityDepositUnitKrw = hasNumber(summary?.securityDepositAmountKrw)
     ? summary.securityDepositAmountKrw
     : null;

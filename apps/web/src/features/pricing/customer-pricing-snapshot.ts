@@ -1,4 +1,5 @@
 import type { CustomerPricingSnapshot } from '@tour/domain';
+import { resolvePublishedPricingTotals } from '@tour/domain';
 import {
   sliceEffectiveTotalsForUi,
   type DisplayedPricingAdjustmentLineRow,
@@ -54,11 +55,14 @@ export function customerFacingAdjustmentLineRowsFromSnapshot(
 export function buildCustomerPricingSnapshot(
   pricingPreview: EffectivePricingResult | null,
   displayedPricingAdjustmentLines: DisplayedPricingAdjustmentLineRow[],
+  publishedSource?: Parameters<typeof resolvePublishedPricingTotals>[0] | null,
 ): CustomerPricingSnapshot | null {
   if (!pricingPreview) {
     return null;
   }
-  const headlineTotals = sliceEffectiveTotalsForUi(pricingPreview);
+  const headlineTotals =
+    (publishedSource ? resolvePublishedPricingTotals(publishedSource) : null) ??
+    sliceEffectiveTotalsForUi(pricingPreview);
   const showLineTeamName = pricingPreview.teamPricings.length > 1;
   return {
     baseAmountKrw: headlineTotals.baseAmountKrw,

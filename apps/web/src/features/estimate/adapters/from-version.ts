@@ -1,5 +1,6 @@
 import { mergeLodgingSelectionDisplayLines } from '../../pricing/merge-lodging-selection-display';
-import { buildEffectivePricing, sliceEffectiveTotalsForUi, resolveAdjustmentLinesForCustomerDocument } from '../../pricing/manual-pricing';
+import { buildEffectivePricing, resolveAdjustmentLinesForCustomerDocument } from '../../pricing/manual-pricing';
+import { publishedTotalsFromPlanVersionPricing } from '../../pricing/published-pricing-totals';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
 import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
 import type { PlanVersionDetail } from '../../plan/hooks';
@@ -36,12 +37,12 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
           version.pricing.savedManualDepositAmountKrw ?? undefined,
         )
       : null;
-  const pricingTotals = pricing ? sliceEffectiveTotalsForUi(pricing) : null;
+  const publishedTotals = version.pricing ? publishedTotalsFromPlanVersionPricing(version.pricing) : null;
   const pricingBuckets =
-    pricing && pricingTotals ? buildPricingViewBuckets(pricing.lines, pricingTotals.totalAmountKrw) : null;
+    pricing && publishedTotals ? buildPricingViewBuckets(pricing.lines, publishedTotals.totalAmountKrw) : null;
   const basePricePerPersonKrw = customerPricingSnapshot
     ? customerPricingSnapshot.baseAmountKrw
-    : pricingTotals?.baseAmountKrw ?? pricingBuckets?.baseTotal ?? null;
+    : publishedTotals?.baseAmountKrw ?? pricingBuckets?.baseTotal ?? null;
   const externalTransfers = meta?.externalTransfers ?? [];
   const externalPickupTextFromTransfers = buildExternalTransferDirectionText(externalTransfers, meta?.transportGroups, 'PICKUP');
   const externalDropTextFromTransfers = buildExternalTransferDirectionText(externalTransfers, meta?.transportGroups, 'DROP');
@@ -174,23 +175,23 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     expandTeamPricingSummaryRows: version.pricing?.manualPricing?.expandTeamPricingSummaryRows === true,
     totalPricePerPersonKrw: customerPricingSnapshot
       ? customerPricingSnapshot.totalAmountKrw
-      : pricingTotals?.totalAmountKrw ?? null,
+      : publishedTotals?.totalAmountKrw ?? null,
     depositPricePerPersonKrw: customerPricingSnapshot
       ? customerPricingSnapshot.depositAmountKrw
-      : pricingTotals?.depositAmountKrw ?? null,
+      : publishedTotals?.depositAmountKrw ?? null,
     balancePricePerPersonKrw: customerPricingSnapshot
       ? customerPricingSnapshot.balanceAmountKrw
-      : pricingTotals?.balanceAmountKrw ?? null,
+      : publishedTotals?.balanceAmountKrw ?? null,
     securityDepositTotalKrw: customerPricingSnapshot
       ? customerPricingSnapshot.securityDepositTotalKrw
-      : pricingTotals?.securityDepositAmountKrw ?? null,
+      : publishedTotals?.securityDepositAmountKrw ?? null,
     securityDepositUnitKrw: customerPricingSnapshot
       ? customerPricingSnapshot.securityDepositUnitKrw
-      : pricingTotals?.securityDepositUnitPriceKrw ?? null,
+      : publishedTotals?.securityDepositUnitPriceKrw ?? null,
     securityDepositScope: customerPricingSnapshot
       ? toSecurityDepositScope(customerPricingSnapshot.securityDepositMode)
-      : pricingTotals
-        ? toSecurityDepositScope(pricingTotals.securityDepositMode)
+      : publishedTotals
+        ? toSecurityDepositScope(publishedTotals.securityDepositMode)
         : '-',
     validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
     movementIntensity: version.movementIntensity ?? null,

@@ -12,9 +12,8 @@ import { useEstimateSource } from '../features/estimate/hooks/use-estimate-sourc
 import { toSecurityDepositScope } from '../features/estimate/utils/format';
 import {
   buildEffectivePricing,
-  sliceEffectiveTotalsForUi,
 } from '../features/pricing/manual-pricing';
-import { customerFacingTotalsFromSnapshot } from '../features/pricing/customer-pricing-snapshot';
+import { publishedTotalsFromPlanVersionPricing } from '../features/pricing/published-pricing-totals';
 import {
   teamPricingsForSummaryDisplay,
   teamPricingSummarySignatureFromParts,
@@ -838,13 +837,10 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     );
   }, [planVersionForPricing, planVersionPricingRaw]);
 
-  const effectiveTotalsForCard = useMemo(() => {
-    const snap = planVersionPricingRaw?.manualPricing?.customerPricingSnapshot ?? null;
-    if (snap) {
-      return customerFacingTotalsFromSnapshot(snap);
-    }
-    return effectivePlanPricing ? sliceEffectiveTotalsForUi(effectivePlanPricing) : null;
-  }, [planVersionPricingRaw?.manualPricing?.customerPricingSnapshot, effectivePlanPricing]);
+  /** 연결 planVersion 저장 pricing / customerPricingSnapshot 기준 (live 재계산 아님) */
+  const publishedTotalsForCard = useMemo(() => {
+    return planVersionPricingRaw ? publishedTotalsFromPlanVersionPricing(planVersionPricingRaw) : null;
+  }, [planVersionPricingRaw]);
 
   const amountCardTeamPricings = useMemo<AmountCardTeamPricing[]>(() => {
     const snapRows = planVersionPricingRaw?.manualPricing?.customerPricingSnapshot?.teamPricings ?? [];
@@ -1666,20 +1662,20 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                         <span className="text-slate-500">총액</span>
                         <p className="text-lg font-semibold text-slate-900">
                           {formatKrw(
-                            effectiveTotalsForCard?.totalAmountKrw ?? pricing.totalAmountKrw,
+                            publishedTotalsForCard?.totalAmountKrw ?? pricing.totalAmountKrw,
                           )}
                         </p>
                       </div>
                       <div>
                         <span className="text-slate-500">보증금</span>
                         <p className="font-medium">
-                          {effectiveTotalsForCard &&
-                          toSecurityDepositScope(effectiveTotalsForCard.securityDepositMode) !== '-'
-                            ? `${formatKrw(effectiveTotalsForCard.securityDepositUnitPriceKrw)} (${toSecurityDepositScope(
-                                effectiveTotalsForCard.securityDepositMode,
+                          {publishedTotalsForCard &&
+                          toSecurityDepositScope(publishedTotalsForCard.securityDepositMode) !== '-'
+                            ? `${formatKrw(publishedTotalsForCard.securityDepositUnitPriceKrw)} (${toSecurityDepositScope(
+                                publishedTotalsForCard.securityDepositMode,
                               )})`
                             : formatKrw(
-                                effectiveTotalsForCard?.securityDepositAmountKrw ??
+                                publishedTotalsForCard?.securityDepositAmountKrw ??
                                   pricing.securityDepositAmountKrw,
                               )}
                         </p>
@@ -1690,7 +1686,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                         <span className="text-slate-500">예약금</span>
                         <p className="font-medium">
                           {formatKrw(
-                            effectiveTotalsForCard?.depositAmountKrw ?? pricing.depositAmountKrw,
+                            publishedTotalsForCard?.depositAmountKrw ?? pricing.depositAmountKrw,
                           )}
                         </p>
                       </div>
@@ -1698,7 +1694,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                         <span className="text-slate-500">잔금</span>
                         <p className="font-medium">
                           {formatKrw(
-                            effectiveTotalsForCard?.balanceAmountKrw ?? pricing.balanceAmountKrw,
+                            publishedTotalsForCard?.balanceAmountKrw ?? pricing.balanceAmountKrw,
                           )}
                         </p>
                       </div>
