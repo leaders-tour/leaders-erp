@@ -11,6 +11,7 @@
     "worker:contract-form-sync": "node --import tsx/esm src/contract-form-sync-worker/index.ts",
     "worker:contract-payment-sync": "node --import tsx/esm src/contract-payment-sync-worker/index.ts",
     "worker:contract-sync-daemon": "node --import tsx/esm src/contract-sync-daemon/index.ts",
+    "worker:contract-sync-cron": "node --import tsx/esm src/contract-sync-cron/index.ts",
     "build": "tsc -p tsconfig.json",
     "lint": "eslint 'src/**/*.ts'",
     "test": "vitest run",

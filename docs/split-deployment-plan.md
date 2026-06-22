@@ -142,15 +142,16 @@
 
 ## 12) Contract Sync Worker (CloudType)
 
-계약서·입금 Google Sheet sync는 API와 분리된 **long-running worker 앱**으로 운영한다.
+계약서·입금 Google Sheet sync는 API와 분리된 **long-running worker Web 앱**으로 운영한다. CloudType은 Cron Job 타입이 없으므로 Node.js 프로세스가 내부 sleep loop로 주기 sync를 실행하고, `/health`로 헬스체크에 응답한다.
 
 | 항목 | API app | Contract sync worker app |
 |------|---------|--------------------------|
 | Dockerfile | `Dockerfile` | `Dockerfile.worker` |
 | 설치 명령 | (Dockerfile 내부) | `pnpm install --frozen-lockfile --prod=false && pnpm --filter @tour/prisma db:generate` |
-| 시작 명령 | `node apps/api/dist/apps/api/src/index.js` (경로는 빌드 산출 기준 확정) | `pnpm worker:contract-sync-daemon` |
-| 서브 디렉터리 | monorepo 루트 | monorepo 루트 (비움) |
-| 프로세스 | HTTP server | daemon (내부 sleep loop) |
+| 시작 명령 | `node apps/api/dist/apps/api/src/index.js` | `pnpm worker:contract-sync-daemon` |
+| 서비스 타입 | Web | **Web** (Dockerfile) |
+| 포트 / 헬스 | `4000`, `/health` | `8080`(또는 `PORT`), `/health` |
+| 프로세스 | HTTP server | HTTP health + 내부 sync loop |
 | replica | 필요 시 scale | **1개 고정** (중복 sync 방지) |
 | sync 순서 | - | 계약서 시트 → 입금 시트 (한 cycle 내 순차) |
 | 기본 주기 | - | 5분 (`CONTRACT_SYNC_INTERVAL_MS=300000`) |
@@ -170,9 +171,30 @@ Dockerfile을 쓰지 않고 CloudType 빌드팩만 사용할 때는 **설치 명
 - `CONTRACT_SYNC_INTERVAL_MS` (default: `300000`)
 - `CONTRACT_SYNC_STALE_RUNNING_MS` (default: `1800000`, 30분 이상 RUNNING이면 FAILED 처리 후 재시도)
 - `CONTRACT_FORM_SHEET_GID`, `CONTRACT_PAYMENT_SHEET_GID` (default: `0`)
+- `PORT` (default: `8080`, CloudType Web 서비스 헬스체크용)
+
+### CloudType 배포 절차
+
+1. `Dockerfile.worker` 기반 **Web** 서비스를 생성한다.
+2. replica **1**, 시작 명령 `pnpm worker:contract-sync-daemon`.
+3. 포트 **8080**, 헬스체크 경로 `/health`를 설정한다.
+4. API와 동일한 worker 필수 env를 복사한다.
+5. 배포 후 `/health` 응답과 로그의 `Contract form sync finished`를 확인한다.
+
+`/health` 응답 예시:
+
+```json
+{
+  "status": "ok",
+  "worker": "contract-sync-daemon",
+  "syncing": false,
+  "lastSyncAt": "2026-06-22T12:00:00.000Z",
+  "lastSyncError": null
+}
+```
 
 ### 운영 메모
 
-- worker 앱은 API Dockerfile과 분리한다. CloudType에서 **별도 서비스**로 생성한다.
+- worker 앱은 API Dockerfile과 분리한다. CloudType에서 **별도 Web 서비스**로 생성한다.
 - sync 이력은 DB `ContractSyncRun`, `ContractPaymentSyncRun`에서 확인한다.
-- 긴급 1회 sync: `pnpm worker:contract-form-sync` / `pnpm worker:contract-payment-sync`
+- 긴급 1회 sync: `pnpm worker:contract-form-sync` / `pnpm worker:contract-payment-sync` / `pnpm worker:contract-sync-cron`

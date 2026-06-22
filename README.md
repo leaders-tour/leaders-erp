@@ -34,18 +34,22 @@ pnpm --filter @tour/workers worker:cafe
 pnpm --filter @tour/workers worker:ai
 pnpm --filter @tour/workers worker:mail
 pnpm --filter @tour/workers worker:contract-sync-daemon
+pnpm --filter @tour/workers worker:contract-sync-cron
 ```
 
-계약서·입금 시트 동기화는 `worker:contract-sync-daemon`으로 5분 주기(기본) 상시 실행한다.
+계약서·입금 시트 동기화는 CloudType **Node.js Web 서비스**로 `worker:contract-sync-daemon`을 상시 실행한다. CloudType은 Cron Job 타입이 없으므로, 프로세스 내부 sleep loop + `/health` HTTP 응답으로 스케줄·헬스체크를 처리한다.
 
-CloudType worker 앱 설정:
+CloudType contract sync worker 설정:
 
+- 서비스 타입: **Web** (Dockerfile)
 - Dockerfile: `Dockerfile.worker` (권장)
 - 또는 설치: `pnpm install --frozen-lockfile --prod=false && pnpm --filter @tour/prisma db:generate`
-- 시작: `pnpm worker:contract-sync-daemon`
-- replica: 1
+- 시작 명령: `pnpm worker:contract-sync-daemon`
+- 포트: `8080` (CloudType `PORT` env가 있으면 그 값 사용)
+- 헬스체크 경로: `/health`
+- replica: **1** (중복 sync 방지)
 
-수동 1회 실행은 아래 CLI를 사용한다.
+수동 1회 실행:
 
 ```bash
 pnpm --filter @tour/workers worker:contract-form-sync
