@@ -445,7 +445,7 @@ export const planVersionMetaInputSchema = z
       .min(1)
       .max(3)
       .optional()
-      .transform((value) => (value === undefined ? 2 : value)),
+      .transform((value) => (value === undefined ? 3 : value)),
     estimateGuidePageSplits: z
       .array(z.number().int().min(1).max(50))
       .max(30)

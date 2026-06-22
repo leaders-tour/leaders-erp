@@ -1478,7 +1478,7 @@ model PlanVersionMeta {
   extraLodgings                 Json
   lodgingSelections             Json
   remark                        String?    @db.Text
-  estimateGuideImagesPerPage    Int        @default(2)
+  estimateGuideImagesPerPage    Int        @default(3)
   /// 견적서 여행지 안내 페이지별 장수(예: [3,2,2]). null이면 estimateGuideImagesPerPage로 균등 분할
   estimateGuidePageSplits       Json?
   /// 견적서 일정표 상단 전체 이동강도 칩 색상 오버라이드 (전역 5색 팔레트 hex)

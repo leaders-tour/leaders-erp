@@ -70,7 +70,7 @@ export function chunkEstimateGuidePages<T>(blocks: T[], perPage: EstimateGuideIm
   return chunks;
 }
 
-/** 균등하게 페이지당 3장일 때 안내 시트가 3장 이상 필요한 경우(그때만 «압축·3장» 프리셋 노출) */
+/** 균등하게 페이지당 3장일 때 안내 시트가 3장 이상 필요한 경우 */
 export function estimateGuideSupportsThreePerPageChunks<T>(blocks: readonly T[]): boolean {
   return chunkEstimateGuidePages([...blocks], 3).length >= 3;
 }

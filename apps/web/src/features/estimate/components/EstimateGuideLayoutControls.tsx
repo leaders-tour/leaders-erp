@@ -3,8 +3,7 @@ import type { EstimateGuideImagesPerPage } from '../model/types';
 
 const PRESETS: Array<{ n: EstimateGuideImagesPerPage; label: string }> = [
   { n: 1, label: '크게 · 1장' },
-  { n: 2, label: '추천 · 2장' },
-  { n: 3, label: '압축 · 3장' },
+  { n: 3, label: '추천 · 3장' },
 ];
 
 export type EstimateGuideLayoutControlsDensity = 'compact' | 'comfortable';
@@ -15,8 +14,6 @@ export interface EstimateGuideLayoutControlsProps {
   estimateGuidePageSplitsText: string;
   onEstimateGuidePageSplitsText: (value: string) => void;
   splitsInputId: string;
-  /** 안내 블록이 3페이지 이상 필요 없으면 false (압축·3장 숨김) */
-  showCompressThreePreset?: boolean;
   density?: EstimateGuideLayoutControlsDensity;
   className?: string;
 }
@@ -27,11 +24,9 @@ export function EstimateGuideLayoutControls({
   estimateGuidePageSplitsText,
   onEstimateGuidePageSplitsText,
   splitsInputId,
-  showCompressThreePreset = true,
   density = 'comfortable',
   className,
 }: EstimateGuideLayoutControlsProps): JSX.Element {
-  const visiblePresets = showCompressThreePreset ? PRESETS : PRESETS.filter((p) => p.n !== 3);
   const isCompact = density === 'compact';
   const titleClass = isCompact
     ? 'w-full text-[11px] font-medium text-slate-600'
@@ -62,7 +57,7 @@ export function EstimateGuideLayoutControls({
     <div className={className} role="region" aria-label="안내 이미지 레이아웃 설정">
       <div className="flex flex-wrap items-center gap-1.5 gap-y-2">
         <span className={titleClass}>안내 이미지</span>
-        {visiblePresets.map(({ n, label }) => (
+        {PRESETS.map(({ n, label }) => (
           <button
             key={n}
             type="button"

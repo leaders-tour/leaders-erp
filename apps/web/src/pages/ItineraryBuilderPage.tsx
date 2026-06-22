@@ -22,7 +22,6 @@ import {
 } from '../features/estimate/model/movement-intensity';
 import {
   formatEstimateGuidePageSplitsInput,
-  estimateGuideSupportsThreePerPageChunks,
   normalizeEstimateGuideImagesPerPage,
   normalizeEstimateGuidePageSplits,
   parseEstimateGuidePageSplitsInput,
@@ -4900,22 +4899,6 @@ export function ItineraryBuilderPage(): JSX.Element {
   const { data: previewEstimateData, guidesLoading: previewGuidesLoading } =
     useBuilderEstimatePreview(estimateDraftSnapshot);
 
-  const showEstimateGuideCompressThreePreset = useMemo(() => {
-    if (previewEstimateData == null) {
-      return true;
-    }
-    return estimateGuideSupportsThreePerPageChunks(previewEstimateData.page3Blocks);
-  }, [previewEstimateData]);
-
-  useEffect(() => {
-    if (previewEstimateData == null) {
-      return;
-    }
-    if (!showEstimateGuideCompressThreePreset && estimateGuideImagesPerPage === 3) {
-      setEstimateGuideImagesPerPage(2);
-    }
-  }, [previewEstimateData, showEstimateGuideCompressThreePreset, estimateGuideImagesPerPage]);
-
   const handlePreviewTransportGroupFieldChange: EstimatePage1Editor['onTransportGroupFieldChange'] =
     (index, field, value) => {
       updateTransportGroup(
@@ -8046,7 +8029,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                 <EstimateGuideLayoutControls
                   className="mt-4"
                   density="compact"
-                  showCompressThreePreset={showEstimateGuideCompressThreePreset}
                   estimateGuideImagesPerPage={estimateGuideImagesPerPage}
                   onEstimateGuideImagesPerPage={setEstimateGuideImagesPerPage}
                   estimateGuidePageSplitsText={estimateGuidePageSplitsText}
@@ -8268,7 +8250,6 @@ export function ItineraryBuilderPage(): JSX.Element {
                         screenPreviewGuideOverlay={
                           <EstimateGuideLayoutControls
                             density="compact"
-                            showCompressThreePreset={showEstimateGuideCompressThreePreset}
                             estimateGuideImagesPerPage={estimateGuideImagesPerPage}
                             onEstimateGuideImagesPerPage={setEstimateGuideImagesPerPage}
                             estimateGuidePageSplitsText={estimateGuidePageSplitsText}

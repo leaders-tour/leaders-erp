@@ -151,7 +151,7 @@ function buildPlanVersionMetaCreateInput(
     extraLodgings: meta.extraLodgings,
     lodgingSelections: meta.lodgingSelections,
     remark: meta.remark,
-    estimateGuideImagesPerPage: meta.estimateGuideImagesPerPage ?? 2,
+    estimateGuideImagesPerPage: meta.estimateGuideImagesPerPage ?? 3,
     estimateGuidePageSplits:
       Array.isArray(meta.estimateGuidePageSplits) && meta.estimateGuidePageSplits.length > 0
         ? (meta.estimateGuidePageSplits as Prisma.InputJsonValue)
