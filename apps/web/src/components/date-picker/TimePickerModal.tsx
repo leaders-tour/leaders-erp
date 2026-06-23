@@ -1,5 +1,5 @@
 import { Button, Card } from '@tour/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildAllowedMinuteOptions,
   formatTimeTriggerLabel,
@@ -36,10 +36,12 @@ function getPopoverPosition(anchorEl: HTMLElement): PopoverPosition {
   const width = Math.min(POPOVER_WIDTH, window.innerWidth - VIEWPORT_PADDING * 2);
   const maxLeft = Math.max(VIEWPORT_PADDING, window.innerWidth - width - VIEWPORT_PADDING);
   const left = Math.min(Math.max(rect.left, VIEWPORT_PADDING), maxLeft);
+  const viewportMaxHeight = window.innerHeight - VIEWPORT_PADDING * 2;
   const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_PADDING - POPOVER_GAP;
   const spaceAbove = rect.top - VIEWPORT_PADDING - POPOVER_GAP;
   const placeAbove = spaceBelow < 320 && spaceAbove > spaceBelow;
-  const maxHeight = Math.max(260, Math.min(560, placeAbove ? spaceAbove : spaceBelow));
+  const availableHeight = placeAbove ? spaceAbove : spaceBelow;
+  const maxHeight = Math.max(240, Math.min(viewportMaxHeight, availableHeight));
 
   if (placeAbove) {
     return {
@@ -50,11 +52,16 @@ function getPopoverPosition(anchorEl: HTMLElement): PopoverPosition {
     };
   }
 
+  const top = Math.min(
+    Math.max(rect.bottom + POPOVER_GAP, VIEWPORT_PADDING),
+    window.innerHeight - VIEWPORT_PADDING - maxHeight,
+  );
+
   return {
     left,
     width,
     maxHeight,
-    top: Math.max(rect.bottom + POPOVER_GAP, VIEWPORT_PADDING),
+    top,
   };
 }
 
@@ -70,6 +77,7 @@ export function TimePickerModal({
   const [selectedHour, setSelectedHour] = useState<number>(0);
   const [selectedMinute, setSelectedMinute] = useState<number>(0);
   const [position, setPosition] = useState<PopoverPosition | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const minuteOptions = useMemo(() => buildAllowedMinuteOptions(allowedMinutes), [allowedMinutes]);
   const parsedValue = useMemo(() => parseTimeValue(value), [value]);
@@ -127,9 +135,27 @@ export function TimePickerModal({
       }
     };
 
+    const handlePointerDown = (event: MouseEvent): void => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      if (modalRef.current?.contains(target)) {
+        return;
+      }
+      if (anchorEl?.contains(target)) {
+        return;
+      }
+      onClose();
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, open]);
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, [anchorEl, onClose, open]);
 
   if (!open || !position) {
     return null;
@@ -137,37 +163,41 @@ export function TimePickerModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-50" onClick={onClose} aria-hidden="true" />
       <div
-        className="fixed z-50"
+        ref={modalRef}
+        className="fixed z-50 flex flex-col"
         style={{
           left: position.left,
           width: position.width,
-          maxHeight: `min(calc(100vh - ${VIEWPORT_PADDING * 2}px), ${position.maxHeight + 160}px)`,
+          maxHeight: position.maxHeight,
           top: position.top,
           bottom: position.bottom,
         }}
       >
         <Card
-          className="flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl"
+          className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl"
           role="dialog"
           aria-label={title}
+          aria-modal="true"
         >
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-              <p className="mt-1 text-sm text-slate-600">시간을 먼저 선택한 뒤 분을 누르면 바로 반영됩니다.</p>
+          <div className="shrink-0">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+                <p className="mt-1 text-sm text-slate-600">시간을 먼저 선택한 뒤 분을 누르면 바로 반영됩니다.</p>
+              </div>
+              <Button variant="outline" onClick={onClose}>
+                닫기
+              </Button>
             </div>
-            <Button variant="outline" onClick={onClose}>
-              닫기
-            </Button>
+
+            <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              선택값: <span className="font-medium text-slate-900">{selectedLabel || '아직 선택되지 않음'}</span>
+            </div>
           </div>
 
-          <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
-            선택값: <span className="font-medium text-slate-900">{selectedLabel || '아직 선택되지 않음'}</span>
-          </div>
-
-          <div className="mt-4 grid min-h-0 flex-1 gap-5 overflow-hidden md:grid-cols-[minmax(0,1fr)_240px]">
+          <div className="mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_240px]">
             <div className="grid min-h-0 gap-3">
               <div>
                 <h4 className="text-sm font-semibold text-slate-900">시간 선택</h4>
@@ -233,9 +263,10 @@ export function TimePickerModal({
                 </div>
               </div>
             </div>
+            </div>
           </div>
 
-          <div className="mt-5 flex justify-end">
+          <div className="mt-5 flex shrink-0 justify-end">
             <Button variant="outline" onClick={onClose}>
               취소
             </Button>
