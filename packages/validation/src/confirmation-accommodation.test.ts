@@ -95,7 +95,48 @@ describe('splitConfirmationAccommodationDisplay', () => {
 });
 
 describe('consolidateConfirmationAccommodationEntries', () => {
-  it('groups room specs by lodging name', () => {
+  it('groups room specs by lodging name within the same day', () => {
+    expect(
+      consolidateConfirmationAccommodationEntries([
+        { name: '고비 카라반세라이 롯지', roomCount: 1, capacity: 4, dayIndex: 1 },
+        { name: '고비 카라반세라이 롯지', roomCount: 1, capacity: 3, dayIndex: 1 },
+        { name: '만달 미라클', roomCount: 2, capacity: 4, dayIndex: 2 },
+        { name: '브라이', roomCount: 1, capacity: 4, dayIndex: 3 },
+        { name: '브라이', roomCount: 1, capacity: 3, dayIndex: 3 },
+      ]),
+    ).toEqual([
+      '고비 카라반세라이 롯지 4인실 1개 / 3인실 1개',
+      '만달 미라클 4인실 2개',
+      '브라이 4인실 1개 / 3인실 1개',
+    ]);
+  });
+
+  it('keeps the same lodging on different days as separate lines', () => {
+    expect(
+      consolidateConfirmationAccommodationEntries([
+        { name: 'CHIN CHANDMANI GER CAMP', roomCount: 1, capacity: 4, dayIndex: 3 },
+        { name: 'CHIN CHANDMANI GER CAMP', roomCount: 1, capacity: 4, dayIndex: 4 },
+        { name: 'khangai Resort', roomCount: 1, capacity: 3, dayIndex: 1 },
+        { name: 'Hoyor Zagal Lodge', roomCount: 1, capacity: 4, dayIndex: 2 },
+      ]),
+    ).toEqual([
+      'khangai Resort 3인실 1개',
+      'Hoyor Zagal Lodge 4인실 1개',
+      'CHIN CHANDMANI GER CAMP 4인실 1개',
+      'CHIN CHANDMANI GER CAMP 4인실 1개',
+    ]);
+  });
+
+  it('sums duplicate room specs before grouping by lodging name', () => {
+    expect(
+      consolidateConfirmationAccommodationEntries([
+        { name: '만달 미라클', roomCount: 1, capacity: 4, dayIndex: 1 },
+        { name: '만달 미라클', roomCount: 1, capacity: 4, dayIndex: 1 },
+      ]),
+    ).toEqual(['만달 미라클 4인실 2개']);
+  });
+
+  it('groups room specs by lodging name when dayIndex is omitted (legacy)', () => {
     expect(
       consolidateConfirmationAccommodationEntries([
         { name: '고비 카라반세라이 롯지', roomCount: 1, capacity: 4 },
@@ -110,19 +151,10 @@ describe('consolidateConfirmationAccommodationEntries', () => {
       '브라이 4인실 1개 / 3인실 1개',
     ]);
   });
-
-  it('sums duplicate room specs before grouping by lodging name', () => {
-    expect(
-      consolidateConfirmationAccommodationEntries([
-        { name: '만달 미라클', roomCount: 1, capacity: 4 },
-        { name: '만달 미라클', roomCount: 1, capacity: 4 },
-      ]),
-    ).toEqual(['만달 미라클 4인실 2개']);
-  });
 });
 
 describe('consolidateFormattedConfirmationAccommodationLines', () => {
-  it('merges legacy separate lines for the same lodging', () => {
+  it('normalizes each line independently without merging across lines', () => {
     expect(
       consolidateFormattedConfirmationAccommodationLines([
         '고비 카라반세라이 롯지 4인실 1개',
@@ -130,8 +162,23 @@ describe('consolidateFormattedConfirmationAccommodationLines', () => {
         '만달 미라클 4인실 2개',
       ]),
     ).toEqual([
-      '고비 카라반세라이 롯지 4인실 1개 / 3인실 1개',
+      '고비 카라반세라이 롯지 4인실 1개',
+      '고비 카라반세라이 롯지 3인실 1개',
       '만달 미라클 4인실 2개',
+    ]);
+  });
+
+  it('merges multiple room specs within a single line', () => {
+    expect(
+      consolidateFormattedConfirmationAccommodationLines([
+        '고비 카라반세라이 롯지 4인실 1개 / 3인실 1개',
+        'CHIN CHANDMANI GER CAMP 4인실 1개',
+        'CHIN CHANDMANI GER CAMP 4인실 1개',
+      ]),
+    ).toEqual([
+      '고비 카라반세라이 롯지 4인실 1개 / 3인실 1개',
+      'CHIN CHANDMANI GER CAMP 4인실 1개',
+      'CHIN CHANDMANI GER CAMP 4인실 1개',
     ]);
   });
 });

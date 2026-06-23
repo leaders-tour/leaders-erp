@@ -91,7 +91,10 @@ export function ConfirmationBuilderPage(): JSX.Element {
     }
   }, [document, documentLoading, defaults, defaultsLoading]);
 
-  const previewData = useMemo(() => (state ? snapshotToDocumentData(state) : null), [state]);
+  const previewData = useMemo(
+    () => (state ? snapshotToDocumentData(state, { consolidateAccommodationLines: true }) : null),
+    [state],
+  );
   const planVersionId = trip?.planVersionId ?? null;
   const {
     data: linkedEstimateData,

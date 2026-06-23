@@ -30,8 +30,14 @@ export function fallbackText(value: string | null | undefined): string {
   return text && text.length > 0 ? text : '-';
 }
 
-export function snapshotToDocumentData(snapshot: ConfirmationDocumentSnapshot) {
-  const accommodationLines = consolidateFormattedConfirmationAccommodationLines(snapshot.accommodationLines);
+export function snapshotToDocumentData(
+  snapshot: ConfirmationDocumentSnapshot,
+  options?: { consolidateAccommodationLines?: boolean },
+) {
+  const accommodationLines =
+    options?.consolidateAccommodationLines === true
+      ? consolidateFormattedConfirmationAccommodationLines(snapshot.accommodationLines)
+      : snapshot.accommodationLines;
 
   return {
     ...snapshot,

@@ -20,7 +20,7 @@ export function useConfirmationBuilderSource(confirmedTripId: string | undefined
   }, [defaults.defaults?.snapshot, latest.document]);
 
   const previewData = useMemo(
-    () => (initialState ? snapshotToDocumentData(initialState) : null),
+    () => (initialState ? snapshotToDocumentData(initialState, { consolidateAccommodationLines: true }) : null),
     [initialState],
   );
 

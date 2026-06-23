@@ -201,7 +201,17 @@ function lodgingDisplayGroupKey(name: string, levelTag?: string | null): string 
   return `${name.trim()}|${normalizedLevelTag}`;
 }
 
-export function consolidateConfirmationAccommodationEntries(
+export type ConfirmationAccommodationEntry = {
+  name: string;
+  roomCount: number;
+  capacity?: number | null;
+  roomType?: string | null;
+  levelTag?: string | null;
+  /** 같은 일차 내에서만 객실 spec 병합. 일차가 다르면 별도 라인 유지 */
+  dayIndex?: number;
+};
+
+function consolidateLodgingScopeEntries(
   entries: Array<{
     name: string;
     roomCount: number;
@@ -265,7 +275,67 @@ export function consolidateConfirmationAccommodationEntries(
     .filter(Boolean);
 }
 
-export function consolidateFormattedConfirmationAccommodationLines(lines: string[]): string[] {
+export function consolidateConfirmationAccommodationEntries(entries: ConfirmationAccommodationEntry[]): string[] {
+  const scopedGroups: Array<{ order: number; entries: ConfirmationAccommodationEntry[] }> = [];
+  const scopeIndexByKey = new Map<string, number>();
+
+  for (const entry of entries) {
+    const name = entry.name.trim();
+    if (!name) {
+      continue;
+    }
+
+    const scopeKey = entry.dayIndex != null ? `day:${entry.dayIndex}` : 'legacy';
+    let groupIndex = scopeIndexByKey.get(scopeKey);
+    if (groupIndex == null) {
+      groupIndex = scopedGroups.length;
+      scopeIndexByKey.set(scopeKey, groupIndex);
+      scopedGroups.push({
+        order: entry.dayIndex ?? groupIndex,
+        entries: [],
+      });
+    }
+    const group = scopedGroups[groupIndex];
+    if (!group) {
+      continue;
+    }
+    group.entries.push(entry);
+  }
+
+  scopedGroups.sort((a, b) => a.order - b.order);
+
+  return scopedGroups.flatMap((group) =>
+    consolidateLodgingScopeEntries(
+      group.entries.map(({ name, roomCount, capacity, roomType, levelTag }) => ({
+        name,
+        roomCount,
+        capacity,
+        roomType,
+        levelTag,
+      })),
+    ),
+  );
+}
+
+function parseFormattedLineToEntries(name: string, spec: string): Array<{
+  name: string;
+  roomCount: number;
+  capacity: number | null;
+  roomType: string | null;
+  levelTag: string | null;
+}> {
+  if (!spec) {
+    return [
+      {
+        name,
+        roomCount: 1,
+        capacity: null,
+        roomType: null,
+        levelTag: null,
+      },
+    ];
+  }
+
   const entries: Array<{
     name: string;
     roomCount: number;
@@ -274,36 +344,40 @@ export function consolidateFormattedConfirmationAccommodationLines(lines: string
     levelTag: string | null;
   }> = [];
 
+  for (const part of spec.split(/\s+\/\s+/)) {
+    const parsed = parseAccommodationSpecPart(part);
+    if (!parsed) {
+      continue;
+    }
+    entries.push({
+      name,
+      roomCount: parsed.roomCount,
+      capacity: parsed.capacity,
+      roomType: parsed.roomType,
+      levelTag: parsed.levelTag,
+    });
+  }
+
+  return entries;
+}
+
+export function consolidateFormattedConfirmationAccommodationLines(lines: string[]): string[] {
+  const result: string[] = [];
+
   for (const line of lines) {
     const { name, spec } = splitConfirmationAccommodationDisplay(line);
     if (!name) {
       continue;
     }
-    if (!spec) {
-      entries.push({
-        name,
-        roomCount: 1,
-        capacity: null,
-        roomType: null,
-        levelTag: null,
-      });
+
+    const consolidated = consolidateLodgingScopeEntries(parseFormattedLineToEntries(name, spec));
+    if (consolidated.length > 0) {
+      result.push(...consolidated);
       continue;
     }
 
-    for (const part of spec.split(/\s+\/\s+/)) {
-      const parsed = parseAccommodationSpecPart(part);
-      if (!parsed) {
-        continue;
-      }
-      entries.push({
-        name,
-        roomCount: parsed.roomCount,
-        capacity: parsed.capacity,
-        roomType: parsed.roomType,
-        levelTag: parsed.levelTag,
-      });
-    }
+    result.push(name);
   }
 
-  return consolidateConfirmationAccommodationEntries(entries);
+  return result;
 }

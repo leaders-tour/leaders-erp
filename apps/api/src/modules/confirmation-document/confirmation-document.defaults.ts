@@ -224,6 +224,7 @@ function buildAccommodationLines(
     capacity: number | null;
     roomType: string | null;
     levelTag: string | null;
+    dayIndex: number;
   }> = [];
 
   for (const lodging of lodgings) {
@@ -245,6 +246,7 @@ function buildAccommodationLines(
             optionLevel: option.accommodationOption.level,
             planLodgingSelectionLevel,
           }),
+          dayIndex: lodging.dayIndex,
         });
       }
       continue;
@@ -263,6 +265,7 @@ function buildAccommodationLines(
         lodgingType: lodging.type,
         planLodgingSelectionLevel,
       }),
+      dayIndex: lodging.dayIndex,
     });
   }
 
