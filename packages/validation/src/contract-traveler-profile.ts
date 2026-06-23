@@ -61,12 +61,40 @@ function normalizeBirthCode(value: string | null): string | null {
   if (!value) {
     return null;
   }
-  const digits = value.replace(/\D/g, '');
-  if (digits.length >= 7) {
-    return digits.slice(0, 7);
-  }
   const trimmed = value.trim();
-  return trimmed || null;
+  if (!trimmed) {
+    return null;
+  }
+
+  const dotted = parseDottedBirthDate(trimmed);
+  if (dotted) {
+    return formatBirthDateYyMmDd(dotted.year, dotted.month, dotted.day);
+  }
+
+  const digits = trimmed.replace(/\D/g, '');
+  if (!digits) {
+    return trimmed;
+  }
+
+  if (digits.length >= 8) {
+    const year = parseInt(digits.slice(0, 4), 10);
+    const month = parseInt(digits.slice(4, 6), 10);
+    const day = parseInt(digits.slice(6, 8), 10);
+    const formatted = formatBirthDateYyMmDd(year, month, day);
+    if (formatted) {
+      return formatted;
+    }
+  }
+
+  if (digits.length === 7) {
+    return digits;
+  }
+
+  if (digits.length === 6) {
+    return digits;
+  }
+
+  return trimmed;
 }
 
 export function parseContractTravelerProfile(rawJson: Record<string, string>): ContractTravelerProfile {
@@ -114,12 +142,75 @@ export function contractTravelerProfileFromSubmission(input: {
   rawJson?: unknown;
 }): ContractTravelerProfile {
   const gender = input.travelerGender?.trim() || null;
-  const birthCode = input.travelerBirthCode?.trim() || null;
   const note = input.travelerNote?.trim() || null;
-  if (gender || birthCode || note) {
-    return { gender, birthCode, note };
+  const rawJson = rawJsonAsStringRecord(input.rawJson);
+  const parsedFromRaw = parseContractTravelerProfile(rawJson);
+  const rawBirthText = pickRawJsonValue(rawJson, BIRTH_HEADER_CANDIDATES);
+  const storedBirthCode = input.travelerBirthCode?.trim() || null;
+
+  if (!gender && !storedBirthCode && !note) {
+    return parsedFromRaw;
   }
-  return parseContractTravelerProfile(rawJsonAsStringRecord(input.rawJson));
+
+  const birthCode = resolveSubmissionBirthCode(rawBirthText, storedBirthCode) ?? parsedFromRaw.birthCode;
+
+  return {
+    gender: gender ?? parsedFromRaw.gender,
+    birthCode,
+    note: note ?? parsedFromRaw.note,
+  };
+}
+
+function resolveSubmissionBirthCode(
+  rawBirthText: string | null,
+  storedBirthCode: string | null,
+): string | null {
+  if (storedBirthCode && !isLikelyTruncatedYearPrefixedBirthCode(storedBirthCode, rawBirthText)) {
+    const digits = storedBirthCode.replace(/\D/g, '');
+    if (digits.length === 7) {
+      const yearPrefix = parseInt(digits.slice(0, 4), 10);
+      if (yearPrefix < 1900 || yearPrefix > 2099) {
+        return storedBirthCode;
+      }
+    }
+    return normalizeConfirmationBirthCodeDisplay(storedBirthCode) ?? storedBirthCode;
+  }
+
+  if (rawBirthText) {
+    const fromRaw = normalizeConfirmationBirthCodeDisplay(rawBirthText);
+    if (fromRaw) {
+      return fromRaw;
+    }
+  }
+
+  if (storedBirthCode) {
+    return normalizeConfirmationBirthCodeDisplay(storedBirthCode) ?? storedBirthCode;
+  }
+
+  return normalizeBirthCode(rawBirthText);
+}
+
+function isLikelyTruncatedYearPrefixedBirthCode(
+  storedBirthCode: string,
+  rawBirthText: string | null,
+): boolean {
+  const digits = storedBirthCode.replace(/\D/g, '');
+  if (digits.length !== 7) {
+    return false;
+  }
+
+  const yearPrefix = parseInt(digits.slice(0, 4), 10);
+  if (yearPrefix < 1900 || yearPrefix > 2099) {
+    return false;
+  }
+
+  if (!rawBirthText) {
+    return false;
+  }
+
+  const fromRaw = normalizeConfirmationBirthCodeDisplay(rawBirthText);
+  const fromStored = normalizeConfirmationBirthCodeDisplay(storedBirthCode);
+  return fromRaw != null && fromStored != null && fromRaw !== fromStored;
 }
 
 export function shouldUpdateContractSubmissionTravelerProfile(

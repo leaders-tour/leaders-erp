@@ -24,6 +24,15 @@ describe('parseContractTravelerProfile', () => {
       note: '비건',
     });
   });
+
+  it('stores dotted two-digit month dates as yymmdd', () => {
+    expect(
+      parseContractTravelerProfile({
+        성별: '여성',
+        생년월일: '1998. 10. 25',
+      }).birthCode,
+    ).toBe('981025');
+  });
 });
 
 describe('formatConfirmationTravelerLine', () => {
@@ -68,6 +77,13 @@ describe('normalizeConfirmationBirthCodeDisplay', () => {
     expect(normalizeConfirmationBirthCodeDisplay('2003. 2. 4')).toBe('030204');
     expect(normalizeConfirmationBirthCodeDisplay('2003. 8. 7')).toBe('030807');
     expect(normalizeConfirmationBirthCodeDisplay('03.02.04')).toBe('030204');
+    expect(normalizeConfirmationBirthCodeDisplay('1998. 10. 25')).toBe('981025');
+    expect(normalizeConfirmationBirthCodeDisplay('1998. 12. 12')).toBe('981212');
+  });
+
+  it('normalizes eight-digit yyyyMMdd values without truncating the day', () => {
+    expect(normalizeConfirmationBirthCodeDisplay('19981025')).toBe('981025');
+    expect(normalizeConfirmationBirthCodeDisplay('19981212')).toBe('981212');
   });
 
   it('normalizes mixed seven-digit team birth codes', () => {
@@ -105,6 +121,27 @@ describe('contractTravelerProfileFromSubmission', () => {
       birthCode: '0601153',
       note: '비건',
     });
+  });
+
+  it('repairs truncated stored birth codes using rawJson dotted dates', () => {
+    expect(
+      contractTravelerProfileFromSubmission({
+        travelerGender: '여성',
+        travelerBirthCode: '1998102',
+        rawJson: { 생년월일: '1998. 10. 25' },
+      }),
+    ).toEqual({
+      gender: '여성',
+      birthCode: '981025',
+      note: null,
+    });
+
+    const profile = contractTravelerProfileFromSubmission({
+      travelerGender: '여성',
+      travelerBirthCode: '1998121',
+      rawJson: { 생년월일: '1998. 12. 12' },
+    });
+    expect(formatConfirmationTravelerLine({ name: '김소미', ...profile })).toBe('김소미 여성 981212');
   });
 });
 
