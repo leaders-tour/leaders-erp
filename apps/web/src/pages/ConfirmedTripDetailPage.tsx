@@ -4,7 +4,7 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ConfirmationPreviewPanel } from '../features/confirmation/components/ConfirmationPreviewPanel';
+import { ConfirmationPdfPreviewPanel } from '../features/confirmation/components/ConfirmationPdfPreviewPanel';
 import { useConfirmationDocuments } from '../features/confirmation/hooks/use-confirmation-document';
 import type { ConfirmationDocumentRow } from '../features/confirmation/model/types';
 import { useAuth } from '../features/auth/context';
@@ -50,6 +50,10 @@ import { markConfirmedTripRecentlyReturned } from '../features/confirmed-trip/re
 import { LodgingSection } from '../features/confirmed-trip/LodgingSection';
 import { ConfirmedTripSectionCard } from '../features/confirmed-trip/ConfirmedTripSectionCard';
 import { ConfirmedTripTravelerInfoSection } from '../features/confirmed-trip/ConfirmedTripTravelerInfoSection';
+import {
+  TripDocumentPreviewRemote,
+  type TripDocumentPreviewRemoteTarget,
+} from '../features/confirmed-trip/TripDocumentPreviewRemote';
 import { useContractPaymentReceipts, useContractSubmissions } from '../features/contract/hooks';
 import { ConfirmedTripScheduleSection } from '../features/confirmed-trip/ConfirmedTripScheduleSection';
 import { KoreaTeamStageMultiSelect } from '../features/confirmed-trip/KoreaTeamStageMultiSelect';
@@ -781,6 +785,24 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   );
   const { updateConfirmedTrip } = useUpdateConfirmedTrip();
   const { cancelConfirmedTrip, loading: cancelling } = useCancelConfirmedTrip();
+  const estimatePreviewRef = useRef<HTMLElement>(null);
+  const confirmationPreviewRef = useRef<HTMLElement>(null);
+  const previewScrollRef = useRef<HTMLDivElement>(null);
+
+  const jumpToPreviewSection = useCallback((target: TripDocumentPreviewRemoteTarget) => {
+    const sectionRef = target === 'estimate' ? estimatePreviewRef : confirmationPreviewRef;
+    const container = previewScrollRef.current;
+    const section = sectionRef.current;
+    if (!container || !section) return;
+
+    const nextTop =
+      container.scrollTop + section.getBoundingClientRect().top - container.getBoundingClientRect().top;
+
+    container.scrollTo({
+      top: nextTop,
+      behavior: 'smooth',
+    });
+  }, []);
 
   // 픽드랍 — 독립 상태
   const [pickupDateEdit, setPickupDateEdit] = useState<string>('');
@@ -803,7 +825,6 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const [migrationEditChoiceOpen, setMigrationEditChoiceOpen] = useState(false);
   const [planTripEditChoiceOpen, setPlanTripEditChoiceOpen] = useState(false);
   const [selectedSwitchVersionId, setSelectedSwitchVersionId] = useState<string | null>(null);
-  const [selectedConfirmationDocumentId, setSelectedConfirmationDocumentId] = useState<string | null>(null);
   const [planVersionSwitchSaving, setPlanVersionSwitchSaving] = useState(false);
   const [directEditOpen, setDirectEditOpen] = useState(false);
   const [directEditSaving, setDirectEditSaving] = useState(false);
@@ -997,16 +1018,6 @@ export function ConfirmedTripDetailPage(): JSX.Element {
       .join('\n');
   }, [trip]);
 
-  const publishedConfirmationId = trip?.latestPublishedConfirmationDocument?.id ?? null;
-  const selectedConfirmationDocument = useMemo(
-    () =>
-      confirmationDocuments.find((document) => document.id === selectedConfirmationDocumentId)
-      ?? confirmationDocuments.find((document) => document.id === publishedConfirmationId)
-      ?? confirmationDocuments[0]
-      ?? null,
-    [confirmationDocuments, publishedConfirmationId, selectedConfirmationDocumentId],
-  );
-
   if (!tripId) {
     return (
       <section className="grid gap-4 py-8">
@@ -1147,7 +1158,8 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   const publishedConfirmation = trip.latestPublishedConfirmationDocument ?? null;
   const isPlanTrip = !!(trip.planId && trip.planVersionId);
   const hasPdf = pdfAttachments.length > 0;
-  const showRightPanel = !!selectedConfirmationDocument || isPlanTrip || hasPdf;
+  const showRightPanel = isPlanTrip || hasPdf || !!publishedConfirmation;
+  const showPreviewRemote = isPlanTrip && !!publishedConfirmation;
 
   const openPlanTripEditChoice = () => {
     setSelectedSwitchVersionId(null);
@@ -2148,25 +2160,43 @@ export function ConfirmedTripDetailPage(): JSX.Element {
         {/* end left column */}
 
         {showRightPanel && (
-          <div className="sticky top-6 grid min-w-0 max-w-full gap-4 self-start overflow-hidden">
-            <h2 className="text-sm font-semibold text-slate-700">
-              {selectedConfirmationDocument ? '확정서 미리보기' : 'PDF 미리보기'}
-            </h2>
-            {selectedConfirmationDocument ? (
-              <ConfirmationPreviewPanel
-                snapshot={selectedConfirmationDocument.snapshot}
-                planVersionId={selectedConfirmationDocument.planVersionId ?? trip.planVersionId}
-                isDraft={selectedConfirmationDocument.status !== 'PUBLISHED'}
-              />
-            ) : isPlanTrip ? (
-              <PlanPdfPreviewPanel planVersionId={trip.planVersionId!} />
-            ) : hasPdf ? (
-              <div className="grid gap-8">
-                {pdfAttachments.map((att) => (
-                  <PdfPageViewer key={att.url} url={att.url} filename={att.filename} />
-                ))}
-              </div>
+          <div className="sticky top-6 flex max-h-[calc(100vh-2rem)] min-w-0 max-w-full flex-col gap-3 self-start overflow-hidden">
+            {showPreviewRemote ? (
+              <TripDocumentPreviewRemote onJump={jumpToPreviewSection} />
             ) : null}
+
+            <div ref={previewScrollRef} className="min-h-0 flex-1 overflow-y-auto">
+              <div className="grid min-w-0 max-w-full gap-8 pr-1">
+            {isPlanTrip ? (
+              <section ref={estimatePreviewRef}>
+                <h2 className="mb-3 text-sm font-semibold text-slate-700">견적서 미리보기</h2>
+                <PlanPdfPreviewPanel planVersionId={trip.planVersionId!} />
+              </section>
+            ) : null}
+
+            {publishedConfirmation ? (
+              <section ref={confirmationPreviewRef}>
+                <h2 className="mb-3 text-sm font-semibold text-slate-700">확정서 미리보기</h2>
+                <ConfirmationPdfPreviewPanel
+                  confirmationDocumentId={publishedConfirmation.id}
+                  snapshot={publishedConfirmation.snapshot}
+                  planVersionId={trip.planVersionId}
+                />
+              </section>
+            ) : null}
+
+            {!isPlanTrip && hasPdf ? (
+              <section>
+                <h2 className="mb-3 text-sm font-semibold text-slate-700">PDF 미리보기</h2>
+                <div className="grid gap-8">
+                  {pdfAttachments.map((att) => (
+                    <PdfPageViewer key={att.url} url={att.url} filename={att.filename} />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+              </div>
+            </div>
           </div>
         )}
       </div>
