@@ -57,6 +57,7 @@ export class ConfirmationDocumentService {
       confirmedTrip: {
         assignedVehicle: trip.assignedVehicle,
         destination: trip.destination,
+        plan: trip.plan ? { regionSet: trip.plan.regionSet } : null,
         balanceAmountKrw: trip.balanceAmountKrw,
         guideAssignments: trip.guideAssignments,
         lodgings: trip.lodgings,

@@ -307,10 +307,25 @@ function buildExternalPickupDropText(meta: {
   return lines.join('\n');
 }
 
+/** 견적서·투어리스트 `getTripDestination`과 동일 우선순위: regionSet → legacy destination */
+export function resolveConfirmedTripDestination(input: {
+  planVersionRegionSetName?: string | null;
+  planRegionSetName?: string | null;
+  destination?: string | null;
+}): string {
+  return (
+    input.planVersionRegionSetName?.trim()
+    || input.planRegionSetName?.trim()
+    || input.destination?.trim()
+    || '-'
+  );
+}
+
 export function buildConfirmationDraftDefaults(input: {
   confirmedTrip: {
     assignedVehicle: string | null;
     destination: string | null;
+    plan?: { regionSet: { name: string } | null } | null;
     balanceAmountKrw: number | null;
     guideAssignments: GuideAssignmentLike[];
     lodgings: LodgingLike[];
@@ -372,10 +387,11 @@ export function buildConfirmationDraftDefaults(input: {
     input.confirmedTrip.balanceAmountKrw
     ?? resolvePublishedBalancePerPersonKrw(input.confirmedTrip.planVersion?.pricing ?? null)
     ?? null;
-  const destination =
-    input.confirmedTrip.destination?.trim()
-    || input.confirmedTrip.planVersion?.regionSet?.name?.trim()
-    || '-';
+  const destination = resolveConfirmedTripDestination({
+    planVersionRegionSetName: input.confirmedTrip.planVersion?.regionSet?.name,
+    planRegionSetName: input.confirmedTrip.plan?.regionSet?.name,
+    destination: input.confirmedTrip.destination,
+  });
   const vehicleType = input.confirmedTrip.assignedVehicle?.trim() || meta?.vehicleType?.trim() || '-';
   const travelers = input.contractSubmissions
     .filter((submission) => !submission.excludedFromContractCount)

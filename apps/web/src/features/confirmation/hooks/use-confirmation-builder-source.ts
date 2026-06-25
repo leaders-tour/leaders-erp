@@ -13,9 +13,6 @@ export function useConfirmationBuilderSource(confirmedTripId: string | undefined
     if (latest.document?.status === 'DRAFT') {
       return latest.document.snapshot;
     }
-    if (latest.document?.status === 'PUBLISHED') {
-      return latest.document.snapshot;
-    }
     return defaults.defaults?.snapshot ?? null;
   }, [defaults.defaults?.snapshot, latest.document]);
 

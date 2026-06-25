@@ -67,7 +67,8 @@ export function ConfirmationBuilderPage(): JSX.Element {
   const { tripId = '' } = useParams();
   const { trip, loading: tripLoading } = useConfirmedTrip(tripId);
   const { document, loading: documentLoading, refetch: refetchDocument } = useLatestConfirmationDocument(tripId);
-  const shouldLoadDefaults = !documentLoading && !document;
+  const isResumingDraft = document?.status === 'DRAFT';
+  const shouldLoadDefaults = !documentLoading && !isResumingDraft;
   const { defaults, loading: defaultsLoading } = useConfirmationDraftDefaults(
     shouldLoadDefaults ? tripId : undefined,
   );
@@ -79,7 +80,7 @@ export function ConfirmationBuilderPage(): JSX.Element {
     if (documentLoading) {
       return;
     }
-    if (document?.status === 'DRAFT' || document?.status === 'PUBLISHED') {
+    if (document?.status === 'DRAFT') {
       setState(document.snapshot);
       return;
     }
