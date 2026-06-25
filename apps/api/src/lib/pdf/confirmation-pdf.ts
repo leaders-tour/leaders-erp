@@ -183,9 +183,19 @@ async function waitForConfirmationPageReady(page: Page): Promise<void> {
   });
 
   await page.waitForFunction(
-    () => document.querySelector('[data-confirmation-layout-ready="true"]') != null,
+    () => {
+      const root = document.querySelector('[data-confirmation-layout-ready]');
+      const page1 = document.querySelector('[data-confirmation-page1-layout-ready="true"]');
+      return root?.getAttribute('data-confirmation-layout-ready') === 'true' && page1 != null;
+    },
     { timeout: PDF_RENDER_TIMEOUT_MS },
   );
+
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  });
 }
 
 async function renderConfirmationPdf(input: { sessionToken: string; renderBaseUrl: string }): Promise<Buffer> {

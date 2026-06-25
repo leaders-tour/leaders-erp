@@ -67,8 +67,8 @@ export function usePage1FitScale({
       pageElement.removeAttribute(layoutReadyDataAttr);
       const availableHeight = bodyShellElement.clientHeight;
       if (availableHeight <= 0) {
+        pageElement.removeAttribute(layoutReadyDataAttr);
         setScale(1);
-        markLayoutReady();
         return;
       }
 

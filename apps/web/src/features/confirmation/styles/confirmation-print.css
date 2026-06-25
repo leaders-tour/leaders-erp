@@ -716,9 +716,46 @@
   }
 }
 
+@page {
+  size: A4;
+  margin: 0;
+}
+
 @media print {
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  #root,
+  .min-h-screen,
+  .min-h-screen > main,
+  .min-h-screen > main > div {
+    background: #fff !important;
+  }
+
+  .min-h-screen > main > div {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   .confirmation-no-print {
     display: none !important;
+  }
+
+  .confirmation-document,
+  .confirmation-print-root {
+    margin: 0 !important;
+    padding: 0;
+    gap: 0;
+    background: #fff !important;
   }
 
   .confirmation-document {
@@ -741,13 +778,18 @@
   }
 
   .confirmation-sheet {
+    box-sizing: border-box;
     box-shadow: none;
-    width: 100%;
-    min-height: auto;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0;
+    padding: 0;
     height: 297mm;
+    background: #fff;
   }
 
-  .confirmation-sheet-page1 {
+  .confirmation-document--output .confirmation-sheet-page1 {
     height: 297mm;
+    overflow: hidden;
   }
 }
