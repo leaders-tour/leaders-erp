@@ -193,6 +193,7 @@ export const resolvers = {
   CalendarNote: confirmedTripResolver.CalendarNote,
   ContractDocumentStatus: contractResolver.ContractDocumentStatus,
   ContractDocumentReviewItem: contractResolver.ContractDocumentReviewItem,
+  ContractSubmission: contractResolver.ContractSubmission,
   PlanTemplate: mergeSection(planTemplateResolver.PlanTemplate ?? {}),
   PlanTemplateStop: mergeSection(planTemplateResolver.PlanTemplateStop ?? {}),
 };

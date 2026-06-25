@@ -32,12 +32,15 @@ interface Props {
   tripActive: boolean;
   /** 신규 행 기본 날짜 (YYYY-MM-DD) */
   defaultDateIso: string;
+  /** 상위 섹션에 포함될 때 외곽 카드·제목 생략 */
+  embedded?: boolean;
 }
 
 export function ConfirmedTripScheduleSection({
   tripId,
   tripActive,
   defaultDateIso,
+  embedded = false,
 }: Props): JSX.Element {
   const { notes, loading, refetch } = useConfirmedTripCalendarNotes(tripId);
   const { createCalendarNote } = useCreateCalendarNote();
@@ -107,32 +110,50 @@ export function ConfirmedTripScheduleSection({
     }
   }
 
-  return (
-    <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">운영 일정</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            낙타인형·노마딕쇼·직접입력 일정을 추가합니다. 실투어 외 픽드랍은 견적 메타를 따르며 캘린더에 자동
-            표시됩니다.
-          </p>
+  const body = (
+    <>
+      {embedded ? (
+        tripActive ? (
+          <div className="mb-2 flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0"
+              onClick={() => {
+                resetAddDraft();
+                setAdding(true);
+              }}
+            >
+              항목 추가
+            </Button>
+          </div>
+        ) : null
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">운영 일정</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              낙타인형·노마딕쇼·직접입력 일정을 추가합니다. 실투어 외 픽드랍은 견적 메타를 따르며 캘린더에
+              자동 표시됩니다.
+            </p>
+          </div>
+          {tripActive ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0"
+              onClick={() => {
+                resetAddDraft();
+                setAdding(true);
+              }}
+            >
+              항목 추가
+            </Button>
+          ) : null}
         </div>
-        {tripActive ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="shrink-0"
-            onClick={() => {
-              resetAddDraft();
-              setAdding(true);
-            }}
-          >
-            항목 추가
-          </Button>
-        ) : null}
-      </div>
+      )}
 
-      <div className="mt-4 grid gap-4">
+      <div className={`grid gap-4 ${embedded ? '' : 'mt-4'}`}>
         {loading ? (
           <p className="text-sm text-slate-400">불러오는 중...</p>
         ) : filteredNotes.length === 0 && !adding ? (
@@ -242,7 +263,15 @@ export function ConfirmedTripScheduleSection({
           </div>
         ) : null}
       </div>
-    </Card>
+    </>
+  );
+
+  if (embedded) {
+    return body;
+  }
+
+  return (
+    <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">{body}</Card>
   );
 }
 

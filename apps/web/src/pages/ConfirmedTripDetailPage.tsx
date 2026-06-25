@@ -41,16 +41,19 @@ import {
 } from '../features/confirmed-trip/hooks';
 import { listExternalTransferDetailRows } from '../features/plan/external-transfer';
 import {
+  formatFlightDisplay,
   formatPickupDropDisplay,
   formatTransportPickupDropLines,
   type TransportGroupLike,
 } from '../features/plan/pickup-drop';
 import { markConfirmedTripRecentlyReturned } from '../features/confirmed-trip/recent-return';
 import { LodgingSection } from '../features/confirmed-trip/LodgingSection';
+import { ConfirmedTripSectionCard } from '../features/confirmed-trip/ConfirmedTripSectionCard';
+import { ConfirmedTripTravelerInfoSection } from '../features/confirmed-trip/ConfirmedTripTravelerInfoSection';
+import { useContractPaymentReceipts, useContractSubmissions } from '../features/contract/hooks';
 import { ConfirmedTripScheduleSection } from '../features/confirmed-trip/ConfirmedTripScheduleSection';
 import { KoreaTeamStageMultiSelect } from '../features/confirmed-trip/KoreaTeamStageMultiSelect';
 import { PostTripTaskMultiSelect } from '../features/confirmed-trip/PostTripTaskMultiSelect';
-import { RecruitmentStatusToggle } from '../features/confirmed-trip/RecruitmentStatusToggle';
 import { usePlanVersions, useUpdateUser, useUploadUserAttachment } from '../features/plan/hooks';
 import { toVariantLabel } from '../features/plan/variant-label';
 import { API_BASE_URL } from '../lib/api-base-url';
@@ -762,6 +765,11 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     return () => window.removeEventListener('popstate', onPopState);
   }, [tripId]);
   const { trip, loading } = useConfirmedTrip(tripId);
+  const contractDocumentNumber = trip?.planVersion?.meta?.documentNumber ?? null;
+  const { submissions: contractSubmissions, loading: contractSubmissionsLoading } =
+    useContractSubmissions(contractDocumentNumber);
+  const { receipts: contractReceipts, loading: contractReceiptsLoading } =
+    useContractPaymentReceipts(contractDocumentNumber);
   const {
     documents: confirmationDocuments,
     loading: confirmationDocumentsLoading,
@@ -964,6 +972,29 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     }
     const d = getTripDropDate(trip);
     return d ? formatDate(d) : '-';
+  }, [trip]);
+
+  const flightDisplay = useMemo(() => {
+    if (!trip) return '-';
+    const snap = trip.latestPublishedConfirmationDocument?.snapshot;
+    if (snap?.flightInText?.trim() || snap?.flightOutText?.trim()) {
+      return [
+        snap.flightInText?.trim() ? `IN ${snap.flightInText.trim()}` : null,
+        snap.flightOutText?.trim() ? `OUT ${snap.flightOutText.trim()}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n');
+    }
+    const groups = trip.planVersion?.meta?.transportGroups ?? [];
+    if (groups.length === 0) return '-';
+    return groups
+      .map((group) => {
+        const prefix = groups.length > 1 && group.teamName ? `[${group.teamName}] ` : '';
+        const inPart = formatFlightDisplay(group.flightInDate, group.flightInTime);
+        const outPart = formatFlightDisplay(group.flightOutDate, group.flightOutTime);
+        return `${prefix}IN ${inPart} / OUT ${outPart}`;
+      })
+      .join('\n');
   }, [trip]);
 
   const publishedConfirmationId = trip?.latestPublishedConfirmationDocument?.id ?? null;
@@ -1306,24 +1337,215 @@ export function ConfirmedTripDetailPage(): JSX.Element {
         </div>
       </header>
 
-      <div className={showRightPanel ? 'grid grid-cols-2 gap-6 items-start' : 'grid gap-6'}>
-        <div className="grid gap-6">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-4 text-sm font-semibold text-slate-900">여행 정보</h2>
-              <div className="grid gap-3 text-sm text-slate-700">
-                <div className="grid grid-cols-2 gap-2">
+      <div
+        className={
+          showRightPanel
+            ? 'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6 items-start'
+            : 'grid gap-6'
+        }
+      >
+        <div className="grid min-w-0 max-w-full gap-6 overflow-hidden">
+          <ConfirmedTripTravelerInfoSection
+            documentNumber={contractDocumentNumber}
+            leaderName={getTripLeaderName(trip)}
+            headcountTotal={meta?.headcountTotal ?? getTripHeadcount(trip)}
+            isRecruitingOpen={trip.isRecruitingOpen}
+            recruitmentDisabled={trip.status !== 'ACTIVE'}
+            recruitmentSaving={recruitmentSaving}
+            onRecruitmentToggle={async (nextOpen) => {
+              setRecruitmentSaving(true);
+              try {
+                await updateConfirmedTrip(trip.id, { isRecruitingOpen: nextOpen });
+              } catch (error) {
+                window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
+              } finally {
+                setRecruitmentSaving(false);
+              }
+            }}
+            submissions={contractSubmissions}
+            receipts={contractReceipts}
+            submissionsLoading={contractSubmissionsLoading}
+            receiptsLoading={contractReceiptsLoading}
+          />
+
+          <ConfirmedTripSectionCard
+            title="메모"
+            description="비고는 견적서에 노출되며, 댓글은 손님에게 노출되지 않습니다."
+          >
+            <div className="grid gap-4">
+              <div>
+                <span className="block text-xs text-slate-500">비고 (견적서 노출)</span>
+                <p className="mt-1 whitespace-pre-wrap text-sm font-medium text-slate-800">
+                  {meta?.remark?.trim() ? meta.remark : '-'}
+                </p>
+              </div>
+              <ConfirmedTripNotesCard tripId={trip.id} />
+            </div>
+          </ConfirmedTripSectionCard>
+
+          <ConfirmedTripSectionCard title="확정절차 3단계">
+            <div className="grid gap-4 text-sm text-slate-700">
+              <div>
+                <span className="block text-xs text-slate-500">확정 단계</span>
+                <div className="mt-1 grid gap-3">
+                  <KoreaTeamStageMultiSelect
+                    selected={trip.koreaTeamStages}
+                    disabled={trip.status !== 'ACTIVE'}
+                    onChange={async (optionIds) => {
+                      await updateConfirmedTrip(trip.id, {
+                        koreaTeamStageOptionIds: optionIds,
+                      });
+                    }}
+                  />
                   <div>
-                    <span className="text-slate-500">대표자</span>
-                    <p className="font-medium">{getTripLeaderName(trip)}</p>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">여행지</span>
-                    <p className="font-medium">{getTripDestination(trip)}</p>
+                    <span className="mb-1 block text-xs text-slate-400">종료 후 안내</span>
+                    <PostTripTaskMultiSelect
+                      selected={trip.postTripTasks}
+                      disabled={trip.status !== 'ACTIVE'}
+                      onChange={async (optionIds) => {
+                        await updateConfirmedTrip(trip.id, {
+                          postTripTaskOptionIds: optionIds,
+                        });
+                      }}
+                    />
                   </div>
                 </div>
+              </div>
+              <div>
+                <span className="block text-xs text-slate-500">오픈채팅 링크</span>
+                {trip.status === 'ACTIVE' ? (
+                  openChatUrlEditing ? (
+                    <input
+                      type="text"
+                      inputMode="url"
+                      autoComplete="url"
+                      placeholder="https://open.kakao.com/..."
+                      className="mt-1 block w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm font-medium text-slate-800"
+                      value={openChatUrlDraft}
+                      disabled={openChatUrlSaving}
+                      onChange={(e) => setOpenChatUrlDraft(e.target.value)}
+                      onBlur={() => {
+                        void handleOpenChatUrlSave();
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          (e.target as HTMLInputElement).blur();
+                        }
+                        if (e.key === 'Escape') {
+                          setOpenChatUrlEditing(false);
+                          setOpenChatUrlDraft(trip.openChatUrl ?? '');
+                        }
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                      {trip.openChatUrl ? (
+                        <>
+                          <span className="inline-flex max-w-full flex-wrap items-baseline gap-0">
+                            <button
+                              type="button"
+                              className="max-w-full break-all text-left font-medium text-slate-900 underline-offset-2 hover:underline"
+                              onClick={() => {
+                                setOpenChatUrlDraft(trip.openChatUrl ?? '');
+                                setOpenChatUrlEditing(true);
+                              }}
+                            >
+                              {trip.openChatUrl}
+                            </button>
+                            <button
+                              type="button"
+                              className="-ml-0.5 inline-flex shrink-0 rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                              aria-label="오픈채팅 링크 수정"
+                              onClick={() => {
+                                setOpenChatUrlDraft(trip.openChatUrl ?? '');
+                                setOpenChatUrlEditing(true);
+                              }}
+                            >
+                              <InlineWriteIcon className="h-4 w-4" />
+                            </button>
+                          </span>
+                          <a
+                            href={trip.openChatUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="shrink-0 text-sm font-medium text-emerald-700 underline decoration-emerald-700/30 hover:decoration-emerald-700"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            새 탭에서 열기
+                          </a>
+                        </>
+                      ) : (
+                        <span className="inline-flex items-baseline gap-0">
+                          <button
+                            type="button"
+                            className="font-medium text-slate-900 underline-offset-2 hover:underline"
+                            onClick={() => {
+                              setOpenChatUrlDraft('');
+                              setOpenChatUrlEditing(true);
+                            }}
+                          >
+                            등록하기
+                          </button>
+                          <button
+                            type="button"
+                            className="-ml-0.5 inline-flex shrink-0 rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                            aria-label="오픈채팅 링크 수정"
+                            onClick={() => {
+                              setOpenChatUrlDraft('');
+                              setOpenChatUrlEditing(true);
+                            }}
+                          >
+                            <InlineWriteIcon className="h-4 w-4" />
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                  )
+                ) : (
+                  <p className="mt-0.5 font-medium">
+                    {trip.openChatUrl ? (
+                      <a
+                        href={trip.openChatUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="break-all text-emerald-700 underline decoration-emerald-700/30 underline-offset-2 hover:decoration-emerald-700"
+                      >
+                        {trip.openChatUrl}
+                      </a>
+                    ) : (
+                      '-'
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+          </ConfirmedTripSectionCard>
+
+          <ConfirmedTripSectionCard title="투어 기본정보">
+            <div className="grid gap-5 text-sm text-slate-700">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <span className="block text-slate-500">예약일</span>
+                  <span className="text-xs text-slate-500">투어 기간</span>
+                  <p className="mt-1 font-medium">
+                    {(() => {
+                      const s = getTripStartDate(trip);
+                      const e = getTripEndDate(trip);
+                      return s && e ? `${formatDate(s)} ~ ${formatDate(e)}` : '-';
+                    })()}
+                    {trip.planVersion ? ` (${trip.planVersion.totalDays}일)` : ''}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500">여행 코스</span>
+                  <p className="mt-1 font-medium">{getTripDestination(trip) || '-'}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500">항공권 시간</span>
+                  <p className="mt-1 whitespace-pre-wrap font-medium">{flightDisplay}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500">예약일</span>
                   {trip.status === 'ACTIVE' ? (
                     reservationDateEditing ? (
                       <input
@@ -1374,249 +1596,195 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                     <p className="mt-0.5 font-medium">{formatDate(trip.confirmedAt)}</p>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <span className="text-slate-500">여행기간</span>
-                    <p className="font-medium">
-                      {(() => {
-                        const s = getTripStartDate(trip);
-                        const e = getTripEndDate(trip);
-                        return s && e ? `${formatDate(s)} ~ ${formatDate(e)}` : '-';
-                      })()}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-slate-500">인원</span>
-                    <p className="font-medium">
-                      {meta
-                        ? `${meta.headcountTotal}명 (남 ${meta.headcountMale} / 여 ${meta.headcountFemale})`
-                        : getTripHeadcount(trip) != null
-                          ? `${getTripHeadcount(trip)}명`
-                          : '-'}
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <span className="block text-slate-500">모집 상태</span>
-                  <div className="mt-1">
-                    <RecruitmentStatusToggle
-                      open={trip.isRecruitingOpen}
-                      disabled={trip.status !== 'ACTIVE'}
-                      saving={recruitmentSaving}
-                      onToggle={async (nextOpen) => {
-                        setRecruitmentSaving(true);
-                        try {
-                          await updateConfirmedTrip(trip.id, {
-                            isRecruitingOpen: nextOpen,
-                          });
-                        } catch (error) {
-                          window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
-                        } finally {
-                          setRecruitmentSaving(false);
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <span className="text-slate-500">차량</span>
-                    <p className="font-medium">
-                      {meta?.vehicleType ?? trip.assignedVehicle ?? '-'}
-                    </p>
-                  </div>
-                  {trip.planVersion ? (
-                    <div>
-                      <span className="text-slate-500">일수</span>
-                      <p className="font-medium">{trip.planVersion.totalDays}일</p>
-                    </div>
-                  ) : null}
-                </div>
                 {meta?.documentNumber ? (
                   <div>
-                    <span className="text-slate-500">문서번호</span>
-                    <p className="font-medium">{meta.documentNumber}</p>
+                    <span className="text-xs text-slate-500">문서번호</span>
+                    <p className="mt-1 font-medium">{meta.documentNumber}</p>
                   </div>
                 ) : null}
-                <div>
-                  <span className="block text-slate-500">한국팀 진행단계</span>
-                  <div className="mt-1">
-                    <KoreaTeamStageMultiSelect
-                      selected={trip.koreaTeamStages}
-                      disabled={trip.status !== 'ACTIVE'}
-                      onChange={async (optionIds) => {
-                        await updateConfirmedTrip(trip.id, {
-                          koreaTeamStageOptionIds: optionIds,
-                        });
-                      }}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <span className="block text-slate-500">종료 후 안내</span>
-                  <div className="mt-1">
-                    <PostTripTaskMultiSelect
-                      selected={trip.postTripTasks}
-                      disabled={trip.status !== 'ACTIVE'}
-                      onChange={async (optionIds) => {
-                        await updateConfirmedTrip(trip.id, {
-                          postTripTaskOptionIds: optionIds,
-                        });
-                      }}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <span className="block text-slate-500">오픈채팅 링크</span>
-                  {trip.status === 'ACTIVE' ? (
-                    openChatUrlEditing ? (
-                      <input
-                        type="text"
-                        inputMode="url"
-                        autoComplete="url"
-                        placeholder="https://open.kakao.com/..."
-                        className="mt-1 block w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm font-medium text-slate-800"
-                        value={openChatUrlDraft}
-                        disabled={openChatUrlSaving}
-                        onChange={(e) => setOpenChatUrlDraft(e.target.value)}
-                        onBlur={() => {
-                          void handleOpenChatUrlSave();
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            (e.target as HTMLInputElement).blur();
-                          }
-                          if (e.key === 'Escape') {
-                            setOpenChatUrlEditing(false);
-                            setOpenChatUrlDraft(trip.openChatUrl ?? '');
-                          }
-                        }}
-                        autoFocus
-                      />
-                    ) : (
-                      <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                        {trip.openChatUrl ? (
-                          <>
-                            <span className="inline-flex max-w-full flex-wrap items-baseline gap-0">
-                              <button
-                                type="button"
-                                className="max-w-full break-all text-left font-medium text-slate-900 underline-offset-2 hover:underline"
-                                onClick={() => {
-                                  setOpenChatUrlDraft(trip.openChatUrl ?? '');
-                                  setOpenChatUrlEditing(true);
-                                }}
-                              >
-                                {trip.openChatUrl}
-                              </button>
-                              <button
-                                type="button"
-                                className="-ml-0.5 inline-flex shrink-0 rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-                                aria-label="오픈채팅 링크 수정"
-                                onClick={() => {
-                                  setOpenChatUrlDraft(trip.openChatUrl ?? '');
-                                  setOpenChatUrlEditing(true);
-                                }}
-                              >
-                                <InlineWriteIcon className="h-4 w-4" />
-                              </button>
-                            </span>
-                            <a
-                              href={trip.openChatUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="shrink-0 text-sm font-medium text-emerald-700 underline decoration-emerald-700/30 hover:decoration-emerald-700"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              새 탭에서 열기
-                            </a>
-                          </>
-                        ) : (
-                          <span className="inline-flex items-baseline gap-0">
-                            <button
-                              type="button"
-                              className="font-medium text-slate-900 underline-offset-2 hover:underline"
-                              onClick={() => {
-                                setOpenChatUrlDraft('');
-                                setOpenChatUrlEditing(true);
-                              }}
-                            >
-                              등록하기
-                            </button>
-                            <button
-                              type="button"
-                              className="-ml-0.5 inline-flex shrink-0 rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-                              aria-label="오픈채팅 링크 수정"
-                              onClick={() => {
-                                setOpenChatUrlDraft('');
-                                setOpenChatUrlEditing(true);
-                              }}
-                            >
-                              <InlineWriteIcon className="h-4 w-4" />
-                            </button>
-                          </span>
-                        )}
-                      </div>
-                    )
-                  ) : (
-                    <p className="mt-0.5 font-medium">
-                      {trip.openChatUrl ? (
-                        <a
-                          href={trip.openChatUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-emerald-700 underline decoration-emerald-700/30 underline-offset-2 hover:decoration-emerald-700 break-all"
-                        >
-                          {trip.openChatUrl}
-                        </a>
-                      ) : (
-                        '-'
-                      )}
-                    </p>
-                  )}
-                </div>
                 {meta?.specialNote ? (
-                  <div>
-                    <span className="text-slate-500">특이사항</span>
-                    <p className="whitespace-pre-wrap font-medium">{meta.specialNote}</p>
-                  </div>
-                ) : null}
-                {meta?.includeRentalItems ? (
-                  <div>
-                    <span className="text-slate-500">대여물품</span>
-                    <p className="whitespace-pre-wrap font-medium">{meta.rentalItemsText}</p>
-                  </div>
-                ) : null}
-                {meta?.remark ? (
-                  <div>
-                    <span className="text-slate-500">비고</span>
-                    <p className="whitespace-pre-wrap font-medium">{meta.remark}</p>
-                  </div>
-                ) : null}
-                {/* 노션 마이그레이션 데이터 전용 대여 정보 */}
-                {!meta &&
-                (trip.rentalGear ||
-                  trip.rentalDrone ||
-                  trip.rentalStarlink ||
-                  trip.rentalPowerbank) ? (
-                  <div>
-                    <span className="text-slate-500">대여 항목</span>
-                    <p className="font-medium">
-                      {[
-                        trip.rentalGear && '물품',
-                        trip.rentalDrone && '드론',
-                        trip.rentalStarlink && '스타링크',
-                        trip.rentalPowerbank && '파워뱅크',
-                      ]
-                        .filter(Boolean)
-                        .join(', ')}
-                    </p>
+                  <div className="sm:col-span-2">
+                    <span className="text-xs text-slate-500">특이사항</span>
+                    <p className="mt-1 whitespace-pre-wrap font-medium">{meta.specialNote}</p>
                   </div>
                 ) : null}
               </div>
-            </Card>
 
-            <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-4 text-sm font-semibold text-slate-900">금액 정보</h2>
+              <div className="border-t border-slate-100 pt-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-xs font-semibold text-slate-700">일정 · 실투어 외 픽드랍</h3>
+                  {trip.status === 'ACTIVE' && !pickupDropEditing && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (trip.planId && trip.planVersionId) {
+                          openPlanTripEditChoice();
+                          return;
+                        }
+                        startPickupDropEdit();
+                      }}
+                      className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-200"
+                    >
+                      {trip.planId && trip.planVersionId ? '일정에서 수정' : '편집'}
+                    </button>
+                  )}
+                  {trip.status === 'ACTIVE' && pickupDropEditing && !(trip.planId && trip.planVersionId) && (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPickupDropEditing(false)}
+                        disabled={pickupDropSaving}
+                        className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        취소
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handlePickupDropSave}
+                        disabled={pickupDropSaving}
+                        className="rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
+                      >
+                        {pickupDropSaving ? '저장 중...' : '저장'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {pickupDropEditing && !(trip.planId && trip.planVersionId) ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="grid gap-1">
+                      <span className="text-xs font-medium text-slate-500">픽업 날짜</span>
+                      <input
+                        type="date"
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        value={pickupDateEdit}
+                        onChange={(e) => setPickupDateEdit(e.target.value)}
+                      />
+                    </label>
+                    <label className="grid gap-1">
+                      <span className="text-xs font-medium text-slate-500">드랍 날짜</span>
+                      <input
+                        type="date"
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                        value={dropDateEdit}
+                        onChange={(e) => setDropDateEdit(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div className="grid min-w-0 gap-2">
+                        <span className="text-xs font-medium text-slate-500">픽업</span>
+                        <p className="break-words whitespace-pre-wrap font-medium text-slate-900">
+                          {basicPickupDisplay}
+                        </p>
+                      </div>
+                      <div className="grid min-w-0 gap-2">
+                        <span className="text-xs font-medium text-slate-500">드랍</span>
+                        <p className="break-words whitespace-pre-wrap font-medium text-slate-900">
+                          {basicDropDisplay}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="grid gap-2">
+                        <span className="text-xs font-medium text-slate-400">실투어 외 픽업</span>
+                        {externalPickDropRowsPickup.length === 0 ? (
+                          <p className="font-medium text-slate-400">-</p>
+                        ) : (
+                          <ul className="grid gap-2">
+                            {externalPickDropRowsPickup.map((row) => (
+                              <li
+                                key={row.key}
+                                className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 text-sm"
+                              >
+                                <p className="font-semibold text-slate-900">{row.teamLabel}</p>
+                                <p className="mt-1 text-slate-700">
+                                  <span className="text-slate-500">날짜</span>{' '}
+                                  {row.dateIso ? formatDate(`${row.dateIso}T12:00:00.000Z`) : '-'}
+                                </p>
+                                <p className="mt-0.5 text-slate-700">
+                                  출발 {row.departureTime} {row.departurePlace}
+                                </p>
+                                <p className="text-slate-700">
+                                  도착 {row.arrivalTime} {row.arrivalPlace}
+                                </p>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      <div className="grid gap-2">
+                        <span className="text-xs font-medium text-slate-400">실투어 외 드랍</span>
+                        {externalPickDropRowsDrop.length === 0 ? (
+                          <p className="font-medium text-slate-400">-</p>
+                        ) : (
+                          <ul className="grid gap-2">
+                            {externalPickDropRowsDrop.map((row) => (
+                              <li
+                                key={row.key}
+                                className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 text-sm"
+                              >
+                                <p className="font-semibold text-slate-900">{row.teamLabel}</p>
+                                <p className="mt-1 text-slate-700">
+                                  <span className="text-slate-500">날짜</span>{' '}
+                                  {row.dateIso ? formatDate(`${row.dateIso}T12:00:00.000Z`) : '-'}
+                                </p>
+                                <p className="mt-0.5 text-slate-700">
+                                  출발 {row.departureTime} {row.departurePlace}
+                                </p>
+                                <p className="text-slate-700">
+                                  도착 {row.arrivalTime} {row.arrivalPlace}
+                                </p>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                    {trip.planId && trip.planVersionId ? (
+                      <p className="text-xs leading-relaxed text-slate-500">
+                        픽업·드랍·실투어 외 픽드랍은 연결된 견적 버전 메타를 반영합니다. 변경은「일정에서
+                        수정」에서 일정 빌더 새 버전 또는 기존 버전 연결로 진행하세요.
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-slate-100 pt-4">
+                <h3 className="mb-3 text-xs font-semibold text-slate-700">낙타인형 · 운영 일정</h3>
+                <ConfirmedTripScheduleSection
+                  tripId={trip.id}
+                  tripActive={trip.status === 'ACTIVE'}
+                  defaultDateIso={
+                    (getTripStartDate(trip) ?? trip.travelStart)?.slice(0, 10) ??
+                    new Date().toISOString().slice(0, 10)
+                  }
+                  embedded
+                />
+              </div>
+            </div>
+          </ConfirmedTripSectionCard>
+
+          <ConfirmedTripSectionCard
+            title="가격 정보"
+            actions={
+              trip.status === 'ACTIVE' ? (
+                <Button
+                  variant="primary"
+                  onClick={() =>
+                    navigate(`/confirmed-trips/${tripId}/assign`, {
+                      state: { fromConfirmedTripDetail: true },
+                    })
+                  }
+                >
+                  배정하기
+                </Button>
+              ) : null
+            }
+          >
+            <div className="grid gap-5">
               {pricing ? (
                 amountCardTeamPricingsForDisplay.length > 0 ? (
                   <div className="grid gap-3 text-sm text-slate-700">
@@ -1631,9 +1799,9 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                           className="grid gap-2 border-t border-slate-100 pt-3 first:border-t-0 first:pt-0"
                         >
                           <p className="text-xs font-semibold text-slate-500">{label}</p>
-                          <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-3">
                             <div>
-                              <span className="text-slate-500">총액</span>
+                              <span className="text-slate-500">기본금</span>
                               <p className="text-lg font-semibold text-slate-900">
                                 {formatKrw(row.totalAmountKrw)}
                               </p>
@@ -1657,9 +1825,9 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                   </div>
                 ) : (
                   <div className="grid gap-3 text-sm text-slate-700">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       <div>
-                        <span className="text-slate-500">총액</span>
+                        <span className="text-slate-500">기본금</span>
                         <p className="text-lg font-semibold text-slate-900">
                           {formatKrw(
                             publishedTotalsForCard?.totalAmountKrw ?? pricing.totalAmountKrw,
@@ -1680,8 +1848,6 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                               )}
                         </p>
                       </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
                       <div>
                         <span className="text-slate-500">예약금</span>
                         <p className="font-medium">
@@ -1703,9 +1869,9 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                 )
               ) : trip.totalAmountKrw != null ? (
                 <div className="grid gap-3 text-sm text-slate-700">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     <div>
-                      <span className="text-slate-500">총액</span>
+                      <span className="text-slate-500">기본금</span>
                       <p className="text-lg font-semibold text-slate-900">
                         {formatKrw(trip.totalAmountKrw)}
                       </p>
@@ -1718,8 +1884,6 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                           : '-'}
                       </p>
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
                     <div>
                       <span className="text-slate-500">예약금</span>
                       <p className="font-medium">
@@ -1735,7 +1899,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                   </div>
                   {trip.groupTotalAmountKrw != null ? (
                     <div>
-                      <span className="text-slate-500">팀별총액</span>
+                      <span className="text-slate-500">추가금 (팀별총액)</span>
                       <p className="font-medium">{formatKrw(trip.groupTotalAmountKrw)}</p>
                     </div>
                   ) : null}
@@ -1743,293 +1907,153 @@ export function ConfirmedTripDetailPage(): JSX.Element {
               ) : (
                 <p className="text-sm text-slate-500">가격 정보 없음</p>
               )}
-            </Card>
-          </div>
 
-          <ConfirmedTripNotesCard tripId={trip.id} />
-
-          {/* 픽드랍 일정 — 독립 카드 */}
-          <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-900">픽드랍 일정</h2>
-              {trip.status === 'ACTIVE' && !pickupDropEditing && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (trip.planId && trip.planVersionId) {
-                      openPlanTripEditChoice();
-                      return;
-                    }
-                    startPickupDropEdit();
-                  }}
-                  className="rounded-full bg-slate-100 px-4 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-200"
-                >
-                  {trip.planId && trip.planVersionId ? '일정에서 수정' : '편집'}
-                </button>
-              )}
-              {trip.status === 'ACTIVE' && pickupDropEditing && !(trip.planId && trip.planVersionId) && (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPickupDropEditing(false)}
-                    disabled={pickupDropSaving}
-                    className="rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    취소
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handlePickupDropSave}
-                    disabled={pickupDropSaving}
-                    className="rounded-full bg-slate-800 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
-                  >
-                    {pickupDropSaving ? '저장 중...' : '저장'}
-                  </button>
-                </div>
-              )}
-            </div>
-            {pickupDropEditing && !(trip.planId && trip.planVersionId) ? (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <label className="grid gap-1">
-                  <span className="text-xs font-medium text-slate-500">픽업 날짜</span>
-                  <input
-                    type="date"
-                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                    value={pickupDateEdit}
-                    onChange={(e) => setPickupDateEdit(e.target.value)}
-                  />
-                </label>
-                <label className="grid gap-1">
-                  <span className="text-xs font-medium text-slate-500">드랍 날짜</span>
-                  <input
-                    type="date"
-                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                    value={dropDateEdit}
-                    onChange={(e) => setDropDateEdit(e.target.value)}
-                  />
-                </label>
-              </div>
-            ) : (
-              <div className="mt-3 grid gap-5 text-sm text-slate-800">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
-                  <div className="grid min-w-0 gap-2">
-                    <span className="text-xs font-medium text-slate-500">픽업</span>
-                    <p className="break-words whitespace-pre-wrap font-medium text-slate-900">
-                      {basicPickupDisplay}
-                    </p>
-                  </div>
-                  <div className="grid min-w-0 gap-2">
-                    <span className="text-xs font-medium text-slate-500">드랍</span>
-                    <p className="break-words whitespace-pre-wrap font-medium text-slate-900">
-                      {basicDropDisplay}
-                    </p>
-                  </div>
-                </div>
-                <div className="border-t border-slate-100 pt-4">
-                  <span className="text-xs font-medium text-slate-500">실투어 외 픽드랍</span>
-                  <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                    <div className="grid gap-2">
-                      <span className="text-xs font-medium text-slate-400">실투어 외 픽업</span>
-                      {externalPickDropRowsPickup.length === 0 ? (
-                        <p className="font-medium text-slate-400">-</p>
-                      ) : (
-                        <ul className="grid gap-2">
-                          {externalPickDropRowsPickup.map((row) => (
-                            <li
-                              key={row.key}
-                              className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 text-sm"
-                            >
-                              <p className="font-semibold text-slate-900">{row.teamLabel}</p>
-                              <p className="mt-1 text-slate-700">
-                                <span className="text-slate-500">날짜</span>{' '}
-                                {row.dateIso ? formatDate(`${row.dateIso}T12:00:00.000Z`) : '-'}
-                              </p>
-                              <p className="mt-0.5 text-slate-700">
-                                출발 {row.departureTime} {row.departurePlace}
-                              </p>
-                              <p className="text-slate-700">
-                                도착 {row.arrivalTime} {row.arrivalPlace}
-                              </p>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    <div className="grid gap-2">
-                      <span className="text-xs font-medium text-slate-400">실투어 외 드랍</span>
-                      {externalPickDropRowsDrop.length === 0 ? (
-                        <p className="font-medium text-slate-400">-</p>
-                      ) : (
-                        <ul className="grid gap-2">
-                          {externalPickDropRowsDrop.map((row) => (
-                            <li
-                              key={row.key}
-                              className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 text-sm"
-                            >
-                              <p className="font-semibold text-slate-900">{row.teamLabel}</p>
-                              <p className="mt-1 text-slate-700">
-                                <span className="text-slate-500">날짜</span>{' '}
-                                {row.dateIso ? formatDate(`${row.dateIso}T12:00:00.000Z`) : '-'}
-                              </p>
-                              <p className="mt-0.5 text-slate-700">
-                                출발 {row.departureTime} {row.departurePlace}
-                              </p>
-                              <p className="text-slate-700">
-                                도착 {row.arrivalTime} {row.arrivalPlace}
-                              </p>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {trip.planId && trip.planVersionId ? (
-                  <p className="text-xs leading-relaxed text-slate-500">
-                    픽업·드랍·실투어 외 픽드랍은 연결된 견적 버전 메타를 반영합니다. 변경은「일정에서 수정」에서 일정
-                    빌더 새 버전 또는 기존 버전 연결로 진행하세요.
-                  </p>
-                ) : null}
-              </div>
-            )}
-          </Card>
-
-          {/* 운영 일정 (낙타·노마딕·직접입력) */}
-          {trip ? (
-            <ConfirmedTripScheduleSection
-              tripId={trip.id}
-              tripActive={trip.status === 'ACTIVE'}
-              defaultDateIso={
-                (getTripStartDate(trip) ?? trip.travelStart)?.slice(0, 10) ??
-                new Date().toISOString().slice(0, 10)
-              }
-            />
-          ) : null}
-
-          <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-900">운영정보 (가이드/기사/숙소)</h2>
-              <div className="flex gap-2">
-                {trip.status === 'ACTIVE' ? (
-                  <Button
-                    variant="primary"
-                    onClick={() =>
-                      navigate(`/confirmed-trips/${tripId}/assign`, {
-                        state: { fromConfirmedTripDetail: true },
-                      })
-                    }
-                  >
-                    배정하기
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-            <div className="grid gap-4 text-sm text-slate-700 sm:grid-cols-2">
-              {/* 가이드 */}
-              <div>
-                <p className="mb-2 text-xs text-slate-400">가이드</p>
-                {sortTripAssignments(trip.guideAssignments).length === 0 ? (
-                  <p className="font-medium text-slate-400">-</p>
-                ) : (
-                  <div className="flex flex-col gap-4">
-                    {sortTripAssignments(trip.guideAssignments).map((a) => (
-                      <div key={a.id} className="flex items-center gap-3">
-                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
-                          {a.guide.profileImageUrl ? (
-                            <img
-                              src={a.guide.profileImageUrl}
-                              alt={a.guide.nameKo}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-xl text-slate-300">
-                              👤
+              <div className="border-t border-slate-100 pt-4">
+                <h3 className="mb-3 text-xs font-semibold text-slate-700">배정 정보</h3>
+                <div className="grid gap-4 text-sm text-slate-700 sm:grid-cols-2">
+                  <div>
+                    <p className="mb-2 text-xs text-slate-400">가이드</p>
+                    {sortTripAssignments(trip.guideAssignments).length === 0 ? (
+                      <p className="font-medium text-slate-400">-</p>
+                    ) : (
+                      <div className="flex flex-col gap-4">
+                        {sortTripAssignments(trip.guideAssignments).map((a) => (
+                          <div key={a.id} className="flex items-center gap-3">
+                            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+                              {a.guide.profileImageUrl ? (
+                                <img
+                                  src={a.guide.profileImageUrl}
+                                  alt={a.guide.nameKo}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-xl text-slate-300">
+                                  👤
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold leading-tight text-slate-800">
-                            {a.guide.nameKo || a.nameSnapshot || '-'}
-                          </p>
-                          {a.guide.nameMn && (
-                            <p className="text-xs text-slate-400">{a.guide.nameMn}</p>
-                          )}
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
-                              {a.guide.level}
-                            </span>
+                            <div className="min-w-0">
+                              <p className="font-semibold leading-tight text-slate-800">
+                                {a.guide.nameKo || a.nameSnapshot || '-'}
+                              </p>
+                              {a.guide.nameMn ? (
+                                <p className="text-xs text-slate-400">{a.guide.nameMn}</p>
+                              ) : null}
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
+                                  {a.guide.level}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
-              </div>
-
-              {/* 기사 */}
-              <div>
-                <p className="mb-2 text-xs text-slate-400">기사</p>
-                {sortTripAssignments(trip.driverAssignments).length === 0 ? (
-                  <p className="font-medium text-slate-400">-</p>
-                ) : (
-                  <div className="flex flex-col gap-4">
-                    {sortTripAssignments(trip.driverAssignments).map((a) => (
-                      <div key={a.id} className="flex items-center gap-3">
-                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
-                          {a.driver.profileImageUrl ? (
-                            <img
-                              src={a.driver.profileImageUrl}
-                              alt={a.driver.nameMn}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-xl text-slate-300">
-                              🚗
+                  <div>
+                    <p className="mb-2 text-xs text-slate-400">기사</p>
+                    {sortTripAssignments(trip.driverAssignments).length === 0 ? (
+                      <p className="font-medium text-slate-400">-</p>
+                    ) : (
+                      <div className="flex flex-col gap-4">
+                        {sortTripAssignments(trip.driverAssignments).map((a) => (
+                          <div key={a.id} className="flex items-center gap-3">
+                            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+                              {a.driver.profileImageUrl ? (
+                                <img
+                                  src={a.driver.profileImageUrl}
+                                  alt={a.driver.nameMn}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-xl text-slate-300">
+                                  🚗
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold leading-tight text-slate-800">{a.driver.nameMn}</p>
-                          <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                            {a.driver.vehicleType}
-                          </span>
-                        </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold leading-tight text-slate-800">{a.driver.nameMn}</p>
+                              <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                                {a.driver.vehicleType}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
+                  <div>
+                    <span className="text-slate-500">차량</span>
+                    <p className="font-medium">{meta?.vehicleType ?? trip.assignedVehicle ?? '-'}</p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <h4 className="mb-3 text-xs font-semibold text-slate-700">숙소 배정</h4>
+                    <LodgingSection
+                      tripId={tripId}
+                      hasPlan={!!(trip.planId && trip.planVersionId)}
+                      totalDays={totalDays}
+                      travelStartDate={travelStartDate}
+                      embedded
+                    />
+                  </div>
+                  {trip.accommodationNote ? (
+                    <div className="sm:col-span-2">
+                      <span className="text-slate-500">숙소 메모</span>
+                      <p className="whitespace-pre-wrap font-medium">{trip.accommodationNote}</p>
+                    </div>
+                  ) : null}
+                  {trip.operationNote ? (
+                    <div className="sm:col-span-2">
+                      <span className="text-slate-500">운영 비고</span>
+                      <p className="whitespace-pre-wrap font-medium">{trip.operationNote}</p>
+                    </div>
+                  ) : null}
+                </div>
               </div>
+            </div>
+          </ConfirmedTripSectionCard>
 
-              {(trip.assignedVehicle ?? meta?.vehicleType) ? (
+          <ConfirmedTripSectionCard title="대여 정보">
+            <div className="grid gap-3 text-sm text-slate-700">
+              {meta?.includeRentalItems ? (
                 <div>
-                  <span className="text-slate-500">배차 차량</span>
-                  <p className="font-medium">{trip.assignedVehicle ?? meta?.vehicleType}</p>
+                  <span className="text-xs text-slate-500">기본 대여물품</span>
+                  <p className="mt-1 whitespace-pre-wrap font-medium">{meta.rentalItemsText || '-'}</p>
                 </div>
               ) : null}
-              {trip.accommodationNote ? (
-                <div className="sm:col-span-2">
-                  <span className="text-slate-500">숙소 확정 메모</span>
-                  <p className="whitespace-pre-wrap font-medium">{trip.accommodationNote}</p>
+              {!meta &&
+              (trip.rentalGear || trip.rentalDrone || trip.rentalStarlink || trip.rentalPowerbank) ? (
+                <div>
+                  <span className="text-xs text-slate-500">대여 항목</span>
+                  <p className="mt-1 font-medium">
+                    {[
+                      trip.rentalGear && '물품',
+                      trip.rentalDrone && '드론',
+                      trip.rentalStarlink && '스타링크',
+                      trip.rentalPowerbank && '파워뱅크',
+                    ]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </p>
                 </div>
               ) : null}
-              {trip.operationNote ? (
-                <div className="sm:col-span-2">
-                  <span className="text-slate-500">운영 비고</span>
-                  <p className="whitespace-pre-wrap font-medium">{trip.operationNote}</p>
-                </div>
+              {!meta?.includeRentalItems &&
+                !trip.rentalGear &&
+                !trip.rentalDrone &&
+                !trip.rentalStarlink &&
+                !trip.rentalPowerbank ? (
+                <p className="text-slate-500">등록된 대여 정보가 없습니다.</p>
               ) : null}
+              <div>
+                <span className="text-xs text-slate-500">참여 이벤트</span>
+                <p className="mt-1 whitespace-pre-wrap font-medium">
+                  {trip.latestPublishedConfirmationDocument?.snapshot?.eventNames?.trim() ||
+                    '-'}
+                </p>
+              </div>
             </div>
-            {/* 구분선 + 숙소 */}
-            <div className="mt-5 pt-4 border-t border-slate-100">
-              <LodgingSection
-                tripId={tripId}
-                hasPlan={!!(trip.planId && trip.planVersionId)}
-                totalDays={totalDays}
-                travelStartDate={travelStartDate}
-                embedded
-              />
-            </div>
-          </Card>
+          </ConfirmedTripSectionCard>
+
 
           <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-start justify-between gap-3">
@@ -2124,7 +2148,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
         {/* end left column */}
 
         {showRightPanel && (
-          <div className="sticky top-6 grid gap-4 self-start">
+          <div className="sticky top-6 grid min-w-0 max-w-full gap-4 self-start overflow-hidden">
             <h2 className="text-sm font-semibold text-slate-700">
               {selectedConfirmationDocument ? '확정서 미리보기' : 'PDF 미리보기'}
             </h2>

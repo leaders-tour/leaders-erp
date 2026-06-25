@@ -1,5 +1,10 @@
 import type { AppContext } from '../../context';
 import { requireAdmin, requireStaffOrAbove } from '../../lib/auth-guards';
+import {
+  analyzeContractSubmissionReview,
+  type ContractSubmissionAttentionKind,
+  type ContractSubmissionAttentionSeverity,
+} from '@tour/validation';
 import { ContractPaymentSyncService, ContractSyncService } from './contract-sync.service';
 
 interface ContractDocumentStatusesArgs {
@@ -162,6 +167,51 @@ function effectiveMatchedPlanVersionId(parent: {
   return parent.manualMatchedPlanVersionId ?? parent.matchedPlanVersionId ?? null;
 }
 
+function toGraphqlAttentionKind(kind: ContractSubmissionAttentionKind): string {
+  switch (kind) {
+    case 'special_note':
+      return 'SPECIAL_NOTE';
+    case 'consultation':
+      return 'CONSULTATION';
+    case 'declined_consent':
+      return 'DECLINED_CONSENT';
+    case 'activity_opt_out':
+      return 'ACTIVITY_OPT_OUT';
+    case 'incomplete':
+      return 'INCOMPLETE';
+  }
+}
+
+function toGraphqlAttentionSeverity(severity: ContractSubmissionAttentionSeverity): string {
+  return severity === 'high' ? 'HIGH' : 'MEDIUM';
+}
+
+function contractSubmissionReviewSummary(parent: {
+  rawJson?: unknown;
+  travelerGender?: string | null;
+  travelerBirthCode?: string | null;
+  travelerNote?: string | null;
+}) {
+  const summary = analyzeContractSubmissionReview({
+    rawJson: parent.rawJson,
+    travelerGender: parent.travelerGender,
+    travelerBirthCode: parent.travelerBirthCode,
+    travelerNote: parent.travelerNote,
+  });
+
+  return {
+    hasAttentionItems: summary.hasAttentionItems,
+    attentionItems: summary.attentionItems.map((item) => ({
+      kind: toGraphqlAttentionKind(item.kind),
+      severity: toGraphqlAttentionSeverity(item.severity),
+      label: item.label,
+      detail: item.detail,
+      sourceHeader: item.sourceHeader,
+    })),
+    formResponses: summary.formResponses,
+  };
+}
+
 export const contractResolver = {
   ContractDocumentStatus: {
     effectiveMatchedPlanVersionId: (parent: {
@@ -197,6 +247,14 @@ export const contractResolver = {
     statusRow: (parent: { statusRow: unknown }) => parent.statusRow,
     submissions: (parent: { submissions: unknown[] }) => parent.submissions,
     matchedPlanSummary: (parent: { matchedPlanSummary?: unknown }) => parent.matchedPlanSummary ?? null,
+  },
+  ContractSubmission: {
+    reviewSummary: (parent: {
+      rawJson?: unknown;
+      travelerGender?: string | null;
+      travelerBirthCode?: string | null;
+      travelerNote?: string | null;
+    }) => contractSubmissionReviewSummary(parent),
   },
   ContractPaymentReviewReceiptItem: {
     receipt: (parent: { receipt: unknown }) => parent.receipt,

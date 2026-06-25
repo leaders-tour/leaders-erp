@@ -179,6 +179,39 @@ type ContractSubmission {
   exclusionReason: String
   importedAt: DateTime!
   updatedAt: DateTime!
+  reviewSummary: ContractSubmissionReviewSummary!
+}
+
+enum ContractSubmissionAttentionKind {
+  SPECIAL_NOTE
+  CONSULTATION
+  DECLINED_CONSENT
+  ACTIVITY_OPT_OUT
+  INCOMPLETE
+}
+
+enum ContractSubmissionAttentionSeverity {
+  HIGH
+  MEDIUM
+}
+
+type ContractSubmissionAttentionItem {
+  kind: ContractSubmissionAttentionKind!
+  severity: ContractSubmissionAttentionSeverity!
+  label: String!
+  detail: String!
+  sourceHeader: String!
+}
+
+type ContractSubmissionFormItem {
+  label: String!
+  value: String!
+}
+
+type ContractSubmissionReviewSummary {
+  hasAttentionItems: Boolean!
+  attentionItems: [ContractSubmissionAttentionItem!]!
+  formResponses: [ContractSubmissionFormItem!]!
 }
 
 type ContractSyncRun {

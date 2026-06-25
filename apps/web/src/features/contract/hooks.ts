@@ -109,6 +109,34 @@ export interface ContractSyncRunRow {
   errorMessage: string | null;
 }
 
+export type ContractSubmissionAttentionKind =
+  | 'SPECIAL_NOTE'
+  | 'CONSULTATION'
+  | 'DECLINED_CONSENT'
+  | 'ACTIVITY_OPT_OUT'
+  | 'INCOMPLETE';
+
+export type ContractSubmissionAttentionSeverity = 'HIGH' | 'MEDIUM';
+
+export interface ContractSubmissionAttentionItemRow {
+  kind: ContractSubmissionAttentionKind;
+  severity: ContractSubmissionAttentionSeverity;
+  label: string;
+  detail: string;
+  sourceHeader: string;
+}
+
+export interface ContractSubmissionFormItemRow {
+  label: string;
+  value: string;
+}
+
+export interface ContractSubmissionReviewSummaryRow {
+  hasAttentionItems: boolean;
+  attentionItems: ContractSubmissionAttentionItemRow[];
+  formResponses: ContractSubmissionFormItemRow[];
+}
+
 export interface ContractSubmissionRow {
   id: string;
   source: ContractSubmissionSourceRow;
@@ -122,11 +150,15 @@ export interface ContractSubmissionRow {
   representativeType: string | null;
   totalCompanionCount: number | null;
   receivedStatus: string | null;
+  travelerGender: string | null;
+  travelerBirthCode: string | null;
+  travelerNote: string | null;
   excludedFromContractCount: boolean;
   excludedAt: string | null;
   exclusionReason: string | null;
   importedAt: string;
   updatedAt: string;
+  reviewSummary: ContractSubmissionReviewSummaryRow;
 }
 
 export interface ContractPaymentSourceRow {
@@ -469,6 +501,9 @@ const CONTRACT_SUBMISSIONS_QUERY = gql`
       representativeType
       totalCompanionCount
       receivedStatus
+      travelerGender
+      travelerBirthCode
+      travelerNote
       importedAt
       updatedAt
       source {
@@ -481,6 +516,20 @@ const CONTRACT_SUBMISSIONS_QUERY = gql`
         headerRow
         createdAt
         updatedAt
+      }
+      reviewSummary {
+        hasAttentionItems
+        attentionItems {
+          kind
+          severity
+          label
+          detail
+          sourceHeader
+        }
+        formResponses {
+          label
+          value
+        }
       }
     }
   }

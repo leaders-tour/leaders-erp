@@ -31,6 +31,7 @@ import {
   type ContractPaymentStatusRow,
   type ContractSubmissionRow,
 } from '../features/contract/hooks';
+import { ContractSubmissionDetailPanel } from '../features/contract/components/ContractSubmissionDetailPanel';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { EstimatePreviewScaler } from '../features/estimate/components/EstimatePreviewScaler';
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
@@ -1518,6 +1519,7 @@ function UserDetailDrawer({
                             {submission.sourceRowNumber != null ? ` ${submission.sourceRowNumber}행` : ''}
                           </span>
                         </div>
+                        <ContractSubmissionDetailPanel submission={submission} variant="compact" />
                       </div>
 
                       <div className="rounded-2xl bg-orange-50/60 p-3">

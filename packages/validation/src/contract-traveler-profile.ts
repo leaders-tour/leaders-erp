@@ -19,6 +19,7 @@ const BIRTH_HEADER_CANDIDATES = [
 const NOTE_HEADER_CANDIDATES = [
   '특이사항',
   '여행객 특이사항',
+  '리더스투어가 반드시 알아야 할 특이사항',
   '비고',
   'note',
   'remarks',
