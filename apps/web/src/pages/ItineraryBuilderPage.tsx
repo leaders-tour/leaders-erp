@@ -114,6 +114,8 @@ import {
 } from '../features/plan/transport-group-travel-sync';
 import {
   applyTeamHeadcountsToGroups,
+  distributeHeadcountTotalAcrossTeams,
+  redistributeTeamHeadcountsAfterRemoval,
   usesTransportTeamHeadcountModal,
 } from '../features/plan/transport-team-headcount';
 import { toVariantLabel } from '../features/plan/variant-label';
@@ -2142,18 +2144,26 @@ function createTransportGroupDraft(input: {
   };
 }
 
-/** 팀당 최소 1명을 유지하면서 total을 teamCount팀에 나눕니다. 합은 항상 total과 같습니다. total < teamCount이면 null. */
-function distributeHeadcountTotalAcrossTeams(total: number, teamCount: number): number[] | null {
-  if (teamCount < 1) {
-    return [];
+function buildTransportGroupsAfterRemoveTeam(
+  current: TransportGroupDraft[],
+  removedIndex: number,
+  headcountTotal: number,
+): TransportGroupDraft[] {
+  if (current.length <= 1) {
+    return current;
   }
-  if (total < teamCount) {
-    return null;
-  }
-  const afterMin = total - teamCount;
-  const base = Math.floor(afterMin / teamCount);
-  const rem = afterMin % teamCount;
-  return Array.from({ length: teamCount }, (_, i) => 1 + base + (i < rem ? 1 : 0));
+  const counts = redistributeTeamHeadcountsAfterRemoval(
+    current.map((group) => group.headcount),
+    removedIndex,
+    headcountTotal,
+  );
+  let countIndex = 0;
+  return current
+    .filter((_, groupIndex) => groupIndex !== removedIndex)
+    .map((group) => ({
+      ...group,
+      headcount: counts[countIndex++] ?? group.headcount,
+    }));
 }
 
 function buildTransportGroupsAfterAddTeam(
@@ -3672,12 +3682,10 @@ export function ItineraryBuilderPage(): JSX.Element {
   };
 
   const removeTransportGroupAt = useCallback((index: number) => {
-    setTransportGroups((current) =>
-      current.length <= 1 ? current : current.filter((_, groupIndex) => groupIndex !== index),
-    );
+    setTransportGroups((current) => buildTransportGroupsAfterRemoveTeam(current, index, headcountTotal));
     setManualPricing((current) => remapManualPricingAfterTransportGroupRemoved(current, index));
     setManualPricingSplitTeamRows(false);
-  }, []);
+  }, [headcountTotal]);
 
   const addTransportGroup = useCallback(() => {
     let didAdd = false;
