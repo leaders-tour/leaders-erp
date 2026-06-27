@@ -1018,6 +1018,25 @@ export function ConfirmedTripDetailPage(): JSX.Element {
       .join('\n');
   }, [trip]);
 
+  const equipmentRentalLabels = useMemo(() => {
+    if (!trip) return [];
+    return [
+      !trip.planVersion?.meta && trip.rentalGear ? '물품' : null,
+      trip.rentalDrone ? '드론' : null,
+      trip.rentalStarlink ? '스타링크' : null,
+      trip.rentalPowerbank ? '파워뱅크' : null,
+    ].filter((label): label is string => Boolean(label));
+  }, [trip]);
+
+  const participatedEventText = useMemo(() => {
+    if (!trip) return null;
+    const fromConfirmation = trip.latestPublishedConfirmationDocument?.snapshot?.eventNames?.trim();
+    if (fromConfirmation) return fromConfirmation;
+    const events = trip.planVersion?.meta?.events ?? [];
+    if (events.length === 0) return null;
+    return events.map((event) => event.name).join(' / ');
+  }, [trip]);
+
   if (!tripId) {
     return (
       <section className="grid gap-4 py-8">
@@ -2033,34 +2052,21 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                   <p className="mt-1 whitespace-pre-wrap font-medium">{meta.rentalItemsText || '-'}</p>
                 </div>
               ) : null}
-              {!meta &&
-              (trip.rentalGear || trip.rentalDrone || trip.rentalStarlink || trip.rentalPowerbank) ? (
+              {equipmentRentalLabels.length > 0 ? (
                 <div>
-                  <span className="text-xs text-slate-500">대여 항목</span>
-                  <p className="mt-1 font-medium">
-                    {[
-                      trip.rentalGear && '물품',
-                      trip.rentalDrone && '드론',
-                      trip.rentalStarlink && '스타링크',
-                      trip.rentalPowerbank && '파워뱅크',
-                    ]
-                      .filter(Boolean)
-                      .join(', ')}
-                  </p>
+                  <span className="text-xs text-slate-500">
+                    {meta ? '장비 대여' : '대여 항목'}
+                  </span>
+                  <p className="mt-1 font-medium">{equipmentRentalLabels.join(', ')}</p>
                 </div>
               ) : null}
-              {!meta?.includeRentalItems &&
-                !trip.rentalGear &&
-                !trip.rentalDrone &&
-                !trip.rentalStarlink &&
-                !trip.rentalPowerbank ? (
+              {!meta?.includeRentalItems && equipmentRentalLabels.length === 0 ? (
                 <p className="text-slate-500">등록된 대여 정보가 없습니다.</p>
               ) : null}
               <div>
                 <span className="text-xs text-slate-500">참여 이벤트</span>
                 <p className="mt-1 whitespace-pre-wrap font-medium">
-                  {trip.latestPublishedConfirmationDocument?.snapshot?.eventNames?.trim() ||
-                    '-'}
+                  {participatedEventText || '-'}
                 </p>
               </div>
             </div>

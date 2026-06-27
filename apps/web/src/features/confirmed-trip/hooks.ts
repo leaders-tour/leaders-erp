@@ -440,6 +440,10 @@ export interface ConfirmedTripRow {
       specialNote: string | null;
       includeRentalItems: boolean;
       rentalItemsText: string;
+      events: Array<{
+        id: string;
+        name: string;
+      }>;
       remark: string | null;
       pickupDate: string | null;
       pickupTime: string | null;
@@ -578,6 +582,10 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
         specialNote
         includeRentalItems
         rentalItemsText
+        events {
+          id
+          name
+        }
         remark
         pickupDate
         pickupTime
