@@ -429,6 +429,7 @@ export interface PlanVersionPricingRow {
       teamPricings: Array<{
         teamOrderIndex: number;
         teamName: string;
+        baseAmountKrw?: number;
         totalAmountKrw: number;
         depositAmountKrw: number;
         balanceAmountKrw: number;
@@ -645,6 +646,7 @@ const USERS_QUERY = gql`
                 teamPricings {
                   teamOrderIndex
                   teamName
+                  baseAmountKrw
                   totalAmountKrw
                   depositAmountKrw
                   balanceAmountKrw

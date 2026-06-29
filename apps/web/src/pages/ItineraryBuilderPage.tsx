@@ -53,7 +53,9 @@ import { RegionLodgingSelectModal } from '../features/lodging-selection/componen
 import { ExtraLodgingsModal } from '../features/pricing/components/ExtraLodgingsModal';
 import {
   teamPricingsForSummaryDisplay,
+  teamPricingsForBaseAmountDisplay,
   shouldShowTeamPrefixInPricingSummary,
+  shouldShowTeamPrefixForBaseAmount,
   teamPricingSummarySignatureFromParts,
 } from '../features/pricing/team-pricing-summary-display';
 import {
@@ -156,6 +158,10 @@ import {
   type ManualAdjustmentPresetOption,
 } from '../features/pricing/components/ManualAdjustmentsModal';
 import { PricingBaseLinesBreakdown } from '../features/pricing/components/PricingBaseLinesBreakdown';
+import {
+  assignDisplayedAdjustmentLineTeam,
+  resolveDisplayedAdjustmentLineTeamOrderIndex,
+} from '../features/pricing/adjustment-line-team-assignment';
 import { buildEffectivePricing, sliceEffectiveTotalsForUi, buildDisplayedPricingAdjustmentLines, type PricingAdjustmentLineRow, type DisplayedPricingAdjustmentLineRow, type EffectivePricingResult } from '../features/pricing/manual-pricing';
 import { buildCustomerPricingSnapshot } from '../features/pricing/customer-pricing-snapshot';
 import { MealOption, VariantType } from '../generated/graphql';
@@ -679,7 +685,12 @@ function commitManualPricingAdjustmentAmountInput(raw: string): number {
 function upsertManualPricingAutoOverride(
   current: ManualPricingState,
   line: PricingAdjustmentLineRow,
-  patch: Partial<Pick<ManualPricingAdjustmentLineRow, 'label' | 'leadAmountKrw' | 'formula' | 'strikethrough' | 'deleted'>>,
+  patch: Partial<
+    Pick<
+      ManualPricingAdjustmentLineRow,
+      'label' | 'leadAmountKrw' | 'formula' | 'strikethrough' | 'deleted' | 'teamOrderIndex'
+    >
+  >,
 ): ManualPricingState {
   if (!line.rowKey) {
     return current;
@@ -690,7 +701,7 @@ function upsertManualPricingAutoOverride(
     id: existing?.id ?? line.id,
     type: 'AUTO',
     rowKey: line.rowKey,
-    teamOrderIndex: line.teamOrderIndex ?? null,
+    teamOrderIndex: patch.teamOrderIndex ?? existing?.teamOrderIndex ?? line.teamOrderIndex ?? null,
     label: patch.label ?? existing?.label ?? line.label,
     leadAmountKrw: patch.leadAmountKrw ?? existing?.leadAmountKrw ?? line.leadAmountKrw,
     formula: patch.formula ?? existing?.formula ?? line.formula,
@@ -729,7 +740,9 @@ function upsertManualPricingAutoOverride(
 function updateManualPricingCustomLine(
   current: ManualPricingState,
   id: string,
-  patch: Partial<Pick<ManualPricingAdjustmentLineRow, 'label' | 'leadAmountKrw' | 'formula' | 'strikethrough'>>,
+  patch: Partial<
+    Pick<ManualPricingAdjustmentLineRow, 'label' | 'leadAmountKrw' | 'formula' | 'strikethrough' | 'teamOrderIndex'>
+  >,
 ): ManualPricingState {
   return {
     ...current,
@@ -2025,6 +2038,7 @@ function createEstimateDraftSnapshot(input: {
             teamPricings: customerSnap.teamPricings.map((row) => ({
               teamOrderIndex: row.teamOrderIndex,
               teamName: row.teamName,
+              baseAmountKrw: row.baseAmountKrw ?? customerSnap.baseAmountKrw,
               totalAmountKrw: row.totalAmountKrw,
               depositAmountKrw: row.depositAmountKrw,
               balanceAmountKrw: row.balanceAmountKrw,
@@ -4605,6 +4619,33 @@ export function ItineraryBuilderPage(): JSX.Element {
         : false,
     [fullTeamPricingRows],
   );
+  const basesDifferAcrossTeams = useMemo(
+    () => fullTeamPricingRows.length > 1 && shouldShowTeamPrefixForBaseAmount(fullTeamPricingRows),
+    [fullTeamPricingRows],
+  );
+  const teamsForBaseAmountInput = useMemo(() => {
+    if (fullTeamPricingRows.length <= 1) {
+      return fullTeamPricingRows;
+    }
+    if (basesDifferAcrossTeams) {
+      return fullTeamPricingRows;
+    }
+    if (manualPricing.enabled && manualPricingSplitTeamRows) {
+      return fullTeamPricingRows;
+    }
+    return teamPricingsForBaseAmountDisplay(fullTeamPricingRows);
+  }, [
+    basesDifferAcrossTeams,
+    fullTeamPricingRows,
+    manualPricing.enabled,
+    manualPricingSplitTeamRows,
+  ]);
+  const baseAmountInputShowTeamPrefix = teamsForBaseAmountInput.length > 1;
+  const manualPricingBaseAmountCollapsed =
+    manualPricing.enabled &&
+    fullTeamPricingRows.length > 1 &&
+    !basesDifferAcrossTeams &&
+    teamsForBaseAmountInput.length === 1;
   const teamsForAmountSummaryGrid = useMemo(() => {
     if (fullTeamPricingRows.length <= 1) {
       return fullTeamPricingRows;
@@ -7493,44 +7534,124 @@ export function ItineraryBuilderPage(): JSX.Element {
                       </div>
 
                       <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-                        <div className="font-medium text-slate-900">기본금</div>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="font-medium text-slate-900">기본금</div>
+                          {manualPricing.enabled &&
+                          fullTeamPricingRows.length > 1 &&
+                          !basesDifferAcrossTeams ? (
+                            <button
+                              type="button"
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                              onClick={() => setManualPricingSplitTeamRows((prev) => !prev)}
+                            >
+                              {manualPricingSplitTeamRows ? '한 줄로 보기' : '팀 분리해서 보기'}
+                            </button>
+                          ) : null}
+                        </div>
                         {manualPricing.enabled ? (
                           <div className="mt-2 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-                            <div className="flex gap-2">
-                              <input
-                                type="number"
-                                step={1}
-                                value={(estimatePricingUiTotals ?? effectivePricingPreview).baseAmountKrw}
-                                onChange={(event) => {
-                                  const nextValue = Number(event.target.value);
-                                  if (!Number.isInteger(nextValue)) {
-                                    return;
+                            <div className="space-y-2">
+                              {teamsForBaseAmountInput.length <= 1 ? (
+                                <div className="flex gap-2">
+                                  <input
+                                    type="number"
+                                    step={1}
+                                    value={(estimatePricingUiTotals ?? effectivePricingPreview).baseAmountKrw}
+                                    onChange={(event) => {
+                                      const nextValue = Number(event.target.value);
+                                      if (!Number.isInteger(nextValue)) {
+                                        return;
+                                      }
+                                      setManualPricing((current) =>
+                                        setManualPricingSummaryValue(current, 'baseAmountKrw', nextValue),
+                                      );
+                                    }}
+                                    className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="h-[42px] shrink-0 whitespace-nowrap px-3 text-xs"
+                                    disabled={!pricingPreview || !hasManualBaseAmountOverride(manualPricing)}
+                                    onClick={() =>
+                                      setManualPricing((current) => resetManualPricingBaseAmount(current))
+                                    }
+                                  >
+                                    초기화
+                                  </Button>
+                                </div>
+                              ) : (
+                                teamsForBaseAmountInput.map((teamPricing) => (
+                                  <div
+                                    key={`base-${teamPricing.teamOrderIndex}`}
+                                    className="flex flex-wrap items-center gap-2"
+                                  >
+                                    {baseAmountInputShowTeamPrefix ? (
+                                      <div className="text-xs font-medium text-slate-500">{`${teamPricing.teamName})`}</div>
+                                    ) : null}
+                                    <input
+                                      type="number"
+                                      step={1}
+                                      value={teamPricing.baseAmountKrw}
+                                      onChange={(event) => {
+                                        const nextValue = Number(event.target.value);
+                                        if (!Number.isInteger(nextValue)) {
+                                          return;
+                                        }
+                                        setManualPricing((current) =>
+                                          manualPricingBaseAmountCollapsed
+                                            ? setManualPricingAllTeamSummariesValue(
+                                                current,
+                                                allTeamOrderIndexesForSummarySync,
+                                                'baseAmountKrw',
+                                                nextValue,
+                                              )
+                                            : setManualPricingTeamSummaryValue(
+                                                current,
+                                                teamPricing.teamOrderIndex,
+                                                'baseAmountKrw',
+                                                nextValue,
+                                              ),
+                                        );
+                                      }}
+                                      className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                                    />
+                                  </div>
+                                ))
+                              )}
+                              {teamsForBaseAmountInput.length > 1 ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="h-[42px] shrink-0 whitespace-nowrap px-3 text-xs"
+                                  disabled={!pricingPreview || !hasManualBaseAmountOverride(manualPricing)}
+                                  onClick={() =>
+                                    setManualPricing((current) => resetManualPricingBaseAmount(current))
                                   }
-                                  setManualPricing((current) =>
-                                    setManualPricingSummaryValue(current, 'baseAmountKrw', nextValue),
-                                  );
-                                }}
-                                className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className="h-[42px] shrink-0 whitespace-nowrap px-3 text-xs"
-                                disabled={!pricingPreview || !hasManualBaseAmountOverride(manualPricing)}
-                                onClick={() =>
-                                  setManualPricing((current) => resetManualPricingBaseAmount(current))
-                                }
-                              >
-                                초기화
-                              </Button>
+                                >
+                                  초기화
+                                </Button>
+                              ) : null}
                             </div>
                             <p className="text-xs text-slate-500 lg:max-w-xs">
-                              기본금 단일값을 직접 수정하면 총액도 자동 재계산됩니다. 총액을 별도로 수정하면 그 값이 우선합니다.
+                              {teamsForBaseAmountInput.length > 1
+                                ? '팀마다 1인 기본금을 따로 지정할 수 있습니다. 총액을 별도로 수정하면 그 값이 우선합니다.'
+                                : '기본금 단일값을 직접 수정하면 총액도 자동 재계산됩니다. 총액을 별도로 수정하면 그 값이 우선합니다.'}{' '}
                               일수 변경 후 자동 기본금을 다시 반영하려면 초기화를 누르세요.
                             </p>
                           </div>
                         ) : (
-                          <div className="mt-2 text-slate-900">{formatKrw((estimatePricingUiTotals ?? effectivePricingPreview).baseAmountKrw)}</div>
+                          <div className="mt-2 space-y-1 text-slate-900">
+                            {teamsForBaseAmountInput.length > 1 ? (
+                              teamsForBaseAmountInput.map((teamPricing) => (
+                                <div key={`base-read-${teamPricing.teamOrderIndex}`}>
+                                  {`${baseAmountInputShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${formatKrw(teamPricing.baseAmountKrw)}`}
+                                </div>
+                              ))
+                            ) : (
+                              formatKrw((estimatePricingUiTotals ?? effectivePricingPreview).baseAmountKrw)
+                            )}
+                          </div>
                         )}
                         {pricingPreview && !manualPricing.enabled ? (
                           <PricingBaseLinesBreakdown
@@ -7548,7 +7669,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           <div className="font-medium text-slate-900">추가 및 할인 사항</div>
                           <span className="text-xs text-slate-500">
                             {manualPricing.enabled
-                              ? '항목 / 금액 / 표기를 직접 수정하면 1페이지에 즉시 반영됩니다.'
+                              ? '적용 팀·항목·금액·표기를 직접 수정하면 1페이지에 즉시 반영됩니다.'
                               : '견적서 1페이지와 같은 출력 형식입니다.'}
                           </span>
                         </div>
@@ -7558,6 +7679,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                           <div className="mt-3 space-y-2">
                             {displayedPricingAdjustmentLines.map((line) => {
                               const adjustmentLineRowKey = `${line.id}-${line.teamOrderIndexes.join(',') || 'global'}`;
+                              const assignedTeamOrderIndex = resolveDisplayedAdjustmentLineTeamOrderIndex(line);
+                              const showAdjustmentLineTeamSelect =
+                                manualPricing.enabled && fullTeamPricingRows.length > 1;
                               return (
                               <div
                                 key={adjustmentLineRowKey}
@@ -7566,36 +7690,67 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 {manualPricing.enabled ? (
                                   <>
                                     <div className="grid gap-1">
+                                      {showAdjustmentLineTeamSelect ? (
+                                        <label className="grid gap-1">
+                                          <span className="text-[11px] font-medium text-slate-500">적용 팀</span>
+                                          <select
+                                            disabled={line.strikethrough}
+                                            value={
+                                              line.isSharedAcrossTeams
+                                                ? ''
+                                                : assignedTeamOrderIndex ?? ''
+                                            }
+                                            onChange={(event) => {
+                                              const raw = event.target.value;
+                                              const nextTeamOrderIndex =
+                                                raw === '' ? null : Number(raw);
+                                              if (raw !== '' && !Number.isInteger(nextTeamOrderIndex)) {
+                                                return;
+                                              }
+                                              setManualPricing((current) => ({
+                                                ...current,
+                                                ...assignDisplayedAdjustmentLineTeam(
+                                                  current,
+                                                  line,
+                                                  nextTeamOrderIndex,
+                                                  pricingPreview
+                                                    ? {
+                                                        pricingPreview,
+                                                        totalDays,
+                                                      }
+                                                    : undefined,
+                                                ),
+                                              }));
+                                            }}
+                                            className="rounded-xl border border-slate-200 bg-white px-2 py-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                                            aria-label="적용 팀"
+                                          >
+                                            <option value="">전체 (공통)</option>
+                                            {fullTeamPricingRows.map((teamPricing) => (
+                                              <option
+                                                key={`team-opt-${teamPricing.teamOrderIndex}`}
+                                                value={teamPricing.teamOrderIndex}
+                                              >
+                                                {teamPricing.teamName}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </label>
+                                      ) : null}
                                       <input
                                         type="text"
                                         disabled={line.strikethrough}
-                                        value={
-                                          !line.isSharedAcrossTeams && line.teamNames[0]
-                                            ? `${line.teamNames[0]}) ${line.label}`
-                                            : line.label
-                                        }
+                                        value={line.label}
                                         onChange={(event) =>
                                           setManualPricing((current) =>
                                             line.type === 'MANUAL'
                                               ? updateManualPricingCustomLine(current, line.sourceLines[0]!.id, {
-                                                  label:
-                                                    !line.isSharedAcrossTeams && line.teamNames[0]
-                                                      ? event.target.value.replace(
-                                                          new RegExp(`^${line.teamNames[0]}\\)\\s*`),
-                                                          '',
-                                                        )
-                                                      : event.target.value,
+                                                  label: event.target.value,
                                                 })
                                               : line.sourceLines.reduce(
                                                   (nextState, sourceLine) =>
                                                     upsertManualPricingAutoOverride(nextState, sourceLine, {
-                                                      label:
-                                                        !line.isSharedAcrossTeams && line.teamNames[0]
-                                                          ? event.target.value.replace(
-                                                              new RegExp(`^${line.teamNames[0]}\\)\\s*`),
-                                                              '',
-                                                            )
-                                                          : event.target.value,
+                                                      label: event.target.value,
                                                     }),
                                                   current,
                                                 ),
@@ -7778,9 +7933,17 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         line.strikethrough ? 'text-slate-400 line-through' : 'text-slate-900'
                                       }`}
                                     >
-                                      {!line.isSharedAcrossTeams && line.teamNames[0]
-                                        ? `${line.teamNames[0]}) ${line.label}`
-                                        : line.label}
+                                      {fullTeamPricingRows.length > 1 && !line.isSharedAcrossTeams && line.teamNames[0] ? (
+                                        <span className="mr-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                          {line.teamNames[0]}
+                                        </span>
+                                      ) : null}
+                                      {fullTeamPricingRows.length > 1 && line.isSharedAcrossTeams ? (
+                                        <span className="mr-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                          전체
+                                        </span>
+                                      ) : null}
+                                      <span>{line.label}</span>
                                     </div>
                                     <div
                                       className={`text-sm font-semibold ${
@@ -7821,7 +7984,8 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                       {manualPricing.enabled &&
                       fullTeamPricingRows.length > 1 &&
-                      !amountsDifferAcrossTeams ? (
+                      !amountsDifferAcrossTeams &&
+                      !basesDifferAcrossTeams ? (
                         <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
                           <button
                             type="button"

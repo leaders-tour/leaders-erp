@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CustomerPricingSnapshot } from '@tour/domain';
 import {
+  buildCustomerOutputBaseAmountTeams,
   buildCustomerOutputSummaryTeams,
   buildCustomerPricingSnapshot,
   customerFacingAdjustmentLineRowsFromSnapshot,
@@ -94,6 +95,66 @@ describe('buildCustomerPricingSnapshot', () => {
     expect(snap?.adjustmentLines[0]?.label).toBe('조기종료');
     expect(snap?.depositAmountKrw).toBe(99_000);
     expect(snap?.teamPricings[0]?.depositAmountKrw).toBe(99_000);
+  });
+
+  it('팀별 baseAmountKrw를 customerPricingSnapshot teamPricings에 저장한다', () => {
+    const effective = {
+      baseAmountKrw: 1_000_000,
+      addonAmountKrw: 0,
+      totalAmountKrw: 1_000_000,
+      depositAmountKrw: 100_000,
+      balanceAmountKrw: 900_000,
+      securityDepositAmountKrw: 0,
+      securityDepositUnitPriceKrw: 0,
+      securityDepositQuantity: 0,
+      securityDepositMode: 'NONE' as const,
+      lines: [],
+      originalPricing: {} as EffectivePricingResult['originalPricing'],
+      manualPricing: null,
+      adjustmentLines: [],
+      teamPricings: [
+        {
+          teamOrderIndex: 0,
+          teamName: 'A팀',
+          headcount: 2,
+          baseAmountKrw: 900_000,
+          addonAmountKrw: 0,
+          totalAmountKrw: 900_000,
+          depositAmountKrw: 90_000,
+          balanceAmountKrw: 810_000,
+          securityDepositAmountKrw: 0,
+          securityDepositUnitPriceKrw: 0,
+          securityDepositQuantity: 0,
+          securityDepositMode: 'NONE' as const,
+          lines: [],
+          originalPricing: {} as EffectivePricingResult['teamPricings'][0]['originalPricing'],
+          manualPricing: null,
+          adjustmentLines: [],
+        },
+        {
+          teamOrderIndex: 1,
+          teamName: 'B팀',
+          headcount: 4,
+          baseAmountKrw: 1_100_000,
+          addonAmountKrw: 0,
+          totalAmountKrw: 1_100_000,
+          depositAmountKrw: 110_000,
+          balanceAmountKrw: 990_000,
+          securityDepositAmountKrw: 0,
+          securityDepositUnitPriceKrw: 0,
+          securityDepositQuantity: 0,
+          securityDepositMode: 'NONE' as const,
+          lines: [],
+          originalPricing: {} as EffectivePricingResult['teamPricings'][0]['originalPricing'],
+          manualPricing: null,
+          adjustmentLines: [],
+        },
+      ],
+    } satisfies EffectivePricingResult;
+
+    const snap = buildCustomerPricingSnapshot(effective, []);
+    expect(snap?.teamPricings[0]?.baseAmountKrw).toBe(900_000);
+    expect(snap?.teamPricings[1]?.baseAmountKrw).toBe(1_100_000);
   });
 
   it('복수 팀의 특정 팀 견적 줄은 teamName을 스냅샷에 남긴다', () => {
@@ -258,6 +319,7 @@ describe('buildCustomerOutputSummaryTeams', () => {
         {
           teamOrderIndex: 0,
           teamName: 'A팀',
+          baseAmountKrw: 900_000,
           totalAmountKrw: 1_048_000,
           depositAmountKrw: 98_000,
           balanceAmountKrw: 950_000,
@@ -268,6 +330,7 @@ describe('buildCustomerOutputSummaryTeams', () => {
         {
           teamOrderIndex: 1,
           teamName: 'B팀',
+          baseAmountKrw: 1_100_000,
           totalAmountKrw: 1_081_300,
           depositAmountKrw: 101_300,
           balanceAmountKrw: 980_000,
@@ -279,6 +342,70 @@ describe('buildCustomerOutputSummaryTeams', () => {
     });
     expect(summary?.rows).toHaveLength(2);
     expect(summary?.showTeamPrefix).toBe(true);
+  });
+});
+
+describe('buildCustomerOutputBaseAmountTeams', () => {
+  it('팀별 기본금이 다르면 A/B 접두사를 붙여 펼친다', () => {
+    const summary = buildCustomerOutputBaseAmountTeams({
+      teamPricings: [
+        {
+          teamOrderIndex: 0,
+          teamName: 'A팀',
+          baseAmountKrw: 900_000,
+          totalAmountKrw: 948_000,
+          depositAmountKrw: 98_000,
+          balanceAmountKrw: 850_000,
+          securityDepositAmountKrw: 0,
+          securityDepositUnitKrw: 0,
+          securityDepositScope: '-',
+        },
+        {
+          teamOrderIndex: 1,
+          teamName: 'B팀',
+          baseAmountKrw: 1_100_000,
+          totalAmountKrw: 1_181_300,
+          depositAmountKrw: 101_300,
+          balanceAmountKrw: 1_080_000,
+          securityDepositAmountKrw: 0,
+          securityDepositUnitKrw: 0,
+          securityDepositScope: '-',
+        },
+      ],
+    });
+    expect(summary?.rows).toHaveLength(2);
+    expect(summary?.showTeamPrefix).toBe(true);
+  });
+
+  it('팀별 기본금이 같으면 한 줄만 반환한다', () => {
+    const summary = buildCustomerOutputBaseAmountTeams({
+      teamPricings: [
+        {
+          teamOrderIndex: 0,
+          teamName: 'A팀',
+          baseAmountKrw: 1_000_000,
+          totalAmountKrw: 1_048_000,
+          depositAmountKrw: 98_000,
+          balanceAmountKrw: 950_000,
+          securityDepositAmountKrw: 0,
+          securityDepositUnitKrw: 0,
+          securityDepositScope: '-',
+        },
+        {
+          teamOrderIndex: 1,
+          teamName: 'B팀',
+          baseAmountKrw: 1_000_000,
+          totalAmountKrw: 1_081_300,
+          depositAmountKrw: 101_300,
+          balanceAmountKrw: 980_000,
+          securityDepositAmountKrw: 0,
+          securityDepositUnitKrw: 0,
+          securityDepositScope: '-',
+        },
+      ],
+    });
+    expect(summary?.rows).toHaveLength(1);
+    expect(summary?.showTeamPrefix).toBe(false);
   });
 });
 
@@ -297,6 +424,7 @@ describe('customerFacingAdjustmentLineRowsFromSnapshot', () => {
         {
           teamOrderIndex: 0,
           teamName: 'B팀',
+          baseAmountKrw: 1,
           totalAmountKrw: 2,
           depositAmountKrw: 1,
           balanceAmountKrw: 1,

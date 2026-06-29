@@ -335,6 +335,7 @@ type CustomerPricingAdjustmentLine {
 type CustomerPricingTeamRow {
   teamOrderIndex: Int!
   teamName: String!
+  baseAmountKrw: Int
   totalAmountKrw: Int!
   depositAmountKrw: Int!
   balanceAmountKrw: Int!
@@ -675,6 +676,7 @@ input CustomerPricingAdjustmentLineInput {
 input CustomerPricingTeamRowInput {
   teamOrderIndex: Int!
   teamName: String!
+  baseAmountKrw: Int
   totalAmountKrw: Int!
   depositAmountKrw: Int!
   balanceAmountKrw: Int!

@@ -2,7 +2,9 @@ import { useMemo, useRef, useState, type FocusEvent, type ReactNode } from 'reac
 import { usePage1FitScale } from '../../document-layout/use-page1-fit-scale';
 import {
   shouldShowTeamPrefixInPricingSummary,
+  shouldShowTeamPrefixForBaseAmount,
   teamPricingsForSummaryDisplay,
+  teamPricingsForBaseAmountDisplay,
   teamPricingSummarySignatureFromParts,
 } from '../../pricing/team-pricing-summary-display';
 import { PICKUP_DROP_PLACE_OPTIONS, formatPickupDropDisplay, type PickupDropPlaceType } from '../../plan/pickup-drop';
@@ -518,8 +520,22 @@ export function EstimatePage1({ data, editor, onLayoutReady }: EstimatePage1Prop
     }
     return teamPricingsForSummaryDisplay(rows, estimateTeamPricingSummarySignature);
   }, [data.teamPricings, data.expandTeamPricingSummaryRows]);
+  const baseTeamPricingsForDisplay = useMemo(() => {
+    const rows = data.teamPricings;
+    if (rows.length <= 1) {
+      return rows;
+    }
+    if (shouldShowTeamPrefixForBaseAmount(rows)) {
+      return rows;
+    }
+    if (data.expandTeamPricingSummaryRows === true) {
+      return rows;
+    }
+    return teamPricingsForBaseAmountDisplay(rows);
+  }, [data.teamPricings, data.expandTeamPricingSummaryRows]);
   const estimateLineShowTeamPrefix = data.teamPricings.length > 1;
   const estimateSummaryShowTeamPrefix = summaryTeamPricingsForDisplay.length > 1;
+  const estimateBaseShowTeamPrefix = baseTeamPricingsForDisplay.length > 1;
   const travelPeriodCompact = formatTravelPeriodCompact(data.travelStartDate, data.travelEndDate);
   const headcountDisplay = blankIfDash(formatHeadcount(data.headcountTotal, data.headcountMale, data.headcountFemale));
   const flightInText = blankIfDash(
@@ -910,7 +926,19 @@ export function EstimatePage1({ data, editor, onLayoutReady }: EstimatePage1Prop
           </thead>
           <tbody>
             <tr>
-              <td className="estimate-page1-price-cell estimate-page1-price-cell--base">{blankIfDash(formatCurrency(data.basePricePerPersonKrw))}</td>
+              <td className="estimate-page1-price-cell estimate-page1-price-cell--base">
+                {baseTeamPricingsForDisplay.length > 0 ? (
+                  <div className="estimate-page1-summary-team-list">
+                    {baseTeamPricingsForDisplay.map((teamPricing) => (
+                      <div key={`base-${teamPricing.teamOrderIndex}`} className="estimate-page1-summary-team-item">
+                        <div>{`${estimateBaseShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${blankIfDash(formatCurrency(teamPricing.baseAmountKrw))}`}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  blankIfDash(formatCurrency(data.basePricePerPersonKrw))
+                )}
+              </td>
               <td className="estimate-page1-price-cell estimate-page1-price-cell--details">
                 {adjustmentLines.length === 0 ? (
                   <div className="estimate-page1-price-placeholder" />

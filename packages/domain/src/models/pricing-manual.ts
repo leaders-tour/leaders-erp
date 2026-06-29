@@ -82,6 +82,8 @@ export interface CustomerPricingAdjustmentLineSnapshot {
 export interface CustomerPricingTeamRowSnapshot {
   teamOrderIndex: number;
   teamName: string;
+  /** 신규 저장부터 포함. 레거시 스냅샷은 resolve 시 effective/headline으로 보완 */
+  baseAmountKrw?: number;
   totalAmountKrw: number;
   depositAmountKrw: number;
   balanceAmountKrw: number;

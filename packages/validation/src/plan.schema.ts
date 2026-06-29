@@ -153,6 +153,7 @@ export const customerPricingAdjustmentLineInputSchema = z.object({
 export const customerPricingTeamRowInputSchema = z.object({
   teamOrderIndex: z.number().int().min(0),
   teamName: z.string().min(1).max(200),
+  baseAmountKrw: z.number().int().optional(),
   totalAmountKrw: z.number().int(),
   depositAmountKrw: z.number().int(),
   balanceAmountKrw: z.number().int(),

@@ -9,7 +9,9 @@ import {
 } from './manual-pricing';
 import {
   shouldShowTeamPrefixInPricingSummary,
+  shouldShowTeamPrefixForBaseAmount,
   teamPricingsForSummaryDisplay,
+  teamPricingsForBaseAmountDisplay,
   teamPricingSummarySignatureFromParts,
 } from './team-pricing-summary-display';
 
@@ -61,6 +63,7 @@ export function customerFacingAdjustmentLineRowsFromSnapshot(
 export type CustomerOutputTeamPricingRow = {
   teamOrderIndex: number;
   teamName: string;
+  baseAmountKrw: number;
   totalAmountKrw: number;
   depositAmountKrw: number;
   balanceAmountKrw: number;
@@ -83,6 +86,7 @@ function mapSnapshotTeamPricingRow(row: CustomerPricingTeamRowSnapshot): Custome
   return {
     teamOrderIndex: row.teamOrderIndex,
     teamName: row.teamName,
+    baseAmountKrw: row.baseAmountKrw ?? 0,
     totalAmountKrw: row.totalAmountKrw,
     depositAmountKrw: row.depositAmountKrw,
     balanceAmountKrw: row.balanceAmountKrw,
@@ -96,6 +100,7 @@ function mapEffectiveTeamPricingRow(row: EffectiveTeamPricingResult): CustomerOu
   return {
     teamOrderIndex: row.teamOrderIndex,
     teamName: row.teamName,
+    baseAmountKrw: row.baseAmountKrw,
     totalAmountKrw: row.totalAmountKrw,
     depositAmountKrw: row.depositAmountKrw,
     balanceAmountKrw: row.balanceAmountKrw,
@@ -121,10 +126,21 @@ export function customerOutputTeamPricingSignature(row: CustomerOutputTeamPricin
 export function resolveCustomerOutputTeamPricings(input: {
   snapshotTeamPricings?: CustomerPricingTeamRowSnapshot[] | null;
   effectiveTeamPricings?: EffectiveTeamPricingResult[] | null;
+  headlineBaseAmountKrw?: number | null;
 }): CustomerOutputTeamPricingRow[] {
   const snapshotRows = input.snapshotTeamPricings ?? [];
+  const effectiveByIndex = new Map(
+    (input.effectiveTeamPricings ?? []).map((row) => [row.teamOrderIndex, row]),
+  );
   if (snapshotRows.length > 0) {
-    return snapshotRows.map(mapSnapshotTeamPricingRow);
+    return snapshotRows.map((row) => {
+      const effective = effectiveByIndex.get(row.teamOrderIndex);
+      const baseAmountKrw =
+        typeof row.baseAmountKrw === 'number'
+          ? row.baseAmountKrw
+          : effective?.baseAmountKrw ?? input.headlineBaseAmountKrw ?? 0;
+      return mapSnapshotTeamPricingRow({ ...row, baseAmountKrw });
+    });
   }
   return (input.effectiveTeamPricings ?? []).map(mapEffectiveTeamPricingRow);
 }
@@ -149,6 +165,30 @@ export function buildCustomerOutputSummaryTeams(input: {
   }
   return {
     rows: teamPricingsForSummaryDisplay(teams, customerOutputTeamPricingSignature),
+    showTeamPrefix: false,
+  };
+}
+
+/** 빌더·견적 PDF와 동일한 팀별 기본금 표시 규칙 */
+export function buildCustomerOutputBaseAmountTeams(input: {
+  teamPricings: CustomerOutputTeamPricingRow[];
+  expandTeamPricingSummaryRows?: boolean | null;
+}): { rows: CustomerOutputTeamPricingRow[]; showTeamPrefix: boolean } | null {
+  const teams = input.teamPricings;
+  if (teams.length === 0) {
+    return null;
+  }
+  if (teams.length <= 1) {
+    return { rows: teams, showTeamPrefix: false };
+  }
+  if (shouldShowTeamPrefixForBaseAmount(teams)) {
+    return { rows: teams, showTeamPrefix: true };
+  }
+  if (input.expandTeamPricingSummaryRows === true) {
+    return { rows: teams, showTeamPrefix: true };
+  }
+  return {
+    rows: teamPricingsForBaseAmountDisplay(teams),
     showTeamPrefix: false,
   };
 }
@@ -184,6 +224,7 @@ export function buildCustomerPricingSnapshot(
     teamPricings: pricingPreview.teamPricings.map((teamPricing) => ({
       teamOrderIndex: teamPricing.teamOrderIndex,
       teamName: teamPricing.teamName,
+      baseAmountKrw: teamPricing.baseAmountKrw,
       totalAmountKrw: teamPricing.totalAmountKrw,
       depositAmountKrw: teamPricing.depositAmountKrw,
       balanceAmountKrw: teamPricing.balanceAmountKrw,

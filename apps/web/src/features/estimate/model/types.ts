@@ -120,6 +120,7 @@ export interface EstimateAdjustmentLine {
 export interface EstimateTeamPricing {
   teamOrderIndex: number;
   teamName: string;
+  baseAmountKrw: number;
   totalAmountKrw: number;
   depositAmountKrw: number;
   balanceAmountKrw: number;

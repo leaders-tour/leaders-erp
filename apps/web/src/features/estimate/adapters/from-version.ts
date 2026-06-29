@@ -36,12 +36,13 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
         version.pricing.savedManualDepositAmountKrw ?? undefined,
       )
     : null;
+  const publishedTotals = version.pricing ? publishedTotalsFromPlanVersionPricing(version.pricing) : null;
   const resolvedTeamPricings = resolveCustomerOutputTeamPricings({
     snapshotTeamPricings: customerPricingSnapshot?.teamPricings,
     effectiveTeamPricings: pricing?.teamPricings,
+    headlineBaseAmountKrw: customerPricingSnapshot?.baseAmountKrw ?? publishedTotals?.baseAmountKrw ?? null,
   });
   const showCustomerSnapshotLineTeamName = resolvedTeamPricings.length > 1;
-  const publishedTotals = version.pricing ? publishedTotalsFromPlanVersionPricing(version.pricing) : null;
   const pricingBuckets =
     pricing && publishedTotals ? buildPricingViewBuckets(pricing.lines, publishedTotals.totalAmountKrw) : null;
   const basePricePerPersonKrw = customerPricingSnapshot
@@ -158,6 +159,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     teamPricings: resolvedTeamPricings.map((row) => ({
       teamOrderIndex: row.teamOrderIndex,
       teamName: row.teamName,
+      baseAmountKrw: row.baseAmountKrw,
       totalAmountKrw: row.totalAmountKrw,
       depositAmountKrw: row.depositAmountKrw,
       balanceAmountKrw: row.balanceAmountKrw,

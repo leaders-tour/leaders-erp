@@ -73,6 +73,45 @@ function buildAdjustmentGroupingKey(line: PricingAdjustmentLineRow): string {
   ].join('|');
 }
 
+/** AUTO/MANUAL 구분 없이 같은 견적 항목인지 비교할 때 사용한다. */
+export function buildAdjustmentDisplayIdentityKey(
+  line: Pick<
+    PricingAdjustmentLineRow,
+    'label' | 'leadAmountKrw' | 'formula' | 'strikethrough' | 'autoLabel' | 'autoLeadAmountKrw' | 'autoFormula'
+  >,
+): string {
+  return [
+    line.label,
+    line.leadAmountKrw,
+    line.formula,
+    line.strikethrough ? 'strikethrough' : '',
+    line.autoLabel ?? '',
+    line.autoLeadAmountKrw ?? '',
+    line.autoFormula ?? '',
+  ].join('|');
+}
+
+export function findMatchingAutoAdjustmentLinesOnTeam<TLine extends PricingManualSourceLine>(
+  pricing: Pick<PricingLike<TLine>, 'teamPricings'>,
+  referenceLine: Pick<
+    PricingAdjustmentLineRow,
+    'label' | 'leadAmountKrw' | 'formula' | 'strikethrough' | 'autoLabel' | 'autoLeadAmountKrw' | 'autoFormula'
+  >,
+  teamOrderIndex: number,
+  ctx: { totalDays: number },
+): PricingAdjustmentLineRow[] {
+  const teamPricing = pricing.teamPricings?.find((team) => team.teamOrderIndex === teamOrderIndex);
+  if (!teamPricing) {
+    return [];
+  }
+  const { adjustmentLines } = buildAutoAdjustmentLines(teamPricing, null, {
+    headcountTotal: teamPricing.headcount,
+    totalDays: ctx.totalDays,
+  });
+  const referenceKey = buildAdjustmentDisplayIdentityKey(referenceLine);
+  return adjustmentLines.filter((line) => buildAdjustmentDisplayIdentityKey(line) === referenceKey);
+}
+
 function aggregateSameKeyAdjustmentLines(
   sourceLines: PricingAdjustmentLineRow[],
   options: { sumLeadAmounts: boolean },

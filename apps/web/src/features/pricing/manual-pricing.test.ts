@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PricingManualSourceLine } from '@tour/domain';
 import { computeDepositAndBalanceKrw } from '@tour/domain';
-import { buildEffectivePricing, buildDisplayedPricingAdjustmentLines, resolveAdjustmentLinesForCustomerDocument, sliceEffectiveTotalsForUi } from './manual-pricing';
+import { buildEffectivePricing, buildDisplayedPricingAdjustmentLines, findMatchingAutoAdjustmentLinesOnTeam, resolveAdjustmentLinesForCustomerDocument, sliceEffectiveTotalsForUi } from './manual-pricing';
 
 describe('buildEffectivePricing', () => {
   it('applies manual output overrides to merged display rows', () => {
@@ -913,6 +913,72 @@ describe('buildEffectivePricing', () => {
     expect(totals.balanceAmountKrw).toBe(1_000_000);
     expect(totals.securityDepositAmountKrw).toBe(300_000);
   });
+
+  it('teamSummaries의 팀별 baseAmountKrw를 각 팀 effective pricing에 반영한다', () => {
+    const commonLine: PricingManualSourceLine = {
+      ruleType: 'BASE',
+      lineCode: 'BASE',
+      sourceType: 'RULE',
+      description: '기본금',
+      ruleId: 'rule-base',
+      unitPriceKrw: 1_000_000,
+      quantity: 1,
+      amountKrw: 1_000_000,
+    };
+
+    const effectivePricing = buildEffectivePricing(
+      {
+        baseAmountKrw: 1_000_000,
+        addonAmountKrw: 0,
+        totalAmountKrw: 1_000_000,
+        depositAmountKrw: 100_000,
+        balanceAmountKrw: 900_000,
+        securityDepositAmountKrw: 0,
+        securityDepositEvent: null,
+        securityDepositUnitPriceKrw: 0,
+        securityDepositQuantity: 0,
+        securityDepositMode: 'NONE',
+        lines: [commonLine],
+        teamPricings: [0, 1].map((teamOrderIndex) => ({
+          teamOrderIndex,
+          teamName: teamOrderIndex === 0 ? 'A팀' : 'B팀',
+          headcount: teamOrderIndex === 0 ? 2 : 4,
+          baseAmountKrw: 1_000_000,
+          addonAmountKrw: 0,
+          totalAmountKrw: 1_000_000,
+          depositAmountKrw: 100_000,
+          balanceAmountKrw: 900_000,
+          securityDepositAmountKrw: 0,
+          securityDepositUnitPriceKrw: 0,
+          securityDepositQuantity: 0,
+          securityDepositMode: 'NONE' as const,
+          securityDepositEvent: null,
+          lines: [
+            {
+              ...commonLine,
+              teamOrderIndex,
+              teamName: teamOrderIndex === 0 ? 'A팀' : 'B팀',
+              headcount: teamOrderIndex === 0 ? 2 : 4,
+            },
+          ],
+        })),
+      },
+      { headcountTotal: 6, totalDays: 4 },
+      {
+        enabled: true,
+        adjustmentLines: [],
+        teamSummaries: [
+          { teamOrderIndex: 0, baseAmountKrw: 900_000 },
+          { teamOrderIndex: 1, baseAmountKrw: 1_100_000 },
+        ],
+      },
+    );
+
+    expect(effectivePricing.teamPricings[0]?.baseAmountKrw).toBe(900_000);
+    expect(effectivePricing.teamPricings[1]?.baseAmountKrw).toBe(1_100_000);
+    expect(effectivePricing.teamPricings[0]?.totalAmountKrw).toBe(900_000);
+    expect(effectivePricing.teamPricings[1]?.totalAmountKrw).toBe(1_100_000);
+  });
 });
 
 describe('computeDepositAndBalanceKrw', () => {
@@ -1164,5 +1230,93 @@ describe('pickup/drop display merge', () => {
       isSharedAcrossTeams: true,
     });
     expect(early?.teamNames.sort()).toEqual(['A팀', 'B팀']);
+  });
+
+  it('finds the same pickup/drop auto line on another team from raw pricing preview', () => {
+    const pickupDropLine = (
+      ruleId: string,
+      teamOrderIndex: number,
+      teamName: string,
+      headcount: number,
+    ): PricingManualSourceLine => ({
+      ruleType: 'CONDITIONAL_ADDON',
+      lineCode: 'PICKUP_DROP',
+      sourceType: 'RULE',
+      description: '실투어 외 픽드랍 (기본울바)',
+      ruleId,
+      unitPriceKrw: 100_000,
+      quantity: 1,
+      amountKrw: 16_700,
+      displayBasis: 'TEAM_DIV_PERSON',
+      displayLabel: '실투어 외 픽드랍 (기본울바)',
+      displayUnitAmountKrw: 100_000,
+      displayCount: 1,
+      displayDivisorPerson: headcount,
+      teamOrderIndex,
+      teamName,
+      headcount,
+    });
+
+    const pricingPreview = {
+      baseAmountKrw: 1_200_000,
+      addonAmountKrw: 200_000,
+      totalAmountKrw: 1_400_000,
+      depositAmountKrw: 140_000,
+      balanceAmountKrw: 1_260_000,
+      securityDepositAmountKrw: 0,
+      securityDepositUnitPriceKrw: 0,
+      securityDepositQuantity: 0,
+      securityDepositMode: 'NONE' as const,
+      securityDepositEvent: null,
+      lines: [],
+      teamPricings: [
+        {
+          teamOrderIndex: 0,
+          teamName: 'A팀',
+          headcount: 3,
+          baseAmountKrw: 600_000,
+          addonAmountKrw: 100_000,
+          totalAmountKrw: 700_000,
+          depositAmountKrw: 70_000,
+          balanceAmountKrw: 630_000,
+          securityDepositAmountKrw: 0,
+          securityDepositUnitPriceKrw: 0,
+          securityDepositQuantity: 0,
+          securityDepositMode: 'NONE' as const,
+          securityDepositEvent: null,
+          lines: [
+            pickupDropLine('rule-pickup-a', 0, 'A팀', 3),
+            pickupDropLine('rule-drop-a', 0, 'A팀', 3),
+          ],
+        },
+        {
+          teamOrderIndex: 1,
+          teamName: 'B팀',
+          headcount: 3,
+          baseAmountKrw: 600_000,
+          addonAmountKrw: 100_000,
+          totalAmountKrw: 700_000,
+          depositAmountKrw: 70_000,
+          balanceAmountKrw: 630_000,
+          securityDepositAmountKrw: 0,
+          securityDepositUnitPriceKrw: 0,
+          securityDepositQuantity: 0,
+          securityDepositMode: 'NONE' as const,
+          securityDepositEvent: null,
+          lines: [
+            pickupDropLine('rule-pickup-b', 1, 'B팀', 3),
+            pickupDropLine('rule-drop-b', 1, 'B팀', 3),
+          ],
+        },
+      ],
+    };
+
+    const effective = buildEffectivePricing(pricingPreview, { headcountTotal: 6, totalDays: 5 });
+    const bTeamLine = effective.teamPricings?.[1]?.adjustmentLines[0];
+    expect(bTeamLine).toBeDefined();
+
+    const matchesOnA = findMatchingAutoAdjustmentLinesOnTeam(pricingPreview, bTeamLine!, 0, { totalDays: 5 });
+    expect(matchesOnA).toHaveLength(1);
+    expect(matchesOnA[0]?.label).toBe('실투어 외 픽드랍 (기본울바)');
   });
 });

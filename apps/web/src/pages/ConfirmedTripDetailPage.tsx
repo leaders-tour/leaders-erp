@@ -877,6 +877,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
       return snapRows.map((row) => ({
         teamOrderIndex: row.teamOrderIndex,
         teamName: row.teamName,
+        baseAmountKrw: row.baseAmountKrw ?? 0,
         totalAmountKrw: row.totalAmountKrw,
         depositAmountKrw: row.depositAmountKrw,
         balanceAmountKrw: row.balanceAmountKrw,
@@ -889,6 +890,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     return (effectivePlanPricing?.teamPricings ?? []).map((row) => ({
       teamOrderIndex: row.teamOrderIndex,
       teamName: row.teamName,
+      baseAmountKrw: row.baseAmountKrw,
       totalAmountKrw: row.totalAmountKrw,
       depositAmountKrw: row.depositAmountKrw,
       balanceAmountKrw: row.balanceAmountKrw,

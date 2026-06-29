@@ -85,6 +85,7 @@ export const PLAN_VERSION_PRICING_EFFECTIVE_FIELDS_FRAGMENT = gql`
         teamPricings {
           teamOrderIndex
           teamName
+          baseAmountKrw
           totalAmountKrw
           depositAmountKrw
           balanceAmountKrw

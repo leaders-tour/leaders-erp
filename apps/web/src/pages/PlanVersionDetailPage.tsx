@@ -22,7 +22,7 @@ import {
 import { RentalItemAvailabilityBadges } from '../features/confirmed-trip/RentalItemAvailabilityBadges';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
 import { buildEffectivePricing, resolveAdjustmentLinesForCustomerDocument } from '../features/pricing/manual-pricing';
-import { customerFacingAdjustmentLineRowsFromSnapshot, buildCustomerOutputSummaryTeams, resolveCustomerOutputTeamPricings } from '../features/pricing/customer-pricing-snapshot';
+import { customerFacingAdjustmentLineRowsFromSnapshot, buildCustomerOutputSummaryTeams, buildCustomerOutputBaseAmountTeams, resolveCustomerOutputTeamPricings } from '../features/pricing/customer-pricing-snapshot';
 import { publishedTotalsFromPlanVersionPricing } from '../features/pricing/published-pricing-totals';
 import { toVariantLabel } from '../features/plan/variant-label';
 
@@ -172,8 +172,29 @@ export function PlanVersionDetailPage(): JSX.Element {
     const teamPricings = resolveCustomerOutputTeamPricings({
       snapshotTeamPricings: version.pricing?.manualPricing?.customerPricingSnapshot?.teamPricings,
       effectiveTeamPricings: effectivePricing?.teamPricings,
+      headlineBaseAmountKrw:
+        version.pricing?.manualPricing?.customerPricingSnapshot?.baseAmountKrw ??
+        (version.pricing ? publishedTotalsFromPlanVersionPricing(version.pricing)?.baseAmountKrw : null) ??
+        null,
     });
     return buildCustomerOutputSummaryTeams({
+      teamPricings,
+      expandTeamPricingSummaryRows: version.pricing?.manualPricing?.expandTeamPricingSummaryRows,
+    });
+  }, [effectivePricing?.teamPricings, version]);
+  const customerSnapshotBaseTeams = useMemo(() => {
+    if (!version) {
+      return null;
+    }
+    const teamPricings = resolveCustomerOutputTeamPricings({
+      snapshotTeamPricings: version.pricing?.manualPricing?.customerPricingSnapshot?.teamPricings,
+      effectiveTeamPricings: effectivePricing?.teamPricings,
+      headlineBaseAmountKrw:
+        version.pricing?.manualPricing?.customerPricingSnapshot?.baseAmountKrw ??
+        (version.pricing ? publishedTotalsFromPlanVersionPricing(version.pricing)?.baseAmountKrw : null) ??
+        null,
+    });
+    return buildCustomerOutputBaseAmountTeams({
       teamPricings,
       expandTeamPricingSummaryRows: version.pricing?.manualPricing?.expandTeamPricingSummaryRows,
     });
@@ -632,7 +653,21 @@ export function PlanVersionDetailPage(): JSX.Element {
                   </p>
                 ) : null}
                 <div className="mt-2 grid gap-2 text-sm text-blue-900">
-                  <div>기본금: {formatKrw(publishedTotalsForUi?.baseAmountKrw ?? effectivePricing.baseAmountKrw)}</div>
+                  <div>
+                    기본금:{' '}
+                    {customerSnapshotBaseTeams && customerSnapshotBaseTeams.rows.length > 0 ? (
+                      <div className="mt-1 space-y-1">
+                        {customerSnapshotBaseTeams.rows.map((t) => (
+                          <div key={`out-base-${t.teamOrderIndex}`}>
+                            {customerSnapshotBaseTeams.showTeamPrefix ? `${t.teamName}) ` : ''}
+                            {formatKrw(t.baseAmountKrw)}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      formatKrw(publishedTotalsForUi?.baseAmountKrw ?? effectivePricing.baseAmountKrw)
+                    )}
+                  </div>
                   <div>
                     추가금:{' '}
                     {formatKrw(

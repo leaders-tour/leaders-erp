@@ -1,5 +1,19 @@
 /** 요약 표(총액·예약금·잔금·보증금)에서 팀 간 표시 값이 같은지 비교할 때 사용한다. */
 
+/** 팀별 1인 기본금이 같은지 비교할 때 사용한다. */
+export function teamBaseAmountSignature(row: { baseAmountKrw: number }): string {
+  return String(row.baseAmountKrw);
+}
+
+export function shouldShowTeamPrefixForBaseAmount<T extends { baseAmountKrw: number }>(teams: T[]): boolean {
+  return shouldShowTeamPrefixInPricingSummary(teams, teamBaseAmountSignature);
+}
+
+/** 팀이 둘 이상이어도 기본금이 모두 같으면 한 줄(대표 팀)만 반환한다. */
+export function teamPricingsForBaseAmountDisplay<T extends { baseAmountKrw: number }>(teams: T[]): T[] {
+  return teamPricingsForSummaryDisplay(teams, teamBaseAmountSignature);
+}
+
 export type TeamPricingSummarySignatureParts = {
   totalAmountKrw: number;
   depositAmountKrw: number;
