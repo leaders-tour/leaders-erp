@@ -75,16 +75,31 @@ export function estimateGuideSupportsThreePerPageChunks<T>(blocks: readonly T[])
   return chunkEstimateGuidePages([...blocks], 3).length >= 3;
 }
 
+/** splits 적용 후 나머지 블록 처리. 저장 견적·PDF는 `lump` 유지, 빌더 미리보기는 `chunk-per-page`. */
+export type GuideSplitRemainderStrategy = 'lump' | 'chunk-per-page';
+
+export interface ChunkGuidePagesBySplitsOptions {
+  perPage?: EstimateGuideImagesPerPage;
+  remainderStrategy?: GuideSplitRemainderStrategy;
+}
+
 /**
  * 페이지별 장수 배열로 분할 (예 [3,2,2] → 첫 페이지 3장, 둘째 2장…).
- * 지정한 합이 안내 개수보다 짧으면 나머지는 마지막 한 페이지에 이어 붙입니다.
+ * `remainderStrategy`가 `lump`이면 지정 합이 짧을 때 나머지를 마지막 한 페이지에 붙입니다(저장 견적 기본).
+ * `chunk-per-page`이면 명시 split은 `perPage`로 cap하고, 나머지는 `perPage` 균등 분할을 이어갑니다(빌더 미리보기).
  */
-export function chunkGuidePagesBySplits<T>(blocks: T[], splits: number[]): T[][] {
+export function chunkGuidePagesBySplits<T>(
+  blocks: T[],
+  splits: number[],
+  options: ChunkGuidePagesBySplitsOptions = {},
+): T[][] {
   if (blocks.length === 0) {
     return [[]];
   }
+  const perPage = normalizeEstimateGuideImagesPerPage(options.perPage);
+  const remainderStrategy = options.remainderStrategy ?? 'lump';
   if (splits.length === 0) {
-    return chunkEstimateGuidePages(blocks, ESTIMATE_GUIDE_IMAGES_PER_PAGE_DEFAULT);
+    return chunkEstimateGuidePages(blocks, perPage);
   }
   const chunks: T[][] = [];
   let offset = 0;
@@ -96,11 +111,20 @@ export function chunkGuidePagesBySplits<T>(blocks: T[], splits: number[]): T[][]
     if (size <= 0) {
       continue;
     }
-    chunks.push(blocks.slice(offset, offset + size));
-    offset += size;
+    const take =
+      remainderStrategy === 'chunk-per-page'
+        ? Math.min(size, perPage, blocks.length - offset)
+        : Math.min(size, blocks.length - offset);
+    chunks.push(blocks.slice(offset, offset + take));
+    offset += take;
   }
   if (offset < blocks.length) {
-    chunks.push(blocks.slice(offset));
+    const remainder = blocks.slice(offset);
+    if (remainderStrategy === 'chunk-per-page') {
+      chunks.push(...chunkEstimateGuidePages(remainder, perPage));
+    } else {
+      chunks.push(remainder);
+    }
   }
   return chunks.length > 0 ? chunks : [[]];
 }

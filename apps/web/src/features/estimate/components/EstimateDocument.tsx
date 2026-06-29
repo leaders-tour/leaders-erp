@@ -11,6 +11,7 @@ import type {
 import {
   chunkEstimateGuidePages,
   chunkGuidePagesBySplits,
+  type GuideSplitRemainderStrategy,
   normalizeEstimateGuideImagesPerPage,
 } from '../utils/guide-layout';
 import { resolveEstimateDocumentClassName } from '../utils/resolve-estimate-document-class-name';
@@ -29,6 +30,8 @@ interface EstimateDocumentProps {
   /** 미리보기에서 첫 안내 페이지(문서 3페이지) 우측 상단에 띄울 컨트롤 본문 */
   screenPreviewGuideOverlay?: ReactNode;
   includeStaticImagePages?: boolean;
+  /** splits 나머지 처리. 저장 견적·PDF 기본(`lump`), 일정 빌더 미리보기만 `chunk-per-page` */
+  guideSplitRemainderStrategy?: GuideSplitRemainderStrategy;
   /** 1페이지 fit scale 계산이 끝난 뒤 호출 (PDF 렌더 ready 신호용) */
   onPage1LayoutReady?: () => void;
 }
@@ -67,6 +70,7 @@ export function EstimateDocument({
   page2Editor,
   screenPreviewGuideOverlay,
   includeStaticImagePages = true,
+  guideSplitRemainderStrategy = 'lump',
   onPage1LayoutReady,
 }: EstimateDocumentProps): JSX.Element {
   const { colors: movementIntensityColors } = useMovementIntensityColorSettings();
@@ -75,16 +79,23 @@ export function EstimateDocument({
     if (guideBlocks.length === 0) {
       return [];
     }
+    const perPage = normalizeEstimateGuideImagesPerPage(data.estimateGuideImagesPerPage);
     const splits = data.estimateGuidePageSplits;
-    const chunks = Array.isArray(splits) && splits.length > 0 && splits.every((n) => Number.isInteger(n) && n >= 1)
-      ? chunkGuidePagesBySplits(guideBlocks, splits)
-      : chunkEstimateGuidePages(
-          guideBlocks,
-          normalizeEstimateGuideImagesPerPage(data.estimateGuideImagesPerPage),
-        );
+    const chunks =
+      Array.isArray(splits) && splits.length > 0 && splits.every((n) => Number.isInteger(n) && n >= 1)
+        ? chunkGuidePagesBySplits(guideBlocks, splits, {
+            perPage,
+            remainderStrategy: guideSplitRemainderStrategy,
+          })
+        : chunkEstimateGuidePages(guideBlocks, perPage);
 
     return appendGuideFillersToLastChunk(chunks);
-  }, [data.estimateGuidePageSplits, data.estimateGuideImagesPerPage, data.page3Blocks]);
+  }, [
+    data.estimateGuidePageSplits,
+    data.estimateGuideImagesPerPage,
+    data.page3Blocks,
+    guideSplitRemainderStrategy,
+  ]);
 
   return (
     <article className={resolveEstimateDocumentClassName(viewMode)}>

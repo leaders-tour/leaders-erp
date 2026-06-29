@@ -8253,6 +8253,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       <EstimateDocument
                         data={previewEstimateData}
                         viewMode="screen-preview"
+                        guideSplitRemainderStrategy="chunk-per-page"
                         page1Editor={previewPage1Editor}
                         page2Editor={previewPage2Editor}
                         screenPreviewGuideOverlay={
