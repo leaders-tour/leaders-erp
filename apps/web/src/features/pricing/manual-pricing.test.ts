@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PricingManualSourceLine } from '@tour/domain';
 import { computeDepositAndBalanceKrw } from '@tour/domain';
-import { buildEffectivePricing, resolveAdjustmentLinesForCustomerDocument, sliceEffectiveTotalsForUi } from './manual-pricing';
+import { buildEffectivePricing, buildDisplayedPricingAdjustmentLines, resolveAdjustmentLinesForCustomerDocument, sliceEffectiveTotalsForUi } from './manual-pricing';
 
 describe('buildEffectivePricing', () => {
   it('applies manual output overrides to merged display rows', () => {
@@ -939,5 +939,230 @@ describe('computeDepositAndBalanceKrw', () => {
       depositAmountKrw: 50_000,
       balanceAmountKrw: 764_000,
     });
+  });
+});
+
+describe('pickup/drop display merge', () => {
+  const pickupDropLine = (
+    ruleId: string,
+    teamOrderIndex: number,
+    teamName: string,
+    headcount: number,
+  ): PricingManualSourceLine => ({
+    ruleType: 'CONDITIONAL_ADDON',
+    lineCode: 'PICKUP_DROP',
+    sourceType: 'RULE',
+    description: '실투어 외 픽드랍 (기본울바)',
+    ruleId,
+    unitPriceKrw: 100_000,
+    quantity: 1,
+    amountKrw: 16_700,
+    displayBasis: 'TEAM_DIV_PERSON',
+    displayLabel: '실투어 외 픽드랍 (기본울바)',
+    displayUnitAmountKrw: 100_000,
+    displayCount: 1,
+    displayDivisorPerson: headcount,
+    teamOrderIndex,
+    teamName,
+    headcount,
+  });
+
+  it('merges two same-label pickup/drop addon rows into one adjustment line with summed amounts', () => {
+    const effective = buildEffectivePricing(
+      {
+        baseAmountKrw: 600_000,
+        addonAmountKrw: 200_000,
+        totalAmountKrw: 800_000,
+        depositAmountKrw: 80_000,
+        balanceAmountKrw: 720_000,
+        securityDepositAmountKrw: 0,
+        securityDepositUnitPriceKrw: 0,
+        securityDepositQuantity: 0,
+        securityDepositMode: 'NONE',
+        securityDepositEvent: null,
+        lines: [
+          {
+            ruleType: 'BASE',
+            lineCode: 'BASE',
+            sourceType: 'RULE',
+            description: '기본금',
+            ruleId: 'rule-base',
+            unitPriceKrw: 600_000,
+            quantity: 1,
+            amountKrw: 600_000,
+          },
+          pickupDropLine('rule-pickup', 0, 'A팀', 6),
+          pickupDropLine('rule-drop', 0, 'A팀', 6),
+        ],
+        teamPricings: [
+          {
+            teamOrderIndex: 0,
+            teamName: 'A팀',
+            headcount: 6,
+            baseAmountKrw: 600_000,
+            addonAmountKrw: 200_000,
+            totalAmountKrw: 800_000,
+            depositAmountKrw: 80_000,
+            balanceAmountKrw: 720_000,
+            securityDepositAmountKrw: 0,
+            securityDepositUnitPriceKrw: 0,
+            securityDepositQuantity: 0,
+            securityDepositMode: 'NONE',
+            securityDepositEvent: null,
+            lines: [
+              {
+                ruleType: 'BASE',
+                lineCode: 'BASE',
+                sourceType: 'RULE',
+                description: '기본금',
+                ruleId: 'rule-base',
+                unitPriceKrw: 600_000,
+                quantity: 1,
+                amountKrw: 600_000,
+                teamOrderIndex: 0,
+                teamName: 'A팀',
+                headcount: 6,
+              },
+              { ...pickupDropLine('rule-pickup', 0, 'A팀', 6) },
+              { ...pickupDropLine('rule-drop', 0, 'A팀', 6) },
+            ],
+          },
+        ],
+      },
+      { headcountTotal: 6, totalDays: 5 },
+    );
+
+    const displayed = buildDisplayedPricingAdjustmentLines(effective);
+    expect(displayed).toHaveLength(1);
+    expect(displayed[0]).toMatchObject({
+      label: '실투어 외 픽드랍 (기본울바)',
+      leadAmountKrw: 33_300,
+      formula: '200,000원/6인',
+    });
+  });
+
+  it('shows one shared early-start row with per-person lead when every team has the same addon', () => {
+    const earlyLine = (teamOrderIndex: number, teamName: string, headcount: number): PricingManualSourceLine => ({
+      ruleType: 'CONDITIONAL_ADDON',
+      lineCode: 'EARLY',
+      sourceType: 'RULE',
+      description: '얼리스타트 (04~)',
+      ruleId: 'rule-early',
+      unitPriceKrw: 240_000,
+      quantity: 1,
+      amountKrw: 40_000,
+      displayBasis: 'TEAM_DIV_PERSON',
+      displayLabel: '얼리스타트 (04~)',
+      displayUnitAmountKrw: 240_000,
+      displayCount: 1,
+      displayDivisorPerson: 6,
+      teamOrderIndex,
+      teamName,
+      headcount,
+    });
+
+    const effective = buildEffectivePricing(
+      {
+        baseAmountKrw: 1_008_000,
+        addonAmountKrw: 80_000,
+        totalAmountKrw: 1_088_000,
+        depositAmountKrw: 100_000,
+        balanceAmountKrw: 988_000,
+        securityDepositAmountKrw: 0,
+        securityDepositUnitPriceKrw: 0,
+        securityDepositQuantity: 0,
+        securityDepositMode: 'NONE',
+        securityDepositEvent: null,
+        lines: [
+          {
+            ruleType: 'BASE',
+            lineCode: 'BASE',
+            sourceType: 'RULE',
+            description: '기본금',
+            ruleId: 'rule-base',
+            unitPriceKrw: 1_008_000,
+            quantity: 1,
+            amountKrw: 1_008_000,
+          },
+          earlyLine(0, 'A팀', 3),
+          earlyLine(1, 'B팀', 3),
+        ],
+        teamPricings: [
+          {
+            teamOrderIndex: 0,
+            teamName: 'A팀',
+            headcount: 3,
+            baseAmountKrw: 1_008_000,
+            addonAmountKrw: 80_000,
+            totalAmountKrw: 1_088_000,
+            depositAmountKrw: 100_000,
+            balanceAmountKrw: 988_000,
+            securityDepositAmountKrw: 0,
+            securityDepositUnitPriceKrw: 0,
+            securityDepositQuantity: 0,
+            securityDepositMode: 'NONE',
+            securityDepositEvent: null,
+            lines: [
+              {
+                ruleType: 'BASE',
+                lineCode: 'BASE',
+                sourceType: 'RULE',
+                description: '기본금',
+                ruleId: 'rule-base',
+                unitPriceKrw: 1_008_000,
+                quantity: 1,
+                amountKrw: 1_008_000,
+                teamOrderIndex: 0,
+                teamName: 'A팀',
+                headcount: 3,
+              },
+              earlyLine(0, 'A팀', 3),
+            ],
+          },
+          {
+            teamOrderIndex: 1,
+            teamName: 'B팀',
+            headcount: 3,
+            baseAmountKrw: 1_008_000,
+            addonAmountKrw: 80_000,
+            totalAmountKrw: 1_088_000,
+            depositAmountKrw: 100_000,
+            balanceAmountKrw: 988_000,
+            securityDepositAmountKrw: 0,
+            securityDepositUnitPriceKrw: 0,
+            securityDepositQuantity: 0,
+            securityDepositMode: 'NONE',
+            securityDepositEvent: null,
+            lines: [
+              {
+                ruleType: 'BASE',
+                lineCode: 'BASE',
+                sourceType: 'RULE',
+                description: '기본금',
+                ruleId: 'rule-base',
+                unitPriceKrw: 1_008_000,
+                quantity: 1,
+                amountKrw: 1_008_000,
+                teamOrderIndex: 1,
+                teamName: 'B팀',
+                headcount: 3,
+              },
+              earlyLine(1, 'B팀', 3),
+            ],
+          },
+        ],
+      },
+      { headcountTotal: 6, totalDays: 6 },
+    );
+
+    const displayed = buildDisplayedPricingAdjustmentLines(effective);
+    const early = displayed.find((line) => line.label === '얼리스타트 (04~)');
+    expect(early).toMatchObject({
+      label: '얼리스타트 (04~)',
+      leadAmountKrw: 40_000,
+      formula: '240,000원/6인',
+      isSharedAcrossTeams: true,
+    });
+    expect(early?.teamNames.sort()).toEqual(['A팀', 'B팀']);
   });
 });

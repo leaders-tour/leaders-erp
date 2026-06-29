@@ -195,14 +195,46 @@ function parseLodgingSelectionLine(line: PricingManualSourceLine): ParsedLodging
   return null;
 }
 
-function buildMergeGroups<TLine extends PricingManualSourceLine>(lines: TLine[]): Map<string, MergeGroup<TLine>> {
+const TEAM_DIV_MERGEABLE_LINE_CODES = new Set(['PICKUP_DROP', 'CONDITIONAL']);
+
+type ParsedTeamDivMergeLine = {
+  groupKey: string;
+  displayLabel: string;
+};
+
+function parseTeamDivPersonMergeLine(line: PricingManualSourceLine): ParsedTeamDivMergeLine | null {
+  if (!TEAM_DIV_MERGEABLE_LINE_CODES.has(line.lineCode)) {
+    return null;
+  }
+  if (line.displayBasis !== 'TEAM_DIV_PERSON') {
+    return null;
+  }
+  const displayLabel = line.displayLabel?.trim() || line.description?.trim();
+  if (!displayLabel) {
+    return null;
+  }
+  const unitAmount = line.displayUnitAmountKrw ?? line.unitPriceKrw;
+  if (unitAmount === null) {
+    return null;
+  }
+  const teamKey = line.teamOrderIndex ?? 'global';
+  return {
+    displayLabel,
+    groupKey: `TEAM_DIV|${line.lineCode}|${displayLabel}|${unitAmount}|${teamKey}`,
+  };
+}
+
+function buildIndexedMergeGroups<TLine extends PricingManualSourceLine>(
+  lines: TLine[],
+  parse: (line: TLine) => { groupKey: string } | null,
+): Map<string, MergeGroup<TLine>> {
   const groups = new Map<string, MergeGroup<TLine>>();
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     if (!line) {
       continue;
     }
-    const parsed = parseLodgingSelectionLine(line);
+    const parsed = parse(line);
     if (!parsed) {
       continue;
     }
@@ -217,6 +249,14 @@ function buildMergeGroups<TLine extends PricingManualSourceLine>(lines: TLine[])
     existing.members.push(line);
   }
   return groups;
+}
+
+function buildMergeGroups<TLine extends PricingManualSourceLine>(lines: TLine[]): Map<string, MergeGroup<TLine>> {
+  return buildIndexedMergeGroups(lines, parseLodgingSelectionLine);
+}
+
+function buildTeamDivMergeGroups<TLine extends PricingManualSourceLine>(lines: TLine[]): Map<string, MergeGroup<TLine>> {
+  return buildIndexedMergeGroups(lines, parseTeamDivPersonMergeLine);
 }
 
 function mergedLodgingDescription(parsed: ParsedLodgingSelectionLine): string {
@@ -255,80 +295,123 @@ function buildRowKey<TLine extends PricingManualSourceLine>(
   return `${signature}#${nextOccurrence}`;
 }
 
-function buildAddonRows<TLine extends PricingManualSourceLine>(
-  lines: TLine[],
-  occurrenceBySignature: Map<string, number>,
-): Array<PricingManualDisplayRow<TLine>> {
-  const groups = buildMergeGroups(lines);
-  const result: Array<PricingManualDisplayRow<TLine>> = [];
+/**
+ * Merges addon lines for customer-facing display (lodging tiers, same-label team pickup/drop, etc.).
+ * Billing totals are unchanged — only row presentation is collapsed.
+ */
+export function mergeAddonSourceLines<TLine extends PricingManualSourceLine>(lines: TLine[]): TLine[] {
+  const lodgingGroups = buildMergeGroups(lines);
+  const teamDivGroups = buildTeamDivMergeGroups(lines);
+  const result: TLine[] = [];
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     if (!line) {
       continue;
     }
-    const parsed = parseLodgingSelectionLine(line);
-    if (!parsed) {
+
+    const lodgingParsed = parseLodgingSelectionLine(line);
+    if (lodgingParsed) {
+      const group = lodgingGroups.get(lodgingParsed.groupKey);
+      if (!group || group.firstIndex !== index) {
+        continue;
+      }
+
+      if (group.members.length === 1) {
+        result.push({
+          ...line,
+          displayBasis: 'PER_NIGHT',
+          displayUnitAmountKrw: line.unitPriceKrw,
+          displayCount: 1,
+          displayDivisorPerson: null,
+          displayText: null,
+          displayLabel: null,
+        } as TLine);
+        continue;
+      }
+
+      const first = group.members[0];
+      if (!first) {
+        continue;
+      }
+      const nights = group.members.length;
+      const amountKrw = group.members.reduce((sum, member) => sum + member.amountKrw, 0);
       result.push({
-        ...line,
-        rowKey: buildRowKey('ADDON', line, occurrenceBySignature),
-        category: 'ADDON',
-        originalAmountKrw: line.amountKrw,
-        isManualOverride: false,
-      });
-      continue;
-    }
-
-    const group = groups.get(parsed.groupKey);
-    if (!group || group.firstIndex !== index) {
-      continue;
-    }
-
-    const mergedLevel = parsed.kind === 'fixed' ? parsed.level : undefined;
-
-    if (group.members.length === 1) {
-      result.push({
-        ...line,
+        ...first,
+        description: mergedLodgingDescription(lodgingParsed),
+        quantity: nights,
+        amountKrw,
+        quantityDisplaySuffix: '박',
         displayBasis: 'PER_NIGHT',
-        displayUnitAmountKrw: line.unitPriceKrw,
-        displayCount: 1,
+        displayUnitAmountKrw: first.unitPriceKrw,
+        displayCount: nights,
         displayDivisorPerson: null,
         displayText: null,
         displayLabel: null,
-        rowKey: buildRowKey('ADDON', line, occurrenceBySignature, mergedLevel),
-        category: 'ADDON',
-        originalAmountKrw: line.amountKrw,
-        isManualOverride: false,
-      });
+      } as TLine);
       continue;
     }
 
-    const first = group.members[0];
-    if (!first) {
+    const teamDivParsed = parseTeamDivPersonMergeLine(line);
+    if (teamDivParsed) {
+      const group = teamDivGroups.get(teamDivParsed.groupKey);
+      if (!group || group.firstIndex !== index) {
+        continue;
+      }
+
+      if (group.members.length === 1) {
+        result.push(line);
+        continue;
+      }
+
+      const first = group.members[0];
+      if (!first) {
+        continue;
+      }
+      const amountKrw = group.members.reduce((sum, member) => sum + member.amountKrw, 0);
+      const quantity = group.members.reduce((sum, member) => sum + member.quantity, 0);
+      const totalTeamAmountKrw = group.members.reduce((sum, member) => {
+        const teamUnit = member.displayUnitAmountKrw ?? member.unitPriceKrw ?? 0;
+        return sum + teamUnit * member.quantity;
+      }, 0);
+      result.push({
+        ...first,
+        description: teamDivParsed.displayLabel,
+        displayLabel: teamDivParsed.displayLabel,
+        quantity,
+        amountKrw,
+        displayBasis: 'TEAM_DIV_PERSON',
+        displayUnitAmountKrw: totalTeamAmountKrw,
+        displayCount: 1,
+        displayDivisorPerson: first.displayDivisorPerson ?? first.headcount ?? null,
+        displayText: null,
+      } as TLine);
       continue;
     }
-    const nights = group.members.length;
-    const amountKrw = group.members.reduce((sum, member) => sum + member.amountKrw, 0);
-    result.push({
-      ...first,
-      description: mergedLodgingDescription(parsed),
-      quantity: nights,
-      amountKrw,
-      quantityDisplaySuffix: '박',
-      displayBasis: 'PER_NIGHT',
-      displayUnitAmountKrw: first.unitPriceKrw,
-      displayCount: nights,
-      displayDivisorPerson: null,
-      displayText: null,
-      displayLabel: null,
-      rowKey: buildRowKey('ADDON', first, occurrenceBySignature, mergedLevel),
-      category: 'ADDON',
-      originalAmountKrw: amountKrw,
-      isManualOverride: false,
-    });
+
+    result.push(line);
   }
 
   return result;
+}
+
+function buildAddonRows<TLine extends PricingManualSourceLine>(
+  lines: TLine[],
+  occurrenceBySignature: Map<string, number>,
+): Array<PricingManualDisplayRow<TLine>> {
+  const mergedLines = mergeAddonSourceLines(lines);
+
+  return mergedLines.map((line) => {
+    const lodgingParsed = parseLodgingSelectionLine(line);
+    const mergedLevel = lodgingParsed?.kind === 'fixed' ? lodgingParsed.level : undefined;
+    return {
+      ...line,
+      rowKey: buildRowKey('ADDON', line, occurrenceBySignature, mergedLevel),
+      category: 'ADDON',
+      originalAmountKrw: line.amountKrw,
+      isManualOverride: false,
+    };
+  });
 }
 
 function applyOverridesToRows<TLine extends PricingManualSourceLine>(

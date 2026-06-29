@@ -73,6 +73,41 @@ function buildAdjustmentGroupingKey(line: PricingAdjustmentLineRow): string {
   ].join('|');
 }
 
+function aggregateSameKeyAdjustmentLines(
+  sourceLines: PricingAdjustmentLineRow[],
+  options: { sumLeadAmounts: boolean },
+): PricingAdjustmentLineRow {
+  const first = sourceLines[0];
+  if (!first) {
+    throw new Error('aggregateSameKeyAdjustmentLines requires at least one line');
+  }
+  if (sourceLines.length === 1) {
+    return first;
+  }
+  const leadAmountKrw = options.sumLeadAmounts
+    ? sourceLines.reduce((sum, item) => sum + (item.strikethrough ? 0 : item.leadAmountKrw), 0)
+    : first.leadAmountKrw;
+  const autoLeadAmountKrw = options.sumLeadAmounts
+    ? first.autoLeadAmountKrw == null
+      ? null
+      : sourceLines.reduce((sum, item) => sum + (item.autoLeadAmountKrw ?? 0), 0)
+    : first.autoLeadAmountKrw;
+  return {
+    ...first,
+    leadAmountKrw,
+    autoLeadAmountKrw,
+    isManual:
+      first.isManual ||
+      sourceLines.some(
+        (item) =>
+          item.label !== first.label ||
+          item.leadAmountKrw !== first.leadAmountKrw ||
+          item.formula !== first.formula ||
+          item.isManual,
+      ),
+  };
+}
+
 export function buildDisplayedPricingAdjustmentLines<TLine extends PricingManualSourceLine>(
   effective: EffectivePricingResult<TLine>,
 ): DisplayedPricingAdjustmentLineRow[] {
@@ -124,16 +159,32 @@ export function buildDisplayedPricingAdjustmentLines<TLine extends PricingManual
     const uniqueTeamNames = Array.from(
       new Set(sourceLines.map((item) => item.teamName).filter((value): value is string => typeof value === 'string')),
     );
-    const isSharedAcrossTeams = uniqueTeamOrderIndexes.length === teamCount;
+    const isSharedAcrossTeams =
+      teamCount > 1 &&
+      uniqueTeamOrderIndexes.length === teamCount &&
+      sourceLines.length === teamCount;
     if (isSharedAcrossTeams) {
       result.push({
-        ...line,
+        ...aggregateSameKeyAdjustmentLines(sourceLines, { sumLeadAmounts: false }),
         teamOrderIndex: null,
         teamName: null,
         sourceLines,
         teamOrderIndexes: uniqueTeamOrderIndexes,
         teamNames: uniqueTeamNames,
         isSharedAcrossTeams: true,
+      });
+      return;
+    }
+    if (sourceLines.length > 1 && uniqueTeamOrderIndexes.length <= 1) {
+      const aggregatedLine = aggregateSameKeyAdjustmentLines(sourceLines, { sumLeadAmounts: true });
+      result.push({
+        ...aggregatedLine,
+        teamOrderIndex: aggregatedLine.teamOrderIndex ?? uniqueTeamOrderIndexes[0] ?? null,
+        teamName: aggregatedLine.teamName ?? uniqueTeamNames[0] ?? null,
+        sourceLines,
+        teamOrderIndexes: uniqueTeamOrderIndexes,
+        teamNames: uniqueTeamNames,
+        isSharedAcrossTeams: false,
       });
       return;
     }

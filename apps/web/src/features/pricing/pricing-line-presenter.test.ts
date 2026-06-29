@@ -47,6 +47,24 @@ describe('pricing-line-presenter', () => {
     expect(resolveDisplayLeadAmount(line, ctx6)).toBe(70_000);
   });
 
+  it('formats merged pickup/drop team lines using summed team unit amount', () => {
+    const line = {
+      lineCode: 'PICKUP_DROP',
+      sourceType: 'RULE' as const,
+      description: '실투어 외 픽드랍 (기본울바)',
+      unitPriceKrw: 100_000,
+      quantity: 2,
+      amountKrw: 33_400,
+      displayBasis: 'TEAM_DIV_PERSON',
+      displayLabel: '실투어 외 픽드랍 (기본울바)',
+      displayUnitAmountKrw: 200_000,
+      displayCount: 1,
+      displayDivisorPerson: 6,
+    };
+    expect(formatPricingDetailFormula(line, ctx6)).toBe('200,000원/6인');
+    expect(resolveDisplayLeadAmount(line, ctx6)).toBe(33_300);
+  });
+
   it('formats team-div-person display using unit amount and count', () => {
     const line = {
       lineCode: 'NIGHT_TRAIN',

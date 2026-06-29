@@ -152,4 +152,45 @@ describe('mergeLodgingSelectionDisplayLines', () => {
     const merged = mergeLodgingSelectionDisplayLines([customA, customB]);
     expect(merged).toHaveLength(2);
   });
+
+  it('merges same-label team pickup/drop lines with summed team and per-person amounts', () => {
+    const pickup = line({
+      lineCode: 'PICKUP_DROP',
+      sourceType: 'RULE',
+      description: '실투어 외 픽드랍 (기본울바)',
+      displayLabel: '실투어 외 픽드랍 (기본울바)',
+      displayBasis: 'TEAM_DIV_PERSON',
+      displayUnitAmountKrw: 100_000,
+      displayCount: 1,
+      displayDivisorPerson: 6,
+      unitPriceKrw: 100_000,
+      quantity: 1,
+      amountKrw: 16_700,
+    });
+    const drop = line({
+      lineCode: 'PICKUP_DROP',
+      sourceType: 'RULE',
+      description: '실투어 외 픽드랍 (기본울바)',
+      displayLabel: '실투어 외 픽드랍 (기본울바)',
+      displayBasis: 'TEAM_DIV_PERSON',
+      displayUnitAmountKrw: 100_000,
+      displayCount: 1,
+      displayDivisorPerson: 6,
+      unitPriceKrw: 100_000,
+      quantity: 1,
+      amountKrw: 16_700,
+    });
+
+    const merged = mergeLodgingSelectionDisplayLines([pickup, drop]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({
+      description: '실투어 외 픽드랍 (기본울바)',
+      quantity: 2,
+      amountKrw: 33_400,
+      displayBasis: 'TEAM_DIV_PERSON',
+      displayUnitAmountKrw: 200_000,
+      displayCount: 1,
+      displayDivisorPerson: 6,
+    });
+  });
 });
