@@ -1,70 +1,10 @@
-import { resolveDisplayLeadAmount } from '../pricing-line-presenter';
 import { buildPricingViewBuckets, getPricingLineLabel, type PricingViewLine } from '../view-model';
-
-const currencyFormatter = new Intl.NumberFormat('ko-KR');
-
-function formatKrw(value: number): string {
-  return `${currencyFormatter.format(value)}원`;
-}
-
-function formatPricingLineUnitDisplay(
-  line: {
-    lineCode: string;
-    sourceType: string;
-    unitPriceKrw: number | null;
-    amountKrw: number;
-    quantity: number;
-    displayBasis?: string | null;
-    displayUnitAmountKrw?: number | null;
-    displayDivisorPerson?: number | null;
-  },
-  headcountTotal: number,
-): string {
-  const divisorPerson = line.displayDivisorPerson ?? headcountTotal;
-  if (line.displayBasis === 'TEAM_DIV_PERSON' && divisorPerson > 0) {
-    const unitAmount = line.displayUnitAmountKrw ?? line.unitPriceKrw ?? line.amountKrw;
-    return `${formatKrw(unitAmount)}/${divisorPerson}인`;
-  }
-  if (line.lineCode === 'MANUAL_ADJUSTMENT' && line.sourceType === 'RULE' && line.quantity > 1 && headcountTotal > 0) {
-    return `${formatKrw(line.unitPriceKrw ?? line.amountKrw)}/${headcountTotal}인`;
-  }
-  return line.unitPriceKrw !== null ? formatKrw(line.unitPriceKrw) : '-';
-}
-
-function formatPricingLineQuantityDisplay(
-  line: {
-    lineCode: string;
-    sourceType: string;
-    quantity: number;
-    displayBasis?: string | null;
-    displayCount?: number | null;
-    quantityDisplaySuffix?: '박';
-  },
-  headcountTotal: number,
-): string {
-  if (line.displayBasis === 'TEAM_DIV_PERSON') {
-    const count = line.displayCount ?? line.quantity;
-    return count === 1 ? '1회' : `${count}회`;
-  }
-  if (line.lineCode === 'MANUAL_ADJUSTMENT' && line.sourceType === 'RULE' && line.quantity > 1 && headcountTotal > 0) {
-    return `${headcountTotal}인`;
-  }
-  if (line.quantityDisplaySuffix === '박') {
-    return `${line.quantity}박`;
-  }
-  return String(line.quantity);
-}
-
-function lineContextForRow<TLine extends PricingViewLine & { headcount?: number | null }>(
-  line: TLine,
-  ctx: { headcountTotal: number; totalDays: number },
-): { headcountTotal: number; totalDays: number } {
-  const lineHeadcount = line.headcount;
-  if (typeof lineHeadcount === 'number' && lineHeadcount > 0) {
-    return { headcountTotal: lineHeadcount, totalDays: ctx.totalDays };
-  }
-  return ctx;
-}
+import {
+  formatPricingLineLeadAmountDisplay,
+  formatPricingLineQuantityDisplay,
+  formatPricingLineUnitDisplay,
+  lineContextForPricingRow,
+} from '../pricing-line-table-display';
 
 export function PricingBaseLinesBreakdown<TLine extends PricingViewLine & {
   teamName?: string | null;
@@ -103,7 +43,7 @@ export function PricingBaseLinesBreakdown<TLine extends PricingViewLine & {
           </thead>
           <tbody>
             {baseLines.map((line, index) => {
-              const lineCtx = lineContextForRow(line, ctx);
+              const lineCtx = lineContextForPricingRow(line, ctx);
               const label = getPricingLineLabel(line);
               const teamPrefix =
                 showTeamPrefix && line.teamName?.trim() ? `${line.teamName.trim()}) ` : '';
@@ -123,7 +63,7 @@ export function PricingBaseLinesBreakdown<TLine extends PricingViewLine & {
                     {formatPricingLineQuantityDisplay(line, lineCtx.headcountTotal)}
                   </td>
                   <td className="py-2 pr-2 text-slate-900">
-                    {formatKrw(resolveDisplayLeadAmount(line, lineCtx))}
+                    {formatPricingLineLeadAmountDisplay(line, lineCtx)}
                   </td>
                 </tr>
               );

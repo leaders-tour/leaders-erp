@@ -1,11 +1,17 @@
-import type { CustomerPricingSnapshot } from '@tour/domain';
+import type { CustomerPricingSnapshot, CustomerPricingTeamRowSnapshot } from '@tour/domain';
 import { resolvePublishedPricingTotals } from '@tour/domain';
 import {
   sliceEffectiveTotalsForUi,
   type DisplayedPricingAdjustmentLineRow,
   type EffectivePricingResult,
+  type EffectiveTeamPricingResult,
   type PricingAdjustmentLineRow,
 } from './manual-pricing';
+import {
+  shouldShowTeamPrefixInPricingSummary,
+  teamPricingsForSummaryDisplay,
+  teamPricingSummarySignatureFromParts,
+} from './team-pricing-summary-display';
 
 /** `sliceEffectiveTotalsForUi`와 동일한 필드 형태 — 상세 카드·확정 카드에서 스냅샷을 그대로 표시할 때 사용 */
 export type CustomerFacingPricingTotalsSlice = {
@@ -51,6 +57,102 @@ export function customerFacingAdjustmentLineRowsFromSnapshot(
   }));
 }
 
+/** 상세·확정 카드 요약 표에 쓰는 팀별 1인 금액 행 */
+export type CustomerOutputTeamPricingRow = {
+  teamOrderIndex: number;
+  teamName: string;
+  totalAmountKrw: number;
+  depositAmountKrw: number;
+  balanceAmountKrw: number;
+  securityDepositAmountKrw: number;
+  securityDepositUnitKrw: number;
+  securityDepositScope: string;
+};
+
+function securityDepositScopeFromMode(mode: 'NONE' | 'PER_PERSON' | 'PER_TEAM'): string {
+  if (mode === 'PER_PERSON') {
+    return '인당';
+  }
+  if (mode === 'PER_TEAM') {
+    return '팀당';
+  }
+  return '-';
+}
+
+function mapSnapshotTeamPricingRow(row: CustomerPricingTeamRowSnapshot): CustomerOutputTeamPricingRow {
+  return {
+    teamOrderIndex: row.teamOrderIndex,
+    teamName: row.teamName,
+    totalAmountKrw: row.totalAmountKrw,
+    depositAmountKrw: row.depositAmountKrw,
+    balanceAmountKrw: row.balanceAmountKrw,
+    securityDepositAmountKrw: row.securityDepositAmountKrw,
+    securityDepositUnitKrw: row.securityDepositUnitKrw,
+    securityDepositScope: row.securityDepositScope,
+  };
+}
+
+function mapEffectiveTeamPricingRow(row: EffectiveTeamPricingResult): CustomerOutputTeamPricingRow {
+  return {
+    teamOrderIndex: row.teamOrderIndex,
+    teamName: row.teamName,
+    totalAmountKrw: row.totalAmountKrw,
+    depositAmountKrw: row.depositAmountKrw,
+    balanceAmountKrw: row.balanceAmountKrw,
+    securityDepositAmountKrw: row.securityDepositAmountKrw,
+    securityDepositUnitKrw: row.securityDepositUnitPriceKrw,
+    securityDepositScope: securityDepositScopeFromMode(row.securityDepositMode),
+  };
+}
+
+export function customerOutputTeamPricingSignature(row: CustomerOutputTeamPricingRow): string {
+  return teamPricingSummarySignatureFromParts({
+    totalAmountKrw: row.totalAmountKrw,
+    depositAmountKrw: row.depositAmountKrw,
+    balanceAmountKrw: row.balanceAmountKrw,
+    securityNone: row.securityDepositScope === '-',
+    securityDepositAmountKrw: row.securityDepositAmountKrw,
+    securityDepositUnitKrw: row.securityDepositUnitKrw,
+    securityScopeWhenPresent: row.securityDepositScope === '-' ? '' : row.securityDepositScope,
+  });
+}
+
+/** 저장 스냅샷 팀 행이 없으면 live effective pricing 팀 행으로 보완한다. */
+export function resolveCustomerOutputTeamPricings(input: {
+  snapshotTeamPricings?: CustomerPricingTeamRowSnapshot[] | null;
+  effectiveTeamPricings?: EffectiveTeamPricingResult[] | null;
+}): CustomerOutputTeamPricingRow[] {
+  const snapshotRows = input.snapshotTeamPricings ?? [];
+  if (snapshotRows.length > 0) {
+    return snapshotRows.map(mapSnapshotTeamPricingRow);
+  }
+  return (input.effectiveTeamPricings ?? []).map(mapEffectiveTeamPricingRow);
+}
+
+/** 빌더·견적 PDF와 동일한 팀 요약 표시 규칙 */
+export function buildCustomerOutputSummaryTeams(input: {
+  teamPricings: CustomerOutputTeamPricingRow[];
+  expandTeamPricingSummaryRows?: boolean | null;
+}): { rows: CustomerOutputTeamPricingRow[]; showTeamPrefix: boolean } | null {
+  const teams = input.teamPricings;
+  if (teams.length === 0) {
+    return null;
+  }
+  if (teams.length <= 1) {
+    return { rows: teams, showTeamPrefix: false };
+  }
+  if (shouldShowTeamPrefixInPricingSummary(teams, customerOutputTeamPricingSignature)) {
+    return { rows: teams, showTeamPrefix: true };
+  }
+  if (input.expandTeamPricingSummaryRows === true) {
+    return { rows: teams, showTeamPrefix: true };
+  }
+  return {
+    rows: teamPricingsForSummaryDisplay(teams, customerOutputTeamPricingSignature),
+    showTeamPrefix: false,
+  };
+}
+
 /** 빌더 저장·견적 draft와 동일 기준의 고객용 금액 스냅샷 (상세/PDF 재해석 없이 그대로 표시). */
 export function buildCustomerPricingSnapshot(
   pricingPreview: EffectivePricingResult | null,
@@ -87,12 +189,7 @@ export function buildCustomerPricingSnapshot(
       balanceAmountKrw: teamPricing.balanceAmountKrw,
       securityDepositAmountKrw: teamPricing.securityDepositAmountKrw,
       securityDepositUnitKrw: teamPricing.securityDepositUnitPriceKrw,
-      securityDepositScope:
-        teamPricing.securityDepositMode === 'PER_PERSON'
-          ? '인당'
-          : teamPricing.securityDepositMode === 'PER_TEAM'
-            ? '팀당'
-            : '-',
+      securityDepositScope: securityDepositScopeFromMode(teamPricing.securityDepositMode),
     })),
   };
 }

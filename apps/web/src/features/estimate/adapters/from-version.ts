@@ -1,5 +1,6 @@
 import { mergeLodgingSelectionDisplayLines } from '../../pricing/merge-lodging-selection-display';
 import { buildEffectivePricing, resolveAdjustmentLinesForCustomerDocument } from '../../pricing/manual-pricing';
+import { resolveCustomerOutputTeamPricings } from '../../pricing/customer-pricing-snapshot';
 import { publishedTotalsFromPlanVersionPricing } from '../../pricing/published-pricing-totals';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
 import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
@@ -27,16 +28,19 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     totalDays: countMainPlanStopRows(version.planStops),
   };
   const customerPricingSnapshot = version.pricing?.manualPricing?.customerPricingSnapshot ?? null;
-  const showCustomerSnapshotLineTeamName = (customerPricingSnapshot?.teamPricings.length ?? 0) > 1;
-  const pricing =
-    version.pricing && !customerPricingSnapshot
-      ? buildEffectivePricing(
-          version.pricing,
-          pricingCtx,
-          version.pricing.manualPricing ?? null,
-          version.pricing.savedManualDepositAmountKrw ?? undefined,
-        )
-      : null;
+  const pricing = version.pricing
+    ? buildEffectivePricing(
+        version.pricing,
+        pricingCtx,
+        version.pricing.manualPricing ?? null,
+        version.pricing.savedManualDepositAmountKrw ?? undefined,
+      )
+    : null;
+  const resolvedTeamPricings = resolveCustomerOutputTeamPricings({
+    snapshotTeamPricings: customerPricingSnapshot?.teamPricings,
+    effectiveTeamPricings: pricing?.teamPricings,
+  });
+  const showCustomerSnapshotLineTeamName = resolvedTeamPricings.length > 1;
   const publishedTotals = version.pricing ? publishedTotalsFromPlanVersionPricing(version.pricing) : null;
   const pricingBuckets =
     pricing && publishedTotals ? buildPricingViewBuckets(pricing.lines, publishedTotals.totalAmountKrw) : null;
@@ -151,27 +155,16 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
             formula: formatPricingDetailFormula(line, pricingCtx),
             strikethrough: false,
           })),
-    teamPricings: customerPricingSnapshot
-      ? customerPricingSnapshot.teamPricings.map((row) => ({
-          teamOrderIndex: row.teamOrderIndex,
-          teamName: row.teamName,
-          totalAmountKrw: row.totalAmountKrw,
-          depositAmountKrw: row.depositAmountKrw,
-          balanceAmountKrw: row.balanceAmountKrw,
-          securityDepositAmountKrw: row.securityDepositAmountKrw,
-          securityDepositUnitKrw: row.securityDepositUnitKrw,
-          securityDepositScope: row.securityDepositScope as EstimateSecurityDepositScope,
-        }))
-      : pricing?.teamPricings.map((teamPricing) => ({
-          teamOrderIndex: teamPricing.teamOrderIndex,
-          teamName: teamPricing.teamName,
-          totalAmountKrw: teamPricing.totalAmountKrw,
-          depositAmountKrw: teamPricing.depositAmountKrw,
-          balanceAmountKrw: teamPricing.balanceAmountKrw,
-          securityDepositAmountKrw: teamPricing.securityDepositAmountKrw,
-          securityDepositUnitKrw: teamPricing.securityDepositUnitPriceKrw,
-          securityDepositScope: toSecurityDepositScope(teamPricing.securityDepositMode),
-        })) ?? [],
+    teamPricings: resolvedTeamPricings.map((row) => ({
+      teamOrderIndex: row.teamOrderIndex,
+      teamName: row.teamName,
+      totalAmountKrw: row.totalAmountKrw,
+      depositAmountKrw: row.depositAmountKrw,
+      balanceAmountKrw: row.balanceAmountKrw,
+      securityDepositAmountKrw: row.securityDepositAmountKrw,
+      securityDepositUnitKrw: row.securityDepositUnitKrw,
+      securityDepositScope: row.securityDepositScope as EstimateSecurityDepositScope,
+    })),
     expandTeamPricingSummaryRows: version.pricing?.manualPricing?.expandTeamPricingSummaryRows === true,
     totalPricePerPersonKrw: customerPricingSnapshot
       ? customerPricingSnapshot.totalAmountKrw
