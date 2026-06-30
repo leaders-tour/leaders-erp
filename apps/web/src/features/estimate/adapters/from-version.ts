@@ -1,3 +1,4 @@
+import { formatVehicleAssignmentsForDisplay, normalizeVehicleAssignments } from '@tour/validation';
 import { mergeLodgingSelectionDisplayLines } from '../../pricing/merge-lodging-selection-display';
 import { buildEffectivePricing, resolveAdjustmentLinesForCustomerDocument } from '../../pricing/manual-pricing';
 import { resolveCustomerOutputTeamPricings } from '../../pricing/customer-pricing-snapshot';
@@ -81,7 +82,9 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     headcountFemale: meta?.headcountFemale ?? null,
     travelStartDate: meta?.travelStartDate ?? null,
     travelEndDate: meta?.travelEndDate ?? null,
-    vehicleType: meta?.vehicleType ?? '-',
+    vehicleType: formatVehicleAssignmentsForDisplay(
+      normalizeVehicleAssignments(meta?.vehicleAssignments, meta?.vehicleType),
+    ),
     transportGroups:
       meta?.transportGroups.map((group) => ({
         teamName: group.teamName,

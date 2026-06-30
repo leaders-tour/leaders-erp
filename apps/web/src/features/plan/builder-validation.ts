@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { HIACE_VEHICLE_HEADCOUNT_MIN } from './builder-vehicle';
+import { validateHiaceHeadcountForAssignments, type VehicleAssignment } from '@tour/validation';
 import type { ExternalTransfer } from './external-transfer';
 import { isExternalTransferComplete } from './external-transfer';
 import { getRequiredXMealsForLastDay } from './last-day-plan';
@@ -166,6 +166,7 @@ export interface BuilderValidationInput {
   headcountTotal: number;
   headcountMale: number;
   vehicleType: string;
+  vehicleAssignments: VehicleAssignment[];
   travelStartDate: string;
   travelEndDate: string;
   manualAdjustments: ManualAdjustmentForValidation[];
@@ -190,6 +191,7 @@ export function computeBuilderValidationResults(input: BuilderValidationInput): 
       headcountTotal,
       headcountMale,
       vehicleType,
+      vehicleAssignments,
       travelStartDate,
       travelEndDate,
       manualAdjustments,
@@ -228,7 +230,8 @@ export function computeBuilderValidationResults(input: BuilderValidationInput): 
     }
 
     // hiace-headcount (error)
-    if (vehicleType === '하이에이스' && headcountTotal < HIACE_VEHICLE_HEADCOUNT_MIN) {
+    const hiaceError = validateHiaceHeadcountForAssignments(vehicleAssignments, headcountTotal);
+    if (hiaceError) {
       results.push({
         id: 'hiace-headcount',
         severity: 'error',
@@ -484,6 +487,7 @@ export function useBuilderValidation(input: BuilderValidationInput): ValidationR
     input.headcountTotal,
     input.headcountMale,
     input.vehicleType,
+    input.vehicleAssignments,
     input.travelStartDate,
     input.travelEndDate,
     input.manualAdjustments,

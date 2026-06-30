@@ -1,4 +1,5 @@
 import { Button, Card } from '@tour/ui';
+import { formatVehicleAssignmentsForDisplay, normalizeVehicleAssignments } from '@tour/validation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -2017,7 +2018,13 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                   </div>
                   <div>
                     <span className="text-slate-500">차량</span>
-                    <p className="font-medium">{meta?.vehicleType ?? trip.assignedVehicle ?? '-'}</p>
+                    <p className="font-medium">
+                      {meta
+                        ? formatVehicleAssignmentsForDisplay(
+                            normalizeVehicleAssignments(meta.vehicleAssignments, meta.vehicleType),
+                          )
+                        : (trip.assignedVehicle ?? '-')}
+                    </p>
                   </div>
                   <div className="sm:col-span-2">
                     <h4 className="mb-3 text-xs font-semibold text-slate-700">숙소 배정</h4>

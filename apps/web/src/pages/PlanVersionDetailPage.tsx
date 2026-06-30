@@ -1,4 +1,5 @@
 import { Button, Card } from '@tour/ui';
+import { formatVehicleAssignmentsForDisplay, normalizeVehicleAssignments } from '@tour/validation';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getEstimatePdfDownloadLabel, useEstimatePdfDownload } from '../features/estimate/hooks/use-estimate-pdf-download';
@@ -520,7 +521,12 @@ export function PlanVersionDetailPage(): JSX.Element {
                 <div>
                   <DetailLabel>차량</DetailLabel>
                   <DetailValue muted={!version.meta.vehicleType?.trim()}>
-                    {version.meta.vehicleType?.trim() || '-'}
+                    {formatVehicleAssignmentsForDisplay(
+                      normalizeVehicleAssignments(
+                        version.meta.vehicleAssignments,
+                        version.meta.vehicleType,
+                      ),
+                    )}
                   </DetailValue>
                 </div>
                 <div>

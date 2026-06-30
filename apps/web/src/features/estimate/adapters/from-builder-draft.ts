@@ -1,6 +1,7 @@
 import { mergeLodgingSelectionDisplayLines } from '../../pricing/merge-lodging-selection-display';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
 import { countMainPlanStopRows } from '../../plan/plan-stop-row';
+import { formatVehicleAssignmentsForDisplay } from '@tour/validation';
 import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
 import type { EstimateBuilderDraftSnapshot, EstimateDocumentData } from '../model/types';
 import { normalizeEstimateGuideImagesPerPage, normalizeEstimateGuidePageSplits } from '../utils/guide-layout';
@@ -34,7 +35,10 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     headcountFemale: Number.isFinite(snapshot.headcountFemale) ? snapshot.headcountFemale : null,
     travelStartDate: snapshot.travelStartDate || null,
     travelEndDate: snapshot.travelEndDate || null,
-    vehicleType: snapshot.vehicleType || '-',
+    vehicleType:
+      snapshot.vehicleAssignments.length > 0
+        ? formatVehicleAssignmentsForDisplay(snapshot.vehicleAssignments)
+        : snapshot.vehicleType || '-',
     transportGroups: snapshot.transportGroups,
     flightInDate: snapshot.transportGroups[0]?.flightInDate || null,
     flightInTime: snapshot.transportGroups[0]?.flightInTime || null,

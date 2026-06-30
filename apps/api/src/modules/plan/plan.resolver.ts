@@ -1,4 +1,5 @@
 import type { MovementIntensity } from '@prisma/client';
+import { normalizeVehicleAssignments } from '@tour/validation';
 import type { AppContext } from '../../context';
 import type { UploadFile } from '../../lib/file-storage/client';
 import { calculateAverageMovementIntensity } from '../../lib/movement-intensity';
@@ -206,6 +207,8 @@ export const planResolver = {
       }
       return out.length > 0 ? out : null;
     },
+    vehicleAssignments: (parent: { vehicleAssignments?: unknown; vehicleType?: string }) =>
+      normalizeVehicleAssignments(parent.vehicleAssignments, parent.vehicleType),
     events: async (parent: { planVersionId: string }, _args: unknown, ctx: AppContext) => {
       const rows = await ctx.prisma.planVersionEvent.findMany({
         where: { planVersionId: parent.planVersionId },

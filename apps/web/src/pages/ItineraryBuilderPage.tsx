@@ -1,6 +1,14 @@
 import { ApolloError, gql, useMutation, useQuery } from '@apollo/client';
 import { pickDefaultLocationMealSet, type PricingManualSnapshot } from '@tour/domain';
 import { renderRentalItemPresetText, type RentalItemPreset } from '@tour/validation';
+import {
+  formatVehicleAssignmentsForDisplay,
+  normalizeVehicleAssignments,
+  PLAN_VEHICLE_TYPES,
+  primaryVehicleTypeFromAssignments,
+  validateHiaceHeadcountForAssignments,
+  type VehicleAssignment,
+} from '@tour/validation';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -66,6 +74,7 @@ import {
   type RegionLodgingOption,
 } from '../features/lodging-selection/model';
 import { ConsultationPasteModal } from '../features/plan/components/ConsultationPasteModal';
+import { VehicleAssignmentsEditor } from '../features/plan/components/VehicleAssignmentsEditor';
 import { PlanVersionContractCreateNotice } from '../features/plan/components/PlanVersionContractCreateNotice';
 import { ExternalTransferModal } from '../features/plan/components/ExternalTransferModal';
 import { ExternalTransfersManagerModal } from '../features/plan/components/ExternalTransfersManagerModal';
@@ -87,7 +96,7 @@ import {
   type ExternalTransfer,
 } from '../features/plan/external-transfer';
 import { useBuilderValidation } from '../features/plan/builder-validation';
-import { HIACE_VEHICLE_HEADCOUNT_MIN, resolveVehicleTypeForHeadcount } from '../features/plan/builder-vehicle';
+import { resolveVehicleAssignmentsForHeadcount } from '../features/plan/builder-vehicle';
 import { useSpecialMealDestinationRules } from '../features/plan/hooks/use-special-meal-destination-rules';
 import { buildMergedPlanStops } from '../features/plan/merge-plan-stops';
 import {
@@ -1723,7 +1732,7 @@ const VARIANTS = [
   { id: VariantType.EarlyExtend, label: '얼리+연장' },
 ];
 
-const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스', '프리미엄 밴', 'SUV'] as const;
+const PLAN_VEHICLES = PLAN_VEHICLE_TYPES;
 const FLIGHT_IN_TIME_OPTIONS = [
   '00:05',
   '00:30',
@@ -1952,6 +1961,7 @@ function createEstimateDraftSnapshot(input: {
   travelStartDate: string;
   travelEndDate: string;
   vehicleType: string;
+  vehicleAssignments: VehicleAssignment[];
   transportGroups: EstimateTransportGroup[];
   externalTransfers: ExternalTransfer[];
   specialNote: string;
@@ -2001,6 +2011,7 @@ function createEstimateDraftSnapshot(input: {
     travelStartDate: input.travelStartDate,
     travelEndDate: input.travelEndDate,
     vehicleType: input.vehicleType,
+    vehicleAssignments: input.vehicleAssignments,
     transportGroups: input.transportGroups,
     externalTransfers: input.externalTransfers,
     specialNote: input.specialNote,
@@ -2676,7 +2687,17 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [travelEndDate, setTravelEndDate] = useState<string>('');
   const [headcountTotal, setHeadcountTotal] = useState<number>(6);
   const [headcountMale, setHeadcountMale] = useState<number>(() => buildDefaultMaleHeadcount(6));
-  const [vehicleType, setVehicleType] = useState<(typeof VEHICLES)[number]>('스타렉스');
+  const [vehicleAssignments, setVehicleAssignments] = useState<VehicleAssignment[]>([
+    { vehicleType: '스타렉스', count: 1 },
+  ]);
+  const vehicleType = useMemo(
+    () => primaryVehicleTypeFromAssignments(vehicleAssignments),
+    [vehicleAssignments],
+  );
+  const vehicleDisplayText = useMemo(
+    () => formatVehicleAssignmentsForDisplay(vehicleAssignments),
+    [vehicleAssignments],
+  );
   const [transportGroups, setTransportGroups] = useState<TransportGroupDraft[]>([
     createTransportGroupDraft({
       index: 0,
@@ -3053,10 +3074,8 @@ export function ItineraryBuilderPage(): JSX.Element {
     setHeadcountTotal(meta.headcountTotal);
     setHeadcountMale(meta.headcountMale);
     hasEditedHeadcountMaleRef.current = true;
-    setVehicleType(
-      VEHICLES.includes(meta.vehicleType as (typeof VEHICLES)[number])
-        ? (meta.vehicleType as (typeof VEHICLES)[number])
-        : '스타렉스',
+    setVehicleAssignments(
+      normalizeVehicleAssignments(meta.vehicleAssignments, meta.vehicleType),
     );
     setSpecialNote(meta.specialNote ?? '');
     setIncludeRentalItems(meta.includeRentalItems);
@@ -3924,7 +3943,9 @@ export function ItineraryBuilderPage(): JSX.Element {
         totalDays === 6 &&
         headcountTotal === 6 &&
         headcountMale === buildDefaultMaleHeadcount(6) &&
-        vehicleType === '스타렉스' &&
+        vehicleAssignments.length === 1 &&
+        vehicleAssignments[0]?.vehicleType === '스타렉스' &&
+        vehicleAssignments[0]?.count === 1 &&
         transportGroups.length === 1 &&
         !transportGroups[0]?.flightInDate?.trim() &&
         !transportGroups[0]?.flightOutDate?.trim() &&
@@ -3989,7 +4010,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     transportGroups,
     travelEndDate,
     travelStartDate,
-    vehicleType,
+    vehicleAssignments,
   ]);
 
   const updateCell = (rowIndex: number, field: keyof PlanRow, value: string): void => {
@@ -4380,8 +4401,8 @@ export function ItineraryBuilderPage(): JSX.Element {
         ? Math.min(current, nextTotal)
         : buildDefaultMaleHeadcount(nextTotal),
     );
-    setVehicleType((current) =>
-      resolveVehicleTypeForHeadcount(nextTotal, current, VEHICLES) as (typeof VEHICLES)[number],
+    setVehicleAssignments((current) =>
+      resolveVehicleAssignmentsForHeadcount(nextTotal, current, PLAN_VEHICLES),
     );
   };
 
@@ -4404,12 +4425,12 @@ export function ItineraryBuilderPage(): JSX.Element {
       setTotalDays(Math.max(2, Math.min(12, draft.totalDays)));
       setSelectedRoute((prev) => trimRouteSelectionsToTotalDays(prev, draft.totalDays));
       const draftHeadcount = Math.max(1, Math.min(30, draft.headcountTotal));
-      const draftVehicle =
-        draft.vehicleType && VEHICLES.includes(draft.vehicleType as (typeof VEHICLES)[number])
-          ? (draft.vehicleType as (typeof VEHICLES)[number])
-          : '스타렉스';
-      setVehicleType(
-        resolveVehicleTypeForHeadcount(draftHeadcount, draftVehicle, VEHICLES) as (typeof VEHICLES)[number],
+      setVehicleAssignments(
+        resolveVehicleAssignmentsForHeadcount(
+          draftHeadcount,
+          normalizeVehicleAssignments(null, draft.vehicleType),
+          PLAN_VEHICLES,
+        ),
       );
       setSpecialNote(draft.specialNote);
       setRemark(draft.remark);
@@ -4467,7 +4488,7 @@ export function ItineraryBuilderPage(): JSX.Element {
             (!item.customLodgingId || item.customLodgingId.trim().length === 0),
         ) &&
         !normalizedExternalTransfers.some((t) => !isExternalTransferComplete(t)) &&
-        (vehicleType !== '하이에이스' || headcountTotal >= HIACE_VEHICLE_HEADCOUNT_MIN),
+        validateHiaceHeadcountForAssignments(vehicleAssignments, headcountTotal) === null,
       ),
     [
       regionSetId,
@@ -4475,7 +4496,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       manualAdjustments,
       lodgingSelections,
       normalizedExternalTransfers,
-      vehicleType,
+      vehicleAssignments,
       headcountTotal,
     ],
   );
@@ -4503,6 +4524,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         transportGroupCount: normalizedTransportGroups.length,
         transportGroups: normalizedTransportGroups.map(mapTransportGroupToPlanMutationInput),
         vehicleType,
+        vehicleAssignments,
         includeRentalItems,
         eventIds,
         extraLodgings,
@@ -4707,6 +4729,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     headcountTotal,
     headcountMale,
     vehicleType,
+    vehicleAssignments,
     travelStartDate,
     travelEndDate,
     manualAdjustments,
@@ -4901,6 +4924,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         travelStartDate,
         travelEndDate,
         vehicleType,
+        vehicleAssignments,
         transportGroups: normalizedTransportGroups,
         externalTransfers: normalizedExternalTransfers,
         specialNote: specialNote.trim(),
@@ -4927,6 +4951,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       travelStartDate,
       travelEndDate,
       vehicleType,
+      vehicleAssignments,
       normalizedTransportGroups,
       normalizedExternalTransfers,
       specialNote,
@@ -4961,8 +4986,8 @@ export function ItineraryBuilderPage(): JSX.Element {
     headcountMale,
     travelStartDate,
     travelEndDate,
-    vehicleType,
-    vehicleOptions: VEHICLES,
+    vehicleType: vehicleDisplayText,
+    vehicleAssignments,
     transportGroups: normalizedTransportGroups,
     eventIds,
     eventOptions: eventOptions.map((eventOption) => ({
@@ -4983,11 +5008,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     },
     onTravelStartDateChange: setTravelStartDate,
     onTravelEndDateChange: setTravelEndDate,
-    onVehicleTypeChange: (value) => {
-      if (VEHICLES.includes(value as (typeof VEHICLES)[number])) {
-        setVehicleType(value as (typeof VEHICLES)[number]);
-      }
-    },
+    onVehicleAssignmentsChange: setVehicleAssignments,
     onTransportGroupFieldChange: handlePreviewTransportGroupFieldChange,
     onAddTransportGroup: addTransportGroup,
     onRemoveTransportGroup: removeTransportGroupAt,
@@ -5429,6 +5450,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 headcountMale,
                                 headcountFemale,
                                 vehicleType,
+                                vehicleAssignments,
                                 ...primaryMetaFlightFields(primaryTransportGroup),
                                 pickupDate: primaryTransportGroup?.pickupDate
                                   ? toIsoDateTime(primaryTransportGroup.pickupDate)
@@ -5524,6 +5546,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 headcountMale,
                                 headcountFemale,
                                 vehicleType,
+                                vehicleAssignments,
                                 ...primaryMetaFlightFields(primaryTransportGroup),
                                 pickupDate: primaryTransportGroup?.pickupDate
                                   ? toIsoDateTime(primaryTransportGroup.pickupDate)
@@ -5909,28 +5932,11 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                     <div className="grid gap-1 text-sm">
                       <span className="text-xs text-slate-600">차량</span>
-                      <div className="flex flex-wrap gap-2">
-                        {VEHICLES.map((vehicle) => (
-                          <button
-                            key={vehicle}
-                            type="button"
-                            onClick={() => {
-                              if (vehicle === '하이에이스' && headcountTotal < HIACE_VEHICLE_HEADCOUNT_MIN) {
-                                return;
-                              }
-                              setVehicleType(vehicle);
-                            }}
-                            disabled={vehicle === '하이에이스' && headcountTotal < HIACE_VEHICLE_HEADCOUNT_MIN}
-                            className={`rounded-xl border px-3 py-1.5 text-sm ${
-                              vehicleType === vehicle
-                                ? 'border-slate-900 bg-slate-900 text-white'
-                                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                            } ${vehicle === '하이에이스' && headcountTotal < HIACE_VEHICLE_HEADCOUNT_MIN ? 'cursor-not-allowed opacity-40' : ''}`}
-                          >
-                            {vehicle}
-                          </button>
-                        ))}
-                      </div>
+                      <VehicleAssignmentsEditor
+                        assignments={vehicleAssignments}
+                        headcountTotal={headcountTotal}
+                        onChange={setVehicleAssignments}
+                      />
                       {hasValidation('hiace-headcount') ? (
                         <p className="text-xs text-rose-700">
                           하이에이스는 2인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.
@@ -8288,6 +8294,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 headcountMale,
                                 headcountFemale,
                                 vehicleType,
+                                vehicleAssignments,
                                 ...primaryMetaFlightFields(primaryTransportGroup),
                                 pickupDate: primaryTransportGroup?.pickupDate ?? '',
                                 pickupTime: primaryTransportGroup?.pickupTime ?? '',
@@ -8340,6 +8347,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 headcountMale,
                                 headcountFemale,
                                 vehicleType,
+                                vehicleAssignments,
                                 ...primaryMetaFlightFields(primaryTransportGroup),
                                 pickupDate: primaryTransportGroup?.pickupDate ?? '',
                                 pickupTime: primaryTransportGroup?.pickupTime ?? '',

@@ -1,4 +1,5 @@
 import type { DealStage, DealTodoStatus, Prisma, PrismaClient } from '@prisma/client';
+import { normalizeVehicleAssignments } from '@tour/validation';
 import { deleteUserGraph } from './delete-user';
 import { planInclude, planVersionInclude } from './plan.mapper';
 import type {
@@ -59,6 +60,7 @@ function buildPlanVersionMetaCreateInput(
     headcountMale: number;
     headcountFemale: number;
     vehicleType: string;
+    vehicleAssignments?: Array<{ vehicleType: string; count: number }>;
     flightInTime?: string | null;
     flightOutTime?: string | null;
     pickupDate?: string;
@@ -119,6 +121,7 @@ function buildPlanVersionMetaCreateInput(
     headcountMale: meta.headcountMale,
     headcountFemale: meta.headcountFemale,
     vehicleType: meta.vehicleType,
+    vehicleAssignments: normalizeVehicleAssignments(meta.vehicleAssignments, meta.vehicleType) as Prisma.InputJsonValue,
     flightInTime: firstTransportGroup?.flightInTime ?? meta.flightInTime ?? null,
     flightOutTime: firstTransportGroup?.flightOutTime ?? meta.flightOutTime ?? null,
     pickupDate: firstTransportGroup?.pickupDate

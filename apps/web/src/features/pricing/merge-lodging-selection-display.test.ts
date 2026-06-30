@@ -193,4 +193,30 @@ describe('mergeLodgingSelectionDisplayLines', () => {
       displayDivisorPerson: 6,
     });
   });
+
+  it('merges duplicate HIACE PER_DAY billing lines with scaled daily unit and amount', () => {
+    const hiace = (amountKrw: number) =>
+      line({
+        lineCode: 'HIACE',
+        description: '차량 업그레이드',
+        displayBasis: 'PER_DAY',
+        displayLabel: '차량 업그레이드',
+        unitPriceKrw: 5_000,
+        quantity: 6,
+        amountKrw,
+        displayUnitAmountKrw: 5_000,
+        displayCount: 6,
+      });
+
+    const merged = mergeLodgingSelectionDisplayLines([hiace(30_000), hiace(30_000), hiace(30_000)]);
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({
+      lineCode: 'HIACE',
+      amountKrw: 90_000,
+      displayBasis: 'PER_DAY',
+      displayUnitAmountKrw: 15_000,
+      displayCount: 6,
+    });
+  });
 });

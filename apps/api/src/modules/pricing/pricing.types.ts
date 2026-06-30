@@ -81,6 +81,7 @@ export interface PricingComputeInput {
   travelStartDate: string;
   headcountTotal: number;
   vehicleType: string;
+  vehicleAssignments?: Array<{ vehicleType: string; count: number }>;
   transportGroupCount: number;
   transportGroups: TransportGroupPricingInputDto[];
   externalTransfers: ExternalTransferPricingInputDto[];

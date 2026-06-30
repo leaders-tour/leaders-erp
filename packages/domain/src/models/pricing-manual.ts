@@ -199,10 +199,38 @@ function parseLodgingSelectionLine(line: PricingManualSourceLine): ParsedLodging
 
 const TEAM_DIV_MERGEABLE_LINE_CODES = new Set(['PICKUP_DROP', 'CONDITIONAL']);
 
+const VEHICLE_ADDON_MERGEABLE_LINE_CODES = new Set(['HIACE']);
+
 type ParsedTeamDivMergeLine = {
   groupKey: string;
   displayLabel: string;
 };
+
+type ParsedVehicleAddonMergeLine = {
+  groupKey: string;
+  displayLabel: string;
+};
+
+function parseVehicleAddonMergeLine(line: PricingManualSourceLine): ParsedVehicleAddonMergeLine | null {
+  if (!VEHICLE_ADDON_MERGEABLE_LINE_CODES.has(line.lineCode)) {
+    return null;
+  }
+  if (line.displayBasis !== 'PER_DAY') {
+    return null;
+  }
+  const displayLabel = line.displayLabel?.trim() || line.description?.trim();
+  if (!displayLabel) {
+    return null;
+  }
+  const unitAmount = line.displayUnitAmountKrw ?? line.unitPriceKrw;
+  if (unitAmount === null) {
+    return null;
+  }
+  return {
+    displayLabel,
+    groupKey: `VEHICLE_ADDON|${line.lineCode}|${displayLabel}|${unitAmount}|${line.quantity}`,
+  };
+}
 
 function parseTeamDivPersonMergeLine(line: PricingManualSourceLine): ParsedTeamDivMergeLine | null {
   if (!TEAM_DIV_MERGEABLE_LINE_CODES.has(line.lineCode)) {
@@ -261,6 +289,10 @@ function buildTeamDivMergeGroups<TLine extends PricingManualSourceLine>(lines: T
   return buildIndexedMergeGroups(lines, parseTeamDivPersonMergeLine);
 }
 
+function buildVehicleAddonMergeGroups<TLine extends PricingManualSourceLine>(lines: TLine[]): Map<string, MergeGroup<TLine>> {
+  return buildIndexedMergeGroups(lines, parseVehicleAddonMergeLine);
+}
+
 function mergedLodgingDescription(parsed: ParsedLodgingSelectionLine): string {
   if (parsed.kind === 'fixed') {
     return DISPLAY_LABEL_BY_LEVEL[parsed.level];
@@ -304,6 +336,7 @@ function buildRowKey<TLine extends PricingManualSourceLine>(
 export function mergeAddonSourceLines<TLine extends PricingManualSourceLine>(lines: TLine[]): TLine[] {
   const lodgingGroups = buildMergeGroups(lines);
   const teamDivGroups = buildTeamDivMergeGroups(lines);
+  const vehicleAddonGroups = buildVehicleAddonMergeGroups(lines);
   const result: TLine[] = [];
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -386,6 +419,40 @@ export function mergeAddonSourceLines<TLine extends PricingManualSourceLine>(lin
         displayUnitAmountKrw: totalTeamAmountKrw,
         displayCount: 1,
         displayDivisorPerson: first.displayDivisorPerson ?? first.headcount ?? null,
+        displayText: null,
+      } as TLine);
+      continue;
+    }
+
+    const vehicleAddonParsed = parseVehicleAddonMergeLine(line);
+    if (vehicleAddonParsed) {
+      const group = vehicleAddonGroups.get(vehicleAddonParsed.groupKey);
+      if (!group || group.firstIndex !== index) {
+        continue;
+      }
+
+      if (group.members.length === 1) {
+        result.push(line);
+        continue;
+      }
+
+      const first = group.members[0];
+      if (!first) {
+        continue;
+      }
+      const vehicleCount = group.members.length;
+      const amountKrw = group.members.reduce((sum, member) => sum + member.amountKrw, 0);
+      const unitPriceKrw = first.unitPriceKrw ?? 0;
+      result.push({
+        ...first,
+        description: vehicleAddonParsed.displayLabel,
+        displayLabel: vehicleAddonParsed.displayLabel,
+        quantity: first.quantity,
+        amountKrw,
+        displayBasis: 'PER_DAY',
+        displayUnitAmountKrw: unitPriceKrw * vehicleCount,
+        displayCount: first.displayCount ?? first.quantity,
+        displayDivisorPerson: null,
         displayText: null,
       } as TLine);
       continue;

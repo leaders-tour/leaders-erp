@@ -7,6 +7,7 @@ import {
   teamPricingsForBaseAmountDisplay,
   teamPricingSummarySignatureFromParts,
 } from '../../pricing/team-pricing-summary-display';
+import { VehicleAssignmentsEditor } from '../../plan/components/VehicleAssignmentsEditor';
 import { PICKUP_DROP_PLACE_OPTIONS, formatPickupDropDisplay, type PickupDropPlaceType } from '../../plan/pickup-drop';
 import { ESTIMATE_COMPANY, ESTIMATE_PAYMENT, ESTIMATE_TAGLINE, ESTIMATE_TITLE } from '../model/constants';
 import type {
@@ -45,8 +46,8 @@ function fallback(value: string | null | undefined): string {
 const VEHICLE_PURGONG_PHOTO_NOTE = '*푸르공 사진촬영 가능';
 
 function vehicleTypeShowsPurgongPhotoNote(vehicleType: string | null | undefined): boolean {
-  const v = vehicleType?.trim();
-  return v === '스타렉스' || v === '하이에이스';
+  const v = vehicleType?.trim() ?? '';
+  return v.includes('스타렉스') || v.includes('하이에이스');
 }
 
 function estimateTeamPricingSummarySignature(row: EstimateTeamPricing): string {
@@ -695,18 +696,26 @@ export function EstimatePage1({ data, editor, onLayoutReady }: EstimatePage1Prop
                 editor={editor}
                 displayValue={<VehicleTypeCellDisplay vehicleType={data.vehicleType} />}
                 input={
-                  <select
-                    autoFocus
-                    value={editor?.vehicleType ?? ''}
-                    onChange={(event) => editor?.onVehicleTypeChange(event.target.value)}
-                    className="estimate-editable-input"
-                  >
-                    {editor?.vehicleOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
+                  editor?.onVehicleAssignmentsChange && editor.vehicleAssignments ? (
+                    <VehicleAssignmentsEditor
+                      assignments={editor.vehicleAssignments}
+                      headcountTotal={editor.headcountTotal}
+                      onChange={editor.onVehicleAssignmentsChange}
+                    />
+                  ) : editor?.onVehicleTypeChange ? (
+                    <select
+                      autoFocus
+                      value={editor.vehicleType ?? ''}
+                      onChange={(event) => editor.onVehicleTypeChange?.(event.target.value)}
+                      className="estimate-editable-input"
+                    >
+                      {(editor.vehicleOptions ?? []).map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null
                 }
                 onActivate={setActiveField}
                 onDeactivate={() => setActiveField(null)}

@@ -1010,4 +1010,118 @@ describe('PricingService.preview', () => {
     expect(result.addonAmountKrw).toBe(105_000);
     expect(result.totalAmountKrw).toBe(1_105_000);
   });
+
+  it('charges HIACE once per hiace vehicle assignment count', async () => {
+    const service = makeService([
+      makeRule({
+        id: 'base-rule',
+        priceItemPreset: 'BASE',
+        ruleType: 'BASE',
+        title: '기본금',
+        lineCode: 'BASE',
+        amountKrw: 1_000_000,
+      }),
+      makeRule({
+        id: 'hiace-rule',
+        priceItemPreset: 'CONDITIONAL',
+        ruleType: 'CONDITIONAL_ADDON',
+        title: '차량 업그레이드',
+        lineCode: 'HIACE',
+        amountKrw: 5_000,
+        quantitySource: 'TOTAL_DAYS',
+      }),
+    ]);
+
+    const oneVehicle = await service.preview(
+      makeInput({
+        headcountTotal: 6,
+        vehicleType: '하이에이스',
+        vehicleAssignments: [{ vehicleType: '하이에이스', count: 1 }],
+        totalDays: 6,
+      }),
+    );
+    const threeVehicles = await service.preview(
+      makeInput({
+        headcountTotal: 6,
+        vehicleType: '하이에이스',
+        vehicleAssignments: [{ vehicleType: '하이에이스', count: 3 }],
+        totalDays: 6,
+      }),
+    );
+
+    expect(oneVehicle.lines.filter((line) => line.lineCode === 'HIACE')).toHaveLength(1);
+    expect(oneVehicle.lines.find((line) => line.lineCode === 'HIACE')).toMatchObject({
+      unitPriceKrw: 5_000,
+      quantity: 6,
+      amountKrw: 30_000,
+    });
+    expect(threeVehicles.lines.filter((line) => line.lineCode === 'HIACE')).toHaveLength(1);
+    expect(threeVehicles.lines.find((line) => line.lineCode === 'HIACE')).toMatchObject({
+      unitPriceKrw: 15_000,
+      quantity: 6,
+      amountKrw: 90_000,
+    });
+    expect(threeVehicles.addonAmountKrw).toBe(90_000);
+    expect(threeVehicles.totalAmountKrw - oneVehicle.totalAmountKrw).toBe(60_000);
+  });
+
+  it('includes HIACE on each team pricing row when multiple teams exist', async () => {
+    const service = makeService([
+      makeRule({
+        id: 'base-rule',
+        priceItemPreset: 'BASE',
+        ruleType: 'BASE',
+        title: '기본금',
+        lineCode: 'BASE',
+        amountKrw: 1_000_000,
+      }),
+      makeRule({
+        id: 'hiace-rule',
+        priceItemPreset: 'CONDITIONAL',
+        ruleType: 'CONDITIONAL_ADDON',
+        title: '차량 업그레이드',
+        lineCode: 'HIACE',
+        amountKrw: 5_000,
+        quantitySource: 'TOTAL_DAYS',
+      }),
+    ]);
+
+    const result = await service.preview(
+      makeInput({
+        headcountTotal: 6,
+        vehicleType: '하이에이스',
+        vehicleAssignments: [{ vehicleType: '하이에이스', count: 2 }],
+        totalDays: 6,
+        transportGroupCount: 2,
+        transportGroups: [
+          {
+            teamName: 'A팀',
+            headcount: 3,
+            flightInDate: '2026-04-01',
+            flightInTime: '10:00',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+          },
+          {
+            teamName: 'B팀',
+            headcount: 3,
+            flightInDate: '2026-04-01',
+            flightInTime: '10:00',
+            flightOutDate: '2026-04-02',
+            flightOutTime: '12:00',
+          },
+        ],
+      }),
+    );
+
+    expect(result.teamPricings[0]?.lines.filter((line) => line.lineCode === 'HIACE')).toHaveLength(1);
+    expect(result.teamPricings[1]?.lines.filter((line) => line.lineCode === 'HIACE')).toHaveLength(1);
+    expect(result.teamPricings[0]?.lines.find((line) => line.lineCode === 'HIACE')).toMatchObject({
+      unitPriceKrw: 10_000,
+      quantity: 6,
+      amountKrw: 60_000,
+    });
+    expect(result.teamPricings[0]?.addonAmountKrw).toBe(60_000);
+    expect(result.teamPricings[1]?.addonAmountKrw).toBe(60_000);
+  });
 });

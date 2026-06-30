@@ -235,6 +235,7 @@ export interface PlanVersionMetaRow {
   headcountMale: number;
   headcountFemale: number;
   vehicleType: string;
+  vehicleAssignments?: Array<{ vehicleType: string; count: number }> | null;
   flightInTime: string | null;
   flightOutTime: string | null;
   pickupDate: string | null;
@@ -949,6 +950,10 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         headcountMale
         headcountFemale
         vehicleType
+        vehicleAssignments {
+          vehicleType
+          count
+        }
         flightInTime
         flightOutTime
         pickupDate

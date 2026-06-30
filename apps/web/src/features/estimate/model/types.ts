@@ -1,6 +1,7 @@
 import type { ExternalTransfer } from '../../plan/external-transfer';
 import type { PlanStopRowType } from '../../plan/plan-stop-row';
 import type { PickupDropPlaceType } from '../../plan/pickup-drop';
+import type { VehicleAssignment } from '@tour/validation';
 import type { MovementIntensityColorSetting, MovementIntensityValue } from './movement-intensity';
 
 export type EstimateSourceMode = 'version' | 'draft';
@@ -91,6 +92,7 @@ export interface EstimateBuilderDraftSnapshot {
   travelStartDate: string;
   travelEndDate: string;
   vehicleType: string;
+  vehicleAssignments: VehicleAssignment[];
   transportGroups: EstimateTransportGroup[];
   externalTransfers: ExternalTransfer[];
   specialNote: string;
@@ -222,7 +224,8 @@ export interface EstimatePage1Editor {
   travelStartDate: string;
   travelEndDate: string;
   vehicleType: string;
-  vehicleOptions: readonly string[];
+  vehicleAssignments?: VehicleAssignment[];
+  vehicleOptions?: readonly string[];
   transportGroups: EstimateTransportGroup[];
   eventIds: string[];
   eventOptions: EstimatePage1EventOption[];
@@ -233,7 +236,8 @@ export interface EstimatePage1Editor {
   onHeadcountMaleChange: (value: number) => void;
   onTravelStartDateChange: (value: string) => void;
   onTravelEndDateChange: (value: string) => void;
-  onVehicleTypeChange: (value: string) => void;
+  onVehicleTypeChange?: (value: string) => void;
+  onVehicleAssignmentsChange?: (assignments: VehicleAssignment[]) => void;
   onTransportGroupFieldChange: <K extends keyof EstimateTransportGroup>(
     index: number,
     field: K,

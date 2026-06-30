@@ -1483,6 +1483,8 @@ model PlanVersionMeta {
   estimateGuidePageSplits       Json?
   /// 견적서 일정표 상단 전체 이동강도 칩 색상 오버라이드 (전역 5색 팔레트 hex)
   movementIntensityColorOverride String?
+  /// 견적 차량 배정 [{ vehicleType, count }]
+  vehicleAssignments            Json?
 
   planVersion     PlanVersion                 @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
   transportGroups PlanVersionTransportGroup[]

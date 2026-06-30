@@ -38,6 +38,7 @@ function minimalInput(planRows: PlanRowForValidation[], dropTime: string): Build
     headcountTotal: 2,
     headcountMale: 1,
     vehicleType: '스타렉스',
+    vehicleAssignments: [{ vehicleType: '스타렉스', count: 1 }],
     travelStartDate: '2026-05-01',
     travelEndDate: '2026-05-06',
     manualAdjustments: [],

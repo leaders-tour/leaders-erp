@@ -171,6 +171,8 @@ type PlanVersionMeta {
   estimateGuidePageSplits: [Int!]
   """견적서 일정표 상단 전체 이동강도 칩 색상 오버라이드"""
   movementIntensityColorOverride: String
+  """복수 차종·대수 배정"""
+  vehicleAssignments: [VehicleAssignment!]!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -578,6 +580,17 @@ input PlanVersionMetaInput {
   estimateGuideImagesPerPage: Int
   estimateGuidePageSplits: [Int!]
   movementIntensityColorOverride: String
+  vehicleAssignments: [VehicleAssignmentInput!]
+}
+
+type VehicleAssignment {
+  vehicleType: String!
+  count: Int!
+}
+
+input VehicleAssignmentInput {
+  vehicleType: String!
+  count: Int!
 }
 
 input LodgingSelectionInput {
@@ -722,6 +735,7 @@ input PlanPricingPreviewInput {
   transportGroupCount: Int!
   transportGroups: [PlanVersionTransportGroupInput!]
   vehicleType: String!
+  vehicleAssignments: [VehicleAssignmentInput!]
   includeRentalItems: Boolean!
   eventIds: [ID!]!
   extraLodgings: [ExtraLodgingInput!]

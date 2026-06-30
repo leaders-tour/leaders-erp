@@ -15,6 +15,11 @@ import {
   SecurityDepositMode,
 } from '@prisma/client';
 import { DomainError } from '../../lib/errors';
+import {
+  primaryVehicleTypeFromAssignments,
+  resolveVehicleAssignmentsForPricing,
+  validateHiaceHeadcountForAssignments,
+} from '@tour/validation';
 import type {
   LodgingSelectionPricingInputDto,
   OriginalPricingSnapshot,
@@ -506,11 +511,17 @@ export class PricingService {
 
     const extraLodgingCount = input.extraLodgings.reduce((sum, item) => sum + item.lodgingCount, 0);
 
+    const vehicleAssignments = resolveVehicleAssignmentsForPricing(input);
+    const hiaceValidationError = validateHiaceHeadcountForAssignments(vehicleAssignments, input.headcountTotal);
+    if (hiaceValidationError) {
+      throw new DomainError('VALIDATION_FAILED', hiaceValidationError);
+    }
+
     const context: ComputeContext = {
       variantType: input.variantType,
       totalDays: input.totalDays,
       headcountTotal: input.headcountTotal,
-      vehicleType: input.vehicleType,
+      vehicleType: primaryVehicleTypeFromAssignments(vehicleAssignments),
       travelStartDate,
       transportGroups: input.transportGroups,
       externalTransfers: input.externalTransfers,
@@ -518,10 +529,6 @@ export class PricingService {
       nightTrainBlockCount: nightTrainBlockIds.size,
       extraLodgingCount,
     };
-
-    if (context.vehicleType === HIACE && context.headcountTotal < HIACE_VEHICLE_HEADCOUNT_MIN) {
-      throw new DomainError('VALIDATION_FAILED', '하이에이스 차량은 2인 이상부터 선택할 수 있습니다.');
-    }
 
     const lines: PricingComputedLineDraft[] = [];
 
@@ -563,7 +570,7 @@ export class PricingService {
     });
 
     let hasMorningFlightOutDiscount = false;
-    this.findConditionalAddonRules(rules, context).forEach((rule) => {
+    this.findNonVehicleConditionalAddonRules(rules, context).forEach((rule) => {
       const addonLine = this.buildAmountRuleLine(rule, context);
       if (addonLine) {
         if (this.isMorningFlightOutDiscountRule(rule, addonLine)) {
@@ -572,6 +579,17 @@ export class PricingService {
         lines.push(addonLine);
       }
     });
+
+    for (const assignment of vehicleAssignments) {
+      const vehicleContext: ComputeContext = { ...context, vehicleType: assignment.vehicleType };
+      const vehicleRules = this.findVehicleConditionalAddonRules(rules, vehicleContext);
+      vehicleRules.forEach((rule) => {
+        const addonLine = this.buildAmountRuleLine(rule, vehicleContext);
+        if (addonLine) {
+          lines.push(this.scaleVehicleAddonLineByAssignmentCount(addonLine, assignment.count));
+        }
+      });
+    }
 
     this.buildLodgingSelectionLines(rules, context, input.lodgingSelections, input.headcountTotal, input.transportGroupCount).forEach(
       (line) => {
@@ -685,7 +703,8 @@ export class PricingService {
         totalDays: input.totalDays,
         planStops: mainPlanStops,
         headcountTotal: input.headcountTotal,
-        vehicleType: input.vehicleType,
+        vehicleType: context.vehicleType,
+        vehicleAssignments,
         travelStartDate: input.travelStartDate,
         longDistanceSegmentCount,
         nightTrainBlockCount: context.nightTrainBlockCount,
@@ -973,6 +992,21 @@ export class PricingService {
     });
   }
 
+  private scaleVehicleAddonLineByAssignmentCount(
+    line: PricingComputedLineDraft,
+    vehicleCount: number,
+  ): PricingComputedLineDraft {
+    if (vehicleCount <= 1) {
+      return line;
+    }
+    const unitPriceKrw = line.unitPriceKrw ?? 0;
+    return {
+      ...line,
+      unitPriceKrw: unitPriceKrw * vehicleCount,
+      amountKrw: line.amountKrw * vehicleCount,
+    };
+  }
+
   private buildTeamLine(
     line: PricingComputedLine,
     input: { teamOrderIndex: number; teamName: string; headcount: number; totalDays: number },
@@ -1197,6 +1231,30 @@ export class PricingService {
       amountKrw: upliftAmount,
       meta: this.buildRuleMeta(rule, { percentBps }),
     };
+  }
+
+  private isVehicleScopedRule(rule: PricingRuleRecord): boolean {
+    return rule.vehicleType !== null || rule.lineCode === 'HIACE';
+  }
+
+  private findNonVehicleConditionalAddonRules(rules: PricingRuleRecord[], context: ComputeContext): PricingRuleRecord[] {
+    return rules.filter(
+      (rule) =>
+        this.getEffectiveRuleType(rule) === 'CONDITIONAL_ADDON' &&
+        rule.lodgingSelectionLevel === null &&
+        !this.isVehicleScopedRule(rule) &&
+        this.matchesRule(rule, context),
+    );
+  }
+
+  private findVehicleConditionalAddonRules(rules: PricingRuleRecord[], context: ComputeContext): PricingRuleRecord[] {
+    return rules.filter(
+      (rule) =>
+        this.getEffectiveRuleType(rule) === 'CONDITIONAL_ADDON' &&
+        rule.lodgingSelectionLevel === null &&
+        this.isVehicleScopedRule(rule) &&
+        this.matchesRule(rule, context),
+    );
   }
 
   private findConditionalAddonRules(rules: PricingRuleRecord[], context: ComputeContext): PricingRuleRecord[] {

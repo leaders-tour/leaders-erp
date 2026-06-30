@@ -1319,4 +1319,140 @@ describe('pickup/drop display merge', () => {
     expect(matchesOnA).toHaveLength(1);
     expect(matchesOnA[0]?.label).toBe('실투어 외 픽드랍 (기본울바)');
   });
+
+  it('shows one shared HIACE row for two vehicles across two teams', () => {
+    const hiaceLine = (teamOrderIndex: number, teamName: string, headcount: number): PricingManualSourceLine => ({
+      ruleType: 'CONDITIONAL_ADDON',
+      lineCode: 'HIACE',
+      sourceType: 'RULE',
+      description: '차량 업그레이드',
+      ruleId: 'rule-hiace',
+      unitPriceKrw: 10_000,
+      quantity: 6,
+      amountKrw: 60_000,
+      displayBasis: 'PER_DAY',
+      displayLabel: '차량 업그레이드',
+      displayUnitAmountKrw: 10_000,
+      displayCount: 6,
+      teamOrderIndex,
+      teamName,
+      headcount,
+    });
+
+    const effective = buildEffectivePricing(
+      {
+        baseAmountKrw: 1_000_000,
+        addonAmountKrw: 60_000,
+        totalAmountKrw: 1_060_000,
+        depositAmountKrw: 100_000,
+        balanceAmountKrw: 960_000,
+        securityDepositAmountKrw: 0,
+        securityDepositUnitPriceKrw: 0,
+        securityDepositQuantity: 0,
+        securityDepositMode: 'NONE',
+        securityDepositEvent: null,
+        lines: [
+          {
+            ruleType: 'BASE',
+            lineCode: 'BASE',
+            sourceType: 'RULE',
+            description: '기본금',
+            ruleId: 'rule-base',
+            unitPriceKrw: 1_000_000,
+            quantity: 1,
+            amountKrw: 1_000_000,
+          },
+          {
+            ruleType: 'CONDITIONAL_ADDON',
+            lineCode: 'HIACE',
+            sourceType: 'RULE',
+            description: '차량 업그레이드',
+            ruleId: 'rule-hiace',
+            unitPriceKrw: 10_000,
+            quantity: 6,
+            amountKrw: 60_000,
+            displayBasis: 'PER_DAY',
+            displayLabel: '차량 업그레이드',
+            displayUnitAmountKrw: 10_000,
+            displayCount: 6,
+          },
+        ],
+        teamPricings: [
+          {
+            teamOrderIndex: 0,
+            teamName: 'A팀',
+            headcount: 3,
+            baseAmountKrw: 1_000_000,
+            addonAmountKrw: 60_000,
+            totalAmountKrw: 1_060_000,
+            depositAmountKrw: 100_000,
+            balanceAmountKrw: 960_000,
+            securityDepositAmountKrw: 0,
+            securityDepositUnitPriceKrw: 0,
+            securityDepositQuantity: 0,
+            securityDepositMode: 'NONE',
+            securityDepositEvent: null,
+            lines: [
+              {
+                ruleType: 'BASE',
+                lineCode: 'BASE',
+                sourceType: 'RULE',
+                description: '기본금',
+                ruleId: 'rule-base',
+                unitPriceKrw: 1_000_000,
+                quantity: 1,
+                amountKrw: 1_000_000,
+                teamOrderIndex: 0,
+                teamName: 'A팀',
+                headcount: 3,
+              },
+              hiaceLine(0, 'A팀', 3),
+            ],
+          },
+          {
+            teamOrderIndex: 1,
+            teamName: 'B팀',
+            headcount: 3,
+            baseAmountKrw: 1_000_000,
+            addonAmountKrw: 60_000,
+            totalAmountKrw: 1_060_000,
+            depositAmountKrw: 100_000,
+            balanceAmountKrw: 960_000,
+            securityDepositAmountKrw: 0,
+            securityDepositUnitPriceKrw: 0,
+            securityDepositQuantity: 0,
+            securityDepositMode: 'NONE',
+            securityDepositEvent: null,
+            lines: [
+              {
+                ruleType: 'BASE',
+                lineCode: 'BASE',
+                sourceType: 'RULE',
+                description: '기본금',
+                ruleId: 'rule-base',
+                unitPriceKrw: 1_000_000,
+                quantity: 1,
+                amountKrw: 1_000_000,
+                teamOrderIndex: 1,
+                teamName: 'B팀',
+                headcount: 3,
+              },
+              hiaceLine(1, 'B팀', 3),
+            ],
+          },
+        ],
+      },
+      { headcountTotal: 6, totalDays: 6 },
+    );
+
+    const displayed = buildDisplayedPricingAdjustmentLines(effective);
+    const hiace = displayed.filter((line) => line.label === '차량 업그레이드');
+    expect(hiace).toHaveLength(1);
+    expect(hiace[0]).toMatchObject({
+      leadAmountKrw: 60_000,
+      formula: '10,000원*6일',
+      teamName: null,
+      isSharedAcrossTeams: true,
+    });
+  });
 });

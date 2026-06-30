@@ -437,6 +437,7 @@ export interface ConfirmedTripRow {
       headcountMale: number;
       headcountFemale: number;
       vehicleType: string;
+      vehicleAssignments?: Array<{ vehicleType: string; count: number }> | null;
       specialNote: string | null;
       includeRentalItems: boolean;
       rentalItemsText: string;
@@ -579,6 +580,10 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
         headcountMale
         headcountFemale
         vehicleType
+        vehicleAssignments {
+          vehicleType
+          count
+        }
         specialNote
         includeRentalItems
         rentalItemsText
@@ -812,6 +817,10 @@ export const CONFIRMED_TRIP_LIST_FRAGMENT = gql`
         headcountMale
         headcountFemale
         vehicleType
+        vehicleAssignments {
+          vehicleType
+          count
+        }
         specialNote
         includeRentalItems
         rentalItemsText

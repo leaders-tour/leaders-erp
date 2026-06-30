@@ -4,7 +4,9 @@ import {
   consolidateConfirmationAccommodationEntries,
   contractTravelerProfileFromSubmission,
   formatConfirmationTravelerLine,
+  formatVehicleAssignmentsForDisplay,
   lodgingSelectionLevelByDay,
+  normalizeVehicleAssignments,
   resolveConfirmationAccommodationLevelTag,
   resolveConfirmationAccommodationName,
   type ConfirmationDocumentSnapshotInput,
@@ -342,6 +344,7 @@ export function buildConfirmationDraftDefaults(input: {
         headcountMale: number;
         headcountFemale: number;
         vehicleType: string;
+        vehicleAssignments?: unknown;
         includeRentalItems: boolean;
         rentalItemsText: string;
         remark: string | null;
@@ -392,7 +395,12 @@ export function buildConfirmationDraftDefaults(input: {
     planRegionSetName: input.confirmedTrip.plan?.regionSet?.name,
     destination: input.confirmedTrip.destination,
   });
-  const vehicleType = input.confirmedTrip.assignedVehicle?.trim() || meta?.vehicleType?.trim() || '-';
+  const vehicleType =
+    input.confirmedTrip.assignedVehicle?.trim()
+    || formatVehicleAssignmentsForDisplay(
+      normalizeVehicleAssignments(meta?.vehicleAssignments, meta?.vehicleType),
+    )
+    || '-';
   const travelers = input.contractSubmissions
     .filter((submission) => !submission.excludedFromContractCount)
     .flatMap((submission) => {

@@ -33,4 +33,5 @@ export * from './contract-traveler-profile';
 export * from './contract-submission-review';
 export * from './guide.schema';
 export * from './driver.schema';
+export * from './vehicle-assignments';
 export * from './accommodation.schema';
