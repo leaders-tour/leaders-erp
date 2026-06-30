@@ -88,8 +88,8 @@ export function RentalItemOccupancyCalendar({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-      <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-3 py-2">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">{label}</p>
           <p className="text-xs text-slate-500">
@@ -123,7 +123,7 @@ export function RentalItemOccupancyCalendar({
         </div>
       </div>
 
-      <div className="grid grid-cols-7 border-b border-slate-100">
+      <div className="grid shrink-0 grid-cols-7 border-b border-slate-100">
         {KOREAN_WEEKDAY_LABELS.map((weekdayLabel, idx) => (
           <div
             key={weekdayLabel}
@@ -136,7 +136,7 @@ export function RentalItemOccupancyCalendar({
         ))}
       </div>
 
-      <div className="divide-y divide-slate-100">
+      <div className="min-h-0 flex-1 divide-y divide-slate-100 overflow-y-auto overscroll-contain">
         {Array.from({ length: weekCount }, (_, weekIdx) => {
           const currentBlocks = weekBlocks[weekIdx] ?? [];
           const laneCount = currentBlocks.reduce((max, block) => Math.max(max, block.lane + 1), 0);

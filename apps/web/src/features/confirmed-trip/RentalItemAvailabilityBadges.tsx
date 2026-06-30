@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK,
   TOUR_LIST_RENTAL_ITEM_LABELS,
@@ -11,6 +11,49 @@ export const RENTAL_ITEM_LABELS: Record<TourListRentalItem, string> = TOUR_LIST_
 
 const POPOVER_WIDTH = 600;
 const VIEWPORT_PADDING = 16;
+const POPOVER_GAP = 8;
+
+interface PopoverPosition {
+  left: number;
+  width: number;
+  maxHeight: number;
+  top?: number;
+  bottom?: number;
+}
+
+function getPopoverPosition(anchorEl: HTMLElement): PopoverPosition {
+  const rect = anchorEl.getBoundingClientRect();
+  const width = Math.min(POPOVER_WIDTH, window.innerWidth - VIEWPORT_PADDING * 2);
+  const maxLeft = Math.max(VIEWPORT_PADDING, window.innerWidth - width - VIEWPORT_PADDING);
+  const left = Math.min(Math.max(rect.left, VIEWPORT_PADDING), maxLeft);
+  const viewportMaxHeight = window.innerHeight - VIEWPORT_PADDING * 2;
+  const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_PADDING - POPOVER_GAP;
+  const spaceAbove = rect.top - VIEWPORT_PADDING - POPOVER_GAP;
+  const placeAbove = spaceBelow < 360 && spaceAbove > spaceBelow;
+  const availableHeight = placeAbove ? spaceAbove : spaceBelow;
+  const maxHeight = Math.max(240, Math.min(viewportMaxHeight, availableHeight));
+
+  if (placeAbove) {
+    return {
+      left,
+      width,
+      maxHeight,
+      bottom: Math.max(window.innerHeight - rect.top + POPOVER_GAP, VIEWPORT_PADDING),
+    };
+  }
+
+  const top = Math.min(
+    Math.max(rect.bottom + POPOVER_GAP, VIEWPORT_PADDING),
+    window.innerHeight - VIEWPORT_PADDING - maxHeight,
+  );
+
+  return {
+    left,
+    width,
+    maxHeight,
+    top,
+  };
+}
 
 function CalendarIcon(): JSX.Element {
   return (
@@ -43,7 +86,7 @@ function RentalItemBadgeWithCalendar({
 }): JSX.Element {
   const badgeRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
-  const [popoverLeft, setPopoverLeft] = useState(0);
+  const [position, setPosition] = useState<PopoverPosition | null>(null);
 
   const shortage = row.available < 0 ? Math.abs(row.available) : 0;
   const isDepleted = row.available <= 0;
@@ -53,17 +96,33 @@ function RentalItemBadgeWithCalendar({
   const visibleConflictCount = row.conflicts.filter((conflict) => !conflict.excluded).length;
   const hasConflicts = row.conflicts.length > 0;
 
+  function updatePosition(): void {
+    if (!badgeRef.current) {
+      return;
+    }
+    setPosition(getPopoverPosition(badgeRef.current));
+  }
+
   function handleMouseEnter() {
     if (!hasConflicts) return;
-    const rect = badgeRef.current?.getBoundingClientRect();
-    if (rect) {
-      const width = Math.min(POPOVER_WIDTH, window.innerWidth - VIEWPORT_PADDING * 2);
-      const maxLeft = Math.max(VIEWPORT_PADDING, window.innerWidth - width - VIEWPORT_PADDING);
-      const left = Math.min(Math.max(rect.left, VIEWPORT_PADDING), maxLeft);
-      setPopoverLeft(left);
-    }
+    updatePosition();
     setOpen(true);
   }
+
+  useEffect(() => {
+    if (!open) {
+      setPosition(null);
+      return;
+    }
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open]);
 
   return (
     <div
@@ -93,13 +152,15 @@ function RentalItemBadgeWithCalendar({
         {hasConflicts ? <CalendarIcon /> : null}
       </span>
 
-      {open && hasConflicts ? (
+      {open && hasConflicts && position ? (
         <div
-          className="fixed z-50 pt-2"
+          className="fixed z-50 flex min-h-0 flex-col"
           style={{
-            left: popoverLeft,
-            top: badgeRef.current?.getBoundingClientRect().bottom ?? 0,
-            width: Math.min(POPOVER_WIDTH, window.innerWidth - VIEWPORT_PADDING * 2),
+            left: position.left,
+            width: position.width,
+            maxHeight: position.maxHeight,
+            top: position.top,
+            bottom: position.bottom,
           }}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={() => setOpen(false)}
