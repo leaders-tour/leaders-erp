@@ -158,6 +158,11 @@ input RestoreContractDocumentReviewInput {
   documentNumber: String!
 }
 
+enum ContractPassportPhotoSourceMode {
+  AUTO
+  MANUAL
+}
+
 type ContractSubmission {
   id: ID!
   source: ContractSubmissionSource!
@@ -175,6 +180,7 @@ type ContractSubmission {
   travelerBirthCode: String
   travelerNote: String
   passportPhotoUrls: [String!]!
+  passportPhotoSourceMode: ContractPassportPhotoSourceMode!
   excludedFromContractCount: Boolean!
   excludedAt: DateTime
   exclusionReason: String
@@ -402,4 +408,7 @@ extend type Mutation {
   resetContractPaymentReceiptAutoMatch(input: ResetContractPaymentReceiptAutoMatchInput!): ContractPaymentReceipt!
   trashContractPaymentReceiptReview(input: TrashContractPaymentReceiptReviewInput!): ContractPaymentReceipt!
   restoreContractPaymentReceiptReview(input: RestoreContractPaymentReceiptReviewInput!): ContractPaymentReceipt!
+  uploadContractSubmissionPassportPhoto(submissionId: ID!, image: Upload!): ContractSubmission!
+  removeContractSubmissionPassportPhoto(submissionId: ID!, imageUrl: String): ContractSubmission!
+  resyncContractSubmissionPassportPhotoFromSheet(submissionId: ID!): ContractSubmission!
 }

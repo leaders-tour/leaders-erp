@@ -7,7 +7,10 @@ import {
   parseGoogleDriveFileIds,
   parsePassportPhotoUrlsJson,
   rawJsonAsStringRecord,
+  removeContractSubmissionPassportPhotoInputSchema,
+  resyncContractSubmissionPassportPhotoFromSheetInputSchema,
 } from '@tour/validation';
+import { DomainError, createValidationError } from '../../lib/errors';
 import { FileStorageClient, type UploadFile } from '../../lib/file-storage/client';
 import { getGoogleAccessToken } from '../../lib/google/access-token';
 
@@ -17,6 +20,13 @@ const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 82;
 const SKIP_RESIZE_BELOW_BYTES = 300_000;
+const ALLOWED_MANUAL_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]);
 
 function digestPassportPhotoSources(urls: string[]): string | null {
   const normalized = [...new Set(urls.map((url) => url.trim()).filter(Boolean))].sort();
@@ -29,6 +39,7 @@ function digestPassportPhotoSources(urls: string[]): string | null {
 export interface PassportPhotoExistingState {
   passportPhotoUrls: unknown;
   passportPhotoSourceDigest: string | null;
+  passportPhotoSourceMode?: 'AUTO' | 'MANUAL' | null;
 }
 
 export interface PassportPhotoResolved {
@@ -136,6 +147,10 @@ export async function resolvePassportPhotosForSubmission(
   existing: PassportPhotoExistingState | null,
   accessToken: string,
 ): Promise<PassportPhotoResolved> {
+  if (existing?.passportPhotoSourceMode === 'MANUAL') {
+    return unchangedPassportState(existing);
+  }
+
   const sourceUrls = extractPassportPhotoSourceUrls(rawJson);
   const sourceDigest = digestPassportPhotoSources(sourceUrls);
   const existingUrls = parsePassportPhotoUrlsJson(existing?.passportPhotoUrls);
@@ -230,6 +245,7 @@ export async function backfillContractSubmissionPassportPhotos(
       rawJson: true,
       passportPhotoUrls: true,
       passportPhotoSourceDigest: true,
+      passportPhotoSourceMode: true,
     },
   });
 
@@ -237,6 +253,10 @@ export async function backfillContractSubmissionPassportPhotos(
   for (const row of rows) {
     if (options?.limit != null && updated >= options.limit) {
       break;
+    }
+
+    if (row.passportPhotoSourceMode === 'MANUAL') {
+      continue;
     }
 
     const rawJson = rawJsonAsStringRecord(row.rawJson);
@@ -249,6 +269,7 @@ export async function backfillContractSubmissionPassportPhotos(
     const existing: PassportPhotoExistingState = {
       passportPhotoUrls: row.passportPhotoUrls,
       passportPhotoSourceDigest: row.passportPhotoSourceDigest,
+      passportPhotoSourceMode: row.passportPhotoSourceMode,
     };
     const changed = await syncPassportPhotosForSubmission(prisma, row.id, rawJson, existing, accessToken);
     if (changed) {
@@ -257,4 +278,125 @@ export async function backfillContractSubmissionPassportPhotos(
   }
 
   return { scanned: rows.length, updated };
+}
+
+async function readUploadFileToBuffer(image: UploadFile): Promise<{ buffer: Buffer; mimeType: string }> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of image.createReadStream()) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const buffer = Buffer.concat(chunks);
+  if (buffer.byteLength > MAX_FILE_SIZE_BYTES) {
+    throw new DomainError('VALIDATION_FAILED', `File exceeds ${MAX_FILE_SIZE_BYTES} bytes`);
+  }
+  return { buffer, mimeType: image.mimetype };
+}
+
+function assertAllowedManualMimeType(mimeType: string): void {
+  if (!ALLOWED_MANUAL_MIME_TYPES.has(mimeType)) {
+    throw new DomainError('VALIDATION_FAILED', `Unsupported file type: ${mimeType}`);
+  }
+}
+
+function manualPassportPhotoUpdateData(employeeId: string) {
+  return {
+    passportPhotoSourceMode: 'MANUAL' as const,
+    passportPhotoManualByEmployeeId: employeeId,
+    passportPhotoManualAt: new Date(),
+  };
+}
+
+async function findContractSubmissionOrThrow(prisma: PrismaLike, submissionId: string) {
+  const submission = await prisma.contractSubmission.findUnique({ where: { id: submissionId } });
+  if (!submission) {
+    throw new DomainError('NOT_FOUND', 'Contract submission not found');
+  }
+  return submission;
+}
+
+export async function uploadContractSubmissionPassportPhotoManual(
+  prisma: PrismaClient,
+  submissionId: string,
+  rawImage: UploadFile | Promise<UploadFile>,
+  employeeId: string,
+) {
+  await findContractSubmissionOrThrow(prisma, submissionId);
+  const image = await Promise.resolve(rawImage);
+  assertAllowedManualMimeType(image.mimetype);
+
+  const { buffer, mimeType } = await readUploadFileToBuffer(image);
+  const prepared = await preparePassportPhotoBuffer(buffer, mimeType);
+  const url = await uploadPassportPhotoToS3(submissionId, 0, prepared);
+
+  return prisma.contractSubmission.update({
+    where: { id: submissionId },
+    data: {
+      passportPhotoUrls: [url],
+      ...manualPassportPhotoUpdateData(employeeId),
+    },
+  });
+}
+
+export async function removeContractSubmissionPassportPhotoManual(
+  prisma: PrismaClient,
+  input: unknown,
+  employeeId: string,
+) {
+  const parsed = removeContractSubmissionPassportPhotoInputSchema.safeParse(input);
+  if (!parsed.success) {
+    throw createValidationError('Invalid remove passport photo input', parsed.error);
+  }
+
+  const submission = await findContractSubmissionOrThrow(prisma, parsed.data.submissionId);
+  const currentUrls = parsePassportPhotoUrlsJson(submission.passportPhotoUrls);
+  const nextUrls = parsed.data.imageUrl
+    ? currentUrls.filter((url) => url !== parsed.data.imageUrl)
+    : [];
+
+  if (parsed.data.imageUrl && nextUrls.length === currentUrls.length) {
+    throw new DomainError('NOT_FOUND', 'Passport photo not found');
+  }
+
+  return prisma.contractSubmission.update({
+    where: { id: submission.id },
+    data: {
+      passportPhotoUrls: nextUrls,
+      ...manualPassportPhotoUpdateData(employeeId),
+    },
+  });
+}
+
+export async function resyncContractSubmissionPassportPhotoFromSheetManual(
+  prisma: PrismaClient,
+  input: unknown,
+) {
+  const parsed = resyncContractSubmissionPassportPhotoFromSheetInputSchema.safeParse(input);
+  if (!parsed.success) {
+    throw createValidationError('Invalid resync passport photo input', parsed.error);
+  }
+
+  const submission = await findContractSubmissionOrThrow(prisma, parsed.data.submissionId);
+  const rawJson = rawJsonAsStringRecord(submission.rawJson);
+  const accessToken = await getGoogleAccessToken();
+  const resolved = await resolvePassportPhotosForSubmission(
+    submission.id,
+    rawJson,
+    {
+      passportPhotoUrls: submission.passportPhotoUrls,
+      passportPhotoSourceDigest: submission.passportPhotoSourceDigest,
+      passportPhotoSourceMode: 'AUTO',
+    },
+    accessToken,
+  );
+
+  return prisma.contractSubmission.update({
+    where: { id: submission.id },
+    data: {
+      passportPhotoUrls: resolved.passportPhotoUrls,
+      passportPhotoSourceDigest: resolved.passportPhotoSourceDigest,
+      passportPhotoSourceMode: 'AUTO',
+      passportPhotoManualByEmployeeId: null,
+      passportPhotoManualAt: null,
+    },
+  });
 }

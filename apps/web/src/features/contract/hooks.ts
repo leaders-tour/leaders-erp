@@ -1,5 +1,7 @@
 import { gql, useMutation, useQuery } from '@apollo/client';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { useAuth } from '../auth/context';
+import { runUploadMutation } from '../../lib/upload-mutation';
 
 export type ContractSubmissionSourceType = 'GOOGLE_SHEET' | 'INTERNAL_FORM';
 export type ContractDocumentStatusValue =
@@ -137,6 +139,8 @@ export interface ContractSubmissionReviewSummaryRow {
   formResponses: ContractSubmissionFormItemRow[];
 }
 
+export type ContractPassportPhotoSourceMode = 'AUTO' | 'MANUAL';
+
 export interface ContractSubmissionRow {
   id: string;
   source: ContractSubmissionSourceRow;
@@ -154,6 +158,7 @@ export interface ContractSubmissionRow {
   travelerBirthCode: string | null;
   travelerNote: string | null;
   passportPhotoUrls: string[];
+  passportPhotoSourceMode: ContractPassportPhotoSourceMode;
   excludedFromContractCount: boolean;
   excludedAt: string | null;
   exclusionReason: string | null;
@@ -506,6 +511,7 @@ const CONTRACT_SUBMISSIONS_QUERY = gql`
       travelerBirthCode
       travelerNote
       passportPhotoUrls
+      passportPhotoSourceMode
       importedAt
       updatedAt
       source {
@@ -919,14 +925,14 @@ export function useContractDocumentStatuses(documentNumbers: string[]) {
 
 export function useContractSubmissions(documentNumber: string | null | undefined) {
   const normalizedInput = useMemo(() => documentNumber?.trim() ?? '', [documentNumber]);
-  const { data, loading } = useQuery<{ contractSubmissions: ContractSubmissionRow[] }>(
+  const { data, loading, refetch } = useQuery<{ contractSubmissions: ContractSubmissionRow[] }>(
     CONTRACT_SUBMISSIONS_QUERY,
     {
       variables: { documentNumber: normalizedInput },
       skip: normalizedInput.length === 0,
     },
   );
-  return { submissions: data?.contractSubmissions ?? [], loading };
+  return { submissions: data?.contractSubmissions ?? [], loading, refetch };
 }
 
 export function useContractDocumentReviewItems(
@@ -1438,6 +1444,106 @@ export function useDeleteManualContractPaymentReceipt() {
         throw new Error('Failed to delete manual contract payment receipt');
       }
       return true;
+    },
+  };
+}
+
+const UPLOAD_CONTRACT_SUBMISSION_PASSPORT_PHOTO_MUTATION_STR = `
+  mutation UploadContractSubmissionPassportPhoto($submissionId: ID!, $image: Upload!) {
+    uploadContractSubmissionPassportPhoto(submissionId: $submissionId, image: $image) {
+      id
+      passportPhotoUrls
+      passportPhotoSourceMode
+      updatedAt
+    }
+  }
+`;
+
+const REMOVE_CONTRACT_SUBMISSION_PASSPORT_PHOTO_MUTATION = gql`
+  mutation RemoveContractSubmissionPassportPhoto($submissionId: ID!, $imageUrl: String) {
+    removeContractSubmissionPassportPhoto(submissionId: $submissionId, imageUrl: $imageUrl) {
+      id
+      passportPhotoUrls
+      passportPhotoSourceMode
+      updatedAt
+    }
+  }
+`;
+
+const RESYNC_CONTRACT_SUBMISSION_PASSPORT_PHOTO_MUTATION = gql`
+  mutation ResyncContractSubmissionPassportPhotoFromSheet($submissionId: ID!) {
+    resyncContractSubmissionPassportPhotoFromSheet(submissionId: $submissionId) {
+      id
+      passportPhotoUrls
+      passportPhotoSourceMode
+      updatedAt
+    }
+  }
+`;
+
+export function useUploadContractSubmissionPassportPhoto() {
+  const { ensureAccessToken } = useAuth();
+  const [loading, setLoading] = useState(false);
+  return {
+    loading,
+    uploadPassportPhoto: async (submissionId: string, image: File) => {
+      setLoading(true);
+      try {
+        const accessToken = await ensureAccessToken();
+        const data = await runUploadMutation<{
+          uploadContractSubmissionPassportPhoto: Pick<
+            ContractSubmissionRow,
+            'id' | 'passportPhotoUrls' | 'passportPhotoSourceMode' | 'updatedAt'
+          >;
+        }>(
+          UPLOAD_CONTRACT_SUBMISSION_PASSPORT_PHOTO_MUTATION_STR,
+          { submissionId, image: null },
+          [image],
+          ['variables.image'],
+          accessToken,
+        );
+        return data.uploadContractSubmissionPassportPhoto;
+      } finally {
+        setLoading(false);
+      }
+    },
+  };
+}
+
+export function useRemoveContractSubmissionPassportPhoto() {
+  const [mutate, { loading }] = useMutation<{
+    removeContractSubmissionPassportPhoto: Pick<
+      ContractSubmissionRow,
+      'id' | 'passportPhotoUrls' | 'passportPhotoSourceMode' | 'updatedAt'
+    >;
+  }>(REMOVE_CONTRACT_SUBMISSION_PASSPORT_PHOTO_MUTATION);
+  return {
+    loading,
+    removePassportPhoto: async (submissionId: string, imageUrl?: string | null) => {
+      const result = await mutate({ variables: { submissionId, imageUrl: imageUrl ?? null } });
+      if (!result.data?.removeContractSubmissionPassportPhoto) {
+        throw new Error('Failed to remove passport photo');
+      }
+      return result.data.removeContractSubmissionPassportPhoto;
+    },
+  };
+}
+
+export function useResyncContractSubmissionPassportPhotoFromSheet() {
+  const [mutate, { loading }] = useMutation<{
+    resyncContractSubmissionPassportPhotoFromSheet: Pick<
+      ContractSubmissionRow,
+      'id' | 'passportPhotoUrls' | 'passportPhotoSourceMode' | 'updatedAt'
+    >;
+  }>(RESYNC_CONTRACT_SUBMISSION_PASSPORT_PHOTO_MUTATION);
+  return {
+    loading,
+    resyncPassportPhotoFromSheet: async (submissionId: string) => {
+      const result = await mutate({ variables: { submissionId } });
+      if (!result.data?.resyncContractSubmissionPassportPhotoFromSheet) {
+        throw new Error('Failed to resync passport photo from sheet');
+      }
+      return result.data.resyncContractSubmissionPassportPhotoFromSheet;
     },
   };
 }

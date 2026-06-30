@@ -771,7 +771,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   }, [tripId]);
   const { trip, loading } = useConfirmedTrip(tripId);
   const contractDocumentNumber = trip?.planVersion?.meta?.documentNumber ?? null;
-  const { submissions: contractSubmissions, loading: contractSubmissionsLoading } =
+  const { submissions: contractSubmissions, loading: contractSubmissionsLoading, refetch: refetchContractSubmissions } =
     useContractSubmissions(contractDocumentNumber);
   const { receipts: contractReceipts, loading: contractReceiptsLoading } =
     useContractPaymentReceipts(contractDocumentNumber);
@@ -1400,6 +1400,9 @@ export function ConfirmedTripDetailPage(): JSX.Element {
             receipts={contractReceipts}
             submissionsLoading={contractSubmissionsLoading}
             receiptsLoading={contractReceiptsLoading}
+            onSubmissionsUpdated={async () => {
+              await refetchContractSubmissions();
+            }}
           />
 
           <ConfirmedTripSectionCard

@@ -718,6 +718,7 @@ export class ContractSyncService {
         rowDigest: true,
         passportPhotoUrls: true,
         passportPhotoSourceDigest: true,
+        passportPhotoSourceMode: true,
       },
     });
     const existingByKey = new Map(existingRows.map((row) => [row.sourceRecordKey, row]));
@@ -741,17 +742,19 @@ export class ContractSyncService {
       const existing = existingByKey.get(row.sourceRecordKey);
       if (existing?.rowDigest === row.rowDigest) {
         skippedRows += 1;
-        const existingUrls = parsePassportPhotoUrlsJson(existing.passportPhotoUrls);
-        if (existingUrls.length === 0 && extractPassportPhotoSourceUrls(row.rawJson).length > 0) {
-          const changed = await syncPassportPhotosForSubmission(
-            this.prisma,
-            existing.id,
-            row.rawJson,
-            existing,
-            await ensureAccessToken(),
-          );
-          if (changed) {
-            upsertedRows += 1;
+        if (existing.passportPhotoSourceMode !== 'MANUAL') {
+          const existingUrls = parsePassportPhotoUrlsJson(existing.passportPhotoUrls);
+          if (existingUrls.length === 0 && extractPassportPhotoSourceUrls(row.rawJson).length > 0) {
+            const changed = await syncPassportPhotosForSubmission(
+              this.prisma,
+              existing.id,
+              row.rawJson,
+              existing,
+              await ensureAccessToken(),
+            );
+            if (changed) {
+              upsertedRows += 1;
+            }
           }
         }
         continue;
@@ -810,6 +813,7 @@ export class ContractSyncService {
         {
           passportPhotoUrls: submission.passportPhotoUrls,
           passportPhotoSourceDigest: submission.passportPhotoSourceDigest,
+          passportPhotoSourceMode: submission.passportPhotoSourceMode,
         },
         await ensureAccessToken(),
       );

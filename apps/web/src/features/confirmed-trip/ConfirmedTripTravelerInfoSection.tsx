@@ -1,7 +1,12 @@
 import { Button, Card } from '@tour/ui';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ContractSubmissionDetailPanel } from '../contract/components/ContractSubmissionDetailPanel';
 import type { ContractPaymentReceiptRow, ContractSubmissionRow } from '../contract/hooks';
+import {
+  useRemoveContractSubmissionPassportPhoto,
+  useResyncContractSubmissionPassportPhotoFromSheet,
+  useUploadContractSubmissionPassportPhoto,
+} from '../contract/hooks';
 import { RecruitmentStatusToggle } from './RecruitmentStatusToggle';
 import {
   buildTravelerSheetColumns,
@@ -16,10 +21,6 @@ function PassportPhotoThumbnail({
   urls: string[];
   onClick?: () => void;
 }): JSX.Element {
-  if (urls.length === 0) {
-    return <span className="text-slate-400">-</span>;
-  }
-
   return (
     <button
       type="button"
@@ -108,29 +109,164 @@ function PassportPhotoGalleryItem({
 }
 
 function PassportPhotoModal({
-  travelerName,
-  urls,
+  submission,
   onClose,
+  onUpdated,
 }: {
-  travelerName: string;
-  urls: string[];
+  submission: ContractSubmissionRow;
   onClose: () => void;
+  onUpdated: () => Promise<void>;
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { uploadPassportPhoto, loading: uploading } = useUploadContractSubmissionPassportPhoto();
+  const { removePassportPhoto, loading: removing } = useRemoveContractSubmissionPassportPhoto();
+  const { resyncPassportPhotoFromSheet, loading: resyncing } =
+    useResyncContractSubmissionPassportPhotoFromSheet();
+
+  const travelerName = submission.travelerName ?? submission.leaderName ?? '여행객';
+  const urls = submission.passportPhotoUrls ?? [];
+  const isManual = submission.passportPhotoSourceMode === 'MANUAL';
+  const busy = uploading || removing || resyncing;
+
+  const handleUpload = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+    setErrorMessage(null);
+    try {
+      await uploadPassportPhoto(submission.id, file);
+      await onUpdated();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '업로드에 실패했습니다.');
+    }
+  };
+
+  const handleRemove = async (imageUrl?: string) => {
+    if (!window.confirm('여권 사진을 삭제할까요?')) {
+      return;
+    }
+    setErrorMessage(null);
+    try {
+      await removePassportPhoto(submission.id, imageUrl ?? null);
+      await onUpdated();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '삭제에 실패했습니다.');
+    }
+  };
+
+  const handleResync = async () => {
+    if (
+      !window.confirm(
+        '시트에 등록된 여권 사진으로 다시 가져옵니다. 수동으로 올린 사진은 교체될 수 있습니다. 계속할까요?',
+      )
+    ) {
+      return;
+    }
+    setErrorMessage(null);
+    try {
+      await resyncPassportPhotoFromSheet(submission.id);
+      await onUpdated();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : '시트 동기화에 실패했습니다.');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-6">
       <Card className="flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">{travelerName}</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-lg font-semibold text-slate-900">{travelerName}</h3>
+              {isManual ? (
+                <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-800">
+                  수동 관리
+                </span>
+              ) : null}
+            </div>
             <p className="mt-1 text-xs text-slate-500">여권 사진</p>
           </div>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={busy}>
             닫기
           </Button>
         </div>
+
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          <PassportPhotoGallery urls={urls} showHeading={false} large />
+          {urls.length > 0 ? (
+            <>
+              <PassportPhotoGallery urls={urls} showHeading={false} large />
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => replaceInputRef.current?.click()}
+                >
+                  다른 사진으로 교체
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => handleRemove(urls[0])}
+                >
+                  삭제
+                </Button>
+                {urls.length > 1 ? (
+                  <Button variant="outline" disabled={busy} onClick={() => handleRemove()}>
+                    전체 삭제
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <div className="flex min-h-[40vh] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+              <p className="text-sm text-slate-600">등록된 여권 사진이 없습니다.</p>
+              <p className="mt-1 text-xs text-slate-500">JPEG, PNG, WebP, HEIC 파일을 업로드할 수 있습니다.</p>
+              <Button className="mt-4" disabled={busy} onClick={() => fileInputRef.current?.click()}>
+                여권 사진 업로드
+              </Button>
+            </div>
+          )}
+
+          {isManual ? (
+            <div className="mt-4 border-t border-slate-100 pt-4">
+              <Button variant="outline" disabled={busy} onClick={() => void handleResync()}>
+                시트에서 다시 가져오기
+              </Button>
+              <p className="mt-2 text-xs text-slate-500">
+                계약서 시트에 등록된 Drive URL 기준으로 다시 동기화합니다.
+              </p>
+            </div>
+          ) : null}
+
+          {errorMessage ? (
+            <p className="mt-4 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{errorMessage}</p>
+          ) : null}
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            void handleUpload(file);
+            event.target.value = '';
+          }}
+        />
+        <input
+          ref={replaceInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            void handleUpload(file);
+            event.target.value = '';
+          }}
+        />
       </Card>
     </div>
   );
@@ -171,16 +307,21 @@ function createSheetColumns(
   {
     key: 'passport',
     label: '여권',
-    render: (column) => (
-      <PassportPhotoThumbnail
-        urls={column.passportPhotoUrls}
-        onClick={
-          column.passportPhotoUrls.length > 0
-            ? () => onOpenPassport(column.submission)
-            : undefined
-        }
-      />
-    ),
+    render: (column) =>
+      column.passportPhotoUrls.length > 0 ? (
+        <PassportPhotoThumbnail
+          urls={column.passportPhotoUrls}
+          onClick={() => onOpenPassport(column.submission)}
+        />
+      ) : (
+        <button
+          type="button"
+          className="whitespace-nowrap font-medium text-emerald-700 underline-offset-2 hover:underline"
+          onClick={() => onOpenPassport(column.submission)}
+        >
+          여권 업로드
+        </button>
+      ),
   },
   {
     key: 'payments',
@@ -285,6 +426,7 @@ export function ConfirmedTripTravelerInfoSection({
   receipts,
   submissionsLoading,
   receiptsLoading,
+  onSubmissionsUpdated,
 }: {
   documentNumber: string | null;
   leaderName: string | null;
@@ -297,12 +439,18 @@ export function ConfirmedTripTravelerInfoSection({
   receipts: ContractPaymentReceiptRow[];
   submissionsLoading: boolean;
   receiptsLoading: boolean;
+  onSubmissionsUpdated?: () => Promise<void>;
 }) {
   const [detailSubmission, setDetailSubmission] = useState<ContractSubmissionRow | null>(null);
-  const [passportSubmission, setPassportSubmission] = useState<ContractSubmissionRow | null>(null);
+  const [passportSubmissionId, setPassportSubmissionId] = useState<string | null>(null);
+
+  const passportSubmission = useMemo(
+    () => submissions.find((submission) => submission.id === passportSubmissionId) ?? null,
+    [passportSubmissionId, submissions],
+  );
 
   const sheetColumns = useMemo(
-    () => createSheetColumns((submission) => setPassportSubmission(submission)),
+    () => createSheetColumns((submission) => setPassportSubmissionId(submission.id)),
     [],
   );
 
@@ -317,6 +465,12 @@ export function ConfirmedTripTravelerInfoSection({
   );
 
   const loading = submissionsLoading || receiptsLoading;
+
+  const handleSubmissionsUpdated = async () => {
+    if (onSubmissionsUpdated) {
+      await onSubmissionsUpdated();
+    }
+  };
 
   return (
     <>
@@ -416,11 +570,9 @@ export function ConfirmedTripTravelerInfoSection({
 
       {passportSubmission ? (
         <PassportPhotoModal
-          travelerName={
-            passportSubmission.travelerName ?? passportSubmission.leaderName ?? '여행객'
-          }
-          urls={passportSubmission.passportPhotoUrls ?? []}
-          onClose={() => setPassportSubmission(null)}
+          submission={passportSubmission}
+          onClose={() => setPassportSubmissionId(null)}
+          onUpdated={handleSubmissionsUpdated}
         />
       ) : null}
 

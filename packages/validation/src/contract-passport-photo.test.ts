@@ -4,6 +4,7 @@ import {
   parseGoogleDriveFileId,
   parseGoogleDriveFileIds,
   parsePassportPhotoUrlsJson,
+  parseContractPassportPhotoSourceMode,
 } from './contract-passport-photo';
 
 describe('extractPassportPhotoSourceUrls', () => {
@@ -49,5 +50,13 @@ describe('parsePassportPhotoUrlsJson', () => {
     expect(parsePassportPhotoUrlsJson(['https://example.com/a.jpg', '', 1, null])).toEqual([
       'https://example.com/a.jpg',
     ]);
+  });
+});
+
+describe('parseContractPassportPhotoSourceMode', () => {
+  it('defaults invalid values to AUTO', () => {
+    expect(parseContractPassportPhotoSourceMode('MANUAL')).toBe('MANUAL');
+    expect(parseContractPassportPhotoSourceMode('AUTO')).toBe('AUTO');
+    expect(parseContractPassportPhotoSourceMode('invalid')).toBe('AUTO');
   });
 });

@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export const PASSPORT_PHOTO_HEADER = '여권 전면사진';
 
 const GOOGLE_DRIVE_URL_PATTERN = /https?:\/\/(?:drive|docs)\.google\.com[^\s,)"']+/gi;
@@ -94,3 +96,20 @@ export function passportPhotoUrlsFromRawJson(rawJson: unknown): string[] {
   }
   return extractPassportPhotoSourceUrls(record);
 }
+
+export const contractPassportPhotoSourceModeSchema = z.enum(['AUTO', 'MANUAL']);
+export type ContractPassportPhotoSourceMode = z.infer<typeof contractPassportPhotoSourceModeSchema>;
+
+export function parseContractPassportPhotoSourceMode(value: unknown): ContractPassportPhotoSourceMode {
+  const parsed = contractPassportPhotoSourceModeSchema.safeParse(value);
+  return parsed.success ? parsed.data : 'AUTO';
+}
+
+export const removeContractSubmissionPassportPhotoInputSchema = z.object({
+  submissionId: z.string().min(1),
+  imageUrl: z.string().min(1).optional().nullable(),
+});
+
+export const resyncContractSubmissionPassportPhotoFromSheetInputSchema = z.object({
+  submissionId: z.string().min(1),
+});

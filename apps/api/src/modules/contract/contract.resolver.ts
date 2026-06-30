@@ -6,7 +6,13 @@ import {
   type ContractSubmissionAttentionSeverity,
   parsePassportPhotoUrlsJson,
 } from '@tour/validation';
+import type { UploadFile } from '../../lib/file-storage/client';
 import { ContractPaymentSyncService, ContractSyncService } from './contract-sync.service';
+import {
+  removeContractSubmissionPassportPhotoManual,
+  resyncContractSubmissionPassportPhotoFromSheetManual,
+  uploadContractSubmissionPassportPhotoManual,
+} from './contract-passport-photo-sync';
 
 interface ContractDocumentStatusesArgs {
   documentNumbers: string[];
@@ -252,6 +258,8 @@ export const contractResolver = {
   ContractSubmission: {
     passportPhotoUrls: (parent: { passportPhotoUrls?: unknown }) =>
       parsePassportPhotoUrlsJson(parent.passportPhotoUrls),
+    passportPhotoSourceMode: (parent: { passportPhotoSourceMode?: string | null }) =>
+      parent.passportPhotoSourceMode === 'MANUAL' ? 'MANUAL' : 'AUTO',
     reviewSummary: (parent: {
       rawJson?: unknown;
       travelerGender?: string | null;
@@ -433,6 +441,47 @@ export const contractResolver = {
     restoreContractPaymentReceiptReview: (_parent: unknown, args: RestoreContractPaymentReceiptReviewArgs, ctx: AppContext) => {
       requireStaffOrAbove(ctx);
       return new ContractPaymentSyncService(ctx.prisma).restoreContractPaymentReceiptReview(args.input);
+    },
+    uploadContractSubmissionPassportPhoto: (
+      _parent: unknown,
+      args: { submissionId: string; image: UploadFile | Promise<UploadFile> },
+      ctx: AppContext,
+    ) => {
+      requireStaffOrAbove(ctx);
+      if (!ctx.employee) {
+        throw new Error('Unauthorized');
+      }
+      return uploadContractSubmissionPassportPhotoManual(
+        ctx.prisma,
+        args.submissionId,
+        args.image,
+        ctx.employee.id,
+      );
+    },
+    removeContractSubmissionPassportPhoto: (
+      _parent: unknown,
+      args: { submissionId: string; imageUrl?: string | null },
+      ctx: AppContext,
+    ) => {
+      requireStaffOrAbove(ctx);
+      if (!ctx.employee) {
+        throw new Error('Unauthorized');
+      }
+      return removeContractSubmissionPassportPhotoManual(
+        ctx.prisma,
+        { submissionId: args.submissionId, imageUrl: args.imageUrl ?? null },
+        ctx.employee.id,
+      );
+    },
+    resyncContractSubmissionPassportPhotoFromSheet: (
+      _parent: unknown,
+      args: { submissionId: string },
+      ctx: AppContext,
+    ) => {
+      requireStaffOrAbove(ctx);
+      return resyncContractSubmissionPassportPhotoFromSheetManual(ctx.prisma, {
+        submissionId: args.submissionId,
+      });
     },
   },
 };

@@ -206,6 +206,11 @@ enum ContractSubmissionSourceType {
   INTERNAL_FORM
 }
 
+enum ContractPassportPhotoSourceMode {
+  AUTO
+  MANUAL
+}
+
 enum ContractDocumentStatusValue {
   NOT_STARTED
   IN_PROGRESS
@@ -1106,8 +1111,11 @@ model ContractSubmission {
   travelerGender      String?
   travelerBirthCode   String?
   travelerNote        String?   @db.Text
-  passportPhotoUrls           Json      @default("[]")
-  passportPhotoSourceDigest   String?
+  passportPhotoUrls                 Json                           @default("[]")
+  passportPhotoSourceDigest         String?
+  passportPhotoSourceMode           ContractPassportPhotoSourceMode @default(AUTO)
+  passportPhotoManualByEmployeeId   String?
+  passportPhotoManualAt             DateTime?
   rowDigest           String
   rawJson             Json
   excludedFromContractCount Boolean @default(false)
