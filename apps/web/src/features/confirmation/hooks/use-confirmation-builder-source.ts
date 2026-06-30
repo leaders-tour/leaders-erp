@@ -5,16 +5,18 @@ import { snapshotToDocumentData } from '../utils/format';
 
 export function useConfirmationBuilderSource(confirmedTripId: string | undefined) {
   const latest = useLatestConfirmationDocument(confirmedTripId);
+  const shouldResumeExistingDocument =
+    latest.document?.status === 'DRAFT' || latest.document?.status === 'PUBLISHED';
   const defaults = useConfirmationDraftDefaults(
-    confirmedTripId && !latest.loading && latest.document?.status === 'DRAFT' ? undefined : confirmedTripId,
+    confirmedTripId && !latest.loading && shouldResumeExistingDocument ? undefined : confirmedTripId,
   );
 
   const initialState = useMemo<ConfirmationBuilderState | null>(() => {
-    if (latest.document?.status === 'DRAFT') {
+    if (shouldResumeExistingDocument && latest.document) {
       return latest.document.snapshot;
     }
     return defaults.defaults?.snapshot ?? null;
-  }, [defaults.defaults?.snapshot, latest.document]);
+  }, [defaults.defaults?.snapshot, latest.document, shouldResumeExistingDocument]);
 
   const previewData = useMemo(
     () => (initialState ? snapshotToDocumentData(initialState, { consolidateAccommodationLines: true }) : null),

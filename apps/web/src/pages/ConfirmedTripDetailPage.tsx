@@ -2094,7 +2094,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                 <Button
                   variant="outline"
                   className="shrink-0"
-                  onClick={() => navigate(`/confirmed-trips/${trip.id}/confirmation-builder`)}
+                  onClick={() => navigate(`/confirmed-trips/${trip.id}/confirmation-builder?fresh=1`)}
                 >
                   새로 작성
                 </Button>

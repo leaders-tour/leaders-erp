@@ -19,6 +19,7 @@ export interface TravelerSheetColumn {
   gender: string | null;
   birthDisplay: string | null;
   phone: string | null;
+  passportPhotoUrls: string[];
 }
 
 export function normalizePersonNameForLookup(value: string | null | undefined): string | null {
@@ -140,6 +141,7 @@ export function buildTravelerSheetColumns(
       gender: submission.travelerGender?.trim() || null,
       birthDisplay: normalizeConfirmationBirthCodeDisplay(submission.travelerBirthCode),
       phone: submission.travelerPhone?.trim() || null,
+      passportPhotoUrls: submission.passportPhotoUrls ?? [],
     };
   });
 }

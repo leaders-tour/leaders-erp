@@ -9,11 +9,141 @@ import {
   type TravelerSheetColumn,
 } from './contract-traveler-sheet';
 
-const SHEET_COLUMNS: Array<{
+function PassportPhotoThumbnail({
+  urls,
+  onClick,
+}: {
+  urls: string[];
+  onClick?: () => void;
+}): JSX.Element {
+  if (urls.length === 0) {
+    return <span className="text-slate-400">-</span>;
+  }
+
+  return (
+    <button
+      type="button"
+      className="relative inline-flex shrink-0"
+      onClick={onClick}
+      aria-label="여권 사진 보기"
+    >
+      <img
+        src={urls[0]}
+        alt=""
+        className="h-12 w-12 rounded-lg border border-slate-200 object-cover"
+      />
+      {urls.length > 1 ? (
+        <span className="absolute -right-1 -top-1 rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+          +{urls.length - 1}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+function PassportPhotoGallery({
+  urls,
+  showHeading = true,
+  large = false,
+}: {
+  urls: string[];
+  showHeading?: boolean;
+  large?: boolean;
+}): JSX.Element | null {
+  if (urls.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-3">
+      {showHeading ? <p className="text-sm font-semibold text-slate-900">여권 사진</p> : null}
+      <div className={`grid gap-4 ${large ? '' : 'sm:grid-cols-2'}`}>
+        {urls.map((url, index) => (
+          <PassportPhotoGalleryItem key={`${url}-${index}`} url={url} large={large} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PassportPhotoGalleryItem({
+  url,
+  large = false,
+}: {
+  url: string;
+  large?: boolean;
+}): JSX.Element {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <div
+        className={`flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-6 text-xs text-slate-500 ${
+          large ? 'min-h-[50vh]' : 'min-h-32'
+        }`}
+      >
+        이미지를 불러오지 못했습니다.
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`overflow-hidden rounded-xl border border-slate-200 bg-slate-100 ${
+        large ? 'flex min-h-[50vh] items-center justify-center p-3' : ''
+      }`}
+    >
+      <img
+        src={url}
+        alt=""
+        className={
+          large
+            ? 'max-h-[min(72vh,960px)] w-full object-contain'
+            : 'max-h-80 w-full object-contain'
+        }
+        onError={() => setFailed(true)}
+      />
+    </div>
+  );
+}
+
+function PassportPhotoModal({
+  travelerName,
+  urls,
+  onClose,
+}: {
+  travelerName: string;
+  urls: string[];
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-6">
+      <Card className="flex max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">{travelerName}</h3>
+            <p className="mt-1 text-xs text-slate-500">여권 사진</p>
+          </div>
+          <Button variant="outline" onClick={onClose}>
+            닫기
+          </Button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <PassportPhotoGallery urls={urls} showHeading={false} large />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function createSheetColumns(
+  onOpenPassport: (submission: ContractSubmissionRow) => void,
+): Array<{
   key: string;
   label: string;
   render: (column: TravelerSheetColumn) => React.ReactNode;
-}> = [
+}> {
+  return [
   {
     key: 'tags',
     label: '태그',
@@ -36,6 +166,20 @@ const SHEET_COLUMNS: Array<{
           </span>
         ))}
       </div>
+    ),
+  },
+  {
+    key: 'passport',
+    label: '여권',
+    render: (column) => (
+      <PassportPhotoThumbnail
+        urls={column.passportPhotoUrls}
+        onClick={
+          column.passportPhotoUrls.length > 0
+            ? () => onOpenPassport(column.submission)
+            : undefined
+        }
+      />
     ),
   },
   {
@@ -99,7 +243,8 @@ const SHEET_COLUMNS: Array<{
     label: '연락처',
     render: (column) => <span className="break-all">{column.phone ?? '-'}</span>,
   },
-];
+  ];
+}
 
 function TravelerDetailModal({
   submission,
@@ -154,6 +299,12 @@ export function ConfirmedTripTravelerInfoSection({
   receiptsLoading: boolean;
 }) {
   const [detailSubmission, setDetailSubmission] = useState<ContractSubmissionRow | null>(null);
+  const [passportSubmission, setPassportSubmission] = useState<ContractSubmissionRow | null>(null);
+
+  const sheetColumns = useMemo(
+    () => createSheetColumns((submission) => setPassportSubmission(submission)),
+    [],
+  );
 
   const teamSubmissions = useMemo(
     () => filterSubmissionsForTripTeam(submissions, leaderName),
@@ -219,7 +370,7 @@ export function ConfirmedTripTravelerInfoSection({
                   <th className="sticky left-0 z-10 min-w-[72px] border-r border-slate-200 bg-slate-50 px-3 py-2 text-left font-semibold text-slate-500">
                     성함
                   </th>
-                  {SHEET_COLUMNS.map((column) => (
+                  {sheetColumns.map((column) => (
                     <th
                       key={column.key}
                       className="whitespace-nowrap border-r border-slate-100 px-3 py-2 text-left font-semibold text-slate-500 last:border-r-0"
@@ -238,7 +389,7 @@ export function ConfirmedTripTravelerInfoSection({
                     <th className="sticky left-0 z-10 border-r border-slate-200 bg-white px-3 py-2 text-left font-semibold text-slate-900">
                       {column.name}
                     </th>
-                    {SHEET_COLUMNS.map((field) => (
+                    {sheetColumns.map((field) => (
                       <td
                         key={`${column.submission.id}-${field.key}`}
                         className="align-top border-r border-slate-100 px-3 py-2 last:border-r-0"
@@ -262,6 +413,16 @@ export function ConfirmedTripTravelerInfoSection({
           </div>
         ) : null}
       </Card>
+
+      {passportSubmission ? (
+        <PassportPhotoModal
+          travelerName={
+            passportSubmission.travelerName ?? passportSubmission.leaderName ?? '여행객'
+          }
+          urls={passportSubmission.passportPhotoUrls ?? []}
+          onClose={() => setPassportSubmission(null)}
+        />
+      ) : null}
 
       {detailSubmission ? (
         <TravelerDetailModal submission={detailSubmission} onClose={() => setDetailSubmission(null)} />

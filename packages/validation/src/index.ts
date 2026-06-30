@@ -30,6 +30,7 @@ export * from './confirmed-trip-lodging.schema';
 export * from './confirmation-document.schema';
 export * from './confirmation-accommodation';
 export * from './contract-traveler-profile';
+export * from './contract-passport-photo';
 export * from './contract-submission-review';
 export * from './guide.schema';
 export * from './driver.schema';

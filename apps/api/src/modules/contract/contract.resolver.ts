@@ -4,6 +4,7 @@ import {
   analyzeContractSubmissionReview,
   type ContractSubmissionAttentionKind,
   type ContractSubmissionAttentionSeverity,
+  parsePassportPhotoUrlsJson,
 } from '@tour/validation';
 import { ContractPaymentSyncService, ContractSyncService } from './contract-sync.service';
 
@@ -249,6 +250,8 @@ export const contractResolver = {
     matchedPlanSummary: (parent: { matchedPlanSummary?: unknown }) => parent.matchedPlanSummary ?? null,
   },
   ContractSubmission: {
+    passportPhotoUrls: (parent: { passportPhotoUrls?: unknown }) =>
+      parsePassportPhotoUrlsJson(parent.passportPhotoUrls),
     reviewSummary: (parent: {
       rawJson?: unknown;
       travelerGender?: string | null;

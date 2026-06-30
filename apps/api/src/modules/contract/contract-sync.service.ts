@@ -1,4 +1,4 @@
-import { createHash, createSign, randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { ContractDocumentStatusValue, ContractPaymentStatusValue, Prisma, PrismaClient } from '@prisma/client';
 import {
   compareContractDocumentNumbersByDateDesc,
@@ -21,10 +21,13 @@ import {
   updateManualContractPaymentReceiptInputSchema,
   deleteManualContractPaymentReceiptInputSchema,
   contractTravelerProfileFieldsFromRawJson,
+  extractPassportPhotoSourceUrls,
+  parsePassportPhotoUrlsJson,
   rawJsonAsStringRecord,
   shouldUpdateContractSubmissionTravelerProfile,
 } from '@tour/validation';
 import { DomainError } from '../../lib/errors';
+import { getGoogleAccessToken } from '../../lib/google/access-token';
 import {
   parseOptionalDate,
   parsePaymentReceivedAtFromRawJson,
@@ -33,19 +36,16 @@ import {
 import {
   buildDocumentPaymentReviewSummary,
 } from './contract-payment-summary';
+import {
+  backfillContractSubmissionPassportPhotos,
+  resolvePassportPhotosForSubmission,
+  syncPassportPhotosForSubmission,
+} from './contract-passport-photo-sync';
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
 function isPresent<T>(value: T | null | undefined): value is T {
   return value != null;
-}
-
-interface GoogleAccessTokenResponse {
-  access_token?: string;
-  expires_in?: number;
-  token_type?: string;
-  error?: string;
-  error_description?: string;
 }
 
 interface GoogleSheetMetadata {
@@ -189,59 +189,6 @@ type ContractPaymentReceiptForStatus = Prisma.ContractPaymentReceiptGetPayload<{
   };
 }>;
 
-const GOOGLE_SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
-const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
-
-function base64Url(input: string | Buffer): string {
-  return Buffer.from(input).toString('base64url');
-}
-
-function getGooglePrivateKey(): string {
-  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.trim();
-  if (!raw) {
-    throw new DomainError('VALIDATION_FAILED', 'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY is required');
-  }
-  return raw.replace(/\\n/g, '\n');
-}
-
-async function getGoogleSheetsAccessToken(): Promise<string> {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
-  if (!email) {
-    throw new DomainError('VALIDATION_FAILED', 'GOOGLE_SERVICE_ACCOUNT_EMAIL is required');
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  const unsigned = [
-    base64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' })),
-    base64Url(
-      JSON.stringify({
-        iss: email,
-        scope: GOOGLE_SHEETS_SCOPE,
-        aud: GOOGLE_TOKEN_URL,
-        iat: now,
-        exp: now + 3600,
-      }),
-    ),
-  ].join('.');
-
-  const signature = createSign('RSA-SHA256').update(unsigned).sign(getGooglePrivateKey());
-  const assertion = `${unsigned}.${base64Url(signature)}`;
-
-  const response = await fetch(GOOGLE_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion,
-    }),
-  });
-  const data = (await response.json()) as GoogleAccessTokenResponse;
-  if (!response.ok || !data.access_token) {
-    throw new DomainError('VALIDATION_FAILED', data.error_description ?? data.error ?? 'Failed to fetch Google access token');
-  }
-  return data.access_token;
-}
-
 async function fetchJson<T>(url: string, accessToken: string): Promise<T> {
   const response = await fetch(url, {
     headers: { authorization: `Bearer ${accessToken}` },
@@ -267,7 +214,7 @@ async function resolveSheetTitle(sheetId: string, sheetGid: string, accessToken:
 }
 
 async function fetchGoogleSheetRows(sheetId: string, sheetGid: string): Promise<string[][]> {
-  const accessToken = await getGoogleSheetsAccessToken();
+  const accessToken = await getGoogleAccessToken();
   const title = await resolveSheetTitle(sheetId, sheetGid, accessToken);
   const range = `'${title.replace(/'/g, "''")}'`;
   const data = await fetchJson<GoogleSheetValues>(
@@ -765,9 +712,23 @@ export class ContractSyncService {
         sourceId,
         sourceRecordKey: { in: rows.map((row) => row.sourceRecordKey) },
       },
-      select: { sourceRecordKey: true, rowDigest: true },
+      select: {
+        id: true,
+        sourceRecordKey: true,
+        rowDigest: true,
+        passportPhotoUrls: true,
+        passportPhotoSourceDigest: true,
+      },
     });
-    const existingDigestByKey = new Map(existingRows.map((row) => [row.sourceRecordKey, row.rowDigest]));
+    const existingByKey = new Map(existingRows.map((row) => [row.sourceRecordKey, row]));
+
+    let accessToken: string | null = null;
+    const ensureAccessToken = async (): Promise<string> => {
+      if (!accessToken) {
+        accessToken = await getGoogleAccessToken();
+      }
+      return accessToken;
+    };
 
     let upsertedRows = 0;
     let skippedRows = 0;
@@ -777,12 +738,26 @@ export class ContractSyncService {
       if (row.documentNumberNorm) {
         affectedDocumentNumbers.add(row.documentNumberNorm);
       }
-      if (existingDigestByKey.get(row.sourceRecordKey) === row.rowDigest) {
+      const existing = existingByKey.get(row.sourceRecordKey);
+      if (existing?.rowDigest === row.rowDigest) {
         skippedRows += 1;
+        const existingUrls = parsePassportPhotoUrlsJson(existing.passportPhotoUrls);
+        if (existingUrls.length === 0 && extractPassportPhotoSourceUrls(row.rawJson).length > 0) {
+          const changed = await syncPassportPhotosForSubmission(
+            this.prisma,
+            existing.id,
+            row.rawJson,
+            existing,
+            await ensureAccessToken(),
+          );
+          if (changed) {
+            upsertedRows += 1;
+          }
+        }
         continue;
       }
 
-      await this.prisma.contractSubmission.upsert({
+      const submission = await this.prisma.contractSubmission.upsert({
         where: {
           sourceId_sourceRecordKey: {
             sourceId,
@@ -828,6 +803,23 @@ export class ContractSyncService {
           rawJson: row.rawJson,
         },
       });
+
+      const resolved = await resolvePassportPhotosForSubmission(
+        submission.id,
+        row.rawJson,
+        {
+          passportPhotoUrls: submission.passportPhotoUrls,
+          passportPhotoSourceDigest: submission.passportPhotoSourceDigest,
+        },
+        await ensureAccessToken(),
+      );
+      await this.prisma.contractSubmission.update({
+        where: { id: submission.id },
+        data: {
+          passportPhotoUrls: resolved.passportPhotoUrls,
+          passportPhotoSourceDigest: resolved.passportPhotoSourceDigest,
+        },
+      });
       upsertedRows += 1;
     }
 
@@ -838,6 +830,7 @@ export class ContractSyncService {
     }
 
     await this.backfillContractSubmissionTravelerProfiles({ sourceId });
+    await backfillContractSubmissionPassportPhotos(this.prisma, { sourceId });
 
     return {
       fetchedRows: rows.length,

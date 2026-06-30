@@ -153,6 +153,7 @@ export interface ContractSubmissionRow {
   travelerGender: string | null;
   travelerBirthCode: string | null;
   travelerNote: string | null;
+  passportPhotoUrls: string[];
   excludedFromContractCount: boolean;
   excludedAt: string | null;
   exclusionReason: string | null;
@@ -504,6 +505,7 @@ const CONTRACT_SUBMISSIONS_QUERY = gql`
       travelerGender
       travelerBirthCode
       travelerNote
+      passportPhotoUrls
       importedAt
       updatedAt
       source {

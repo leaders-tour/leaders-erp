@@ -1106,6 +1106,8 @@ model ContractSubmission {
   travelerGender      String?
   travelerBirthCode   String?
   travelerNote        String?   @db.Text
+  passportPhotoUrls           Json      @default("[]")
+  passportPhotoSourceDigest   String?
   rowDigest           String
   rawJson             Json
   excludedFromContractCount Boolean @default(false)

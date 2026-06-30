@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Button, Card } from '@tour/ui';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ConfirmationBuilderForm } from '../features/confirmation/components/ConfirmationBuilderForm';
 import { ConfirmationDocument } from '../features/confirmation/components/ConfirmationDocument';
 import {
@@ -65,10 +65,13 @@ function DocumentPreviewPanel({
 export function ConfirmationBuilderPage(): JSX.Element {
   const navigate = useNavigate();
   const { tripId = '' } = useParams();
+  const [searchParams] = useSearchParams();
+  const startFromDefaults = searchParams.get('fresh') === '1';
   const { trip, loading: tripLoading } = useConfirmedTrip(tripId);
   const { document, loading: documentLoading, refetch: refetchDocument } = useLatestConfirmationDocument(tripId);
-  const isResumingDraft = document?.status === 'DRAFT';
-  const shouldLoadDefaults = !documentLoading && !isResumingDraft;
+  const isResumingExistingDocument =
+    !startFromDefaults && (document?.status === 'DRAFT' || document?.status === 'PUBLISHED');
+  const shouldLoadDefaults = !documentLoading && !isResumingExistingDocument;
   const { defaults, loading: defaultsLoading } = useConfirmationDraftDefaults(
     shouldLoadDefaults ? tripId : undefined,
   );
@@ -80,7 +83,7 @@ export function ConfirmationBuilderPage(): JSX.Element {
     if (documentLoading) {
       return;
     }
-    if (document?.status === 'DRAFT') {
+    if (isResumingExistingDocument && document) {
       setState(document.snapshot);
       return;
     }
@@ -90,7 +93,7 @@ export function ConfirmationBuilderPage(): JSX.Element {
     if (defaults?.snapshot) {
       setState(defaults.snapshot);
     }
-  }, [document, documentLoading, defaults, defaultsLoading]);
+  }, [document, documentLoading, defaults, defaultsLoading, isResumingExistingDocument]);
 
   const previewData = useMemo(
     () => (state ? snapshotToDocumentData(state, { consolidateAccommodationLines: true }) : null),
