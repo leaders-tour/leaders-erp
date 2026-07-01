@@ -27,6 +27,10 @@ interface EstimateDocumentProps {
   viewMode?: 'screen-preview' | 'output' | 'print';
   page1Editor?: EstimatePage1Editor;
   page2Editor?: EstimatePage2Editor;
+  validUntilEditor?: {
+    value: string;
+    onChange: (value: string) => void | Promise<void>;
+  };
   /** 미리보기에서 첫 안내 페이지(문서 3페이지) 우측 상단에 띄울 컨트롤 본문 */
   screenPreviewGuideOverlay?: ReactNode;
   includeStaticImagePages?: boolean;
@@ -68,6 +72,7 @@ export function EstimateDocument({
   viewMode = 'output',
   page1Editor,
   page2Editor,
+  validUntilEditor,
   screenPreviewGuideOverlay,
   includeStaticImagePages = true,
   guideSplitRemainderStrategy = 'lump',
@@ -102,6 +107,7 @@ export function EstimateDocument({
       <EstimatePage1
         data={data}
         editor={viewMode === 'screen-preview' ? page1Editor : undefined}
+        validUntilEditor={viewMode === 'screen-preview' ? validUntilEditor : undefined}
         onLayoutReady={onPage1LayoutReady}
       />
       <div className="estimate-page-break">

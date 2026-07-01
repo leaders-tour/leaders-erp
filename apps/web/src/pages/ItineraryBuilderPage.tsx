@@ -21,6 +21,7 @@ import { TimePickerModal } from '../components/date-picker/TimePickerModal';
 import { formatTimeTriggerLabel } from '../components/date-picker/time-picker-utils';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { EstimateGuideLayoutControls } from '../features/estimate/components/EstimateGuideLayoutControls';
+import { EstimateValidUntilControls } from '../features/estimate/components/EstimateValidUntilControls';
 import { EstimatePreviewScaler } from '../features/estimate/components/EstimatePreviewScaler';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
 import {
@@ -42,7 +43,9 @@ import type {
   EstimateSecurityDepositScope,
   EstimateTransportGroup,
 } from '../features/estimate/model/types';
-import { ESTIMATE_GUIDE_IMAGES_PER_PAGE_DEFAULT } from '../features/estimate/model/constants';
+import { ESTIMATE_GUIDE_IMAGES_PER_PAGE_DEFAULT, ESTIMATE_VALIDITY_DAYS } from '../features/estimate/model/constants';
+import { addDays, todayIsoDate } from '../features/estimate/utils/format';
+import { resolveInitialValidUntilDateForNewVersion } from '../features/estimate/utils/resolve-initial-valid-until-date';
 import { useAuth } from '../features/auth/context';
 import {
   useRentalItemAvailability,
@@ -1969,6 +1972,7 @@ function createEstimateDraftSnapshot(input: {
   rentalItemsText: string;
   eventNames: string[];
   remark: string;
+  validUntilDate: string;
   planStops: PlanStopRowBase[];
   totalDays: number;
   pricingPreview: EffectivePricingRow | null;
@@ -2019,6 +2023,7 @@ function createEstimateDraftSnapshot(input: {
     rentalItemsText: input.rentalItemsText,
     eventNames: input.eventNames,
     remark: input.remark,
+    validUntilDate: input.validUntilDate,
     movementIntensity: averageMovementIntensity(
       planStopsForPreview.filter((row) => isMainPlanStopRow(row)).map((row) => row.movementIntensity),
     ),
@@ -2713,6 +2718,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [rentalItemsText, setRentalItemsText] = useState<string>('');
   const [eventIds, setEventIds] = useState<string[]>([]);
   const [remark, setRemark] = useState<string>('');
+  const [validUntilDate, setValidUntilDate] = useState<string>(
+    () => addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS) ?? '',
+  );
   const [estimateGuideImagesPerPage, setEstimateGuideImagesPerPage] = useState<EstimateGuideImagesPerPage>(
     ESTIMATE_GUIDE_IMAGES_PER_PAGE_DEFAULT,
   );
@@ -3083,6 +3091,12 @@ export function ItineraryBuilderPage(): JSX.Element {
     hasInitializedRentalItemsRef.current = true;
     setEventIds(meta.events.map((event) => event.id));
     setRemark(meta.remark ?? '');
+    setValidUntilDate(
+      resolveInitialValidUntilDateForNewVersion({
+        parentMetaCreatedAt: meta.createdAt,
+        parentValidUntilDate: meta.validUntilDate,
+      }),
+    );
     setEstimateGuideImagesPerPage(normalizeEstimateGuideImagesPerPage(meta.estimateGuideImagesPerPage));
     setEstimateGuidePageSplitsText(
       formatEstimateGuidePageSplitsInput(
@@ -4932,6 +4946,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         rentalItemsText: rentalItemsText.trim(),
         eventNames: selectedEventNames,
         remark: remark.trim(),
+        validUntilDate,
         planStops: mergedPlanStops,
         totalDays,
         pricingPreview: effectivePricingPreview,
@@ -4959,6 +4974,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       rentalItemsText,
       selectedEventNames,
       remark,
+      validUntilDate,
       mergedPlanStops,
       totalDays,
       effectivePricingPreview,
@@ -5495,6 +5511,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 estimateGuideImagesPerPage,
                                 estimateGuidePageSplits: estimateGuidePageSplitsParsed ?? undefined,
                                 movementIntensityColorOverride: overallMovementIntensityColorOverride,
+                                validUntilDate: toIsoDateTime(validUntilDate),
                               },
                               planStops: planStopsForMutation,
                               manualAdjustments: normalizedManualAdjustments,
@@ -5591,6 +5608,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 estimateGuideImagesPerPage,
                                 estimateGuidePageSplits: estimateGuidePageSplitsParsed ?? undefined,
                                 movementIntensityColorOverride: overallMovementIntensityColorOverride,
+                                validUntilDate: toIsoDateTime(validUntilDate),
                               },
                               planStops: planStopsForMutation,
                               manualAdjustments: normalizedManualAdjustments,
@@ -8216,6 +8234,19 @@ export function ItineraryBuilderPage(): JSX.Element {
               </Card>
 
               <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+                <h2 className="text-lg font-bold text-slate-900">견적 유효기간</h2>
+                <p className="mt-2 text-xs text-slate-500">
+                  견적서 1페이지 하단 유효기간입니다. 저장 시 버전 메타에 함께 기록됩니다.
+                </p>
+                <EstimateValidUntilControls
+                  className="mt-4"
+                  density="compact"
+                  validUntilDate={validUntilDate}
+                  onValidUntilDateChange={setValidUntilDate}
+                />
+              </Card>
+
+              <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
                 <button
                   type="button"
                   className="flex w-full items-center justify-between text-left"
@@ -8428,6 +8459,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                         guideSplitRemainderStrategy="chunk-per-page"
                         page1Editor={previewPage1Editor}
                         page2Editor={previewPage2Editor}
+                        validUntilEditor={{
+                          value: validUntilDate,
+                          onChange: setValidUntilDate,
+                        }}
                         screenPreviewGuideOverlay={
                           <EstimateGuideLayoutControls
                             density="compact"

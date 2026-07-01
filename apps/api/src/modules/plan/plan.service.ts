@@ -7,6 +7,7 @@ import {
   planUpdateSchema,
   planVersionCreateSchema,
   updatePlanVersionChangeNoteSchema,
+  updatePlanVersionValidUntilDateSchema,
   userCreateSchema,
   userDealTodoStatusUpdateSchema,
   userDealTodosQuerySchema,
@@ -1217,6 +1218,31 @@ export class PlanService {
       where: { id: parsed.data.planVersionId },
       data: { changeNote: normalized },
     });
+  }
+
+  async updatePlanVersionValidUntilDate(planVersionId: string, validUntilDate: string) {
+    const parsed = updatePlanVersionValidUntilDateSchema.safeParse({ planVersionId, validUntilDate });
+    if (!parsed.success) {
+      throw createValidationError('견적 유효기간 저장 입력이 올바르지 않습니다.', parsed.error);
+    }
+
+    const version = await this.prisma.planVersion.findUnique({
+      where: { id: parsed.data.planVersionId },
+      select: { id: true, meta: { select: { id: true } } },
+    });
+    if (!version) {
+      throw new DomainError('NOT_FOUND', '플랜 버전을 찾을 수 없습니다.');
+    }
+    if (!version.meta) {
+      throw new DomainError('NOT_FOUND', '플랜 버전 메타를 찾을 수 없습니다.');
+    }
+
+    await this.prisma.planVersionMeta.update({
+      where: { planVersionId: parsed.data.planVersionId },
+      data: { validUntilDate: new Date(parsed.data.validUntilDate) },
+    });
+
+    return this.getVersion(parsed.data.planVersionId);
   }
 
   async setCurrentVersion(planId: string, versionId: string) {

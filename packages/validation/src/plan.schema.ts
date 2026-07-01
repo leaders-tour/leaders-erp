@@ -460,6 +460,7 @@ export const planVersionMetaInputSchema = z
       .max(30)
       .optional(),
     movementIntensityColorOverride: hexColorSchema.nullable().optional(),
+    validUntilDate: dateTimeInputSchema.optional(),
   })
   .superRefine((value, ctx) => {
     const start = new Date(value.travelStartDate);
@@ -803,6 +804,11 @@ export const updatePlanVersionChangeNoteSchema = z.object({
   changeNote: z.string().max(1000).nullable(),
 });
 
+export const updatePlanVersionValidUntilDateSchema = z.object({
+  planVersionId: z.string().min(1),
+  validUntilDate: dateTimeInputSchema,
+});
+
 export type PlanCreateInput = z.infer<typeof planCreateSchema>;
 export type PlanUpdateInput = z.infer<typeof planUpdateSchema>;
 export type PlanVersionCreateInput = z.infer<typeof planVersionCreateSchema>;
@@ -822,3 +828,4 @@ export type CustomerPricingTeamRowInput = z.infer<typeof customerPricingTeamRowI
 export type LodgingSelectionInput = z.infer<typeof lodgingSelectionInputSchema>;
 export type PlanPricingPreviewInput = z.infer<typeof planPricingPreviewSchema>;
 export type UpdatePlanVersionChangeNoteInput = z.infer<typeof updatePlanVersionChangeNoteSchema>;
+export type UpdatePlanVersionValidUntilDateInput = z.infer<typeof updatePlanVersionValidUntilDateSchema>;

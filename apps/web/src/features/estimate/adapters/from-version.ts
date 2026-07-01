@@ -12,12 +12,11 @@ import type { EstimateDocumentData, EstimateSecurityDepositScope } from '../mode
 import { normalizeEstimateGuideImagesPerPage, normalizeEstimateGuidePageSplits } from '../utils/guide-layout';
 import { formatPricingDetailFormula, resolveDisplayLeadAmount } from '../../pricing/pricing-line-presenter';
 import {
-  addDays,
   buildPage2Title,
   formatLegacyExternalTransferText,
   normalizeMultilineText,
+  resolveStoredValidUntilDate,
   toSecurityDepositScope,
-  todayIsoDate,
 } from '../utils/format';
 
 /** 플랜 버전 → 견적 문서. `customerPricingSnapshot`이 있으면 빌더 출력을 재계산 없이 사용한다(레거시는 폴백). */
@@ -191,7 +190,11 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
       : publishedTotals
         ? toSecurityDepositScope(publishedTotals.securityDepositMode)
         : '-',
-    validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
+    validUntilDate: resolveStoredValidUntilDate(
+      meta?.validUntilDate ?? null,
+      meta?.createdAt ?? null,
+      ESTIMATE_VALIDITY_DAYS,
+    ),
     movementIntensity: version.movementIntensity ?? null,
     overallMovementIntensityColorOverride: version.meta?.movementIntensityColorOverride ?? null,
     estimateGuideImagesPerPage: normalizeEstimateGuideImagesPerPage(version.meta?.estimateGuideImagesPerPage),

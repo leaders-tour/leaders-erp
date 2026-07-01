@@ -11,7 +11,7 @@ import { applyLocationGuides } from '../features/estimate/utils/apply-location-g
 import { VersionSnapshotView } from '../features/plan/components';
 import { PlanVersionContractCreateNotice } from '../features/plan/components/PlanVersionContractCreateNotice';
 import { buildExternalTransferDirectionText } from '../features/plan/external-transfer';
-import { usePlanVersionDetail, useUpdatePlanVersionChangeNote } from '../features/plan/hooks';
+import { usePlanVersionDetail, useUpdatePlanVersionChangeNote, useUpdatePlanVersionValidUntilDate } from '../features/plan/hooks';
 import { countMainPlanStopRows } from '../features/plan/plan-stop-row';
 import {
   useActiveConfirmedTripByPlan,
@@ -107,6 +107,7 @@ export function PlanVersionDetailPage(): JSX.Element {
       excludePlanId: version?.planId ?? planId ?? null,
     });
   const { updatePlanVersionChangeNote, loading: changeNoteSaving } = useUpdatePlanVersionChangeNote();
+  const { updatePlanVersionValidUntilDate } = useUpdatePlanVersionValidUntilDate();
   const [changeNoteEditing, setChangeNoteEditing] = useState(false);
   const [changeNoteDraft, setChangeNoteDraft] = useState('');
 
@@ -130,6 +131,22 @@ export function PlanVersionDetailPage(): JSX.Element {
       window.alert(error instanceof Error ? error.message : '변경 메모 저장에 실패했습니다.');
     }
   }, [versionId, version, changeNoteDraft, updatePlanVersionChangeNote, refetch]);
+
+  const handleValidUntilDateChange = useCallback(
+    async (nextDate: string) => {
+      if (!versionId) {
+        return;
+      }
+      try {
+        await updatePlanVersionValidUntilDate(versionId, nextDate);
+        await refetch();
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : '견적 유효기간 저장에 실패했습니다.');
+      }
+    },
+    [refetch, updatePlanVersionValidUntilDate, versionId],
+  );
+
   const { downloading, phase, downloadEstimatePdf } = useEstimatePdfDownload();
   const { guideRows, loading: guidesLoading } = useEstimateLocationGuides();
   const { confirmTrip, loading: confirmingTrip } = useConfirmTrip();
@@ -291,7 +308,18 @@ export function PlanVersionDetailPage(): JSX.Element {
       {estimateDocumentData ? (
         <div className="estimate-preview-frame">
           <EstimatePreviewScaler>
-            <EstimateDocument data={estimateDocumentData} viewMode="screen-preview" />
+            <EstimateDocument
+              data={estimateDocumentData}
+              viewMode="screen-preview"
+              validUntilEditor={
+                estimateDocumentData.validUntilDate
+                  ? {
+                      value: estimateDocumentData.validUntilDate,
+                      onChange: handleValidUntilDateChange,
+                    }
+                  : undefined
+              }
+            />
           </EstimatePreviewScaler>
         </div>
       ) : (

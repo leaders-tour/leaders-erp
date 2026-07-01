@@ -1,5 +1,6 @@
 import { Button, Card } from '@tour/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   KOREAN_WEEKDAY_LABELS,
   formatDateTriggerLabel,
@@ -190,11 +191,11 @@ export function DatePickerModal({
     return null;
   }
 
-  return (
+  const modal = (
     <>
       <div
         ref={modalRef}
-        className="fixed z-50 flex flex-col"
+        className="fixed z-[200] flex flex-col"
         style={{
           left: position.left,
           width: position.width,
@@ -336,4 +337,10 @@ export function DatePickerModal({
       </div>
     </>
   );
+
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  return createPortal(modal, document.body);
 }

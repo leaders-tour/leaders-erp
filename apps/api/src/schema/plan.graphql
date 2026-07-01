@@ -173,6 +173,8 @@ type PlanVersionMeta {
   movementIntensityColorOverride: String
   """복수 차종·대수 배정"""
   vehicleAssignments: [VehicleAssignment!]!
+  """견적서 유효기간 (만료일)"""
+  validUntilDate: DateTime
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -581,6 +583,7 @@ input PlanVersionMetaInput {
   estimateGuidePageSplits: [Int!]
   movementIntensityColorOverride: String
   vehicleAssignments: [VehicleAssignmentInput!]
+  validUntilDate: DateTime
 }
 
 type VehicleAssignment {

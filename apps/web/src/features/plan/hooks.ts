@@ -320,6 +320,7 @@ export interface PlanVersionMetaRow {
   estimateGuideImagesPerPage: number;
   estimateGuidePageSplits: number[] | null;
   movementIntensityColorOverride: string | null;
+  validUntilDate: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1031,12 +1032,21 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         estimateGuideImagesPerPage
         estimateGuidePageSplits
         movementIntensityColorOverride
+        validUntilDate
         createdAt
         updatedAt
       }
       pricing {
         ...PlanVersionPricingEffectiveFields
       }
+    }
+  }
+`;
+
+const UPDATE_PLAN_VERSION_VALID_UNTIL_DATE_MUTATION = gql`
+  mutation UpdatePlanVersionValidUntilDate($planVersionId: ID!, $validUntilDate: DateTime!) {
+    updatePlanVersionValidUntilDate(planVersionId: $planVersionId, validUntilDate: $validUntilDate) {
+      id
     }
   }
 `;
@@ -1277,6 +1287,28 @@ export function useUpdatePlanVersionChangeNote() {
   );
 
   return { loading, updatePlanVersionChangeNote };
+}
+
+export function useUpdatePlanVersionValidUntilDate() {
+  const [mutate, { loading }] = useMutation<{
+    updatePlanVersionValidUntilDate: { id: string };
+  }>(UPDATE_PLAN_VERSION_VALID_UNTIL_DATE_MUTATION);
+
+  const updatePlanVersionValidUntilDate = useCallback(
+    async (planVersionId: string, validUntilDate: string) => {
+      const result = await mutate({
+        variables: { planVersionId, validUntilDate: `${validUntilDate}T00:00:00.000Z` },
+        refetchQueries: [{ query: PLAN_VERSION_DETAIL_QUERY, variables: { id: planVersionId } }],
+      });
+      if (!result.data?.updatePlanVersionValidUntilDate) {
+        throw new Error('견적 유효기간 저장에 실패했습니다.');
+      }
+      return result.data.updatePlanVersionValidUntilDate;
+    },
+    [mutate],
+  );
+
+  return { loading, updatePlanVersionValidUntilDate };
 }
 
 export function useCreateUser() {

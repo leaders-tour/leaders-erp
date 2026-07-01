@@ -107,10 +107,17 @@ function buildPlanVersionMetaCreateInput(
     estimateGuideImagesPerPage?: number;
     estimateGuidePageSplits?: number[];
     movementIntensityColorOverride?: string | null;
+    validUntilDate?: string;
   },
   documentNumber: string,
 ) {
   const firstTransportGroup = meta.transportGroups[0];
+  const defaultValidUntilDate = (): Date => {
+    const now = new Date();
+    const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    utcMidnight.setUTCDate(utcMidnight.getUTCDate() + 14);
+    return utcMidnight;
+  };
 
   return {
     leaderName: meta.leaderName,
@@ -160,6 +167,7 @@ function buildPlanVersionMetaCreateInput(
         ? (meta.estimateGuidePageSplits as Prisma.InputJsonValue)
         : undefined,
     movementIntensityColorOverride: meta.movementIntensityColorOverride ?? null,
+    validUntilDate: meta.validUntilDate ? new Date(meta.validUntilDate) : defaultValidUntilDate(),
     transportGroups: {
       create: toTransportGroupCreateManyInput(meta.transportGroups),
     },

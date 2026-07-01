@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch --include 'src/schema/**/*.graphql' src/index.ts",
+    "build": "tsc -p tsconfig.json && mkdir -p dist/apps/api/src/schema && cp src/schema/*.graphql dist/apps/api/src/schema/",
     "start": "node dist/index.js",
     "lint": "eslint 'src/**/*.ts'",
     "test": "vitest run",

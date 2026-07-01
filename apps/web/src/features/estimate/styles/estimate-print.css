@@ -836,7 +836,24 @@
   font-size: var(--estimate-page1-small-font-size);
   line-height: 1.35;
   text-align: right;
-  white-space: normal;
+  white-space: nowrap;
+}
+
+.estimate-page1-validity-date-trigger {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  vertical-align: baseline;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.estimate-document--preview .estimate-page1-validity-date-trigger:hover {
+  color: #5c564f;
 }
 
 .estimate-page1-payment-bar {

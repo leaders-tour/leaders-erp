@@ -27,6 +27,12 @@ mutation UpdatePlanVersionChangeNote($planVersionId: ID!, $changeNote: String) {
   }
 }
 
+mutation UpdatePlanVersionValidUntilDate($planVersionId: ID!, $validUntilDate: DateTime!) {
+  updatePlanVersionValidUntilDate(planVersionId: $planVersionId, validUntilDate: $validUntilDate) {
+    id
+  }
+}
+
 mutation SetCurrentPlanVersion($planId: ID!, $versionId: ID!) {
   setCurrentPlanVersion(planId: $planId, versionId: $versionId) {
     id

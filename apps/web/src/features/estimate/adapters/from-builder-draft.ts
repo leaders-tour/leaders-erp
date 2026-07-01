@@ -2,12 +2,12 @@ import { mergeLodgingSelectionDisplayLines } from '../../pricing/merge-lodging-s
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
 import { countMainPlanStopRows } from '../../plan/plan-stop-row';
 import { formatVehicleAssignmentsForDisplay } from '@tour/validation';
-import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
+import { ESTIMATE_PAGE3_TITLE } from '../model/constants';
 import type { EstimateBuilderDraftSnapshot, EstimateDocumentData } from '../model/types';
 import { normalizeEstimateGuideImagesPerPage, normalizeEstimateGuidePageSplits } from '../utils/guide-layout';
 import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
 import { formatPricingDetailFormula, resolveDisplayLeadAmount } from '../../pricing/pricing-line-presenter';
-import { addDays, buildPage2Title, normalizeMultilineText, toSecurityDepositScope, todayIsoDate } from '../utils/format';
+import { buildPage2Title, normalizeMultilineText, toSecurityDepositScope } from '../utils/format';
 
 export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): EstimateDocumentData {
   const pricingBuckets = snapshot.pricing
@@ -98,7 +98,7 @@ export function fromBuilderDraft(snapshot: EstimateBuilderDraftSnapshot): Estima
     securityDepositTotalKrw: snapshot.pricing?.securityDepositTotalKrw ?? null,
     securityDepositUnitKrw: snapshot.pricing?.securityDepositUnitKrw ?? null,
     securityDepositScope: snapshot.pricing ? toSecurityDepositScope(snapshot.pricing.securityDepositMode) : '-',
-    validUntilDate: addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS),
+    validUntilDate: snapshot.validUntilDate,
     movementIntensity: snapshot.movementIntensity ?? null,
     overallMovementIntensityColorOverride: snapshot.overallMovementIntensityColorOverride ?? null,
     planStops: snapshot.planStops,

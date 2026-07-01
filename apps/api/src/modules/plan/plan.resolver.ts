@@ -126,6 +126,11 @@ interface UpdatePlanVersionChangeNoteArgs {
   changeNote?: string | null;
 }
 
+interface UpdatePlanVersionValidUntilDateArgs {
+  planVersionId: string;
+  validUntilDate: string;
+}
+
 export const planResolver = {
   Query: {
     users: (_parent: unknown, _args: unknown, ctx: AppContext) => new PlanService(ctx.prisma).listUsers(),
@@ -164,6 +169,8 @@ export const planResolver = {
       new PlanService(ctx.prisma).createVersion(args.input),
     updatePlanVersionChangeNote: (_parent: unknown, args: UpdatePlanVersionChangeNoteArgs, ctx: AppContext) =>
       new PlanService(ctx.prisma).updatePlanVersionChangeNote(args.planVersionId, args.changeNote ?? null),
+    updatePlanVersionValidUntilDate: (_parent: unknown, args: UpdatePlanVersionValidUntilDateArgs, ctx: AppContext) =>
+      new PlanService(ctx.prisma).updatePlanVersionValidUntilDate(args.planVersionId, args.validUntilDate),
     setCurrentPlanVersion: (_parent: unknown, args: SetCurrentPlanVersionArgs, ctx: AppContext) =>
       new PlanService(ctx.prisma).setCurrentVersion(args.planId, args.versionId),
     deletePlanVersion: (_parent: unknown, args: IdArgs, ctx: AppContext) =>

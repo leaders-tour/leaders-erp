@@ -1,4 +1,6 @@
-import { useMemo, useRef, useState, type FocusEvent, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type FocusEvent, type MouseEvent, type ReactNode } from 'react';
+import { DatePickerModal } from '../../../components/date-picker/DatePickerModal';
+import { getCurrentLocalYear } from '../../../components/date-picker/date-picker-utils';
 import { usePage1FitScale } from '../../document-layout/use-page1-fit-scale';
 import {
   shouldShowTeamPrefixInPricingSummary,
@@ -35,6 +37,10 @@ const PICKUP_DROP_TIME_OPTIONS = ['04:00', '05:00', '08:00', '15:30', '19:00', '
 interface EstimatePage1Props {
   data: EstimateDocumentData;
   editor?: EstimatePage1Editor;
+  validUntilEditor?: {
+    value: string;
+    onChange: (value: string) => void | Promise<void>;
+  };
   onLayoutReady?: () => void;
 }
 
@@ -489,7 +495,9 @@ function EstimatePage1LogoMark(): JSX.Element {
   );
 }
 
-export function EstimatePage1({ data, editor, onLayoutReady }: EstimatePage1Props): JSX.Element {
+export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }: EstimatePage1Props): JSX.Element {
+  const [validUntilPickerAnchor, setValidUntilPickerAnchor] = useState<HTMLElement | null>(null);
+  const displayedValidUntilDate = validUntilEditor?.value ?? data.validUntilDate;
   const adjustmentLines = data.adjustmentLines;
   const [activeField, setActiveField] = useState<EstimatePage1EditableField | null>(null);
   const pageRef = useRef<HTMLElement | null>(null);
@@ -1050,7 +1058,21 @@ export function EstimatePage1({ data, editor, onLayoutReady }: EstimatePage1Prop
             </tbody>
             </table>
             <p className="estimate-page1-validity-note">
-              견적서 내 금액은 모두 1인 기준 견적입니다. 해당 견적은 {formatDateKorean(data.validUntilDate)}까지 유효합니다.
+              견적서 내 금액은 모두 1인 기준 견적입니다. 해당 견적은{' '}
+              {validUntilEditor ? (
+                <button
+                  type="button"
+                  className="estimate-page1-validity-date-trigger"
+                  onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                    setValidUntilPickerAnchor(event.currentTarget);
+                  }}
+                >
+                  {formatDateKorean(displayedValidUntilDate)}
+                </button>
+              ) : (
+                formatDateKorean(displayedValidUntilDate)
+              )}
+              까지 유효합니다.
             </p>
           </div>
         </div>
@@ -1070,6 +1092,18 @@ export function EstimatePage1({ data, editor, onLayoutReady }: EstimatePage1Prop
           </div>
         </div>
       </div>
+      <DatePickerModal
+        open={validUntilEditor != null && validUntilPickerAnchor != null}
+        value={validUntilEditor?.value ?? displayedValidUntilDate ?? ''}
+        anchorEl={validUntilPickerAnchor}
+        defaultYear={getCurrentLocalYear()}
+        title="견적 유효기간"
+        onClose={() => setValidUntilPickerAnchor(null)}
+        onChange={(nextIsoDate) => {
+          void validUntilEditor?.onChange(nextIsoDate);
+          setValidUntilPickerAnchor(null);
+        }}
+      />
     </section>
   );
 }

@@ -100,6 +100,7 @@ export interface EstimateBuilderDraftSnapshot {
   rentalItemsText: string;
   eventNames: string[];
   remark: string;
+  validUntilDate: string;
   movementIntensity?: MovementIntensityValue | null;
   /** 견적서 일정표 상단 전체 이동강도 칩 색상 오버라이드 */
   overallMovementIntensityColorOverride?: string | null;

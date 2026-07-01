@@ -1495,6 +1495,8 @@ model PlanVersionMeta {
   movementIntensityColorOverride String?
   /// 견적 차량 배정 [{ vehicleType, count }]
   vehicleAssignments            Json?
+  /// 견적서 유효기간 (만료일, UTC 자정 기준 DateTime)
+  validUntilDate                DateTime?
 
   planVersion     PlanVersion                 @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
   transportGroups PlanVersionTransportGroup[]

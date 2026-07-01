@@ -29,6 +29,42 @@ function toIsoDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+export function isoDatePart(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const datePart = trimmed.includes('T') ? (trimmed.split('T')[0] ?? '') : (trimmed.split(' ')[0] ?? '');
+  return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : null;
+}
+
+export function resolveStoredValidUntilDate(
+  validUntilDate: string | null | undefined,
+  metaCreatedAt: string | null | undefined,
+  validityDays: number,
+): string | null {
+  const stored = validUntilDate ? isoDatePart(validUntilDate) : null;
+  if (stored) {
+    return stored;
+  }
+
+  const createdPart = metaCreatedAt ? isoDatePart(metaCreatedAt) : null;
+  if (!createdPart) {
+    return null;
+  }
+
+  return addDays(createdPart, validityDays);
+}
+
 export function addDays(value: string | null | undefined, days: number): string | null {
   const baseDate = toDate(value);
   if (!baseDate) {
