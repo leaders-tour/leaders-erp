@@ -995,8 +995,23 @@ describe('computeDepositAndBalanceKrw', () => {
 
   it('keeps deposit at exactly 10% when raw balance is already a multiple of ten thousand', () => {
     expect(computeDepositAndBalanceKrw(1_000_000)).toEqual({
-      depositAmountKrw: 100_000,
-      balanceAmountKrw: 900_000,
+      depositAmountKrw: 90_000,
+      balanceAmountKrw: 910_000,
+    });
+  });
+
+  it('caps auto deposit at ninety thousand won and keeps balance on ten-thousand won unit', () => {
+    expect(computeDepositAndBalanceKrw(850_000)).toEqual({
+      depositAmountKrw: 80_000,
+      balanceAmountKrw: 770_000,
+    });
+    expect(computeDepositAndBalanceKrw(1_200_000)).toEqual({
+      depositAmountKrw: 90_000,
+      balanceAmountKrw: 1_110_000,
+    });
+    expect(computeDepositAndBalanceKrw(1_095_123)).toEqual({
+      depositAmountKrw: 85_123,
+      balanceAmountKrw: 1_010_000,
     });
   });
 
