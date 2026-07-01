@@ -10,7 +10,6 @@ import {
 import { RecruitmentStatusToggle } from './RecruitmentStatusToggle';
 import {
   buildTravelerSheetColumns,
-  filterSubmissionsForTripTeam,
   type TravelerSheetColumn,
 } from './contract-traveler-sheet';
 
@@ -416,7 +415,6 @@ function TravelerDetailModal({
 
 export function ConfirmedTripTravelerInfoSection({
   documentNumber,
-  leaderName,
   headcountTotal,
   isRecruitingOpen,
   recruitmentDisabled,
@@ -429,7 +427,6 @@ export function ConfirmedTripTravelerInfoSection({
   onSubmissionsUpdated,
 }: {
   documentNumber: string | null;
-  leaderName: string | null;
   headcountTotal: number | null;
   isRecruitingOpen: boolean;
   recruitmentDisabled: boolean;
@@ -454,14 +451,9 @@ export function ConfirmedTripTravelerInfoSection({
     [],
   );
 
-  const teamSubmissions = useMemo(
-    () => filterSubmissionsForTripTeam(submissions, leaderName),
-    [leaderName, submissions],
-  );
-
   const columns = useMemo(
-    () => buildTravelerSheetColumns(teamSubmissions, receipts),
-    [receipts, teamSubmissions],
+    () => buildTravelerSheetColumns(submissions, receipts),
+    [receipts, submissions],
   );
 
   const loading = submissionsLoading || receiptsLoading;

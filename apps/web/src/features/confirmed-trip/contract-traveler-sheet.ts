@@ -40,28 +40,6 @@ export function contractSubmissionPersonKeys(submission: ContractSubmissionRow):
   return keys;
 }
 
-export function filterSubmissionsForTripTeam(
-  submissions: ContractSubmissionRow[],
-  leaderName: string | null | undefined,
-): ContractSubmissionRow[] {
-  const leaderKey = normalizePersonNameForLookup(leaderName);
-  if (!leaderKey) {
-    return submissions;
-  }
-
-  return submissions.filter((submission) => {
-    const representativeType = submission.representativeType ?? '';
-    const travelerKey = normalizePersonNameForLookup(submission.travelerName);
-    const submissionLeaderKey = normalizePersonNameForLookup(submission.leaderName);
-
-    if (representativeType.includes('대표')) {
-      return travelerKey === leaderKey;
-    }
-
-    return submissionLeaderKey === leaderKey || submissionLeaderKey == null;
-  });
-}
-
 function inferPaymentTag(memo: string | null | undefined, amountKrw: number | null): string | null {
   const text = memo?.trim() ?? '';
   if (/예약금/.test(text)) {

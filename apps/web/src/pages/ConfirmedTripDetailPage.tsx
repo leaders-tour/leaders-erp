@@ -1396,7 +1396,6 @@ export function ConfirmedTripDetailPage(): JSX.Element {
         <div className="grid min-w-0 max-w-full gap-6 overflow-hidden">
           <ConfirmedTripTravelerInfoSection
             documentNumber={contractDocumentNumber}
-            leaderName={getTripLeaderName(trip)}
             headcountTotal={meta?.headcountTotal ?? getTripHeadcount(trip)}
             isRecruitingOpen={trip.isRecruitingOpen}
             recruitmentDisabled={trip.status !== 'ACTIVE'}
