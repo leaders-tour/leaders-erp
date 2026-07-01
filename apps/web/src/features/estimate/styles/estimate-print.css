@@ -541,11 +541,11 @@
 }
 
 .estimate-page1-col-4-label {
-  width: 14%;
+  width: 13%;
 }
 
 .estimate-page1-col-4-value {
-  width: 36%;
+  width: 37%;
 }
 
 .estimate-page1-col-pricing-base {
@@ -559,6 +559,7 @@
 .estimate-page1-preline-cell,
 .estimate-page1-preline-cell .estimate-editable-content {
   white-space: pre-line;
+  overflow-x: clip;
 }
 
 .estimate-comma-break-line {
@@ -572,6 +573,32 @@
 
 .estimate-comma-break-item:not(:last-child) {
   margin-right: 0.35em;
+}
+
+.document-external-transfer-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  width: 100%;
+}
+
+.document-external-transfer-line + .document-external-transfer-line {
+  margin-top: 0.15em;
+}
+
+.document-external-transfer-chunk {
+  display: inline-flex;
+  align-items: baseline;
+  max-width: 100%;
+}
+
+.document-external-transfer-segment {
+  white-space: nowrap;
+}
+
+.document-external-transfer-separator {
+  white-space: nowrap;
 }
 
 .estimate-page1-table--main td,

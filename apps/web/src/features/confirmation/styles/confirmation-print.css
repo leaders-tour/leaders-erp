@@ -304,15 +304,16 @@
 }
 
 .confirmation-page1-col-4-label {
-  width: 14%;
+  width: 13%;
 }
 
 .confirmation-page1-col-4-value {
-  width: 36%;
+  width: 37%;
 }
 
 .confirmation-page1-preline-cell {
   white-space: pre-line;
+  overflow-x: clip;
 }
 
 .confirmation-page1-event-cell {
@@ -325,6 +326,32 @@
 
 .confirmation-comma-break-item {
   display: inline-block;
+  white-space: nowrap;
+}
+
+.document-external-transfer-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  width: 100%;
+}
+
+.document-external-transfer-line + .document-external-transfer-line {
+  margin-top: 0.15em;
+}
+
+.document-external-transfer-chunk {
+  display: inline-flex;
+  align-items: baseline;
+  max-width: 100%;
+}
+
+.document-external-transfer-segment {
+  white-space: nowrap;
+}
+
+.document-external-transfer-separator {
   white-space: nowrap;
 }
 

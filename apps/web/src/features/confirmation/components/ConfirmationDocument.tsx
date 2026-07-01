@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import '../styles/confirmation-print.css';
+import { ExternalTransferLineText } from '../../document-layout/ExternalTransferLineText';
 import { usePage1FitScale } from '../../document-layout/use-page1-fit-scale';
 import { EstimatePreviewScaler } from '../../estimate/components/EstimatePreviewScaler';
 import type { EstimateDocumentData } from '../../estimate/model/types';
@@ -288,7 +289,9 @@ function ConfirmationPage({
               </tr>
               <tr className="confirmation-page1-tr--even-height">
                 <th>실투어 외 픽드랍</th>
-                <td className="confirmation-page1-preline-cell">{fallbackText(data.externalPickupDropText)}</td>
+                <td className="confirmation-page1-preline-cell">
+                  <ExternalTransferLineText value={fallbackText(data.externalPickupDropText)} />
+                </td>
                 <th>특이사항</th>
                 <td className="confirmation-page1-preline-cell">{fallbackText(data.specialNote)}</td>
               </tr>

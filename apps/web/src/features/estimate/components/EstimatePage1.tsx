@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type FocusEvent, type MouseEvent, type ReactNode } from 'react';
 import { DatePickerModal } from '../../../components/date-picker/DatePickerModal';
 import { getCurrentLocalYear } from '../../../components/date-picker/date-picker-utils';
+import { ExternalTransferLineText } from '../../document-layout/ExternalTransferLineText';
 import { usePage1FitScale } from '../../document-layout/use-page1-fit-scale';
 import {
   shouldShowTeamPrefixInPricingSummary,
@@ -824,7 +825,9 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
             </tr>
             <tr>
               <th>실투어 외 픽드랍</th>
-              <td className="estimate-page1-preline-cell">{fallback(data.externalPickupDropText)}</td>
+              <td className="estimate-page1-preline-cell">
+                <ExternalTransferLineText value={fallback(data.externalPickupDropText)} />
+              </td>
               <th>특이사항</th>
               <EditableCell
                 field="specialNoteText"
