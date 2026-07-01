@@ -1,22 +1,51 @@
 import { useMemo } from 'react';
-import { useLatestConfirmationDocument, useConfirmationDraftDefaults } from '../hooks/use-confirmation-document';
+import {
+  useConfirmationDocument,
+  useConfirmationDraftDefaults,
+  useLatestConfirmationDocument,
+  useLatestPublishedConfirmationDocument,
+} from '../hooks/use-confirmation-document';
 import type { ConfirmationBuilderState } from '../model/types';
+import type { ConfirmationBuilderSource } from '../utils/confirmation-builder-source';
 import { snapshotToDocumentData } from '../utils/format';
 
-export function useConfirmationBuilderSource(confirmedTripId: string | undefined) {
+export function useConfirmationBuilderSource(
+  confirmedTripId: string | undefined,
+  source: ConfirmationBuilderSource | null,
+  fromDocumentId?: string | null,
+) {
   const latest = useLatestConfirmationDocument(confirmedTripId);
-  const shouldResumeExistingDocument =
-    latest.document?.status === 'DRAFT' || latest.document?.status === 'PUBLISHED';
+  const published = useLatestPublishedConfirmationDocument(confirmedTripId);
+  const specific = useConfirmationDocument(fromDocumentId ?? undefined);
+  const effectiveSource: ConfirmationBuilderSource =
+    source ?? (latest.document?.status === 'DRAFT' ? 'draft' : 'fresh');
+
   const defaults = useConfirmationDraftDefaults(
-    confirmedTripId && !latest.loading && shouldResumeExistingDocument ? undefined : confirmedTripId,
+    confirmedTripId && effectiveSource === 'fresh' ? confirmedTripId : undefined,
   );
 
   const initialState = useMemo<ConfirmationBuilderState | null>(() => {
-    if (shouldResumeExistingDocument && latest.document) {
+    if ((effectiveSource === 'version' || (effectiveSource === 'draft' && fromDocumentId)) && specific.document) {
+      return specific.document.snapshot;
+    }
+    if (effectiveSource === 'draft' && latest.document?.status === 'DRAFT') {
       return latest.document.snapshot;
     }
-    return defaults.defaults?.snapshot ?? null;
-  }, [defaults.defaults?.snapshot, latest.document, shouldResumeExistingDocument]);
+    if (effectiveSource === 'published' && published.document) {
+      return published.document.snapshot;
+    }
+    if (effectiveSource === 'fresh') {
+      return defaults.defaults?.snapshot ?? null;
+    }
+    return null;
+  }, [
+    defaults.defaults?.snapshot,
+    effectiveSource,
+    fromDocumentId,
+    latest.document,
+    published.document,
+    specific.document,
+  ]);
 
   const previewData = useMemo(
     () => (initialState ? snapshotToDocumentData(initialState, { consolidateAccommodationLines: true }) : null),
@@ -26,27 +55,28 @@ export function useConfirmationBuilderSource(confirmedTripId: string | undefined
   return {
     initialState,
     previewData,
+    effectiveSource,
     latestDocument: latest.document,
-    loading: latest.loading || defaults.loading,
-    error: latest.error ?? defaults.error,
+    publishedDocument: published.document,
+    loading: latest.loading || published.loading || specific.loading || defaults.loading,
+    error: latest.error ?? published.error ?? specific.error ?? defaults.error,
     refetch: async () => {
-      await Promise.all([latest.refetch(), defaults.refetch()]);
+      await Promise.all([latest.refetch(), published.refetch(), specific.refetch(), defaults.refetch()]);
     },
   };
 }
 
 export function useConfirmationPreviewData(confirmedTripId: string | undefined) {
-  const { document, loading } = useLatestConfirmationDocument(confirmedTripId);
-  const published = document?.status === 'PUBLISHED' ? document : null;
+  const { document, loading } = useLatestPublishedConfirmationDocument(confirmedTripId);
   const previewData = useMemo(
-    () => (published ? snapshotToDocumentData(published.snapshot) : null),
-    [published],
+    () => (document ? snapshotToDocumentData(document.snapshot) : null),
+    [document],
   );
 
   return {
-    document: published,
+    document,
     previewData,
     loading,
-    hasPublishedConfirmation: !!published,
+    hasPublishedConfirmation: !!document,
   };
 }

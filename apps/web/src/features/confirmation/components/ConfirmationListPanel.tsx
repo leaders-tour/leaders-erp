@@ -1,12 +1,18 @@
 import { Button, Card, Table, Td, Th } from '@tour/ui';
+import { TooltipHelpIcon } from '../../../components/TooltipHelpIcon';
 import type { ConfirmationDocumentRow } from '../model/types';
+import {
+  CONFIRMATION_FRESH_SOURCE_TOOLTIP,
+  resolveConfirmationBuilderRowActionLabel,
+} from '../utils/confirmation-builder-source';
 
 interface ConfirmationListPanelProps {
   documents: ConfirmationDocumentRow[];
   loading?: boolean;
   onOpenDocument: (document: ConfirmationDocumentRow) => void;
   onDeleteDocument: (document: ConfirmationDocumentRow) => void;
-  onCreateDocument: () => void;
+  onCreateFromDocument: (document: ConfirmationDocumentRow) => void;
+  onCreateFromFresh: () => void;
   canCreate?: boolean;
   deleteLoading?: boolean;
   deletingDocumentId?: string | null;
@@ -38,18 +44,31 @@ export function ConfirmationListPanel({
   loading = false,
   onOpenDocument,
   onDeleteDocument,
-  onCreateDocument,
+  onCreateFromDocument,
+  onCreateFromFresh,
   canCreate = true,
   deleteLoading = false,
   deletingDocumentId = null,
 }: ConfirmationListPanelProps): JSX.Element {
   return (
     <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-slate-200 p-4">
-        <h2 className="text-sm font-semibold text-slate-900">확정서 목록</h2>
-        <Button variant="primary" onClick={onCreateDocument} disabled={!canCreate}>
-          신규 확정서 생성
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">확정서 목록</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            각 버전 옆에서 기준을 선택해 새 확정서를 작성할 수 있습니다.
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button variant="outline" onClick={onCreateFromFresh} disabled={!canCreate}>
+            새 버전 작성
+          </Button>
+          <TooltipHelpIcon
+            content={CONFIRMATION_FRESH_SOURCE_TOOLTIP}
+            align="right"
+            ariaLabel="새 버전 작성 안내"
+          />
+        </div>
       </div>
       <div className="overflow-auto">
         {loading ? <p className="p-4 text-sm text-slate-500">확정서를 불러오는 중...</p> : null}
@@ -83,6 +102,13 @@ export function ConfirmationListPanel({
                     <div className="flex flex-wrap gap-2">
                       <Button variant="outline" onClick={() => onOpenDocument(document)}>
                         상세
+                      </Button>
+                      <Button
+                        variant="primary"
+                        disabled={!canCreate}
+                        onClick={() => onCreateFromDocument(document)}
+                      >
+                        {resolveConfirmationBuilderRowActionLabel(document.status)}
                       </Button>
                       <Button
                         variant="destructive"

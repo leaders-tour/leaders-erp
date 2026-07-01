@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmationPreviewPanel } from '../features/confirmation/components/ConfirmationPreviewPanel';
 import { useConfirmationDocument } from '../features/confirmation/hooks/use-confirmation-document';
 import type { ConfirmationDocumentRow } from '../features/confirmation/model/types';
+import { buildConfirmationBuilderPathFromDocument } from '../features/confirmation/utils/confirmation-builder-source';
 import { useConfirmedTrip } from '../features/confirmed-trip/hooks';
 
 function getStatusLabel(status: ConfirmationDocumentRow['status']): string {
@@ -88,7 +89,7 @@ export function ConfirmationDocumentDetailPage(): JSX.Element {
               확정 여행 상세
             </Button>
             {canEdit ? (
-              <Button onClick={() => navigate(`/confirmed-trips/${document.confirmedTripId}/confirmation-builder`)}>
+              <Button onClick={() => navigate(buildConfirmationBuilderPathFromDocument(document))}>
                 수정
               </Button>
             ) : null}

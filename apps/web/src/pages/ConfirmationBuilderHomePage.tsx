@@ -8,6 +8,10 @@ import {
   useDeleteConfirmationDocument,
 } from '../features/confirmation/hooks/use-confirmation-document';
 import type { ConfirmationDocumentRow } from '../features/confirmation/model/types';
+import {
+  buildConfirmationBuilderPath,
+  buildConfirmationBuilderPathFromDocument,
+} from '../features/confirmation/utils/confirmation-builder-source';
 import { CustomerSelector } from '../features/plan/components';
 import { matchesCustomerSearchKeyword } from '../features/plan/customerSearch';
 import { getCustomerTripStatus } from '../features/plan/customerTripStatus';
@@ -69,11 +73,15 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
     navigate(`/confirmation-documents/${document.id}`);
   };
 
-  const handleCreateDocument = () => {
+  const handleCreateFromFresh = () => {
     if (!primaryActiveTripId) {
       return;
     }
-    navigate(`/confirmed-trips/${primaryActiveTripId}/confirmation-builder`);
+    navigate(buildConfirmationBuilderPath(primaryActiveTripId, 'fresh'));
+  };
+
+  const handleCreateFromDocument = (document: ConfirmationDocumentRow) => {
+    navigate(buildConfirmationBuilderPathFromDocument(document));
   };
 
   const getDocumentTitle = (document: ConfirmationDocumentRow): string => {
@@ -177,7 +185,8 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
                 loading={documentsLoading}
                 onOpenDocument={handleOpenDocument}
                 onDeleteDocument={(document) => void handleDeleteDocument(document)}
-                onCreateDocument={handleCreateDocument}
+                onCreateFromDocument={handleCreateFromDocument}
+                onCreateFromFresh={handleCreateFromFresh}
                 canCreate={!!primaryActiveTripId}
                 deleteLoading={deleteDocumentLoading}
                 deletingDocumentId={deletingDocumentId}

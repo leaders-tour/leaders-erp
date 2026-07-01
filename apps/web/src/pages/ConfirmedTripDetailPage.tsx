@@ -8,6 +8,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmationPdfPreviewPanel } from '../features/confirmation/components/ConfirmationPdfPreviewPanel';
 import { useConfirmationDocuments } from '../features/confirmation/hooks/use-confirmation-document';
 import type { ConfirmationDocumentRow } from '../features/confirmation/model/types';
+import {
+  buildConfirmationBuilderPath,
+  buildConfirmationBuilderPathFromDocument,
+  CONFIRMATION_FRESH_SOURCE_TOOLTIP,
+  resolveConfirmationBuilderRowActionLabel,
+} from '../features/confirmation/utils/confirmation-builder-source';
+import { TooltipHelpIcon } from '../components/TooltipHelpIcon';
 import { useAuth } from '../features/auth/context';
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
 import { toSecurityDepositScope } from '../features/estimate/utils/format';
@@ -1331,7 +1338,15 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           {trip.status === 'ACTIVE' ? (
             <Button
               variant="outline"
-              onClick={() => navigate(`/confirmed-trips/${trip.id}/confirmation-builder`)}
+              onClick={() =>
+                navigate(
+                  publishedConfirmation
+                    ? buildConfirmationBuilderPath(trip.id, 'version', {
+                        fromDocumentId: publishedConfirmation.id,
+                      })
+                    : buildConfirmationBuilderPath(trip.id, 'fresh'),
+                )
+              }
             >
               {publishedConfirmation ? '확정서 수정' : '확정서 만들기'}
             </Button>
@@ -2094,13 +2109,19 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                 </p>
               </div>
               {trip.status === 'ACTIVE' ? (
-                <Button
-                  variant="outline"
-                  className="shrink-0"
-                  onClick={() => navigate(`/confirmed-trips/${trip.id}/confirmation-builder?fresh=1`)}
-                >
-                  새로 작성
-                </Button>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate(buildConfirmationBuilderPath(trip.id, 'fresh'))}
+                  >
+                    새 버전 작성
+                  </Button>
+                  <TooltipHelpIcon
+                    content={CONFIRMATION_FRESH_SOURCE_TOOLTIP}
+                    align="right"
+                    ariaLabel="새 버전 작성 안내"
+                  />
+                </div>
               ) : null}
             </div>
 
@@ -2136,13 +2157,22 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                           {document.publishedAt ? ` · 발행 ${formatConfirmationDocumentDate(document.publishedAt)}` : ''}
                         </p>
                       </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => navigate(`/confirmation-documents/${document.id}`)}
-                      >
-                        상세
-                      </Button>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => navigate(`/confirmation-documents/${document.id}`)}
+                        >
+                          상세
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          onClick={() => navigate(buildConfirmationBuilderPathFromDocument(document))}
+                        >
+                          {resolveConfirmationBuilderRowActionLabel(document.status)}
+                        </Button>
+                      </div>
                     </div>
                   ))}
               </div>

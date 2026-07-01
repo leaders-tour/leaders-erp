@@ -4,8 +4,10 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ConfirmationBuilderForm } from '../features/confirmation/components/ConfirmationBuilderForm';
 import { ConfirmationDocument } from '../features/confirmation/components/ConfirmationDocument';
 import {
+  useConfirmationDocument,
   useConfirmationDraftDefaults,
   useLatestConfirmationDocument,
+  useLatestPublishedConfirmationDocument,
   useSaveConfirmationDocument,
 } from '../features/confirmation/hooks/use-confirmation-document';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
@@ -13,6 +15,12 @@ import { EstimatePreviewScaler } from '../features/estimate/components/EstimateP
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
 import type { ConfirmationBuilderState } from '../features/confirmation/model/types';
 import { snapshotToDocumentData } from '../features/confirmation/utils/format';
+import {
+  parseConfirmationBuilderFromDocumentId,
+  parseConfirmationBuilderSource,
+  resolveConfirmationBuilderSourceLabel,
+  type ConfirmationBuilderSource,
+} from '../features/confirmation/utils/confirmation-builder-source';
 import { useConfirmedTrip } from '../features/confirmed-trip/hooks';
 import '../features/confirmation/styles/confirmation-builder-page.css';
 
@@ -62,16 +70,43 @@ function DocumentPreviewPanel({
   );
 }
 
+function resolveEffectiveSource(
+  requestedSource: ConfirmationBuilderSource | null,
+  latestStatus: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | undefined,
+): ConfirmationBuilderSource {
+  if (requestedSource) {
+    return requestedSource;
+  }
+  if (latestStatus === 'DRAFT') {
+    return 'draft';
+  }
+  return 'fresh';
+}
+
 export function ConfirmationBuilderPage(): JSX.Element {
   const navigate = useNavigate();
   const { tripId = '' } = useParams();
   const [searchParams] = useSearchParams();
-  const startFromDefaults = searchParams.get('fresh') === '1';
+  const requestedSource = parseConfirmationBuilderSource(searchParams);
+  const fromDocumentId = parseConfirmationBuilderFromDocumentId(searchParams);
   const { trip, loading: tripLoading } = useConfirmedTrip(tripId);
-  const { document, loading: documentLoading, refetch: refetchDocument } = useLatestConfirmationDocument(tripId);
-  const isResumingExistingDocument =
-    !startFromDefaults && (document?.status === 'DRAFT' || document?.status === 'PUBLISHED');
-  const shouldLoadDefaults = !documentLoading && !isResumingExistingDocument;
+  const { document: latestDocument, loading: latestLoading, refetch: refetchLatest } =
+    useLatestConfirmationDocument(tripId);
+  const {
+    document: publishedDocument,
+    loading: publishedLoading,
+    refetch: refetchPublished,
+  } = useLatestPublishedConfirmationDocument(tripId);
+  const effectiveSource = resolveEffectiveSource(requestedSource, latestDocument?.status);
+  const shouldLoadSpecificDocument =
+    effectiveSource === 'version'
+    || (effectiveSource === 'draft' && !!fromDocumentId);
+  const shouldLoadDraftSnapshot = effectiveSource === 'draft' && !fromDocumentId;
+  const shouldLoadPublishedSnapshot = effectiveSource === 'published' && !fromDocumentId;
+  const shouldLoadDefaults = effectiveSource === 'fresh';
+  const { document: sourceDocument, loading: sourceDocumentLoading } = useConfirmationDocument(
+    shouldLoadSpecificDocument ? fromDocumentId ?? undefined : undefined,
+  );
   const { defaults, loading: defaultsLoading } = useConfirmationDraftDefaults(
     shouldLoadDefaults ? tripId : undefined,
   );
@@ -80,11 +115,28 @@ export function ConfirmationBuilderPage(): JSX.Element {
   const [isEstimatePreviewOpen, setIsEstimatePreviewOpen] = useState(true);
 
   useEffect(() => {
-    if (documentLoading) {
+    if (shouldLoadSpecificDocument) {
+      if (sourceDocumentLoading) {
+        return;
+      }
+      if (sourceDocument) {
+        setState(sourceDocument.snapshot);
+      }
       return;
     }
-    if (isResumingExistingDocument && document) {
-      setState(document.snapshot);
+    if (latestLoading || (shouldLoadPublishedSnapshot && publishedLoading)) {
+      return;
+    }
+    if (shouldLoadDraftSnapshot) {
+      if (latestDocument?.status === 'DRAFT') {
+        setState(latestDocument.snapshot);
+      }
+      return;
+    }
+    if (shouldLoadPublishedSnapshot) {
+      if (publishedDocument) {
+        setState(publishedDocument.snapshot);
+      }
       return;
     }
     if (defaultsLoading) {
@@ -93,7 +145,20 @@ export function ConfirmationBuilderPage(): JSX.Element {
     if (defaults?.snapshot) {
       setState(defaults.snapshot);
     }
-  }, [document, documentLoading, defaults, defaultsLoading, isResumingExistingDocument]);
+  }, [
+    defaults,
+    defaultsLoading,
+    latestDocument,
+    latestLoading,
+    publishedDocument,
+    publishedLoading,
+    shouldLoadDraftSnapshot,
+    shouldLoadDefaults,
+    shouldLoadPublishedSnapshot,
+    shouldLoadSpecificDocument,
+    sourceDocument,
+    sourceDocumentLoading,
+  ]);
 
   const previewData = useMemo(
     () => (state ? snapshotToDocumentData(state, { consolidateAccommodationLines: true }) : null),
@@ -111,7 +176,23 @@ export function ConfirmationBuilderPage(): JSX.Element {
     draftKey: null,
   });
 
-  if (tripLoading || documentLoading || (shouldLoadDefaults && defaultsLoading)) {
+  const sourceVersionNumber =
+    sourceDocument?.versionNumber
+    ?? (effectiveSource === 'published' ? publishedDocument?.versionNumber : undefined)
+    ?? (effectiveSource === 'draft' && latestDocument?.status === 'DRAFT'
+      ? latestDocument.versionNumber
+      : undefined)
+    ?? null;
+  const sourceDetail = resolveConfirmationBuilderSourceLabel(effectiveSource, sourceVersionNumber);
+
+  const isLoadingInitialState =
+    tripLoading
+    || latestLoading
+    || (shouldLoadPublishedSnapshot && publishedLoading)
+    || (shouldLoadDefaults && defaultsLoading)
+    || (shouldLoadSpecificDocument && sourceDocumentLoading);
+
+  if (isLoadingInitialState) {
     return <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600">확정서 데이터를 불러오는 중...</Card>;
   }
 
@@ -131,6 +212,63 @@ export function ConfirmationBuilderPage(): JSX.Element {
     );
   }
 
+  if (shouldLoadDraftSnapshot && latestDocument?.status !== 'DRAFT') {
+    return (
+      <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+        이어쓸 임시저장 확정서가 없습니다.
+      </Card>
+    );
+  }
+
+  if (effectiveSource === 'version' && !fromDocumentId) {
+    return (
+      <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+        기준으로 삼을 확정서 버전이 지정되지 않았습니다.
+      </Card>
+    );
+  }
+
+  if (shouldLoadSpecificDocument && !sourceDocumentLoading && !sourceDocument) {
+    return (
+      <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+        선택한 확정서 버전을 찾을 수 없습니다.
+      </Card>
+    );
+  }
+
+  if (
+    shouldLoadSpecificDocument
+    && sourceDocument
+    && sourceDocument.confirmedTripId !== tripId
+  ) {
+    return (
+      <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+        다른 확정 건의 확정서는 기준으로 사용할 수 없습니다.
+      </Card>
+    );
+  }
+
+  if (
+    shouldLoadSpecificDocument
+    && sourceDocument
+    && effectiveSource === 'draft'
+    && sourceDocument.status !== 'DRAFT'
+  ) {
+    return (
+      <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+        임시저장 상태의 확정서만 이어쓸 수 있습니다.
+      </Card>
+    );
+  }
+
+  if (shouldLoadPublishedSnapshot && !publishedDocument) {
+    return (
+      <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+        복사할 발행된 확정서가 없습니다. 견적·확정건·계약서 기준으로 새로 작성해 주세요.
+      </Card>
+    );
+  }
+
   if (!state || !previewData) {
     return (
       <Card className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
@@ -145,7 +283,7 @@ export function ConfirmationBuilderPage(): JSX.Element {
       if (!saved) {
         throw new Error('저장 결과가 없습니다.');
       }
-      await refetchDocument();
+      await Promise.all([refetchLatest(), refetchPublished()]);
       navigate(`/confirmation-documents/${saved.id}`);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
@@ -174,6 +312,7 @@ export function ConfirmationBuilderPage(): JSX.Element {
               <p className="mt-1 text-xs leading-snug text-slate-600">
                 {trip.user.name} · {trip.planVersion?.meta?.leaderName ?? trip.destination ?? '확정 여행'}
               </p>
+              <p className="mt-1 text-[11px] text-slate-500">{sourceDetail}</p>
             </div>
             <div className="confirmation-builder-editor-actions flex flex-col gap-2">
               <Button
