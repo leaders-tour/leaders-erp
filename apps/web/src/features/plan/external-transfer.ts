@@ -1,3 +1,8 @@
+import {
+  buildExternalTransferDirectionText as buildExternalTransferDirectionTextFromDomain,
+  formatExternalTransferLine as formatExternalTransferLineFromDomain,
+  type CustomerDocumentExternalTransfer,
+} from '@tour/domain';
 import { parseTimeToMinutes } from './pickup-drop';
 
 export type ExternalTransferDirection = 'PICKUP' | 'DROP';
@@ -11,15 +16,8 @@ export type ExternalTransferPresetCode =
   | 'PICKUP_AIRPORT_TERELJ'
   | 'CUSTOM';
 
-export interface ExternalTransfer {
-  direction: ExternalTransferDirection;
+export interface ExternalTransfer extends CustomerDocumentExternalTransfer {
   presetCode: ExternalTransferPresetCode;
-  travelDate: string;
-  departureTime: string;
-  arrivalTime: string;
-  departurePlace: string;
-  arrivalPlace: string;
-  selectedTeamOrderIndexes: number[];
 }
 
 export interface ExternalTransferTeamLike {
@@ -411,13 +409,7 @@ export function isExternalTransferComplete(transfer: ExternalTransfer): boolean 
 }
 
 export function formatExternalTransferLine(transfer: ExternalTransfer, teamName?: string | null): string {
-  const parsed = parseIsoDate(transfer.travelDate);
-  const dateLabel = parsed
-    ? `${String(parsed.month).padStart(2, '0')}/${String(parsed.day).padStart(2, '0')}`
-    : '--/--';
-  const trimmedTeamName = teamName?.trim() ?? '';
-  const prefix = trimmedTeamName.length > 0 ? `${trimmedTeamName} ` : '';
-  return `${prefix}${dateLabel} ${transfer.departureTime} ${transfer.departurePlace} > ${transfer.arrivalTime} ${transfer.arrivalPlace}`;
+  return formatExternalTransferLineFromDomain(transfer, teamName);
 }
 
 export function buildExternalTransferDirectionText(
@@ -425,32 +417,7 @@ export function buildExternalTransferDirectionText(
   teams: ExternalTransferTeamLike[] | null | undefined,
   direction: ExternalTransferDirection,
 ): string {
-  if (!transfers || !teams || transfers.length === 0 || teams.length === 0) {
-    return '-';
-  }
-
-  const lines = transfers.flatMap((transfer) => {
-    if (transfer.direction !== direction) {
-      return [];
-    }
-
-    const shouldShowTeamName = teams.length > 1;
-    return transfer.selectedTeamOrderIndexes
-      .slice()
-      .sort((left, right) => left - right)
-      .map((teamOrderIndex) => {
-        const team = teams[teamOrderIndex];
-        if (!team) {
-          return null;
-        }
-
-        const teamName = shouldShowTeamName ? team.teamName || `${teamOrderIndex + 1}번 팀` : null;
-        return formatExternalTransferLine(transfer, teamName);
-      })
-      .filter((value): value is string => typeof value === 'string');
-  });
-
-  return lines.length > 0 ? lines.join('\n') : '-';
+  return buildExternalTransferDirectionTextFromDomain(transfers, teams, direction);
 }
 
 /** 표시용: travelDate 문자열에서 YYYY-MM-DD 만 추출 (GraphQL DateTime·로컬 YYYY-MM-DD 모두 허용) */

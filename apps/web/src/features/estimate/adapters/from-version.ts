@@ -1,10 +1,8 @@
-import { formatVehicleAssignmentsForDisplay, normalizeVehicleAssignments } from '@tour/validation';
 import { mergeLodgingSelectionDisplayLines } from '../../pricing/merge-lodging-selection-display';
 import { buildEffectivePricing, resolveAdjustmentLinesForCustomerDocument } from '../../pricing/manual-pricing';
 import { resolveCustomerOutputTeamPricings } from '../../pricing/customer-pricing-snapshot';
 import { publishedTotalsFromPlanVersionPricing } from '../../pricing/published-pricing-totals';
 import { buildPricingViewBuckets, getPricingLineLabel } from '../../pricing/view-model';
-import { buildExternalTransferDirectionText } from '../../plan/external-transfer';
 import type { PlanVersionDetail } from '../../plan/hooks';
 import { countMainPlanStopRows } from '../../plan/plan-stop-row';
 import { ESTIMATE_PAGE3_TITLE, ESTIMATE_VALIDITY_DAYS } from '../model/constants';
@@ -13,16 +11,26 @@ import { normalizeEstimateGuideImagesPerPage, normalizeEstimateGuidePageSplits }
 import { formatPricingDetailFormula, resolveDisplayLeadAmount } from '../../pricing/pricing-line-presenter';
 import {
   buildPage2Title,
-  formatLegacyExternalTransferText,
-  normalizeMultilineText,
   resolveStoredValidUntilDate,
   toSecurityDepositScope,
 } from '../utils/format';
+import {
+  buildSharedDocumentFieldsFromPlanVersion,
+  mapPlanVersionTransportGroupsForCustomerDocument,
+} from './plan-version-shared-document-fields';
+
+function optionalTextForEstimateEditor(value: string): string {
+  const text = value.trim();
+  return text.length > 0 ? text : '-';
+}
 
 /** 플랜 버전 → 견적 문서. `customerPricingSnapshot`이 있으면 빌더 출력을 재계산 없이 사용한다(레거시는 폴백). */
 export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
   const meta = version.meta;
   const regionSetName = version.regionSet?.name ?? version.plan.regionSet.name;
+  const shared = buildSharedDocumentFieldsFromPlanVersion(version);
+  const transportGroups = mapPlanVersionTransportGroupsForCustomerDocument(meta?.transportGroups);
+  const externalTransfers = meta?.externalTransfers ?? [];
   const pricingCtx = {
     headcountTotal: meta?.headcountTotal ?? 0,
     totalDays: countMainPlanStopRows(version.planStops),
@@ -48,59 +56,23 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
   const basePricePerPersonKrw = customerPricingSnapshot
     ? customerPricingSnapshot.baseAmountKrw
     : publishedTotals?.baseAmountKrw ?? pricingBuckets?.baseTotal ?? null;
-  const externalTransfers = meta?.externalTransfers ?? [];
-  const externalPickupTextFromTransfers = buildExternalTransferDirectionText(externalTransfers, meta?.transportGroups, 'PICKUP');
-  const externalDropTextFromTransfers = buildExternalTransferDirectionText(externalTransfers, meta?.transportGroups, 'DROP');
-  const legacyExternalPickupText = formatLegacyExternalTransferText(
-    meta?.externalPickupDate,
-    meta?.externalPickupTime,
-    meta?.externalPickupPlaceType,
-    meta?.externalPickupPlaceCustomText,
-    meta?.externalPickupDropNote,
-  );
-  const legacyExternalDropText = formatLegacyExternalTransferText(
-    meta?.externalDropDate,
-    meta?.externalDropTime,
-    meta?.externalDropPlaceType,
-    meta?.externalDropPlaceCustomText,
-    undefined,
-  );
-  const externalPickupText = externalPickupTextFromTransfers !== '-' ? externalPickupTextFromTransfers : legacyExternalPickupText;
-  const externalDropText = externalDropTextFromTransfers !== '-' ? externalDropTextFromTransfers : legacyExternalDropText;
+
   return {
     mode: 'version',
     isDraft: false,
     planTitle: version.plan.title,
     page2Title: buildPage2Title(regionSetName, countMainPlanStopRows(version.planStops)),
     page3Title: ESTIMATE_PAGE3_TITLE,
-    leaderName: normalizeMultilineText(meta?.leaderName),
-    documentNumber: meta?.documentNumber ?? null,
-    destinationName: normalizeMultilineText(regionSetName),
+    leaderName: shared.leaderName,
+    documentNumber: shared.documentNumber,
+    destinationName: shared.destination,
     headcountTotal: meta?.headcountTotal ?? null,
     headcountMale: meta?.headcountMale ?? null,
     headcountFemale: meta?.headcountFemale ?? null,
     travelStartDate: meta?.travelStartDate ?? null,
     travelEndDate: meta?.travelEndDate ?? null,
-    vehicleType: formatVehicleAssignmentsForDisplay(
-      normalizeVehicleAssignments(meta?.vehicleAssignments, meta?.vehicleType),
-    ),
-    transportGroups:
-      meta?.transportGroups.map((group) => ({
-        teamName: group.teamName,
-        headcount: group.headcount,
-        flightInDate: group.flightInDate ?? '',
-        flightInTime: group.flightInTime ?? '',
-        flightOutDate: group.flightOutDate ?? '',
-        flightOutTime: group.flightOutTime ?? '',
-        pickupDate: group.pickupDate ?? '',
-        pickupTime: group.pickupTime ?? '',
-        pickupPlaceType: group.pickupPlaceType ?? 'AIRPORT',
-        pickupPlaceCustomText: group.pickupPlaceCustomText ?? '',
-        dropDate: group.dropDate ?? '',
-        dropTime: group.dropTime ?? '',
-        dropPlaceType: group.dropPlaceType ?? 'AIRPORT',
-        dropPlaceCustomText: group.dropPlaceCustomText ?? '',
-      })) ?? [],
+    vehicleType: shared.vehicleType,
+    transportGroups,
     flightInDate: meta?.transportGroups[0]?.flightInDate ?? meta?.travelStartDate ?? null,
     flightInTime: meta?.transportGroups[0]?.flightInTime ?? meta?.flightInTime ?? null,
     flightOutDate: meta?.transportGroups[0]?.flightOutDate ?? meta?.travelEndDate ?? null,
@@ -124,16 +96,13 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     externalDropPlaceCustomText: meta?.externalDropPlaceCustomText ?? null,
     pickupText: '-',
     dropText: '-',
-    externalPickupText,
-    externalDropText,
-    /** Page1 요약 행은 이 필드만 사용 — 빌더 draft와 동일하게 이전 방향 텍스트를 합친다. */
-    externalPickupDropText: [externalPickupText, externalDropText]
-      .filter((value) => value !== '-')
-      .join('\n'),
-    specialNoteText: normalizeMultilineText(meta?.specialNote),
-    rentalItemsText: meta?.includeRentalItems ? normalizeMultilineText(meta.rentalItemsText) : '-',
-    eventText: meta?.events.length ? meta.events.map((event) => event.name).join(' / ') : '-',
-    remarkText: normalizeMultilineText(meta?.remark),
+    externalPickupText: shared.externalPickupText,
+    externalDropText: shared.externalDropText,
+    externalPickupDropText: shared.externalPickupDropText,
+    specialNoteText: optionalTextForEstimateEditor(shared.specialNote),
+    rentalItemsText: shared.rentalItemsText,
+    eventText: shared.eventNames,
+    remarkText: optionalTextForEstimateEditor(shared.remark),
     basePricePerPersonKrw,
     adjustmentLines: customerPricingSnapshot
       ? customerPricingSnapshot.adjustmentLines.map((line) => ({

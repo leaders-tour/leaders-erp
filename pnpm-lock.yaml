@@ -246,7 +246,11 @@ importers:
 
   packages/config: {}
 
-  packages/domain: {}
+  packages/domain:
+    devDependencies:
+      vitest:
+        specifier: ^2.1.2
+        version: 2.1.9(@types/node@22.19.11)
 
   packages/ui:
     dependencies:
