@@ -4401,6 +4401,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   const headcountFemale = headcountTotal - headcountMale;
   const applyHeadcountTotalChange = (nextTotal: number): void => {
+    const previousTotal = headcountTotal;
     setRentalItemsText((currentText) =>
       buildRentalItemsTextForHeadcountChange({
         includeRentalItems,
@@ -4416,7 +4417,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         : buildDefaultMaleHeadcount(nextTotal),
     );
     setVehicleAssignments((current) =>
-      resolveVehicleAssignmentsForHeadcount(nextTotal, current, PLAN_VEHICLES),
+      resolveVehicleAssignmentsForHeadcount(nextTotal, current, PLAN_VEHICLES, previousTotal),
     );
   };
 

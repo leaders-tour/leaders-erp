@@ -1,19 +1,34 @@
 import type { PlanVehicleType, VehicleAssignment } from '@tour/validation';
 
-export const HIACE_AUTO_VEHICLE_HEADCOUNT_MIN = 8;
+export const HIACE_AUTO_VEHICLE_HEADCOUNT_MIN = 7;
+export const STAREX_AUTO_VEHICLE_HEADCOUNT_MAX = 6;
 export const HIACE_VEHICLE_HEADCOUNT_MIN = 2;
+
+function defaultVehicleType(vehicles: readonly string[], fallback: string): string {
+  return vehicles.includes('스타렉스') ? '스타렉스' : (vehicles[0] ?? fallback);
+}
 
 export function resolveVehicleTypeForHeadcount(
   headcountTotal: number,
   currentVehicle: string,
   vehicles: readonly string[],
+  previousHeadcount?: number,
 ): string {
   if (headcountTotal >= HIACE_AUTO_VEHICLE_HEADCOUNT_MIN) {
     return '하이에이스';
   }
 
   if (currentVehicle === '하이에이스' && headcountTotal < HIACE_VEHICLE_HEADCOUNT_MIN) {
-    return vehicles.includes('스타렉스') ? '스타렉스' : (vehicles[0] ?? currentVehicle);
+    return defaultVehicleType(vehicles, currentVehicle);
+  }
+
+  if (
+    currentVehicle === '하이에이스' &&
+    headcountTotal <= STAREX_AUTO_VEHICLE_HEADCOUNT_MAX &&
+    previousHeadcount !== undefined &&
+    previousHeadcount >= HIACE_AUTO_VEHICLE_HEADCOUNT_MIN
+  ) {
+    return defaultVehicleType(vehicles, currentVehicle);
   }
 
   return currentVehicle;
@@ -24,13 +39,19 @@ export function resolveVehicleAssignmentsForHeadcount(
   headcountTotal: number,
   assignments: VehicleAssignment[],
   vehicles: readonly string[],
+  previousHeadcount?: number,
 ): VehicleAssignment[] {
   if (assignments.length === 0) {
-    const fallbackType = resolveVehicleTypeForHeadcount(headcountTotal, '스타렉스', vehicles);
+    const fallbackType = resolveVehicleTypeForHeadcount(headcountTotal, '스타렉스', vehicles, previousHeadcount);
     return [{ vehicleType: fallbackType as PlanVehicleType, count: 1 }];
   }
   const first = assignments[0]!;
   const rest = assignments.slice(1);
-  const nextType = resolveVehicleTypeForHeadcount(headcountTotal, first.vehicleType, vehicles);
+  const nextType = resolveVehicleTypeForHeadcount(
+    headcountTotal,
+    first.vehicleType,
+    vehicles,
+    previousHeadcount,
+  );
   return [{ vehicleType: nextType as PlanVehicleType, count: first.count }, ...rest];
 }
