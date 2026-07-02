@@ -1,6 +1,6 @@
 import { EmployeeRole } from '@tour/domain';
-import { Button, PageShell } from '@tour/ui';
-import { type ComponentType, useEffect, useState } from 'react';
+import { Button, Card, PageShell } from '@tour/ui';
+import { type ComponentType, useCallback, useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../features/auth/context';
 
@@ -408,6 +408,35 @@ export function AppLayout(): JSX.Element {
     navItems.find((item) => item.children && item.children.some((child) => matchesPath(child.path)))?.path ?? null;
 
   const [openNavPath, setOpenNavPath] = useState<string | null>(activeExpandablePath);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [logoutPending, setLogoutPending] = useState(false);
+
+  const openLogoutConfirm = useCallback(() => {
+    setLogoutConfirmOpen(true);
+  }, []);
+
+  const closeLogoutConfirm = useCallback(() => {
+    if (logoutPending) {
+      return;
+    }
+
+    setLogoutConfirmOpen(false);
+  }, [logoutPending]);
+
+  const confirmLogout = useCallback(async () => {
+    if (logoutPending) {
+      return;
+    }
+
+    setLogoutPending(true);
+    try {
+      await logout();
+      navigate('/login', { replace: true });
+    } finally {
+      setLogoutPending(false);
+      setLogoutConfirmOpen(false);
+    }
+  }, [logout, logoutPending, navigate]);
 
   useEffect(() => {
     if (activeExpandablePath) {
@@ -424,6 +453,21 @@ export function AppLayout(): JSX.Element {
   useEffect(() => {
     window.localStorage.setItem(sidebarCollapsedStorageKey, String(isSidebarCollapsed));
   }, [isSidebarCollapsed]);
+
+  useEffect(() => {
+    if (!logoutConfirmOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeLogoutConfirm();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [closeLogoutConfirm, logoutConfirmOpen]);
 
   return (
     <div className={`min-h-screen bg-slate-50 lg:grid ${isCompactSidebar ? 'lg:grid-cols-[88px_minmax(0,1fr)]' : 'lg:grid-cols-[240px_minmax(0,1fr)]'}`}>
@@ -475,10 +519,17 @@ export function AppLayout(): JSX.Element {
                     <p className="text-xs uppercase tracking-[0.22em] text-slate-300">Signed In</p>
                     <p className="mt-2 text-sm font-semibold">{employee?.name ?? '직원'}</p>
                     <p className="mt-1 text-xs text-slate-300">{employee?.email ?? '-'}</p>
-                    <div className="mt-3 flex items-center gap-2">
+                    <div className="mt-3 flex items-center justify-between gap-2">
                       <span className="rounded-full border border-white/20 px-2 py-0.5 text-[11px] text-slate-200">
                         {employee ? roleLabel(employee.role) : '-'}
                       </span>
+                      <button
+                        type="button"
+                        onClick={openLogoutConfirm}
+                        className="rounded-lg border border-white/20 px-2 py-0.5 text-[11px] text-slate-200 transition hover:bg-white/10"
+                      >
+                        로그아웃
+                      </button>
                     </div>
                   </div>
                 )}
@@ -575,14 +626,7 @@ export function AppLayout(): JSX.Element {
                 {employee?.email ?? '-'} · {employee ? roleLabel(employee.role) : '-'}
               </p>
             </div>
-            <Button
-              variant="outline"
-              className="h-8 px-3 text-xs"
-              onClick={async () => {
-                await logout();
-                navigate('/login', { replace: true });
-              }}
-            >
+            <Button variant="outline" className="h-8 px-3 text-xs" onClick={openLogoutConfirm}>
               로그아웃
             </Button>
           </div>
@@ -616,6 +660,30 @@ export function AppLayout(): JSX.Element {
           </PageShell>
         </main>
       </div>
+
+      {logoutConfirmOpen ? (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-slate-900/20 backdrop-blur-[1px]"
+            onClick={closeLogoutConfirm}
+            aria-hidden="true"
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <Card className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl" role="dialog" aria-modal="true">
+              <h2 className="text-lg font-semibold text-slate-900">로그아웃</h2>
+              <p className="mt-3 text-sm text-slate-600">현재 계정에서 로그아웃하시겠어요?</p>
+              <div className="mt-6 flex justify-end gap-3">
+                <Button type="button" variant="outline" onClick={closeLogoutConfirm} disabled={logoutPending}>
+                  취소
+                </Button>
+                <Button type="button" variant="primary" onClick={confirmLogout} disabled={logoutPending}>
+                  {logoutPending ? '로그아웃 중...' : '로그아웃'}
+                </Button>
+              </div>
+            </Card>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
