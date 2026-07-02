@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Button, Card } from '@tour/ui';
 import type { LodgingSelectionLevel } from '../model';
 
@@ -13,18 +14,38 @@ export interface LodgingUpgradeRow {
 interface LodgingUpgradeModalProps {
   open: boolean;
   rows: LodgingUpgradeRow[];
+  focusPlanRowIndex?: number | null;
   onClose: () => void;
   onChooseLevel: (rowIndex: number, level: Exclude<LodgingSelectionLevel, 'CUSTOM'>) => void;
   onChooseCustom: (rowIndex: number) => void;
+  onLodgingCellTextChange: (rowIndex: number, value: string) => void;
 }
 
 export function LodgingUpgradeModal({
   open,
   rows,
+  focusPlanRowIndex = null,
   onClose,
   onChooseLevel,
   onChooseCustom,
+  onLodgingCellTextChange,
 }: LodgingUpgradeModalProps): JSX.Element | null {
+  const rowRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  useEffect(() => {
+    if (!open || focusPlanRowIndex == null) {
+      return;
+    }
+
+    const targetRowIndex = rows.findIndex((row) => row.planRowIndex === focusPlanRowIndex);
+    if (targetRowIndex < 0) {
+      return;
+    }
+
+    const element = rowRefs.current.get(targetRowIndex);
+    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [focusPlanRowIndex, open, rows]);
+
   if (!open) {
     return null;
   }
@@ -38,7 +59,9 @@ export function LodgingUpgradeModal({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-slate-900">숙소 업그레이드</h2>
-                <p className="mt-1 text-sm text-slate-600">일차별 숙소 등급 또는 지정 숙소를 선택합니다.</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  일차별 숙소 등급·지정 숙소·일정표 표시명을 설정합니다.
+                </p>
               </div>
               <Button variant="outline" onClick={onClose}>
                 닫기
@@ -51,8 +74,25 @@ export function LodgingUpgradeModal({
               </div>
             ) : (
               <div className="mt-5 grid gap-3">
-                {rows.map((row, rowIndex) => (
-                  <div key={`lodging-upgrade-row-${row.dayIndex}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                {rows.map((row, rowIndex) => {
+                  const isFocused = row.planRowIndex === focusPlanRowIndex;
+
+                  return (
+                  <div
+                    key={`lodging-upgrade-row-${row.dayIndex}`}
+                    ref={(element) => {
+                      if (element) {
+                        rowRefs.current.set(rowIndex, element);
+                        return;
+                      }
+                      rowRefs.current.delete(rowIndex);
+                    }}
+                    className={`rounded-2xl border p-4 transition ${
+                      isFocused
+                        ? 'border-slate-900 bg-white ring-2 ring-slate-900/10'
+                        : 'border-slate-200 bg-slate-50'
+                    }`}
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="text-sm font-semibold text-slate-900">{row.dayIndex}일차 숙소</div>
@@ -89,14 +129,22 @@ export function LodgingUpgradeModal({
                         숙소지정
                       </button>
                     </div>
-                    <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap text-slate-900">
-                      {row.lodgingCellText || '-'}
+                    <div className="mt-3">
+                      <label className="mb-1 block text-xs text-slate-500">일정표 숙소 표시</label>
+                      <textarea
+                        value={row.lodgingCellText}
+                        onChange={(event) => onLodgingCellTextChange(rowIndex, event.target.value)}
+                        rows={2}
+                        className="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 text-slate-900 outline-none focus:border-slate-400"
+                        placeholder="일정표에 표시할 숙소명을 입력하세요"
+                      />
                     </div>
                     {row.lodgingSelectionLevel === 'CUSTOM' && !row.customLodgingId ? (
                       <p className="mt-2 text-xs text-rose-600">숙소지정을 선택한 경우 숙소를 골라야 합니다.</p>
                     ) : null}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

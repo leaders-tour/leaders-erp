@@ -1027,6 +1027,7 @@ interface LodgingSelectionModalState {
 
 interface LodgingUpgradeModalState {
   open: boolean;
+  focusPlanRowIndex: number | null;
 }
 
 interface SpecialMealsModalState {
@@ -2791,6 +2792,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [lodgingUpgradeModalState, setLodgingUpgradeModalState] =
     useState<LodgingUpgradeModalState>({
       open: false,
+      focusPlanRowIndex: null,
     });
   const [specialMealsModalState, setSpecialMealsModalState] = useState<SpecialMealsModalState>({
     open: false,
@@ -4068,6 +4070,10 @@ export function ItineraryBuilderPage(): JSX.Element {
     );
   };
 
+  const openLodgingUpgradeModal = (focusPlanRowIndex: number | null = null): void => {
+    setLodgingUpgradeModalState({ open: true, focusPlanRowIndex });
+  };
+
   const applyLodgingSelection = (
     rowIndex: number,
     level: LodgingSelectionLevel,
@@ -4096,6 +4102,14 @@ export function ItineraryBuilderPage(): JSX.Element {
               ? formatRegionLodgingDisplayLabel(customLodging)
               : (row.customLodgingNameSnapshot ?? '')
             : null;
+        const lodgingCellText =
+          level === row.lodgingSelectionLevel
+            ? row.lodgingCellText
+            : buildLodgingCellText({
+                level,
+                baseLodgingName,
+                customLodgingName,
+              });
 
         return {
           ...row,
@@ -4103,11 +4117,7 @@ export function ItineraryBuilderPage(): JSX.Element {
           customLodgingId:
             level === 'CUSTOM' ? (customLodging?.id ?? row.customLodgingId) : undefined,
           customLodgingNameSnapshot: customLodgingName,
-          lodgingCellText: buildLodgingCellText({
-            level,
-            baseLodgingName,
-            customLodgingName,
-          }),
+          lodgingCellText,
         };
       }),
     );
@@ -7135,7 +7145,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       <div className="min-w-0 w-1/2">
                         <span className="text-xs text-slate-600">숙소 업그레이드</span>
                         <p className="mt-1 text-xs text-slate-400">
-                          버튼을 눌러 일차별 숙소 등급과 지정 숙소를 한 번에 설정합니다.
+                          버튼 또는 일정표 숙소 칸을 눌러 일차별 숙소를 설정합니다.
                         </p>
                         <p className="mt-2 text-xs text-slate-500">
                           {planRows.length === 0
@@ -7146,7 +7156,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                       <Button
                         variant="outline"
                         className="shrink-0 whitespace-nowrap"
-                        onClick={() => setLodgingUpgradeModalState({ open: true })}
+                        onClick={() => openLodgingUpgradeModal()}
                         disabled={planRows.length === 0}
                       >
                         숙소 업그레이드 하기
@@ -7250,8 +7260,8 @@ export function ItineraryBuilderPage(): JSX.Element {
               <div className="border-b border-slate-200 p-4">
                 <h2 className="text-lg font-bold text-slate-900">일정표 편집기</h2>
                 <p className="mt-1 text-xs text-slate-600">
-                  숙소 셀은 선택값으로 자동 생성되며 식사 셀은 아침/점심/저녁 3칸 입력으로
-                  편집됩니다.
+                  숙소 칸을 클릭하면 등급·표시명을 설정할 수 있습니다. 식사 칸은 아침/점심/저녁 3칸
+                  입력으로 편집됩니다.
                 </p>
               </div>
 
@@ -7394,15 +7404,25 @@ export function ItineraryBuilderPage(): JSX.Element {
                             />
                           </Td>
                           <Td>
-                            <div
-                              className={`min-h-[44px] rounded-xl border border-slate-200 px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
-                                isExternalRow
-                                  ? 'bg-slate-100 text-slate-500'
-                                  : 'bg-slate-50 text-slate-900'
-                              }`}
-                            >
-                              {row.lodgingCellText || '-'}
-                            </div>
+                            {isExternalRow ? (
+                              <div className="min-h-[44px] rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm leading-5 whitespace-pre-wrap text-slate-500">
+                                {row.lodgingCellText || '-'}
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (mainRowIndex === null) {
+                                    return;
+                                  }
+                                  openLodgingUpgradeModal(mainRowIndex);
+                                }}
+                                className="min-h-[44px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm leading-5 whitespace-pre-wrap text-slate-900 transition hover:border-slate-400 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20"
+                                aria-label={`${row.destinationCellText.trim() || '해당 일차'} 숙소 설정`}
+                              >
+                                {row.lodgingCellText || '-'}
+                              </button>
+                            )}
                           </Td>
                           <Td>
                             {isExternalRow ? (
@@ -8566,7 +8586,10 @@ export function ItineraryBuilderPage(): JSX.Element {
         <LodgingUpgradeModal
           open={lodgingUpgradeModalState.open}
           rows={lodgingUpgradeRows}
-          onClose={() => setLodgingUpgradeModalState({ open: false })}
+          focusPlanRowIndex={lodgingUpgradeModalState.focusPlanRowIndex}
+          onClose={() =>
+            setLodgingUpgradeModalState({ open: false, focusPlanRowIndex: null })
+          }
           onChooseLevel={(rowIndex, level) => {
             const row = lodgingUpgradeRows[rowIndex];
             if (!row) {
@@ -8583,6 +8606,13 @@ export function ItineraryBuilderPage(): JSX.Element {
               open: true,
               rowIndex: row.planRowIndex,
             });
+          }}
+          onLodgingCellTextChange={(rowIndex, value) => {
+            const row = lodgingUpgradeRows[rowIndex];
+            if (!row) {
+              return;
+            }
+            updateCell(row.planRowIndex, 'lodgingCellText', value);
           }}
         />
 
