@@ -14,6 +14,7 @@ import {
   CONFIRMATION_FRESH_SOURCE_TOOLTIP,
   resolveConfirmationBuilderRowActionLabel,
 } from '../features/confirmation/utils/confirmation-builder-source';
+import { LinkifiedText } from '../components/LinkifiedText';
 import { TooltipHelpIcon } from '../components/TooltipHelpIcon';
 import { useAuth } from '../features/auth/context';
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
@@ -722,7 +723,9 @@ function ConfirmedTripNotesCard({ tripId }: { tripId: string }): JSX.Element {
                       </div>
                     </div>
                   ) : (
-                    <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">{note.content}</p>
+                    <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">
+                      <LinkifiedText text={note.content} />
+                    </p>
                   )}
                 </div>
               </div>
