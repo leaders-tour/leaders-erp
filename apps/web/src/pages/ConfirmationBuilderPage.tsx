@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button, Card } from '@tour/ui';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ConfirmationBuilderForm } from '../features/confirmation/components/ConfirmationBuilderForm';
@@ -10,11 +10,13 @@ import {
   useLatestPublishedConfirmationDocument,
   useSaveConfirmationDocument,
 } from '../features/confirmation/hooks/use-confirmation-document';
+import { useConfirmationAppendixData } from '../features/confirmation/hooks/use-confirmation-appendix-data';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { EstimatePreviewScaler } from '../features/estimate/components/EstimatePreviewScaler';
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
 import type { ConfirmationBuilderState } from '../features/confirmation/model/types';
 import { snapshotToDocumentData } from '../features/confirmation/utils/format';
+import { planStopRowsToAppendixRows } from '../features/confirmation/utils/resolve-confirmation-appendix';
 import {
   parseConfirmationBuilderFromDocumentId,
   parseConfirmationBuilderSource,
@@ -113,6 +115,11 @@ export function ConfirmationBuilderPage(): JSX.Element {
   const { save, loading: saving } = useSaveConfirmationDocument();
   const [state, setState] = useState<ConfirmationBuilderState | null>(null);
   const [isEstimatePreviewOpen, setIsEstimatePreviewOpen] = useState(true);
+  const appendixHydratedRef = useRef(false);
+
+  useEffect(() => {
+    appendixHydratedRef.current = false;
+  }, [tripId, effectiveSource, fromDocumentId]);
 
   useEffect(() => {
     if (shouldLoadSpecificDocument) {
@@ -160,10 +167,6 @@ export function ConfirmationBuilderPage(): JSX.Element {
     sourceDocumentLoading,
   ]);
 
-  const previewData = useMemo(
-    () => (state ? snapshotToDocumentData(state, { consolidateAccommodationLines: true }) : null),
-    [state],
-  );
   const planVersionId = trip?.planVersionId ?? null;
   const {
     data: linkedEstimateData,
@@ -176,6 +179,58 @@ export function ConfirmationBuilderPage(): JSX.Element {
     draftKey: null,
   });
 
+  useEffect(() => {
+    if (appendixHydratedRef.current || !state || !linkedEstimateData || !planVersionId) {
+      return;
+    }
+    if (state.appendixPlanStops?.length) {
+      appendixHydratedRef.current = true;
+      return;
+    }
+    appendixHydratedRef.current = true;
+    setState((current) =>
+      current
+        ? {
+            ...current,
+            appendixPlanStops: planStopRowsToAppendixRows(linkedEstimateData.planStops),
+            sourcePlanVersionId: current.sourcePlanVersionId ?? planVersionId,
+          }
+        : current,
+    );
+  }, [linkedEstimateData, planVersionId, state]);
+
+  const appendixSourcePlanVersionId = state?.sourcePlanVersionId ?? planVersionId;
+  const { data: baselineEstimateData } = useEstimateSource({
+    mode: 'version',
+    versionId: appendixSourcePlanVersionId,
+    draftKey: null,
+  });
+  const baselineAppendixPlanStops = useMemo(
+    () =>
+      baselineEstimateData ? planStopRowsToAppendixRows(baselineEstimateData.planStops) : null,
+    [baselineEstimateData],
+  );
+
+  const { appendixData: confirmationAppendixData, loading: confirmationAppendixLoading } =
+    useConfirmationAppendixData({
+      planVersionId: appendixSourcePlanVersionId,
+      appendixPlanStops: state?.appendixPlanStops,
+    });
+
+  const scheduleRowMeta = useMemo(() => {
+    const stops = confirmationAppendixData?.planStops ?? linkedEstimateData?.planStops;
+    return stops?.map((row) => ({ rowType: row.rowType ?? 'MAIN' })) ?? [];
+  }, [confirmationAppendixData?.planStops, linkedEstimateData?.planStops]);
+
+  const hasSourcePlanVersionMismatch =
+    !!state?.sourcePlanVersionId
+    && !!planVersionId
+    && state.sourcePlanVersionId !== planVersionId;
+
+  const previewData = useMemo(
+    () => (state ? snapshotToDocumentData(state, { consolidateAccommodationLines: true }) : null),
+    [state],
+  );
   const sourceVersionNumber =
     sourceDocument?.versionNumber
     ?? (effectiveSource === 'published' ? publishedDocument?.versionNumber : undefined)
@@ -277,9 +332,27 @@ export function ConfirmationBuilderPage(): JSX.Element {
     );
   }
 
+  const handleRestoreSchedule = () => {
+    if (!baselineAppendixPlanStops) {
+      return;
+    }
+    setState((current) =>
+      current
+        ? {
+            ...current,
+            appendixPlanStops: baselineAppendixPlanStops.map((row) => ({ ...row })),
+          }
+        : current,
+    );
+  };
+
   const handleSave = async () => {
     try {
-      const saved = await save(tripId, state, true);
+      const payload: ConfirmationBuilderState = {
+        ...state,
+        sourcePlanVersionId: state.sourcePlanVersionId ?? planVersionId,
+      };
+      const saved = await save(tripId, payload, true);
       if (!saved) {
         throw new Error('저장 결과가 없습니다.');
       }
@@ -305,8 +378,8 @@ export function ConfirmationBuilderPage(): JSX.Element {
             : 'confirmation-builder-workspace--without-estimate'
         }`}
       >
-        <main className="confirmation-builder-editor-column grid content-start gap-3 bg-slate-50 px-3 py-4 lg:h-full lg:overflow-y-auto lg:px-4 lg:py-4">
-          <div className="confirmation-builder-editor-header flex flex-col gap-2">
+        <main className="confirmation-builder-editor-column min-h-0 overflow-y-auto bg-slate-50 px-3 py-4 lg:h-full lg:px-4 lg:py-4">
+          <div className="confirmation-builder-editor-header mb-3 flex shrink-0 flex-col gap-2">
             <div>
               <h1 className="text-lg font-semibold text-slate-900">확정서 빌더</h1>
               <p className="mt-1 text-xs leading-snug text-slate-600">
@@ -332,7 +405,27 @@ export function ConfirmationBuilderPage(): JSX.Element {
             </div>
           </div>
 
-          <ConfirmationBuilderForm value={state} onChange={setState} />
+          {hasSourcePlanVersionMismatch ? (
+            <Card className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              연결 견적 버전이 바뀌었습니다. 확정서 일정표는 v
+              {linkedPlanVersion?.versionNumber ?? '?'} 기준으로 유지됩니다. 「기존 일정으로
+              초기화」를 사용하면 현재 연결 견적 일정표로 되돌릴 수 있습니다.
+            </Card>
+          ) : null}
+
+          <ConfirmationBuilderForm
+            value={state}
+            onChange={setState}
+            scheduleEditor={{
+              rows: state.appendixPlanStops ?? [],
+              rowMeta: scheduleRowMeta,
+              onRowsChange: (appendixPlanStops) =>
+                setState((current) => (current ? { ...current, appendixPlanStops } : current)),
+              onRestore: handleRestoreSchedule,
+              restoreDisabled: !baselineAppendixPlanStops,
+              loading: linkedEstimateLoading && !state.appendixPlanStops?.length,
+            }}
+          />
         </main>
 
         {isEstimatePreviewOpen ? (
@@ -363,15 +456,15 @@ export function ConfirmationBuilderPage(): JSX.Element {
         <aside className="confirmation-builder-preview-column confirmation-builder-preview-column--confirmation bg-slate-100/80 px-3 py-4 sm:px-4 lg:h-full lg:overflow-y-auto lg:border-l lg:border-slate-200 lg:py-4">
           <DocumentPreviewPanel
             title="실시간 확정서 미리보기"
-            description="좌측 입력값이 문서에 바로 반영됩니다."
-            badge={linkedEstimateLoading ? '일정표·안내 동기화 중' : '실시간 반영'}
-            loading={linkedEstimateLoading}
-            loadingMessage="연결 견적서 기준 일정표·안내 페이지를 불러오는 중..."
+            description="Page1 입력값과 일정표 편집 내용이 확정서에 반영됩니다."
+            badge={confirmationAppendixLoading ? '일정표·안내 동기화 중' : '실시간 반영'}
+            loading={confirmationAppendixLoading}
+            loadingMessage="확정서 일정표·안내 페이지를 불러오는 중..."
           >
             <div className="estimate-preview-frame confirmation-builder-preview-frame confirmation-builder-preview-frame--confirmation">
               <ConfirmationDocument
                 data={previewData}
-                appendixData={linkedEstimateData}
+                appendixData={confirmationAppendixData}
                 viewMode="screen-preview"
               />
             </div>

@@ -20,7 +20,10 @@ export function ConfirmationPreviewPanel({
   planVersionId,
   isDraft = false,
 }: ConfirmationPreviewPanelProps) {
-  const { appendixData, loading } = useConfirmationAppendixData(planVersionId);
+  const { appendixData, loading } = useConfirmationAppendixData({
+    planVersionId: planVersionId ?? snapshot.sourcePlanVersionId,
+    appendixPlanStops: snapshot.appendixPlanStops,
+  });
   const { downloading, phase, downloadConfirmationPdf } = useConfirmationPdfDownload();
   const [downloadError, setDownloadError] = useState<string | null>(null);
 

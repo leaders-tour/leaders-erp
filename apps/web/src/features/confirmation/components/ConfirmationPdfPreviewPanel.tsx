@@ -118,7 +118,10 @@ export function ConfirmationPdfPreviewPanel({
   planVersionId?: string | null;
   isDraft?: boolean;
 }) {
-  const { appendixData, loading: appendixLoading } = useConfirmationAppendixData(planVersionId);
+  const { appendixData, loading: appendixLoading } = useConfirmationAppendixData({
+    planVersionId: planVersionId ?? snapshot.sourcePlanVersionId,
+    appendixPlanStops: snapshot.appendixPlanStops,
+  });
   const { ensureAccessToken } = useAuth();
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);

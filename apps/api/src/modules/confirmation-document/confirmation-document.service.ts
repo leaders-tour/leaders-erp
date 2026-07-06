@@ -108,11 +108,13 @@ export class ConfirmationDocumentService {
     const existingDraft = publish ? null : await this.repository.findLatestDraftByConfirmedTripId(trip.id);
 
     if (existingDraft && !publish) {
+      const planVersionIdToConnect =
+        snapshot.sourcePlanVersionId ?? existingDraft.planVersionId ?? trip.planVersionId;
       const updated = await this.repository.update(existingDraft.id, {
         snapshot,
         documentNumber: snapshot.documentNumber ?? null,
-        ...(trip.planVersionId
-          ? { planVersion: { connect: { id: trip.planVersionId } } }
+        ...(planVersionIdToConnect
+          ? { planVersion: { connect: { id: planVersionIdToConnect } } }
           : { planVersion: { disconnect: true } }),
         updatedByEmployee: { connect: { id: employee.id } },
       });
@@ -120,9 +122,10 @@ export class ConfirmationDocumentService {
     }
 
     const versionNumber = await this.repository.getNextVersionNumber(trip.id);
+    const planVersionIdToConnect = snapshot.sourcePlanVersionId ?? trip.planVersionId;
     const created = await this.repository.create({
       confirmedTrip: { connect: { id: trip.id } },
-      ...(trip.planVersionId ? { planVersion: { connect: { id: trip.planVersionId } } } : {}),
+      ...(planVersionIdToConnect ? { planVersion: { connect: { id: planVersionIdToConnect } } } : {}),
       documentNumber: snapshot.documentNumber ?? null,
       versionNumber,
       status: publish ? 'PUBLISHED' : 'DRAFT',

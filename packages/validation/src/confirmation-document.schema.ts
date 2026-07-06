@@ -9,6 +9,15 @@ export const confirmationTravelerSchema = z.object({
   note: z.string().trim().nullable().optional(),
 });
 
+export const confirmationAppendixPlanStopRowSchema = z.object({
+  dateCellText: z.string(),
+  destinationCellText: z.string(),
+  timeCellText: z.string(),
+  scheduleCellText: z.string(),
+  lodgingCellText: z.string(),
+  mealCellText: z.string(),
+});
+
 export const confirmationDocumentSnapshotSchema = z.object({
   leaderName: z.string().trim().min(1),
   documentNumber: z.string().trim().nullable().optional(),
@@ -30,6 +39,8 @@ export const confirmationDocumentSnapshotSchema = z.object({
   meetingPlace: z.string().trim().min(1),
   travelers: z.array(confirmationTravelerSchema),
   accommodationLines: z.array(z.string().trim().min(1)),
+  appendixPlanStops: z.array(confirmationAppendixPlanStopRowSchema).optional(),
+  sourcePlanVersionId: z.string().trim().min(1).nullable().optional(),
 });
 
 export const saveConfirmationDocumentSchema = z.object({
@@ -40,5 +51,6 @@ export const saveConfirmationDocumentSchema = z.object({
 
 export type ConfirmationDocumentStatus = z.infer<typeof confirmationDocumentStatusSchema>;
 export type ConfirmationTravelerInput = z.infer<typeof confirmationTravelerSchema>;
+export type ConfirmationAppendixPlanStopRowInput = z.infer<typeof confirmationAppendixPlanStopRowSchema>;
 export type ConfirmationDocumentSnapshotInput = z.infer<typeof confirmationDocumentSnapshotSchema>;
 export type SaveConfirmationDocumentInput = z.infer<typeof saveConfirmationDocumentSchema>;

@@ -1,11 +1,27 @@
-import { Button } from '@tour/ui';
-import type { ReactNode } from 'react';
-import type { ConfirmationBuilderState, ConfirmationTraveler } from '../model/types';
+import { Button, Card } from '@tour/ui';
+import { useState, type ReactNode } from 'react';
+import type {
+  ConfirmationAppendixPlanStopRow,
+  ConfirmationBuilderState,
+  ConfirmationTraveler,
+} from '../model/types';
 import { CONFIRMATION_MEETING_PLACE_DEFAULT } from '../model/constants';
+import {
+  ConfirmationScheduleEditor,
+  type ConfirmationScheduleEditorRowMeta,
+} from '../../plan/components/ConfirmationScheduleEditor';
 
 interface ConfirmationBuilderFormProps {
   value: ConfirmationBuilderState;
   onChange: (next: ConfirmationBuilderState) => void;
+  scheduleEditor?: {
+    rows: ConfirmationAppendixPlanStopRow[];
+    rowMeta: ConfirmationScheduleEditorRowMeta[];
+    onRowsChange: (rows: ConfirmationAppendixPlanStopRow[]) => void;
+    onRestore: () => void;
+    restoreDisabled?: boolean;
+    loading?: boolean;
+  };
 }
 
 function updateTraveler(
@@ -75,10 +91,47 @@ function FormSection({
   );
 }
 
+function RestoreScheduleConfirmModal({
+  open,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}): JSX.Element | null {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <Card className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-xl">
+        <h3 className="text-lg font-semibold text-slate-900">일정표 원상복구</h3>
+        <p className="mt-2 text-sm text-slate-600">
+          확정서 일정표를 연결 견적의 기존 일정으로 되돌립니다. 지금까지 수정한 일정표 내용은
+          모두 사라집니다.
+        </p>
+        <p className="mt-1 text-xs text-slate-500">이 작업은 되돌릴 수 없습니다.</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onCancel}>
+            취소
+          </Button>
+          <Button type="button" variant="primary" onClick={onConfirm}>
+            기존 일정으로 초기화
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 export function ConfirmationBuilderForm({
   value,
   onChange,
+  scheduleEditor,
 }: ConfirmationBuilderFormProps) {
+  const [restoreModalOpen, setRestoreModalOpen] = useState(false);
   const patch = (partial: Partial<ConfirmationBuilderState>) => onChange({ ...value, ...partial });
 
   return (
@@ -244,6 +297,49 @@ export function ConfirmationBuilderForm({
         </div>
         </div>
       </FormSection>
+
+      {scheduleEditor ? (
+        <FormSection
+          number={6}
+          title="일정표"
+          description="확정서 부록에 표시될 일정표 문구를 수정합니다. 식사 칸은 아침/점심/저녁 3칸 입력으로 편집됩니다."
+          className="confirmation-builder-section--wide"
+          action={
+            scheduleEditor.loading ? null : (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={scheduleEditor.restoreDisabled}
+                onClick={() => setRestoreModalOpen(true)}
+              >
+                기존 일정으로 초기화
+              </Button>
+            )
+          }
+        >
+          {scheduleEditor.loading ? (
+            <Card className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+              일정표 편집기를 불러오는 중...
+            </Card>
+          ) : (
+            <ConfirmationScheduleEditor
+              embedded
+              rows={scheduleEditor.rows}
+              rowMeta={scheduleEditor.rowMeta}
+              onChange={scheduleEditor.onRowsChange}
+            />
+          )}
+        </FormSection>
+      ) : null}
+
+      <RestoreScheduleConfirmModal
+        open={restoreModalOpen}
+        onCancel={() => setRestoreModalOpen(false)}
+        onConfirm={() => {
+          scheduleEditor?.onRestore();
+          setRestoreModalOpen(false);
+        }}
+      />
     </div>
   );
 }

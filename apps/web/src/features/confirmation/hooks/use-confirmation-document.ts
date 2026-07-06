@@ -34,6 +34,15 @@ const CONFIRMATION_DOCUMENT_SNAPSHOT_FRAGMENT = gql`
       note
     }
     accommodationLines
+    appendixPlanStops {
+      dateCellText
+      destinationCellText
+      timeCellText
+      scheduleCellText
+      lodgingCellText
+      mealCellText
+    }
+    sourcePlanVersionId
   }
 `;
 
@@ -160,6 +169,17 @@ function toConfirmationSnapshotInput(snapshot: ConfirmationBuilderState): Confir
     meetingPlace: snapshot.meetingPlace,
     travelers: snapshot.travelers.map(toConfirmationTravelerInput),
     accommodationLines: consolidateFormattedConfirmationAccommodationLines(snapshot.accommodationLines),
+    appendixPlanStops: snapshot.appendixPlanStops?.length
+      ? snapshot.appendixPlanStops.map((row) => ({
+          dateCellText: row.dateCellText,
+          destinationCellText: row.destinationCellText,
+          timeCellText: row.timeCellText,
+          scheduleCellText: row.scheduleCellText,
+          lodgingCellText: row.lodgingCellText,
+          mealCellText: row.mealCellText,
+        }))
+      : undefined,
+    sourcePlanVersionId: snapshot.sourcePlanVersionId ?? null,
   };
 }
 

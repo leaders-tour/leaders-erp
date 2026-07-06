@@ -21,7 +21,10 @@ export function ConfirmationPrintPage(): JSX.Element {
     () => (document ? snapshotToDocumentData(document.snapshot) : null),
     [document],
   );
-  const { appendixData, loading: appendixLoading } = useConfirmationAppendixData(document?.planVersionId);
+  const { appendixData, loading: appendixLoading } = useConfirmationAppendixData({
+    planVersionId: document?.planVersionId ?? document?.snapshot.sourcePlanVersionId,
+    appendixPlanStops: document?.snapshot.appendixPlanStops,
+  });
 
   const handleDownloadClick = async (): Promise<void> => {
     setDownloadError(null);

@@ -5,6 +5,15 @@ export interface ConfirmationTraveler {
   note?: string | null;
 }
 
+export interface ConfirmationAppendixPlanStopRow {
+  dateCellText: string;
+  destinationCellText: string;
+  timeCellText: string;
+  scheduleCellText: string;
+  lodgingCellText: string;
+  mealCellText: string;
+}
+
 export interface ConfirmationDocumentSnapshot {
   leaderName: string;
   documentNumber?: string | null;
@@ -26,6 +35,8 @@ export interface ConfirmationDocumentSnapshot {
   meetingPlace: string;
   travelers: ConfirmationTraveler[];
   accommodationLines: string[];
+  appendixPlanStops?: ConfirmationAppendixPlanStopRow[] | null;
+  sourcePlanVersionId?: string | null;
 }
 
 export interface ConfirmationDocumentRow {

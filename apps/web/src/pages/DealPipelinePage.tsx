@@ -1087,9 +1087,19 @@ function UserDetailDrawer({
     [publishedConfirmationDocument],
   );
   const confirmationPlanVersionId =
-    publishedConfirmationDocument?.planVersionId ?? activeConfirmedTrip?.planVersionId ?? null;
+    publishedConfirmationDocument?.planVersionId
+    ?? publishedConfirmationDocument?.snapshot.sourcePlanVersionId
+    ?? activeConfirmedTrip?.planVersionId
+    ?? null;
   const { appendixData: confirmationAppendixData, loading: confirmationAppendixLoading } =
-    useConfirmationAppendixData(isConfirmationPanelOpen ? confirmationPlanVersionId : undefined);
+    useConfirmationAppendixData(
+      isConfirmationPanelOpen
+        ? {
+            planVersionId: confirmationPlanVersionId,
+            appendixPlanStops: publishedConfirmationDocument?.snapshot.appendixPlanStops,
+          }
+        : { planVersionId: undefined },
+    );
 
   useEffect(() => {
     if (user) {

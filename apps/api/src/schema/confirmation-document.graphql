@@ -11,6 +11,15 @@ type ConfirmationTraveler {
   note: String
 }
 
+type ConfirmationAppendixPlanStopRow {
+  dateCellText: String!
+  destinationCellText: String!
+  timeCellText: String!
+  scheduleCellText: String!
+  lodgingCellText: String!
+  mealCellText: String!
+}
+
 type ConfirmationDocumentSnapshot {
   leaderName: String!
   documentNumber: String
@@ -32,6 +41,17 @@ type ConfirmationDocumentSnapshot {
   meetingPlace: String!
   travelers: [ConfirmationTraveler!]!
   accommodationLines: [String!]!
+  appendixPlanStops: [ConfirmationAppendixPlanStopRow!]
+  sourcePlanVersionId: ID
+}
+
+input ConfirmationAppendixPlanStopRowInput {
+  dateCellText: String!
+  destinationCellText: String!
+  timeCellText: String!
+  scheduleCellText: String!
+  lodgingCellText: String!
+  mealCellText: String!
 }
 
 input ConfirmationTravelerInput {
@@ -62,6 +82,8 @@ input ConfirmationDocumentSnapshotInput {
   meetingPlace: String!
   travelers: [ConfirmationTravelerInput!]!
   accommodationLines: [String!]!
+  appendixPlanStops: [ConfirmationAppendixPlanStopRowInput!]
+  sourcePlanVersionId: ID
 }
 
 type ConfirmationDocument {

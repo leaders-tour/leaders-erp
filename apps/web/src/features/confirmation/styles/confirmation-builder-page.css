@@ -2,6 +2,11 @@
   min-width: 0;
 }
 
+.confirmation-schedule-editor-cell,
+.confirmation-schedule-editor-readonly {
+  min-height: 72px;
+}
+
 .confirmation-builder-preview-column {
   min-width: 0;
 }

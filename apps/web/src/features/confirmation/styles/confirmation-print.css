@@ -643,6 +643,14 @@
   resize: vertical;
 }
 
+.confirmation-builder-section--wide {
+  grid-column: 1 / -1;
+}
+
+.confirmation-schedule-editor-table-wrap {
+  width: 100%;
+}
+
 .confirmation-builder-subsection {
   display: grid;
   gap: 12px;
