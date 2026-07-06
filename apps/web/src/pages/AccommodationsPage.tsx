@@ -1,6 +1,6 @@
 import { Button, Card, listFiltersTokens } from '@tour/ui';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   useAccommodations,
   useCreateAccommodation,
@@ -11,6 +11,13 @@ import {
   type AccommodationLevel,
   type AccommodationRow,
 } from '../features/accommodation/hooks';
+import {
+  getQueryParam,
+  parseEnumParam,
+  patchSearchParams,
+  setOptionalQueryParam,
+  setQueryParam,
+} from '../lib/list-filters';
 
 const LEVEL_LABEL: Record<AccommodationLevel, string> = {
   LV2: 'LV.2',
@@ -434,13 +441,62 @@ type BookingPriorityFilter = 'all' | 'unset' | (typeof BOOKING_PRIORITY_LABELS)[
 
 const LF = listFiltersTokens;
 
+const ACCOMMODATION_LEVEL_VALUES = ['LV2', 'LV3', 'LV4', 'LV5'] as const;
+
+function parseBookingPriorityFilter(raw: string | null): BookingPriorityFilter {
+  if (!raw || raw === 'all') return 'all';
+  if (raw === 'unset') return 'unset';
+  if ((BOOKING_PRIORITY_LABELS as readonly string[]).includes(raw)) {
+    return raw as (typeof BOOKING_PRIORITY_LABELS)[number];
+  }
+  return 'all';
+}
+
+function serializeBookingPriorityFilter(value: BookingPriorityFilter): string | undefined {
+  if (value === 'all') return undefined;
+  return value;
+}
+
 export function AccommodationsPage(): JSX.Element {
-  const [regionFilter, setRegionFilter] = useState<string | undefined>(undefined);
-  const [destinationFilter, setDestinationFilter] = useState<string | undefined>(undefined);
-  const [levelFilter, setLevelFilter] = useState<AccommodationLevel | undefined>(undefined);
-  const [bookingPriorityFilter, setBookingPriorityFilter] = useState<BookingPriorityFilter>('all');
-  const [searchQuery, setSearchQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const regionFilter = searchParams.get('region') ?? undefined;
+  const destinationFilter = searchParams.get('destination') ?? undefined;
+  const levelFilter = parseEnumParam(
+    searchParams.get('level'),
+    ACCOMMODATION_LEVEL_VALUES,
+  ) as AccommodationLevel | undefined;
+  const bookingPriorityFilter = parseBookingPriorityFilter(searchParams.get('bookingPriority'));
+  const searchQuery = getQueryParam(searchParams, 'q');
+
+  function setRegionFilter(region: string | undefined) {
+    patchSearchParams(setSearchParams, (prev) => {
+      setOptionalQueryParam(prev, 'region', region);
+      prev.delete('destination');
+    });
+  }
+
+  function setDestinationFilter(destination: string | undefined) {
+    patchSearchParams(setSearchParams, (prev) => setOptionalQueryParam(prev, 'destination', destination));
+  }
+
+  function setLevelFilter(level: AccommodationLevel | undefined) {
+    patchSearchParams(setSearchParams, (prev) => setOptionalQueryParam(prev, 'level', level));
+  }
+
+  function setBookingPriorityFilter(value: BookingPriorityFilter) {
+    patchSearchParams(setSearchParams, (prev) => {
+      const serialized = serializeBookingPriorityFilter(value);
+      if (serialized === undefined) prev.delete('bookingPriority');
+      else prev.set('bookingPriority', serialized);
+    });
+  }
+
+  function setSearchQuery(value: string) {
+    patchSearchParams(setSearchParams, (prev) => setQueryParam(prev, 'q', value));
+  }
 
   /** 필터 칩용: 실데이터 기준 지역별 여행지 목록 (별도 쿼리) */
   const { accommodations: allAccommodationsForMeta } = useAccommodations({});
@@ -458,7 +514,6 @@ export function AccommodationsPage(): JSX.Element {
     level: levelFilter,
     ...bookingPriorityQuery,
   });
-  const navigate = useNavigate();
 
   const destinationsForSelectedRegion = useMemo(() => {
     if (!regionFilter) return [];
@@ -543,7 +598,6 @@ export function AccommodationsPage(): JSX.Element {
             className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${!regionFilter ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             onClick={() => {
               setRegionFilter(undefined);
-              setDestinationFilter(undefined);
             }}
           >
             전체 지역
@@ -552,10 +606,7 @@ export function AccommodationsPage(): JSX.Element {
             <button
               key={r}
               className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${regionFilter === r ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-              onClick={() => {
-                setRegionFilter(r);
-                setDestinationFilter(undefined);
-              }}
+              onClick={() => setRegionFilter(r)}
             >
               {r}
             </button>

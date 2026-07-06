@@ -82,7 +82,7 @@ export function ConfirmationDocumentDetailPage(): JSX.Element {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => navigate('/confirmation-builder')}>
+            <Button variant="outline" onClick={() => navigate(-1)}>
               확정서 목록
             </Button>
             <Button variant="outline" onClick={() => navigate(`/confirmed-trips/${document.confirmedTripId}`)}>

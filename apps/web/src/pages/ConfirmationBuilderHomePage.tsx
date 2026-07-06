@@ -1,7 +1,7 @@
 import { ApolloError } from '@apollo/client';
 import { Button, Card } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ConfirmationListPanel } from '../features/confirmation/components/ConfirmationListPanel';
 import {
   useConfirmationDocumentsByUserId,
@@ -17,6 +17,12 @@ import { matchesCustomerSearchKeyword } from '../features/plan/customerSearch';
 import { getCustomerTripStatus } from '../features/plan/customerTripStatus';
 import { dateKey } from '../features/plan/deal-pipeline-stage';
 import { useUsers } from '../features/plan/hooks';
+import {
+  getQueryParam,
+  patchSearchParams,
+  setOptionalQueryParam,
+  setQueryParam,
+} from '../lib/list-filters';
 
 const DEAL_STAGE_LABELS = {
   CONSULTING: '컨설팅',
@@ -32,9 +38,19 @@ const DEAL_STAGE_LABELS = {
 
 export function ConfirmationBuilderHomePage(): JSX.Element {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { users, loading: usersLoading } = useUsers();
-  const [selectedUserId, setSelectedUserId] = useState('');
-  const [customerSearch, setCustomerSearch] = useState('');
+  const selectedUserId = searchParams.get('userId') ?? '';
+  const customerSearch = getQueryParam(searchParams, 'q');
+  const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
+
+  function setCustomerSearch(value: string) {
+    patchSearchParams(setSearchParams, (prev) => setQueryParam(prev, 'q', value));
+  }
+
+  function setSelectedUserId(userId: string) {
+    patchSearchParams(setSearchParams, (prev) => setOptionalQueryParam(prev, 'userId', userId || undefined));
+  }
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
@@ -56,7 +72,6 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
   const selectedUser = users.find((user) => user.id === selectedUserId) ?? null;
   const { documents, loading: documentsLoading } = useConfirmationDocumentsByUserId(selectedUserId || undefined);
   const { deleteDocument, loading: deleteDocumentLoading } = useDeleteConfirmationDocument();
-  const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
 
   const primaryActiveTripId = useMemo(() => {
     const activeTrips = (selectedUser?.confirmedTrips ?? [])

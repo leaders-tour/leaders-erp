@@ -3,6 +3,14 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DriverAllocationCalendar } from '../features/driver/components/DriverAllocationCalendar';
 import { useDrivers, useDriversWithTrips, useCreateDriver, type DriverRow } from '../features/driver/hooks';
+import {
+  getQueryParam,
+  parseEnumParam,
+  patchSearchParams,
+  serializeEnumParam,
+  setOptionalQueryParam,
+  setQueryParam,
+} from '../lib/list-filters';
 
 const VEHICLE_TYPE_LABEL: Record<string, string> = {
   STAREX: '스타렉스',
@@ -80,6 +88,20 @@ function VehicleBadge({ vehicleType }: { vehicleType: DriverRow['vehicleType'] }
 type StatusFilter = DriverRow['status'] | undefined;
 type LevelFilter = DriverRow['level'] | undefined;
 type VehicleFilter = DriverRow['vehicleType'] | undefined;
+
+const DRIVER_STATUS_VALUES = ['ACTIVE_SEASON', 'INTERVIEW_DONE', 'BLACKLISTED', 'OTHER'] as const;
+const DRIVER_LEVEL_VALUES = ['MAIN', 'JUNIOR', 'ROOKIE', 'OTHER'] as const;
+const DRIVER_VEHICLE_VALUES = [
+  'STAREX',
+  'HIACE_SHORT',
+  'HIACE_LONG',
+  'PURGON',
+  'PREMIUM_VAN',
+  'SUV',
+  'LAND_CRUISER',
+  'ALPHARD',
+  'OTHER',
+] as const;
 
 const VEHICLE_OPTIONS: { value: DriverRow['vehicleType']; label: string }[] = [
   { value: 'STAREX', label: '스타렉스' },
@@ -251,23 +273,51 @@ function CreateDriverModal({
 }
 
 export function DriversPage(): JSX.Element {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE_SEASON');
-  const [levelFilter, setLevelFilter] = useState<LevelFilter>(undefined);
-  const [vehicleFilter, setVehicleFilter] = useState<VehicleFilter>(undefined);
-  const [searchQuery, setSearchQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const statusFilter = parseEnumParam(searchParams.get('status'), DRIVER_STATUS_VALUES, {
+    defaultValue: 'ACTIVE_SEASON',
+  }) as StatusFilter;
+  const levelFilter = parseEnumParam(searchParams.get('level'), DRIVER_LEVEL_VALUES) as LevelFilter;
+  const vehicleFilter = parseEnumParam(searchParams.get('vehicle'), DRIVER_VEHICLE_VALUES) as VehicleFilter;
+  const searchQuery = getQueryParam(searchParams, 'q');
+
+  function setStatusFilter(status: StatusFilter) {
+    patchSearchParams(setSearchParams, (prev) => {
+      const serialized = serializeEnumParam(status, { defaultValue: 'ACTIVE_SEASON' });
+      if (serialized === undefined) prev.delete('status');
+      else prev.set('status', serialized);
+    });
+  }
+
+  function setLevelFilter(level: LevelFilter) {
+    patchSearchParams(setSearchParams, (prev) => setOptionalQueryParam(prev, 'level', level));
+  }
+
+  function setVehicleFilter(vehicle: VehicleFilter) {
+    patchSearchParams(setSearchParams, (prev) => setOptionalQueryParam(prev, 'vehicle', vehicle));
+  }
+
+  function setSearchQuery(value: string) {
+    patchSearchParams(setSearchParams, (prev) => setQueryParam(prev, 'q', value));
+  }
 
   const viewMode = searchParams.get('view') === 'calendar' ? 'calendar' : 'list';
   const calYear = Number(searchParams.get('cy')) || new Date().getFullYear();
   const calMonth = Number(searchParams.get('cm')) || new Date().getMonth() + 1;
 
   function setViewMode(v: 'list' | 'calendar') {
-    setSearchParams((prev) => { prev.set('view', v); return prev; });
+    patchSearchParams(setSearchParams, (prev) => {
+      prev.set('view', v);
+    });
   }
   function setCalendarMonth(y: number, m: number) {
-    setSearchParams((prev) => { prev.set('cy', String(y)); prev.set('cm', String(m)); return prev; });
+    patchSearchParams(setSearchParams, (prev) => {
+      prev.set('cy', String(y));
+      prev.set('cm', String(m));
+    });
   }
 
   const { drivers: listDrivers, loading: listLoading } = useDrivers({

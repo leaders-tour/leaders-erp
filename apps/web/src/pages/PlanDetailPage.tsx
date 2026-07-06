@@ -65,7 +65,7 @@ export function PlanDetailPage(): JSX.Element {
     try {
       await deletePlanVersion(versionId, planId);
       if (willDeletePlan) {
-        navigate(`/customers/${plan.userId}/plans`);
+        navigate(-1);
       }
     } catch (error) {
       const message =
@@ -109,7 +109,7 @@ export function PlanDetailPage(): JSX.Element {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate(`/customers/${plan.userId}/plans`)}>
+            <Button variant="outline" onClick={() => navigate(-1)}>
               고객 Plan 목록
             </Button>
             <Button

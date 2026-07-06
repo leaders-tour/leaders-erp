@@ -52,7 +52,7 @@ export function CustomerPlansPage(): JSX.Element {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">고객별 일정</h1>
           <p className="mt-1 text-sm text-slate-600">{user ? `${user.name} 고객의 일정 목록` : '고객 정보를 불러오는 중...'}</p>
         </div>
-        <Button variant="outline" onClick={() => navigate('/customers')}>
+        <Button variant="outline" onClick={() => navigate(-1)}>
           고객 목록으로
         </Button>
       </header>
@@ -136,7 +136,7 @@ export function CustomerPlansPage(): JSX.Element {
           onCancel={() => setDeletePanelOpen(false)}
           onConfirmDelete={async () => {
             await deleteUser(deleteTargetUser.id);
-            navigate('/customers');
+            navigate(-1);
           }}
         />
       ) : null}

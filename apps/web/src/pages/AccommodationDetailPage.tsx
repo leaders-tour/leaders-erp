@@ -763,7 +763,7 @@ export function AccommodationDetailPage(): JSX.Element {
       {/* 헤더 */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4 flex-1">
-          <button onClick={() => navigate('/accommodations')} className="mt-1 text-slate-400 hover:text-slate-700 shrink-0">
+          <button onClick={() => navigate(-1)} className="mt-1 text-slate-400 hover:text-slate-700 shrink-0">
             ← 목록
           </button>
           {editingAccom ? (
@@ -814,7 +814,7 @@ export function AccommodationDetailPage(): JSX.Element {
                   if (!accommodationId) return;
                   if (!window.confirm('숙소를 삭제합니다. 되돌릴 수 없습니다. 계속할까요?')) return;
                   await deleteAccommodation(accommodationId);
-                  navigate('/accommodations');
+                  navigate(-1);
                 }}
               >
                 {deleting ? '삭제 중...' : '삭제'}

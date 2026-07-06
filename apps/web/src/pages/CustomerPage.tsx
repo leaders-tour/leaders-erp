@@ -1,6 +1,6 @@
 import { Card } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CustomerDeletePanel, CustomerSelector, PlanListPanel } from '../features/plan/components';
 import { matchesCustomerSearchKeyword } from '../features/plan/customerSearch';
 import {
@@ -11,8 +11,24 @@ import {
 } from '../features/plan/customerTripStatus';
 import type { DealStageValue } from '../features/plan/hooks';
 import { useDeleteUser, usePlansByUser, useUsers } from '../features/plan/hooks';
+import {
+  getQueryParam,
+  patchSearchParams,
+  setOptionalQueryParam,
+  setQueryParam,
+} from '../lib/list-filters';
 
 type StatusFilterKey = CustomerTripStatus | 'all';
+
+const CUSTOMER_STATUS_VALUES = ['pre', 'confirmed', 'ongoing', 'done'] as const;
+
+function parseCustomerStatusFilter(raw: string | null): StatusFilterKey {
+  if (!raw || raw === 'all') return 'all';
+  if ((CUSTOMER_STATUS_VALUES as readonly string[]).includes(raw)) {
+    return raw as CustomerTripStatus;
+  }
+  return 'all';
+}
 
 const DEAL_STAGE_LABELS: Record<DealStageValue, string> = {
   CONSULTING: '컨설팅',
@@ -28,12 +44,28 @@ const DEAL_STAGE_LABELS: Record<DealStageValue, string> = {
 
 export function CustomerPage(): JSX.Element {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { users, loading } = useUsers();
   const { deleteUser, loading: deletingUser } = useDeleteUser();
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [customerSearch, setCustomerSearch] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilterKey>('all');
+  const selectedUserId = searchParams.get('userId') ?? '';
+  const customerSearch = getQueryParam(searchParams, 'q');
+  const statusFilter = parseCustomerStatusFilter(searchParams.get('status'));
   const [deletePanelOpen, setDeletePanelOpen] = useState(false);
+
+  function setCustomerSearch(value: string) {
+    patchSearchParams(setSearchParams, (prev) => setQueryParam(prev, 'q', value));
+  }
+
+  function setStatusFilter(status: StatusFilterKey) {
+    patchSearchParams(setSearchParams, (prev) => {
+      if (status === 'all') prev.delete('status');
+      else prev.set('status', status);
+    });
+  }
+
+  function setSelectedUserId(userId: string) {
+    patchSearchParams(setSearchParams, (prev) => setOptionalQueryParam(prev, 'userId', userId || undefined));
+  }
 
   const groupCounts = useMemo(() => calcGroupCounts(users), [users]);
 

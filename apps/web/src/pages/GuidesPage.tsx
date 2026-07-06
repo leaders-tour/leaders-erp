@@ -3,6 +3,14 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { GuideAllocationCalendar } from '../features/guide/components/GuideAllocationCalendar';
 import { useGuides, useGuidesWithTrips, useCreateGuide, type GuideRow } from '../features/guide/hooks';
+import {
+  getQueryParam,
+  parseEnumParam,
+  patchSearchParams,
+  serializeEnumParam,
+  setOptionalQueryParam,
+  setQueryParam,
+} from '../lib/list-filters';
 
 const LEVEL_LABEL: Record<string, string> = {
   MAIN: '메인',
@@ -54,6 +62,9 @@ function StatusBadge({ status }: { status: GuideRow['status'] }) {
 
 type LevelFilter = GuideRow['level'] | undefined;
 type StatusFilter = GuideRow['status'] | undefined;
+
+const GUIDE_STATUS_VALUES = ['ACTIVE_SEASON', 'INTERVIEW_DONE', 'INACTIVE', 'OTHER'] as const;
+const GUIDE_LEVEL_VALUES = ['MAIN', 'JUNIOR', 'ROOKIE', 'OTHER'] as const;
 
 const GUIDE_LEVEL_OPTIONS: { value: GuideRow['level']; label: string }[] = [
   { value: 'MAIN', label: '메인' },
@@ -210,12 +221,31 @@ function getNow() {
 }
 
 export function GuidesPage(): JSX.Element {
-  const [levelFilter, setLevelFilter] = useState<LevelFilter>(undefined);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE_SEASON');
-  const [searchQuery, setSearchQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const statusFilter = parseEnumParam(searchParams.get('status'), GUIDE_STATUS_VALUES, {
+    defaultValue: 'ACTIVE_SEASON',
+  }) as StatusFilter;
+  const levelFilter = parseEnumParam(searchParams.get('level'), GUIDE_LEVEL_VALUES) as LevelFilter;
+  const searchQuery = getQueryParam(searchParams, 'q');
+
+  function setStatusFilter(status: StatusFilter) {
+    patchSearchParams(setSearchParams, (prev) => {
+      const serialized = serializeEnumParam(status, { defaultValue: 'ACTIVE_SEASON' });
+      if (serialized === undefined) prev.delete('status');
+      else prev.set('status', serialized);
+    });
+  }
+
+  function setLevelFilter(level: LevelFilter) {
+    patchSearchParams(setSearchParams, (prev) => setOptionalQueryParam(prev, 'level', level));
+  }
+
+  function setSearchQuery(value: string) {
+    patchSearchParams(setSearchParams, (prev) => setQueryParam(prev, 'q', value));
+  }
 
   const viewMode = searchParams.get('view') === 'calendar' ? 'calendar' : 'list';
   const { year: nowYear, month: nowMonth } = getNow();

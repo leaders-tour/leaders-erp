@@ -198,7 +198,7 @@ export function DriverDetailPage(): JSX.Element {
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/drivers')} className="text-slate-400 hover:text-slate-700">
+          <button onClick={() => navigate(-1)} className="text-slate-400 hover:text-slate-700">
             ← 목록
           </button>
           <h1 className="text-2xl font-semibold text-slate-900">{driver.nameMn}</h1>
@@ -222,7 +222,7 @@ export function DriverDetailPage(): JSX.Element {
                   if (!driverId) return;
                   if (!window.confirm('기사를 삭제합니다. 되돌릴 수 없습니다. 계속할까요?')) return;
                   await deleteDriver(driverId);
-                  navigate('/drivers');
+                  navigate(-1);
                 }}
               >
                 {deleting ? '삭제 중...' : '삭제'}

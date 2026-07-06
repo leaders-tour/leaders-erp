@@ -127,7 +127,7 @@ export function GuideDetailPage(): JSX.Element {
                   if (!guideId) return;
                   if (!window.confirm('가이드를 삭제합니다. 되돌릴 수 없습니다. 계속할까요?')) return;
                   await deleteGuide(guideId);
-                  navigate('/guides');
+                  navigate(-1);
                 }}
               >
                 {deleting ? '삭제 중...' : '삭제'}
