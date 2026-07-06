@@ -1097,6 +1097,8 @@ function UserDetailDrawer({
         ? {
             planVersionId: confirmationPlanVersionId,
             appendixPlanStops: publishedConfirmationDocument?.snapshot.appendixPlanStops,
+            overallMovementIntensityColorOverride:
+              publishedConfirmationDocument?.snapshot.overallMovementIntensityColorOverride,
           }
         : { planVersionId: undefined },
     );

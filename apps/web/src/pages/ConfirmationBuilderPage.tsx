@@ -14,7 +14,9 @@ import { useConfirmationAppendixData } from '../features/confirmation/hooks/use-
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
 import { EstimatePreviewScaler } from '../features/estimate/components/EstimatePreviewScaler';
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
+import type { EstimatePage2Editor } from '../features/estimate/model/types';
 import type { ConfirmationBuilderState } from '../features/confirmation/model/types';
+import { resolveMainPlanRowPhysicalIndex } from '../features/plan/plan-stop-row';
 import { snapshotToDocumentData } from '../features/confirmation/utils/format';
 import { planStopRowsToAppendixRows } from '../features/confirmation/utils/resolve-confirmation-appendix';
 import {
@@ -193,6 +195,8 @@ export function ConfirmationBuilderPage(): JSX.Element {
         ? {
             ...current,
             appendixPlanStops: planStopRowsToAppendixRows(linkedEstimateData.planStops),
+            overallMovementIntensityColorOverride:
+              linkedEstimateData.overallMovementIntensityColorOverride ?? null,
             sourcePlanVersionId: current.sourcePlanVersionId ?? planVersionId,
           }
         : current,
@@ -210,12 +214,40 @@ export function ConfirmationBuilderPage(): JSX.Element {
       baselineEstimateData ? planStopRowsToAppendixRows(baselineEstimateData.planStops) : null,
     [baselineEstimateData],
   );
+  const baselineOverallMovementIntensityColorOverride =
+    baselineEstimateData?.overallMovementIntensityColorOverride ?? null;
 
   const { appendixData: confirmationAppendixData, loading: confirmationAppendixLoading } =
     useConfirmationAppendixData({
       planVersionId: appendixSourcePlanVersionId,
       appendixPlanStops: state?.appendixPlanStops,
+      overallMovementIntensityColorOverride: state?.overallMovementIntensityColorOverride,
     });
+
+  const appendixPage2Editor = useMemo<EstimatePage2Editor>(
+    () => ({
+      onMovementIntensityColorOverrideChange: (mainRowIndex, color) => {
+        const structureRows =
+          confirmationAppendixData?.planStops ?? linkedEstimateData?.planStops ?? [];
+        const physicalIndex = resolveMainPlanRowPhysicalIndex(structureRows, mainRowIndex);
+        setState((current) => {
+          if (!current?.appendixPlanStops?.length) {
+            return current;
+          }
+          const nextRows = current.appendixPlanStops.map((row, index) =>
+            index === physicalIndex ? { ...row, movementIntensityColorOverride: color } : row,
+          );
+          return { ...current, appendixPlanStops: nextRows };
+        });
+      },
+      onOverallMovementIntensityColorOverrideChange: (color) => {
+        setState((current) =>
+          current ? { ...current, overallMovementIntensityColorOverride: color } : current,
+        );
+      },
+    }),
+    [confirmationAppendixData?.planStops, linkedEstimateData?.planStops],
+  );
 
   const scheduleRowMeta = useMemo(() => {
     const stops = confirmationAppendixData?.planStops ?? linkedEstimateData?.planStops;
@@ -341,6 +373,7 @@ export function ConfirmationBuilderPage(): JSX.Element {
         ? {
             ...current,
             appendixPlanStops: baselineAppendixPlanStops.map((row) => ({ ...row })),
+            overallMovementIntensityColorOverride: baselineOverallMovementIntensityColorOverride,
           }
         : current,
     );
@@ -465,6 +498,7 @@ export function ConfirmationBuilderPage(): JSX.Element {
               <ConfirmationDocument
                 data={previewData}
                 appendixData={confirmationAppendixData}
+                appendixPage2Editor={appendixPage2Editor}
                 viewMode="screen-preview"
               />
             </div>

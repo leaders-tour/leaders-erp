@@ -3,7 +3,7 @@ import '../styles/confirmation-print.css';
 import { ExternalTransferLineText } from '../../document-layout/ExternalTransferLineText';
 import { usePage1FitScale } from '../../document-layout/use-page1-fit-scale';
 import { EstimatePreviewScaler } from '../../estimate/components/EstimatePreviewScaler';
-import type { EstimateDocumentData } from '../../estimate/model/types';
+import type { EstimateDocumentData, EstimatePage2Editor } from '../../estimate/model/types';
 import type { MovementIntensityColorSetting } from '../../estimate/model/movement-intensity';
 import {
   CONFIRMATION_COMPANY,
@@ -22,6 +22,7 @@ interface ConfirmationDocumentProps {
   /** 견적 버전 기준 2~4페이지(일정표·안내·이동강도) 데이터 */
   appendixData?: EstimateDocumentData | null;
   appendixMovementIntensityColors?: readonly MovementIntensityColorSetting[] | null;
+  appendixPage2Editor?: EstimatePage2Editor;
   viewMode?: 'screen-preview' | 'output';
   onPage1LayoutReady?: () => void;
   /** screen-preview에서 미리보기 스케일 기준 너비 */
@@ -357,6 +358,7 @@ export function ConfirmationDocument({
   data,
   appendixData,
   appendixMovementIntensityColors,
+  appendixPage2Editor,
   viewMode = 'screen-preview',
   onPage1LayoutReady,
   previewBaseWidth,
@@ -376,6 +378,7 @@ export function ConfirmationDocument({
           data={appendixData}
           viewMode={viewMode}
           movementIntensityColors={appendixMovementIntensityColors}
+          page2Editor={appendixPage2Editor}
         />
       ) : null}
     </div>

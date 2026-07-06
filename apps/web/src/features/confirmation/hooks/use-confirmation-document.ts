@@ -41,8 +41,10 @@ const CONFIRMATION_DOCUMENT_SNAPSHOT_FRAGMENT = gql`
       scheduleCellText
       lodgingCellText
       mealCellText
+      movementIntensityColorOverride
     }
     sourcePlanVersionId
+    overallMovementIntensityColorOverride
   }
 `;
 
@@ -177,9 +179,11 @@ function toConfirmationSnapshotInput(snapshot: ConfirmationBuilderState): Confir
           scheduleCellText: row.scheduleCellText,
           lodgingCellText: row.lodgingCellText,
           mealCellText: row.mealCellText,
+          movementIntensityColorOverride: row.movementIntensityColorOverride ?? null,
         }))
       : undefined,
     sourcePlanVersionId: snapshot.sourcePlanVersionId ?? null,
+    overallMovementIntensityColorOverride: snapshot.overallMovementIntensityColorOverride ?? null,
   };
 }
 

@@ -24,6 +24,7 @@ export function ConfirmationPrintPage(): JSX.Element {
   const { appendixData, loading: appendixLoading } = useConfirmationAppendixData({
     planVersionId: document?.planVersionId ?? document?.snapshot.sourcePlanVersionId,
     appendixPlanStops: document?.snapshot.appendixPlanStops,
+    overallMovementIntensityColorOverride: document?.snapshot.overallMovementIntensityColorOverride,
   });
 
   const handleDownloadClick = async (): Promise<void> => {

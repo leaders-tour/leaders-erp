@@ -16,6 +16,7 @@ export const confirmationAppendixPlanStopRowSchema = z.object({
   scheduleCellText: z.string(),
   lodgingCellText: z.string(),
   mealCellText: z.string(),
+  movementIntensityColorOverride: z.string().nullable().optional(),
 });
 
 export const confirmationDocumentSnapshotSchema = z.object({
@@ -41,6 +42,7 @@ export const confirmationDocumentSnapshotSchema = z.object({
   accommodationLines: z.array(z.string().trim().min(1)),
   appendixPlanStops: z.array(confirmationAppendixPlanStopRowSchema).optional(),
   sourcePlanVersionId: z.string().trim().min(1).nullable().optional(),
+  overallMovementIntensityColorOverride: z.string().nullable().optional(),
 });
 
 export const saveConfirmationDocumentSchema = z.object({

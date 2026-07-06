@@ -2,7 +2,7 @@ import '../../estimate/styles/estimate-print.css';
 import { EstimateImagePage } from '../../estimate/components/EstimateImagePage';
 import { EstimatePage2 } from '../../estimate/components/EstimatePage2';
 import { useMovementIntensityColorSettings } from '../../app-settings/hooks';
-import type { EstimateDocumentData } from '../../estimate/model/types';
+import type { EstimateDocumentData, EstimatePage2Editor } from '../../estimate/model/types';
 import type { MovementIntensityColorSetting } from '../../estimate/model/movement-intensity';
 import { resolveEstimateDocumentClassName } from '../../estimate/utils/resolve-estimate-document-class-name';
 import {
@@ -14,12 +14,14 @@ interface ConfirmationAppendixPagesProps {
   data: EstimateDocumentData;
   viewMode?: 'screen-preview' | 'output';
   movementIntensityColors?: readonly MovementIntensityColorSetting[] | null;
+  page2Editor?: EstimatePage2Editor;
 }
 
 export function ConfirmationAppendixPages({
   data,
   viewMode = 'output',
   movementIntensityColors: movementIntensityColorsOverride,
+  page2Editor,
 }: ConfirmationAppendixPagesProps): JSX.Element {
   const { colors: configuredMovementIntensityColors } = useMovementIntensityColorSettings();
   const movementIntensityColors = movementIntensityColorsOverride ?? configuredMovementIntensityColors;
@@ -28,7 +30,11 @@ export function ConfirmationAppendixPages({
   return (
     <article className={resolveEstimateDocumentClassName(estimateViewMode)}>
       <div className="estimate-page-break">
-        <EstimatePage2 data={data} movementIntensityColors={movementIntensityColors} />
+        <EstimatePage2
+          data={data}
+          movementIntensityColors={movementIntensityColors}
+          editor={viewMode === 'screen-preview' ? page2Editor : undefined}
+        />
       </div>
       <div className="estimate-page-break">
         <EstimateImagePage

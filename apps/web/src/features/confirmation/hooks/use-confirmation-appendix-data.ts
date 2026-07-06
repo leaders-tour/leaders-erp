@@ -3,13 +3,14 @@ import { fromVersion } from '../../estimate/adapters/from-version';
 import type { EstimateDocumentData } from '../../estimate/model/types';
 import { usePlanVersionDetail } from '../../plan/hooks';
 import type { ConfirmationAppendixPlanStopRow } from '../model/types';
-import { mergeAppendixPlanStops } from '../utils/resolve-confirmation-appendix';
+import { mergeConfirmationAppendixData } from '../utils/resolve-confirmation-appendix';
 import { useEstimateLocationGuides } from '../../estimate/hooks/use-estimate-location-guides';
 import { applyLocationGuides } from '../../estimate/utils/apply-location-guides';
 
 export interface UseConfirmationAppendixDataParams {
   planVersionId?: string | null;
   appendixPlanStops?: ConfirmationAppendixPlanStopRow[] | null;
+  overallMovementIntensityColorOverride?: string | null;
 }
 
 export function useConfirmationAppendixData(
@@ -29,6 +30,7 @@ export function useConfirmationAppendixData(
 
   const planVersionId = params.planVersionId ?? null;
   const appendixPlanStops = params.appendixPlanStops;
+  const overallMovementIntensityColorOverride = params.overallMovementIntensityColorOverride;
 
   const { version, loading: versionLoading } = usePlanVersionDetail(planVersionId ?? undefined);
   const { guideRows, loading: guidesLoading } = useEstimateLocationGuides();
@@ -38,9 +40,12 @@ export function useConfirmationAppendixData(
       return null;
     }
     const base = fromVersion(version);
-    const merged = mergeAppendixPlanStops(base, appendixPlanStops);
+    const merged = mergeConfirmationAppendixData(base, {
+      appendixPlanStops,
+      overallMovementIntensityColorOverride,
+    });
     return applyLocationGuides(merged, guideRows);
-  }, [appendixPlanStops, guideRows, version]);
+  }, [appendixPlanStops, guideRows, overallMovementIntensityColorOverride, version]);
 
   return {
     appendixData,

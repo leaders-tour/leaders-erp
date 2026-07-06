@@ -12,6 +12,7 @@ export interface ConfirmationAppendixPlanStopRow {
   scheduleCellText: string;
   lodgingCellText: string;
   mealCellText: string;
+  movementIntensityColorOverride?: string | null;
 }
 
 export interface ConfirmationDocumentSnapshot {
@@ -37,6 +38,7 @@ export interface ConfirmationDocumentSnapshot {
   accommodationLines: string[];
   appendixPlanStops?: ConfirmationAppendixPlanStopRow[] | null;
   sourcePlanVersionId?: string | null;
+  overallMovementIntensityColorOverride?: string | null;
 }
 
 export interface ConfirmationDocumentRow {

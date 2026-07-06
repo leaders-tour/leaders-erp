@@ -18,6 +18,7 @@ type ConfirmationAppendixPlanStopRow {
   scheduleCellText: String!
   lodgingCellText: String!
   mealCellText: String!
+  movementIntensityColorOverride: String
 }
 
 type ConfirmationDocumentSnapshot {
@@ -43,6 +44,7 @@ type ConfirmationDocumentSnapshot {
   accommodationLines: [String!]!
   appendixPlanStops: [ConfirmationAppendixPlanStopRow!]
   sourcePlanVersionId: ID
+  overallMovementIntensityColorOverride: String
 }
 
 input ConfirmationAppendixPlanStopRowInput {
@@ -52,6 +54,7 @@ input ConfirmationAppendixPlanStopRowInput {
   scheduleCellText: String!
   lodgingCellText: String!
   mealCellText: String!
+  movementIntensityColorOverride: String
 }
 
 input ConfirmationTravelerInput {
@@ -84,6 +87,7 @@ input ConfirmationDocumentSnapshotInput {
   accommodationLines: [String!]!
   appendixPlanStops: [ConfirmationAppendixPlanStopRowInput!]
   sourcePlanVersionId: ID
+  overallMovementIntensityColorOverride: String
 }
 
 type ConfirmationDocument {

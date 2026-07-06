@@ -23,6 +23,7 @@ export function ConfirmationPreviewPanel({
   const { appendixData, loading } = useConfirmationAppendixData({
     planVersionId: planVersionId ?? snapshot.sourcePlanVersionId,
     appendixPlanStops: snapshot.appendixPlanStops,
+    overallMovementIntensityColorOverride: snapshot.overallMovementIntensityColorOverride,
   });
   const { downloading, phase, downloadConfirmationPdf } = useConfirmationPdfDownload();
   const [downloadError, setDownloadError] = useState<string | null>(null);
