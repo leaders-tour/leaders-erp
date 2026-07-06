@@ -96,7 +96,9 @@ export function buildTravelerSheetColumns(
   submissions: ContractSubmissionRow[],
   receipts: ContractPaymentReceiptRow[],
 ): TravelerSheetColumn[] {
-  return submissions.map((submission) => {
+  return submissions
+    .filter((submission) => !submission.excludedFromContractCount)
+    .map((submission) => {
     const keys = new Set(contractSubmissionPersonKeys(submission));
     const matchedReceipts = receipts.filter((receipt) => {
       const payerKey = normalizePersonNameForLookup(receipt.payerNameRaw);
