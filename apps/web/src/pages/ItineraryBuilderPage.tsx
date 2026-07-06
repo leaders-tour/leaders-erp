@@ -10,6 +10,7 @@ import {
   type VehicleAssignment,
 } from '@tour/validation';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DatePickerModal } from '../components/date-picker/DatePickerModal';
@@ -813,6 +814,48 @@ function resetManualPricingBaseAmount(current: ManualPricingState): ManualPricin
   const nextTeamSummaries = (current.teamSummaries ?? []).map((row) => ({
     ...row,
     baseAmountKrw: null,
+  }));
+  return {
+    ...current,
+    summary: nextSummary,
+    teamSummaries: nextTeamSummaries,
+  };
+}
+
+function hasManualSecurityDepositOverride(manual: ManualPricingState): boolean {
+  if (Number.isInteger(manual.summary?.securityDepositAmountKrw)) {
+    return true;
+  }
+  if (
+    manual.summary?.securityDepositMode === 'NONE' ||
+    manual.summary?.securityDepositMode === 'PER_PERSON' ||
+    manual.summary?.securityDepositMode === 'PER_TEAM'
+  ) {
+    return true;
+  }
+  return (manual.teamSummaries ?? []).some(
+    (row) =>
+      Number.isInteger(row.securityDepositAmountKrw) ||
+      row.securityDepositMode === 'NONE' ||
+      row.securityDepositMode === 'PER_PERSON' ||
+      row.securityDepositMode === 'PER_TEAM',
+  );
+}
+
+/** 수동 보증금 핀을 해제해 참여 이벤트·기본 물품 기준 자동 계산을 다시 따르게 한다. */
+function resetManualPricingSecurityDeposit(current: ManualPricingState): ManualPricingState {
+  const nextSummary =
+    current.summary != null
+      ? {
+          ...current.summary,
+          securityDepositAmountKrw: null,
+          securityDepositMode: null,
+        }
+      : null;
+  const nextTeamSummaries = (current.teamSummaries ?? []).map((row) => ({
+    ...row,
+    securityDepositAmountKrw: null,
+    securityDepositMode: null,
   }));
   return {
     ...current,
@@ -2738,6 +2781,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [includeRentalItems, setIncludeRentalItems] = useState<boolean>(true);
   const [rentalItemsText, setRentalItemsText] = useState<string>('');
   const [eventIds, setEventIds] = useState<string[]>([]);
+  const [eventSecurityResyncModalEventId, setEventSecurityResyncModalEventId] = useState<string | null>(
+    null,
+  );
   const [remark, setRemark] = useState<string>('');
   const [validUntilDate, setValidUntilDate] = useState<string>(
     () => addDays(todayIsoDate(), ESTIMATE_VALIDITY_DAYS) ?? '',
@@ -3839,6 +3885,70 @@ export function ItineraryBuilderPage(): JSX.Element {
     },
     [travelEndDate, travelStartDate],
   );
+
+  const handleToggleParticipationEvent = useCallback(
+    (eventId: string) => {
+      const shouldPromptResync =
+        manualPricing.enabled && hasManualSecurityDepositOverride(manualPricing);
+
+      if (!shouldPromptResync) {
+        setEventIds((prev) =>
+          prev.includes(eventId) ? prev.filter((id) => id !== eventId) : [...prev, eventId],
+        );
+        return;
+      }
+
+      setEventSecurityResyncModalEventId(eventId);
+    },
+    [manualPricing],
+  );
+
+  const applyParticipationEventToggle = useCallback(
+    (eventId: string, resyncSecurityDeposit: boolean) => {
+      if (resyncSecurityDeposit) {
+        setManualPricing((current) => resetManualPricingSecurityDeposit(current));
+      }
+      setEventIds((prev) =>
+        prev.includes(eventId) ? prev.filter((id) => id !== eventId) : [...prev, eventId],
+      );
+    },
+    [],
+  );
+
+  const closeEventSecurityResyncModal = useCallback(() => {
+    setEventSecurityResyncModalEventId(null);
+  }, []);
+
+  const handleEventSecurityResyncCancel = useCallback(() => {
+    if (eventSecurityResyncModalEventId === null) {
+      return;
+    }
+    applyParticipationEventToggle(eventSecurityResyncModalEventId, false);
+    closeEventSecurityResyncModal();
+  }, [
+    applyParticipationEventToggle,
+    closeEventSecurityResyncModal,
+    eventSecurityResyncModalEventId,
+  ]);
+
+  const handleEventSecurityResyncConfirm = useCallback(() => {
+    if (eventSecurityResyncModalEventId === null) {
+      return;
+    }
+    applyParticipationEventToggle(eventSecurityResyncModalEventId, true);
+    closeEventSecurityResyncModal();
+  }, [
+    applyParticipationEventToggle,
+    closeEventSecurityResyncModal,
+    eventSecurityResyncModalEventId,
+  ]);
+
+  const eventSecurityResyncModalEventName = useMemo(() => {
+    if (eventSecurityResyncModalEventId === null) {
+      return null;
+    }
+    return eventOptions.find((option) => option.id === eventSecurityResyncModalEventId)?.name ?? null;
+  }, [eventOptions, eventSecurityResyncModalEventId]);
 
   const handleDatePickerChange = (nextIsoDate: string): void => {
     if (!datePickerTarget) {
@@ -5064,10 +5174,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     onTransportGroupFieldChange: handlePreviewTransportGroupFieldChange,
     onAddTransportGroup: addTransportGroup,
     onRemoveTransportGroup: removeTransportGroupAt,
-    onToggleEventId: (value) =>
-      setEventIds((current) =>
-        current.includes(value) ? current.filter((id) => id !== value) : [...current, value],
-      ),
+    onToggleEventId: handleToggleParticipationEvent,
     onSpecialNoteTextChange: setSpecialNote,
     onRentalItemsTextChange: (value) => {
       setIncludeRentalItems(true);
@@ -6071,13 +6178,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                             <button
                               key={eventOption.id}
                               type="button"
-                              onClick={() =>
-                                setEventIds((prev) =>
-                                  prev.includes(eventOption.id)
-                                    ? prev.filter((item) => item !== eventOption.id)
-                                    : [...prev, eventOption.id],
-                                )
-                              }
+                              onClick={() => handleToggleParticipationEvent(eventOption.id)}
                               className={`rounded-xl border px-3 py-1.5 text-sm ${
                                 rentalUnavailable
                                   ? 'border-rose-300 bg-rose-50 text-rose-800 ring-1 ring-rose-200'
@@ -8778,6 +8879,19 @@ export function ItineraryBuilderPage(): JSX.Element {
           allowedMinutes={activeTimePickerAllowedMinutes}
           onClose={() => setTimePickerTarget(null)}
           onChange={handleTimePickerChange}
+        />
+        <ConfirmDialog
+          open={eventSecurityResyncModalEventId !== null}
+          title="보증금을 다시 연동할까요?"
+          description={
+            eventSecurityResyncModalEventName
+              ? `보증금을 수동으로 입력한 상태입니다. "${eventSecurityResyncModalEventName}" 참여 이벤트 변경에 맞춰 보증금을 다시 자동 연동할까요?`
+              : '보증금을 수동으로 입력한 상태입니다. 참여 이벤트 변경에 맞춰 보증금을 다시 자동 연동할까요?'
+          }
+          cancelLabel="아니오"
+          confirmLabel="예, 연동하기"
+          onCancel={handleEventSecurityResyncCancel}
+          onConfirm={handleEventSecurityResyncConfirm}
         />
       </div>
     </div>
