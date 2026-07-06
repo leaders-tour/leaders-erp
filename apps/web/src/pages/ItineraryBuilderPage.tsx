@@ -103,8 +103,10 @@ import { resolveVehicleAssignmentsForHeadcount } from '../features/plan/builder-
 import { useSpecialMealDestinationRules } from '../features/plan/hooks/use-special-meal-destination-rules';
 import { buildMergedPlanStops } from '../features/plan/merge-plan-stops';
 import {
+  buildMainPlanRowPhysicalIndexes,
   countMainPlanStopRows,
   isMainPlanStopRow,
+  resolveMainPlanRowPhysicalIndex,
   type PlanStopRowBase,
   type PlanStopRowType,
 } from '../features/plan/plan-stop-row';
@@ -1165,14 +1167,9 @@ function mergeAutoRowsWithDirtyValues(
   autoRows: PlanRow[],
   dirtyFieldKeys: Set<string>,
 ): PlanRow[] {
-  const mainPhysicalIndexes = current.reduce<number[]>((acc, row, idx) => {
-    if (isMainPlanStopRow(row)) {
-      acc.push(idx);
-    }
-    return acc;
-  }, []);
+  const mainPhysicalIndexes = buildMainPlanRowPhysicalIndexes(current);
 
-  return autoRows.map((autoRow, mainIndex) => {
+  const mergedMainRows = autoRows.map((autoRow, mainIndex) => {
     const physicalIndex = mainPhysicalIndexes[mainIndex];
     const currentRow = physicalIndex !== undefined ? current[physicalIndex] : undefined;
 
@@ -1204,6 +1201,29 @@ function mergeAutoRowsWithDirtyValues(
     }
     return mergedRow;
   });
+
+  if (mainPhysicalIndexes.length === 0) {
+    return mergedMainRows.length > 0 ? mergedMainRows : current;
+  }
+
+  const result: PlanRow[] = [];
+  let mergedMainIndex = 0;
+  for (let physicalIndex = 0; physicalIndex < current.length; physicalIndex += 1) {
+    const row = current[physicalIndex]!;
+    if (!isMainPlanStopRow(row)) {
+      result.push(row);
+      continue;
+    }
+    if (mergedMainIndex < mergedMainRows.length) {
+      result.push(mergedMainRows[mergedMainIndex]!);
+      mergedMainIndex += 1;
+    }
+  }
+  while (mergedMainIndex < mergedMainRows.length) {
+    result.push(mergedMainRows[mergedMainIndex]!);
+    mergedMainIndex += 1;
+  }
+  return result;
 }
 
 const REGION_SETS_QUERY = gql`
@@ -4231,18 +4251,23 @@ export function ItineraryBuilderPage(): JSX.Element {
       }),
     [mergedPlanStops],
   );
+  const mainPlanRowPhysicalIndexes = useMemo(
+    () => buildMainPlanRowPhysicalIndexes(planRows),
+    [planRows],
+  );
   const displayPlanRows = useMemo(() => {
     let mainRowIndex = 0;
     return buildMergedPlanStops(planRows, normalizedExternalTransfers, transportGroups).map((row) => {
       if (row.rowType === 'EXTERNAL_TRANSFER') {
-        return { row, mainRowIndex: null as number | null };
+        return { row, mainRowIndex: null as number | null, planRowIndex: null as number | null };
       }
 
       const currentMainRowIndex = mainRowIndex;
+      const planRowIndex = mainPlanRowPhysicalIndexes[currentMainRowIndex] ?? currentMainRowIndex;
       mainRowIndex += 1;
-      return { row, mainRowIndex: currentMainRowIndex };
+      return { row, mainRowIndex: currentMainRowIndex, planRowIndex };
     });
-  }, [normalizedExternalTransfers, planRows, transportGroups]);
+  }, [mainPlanRowPhysicalIndexes, normalizedExternalTransfers, planRows, transportGroups]);
 
   const applyTemplate = (template: PlanTemplateRow, withConfirm = true): void => {
     const builderAllowsEarly =
@@ -5052,7 +5077,10 @@ export function ItineraryBuilderPage(): JSX.Element {
   };
   const previewPage2Editor: EstimatePage2Editor = {
     onMovementIntensityColorOverrideChange: (mainRowIndex, color) => {
-      updateMovementIntensityColorOverride(mainRowIndex, color);
+      updateMovementIntensityColorOverride(
+        resolveMainPlanRowPhysicalIndex(planRows, mainRowIndex),
+        color,
+      );
     },
     onOverallMovementIntensityColorOverrideChange: (color) => {
       setOverallMovementIntensityColorOverride(color);
@@ -7278,7 +7306,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                     </tr>
                   </thead>
                   <tbody>
-                    {displayPlanRows.map(({ row, mainRowIndex }, rowIndex) => {
+                    {displayPlanRows.map(({ row, mainRowIndex, planRowIndex }, rowIndex) => {
                       const isExternalRow = mainRowIndex === null;
                       const mealFields = parseMealCellText(row.mealCellText);
                       const timeCellValidation =
@@ -7330,10 +7358,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                               readOnly={isExternalRow}
                               disabled={isExternalRow}
                               onChange={(event) => {
-                                if (mainRowIndex === null) {
+                                if (planRowIndex === null) {
                                   return;
                                 }
-                                updateCell(mainRowIndex, 'dateCellText', event.target.value);
+                                updateCell(planRowIndex, 'dateCellText', event.target.value);
                                 autoResizeTextarea(event.currentTarget);
                               }}
                               onInput={(event) => autoResizeTextarea(event.currentTarget)}
@@ -7348,10 +7376,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                               readOnly={isExternalRow}
                               disabled={isExternalRow}
                               onChange={(event) => {
-                                if (mainRowIndex === null) {
+                                if (planRowIndex === null) {
                                   return;
                                 }
-                                updateCell(mainRowIndex, 'destinationCellText', event.target.value);
+                                updateCell(planRowIndex, 'destinationCellText', event.target.value);
                                 autoResizeTextarea(event.currentTarget);
                               }}
                               onInput={(event) => autoResizeTextarea(event.currentTarget)}
@@ -7367,10 +7395,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 readOnly={isExternalRow}
                                 disabled={isExternalRow}
                                 onChange={(event) => {
-                                  if (mainRowIndex === null) {
+                                  if (planRowIndex === null) {
                                     return;
                                   }
-                                  updateCell(mainRowIndex, 'timeCellText', event.target.value);
+                                  updateCell(planRowIndex, 'timeCellText', event.target.value);
                                   autoResizeTextarea(event.currentTarget);
                                 }}
                                 onInput={(event) => autoResizeTextarea(event.currentTarget)}
@@ -7391,10 +7419,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                               readOnly={isExternalRow}
                               disabled={isExternalRow}
                               onChange={(event) => {
-                                if (mainRowIndex === null) {
+                                if (planRowIndex === null) {
                                   return;
                                 }
-                                updateCell(mainRowIndex, 'scheduleCellText', event.target.value);
+                                updateCell(planRowIndex, 'scheduleCellText', event.target.value);
                                 autoResizeTextarea(event.currentTarget);
                               }}
                               onInput={(event) => autoResizeTextarea(event.currentTarget)}
@@ -7412,10 +7440,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  if (mainRowIndex === null) {
+                                  if (planRowIndex === null) {
                                     return;
                                   }
-                                  openLodgingUpgradeModal(mainRowIndex);
+                                  openLodgingUpgradeModal(planRowIndex);
                                 }}
                                 className="min-h-[44px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm leading-5 whitespace-pre-wrap text-slate-900 transition hover:border-slate-400 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20"
                                 aria-label={`${row.destinationCellText.trim() || '해당 일차'} 숙소 설정`}
@@ -7463,11 +7491,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         type="text"
                                         value={mealValue}
                                         onChange={(event) => {
-                                          if (mainRowIndex === null) {
+                                          if (planRowIndex === null) {
                                             return;
                                           }
                                           updateMealCellField(
-                                            mainRowIndex,
+                                            planRowIndex,
                                             field,
                                             event.target.value,
                                           );
@@ -7478,10 +7506,10 @@ export function ItineraryBuilderPage(): JSX.Element {
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          if (mainRowIndex === null) {
+                                          if (planRowIndex === null) {
                                             return;
                                           }
-                                          updateMealCellField(mainRowIndex, field, 'X');
+                                          updateMealCellField(planRowIndex, field, 'X');
                                         }}
                                         className={mealXButtonClassName}
                                         aria-label={`${label} 식사를 없음으로 표시`}
