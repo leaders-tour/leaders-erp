@@ -31,6 +31,7 @@ interface ConfirmedTripCalendarProps {
     total: number;
     countsByDate: ReadonlyMap<string, number>;
   } | null;
+  onBeforeNavigateToTrip?: (tripId: string) => void;
 }
 
 interface CalendarBlock {
@@ -290,8 +291,14 @@ export function ConfirmedTripCalendar({
   onRequestAddNote,
   onRequestEditNote,
   dailyRentalOccupancy,
+  onBeforeNavigateToTrip,
 }: ConfirmedTripCalendarProps): JSX.Element {
   const navigate = useNavigate();
+
+  function navigateToTripDetail(tripId: string) {
+    onBeforeNavigateToTrip?.(tripId);
+    navigate(`/confirmed-trips/${tripId}`);
+  }
 
   const daysInMonth = getDaysInMonth(year, month);
   const firstWeekday = getWeekdayIndex(year, month, 1);
@@ -466,7 +473,7 @@ export function ConfirmedTripCalendar({
                               <button
                                 key={note.key}
                                 type="button"
-                                onClick={() => navigate(`/confirmed-trips/${note.tripId}`)}
+                                onClick={() => navigateToTripDetail(note.tripId)}
                                 title={`${note.label} - ${note.leaderName}`}
                                 className={`w-full truncate text-left text-[11px] leading-4 transition hover:text-slate-900 ${
                                   note.status === 'CANCELLED' ? 'text-slate-400' : 'text-slate-700'
@@ -518,7 +525,7 @@ export function ConfirmedTripCalendar({
                   <button
                     key={block.key}
                     type="button"
-                    onClick={() => navigate(`/confirmed-trips/${block.tripId}`)}
+                    onClick={() => navigateToTripDetail(block.tripId)}
                     title={`${block.leaderName} (${block.headcount}명)`}
                     className={`absolute z-10 flex h-7 cursor-pointer items-center gap-1 truncate px-2.5 text-[11px] font-medium text-white transition ${color.bg} ${color.hover} ${roundingClass}`}
                     style={{

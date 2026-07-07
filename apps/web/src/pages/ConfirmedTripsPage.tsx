@@ -34,6 +34,7 @@ import {
 } from '../features/confirmed-trip/hooks';
 import { externalTransferTravelDateIso } from '../features/plan/external-transfer';
 import { isConfirmedTripRecentReturn } from '../features/confirmed-trip/recent-return';
+import { useConfirmedTripsScrollRestore } from '../features/confirmed-trip/useConfirmedTripsScrollRestore';
 import {
   tripMatchesAggRegions,
   parseAggRegionsParam,
@@ -1257,6 +1258,18 @@ export function ConfirmedTripsPage(): JSX.Element {
 
   const viewMode: ViewMode = searchParams.get('view') === 'calendar' ? 'calendar' : 'list';
 
+  const { saveBeforeNavigateToDetail } = useConfirmedTripsScrollRestore({
+    loading,
+    contentReady: !loading || allTrips.length > 0,
+    searchParams,
+    setSearchParams,
+  });
+
+  function navigateToTripDetail(tripId: string) {
+    saveBeforeNavigateToDetail(tripId);
+    navigate(`/confirmed-trips/${tripId}`);
+  }
+
   function setViewMode(mode: ViewMode) {
     setSearchParams(
       (prev) => {
@@ -1584,6 +1597,7 @@ export function ConfirmedTripsPage(): JSX.Element {
             onRequestAddNote={openAddNote}
             onRequestEditNote={openEditNote}
             dailyRentalOccupancy={dailyRentalOccupancy}
+            onBeforeNavigateToTrip={saveBeforeNavigateToDetail}
           />
         </Card>
       ) : (
@@ -1649,7 +1663,7 @@ export function ConfirmedTripsPage(): JSX.Element {
                       key={trip.id}
                       trip={trip}
                       filter={dateFilter}
-                      onClick={() => navigate(`/confirmed-trips/${trip.id}`)}
+                      onClick={() => navigateToTripDetail(trip.id)}
                       onSaveReservationDate={
                         dateFilter === 'reserved'
                           ? async (tripId, dateYmd) => {
