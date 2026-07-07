@@ -510,9 +510,9 @@ export function ConfirmedTripAssignPage(): JSX.Element {
       </header>
 
       {/* 2-column layout */}
-      <div className="grid gap-5 lg:grid-cols-[360px_1fr] items-start">
+      <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
         {/* 왼쪽: 가이드 + 기사 */}
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <PersonnelPanel
             key={trip.updatedAt}
             tripId={tripId}
@@ -523,6 +523,7 @@ export function ConfirmedTripAssignPage(): JSX.Element {
         </div>
 
         {/* 오른쪽: 숙소 배정 */}
+        <div className="min-w-0 max-w-full">
         <LodgingSection
           tripId={tripId}
           hasPlan={!!(trip.planId && trip.planVersionId)}
@@ -539,6 +540,7 @@ export function ConfirmedTripAssignPage(): JSX.Element {
               : null
           }
         />
+        </div>
       </div>
     </section>
   );

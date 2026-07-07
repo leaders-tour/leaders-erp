@@ -277,8 +277,8 @@ function AccommodationPicker({
 
   if (selected) {
     return (
-      <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
-        <div className="flex items-center justify-between mb-2">
+      <div className="min-w-0 max-w-full rounded-xl border border-blue-200 bg-blue-50 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold text-blue-900">{selected.name}</p>
             {selected.bookingPriority && (
@@ -305,13 +305,13 @@ function AccommodationPicker({
               return (
                 <div
                   key={opt.id}
-                  className={`rounded-xl border p-3 text-left transition-all ${
+                  className={`min-w-0 max-w-full overflow-hidden rounded-xl border p-3 text-left transition-all ${
                     isSelected
                       ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-300'
                       : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50'
                   }`}
                 >
-                  <div className="flex gap-3">
+                  <div className="flex min-w-0 gap-3">
                     <button
                       type="button"
                       onClick={() => {
@@ -320,7 +320,7 @@ function AccommodationPicker({
                         else next[opt.id] = 1;
                         onSetOptionRoomCounts(next);
                       }}
-                      className="flex min-w-0 flex-1 gap-3 text-left"
+                      className="flex min-w-0 flex-1 gap-2 text-left sm:gap-3"
                     >
                       <div className="h-16 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100">
                         {opt.imageUrls[0] ? (
@@ -388,7 +388,7 @@ function AccommodationPicker({
                   )}
 
                   {opt.imageUrls.length > 1 && (
-                    <div className="mt-2.5 flex gap-1.5 overflow-x-auto pb-0.5">
+                    <div className="mt-2.5 flex w-full max-w-full gap-1.5 overflow-x-auto pb-0.5">
                       {opt.imageUrls.slice(1).map((url, i) => (
                         <div key={i} className="h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100">
                           <img src={url} alt={`${opt.roomType} ${i + 2}`} className="h-full w-full object-cover" />
@@ -596,13 +596,13 @@ function InlineForm({
   };
 
   return (
-    <div className="mt-3 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div className="mt-3 min-w-0 max-w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
       {/* 헤더 */}
-      <div className="bg-slate-50 border-b border-slate-100 px-4 py-3">
+      <div className="border-b border-slate-100 bg-slate-50 px-4 py-3">
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">숙소 배정</p>
       </div>
 
-      <div className="p-4 grid gap-5">
+      <div className="grid min-w-0 gap-5 p-4">
         {/* ① 타입 탭 */}
         <div>
           <p className="mb-2 text-xs font-medium text-slate-400">타입</p>
@@ -664,7 +664,7 @@ function InlineForm({
         )}
 
         {/* ③ 객실수 + 메모 */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {form.type === 'ACCOMMODATION' ? (
             <div>
               <p className="mb-2 text-xs font-medium text-slate-400">객실 합계</p>
@@ -708,7 +708,7 @@ function InlineForm({
       </div>
 
       {/* 버튼 영역 */}
-      <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
+      <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
         <button
           type="button"
           onClick={onCancel}
@@ -842,8 +842,8 @@ function DayRow({
 
   /* ── 기본 카드 뷰 (배정 페이지용) ── */
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-4">
-      <div className="flex items-center justify-between">
+    <div className="min-w-0 max-w-full rounded-2xl border border-slate-100 bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white shrink-0">
             {dayIndex}
@@ -1070,8 +1070,8 @@ export function LodgingSection({
 
   /* ── 독립 카드 모드 ── */
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+    <section className="min-w-0 max-w-full rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">숙소 배정</h2>
           {nights != null && (
