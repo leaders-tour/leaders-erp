@@ -19,6 +19,12 @@ export const confirmationAppendixPlanStopRowSchema = z.object({
   movementIntensityColorOverride: z.string().nullable().optional(),
 });
 
+/** GraphQL nullable list and legacy JSON snapshots may store null; normalize to absent field. */
+const optionalAppendixPlanStopsSchema = z.preprocess(
+  (value) => (value === null ? undefined : value),
+  z.array(confirmationAppendixPlanStopRowSchema).optional(),
+);
+
 export const confirmationDocumentSnapshotSchema = z.object({
   leaderName: z.string().trim().min(1),
   documentNumber: z.string().trim().nullable().optional(),
@@ -40,7 +46,7 @@ export const confirmationDocumentSnapshotSchema = z.object({
   meetingPlace: z.string().trim().min(1),
   travelers: z.array(confirmationTravelerSchema),
   accommodationLines: z.array(z.string().trim().min(1)),
-  appendixPlanStops: z.array(confirmationAppendixPlanStopRowSchema).optional(),
+  appendixPlanStops: optionalAppendixPlanStopsSchema,
   sourcePlanVersionId: z.string().trim().min(1).nullable().optional(),
   overallMovementIntensityColorOverride: z.string().nullable().optional(),
 });
