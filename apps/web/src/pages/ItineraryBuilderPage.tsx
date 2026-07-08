@@ -2919,6 +2919,12 @@ export function ItineraryBuilderPage(): JSX.Element {
     variantType: VariantType;
     totalDays: number;
   } | null>(null);
+  const parentCloneTravelDatesBaselineRef = useRef<{
+    travelStartDate: string;
+    travelEndDate: string;
+    totalDays: number;
+  } | null>(null);
+  const hasEditedParentCloneTravelScheduleRef = useRef<boolean>(false);
 
   const { rules: specialMealDestinationRules } = useSpecialMealDestinationRules();
   const { colors: settingsMovementIntensityColors } = useMovementIntensityColorSettings();
@@ -2935,6 +2941,8 @@ export function ItineraryBuilderPage(): JSX.Element {
     suppressAutoRowsMergeOnceRef.current = false;
     skipAutoRowMergeForParentCloneRef.current = false;
     parentCloneScheduleBaselineRef.current = null;
+    parentCloneTravelDatesBaselineRef.current = null;
+    hasEditedParentCloneTravelScheduleRef.current = false;
   }, [parentVersionId]);
 
   useEffect(() => {
@@ -3180,6 +3188,11 @@ export function ItineraryBuilderPage(): JSX.Element {
     setLeaderName(meta.leaderName);
     setTravelStartDate(meta.travelStartDate.slice(0, 10));
     setTravelEndDate(meta.travelEndDate.slice(0, 10));
+    parentCloneTravelDatesBaselineRef.current = {
+      travelStartDate: meta.travelStartDate.slice(0, 10),
+      travelEndDate: meta.travelEndDate.slice(0, 10),
+      totalDays: parentVersion.totalDays,
+    };
     setHeadcountTotal(meta.headcountTotal);
     setHeadcountMale(meta.headcountMale);
     hasEditedHeadcountMaleRef.current = true;
@@ -3722,15 +3735,40 @@ export function ItineraryBuilderPage(): JSX.Element {
   }, [totalDays]);
 
   useEffect(() => {
+    const hydrationPending =
+      Boolean(parentVersionId) &&
+      (parentVersionLoading || isWaitingForParentTransportGroupsRef.current);
+
+    if (hydrationPending) {
+      return;
+    }
+
     if (!travelStartDate) {
       setTravelEndDate('');
       return;
     }
-    if (parentVersionId && skipAutoRowMergeForParentCloneRef.current) {
+
+    const travelBaseline = parentCloneTravelDatesBaselineRef.current;
+    const matchesTravelBaseline =
+      travelBaseline != null &&
+      travelStartDate === travelBaseline.travelStartDate &&
+      totalDays === travelBaseline.totalDays;
+
+    if (
+      parentVersionId &&
+      travelBaseline &&
+      !hasEditedParentCloneTravelScheduleRef.current &&
+      matchesTravelBaseline
+    ) {
       return;
     }
+
+    if (parentVersionId && travelBaseline && !matchesTravelBaseline) {
+      hasEditedParentCloneTravelScheduleRef.current = true;
+    }
+
     setTravelEndDate(toAutoTravelEndDate(travelStartDate, totalDays));
-  }, [totalDays, travelStartDate, parentVersionId]);
+  }, [parentVersionId, parentVersionLoading, totalDays, travelStartDate]);
 
   const updateTransportGroup = <K extends keyof TransportGroupDraft>(
     index: number,
@@ -4039,7 +4077,20 @@ export function ItineraryBuilderPage(): JSX.Element {
   };
 
   useEffect(() => {
-    if (parentVersionId && skipAutoRowMergeForParentCloneRef.current) {
+    const hydrationPending =
+      Boolean(parentVersionId) &&
+      (parentVersionLoading || isWaitingForParentTransportGroupsRef.current);
+    const travelBaseline = parentCloneTravelDatesBaselineRef.current;
+    const matchesTravelBaseline =
+      travelBaseline != null &&
+      travelStartDate === travelBaseline.travelStartDate &&
+      totalDays === travelBaseline.totalDays;
+    const preserveParentTransportTravelSync =
+      Boolean(parentVersionId) &&
+      !hasEditedParentCloneTravelScheduleRef.current &&
+      matchesTravelBaseline;
+
+    if (hydrationPending || preserveParentTransportTravelSync) {
       return;
     }
     setTransportGroups((current) =>
@@ -4058,7 +4109,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         return nextGroup;
       }),
     );
-  }, [parentVersionId, travelEndDate, travelStartDate]);
+  }, [parentVersionId, parentVersionLoading, totalDays, travelEndDate, travelStartDate]);
 
   useEffect(() => {
     const preserveParentCloneHeadcounts = shouldPreserveParentCloneTransportHeadcounts({
