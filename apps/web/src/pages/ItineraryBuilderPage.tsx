@@ -2348,6 +2348,39 @@ function applyPartitionHeadcountOnTeamEdit(
   });
 }
 
+function shouldPreserveParentCloneTransportHeadcounts(input: {
+  parentVersionId: string;
+  parentVersionLoading: boolean;
+  isWaitingForParentTransportGroups: boolean;
+  hasHydratedParentVersion: boolean;
+}): boolean {
+  if (!input.parentVersionId) {
+    return false;
+  }
+  return (
+    input.parentVersionLoading ||
+    input.isWaitingForParentTransportGroups ||
+    input.hasHydratedParentVersion
+  );
+}
+
+function applyHeadcountTotalToTransportGroups<T extends { headcount: number }>(
+  groups: T[],
+  nextTotal: number,
+): T[] {
+  if (groups.length === 0) {
+    return groups;
+  }
+  if (groups.length === 1 && groups[0]) {
+    return [{ ...groups[0], headcount: nextTotal }];
+  }
+  const counts = distributeHeadcountTotalAcrossTeams(nextTotal, groups.length);
+  if (!counts) {
+    return groups;
+  }
+  return applyTeamHeadcountsToGroups(groups, counts);
+}
+
 function toSegmentTimeCell(
   segmentVersion:
     | {
@@ -3217,6 +3250,8 @@ export function ItineraryBuilderPage(): JSX.Element {
             dropPlaceCustomText: group.dropPlaceCustomText ?? '',
             hasEditedFlightIn: true,
             hasEditedFlightOut: true,
+            hasEditedPickup: true,
+            hasEditedDrop: true,
           }))
         : [
             {
@@ -3232,6 +3267,8 @@ export function ItineraryBuilderPage(): JSX.Element {
               }),
               hasEditedFlightIn: true,
               hasEditedFlightOut: true,
+              hasEditedPickup: true,
+              hasEditedDrop: true,
             },
           ];
     setTransportGroups(hydratedTransportGroups);
@@ -3689,8 +3726,11 @@ export function ItineraryBuilderPage(): JSX.Element {
       setTravelEndDate('');
       return;
     }
+    if (parentVersionId && skipAutoRowMergeForParentCloneRef.current) {
+      return;
+    }
     setTravelEndDate(toAutoTravelEndDate(travelStartDate, totalDays));
-  }, [totalDays, travelStartDate]);
+  }, [totalDays, travelStartDate, parentVersionId]);
 
   const updateTransportGroup = <K extends keyof TransportGroupDraft>(
     index: number,
@@ -3999,6 +4039,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   };
 
   useEffect(() => {
+    if (parentVersionId && skipAutoRowMergeForParentCloneRef.current) {
+      return;
+    }
     setTransportGroups((current) =>
       current.map((group, index) => {
         let nextGroup = { ...group };
@@ -4015,11 +4058,21 @@ export function ItineraryBuilderPage(): JSX.Element {
         return nextGroup;
       }),
     );
-  }, [travelEndDate, travelStartDate]);
+  }, [parentVersionId, travelEndDate, travelStartDate]);
 
   useEffect(() => {
+    const preserveParentCloneHeadcounts = shouldPreserveParentCloneTransportHeadcounts({
+      parentVersionId,
+      parentVersionLoading,
+      isWaitingForParentTransportGroups: isWaitingForParentTransportGroupsRef.current,
+      hasHydratedParentVersion: hasHydratedParentVersionRef.current,
+    });
+
     setTransportGroups((current) => {
       if (current.length === 0) {
+        if (preserveParentCloneHeadcounts) {
+          return current;
+        }
         return [
           createTransportGroupDraft({
             index: 0,
@@ -4038,27 +4091,16 @@ export function ItineraryBuilderPage(): JSX.Element {
         return nextGroup;
       });
 
-      const firstGroup = nextGroups[0];
-      if (nextGroups.length === 1 && firstGroup && firstGroup.headcount !== headcountTotal) {
-        nextGroups[0] = { ...firstGroup, headcount: headcountTotal };
-      }
-
-      if (usesTransportTeamHeadcountModal(nextGroups.length)) {
-        const currentSum = nextGroups.reduce((sum, group) => sum + group.headcount, 0);
-        if (currentSum !== headcountTotal) {
-          const counts = distributeHeadcountTotalAcrossTeams(headcountTotal, nextGroups.length);
-          if (counts) {
-            return nextGroups.map((group, index) => ({
-              ...group,
-              headcount: counts[index]!,
-            }));
-          }
+      if (!preserveParentCloneHeadcounts) {
+        const firstGroup = nextGroups[0];
+        if (nextGroups.length === 1 && firstGroup && firstGroup.headcount !== headcountTotal) {
+          nextGroups[0] = { ...firstGroup, headcount: headcountTotal };
         }
       }
 
       return nextGroups;
     });
-  }, [headcountTotal, travelEndDate, travelStartDate]);
+  }, [headcountTotal, parentVersionId, parentVersionLoading, travelEndDate, travelStartDate]);
 
   useEffect(() => {
     const nextVariantType = computeAutoVariantSyncUpdate(
@@ -4556,6 +4598,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       }),
     );
     setHeadcountTotal(nextTotal);
+    setTransportGroups((current) => applyHeadcountTotalToTransportGroups(current, nextTotal));
     setHeadcountMale((current) =>
       hasEditedHeadcountMaleRef.current
         ? Math.min(current, nextTotal)
