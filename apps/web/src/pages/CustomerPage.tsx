@@ -4,6 +4,12 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CustomerDeletePanel, CustomerSelector, PlanListPanel } from '../features/plan/components';
 import { matchesCustomerSearchKeyword } from '../features/plan/customerSearch';
 import {
+  countCustomersWithMinTeams,
+  customerHasMinTeams,
+  parseCustomerMinTeamsFilter,
+  type CustomerMinTeamsFilter,
+} from '../features/plan/customerTeamFilter';
+import {
   CUSTOMER_TRIP_STATUS_LABELS,
   calcGroupCounts,
   getCustomerTripStatus,
@@ -50,6 +56,10 @@ export function CustomerPage(): JSX.Element {
   const selectedUserId = searchParams.get('userId') ?? '';
   const customerSearch = getQueryParam(searchParams, 'q');
   const statusFilter = parseCustomerStatusFilter(searchParams.get('status'));
+  const minTeamsFilter = parseCustomerMinTeamsFilter(
+    searchParams.get('minTeams'),
+    searchParams.get('multiTeam') === '1',
+  );
   const [deletePanelOpen, setDeletePanelOpen] = useState(false);
 
   function setCustomerSearch(value: string) {
@@ -63,18 +73,37 @@ export function CustomerPage(): JSX.Element {
     });
   }
 
+  function setMinTeamsFilter(minTeams: CustomerMinTeamsFilter | null) {
+    patchSearchParams(setSearchParams, (prev) => {
+      prev.delete('multiTeam');
+      if (minTeams == null) {
+        prev.delete('minTeams');
+      } else {
+        prev.set('minTeams', String(minTeams));
+      }
+    });
+  }
+
   function setSelectedUserId(userId: string) {
     patchSearchParams(setSearchParams, (prev) => setOptionalQueryParam(prev, 'userId', userId || undefined));
   }
 
   const groupCounts = useMemo(() => calcGroupCounts(users), [users]);
+  const minTeamCounts = useMemo(
+    (): Record<CustomerMinTeamsFilter, number> => ({
+      2: countCustomersWithMinTeams(users, 2),
+      3: countCustomersWithMinTeams(users, 3),
+    }),
+    [users],
+  );
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
       if (statusFilter !== 'all' && getCustomerTripStatus(user) !== statusFilter) return false;
+      if (minTeamsFilter != null && !customerHasMinTeams(user, minTeamsFilter)) return false;
       return matchesCustomerSearchKeyword(user, customerSearch);
     });
-  }, [customerSearch, users, statusFilter]);
+  }, [customerSearch, minTeamsFilter, users, statusFilter]);
 
   useEffect(() => {
     if (!selectedUserId && filteredUsers.length > 0) {
@@ -116,6 +145,9 @@ export function CustomerPage(): JSX.Element {
             statusFilter={statusFilter}
             onChangeStatusFilter={setStatusFilter}
             groupCounts={groupCounts}
+            minTeamsFilter={minTeamsFilter}
+            onChangeMinTeamsFilter={setMinTeamsFilter}
+            minTeamCounts={minTeamCounts}
           />
         </div>
 

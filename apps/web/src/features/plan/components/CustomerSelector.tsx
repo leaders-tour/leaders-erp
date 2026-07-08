@@ -6,11 +6,17 @@ import {
   getCustomerTripStatus,
   type CustomerTripStatus,
 } from '../customerTripStatus';
+import type { CustomerMinTeamsFilter } from '../customerTeamFilter';
 import type { UserRow } from '../hooks';
 
 type StatusFilterKey = CustomerTripStatus | 'all';
 
 const STATUS_FILTER_KEYS: StatusFilterKey[] = ['all', 'pre', 'confirmed', 'ongoing', 'done'];
+
+const MIN_TEAMS_FILTER_OPTIONS: Array<{ value: CustomerMinTeamsFilter; label: string }> = [
+  { value: 2, label: '2팀 이상' },
+  { value: 3, label: '3팀 이상' },
+];
 
 interface CustomerSelectorProps {
   users: UserRow[];
@@ -21,6 +27,9 @@ interface CustomerSelectorProps {
   statusFilter?: StatusFilterKey;
   onChangeStatusFilter?: (value: StatusFilterKey) => void;
   groupCounts?: Record<StatusFilterKey, number>;
+  minTeamsFilter?: CustomerMinTeamsFilter | null;
+  onChangeMinTeamsFilter?: (value: CustomerMinTeamsFilter | null) => void;
+  minTeamCounts?: Record<CustomerMinTeamsFilter, number>;
   hideStatusFilter?: boolean;
 }
 
@@ -33,6 +42,9 @@ export function CustomerSelector({
   statusFilter,
   onChangeStatusFilter,
   groupCounts,
+  minTeamsFilter = null,
+  onChangeMinTeamsFilter,
+  minTeamCounts,
   hideStatusFilter = false,
 }: CustomerSelectorProps): JSX.Element {
   return (
@@ -69,6 +81,35 @@ export function CustomerSelector({
                   }`}
                 >
                   {groupCounts[key]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {onChangeMinTeamsFilter && minTeamCounts ? (
+        <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
+          {MIN_TEAMS_FILTER_OPTIONS.map(({ value, label }) => {
+            const isActive = minTeamsFilter === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onChangeMinTeamsFilter(isActive ? null : value)}
+                className={`flex shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {label}
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  {minTeamCounts[value]}
                 </span>
               </button>
             );
