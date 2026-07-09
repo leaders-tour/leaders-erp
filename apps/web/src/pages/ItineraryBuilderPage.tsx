@@ -3427,11 +3427,13 @@ export function ItineraryBuilderPage(): JSX.Element {
     if (
       isWaitingForParentTransportGroupsRef.current &&
       parentVersion?.meta &&
-      transportGroups.length !== parentVersion.meta.transportGroups.length
+      (transportGroups.length !== parentVersion.meta.transportGroups.length || !travelStartDate)
     ) {
       return;
     }
-    isWaitingForParentTransportGroupsRef.current = false;
+    if (isWaitingForParentTransportGroupsRef.current) {
+      isWaitingForParentTransportGroupsRef.current = false;
+    }
 
     setExternalTransfers((current) =>
       normalizeExternalTransfers(
@@ -3448,7 +3450,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         ),
       ),
     );
-  }, [parentVersion?.meta, transportGroups]);
+  }, [parentVersion?.meta, transportGroups, travelStartDate]);
 
   const filteredLocations = locations;
   const filteredOvernightStays = overnightStays;
@@ -3744,6 +3746,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     }
 
     if (!travelStartDate) {
+      if (parentVersionId && parentCloneTravelDatesBaselineRef.current) {
+        return;
+      }
       setTravelEndDate('');
       return;
     }
@@ -3760,6 +3765,9 @@ export function ItineraryBuilderPage(): JSX.Element {
       !hasEditedParentCloneTravelScheduleRef.current &&
       matchesTravelBaseline
     ) {
+      if (travelEndDate !== travelBaseline.travelEndDate) {
+        setTravelEndDate(travelBaseline.travelEndDate);
+      }
       return;
     }
 
@@ -3767,8 +3775,11 @@ export function ItineraryBuilderPage(): JSX.Element {
       hasEditedParentCloneTravelScheduleRef.current = true;
     }
 
-    setTravelEndDate(toAutoTravelEndDate(travelStartDate, totalDays));
-  }, [parentVersionId, parentVersionLoading, totalDays, travelStartDate]);
+    const nextTravelEndDate = toAutoTravelEndDate(travelStartDate, totalDays);
+    if (travelEndDate !== nextTravelEndDate) {
+      setTravelEndDate(nextTravelEndDate);
+    }
+  }, [parentVersionId, parentVersionLoading, totalDays, travelEndDate, travelStartDate]);
 
   const updateTransportGroup = <K extends keyof TransportGroupDraft>(
     index: number,
