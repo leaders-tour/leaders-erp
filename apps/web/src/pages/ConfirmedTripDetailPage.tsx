@@ -1,9 +1,6 @@
 import { Button, Card } from '@tour/ui';
 import { formatVehicleAssignmentsForDisplay, normalizeVehicleAssignments } from '@tour/validation';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmationPdfPreviewPanel } from '../features/confirmation/components/ConfirmationPdfPreviewPanel';
 import { useConfirmationDocuments } from '../features/confirmation/hooks/use-confirmation-document';
@@ -15,6 +12,7 @@ import {
   resolveConfirmationBuilderRowActionLabel,
 } from '../features/confirmation/utils/confirmation-builder-source';
 import { LinkifiedText } from '../components/LinkifiedText';
+import { PdfPageViewer } from '../components/pdf/PdfPageViewer';
 import { TooltipHelpIcon } from '../components/TooltipHelpIcon';
 import { useAuth } from '../features/auth/context';
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
@@ -70,12 +68,6 @@ import { PostTripTaskMultiSelect } from '../features/confirmed-trip/PostTripTask
 import { usePlanVersions, useUpdateUser, useUploadUserAttachment } from '../features/plan/hooks';
 import { toVariantLabel } from '../features/plan/variant-label';
 import { API_BASE_URL } from '../lib/api-base-url';
-import { GRAPHQL_URL } from '../lib/graphql-endpoint';
-
-/** pdf-proxy 엔드포인트 base (GRAPHQL_URL과 동일 서버) */
-const PDF_PROXY_BASE = GRAPHQL_URL.replace(/\/graphql$/, '');
-
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface AttachmentItem {
   filename: string;
@@ -122,115 +114,6 @@ function formatConfirmationDocumentDate(value: string | null | undefined): strin
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
-}
-
-function PdfPageViewer({ url, filename }: { url: string; filename: string }) {
-  const [numPages, setNumPages] = useState<number | null>(null);
-  const [useProxy, setUseProxy] = useState(false);
-  const [fatalError, setFatalError] = useState(false);
-  const [pageWidth, setPageWidth] = useState(640);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const proxyUrl = `${PDF_PROXY_BASE}/api/pdf-proxy?url=${encodeURIComponent(url)}`;
-  const effectiveUrl = useProxy ? proxyUrl : url;
-  const pagesToShow = numPages ? Math.min(numPages, 2) : 2;
-
-  /** Hi-DPI: 캔버스 내부 해상도를 올려 Retina 등에서 뭉개짐 완화 */
-  const canvasDevicePixelRatio =
-    typeof window !== 'undefined'
-      ? Math.min(3, Math.max(window.devicePixelRatio || 1, 2))
-      : 2;
-
-  useLayoutEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const w = el.getBoundingClientRect().width;
-    if (w > 0) setPageWidth(Math.floor(w));
-  }, []);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width;
-      if (w && w > 0) setPageWidth(Math.floor(w));
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  const handleLoadError = () => {
-    if (!useProxy) {
-      setUseProxy(true);
-    } else {
-      setFatalError(true);
-    }
-  };
-
-  return (
-    <div className="grid gap-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-slate-500 truncate">{filename}</p>
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 text-xs text-blue-600 hover:underline ml-3"
-        >
-          전체 열기 ↗
-        </a>
-      </div>
-      {fatalError ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          <p className="font-medium">PDF를 렌더링할 수 없습니다.</p>
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 inline-block text-xs text-blue-600 hover:underline"
-          >
-            새 탭에서 열기 ↗
-          </a>
-        </div>
-      ) : (
-        <div ref={containerRef} className="w-full min-w-0">
-          <Document
-            key={effectiveUrl}
-            file={effectiveUrl}
-            onLoadSuccess={({ numPages: n }) => setNumPages(n)}
-            onLoadError={handleLoadError}
-            loading={
-              <div className="flex items-center justify-center rounded-2xl bg-slate-100 py-16 text-sm text-slate-400">
-                PDF 로딩 중...
-              </div>
-            }
-            className="grid gap-3"
-          >
-            {Array.from({ length: pagesToShow }, (_, i) => (
-              <div
-                key={i + 1}
-                className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm"
-              >
-                <p className="border-b border-slate-100 bg-slate-50 px-3 py-1.5 text-xs text-slate-400">
-                  {i + 1}페이지
-                </p>
-                <div className="flex justify-center overflow-x-auto bg-white">
-                  <Page
-                    pageNumber={i + 1}
-                    width={pageWidth}
-                    devicePixelRatio={canvasDevicePixelRatio}
-                    renderAnnotationLayer={false}
-                    renderTextLayer={false}
-                  />
-                </div>
-              </div>
-            ))}
-          </Document>
-        </div>
-      )}
-    </div>
-  );
 }
 
 type PdfJobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
