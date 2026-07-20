@@ -21,6 +21,7 @@ import {
   useRentalItemAvailability,
   useUpdateConfirmedTrip,
 } from '../features/confirmed-trip/hooks';
+import { resolveUserDisplayNameText } from '../features/plan/components/UserDisplayName';
 import { RentalItemAvailabilityBadges } from '../features/confirmed-trip/RentalItemAvailabilityBadges';
 import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../features/plan/pickup-drop';
 import { buildEffectivePricing, resolveAdjustmentLinesForCustomerDocument } from '../features/pricing/manual-pricing';
@@ -369,7 +370,7 @@ export function PlanVersionDetailPage(): JSX.Element {
             {version.plan.title} · v{version.versionNumber}
           </h1>
           <p className="mt-1 text-sm text-slate-600">
-            고객: {version.plan.user.name} · 지역 세트: {regionSetName}
+            고객: {resolveUserDisplayNameText(version.plan.user)} · 지역 세트: {regionSetName}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

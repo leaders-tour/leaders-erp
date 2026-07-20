@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button, Card } from '@tour/ui';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { resolveUserDisplayNameText } from '../features/plan/components/UserDisplayName';
 import { ConfirmationBuilderForm } from '../features/confirmation/components/ConfirmationBuilderForm';
 import { ConfirmationDocument } from '../features/confirmation/components/ConfirmationDocument';
 import {
@@ -416,7 +417,7 @@ export function ConfirmationBuilderPage(): JSX.Element {
             <div>
               <h1 className="text-lg font-semibold text-slate-900">확정서 빌더</h1>
               <p className="mt-1 text-xs leading-snug text-slate-600">
-                {trip.user.name} · {trip.planVersion?.meta?.leaderName ?? trip.destination ?? '확정 여행'}
+                {resolveUserDisplayNameText(trip.user)} · {trip.planVersion?.meta?.leaderName ?? trip.destination ?? '확정 여행'}
               </p>
               <p className="mt-1 text-[11px] text-slate-500">{sourceDetail}</p>
             </div>

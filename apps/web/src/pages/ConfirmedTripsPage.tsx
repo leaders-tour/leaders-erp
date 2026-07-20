@@ -3,6 +3,7 @@ import { useEffect, useMemo, useReducer, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarNoteModal } from '../features/confirmed-trip/CalendarNoteModal';
 import { ConfirmedTripCalendar } from '../features/confirmed-trip/ConfirmedTripCalendar';
+import { ConfirmedTripLeaderName } from '../features/confirmed-trip/ConfirmedTripLeaderName';
 import { CreateConfirmedTripModal } from '../features/confirmed-trip/CreateConfirmedTripModal';
 import {
   buildEquipmentRentalConflicts,
@@ -32,6 +33,7 @@ import {
   type CalendarNoteRow,
   type ConfirmedTripRow,
 } from '../features/confirmed-trip/hooks';
+import { resolveUserDisplayName } from '../features/plan/format-user-display-name';
 import { externalTransferTravelDateIso } from '../features/plan/external-transfer';
 import { isConfirmedTripRecentReturn } from '../features/confirmed-trip/recent-return';
 import { useConfirmedTripsScrollRestore } from '../features/confirmed-trip/useConfirmedTripsScrollRestore';
@@ -247,6 +249,7 @@ function getTripSearchText(trip: ConfirmedTripRow): string {
   return [
     getTripLeaderName(trip),
     trip.user.name,
+    resolveUserDisplayName(trip.user),
     trip.user.email,
     startStr,
     endStr,
@@ -957,7 +960,7 @@ function TripTableRow({
       {/* 대표자명 */}
       <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
         <span className="inline-flex items-center gap-1.5">
-          <span>{getTripLeaderName(trip)}</span>
+          <ConfirmedTripLeaderName trip={trip} />
           {isConfirmedTripRecentReturn(trip.id) ? (
             <span className="text-xs font-medium text-blue-600">방금</span>
           ) : null}

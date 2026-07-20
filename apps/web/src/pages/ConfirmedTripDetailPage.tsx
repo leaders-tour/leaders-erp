@@ -37,7 +37,6 @@ import {
   type ConfirmedTripNoteRow,
   getTripStartDate,
   getTripEndDate,
-  getTripLeaderName,
   getTripHeadcount,
   getTripDestination,
   getTripPickupDate,
@@ -62,7 +61,9 @@ import {
   type TripDocumentPreviewRemoteTarget,
 } from '../features/confirmed-trip/TripDocumentPreviewRemote';
 import { useContractPaymentReceipts, useContractSubmissions } from '../features/contract/hooks';
+import { ConfirmedTripLeaderName } from '../features/confirmed-trip/ConfirmedTripLeaderName';
 import { ConfirmedTripScheduleSection } from '../features/confirmed-trip/ConfirmedTripScheduleSection';
+import { UserDisplayName } from '../features/plan/components/UserDisplayName';
 import { KoreaTeamStageMultiSelect } from '../features/confirmed-trip/KoreaTeamStageMultiSelect';
 import { PostTripTaskMultiSelect } from '../features/confirmed-trip/PostTripTaskMultiSelect';
 import { usePlanVersions, useUpdateUser, useUploadUserAttachment } from '../features/plan/hooks';
@@ -1220,7 +1221,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-            {getTripLeaderName(trip)}
+            <ConfirmedTripLeaderName trip={trip} />
           </h1>
           {trip.plan && trip.planVersion ? (
             <p className="mt-1 text-sm text-slate-600">
@@ -2088,7 +2089,9 @@ export function ConfirmedTripDetailPage(): JSX.Element {
             <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-2">
               <div>
                 <span className="text-slate-500">고객</span>
-                <p className="font-medium">{trip.user.name}</p>
+                <p className="font-medium">
+                  <UserDisplayName user={trip.user} />
+                </p>
               </div>
               <div>
                 <span className="text-slate-500">담당자</span>

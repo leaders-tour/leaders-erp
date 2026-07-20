@@ -53,6 +53,8 @@ import {
   type UserNoteRow,
   type UserRow,
 } from '../features/plan/hooks';
+import { resolveUserDisplayNameText } from '../features/plan/components/UserDisplayName';
+import { userDisplayNameMatchesKeyword } from '../features/plan/format-user-display-name';
 import {
   calculateTourDayNumber,
   getActiveConfirmedTrip,
@@ -284,7 +286,7 @@ function getUserHeadcount(user: UserRow, contractStatus: ContractDocumentStatusR
 
 function formatUserCardTitle(user: UserRow, contractStatus: ContractDocumentStatusRow | null): string {
   const headcount = getUserHeadcount(user, contractStatus);
-  return `${user.name}${headcount ? ` ${headcount}명` : ''}`;
+  return `${resolveUserDisplayNameText(user)}${headcount ? ` ${headcount}명` : ''}`;
 }
 
 function getUserTravelStartDate(user: UserRow): string | null {
@@ -2023,7 +2025,9 @@ export function DealPipelinePage(): JSX.Element {
 
     const visibleUsers = normalizedKeyword
       ? users.filter((user) => {
-          const nameMatched = user.name.toLowerCase().includes(normalizedKeyword);
+          const nameMatched =
+            user.name.toLowerCase().includes(normalizedKeyword) ||
+            userDisplayNameMatchesKeyword(user, normalizedKeyword);
           const emailMatched = user.email?.toLowerCase().includes(normalizedKeyword) ?? false;
           return nameMatched || emailMatched;
         })

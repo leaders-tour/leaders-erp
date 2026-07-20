@@ -3,6 +3,7 @@ import { Button, Card } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CreateVersionModal, VersionListPanel, VersionTreePanel } from '../features/plan/components';
+import { UserDisplayName } from '../features/plan/components/UserDisplayName';
 import { useActiveConfirmedTripByPlan } from '../features/confirmed-trip/hooks';
 import {
   useDeletePlanVersion,
@@ -107,7 +108,9 @@ export function PlanDetailPage(): JSX.Element {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{plan.title}</h1>
             <p className="mt-1 text-sm text-slate-600">
-              대표자: {currentLeaderName} · 고객: {plan.user.name} · 지역 세트: {plan.regionSet.name}
+              대표자: {currentLeaderName} · 고객:{' '}
+              <UserDisplayName user={plan.user} className="inline-flex" /> · 지역 세트:{' '}
+              {plan.regionSet.name}
             </p>
           </div>
           <div className="flex gap-2">
@@ -171,7 +174,7 @@ export function PlanDetailPage(): JSX.Element {
           <VersionListPanel
             versions={sortedVersions}
             currentVersionId={plan.currentVersionId}
-            customerName={plan.user.name}
+            customerName={plan.user.displayName ?? plan.user.name}
             onOpenVersion={(versionId) => navigate(`/plans/${plan.id}/versions/${versionId}`)}
             onOpenEstimatePdf={(versionId) =>
               navigate(`/documents/estimate?mode=version&versionId=${encodeURIComponent(versionId)}`)

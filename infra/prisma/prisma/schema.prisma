@@ -450,9 +450,10 @@ model ContactSuppression {
 }
 
 model User {
-  id              String    @id @default(uuid(7))
-  name            String
-  email           String?   @unique
+  id                String    @id @default(uuid(7))
+  name              String
+  nameDisambiguator String?
+  email             String?   @unique
   dealStage       DealStage @default(CONSULTING)
   dealStageOrder  Int       @default(0)
   ownerEmployeeId String?

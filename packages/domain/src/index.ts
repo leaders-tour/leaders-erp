@@ -17,6 +17,7 @@ export * from './lib/customer-document-transport-format';
 export * from './lib/customer-document-external-transfer-format';
 export * from './lib/customer-document-balance-display';
 export * from './lib/customer-document-plan-meta-fields';
+export * from './lib/format-user-display-name';
 export * from './models/activity';
 export * from './models/cafe-lead';
 export * from './models/cafe-source';

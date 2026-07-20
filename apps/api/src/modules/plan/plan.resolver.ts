@@ -1,4 +1,5 @@
 import type { MovementIntensity } from '@prisma/client';
+import { formatUserDisplayName } from '@tour/domain';
 import { normalizeVehicleAssignments } from '@tour/validation';
 import type { AppContext } from '../../context';
 import type { UploadFile } from '../../lib/file-storage/client';
@@ -178,6 +179,8 @@ export const planResolver = {
     deletePlan: (_parent: unknown, args: IdArgs, ctx: AppContext) => new PlanService(ctx.prisma).delete(args.id),
   },
   User: {
+    displayName: (parent: { name: string; nameDisambiguator?: string | null }) =>
+      formatUserDisplayName(parent.name, parent.nameDisambiguator),
     userDealTodos: (parent: { dealTodos?: unknown[] }) => (Array.isArray(parent.dealTodos) ? parent.dealTodos : []),
     ownerEmployee: (parent: { ownerEmployee?: unknown }) => parent.ownerEmployee ?? null,
     plans: (parent: { plans?: unknown[] }) => (Array.isArray(parent.plans) ? parent.plans : []),

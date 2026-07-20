@@ -19,6 +19,10 @@ import { createValidationError, DomainError } from '../../lib/errors';
 import { FileStorageClient, type UploadFile } from '../../lib/file-storage/client';
 import { resolveRegionSetRegionIds } from '../../lib/resolve-region-set';
 import { UserDeleteIncompleteError, deleteUserGraph } from './delete-user';
+import {
+  reconcileUserNameDisambiguatorsForName,
+  reconcileUserNameDisambiguatorsForNames,
+} from './user-name-disambiguation.service';
 import { PricingService } from '../pricing/pricing.service';
 import { PlanRepository } from './plan.repository';
 import type {
@@ -529,7 +533,10 @@ export class PlanService {
     }
 
     await this.validateOwnerEmployeeId(parsed.data.ownerEmployeeId);
-    return new PlanRepository(this.prisma).createUser(parsed.data);
+    const repository = new PlanRepository(this.prisma);
+    const created = await repository.createUser(parsed.data);
+    await reconcileUserNameDisambiguatorsForName(this.prisma, created.name);
+    return (await repository.findUserById(created.id)) ?? created;
   }
 
   async updateUser(id: string, input: UserUpdateDto) {
@@ -550,9 +557,10 @@ export class PlanService {
       return new PlanRepository(this.prisma).updateUser(id, parsed.data);
     }
 
-    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const previousName = existing.name;
+    const updatedUser = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const repository = new PlanRepository(tx);
-      const updatedUser = await repository.updateUser(id, parsed.data);
+      const user = await repository.updateUser(id, parsed.data);
       await repository.updateUserPlanLeaderNames(id, nextName);
 
       const titleUpdates = existing.plans
@@ -572,8 +580,11 @@ export class PlanService {
         await repository.updatePlanTitlesById(titleUpdates);
       }
 
-      return updatedUser;
+      return user;
     });
+
+    await reconcileUserNameDisambiguatorsForNames(this.prisma, [previousName, nextName]);
+    return (await new PlanRepository(this.prisma).findUserById(id)) ?? updatedUser;
   }
 
   async uploadUserAttachment(userId: string, rawFile: UploadFile | Promise<UploadFile>) {
@@ -605,8 +616,14 @@ export class PlanService {
       throw new DomainError('NOT_FOUND', 'User not found');
     }
 
+    const deletedName = existing.name;
+
     try {
-      return await deleteUserGraph(this.prisma, id);
+      const deleted = await deleteUserGraph(this.prisma, id);
+      if (deleted) {
+        await reconcileUserNameDisambiguatorsForName(this.prisma, deletedName);
+      }
+      return deleted;
     } catch (error) {
       if (error instanceof UserDeleteIncompleteError) {
         throw new DomainError('VALIDATION_FAILED', error.message);

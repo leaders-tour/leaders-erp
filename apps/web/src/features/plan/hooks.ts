@@ -92,6 +92,8 @@ export interface UserAttachmentItem {
 export interface UserRow {
   id: string;
   name: string;
+  nameDisambiguator?: string | null;
+  displayName?: string;
   email: string | null;
   ownerEmployeeId: string | null;
   ownerEmployee: EmployeeOwnerRow | null;
@@ -546,6 +548,8 @@ const USERS_QUERY = gql`
     users {
       id
       name
+      nameDisambiguator
+      displayName
       email
       ownerEmployeeId
       ownerEmployee {
@@ -683,6 +687,8 @@ const USER_QUERY = gql`
     user(id: $id) {
       id
       name
+      nameDisambiguator
+      displayName
       email
       ownerEmployeeId
       ownerEmployee {
@@ -775,6 +781,8 @@ const PLAN_DETAIL_QUERY = gql`
       user {
         id
         name
+        nameDisambiguator
+        displayName
         email
         ownerEmployeeId
         ownerEmployee {
@@ -896,6 +904,8 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         user {
           id
           name
+          nameDisambiguator
+          displayName
           email
           ownerEmployeeId
           ownerEmployee {
@@ -1065,6 +1075,8 @@ const CREATE_USER_MUTATION = gql`
     createUser(input: $input) {
       id
       name
+      nameDisambiguator
+      displayName
       email
       ownerEmployeeId
       ownerEmployee {
@@ -1083,6 +1095,8 @@ const UPDATE_USER_MUTATION = gql`
     updateUser(id: $id, input: $input) {
       id
       name
+      nameDisambiguator
+      displayName
       email
       ownerEmployeeId
       ownerEmployee {
@@ -1530,6 +1544,8 @@ const USERS_WITH_TRAVEL_QUERY = gql`
     users {
       id
       name
+      nameDisambiguator
+      displayName
       email
       ownerEmployeeId
       ownerEmployee {

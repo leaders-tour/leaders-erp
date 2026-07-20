@@ -411,6 +411,8 @@ export interface ConfirmedTripRow {
   user: {
     id: string;
     name: string;
+    nameDisambiguator?: string | null;
+    displayName?: string;
     email: string | null;
     ownerEmployeeId: string | null;
     ownerEmployee: { id: string; name: string; email: string } | null;
@@ -541,6 +543,8 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
     user {
       id
       name
+      nameDisambiguator
+      displayName
       email
       ownerEmployeeId
       ownerEmployee {
@@ -783,6 +787,8 @@ export const CONFIRMED_TRIP_LIST_FRAGMENT = gql`
     user {
       id
       name
+      nameDisambiguator
+      displayName
       email
       ownerEmployeeId
       ownerEmployee {

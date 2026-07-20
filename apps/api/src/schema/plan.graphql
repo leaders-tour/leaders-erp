@@ -54,6 +54,8 @@ type UserConfirmedTripSummary {
 type User {
   id: ID!
   name: String!
+  nameDisambiguator: String
+  displayName: String!
   email: String
   ownerEmployeeId: String
   ownerEmployee: Employee

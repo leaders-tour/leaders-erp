@@ -1,4 +1,5 @@
 import type { UserRow } from './hooks';
+import { userDisplayNameMatchesKeyword } from './format-user-display-name';
 
 function normalizeDocumentNumber(value: string): string {
   return value
@@ -25,6 +26,7 @@ export function matchesCustomerSearchKeyword(user: UserRow, rawKeyword: string):
   if (!keyword) return true;
 
   if (user.name.toLowerCase().includes(keyword)) return true;
+  if (userDisplayNameMatchesKeyword(user, keyword)) return true;
   if (user.email?.toLowerCase().includes(keyword)) return true;
   if (user.ownerEmployee?.name.toLowerCase().includes(keyword)) return true;
   if (user.ownerEmployee?.email.toLowerCase().includes(keyword)) return true;

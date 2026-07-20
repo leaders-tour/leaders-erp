@@ -7,6 +7,7 @@ import {
   type CustomerTripStatus,
 } from '../customerTripStatus';
 import type { CustomerMinTeamsFilter } from '../customerTeamFilter';
+import { UserDisplayName } from './UserDisplayName';
 import type { UserRow } from '../hooks';
 
 type StatusFilterKey = CustomerTripStatus | 'all';
@@ -137,7 +138,15 @@ export function CustomerSelector({
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="grid gap-0.5">
-                  <span className="font-medium">{user.name}</span>
+                  <UserDisplayName
+                    user={user}
+                    className="font-medium"
+                    badgeClassName={
+                      isSelected
+                        ? 'rounded-full border border-white/20 bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white'
+                        : undefined
+                    }
+                  />
                   <span className={`text-xs ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>
                     담당자: {user.ownerEmployee?.name ?? '미지정'}
                   </span>

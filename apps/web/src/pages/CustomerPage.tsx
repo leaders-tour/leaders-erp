@@ -2,6 +2,7 @@ import { Card } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CustomerDeletePanel, CustomerSelector, PlanListPanel } from '../features/plan/components';
+import { UserDisplayName } from '../features/plan/components/UserDisplayName';
 import { matchesCustomerSearchKeyword } from '../features/plan/customerSearch';
 import {
   countCustomersWithMinTeams,
@@ -161,7 +162,9 @@ export function CustomerPage(): JSX.Element {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                       <p className="text-xs font-medium text-slate-500">고객 정보</p>
-                      <h2 className="text-base font-semibold text-slate-900">{selectedUser.name}</h2>
+                      <h2 className="text-base font-semibold text-slate-900">
+                        <UserDisplayName user={selectedUser} />
+                      </h2>
                       <p className="text-sm text-slate-600">
                         담당자: {selectedUser.ownerEmployee?.name ?? '미지정'}
                         {selectedUser.email ? ` · ${selectedUser.email}` : ''}

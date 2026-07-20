@@ -10,6 +10,11 @@ export const userCreateSchema = z.object({
   ownerEmployeeId: z.string().min(1).nullable().optional(),
 });
 
+export const userNameDisambiguatorSchema = z
+  .string()
+  .regex(/^[A-Z]+$/)
+  .max(8);
+
 export const userAttachmentInputSchema = z.object({
   filename: z.string().min(1).max(500),
   url: z.string().url().max(4096),

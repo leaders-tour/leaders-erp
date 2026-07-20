@@ -3,6 +3,7 @@ import type { Employee } from './employee';
 export interface User {
   id: string;
   name: string;
+  nameDisambiguator?: string | null;
   email: string | null;
   ownerEmployeeId?: string | null;
   ownerEmployee?: Employee | null;
