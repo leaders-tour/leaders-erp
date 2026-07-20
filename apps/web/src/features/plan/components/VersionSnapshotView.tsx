@@ -49,6 +49,7 @@ export function VersionSnapshotView({ version }: VersionSnapshotViewProps): JSX.
               const intensityColor = resolveMovementIntensityChipColor({
                 movementIntensity: rowMovementIntensity,
                 movementIntensityColorOverride: row.movementIntensityColorOverride,
+                destinationMovementIntensityColorOverride: row.destinationMovementIntensityColorOverride,
                 colors: movementIntensityColors,
               });
 

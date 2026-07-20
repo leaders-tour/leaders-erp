@@ -24,14 +24,29 @@ export const planVersionInclude = {
   },
   planStops: {
     include: {
-      segment: true,
+      segment: {
+        include: {
+          toLocation: {
+            include: {
+              currentVersion: true,
+            },
+          },
+        },
+      },
       segmentVersion: true,
       locationVersion: true,
+      location: {
+        include: {
+          currentVersion: true,
+        },
+      },
       multiDayBlock: {
         include: {
           days: { orderBy: { dayOrder: 'asc' } },
         },
       },
+      multiDayBlockConnection: true,
+      multiDayBlockConnectionVersion: true,
     },
     orderBy: { createdAt: 'asc' },
   },

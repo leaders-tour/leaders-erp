@@ -40,6 +40,7 @@ export interface LocationVersionOption {
   firstDayAverageDistanceKm?: number | null;
   firstDayAverageTravelHours?: number | null;
   firstDayMovementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
+  movementIntensityColorOverride?: string | null;
   lodgings: Array<{
     id: string;
     name: string;
@@ -75,6 +76,7 @@ export interface SegmentVersionOption {
   averageDistanceKm: number;
   averageTravelHours: number;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
+  movementIntensityColorOverride?: string | null;
   isLongDistance: boolean;
   kind: SegmentVersionKindValue;
   startDate?: string | null;
@@ -97,6 +99,7 @@ export interface SegmentOption {
   averageDistanceKm: number;
   averageTravelHours: number;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
+  movementIntensityColorOverride?: string | null;
   isLongDistance?: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
   extendScheduleTimeBlocks: TimeBlockOption[];
@@ -110,6 +113,7 @@ interface ResolvedSegmentVersionOption {
   averageDistanceKm: number;
   averageTravelHours: number;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
+  movementIntensityColorOverride?: string | null;
   isLongDistance: boolean;
   kind: SegmentVersionKindValue;
   startDate?: string | null;
@@ -130,6 +134,7 @@ export interface MultiDayBlockDayOption {
   averageDistanceKm: number;
   averageTravelHours: number;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
+  movementIntensityColorOverride?: string | null;
   timeCellText: string;
   scheduleCellText: string;
   lodgingCellText: string;
@@ -156,6 +161,7 @@ export interface MultiDayBlockConnectionVersionOption {
   averageDistanceKm: number;
   averageTravelHours: number;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
+  movementIntensityColorOverride?: string | null;
   isLongDistance: boolean;
   sortOrder: number;
   isDefault: boolean;
@@ -172,6 +178,7 @@ export interface MultiDayBlockConnectionOption {
   averageDistanceKm: number;
   averageTravelHours: number;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
+  movementIntensityColorOverride?: string | null;
   isLongDistance?: boolean;
   scheduleTimeBlocks: TimeBlockOption[];
   extendScheduleTimeBlocks: TimeBlockOption[];
@@ -185,6 +192,7 @@ interface ResolvedMultiDayBlockConnectionVersionOption {
   averageDistanceKm: number;
   averageTravelHours: number;
   movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5';
+  movementIntensityColorOverride?: string | null;
   isLongDistance: boolean;
   sortOrder: number;
   isDefault: boolean;

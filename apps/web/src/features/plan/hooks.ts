@@ -535,6 +535,7 @@ export interface PlanVersionDetail extends PlanVersionRow {
     destinationCellText: string;
     movementIntensity?: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
     movementIntensityColorOverride?: string | null;
+    destinationMovementIntensityColorOverride?: string | null;
     timeCellText: string;
     scheduleCellText: string;
     lodgingCellText: string;
@@ -945,6 +946,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         destinationCellText
         movementIntensity
         movementIntensityColorOverride
+        destinationMovementIntensityColorOverride
         timeCellText
         scheduleCellText
         lodgingCellText

@@ -175,6 +175,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
       destinationCellText: row.destinationCellText,
       movementIntensity: row.movementIntensity ?? null,
       movementIntensityColorOverride: row.movementIntensityColorOverride ?? null,
+      destinationMovementIntensityColorOverride: row.destinationMovementIntensityColorOverride ?? null,
       timeCellText: row.timeCellText,
       scheduleCellText: row.scheduleCellText,
       lodgingCellText: row.lodgingCellText,

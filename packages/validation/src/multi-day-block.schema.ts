@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { hexColorSchema } from './app-settings.schema';
+
+const movementIntensityColorOverrideSchema = hexColorSchema.nullable().optional();
 
 const multiDayBlockDayInputSchema = z.object({
   dayOrder: z.number().int().min(1).max(3),
@@ -9,6 +12,7 @@ const multiDayBlockDayInputSchema = z.object({
   scheduleCellText: z.string(),
   lodgingCellText: z.string(),
   mealCellText: z.string(),
+  movementIntensityColorOverride: movementIntensityColorOverrideSchema,
 });
 
 const multiDayBlockBaseSchema = z.object({
@@ -35,6 +39,7 @@ const multiDayBlockConnectionVersionSchema = z.object({
   isLongDistance: z.boolean(),
   timeSlots: multiDayBlockConnectionTimeSlotsSchema,
   extendTimeSlots: multiDayBlockConnectionTimeSlotsSchema.optional(),
+  movementIntensityColorOverride: movementIntensityColorOverrideSchema,
   isDefault: z.boolean().optional(),
 });
 

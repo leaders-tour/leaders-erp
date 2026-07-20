@@ -1,5 +1,6 @@
 import { MealOption } from '@tour/domain';
 import { z } from 'zod';
+import { hexColorSchema } from './app-settings.schema';
 import { facilityAvailabilitySchema } from './lodging.schema';
 
 const locationNameLineSchema = z.string().max(100);
@@ -64,6 +65,8 @@ const firstDayMovementMetaSchema = z.object({
   firstDayAverageTravelHours: z.number().min(0).optional(),
 });
 
+const movementIntensityColorOverrideSchema = hexColorSchema.nullable().optional();
+
 const locationProfileTimeSlotsSchema = z.array(locationProfileTimeSlotSchema).min(1).max(24);
 
 const locationProfileFirstDaySchema = z.object({
@@ -124,6 +127,7 @@ export const locationProfileCreateSchema = z.object({
   regionId: z.string().min(1),
   name: locationNameSchema,
   ...locationProfileFirstDaySchema.shape,
+  movementIntensityColorOverride: movementIntensityColorOverrideSchema,
   lodging: locationProfileLodgingSchema,
   meals: locationProfileMealsSchema,
   /** 1일차 얼리 식사. 생략 시 서버에서 일반 meals와 동일하게 저장 */
@@ -139,6 +143,7 @@ export const locationVersionProfileSchema = z.object({
   firstDayTimeSlots: locationProfileTimeSlotsSchema.optional(),
   firstDayEarlyTimeSlots: locationProfileTimeSlotsSchema.optional(),
   ...firstDayMovementMetaSchema.shape,
+  movementIntensityColorOverride: movementIntensityColorOverrideSchema,
   lodging: locationProfileLodgingSchema,
   meals: locationProfileMealsSchema,
   mealsEarly: locationProfileMealsSchema.optional(),

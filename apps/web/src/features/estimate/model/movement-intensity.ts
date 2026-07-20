@@ -162,12 +162,17 @@ export function isMovementIntensityPaletteColor(
 export function resolveMovementIntensityChipColor(input: {
   movementIntensity?: MovementIntensityValue | null;
   movementIntensityColorOverride?: string | null;
+  destinationMovementIntensityColorOverride?: string | null;
   colors?: readonly MovementIntensityColorSetting[] | null;
   fallbackColor?: string;
 }): string {
-  const override = input.movementIntensityColorOverride?.trim();
-  if (override && isMovementIntensityPaletteColor(override, input.colors)) {
-    return override.toLowerCase();
+  const stopOverride = input.movementIntensityColorOverride?.trim();
+  if (stopOverride && isMovementIntensityPaletteColor(stopOverride, input.colors)) {
+    return stopOverride.toLowerCase();
+  }
+  const destinationOverride = input.destinationMovementIntensityColorOverride?.trim();
+  if (destinationOverride && isMovementIntensityPaletteColor(destinationOverride, input.colors)) {
+    return destinationOverride.toLowerCase();
   }
   return (
     getMovementIntensityColor(input.movementIntensity, input.colors) ??

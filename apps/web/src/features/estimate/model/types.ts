@@ -20,6 +20,7 @@ export interface EstimatePlanStopRow {
   destinationCellText: string;
   movementIntensity?: MovementIntensityValue | null;
   movementIntensityColorOverride?: string | null;
+  destinationMovementIntensityColorOverride?: string | null;
   timeCellText: string;
   scheduleCellText: string;
   lodgingCellText: string;

@@ -1372,6 +1372,7 @@ const LOCATIONS_QUERY = gql`
         firstDayAverageDistanceKm
         firstDayAverageTravelHours
         firstDayMovementIntensity
+        movementIntensityColorOverride
         lodgings {
           id
           name
@@ -1422,6 +1423,7 @@ const SEGMENTS_QUERY = gql`
       averageDistanceKm
       averageTravelHours
       movementIntensity
+      movementIntensityColorOverride
       isLongDistance
       scheduleTimeBlocks {
         id
@@ -1450,6 +1452,7 @@ const SEGMENTS_QUERY = gql`
         averageDistanceKm
         averageTravelHours
         movementIntensity
+        movementIntensityColorOverride
         isLongDistance
         kind
         startDate
@@ -1513,6 +1516,7 @@ const OVERNIGHT_STAYS_QUERY = gql`
         averageDistanceKm
         averageTravelHours
         movementIntensity
+        movementIntensityColorOverride
         timeCellText
         scheduleCellText
         lodgingCellText
@@ -1533,6 +1537,7 @@ const MULTI_DAY_BLOCK_CONNECTIONS_QUERY = gql`
       averageDistanceKm
       averageTravelHours
       movementIntensity
+      movementIntensityColorOverride
       isLongDistance
       scheduleTimeBlocks {
         id
@@ -1561,6 +1566,7 @@ const MULTI_DAY_BLOCK_CONNECTIONS_QUERY = gql`
         averageDistanceKm
         averageTravelHours
         movementIntensity
+        movementIntensityColorOverride
         isLongDistance
         sortOrder
         isDefault
@@ -2020,6 +2026,85 @@ function formatSecurityDepositScope(mode: 'NONE' | 'PER_PERSON' | 'PER_TEAM'): s
   return '-';
 }
 
+function normalizePreviewColorOverride(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function resolveDestinationMovementIntensityColorOverrideForPreview(input: {
+  locationVersionId?: string | null;
+  locationId?: string | null;
+  locationVersionById?: Map<string, LocationVersionOption>;
+  locationById?: Map<string, LocationOption>;
+  multiDayBlockId?: string | null;
+  multiDayBlockDayOrder?: number | null;
+  multiDayBlockConnectionId?: string | null;
+  multiDayBlockConnectionVersionId?: string | null;
+  segmentId?: string | null;
+  segmentVersionId?: string | null;
+  segmentById?: Map<string, SegmentOption>;
+  multiDayBlockById?: Map<string, MultiDayBlockOption>;
+  connectionById?: Map<string, MultiDayBlockConnectionOption>;
+}): string | null {
+  if (input.multiDayBlockId && input.multiDayBlockDayOrder != null) {
+    const block = input.multiDayBlockById?.get(input.multiDayBlockId);
+    const matchingDay = block?.days.find((day) => day.dayOrder === input.multiDayBlockDayOrder);
+    const dayOverride = normalizePreviewColorOverride(matchingDay?.movementIntensityColorOverride);
+    if (dayOverride) {
+      return dayOverride;
+    }
+  }
+
+  if (input.multiDayBlockConnectionId) {
+    const connection = input.connectionById?.get(input.multiDayBlockConnectionId);
+    if (input.multiDayBlockConnectionVersionId) {
+      const connectionVersion = connection?.versions?.find((version) => version.id === input.multiDayBlockConnectionVersionId);
+      const versionOverride = normalizePreviewColorOverride(connectionVersion?.movementIntensityColorOverride);
+      if (versionOverride) {
+        return versionOverride;
+      }
+    }
+    const connectionOverride = normalizePreviewColorOverride(connection?.movementIntensityColorOverride);
+    if (connectionOverride) {
+      return connectionOverride;
+    }
+  }
+
+  if (input.segmentId) {
+    const segment = input.segmentById?.get(input.segmentId);
+    if (input.segmentVersionId) {
+      const segmentVersion = segment?.versions?.find((version) => version.id === input.segmentVersionId);
+      const versionOverride = normalizePreviewColorOverride(segmentVersion?.movementIntensityColorOverride);
+      if (versionOverride) {
+        return versionOverride;
+      }
+    }
+    const segmentOverride = normalizePreviewColorOverride(segment?.movementIntensityColorOverride);
+    if (segmentOverride) {
+      return segmentOverride;
+    }
+  }
+
+  const versionOverride = input.locationVersionId
+    ? input.locationVersionById?.get(input.locationVersionId)?.movementIntensityColorOverride
+    : null;
+  if (versionOverride?.trim()) {
+    return versionOverride.trim();
+  }
+
+  const location = input.locationId ? input.locationById?.get(input.locationId) : undefined;
+  const defaultVersionId = location?.defaultVersionId ?? location?.variations[0]?.id;
+  if (!defaultVersionId) {
+    return null;
+  }
+
+  const defaultOverride = input.locationVersionById?.get(defaultVersionId)?.movementIntensityColorOverride;
+  return defaultOverride?.trim() ? defaultOverride.trim() : null;
+}
+
 function createEstimateDraftSnapshot(input: {
   planTitle: string;
   leaderName: string;
@@ -2047,6 +2132,11 @@ function createEstimateDraftSnapshot(input: {
   estimateGuideImagesPerPage?: EstimateGuideImagesPerPage;
   estimateGuidePageSplits?: number[] | null;
   overallMovementIntensityColorOverride?: string | null;
+  locationVersionById?: Map<string, LocationVersionOption>;
+  locationById?: Map<string, LocationOption>;
+  segmentById?: Map<string, SegmentOption>;
+  multiDayBlockById?: Map<string, MultiDayBlockOption>;
+  connectionById?: Map<string, MultiDayBlockConnectionOption>;
 }): EstimateBuilderDraftSnapshot {
   const customerSnap =
     input.pricingPreview
@@ -2094,18 +2184,36 @@ function createEstimateDraftSnapshot(input: {
       planStopsForPreview.filter((row) => isMainPlanStopRow(row)).map((row) => row.movementIntensity),
     ),
     overallMovementIntensityColorOverride: input.overallMovementIntensityColorOverride ?? null,
-    planStops: planStopsForPreview.map((row) => ({
+    planStops: planStopsForPreview.map((row) => {
+      const extendedRow = row as PlanRow;
+      return {
       rowType: row.rowType,
       locationId: row.locationId,
       dateCellText: row.dateCellText,
       destinationCellText: row.destinationCellText,
       movementIntensity: row.movementIntensity ?? null,
       movementIntensityColorOverride: row.movementIntensityColorOverride ?? null,
+      destinationMovementIntensityColorOverride: resolveDestinationMovementIntensityColorOverrideForPreview({
+        locationVersionId: extendedRow.locationVersionId ?? null,
+        locationId: row.locationId,
+        locationVersionById: input.locationVersionById,
+        locationById: input.locationById,
+        multiDayBlockId: extendedRow.multiDayBlockId ?? null,
+        multiDayBlockDayOrder: extendedRow.multiDayBlockDayOrder ?? null,
+        multiDayBlockConnectionId: extendedRow.multiDayBlockConnectionId ?? null,
+        multiDayBlockConnectionVersionId: extendedRow.multiDayBlockConnectionVersionId ?? null,
+        segmentId: extendedRow.segmentId ?? null,
+        segmentVersionId: extendedRow.segmentVersionId ?? null,
+        segmentById: input.segmentById,
+        multiDayBlockById: input.multiDayBlockById,
+        connectionById: input.connectionById,
+      }),
       timeCellText: row.timeCellText,
       scheduleCellText: row.scheduleCellText,
       lodgingCellText: row.lodgingCellText,
       mealCellText: row.mealCellText,
-    })),
+    };
+    }),
     pricing:
       customerSnap && input.pricingPreview
         ? {
@@ -3564,6 +3672,15 @@ export function ItineraryBuilderPage(): JSX.Element {
         ),
       ),
     [locations],
+  );
+  const segmentById = useMemo(() => new Map(segments.map((segment) => [segment.id, segment])), [segments]);
+  const multiDayBlockById = useMemo(
+    () => new Map(overnightStays.map((block) => [block.id, block])),
+    [overnightStays],
+  );
+  const connectionById = useMemo(
+    () => new Map(overnightStayConnections.map((connection) => [connection.id, connection])),
+    [overnightStayConnections],
   );
   const locationById = useMemo(
     () => new Map(filteredLocations.map((location) => [location.id, location])),
@@ -5371,6 +5488,11 @@ export function ItineraryBuilderPage(): JSX.Element {
         estimateGuideImagesPerPage,
         estimateGuidePageSplits: estimateGuidePageSplitsParsed,
         overallMovementIntensityColorOverride,
+        locationVersionById: allLocationVersionById,
+        locationById: allLocationById,
+        segmentById,
+        multiDayBlockById,
+        connectionById,
       }),
     [
       effectivePlanTitle,
@@ -5400,6 +5522,11 @@ export function ItineraryBuilderPage(): JSX.Element {
       estimateGuideImagesPerPage,
       estimateGuidePageSplitsParsed,
       overallMovementIntensityColorOverride,
+      allLocationVersionById,
+      allLocationById,
+      segmentById,
+      multiDayBlockById,
+      connectionById,
     ],
   );
   const { data: previewEstimateData, guidesLoading: previewGuidesLoading } =

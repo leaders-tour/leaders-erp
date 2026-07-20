@@ -7,6 +7,7 @@ import {
   calculateMovementIntensityByHours,
   getMovementIntensityMeta,
 } from '../features/estimate/model/movement-intensity';
+import { MovementIntensityColorOverrideField } from '../features/estimate/components/MovementIntensityColorOverrideField';
 import { useMovementIntensityColorSettings } from '../features/app-settings/hooks';
 import { formatLocationNameInline, includesLocationNameKeyword } from '../features/location/display';
 import type { FacilityAvailability } from '../features/location/hooks';
@@ -118,6 +119,7 @@ interface SegmentFormState {
   averageTravelHours: string;
   isLongDistance: boolean;
   mealsOverride: SegmentVersionMealsOverrideFormInput;
+  movementIntensityColorOverride: string | null;
   timeSlots: SegmentTimeSlotFormInput[];
   extendTimeSlots: SegmentTimeSlotFormInput[];
   versions: SegmentVersionDraft[];
@@ -135,6 +137,7 @@ interface SegmentVersionDraft {
   flightOutTimeBand: '' | FlightTimeBandValue;
   lodgingOverride: SegmentVersionLodgingOverrideFormInput;
   mealsOverride: SegmentVersionMealsOverrideFormInput;
+  movementIntensityColorOverride: string | null;
   timeSlots: SegmentTimeSlotFormInput[];
   extendTimeSlots: SegmentTimeSlotFormInput[];
 }
@@ -203,6 +206,7 @@ function createVersionDraft(): SegmentVersionDraft {
     flightOutTimeBand: '',
     lodgingOverride: createEmptyLodgingOverride(),
     mealsOverride: createEmptyMealsOverride(),
+    movementIntensityColorOverride: null,
     timeSlots: createDefaultTimeSlots(),
     extendTimeSlots: createDefaultTimeSlots(),
   };
@@ -372,6 +376,7 @@ function createEmptyForm(): SegmentFormState {
     averageTravelHours: '',
     isLongDistance: false,
     mealsOverride: createEmptyMealsOverride(),
+    movementIntensityColorOverride: null,
     timeSlots: createDefaultTimeSlots(),
     extendTimeSlots: createDefaultTimeSlots(),
     versions: [],
@@ -537,6 +542,7 @@ function toVersionDrafts(segment: SegmentRow | undefined): SegmentVersionDraft[]
       mealsOverride: version.mealsOverride
         ? sanitizeMealsOverride(version.mealsOverride)
         : createEmptyMealsOverride(),
+      movementIntensityColorOverride: version.movementIntensityColorOverride ?? null,
       timeSlots: toFormTimeSlots(version.scheduleTimeBlocks),
       extendTimeSlots: toFormTimeSlots(version.extendScheduleTimeBlocks),
     }));
@@ -875,6 +881,7 @@ function buildVersionInputs(
       ...(hasMealsOverrideValue(form.mealsOverride)
         ? { mealsOverride: sanitizeMealsOverride(form.mealsOverride) }
         : {}),
+      movementIntensityColorOverride: form.movementIntensityColorOverride,
       ...buildVariantTimeSlotInput(form, input),
       isDefault: true,
     },
@@ -896,6 +903,7 @@ function buildVersionInputs(
       ...(hasMealsOverrideValue(version.mealsOverride)
         ? { mealsOverride: sanitizeMealsOverride(version.mealsOverride) }
         : {}),
+      movementIntensityColorOverride: version.movementIntensityColorOverride,
       ...buildVariantTimeSlotInput(version, {
         includeExtend: version.kind === 'FLIGHT' ? false : input.includeExtend,
       }),
@@ -1152,6 +1160,15 @@ function AlternativeVersionEditor(props: {
                   />
                   장거리 여행
                 </label>
+
+                <MovementIntensityColorOverrideField
+                  compact
+                  value={version.movementIntensityColorOverride}
+                  onChange={(color) =>
+                    updateVersion(version.clientId, (item) => ({ ...item, movementIntensityColorOverride: color }))
+                  }
+                  modalRowLabel={`${version.name.trim() || '시즌 버전'} 이동강도 색상`}
+                />
               </div>
 
               <div className="grid gap-6">
@@ -1259,6 +1276,13 @@ function FlightAlternativeVersionPanel(props: {
             />
           </label>
         </div>
+
+        <MovementIntensityColorOverrideField
+          compact
+          value={currentValue.movementIntensityColorOverride}
+          onChange={(color) => updateVersion((item) => ({ ...item, movementIntensityColorOverride: color }))}
+          modalRowLabel={`${fixedName} 이동강도 색상`}
+        />
 
         <TimeSlotEditor
           title="버전 일정"
@@ -2142,6 +2166,12 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                   </label>
                 </div>
                 <div className="text-sm text-slate-600">이동강도: {createMovementIntensityMeta ? createMovementIntensityMeta.label : '시간 입력 필요'}</div>
+                <MovementIntensityColorOverrideField
+                  compact
+                  value={form.movementIntensityColorOverride}
+                  onChange={(color) => setForm((prev) => ({ ...prev, movementIntensityColorOverride: color }))}
+                  modalRowLabel="기본 버전 이동강도 색상"
+                />
               </div>
 
               {form.sourceType === 'LOCATION' ? (
@@ -2397,6 +2427,7 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                           averageDistanceKm: String(row.averageDistanceKm),
                           averageTravelHours: String(row.averageTravelHours),
                           isLongDistance: row.isLongDistance,
+                          movementIntensityColorOverride: row.movementIntensityColorOverride ?? null,
                           mealsOverride: defaultVersionMeals ? sanitizeMealsOverride(defaultVersionMeals) : createEmptyMealsOverride(),
                           timeSlots: basicSlots,
                           extendTimeSlots: toFormTimeSlots(row.extendScheduleTimeBlocks),
@@ -2905,6 +2936,12 @@ export function SegmentPage({ mode = 'all' }: SegmentPageProps): JSX.Element {
                     )}
                   </span>
                 </div>
+
+                <MovementIntensityColorOverrideField
+                  value={editForm.movementIntensityColorOverride}
+                  onChange={(color) => setEditForm((prev) => ({ ...prev, movementIntensityColorOverride: color }))}
+                  modalRowLabel="기본 버전 이동강도 색상"
+                />
 
                 {editForm.sourceType === 'LOCATION' ? (
                   <MealsOverrideEditor

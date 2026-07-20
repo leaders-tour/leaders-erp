@@ -52,6 +52,7 @@ export class MultiDayBlockRepository {
       averageDistanceKm: number;
       averageTravelHours: number;
       movementIntensity: MovementIntensity;
+      movementIntensityColorOverride: string | null;
       timeCellText: string;
       scheduleCellText: string;
       lodgingCellText: string;
@@ -67,6 +68,7 @@ export class MultiDayBlockRepository {
         averageDistanceKm: day.averageDistanceKm,
         averageTravelHours: day.averageTravelHours,
         movementIntensity: day.movementIntensity,
+        movementIntensityColorOverride: day.movementIntensityColorOverride,
         timeCellText: day.timeCellText,
         scheduleCellText: day.scheduleCellText,
         lodgingCellText: day.lodgingCellText,

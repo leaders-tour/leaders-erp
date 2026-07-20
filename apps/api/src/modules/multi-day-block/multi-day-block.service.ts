@@ -40,6 +40,7 @@ type NormalizedBlockDay = {
   averageDistanceKm: number;
   averageTravelHours: number;
   movementIntensity: ReturnType<typeof calculateMovementIntensity>;
+  movementIntensityColorOverride: string | null;
   timeCellText: string;
   scheduleCellText: string;
   lodgingCellText: string;
@@ -62,6 +63,7 @@ interface NormalizedConnectionVersion {
   averageDistanceKm: number;
   averageTravelHours: number;
   movementIntensity: MovementIntensity;
+  movementIntensityColorOverride: string | null;
   isLongDistance: boolean;
   isDefault: boolean;
   timeSlotsByVariant: VariantTimeSlotMap;
@@ -75,6 +77,7 @@ interface ExistingConnectionLike {
   averageDistanceKm: number;
   averageTravelHours: number;
   isLongDistance: boolean;
+  movementIntensityColorOverride?: string | null;
   scheduleTimeBlocks: Array<{
     variant: SegmentScheduleVariant;
     startTime: string;
@@ -90,6 +93,7 @@ interface ExistingConnectionLike {
     averageDistanceKm: number;
     averageTravelHours: number;
     isLongDistance: boolean;
+    movementIntensityColorOverride?: string | null;
     sortOrder: number;
     isDefault: boolean;
     scheduleTimeBlocks: Array<{
@@ -123,6 +127,14 @@ interface PreparedMdbConnectionUpdate {
 }
 
 const SEGMENT_SCHEDULE_VARIANTS: SegmentScheduleVariant[] = ['basic', 'extend'];
+
+function normalizeMovementIntensityColorOverride(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
 
 export class MultiDayBlockService {
   private readonly repository: MultiDayBlockRepository;
@@ -182,6 +194,7 @@ export class MultiDayBlockService {
       scheduleCellText: string;
       lodgingCellText: string;
       mealCellText: string;
+      movementIntensityColorOverride?: string | null;
     }>,
   ): NormalizedBlockDay[] {
     return days
@@ -190,6 +203,7 @@ export class MultiDayBlockService {
       .map((day) => ({
         ...day,
         movementIntensity: calculateMovementIntensity(day.averageTravelHours),
+        movementIntensityColorOverride: normalizeMovementIntensityColorOverride(day.movementIntensityColorOverride),
       }));
   }
 
@@ -268,6 +282,7 @@ export class MultiDayBlockService {
             scheduleCellText: day.scheduleCellText,
             lodgingCellText: day.lodgingCellText,
             mealCellText: day.mealCellText,
+            movementIntensityColorOverride: day.movementIntensityColorOverride ?? null,
           })),
         );
 
@@ -403,12 +418,14 @@ export class MultiDayBlockConnectionService {
     isLongDistance: boolean;
     timeSlots: MultiDayBlockConnectionTimeSlotInput[];
     extendTimeSlots?: MultiDayBlockConnectionTimeSlotInput[];
+    movementIntensityColorOverride?: string | null;
   }): NormalizedConnectionVersion {
     return {
       name: '기본',
       averageDistanceKm: input.averageDistanceKm,
       averageTravelHours: input.averageTravelHours,
       movementIntensity: calculateMovementIntensity(input.averageTravelHours),
+      movementIntensityColorOverride: normalizeMovementIntensityColorOverride(input.movementIntensityColorOverride),
       isLongDistance: input.isLongDistance,
       isDefault: true,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(input),
@@ -425,6 +442,7 @@ export class MultiDayBlockConnectionService {
           averageDistanceKm: version.averageDistanceKm,
           averageTravelHours: version.averageTravelHours,
           movementIntensity: calculateMovementIntensity(version.averageTravelHours),
+          movementIntensityColorOverride: normalizeMovementIntensityColorOverride(version.movementIntensityColorOverride),
           isLongDistance: version.isLongDistance,
           isDefault: version.isDefault,
           timeSlotsByVariant: this.mapTimeBlocksToVariantTimeSlots(version.scheduleTimeBlocks),
@@ -436,6 +454,7 @@ export class MultiDayBlockConnectionService {
         averageDistanceKm: existing.averageDistanceKm,
         averageTravelHours: existing.averageTravelHours,
         isLongDistance: existing.isLongDistance,
+        movementIntensityColorOverride: existing.movementIntensityColorOverride,
         timeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'basic'),
         extendTimeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'extend'),
       }),
@@ -448,6 +467,7 @@ export class MultiDayBlockConnectionService {
       averageDistanceKm: version.averageDistanceKm,
       averageTravelHours: version.averageTravelHours,
       movementIntensity: calculateMovementIntensity(version.averageTravelHours),
+      movementIntensityColorOverride: normalizeMovementIntensityColorOverride(version.movementIntensityColorOverride),
       isLongDistance: version.isLongDistance,
       isDefault: version.isDefault !== false,
       timeSlotsByVariant: this.normalizeVariantTimeSlots(version),
@@ -654,6 +674,7 @@ export class MultiDayBlockConnectionService {
         averageDistanceKm: defaultVersion.averageDistanceKm,
         averageTravelHours: defaultVersion.averageTravelHours,
         movementIntensity: defaultVersion.movementIntensity,
+        movementIntensityColorOverride: defaultVersion.movementIntensityColorOverride,
         isLongDistance: defaultVersion.isLongDistance,
       },
     });
@@ -680,6 +701,7 @@ export class MultiDayBlockConnectionService {
           averageDistanceKm: version.averageDistanceKm,
           averageTravelHours: version.averageTravelHours,
           movementIntensity: version.movementIntensity,
+          movementIntensityColorOverride: version.movementIntensityColorOverride,
           isLongDistance: version.isLongDistance,
           sortOrder,
           isDefault: version.isDefault,
@@ -719,6 +741,7 @@ export class MultiDayBlockConnectionService {
           averageDistanceKm: defaultVersion.averageDistanceKm,
           averageTravelHours: defaultVersion.averageTravelHours,
           movementIntensity: defaultVersion.movementIntensity,
+          movementIntensityColorOverride: defaultVersion.movementIntensityColorOverride,
           isLongDistance: defaultVersion.isLongDistance,
           sortOrder: 0,
           isDefault: true,
@@ -736,6 +759,7 @@ export class MultiDayBlockConnectionService {
         averageDistanceKm: defaultVersion.averageDistanceKm,
         averageTravelHours: defaultVersion.averageTravelHours,
         movementIntensity: defaultVersion.movementIntensity,
+        movementIntensityColorOverride: defaultVersion.movementIntensityColorOverride,
         isLongDistance: defaultVersion.isLongDistance,
         sortOrder: 0,
         isDefault: true,
@@ -771,6 +795,7 @@ export class MultiDayBlockConnectionService {
           averageDistanceKm: defaultVersion.averageDistanceKm,
           averageTravelHours: defaultVersion.averageTravelHours,
           movementIntensity: defaultVersion.movementIntensity,
+          movementIntensityColorOverride: defaultVersion.movementIntensityColorOverride,
           isLongDistance: defaultVersion.isLongDistance,
         },
       });
@@ -873,6 +898,7 @@ export class MultiDayBlockConnectionService {
             averageDistanceKm: defaultVersion.averageDistanceKm,
             averageTravelHours: defaultVersion.averageTravelHours,
             movementIntensity: defaultVersion.movementIntensity,
+            movementIntensityColorOverride: defaultVersion.movementIntensityColorOverride,
             isLongDistance: defaultVersion.isLongDistance,
           },
         });
@@ -999,6 +1025,7 @@ export class MultiDayBlockConnectionService {
         averageDistanceKm: defaultVersion.averageDistanceKm,
         averageTravelHours: defaultVersion.averageTravelHours,
         movementIntensity: defaultVersion.movementIntensity,
+        movementIntensityColorOverride: defaultVersion.movementIntensityColorOverride,
         isLongDistance: defaultVersion.isLongDistance,
       },
     });

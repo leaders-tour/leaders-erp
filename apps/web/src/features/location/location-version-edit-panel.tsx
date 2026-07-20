@@ -62,6 +62,7 @@ export function LocationVersionEditPanel({
         version.firstDayAverageTravelHours !== null && version.firstDayAverageTravelHours !== undefined
           ? String(version.firstDayAverageTravelHours)
           : '',
+      movementIntensityColorOverride: version.movementIntensityColorOverride ?? null,
       lodging: {
         isUnspecified: (version.lodgings[0]?.name ?? '') === '숙소 미지정',
         name: version.lodgings[0]?.name ?? '여행자 캠프',
@@ -181,6 +182,7 @@ export function LocationVersionEditPanel({
                   firstDayEarlyTimeSlots: next.firstDayEarlyTimeSlots,
                   firstDayAverageDistanceKm: next.firstDayAverageDistanceKm,
                   firstDayAverageTravelHours: next.firstDayAverageTravelHours,
+                  movementIntensityColorOverride: next.movementIntensityColorOverride,
                   lodging: next.lodging,
                   meals: next.meals,
                   mealsEarly: next.mealsEarly,

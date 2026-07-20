@@ -16,6 +16,7 @@ type Segment {
   averageDistanceKm: Float!
   averageTravelHours: Float!
   movementIntensity: MovementIntensity!
+  movementIntensityColorOverride: String
   isLongDistance: Boolean!
   scheduleTimeBlocks: [SegmentTimeBlock!]!
   extendScheduleTimeBlocks: [SegmentTimeBlock!]!
@@ -49,6 +50,7 @@ type SegmentVersion {
   averageDistanceKm: Float!
   averageTravelHours: Float!
   movementIntensity: MovementIntensity!
+  movementIntensityColorOverride: String
   isLongDistance: Boolean!
   kind: SegmentVersionKind!
   startDate: DateTime
@@ -143,6 +145,7 @@ input SegmentVersionInput {
   mealsOverride: LocationProfileMealsInput
   timeSlots: [SegmentTimeSlotInput!]!
   extendTimeSlots: [SegmentTimeSlotInput!]
+  movementIntensityColorOverride: String
   isDefault: Boolean
 }
 

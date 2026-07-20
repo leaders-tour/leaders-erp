@@ -372,6 +372,7 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
                   const intensityColor = resolveMovementIntensityChipColor({
                     movementIntensity: rowMovementIntensity,
                     movementIntensityColorOverride: row.movementIntensityColorOverride,
+                    destinationMovementIntensityColorOverride: row.destinationMovementIntensityColorOverride,
                     colors: movementIntensityColors,
                     fallbackColor: DEFAULT_MOVEMENT_INTENSITY_CHIP_COLOR,
                   });

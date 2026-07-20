@@ -25,6 +25,14 @@ import type { SegmentBulkCreateDto, SegmentCreateDto, SegmentUpdateDto, SegmentU
 
 type SegmentScheduleVariant = 'basic' | 'extend';
 
+function normalizeMovementIntensityColorOverride(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 interface NormalizedTimeSlot {
   startTime: string;
   label: string;
@@ -42,6 +50,7 @@ interface NormalizedSegmentVersion {
   averageDistanceKm: number;
   averageTravelHours: number;
   movementIntensity: MovementIntensity;
+  movementIntensityColorOverride: string | null;
   isLongDistance: boolean;
   kind: SegmentVersionKind;
   startDate: Date | null;
@@ -90,6 +99,7 @@ interface ExistingSegmentLike {
   averageDistanceKm: number;
   averageTravelHours: number;
   isLongDistance: boolean;
+  movementIntensityColorOverride?: string | null;
   scheduleTimeBlocks: Array<{
     variant: SegmentScheduleVariant;
     startTime: string;
@@ -105,6 +115,7 @@ interface ExistingSegmentLike {
     averageDistanceKm: number;
     averageTravelHours: number;
     isLongDistance: boolean;
+    movementIntensityColorOverride?: string | null;
     kind?: SegmentVersionKind | null;
     startDate: Date | null;
     endDate: Date | null;
@@ -324,6 +335,7 @@ export class SegmentService {
     isLongDistance: boolean;
     timeSlots: SegmentTimeSlotInput[];
     extendTimeSlots?: SegmentTimeSlotInput[];
+    movementIntensityColorOverride?: string | null;
   }): NormalizedSegmentVersion {
     return {
       id: undefined,
@@ -331,6 +343,7 @@ export class SegmentService {
       averageDistanceKm: input.averageDistanceKm,
       averageTravelHours: input.averageTravelHours,
       movementIntensity: calculateMovementIntensity(input.averageTravelHours),
+      movementIntensityColorOverride: normalizeMovementIntensityColorOverride(input.movementIntensityColorOverride),
       isLongDistance: input.isLongDistance,
       kind: 'DEFAULT',
       startDate: null,
@@ -354,6 +367,7 @@ export class SegmentService {
           averageDistanceKm: version.averageDistanceKm,
           averageTravelHours: version.averageTravelHours,
           movementIntensity: calculateMovementIntensity(version.averageTravelHours),
+          movementIntensityColorOverride: normalizeMovementIntensityColorOverride(version.movementIntensityColorOverride),
           isLongDistance: version.isLongDistance,
           kind: this.inferVersionKind({
             isDefault: version.isDefault,
@@ -377,6 +391,7 @@ export class SegmentService {
         averageDistanceKm: existing.averageDistanceKm,
         averageTravelHours: existing.averageTravelHours,
         isLongDistance: existing.isLongDistance,
+        movementIntensityColorOverride: existing.movementIntensityColorOverride,
         timeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'basic'),
         extendTimeSlots: this.mapScheduleTimeBlocksToTimeSlots(existing.scheduleTimeBlocks, 'extend'),
       }),
@@ -390,6 +405,7 @@ export class SegmentService {
       averageDistanceKm: version.averageDistanceKm,
       averageTravelHours: version.averageTravelHours,
       movementIntensity: calculateMovementIntensity(version.averageTravelHours),
+      movementIntensityColorOverride: normalizeMovementIntensityColorOverride(version.movementIntensityColorOverride),
       isLongDistance: version.isLongDistance,
       kind: version.kind,
       startDate: this.parseDateOnly(version.startDate),
@@ -678,6 +694,7 @@ export class SegmentService {
         averageDistanceKm: defaultVersion.averageDistanceKm,
         averageTravelHours: defaultVersion.averageTravelHours,
         movementIntensity: defaultVersion.movementIntensity,
+        movementIntensityColorOverride: defaultVersion.movementIntensityColorOverride,
         isLongDistance: defaultVersion.isLongDistance,
       },
     });
@@ -704,6 +721,7 @@ export class SegmentService {
           averageDistanceKm: version.averageDistanceKm,
           averageTravelHours: version.averageTravelHours,
           movementIntensity: version.movementIntensity,
+          movementIntensityColorOverride: version.movementIntensityColorOverride,
           isLongDistance: version.isLongDistance,
           kind: version.kind,
           startDate: version.startDate,
@@ -755,6 +773,7 @@ export class SegmentService {
           averageDistanceKm: defaultVersion.averageDistanceKm,
           averageTravelHours: defaultVersion.averageTravelHours,
           movementIntensity: defaultVersion.movementIntensity,
+          movementIntensityColorOverride: defaultVersion.movementIntensityColorOverride,
           isLongDistance: defaultVersion.isLongDistance,
           kind: 'DEFAULT',
           startDate: null,
@@ -784,6 +803,7 @@ export class SegmentService {
         averageDistanceKm: defaultVersion.averageDistanceKm,
         averageTravelHours: defaultVersion.averageTravelHours,
         movementIntensity: defaultVersion.movementIntensity,
+        movementIntensityColorOverride: defaultVersion.movementIntensityColorOverride,
         isLongDistance: defaultVersion.isLongDistance,
         kind: 'DEFAULT',
         startDate: null,
@@ -836,6 +856,7 @@ export class SegmentService {
           averageDistanceKm: defaultVersion.averageDistanceKm,
           averageTravelHours: defaultVersion.averageTravelHours,
           movementIntensity: defaultVersion.movementIntensity,
+          movementIntensityColorOverride: defaultVersion.movementIntensityColorOverride,
           isLongDistance: defaultVersion.isLongDistance,
         },
       });
@@ -957,6 +978,7 @@ export class SegmentService {
             averageDistanceKm: defaultVersion.averageDistanceKm,
             averageTravelHours: defaultVersion.averageTravelHours,
             movementIntensity: defaultVersion.movementIntensity,
+            movementIntensityColorOverride: defaultVersion.movementIntensityColorOverride,
             isLongDistance: defaultVersion.isLongDistance,
           },
         });
@@ -1118,6 +1140,7 @@ export class SegmentService {
         averageDistanceKm: defaultVersion.averageDistanceKm,
         averageTravelHours: defaultVersion.averageTravelHours,
         movementIntensity: defaultVersion.movementIntensity,
+        movementIntensityColorOverride: defaultVersion.movementIntensityColorOverride,
         isLongDistance: defaultVersion.isLongDistance,
       },
     });

@@ -645,6 +645,7 @@ model LocationVersion {
   firstDayAverageDistanceKm  Float?
   firstDayAverageTravelHours Float?
   firstDayMovementIntensity  MovementIntensity?
+  movementIntensityColorOverride String? @db.VarChar(7)
 
   location            Location           @relation("LocationVersions", fields: [locationId], references: [id], onDelete: Cascade)
   currentForLocations Location[]         @relation("CurrentLocationVersion")
@@ -700,6 +701,7 @@ model OvernightStayDay {
   averageDistanceKm  Float
   averageTravelHours Float
   movementIntensity  MovementIntensity
+  movementIntensityColorOverride String? @db.VarChar(7)
   timeCellText       String            @db.Text
   scheduleCellText   String            @db.Text
   lodgingCellText    String            @db.Text
@@ -726,6 +728,7 @@ model OvernightStayConnection {
   averageDistanceKm   Float
   averageTravelHours  Float
   movementIntensity   MovementIntensity
+  movementIntensityColorOverride String? @db.VarChar(7)
   isLongDistance      Boolean           @default(false)
 
   region                                     Region                             @relation(fields: [regionId], references: [id], onDelete: Cascade)
@@ -752,6 +755,7 @@ model OvernightStayConnectionVersion {
   averageDistanceKm         Float
   averageTravelHours        Float
   movementIntensity         MovementIntensity
+  movementIntensityColorOverride String? @db.VarChar(7)
   isLongDistance            Boolean           @default(false)
   sortOrder                 Int
   isDefault                 Boolean           @default(false)
@@ -814,6 +818,7 @@ model Segment {
   averageDistanceKm  Float
   averageTravelHours Float
   movementIntensity  MovementIntensity
+  movementIntensityColorOverride String? @db.VarChar(7)
   isLongDistance     Boolean           @default(false)
 
   region             Region             @relation(fields: [regionId], references: [id], onDelete: Cascade)
@@ -840,6 +845,7 @@ model SegmentVersion {
   averageDistanceKm            Float
   averageTravelHours           Float
   movementIntensity            MovementIntensity
+  movementIntensityColorOverride String? @db.VarChar(7)
   isLongDistance               Boolean                   @default(false)
   kind                         SegmentVersionKind        @default(DEFAULT)
   startDate                    DateTime?

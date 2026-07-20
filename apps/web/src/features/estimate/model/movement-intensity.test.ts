@@ -51,6 +51,36 @@ describe('estimate movement-intensity model', () => {
     ).toBe('#123456');
   });
 
+  it('prefers destination color override over level palette and stop override over destination', () => {
+    const colors = [
+      { level: 'LEVEL_2' as const, color: '#ff0000' },
+      { level: 'LEVEL_3' as const, color: '#123456' },
+    ];
+
+    expect(
+      resolveMovementIntensityChipColor({
+        movementIntensity: 'LEVEL_3',
+        destinationMovementIntensityColorOverride: '#ff0000',
+        colors,
+      }),
+    ).toBe('#ff0000');
+    expect(
+      resolveMovementIntensityChipColor({
+        movementIntensity: 'LEVEL_3',
+        movementIntensityColorOverride: '#123456',
+        destinationMovementIntensityColorOverride: '#ff0000',
+        colors,
+      }),
+    ).toBe('#123456');
+    expect(
+      resolveMovementIntensityChipColor({
+        movementIntensity: 'LEVEL_3',
+        destinationMovementIntensityColorOverride: '#999999',
+        colors,
+      }),
+    ).toBe('#123456');
+  });
+
   it('converts levels to numeric scores', () => {
     expect(movementIntensityToScore('LEVEL_3')).toBe(3);
     expect(movementIntensityToScore(undefined)).toBeNull();

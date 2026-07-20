@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { MultiDayBlockDaySlotEditor, createMultiDayBlockScheduleSlot, parseMultiDayBlockScheduleSlots, serializeMultiDayBlockScheduleSlots, type MultiDayBlockScheduleSlotInput } from './day-slot-editor';
 import { MultiDayBlockLocationSearchSelect } from './location-search-select';
 import { MultiDayBlockLodgingMealEditor } from './lodging-meal-editor';
+import { MovementIntensityColorOverrideField } from '../estimate/components/MovementIntensityColorOverrideField';
 import {
   createDefaultMultiDayBlockLodgingMealsDraft,
   parseMultiDayBlockLodgingMealsDraft,
@@ -41,6 +42,7 @@ interface MultiDayBlockRow {
     scheduleCellText: string;
     lodgingCellText: string;
     mealCellText: string;
+    movementIntensityColorOverride?: string | null;
   }>;
 }
 
@@ -49,6 +51,7 @@ interface MultiDayBlockDayDraft {
   displayLocationId: string;
   averageDistanceKm: string;
   averageTravelHours: string;
+  movementIntensityColorOverride: string | null;
   scheduleSlots: MultiDayBlockScheduleSlotInput[];
   lodging: MultiDayBlockLodgingFormValue;
   meals: MultiDayBlockMealsFormValue;
@@ -87,6 +90,7 @@ export const MULTI_DAY_BLOCK_EDIT_PANEL_QUERY = gql`
         scheduleCellText
         lodgingCellText
         mealCellText
+        movementIntensityColorOverride
       }
     }
   }
@@ -113,6 +117,7 @@ function createDayDraft(dayOrder: number): MultiDayBlockDayDraft {
     displayLocationId: '',
     averageDistanceKm: '0',
     averageTravelHours: '0',
+    movementIntensityColorOverride: null,
     scheduleSlots: [createMultiDayBlockScheduleSlot()],
     lodging: defaults.lodging,
     meals: defaults.meals,
@@ -166,6 +171,7 @@ export function MultiDayBlockEditPanel({ blockId, onSaved, onDeleted, onClose }:
             displayLocationId: day.displayLocationId,
             averageDistanceKm: String(day.averageDistanceKm ?? 0),
             averageTravelHours: String(day.averageTravelHours ?? 0),
+            movementIntensityColorOverride: day.movementIntensityColorOverride ?? null,
             scheduleSlots: parseMultiDayBlockScheduleSlots(day.timeCellText ?? '', day.scheduleCellText ?? ''),
           })),
       );
@@ -275,6 +281,7 @@ export function MultiDayBlockEditPanel({ blockId, onSaved, onDeleted, onClose }:
                           displayLocationId: day.displayLocationId,
                           averageDistanceKm: Number(day.averageDistanceKm) || 0,
                           averageTravelHours: Number(day.averageTravelHours) || 0,
+                          movementIntensityColorOverride: day.movementIntensityColorOverride,
                           timeCellText,
                           scheduleCellText,
                           lodgingCellText: serializeMultiDayBlockLodgingCellText(day.lodging),
@@ -341,6 +348,14 @@ export function MultiDayBlockEditPanel({ blockId, onSaved, onDeleted, onClose }:
                 onChange={(event) => updateDay(day.dayOrder, 'averageTravelHours', event.target.value)}
               />
             </div>
+
+            <MovementIntensityColorOverrideField
+              compact
+              value={day.movementIntensityColorOverride}
+              onChange={(color) => updateDay(day.dayOrder, 'movementIntensityColorOverride', color)}
+              modalRowLabel={`${day.dayOrder}일차 이동강도 색상`}
+              description="이 일차 행에 적용할 이동강도 색상입니다. 미지정 시 목적지·레벨 기반 색상을 사용합니다."
+            />
 
             <MultiDayBlockDaySlotEditor
               title="시간 / 일정"

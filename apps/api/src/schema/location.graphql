@@ -32,6 +32,8 @@ type LocationVersion {
   firstDayAverageDistanceKm: Float
   firstDayAverageTravelHours: Float
   firstDayMovementIntensity: MovementIntensity
+  """목적지 기본 이동강도 칩 색상 오버라이드 (전역 팔레트 hex)"""
+  movementIntensityColorOverride: String
   createdAt: DateTime!
   updatedAt: DateTime!
   location: Location!
@@ -90,6 +92,7 @@ input LocationProfileCreateInput {
   firstDayEarlyTimeSlots: [LocationProfileTimeSlotInput!]
   firstDayAverageDistanceKm: Float
   firstDayAverageTravelHours: Float
+  movementIntensityColorOverride: String
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
   mealsEarly: LocationProfileMealsInput
@@ -104,6 +107,7 @@ input LocationProfileUpdateInput {
   firstDayEarlyTimeSlots: [LocationProfileTimeSlotInput!]
   firstDayAverageDistanceKm: Float
   firstDayAverageTravelHours: Float
+  movementIntensityColorOverride: String
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
   mealsEarly: LocationProfileMealsInput
@@ -114,6 +118,7 @@ input LocationVersionProfileInput {
   firstDayEarlyTimeSlots: [LocationProfileTimeSlotInput!]
   firstDayAverageDistanceKm: Float
   firstDayAverageTravelHours: Float
+  movementIntensityColorOverride: String
   lodging: LocationProfileLodgingInput!
   meals: LocationProfileMealsInput!
   mealsEarly: LocationProfileMealsInput

@@ -45,6 +45,7 @@ interface VersionProfilePayload {
   firstDayEarlyTimeSlots?: LocationProfileTimeSlotInput[];
   firstDayAverageDistanceKm?: number;
   firstDayAverageTravelHours?: number;
+  movementIntensityColorOverride?: string | null;
   lodging: LocationProfileLodgingInput;
   meals: LocationProfileMealsInput;
   mealsEarly?: LocationProfileMealsInput;
@@ -55,6 +56,7 @@ interface VersionProfileSnapshot {
   firstDayEarlyTimeSlots?: LocationProfileTimeSlotInput[];
   firstDayAverageDistanceKm?: number;
   firstDayAverageTravelHours?: number;
+  movementIntensityColorOverride?: string | null;
   lodging: LocationProfileLodgingInput;
   meals: LocationProfileMealsInput;
   mealsEarly?: LocationProfileMealsInput;
@@ -308,6 +310,9 @@ export class LocationService {
           payload.isFirstDayEligible && typeof payload.firstDayAverageTravelHours === 'number'
             ? calculateMovementIntensity(payload.firstDayAverageTravelHours)
             : null,
+        movementIntensityColorOverride: payload.movementIntensityColorOverride?.trim()
+          ? payload.movementIntensityColorOverride.trim()
+          : null,
       },
     });
 
@@ -330,6 +335,7 @@ export class LocationService {
     sourceVersion: {
       firstDayAverageDistanceKm?: number | null;
       firstDayAverageTravelHours?: number | null;
+      movementIntensityColorOverride?: string | null;
       timeBlocks: Array<{
         profile: TimeBlockProfile;
         startTime: string;
@@ -362,6 +368,7 @@ export class LocationService {
       firstDayEarlyTimeSlots: this.mapTimeBlocksToTimeSlots(sourceVersion.timeBlocks, 'FIRST_DAY_EARLY'),
       firstDayAverageDistanceKm: sourceVersion.firstDayAverageDistanceKm ?? undefined,
       firstDayAverageTravelHours: sourceVersion.firstDayAverageTravelHours ?? undefined,
+      movementIntensityColorOverride: sourceVersion.movementIntensityColorOverride ?? null,
       lodging: {
         isUnspecified: primaryLodging?.isUnspecified ?? false,
         name: primaryLodging?.name ?? '여행자 캠프',
@@ -490,6 +497,7 @@ export class LocationService {
         firstDayEarlyTimeSlots: parsed.data.firstDayEarlyTimeSlots,
         firstDayAverageDistanceKm: parsed.data.firstDayAverageDistanceKm,
         firstDayAverageTravelHours: parsed.data.firstDayAverageTravelHours,
+        movementIntensityColorOverride: parsed.data.movementIntensityColorOverride ?? null,
         lodging: parsed.data.lodging,
         meals: parsed.data.meals,
         mealsEarly: parsed.data.mealsEarly,
@@ -570,6 +578,7 @@ export class LocationService {
         firstDayEarlyTimeSlots: profile.firstDayEarlyTimeSlots ? this.cloneTimeSlots(profile.firstDayEarlyTimeSlots) : undefined,
         firstDayAverageDistanceKm: profile.firstDayAverageDistanceKm,
         firstDayAverageTravelHours: profile.firstDayAverageTravelHours,
+        movementIntensityColorOverride: profile.movementIntensityColorOverride ?? null,
         lodging: profile.lodging,
         meals: profile.meals,
         mealsEarly: profile.mealsEarly,
@@ -711,6 +720,9 @@ export class LocationService {
             parsed.data.isFirstDayEligible && typeof parsed.data.firstDayAverageTravelHours === 'number'
               ? calculateMovementIntensity(parsed.data.firstDayAverageTravelHours)
               : null,
+          movementIntensityColorOverride: parsed.data.movementIntensityColorOverride?.trim()
+            ? parsed.data.movementIntensityColorOverride.trim()
+            : null,
         },
       });
 

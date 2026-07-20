@@ -2,7 +2,10 @@ import { gql, useQuery } from '@apollo/client';
 import { Button, Card, Input, Textarea, type ButtonProps } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { MealOption, type Region } from '../../generated/graphql';
-import { getMovementIntensityMeta } from '../estimate/model/movement-intensity';
+import { MovementIntensityColorOverrideField } from '../estimate/components/MovementIntensityColorOverrideField';
+import {
+  getMovementIntensityMeta,
+} from '../estimate/model/movement-intensity';
 import type { FacilityAvailability, LocationProfileFormInput } from './hooks';
 
 const REGIONS_QUERY = gql`
@@ -151,6 +154,7 @@ export function createDefaultLocationProfileFormValue(regionId = ''): LocationPr
     firstDayEarlyTimeSlots: DEFAULT_SLOT_TIMES.map((slot) => createSlot(slot)),
     firstDayAverageDistanceKm: '',
     firstDayAverageTravelHours: '',
+    movementIntensityColorOverride: null,
     lodging: {
       isUnspecified: false,
       name: '여행자 캠프',
@@ -528,6 +532,7 @@ export function LocationProfileForm({
   }, [form.firstDayAverageTravelHours, form.isFirstDayEligible]);
 
   return (
+    <>
     <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
       <h2 className="mb-4 text-lg font-semibold tracking-tight">{title}</h2>
       <form
@@ -672,6 +677,12 @@ export function LocationProfileForm({
                 <div className="text-sm text-slate-600">이동강도: {movementIntensityPreview ? movementIntensityPreview.label : '시간 입력 필요'}</div>
               </div>
             ) : null}
+
+            <MovementIntensityColorOverrideField
+              value={form.movementIntensityColorOverride}
+              onChange={(color) => setForm((prev) => ({ ...prev, movementIntensityColorOverride: color }))}
+              modalRowLabel="목적지 이동강도 색상"
+            />
 
             <div className="grid gap-3 rounded-2xl border border-slate-200 p-4">
               <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -890,5 +901,6 @@ export function LocationProfileForm({
         </div>
       </form>
     </Card>
+    </>
   );
 }

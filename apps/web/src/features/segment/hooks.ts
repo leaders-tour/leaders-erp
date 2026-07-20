@@ -13,6 +13,7 @@ const LIST = gql`
       defaultVersionId
       averageDistanceKm
       averageTravelHours
+      movementIntensityColorOverride
       isLongDistance
       scheduleTimeBlocks {
         id
@@ -42,6 +43,7 @@ const LIST = gql`
         name
         averageDistanceKm
         averageTravelHours
+        movementIntensityColorOverride
         isLongDistance
         kind
         startDate
@@ -94,6 +96,7 @@ const LIST = gql`
       defaultVersionId
       averageDistanceKm
       averageTravelHours
+      movementIntensityColorOverride
       isLongDistance
       fromMultiDayBlock {
         id
@@ -127,6 +130,7 @@ const LIST = gql`
         name
         averageDistanceKm
         averageTravelHours
+        movementIntensityColorOverride
         isLongDistance
         sortOrder
         isDefault
@@ -264,6 +268,7 @@ export interface SegmentFormInput {
   toLocationId: string;
   averageDistanceKm: number;
   averageTravelHours: number;
+  movementIntensityColorOverride?: string | null;
   isLongDistance: boolean;
   timeSlots: SegmentTimeSlotFormInput[];
   extendTimeSlots?: SegmentTimeSlotFormInput[];
@@ -278,6 +283,7 @@ export interface SegmentBulkFormInput {
   toLocationId: string;
   averageDistanceKm: number;
   averageTravelHours: number;
+  movementIntensityColorOverride?: string | null;
   isLongDistance: boolean;
   timeSlots: SegmentTimeSlotFormInput[];
   extendTimeSlots?: SegmentTimeSlotFormInput[];
@@ -294,6 +300,7 @@ export interface SegmentVersionFormInput {
   name: string;
   averageDistanceKm: number;
   averageTravelHours: number;
+  movementIntensityColorOverride?: string | null;
   isLongDistance: boolean;
   kind: SegmentVersionKindValue;
   startDate?: string;
@@ -320,6 +327,9 @@ function toMultiDayBlockConnectionVersionInputs(versions: SegmentVersionFormInpu
     timeSlots: v.timeSlots,
     ...(v.extendTimeSlots ? { extendTimeSlots: v.extendTimeSlots } : {}),
     ...(v.isDefault !== undefined ? { isDefault: v.isDefault } : {}),
+    ...(v.movementIntensityColorOverride !== undefined
+      ? { movementIntensityColorOverride: v.movementIntensityColorOverride }
+      : {}),
   }));
 }
 
@@ -335,6 +345,7 @@ export interface SegmentRow {
   defaultVersionId?: string | null;
   averageDistanceKm: number;
   averageTravelHours: number;
+  movementIntensityColorOverride?: string | null;
   isLongDistance: boolean;
   scheduleTimeBlocks: Array<{
     id: string;
@@ -364,6 +375,7 @@ export interface SegmentRow {
     name: string;
     averageDistanceKm: number;
     averageTravelHours: number;
+    movementIntensityColorOverride?: string | null;
     isLongDistance: boolean;
     kind: SegmentVersionKindValue;
     startDate?: string | null;
@@ -412,6 +424,7 @@ export function useSegmentCrud() {
       defaultVersionId?: string | null;
       averageDistanceKm: number;
       averageTravelHours: number;
+      movementIntensityColorOverride?: string | null;
       isLongDistance: boolean;
       scheduleTimeBlocks: SegmentRow['scheduleTimeBlocks'];
       extendScheduleTimeBlocks: SegmentRow['extendScheduleTimeBlocks'];
@@ -421,6 +434,7 @@ export function useSegmentCrud() {
         name: string;
         averageDistanceKm: number;
         averageTravelHours: number;
+        movementIntensityColorOverride?: string | null;
         isLongDistance: boolean;
         sortOrder: number;
         isDefault: boolean;
@@ -446,6 +460,7 @@ export function useSegmentCrud() {
     defaultVersionId: row.defaultVersionId,
     averageDistanceKm: row.averageDistanceKm,
     averageTravelHours: row.averageTravelHours,
+    movementIntensityColorOverride: row.movementIntensityColorOverride ?? null,
     isLongDistance: row.isLongDistance,
     scheduleTimeBlocks: row.scheduleTimeBlocks,
     extendScheduleTimeBlocks: row.extendScheduleTimeBlocks,
@@ -455,6 +470,7 @@ export function useSegmentCrud() {
       name: version.name,
       averageDistanceKm: version.averageDistanceKm,
       averageTravelHours: version.averageTravelHours,
+      movementIntensityColorOverride: version.movementIntensityColorOverride ?? null,
       isLongDistance: version.isLongDistance,
       kind: 'DEFAULT',
       startDate: null,

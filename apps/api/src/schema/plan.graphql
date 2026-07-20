@@ -771,6 +771,8 @@ type PlanStop {
   destinationCellText: String!
   movementIntensity: MovementIntensity
   movementIntensityColorOverride: String
+  """목적지(LocationVersion) 이동강도 칩 색상 오버라이드 (computed)"""
+  destinationMovementIntensityColorOverride: String
   timeCellText: String!
   scheduleCellText: String!
   lodgingCellText: String!

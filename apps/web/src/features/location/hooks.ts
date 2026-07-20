@@ -170,6 +170,7 @@ const DETAIL = gql`
         firstDayAverageDistanceKm
         firstDayAverageTravelHours
         firstDayMovementIntensity
+        movementIntensityColorOverride
         createdAt
         updatedAt
       }
@@ -220,6 +221,7 @@ const VERSION_DETAIL = gql`
       firstDayAverageDistanceKm
       firstDayAverageTravelHours
       firstDayMovementIntensity
+      movementIntensityColorOverride
       createdAt
       updatedAt
       location {
@@ -291,6 +293,7 @@ export interface LocationProfileFormInput {
   firstDayEarlyTimeSlots: LocationProfileTimeSlotFormInput[];
   firstDayAverageDistanceKm: string;
   firstDayAverageTravelHours: string;
+  movementIntensityColorOverride: string | null;
   lodging: {
     isUnspecified: boolean;
     name: string;
@@ -315,6 +318,7 @@ export interface LocationVersionProfileFormInput {
   firstDayEarlyTimeSlots: LocationProfileTimeSlotFormInput[];
   firstDayAverageDistanceKm: string;
   firstDayAverageTravelHours: string;
+  movementIntensityColorOverride: string | null;
   lodging: {
     isUnspecified: boolean;
     name: string;
@@ -397,6 +401,7 @@ export interface LocationVersionRow {
   firstDayAverageDistanceKm: number | null;
   firstDayAverageTravelHours: number | null;
   firstDayMovementIntensity: 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'LEVEL_5' | null;
+  movementIntensityColorOverride: string | null;
   createdAt: string;
   updatedAt: string;
   firstDayTimeBlocks: Array<{
@@ -509,6 +514,9 @@ function toProfileBody(input: LocationVersionProfileFormInput) {
     })),
     firstDayAverageDistanceKm: firstDayAverageDistanceKm.length > 0 ? Number(firstDayAverageDistanceKm) : undefined,
     firstDayAverageTravelHours: firstDayAverageTravelHours.length > 0 ? Number(firstDayAverageTravelHours) : undefined,
+    movementIntensityColorOverride: input.movementIntensityColorOverride?.trim()
+      ? input.movementIntensityColorOverride.trim()
+      : null,
     lodging: {
       ...input.lodging,
       name: input.lodging.name.trim(),

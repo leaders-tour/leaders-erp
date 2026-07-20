@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { hexColorSchema } from './app-settings.schema';
 import { locationProfileLodgingSchema, locationProfileMealsSchema } from './location.schema';
 
 const segmentFlightOutTimeBands = ['EVENING_18_21'] as const;
@@ -25,6 +26,7 @@ const segmentVersionSchema = z.object({
   mealsOverride: locationProfileMealsSchema.optional(),
   timeSlots: segmentTimeSlotsSchema,
   extendTimeSlots: segmentTimeSlotsSchema.optional(),
+  movementIntensityColorOverride: hexColorSchema.nullable().optional(),
   isDefault: z.boolean().optional(),
 }).superRefine((value, ctx) => {
   const hasStartDate = Boolean(value.startDate);

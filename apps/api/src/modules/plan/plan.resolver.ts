@@ -60,6 +60,56 @@ function isMovementIntensity(value: unknown): value is MovementIntensity {
   );
 }
 
+function normalizeColorOverride(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function resolveDestinationMovementIntensityColorOverride(parent: {
+  rowType?: unknown;
+  multiDayBlockDayOrder?: unknown;
+  multiDayBlock?: {
+    days?: Array<{ dayOrder?: unknown; movementIntensityColorOverride?: unknown }> | null;
+  } | null;
+  multiDayBlockConnectionVersion?: { movementIntensityColorOverride?: unknown } | null;
+  multiDayBlockConnection?: { movementIntensityColorOverride?: unknown } | null;
+  segmentVersion?: { movementIntensityColorOverride?: unknown } | null;
+  segment?: {
+    movementIntensityColorOverride?: unknown;
+    toLocation?: { currentVersion?: { movementIntensityColorOverride?: unknown } | null } | null;
+  } | null;
+  locationVersion?: { movementIntensityColorOverride?: unknown } | null;
+  location?: { currentVersion?: { movementIntensityColorOverride?: unknown } | null } | null;
+}): string | null {
+  if (parent.rowType === 'EXTERNAL_TRANSFER') {
+    return null;
+  }
+
+  const dayOrder =
+    typeof parent.multiDayBlockDayOrder === 'number' ? parent.multiDayBlockDayOrder : null;
+  if (parent.multiDayBlock?.days && dayOrder !== null) {
+    const matchingDay = parent.multiDayBlock.days.find((day) => day.dayOrder === dayOrder);
+    const dayOverride = normalizeColorOverride(matchingDay?.movementIntensityColorOverride);
+    if (dayOverride) {
+      return dayOverride;
+    }
+  }
+
+  return (
+    normalizeColorOverride(parent.multiDayBlockConnectionVersion?.movementIntensityColorOverride) ??
+    normalizeColorOverride(parent.multiDayBlockConnection?.movementIntensityColorOverride) ??
+    normalizeColorOverride(parent.segmentVersion?.movementIntensityColorOverride) ??
+    normalizeColorOverride(parent.segment?.movementIntensityColorOverride) ??
+    normalizeColorOverride(parent.locationVersion?.movementIntensityColorOverride) ??
+    normalizeColorOverride(parent.location?.currentVersion?.movementIntensityColorOverride) ??
+    normalizeColorOverride(parent.segment?.toLocation?.currentVersion?.movementIntensityColorOverride) ??
+    null
+  );
+}
+
 interface IdArgs {
   id: string;
 }
@@ -372,5 +422,6 @@ export const planResolver = {
   },
   PlanStop: {
     movementIntensity: resolveStopMovementIntensity,
+    destinationMovementIntensityColorOverride: resolveDestinationMovementIntensityColorOverride,
   },
 };

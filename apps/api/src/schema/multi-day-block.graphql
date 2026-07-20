@@ -26,6 +26,7 @@ type MultiDayBlockDay {
   averageDistanceKm: Float!
   averageTravelHours: Float!
   movementIntensity: MovementIntensity!
+  movementIntensityColorOverride: String
   timeCellText: String!
   scheduleCellText: String!
   lodgingCellText: String!
@@ -45,6 +46,7 @@ type MultiDayBlockConnection {
   averageDistanceKm: Float!
   averageTravelHours: Float!
   movementIntensity: MovementIntensity!
+  movementIntensityColorOverride: String
   isLongDistance: Boolean!
   fromMultiDayBlock: MultiDayBlock!
   toLocation: Location!
@@ -62,6 +64,7 @@ type MultiDayBlockConnectionVersion {
   averageDistanceKm: Float!
   averageTravelHours: Float!
   movementIntensity: MovementIntensity!
+  movementIntensityColorOverride: String
   isLongDistance: Boolean!
   sortOrder: Int!
   isDefault: Boolean!
@@ -126,6 +129,7 @@ input MultiDayBlockDayInput {
   scheduleCellText: String!
   lodgingCellText: String!
   mealCellText: String!
+  movementIntensityColorOverride: String
 }
 
 input MultiDayBlockCreateInput {
@@ -159,6 +163,7 @@ input MultiDayBlockConnectionVersionInput {
   isLongDistance: Boolean!
   timeSlots: [MultiDayBlockConnectionTimeSlotInput!]!
   extendTimeSlots: [MultiDayBlockConnectionTimeSlotInput!]
+  movementIntensityColorOverride: String
   isDefault: Boolean
 }
 
