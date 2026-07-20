@@ -260,3 +260,35 @@ describe('last-day-meal-x-rule', () => {
     expect(results.filter((r) => r.id === 'last-day-meal-x-rule')).toHaveLength(0);
   });
 });
+
+describe('missing-special-meals', () => {
+  it('5종 중 누락된 특식을 warning으로 표시한다', () => {
+    const planRows = [
+      row({
+        timeCellText: '08:00\n12:00\n18:00',
+        mealCellText: '아침\n점심\n샤브샤브',
+      }),
+    ];
+    const results = computeBuilderValidationResults(minimalInput(planRows, '19:00'));
+    const hit = results.find((r) => r.id === 'missing-special-meals');
+    expect(hit).toBeDefined();
+    expect(hit?.message).toContain('5종 모두 배치');
+    expect(hit?.message).toContain('삼겹살 뷔페');
+  });
+});
+
+describe('samgyeopsal-recommendation-deviation', () => {
+  it('삼겹살 뷔페도 추천지 이탈 warning을 검사한다', () => {
+    const planRows = [
+      row({
+        timeCellText: '08:00\n12:00\n18:00',
+        destinationCellText: '알 수 없는 지역',
+        mealCellText: '아침\n점심\n삼겹살 뷔페',
+      }),
+    ];
+    const results = computeBuilderValidationResults(minimalInput(planRows, '19:00'));
+    const hit = results.find((r) => r.id === 'samgyeopsal-recommendation-deviation');
+    expect(hit).toBeDefined();
+    expect(hit?.message).toContain('삼겹살 뷔페');
+  });
+});

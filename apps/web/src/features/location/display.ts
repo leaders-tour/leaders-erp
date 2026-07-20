@@ -34,6 +34,7 @@ export function toMealLabel(value: MealOption | null | undefined): string {
     [MealOption.LocalMeal]: '현지식',
     [MealOption.LocalRestaurant]: '현지식당',
     [MealOption.PorkParty]: '삼겹살파티',
+    [MealOption.PorkBuffet]: '삼겹살 뷔페',
     [MealOption.Horhog]: '허르헉',
     [MealOption.Shashlik]: '샤슬릭',
     [MealOption.ShabuShabu]: '샤브샤브',

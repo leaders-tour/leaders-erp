@@ -1,5 +1,5 @@
 /**
- * 특식 4종 규칙 기반 배치 모달.
+ * 특식 5종 규칙 기반 배치 모달.
  * 흐름: 특식 선택 -> 일차 선택(선택 일차 아래 아침·점심·저녁) -> 배치 요약
  */
 
@@ -8,6 +8,7 @@ import { Button, Card } from '@tour/ui';
 import {
   applySpecialMealSelections,
   buildSpecialMealOriginalSlotValues,
+  createEmptySpecialMealSelectionMap,
   DEFAULT_SPECIAL_MEAL_DESTINATION_RULES,
   getSamgyeopsalRecommendationRank,
   getShashlikRecommendationRank,
@@ -23,6 +24,7 @@ import {
   SPECIAL_MEAL_KINDS,
   getAssignmentsFromPlanRows,
   mealSlotToLabel,
+  usesSamgyeopsalDestinationRules,
 } from '../special-meals';
 
 export interface SpecialMealsModalProps {
@@ -33,12 +35,7 @@ export interface SpecialMealsModalProps {
   specialMealDestinationRules?: SpecialMealDestinationRules;
 }
 
-const EMPTY_SELECTIONS: SpecialMealSelectionMap = {
-  샤브샤브: [],
-  삼겹살파티: [],
-  허르헉: [],
-  샤슬릭: [],
-};
+const EMPTY_SELECTIONS = createEmptySpecialMealSelectionMap();
 
 function getDestinationLabel(value: string | null | undefined): string {
   const lines = (value ?? '')
@@ -58,12 +55,7 @@ function toRowContext(row: PlanRowForSpecialMeals, dayIndex: number, mealSlot: M
 }
 
 function buildInitialSelections(rows: PlanRowForSpecialMeals[]): SpecialMealSelectionMap {
-  const next: SpecialMealSelectionMap = {
-    샤브샤브: [],
-    삼겹살파티: [],
-    허르헉: [],
-    샤슬릭: [],
-  };
+  const next = createEmptySpecialMealSelectionMap();
   const assignments = getAssignmentsFromPlanRows(rows);
   for (const assignment of assignments) {
     next[assignment.specialMeal].push({
@@ -137,14 +129,13 @@ export function SpecialMealsModal({
       rows.map((row, dayIndex) => {
         const allowedSlots = getAllowedMealSlots(activeMeal, row, dayIndex, specialMealDestinationRules);
         const rowContext = toRowContext(row, dayIndex, 'dinner');
-        const recommendationRank =
-          activeMeal === '삼겹살파티'
+        const recommendationRank = usesSamgyeopsalDestinationRules(activeMeal)
             ? getSamgyeopsalRecommendationRank(rowContext, specialMealDestinationRules)
             : activeMeal === '샤슬릭'
               ? getShashlikRecommendationRank(rowContext, specialMealDestinationRules)
               : null;
         const isRecommended =
-          activeMeal === '삼겹살파티' || activeMeal === '샤슬릭'
+          usesSamgyeopsalDestinationRules(activeMeal) || activeMeal === '샤슬릭'
             ? recommendationRank !== null
             : false;
         return {
@@ -234,7 +225,7 @@ export function SpecialMealsModal({
           <Card className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl" role="dialog" aria-modal="true">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-slate-900">특식 4종 배치</h2>
+                <h2 className="text-xl font-semibold text-slate-900">특식 5종 배치</h2>
                 <p className="mt-1 text-sm text-slate-600">
                   특식 선택 → 일차 선택(일차 아래 끼니 지정) 후 요약을 확인하세요.
                 </p>
@@ -280,7 +271,9 @@ export function SpecialMealsModal({
                     })}
                   </div>
                   <div className="mt-3 text-xs text-slate-500">
-                    {activeMeal === '삼겹살파티' ? '삼겹살파티는 추천 목적지를 우선 표시합니다.' : null}
+                    {usesSamgyeopsalDestinationRules(activeMeal)
+                      ? '삼겹살파티·삼겹살 뷔페는 추천 목적지를 우선 표시합니다.'
+                      : null}
                     {activeMeal === '샤슬릭' ? '샤슬릭은 설정한 키워드·지역별 추천 순서를 반영합니다.' : null}
                   </div>
                 </div>

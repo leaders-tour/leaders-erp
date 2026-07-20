@@ -1,5 +1,5 @@
 /**
- * 특식 4종 규칙 기반 배치: 상수, mealCellText 변환, assignment 타입, 샤브샤브 제약/삼겹살 추천 규칙.
+ * 특식 5종 규칙 기반 배치: 상수, mealCellText 변환, assignment 타입, 샤브샤브 제약/삼겹살 추천 규칙.
  * 일정빌더/템플릿/멀티데이블록에서 공통 사용.
  */
 
@@ -11,8 +11,25 @@ import { includesLocationNameKeyword } from '../location/display';
 
 // --- 상수 ---
 
-export const SPECIAL_MEAL_KINDS = ['샤브샤브', '삼겹살파티', '허르헉', '샤슬릭'] as const;
+export const SPECIAL_MEAL_KINDS = ['샤브샤브', '삼겹살 뷔페', '삼겹살파티', '허르헉', '샤슬릭'] as const;
 export type SpecialMealKind = (typeof SPECIAL_MEAL_KINDS)[number];
+
+export const SAMGYEOPSAL_SPECIAL_MEAL_KINDS = ['삼겹살 뷔페', '삼겹살파티'] as const;
+
+export function usesSamgyeopsalDestinationRules(
+  meal: SpecialMealKind,
+): meal is (typeof SAMGYEOPSAL_SPECIAL_MEAL_KINDS)[number] {
+  return (SAMGYEOPSAL_SPECIAL_MEAL_KINDS as readonly SpecialMealKind[]).includes(meal);
+}
+
+function resolveSpecialMealFromText(value: string): SpecialMealKind | null {
+  for (const kind of SPECIAL_MEAL_KINDS) {
+    if (value.includes(kind)) {
+      return kind;
+    }
+  }
+  return null;
+}
 
 export const MEAL_SLOTS = ['breakfast', 'lunch', 'dinner'] as const;
 export type MealSlot = (typeof MEAL_SLOTS)[number];
@@ -111,13 +128,23 @@ export interface SpecialMealSelectionValue {
 /** 특식 종류별 (일차·끼니) 배치. 빈 배열 = 해당 종 미배치. 동일 종·동일 일차는 UI에서 끼니 하나만 유지. */
 export type SpecialMealSelectionMap = Record<SpecialMealKind, SpecialMealSelectionValue[]>;
 
+export function createEmptySpecialMealSelectionMap(): SpecialMealSelectionMap {
+  return {
+    샤브샤브: [],
+    '삼겹살 뷔페': [],
+    삼겹살파티: [],
+    허르헉: [],
+    샤슬릭: [],
+  };
+}
+
 export interface PlanRowForSpecialMeals {
   mealCellText: string;
   destinationCellText?: string | null;
   scheduleCellText?: string | null;
 }
 
-/** planRows에서 특식 4종 배치 상태를 역산 */
+/** planRows에서 특식 5종 배치 상태를 역산 */
 export function getAssignmentsFromPlanRows(
   rows: PlanRowForSpecialMeals[],
 ): SpecialMealAssignment[] {
@@ -126,9 +153,10 @@ export function getAssignmentsFromPlanRows(
     const fields = parseMealCellText(row.mealCellText);
     (MEAL_SLOTS as readonly MealSlot[]).forEach((slot) => {
       const value = fields[slot].trim();
-      if (SPECIAL_MEAL_KINDS.some((k) => value.includes(k))) {
+      const specialMeal = resolveSpecialMealFromText(value);
+      if (specialMeal) {
         assignments.push({
-          specialMeal: SPECIAL_MEAL_KINDS.find((k) => value.includes(k))!,
+          specialMeal,
           dayIndex,
           mealSlot: slot,
         });
@@ -356,7 +384,7 @@ export function applyAssignmentToPlanRows(
 }
 
 function containsSpecialMeal(value: string): boolean {
-  return SPECIAL_MEAL_KINDS.some((specialMeal) => value.includes(specialMeal));
+  return resolveSpecialMealFromText(value) !== null;
 }
 
 export function buildSpecialMealOriginalSlotValues(

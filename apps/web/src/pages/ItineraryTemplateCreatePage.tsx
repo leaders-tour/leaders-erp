@@ -1223,7 +1223,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
         <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <span className="text-xs text-slate-600">특식 4종</span>
+              <span className="text-xs text-slate-600">특식 5종</span>
               <p className="mt-0.5 text-xs text-slate-500">
                 {planRows.length === 0
                   ? '일차를 채운 뒤 설정하세요.'
@@ -1236,7 +1236,7 @@ export function ItineraryTemplateCreatePage(): JSX.Element {
                         })),
                       );
                       const count = new Set(assignments.map((a) => a.specialMeal)).size;
-                      return `4종 중 ${count}종 배치됨`;
+                      return `5종 중 ${count}종 배치됨`;
                     })()}
               </p>
             </div>

@@ -7482,9 +7482,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                   <div className="grid gap-2 text-sm">
                     <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <div className="min-w-0 w-1/2">
-                        <span className="text-xs text-slate-600">특식 4종</span>
+                        <span className="text-xs text-slate-600">특식 5종</span>
                         <p className="mt-1 text-xs text-slate-400">
-                          샤브샤브·삼겹살파티·허르헉·샤슬릭을 규칙에 맞게 일차/식사별로 배치합니다.
+                          샤브샤브·삼겹살파티·삼겹살 뷔페·허르헉·샤슬릭을 규칙에 맞게 일차/식사별로 배치합니다.
                         </p>
                         <p className="mt-2 text-xs text-slate-500">
                           {planRows.length === 0
@@ -7499,7 +7499,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   })),
                                 );
                                 const count = new Set(assignments.map((a) => a.specialMeal)).size;
-                                return `4종 중 ${count}종 배치됨`;
+                                return `5종 중 ${count}종 배치됨`;
                               })()}
                         </p>
                       </div>

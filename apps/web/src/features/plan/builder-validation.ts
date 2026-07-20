@@ -14,6 +14,7 @@ import {
   SPECIAL_MEAL_KINDS,
   type SpecialMealDestinationRules,
   type SpecialMealRowContext,
+  usesSamgyeopsalDestinationRules,
 } from './special-meals';
 import type { RouteSelection, SegmentOption } from '../plan-template/route-autofill';
 import type { PlanStopRowType } from './plan-stop-row';
@@ -400,7 +401,7 @@ export function computeBuilderValidationResults(input: BuilderValidationInput): 
       }
     }
 
-    // 특식 4종 규칙 기반 검증
+    // 특식 5종 규칙 기반 검증
     const specialMealRows = planRows.map((r) => ({
       mealCellText: r.mealCellText,
       destinationCellText: r.destinationCellText,
@@ -417,18 +418,18 @@ export function computeBuilderValidationResults(input: BuilderValidationInput): 
     const assignments = getAssignmentsFromPlanRows(specialMealRows);
     const assignedKinds = new Set(assignments.map((a) => a.specialMeal));
 
-    // missing-special-meals (warning) — 특식 4종 모두 배치 권장
+    // missing-special-meals (warning) — 특식 5종 모두 배치 권장
     const missingMeals = SPECIAL_MEAL_KINDS.filter((k) => !assignedKinds.has(k));
     if (missingMeals.length > 0) {
       results.push({
         id: 'missing-special-meals',
         severity: 'warning',
-        message: `특식 누락: ${missingMeals.join(', ')} (4종 모두 배치를 권장합니다)`,
+        message: `특식 누락: ${missingMeals.join(', ')} (5종 모두 배치를 권장합니다)`,
       });
     }
 
-    // samgyeopsal-recommendation-deviation (warning) — 삼겹살 배치가 여러 곳이면 각각 검사
-    const samgyeopsalAssignments = assignments.filter((a) => a.specialMeal === '삼겹살파티');
+    // samgyeopsal-recommendation-deviation (warning) — 삼겹살파티·삼겹살 뷔페 배치가 여러 곳이면 각각 검사
+    const samgyeopsalAssignments = assignments.filter((a) => usesSamgyeopsalDestinationRules(a.specialMeal));
     const recoHint = formatSamgyeopsalRecommendationHint(specialMealDestinationRules);
     for (const samgyeopsalAssignment of samgyeopsalAssignments) {
       const ctx = rowContexts.find(
@@ -438,7 +439,7 @@ export function computeBuilderValidationResults(input: BuilderValidationInput): 
         results.push({
           id: 'samgyeopsal-recommendation-deviation',
           severity: 'warning',
-          message: `삼겹살파티는 설정된 지역별 추천지에 배치하는 것을 권장합니다. (예: ${recoHint})`,
+          message: `${samgyeopsalAssignment.specialMeal}는 설정된 지역별 추천지에 배치하는 것을 권장합니다. (예: ${recoHint})`,
           affectedCells: [{ rowIndex: samgyeopsalAssignment.dayIndex, field: 'mealCellText' }],
         });
       }

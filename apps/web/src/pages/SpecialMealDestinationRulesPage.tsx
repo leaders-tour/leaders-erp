@@ -151,7 +151,7 @@ export function SpecialMealDestinationRulesPage(): JSX.Element {
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-slate-900">특식 여행지 규칙</h1>
         <p className="mt-1 text-sm text-slate-600">
-          삼겹살·샤슬릭은 키워드와 지역 라벨, 지역별 추천 순서를 맞춥니다. 일정
+          삼겹살(삼겹살파티·삼겹살 뷔페)·샤슬릭은 키워드와 지역 라벨, 지역별 추천 순서를 맞춥니다. 일정
           칸 텍스트가 등록한 이름·키워드와 부분 일치할 때 적용됩니다.
         </p>
         {updatedAt ? (
@@ -172,7 +172,7 @@ export function SpecialMealDestinationRulesPage(): JSX.Element {
       ) : null}
 
       <Card className="mb-6 rounded-2xl border border-slate-200 p-5">
-        <h2 className="font-medium text-slate-900">삼겹살 — 키워드 ↔ 지역</h2>
+        <h2 className="font-medium text-slate-900">삼겹살(파티·뷔페) — 키워드 ↔ 지역</h2>
         <p className="mt-1 text-xs text-slate-500">위에서부터 먼저 매칭 (긴·구체 키워드를 위에)</p>
         <ul className="mt-3 space-y-2">
           {draft.samgyeopsalRegionKeywordMap.map((p, i) => (
@@ -226,7 +226,7 @@ export function SpecialMealDestinationRulesPage(): JSX.Element {
       </Card>
 
       <Card className="mb-6 rounded-2xl border border-slate-200 p-5">
-        <h2 className="font-medium text-slate-900">삼겹살 — 지역별 추천 순서</h2>
+        <h2 className="font-medium text-slate-900">삼겹살(파티·뷔페) — 지역별 추천 순서</h2>
         <p className="mt-1 text-xs text-slate-500">앞쪽이 우선 (일정·목적지 텍스트 부분 일치)</p>
         <div className="mt-4 space-y-6">
           {draft.samgyeopsalPriorityByRegion.map((block, bi) => (

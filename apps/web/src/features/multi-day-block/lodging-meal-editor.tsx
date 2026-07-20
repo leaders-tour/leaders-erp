@@ -19,6 +19,7 @@ const MEAL_OPTIONS: Array<{ value: MealOption; label: string }> = [
   { value: MealOption.LocalRestaurant, label: '현지식당' },
   { value: MealOption.ShabuShabu, label: '샤브샤브' },
   { value: MealOption.PorkParty, label: '삼겹살파티' },
+  { value: MealOption.PorkBuffet, label: '삼겹살 뷔페' },
   { value: MealOption.Horhog, label: '허르헉' },
   { value: MealOption.Shashlik, label: '샤슬릭' },
 ];
