@@ -48,8 +48,8 @@ import {
 } from '../features/confirmed-trip/hooks';
 import { listExternalTransferDetailRows } from '../features/plan/external-transfer';
 import {
-  formatFlightDisplay,
   formatPickupDropDisplay,
+  formatTransportFlightLines,
   formatTransportPickupDropLines,
   type TransportGroupLike,
 } from '../features/plan/pickup-drop';
@@ -893,6 +893,32 @@ export function ConfirmedTripDetailPage(): JSX.Element {
 
   const flightDisplay = useMemo(() => {
     if (!trip) return '-';
+    const groups = trip.planVersion?.meta?.transportGroups ?? [];
+    if (groups.length > 0) {
+      const asLike: TransportGroupLike[] = groups.map((g) => ({
+        teamName: g.teamName,
+        headcount: g.headcount,
+        flightInDate: g.flightInDate,
+        flightInTime: g.flightInTime,
+        flightOutDate: g.flightOutDate,
+        flightOutTime: g.flightOutTime,
+        pickupDate: g.pickupDate,
+        pickupTime: g.pickupTime,
+        pickupPlaceType: g.pickupPlaceType ?? undefined,
+        pickupPlaceCustomText: g.pickupPlaceCustomText,
+        dropDate: g.dropDate,
+        dropTime: g.dropTime,
+        dropPlaceType: g.dropPlaceType ?? undefined,
+        dropPlaceCustomText: g.dropPlaceCustomText,
+      }));
+      const inLines = formatTransportFlightLines(asLike, 'IN');
+      const outLines = formatTransportFlightLines(asLike, 'OUT');
+      const parts = [
+        inLines !== '항공권 미정' ? `IN ${inLines}` : null,
+        outLines !== '항공권 미정' ? `OUT ${outLines}` : null,
+      ].filter(Boolean);
+      return parts.length > 0 ? parts.join('\n') : '-';
+    }
     const snap = trip.latestPublishedConfirmationDocument?.snapshot;
     if (snap?.flightInText?.trim() || snap?.flightOutText?.trim()) {
       return [
@@ -902,16 +928,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
         .filter(Boolean)
         .join('\n');
     }
-    const groups = trip.planVersion?.meta?.transportGroups ?? [];
-    if (groups.length === 0) return '-';
-    return groups
-      .map((group) => {
-        const prefix = groups.length > 1 && group.teamName ? `[${group.teamName}] ` : '';
-        const inPart = formatFlightDisplay(group.flightInDate, group.flightInTime);
-        const outPart = formatFlightDisplay(group.flightOutDate, group.flightOutTime);
-        return `${prefix}IN ${inPart} / OUT ${outPart}`;
-      })
-      .join('\n');
+    return '-';
   }, [trip]);
 
   const equipmentRentalLabels = useMemo(() => {
@@ -926,11 +943,13 @@ export function ConfirmedTripDetailPage(): JSX.Element {
 
   const participatedEventText = useMemo(() => {
     if (!trip) return null;
+    const events = trip.planVersion?.meta?.events ?? [];
+    if (events.length > 0) {
+      return events.map((event) => event.name).join(' / ');
+    }
     const fromConfirmation = trip.latestPublishedConfirmationDocument?.snapshot?.eventNames?.trim();
     if (fromConfirmation) return fromConfirmation;
-    const events = trip.planVersion?.meta?.events ?? [];
-    if (events.length === 0) return null;
-    return events.map((event) => event.name).join(' / ');
+    return null;
   }, [trip]);
 
   if (!tripId) {

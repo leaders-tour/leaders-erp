@@ -49,10 +49,12 @@ import { addDays, todayIsoDate } from '../features/estimate/utils/format';
 import { resolveInitialValidUntilDateForNewVersion } from '../features/estimate/utils/resolve-initial-valid-until-date';
 import { useAuth } from '../features/auth/context';
 import {
+  useActiveConfirmedTripByPlan,
   useRentalItemAvailability,
   useUpdateConfirmedTrip,
   type TourListRentalItem,
 } from '../features/confirmed-trip/hooks';
+import { ConfirmTripVersionSwitchDialog } from '../features/confirmed-trip/components/ConfirmTripVersionSwitchDialog';
 import { RentalItemAvailabilityBadges } from '../features/confirmed-trip/RentalItemAvailabilityBadges';
 import {
   formatLocationNameInline,
@@ -2864,6 +2866,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     value: string;
   } | null>(null);
   const [createdId, setCreatedId] = useState<string>('');
+  const [versionSaveConfirmOpen, setVersionSaveConfirmOpen] = useState(false);
   const [planSaveErrorMessages, setPlanSaveErrorMessages] = useState<string[]>([]);
   const [isCreateBlockedTooltipOpen, setIsCreateBlockedTooltipOpen] = useState<boolean>(false);
   const [isValidationOpen, setIsValidationOpen] = useState<boolean>(false);
@@ -3038,6 +3041,9 @@ export function ItineraryBuilderPage(): JSX.Element {
     CREATE_USER_MUTATION,
   );
   const { updateConfirmedTrip, loading: confirmingTripVersion } = useUpdateConfirmedTrip();
+  const { trip: activeConfirmedTripForPlan } = useActiveConfirmedTripByPlan(
+    isVersionMode ? planId : undefined,
+  );
 
   const creating = creatingPlan || creatingVersion || confirmingTripVersion;
 
@@ -5177,6 +5183,165 @@ export function ItineraryBuilderPage(): JSX.Element {
     const p = parseEstimateGuidePageSplitsInput(estimateGuidePageSplitsText);
     return p && p.length > 0 ? p : null;
   }, [estimateGuidePageSplitsText]);
+
+  const executePlanVersionSave = useCallback(
+    async (options: { updateActiveConfirmedTrip: boolean }) => {
+      setPlanSaveErrorMessages([]);
+
+      try {
+        const result = await createPlanVersion({
+          variables: {
+            input: {
+              planId,
+              regionSetId,
+              parentVersionId,
+              variantType,
+              totalDays,
+              changeNote: changeNote.trim() || undefined,
+              meta: {
+                leaderName: leaderName.trim(),
+                travelStartDate: toIsoDateTime(travelStartDate),
+                travelEndDate: toIsoDateTime(travelEndDate),
+                headcountTotal,
+                headcountMale,
+                headcountFemale,
+                vehicleType,
+                vehicleAssignments,
+                ...primaryMetaFlightFields(primaryTransportGroup),
+                pickupDate: primaryTransportGroup?.pickupDate
+                  ? toIsoDateTime(primaryTransportGroup.pickupDate)
+                  : undefined,
+                pickupTime: primaryTransportGroup?.pickupTime.trim() || undefined,
+                dropDate: primaryTransportGroup?.dropDate
+                  ? toIsoDateTime(primaryTransportGroup.dropDate)
+                  : undefined,
+                dropTime: primaryTransportGroup?.dropTime.trim() || undefined,
+                pickupPlaceType:
+                  primaryTransportGroup?.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                pickupPlaceCustomText: normalizePickupDropCustomText(
+                  primaryTransportGroup?.pickupPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                  primaryTransportGroup?.pickupPlaceCustomText,
+                ),
+                dropPlaceType:
+                  primaryTransportGroup?.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                dropPlaceCustomText: normalizePickupDropCustomText(
+                  primaryTransportGroup?.dropPlaceType ?? DEFAULT_PICKUP_DROP_PLACE_TYPE,
+                  primaryTransportGroup?.dropPlaceCustomText,
+                ),
+                pickupDropNote: undefined,
+                externalPickupDropNote: undefined,
+                externalTransfers: normalizedExternalTransfers.map((transfer) => ({
+                  ...transfer,
+                  travelDate: toIsoDateTime(transfer.travelDate),
+                })),
+                specialNote: specialNote.trim() || undefined,
+                includeRentalItems,
+                rentalItemsText,
+                eventIds,
+                extraLodgings,
+                lodgingSelections,
+                transportGroups: normalizedTransportGroups.map((group) =>
+                  mapTransportGroupToPlanMutationInput(group),
+                ),
+                remark: remark.trim() || undefined,
+                estimateGuideImagesPerPage,
+                estimateGuidePageSplits: estimateGuidePageSplitsParsed ?? undefined,
+                movementIntensityColorOverride: overallMovementIntensityColorOverride,
+                validUntilDate: toIsoDateTime(validUntilDate),
+              },
+              planStops: planStopsForMutation,
+              manualAdjustments: normalizedManualAdjustments,
+              manualDepositAmountKrw: normalizedManualDepositAmountKrw,
+              manualPricing: serializedManualPricingSnapshot,
+            },
+          },
+        });
+
+        const createdVersionId = result.data?.createPlanVersion.id ?? '';
+        setCreatedId(createdVersionId);
+        if (!createdVersionId) {
+          return;
+        }
+
+        if (confirmedTripId) {
+          try {
+            await updateConfirmedTrip(confirmedTripId, {
+              planVersionId: createdVersionId,
+            });
+          } catch (error) {
+            setPlanSaveErrorMessages(mutationErrorMessages(error));
+            return;
+          }
+          setPlanSaveErrorMessages([]);
+          navigate(`/confirmed-trips/${confirmedTripId}`);
+          return;
+        }
+
+        if (options.updateActiveConfirmedTrip && activeConfirmedTripForPlan) {
+          try {
+            await updateConfirmedTrip(activeConfirmedTripForPlan.id, {
+              planVersionId: createdVersionId,
+            });
+          } catch (error) {
+            setPlanSaveErrorMessages([
+              ...mutationErrorMessages(error),
+              '새 버전은 생성되었습니다. 견적 버전 상세에서 확정 갱신을 수동으로 진행해 주세요.',
+            ]);
+            navigate(`/plans/${planId}/versions/${createdVersionId}`);
+            return;
+          }
+          setPlanSaveErrorMessages([]);
+          navigate(`/confirmed-trips/${activeConfirmedTripForPlan.id}`);
+          return;
+        }
+
+        setPlanSaveErrorMessages([]);
+        navigate(`/plans/${planId}/versions/${createdVersionId}`);
+      } catch (error) {
+        setPlanSaveErrorMessages(mutationErrorMessages(error));
+      }
+    },
+    [
+      activeConfirmedTripForPlan,
+      changeNote,
+      confirmedTripId,
+      createPlanVersion,
+      estimateGuideImagesPerPage,
+      estimateGuidePageSplitsParsed,
+      eventIds,
+      extraLodgings,
+      headcountFemale,
+      headcountMale,
+      headcountTotal,
+      includeRentalItems,
+      leaderName,
+      lodgingSelections,
+      navigate,
+      normalizedExternalTransfers,
+      normalizedManualAdjustments,
+      normalizedManualDepositAmountKrw,
+      normalizedTransportGroups,
+      overallMovementIntensityColorOverride,
+      parentVersionId,
+      planId,
+      planStopsForMutation,
+      primaryTransportGroup,
+      regionSetId,
+      remark,
+      rentalItemsText,
+      serializedManualPricingSnapshot,
+      specialNote,
+      totalDays,
+      travelEndDate,
+      travelStartDate,
+      updateConfirmedTrip,
+      validUntilDate,
+      variantType,
+      vehicleAssignments,
+      vehicleType,
+    ],
+  );
+
   const estimateDraftSnapshot = useMemo<EstimateBuilderDraftSnapshot>(
     () =>
       createEstimateDraftSnapshot({
@@ -5700,97 +5865,13 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                     try {
                       if (isVersionMode) {
-                        const result = await createPlanVersion({
-                          variables: {
-                            input: {
-                              planId,
-                              regionSetId,
-                              parentVersionId,
-                              variantType,
-                              totalDays,
-                              changeNote: changeNote.trim() || undefined,
-                              meta: {
-                                leaderName: leaderName.trim(),
-                                travelStartDate: toIsoDateTime(travelStartDate),
-                                travelEndDate: toIsoDateTime(travelEndDate),
-                                headcountTotal,
-                                headcountMale,
-                                headcountFemale,
-                                vehicleType,
-                                vehicleAssignments,
-                                ...primaryMetaFlightFields(primaryTransportGroup),
-                                pickupDate: primaryTransportGroup?.pickupDate
-                                  ? toIsoDateTime(primaryTransportGroup.pickupDate)
-                                  : undefined,
-                                pickupTime: primaryTransportGroup?.pickupTime.trim() || undefined,
-                                dropDate: primaryTransportGroup?.dropDate
-                                  ? toIsoDateTime(primaryTransportGroup.dropDate)
-                                  : undefined,
-                                dropTime: primaryTransportGroup?.dropTime.trim() || undefined,
-                                pickupPlaceType:
-                                  primaryTransportGroup?.pickupPlaceType ??
-                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                                pickupPlaceCustomText: normalizePickupDropCustomText(
-                                  primaryTransportGroup?.pickupPlaceType ??
-                                    DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                                  primaryTransportGroup?.pickupPlaceCustomText,
-                                ),
-                                dropPlaceType:
-                                  primaryTransportGroup?.dropPlaceType ??
-                                  DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                                dropPlaceCustomText: normalizePickupDropCustomText(
-                                  primaryTransportGroup?.dropPlaceType ??
-                                    DEFAULT_PICKUP_DROP_PLACE_TYPE,
-                                  primaryTransportGroup?.dropPlaceCustomText,
-                                ),
-                                pickupDropNote: undefined,
-                                externalPickupDropNote: undefined,
-                                externalTransfers: normalizedExternalTransfers.map((transfer) => ({
-                                  ...transfer,
-                                  travelDate: toIsoDateTime(transfer.travelDate),
-                                })),
-                                specialNote: specialNote.trim() || undefined,
-                                includeRentalItems,
-                                rentalItemsText,
-                                eventIds,
-                                extraLodgings,
-                                lodgingSelections,
-                                transportGroups: normalizedTransportGroups.map((group) =>
-                                  mapTransportGroupToPlanMutationInput(group),
-                                ),
-                                remark: remark.trim() || undefined,
-                                estimateGuideImagesPerPage,
-                                estimateGuidePageSplits: estimateGuidePageSplitsParsed ?? undefined,
-                                movementIntensityColorOverride: overallMovementIntensityColorOverride,
-                                validUntilDate: toIsoDateTime(validUntilDate),
-                              },
-                              planStops: planStopsForMutation,
-                              manualAdjustments: normalizedManualAdjustments,
-                              manualDepositAmountKrw: normalizedManualDepositAmountKrw,
-                              manualPricing: serializedManualPricingSnapshot,
-                            },
-                          },
-                        });
-
-                        const createdVersionId = result.data?.createPlanVersion.id ?? '';
-                        setCreatedId(createdVersionId);
-                        if (createdVersionId) {
-                          if (confirmedTripId) {
-                            try {
-                              await updateConfirmedTrip(confirmedTripId, {
-                                planVersionId: createdVersionId,
-                              });
-                            } catch (error) {
-                              setPlanSaveErrorMessages(mutationErrorMessages(error));
-                              return;
-                            }
-                            setPlanSaveErrorMessages([]);
-                            navigate(`/confirmed-trips/${confirmedTripId}`);
-                            return;
-                          }
-                          setPlanSaveErrorMessages([]);
-                          navigate(`/plans/${planId}/versions/${createdVersionId}`);
+                        const shouldOfferConfirmedTripUpdate =
+                          !confirmedTripId && activeConfirmedTripForPlan?.status === 'ACTIVE';
+                        if (shouldOfferConfirmedTripUpdate) {
+                          setVersionSaveConfirmOpen(true);
+                          return;
                         }
+                        await executePlanVersionSave({ updateActiveConfirmedTrip: false });
                         return;
                       }
 
@@ -8997,6 +9078,23 @@ export function ItineraryBuilderPage(): JSX.Element {
           confirmLabel="예, 연동하기"
           onCancel={handleEventSecurityResyncCancel}
           onConfirm={handleEventSecurityResyncConfirm}
+        />
+        <ConfirmTripVersionSwitchDialog
+          open={versionSaveConfirmOpen}
+          mode="createNewVersion"
+          currentConfirmedVersionNumber={
+            activeConfirmedTripForPlan?.planVersion?.versionNumber ?? null
+          }
+          saving={creating}
+          onClose={() => setVersionSaveConfirmOpen(false)}
+          onConfirmUpdate={() => {
+            setVersionSaveConfirmOpen(false);
+            void executePlanVersionSave({ updateActiveConfirmedTrip: true });
+          }}
+          onConfirmVersionOnly={() => {
+            setVersionSaveConfirmOpen(false);
+            void executePlanVersionSave({ updateActiveConfirmedTrip: false });
+          }}
         />
       </div>
     </div>

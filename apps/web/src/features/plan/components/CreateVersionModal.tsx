@@ -12,6 +12,7 @@ interface CreateVersionModalProps {
   versions: PlanVersionRow[];
   defaultParentVersionId: string;
   documentNumberBase: string;
+  hasActiveConfirmedTrip?: boolean;
   onClose: () => void;
   onConfirm: (parentVersionId: string, changeNote: string) => void;
 }
@@ -21,6 +22,7 @@ export function CreateVersionModal({
   versions,
   defaultParentVersionId,
   documentNumberBase,
+  hasActiveConfirmedTrip = false,
   onClose,
   onConfirm,
 }: CreateVersionModalProps): JSX.Element | null {
@@ -57,6 +59,11 @@ export function CreateVersionModal({
       <Card className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-5 shadow-xl">
         <h3 className="text-lg font-semibold text-slate-900">새 버전 생성</h3>
         <p className="mt-1 text-sm text-slate-600">부모 버전과 변경 메모를 선택하고 빌더로 이동합니다.</p>
+        {hasActiveConfirmedTrip ? (
+          <p className="mt-2 text-xs text-amber-700">
+            이 플랜은 확정된 여행이 있습니다. 저장 시 확정 갱신 여부를 확인합니다.
+          </p>
+        ) : null}
 
         <div className="mt-4 grid gap-3">
           <label className="grid gap-1 text-sm">

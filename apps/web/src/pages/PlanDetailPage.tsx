@@ -3,6 +3,7 @@ import { Button, Card } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CreateVersionModal, VersionListPanel, VersionTreePanel } from '../features/plan/components';
+import { useActiveConfirmedTripByPlan } from '../features/confirmed-trip/hooks';
 import {
   useDeletePlanVersion,
   usePlanDetail,
@@ -22,6 +23,7 @@ export function PlanDetailPage(): JSX.Element {
 
   const { plan, loading: planLoading } = usePlanDetail(planId);
   const { versions, loading: versionsLoading } = usePlanVersions(planId);
+  const { trip: activeConfirmedTripForPlan } = useActiveConfirmedTripByPlan(planId);
   const { deletePlanVersion, loading: deleteVersionLoading } = useDeletePlanVersion();
   const { updatePlan, loading: updatePlanLoading } = useUpdatePlan();
 
@@ -279,6 +281,7 @@ export function PlanDetailPage(): JSX.Element {
         versions={sortedVersions}
         defaultParentVersionId={baseForCreate}
         documentNumberBase={plan.documentNumberBase}
+        hasActiveConfirmedTrip={activeConfirmedTripForPlan?.status === 'ACTIVE'}
         onClose={() => setModalOpen(false)}
         onConfirm={(parentVersionId, changeNote) => {
           const params = new URLSearchParams({

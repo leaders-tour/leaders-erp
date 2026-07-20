@@ -13,6 +13,7 @@ import { PlanVersionContractCreateNotice } from '../features/plan/components/Pla
 import { buildExternalTransferDirectionText } from '../features/plan/external-transfer';
 import { usePlanVersionDetail, useUpdatePlanVersionChangeNote, useUpdatePlanVersionValidUntilDate } from '../features/plan/hooks';
 import { countMainPlanStopRows } from '../features/plan/plan-stop-row';
+import { ConfirmTripVersionSwitchDialog } from '../features/confirmed-trip/components/ConfirmTripVersionSwitchDialog';
 import {
   useActiveConfirmedTripByPlan,
   useActiveConfirmedTripByPlanVersion,
@@ -800,7 +801,32 @@ export function PlanVersionDetailPage(): JSX.Element {
         </aside>
       </div>
 
-      {confirmingTripModal ? (
+      {confirmingTripModal && confirmFlowMode === 'switchVersion' ? (
+        <ConfirmTripVersionSwitchDialog
+          open
+          mode="switchExisting"
+          currentConfirmedVersionNumber={
+            activeConfirmedTripForPlan?.planVersion?.versionNumber ?? null
+          }
+          targetVersionNumber={version.versionNumber}
+          saving={confirmTripSaving}
+          onClose={() => setConfirmingTripModal(false)}
+          onConfirmUpdate={async () => {
+            if (!activeConfirmedTripForPlan) {
+              return;
+            }
+            try {
+              await updateConfirmedTrip(activeConfirmedTripForPlan.id, {
+                planVersionId: version.id,
+              });
+              setConfirmingTripModal(false);
+              navigate(`/confirmed-trips/${activeConfirmedTripForPlan.id}`);
+            } catch (error) {
+              window.alert(error instanceof Error ? error.message : '갱신에 실패했습니다.');
+            }
+          }}
+        />
+      ) : confirmingTripModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
           <Card className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-xl">
             <h3 className="text-lg font-semibold text-slate-900">여행 확정</h3>
@@ -811,21 +837,6 @@ export function PlanVersionDetailPage(): JSX.Element {
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
                   투어 리스트에서 이 확정 여행을 확인할 수 있습니다.
-                </p>
-              </>
-            ) : confirmFlowMode === 'switchVersion' ? (
-              <>
-                <p className="mt-1 text-sm text-slate-600">
-                  이 플랜은 이미{' '}
-                  {activeConfirmedTripForPlan?.planVersion?.versionNumber != null
-                    ? `v${activeConfirmedTripForPlan.planVersion.versionNumber}`
-                    : '다른 견적 버전'}
-                  으로 확정되어 있습니다. 확정 여행의 연결 견적을 v{version.versionNumber}으로
-                  갱신할까요?
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  기사·숙소·가이드·운영 일정·오픈채팅·예약일 등 확정 건에 입력한 운영 정보는 그대로
-                  유지되고, 견적 버전 연결과 렌탈 품목 기준만 새 버전으로 갱신됩니다.
                 </p>
               </>
             ) : (
@@ -848,14 +859,6 @@ export function PlanVersionDetailPage(): JSX.Element {
                   disabled={confirmTripSaving}
                   onClick={async () => {
                     try {
-                      if (confirmFlowMode === 'switchVersion' && activeConfirmedTripForPlan) {
-                        await updateConfirmedTrip(activeConfirmedTripForPlan.id, {
-                          planVersionId: version.id,
-                        });
-                        setConfirmingTripModal(false);
-                        navigate(`/confirmed-trips/${activeConfirmedTripForPlan.id}`);
-                        return;
-                      }
                       await confirmTrip({
                         planId,
                         planVersionId: version.id,
@@ -864,16 +867,12 @@ export function PlanVersionDetailPage(): JSX.Element {
                       navigate('/confirmed-trips');
                     } catch (error) {
                       window.alert(
-                        error instanceof Error
-                          ? error.message
-                          : confirmFlowMode === 'switchVersion'
-                            ? '갱신에 실패했습니다.'
-                            : '확정에 실패했습니다.',
+                        error instanceof Error ? error.message : '확정에 실패했습니다.',
                       );
                     }
                   }}
                 >
-                  {confirmFlowMode === 'switchVersion' ? '갱신' : '확정'}
+                  확정
                 </Button>
               ) : null}
             </div>
