@@ -1,4 +1,5 @@
 import type { ExternalTransfer } from '../../plan/external-transfer';
+import type { MealSlot } from '../../plan/special-meals';
 import type { PlanStopRowType } from '../../plan/plan-stop-row';
 import type { PickupDropPlaceType } from '../../plan/pickup-drop';
 import type { VehicleAssignment } from '@tour/validation';
@@ -256,4 +257,9 @@ export interface EstimatePage1Editor {
 export interface EstimatePage2Editor {
   onMovementIntensityColorOverrideChange: (mainRowIndex: number, color: string | null) => void;
   onOverallMovementIntensityColorOverrideChange: (color: string | null) => void;
+  onTimeCellTextChange?: (mainRowIndex: number, value: string) => void;
+  onScheduleCellTextChange?: (mainRowIndex: number, value: string) => void;
+  onMealCellFieldChange?: (mainRowIndex: number, slot: MealSlot, value: string) => void;
+  onMealCellTextChange?: (mainRowIndex: number, value: string) => void;
+  onOpenLodgingSelection?: (mainRowIndex: number) => void;
 }

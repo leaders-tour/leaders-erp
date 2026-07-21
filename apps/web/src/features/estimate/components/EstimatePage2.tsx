@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ESTIMATE_PAGE2_BRAND, ESTIMATE_PAGE2_FOOTER_NOTICES } from '../model/constants';
 import type { EstimateDocumentData, EstimatePage2Editor, EstimatePlanStopRow } from '../model/types';
 import type { CSSProperties } from 'react';
@@ -191,7 +191,218 @@ function chunkItineraryRows(rows: PlanStopRowContext[]): PlanStopRowContext[][] 
   return chunks;
 }
 
+type Page2EditableTextField = 'time' | 'schedule';
+
+type Page2ActiveEditorState =
+  | {
+      kind: Page2EditableTextField;
+      pageIndex: number;
+      mainRowIndex: number;
+    }
+  | {
+      kind: 'meal';
+      pageIndex: number;
+      mainRowIndex: number;
+    }
+  | null;
+
+function autoResizeInlineTextarea(element: HTMLTextAreaElement): void {
+  element.style.height = 'auto';
+  element.style.height = `${element.scrollHeight}px`;
+}
+
+function toEditableTextValue(value: string | null | undefined): string {
+  const text = value?.trim();
+  return text && text !== '-' ? text : '';
+}
+
+interface EstimatePage2InlineEditorProps {
+  value: string;
+  displayLines: string[];
+  pairedLineStyle?: CSSProperties;
+  onFocus: () => void;
+  onBlur: () => void;
+  onChange: (value: string) => void;
+  ariaLabel: string;
+}
+
+function EstimatePage2InlineEditor({
+  value,
+  displayLines,
+  pairedLineStyle,
+  onFocus,
+  onBlur,
+  onChange,
+  ariaLabel,
+}: EstimatePage2InlineEditorProps): JSX.Element {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const cellClassName = pairedLineStyle
+    ? 'estimate-itinerary-cell estimate-itinerary-cell--paired-lines estimate-page2-editable-cell'
+    : 'estimate-itinerary-cell estimate-itinerary-cell--multiline estimate-page2-editable-cell';
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      autoResizeInlineTextarea(textareaRef.current);
+    }
+  }, [value]);
+
+  return (
+    <div className={cellClassName} style={pairedLineStyle}>
+      <textarea
+        ref={textareaRef}
+        value={value}
+        rows={Math.max(displayLines.length, 1)}
+        onChange={(event) => {
+          onChange(event.target.value);
+          autoResizeInlineTextarea(event.currentTarget);
+        }}
+        onInput={(event) => autoResizeInlineTextarea(event.currentTarget)}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        className="estimate-page2-inline-textarea"
+        aria-label={ariaLabel}
+      />
+    </div>
+  );
+}
+
+interface EditableItineraryTextCellProps {
+  field: Page2EditableTextField;
+  pageIndex: number;
+  mainRowIndex: number;
+  value: string;
+  displayLines: string[];
+  pairedLineStyle: CSSProperties;
+  editor: EstimatePage2Editor;
+  activeEditor: Page2ActiveEditorState;
+  onActivate: (state: Page2ActiveEditorState) => void;
+  onDeactivate: () => void;
+}
+
+function EditableItineraryTextCell({
+  field,
+  pageIndex,
+  mainRowIndex,
+  value,
+  displayLines,
+  pairedLineStyle,
+  editor,
+  activeEditor,
+  onActivate,
+  onDeactivate,
+}: EditableItineraryTextCellProps): JSX.Element {
+  const onChange =
+    field === 'time' ? editor.onTimeCellTextChange : editor.onScheduleCellTextChange;
+
+  if (onChange == null) {
+    return (
+      <div className="estimate-itinerary-cell estimate-itinerary-cell--paired-lines" style={pairedLineStyle}>
+        {displayLines.map((line, lineIndex) => (
+          <span className="estimate-itinerary-line" key={`${field}-line-${lineIndex + 1}`}>
+            {line}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <EstimatePage2InlineEditor
+      value={toEditableTextValue(value)}
+      displayLines={displayLines}
+      pairedLineStyle={pairedLineStyle}
+      onFocus={() => onActivate({ kind: field, pageIndex, mainRowIndex })}
+      onBlur={onDeactivate}
+      onChange={(nextValue) => onChange(mainRowIndex, nextValue)}
+      ariaLabel={field === 'time' ? '시간 편집' : '일정 편집'}
+    />
+  );
+}
+
+interface EditableItineraryMealCellProps {
+  pageIndex: number;
+  mainRowIndex: number;
+  mealCellText: string;
+  editor: EstimatePage2Editor;
+  activeEditor: Page2ActiveEditorState;
+  onActivate: (state: Page2ActiveEditorState) => void;
+  onDeactivate: () => void;
+}
+
+function EditableItineraryMealCell({
+  pageIndex,
+  mainRowIndex,
+  mealCellText,
+  editor,
+  activeEditor,
+  onActivate,
+  onDeactivate,
+}: EditableItineraryMealCellProps): JSX.Element {
+  const displayValue = formatMealCellForEstimate(mealCellText);
+  const displayLines = getDisplayLines(displayValue === '-' ? '' : displayValue);
+  const onMealCellTextChange = editor.onMealCellTextChange;
+
+  if (onMealCellTextChange == null && editor.onMealCellFieldChange == null) {
+    return <div className="estimate-itinerary-cell">{displayValue}</div>;
+  }
+
+  if (onMealCellTextChange != null) {
+    return (
+      <EstimatePage2InlineEditor
+        value={toEditableTextValue(displayValue === '-' ? '' : displayValue)}
+        displayLines={displayLines}
+        onFocus={() => onActivate({ kind: 'meal', pageIndex, mainRowIndex })}
+        onBlur={onDeactivate}
+        onChange={(nextValue) => onMealCellTextChange(mainRowIndex, nextValue)}
+        ariaLabel="식사 편집"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="estimate-page2-editable-trigger"
+      onClick={() => onActivate({ kind: 'meal', pageIndex, mainRowIndex })}
+      aria-label="식사 편집"
+    >
+      <div className="estimate-itinerary-cell estimate-itinerary-cell--multiline">{displayValue}</div>
+    </button>
+  );
+}
+
+interface EditableItineraryLodgingCellProps {
+  lodgingCellText: string;
+  mainRowIndex: number;
+  editor: EstimatePage2Editor;
+}
+
+function EditableItineraryLodgingCell({
+  lodgingCellText,
+  mainRowIndex,
+  editor,
+}: EditableItineraryLodgingCellProps): JSX.Element {
+  const displayValue = fallback(lodgingCellText);
+
+  if (editor.onOpenLodgingSelection == null) {
+    return <div className="estimate-itinerary-cell">{displayValue}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      className="estimate-page2-editable-trigger estimate-page2-editable-trigger--lodging"
+      onClick={() => editor.onOpenLodgingSelection?.(mainRowIndex)}
+      aria-label="숙소 선택"
+      title="클릭하여 숙소 선택"
+    >
+      <div className="estimate-itinerary-cell estimate-itinerary-cell--multiline">{displayValue}</div>
+    </button>
+  );
+}
+
 export function EstimatePage2({ data, movementIntensityColors, editor }: EstimatePage2Props): JSX.Element {
+  const [activeEditor, setActiveEditor] = useState<Page2ActiveEditorState>(null);
   const [colorModalState, setColorModalState] = useState<
     | {
         kind: 'overall';
@@ -434,28 +645,78 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
                         </div>
                       </div>
                       <div className="estimate-itinerary-table-cell" role="cell">
-                        <div className="estimate-itinerary-cell estimate-itinerary-cell--paired-lines" style={pairedLineStyle}>
-                          {paddedTimeLines.map((line, lineIndex) => (
-                            <span className="estimate-itinerary-line" key={`time-line-${lineIndex + 1}`}>
-                              {line}
-                            </span>
-                          ))}
-                        </div>
+                        {mainRowIndex != null && editor != null ? (
+                          <EditableItineraryTextCell
+                            field="time"
+                            pageIndex={pageIndex}
+                            mainRowIndex={mainRowIndex}
+                            value={row.timeCellText ?? ''}
+                            displayLines={paddedTimeLines}
+                            pairedLineStyle={pairedLineStyle}
+                            editor={editor}
+                            activeEditor={activeEditor}
+                            onActivate={setActiveEditor}
+                            onDeactivate={() => setActiveEditor(null)}
+                          />
+                        ) : (
+                          <div className="estimate-itinerary-cell estimate-itinerary-cell--paired-lines" style={pairedLineStyle}>
+                            {paddedTimeLines.map((line, lineIndex) => (
+                              <span className="estimate-itinerary-line" key={`time-line-${lineIndex + 1}`}>
+                                {line}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div className="estimate-itinerary-table-cell" role="cell">
-                        <div className="estimate-itinerary-cell estimate-itinerary-cell--paired-lines" style={pairedLineStyle}>
-                          {paddedScheduleLines.map((line, lineIndex) => (
-                            <span className="estimate-itinerary-line" key={`schedule-line-${lineIndex + 1}`}>
-                              {line}
-                            </span>
-                          ))}
-                        </div>
+                        {mainRowIndex != null && editor != null ? (
+                          <EditableItineraryTextCell
+                            field="schedule"
+                            pageIndex={pageIndex}
+                            mainRowIndex={mainRowIndex}
+                            value={row.scheduleCellText ?? ''}
+                            displayLines={paddedScheduleLines}
+                            pairedLineStyle={pairedLineStyle}
+                            editor={editor}
+                            activeEditor={activeEditor}
+                            onActivate={setActiveEditor}
+                            onDeactivate={() => setActiveEditor(null)}
+                          />
+                        ) : (
+                          <div className="estimate-itinerary-cell estimate-itinerary-cell--paired-lines" style={pairedLineStyle}>
+                            {paddedScheduleLines.map((line, lineIndex) => (
+                              <span className="estimate-itinerary-line" key={`schedule-line-${lineIndex + 1}`}>
+                                {line}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div className="estimate-itinerary-table-cell" role="cell">
-                        <div className="estimate-itinerary-cell">{fallback(row.lodgingCellText)}</div>
+                        {mainRowIndex != null && editor != null ? (
+                          <EditableItineraryLodgingCell
+                            lodgingCellText={row.lodgingCellText}
+                            mainRowIndex={mainRowIndex}
+                            editor={editor}
+                          />
+                        ) : (
+                          <div className="estimate-itinerary-cell">{fallback(row.lodgingCellText)}</div>
+                        )}
                       </div>
                       <div className="estimate-itinerary-table-cell" role="cell">
-                        <div className="estimate-itinerary-cell">{formatMealCellForEstimate(row.mealCellText)}</div>
+                        {mainRowIndex != null && editor != null ? (
+                          <EditableItineraryMealCell
+                            pageIndex={pageIndex}
+                            mainRowIndex={mainRowIndex}
+                            mealCellText={row.mealCellText}
+                            editor={editor}
+                            activeEditor={activeEditor}
+                            onActivate={setActiveEditor}
+                            onDeactivate={() => setActiveEditor(null)}
+                          />
+                        ) : (
+                          <div className="estimate-itinerary-cell">{formatMealCellForEstimate(row.mealCellText)}</div>
+                        )}
                       </div>
                     </div>
                   );

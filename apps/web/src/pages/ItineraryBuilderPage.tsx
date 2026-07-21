@@ -28,7 +28,6 @@ import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builde
 import {
   averageMovementIntensity,
   isMovementIntensityPaletteColor,
-  type MovementIntensityValue,
 } from '../features/estimate/model/movement-intensity';
 import {
   formatEstimateGuidePageSplitsInput,
@@ -113,6 +112,15 @@ import {
   type PlanStopRowBase,
   type PlanStopRowType,
 } from '../features/plan/plan-stop-row';
+import {
+  buildRouteChangeConfirmMessage,
+  clearDirtyKeysForRemovedSources,
+  getDirtyPlanRowFieldKey,
+  getPlanRowSourceKey,
+  getRouteChangeResetSummary,
+  mergeAutoRowsWithDirtyValues,
+  type PreservedPlanRowField,
+} from '../features/plan/plan-row-merge';
 import {
   computeAutoVariantSyncUpdate,
   DEFAULT_PICKUP_DROP_PLACE_TYPE,
@@ -1121,6 +1129,7 @@ function arePlanRowsEqual(left: PlanRow[], right: PlanRow[]): boolean {
       row.locationId === other.locationId &&
       row.locationVersionId === other.locationVersionId &&
       row.movementIntensity === other.movementIntensity &&
+      row.movementIntensityColorOverride === other.movementIntensityColorOverride &&
       row.lodgingSelectionLevel === other.lodgingSelectionLevel &&
       row.customLodgingId === other.customLodgingId &&
       row.customLodgingNameSnapshot === other.customLodgingNameSnapshot &&
@@ -1134,141 +1143,12 @@ function arePlanRowsEqual(left: PlanRow[], right: PlanRow[]): boolean {
   });
 }
 
-const PRESERVED_PLAN_ROW_FIELDS: Array<keyof PlanRow> = [
-  'dateCellText',
-  'destinationCellText',
-  'timeCellText',
-  'scheduleCellText',
-  'mealCellText',
-  'lodgingSelectionLevel',
-  'customLodgingId',
-  'customLodgingNameSnapshot',
-  'lodgingCellText',
-];
-
-function getDirtyPlanRowFieldKey(rowIndex: number, field: keyof PlanRow): string {
-  return `${rowIndex}:${field}`;
-}
-
-function isSamePlanRowSource(left: PlanRow | undefined, right: PlanRow | undefined): boolean {
-  if (!left || !right) {
-    return false;
-  }
-
-  return (
-    left.segmentId === right.segmentId &&
-    left.segmentVersionId === right.segmentVersionId &&
-    left.overnightStayId === right.overnightStayId &&
-    left.overnightStayDayOrder === right.overnightStayDayOrder &&
-    left.multiDayBlockId === right.multiDayBlockId &&
-    left.multiDayBlockDayOrder === right.multiDayBlockDayOrder &&
-    left.multiDayBlockConnectionId === right.multiDayBlockConnectionId &&
-    left.multiDayBlockConnectionVersionId === right.multiDayBlockConnectionVersionId &&
-    left.rowType === right.rowType &&
-    left.locationId === right.locationId &&
-    left.locationVersionId === right.locationVersionId &&
-    left.movementIntensity === right.movementIntensity
-  );
-}
-
-function planRowHasRouteStructure(row: PlanRow): boolean {
-  return Boolean(
-    row.segmentId ||
-      row.segmentVersionId ||
-      row.multiDayBlockId ||
-      row.multiDayBlockConnectionId ||
-      row.overnightStayId ||
-      row.locationId,
-  );
-}
-
-/** 자동 생성 행이 목적지/구간 정보 없이 비어 있을 때 (플레이스홀더 등) */
-function isVacuousMainPlanAutoRow(row: PlanRow): boolean {
-  if (row.rowType === 'EXTERNAL_TRANSFER') {
-    return false;
-  }
-  return !planRowHasRouteStructure(row);
-}
-
-/** 자동 행이 일정표에 찍을 표면 텍스트가 거의 없을 때 */
-function planRowMissingScheduleSurface(row: PlanRow): boolean {
-  return (
-    !(row.destinationCellText?.trim()) &&
-    !(row.scheduleCellText?.trim()) &&
-    !(row.timeCellText?.trim())
-  );
-}
-
-function planRowHasScheduleSurface(row: PlanRow): boolean {
-  return (
-    Boolean(row.destinationCellText?.trim()) ||
-    Boolean(row.scheduleCellText?.trim()) ||
-    Boolean(row.timeCellText?.trim())
-  );
-}
-
-function mergeAutoRowsWithDirtyValues(
-  current: PlanRow[],
-  autoRows: PlanRow[],
+function markPlanRowFieldDirty(
   dirtyFieldKeys: Set<string>,
-): PlanRow[] {
-  const mainPhysicalIndexes = buildMainPlanRowPhysicalIndexes(current);
-
-  const mergedMainRows = autoRows.map((autoRow, mainIndex) => {
-    const physicalIndex = mainPhysicalIndexes[mainIndex];
-    const currentRow = physicalIndex !== undefined ? current[physicalIndex] : undefined;
-
-    if (!currentRow || !isSamePlanRowSource(currentRow, autoRow)) {
-      if (
-        currentRow &&
-        isVacuousMainPlanAutoRow(autoRow) &&
-        planRowHasRouteStructure(currentRow)
-      ) {
-        return currentRow;
-      }
-      if (
-        currentRow &&
-        planRowHasRouteStructure(currentRow) &&
-        planRowHasScheduleSurface(currentRow) &&
-        planRowMissingScheduleSurface(autoRow)
-      ) {
-        return currentRow;
-      }
-      return autoRow;
-    }
-
-    const mergedRow = { ...autoRow };
-    const dirtyRowIndex = physicalIndex ?? mainIndex;
-    for (const field of PRESERVED_PLAN_ROW_FIELDS) {
-      if (dirtyFieldKeys.has(getDirtyPlanRowFieldKey(dirtyRowIndex, field))) {
-        (mergedRow as Record<string, unknown>)[field] = currentRow[field];
-      }
-    }
-    return mergedRow;
-  });
-
-  if (mainPhysicalIndexes.length === 0) {
-    return mergedMainRows.length > 0 ? mergedMainRows : current;
-  }
-
-  const result: PlanRow[] = [];
-  let mergedMainIndex = 0;
-  for (let physicalIndex = 0; physicalIndex < current.length; physicalIndex += 1) {
-    const row = current[physicalIndex]!;
-    if (!isMainPlanStopRow(row)) {
-      result.push(row);
-      continue;
-    }
-    if (mergedMainIndex < mergedMainRows.length) {
-      result.push(mergedMainRows[mergedMainIndex]!);
-      mergedMainIndex += 1;
-    }
-  }
-  while (mergedMainIndex < mergedMainRows.length) {
-    result.push(mergedMainRows[mergedMainIndex]!);
-    mergedMainIndex += 1;
-  }
-  return result;
+  row: PlanRow,
+  field: PreservedPlanRowField,
+): void {
+  dirtyFieldKeys.add(getDirtyPlanRowFieldKey(getPlanRowSourceKey(row), field));
 }
 
 const REGION_SETS_QUERY = gql`
@@ -3015,6 +2895,8 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [homeNewUserName, setHomeNewUserName] = useState<string>('');
   const [homeCreateUserError, setHomeCreateUserError] = useState<string>('');
   const dirtyPlanRowFieldKeysRef = useRef<Set<string>>(new Set());
+  const planRowsRef = useRef<PlanRow[]>([]);
+  const selectedRouteRef = useRef<RouteSelection[]>([]);
   const pendingConsultationTemplateApplyIdRef = useRef<string | null>(null);
   const lastAutoPlanTitleRef = useRef<string>(buildDefaultPlanTitle(''));
   const hasEditedHeadcountMaleRef = useRef<boolean>(false);
@@ -3409,7 +3291,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     });
     setExtraLodgingCounts(nextExtraLodgingCounts);
 
-    setSelectedRoute(
+    applySelectedRouteChange(
       buildSelectedRouteFromStops(
         mainPlanStops.map((stop) => ({
           segmentId: stop.segmentId,
@@ -3740,58 +3622,108 @@ export function ItineraryBuilderPage(): JSX.Element {
     [filteredOvernightStays, selectedRoute, totalDays],
   );
 
-  const autoRows = useMemo((): PlanRow[] => {
-    const firstPickupTime = transportGroups[0]?.pickupTime?.trim() ?? '';
-    const dropDate = transportGroups[0]?.dropDate?.trim() ?? '';
-    const dropTime = transportGroups[0]?.dropTime?.trim() ?? '';
-    const flightOutTime = transportGroups[0]?.flightOutTime?.trim() ?? '';
-    const firstDayTimeOverride =
-      (variantType === VariantType.Early || variantType === VariantType.EarlyExtend) &&
-      firstPickupTime
-        ? firstPickupTime
-        : undefined;
+  const buildAutoRowsForRoute = useCallback(
+    (route: RouteSelection[]): PlanRow[] => {
+      const firstPickupTime = transportGroups[0]?.pickupTime?.trim() ?? '';
+      const dropDate = transportGroups[0]?.dropDate?.trim() ?? '';
+      const dropTime = transportGroups[0]?.dropTime?.trim() ?? '';
+      const flightOutTime = transportGroups[0]?.flightOutTime?.trim() ?? '';
+      const firstDayTimeOverride =
+        (variantType === VariantType.Early || variantType === VariantType.EarlyExtend) &&
+        firstPickupTime
+          ? firstPickupTime
+          : undefined;
 
-    const baseRows = buildAutoRowsFromRoute({
-      selectedRoute,
+      const baseRows = buildAutoRowsFromRoute({
+        selectedRoute: route,
+        filteredSegments,
+        filteredMultiDayBlocks: filteredOvernightStays,
+        filteredMultiDayBlockConnections: filteredOvernightStayConnections,
+        locationById,
+        locationVersionById,
+        totalDays,
+        variantType,
+        travelStartDate,
+        flightOutTime,
+        firstDayTimeOverride,
+      }).map((row) => ({
+        ...row,
+        lodgingSelectionLevel: 'LV3' as const,
+        customLodgingId: undefined,
+        customLodgingNameSnapshot: null,
+      }));
+      return applyLastDayAutoRowAdjustments(baseRows, {
+        travelEndDate,
+        dropDate,
+        dropTime,
+        flightOutTime,
+      });
+    },
+    [
+      filteredOvernightStays,
+      filteredOvernightStayConnections,
       filteredSegments,
-      filteredMultiDayBlocks: filteredOvernightStays,
-      filteredMultiDayBlockConnections: filteredOvernightStayConnections,
       locationById,
       locationVersionById,
       totalDays,
-      variantType,
+      transportGroups,
       travelStartDate,
-      flightOutTime,
-      firstDayTimeOverride,
-    }).map((row) => ({
-      ...row,
-      lodgingSelectionLevel: 'LV3' as const,
-      customLodgingId: undefined,
-      customLodgingNameSnapshot: null,
-    }));
-    return applyLastDayAutoRowAdjustments(baseRows, {
       travelEndDate,
-      dropDate,
-      dropTime,
-      flightOutTime,
-    });
-  }, [
-    filteredOvernightStays,
-    filteredOvernightStayConnections,
-    filteredSegments,
-    locationById,
-    locationVersionById,
+      variantType,
+    ],
+  );
+
+  const autoRows = useMemo((): PlanRow[] => buildAutoRowsForRoute(selectedRoute), [
+    buildAutoRowsForRoute,
     selectedRoute,
-    totalDays,
-    transportGroups,
-    travelStartDate,
-    variantType,
   ]);
+
+  const applySelectedRouteChange = useCallback(
+    (nextRoute: RouteSelection[] | ((prev: RouteSelection[]) => RouteSelection[])): void => {
+      const prevRoute = selectedRouteRef.current;
+      const resolvedNext = typeof nextRoute === 'function' ? nextRoute(prevRoute) : nextRoute;
+      if (JSON.stringify(resolvedNext) === JSON.stringify(prevRoute)) {
+        return;
+      }
+
+      const nextAutoRows = buildAutoRowsForRoute(resolvedNext);
+      const summary = getRouteChangeResetSummary(
+        planRowsRef.current,
+        nextAutoRows,
+        dirtyPlanRowFieldKeysRef.current,
+      );
+      if (summary.affectedDayLabels.length > 0) {
+        if (!window.confirm(buildRouteChangeConfirmMessage(summary.affectedDayLabels))) {
+          return;
+        }
+        clearDirtyKeysForRemovedSources(dirtyPlanRowFieldKeysRef.current, nextAutoRows);
+      }
+
+      setSelectedRoute(resolvedNext);
+      setPlanRows((current) => {
+        const merged = mergeAutoRowsWithDirtyValues(
+          current,
+          nextAutoRows,
+          dirtyPlanRowFieldKeysRef.current,
+        );
+        return arePlanRowsEqual(current, merged) ? current : merged;
+      });
+    },
+    [buildAutoRowsForRoute],
+  );
 
   const transportSuggestedVariant = useMemo(
     () => inferVariantTypeFromTransportGroups(transportGroups),
     [transportGroups],
   );
+
+  useEffect(() => {
+    planRowsRef.current = planRows;
+  }, [planRows]);
+
+  useEffect(() => {
+    selectedRouteRef.current = selectedRoute;
+  }, [selectedRoute]);
 
   useEffect(() => {
     if (suppressAutoRowsMergeOnceRef.current) {
@@ -4387,21 +4319,33 @@ export function ItineraryBuilderPage(): JSX.Element {
   ]);
 
   const updateCell = (rowIndex: number, field: keyof PlanRow, value: string): void => {
-    dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, field));
-    setPlanRows((prev) =>
-      prev.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)),
-    );
+    setPlanRows((prev) => {
+      const row = prev[rowIndex];
+      if (!row) {
+        return prev;
+      }
+      markPlanRowFieldDirty(dirtyPlanRowFieldKeysRef.current, row, field as PreservedPlanRowField);
+      return prev.map((currentRow, index) =>
+        index === rowIndex ? { ...currentRow, [field]: value } : currentRow,
+      );
+    });
   };
 
   const updateMovementIntensityColorOverride = (rowIndex: number, value: string | null): void => {
-    dirtyPlanRowFieldKeysRef.current.add(
-      getDirtyPlanRowFieldKey(rowIndex, 'movementIntensityColorOverride'),
-    );
-    setPlanRows((prev) =>
-      prev.map((row, index) =>
-        index === rowIndex ? { ...row, movementIntensityColorOverride: value } : row,
-      ),
-    );
+    setPlanRows((prev) => {
+      const row = prev[rowIndex];
+      if (!row) {
+        return prev;
+      }
+      markPlanRowFieldDirty(
+        dirtyPlanRowFieldKeysRef.current,
+        row,
+        'movementIntensityColorOverride',
+      );
+      return prev.map((currentRow, index) =>
+        index === rowIndex ? { ...currentRow, movementIntensityColorOverride: value } : currentRow,
+      );
+    });
   };
 
   const updateMealCellField = (
@@ -4409,22 +4353,26 @@ export function ItineraryBuilderPage(): JSX.Element {
     field: keyof MealCellFields,
     value: string,
   ): void => {
-    dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, 'mealCellText'));
-    setPlanRows((prev) =>
-      prev.map((row, index) => {
+    setPlanRows((prev) => {
+      const row = prev[rowIndex];
+      if (!row) {
+        return prev;
+      }
+      markPlanRowFieldDirty(dirtyPlanRowFieldKeysRef.current, row, 'mealCellText');
+      return prev.map((currentRow, index) => {
         if (index !== rowIndex) {
-          return row;
+          return currentRow;
         }
         const nextMealFields = {
-          ...parseMealCellText(row.mealCellText),
+          ...parseMealCellText(currentRow.mealCellText),
           [field]: value,
         };
         return {
-          ...row,
+          ...currentRow,
           mealCellText: toMealCellText(nextMealFields),
         };
-      }),
-    );
+      });
+    });
   };
 
   const openLodgingUpgradeModal = (focusPlanRowIndex: number | null = null): void => {
@@ -4436,19 +4384,16 @@ export function ItineraryBuilderPage(): JSX.Element {
     level: LodgingSelectionLevel,
     customLodging?: RegionLodgingOption | null,
   ): void => {
-    dirtyPlanRowFieldKeysRef.current.add(
-      getDirtyPlanRowFieldKey(rowIndex, 'lodgingSelectionLevel'),
-    );
-    dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, 'customLodgingId'));
-    dirtyPlanRowFieldKeysRef.current.add(
-      getDirtyPlanRowFieldKey(rowIndex, 'customLodgingNameSnapshot'),
-    );
-    dirtyPlanRowFieldKeysRef.current.add(getDirtyPlanRowFieldKey(rowIndex, 'lodgingCellText'));
     setPlanRows((prev) =>
       prev.map((row, index) => {
         if (index !== rowIndex) {
           return row;
         }
+
+        markPlanRowFieldDirty(dirtyPlanRowFieldKeysRef.current, row, 'lodgingSelectionLevel');
+        markPlanRowFieldDirty(dirtyPlanRowFieldKeysRef.current, row, 'customLodgingId');
+        markPlanRowFieldDirty(dirtyPlanRowFieldKeysRef.current, row, 'customLodgingNameSnapshot');
+        markPlanRowFieldDirty(dirtyPlanRowFieldKeysRef.current, row, 'lodgingCellText');
 
         const baseLodgingName = toLodgingCell(
           row.locationVersionId ? locationVersionById.get(row.locationVersionId) : undefined,
@@ -4639,7 +4584,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     setSkipNextAutoRowsSync(true);
     setRegionSetId(template.regionSetId);
     setTotalDays(template.totalDays);
-    setSelectedRoute(
+    applySelectedRouteChange(
       buildSelectedRouteFromStops(
         orderedStops.map((stop) => ({
           segmentId: stop.segmentId,
@@ -4803,7 +4748,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       const nextRegionSetId = draft.regionSetId ?? null;
       if (nextRegionSetId) {
         setRegionSetId(nextRegionSetId);
-        setSelectedRoute([]);
+        applySelectedRouteChange([]);
         dirtyPlanRowFieldKeysRef.current.clear();
         setPlanRows([]);
         setIsMultiDayBlockSectionOpen(false);
@@ -4811,7 +4756,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       setTravelStartDate(draft.travelStartDate);
       setTravelEndDate(draft.travelEndDate);
       setTotalDays(Math.max(2, Math.min(12, draft.totalDays)));
-      setSelectedRoute((prev) => trimRouteSelectionsToTotalDays(prev, draft.totalDays));
+      applySelectedRouteChange((prev) => trimRouteSelectionsToTotalDays(prev, draft.totalDays));
       const draftHeadcount = Math.max(1, Math.min(30, draft.headcountTotal));
       setVehicleAssignments(
         resolveVehicleAssignmentsForHeadcount(
@@ -5589,6 +5534,25 @@ export function ItineraryBuilderPage(): JSX.Element {
     onOverallMovementIntensityColorOverrideChange: (color) => {
       setOverallMovementIntensityColorOverride(color);
     },
+    onTimeCellTextChange: (mainRowIndex, value) => {
+      updateCell(resolveMainPlanRowPhysicalIndex(planRows, mainRowIndex), 'timeCellText', value);
+    },
+    onScheduleCellTextChange: (mainRowIndex, value) => {
+      updateCell(
+        resolveMainPlanRowPhysicalIndex(planRows, mainRowIndex),
+        'scheduleCellText',
+        value,
+      );
+    },
+    onMealCellFieldChange: (mainRowIndex, slot, value) => {
+      updateMealCellField(resolveMainPlanRowPhysicalIndex(planRows, mainRowIndex), slot, value);
+    },
+    onMealCellTextChange: (mainRowIndex, value) => {
+      updateCell(resolveMainPlanRowPhysicalIndex(planRows, mainRowIndex), 'mealCellText', value);
+    },
+    onOpenLodgingSelection: (mainRowIndex) => {
+      openLodgingUpgradeModal(resolveMainPlanRowPhysicalIndex(planRows, mainRowIndex));
+    },
   };
 
   if (!hasValidContext) {
@@ -6254,7 +6218,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                             type="button"
                             onClick={() => {
                               setRegionSetId(set.id);
-                              setSelectedRoute([]);
+                              applySelectedRouteChange([]);
                               dirtyPlanRowFieldKeysRef.current.clear();
                               setPlanRows([]);
                               setIsMultiDayBlockSectionOpen(false);
@@ -6365,7 +6329,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           type="button"
                           onClick={() => {
                             setTotalDays(day);
-                            setSelectedRoute((prev) => trimRouteSelectionsToTotalDays(prev, day));
+                            applySelectedRouteChange((prev) => trimRouteSelectionsToTotalDays(prev, day));
                             setIsMultiDayBlockSectionOpen(false);
                           }}
                           className={`rounded-xl border px-3 py-1.5 text-sm ${
@@ -7060,7 +7024,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                             key={`start-${location.id}`}
                             type="button"
                             onClick={() => {
-                              setSelectedRoute([
+                              applySelectedRouteChange([
                                 {
                                   kind: 'LOCATION',
                                   locationId: location.id,
@@ -7128,7 +7092,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                       const lastLocationId =
                                         lastDay?.displayLocationId ?? overnightStay.locationId;
                                       const loc = locationById.get(lastLocationId);
-                                      setSelectedRoute([
+                                      applySelectedRouteChange([
                                         {
                                           kind: 'MULTI_DAY_BLOCK',
                                           multiDayBlockId: overnightStay.id,
@@ -7171,7 +7135,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                           aria-label="이 일정 선택 취소"
                           title="이 일정 선택 취소"
                           onClick={() => {
-                            setSelectedRoute((prev) =>
+                            applySelectedRouteChange((prev) =>
                               prev.length === 0 ? prev : prev.slice(0, -1),
                             );
                             setIsMultiDayBlockSectionOpen(false);
@@ -7257,7 +7221,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         key={`route-post-block-connection-version-${index}-${version.id}`}
                                         type="button"
                                         onClick={() =>
-                                          setSelectedRoute((prev) =>
+                                          applySelectedRouteChange((prev) =>
                                             prev.map((item, itemIndex) =>
                                               itemIndex === index && item.kind === 'LOCATION'
                                                 ? {
@@ -7323,7 +7287,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                       key={`route-version-first-${index}-${version.id}`}
                                       type="button"
                                       onClick={() =>
-                                        setSelectedRoute((prev) =>
+                                        applySelectedRouteChange((prev) =>
                                           prev.map((item, itemIndex) =>
                                             itemIndex === index
                                               ? { ...item, locationVersionId: version.id }
@@ -7387,7 +7351,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                       key={`route-segment-version-${index}-${version.id}`}
                                       type="button"
                                       onClick={() =>
-                                        setSelectedRoute((prev) =>
+                                        applySelectedRouteChange((prev) =>
                                           prev.map((item, itemIndex) =>
                                             itemIndex === index && item.kind === 'LOCATION'
                                               ? {
@@ -7432,7 +7396,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                               key={location.id}
                               type="button"
                               onClick={() =>
-                                setSelectedRoute((prev) => {
+                                applySelectedRouteChange((prev) => {
                                   const lastStop = prev[prev.length - 1];
                                   if (lastStop?.kind === 'MULTI_DAY_BLOCK') {
                                     const connection = findMultiDayBlockConnection(
@@ -7527,7 +7491,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         const lastDay = sortedDays[sortedDays.length - 1];
                                         const lastLocationId = lastDay?.displayLocationId ?? overnightStay.locationId;
                                         const location = locationById.get(lastLocationId);
-                                        setSelectedRoute((prev) => [
+                                        applySelectedRouteChange((prev) => [
                                           ...prev,
                                           {
                                             kind: 'MULTI_DAY_BLOCK',
@@ -7561,7 +7525,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedRoute([]);
+                        applySelectedRouteChange([]);
                         dirtyPlanRowFieldKeysRef.current.clear();
                         setPlanRows([]);
                         setIsMultiDayBlockSectionOpen(false);
@@ -9074,9 +9038,10 @@ export function ItineraryBuilderPage(): JSX.Element {
               .map((r, i) => (isMainPlanStopRow(r) ? i : -1))
               .filter((i) => i >= 0);
             mainIndices.forEach((rowIndex) => {
-              dirtyPlanRowFieldKeysRef.current.add(
-                getDirtyPlanRowFieldKey(rowIndex, 'mealCellText'),
-              );
+              const row = planRows[rowIndex];
+              if (row) {
+                markPlanRowFieldDirty(dirtyPlanRowFieldKeysRef.current, row, 'mealCellText');
+              }
             });
             setPlanRows((prev) =>
               prev.map((row, i) => {
