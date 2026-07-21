@@ -8,6 +8,7 @@ import { resolveEstimateDocumentClassName } from '../../estimate/utils/resolve-e
 import {
   CONFIRMATION_MOVEMENT_INTENSITY_PAGE_SRC,
   CONFIRMATION_NOTICE_PAGE_SRC,
+  DEFAULT_CONFIRMATION_APPENDIX_INCLUDE_IMAGE_PAGES,
 } from '../model/constants';
 
 interface ConfirmationAppendixPagesProps {
@@ -15,6 +16,8 @@ interface ConfirmationAppendixPagesProps {
   viewMode?: 'screen-preview' | 'output';
   movementIntensityColors?: readonly MovementIntensityColorSetting[] | null;
   page2Editor?: EstimatePage2Editor;
+  /** false면 Page2 일정표만 렌더하고 이동강도·안내 이미지 페이지는 생략 */
+  includeImagePages?: boolean;
 }
 
 export function ConfirmationAppendixPages({
@@ -22,6 +25,7 @@ export function ConfirmationAppendixPages({
   viewMode = 'output',
   movementIntensityColors: movementIntensityColorsOverride,
   page2Editor,
+  includeImagePages = DEFAULT_CONFIRMATION_APPENDIX_INCLUDE_IMAGE_PAGES,
 }: ConfirmationAppendixPagesProps): JSX.Element {
   const { colors: configuredMovementIntensityColors } = useMovementIntensityColorSettings();
   const movementIntensityColors = movementIntensityColorsOverride ?? configuredMovementIntensityColors;
@@ -36,15 +40,19 @@ export function ConfirmationAppendixPages({
           editor={viewMode === 'screen-preview' ? page2Editor : undefined}
         />
       </div>
-      <div className="estimate-page-break">
-        <EstimateImagePage
-          imageSrc={CONFIRMATION_MOVEMENT_INTENSITY_PAGE_SRC}
-          ariaLabel="확정서 이동강도 안내"
-        />
-      </div>
-      <div className="estimate-page-break">
-        <EstimateImagePage imageSrc={CONFIRMATION_NOTICE_PAGE_SRC} ariaLabel="확정서 안내사항" />
-      </div>
+      {includeImagePages ? (
+        <>
+          <div className="estimate-page-break">
+            <EstimateImagePage
+              imageSrc={CONFIRMATION_MOVEMENT_INTENSITY_PAGE_SRC}
+              ariaLabel="확정서 이동강도 안내"
+            />
+          </div>
+          <div className="estimate-page-break">
+            <EstimateImagePage imageSrc={CONFIRMATION_NOTICE_PAGE_SRC} ariaLabel="확정서 안내사항" />
+          </div>
+        </>
+      ) : null}
     </article>
   );
 }

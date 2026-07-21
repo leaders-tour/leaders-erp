@@ -37,6 +37,26 @@
   min-width: 0;
 }
 
+.confirmation-builder-home-preview-column {
+  min-width: 0;
+}
+
+.confirmation-builder-home-preview-frame {
+  width: 100%;
+  max-height: min(72vh, 980px);
+  overflow: auto;
+}
+
+.confirmation-builder-home-preview-frame .estimate-preview-scaler {
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .confirmation-builder-home-preview-frame {
+    max-height: min(calc(100vh - 12rem), 980px);
+  }
+}
+
 /* 견적서 미리보기 켜짐: 좁은 편집창 + 1열 폼 */
 .confirmation-builder-workspace--with-estimate .confirmation-builder-form {
   display: grid;

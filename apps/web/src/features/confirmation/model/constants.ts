@@ -17,3 +17,6 @@ export const CONFIRMATION_MOVEMENT_INTENSITY_PAGE_SRC = '/estimate/page-04.webp'
 
 /** 확정서 4p: 리더스투어 안내사항 (견적서 정적 이미지 마지막 페이지) */
 export const CONFIRMATION_NOTICE_PAGE_SRC = '/estimate/page-12.webp';
+
+/** 기본값 true — Page2 일정표 + 이동강도·안내 이미지 2페이지 */
+export const DEFAULT_CONFIRMATION_APPENDIX_INCLUDE_IMAGE_PAGES = true;

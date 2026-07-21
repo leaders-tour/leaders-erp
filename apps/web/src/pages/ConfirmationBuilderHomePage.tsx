@@ -1,8 +1,9 @@
 import { ApolloError } from '@apollo/client';
-import { Button, Card } from '@tour/ui';
+import { Card } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ConfirmationListPanel } from '../features/confirmation/components/ConfirmationListPanel';
+import { ConfirmationLatestPreviewPanel } from '../features/confirmation/components/ConfirmationLatestPreviewPanel';
 import {
   useConfirmationDocumentsByUserId,
   useDeleteConfirmationDocument,
@@ -12,6 +13,11 @@ import {
   buildConfirmationBuilderPath,
   buildConfirmationBuilderPathFromDocument,
 } from '../features/confirmation/utils/confirmation-builder-source';
+import {
+  resolvePreviewConfirmationDocument,
+  selectLatestConfirmationDocument,
+} from '../features/confirmation/utils/select-latest-confirmation-document';
+import '../features/confirmation/styles/confirmation-builder-page.css';
 import { CustomerSelector } from '../features/plan/components';
 import { matchesCustomerSearchKeyword } from '../features/plan/customerSearch';
 import { getCustomerTripStatus } from '../features/plan/customerTripStatus';
@@ -24,23 +30,12 @@ import {
   setQueryParam,
 } from '../lib/list-filters';
 
-const DEAL_STAGE_LABELS = {
-  CONSULTING: '컨설팅',
-  CONTRACTING: '계약단계',
-  CONTRACT_CONFIRMED: '계약확정',
-  MONGOL_ASSIGNING: '몽골배정단계',
-  MONGOL_ASSIGNED: '몽골배정완료',
-  ON_HOLD: '대기중',
-  BEFORE_DEPARTURE_10D: '출발 10일이내',
-  BEFORE_DEPARTURE_3D: '출발 3일이내',
-  TRIP_COMPLETED: '여행 완료시',
-} as const;
-
 export function ConfirmationBuilderHomePage(): JSX.Element {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { users, loading: usersLoading } = useUsers();
   const selectedUserId = searchParams.get('userId') ?? '';
+  const previewDocumentId = searchParams.get('previewDocumentId') ?? '';
   const customerSearch = getQueryParam(searchParams, 'q');
   const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
 
@@ -49,7 +44,16 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
   }
 
   function setSelectedUserId(userId: string) {
-    patchSearchParams(setSearchParams, (prev) => setOptionalQueryParam(prev, 'userId', userId || undefined));
+    patchSearchParams(setSearchParams, (prev) => {
+      setOptionalQueryParam(prev, 'userId', userId || undefined);
+      prev.delete('previewDocumentId');
+    });
+  }
+
+  function setPreviewDocumentId(documentId: string | undefined) {
+    patchSearchParams(setSearchParams, (prev) =>
+      setOptionalQueryParam(prev, 'previewDocumentId', documentId),
+    );
   }
 
   const filteredUsers = useMemo(() => {
@@ -71,6 +75,15 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
 
   const selectedUser = users.find((user) => user.id === selectedUserId) ?? null;
   const { documents, loading: documentsLoading } = useConfirmationDocumentsByUserId(selectedUserId || undefined);
+  const latestDocument = useMemo(
+    () => selectLatestConfirmationDocument(documents),
+    [documents],
+  );
+  const previewDocument = useMemo(
+    () => resolvePreviewConfirmationDocument(documents, previewDocumentId),
+    [documents, previewDocumentId],
+  );
+  const isPreviewingLatest = previewDocument?.id === latestDocument?.id;
   const { deleteDocument, loading: deleteDocumentLoading } = useDeleteConfirmationDocument();
 
   const primaryActiveTripId = useMemo(() => {
@@ -134,6 +147,9 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
     setDeletingDocumentId(document.id);
     try {
       await deleteDocument(document.id, selectedUserId);
+      if (previewDocumentId === document.id) {
+        setPreviewDocumentId(undefined);
+      }
     } catch (error) {
       const message =
         error instanceof ApolloError
@@ -156,7 +172,7 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
         </p>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,3.5fr)_minmax(0,3.5fr)]">
         <div className="grid gap-4">
           <CustomerSelector
             users={filteredUsers}
@@ -172,47 +188,35 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
           {usersLoading ? <div className="text-sm text-slate-600">불러오는 중...</div> : null}
 
           {selectedUser ? (
-            <>
-              <Card className="h-fit self-start rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <p className="text-xs font-medium text-slate-500">고객 정보</p>
-                      <h2 className="text-base font-semibold text-slate-900">{selectedUser.name}</h2>
-                      <p className="text-sm text-slate-600">
-                        담당자: {selectedUser.ownerEmployee?.name ?? '미지정'}
-                        {selectedUser.email ? ` · ${selectedUser.email}` : ''}
-                      </p>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
-                      <span>진행 단계: {DEAL_STAGE_LABELS[selectedUser.dealStage]}</span>
-                      <span>확정서 수: {documents.length}개</span>
-                    </div>
-                  </div>
-                  <Button variant="outline" onClick={() => navigate(`/customers/${selectedUser.id}/plans`)}>
-                    고객 정보 수정
-                  </Button>
-                </div>
-              </Card>
-
-              <ConfirmationListPanel
-                documents={documents}
-                loading={documentsLoading}
-                onOpenDocument={handleOpenDocument}
-                onDeleteDocument={(document) => void handleDeleteDocument(document)}
-                onCreateFromDocument={handleCreateFromDocument}
-                onCreateFromFresh={handleCreateFromFresh}
-                canCreate={!!primaryActiveTripId}
-                deleteLoading={deleteDocumentLoading}
-                deletingDocumentId={deletingDocumentId}
-              />
-            </>
+            <ConfirmationListPanel
+              documents={documents}
+              loading={documentsLoading}
+              selectedDocumentId={previewDocument?.id ?? null}
+              onSelectDocument={(document) => setPreviewDocumentId(document.id)}
+              onOpenDocument={handleOpenDocument}
+              onDeleteDocument={(document) => void handleDeleteDocument(document)}
+              onCreateFromDocument={handleCreateFromDocument}
+              onCreateFromFresh={handleCreateFromFresh}
+              canCreate={!!primaryActiveTripId}
+              deleteLoading={deleteDocumentLoading}
+              deletingDocumentId={deletingDocumentId}
+            />
           ) : (
             <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
               고객을 선택하면 확정서 목록이 표시됩니다.
             </Card>
           )}
         </div>
+
+        <aside className="confirmation-builder-home-preview-column bg-slate-100/80 px-1 py-2 sm:px-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto lg:rounded-[28px] lg:border lg:border-slate-200 lg:px-3 lg:py-4">
+          <ConfirmationLatestPreviewPanel
+            document={previewDocument}
+            documentsLoading={documentsLoading}
+            hasSelectedCustomer={!!selectedUser}
+            isLatest={isPreviewingLatest}
+            onShowLatest={() => setPreviewDocumentId(undefined)}
+          />
+        </aside>
       </div>
     </section>
   );

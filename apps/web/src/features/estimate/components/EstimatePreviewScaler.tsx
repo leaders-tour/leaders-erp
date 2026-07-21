@@ -5,11 +5,14 @@ const DEFAULT_ESTIMATE_PREVIEW_BASE_WIDTH = 760;
 interface EstimatePreviewScalerProps {
   children: ReactNode;
   baseWidth?: number;
+  /** true면 컨테이너가 baseWidth보다 넓을 때 확대 (기본은 축소만) */
+  allowUpscale?: boolean;
 }
 
 export function EstimatePreviewScaler({
   children,
   baseWidth = DEFAULT_ESTIMATE_PREVIEW_BASE_WIDTH,
+  allowUpscale = false,
 }: EstimatePreviewScalerProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -34,7 +37,8 @@ export function EstimatePreviewScaler({
       }
 
       const availableWidth = container.clientWidth;
-      const scale = availableWidth > 0 ? Math.min(1, availableWidth / baseWidth) : 1;
+      const rawScale = availableWidth > 0 ? availableWidth / baseWidth : 1;
+      const scale = allowUpscale ? rawScale : Math.min(1, rawScale);
       const height = Math.ceil(content.scrollHeight * scale);
       setLayout((current) =>
         Math.abs(current.scale - scale) < 0.0001 && current.height === height
@@ -67,7 +71,7 @@ export function EstimatePreviewScaler({
       observer?.disconnect();
       window.removeEventListener('resize', scheduleMeasure);
     };
-  }, [baseWidth]);
+  }, [allowUpscale, baseWidth]);
 
   return (
     <div

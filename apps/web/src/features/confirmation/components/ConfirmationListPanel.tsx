@@ -9,6 +9,8 @@ import {
 interface ConfirmationListPanelProps {
   documents: ConfirmationDocumentRow[];
   loading?: boolean;
+  selectedDocumentId?: string | null;
+  onSelectDocument?: (document: ConfirmationDocumentRow) => void;
   onOpenDocument: (document: ConfirmationDocumentRow) => void;
   onDeleteDocument: (document: ConfirmationDocumentRow) => void;
   onCreateFromDocument: (document: ConfirmationDocumentRow) => void;
@@ -42,6 +44,8 @@ function getStatusLabel(status: ConfirmationDocumentRow['status']): string {
 export function ConfirmationListPanel({
   documents,
   loading = false,
+  selectedDocumentId = null,
+  onSelectDocument,
   onOpenDocument,
   onDeleteDocument,
   onCreateFromDocument,
@@ -56,7 +60,7 @@ export function ConfirmationListPanel({
         <div>
           <h2 className="text-sm font-semibold text-slate-900">확정서 목록</h2>
           <p className="mt-1 text-xs text-slate-500">
-            각 버전 옆에서 기준을 선택해 새 확정서를 작성할 수 있습니다.
+            행을 클릭하면 우측 미리보기가 바뀝니다. 각 버전 옆에서 기준을 선택해 새 확정서를 작성할 수 있습니다.
           </p>
         </div>
         <div className="flex items-center gap-1.5">
@@ -87,12 +91,35 @@ export function ConfirmationListPanel({
               </tr>
             </thead>
             <tbody>
-              {documents.map((document) => (
-                <tr key={document.id}>
+              {documents.map((document) => {
+                const isSelected = selectedDocumentId === document.id;
+
+                return (
+                <tr
+                  key={document.id}
+                  className={`cursor-pointer transition-colors ${
+                    isSelected
+                      ? 'bg-slate-100 shadow-[inset_4px_0_0_0_#334155] ring-1 ring-inset ring-slate-300'
+                      : 'hover:bg-slate-50/70'
+                  }`}
+                  aria-selected={isSelected}
+                  tabIndex={0}
+                  onClick={() => onSelectDocument?.(document)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onSelectDocument?.(document);
+                    }
+                  }}
+                >
                   <Td>
                     <div className="grid gap-1">
-                      <span>{getDocumentTitle(document)}</span>
-                      <span className="text-xs text-slate-500">{getStatusLabel(document.status)}</span>
+                      <span className={isSelected ? 'font-semibold text-slate-900' : undefined}>
+                        {getDocumentTitle(document)}
+                      </span>
+                      <span className={`text-xs ${isSelected ? 'text-slate-600' : 'text-slate-500'}`}>
+                        {getStatusLabel(document.status)}
+                      </span>
                     </div>
                   </Td>
                   <Td>{document.snapshot.leaderName?.trim() || '-'}</Td>
@@ -100,27 +127,40 @@ export function ConfirmationListPanel({
                   <Td>{new Date(document.updatedAt).toLocaleString('ko-KR')}</Td>
                   <Td>
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" onClick={() => onOpenDocument(document)}>
+                      <Button
+                        variant="outline"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onOpenDocument(document);
+                        }}
+                      >
                         상세
                       </Button>
                       <Button
                         variant="primary"
                         disabled={!canCreate}
-                        onClick={() => onCreateFromDocument(document)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onCreateFromDocument(document);
+                        }}
                       >
                         {resolveConfirmationBuilderRowActionLabel(document.status)}
                       </Button>
                       <Button
                         variant="destructive"
                         disabled={deleteLoading && deletingDocumentId === document.id}
-                        onClick={() => onDeleteDocument(document)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteDocument(document);
+                        }}
                       >
                         {deleteLoading && deletingDocumentId === document.id ? '삭제 중...' : '삭제'}
                       </Button>
                     </div>
                   </Td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </Table>
         ) : null}

@@ -332,6 +332,7 @@ export function AppLayout(): JSX.Element {
   const matchesPath = (path: string): boolean =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);
   const isConfirmationBuilderPage = /^\/confirmed-trips\/[^/]+\/confirmation-builder$/.test(location.pathname);
+  const isConfirmationBuilderHomePage = matchesPath('/confirmation-builder');
   const isFullBleedPage =
     matchesPath('/itinerary-builder') ||
     matchesPath('/deal-pipeline') ||
@@ -352,6 +353,7 @@ export function AppLayout(): JSX.Element {
     : isWideConnectionListPage ||
         isPricingAdminPage ||
         isConfirmedTripsPage ||
+        isConfirmationBuilderHomePage ||
         isTodoListPage ||
         isPlanVersionDetailPage ||
         isLocationGuidePage

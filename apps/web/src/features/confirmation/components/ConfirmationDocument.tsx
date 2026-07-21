@@ -23,10 +23,14 @@ interface ConfirmationDocumentProps {
   appendixData?: EstimateDocumentData | null;
   appendixMovementIntensityColors?: readonly MovementIntensityColorSetting[] | null;
   appendixPage2Editor?: EstimatePage2Editor;
+  /** false면 부록 Page2 일정표만 렌더 (홈 최신 미리보기 등) */
+  appendixIncludeImagePages?: boolean;
   viewMode?: 'screen-preview' | 'output';
   onPage1LayoutReady?: () => void;
   /** screen-preview에서 미리보기 스케일 기준 너비 */
   previewBaseWidth?: number;
+  /** screen-preview에서 컨테이너보다 넓을 때 확대 허용 */
+  previewAllowUpscale?: boolean;
 }
 
 const VEHICLE_PURGONG_PHOTO_NOTE = '*푸르공 사진촬영 가능';
@@ -359,9 +363,11 @@ export function ConfirmationDocument({
   appendixData,
   appendixMovementIntensityColors,
   appendixPage2Editor,
+  appendixIncludeImagePages,
   viewMode = 'screen-preview',
   onPage1LayoutReady,
   previewBaseWidth,
+  previewAllowUpscale,
 }: ConfirmationDocumentProps) {
   const className =
     viewMode === 'output'
@@ -379,6 +385,7 @@ export function ConfirmationDocument({
           viewMode={viewMode}
           movementIntensityColors={appendixMovementIntensityColors}
           page2Editor={appendixPage2Editor}
+          includeImagePages={appendixIncludeImagePages}
         />
       ) : null}
     </div>
@@ -387,7 +394,9 @@ export function ConfirmationDocument({
   return (
     <div className={className}>
       {viewMode === 'screen-preview' ? (
-        <EstimatePreviewScaler baseWidth={previewBaseWidth}>{pages}</EstimatePreviewScaler>
+        <EstimatePreviewScaler baseWidth={previewBaseWidth} allowUpscale={previewAllowUpscale}>
+          {pages}
+        </EstimatePreviewScaler>
       ) : (
         pages
       )}
