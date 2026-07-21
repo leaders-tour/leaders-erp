@@ -41,6 +41,15 @@ export interface ConfirmationDocumentSnapshot {
   overallMovementIntensityColorOverride?: string | null;
 }
 
+export interface ConfirmationDocumentMemo {
+  content: string;
+  updatedAt: string;
+  updatedByEmployee?: {
+    id: string;
+    name: string;
+  } | null;
+}
+
 export interface ConfirmationDocumentRow {
   id: string;
   confirmedTripId: string;
@@ -49,6 +58,7 @@ export interface ConfirmationDocumentRow {
   versionNumber: number;
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
   snapshot: ConfirmationDocumentSnapshot;
+  memo?: ConfirmationDocumentMemo | null;
   publishedAt?: string | null;
   createdAt: string;
   updatedAt: string;

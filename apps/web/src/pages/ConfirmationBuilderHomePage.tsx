@@ -7,6 +7,7 @@ import { ConfirmationLatestPreviewPanel } from '../features/confirmation/compone
 import {
   useConfirmationDocumentsByUserId,
   useDeleteConfirmationDocument,
+  useSaveConfirmationDocumentMemo,
 } from '../features/confirmation/hooks/use-confirmation-document';
 import type { ConfirmationDocumentRow } from '../features/confirmation/model/types';
 import {
@@ -38,6 +39,7 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
   const previewDocumentId = searchParams.get('previewDocumentId') ?? '';
   const customerSearch = getQueryParam(searchParams, 'q');
   const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
+  const [savingMemoDocumentId, setSavingMemoDocumentId] = useState<string | null>(null);
 
   function setCustomerSearch(value: string) {
     patchSearchParams(setSearchParams, (prev) => setQueryParam(prev, 'q', value));
@@ -85,6 +87,9 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
   );
   const isPreviewingLatest = previewDocument?.id === latestDocument?.id;
   const { deleteDocument, loading: deleteDocumentLoading } = useDeleteConfirmationDocument();
+  const { saveMemo, loading: memoSaving } = useSaveConfirmationDocumentMemo({
+    userId: selectedUserId || undefined,
+  });
 
   const primaryActiveTripId = useMemo(() => {
     const activeTrips = (selectedUser?.confirmedTrips ?? [])
@@ -130,6 +135,23 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
         return '보관됨';
       default:
         return status;
+    }
+  };
+
+  const handleSaveMemo = async (documentId: string, content: string) => {
+    setSavingMemoDocumentId(documentId);
+    try {
+      await saveMemo(documentId, content);
+    } catch (error) {
+      const message =
+        error instanceof ApolloError
+          ? error.graphQLErrors[0]?.message?.trim()
+          : error instanceof Error
+            ? error.message
+            : null;
+      throw new Error(message && message.length > 0 ? message : '메모 저장에 실패했습니다.');
+    } finally {
+      setSavingMemoDocumentId((current) => (current === documentId ? null : current));
     }
   };
 
@@ -200,6 +222,9 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
               canCreate={!!primaryActiveTripId}
               deleteLoading={deleteDocumentLoading}
               deletingDocumentId={deletingDocumentId}
+              onSaveMemo={handleSaveMemo}
+              memoSaving={memoSaving}
+              savingMemoDocumentId={savingMemoDocumentId}
             />
           ) : (
             <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">

@@ -21,6 +21,11 @@ export const confirmationDocumentInclude = {
   publishedByEmployee: true,
   createdByEmployee: true,
   updatedByEmployee: true,
+  memo: {
+    include: {
+      updatedByEmployee: true,
+    },
+  },
 } satisfies Prisma.ConfirmationDocumentInclude;
 
 export class ConfirmationDocumentRepository {
@@ -111,6 +116,27 @@ export class ConfirmationDocumentRepository {
   delete(id: string) {
     return this.prisma.confirmationDocument.delete({
       where: { id },
+    });
+  }
+
+  deleteMemo(confirmationDocumentId: string) {
+    return this.prisma.confirmationDocumentMemo.deleteMany({
+      where: { confirmationDocumentId },
+    });
+  }
+
+  upsertMemo(confirmationDocumentId: string, content: string, updatedByEmployeeId: string) {
+    return this.prisma.confirmationDocumentMemo.upsert({
+      where: { confirmationDocumentId },
+      create: {
+        confirmationDocumentId,
+        content,
+        updatedByEmployeeId,
+      },
+      update: {
+        content,
+        updatedByEmployeeId,
+      },
     });
   }
 }

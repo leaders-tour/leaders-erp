@@ -90,6 +90,14 @@ input ConfirmationDocumentSnapshotInput {
   overallMovementIntensityColorOverride: String
 }
 
+type ConfirmationDocumentMemo {
+  content: String!
+  updatedByEmployeeId: ID
+  updatedByEmployee: Employee
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
 type ConfirmationDocument {
   id: ID!
   confirmedTripId: ID!
@@ -98,6 +106,7 @@ type ConfirmationDocument {
   versionNumber: Int!
   status: ConfirmationDocumentStatus!
   snapshot: ConfirmationDocumentSnapshot!
+  memo: ConfirmationDocumentMemo
   publishedAt: DateTime
   publishedByEmployeeId: ID
   createdByEmployeeId: ID
@@ -120,4 +129,9 @@ input SaveConfirmationDocumentInput {
   confirmedTripId: ID!
   snapshot: ConfirmationDocumentSnapshotInput!
   publish: Boolean
+}
+
+input SaveConfirmationDocumentMemoInput {
+  confirmationDocumentId: ID!
+  content: String!
 }

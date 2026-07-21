@@ -3,7 +3,8 @@ import { formatVehicleAssignmentsForDisplay, normalizeVehicleAssignments } from 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmationPdfPreviewPanel } from '../features/confirmation/components/ConfirmationPdfPreviewPanel';
-import { useConfirmationDocuments } from '../features/confirmation/hooks/use-confirmation-document';
+import { useConfirmationDocuments, useSaveConfirmationDocumentMemo } from '../features/confirmation/hooks/use-confirmation-document';
+import { ConfirmationDocumentMemoCell } from '../features/confirmation/components/ConfirmationDocumentMemoCell';
 import type { ConfirmationDocumentRow } from '../features/confirmation/model/types';
 import {
   buildConfirmationBuilderPath,
@@ -99,22 +100,6 @@ function getConfirmationStatusLabel(status: ConfirmationDocumentRow['status']): 
     default:
       return status;
   }
-}
-
-function formatConfirmationDocumentDate(value: string | null | undefined): string {
-  if (!value) {
-    return '-';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '-';
-  }
-  return new Intl.DateTimeFormat('ko-KR', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
 }
 
 type PdfJobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
@@ -673,6 +658,8 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     documents: confirmationDocuments,
     loading: confirmationDocumentsLoading,
   } = useConfirmationDocuments(tripId);
+  const { saveMemo, loading: memoSaving } = useSaveConfirmationDocumentMemo({ confirmedTripId: tripId });
+  const [savingMemoDocumentId, setSavingMemoDocumentId] = useState<string | null>(null);
   const { versions: planVersions, loading: planVersionsLoading } = usePlanVersions(trip?.planId ?? undefined);
   const sortedPlanVersions = useMemo(
     () => [...planVersions].sort((a, b) => b.versionNumber - a.versionNumber),
@@ -698,6 +685,20 @@ export function ConfirmedTripDetailPage(): JSX.Element {
       behavior: 'smooth',
     });
   }, []);
+
+  const handleSaveConfirmationMemo = useCallback(
+    async (documentId: string, content: string) => {
+      setSavingMemoDocumentId(documentId);
+      try {
+        await saveMemo(documentId, content);
+      } catch (error) {
+        throw new Error(error instanceof Error ? error.message : '메모 저장에 실패했습니다.');
+      } finally {
+        setSavingMemoDocumentId((current) => (current === documentId ? null : current));
+      }
+    },
+    [saveMemo],
+  );
 
   // 픽드랍 — 독립 상태
   const [pickupDateEdit, setPickupDateEdit] = useState<string>('');
@@ -2045,22 +2046,22 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                 {confirmationDocuments.map((document) => (
                     <div
                       key={document.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                      className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
                     >
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-semibold text-slate-900">v{document.versionNumber}</span>
                           <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600">
                             {getConfirmationStatusLabel(document.status)}
                           </span>
-                          {document.documentNumber ? (
-                            <span className="text-xs text-slate-500">{document.documentNumber}</span>
-                          ) : null}
                         </div>
-                        <p className="mt-1 text-xs text-slate-500">
-                          저장 {formatConfirmationDocumentDate(document.updatedAt)}
-                          {document.publishedAt ? ` · 발행 ${formatConfirmationDocumentDate(document.publishedAt)}` : ''}
-                        </p>
+                        <div className="mt-3">
+                          <ConfirmationDocumentMemoCell
+                            document={document}
+                            saving={memoSaving && savingMemoDocumentId === document.id}
+                            onSave={handleSaveConfirmationMemo}
+                          />
+                        </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Button

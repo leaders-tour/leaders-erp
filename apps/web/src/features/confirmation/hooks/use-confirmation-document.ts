@@ -57,6 +57,14 @@ const CONFIRMATION_DOCUMENT_FRAGMENT = gql`
     documentNumber
     versionNumber
     status
+    memo {
+      content
+      updatedAt
+      updatedByEmployee {
+        id
+        name
+      }
+    }
     publishedAt
     createdAt
     updatedAt
@@ -137,6 +145,15 @@ const SAVE_CONFIRMATION_DOCUMENT_MUTATION = gql`
 const DELETE_CONFIRMATION_DOCUMENT_MUTATION = gql`
   mutation DeleteConfirmationDocument($id: ID!) {
     deleteConfirmationDocument(id: $id)
+  }
+`;
+
+const SAVE_CONFIRMATION_DOCUMENT_MEMO_MUTATION = gql`
+  ${CONFIRMATION_DOCUMENT_FRAGMENT}
+  mutation SaveConfirmationDocumentMemo($input: SaveConfirmationDocumentMemoInput!) {
+    saveConfirmationDocumentMemo(input: $input) {
+      ...ConfirmationDocumentFields
+    }
   }
 `;
 
@@ -334,4 +351,46 @@ export function useDeleteConfirmationDocument() {
   return { deleteDocument, loading };
 }
 
-export { LATEST_PUBLISHED_CONFIRMATION_DOCUMENT_QUERY, CONFIRMATION_DOCUMENT_FRAGMENT };
+export function useSaveConfirmationDocumentMemo(options?: {
+  userId?: string;
+  confirmedTripId?: string;
+}) {
+  const [mutate, { loading }] = useMutation<{ saveConfirmationDocumentMemo: ConfirmationDocumentRow }>(
+    SAVE_CONFIRMATION_DOCUMENT_MEMO_MUTATION,
+  );
+
+  const saveMemo = async (confirmationDocumentId: string, content: string): Promise<ConfirmationDocumentRow | null> => {
+    const refetchQueries = [];
+    if (options?.userId) {
+      refetchQueries.push({
+        query: CONFIRMATION_DOCUMENTS_BY_USER_ID_QUERY,
+        variables: { userId: options.userId },
+      });
+    }
+    if (options?.confirmedTripId) {
+      refetchQueries.push({
+        query: CONFIRMATION_DOCUMENTS_QUERY,
+        variables: { confirmedTripId: options.confirmedTripId },
+      });
+    }
+
+    const result = await mutate({
+      variables: {
+        input: {
+          confirmationDocumentId,
+          content,
+        },
+      },
+      refetchQueries: refetchQueries.length > 0 ? refetchQueries : undefined,
+    });
+    return result.data?.saveConfirmationDocumentMemo ?? null;
+  };
+
+  return { saveMemo, loading };
+}
+
+export {
+  CONFIRMATION_DOCUMENTS_QUERY,
+  LATEST_PUBLISHED_CONFIRMATION_DOCUMENT_QUERY,
+  CONFIRMATION_DOCUMENT_FRAGMENT,
+};

@@ -310,9 +310,10 @@ model Employee {
   reviewedOutreachDrafts OutreachDraft[]
   confirmedTrips                   ConfirmedTrip[]        @relation("ConfirmedTripEmployee")
   confirmedTripNotes             ConfirmedTripNote[]    @relation("ConfirmedTripNoteAuthor")
-  publishedConfirmationDocuments ConfirmationDocument[] @relation("ConfirmationDocumentPublisher")
-  createdConfirmationDocuments   ConfirmationDocument[] @relation("ConfirmationDocumentCreator")
-  updatedConfirmationDocuments   ConfirmationDocument[] @relation("ConfirmationDocumentUpdater")
+  publishedConfirmationDocuments     ConfirmationDocument[]     @relation("ConfirmationDocumentPublisher")
+  createdConfirmationDocuments       ConfirmationDocument[]     @relation("ConfirmationDocumentCreator")
+  updatedConfirmationDocuments       ConfirmationDocument[]     @relation("ConfirmationDocumentUpdater")
+  updatedConfirmationDocumentMemos   ConfirmationDocumentMemo[] @relation("ConfirmationDocumentMemoUpdater")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1057,6 +1058,7 @@ model ConfirmationDocument {
   publishedByEmployee Employee?     @relation("ConfirmationDocumentPublisher", fields: [publishedByEmployeeId], references: [id], onDelete: SetNull)
   createdByEmployee   Employee?     @relation("ConfirmationDocumentCreator", fields: [createdByEmployeeId], references: [id], onDelete: SetNull)
   updatedByEmployee   Employee?     @relation("ConfirmationDocumentUpdater", fields: [updatedByEmployeeId], references: [id], onDelete: SetNull)
+  memo                ConfirmationDocumentMemo?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1064,6 +1066,21 @@ model ConfirmationDocument {
   @@unique([confirmedTripId, versionNumber])
   @@index([confirmedTripId, status])
   @@index([confirmedTripId, publishedAt])
+}
+
+model ConfirmationDocumentMemo {
+  id                     String  @id @default(uuid(7))
+  confirmationDocumentId String  @unique
+  content                String  @db.Text
+  updatedByEmployeeId    String?
+
+  confirmationDocument ConfirmationDocument @relation(fields: [confirmationDocumentId], references: [id], onDelete: Cascade)
+  updatedByEmployee    Employee?            @relation("ConfirmationDocumentMemoUpdater", fields: [updatedByEmployeeId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([updatedByEmployeeId])
 }
 
 model ConfirmedTripNote {

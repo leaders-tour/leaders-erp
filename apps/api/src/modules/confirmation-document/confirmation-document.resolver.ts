@@ -1,7 +1,7 @@
 import type { AppContext } from '../../context';
 import { requireEmployee } from '../../lib/auth-guards';
 import { ConfirmationDocumentService } from './confirmation-document.service';
-import type { SaveConfirmationDocumentInput } from '@tour/validation';
+import type { SaveConfirmationDocumentInput, SaveConfirmationDocumentMemoInput } from '@tour/validation';
 
 interface ConfirmedTripIdArgs {
   confirmedTripId: string;
@@ -17,6 +17,10 @@ interface IdArgs {
 
 interface SaveConfirmationDocumentArgs {
   input: SaveConfirmationDocumentInput;
+}
+
+interface SaveConfirmationDocumentMemoArgs {
+  input: SaveConfirmationDocumentMemoInput;
 }
 
 export const confirmationDocumentResolver = {
@@ -37,6 +41,8 @@ export const confirmationDocumentResolver = {
   Mutation: {
     saveConfirmationDocument: (_parent: unknown, args: SaveConfirmationDocumentArgs, ctx: AppContext) =>
       new ConfirmationDocumentService(ctx.prisma).save(args.input, requireEmployee(ctx)),
+    saveConfirmationDocumentMemo: (_parent: unknown, args: SaveConfirmationDocumentMemoArgs, ctx: AppContext) =>
+      new ConfirmationDocumentService(ctx.prisma).saveMemo(args.input, requireEmployee(ctx)),
     deleteConfirmationDocument: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
       new ConfirmationDocumentService(ctx.prisma).delete(args.id),
   },

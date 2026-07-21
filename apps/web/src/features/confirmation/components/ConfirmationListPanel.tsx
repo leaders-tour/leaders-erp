@@ -1,5 +1,6 @@
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import { TooltipHelpIcon } from '../../../components/TooltipHelpIcon';
+import { ConfirmationDocumentMemoCell } from './ConfirmationDocumentMemoCell';
 import type { ConfirmationDocumentRow } from '../model/types';
 import {
   CONFIRMATION_FRESH_SOURCE_TOOLTIP,
@@ -18,6 +19,9 @@ interface ConfirmationListPanelProps {
   canCreate?: boolean;
   deleteLoading?: boolean;
   deletingDocumentId?: string | null;
+  onSaveMemo?: (documentId: string, content: string) => Promise<void>;
+  memoSaving?: boolean;
+  savingMemoDocumentId?: string | null;
 }
 
 function getDocumentTitle(document: ConfirmationDocumentRow): string {
@@ -53,6 +57,9 @@ export function ConfirmationListPanel({
   canCreate = true,
   deleteLoading = false,
   deletingDocumentId = null,
+  onSaveMemo,
+  memoSaving = false,
+  savingMemoDocumentId = null,
 }: ConfirmationListPanelProps): JSX.Element {
   return (
     <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -87,6 +94,7 @@ export function ConfirmationListPanel({
                 <Th>대표자명</Th>
                 <Th>현재 버전</Th>
                 <Th>수정일</Th>
+                <Th>메모</Th>
                 <Th>관리</Th>
               </tr>
             </thead>
@@ -125,6 +133,17 @@ export function ConfirmationListPanel({
                   <Td>{document.snapshot.leaderName?.trim() || '-'}</Td>
                   <Td>{`v${document.versionNumber}`}</Td>
                   <Td>{new Date(document.updatedAt).toLocaleString('ko-KR')}</Td>
+                  <Td>
+                    {onSaveMemo ? (
+                      <ConfirmationDocumentMemoCell
+                        document={document}
+                        saving={memoSaving && savingMemoDocumentId === document.id}
+                        onSave={onSaveMemo}
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-500">-</span>
+                    )}
+                  </Td>
                   <Td>
                     <div className="flex flex-wrap gap-2">
                       <Button

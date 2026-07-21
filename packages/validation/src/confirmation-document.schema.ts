@@ -57,8 +57,17 @@ export const saveConfirmationDocumentSchema = z.object({
   publish: z.boolean().optional().default(false),
 });
 
+export const saveConfirmationDocumentMemoSchema = z.object({
+  confirmationDocumentId: z.string().min(1),
+  content: z
+    .string()
+    .transform((value) => value.trim())
+    .pipe(z.string().max(2000)),
+});
+
 export type ConfirmationDocumentStatus = z.infer<typeof confirmationDocumentStatusSchema>;
 export type ConfirmationTravelerInput = z.infer<typeof confirmationTravelerSchema>;
 export type ConfirmationAppendixPlanStopRowInput = z.infer<typeof confirmationAppendixPlanStopRowSchema>;
 export type ConfirmationDocumentSnapshotInput = z.infer<typeof confirmationDocumentSnapshotSchema>;
 export type SaveConfirmationDocumentInput = z.infer<typeof saveConfirmationDocumentSchema>;
+export type SaveConfirmationDocumentMemoInput = z.infer<typeof saveConfirmationDocumentMemoSchema>;

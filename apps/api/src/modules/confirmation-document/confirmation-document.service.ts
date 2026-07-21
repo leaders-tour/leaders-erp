@@ -4,6 +4,8 @@ import {
   saveConfirmationDocumentSchema,
   type ConfirmationDocumentSnapshotInput,
   type SaveConfirmationDocumentInput,
+  saveConfirmationDocumentMemoSchema,
+  type SaveConfirmationDocumentMemoInput,
 } from '@tour/validation';
 import type { CurrentEmployee } from '../../context';
 import { DomainError, createValidationError } from '../../lib/errors';
@@ -152,6 +154,31 @@ export class ConfirmationDocumentService {
     return true;
   }
 
+  async saveMemo(input: SaveConfirmationDocumentMemoInput, employee: CurrentEmployee) {
+    const parsed = saveConfirmationDocumentMemoSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid confirmation document memo input', parsed.error);
+    }
+
+    const document = await this.repository.findById(parsed.data.confirmationDocumentId);
+    if (!document) {
+      throw new DomainError('NOT_FOUND', 'Confirmation document not found');
+    }
+
+    if (parsed.data.content.length === 0) {
+      await this.repository.deleteMemo(parsed.data.confirmationDocumentId);
+    } else {
+      await this.repository.upsertMemo(parsed.data.confirmationDocumentId, parsed.data.content, employee.id);
+    }
+
+    const updated = await this.repository.findById(parsed.data.confirmationDocumentId);
+    if (!updated) {
+      throw new DomainError('NOT_FOUND', 'Confirmation document not found');
+    }
+
+    return this.toGraphql(updated);
+  }
+
   private async loadConfirmedTrip(confirmedTripId: string) {
     const trip = await this.prisma.confirmedTrip.findUnique({
       where: { id: confirmedTripId },
@@ -189,11 +216,27 @@ export class ConfirmationDocumentService {
     publishedByEmployee: { id: string; name: string } | null;
     createdByEmployee: { id: string; name: string } | null;
     updatedByEmployee: { id: string; name: string } | null;
+    memo: {
+      content: string;
+      updatedByEmployeeId: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+      updatedByEmployee: { id: string; name: string } | null;
+    } | null;
   }) {
     const snapshot = confirmationDocumentSnapshotSchema.parse(document.snapshot);
     return {
       ...document,
       snapshot,
+      memo: document.memo
+        ? {
+            content: document.memo.content,
+            updatedByEmployeeId: document.memo.updatedByEmployeeId,
+            createdAt: document.memo.createdAt,
+            updatedAt: document.memo.updatedAt,
+            updatedByEmployee: document.memo.updatedByEmployee,
+          }
+        : null,
     };
   }
 }

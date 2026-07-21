@@ -3,6 +3,7 @@ import { Button, Card } from '@tour/ui';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { resolveUserDisplayNameText } from '../features/plan/components/UserDisplayName';
 import { ConfirmationBuilderForm } from '../features/confirmation/components/ConfirmationBuilderForm';
+import { ConfirmationBuilderMemoSection } from '../features/confirmation/components/ConfirmationBuilderMemoSection';
 import { ConfirmationDocument } from '../features/confirmation/components/ConfirmationDocument';
 import {
   useConfirmationDocument,
@@ -10,6 +11,7 @@ import {
   useLatestConfirmationDocument,
   useLatestPublishedConfirmationDocument,
   useSaveConfirmationDocument,
+  useSaveConfirmationDocumentMemo,
 } from '../features/confirmation/hooks/use-confirmation-document';
 import { useConfirmationAppendixData } from '../features/confirmation/hooks/use-confirmation-appendix-data';
 import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
@@ -109,14 +111,16 @@ export function ConfirmationBuilderPage(): JSX.Element {
   const shouldLoadDraftSnapshot = effectiveSource === 'draft' && !fromDocumentId;
   const shouldLoadPublishedSnapshot = effectiveSource === 'published' && !fromDocumentId;
   const shouldLoadDefaults = effectiveSource === 'fresh';
-  const { document: sourceDocument, loading: sourceDocumentLoading } = useConfirmationDocument(
+  const { document: sourceDocument, loading: sourceDocumentLoading, refetch: refetchSourceDocument } = useConfirmationDocument(
     shouldLoadSpecificDocument ? fromDocumentId ?? undefined : undefined,
   );
   const { defaults, loading: defaultsLoading } = useConfirmationDraftDefaults(
     shouldLoadDefaults ? tripId : undefined,
   );
   const { save, loading: saving } = useSaveConfirmationDocument();
+  const { saveMemo, loading: memoSaving } = useSaveConfirmationDocumentMemo({ confirmedTripId: tripId });
   const [state, setState] = useState<ConfirmationBuilderState | null>(null);
+  const [builderMemo, setBuilderMemo] = useState('');
   const [isEstimatePreviewOpen, setIsEstimatePreviewOpen] = useState(true);
   const appendixHydratedRef = useRef(false);
 
@@ -273,6 +277,20 @@ export function ConfirmationBuilderPage(): JSX.Element {
     ?? null;
   const sourceDetail = resolveConfirmationBuilderSourceLabel(effectiveSource, sourceVersionNumber);
 
+  const memoTargetDocument = useMemo(() => {
+    if (shouldLoadSpecificDocument && sourceDocument?.status === 'DRAFT') {
+      return sourceDocument;
+    }
+    if (shouldLoadDraftSnapshot && latestDocument?.status === 'DRAFT') {
+      return latestDocument;
+    }
+    return null;
+  }, [latestDocument, shouldLoadDraftSnapshot, shouldLoadSpecificDocument, sourceDocument]);
+
+  useEffect(() => {
+    setBuilderMemo(memoTargetDocument?.memo?.content ?? '');
+  }, [memoTargetDocument?.id, memoTargetDocument?.memo?.content]);
+
   const isLoadingInitialState =
     tripLoading
     || latestLoading
@@ -380,6 +398,21 @@ export function ConfirmationBuilderPage(): JSX.Element {
     );
   };
 
+  const handleSaveBuilderMemo = async (content?: string) => {
+    if (!memoTargetDocument?.id) {
+      return;
+    }
+    const nextMemo = content ?? builderMemo;
+    if (content !== undefined) {
+      setBuilderMemo(content);
+    }
+    await saveMemo(memoTargetDocument.id, nextMemo);
+    await Promise.all([
+      refetchLatest(),
+      shouldLoadSpecificDocument ? refetchSourceDocument() : Promise.resolve(),
+    ]);
+  };
+
   const handleSave = async () => {
     try {
       const payload: ConfirmationBuilderState = {
@@ -389,6 +422,9 @@ export function ConfirmationBuilderPage(): JSX.Element {
       const saved = await save(tripId, payload, true);
       if (!saved) {
         throw new Error('저장 결과가 없습니다.');
+      }
+      if (builderMemo.trim()) {
+        await saveMemo(saved.id, builderMemo);
       }
       await Promise.all([refetchLatest(), refetchPublished()]);
       navigate(`/confirmation-documents/${saved.id}`);
@@ -446,6 +482,15 @@ export function ConfirmationBuilderPage(): JSX.Element {
               초기화」를 사용하면 현재 연결 견적 일정표로 되돌릴 수 있습니다.
             </Card>
           ) : null}
+
+          <ConfirmationBuilderMemoSection
+            value={builderMemo}
+            onChange={setBuilderMemo}
+            onSave={handleSaveBuilderMemo}
+            saving={memoSaving}
+            saveOnPublish={!memoTargetDocument}
+            updatedByEmployeeName={memoTargetDocument?.memo?.updatedByEmployee?.name ?? null}
+          />
 
           <ConfirmationBuilderForm
             value={state}
