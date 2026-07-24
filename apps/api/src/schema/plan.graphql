@@ -119,6 +119,7 @@ type PlanVersion {
   updatedAt: DateTime!
   plan: Plan!
   regionSet: RegionSet!
+  regionSetName: String
   parentVersion: PlanVersion
   childVersions: [PlanVersion!]!
   movementIntensity: MovementIntensity

@@ -404,6 +404,7 @@ export const planResolver = {
     },
   },
   PlanVersion: {
+    regionSetName: (parent: { regionSet?: { name?: string } | null }) => parent.regionSet?.name?.trim() || null,
     regionSet: async (
       parent: { regionSet?: unknown; regionSetId: string },
       _args: unknown,

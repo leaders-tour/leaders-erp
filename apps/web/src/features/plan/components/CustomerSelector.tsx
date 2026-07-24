@@ -7,6 +7,8 @@ import {
   type CustomerTripStatus,
 } from '../customerTripStatus';
 import type { CustomerMinTeamsFilter } from '../customerTeamFilter';
+import { getColorByDestination } from '../../guide/trip-color';
+import { getCustomerTravelSummary } from '../customerTravelSummary';
 import { UserDisplayName } from './UserDisplayName';
 import type { UserRow } from '../hooks';
 
@@ -32,6 +34,7 @@ interface CustomerSelectorProps {
   onChangeMinTeamsFilter?: (value: CustomerMinTeamsFilter | null) => void;
   minTeamCounts?: Record<CustomerMinTeamsFilter, number>;
   hideStatusFilter?: boolean;
+  showTravelSummary?: boolean;
 }
 
 export function CustomerSelector({
@@ -47,6 +50,7 @@ export function CustomerSelector({
   onChangeMinTeamsFilter,
   minTeamCounts,
   hideStatusFilter = false,
+  showTravelSummary = false,
 }: CustomerSelectorProps): JSX.Element {
   return (
     <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -125,6 +129,9 @@ export function CustomerSelector({
           const chipClass = isSelected
             ? CUSTOMER_TRIP_STATUS_CHIP_SELECTED_CLASS[tripStatus]
             : CUSTOMER_TRIP_STATUS_CHIP_CLASS[tripStatus];
+          const travelSummary = showTravelSummary ? getCustomerTravelSummary(user) : null;
+          const destinationColor = travelSummary ? getColorByDestination(travelSummary.destination) : null;
+          const secondaryTextClass = isSelected ? 'text-slate-200' : 'text-slate-500';
           return (
             <button
               key={user.id}
@@ -147,9 +154,22 @@ export function CustomerSelector({
                         : undefined
                     }
                   />
-                  <span className={`text-xs ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>
-                    담당자: {user.ownerEmployee?.name ?? '미지정'}
-                  </span>
+                  {travelSummary ? (
+                    <>
+                      <span
+                        className={`text-xs font-medium ${
+                          isSelected ? destinationColor?.textSelected : destinationColor?.text
+                        }`}
+                      >
+                        {travelSummary.destination}
+                      </span>
+                      <span className={`text-xs ${secondaryTextClass}`}>{travelSummary.travelPeriod}</span>
+                    </>
+                  ) : (
+                    <span className={`text-xs ${secondaryTextClass}`}>
+                      담당자: {user.ownerEmployee?.name ?? '미지정'}
+                    </span>
+                  )}
                 </div>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${chipClass}`}>
                   {CUSTOMER_TRIP_STATUS_LABELS[tripStatus]}

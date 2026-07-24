@@ -105,6 +105,7 @@ export interface UserRow {
     currentVersion: {
       id?: string;
       totalDays?: number;
+      regionSetName?: string | null;
       meta: {
         documentNumber?: string;
         headcountTotal?: number;
@@ -616,6 +617,7 @@ const USERS_QUERY = gql`
         currentVersion {
           id
           totalDays
+          regionSetName
           meta {
             documentNumber
             headcountTotal

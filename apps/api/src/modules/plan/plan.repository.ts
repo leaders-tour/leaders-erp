@@ -188,6 +188,11 @@ export class PlanRepository {
               select: {
                 id: true,
                 totalDays: true,
+                regionSet: {
+                  select: {
+                    name: true,
+                  },
+                },
                 meta: {
                   select: {
                     travelStartDate: true,

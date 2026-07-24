@@ -17,6 +17,7 @@ import {
   type ConfirmedTripRow,
 } from './hooks';
 import { listExternalTransferDetailRows } from '../plan/external-transfer';
+import { getColorByDestination, type TripColor } from '../guide/trip-color';
 
 interface ConfirmedTripCalendarProps {
   trips: ConfirmedTripRow[];
@@ -40,7 +41,7 @@ interface CalendarBlock {
   tripId: string;
   leaderName: string;
   headcount: number;
-  color: { bg: string; hover: string };
+  color: TripColor;
   status: 'ACTIVE' | 'CANCELLED';
   blockType: 'tour' | 'pickup' | 'drop';
   /** grid 시작 열 (0=일요일) */
@@ -63,15 +64,11 @@ interface CalendarTextNote {
   status: 'ACTIVE' | 'CANCELLED';
 }
 
-const CANCELLED_COLOR: { bg: string; hover: string } = { bg: 'bg-slate-400', hover: 'hover:bg-slate-500' };
-const FALLBACK_COLOR: { bg: string; hover: string } = { bg: 'bg-blue-500', hover: 'hover:bg-blue-600' };
+const CANCELLED_COLOR: TripColor = { bg: 'bg-slate-400', hover: 'hover:bg-slate-500', text: 'text-slate-500', textSelected: 'text-slate-300' };
 
-const REGION_COLOR_RULES: Array<{ keyword: string; color: { bg: string; hover: string } }> = [
-  { keyword: '고비', color: { bg: 'bg-amber-500', hover: 'hover:bg-amber-600' } },
-  { keyword: '홉스골', color: { bg: 'bg-blue-500', hover: 'hover:bg-blue-600' } },
-  { keyword: '중부', color: { bg: 'bg-emerald-500', hover: 'hover:bg-emerald-600' } },
-  { keyword: '자브항', color: { bg: 'bg-violet-500', hover: 'hover:bg-violet-600' } },
-];
+function getTripCalendarColor(trip: ConfirmedTripRow): TripColor {
+  return getColorByDestination(getTripDestination(trip));
+}
 
 /** "2026-06-08" 또는 "2026-06-08T00:00:00.000Z" 모두 처리 — 로컬 자정 기준 Date 반환 */
 function isoToLocalDate(iso: string): Date {
@@ -88,12 +85,6 @@ function toIso(year: number, month: number, day: number): string {
 function getTodayIso(): string {
   const now = new Date();
   return toIso(now.getFullYear(), now.getMonth() + 1, now.getDate());
-}
-
-function getTripCalendarColor(trip: ConfirmedTripRow): { bg: string; hover: string } {
-  const destination = getTripDestination(trip).replace(/\s+/g, '');
-  const matchedRule = REGION_COLOR_RULES.find((rule) => destination.includes(rule.keyword));
-  return matchedRule?.color ?? FALLBACK_COLOR;
 }
 
 /**

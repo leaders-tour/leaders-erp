@@ -149,6 +149,7 @@ export function CustomerPage(): JSX.Element {
             minTeamsFilter={minTeamsFilter}
             onChangeMinTeamsFilter={setMinTeamsFilter}
             minTeamCounts={minTeamCounts}
+            showTravelSummary
           />
         </div>
 
