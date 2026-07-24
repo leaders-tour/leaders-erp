@@ -185,6 +185,8 @@ interface UpdatePlanVersionValidUntilDateArgs {
 export const planResolver = {
   Query: {
     users: (_parent: unknown, _args: unknown, ctx: AppContext) => new PlanService(ctx.prisma).listUsers(),
+    userListSnapshot: (_parent: unknown, _args: unknown, ctx: AppContext) =>
+      new PlanService(ctx.prisma).getUserListSnapshot(),
     user: (_parent: unknown, args: IdArgs, ctx: AppContext) => new PlanService(ctx.prisma).getUser(args.id),
     userNotes: (_parent: unknown, args: UserNotesArgs, ctx: AppContext) => new PlanService(ctx.prisma).listUserNotes(args.userId),
     userDealTodos: (_parent: unknown, args: UserDealTodosArgs, ctx: AppContext) =>

@@ -1,4 +1,5 @@
 import { Card, Input } from '@tour/ui';
+import { TooltipHelpIcon } from '../../../components/TooltipHelpIcon';
 import {
   CUSTOMER_TRIP_STATUS_CHIP_CLASS,
   CUSTOMER_TRIP_STATUS_CHIP_SELECTED_CLASS,
@@ -7,6 +8,7 @@ import {
   type CustomerTripStatus,
 } from '../customerTripStatus';
 import type { CustomerMinTeamsFilter } from '../customerTeamFilter';
+import { buildCustomerPaginationItems, CUSTOMER_PAGINATION_SHORTCUT_HELP } from '../customerPagination';
 import { getColorByDestination } from '../../guide/trip-color';
 import { getCustomerTravelSummary } from '../customerTravelSummary';
 import { UserDisplayName } from './UserDisplayName';
@@ -35,6 +37,10 @@ interface CustomerSelectorProps {
   minTeamCounts?: Record<CustomerMinTeamsFilter, number>;
   hideStatusFilter?: boolean;
   showTravelSummary?: boolean;
+  isRestoringList?: boolean;
+  currentPage?: number;
+  totalPages?: number;
+  onChangePage?: (page: number) => void;
 }
 
 export function CustomerSelector({
@@ -51,7 +57,17 @@ export function CustomerSelector({
   minTeamCounts,
   hideStatusFilter = false,
   showTravelSummary = false,
+  isRestoringList = false,
+  currentPage,
+  totalPages,
+  onChangePage,
 }: CustomerSelectorProps): JSX.Element {
+  const paginationItems =
+    currentPage != null && totalPages != null && totalPages > 1
+      ? buildCustomerPaginationItems(currentPage, totalPages)
+      : [];
+  const canGoPrevious = currentPage != null && currentPage > 1;
+  const canGoNext = currentPage != null && totalPages != null && currentPage < totalPages;
   return (
     <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center">
@@ -122,6 +138,67 @@ export function CustomerSelector({
         </div>
       ) : null}
 
+      {onChangePage && totalPages != null && totalPages > 1 && currentPage != null ? (
+        <nav
+          aria-label="고객 목록 페이지"
+          className="mt-2 flex items-center border-t border-slate-100 pt-2"
+        >
+          <div className="flex flex-1 items-center justify-center gap-1">
+            <button
+              type="button"
+              onClick={() => onChangePage(currentPage - 1)}
+              disabled={!canGoPrevious}
+              aria-label="이전 페이지 (Q)"
+              className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <span aria-hidden="true">Q</span>
+              <span aria-hidden="true">&lt;</span>
+            </button>
+
+            {paginationItems.map((item, index) =>
+              item === 'ellipsis' ? (
+                <span key={`ellipsis-${index}`} className="px-1 text-xs text-slate-400" aria-hidden="true">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => onChangePage(item)}
+                  aria-current={item === currentPage ? 'page' : undefined}
+                  aria-label={`${item}페이지`}
+                  className={`min-w-7 rounded-md border px-2 py-1 text-xs font-medium transition-colors ${
+                    item === currentPage
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {item}
+                </button>
+              ),
+            )}
+
+            <button
+              type="button"
+              onClick={() => onChangePage(currentPage + 1)}
+              disabled={!canGoNext}
+              aria-label="다음 페이지 (E)"
+              className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <span aria-hidden="true">&gt;</span>
+              <span aria-hidden="true">E</span>
+            </button>
+          </div>
+
+          <TooltipHelpIcon
+            content={CUSTOMER_PAGINATION_SHORTCUT_HELP}
+            align="right"
+            placement="above"
+            ariaLabel="페이지 이동 단축키 안내"
+          />
+        </nav>
+      ) : null}
+
       <div className="mt-3 grid gap-2">
         {users.map((user) => {
           const isSelected = selectedUserId === user.id;
@@ -178,7 +255,9 @@ export function CustomerSelector({
             </button>
           );
         })}
-        {users.length === 0 ? <p className="text-xs text-slate-500">검색 결과가 없습니다.</p> : null}
+        {users.length === 0 ? (
+          isRestoringList ? null : <p className="text-xs text-slate-500">검색 결과가 없습니다.</p>
+        ) : null}
       </div>
     </Card>
   );

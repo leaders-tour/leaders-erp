@@ -1,7 +1,7 @@
 import { ApolloError } from '@apollo/client';
 import { Button, Card } from '@tour/ui';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { CreateVersionModal, VersionListPanel, VersionTreePanel } from '../features/plan/components';
 import { UserDisplayName } from '../features/plan/components/UserDisplayName';
 import { useActiveConfirmedTripByPlan } from '../features/confirmed-trip/hooks';
@@ -17,7 +17,9 @@ type TabKey = 'versions' | 'meta' | 'history';
 
 export function PlanDetailPage(): JSX.Element {
   const navigate = useNavigate();
+  const location = useLocation();
   const { planId } = useParams<{ planId: string }>();
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo;
   const [activeTab, setActiveTab] = useState<TabKey>('versions');
   const [modalOpen, setModalOpen] = useState(false);
   const [defaultParentVersionId, setDefaultParentVersionId] = useState('');
@@ -44,6 +46,14 @@ export function PlanDetailPage(): JSX.Element {
     }
     setDocumentNumberDraft(plan.documentNumberBase);
   }, [plan?.id, plan?.documentNumberBase]);
+
+  const handleBackToCustomerPlans = () => {
+    if (returnTo) {
+      navigate(returnTo);
+      return;
+    }
+    navigate(-1);
+  };
 
   const openCreateVersion = (versionId: string) => {
     setDefaultParentVersionId(versionId);
@@ -114,7 +124,7 @@ export function PlanDetailPage(): JSX.Element {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate(-1)}>
+            <Button variant="outline" onClick={handleBackToCustomerPlans}>
               고객 Plan 목록
             </Button>
             <Button

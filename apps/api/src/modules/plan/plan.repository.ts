@@ -177,6 +177,21 @@ function buildPlanVersionMetaCreateInput(
 export class PlanRepository {
   constructor(private readonly prisma: PrismaLike) {}
 
+  async findUserListSnapshot() {
+    const [count, latestUser] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.user.findFirst({
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      }),
+    ]);
+
+    return {
+      count,
+      latestCreatedAt: latestUser?.createdAt ?? null,
+    };
+  }
+
   findUsers() {
     return this.prisma.user.findMany({
       include: {

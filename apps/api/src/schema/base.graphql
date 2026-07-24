@@ -33,6 +33,7 @@ type Query {
   planTemplates(regionSetId: ID, totalDays: Int, activeOnly: Boolean): [PlanTemplate!]!
   planTemplate(id: ID!): PlanTemplate
   users: [User!]!
+  userListSnapshot: UserListSnapshot!
   user(id: ID!): User
   userNotes(userId: ID!): [UserNote!]!
   userDealTodos(userId: ID!, includeDone: Boolean = false): [UserDealTodo!]!

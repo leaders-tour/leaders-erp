@@ -1,9 +1,20 @@
 import { Card } from '@tour/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useApolloClient } from '@apollo/client';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CustomerDeletePanel, CustomerSelector, PlanListPanel } from '../features/plan/components';
 import { UserDisplayName } from '../features/plan/components/UserDisplayName';
+import {
+  getCustomerPaginationShortcutAction,
+  getCustomerTotalPages,
+  isEditableTarget,
+  paginateCustomerItems,
+  parseCustomerPageParam,
+  resolveSafeCustomerPage,
+} from '../features/plan/customerPagination';
 import { matchesCustomerSearchKeyword } from '../features/plan/customerSearch';
+import { shouldRefreshUsersFromSnapshot } from '../features/plan/customerListSnapshot';
+import { hasSessionUsers } from '../features/plan/customerListSessionCache';
 import {
   countCustomersWithMinTeams,
   customerHasMinTeams,
@@ -17,7 +28,7 @@ import {
   type CustomerTripStatus,
 } from '../features/plan/customerTripStatus';
 import type { DealStageValue } from '../features/plan/hooks';
-import { useDeleteUser, usePlansByUser, useUsers } from '../features/plan/hooks';
+import { useDeleteUser, usePlansByUser, useUsers, fetchUserListSnapshot } from '../features/plan/hooks';
 import {
   getQueryParam,
   patchSearchParams,
@@ -51,8 +62,9 @@ const DEAL_STAGE_LABELS: Record<DealStageValue, string> = {
 
 export function CustomerPage(): JSX.Element {
   const navigate = useNavigate();
+  const client = useApolloClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { users, loading } = useUsers();
+  const { users, loading, refetch: refetchUsers, hasCachedUsers, isRestoring: isRestoringUsers } = useUsers();
   const { deleteUser, loading: deletingUser } = useDeleteUser();
   const selectedUserId = searchParams.get('userId') ?? '';
   const customerSearch = getQueryParam(searchParams, 'q');
@@ -61,7 +73,41 @@ export function CustomerPage(): JSX.Element {
     searchParams.get('minTeams'),
     searchParams.get('multiTeam') === '1',
   );
+  const currentPage = parseCustomerPageParam(searchParams.get('page'));
   const [deletePanelOpen, setDeletePanelOpen] = useState(false);
+  const filterResetKeyRef = useRef(`${customerSearch}|${statusFilter}|${minTeamsFilter ?? ''}`);
+  const snapshotCheckInFlightRef = useRef(false);
+  const usersLoadingRef = useRef(loading);
+  const usersRef = useRef(users);
+
+  useEffect(() => {
+    usersLoadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
+    usersRef.current = users;
+  }, [users]);
+
+  const checkAndRefreshUsers = useCallback(async () => {
+    if (snapshotCheckInFlightRef.current) {
+      return;
+    }
+
+    snapshotCheckInFlightRef.current = true;
+    try {
+      const serverSnapshot = await fetchUserListSnapshot(client);
+      const cachedUsers = usersRef.current;
+      if (!shouldRefreshUsersFromSnapshot(cachedUsers, serverSnapshot)) {
+        return;
+      }
+      if (cachedUsers.length === 0 && usersLoadingRef.current) {
+        return;
+      }
+      await refetchUsers();
+    } finally {
+      snapshotCheckInFlightRef.current = false;
+    }
+  }, [client, refetchUsers]);
 
   function setCustomerSearch(value: string) {
     patchSearchParams(setSearchParams, (prev) => setQueryParam(prev, 'q', value));
@@ -81,6 +127,16 @@ export function CustomerPage(): JSX.Element {
         prev.delete('minTeams');
       } else {
         prev.set('minTeams', String(minTeams));
+      }
+    });
+  }
+
+  function setCurrentPage(page: number) {
+    patchSearchParams(setSearchParams, (prev) => {
+      if (page <= 1) {
+        prev.delete('page');
+      } else {
+        prev.set('page', String(page));
       }
     });
   }
@@ -106,19 +162,101 @@ export function CustomerPage(): JSX.Element {
     });
   }, [customerSearch, minTeamsFilter, users, statusFilter]);
 
+  const usersReady = hasCachedUsers || !loading;
+  const totalPages = useMemo(() => getCustomerTotalPages(filteredUsers.length), [filteredUsers.length]);
+  const hasKnownTotalPages = usersReady && filteredUsers.length > 0;
+  const safeCurrentPage = useMemo(
+    () => resolveSafeCustomerPage(currentPage, totalPages, hasKnownTotalPages),
+    [currentPage, hasKnownTotalPages, totalPages],
+  );
+  const paginatedUsers = useMemo(
+    () => paginateCustomerItems(filteredUsers, safeCurrentPage),
+    [filteredUsers, safeCurrentPage],
+  );
+  const customersListPath = useMemo(() => {
+    const query = searchParams.toString();
+    return query ? `/customers?${query}` : '/customers';
+  }, [searchParams]);
+
   useEffect(() => {
-    if (!selectedUserId && filteredUsers.length > 0) {
-      setSelectedUserId(filteredUsers[0]?.id ?? '');
+    if (hasCachedUsers || hasSessionUsers()) {
       return;
     }
-    if (selectedUserId && !filteredUsers.some((user) => user.id === selectedUserId)) {
-      setSelectedUserId(filteredUsers[0]?.id ?? '');
-    }
-  }, [filteredUsers, selectedUserId]);
+    void checkAndRefreshUsers();
+  }, [checkAndRefreshUsers, hasCachedUsers]);
 
-  const { plans, loading: planLoading } = usePlansByUser(selectedUserId || undefined);
+  useEffect(() => {
+    function handleWindowFocus() {
+      void checkAndRefreshUsers();
+    }
+
+    window.addEventListener('focus', handleWindowFocus);
+    return () => window.removeEventListener('focus', handleWindowFocus);
+  }, [checkAndRefreshUsers]);
+
+  useEffect(() => {
+    const nextFilterResetKey = `${customerSearch}|${statusFilter}|${minTeamsFilter ?? ''}`;
+    if (filterResetKeyRef.current === nextFilterResetKey) return;
+    filterResetKeyRef.current = nextFilterResetKey;
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, customerSearch, minTeamsFilter, statusFilter]);
+
+  useEffect(() => {
+    if (!hasKnownTotalPages) return;
+    if (safeCurrentPage !== currentPage) {
+      setCurrentPage(safeCurrentPage);
+    }
+  }, [currentPage, hasKnownTotalPages, safeCurrentPage]);
+
+  useEffect(() => {
+    if (!usersReady) return;
+
+    if (filteredUsers.length === 0) {
+      if (selectedUserId) {
+        setSelectedUserId('');
+      }
+      return;
+    }
+
+    const selectedExistsInFiltered = filteredUsers.some((user) => user.id === selectedUserId);
+    if (!selectedUserId || !selectedExistsInFiltered) {
+      const fallbackUser = paginatedUsers[0] ?? filteredUsers[0];
+      if (fallbackUser && fallbackUser.id !== selectedUserId) {
+        setSelectedUserId(fallbackUser.id);
+      }
+    }
+  }, [filteredUsers, paginatedUsers, selectedUserId, usersReady]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (isEditableTarget(event.target)) return;
+      if (totalPages <= 1) return;
+
+      const action = getCustomerPaginationShortcutAction(event);
+      if (action === 'prev' && safeCurrentPage > 1) {
+        event.preventDefault();
+        setCurrentPage(safeCurrentPage - 1);
+      }
+      if (action === 'next' && safeCurrentPage < totalPages) {
+        event.preventDefault();
+        setCurrentPage(safeCurrentPage + 1);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [safeCurrentPage, totalPages]);
+
+  const { plans, loading: planLoading, hasCachedPlans, isRestoring: isRestoringPlans } = usePlansByUser(
+    selectedUserId || undefined,
+  );
   const selectedUser = users.find((user) => user.id === selectedUserId) ?? null;
   const selectedTripStatus = selectedUser ? getCustomerTripStatus(selectedUser) : null;
+  const showInitialLoading =
+    (loading && !hasCachedUsers && !isRestoringUsers) ||
+    (Boolean(selectedUserId) && planLoading && !hasCachedPlans && !isRestoringPlans);
 
   return (
     <section className="grid gap-6">
@@ -138,7 +276,7 @@ export function CustomerPage(): JSX.Element {
       <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <div className="grid gap-4">
           <CustomerSelector
-            users={filteredUsers}
+            users={paginatedUsers}
             selectedUserId={selectedUserId}
             searchValue={customerSearch}
             onChangeSearch={setCustomerSearch}
@@ -150,11 +288,15 @@ export function CustomerPage(): JSX.Element {
             onChangeMinTeamsFilter={setMinTeamsFilter}
             minTeamCounts={minTeamCounts}
             showTravelSummary
+            isRestoringList={isRestoringUsers}
+            currentPage={safeCurrentPage}
+            totalPages={totalPages}
+            onChangePage={setCurrentPage}
           />
         </div>
 
         <div className="flex min-h-0 flex-col gap-4 self-start">
-          {loading || planLoading ? <div className="text-sm text-slate-600">불러오는 중...</div> : null}
+          {showInitialLoading ? <div className="text-sm text-slate-600">불러오는 중...</div> : null}
 
           {selectedUser ? (
             <>
@@ -212,7 +354,9 @@ export function CustomerPage(): JSX.Element {
 
               <PlanListPanel
                 plans={plans}
-                onOpenPlan={(planId) => navigate(`/plans/${planId}`)}
+                onOpenPlan={(planId) =>
+                  navigate(`/plans/${planId}`, { state: { returnTo: customersListPath } })
+                }
                 onCreatePlan={() => navigate(`/itinerary-builder?userId=${selectedUserId}`)}
               />
             </>

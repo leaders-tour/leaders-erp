@@ -51,6 +51,11 @@ type UserConfirmedTripSummary {
   latestPublishedConfirmationDocument: UserConfirmedTripConfirmationDocumentSummary
 }
 
+type UserListSnapshot {
+  count: Int!
+  latestCreatedAt: DateTime
+}
+
 type User {
   id: ID!
   name: String!

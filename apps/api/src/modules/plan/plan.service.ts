@@ -513,6 +513,10 @@ export class PlanService {
     return new PlanRepository(this.prisma).findUsers();
   }
 
+  getUserListSnapshot() {
+    return new PlanRepository(this.prisma).findUserListSnapshot();
+  }
+
   getUser(id: string) {
     return new PlanRepository(this.prisma).findUserById(id);
   }

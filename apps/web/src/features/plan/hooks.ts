@@ -1,8 +1,10 @@
-import { gql, useMutation, useQuery } from '@apollo/client';
-import { useCallback, useState } from 'react';
+import { gql, useMutation, useQuery, type ApolloClient } from '@apollo/client';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../auth/context';
 import { CONFIRMED_TRIP_QUERY, type TourListRentalItem } from '../confirmed-trip/hooks';
 import { runUploadMutation } from '../../lib/upload-mutation';
+import type { UserListSnapshot } from './customerListSnapshot';
+import { getSessionPlans, getSessionUsers, setSessionPlans, setSessionUsers } from './customerListSessionCache';
 import { PLAN_VERSION_PRICING_EFFECTIVE_FIELDS_FRAGMENT } from './plan-version-pricing-fragment';
 
 const UPLOAD_USER_ATTACHMENT_MUTATION_STR = `
@@ -685,6 +687,24 @@ const USERS_QUERY = gql`
   }
 `;
 
+export const USER_LIST_SNAPSHOT_QUERY = gql`
+  query UserListSnapshot {
+    userListSnapshot {
+      count
+      latestCreatedAt
+    }
+  }
+`;
+
+export async function fetchUserListSnapshot(client: ApolloClient<object>): Promise<UserListSnapshot> {
+  const { data } = await client.query<{ userListSnapshot: UserListSnapshot }>({
+    query: USER_LIST_SNAPSHOT_QUERY,
+    fetchPolicy: 'network-only',
+  });
+
+  return data.userListSnapshot;
+}
+
 const USER_QUERY = gql`
   query User($id: ID!) {
     user(id: $id) {
@@ -1205,8 +1225,27 @@ const UPDATE_USER_DEAL_TODO_STATUS_MUTATION = gql`
 `;
 
 export function useUsers() {
-  const { data, loading, error, refetch } = useQuery<{ users: UserRow[] }>(USERS_QUERY);
-  return { users: data?.users ?? [], loading, error, refetch };
+  const { data, previousData, loading, error, refetch } = useQuery<{ users: UserRow[] }>(USERS_QUERY, {
+    fetchPolicy: 'cache-first',
+    nextFetchPolicy: 'cache-first',
+    notifyOnNetworkStatusChange: true,
+  });
+  const users = data?.users ?? previousData?.users ?? getSessionUsers() ?? [];
+
+  useEffect(() => {
+    if (data?.users?.length) {
+      setSessionUsers(data.users);
+    }
+  }, [data?.users]);
+
+  return {
+    users,
+    loading: loading && users.length === 0,
+    error,
+    refetch,
+    hasCachedUsers: users.length > 0,
+    isRestoring: users.length === 0 && (getSessionUsers()?.length ?? 0) > 0,
+  };
 }
 
 export function useUser(id: string | undefined) {
@@ -1219,12 +1258,29 @@ export function useUser(id: string | undefined) {
 }
 
 export function usePlansByUser(userId: string | undefined) {
-  const { data, loading, refetch } = useQuery<{ plans: PlanRow[] }>(PLANS_BY_USER_QUERY, {
+  const { data, previousData, loading, refetch } = useQuery<{ plans: PlanRow[] }>(PLANS_BY_USER_QUERY, {
     variables: { userId },
     skip: !userId,
+    fetchPolicy: 'cache-first',
+    nextFetchPolicy: 'cache-first',
+    notifyOnNetworkStatusChange: true,
   });
+  const sessionPlans = userId ? getSessionPlans(userId) : null;
+  const plans = data?.plans ?? previousData?.plans ?? sessionPlans ?? [];
 
-  return { plans: data?.plans ?? [], loading, refetch };
+  useEffect(() => {
+    if (userId && data?.plans) {
+      setSessionPlans(userId, data.plans);
+    }
+  }, [data?.plans, userId]);
+
+  return {
+    plans,
+    loading: loading && plans.length === 0,
+    refetch,
+    hasCachedPlans: plans.length > 0,
+    isRestoring: plans.length === 0 && (sessionPlans?.length ?? 0) > 0,
+  };
 }
 
 export function usePlanDetail(id: string | undefined) {
