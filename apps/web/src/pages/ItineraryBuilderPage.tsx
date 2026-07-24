@@ -67,6 +67,7 @@ import { ExtraLodgingsModal } from '../features/pricing/components/ExtraLodgings
 import {
   teamPricingsForSummaryDisplay,
   teamPricingsForBaseAmountDisplay,
+  teamPricingsForSecurityDepositDisplay,
   shouldShowTeamPrefixInPricingSummary,
   shouldShowTeamPrefixForBaseAmount,
   teamPricingSummarySignatureFromParts,
@@ -5019,11 +5020,25 @@ export function ItineraryBuilderPage(): JSX.Element {
     manualPricingSplitTeamRows,
   ]);
   const pricingSummaryShowTeamPrefix = teamsForAmountSummaryGrid.length > 1;
+  const teamsForSecurityDepositSummary = useMemo(() => {
+    if (fullTeamPricingRows.length <= 1) {
+      return fullTeamPricingRows;
+    }
+    if (manualPricing.enabled && manualPricingSplitTeamRows) {
+      return fullTeamPricingRows;
+    }
+    return teamPricingsForSecurityDepositDisplay(fullTeamPricingRows);
+  }, [fullTeamPricingRows, manualPricing.enabled, manualPricingSplitTeamRows]);
+  const securityDepositSummaryShowTeamPrefix = teamsForSecurityDepositSummary.length > 1;
   const manualPricingAmountSummaryCollapsed =
     manualPricing.enabled &&
     fullTeamPricingRows.length > 1 &&
     !amountsDifferAcrossTeams &&
     teamsForAmountSummaryGrid.length === 1;
+  const manualPricingSecurityDepositCollapsed =
+    manualPricing.enabled &&
+    fullTeamPricingRows.length > 1 &&
+    teamsForSecurityDepositSummary.length === 1;
   const allTeamOrderIndexesForSummarySync = useMemo(
     () => fullTeamPricingRows.map((t) => t.teamOrderIndex),
     [fullTeamPricingRows],
@@ -8463,8 +8478,16 @@ export function ItineraryBuilderPage(): JSX.Element {
                               ['balanceAmountKrw', 'balanceAmountKrw'],
                               ['securityDepositAmountKrw', 'securityDepositAmountKrw'],
                             ] as const
-                          ).map(([key, field], index) => (
-                            <div key={key} className={`${index < 3 ? 'border-r border-slate-200' : ''} px-2 py-3`}>
+                          ).map(([key, field], index) => {
+                            const isSecurityDeposit = field === 'securityDepositAmountKrw';
+                            const teamsForField = isSecurityDeposit
+                              ? teamsForSecurityDepositSummary
+                              : teamsForAmountSummaryGrid;
+                            const showTeamPrefix = isSecurityDeposit
+                              ? securityDepositSummaryShowTeamPrefix
+                              : pricingSummaryShowTeamPrefix;
+                            return (
+                              <div key={key} className={`${index < 3 ? 'border-r border-slate-200' : ''} px-2 py-3`}>
                               <div className="space-y-2">
                                 {effectivePricingPreview.teamPricings.length === 0 ? (
                                   manualPricing.enabled &&
@@ -8524,11 +8547,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                                     </div>
                                   )
                                 ) : (
-                                  teamsForAmountSummaryGrid.map((teamPricing) => (
+                                  teamsForField.map((teamPricing) => (
                                     <div key={`${field}-${teamPricing.teamOrderIndex}`} className="grid gap-1">
                                       {manualPricing.enabled ? (
                                         <div className="flex flex-wrap items-center justify-center gap-2">
-                                          {pricingSummaryShowTeamPrefix ? (
+                                          {showTeamPrefix ? (
                                             <div className="text-xs font-medium text-slate-500">{`${teamPricing.teamName})`}</div>
                                           ) : null}
                                           {field === 'securityDepositAmountKrw' &&
@@ -8548,7 +8571,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                                     return;
                                                   }
                                                   setManualPricing((current) =>
-                                                    manualPricingAmountSummaryCollapsed
+                                                    manualPricingSecurityDepositCollapsed
                                                       ? setManualPricingAllTeamSummariesValue(
                                                           current,
                                                           allTeamOrderIndexesForSummarySync,
@@ -8574,7 +8597,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                                 onChange={(event) => {
                                                   const mode = event.target.value as 'PER_PERSON' | 'PER_TEAM';
                                                   setManualPricing((current) =>
-                                                    manualPricingAmountSummaryCollapsed
+                                                    manualPricingSecurityDepositCollapsed
                                                       ? setManualPricingAllTeamSummariesSecurityDepositMode(
                                                           current,
                                                           allTeamOrderIndexesForSummarySync,
@@ -8625,18 +8648,19 @@ export function ItineraryBuilderPage(): JSX.Element {
                                           )}
                                         </div>
                                       ) : field === 'securityDepositAmountKrw' && teamPricing.securityDepositMode !== 'NONE' ? (
-                                        <div className="text-center">{`${pricingSummaryShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${formatKrw(
+                                        <div className="text-center">{`${showTeamPrefix ? `${teamPricing.teamName}) ` : ''}${formatKrw(
                                           teamPricing.securityDepositUnitPriceKrw,
                                         )} (${formatSecurityDepositScope(teamPricing.securityDepositMode)})`}</div>
                                       ) : (
-                                        <div className="text-center">{`${pricingSummaryShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${formatKrw(teamPricing[field])}`}</div>
+                                        <div className="text-center">{`${showTeamPrefix ? `${teamPricing.teamName}) ` : ''}${formatKrw(teamPricing[field])}`}</div>
                                       )}
                                     </div>
                                   ))
                                 )}
                               </div>
-                            </div>
-                          ))}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>

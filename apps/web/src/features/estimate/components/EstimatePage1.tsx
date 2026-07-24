@@ -8,6 +8,7 @@ import {
   shouldShowTeamPrefixForBaseAmount,
   teamPricingsForSummaryDisplay,
   teamPricingsForBaseAmountDisplay,
+  teamSecurityDepositSignatureFromParts,
   teamPricingSummarySignatureFromParts,
 } from '../../pricing/team-pricing-summary-display';
 import { VehicleAssignmentsEditor } from '../../plan/components/VehicleAssignmentsEditor';
@@ -66,6 +67,15 @@ function estimateTeamPricingSummarySignature(row: EstimateTeamPricing): string {
     securityDepositAmountKrw: row.securityDepositAmountKrw,
     securityDepositUnitKrw: row.securityDepositUnitKrw,
     securityScopeWhenPresent: row.securityDepositScope === '-' ? '' : row.securityDepositScope,
+  });
+}
+
+function estimateSecurityDepositSignature(row: EstimateTeamPricing): string {
+  return teamSecurityDepositSignatureFromParts({
+    mode: row.securityDepositScope,
+    amountKrw: row.securityDepositAmountKrw,
+    unitPriceKrw: row.securityDepositUnitKrw,
+    none: row.securityDepositScope === '-',
   });
 }
 
@@ -530,6 +540,14 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
     }
     return teamPricingsForSummaryDisplay(rows, estimateTeamPricingSummarySignature);
   }, [data.teamPricings, data.expandTeamPricingSummaryRows]);
+  const securityDepositTeamPricingsForDisplay = useMemo(() => {
+    const rows = data.teamPricings;
+    if (rows.length <= 1 || data.expandTeamPricingSummaryRows === true) {
+      return rows;
+    }
+    return teamPricingsForSummaryDisplay(rows, estimateSecurityDepositSignature);
+  }, [data.teamPricings, data.expandTeamPricingSummaryRows]);
+  const securityDepositSummaryShowTeamPrefix = securityDepositTeamPricingsForDisplay.length > 1;
   const baseTeamPricingsForDisplay = useMemo(() => {
     const rows = data.teamPricings;
     if (rows.length <= 1) {
@@ -1043,12 +1061,12 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                 <td className="emphasis">
                   {data.teamPricings.length > 0 ? (
                     <div className="estimate-page1-summary-team-list">
-                      {summaryTeamPricingsForDisplay.map((teamPricing) => (
+                      {securityDepositTeamPricingsForDisplay.map((teamPricing) => (
                         <div key={`security-${teamPricing.teamOrderIndex}`} className="estimate-page1-summary-team-item">
                           <div>
                             {teamPricing.securityDepositScope === '-'
-                              ? `${estimateSummaryShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${blankIfDash(formatCurrency(teamPricing.securityDepositAmountKrw))}`
-                              : `${estimateSummaryShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${formatCurrency(teamPricing.securityDepositUnitKrw)} (${teamPricing.securityDepositScope})`}
+                              ? `${securityDepositSummaryShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${blankIfDash(formatCurrency(teamPricing.securityDepositAmountKrw))}`
+                              : `${securityDepositSummaryShowTeamPrefix ? `${teamPricing.teamName}) ` : ''}${formatCurrency(teamPricing.securityDepositUnitKrw)} (${teamPricing.securityDepositScope})`}
                           </div>
                         </div>
                       ))}

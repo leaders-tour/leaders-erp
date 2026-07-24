@@ -14,6 +14,41 @@ export function teamPricingsForBaseAmountDisplay<T extends { baseAmountKrw: numb
   return teamPricingsForSummaryDisplay(teams, teamBaseAmountSignature);
 }
 
+type TeamSecurityDepositSummary = {
+  securityDepositMode: string;
+  securityDepositAmountKrw: number;
+  securityDepositUnitPriceKrw: number;
+};
+
+export function teamSecurityDepositSignatureFromParts(input: {
+  mode: string;
+  amountKrw: number;
+  unitPriceKrw: number;
+  none: boolean;
+}): string {
+  return input.none ? ['NONE', input.amountKrw].join('|') : [input.mode, input.unitPriceKrw].join('|');
+}
+
+/** 보증금 컬럼에 실제로 표시되는 값(단위·단가)이 같은지 비교한다. */
+export function teamSecurityDepositSignature(row: TeamSecurityDepositSummary): string {
+  return teamSecurityDepositSignatureFromParts({
+    mode: row.securityDepositMode,
+    amountKrw: row.securityDepositAmountKrw,
+    unitPriceKrw: row.securityDepositUnitPriceKrw,
+    none: row.securityDepositMode === 'NONE',
+  });
+}
+
+/** 팀별 보증금 표시가 다를 때만 팀명을 노출한다. */
+export function shouldShowTeamPrefixForSecurityDeposit<T extends TeamSecurityDepositSummary>(teams: T[]): boolean {
+  return shouldShowTeamPrefixInPricingSummary(teams, teamSecurityDepositSignature);
+}
+
+/** 팀별 보증금 표시가 모두 같으면 대표 팀 한 줄만 반환한다. */
+export function teamPricingsForSecurityDepositDisplay<T extends TeamSecurityDepositSummary>(teams: T[]): T[] {
+  return teamPricingsForSummaryDisplay(teams, teamSecurityDepositSignature);
+}
+
 export type TeamPricingSummarySignatureParts = {
   totalAmountKrw: number;
   depositAmountKrw: number;
