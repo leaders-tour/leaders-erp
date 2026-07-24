@@ -72,12 +72,24 @@ export function CustomerSelector({
     <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center">
         <h2 className="shrink-0 text-sm font-semibold text-slate-900">고객</h2>
-        <Input
-          value={searchValue}
-          onChange={(event) => onChangeSearch(event.target.value)}
-          placeholder="이름·담당자·문서번호"
-          className="ml-auto h-8 w-1/2 text-xs"
-        />
+        <div className="relative ml-auto w-1/2">
+          <Input
+            value={searchValue}
+            onChange={(event) => onChangeSearch(event.target.value)}
+            placeholder="이름·담당자·문서번호"
+            className="h-8 pr-7 text-xs"
+          />
+          {searchValue ? (
+            <button
+              type="button"
+              onClick={() => onChangeSearch('')}
+              aria-label="검색어 지우기"
+              className="absolute right-2 top-1/2 inline-flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full text-xs leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            >
+              ×
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {!hideStatusFilter && statusFilter && onChangeStatusFilter && groupCounts ? (
