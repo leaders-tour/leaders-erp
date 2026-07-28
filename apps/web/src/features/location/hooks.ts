@@ -545,7 +545,9 @@ function toProfileVariables(input: LocationProfileFormInput) {
 }
 
 export function useLocationCrud() {
-  const { data, loading, refetch } = useQuery<Record<string, LocationListRow[]>>(LIST);
+  const { data, loading, refetch } = useQuery<Record<string, LocationListRow[]>>(LIST, {
+    fetchPolicy: 'cache-and-network',
+  });
   const [createProfileMutation] = useMutation(CREATE_PROFILE);
   const [createVersionMutation] = useMutation(CREATE_VERSION);
   const [setDefaultVersionMutation] = useMutation(SET_DEFAULT_VERSION);
