@@ -146,6 +146,10 @@ import {
   type TransportGroupTravelSyncDraft,
 } from '../features/plan/transport-group-travel-sync';
 import {
+  mapTransportGroupToPlanMutationInput,
+  primaryMetaFlightFields,
+} from '../features/plan/transport-group-plan-input';
+import {
   applyTeamHeadcountsToGroups,
   distributeHeadcountTotalAcrossTeams,
   redistributeTeamHeadcountsAfterRemoval,
@@ -1736,60 +1740,6 @@ const HALF_HOUR_MINUTE_OPTIONS = [0, 30] as const;
 
 function toIsoDateTime(value: string): string {
   return `${value}T00:00:00.000Z`;
-}
-
-function isFlightInPairComplete(group: Pick<EstimateTransportGroup, 'flightInDate' | 'flightInTime'>): boolean {
-  const d = group.flightInDate?.trim() ?? '';
-  const t = group.flightInTime?.trim() ?? '';
-  return Boolean(d && t);
-}
-
-function isFlightOutPairComplete(group: Pick<EstimateTransportGroup, 'flightOutDate' | 'flightOutTime'>): boolean {
-  const d = group.flightOutDate?.trim() ?? '';
-  const t = group.flightOutTime?.trim() ?? '';
-  return Boolean(d && t);
-}
-
-/** GraphQL/서버 계약: IN/OUT은 날짜·시간 완전 쌍일 때만 필드를 보냅니다. */
-function mapTransportGroupToPlanMutationInput(group: EstimateTransportGroup) {
-  const inC = isFlightInPairComplete(group);
-  const outC = isFlightOutPairComplete(group);
-  return {
-    teamName: group.teamName.trim(),
-    headcount: group.headcount,
-    ...(inC
-      ? { flightInDate: toIsoDateTime(group.flightInDate.trim()), flightInTime: group.flightInTime.trim() }
-      : {}),
-    ...(outC
-      ? {
-          flightOutDate: toIsoDateTime(group.flightOutDate.trim()),
-          flightOutTime: group.flightOutTime.trim(),
-        }
-      : {}),
-    pickupDate: group.pickupDate?.trim() ? toIsoDateTime(group.pickupDate.trim()) : undefined,
-    pickupTime: group.pickupTime.trim() || undefined,
-    pickupPlaceType: group.pickupPlaceType,
-    pickupPlaceCustomText: normalizePickupDropCustomText(group.pickupPlaceType, group.pickupPlaceCustomText),
-    dropDate: group.dropDate?.trim() ? toIsoDateTime(group.dropDate.trim()) : undefined,
-    dropTime: group.dropTime.trim() || undefined,
-    dropPlaceType: group.dropPlaceType,
-    dropPlaceCustomText: normalizePickupDropCustomText(group.dropPlaceType, group.dropPlaceCustomText),
-  };
-}
-
-function primaryMetaFlightFields(primary: EstimateTransportGroup | undefined): {
-  flightInTime?: string;
-  flightOutTime?: string;
-} {
-  if (!primary) {
-    return {};
-  }
-  const inC = isFlightInPairComplete(primary);
-  const outC = isFlightOutPairComplete(primary);
-  return {
-    ...(inC ? { flightInTime: primary.flightInTime.trim() } : {}),
-    ...(outC ? { flightOutTime: primary.flightOutTime.trim() } : {}),
-  };
 }
 
 function toAutoTravelEndDate(startDate: string, totalDays: number): string {
@@ -3893,13 +3843,15 @@ export function ItineraryBuilderPage(): JSX.Element {
         if (field === 'flightInTime') {
           if (!group.hasEditedPickup) {
             const nextFlightInTime = typeof value === 'string' ? value : group.flightInTime;
-            const recommendedPickup = getRecommendedPickupSchedule(
-              nextGroup.flightInDate,
-              nextFlightInTime,
-              travelStartDate,
-            );
-            nextGroup.pickupDate = recommendedPickup.date;
-            nextGroup.pickupTime = recommendedPickup.time;
+            if (nextFlightInTime.trim()) {
+              const recommendedPickup = getRecommendedPickupSchedule(
+                nextGroup.flightInDate,
+                nextFlightInTime,
+                travelStartDate,
+              );
+              nextGroup.pickupDate = recommendedPickup.date;
+              nextGroup.pickupTime = recommendedPickup.time;
+            }
           }
         }
 
@@ -3917,13 +3869,16 @@ export function ItineraryBuilderPage(): JSX.Element {
 
         if (field === 'flightOutTime') {
           if (!group.hasEditedDrop) {
-            const recommendedDrop = getRecommendedDropSchedule(
-              nextGroup.flightOutDate,
-              typeof value === 'string' ? value : group.flightOutTime,
-              travelEndDate,
-            );
-            nextGroup.dropDate = recommendedDrop.date;
-            nextGroup.dropTime = recommendedDrop.time;
+            const nextFlightOutTime = typeof value === 'string' ? value : group.flightOutTime;
+            if (nextFlightOutTime.trim()) {
+              const recommendedDrop = getRecommendedDropSchedule(
+                nextGroup.flightOutDate,
+                nextFlightOutTime,
+                travelEndDate,
+              );
+              nextGroup.dropDate = recommendedDrop.date;
+              nextGroup.dropTime = recommendedDrop.time;
+            }
           }
         }
 
@@ -4001,6 +3956,25 @@ export function ItineraryBuilderPage(): JSX.Element {
     );
   };
 
+  const clearTransportGroupFlightInTime = (index: number): void => {
+    setTransportGroups((current) =>
+      current.map((group, groupIndex) => {
+        if (groupIndex !== index) {
+          return group;
+        }
+        const nextGroup: TransportGroupDraft = {
+          ...group,
+          flightInTime: '',
+          hasEditedFlightIn: true,
+        };
+        if (!group.hasEditedPickup) {
+          nextGroup.pickupTime = '';
+        }
+        return nextGroup;
+      }),
+    );
+  };
+
   const clearTransportGroupFlightOut = (index: number): void => {
     setTransportGroups((current) =>
       current.map((group, groupIndex) => {
@@ -4017,6 +3991,25 @@ export function ItineraryBuilderPage(): JSX.Element {
           const recommendedDrop = getRecommendedDropSchedule('', '', travelEndDate);
           nextGroup.dropDate = recommendedDrop.date;
           nextGroup.dropTime = recommendedDrop.time;
+        }
+        return nextGroup;
+      }),
+    );
+  };
+
+  const clearTransportGroupFlightOutTime = (index: number): void => {
+    setTransportGroups((current) =>
+      current.map((group, groupIndex) => {
+        if (groupIndex !== index) {
+          return group;
+        }
+        const nextGroup: TransportGroupDraft = {
+          ...group,
+          flightOutTime: '',
+          hasEditedFlightOut: true,
+        };
+        if (!group.hasEditedDrop) {
+          nextGroup.dropTime = '';
         }
         return nextGroup;
       }),
@@ -6804,6 +6797,19 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         {time}
                                       </button>
                                     ))}
+                                    <button
+                                      key={`builder-flight-in-${index}-time-undecided`}
+                                      type="button"
+                                      onClick={() => clearTransportGroupFlightInTime(index)}
+                                      disabled={!group.flightInTime?.trim()}
+                                      className={`rounded-xl border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                                        !group.flightInTime?.trim()
+                                          ? 'border-blue-700 bg-blue-700 text-white'
+                                          : 'border-blue-200 bg-white text-blue-800 hover:bg-blue-100'
+                                      }`}
+                                    >
+                                      미정
+                                    </button>
                                   </div>
                                 </div>
                               </div>
@@ -6860,6 +6866,19 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         {time}
                                       </button>
                                     ))}
+                                    <button
+                                      key={`builder-flight-out-${index}-time-undecided`}
+                                      type="button"
+                                      onClick={() => clearTransportGroupFlightOutTime(index)}
+                                      disabled={!group.flightOutTime?.trim()}
+                                      className={`rounded-xl border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                                        !group.flightOutTime?.trim()
+                                          ? 'border-blue-700 bg-blue-700 text-white'
+                                          : 'border-blue-200 bg-white text-blue-800 hover:bg-blue-100'
+                                      }`}
+                                    >
+                                      미정
+                                    </button>
                                   </div>
                                 </div>
                                 </div>

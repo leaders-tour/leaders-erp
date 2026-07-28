@@ -374,21 +374,21 @@ export const planVersionTransportGroupInputSchema = z
   .superRefine((value, ctx) => {
     const inDatePresent = Boolean(value.flightInDate?.trim());
     const inTimePresent = Boolean(value.flightInTime?.trim());
-    if (inDatePresent !== inTimePresent) {
+    if (!inDatePresent && inTimePresent) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'flightInDate and flightInTime must both be set or both omitted',
-        path: inDatePresent ? ['flightInTime'] : ['flightInDate'],
+        message: 'flightInTime requires flightInDate',
+        path: ['flightInDate'],
       });
     }
 
     const outDatePresent = Boolean(value.flightOutDate?.trim());
     const outTimePresent = Boolean(value.flightOutTime?.trim());
-    if (outDatePresent !== outTimePresent) {
+    if (!outDatePresent && outTimePresent) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'flightOutDate and flightOutTime must both be set or both omitted',
-        path: outDatePresent ? ['flightOutTime'] : ['flightOutDate'],
+        message: 'flightOutTime requires flightOutDate',
+        path: ['flightOutDate'],
       });
     }
 

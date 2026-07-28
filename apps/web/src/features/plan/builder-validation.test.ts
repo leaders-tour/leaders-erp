@@ -277,6 +277,38 @@ describe('missing-special-meals', () => {
   });
 });
 
+describe('invalid-transport-groups', () => {
+  it('allows date-only flight schedules', () => {
+    const results = computeBuilderValidationResults(
+      minimalInputWithGroups([], [
+        {
+          ...baseTransport('19:00'),
+          flightInDate: '2026-05-01',
+          flightInTime: '',
+          flightOutDate: '2026-05-06',
+          flightOutTime: '',
+        },
+      ]),
+    );
+
+    expect(results.some((result) => result.id === 'invalid-transport-groups')).toBe(false);
+  });
+
+  it('rejects time-only flight schedules', () => {
+    const results = computeBuilderValidationResults(
+      minimalInputWithGroups([], [
+        {
+          ...baseTransport('19:00'),
+          flightInDate: '',
+          flightInTime: '09:00',
+        },
+      ]),
+    );
+
+    expect(results.some((result) => result.id === 'invalid-transport-groups')).toBe(true);
+  });
+});
+
 describe('samgyeopsal-recommendation-deviation', () => {
   it('삼겹살 뷔페도 추천지 이탈 warning을 검사한다', () => {
     const planRows = [

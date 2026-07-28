@@ -1,4 +1,4 @@
-import { formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../../plan/pickup-drop';
+import { formatFlightDisplay, formatPickupDropDisplay, formatTransportFlightLines, formatTransportPickupDropLines } from '../../plan/pickup-drop';
 import type { EstimateSecurityDepositMode, EstimateSecurityDepositScope, EstimateTransportGroup } from '../model/types';
 
 const currencyFormatter = new Intl.NumberFormat('ko-KR');
@@ -141,13 +141,12 @@ export function formatSignedCurrency(value: number): string {
 }
 
 export function formatFlightText(date: string | null | undefined, time: string | null | undefined): string {
-  const normalizedTime = time?.trim() ?? '';
-  const normalizedDate = date?.trim() ?? '';
-  if (!normalizedDate || normalizedTime.length === 0) {
+  const display = formatFlightDisplay(date, time);
+  if (display === '-') {
     return '항공권 미정';
   }
 
-  return `${formatDateShort(date)} - ${normalizedTime}`;
+  return display;
 }
 
 export function formatTransportFlightText(

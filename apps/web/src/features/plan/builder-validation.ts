@@ -247,15 +247,15 @@ export function computeBuilderValidationResults(input: BuilderValidationInput): 
       transportGroups.some((g) => {
         const inDate = g.flightInDate?.trim() ?? '';
         const inTime = g.flightInTime?.trim() ?? '';
-        const inPairInvalid = (inDate.length > 0) !== (inTime.length > 0);
+        const inTimeOnly = inTime.length > 0 && inDate.length === 0;
         const outDate = g.flightOutDate?.trim() ?? '';
         const outTime = g.flightOutTime?.trim() ?? '';
-        const outPairInvalid = (outDate.length > 0) !== (outTime.length > 0);
+        const outTimeOnly = outTime.length > 0 && outDate.length === 0;
         return (
           g.teamName.trim().length === 0 ||
           g.headcount < 1 ||
-          inPairInvalid ||
-          outPairInvalid
+          inTimeOnly ||
+          outTimeOnly
         );
       }) ||
       transportGroupHeadcountTotal !== headcountTotal;
@@ -264,7 +264,7 @@ export function computeBuilderValidationResults(input: BuilderValidationInput): 
         id: 'invalid-transport-groups',
         severity: 'error',
         message:
-          '팀별 정보를 확인해주세요. 항공권 IN/OUT은 날짜·시간을 함께 입력하거나 둘 다 비워 두세요(미정). 팀 인원 합계는 총 인원과 같아야 합니다.',
+          '팀별 정보를 확인해주세요. 항공권 IN/OUT은 날짜만 입력하거나 날짜·시간을 함께 입력할 수 있습니다. 시간만 입력할 수는 없습니다. 팀 인원 합계는 총 인원과 같아야 합니다.',
       });
     }
 

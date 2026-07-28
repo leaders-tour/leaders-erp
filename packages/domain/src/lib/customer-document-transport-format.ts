@@ -90,10 +90,25 @@ export function formatPickupDropDisplay(
   return `${formatDateShort(date)} - ${normalizedTime} ${placeLabel}`;
 }
 
+function formatDateKoreanMonthDay(value: string | Date | null | undefined): string | null {
+  const date = toDate(value);
+  if (!date) {
+    return null;
+  }
+
+  return `${date.getUTCMonth() + 1}월 ${date.getUTCDate()}일`;
+}
+
 export function formatFlightDisplay(date: string | Date | null | undefined, time: string | null | undefined): string {
   const normalizedTime = time?.trim() ?? '';
-  if (!date || normalizedTime.length === 0) {
+  const koreanDate = formatDateKoreanMonthDay(date);
+
+  if (!koreanDate) {
     return '-';
+  }
+
+  if (normalizedTime.length === 0) {
+    return `${koreanDate} · 시간 미정`;
   }
 
   return `${formatDateShort(date)} - ${normalizedTime}`;

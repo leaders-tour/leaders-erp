@@ -132,12 +132,31 @@ describe('applyTransportGroupTravelDateSync', () => {
 
     expect(result.flightInDate).toBe('2026-04-02');
     expect(result.flightOutDate).toBe('2026-04-08');
-    expect(result.flightInTime).toBe(DEFAULT_TRAVEL_SYNC_FLIGHT_IN_TIME);
-    expect(result.flightOutTime).toBe(DEFAULT_TRAVEL_SYNC_FLIGHT_OUT_TIME);
+    expect(result.flightInTime).toBe('');
+    expect(result.flightOutTime).toBe('');
     expect(result.pickupDate).toBe('2026-04-02');
     expect(result.dropDate).toBe('2026-04-08');
-    expect(result.pickupTime).toBe('04:00');
-    expect(result.dropTime).toBe('15:30');
+    expect(result.pickupTime).toBe('');
+    expect(result.dropTime).toBe('');
+  });
+
+  it('does not auto-fill flight times when only flight dates exist', () => {
+    const result = applyTransportGroupTravelDateSync(
+      createGroup({
+        flightInDate: '2026-04-01',
+        flightInTime: '',
+        flightOutDate: '2026-04-07',
+        flightOutTime: '',
+        hasEditedFlightIn: true,
+        hasEditedFlightOut: true,
+      }),
+      travelDates,
+    );
+
+    expect(result.flightInDate).toBe('2026-04-01');
+    expect(result.flightOutDate).toBe('2026-04-07');
+    expect(result.flightInTime).toBe('');
+    expect(result.flightOutTime).toBe('');
   });
 });
 

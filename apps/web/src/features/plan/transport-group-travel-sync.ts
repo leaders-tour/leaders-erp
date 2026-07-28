@@ -47,17 +47,19 @@ function applyDateOnlyTravelSync(
   const travelStartDate = dates.travelStartDate.trim();
   const travelEndDate = dates.travelEndDate.trim();
   const nextGroup: TransportGroupTravelSyncDraft = { ...group };
+  const flightInUnspecified = !group.flightInDate.trim() && !group.flightInTime.trim();
+  const flightOutUnspecified = !group.flightOutDate.trim() && !group.flightOutTime.trim();
 
   if (!group.hasEditedFlightIn && travelStartDate) {
     nextGroup.flightInDate = travelStartDate;
-    if (!nextGroup.flightInTime.trim()) {
+    if (flightInUnspecified && !nextGroup.flightInTime.trim()) {
       nextGroup.flightInTime = DEFAULT_TRAVEL_SYNC_FLIGHT_IN_TIME;
     }
   }
 
   if (!group.hasEditedFlightOut && travelEndDate) {
     nextGroup.flightOutDate = travelEndDate;
-    if (!nextGroup.flightOutTime.trim()) {
+    if (flightOutUnspecified && !nextGroup.flightOutTime.trim()) {
       nextGroup.flightOutTime = DEFAULT_TRAVEL_SYNC_FLIGHT_OUT_TIME;
     }
   }
