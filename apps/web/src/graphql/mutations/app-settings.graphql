@@ -26,6 +26,12 @@ mutation UpdateAppSettings($input: AppSettingsInput!) {
       starlink
       powerbank
     }
+    flightTimeSettings {
+      inTimeShortcuts
+      outTimeShortcuts
+      defaultInTime
+      defaultOutTime
+    }
     updatedAt
   }
 }

@@ -11,6 +11,10 @@ const defaultStockInput = {
   },
 };
 
+const defaultFlightTimeInput = {
+  flightTimeSettings: APP_SETTINGS_DEFAULT.flightTimeSettings,
+};
+
 function createPrismaMock(initialRow: { payload: unknown; updatedAt: Date } | null = null): PrismaClient {
   type AppSettingMockRow = { key: string; payload: unknown; updatedAt: Date };
   let row: AppSettingMockRow | null = initialRow ? { key: APP_SETTINGS_KEY_APPEARANCE, ...initialRow } : null;
@@ -40,6 +44,7 @@ describe('AppSettingsService', () => {
     expect(result.movementIntensityColors).toEqual(APP_SETTINGS_DEFAULT.movementIntensityColors);
     expect(result.rentalItemPresets).toEqual(APP_SETTINGS_DEFAULT.rentalItemPresets);
     expect(result.tourListRentalItemStock).toEqual(defaultStockInput.tourListRentalItemStock);
+    expect(result.flightTimeSettings).toEqual(APP_SETTINGS_DEFAULT.flightTimeSettings);
   });
 
   it('normalizes missing movement intensity levels on update', async () => {
@@ -49,6 +54,7 @@ describe('AppSettingsService', () => {
       movementIntensityColors: [{ level: 'LEVEL_3', color: '#123456' }],
       rentalItemPresets: APP_SETTINGS_DEFAULT.rentalItemPresets,
       ...defaultStockInput,
+      ...defaultFlightTimeInput,
     });
 
     expect(result.movementIntensityColors).toHaveLength(5);
@@ -74,6 +80,7 @@ describe('AppSettingsService', () => {
         },
       ],
       ...defaultStockInput,
+      ...defaultFlightTimeInput,
     });
 
     expect(result.rentalItemPresets).toHaveLength(1);
@@ -102,6 +109,7 @@ describe('AppSettingsService', () => {
         },
       ],
       ...defaultStockInput,
+      ...defaultFlightTimeInput,
     });
 
     expect(result.rentalItemPresets[0]?.sharedQuantityRules[1]?.quantity).toBe(9);
@@ -131,6 +139,7 @@ describe('AppSettingsService', () => {
       APP_SETTINGS_DEFAULT.rentalItemPresets[0]!.sharedQuantityRules,
     );
     expect(result.tourListRentalItemStock).toEqual(defaultStockInput.tourListRentalItemStock);
+    expect(result.flightTimeSettings).toEqual(APP_SETTINGS_DEFAULT.flightTimeSettings);
   });
 
   it('stores custom tour list rental stock on update', async () => {
@@ -144,6 +153,7 @@ describe('AppSettingsService', () => {
         starlink: 6,
         powerbank: 3,
       },
+      ...defaultFlightTimeInput,
     });
 
     expect(result.tourListRentalItemStock).toEqual({
@@ -161,6 +171,7 @@ describe('AppSettingsService', () => {
         movementIntensityColors: [{ level: 'LEVEL_1', color: 'red' }],
         rentalItemPresets: APP_SETTINGS_DEFAULT.rentalItemPresets,
         ...defaultStockInput,
+        ...defaultFlightTimeInput,
       }),
     ).rejects.toThrow('앱 설정 입력이 올바르지 않습니다.');
   });
@@ -181,6 +192,7 @@ describe('AppSettingsService', () => {
           },
         ],
         ...defaultStockInput,
+        ...defaultFlightTimeInput,
       }),
     ).rejects.toThrow('앱 설정 입력이 올바르지 않습니다.');
   });

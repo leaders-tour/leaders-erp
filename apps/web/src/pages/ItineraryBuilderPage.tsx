@@ -140,11 +140,10 @@ import {
 } from '../features/plan/pickup-drop';
 import {
   applyTransportGroupTravelDateSync,
-  DEFAULT_TRAVEL_SYNC_FLIGHT_IN_TIME,
-  DEFAULT_TRAVEL_SYNC_FLIGHT_OUT_TIME,
   isTransportGroupTravelLinked,
   type TransportGroupTravelSyncDraft,
 } from '../features/plan/transport-group-travel-sync';
+import { APP_SETTINGS_DEFAULT } from '@tour/validation';
 import {
   mapTransportGroupToPlanMutationInput,
   primaryMetaFlightFields,
@@ -202,7 +201,7 @@ import { buildCustomerPricingSnapshot } from '../features/pricing/customer-prici
 import { MealOption, VariantType } from '../generated/graphql';
 import type { ConsultationDraft } from '../generated/graphql';
 import { usePlanVersionDetail } from '../features/plan/hooks';
-import { useCurrentRentalItemPreset, useMovementIntensityColorSettings } from '../features/app-settings/hooks';
+import { useCurrentRentalItemPreset, useFlightTimeSettings, useMovementIntensityColorSettings } from '../features/app-settings/hooks';
 
 interface RegionRow {
   id: string;
@@ -1698,34 +1697,6 @@ const VARIANTS = [
 ];
 
 const PLAN_VEHICLES = PLAN_VEHICLE_TYPES;
-const FLIGHT_IN_TIME_OPTIONS = [
-  '00:05',
-  '00:30',
-  '00:50',
-  '02:45',
-  '04:30',
-  '11:10',
-  '12:40',
-  '13:20',
-  '17:00',
-  '18:10',
-  '23:05',
-  '23:30',
-] as const;
-const FLIGHT_OUT_TIME_OPTIONS = [
-  '00:25',
-  '00:50',
-  '01:30',
-  '01:50',
-  '02:05',
-  '08:40',
-  '11:00',
-  '13:00',
-  '13:40',
-  '14:50',
-  '18:15',
-  '20:30',
-] as const;
 /** 여행 기간 선택(또는 새 팀 추가) 시 IN/OUT 자동 맞춤에만 사용하는 추천 시각 — 「미정」또는 직접 수정 후에는 재적용되지 않음 */
 const PICKUP_DROP_TIME_OPTIONS = [
   '04:00',
@@ -2131,7 +2102,8 @@ function toEstimateTransportGroup(group: TransportGroupDraft): EstimateTransport
   };
 }
 
-function createTransportGroupDraft(input: {
+function createTransportGroupDraft(
+  input: {
   index: number;
   headcount: number;
   travelStartDate: string;
@@ -2140,7 +2112,12 @@ function createTransportGroupDraft(input: {
   flightInTime?: string;
   flightOutDate?: string;
   flightOutTime?: string;
-}): TransportGroupDraft {
+},
+  autoFlightTimes: { in: string; out: string } = {
+    in: APP_SETTINGS_DEFAULT.flightTimeSettings.defaultInTime,
+    out: APP_SETTINGS_DEFAULT.flightTimeSettings.defaultOutTime,
+  },
+): TransportGroupDraft {
   const travelStart = input.travelStartDate?.trim() ?? '';
   const travelEnd = input.travelEndDate?.trim() ?? '';
 
@@ -2154,7 +2131,7 @@ function createTransportGroupDraft(input: {
 
   if (inPairUnspecified && travelStart) {
     flightInDate = travelStart;
-    flightInTime = DEFAULT_TRAVEL_SYNC_FLIGHT_IN_TIME;
+    flightInTime = autoFlightTimes.in;
   } else {
     flightInDate = input.flightInDate ?? '';
     flightInTime = input.flightInTime ?? '';
@@ -2162,7 +2139,7 @@ function createTransportGroupDraft(input: {
 
   if (outPairUnspecified && travelEnd) {
     flightOutDate = travelEnd;
-    flightOutTime = DEFAULT_TRAVEL_SYNC_FLIGHT_OUT_TIME;
+    flightOutTime = autoFlightTimes.out;
   } else {
     flightOutDate = input.flightOutDate ?? '';
     flightOutTime = input.flightOutTime ?? '';
@@ -2220,6 +2197,7 @@ function buildTransportGroupsAfterAddTeam(
   headcountTotal: number,
   travelStartDate: string,
   travelEndDate: string,
+  autoFlightTimes: { in: string; out: string },
 ): TransportGroupDraft[] | null {
   const newLen = current.length + 1;
   if (headcountTotal < newLen) {
@@ -2237,7 +2215,7 @@ function buildTransportGroupsAfterAddTeam(
         headcount: remainingHeadcount,
         travelStartDate,
         travelEndDate,
-      }),
+      }, autoFlightTimes),
     ];
   }
 
@@ -2253,7 +2231,7 @@ function buildTransportGroupsAfterAddTeam(
       headcount: counts[current.length]!,
       travelStartDate,
       travelEndDate,
-    }),
+    }, autoFlightTimes),
   ];
 }
 
@@ -2887,6 +2865,16 @@ export function ItineraryBuilderPage(): JSX.Element {
   const { rules: specialMealDestinationRules } = useSpecialMealDestinationRules();
   const { colors: settingsMovementIntensityColors } = useMovementIntensityColorSettings();
   const { preset: currentRentalItemPreset } = useCurrentRentalItemPreset();
+  const { flightTimeSettings } = useFlightTimeSettings();
+  const autoFlightTimes = useMemo(
+    () => ({
+      in: flightTimeSettings.defaultInTime,
+      out: flightTimeSettings.defaultOutTime,
+    }),
+    [flightTimeSettings.defaultInTime, flightTimeSettings.defaultOutTime],
+  );
+  const flightInTimeOptions = flightTimeSettings.inTimeShortcuts;
+  const flightOutTimeOptions = flightTimeSettings.outTimeShortcuts;
   const buildRentalItemsText = useCallback(
     (total: number) => renderRentalItemPresetText(currentRentalItemPreset, total),
     [currentRentalItemPreset],
@@ -3919,7 +3907,13 @@ export function ItineraryBuilderPage(): JSX.Element {
   const addTransportGroup = useCallback(() => {
     let didAdd = false;
     setTransportGroups((current) => {
-      const next = buildTransportGroupsAfterAddTeam(current, headcountTotal, travelStartDate, travelEndDate);
+      const next = buildTransportGroupsAfterAddTeam(
+        current,
+        headcountTotal,
+        travelStartDate,
+        travelEndDate,
+        autoFlightTimes,
+      );
       if (!next) {
         window.alert(
           '전체 인원은 팀 수 이상이어야 합니다. 인원을 늘리거나 팀을 줄여 주세요.',
@@ -3932,7 +3926,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     if (didAdd) {
       setManualPricingSplitTeamRows(false);
     }
-  }, [headcountTotal, travelStartDate, travelEndDate]);
+  }, [autoFlightTimes, headcountTotal, travelStartDate, travelEndDate]);
 
   const clearTransportGroupFlightIn = (index: number): void => {
     setTransportGroups((current) =>
@@ -4029,13 +4023,17 @@ export function ItineraryBuilderPage(): JSX.Element {
             ? applyTransportGroupTravelDateSync(
                 group,
                 { travelStartDate, travelEndDate },
-                { clearManualPins: true },
+                {
+                  clearManualPins: true,
+                  defaultFlightInTime: autoFlightTimes.in,
+                  defaultFlightOutTime: autoFlightTimes.out,
+                },
               )
             : group,
         ),
       );
     },
-    [travelEndDate, travelStartDate],
+    [autoFlightTimes.in, autoFlightTimes.out, travelEndDate, travelStartDate],
   );
 
   const handleToggleParticipationEvent = useCallback(
@@ -4178,12 +4176,15 @@ export function ItineraryBuilderPage(): JSX.Element {
         nextGroup = applyTransportGroupTravelDateSync(nextGroup, {
           travelStartDate,
           travelEndDate,
+        }, {
+          defaultFlightInTime: autoFlightTimes.in,
+          defaultFlightOutTime: autoFlightTimes.out,
         });
 
         return nextGroup;
       }),
     );
-  }, [parentVersionId, parentVersionLoading, totalDays, travelEndDate, travelStartDate]);
+  }, [autoFlightTimes.in, autoFlightTimes.out, parentVersionId, parentVersionLoading, totalDays, travelEndDate, travelStartDate]);
 
   useEffect(() => {
     const preserveParentCloneHeadcounts = shouldPreserveParentCloneTransportHeadcounts({
@@ -5566,6 +5567,8 @@ export function ItineraryBuilderPage(): JSX.Element {
     vehicleType: vehicleDisplayText,
     vehicleAssignments,
     transportGroups: normalizedTransportGroups,
+    flightInTimeOptions,
+    flightOutTimeOptions,
     eventIds,
     eventOptions: eventOptions.map((eventOption) => ({
       id: eventOption.id,
@@ -6660,6 +6663,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   isTransportGroupTravelLinked(group, {
                                     travelStartDate,
                                     travelEndDate,
+                                  }, {
+                                    defaultFlightInTime: autoFlightTimes.in,
+                                    defaultFlightOutTime: autoFlightTimes.out,
                                   })
                                 }
                                 onClick={() => resyncTransportGroupTravelSchedule(index)}
@@ -6781,7 +6787,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                     }
                                   />
                                   <div className="flex flex-wrap gap-2">
-                                    {FLIGHT_IN_TIME_OPTIONS.map((time) => (
+                                    {flightInTimeOptions.map((time) => (
                                       <button
                                         key={`builder-flight-in-${index}-${time}`}
                                         type="button"
@@ -6850,7 +6856,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                     }
                                   />
                                   <div className="flex flex-wrap gap-2">
-                                    {FLIGHT_OUT_TIME_OPTIONS.map((time) => (
+                                    {flightOutTimeOptions.map((time) => (
                                       <button
                                         key={`builder-flight-out-${index}-${time}`}
                                         type="button"

@@ -1,5 +1,12 @@
 import { useQuery } from '@apollo/client';
-import { APP_SETTINGS_DEFAULT, getCurrentRentalItemPreset, type RentalItemPreset, DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK } from '@tour/validation';
+import {
+  APP_SETTINGS_DEFAULT,
+  getCurrentRentalItemPreset,
+  normalizeFlightTimeSettings,
+  type FlightTimeSettings,
+  type RentalItemPreset,
+  DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK,
+} from '@tour/validation';
 import {
   AppSettingsDocument,
   type AppSettingsQuery,
@@ -90,4 +97,33 @@ export function useTourListRentalItemStock(): {
   };
 
   return { stock, loading };
+}
+
+export function mapGqlFlightTimeSettings(
+  row: AppSettingsQuery['appSettings'] | null | undefined,
+): FlightTimeSettings {
+  if (!row?.flightTimeSettings) {
+    return APP_SETTINGS_DEFAULT.flightTimeSettings;
+  }
+  return normalizeFlightTimeSettings({
+    inTimeShortcuts: row.flightTimeSettings.inTimeShortcuts,
+    outTimeShortcuts: row.flightTimeSettings.outTimeShortcuts,
+    defaultInTime: row.flightTimeSettings.defaultInTime,
+    defaultOutTime: row.flightTimeSettings.defaultOutTime,
+  });
+}
+
+export function useFlightTimeSettings(): {
+  flightTimeSettings: FlightTimeSettings;
+  loading: boolean;
+} {
+  const { data, loading } = useQuery(AppSettingsDocument, {
+    fetchPolicy: 'cache-and-network',
+    errorPolicy: 'all',
+  });
+
+  return {
+    flightTimeSettings: mapGqlFlightTimeSettings(data?.appSettings),
+    loading,
+  };
 }

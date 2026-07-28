@@ -59,10 +59,89 @@ export const tourListRentalItemStockSchema = z.object({
   POWERBANK: z.number().int().min(0).max(1000),
 });
 
+export const FLIGHT_TIME_HH_MM_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
+export const MAX_FLIGHT_TIME_SHORTCUT_COUNT = 48;
+
+export const flightTimeShortcutSchema = z.string().regex(FLIGHT_TIME_HH_MM_REGEX, 'time must be HH:mm');
+
+export const DEFAULT_FLIGHT_IN_TIME_SHORTCUTS = [
+  '00:05',
+  '00:30',
+  '00:50',
+  '02:45',
+  '04:30',
+  '11:10',
+  '12:40',
+  '13:20',
+  '17:00',
+  '18:10',
+  '23:05',
+  '23:30',
+] as const;
+
+export const DEFAULT_FLIGHT_OUT_TIME_SHORTCUTS = [
+  '00:25',
+  '00:50',
+  '01:30',
+  '01:50',
+  '02:05',
+  '08:40',
+  '11:00',
+  '13:00',
+  '13:40',
+  '14:50',
+  '18:15',
+  '20:30',
+] as const;
+
+export const DEFAULT_FLIGHT_TIME_AUTO_IN = '02:45';
+export const DEFAULT_FLIGHT_TIME_AUTO_OUT = '18:15';
+
+export const flightTimeSettingsSchema = z
+  .object({
+    inTimeShortcuts: z.array(flightTimeShortcutSchema).min(1).max(MAX_FLIGHT_TIME_SHORTCUT_COUNT),
+    outTimeShortcuts: z.array(flightTimeShortcutSchema).min(1).max(MAX_FLIGHT_TIME_SHORTCUT_COUNT),
+    defaultInTime: flightTimeShortcutSchema,
+    defaultOutTime: flightTimeShortcutSchema,
+  })
+  .superRefine((value, ctx) => {
+    const inDuplicates = findDuplicateFlightTimeShortcuts(value.inTimeShortcuts);
+    for (const time of inDuplicates) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `IN 단축키 "${time}"가 중복되었습니다.`,
+        path: ['inTimeShortcuts'],
+      });
+    }
+    const outDuplicates = findDuplicateFlightTimeShortcuts(value.outTimeShortcuts);
+    for (const time of outDuplicates) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `OUT 단축키 "${time}"가 중복되었습니다.`,
+        path: ['outTimeShortcuts'],
+      });
+    }
+    if (!value.inTimeShortcuts.includes(value.defaultInTime)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: '자동 IN 초기값은 IN 단축키 목록에 포함되어야 합니다.',
+        path: ['defaultInTime'],
+      });
+    }
+    if (!value.outTimeShortcuts.includes(value.defaultOutTime)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: '자동 OUT 초기값은 OUT 단축키 목록에 포함되어야 합니다.',
+        path: ['defaultOutTime'],
+      });
+    }
+  });
+
 export const appSettingsPayloadSchema = z.object({
   movementIntensityColors: z.array(movementIntensityColorSchema),
   rentalItemPresets: z.array(rentalItemPresetSchema).min(1).max(50),
   tourListRentalItemStock: tourListRentalItemStockSchema,
+  flightTimeSettings: flightTimeSettingsSchema,
 });
 
 export type AppSettingKey = z.infer<typeof appSettingKeySchema>;
@@ -73,6 +152,7 @@ export type RentalItemPresetItem = z.infer<typeof rentalItemPresetItemSchema>;
 export type RentalItemPreset = z.infer<typeof rentalItemPresetSchema>;
 export type TourListRentalItemType = (typeof tourListRentalItemTypes)[number];
 export type TourListRentalItemStock = z.infer<typeof tourListRentalItemStockSchema>;
+export type FlightTimeSettings = z.infer<typeof flightTimeSettingsSchema>;
 export type AppSettingsPayload = z.infer<typeof appSettingsPayloadSchema>;
 
 export const APP_SETTINGS_KEY_APPEARANCE: AppSettingKey = 'appearance';
@@ -125,11 +205,176 @@ export const TOUR_LIST_RENTAL_ITEM_LABELS: Record<TourListRentalItemType, string
   POWERBANK: '파워뱅크',
 };
 
+export const DEFAULT_FLIGHT_TIME_SETTINGS: FlightTimeSettings = {
+  inTimeShortcuts: [...DEFAULT_FLIGHT_IN_TIME_SHORTCUTS],
+  outTimeShortcuts: [...DEFAULT_FLIGHT_OUT_TIME_SHORTCUTS],
+  defaultInTime: DEFAULT_FLIGHT_TIME_AUTO_IN,
+  defaultOutTime: DEFAULT_FLIGHT_TIME_AUTO_OUT,
+};
+
 export const APP_SETTINGS_DEFAULT: AppSettingsPayload = {
   movementIntensityColors: DEFAULT_MOVEMENT_INTENSITY_COLORS,
   rentalItemPresets: DEFAULT_RENTAL_ITEM_PRESETS,
   tourListRentalItemStock: DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK,
+  flightTimeSettings: DEFAULT_FLIGHT_TIME_SETTINGS,
 };
+
+export function isValidFlightTimeShortcut(value: string): boolean {
+  return FLIGHT_TIME_HH_MM_REGEX.test(value.trim());
+}
+
+export function normalizeFlightTimeShortcut(value: string): string | null {
+  const trimmed = value.trim();
+  return isValidFlightTimeShortcut(trimmed) ? trimmed : null;
+}
+
+function findDuplicateFlightTimeShortcuts(times: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const time of times) {
+    if (seen.has(time)) {
+      duplicates.add(time);
+    }
+    seen.add(time);
+  }
+  return [...duplicates];
+}
+
+function dedupeFlightTimeShortcutsPreserveOrder(times: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of times) {
+    const normalized = normalizeFlightTimeShortcut(raw);
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
+}
+
+function resolveDefaultFlightTime(
+  shortcuts: readonly string[],
+  preferredDefault: unknown,
+  fallbackDefault: string,
+): string {
+  const preferred = normalizeFlightTimeShortcut(typeof preferredDefault === 'string' ? preferredDefault : '');
+  if (preferred && shortcuts.includes(preferred)) {
+    return preferred;
+  }
+  if (shortcuts.includes(fallbackDefault)) {
+    return fallbackDefault;
+  }
+  return shortcuts[0] ?? fallbackDefault;
+}
+
+export function normalizeFlightTimeSettings(value: unknown): FlightTimeSettings {
+  const raw = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  const parsed = flightTimeSettingsSchema.safeParse({
+    inTimeShortcuts: Array.isArray(raw.inTimeShortcuts) ? raw.inTimeShortcuts : undefined,
+    outTimeShortcuts: Array.isArray(raw.outTimeShortcuts) ? raw.outTimeShortcuts : undefined,
+    defaultInTime: raw.defaultInTime,
+    defaultOutTime: raw.defaultOutTime,
+  });
+  if (parsed.success) {
+    return parsed.data;
+  }
+
+  const inTimeShortcuts = dedupeFlightTimeShortcutsPreserveOrder(
+    Array.isArray(raw.inTimeShortcuts) ? raw.inTimeShortcuts.map(String) : DEFAULT_FLIGHT_IN_TIME_SHORTCUTS,
+  );
+  const outTimeShortcuts = dedupeFlightTimeShortcutsPreserveOrder(
+    Array.isArray(raw.outTimeShortcuts) ? raw.outTimeShortcuts.map(String) : DEFAULT_FLIGHT_OUT_TIME_SHORTCUTS,
+  );
+
+  const normalizedInTimeShortcuts =
+    inTimeShortcuts.length > 0 ? inTimeShortcuts : [...DEFAULT_FLIGHT_IN_TIME_SHORTCUTS];
+  const normalizedOutTimeShortcuts =
+    outTimeShortcuts.length > 0 ? outTimeShortcuts : [...DEFAULT_FLIGHT_OUT_TIME_SHORTCUTS];
+
+  return {
+    inTimeShortcuts: normalizedInTimeShortcuts,
+    outTimeShortcuts: normalizedOutTimeShortcuts,
+    defaultInTime: resolveDefaultFlightTime(
+      normalizedInTimeShortcuts,
+      raw.defaultInTime,
+      DEFAULT_FLIGHT_TIME_AUTO_IN,
+    ),
+    defaultOutTime: resolveDefaultFlightTime(
+      normalizedOutTimeShortcuts,
+      raw.defaultOutTime,
+      DEFAULT_FLIGHT_TIME_AUTO_OUT,
+    ),
+  };
+}
+
+export function collectFlightTimeSettingsIssues(settings: {
+  inTimeShortcuts: readonly string[];
+  outTimeShortcuts: readonly string[];
+  defaultInTime: string;
+  defaultOutTime: string;
+}): string[] {
+  const issues: string[] = [];
+
+  for (const [label, times] of [
+    ['IN', settings.inTimeShortcuts],
+    ['OUT', settings.outTimeShortcuts],
+  ] as const) {
+    if (times.length === 0) {
+      issues.push(`${label} 단축키 목록이 비어 있습니다.`);
+    }
+    if (times.length > MAX_FLIGHT_TIME_SHORTCUT_COUNT) {
+      issues.push(`${label} 단축키는 최대 ${MAX_FLIGHT_TIME_SHORTCUT_COUNT}개까지 등록할 수 있습니다.`);
+    }
+    const seen = new Set<string>();
+    for (const time of times) {
+      if (!isValidFlightTimeShortcut(time)) {
+        issues.push(`${label} 단축키 "${time}" 형식이 올바르지 않습니다. (HH:mm)`);
+      }
+      if (seen.has(time)) {
+        issues.push(`${label} 단축키 "${time}"가 중복되었습니다.`);
+      }
+      seen.add(time);
+    }
+  }
+
+  if (!settings.inTimeShortcuts.includes(settings.defaultInTime)) {
+    issues.push('자동 IN 초기값은 IN 단축키 목록에 포함되어야 합니다.');
+  }
+  if (!settings.outTimeShortcuts.includes(settings.defaultOutTime)) {
+    issues.push('자동 OUT 초기값은 OUT 단축키 목록에 포함되어야 합니다.');
+  }
+
+  return issues;
+}
+
+export function pickClosestFlightTime(
+  options: readonly string[],
+  target: string,
+  fallback: string,
+): string {
+  if (options.length === 0) {
+    return fallback;
+  }
+  if (!target || target.length < 4) {
+    return fallback;
+  }
+  const [th, tm] = target.split(':').map(Number);
+  const targetMin = (th ?? 0) * 60 + (tm ?? 0);
+  let best = options[0] ?? fallback;
+  let bestDiff = Infinity;
+  for (const opt of options) {
+    const [oh, om] = opt.split(':').map(Number);
+    const optMin = (oh ?? 0) * 60 + (om ?? 0);
+    const diff = Math.abs(optMin - targetMin);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = opt;
+    }
+  }
+  return best;
+}
 
 type FormulaToken =
   | { type: 'number'; value: number }
@@ -577,6 +822,7 @@ export function normalizeAppSettingsPayload(value: unknown): AppSettingsPayload 
     tourListRentalItemStock: parsedStock.success
       ? parsedStock.data
       : DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK,
+    flightTimeSettings: normalizeFlightTimeSettings(raw.flightTimeSettings),
   };
 }
 

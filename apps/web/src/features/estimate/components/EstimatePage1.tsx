@@ -31,9 +31,10 @@ import {
   formatTransportPickupDropText,
   formatTravelPeriod,
 } from '../utils/format';
+import { APP_SETTINGS_DEFAULT } from '@tour/validation';
 
-const FLIGHT_IN_TIME_OPTIONS = ['00:05', '00:30', '00:50', '02:45', '04:30', '11:10', '12:40', '13:20', '17:00', '18:10', '23:05', '23:30'] as const;
-const FLIGHT_OUT_TIME_OPTIONS = ['00:25', '00:50', '01:30', '01:50', '02:05', '08:40', '11:00', '13:00', '13:40', '14:50', '18:15', '20:30'] as const;
+const DEFAULT_FLIGHT_IN_TIME_OPTIONS = APP_SETTINGS_DEFAULT.flightTimeSettings.inTimeShortcuts;
+const DEFAULT_FLIGHT_OUT_TIME_OPTIONS = APP_SETTINGS_DEFAULT.flightTimeSettings.outTimeShortcuts;
 const PICKUP_DROP_TIME_OPTIONS = ['04:00', '05:00', '08:00', '15:30', '19:00', '21:00', '23:00'] as const;
 
 interface EstimatePage1Props {
@@ -195,6 +196,8 @@ interface TransportGroupEditorProps {
   groups: EstimateTransportGroup[];
   mode: 'flightIn' | 'flightOut' | 'pickup' | 'drop';
   headcountTotal: number;
+  flightInTimeOptions: readonly string[];
+  flightOutTimeOptions: readonly string[];
   onFieldChange: EstimatePage1Editor['onTransportGroupFieldChange'];
   onAdd: () => void;
   onRemove: (index: number) => void;
@@ -257,6 +260,8 @@ function TransportGroupEditor({
   groups,
   mode,
   headcountTotal,
+  flightInTimeOptions,
+  flightOutTimeOptions,
   onFieldChange,
   onAdd,
   onRemove,
@@ -350,7 +355,7 @@ function TransportGroupEditor({
                 className="estimate-editable-input"
               />
               <FlightTimeButtonGroup
-                options={FLIGHT_IN_TIME_OPTIONS}
+                options={flightInTimeOptions}
                 value={group.flightInTime}
                 onChange={(value) => onFieldChange(index, 'flightInTime', value)}
               />
@@ -385,7 +390,7 @@ function TransportGroupEditor({
                 className="estimate-editable-input"
               />
               <FlightTimeButtonGroup
-                options={FLIGHT_OUT_TIME_OPTIONS}
+                options={flightOutTimeOptions}
                 value={group.flightOutTime}
                 onChange={(value) => onFieldChange(index, 'flightOutTime', value)}
               />
@@ -766,6 +771,8 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                     groups={editor?.transportGroups ?? []}
                     mode="flightIn"
                     headcountTotal={editor?.headcountTotal ?? 1}
+                    flightInTimeOptions={editor?.flightInTimeOptions ?? DEFAULT_FLIGHT_IN_TIME_OPTIONS}
+                    flightOutTimeOptions={editor?.flightOutTimeOptions ?? DEFAULT_FLIGHT_OUT_TIME_OPTIONS}
                     onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
                     onAdd={() => editor?.onAddTransportGroup()}
                     onRemove={(index) => editor?.onRemoveTransportGroup(index)}
@@ -787,6 +794,8 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                     groups={editor?.transportGroups ?? []}
                     mode="flightOut"
                     headcountTotal={editor?.headcountTotal ?? 1}
+                    flightInTimeOptions={editor?.flightInTimeOptions ?? DEFAULT_FLIGHT_IN_TIME_OPTIONS}
+                    flightOutTimeOptions={editor?.flightOutTimeOptions ?? DEFAULT_FLIGHT_OUT_TIME_OPTIONS}
                     onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
                     onAdd={() => editor?.onAddTransportGroup()}
                     onRemove={(index) => editor?.onRemoveTransportGroup(index)}
@@ -810,6 +819,8 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                     groups={editor?.transportGroups ?? []}
                     mode="pickup"
                     headcountTotal={editor?.headcountTotal ?? 1}
+                    flightInTimeOptions={editor?.flightInTimeOptions ?? DEFAULT_FLIGHT_IN_TIME_OPTIONS}
+                    flightOutTimeOptions={editor?.flightOutTimeOptions ?? DEFAULT_FLIGHT_OUT_TIME_OPTIONS}
                     onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
                     onAdd={() => editor?.onAddTransportGroup()}
                     onRemove={(index) => editor?.onRemoveTransportGroup(index)}
@@ -831,6 +842,8 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                     groups={editor?.transportGroups ?? []}
                     mode="drop"
                     headcountTotal={editor?.headcountTotal ?? 1}
+                    flightInTimeOptions={editor?.flightInTimeOptions ?? DEFAULT_FLIGHT_IN_TIME_OPTIONS}
+                    flightOutTimeOptions={editor?.flightOutTimeOptions ?? DEFAULT_FLIGHT_OUT_TIME_OPTIONS}
                     onFieldChange={(index, field, value) => editor?.onTransportGroupFieldChange(index, field, value)}
                     onAdd={() => editor?.onAddTransportGroup()}
                     onRemove={(index) => editor?.onRemoveTransportGroup(index)}

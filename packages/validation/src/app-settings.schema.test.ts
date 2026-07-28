@@ -3,8 +3,13 @@ import {
   APP_SETTINGS_DEFAULT,
   DEFAULT_RENTAL_ITEM_SHARED_QUANTITY_RULES,
   appSettingsPayloadSchema,
+  collectFlightTimeSettingsIssues,
+  DEFAULT_FLIGHT_TIME_AUTO_IN,
+  DEFAULT_FLIGHT_TIME_AUTO_OUT,
   evaluateRentalItemQuantityFormula,
   normalizeAppSettingsPayload,
+  normalizeFlightTimeSettings,
+  pickClosestFlightTime,
   renderRentalItemPresetText,
   validateRentalItemSharedQuantityRules,
 } from './app-settings.schema';
@@ -21,6 +26,7 @@ describe('app settings schema', () => {
       ],
       rentalItemPresets: APP_SETTINGS_DEFAULT.rentalItemPresets,
       tourListRentalItemStock: APP_SETTINGS_DEFAULT.tourListRentalItemStock,
+      flightTimeSettings: APP_SETTINGS_DEFAULT.flightTimeSettings,
     });
 
     expect(result.success).toBe(true);
@@ -34,6 +40,7 @@ describe('app settings schema', () => {
       movementIntensityColors: [{ level: 'LEVEL_1', color: 'red' }],
       rentalItemPresets: APP_SETTINGS_DEFAULT.rentalItemPresets,
       tourListRentalItemStock: APP_SETTINGS_DEFAULT.tourListRentalItemStock,
+      flightTimeSettings: APP_SETTINGS_DEFAULT.flightTimeSettings,
     });
 
     expect(result.success).toBe(false);
@@ -186,8 +193,63 @@ describe('app settings schema', () => {
         },
       ],
       tourListRentalItemStock: APP_SETTINGS_DEFAULT.tourListRentalItemStock,
+      flightTimeSettings: APP_SETTINGS_DEFAULT.flightTimeSettings,
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it('fills missing flight time settings with defaults', () => {
+    const normalized = normalizeAppSettingsPayload({
+      movementIntensityColors: APP_SETTINGS_DEFAULT.movementIntensityColors,
+      rentalItemPresets: APP_SETTINGS_DEFAULT.rentalItemPresets,
+    });
+
+    expect(normalized.flightTimeSettings).toEqual(APP_SETTINGS_DEFAULT.flightTimeSettings);
+  });
+
+  it('preserves manual flight time shortcut order', () => {
+    const normalized = normalizeFlightTimeSettings({
+      inTimeShortcuts: ['23:30', '02:45', '00:05'],
+      outTimeShortcuts: ['20:30', '18:15'],
+      defaultInTime: '02:45',
+      defaultOutTime: '18:15',
+    });
+
+    expect(normalized.inTimeShortcuts).toEqual(['23:30', '02:45', '00:05']);
+    expect(normalized.outTimeShortcuts).toEqual(['20:30', '18:15']);
+  });
+
+  it('rejects duplicate flight time shortcuts', () => {
+    const result = appSettingsPayloadSchema.safeParse({
+      movementIntensityColors: APP_SETTINGS_DEFAULT.movementIntensityColors,
+      rentalItemPresets: APP_SETTINGS_DEFAULT.rentalItemPresets,
+      tourListRentalItemStock: APP_SETTINGS_DEFAULT.tourListRentalItemStock,
+      flightTimeSettings: {
+        inTimeShortcuts: ['02:45', '02:45'],
+        outTimeShortcuts: APP_SETTINGS_DEFAULT.flightTimeSettings.outTimeShortcuts,
+        defaultInTime: '02:45',
+        defaultOutTime: DEFAULT_FLIGHT_TIME_AUTO_OUT,
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects default flight time not included in shortcuts', () => {
+    const issues = collectFlightTimeSettingsIssues({
+      inTimeShortcuts: ['00:05'],
+      outTimeShortcuts: ['18:15'],
+      defaultInTime: '02:45',
+      defaultOutTime: '18:15',
+    });
+
+    expect(issues).toContain('자동 IN 초기값은 IN 단축키 목록에 포함되어야 합니다.');
+  });
+
+  it('picks the closest configured flight time', () => {
+    expect(
+      pickClosestFlightTime(['02:45', '13:20'], '04:30', DEFAULT_FLIGHT_TIME_AUTO_IN),
+    ).toBe('02:45');
   });
 });

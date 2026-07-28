@@ -6,6 +6,7 @@ function makeService() {
   const prisma = {
     region: { findMany: vi.fn().mockResolvedValue([]) },
     planTemplate: { findMany: vi.fn() },
+    appSetting: { findUnique: vi.fn().mockResolvedValue(null) },
   } as unknown as ConstructorParameters<typeof ConsultationService>[0];
   return new ConsultationService(prisma, null);
 }

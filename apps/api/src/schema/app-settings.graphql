@@ -31,10 +31,18 @@ type TourListRentalItemStock {
   powerbank: Int!
 }
 
+type FlightTimeSettings {
+  inTimeShortcuts: [String!]!
+  outTimeShortcuts: [String!]!
+  defaultInTime: String!
+  defaultOutTime: String!
+}
+
 type AppSettings {
   movementIntensityColors: [MovementIntensityColorSetting!]!
   rentalItemPresets: [RentalItemPreset!]!
   tourListRentalItemStock: TourListRentalItemStock!
+  flightTimeSettings: FlightTimeSettings!
   updatedAt: DateTime!
 }
 
@@ -71,10 +79,18 @@ input TourListRentalItemStockInput {
   powerbank: Int!
 }
 
+input FlightTimeSettingsInput {
+  inTimeShortcuts: [String!]!
+  outTimeShortcuts: [String!]!
+  defaultInTime: String!
+  defaultOutTime: String!
+}
+
 input AppSettingsInput {
   movementIntensityColors: [MovementIntensityColorSettingInput!]!
   rentalItemPresets: [RentalItemPresetInput!]!
   tourListRentalItemStock: TourListRentalItemStockInput!
+  flightTimeSettings: FlightTimeSettingsInput!
 }
 
 extend type Query {

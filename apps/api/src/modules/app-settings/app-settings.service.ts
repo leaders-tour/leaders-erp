@@ -60,6 +60,12 @@ export interface AppSettingsDto {
     items: Array<{ id: string; label: string; unit: string; quantityFormula: string }>;
   }>;
   tourListRentalItemStock: ReturnType<typeof toGraphqlTourListRentalItemStock>;
+  flightTimeSettings: {
+    inTimeShortcuts: string[];
+    outTimeShortcuts: string[];
+    defaultInTime: string;
+    defaultOutTime: string;
+  };
   updatedAt: Date;
 }
 

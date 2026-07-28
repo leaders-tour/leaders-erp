@@ -1,9 +1,13 @@
 import type { PrismaClient } from '@prisma/client';
 import OpenAI from 'openai';
 import {
+  APP_SETTINGS_KEY_APPEARANCE,
   consultationExtractionSchema,
+  normalizeAppSettingsPayload,
   parseConsultationTemplatePick,
+  pickClosestFlightTime,
   type ConsultationExtraction,
+  type FlightTimeSettings,
 } from '@tour/validation';
 import { buildExtractionPrompt } from './consultation.prompt';
 import {
@@ -79,33 +83,20 @@ export interface ConsultationDraft {
   recommendedTemplateReason: string | null;
 }
 
-const FLIGHT_IN_TIMES = ['00:05', '00:30', '00:50', '02:45', '04:30', '13:20', '17:00', '23:05', '23:30'];
-const FLIGHT_OUT_TIMES = ['00:25', '00:50', '01:30', '01:50', '02:05', '08:40', '13:00', '18:15', '20:30'];
 const VEHICLES = ['스타렉스', '푸르공', '벨파이어', '하이에이스', '프리미엄 밴', 'SUV'] as const;
-
-function pickClosestTime(options: readonly string[], target: string): string {
-  if (!target || target.length < 4) return options[0] ?? '02:45';
-  const [th, tm] = target.split(':').map(Number);
-  const targetMin = (th ?? 0) * 60 + (tm ?? 0);
-  let best = options[0] ?? '02:45';
-  let bestDiff = Infinity;
-  for (const opt of options) {
-    const [oh, om] = opt.split(':').map(Number);
-    const optMin = (oh ?? 0) * 60 + (om ?? 0);
-    const diff = Math.abs(optMin - targetMin);
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      best = opt;
-    }
-  }
-  return best;
-}
 
 export class ConsultationService {
   constructor(
     private readonly prisma: PrismaClient,
     private readonly openai: OpenAI | null,
   ) {}
+
+  private async getFlightTimeSettings(): Promise<FlightTimeSettings> {
+    const row = await this.prisma.appSetting.findUnique({
+      where: { key: APP_SETTINGS_KEY_APPEARANCE },
+    });
+    return normalizeAppSettingsPayload(row?.payload).flightTimeSettings;
+  }
 
   async extract(rawText: string): Promise<ConsultationExtraction> {
     if (!this.openai) {
@@ -135,6 +126,7 @@ export class ConsultationService {
 
   async extractionToDraft(extraction: ConsultationExtraction): Promise<ConsultationDraft> {
     const warnings: string[] = [];
+    const flightTimeSettings = await this.getFlightTimeSettings();
 
     const leaderName = extraction.contact.name?.trim() ?? '';
 
@@ -195,11 +187,19 @@ export class ConsultationService {
     const rawInTime = inbound?.time ?? null;
     const rawOutTime = outbound?.time ?? null;
     const flightInTime = rawInTime
-      ? pickClosestTime(FLIGHT_IN_TIMES, normalizeTime(rawInTime) ?? rawInTime)
-      : '02:45';
+      ? pickClosestFlightTime(
+          flightTimeSettings.inTimeShortcuts,
+          normalizeTime(rawInTime) ?? rawInTime,
+          flightTimeSettings.defaultInTime,
+        )
+      : flightTimeSettings.defaultInTime;
     const flightOutTime = rawOutTime
-      ? pickClosestTime(FLIGHT_OUT_TIMES, normalizeTime(rawOutTime) ?? rawOutTime)
-      : '18:15';
+      ? pickClosestFlightTime(
+          flightTimeSettings.outTimeShortcuts,
+          normalizeTime(rawOutTime) ?? rawOutTime,
+          flightTimeSettings.defaultOutTime,
+        )
+      : flightTimeSettings.defaultOutTime;
 
     const movementIntensity = extraction.movementIntensity.level1to5
       ? `LEVEL_${extraction.movementIntensity.level1to5}` as const

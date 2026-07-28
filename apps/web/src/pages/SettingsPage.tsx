@@ -4,12 +4,14 @@ import {
   DEFAULT_RENTAL_ITEM_SHARED_QUANTITY_RULES,
   DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK,
   TOUR_LIST_RENTAL_ITEM_LABELS,
+  collectFlightTimeSettingsIssues,
   evaluateRentalItemQuantityFormula,
   getSharedRentalItemCount,
   getCurrentRentalItemPreset,
   renderRentalItemPresetText,
   tourListRentalItemTypes,
   validateRentalItemSharedQuantityRules,
+  type FlightTimeSettings,
   type RentalItemPreset,
   type RentalItemPresetItem,
   type RentalItemSharedQuantityRule,
@@ -19,6 +21,10 @@ import {
 import { Button, Card } from '@tour/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  createFlightTimeSettingsDraft,
+  FlightTimeSettingsEditor,
+} from '../features/app-settings/FlightTimeSettingsEditor';
 import {
   AppSettingsDocument,
   UpdateAppSettingsDocument,
@@ -80,6 +86,7 @@ function toMutationInput(
   colors: readonly MovementIntensityColorSetting[],
   rentalItemPresets: readonly RentalItemPreset[],
   tourListRentalItemStock: TourListRentalItemStock,
+  flightTimeSettings: FlightTimeSettings,
 ): AppSettingsInput {
   return {
     movementIntensityColors: colors.map((item) => ({
@@ -107,6 +114,12 @@ function toMutationInput(
       drone: tourListRentalItemStock.DRONE,
       starlink: tourListRentalItemStock.STARLINK,
       powerbank: tourListRentalItemStock.POWERBANK,
+    },
+    flightTimeSettings: {
+      inTimeShortcuts: [...flightTimeSettings.inTimeShortcuts],
+      outTimeShortcuts: [...flightTimeSettings.outTimeShortcuts],
+      defaultInTime: flightTimeSettings.defaultInTime,
+      defaultOutTime: flightTimeSettings.defaultOutTime,
     },
   };
 }
@@ -164,7 +177,7 @@ function createRentalPresetItem(): RentalItemPresetItem {
   };
 }
 
-type AppSettingsSection = 'movement-intensity' | 'rental-items' | 'tour-list-rental-stock';
+type AppSettingsSection = 'movement-intensity' | 'rental-items' | 'tour-list-rental-stock' | 'flight-times';
 
 const settingsMenuItems: Array<{
   path: string;
@@ -175,6 +188,11 @@ const settingsMenuItems: Array<{
     path: '/settings/movement-intensity',
     title: '이동강도',
     description: '일정표와 견적서에 표시되는 이동강도 색상을 관리합니다.',
+  },
+  {
+    path: '/settings/flight-times',
+    title: '항공 시간',
+    description: '일정빌더·견적·상담에 공통 적용되는 항공 IN/OUT 단축키와 자동 초기값을 관리합니다.',
   },
   {
     path: '/settings/rental-items',
@@ -229,6 +247,9 @@ function AppSettingsSectionPage({ section }: { section: AppSettingsSection }): J
   const [tourListRentalStockDraft, setTourListRentalStockDraft] = useState<TourListRentalItemStock>(
     () => ({ ...DEFAULT_TOUR_LIST_RENTAL_ITEM_STOCK }),
   );
+  const [flightTimeDraft, setFlightTimeDraft] = useState<FlightTimeSettings>(() =>
+    createFlightTimeSettingsDraft(),
+  );
   const [customFormulaItemIds, setCustomFormulaItemIds] = useState<Set<string>>(() => new Set());
   const [feedback, setFeedback] = useState<{ type: 'ok' | 'err'; message: string } | null>(null);
 
@@ -258,6 +279,7 @@ function AppSettingsSectionPage({ section }: { section: AppSettingsSection }): J
         })),
       }))));
       setTourListRentalStockDraft(toTourListRentalStockDraft(data.appSettings.tourListRentalItemStock));
+      setFlightTimeDraft(createFlightTimeSettingsDraft(data.appSettings.flightTimeSettings));
       setCustomFormulaItemIds(new Set());
     }
   }, [data]);
@@ -314,8 +336,13 @@ function AppSettingsSectionPage({ section }: { section: AppSettingsSection }): J
       }),
     [tourListRentalStockDraft],
   );
+  const flightTimeIssues = useMemo(() => collectFlightTimeSettingsIssues(flightTimeDraft), [flightTimeDraft]);
   const canSave =
-    invalidLevels.length === 0 && !hasInvalidRentalPreset && !hasInvalidTourListRentalStock && !saving;
+    invalidLevels.length === 0 &&
+    !hasInvalidRentalPreset &&
+    !hasInvalidTourListRentalStock &&
+    flightTimeIssues.length === 0 &&
+    !saving;
 
   const colorByLevel = useMemo(
     () => new Map(colorDraft.map((item) => [item.level, item.color] as const)),
@@ -511,6 +538,11 @@ function AppSettingsSectionPage({ section }: { section: AppSettingsSection }): J
     setFeedback(null);
   }, []);
 
+  const handleResetFlightTimeDefaults = useCallback(() => {
+    setFlightTimeDraft(createFlightTimeSettingsDraft(APP_SETTINGS_DEFAULT.flightTimeSettings));
+    setFeedback({ type: 'ok', message: '항공 시간 설정을 기본값으로 채웠습니다. 저장하면 반영됩니다.' });
+  }, []);
+
   const handleSave = useCallback(async () => {
     if (!canSave) {
       setFeedback({ type: 'err', message: '입력값을 확인해 주세요. 색상, 프리셋 이름, 항목명, 수식이 모두 유효해야 합니다.' });
@@ -521,7 +553,7 @@ function AppSettingsSectionPage({ section }: { section: AppSettingsSection }): J
     try {
       await updateSettings({
         variables: {
-          input: toMutationInput(colorDraft, rentalPresetDraft, tourListRentalStockDraft),
+          input: toMutationInput(colorDraft, rentalPresetDraft, tourListRentalStockDraft, flightTimeDraft),
         },
       });
       await refetch();
@@ -532,7 +564,7 @@ function AppSettingsSectionPage({ section }: { section: AppSettingsSection }): J
         message: error instanceof Error ? error.message : '저장에 실패했습니다.',
       });
     }
-  }, [canSave, colorDraft, refetch, rentalPresetDraft, tourListRentalStockDraft, updateSettings]);
+  }, [canSave, colorDraft, flightTimeDraft, refetch, rentalPresetDraft, tourListRentalStockDraft, updateSettings]);
 
   const updatedAt = formatUpdatedAt(data?.appSettings.updatedAt);
   const pageTitle =
@@ -540,12 +572,16 @@ function AppSettingsSectionPage({ section }: { section: AppSettingsSection }): J
       ? '이동강도 설정'
       : section === 'rental-items'
         ? '물품대여 설정'
+        : section === 'flight-times'
+          ? '항공 시간 설정'
         : '투어리스트 장비 재고 설정';
   const pageDescription =
     section === 'movement-intensity'
       ? '내부 배지와 견적서 일정표 칩에 적용되는 이동강도 색상을 관리합니다.'
       : section === 'rental-items'
         ? '일정빌더 기본 대여물품 프리셋과 인원별 수량 계산 조건을 관리합니다.'
+        : section === 'flight-times'
+          ? '일정빌더·견적 편집·상담 시간 보정에 사용되는 항공 IN/OUT 단축키와 자동 초기값을 관리합니다.'
         : '드론, 스타링크, 파워뱅크의 최대 보유 수량을 관리합니다. 투어리스트 잔여 수량 계산에 사용됩니다.';
 
   return (
@@ -967,6 +1003,29 @@ function AppSettingsSectionPage({ section }: { section: AppSettingsSection }): J
         </div>
       </Card>
       ) : null}
+
+      {section === 'flight-times' ? (
+      <Card className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-medium text-slate-900">항공 IN/OUT 단축키</h2>
+            <p className="mt-1 text-xs text-slate-500">기존 일정 데이터는 변경되지 않으며, 신규 입력과 재적용에만 반영됩니다.</p>
+          </div>
+          <Button type="button" onClick={() => void handleSave()} disabled={!canSave || loading}>
+            {saving ? '저장 중...' : '저장'}
+          </Button>
+        </div>
+        <FlightTimeSettingsEditor
+          draft={flightTimeDraft}
+          onChange={(next) => {
+            setFlightTimeDraft(next);
+            setFeedback(null);
+          }}
+          onResetDefaults={handleResetFlightTimeDefaults}
+          disabled={saving || loading}
+        />
+      </Card>
+      ) : null}
     </div>
   );
 }
@@ -981,4 +1040,8 @@ export function RentalItemSettingsPage(): JSX.Element {
 
 export function TourListRentalStockSettingsPage(): JSX.Element {
   return <AppSettingsSectionPage section="tour-list-rental-stock" />;
+}
+
+export function FlightTimeSettingsPage(): JSX.Element {
+  return <AppSettingsSectionPage section="flight-times" />;
 }

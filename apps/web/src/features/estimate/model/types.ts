@@ -230,6 +230,8 @@ export interface EstimatePage1Editor {
   vehicleAssignments?: VehicleAssignment[];
   vehicleOptions?: readonly string[];
   transportGroups: EstimateTransportGroup[];
+  flightInTimeOptions?: readonly string[];
+  flightOutTimeOptions?: readonly string[];
   eventIds: string[];
   eventOptions: EstimatePage1EventOption[];
   specialNoteText: string;

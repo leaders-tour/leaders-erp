@@ -60,6 +60,7 @@ import {
   RentalItemSettingsPage,
   SettingsPage,
   TourListRentalStockSettingsPage,
+  FlightTimeSettingsPage,
 } from '../pages/SettingsPage';
 import { SpecialMealDestinationRulesPage } from '../pages/SpecialMealDestinationRulesPage';
 import { TodoListPage } from '../pages/TodoListPage';
@@ -219,6 +220,10 @@ export const router = createBrowserRouter([
       {
         path: 'settings/tour-list-rental-stock',
         element: <RequireStaffOrAbove><TourListRentalStockSettingsPage /></RequireStaffOrAbove>,
+      },
+      {
+        path: 'settings/flight-times',
+        element: <RequireStaffOrAbove><FlightTimeSettingsPage /></RequireStaffOrAbove>,
       },
       {
         path: 'settings/special-meal-destination-rules',

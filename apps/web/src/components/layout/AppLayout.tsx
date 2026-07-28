@@ -279,6 +279,7 @@ const baseNavItems: NavItem[] = [
     children: [
       { path: '/settings', label: '설정 메뉴' },
       { path: '/settings/movement-intensity', label: '이동강도' },
+      { path: '/settings/flight-times', label: '항공 시간' },
       { path: '/settings/rental-items', label: '물품대여' },
       { path: '/settings/tour-list-rental-stock', label: '투어리스트 장비 재고' },
     ],

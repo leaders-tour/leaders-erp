@@ -1,8 +1,17 @@
 import type { EstimateTransportGroup } from '../estimate/model/types';
 import { getRecommendedDropSchedule, getRecommendedPickupSchedule } from './pickup-drop';
+import {
+  DEFAULT_FLIGHT_TIME_AUTO_IN,
+  DEFAULT_FLIGHT_TIME_AUTO_OUT,
+} from '@tour/validation';
 
-export const DEFAULT_TRAVEL_SYNC_FLIGHT_IN_TIME = '02:45';
-export const DEFAULT_TRAVEL_SYNC_FLIGHT_OUT_TIME = '18:15';
+export const DEFAULT_TRAVEL_SYNC_FLIGHT_IN_TIME = DEFAULT_FLIGHT_TIME_AUTO_IN;
+export const DEFAULT_TRAVEL_SYNC_FLIGHT_OUT_TIME = DEFAULT_FLIGHT_TIME_AUTO_OUT;
+
+export interface TransportGroupTravelSyncDefaults {
+  defaultFlightInTime?: string;
+  defaultFlightOutTime?: string;
+}
 
 export interface TransportGroupTravelSyncDraft extends EstimateTransportGroup {
   hasEditedPickup: boolean;
@@ -43,6 +52,7 @@ function resolveSyncedDropDate(
 function applyDateOnlyTravelSync(
   group: TransportGroupTravelSyncDraft,
   dates: TransportGroupTravelDates,
+  defaults: Required<TransportGroupTravelSyncDefaults>,
 ): TransportGroupTravelSyncDraft {
   const travelStartDate = dates.travelStartDate.trim();
   const travelEndDate = dates.travelEndDate.trim();
@@ -53,14 +63,14 @@ function applyDateOnlyTravelSync(
   if (!group.hasEditedFlightIn && travelStartDate) {
     nextGroup.flightInDate = travelStartDate;
     if (flightInUnspecified && !nextGroup.flightInTime.trim()) {
-      nextGroup.flightInTime = DEFAULT_TRAVEL_SYNC_FLIGHT_IN_TIME;
+      nextGroup.flightInTime = defaults.defaultFlightInTime;
     }
   }
 
   if (!group.hasEditedFlightOut && travelEndDate) {
     nextGroup.flightOutDate = travelEndDate;
     if (flightOutUnspecified && !nextGroup.flightOutTime.trim()) {
-      nextGroup.flightOutTime = DEFAULT_TRAVEL_SYNC_FLIGHT_OUT_TIME;
+      nextGroup.flightOutTime = defaults.defaultFlightOutTime;
     }
   }
 
@@ -115,8 +125,12 @@ export function hasAnyTransportManualPin(group: TransportGroupTravelSyncDraft): 
 export function applyTransportGroupTravelDateSync(
   group: TransportGroupTravelSyncDraft,
   dates: TransportGroupTravelDates,
-  options?: { clearManualPins?: boolean },
+  options?: { clearManualPins?: boolean } & TransportGroupTravelSyncDefaults,
 ): TransportGroupTravelSyncDraft {
+  const defaults: Required<TransportGroupTravelSyncDefaults> = {
+    defaultFlightInTime: options?.defaultFlightInTime ?? DEFAULT_TRAVEL_SYNC_FLIGHT_IN_TIME,
+    defaultFlightOutTime: options?.defaultFlightOutTime ?? DEFAULT_TRAVEL_SYNC_FLIGHT_OUT_TIME,
+  };
   const baseGroup: TransportGroupTravelSyncDraft = options?.clearManualPins
     ? {
         ...group,
@@ -127,12 +141,13 @@ export function applyTransportGroupTravelDateSync(
       }
     : group;
 
-  return applyDateOnlyTravelSync(baseGroup, dates);
+  return applyDateOnlyTravelSync(baseGroup, dates, defaults);
 }
 
 export function isTransportGroupTravelLinked(
   group: TransportGroupTravelSyncDraft,
   dates: TransportGroupTravelDates,
+  options?: TransportGroupTravelSyncDefaults,
 ): boolean {
   const travelStartDate = dates.travelStartDate.trim();
   const travelEndDate = dates.travelEndDate.trim();
@@ -144,7 +159,7 @@ export function isTransportGroupTravelLinked(
     return false;
   }
 
-  const synced = applyTransportGroupTravelDateSync(group, dates);
+  const synced = applyTransportGroupTravelDateSync(group, dates, options);
   return (
     synced.flightInDate === group.flightInDate &&
     synced.flightOutDate === group.flightOutDate &&
