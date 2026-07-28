@@ -8,6 +8,7 @@ interface ExtraLodgingsModalProps {
   onClose: () => void;
   onChangeCount: (index: number, nextValue: number) => void;
   onApplyUniform: (value: number) => void;
+  isDayDisabled?: (index: number) => boolean;
 }
 
 export function ExtraLodgingsModal({
@@ -17,6 +18,7 @@ export function ExtraLodgingsModal({
   onClose,
   onChangeCount,
   onApplyUniform,
+  isDayDisabled,
 }: ExtraLodgingsModalProps): JSX.Element | null {
   if (!open) {
     return null;
@@ -32,8 +34,8 @@ export function ExtraLodgingsModal({
               <div>
                 <h2 className="text-xl font-semibold text-slate-900">숙소 추가</h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  일차별 추가 숙소 수량을 한 화면에서 확인하고 수정합니다. 필요하면 상단에서 전 일차에
-                  동일 값을 일괄 적용할 수 있습니다.
+                  일차별 추가 숙소 수량을 한 화면에서 확인하고 수정합니다. 마지막 일차는 숙박하지
+                  않으므로 설정할 수 없습니다.
                 </p>
               </div>
               <Button variant="outline" onClick={onClose}>
@@ -47,6 +49,7 @@ export function ExtraLodgingsModal({
                 dayLabels={dayLabels}
                 onChangeCount={onChangeCount}
                 onApplyUniform={onApplyUniform}
+                isDayDisabled={isDayDisabled}
               />
             </div>
 

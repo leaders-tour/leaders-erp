@@ -143,6 +143,7 @@ import {
   isTransportGroupTravelLinked,
   type TransportGroupTravelSyncDraft,
 } from '../features/plan/transport-group-travel-sync';
+import { isLodgingSettingDay, isLodgingSettingDayIndex } from '../features/plan/lodging-night';
 import { APP_SETTINGS_DEFAULT } from '@tour/validation';
 import {
   mapTransportGroupToPlanMutationInput,
@@ -3235,10 +3236,14 @@ export function ItineraryBuilderPage(): JSX.Element {
           ];
     setTransportGroups(hydratedTransportGroups);
 
-    const nextExtraLodgingCounts = Array.from({ length: Math.max(parentVersion.totalDays, 6) }, () => 0);
+    const nextExtraLodgingCounts = Array.from({ length: parentVersion.totalDays }, () => 0);
     meta.extraLodgings.forEach((row) => {
       const index = row.dayIndex - 1;
-      if (index >= 0 && index < nextExtraLodgingCounts.length) {
+      if (
+        index >= 0 &&
+        index < nextExtraLodgingCounts.length &&
+        isLodgingSettingDay(row.dayIndex, parentVersion.totalDays)
+      ) {
         nextExtraLodgingCounts[index] = row.lodgingCount;
       }
     });
@@ -3740,7 +3745,12 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   useEffect(() => {
     setExtraLodgingCounts((prev) =>
-      Array.from({ length: totalDays }, (_, index) => prev[index] ?? 0),
+      Array.from({ length: totalDays }, (_, index) => {
+        if (!isLodgingSettingDayIndex(index, totalDays)) {
+          return 0;
+        }
+        return prev[index] ?? 0;
+      }),
     );
   }, [totalDays]);
 
@@ -4502,9 +4512,10 @@ export function ItineraryBuilderPage(): JSX.Element {
         lodgingSelectionLevel: row.lodgingSelectionLevel,
         lodgingCellText: row.lodgingCellText,
         customLodgingId: row.customLodgingId,
+        lodgingSettingDisabled: !isLodgingSettingDay(dayIndex, totalDays),
       }];
     });
-  }, [locationById, planRows]);
+  }, [locationById, planRows, totalDays]);
   const selectedLodgingUpgradeRow = useMemo(
     () =>
       lodgingSelectionModalState.rowIndex === null
@@ -4704,8 +4715,11 @@ export function ItineraryBuilderPage(): JSX.Element {
     () =>
       extraLodgingCounts
         .map((lodgingCount, index) => ({ dayIndex: index + 1, lodgingCount }))
-        .filter((item) => item.lodgingCount > 0),
-    [extraLodgingCounts],
+        .filter(
+          (item) =>
+            item.lodgingCount > 0 && isLodgingSettingDay(item.dayIndex, totalDays),
+        ),
+    [extraLodgingCounts, totalDays],
   );
   const extraLodgingSummary = useMemo(
     () => ({
@@ -5627,6 +5641,10 @@ export function ItineraryBuilderPage(): JSX.Element {
       updateCell(resolveMainPlanRowPhysicalIndex(planRows, mainRowIndex), 'mealCellText', value);
     },
     onOpenLodgingSelection: (mainRowIndex) => {
+      const travelDayIndex = mainRowIndex + 1;
+      if (!isLodgingSettingDay(travelDayIndex, totalDays)) {
+        return;
+      }
       openLodgingUpgradeModal(resolveMainPlanRowPhysicalIndex(planRows, mainRowIndex));
     },
   };
@@ -7852,6 +7870,11 @@ export function ItineraryBuilderPage(): JSX.Element {
                           ? 'border-amber-300 bg-amber-100 text-amber-950 hover:bg-amber-200'
                           : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                       }`;
+                      const travelDayIndex =
+                        mainRowIndex !== null ? mainRowIndex + 1 : null;
+                      const isLodgingSettingDisabled =
+                        travelDayIndex !== null &&
+                        !isLodgingSettingDay(travelDayIndex, totalDays);
                       return (
                         <tr
                           key={`day-row-${rowIndex + 1}`}
@@ -7976,6 +7999,13 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 data-plan-cell="true"
                                 className={cellClassName}
                               />
+                            ) : isLodgingSettingDisabled ? (
+                              <div
+                                className="min-h-[44px] w-full rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm leading-5 text-slate-400"
+                                title="마지막 일차는 숙박하지 않습니다"
+                              >
+                                {row.lodgingCellText?.trim() || '숙박 없음'}
+                              </div>
                             ) : (
                               <button
                                 type="button"
@@ -9217,14 +9247,14 @@ export function ItineraryBuilderPage(): JSX.Element {
           }
           onChooseLevel={(rowIndex, level) => {
             const row = lodgingUpgradeRows[rowIndex];
-            if (!row) {
+            if (!row || row.lodgingSettingDisabled) {
               return;
             }
             applyLodgingSelection(row.planRowIndex, level);
           }}
           onChooseCustom={(rowIndex) => {
             const row = lodgingUpgradeRows[rowIndex];
-            if (!row) {
+            if (!row || row.lodgingSettingDisabled) {
               return;
             }
             setLodgingSelectionModalState({
@@ -9234,7 +9264,7 @@ export function ItineraryBuilderPage(): JSX.Element {
           }}
           onLodgingCellTextChange={(rowIndex, value) => {
             const row = lodgingUpgradeRows[rowIndex];
-            if (!row) {
+            if (!row || row.lodgingSettingDisabled) {
               return;
             }
             updateCell(row.planRowIndex, 'lodgingCellText', value);
@@ -9278,12 +9308,22 @@ export function ItineraryBuilderPage(): JSX.Element {
           counts={extraLodgingCounts}
           dayLabels={extraLodgingDayLabels}
           onClose={() => setExtraLodgingsModalState({ open: false })}
-          onChangeCount={(index, nextValue) =>
+          onChangeCount={(index, nextValue) => {
+            if (!isLodgingSettingDayIndex(index, totalDays)) {
+              return;
+            }
             setExtraLodgingCounts((prev) =>
               prev.map((value, valueIndex) => (valueIndex === index ? nextValue : value)),
+            );
+          }}
+          onApplyUniform={(value) =>
+            setExtraLodgingCounts((prev) =>
+              prev.map((_, index) =>
+                isLodgingSettingDayIndex(index, totalDays) ? value : 0,
+              ),
             )
           }
-          onApplyUniform={(value) => setExtraLodgingCounts((prev) => prev.map(() => value))}
+          isDayDisabled={(index) => !isLodgingSettingDayIndex(index, totalDays)}
         />
 
         <TransportTeamHeadcountModal

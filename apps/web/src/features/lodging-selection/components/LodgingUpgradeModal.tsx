@@ -9,6 +9,7 @@ export interface LodgingUpgradeRow {
   lodgingSelectionLevel: LodgingSelectionLevel;
   lodgingCellText: string;
   customLodgingId?: string;
+  lodgingSettingDisabled?: boolean;
 }
 
 interface LodgingUpgradeModalProps {
@@ -60,7 +61,8 @@ export function LodgingUpgradeModal({
               <div>
                 <h2 className="text-xl font-semibold text-slate-900">숙소 업그레이드</h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  일차별 숙소 등급·지정 숙소·일정표 표시명을 설정합니다.
+                  일차별 숙소 등급·지정 숙소·일정표 표시명을 설정합니다. 마지막 일차는 숙박하지 않으므로
+                  설정할 수 없습니다.
                 </p>
               </div>
               <Button variant="outline" onClick={onClose}>
@@ -76,6 +78,7 @@ export function LodgingUpgradeModal({
               <div className="mt-5 grid gap-3">
                 {rows.map((row, rowIndex) => {
                   const isFocused = row.planRowIndex === focusPlanRowIndex;
+                  const isDisabled = row.lodgingSettingDisabled === true;
 
                   return (
                   <div
@@ -88,7 +91,9 @@ export function LodgingUpgradeModal({
                       rowRefs.current.delete(rowIndex);
                     }}
                     className={`rounded-2xl border p-4 transition ${
-                      isFocused
+                      isDisabled
+                        ? 'border-slate-200 bg-slate-100/80 opacity-80'
+                        : isFocused
                         ? 'border-slate-900 bg-white ring-2 ring-slate-900/10'
                         : 'border-slate-200 bg-slate-50'
                     }`}
@@ -97,9 +102,12 @@ export function LodgingUpgradeModal({
                       <div>
                         <div className="text-sm font-semibold text-slate-900">{row.dayIndex}일차 숙소</div>
                         <div className="mt-1 text-xs text-slate-500">{row.locationLabel}</div>
+                        {isDisabled ? (
+                          <p className="mt-2 text-xs text-slate-500">마지막 일차는 숙박하지 않습니다.</p>
+                        ) : null}
                       </div>
                       <div className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600">
-                        현재 {row.lodgingSelectionLevel}
+                        {isDisabled ? '설정 불가' : `현재 ${row.lodgingSelectionLevel}`}
                       </div>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-1.5">
@@ -107,8 +115,9 @@ export function LodgingUpgradeModal({
                         <button
                           key={`lodging-modal-${rowIndex}-${level}`}
                           type="button"
+                          disabled={isDisabled}
                           onClick={() => onChooseLevel(rowIndex, level)}
-                          className={`rounded-xl border px-2.5 py-1 text-xs font-medium transition ${
+                          className={`rounded-xl border px-2.5 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
                             row.lodgingSelectionLevel === level
                               ? 'border-slate-900 bg-slate-900 text-white'
                               : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
@@ -119,8 +128,9 @@ export function LodgingUpgradeModal({
                       ))}
                       <button
                         type="button"
+                        disabled={isDisabled}
                         onClick={() => onChooseCustom(rowIndex)}
-                        className={`rounded-xl border px-2.5 py-1 text-xs font-medium transition ${
+                        className={`rounded-xl border px-2.5 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
                           row.lodgingSelectionLevel === 'CUSTOM'
                             ? 'border-slate-900 bg-slate-900 text-white'
                             : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
@@ -133,13 +143,14 @@ export function LodgingUpgradeModal({
                       <label className="mb-1 block text-xs text-slate-500">일정표 숙소 표시</label>
                       <textarea
                         value={row.lodgingCellText}
+                        disabled={isDisabled}
                         onChange={(event) => onLodgingCellTextChange(rowIndex, event.target.value)}
                         rows={2}
-                        className="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 text-slate-900 outline-none focus:border-slate-400"
+                        className="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 text-slate-900 outline-none focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                         placeholder="일정표에 표시할 숙소명을 입력하세요"
                       />
                     </div>
-                    {row.lodgingSelectionLevel === 'CUSTOM' && !row.customLodgingId ? (
+                    {!isDisabled && row.lodgingSelectionLevel === 'CUSTOM' && !row.customLodgingId ? (
                       <p className="mt-2 text-xs text-rose-600">숙소지정을 선택한 경우 숙소를 골라야 합니다.</p>
                     ) : null}
                   </div>

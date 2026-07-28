@@ -12,6 +12,7 @@ import {
   type MovementIntensityValue,
 } from '../model/movement-intensity';
 import { isExternalTransferPlanStopRow } from '../../plan/plan-stop-row';
+import { isLodgingSettingDay } from '../../plan/lodging-night';
 import { parseScheduleDateCellDisplay, planStopsUseScheduleDateCellCalendarLayout } from '../utils/schedule-date-cell-text';
 
 interface EstimatePage2Props {
@@ -400,18 +401,26 @@ function EditableItineraryMealCell({
 interface EditableItineraryLodgingCellProps {
   lodgingCellText: string;
   mainRowIndex: number;
+  totalDays: number;
   editor: EstimatePage2Editor;
 }
 
 function EditableItineraryLodgingCell({
   lodgingCellText,
   mainRowIndex,
+  totalDays,
   editor,
 }: EditableItineraryLodgingCellProps): JSX.Element {
   const displayValue = fallback(lodgingCellText);
+  const travelDayIndex = mainRowIndex + 1;
+  const isLodgingSettingDisabled = !isLodgingSettingDay(travelDayIndex, totalDays);
 
-  if (editor.onOpenLodgingSelection == null) {
-    return <div className="estimate-itinerary-cell">{displayValue}</div>;
+  if (editor.onOpenLodgingSelection == null || isLodgingSettingDisabled) {
+    return (
+      <div className={`estimate-itinerary-cell ${isLodgingSettingDisabled ? 'text-slate-400' : ''}`}>
+        {isLodgingSettingDisabled ? fallback(lodgingCellText.trim() || '숙박 없음') : displayValue}
+      </div>
+    );
   }
 
   return (
@@ -451,6 +460,10 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
   const planStopRowContexts = useMemo(
     () => buildPlanStopRowContexts(data.planStops),
     [data.planStops],
+  );
+  const totalDays = useMemo(
+    () => planStopRowContexts.filter((entry) => entry.mainRowIndex != null).length,
+    [planStopRowContexts],
   );
   const mainItineraryRows = planStopRowContexts
     .filter((entry) => entry.mainRowIndex != null)
@@ -734,6 +747,7 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
                           <EditableItineraryLodgingCell
                             lodgingCellText={row.lodgingCellText}
                             mainRowIndex={mainRowIndex}
+                            totalDays={totalDays}
                             editor={editor}
                           />
                         ) : (
