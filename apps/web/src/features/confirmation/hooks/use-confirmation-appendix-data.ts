@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { fromVersion } from '../../estimate/adapters/from-version';
 import type { EstimateDocumentData } from '../../estimate/model/types';
+import { enrichAppendixPlanStopRowsWithScheduleDates } from '../../estimate/utils/schedule-date-cell-text';
 import { usePlanVersionDetail } from '../../plan/hooks';
 import type { ConfirmationAppendixPlanStopRow } from '../model/types';
 import { mergeConfirmationAppendixData } from '../utils/resolve-confirmation-appendix';
@@ -11,6 +12,7 @@ export interface UseConfirmationAppendixDataParams {
   planVersionId?: string | null;
   appendixPlanStops?: ConfirmationAppendixPlanStopRow[] | null;
   overallMovementIntensityColorOverride?: string | null;
+  enrichScheduleDateCells?: boolean;
 }
 
 export function useConfirmationAppendixData(
@@ -31,6 +33,7 @@ export function useConfirmationAppendixData(
   const planVersionId = params.planVersionId ?? null;
   const appendixPlanStops = params.appendixPlanStops;
   const overallMovementIntensityColorOverride = params.overallMovementIntensityColorOverride;
+  const enrichScheduleDateCells = params.enrichScheduleDateCells ?? false;
 
   const { version, loading: versionLoading } = usePlanVersionDetail(planVersionId ?? undefined);
   const { guideRows, loading: guidesLoading } = useEstimateLocationGuides();
@@ -40,12 +43,25 @@ export function useConfirmationAppendixData(
       return null;
     }
     const base = fromVersion(version);
+    const resolvedAppendixPlanStops =
+      enrichScheduleDateCells && appendixPlanStops?.length
+        ? enrichAppendixPlanStopRowsWithScheduleDates(
+            appendixPlanStops,
+            base.travelStartDate,
+          )
+        : appendixPlanStops;
     const merged = mergeConfirmationAppendixData(base, {
-      appendixPlanStops,
+      appendixPlanStops: resolvedAppendixPlanStops,
       overallMovementIntensityColorOverride,
     });
     return applyLocationGuides(merged, guideRows);
-  }, [appendixPlanStops, guideRows, overallMovementIntensityColorOverride, version]);
+  }, [
+    appendixPlanStops,
+    enrichScheduleDateCells,
+    guideRows,
+    overallMovementIntensityColorOverride,
+    version,
+  ]);
 
   return {
     appendixData,

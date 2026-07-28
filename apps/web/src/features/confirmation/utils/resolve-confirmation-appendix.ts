@@ -1,4 +1,5 @@
 import type { EstimateDocumentData, EstimatePlanStopRow } from '../../estimate/model/types';
+import { enrichAppendixPlanStopRowsWithScheduleDates } from '../../estimate/utils/schedule-date-cell-text';
 import type { ConfirmationAppendixPlanStopRow } from '../model/types';
 
 export function planStopRowsToAppendixRows(
@@ -12,8 +13,9 @@ export function planStopRowsToAppendixRows(
     | 'mealCellText'
     | 'movementIntensityColorOverride'
   >[],
+  travelStartDate?: string | null,
 ): ConfirmationAppendixPlanStopRow[] {
-  return planStops.map((row) => ({
+  const rows = planStops.map((row) => ({
     dateCellText: row.dateCellText,
     destinationCellText: row.destinationCellText,
     timeCellText: row.timeCellText,
@@ -22,6 +24,12 @@ export function planStopRowsToAppendixRows(
     mealCellText: row.mealCellText,
     movementIntensityColorOverride: row.movementIntensityColorOverride ?? null,
   }));
+
+  if (!travelStartDate) {
+    return rows;
+  }
+
+  return enrichAppendixPlanStopRowsWithScheduleDates(rows, travelStartDate);
 }
 
 export interface ConfirmationAppendixMergeInput {

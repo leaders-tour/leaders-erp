@@ -45,6 +45,7 @@ import type {
 } from '../features/estimate/model/types';
 import { ESTIMATE_GUIDE_IMAGES_PER_PAGE_DEFAULT, ESTIMATE_VALIDITY_DAYS } from '../features/estimate/model/constants';
 import { addDays, todayIsoDate } from '../features/estimate/utils/format';
+import { buildScheduleDateCellText } from '../features/estimate/utils/schedule-date-cell-text';
 import { resolveInitialValidUntilDateForNewVersion } from '../features/estimate/utils/resolve-initial-valid-until-date';
 import { useAuth } from '../features/auth/context';
 import {
@@ -2028,14 +2029,23 @@ function createEstimateDraftSnapshot(input: {
       : null;
   const planStopsForPreview =
     input.planStops.length > 0
-      ? input.planStops
+      ? input.planStops.map((row) => ({
+          ...row,
+          dateCellText: buildScheduleDateCellText({
+            travelStartDate: input.travelStartDate,
+            dateCellText: row.dateCellText,
+          }),
+        }))
       : Array.from({ length: Math.max(1, input.totalDays) }, (_, index) => ({
           rowType: 'MAIN' as const,
           locationId: null,
           locationVersionId: null,
           movementIntensity: null,
           movementIntensityColorOverride: null,
-          dateCellText: `${index + 1}일차`,
+          dateCellText: buildScheduleDateCellText({
+            travelStartDate: input.travelStartDate,
+            dateCellText: `${index + 1}일차`,
+          }),
           destinationCellText: '',
           timeCellText: '',
           scheduleCellText: '',
@@ -4524,7 +4534,10 @@ export function ItineraryBuilderPage(): JSX.Element {
           movementIntensity: row.movementIntensity ?? null,
           movementIntensityColorOverride:
             'movementIntensityColorOverride' in row ? row.movementIntensityColorOverride ?? null : null,
-          dateCellText: row.dateCellText,
+          dateCellText: buildScheduleDateCellText({
+            travelStartDate,
+            dateCellText: row.dateCellText,
+          }),
           destinationCellText: row.destinationCellText,
           timeCellText: row.timeCellText,
           scheduleCellText: row.scheduleCellText,
@@ -4532,7 +4545,7 @@ export function ItineraryBuilderPage(): JSX.Element {
           mealCellText: row.mealCellText,
         };
       }),
-    [mergedPlanStops],
+    [mergedPlanStops, travelStartDate],
   );
   const mainPlanRowPhysicalIndexes = useMemo(
     () => buildMainPlanRowPhysicalIndexes(planRows),

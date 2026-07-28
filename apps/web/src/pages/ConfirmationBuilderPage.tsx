@@ -22,6 +22,7 @@ import type { ConfirmationBuilderState } from '../features/confirmation/model/ty
 import { resolveMainPlanRowPhysicalIndex } from '../features/plan/plan-stop-row';
 import { snapshotToDocumentData } from '../features/confirmation/utils/format';
 import { planStopRowsToAppendixRows } from '../features/confirmation/utils/resolve-confirmation-appendix';
+import { enrichAppendixPlanStopRowsWithScheduleDates } from '../features/estimate/utils/schedule-date-cell-text';
 import {
   parseConfirmationBuilderFromDocumentId,
   parseConfirmationBuilderSource,
@@ -199,7 +200,10 @@ export function ConfirmationBuilderPage(): JSX.Element {
       current
         ? {
             ...current,
-            appendixPlanStops: planStopRowsToAppendixRows(linkedEstimateData.planStops),
+            appendixPlanStops: planStopRowsToAppendixRows(
+              linkedEstimateData.planStops,
+              linkedEstimateData.travelStartDate,
+            ),
             overallMovementIntensityColorOverride:
               linkedEstimateData.overallMovementIntensityColorOverride ?? null,
             sourcePlanVersionId: current.sourcePlanVersionId ?? planVersionId,
@@ -216,7 +220,12 @@ export function ConfirmationBuilderPage(): JSX.Element {
   });
   const baselineAppendixPlanStops = useMemo(
     () =>
-      baselineEstimateData ? planStopRowsToAppendixRows(baselineEstimateData.planStops) : null,
+      baselineEstimateData
+        ? planStopRowsToAppendixRows(
+            baselineEstimateData.planStops,
+            baselineEstimateData.travelStartDate,
+          )
+        : null,
     [baselineEstimateData],
   );
   const baselineOverallMovementIntensityColorOverride =
@@ -227,6 +236,7 @@ export function ConfirmationBuilderPage(): JSX.Element {
       planVersionId: appendixSourcePlanVersionId,
       appendixPlanStops: state?.appendixPlanStops,
       overallMovementIntensityColorOverride: state?.overallMovementIntensityColorOverride,
+      enrichScheduleDateCells: true,
     });
 
   const appendixPage2Editor = useMemo<EstimatePage2Editor>(
@@ -415,9 +425,14 @@ export function ConfirmationBuilderPage(): JSX.Element {
 
   const handleSave = async () => {
     try {
+      const travelStartDate =
+        linkedEstimateData?.travelStartDate ?? baselineEstimateData?.travelStartDate ?? null;
       const payload: ConfirmationBuilderState = {
         ...state,
         sourcePlanVersionId: state.sourcePlanVersionId ?? planVersionId,
+        appendixPlanStops: state.appendixPlanStops?.length
+          ? enrichAppendixPlanStopRowsWithScheduleDates(state.appendixPlanStops, travelStartDate)
+          : state.appendixPlanStops,
       };
       const saved = await save(tripId, payload, true);
       if (!saved) {

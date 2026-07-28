@@ -12,6 +12,7 @@ import {
   type MovementIntensityValue,
 } from '../model/movement-intensity';
 import { isExternalTransferPlanStopRow } from '../../plan/plan-stop-row';
+import { parseScheduleDateCellDisplay, planStopsUseScheduleDateCellCalendarLayout } from '../utils/schedule-date-cell-text';
 
 interface EstimatePage2Props {
   data: EstimateDocumentData;
@@ -56,8 +57,19 @@ function formatMealCellForEstimate(value: string | null | undefined): string {
   return formatted || '-';
 }
 
-function formatVerticalDateText(value: string): string {
-  return Array.from(value.replace(/\s+/g, '')).join('\n');
+function ScheduleDateCell({ value }: { value: string }) {
+  const display = parseScheduleDateCellDisplay(value);
+
+  if (display.mode === 'horizontal') {
+    return (
+      <div className="estimate-itinerary-cell estimate-itinerary-cell--date estimate-itinerary-cell--date-horizontal">
+        <div className="estimate-itinerary-cell-date-line">{display.dayLabel}</div>
+        <div className="estimate-itinerary-cell-date-line">{display.calendarDate}</div>
+      </div>
+    );
+  }
+
+  return <div className="estimate-itinerary-cell estimate-itinerary-cell--date">{display.text}</div>;
 }
 
 function getDisplayLines(value: string | null | undefined): string[] {
@@ -451,6 +463,10 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
   });
   const isOverallChipEditable = editor != null;
   const itineraryPageChunks = chunkItineraryRows(planStopRowContexts);
+  const usesCalendarDateCellLayout = useMemo(
+    () => planStopsUseScheduleDateCellCalendarLayout(data.planStops),
+    [data.planStops],
+  );
 
   return (
     <div className="estimate-page2-pages">
@@ -549,7 +565,13 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
             </div>
 
             <div className="estimate-itinerary-table-wrap">
-              <div className="estimate-itinerary-table" role="table" aria-label="여행 일정표">
+              <div
+                className={`estimate-itinerary-table${
+                  usesCalendarDateCellLayout ? ' estimate-itinerary-table--calendar-date-cells' : ''
+                }`}
+                role="table"
+                aria-label="여행 일정표"
+              >
                 <div className="estimate-itinerary-table-header-cell estimate-itinerary-table-date-col" role="columnheader">
                   날짜
                 </div>
@@ -601,9 +623,7 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
                   return (
                     <div className="estimate-itinerary-table-row" role="row" key={`itinerary-row-${pageIndex + 1}-${index + 1}`}>
                       <div className="estimate-itinerary-table-cell estimate-itinerary-table-date-col" role="cell">
-                        <div className="estimate-itinerary-cell estimate-itinerary-cell--date">
-                          {formatVerticalDateText(fallback(row.dateCellText))}
-                        </div>
+                        <ScheduleDateCell value={fallback(row.dateCellText)} />
                       </div>
                       <div className="estimate-itinerary-table-cell" role="cell">
                         <div className="estimate-itinerary-cell">
