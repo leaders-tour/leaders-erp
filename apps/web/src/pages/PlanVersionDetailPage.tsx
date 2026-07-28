@@ -860,12 +860,12 @@ export function PlanVersionDetailPage(): JSX.Element {
                   disabled={confirmTripSaving}
                   onClick={async () => {
                     try {
-                      await confirmTrip({
+                      const confirmedTrip = await confirmTrip({
                         planId,
                         planVersionId: version.id,
                       });
                       setConfirmingTripModal(false);
-                      navigate('/confirmed-trips');
+                      navigate(`/confirmed-trips/${confirmedTrip.id}`);
                     } catch (error) {
                       window.alert(
                         error instanceof Error ? error.message : '확정에 실패했습니다.',
