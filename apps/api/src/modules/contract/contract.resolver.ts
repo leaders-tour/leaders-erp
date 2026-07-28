@@ -1,5 +1,5 @@
 import type { AppContext } from '../../context';
-import { requireAdmin, requireStaffOrAbove } from '../../lib/auth-guards';
+import { requireAdmin, requireEmployee, requireStaffOrAbove } from '../../lib/auth-guards';
 import {
   analyzeContractSubmissionReview,
   type ContractSubmissionAttentionKind,
@@ -316,7 +316,7 @@ export const contractResolver = {
       return new ContractSyncService(ctx.prisma).searchPlanVersionCandidates(args.keyword, args.limit ?? 20);
     },
     contractSubmissions: (_parent: unknown, args: ContractDocumentNumberArgs, ctx: AppContext) => {
-      requireStaffOrAbove(ctx);
+      requireEmployee(ctx);
       return new ContractSyncService(ctx.prisma).listSubmissions(args.documentNumber);
     },
     contractSyncRuns: (_parent: unknown, args: ContractSyncRunsArgs, ctx: AppContext) => {
@@ -332,7 +332,7 @@ export const contractResolver = {
       return new ContractPaymentSyncService(ctx.prisma).listStatuses(args.documentNumbers);
     },
     contractPaymentReceipts: (_parent: unknown, args: ContractDocumentNumberArgs, ctx: AppContext) => {
-      requireStaffOrAbove(ctx);
+      requireEmployee(ctx);
       return new ContractPaymentSyncService(ctx.prisma).listReceipts(args.documentNumber);
     },
     contractPaymentReviewReceipts: (_parent: unknown, args: ContractPaymentReviewReceiptsArgs, ctx: AppContext) => {
@@ -447,7 +447,7 @@ export const contractResolver = {
       args: { submissionId: string; image: UploadFile | Promise<UploadFile> },
       ctx: AppContext,
     ) => {
-      requireStaffOrAbove(ctx);
+      requireEmployee(ctx);
       if (!ctx.employee) {
         throw new Error('Unauthorized');
       }
@@ -463,7 +463,7 @@ export const contractResolver = {
       args: { submissionId: string; imageUrl?: string | null },
       ctx: AppContext,
     ) => {
-      requireStaffOrAbove(ctx);
+      requireEmployee(ctx);
       if (!ctx.employee) {
         throw new Error('Unauthorized');
       }
@@ -478,7 +478,7 @@ export const contractResolver = {
       args: { submissionId: string },
       ctx: AppContext,
     ) => {
-      requireStaffOrAbove(ctx);
+      requireEmployee(ctx);
       return resyncContractSubmissionPassportPhotoFromSheetManual(ctx.prisma, {
         submissionId: args.submissionId,
       });
