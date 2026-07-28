@@ -6646,9 +6646,9 @@ export function ItineraryBuilderPage(): JSX.Element {
                       {transportGroups.map((group, index) => (
                         <div
                           key={`transport-group-${index}`}
-                          className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                          className="grid gap-3"
                         >
-                          <div className="mb-3 flex items-center justify-between gap-2">
+                          <div className="flex items-center justify-between gap-2">
                             <div>
                               {transportGroups.length > 1 ? (
                                 <p className="text-sm font-semibold text-slate-900">
@@ -6746,17 +6746,22 @@ export function ItineraryBuilderPage(): JSX.Element {
                               </p>
                             ) : null}
 
-                            <div className="grid gap-3 md:grid-cols-2">
-                              <div className="grid gap-2">
+                            <div className="grid gap-3 rounded-2xl border border-blue-200 bg-blue-50/70 p-3">
+                              <div className="flex items-center gap-2">
+                                <span className="h-2.5 w-2.5 rounded-full bg-blue-600" />
+                                <span className="text-xs font-semibold text-blue-900">항공권</span>
+                              </div>
+                              <div className="grid gap-3 md:grid-cols-2">
+                                <div className="grid gap-2">
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="text-xs text-slate-600">항공권 IN</span>
+                                  <span className="text-xs font-medium text-blue-800">항공권 IN</span>
                                   <button
                                     type="button"
                                     onClick={() => clearTransportGroupFlightIn(index)}
                                     disabled={
                                       !group.flightInDate?.trim() && !group.flightInTime?.trim()
                                     }
-                                    className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                    className="shrink-0 rounded-lg border border-blue-200 bg-white px-2.5 py-1 text-[11px] font-medium text-blue-700 transition hover:border-blue-300 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
                                   >
                                     미정
                                   </button>
@@ -6792,8 +6797,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         }
                                         className={`rounded-xl border px-3 py-1.5 text-xs transition ${
                                           group.flightInTime === time
-                                            ? 'border-slate-900 bg-slate-900 text-white'
-                                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                            ? 'border-blue-700 bg-blue-700 text-white'
+                                            : 'border-blue-200 bg-white text-blue-800 hover:bg-blue-100'
                                         }`}
                                       >
                                         {time}
@@ -6803,16 +6808,16 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 </div>
                               </div>
 
-                              <div className="grid gap-2">
+                                <div className="grid gap-2">
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="text-xs text-slate-600">항공권 OUT</span>
+                                  <span className="text-xs font-medium text-blue-800">항공권 OUT</span>
                                   <button
                                     type="button"
                                     onClick={() => clearTransportGroupFlightOut(index)}
                                     disabled={
                                       !group.flightOutDate?.trim() && !group.flightOutTime?.trim()
                                     }
-                                    className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                    className="shrink-0 rounded-lg border border-blue-200 bg-white px-2.5 py-1 text-[11px] font-medium text-blue-700 transition hover:border-blue-300 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
                                   >
                                     미정
                                   </button>
@@ -6848,8 +6853,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         }
                                         className={`rounded-xl border px-3 py-1.5 text-xs transition ${
                                           group.flightOutTime === time
-                                            ? 'border-slate-900 bg-slate-900 text-white'
-                                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                            ? 'border-blue-700 bg-blue-700 text-white'
+                                            : 'border-blue-200 bg-white text-blue-800 hover:bg-blue-100'
                                         }`}
                                       >
                                         {time}
@@ -6857,12 +6862,20 @@ export function ItineraryBuilderPage(): JSX.Element {
                                     ))}
                                   </div>
                                 </div>
+                                </div>
                               </div>
                             </div>
 
-                            <div className="mt-2 grid gap-3 border-t border-slate-200 pt-4 md:grid-cols-2">
-                              <div className="grid gap-2">
-                                <span className="text-xs text-slate-600">픽업</span>
+                            <div className="grid gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3">
+                              <div className="flex items-center gap-2">
+                                <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
+                                <span className="text-xs font-semibold text-emerald-900">
+                                  픽업 / 드랍
+                                </span>
+                              </div>
+                              <div className="grid gap-3 md:grid-cols-2">
+                                <div className="grid gap-2">
+                                <span className="text-xs font-medium text-emerald-800">픽업</span>
                                 <div className="grid gap-2">
                                   <DateInputTrigger
                                     value={group.pickupDate}
@@ -6894,8 +6907,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         }
                                         className={`rounded-xl border px-3 py-1.5 text-xs transition ${
                                           group.pickupTime === time
-                                            ? 'border-slate-900 bg-slate-900 text-white'
-                                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                            ? 'border-emerald-700 bg-emerald-700 text-white'
+                                            : 'border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-100'
                                         }`}
                                       >
                                         {time}
@@ -6916,8 +6929,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 />
                               </div>
 
-                              <div className="grid gap-2">
-                                <span className="text-xs text-slate-600">드랍</span>
+                                <div className="grid gap-2">
+                                <span className="text-xs font-medium text-emerald-800">드랍</span>
                                 <div className="grid gap-2">
                                   <DateInputTrigger
                                     value={group.dropDate}
@@ -6949,8 +6962,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                         }
                                         className={`rounded-xl border px-3 py-1.5 text-xs transition ${
                                           group.dropTime === time
-                                            ? 'border-slate-900 bg-slate-900 text-white'
-                                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                            ? 'border-emerald-700 bg-emerald-700 text-white'
+                                            : 'border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-100'
                                         }`}
                                       >
                                         {time}
@@ -6969,6 +6982,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                     updateTransportGroup(index, 'dropPlaceCustomText', value)
                                   }
                                 />
+                                </div>
                               </div>
                             </div>
                           </div>
