@@ -9,6 +9,12 @@ export type CustomerDocumentExternalTransfer = {
   departurePlace: string;
   arrivalPlace: string;
   selectedTeamOrderIndexes: number[];
+  dateCellTextOverride?: string | null;
+  destinationCellTextOverride?: string | null;
+  timeCellTextOverride?: string | null;
+  scheduleCellTextOverride?: string | null;
+  lodgingCellTextOverride?: string | null;
+  mealCellTextOverride?: string | null;
 };
 
 export type CustomerDocumentExternalTransferTeam = {

@@ -57,8 +57,22 @@ function formatMealCellForEstimate(value: string | null | undefined): string {
   return formatted || '-';
 }
 
-function ScheduleDateCell({ value }: { value: string }) {
-  const display = parseScheduleDateCellDisplay(value);
+function ScheduleDateCell({
+  value,
+  forceHorizontalSingle = false,
+}: {
+  value: string;
+  forceHorizontalSingle?: boolean;
+}) {
+  const display = parseScheduleDateCellDisplay(value, { forceHorizontalSingle });
+
+  if (display.mode === 'horizontal-single') {
+    return (
+      <div className="estimate-itinerary-cell estimate-itinerary-cell--date estimate-itinerary-cell--date-horizontal estimate-itinerary-cell--date-horizontal-single">
+        {display.text}
+      </div>
+    );
+  }
 
   if (display.mode === 'horizontal') {
     return (
@@ -623,7 +637,10 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
                   return (
                     <div className="estimate-itinerary-table-row" role="row" key={`itinerary-row-${pageIndex + 1}-${index + 1}`}>
                       <div className="estimate-itinerary-table-cell estimate-itinerary-table-date-col" role="cell">
-                        <ScheduleDateCell value={fallback(row.dateCellText)} />
+                        <ScheduleDateCell
+                          value={fallback(row.dateCellText)}
+                          forceHorizontalSingle={isExternalTransferPlanStopRow(row)}
+                        />
                       </div>
                       <div className="estimate-itinerary-table-cell" role="cell">
                         <div className="estimate-itinerary-cell">

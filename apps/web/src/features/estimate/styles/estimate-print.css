@@ -1233,6 +1233,12 @@
   white-space: nowrap;
 }
 
+.estimate-itinerary-cell--date-horizontal-single {
+  white-space: nowrap;
+  font-size: 11px;
+  letter-spacing: -0.04em;
+}
+
 .estimate-itinerary-footer {
   margin: var(--itinerary-footer-margin-top, 10px) 0 0;
   padding-left: 0;

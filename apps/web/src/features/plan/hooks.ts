@@ -277,6 +277,12 @@ export interface PlanVersionMetaRow {
     departurePlace: string;
     arrivalPlace: string;
     selectedTeamOrderIndexes: number[];
+    dateCellTextOverride?: string | null;
+    destinationCellTextOverride?: string | null;
+    timeCellTextOverride?: string | null;
+    scheduleCellTextOverride?: string | null;
+    lodgingCellTextOverride?: string | null;
+    mealCellTextOverride?: string | null;
   }>;
   specialNote: string | null;
   includeRentalItems: boolean;
@@ -1018,6 +1024,12 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
           departurePlace
           arrivalPlace
           selectedTeamOrderIndexes
+          dateCellTextOverride
+          destinationCellTextOverride
+          timeCellTextOverride
+          scheduleCellTextOverride
+          lodgingCellTextOverride
+          mealCellTextOverride
         }
         specialNote
         includeRentalItems

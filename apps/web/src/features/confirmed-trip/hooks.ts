@@ -613,6 +613,12 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
           departurePlace
           arrivalPlace
           selectedTeamOrderIndexes
+          dateCellTextOverride
+          destinationCellTextOverride
+          timeCellTextOverride
+          scheduleCellTextOverride
+          lodgingCellTextOverride
+          mealCellTextOverride
         }
         transportGroups {
           orderIndex
@@ -851,6 +857,12 @@ export const CONFIRMED_TRIP_LIST_FRAGMENT = gql`
           departurePlace
           arrivalPlace
           selectedTeamOrderIndexes
+          dateCellTextOverride
+          destinationCellTextOverride
+          timeCellTextOverride
+          scheduleCellTextOverride
+          lodgingCellTextOverride
+          mealCellTextOverride
         }
         transportGroups {
           orderIndex

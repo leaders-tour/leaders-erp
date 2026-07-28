@@ -89,11 +89,23 @@ export type ScheduleDateCellDisplay =
       calendarDate: string;
     }
   | {
+      mode: 'horizontal-single';
+      text: string;
+    }
+  | {
       mode: 'vertical';
       text: string;
     };
 
-export function parseScheduleDateCellDisplay(value: string): ScheduleDateCellDisplay {
+export function parseScheduleDateCellDisplay(
+  value: string,
+  options?: { forceHorizontalSingle?: boolean },
+): ScheduleDateCellDisplay {
+  const trimmed = value.trim();
+  if (trimmed === '기간외' || options?.forceHorizontalSingle) {
+    return { mode: 'horizontal-single', text: trimmed };
+  }
+
   if (isScheduleDateCellWithCalendarDate(value)) {
     const lines = value
       .split('\n')
@@ -121,7 +133,11 @@ export function enrichAppendixPlanStopRowsWithScheduleDates<T extends { dateCell
 }
 
 export function planStopsUseScheduleDateCellCalendarLayout(
-  planStops: readonly { dateCellText: string }[],
+  planStops: readonly { rowType?: string | null; dateCellText: string }[],
 ): boolean {
-  return planStops.some((row) => isScheduleDateCellWithCalendarDate(row.dateCellText));
+  return planStops.some(
+    (row) =>
+      isScheduleDateCellWithCalendarDate(row.dateCellText) ||
+      (row.rowType === 'EXTERNAL_TRANSFER' && row.dateCellText.trim() !== '기간외'),
+  );
 }

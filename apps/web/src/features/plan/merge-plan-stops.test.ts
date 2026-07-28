@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildMergedPlanStops } from './merge-plan-stops';
+import {
+  buildMergedPlanStops,
+  type ExternalTransferPlanStopRow,
+} from './merge-plan-stops';
 import type { ExternalTransfer } from './external-transfer';
 import type { PlanStopRowBase } from './plan-stop-row';
 
@@ -82,6 +85,7 @@ describe('buildMergedPlanStops external transfer rows', () => {
     const dropRow = merged[merged.length - 1];
     expect(dropRow).toMatchObject({
       rowType: 'EXTERNAL_TRANSFER',
+      externalTransferIndex: 0,
       dateCellText: '기간외',
       destinationCellText: '칭기즈칸 공항',
       timeCellText: '15:00\n16:30',
@@ -89,6 +93,64 @@ describe('buildMergedPlanStops external transfer rows', () => {
       lodgingCellText: '숙소미포함',
       mealCellText: 'X',
     });
+  });
+
+  it('applies customer-document cell overrides without changing transfer metadata', () => {
+    const transfers: ExternalTransfer[] = [
+      {
+        direction: 'PICKUP',
+        presetCode: 'PICKUP_AIRPORT_OZHOUSE',
+        travelDate: '2026-05-01',
+        departureTime: '10:00',
+        arrivalTime: '11:00',
+        departurePlace: '공항',
+        arrivalPlace: '오즈하우스',
+        selectedTeamOrderIndexes: [0, 1],
+        destinationCellTextOverride: '직접 입력 목적지',
+        scheduleCellTextOverride: '직접 입력 일정',
+        mealCellTextOverride: '',
+      },
+    ];
+
+    const [pickupRow] = buildMergedPlanStops(mainRows, transfers, teams);
+    expect(pickupRow).toMatchObject({
+      rowType: 'EXTERNAL_TRANSFER',
+      externalTransferIndex: 0,
+      destinationCellText: '직접 입력 목적지',
+      scheduleCellText: '직접 입력 일정',
+      mealCellText: '',
+      timeCellText: '10:00\n11:00',
+    });
+  });
+
+  it('keeps the original transfer index after display sorting', () => {
+    const transfers: ExternalTransfer[] = [
+      {
+        direction: 'DROP',
+        presetCode: 'DROP_ULAANBAATAR_AIRPORT',
+        travelDate: '2026-05-04',
+        departureTime: '17:00',
+        arrivalTime: '18:00',
+        departurePlace: '울란바토르',
+        arrivalPlace: '공항',
+        selectedTeamOrderIndexes: [0],
+      },
+      {
+        direction: 'DROP',
+        presetCode: 'DROP_ULAANBAATAR_AIRPORT',
+        travelDate: '2026-05-04',
+        departureTime: '15:00',
+        arrivalTime: '16:00',
+        departurePlace: '울란바토르',
+        arrivalPlace: '공항',
+        selectedTeamOrderIndexes: [1],
+      },
+    ];
+
+    const externalRows = buildMergedPlanStops(mainRows, transfers, teams).filter(
+      (row): row is ExternalTransferPlanStopRow => 'externalTransferIndex' in row,
+    );
+    expect(externalRows.map((row) => row.externalTransferIndex)).toEqual([1, 0]);
   });
 
   it('ignores persisted EXTERNAL_TRANSFER rows in mainRows so meta-driven rows are not duplicated', () => {

@@ -97,10 +97,14 @@ import {
 import {
   buildExternalTransferDirectionText,
   buildEmptyExternalTransfer,
+  clearExternalTransferCellTextOverrides,
+  hasExternalTransferCellTextOverrides,
   isExternalTransferComplete,
   normalizeExternalTransfers,
+  setExternalTransferCellTextOverride,
   syncExternalTransferTeamSelection,
   type ExternalTransfer,
+  type ExternalTransferCellTextField,
 } from '../features/plan/external-transfer';
 import { useBuilderValidation } from '../features/plan/builder-validation';
 import { resolveVehicleAssignmentsForHeadcount } from '../features/plan/builder-vehicle';
@@ -4342,6 +4346,44 @@ export function ItineraryBuilderPage(): JSX.Element {
     });
   };
 
+  const updateExternalTransferCell = (
+    externalTransferIndex: number,
+    field: ExternalTransferCellTextField,
+    value: string,
+  ): void => {
+    setExternalTransfers((current) =>
+      current.map((transfer, index) =>
+        index === externalTransferIndex
+          ? setExternalTransferCellTextOverride(transfer, field, value)
+          : transfer,
+      ),
+    );
+  };
+
+  const resetExternalTransferCells = (externalTransferIndex: number): void => {
+    setExternalTransfers((current) =>
+      current.map((transfer, index) =>
+        index === externalTransferIndex
+          ? clearExternalTransferCellTextOverrides(transfer)
+          : transfer,
+      ),
+    );
+  };
+
+  const updateExternalTransferMealCellField = (
+    externalTransferIndex: number,
+    currentMealCellText: string,
+    field: keyof MealCellFields,
+    value: string,
+  ): void => {
+    const mealFields = parseMealCellText(currentMealCellText);
+    updateExternalTransferCell(
+      externalTransferIndex,
+      'mealCellText',
+      toMealCellText({ ...mealFields, [field]: value }),
+    );
+  };
+
   const updateMovementIntensityColorOverride = (rowIndex: number, value: string | null): void => {
     setPlanRows((prev) => {
       const row = prev[rowIndex];
@@ -4554,14 +4596,24 @@ export function ItineraryBuilderPage(): JSX.Element {
   const displayPlanRows = useMemo(() => {
     let mainRowIndex = 0;
     return buildMergedPlanStops(planRows, normalizedExternalTransfers, transportGroups).map((row) => {
-      if (row.rowType === 'EXTERNAL_TRANSFER') {
-        return { row, mainRowIndex: null as number | null, planRowIndex: null as number | null };
+      if (row.rowType === 'EXTERNAL_TRANSFER' && 'externalTransferIndex' in row) {
+        return {
+          row,
+          mainRowIndex: null as number | null,
+          planRowIndex: null as number | null,
+          externalTransferIndex: row.externalTransferIndex,
+        };
       }
 
       const currentMainRowIndex = mainRowIndex;
       const planRowIndex = mainPlanRowPhysicalIndexes[currentMainRowIndex] ?? currentMainRowIndex;
       mainRowIndex += 1;
-      return { row, mainRowIndex: currentMainRowIndex, planRowIndex };
+      return {
+        row,
+        mainRowIndex: currentMainRowIndex,
+        planRowIndex,
+        externalTransferIndex: null as number | null,
+      };
     });
   }, [mainPlanRowPhysicalIndexes, normalizedExternalTransfers, planRows, transportGroups]);
 
@@ -7695,7 +7747,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                 <h2 className="text-lg font-bold text-slate-900">일정표 편집기</h2>
                 <p className="mt-1 text-xs text-slate-600">
                   숙소 칸을 클릭하면 등급·표시명을 설정할 수 있습니다. 식사 칸은 아침/점심/저녁 3칸
-                  입력으로 편집됩니다.
+                  입력으로 편집됩니다. 기간외 픽드랍 행은 견적서 출력 문구만 직접 수정할 수 있으며,
+                  픽드랍 원본 정보는 위 설정에서 관리됩니다.
                 </p>
               </div>
 
@@ -7712,8 +7765,16 @@ export function ItineraryBuilderPage(): JSX.Element {
                     </tr>
                   </thead>
                   <tbody>
-                    {displayPlanRows.map(({ row, mainRowIndex, planRowIndex }, rowIndex) => {
+                    {displayPlanRows.map(
+                      ({ row, mainRowIndex, planRowIndex, externalTransferIndex }, rowIndex) => {
                       const isExternalRow = mainRowIndex === null;
+                      const externalTransfer =
+                        externalTransferIndex === null
+                          ? null
+                          : normalizedExternalTransfers[externalTransferIndex] ?? null;
+                      const hasExternalOverrides =
+                        externalTransfer != null &&
+                        hasExternalTransferCellTextOverrides(externalTransfer);
                       const mealFields = parseMealCellText(row.mealCellText);
                       const timeCellValidation =
                         mainRowIndex !== null &&
@@ -7731,9 +7792,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                         );
                       const isTimeCellAffected = Boolean(timeCellValidation);
                       const isMealCellAffected = Boolean(mealCellValidation);
-                      const cellClassName = `w-full resize-none overflow-hidden rounded-xl border border-slate-200 px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
-                        isExternalRow ? 'bg-slate-50 text-slate-500' : 'bg-white'
-                      }`;
+                      const cellClassName =
+                        'w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap text-slate-900';
                       const timeCellClassName = isTimeCellAffected
                         ? `${cellClassName} border-rose-400 bg-rose-50`
                         : cellClassName;
@@ -7761,13 +7821,18 @@ export function ItineraryBuilderPage(): JSX.Element {
                           <Td>
                             <textarea
                               value={row.dateCellText}
-                              readOnly={isExternalRow}
-                              disabled={isExternalRow}
                               onChange={(event) => {
-                                if (planRowIndex === null) {
+                                if (externalTransferIndex !== null) {
+                                  updateExternalTransferCell(
+                                    externalTransferIndex,
+                                    'dateCellText',
+                                    event.target.value,
+                                  );
+                                } else if (planRowIndex !== null) {
+                                  updateCell(planRowIndex, 'dateCellText', event.target.value);
+                                } else {
                                   return;
                                 }
-                                updateCell(planRowIndex, 'dateCellText', event.target.value);
                                 autoResizeTextarea(event.currentTarget);
                               }}
                               onInput={(event) => autoResizeTextarea(event.currentTarget)}
@@ -7779,13 +7844,18 @@ export function ItineraryBuilderPage(): JSX.Element {
                           <Td>
                             <textarea
                               value={row.destinationCellText}
-                              readOnly={isExternalRow}
-                              disabled={isExternalRow}
                               onChange={(event) => {
-                                if (planRowIndex === null) {
+                                if (externalTransferIndex !== null) {
+                                  updateExternalTransferCell(
+                                    externalTransferIndex,
+                                    'destinationCellText',
+                                    event.target.value,
+                                  );
+                                } else if (planRowIndex !== null) {
+                                  updateCell(planRowIndex, 'destinationCellText', event.target.value);
+                                } else {
                                   return;
                                 }
-                                updateCell(planRowIndex, 'destinationCellText', event.target.value);
                                 autoResizeTextarea(event.currentTarget);
                               }}
                               onInput={(event) => autoResizeTextarea(event.currentTarget)}
@@ -7798,13 +7868,18 @@ export function ItineraryBuilderPage(): JSX.Element {
                             <div className="space-y-1">
                               <textarea
                                 value={row.timeCellText}
-                                readOnly={isExternalRow}
-                                disabled={isExternalRow}
                                 onChange={(event) => {
-                                  if (planRowIndex === null) {
+                                  if (externalTransferIndex !== null) {
+                                    updateExternalTransferCell(
+                                      externalTransferIndex,
+                                      'timeCellText',
+                                      event.target.value,
+                                    );
+                                  } else if (planRowIndex !== null) {
+                                    updateCell(planRowIndex, 'timeCellText', event.target.value);
+                                  } else {
                                     return;
                                   }
-                                  updateCell(planRowIndex, 'timeCellText', event.target.value);
                                   autoResizeTextarea(event.currentTarget);
                                 }}
                                 onInput={(event) => autoResizeTextarea(event.currentTarget)}
@@ -7822,13 +7897,18 @@ export function ItineraryBuilderPage(): JSX.Element {
                           <Td>
                             <textarea
                               value={row.scheduleCellText}
-                              readOnly={isExternalRow}
-                              disabled={isExternalRow}
                               onChange={(event) => {
-                                if (planRowIndex === null) {
+                                if (externalTransferIndex !== null) {
+                                  updateExternalTransferCell(
+                                    externalTransferIndex,
+                                    'scheduleCellText',
+                                    event.target.value,
+                                  );
+                                } else if (planRowIndex !== null) {
+                                  updateCell(planRowIndex, 'scheduleCellText', event.target.value);
+                                } else {
                                   return;
                                 }
-                                updateCell(planRowIndex, 'scheduleCellText', event.target.value);
                                 autoResizeTextarea(event.currentTarget);
                               }}
                               onInput={(event) => autoResizeTextarea(event.currentTarget)}
@@ -7839,9 +7919,24 @@ export function ItineraryBuilderPage(): JSX.Element {
                           </Td>
                           <Td>
                             {isExternalRow ? (
-                              <div className="min-h-[44px] rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm leading-5 whitespace-pre-wrap text-slate-500">
-                                {row.lodgingCellText || '-'}
-                              </div>
+                              <textarea
+                                value={row.lodgingCellText}
+                                onChange={(event) => {
+                                  if (externalTransferIndex === null) {
+                                    return;
+                                  }
+                                  updateExternalTransferCell(
+                                    externalTransferIndex,
+                                    'lodgingCellText',
+                                    event.target.value,
+                                  );
+                                  autoResizeTextarea(event.currentTarget);
+                                }}
+                                onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                                rows={1}
+                                data-plan-cell="true"
+                                className={cellClassName}
+                              />
                             ) : (
                               <button
                                 type="button"
@@ -7860,23 +7955,70 @@ export function ItineraryBuilderPage(): JSX.Element {
                           </Td>
                           <Td>
                             {isExternalRow ? (
-                              <div className="space-y-1">
-                                <div
-                                  className={`min-h-[44px] rounded-xl border px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
-                                    isMealCellAffected
-                                      ? 'border-amber-400 bg-amber-50 text-amber-950'
-                                      : isExternalRow
-                                        ? 'border-slate-200 bg-slate-100 text-slate-500'
-                                        : 'border-slate-200 bg-white'
-                                  }`}
-                                >
-                                  {row.mealCellText || '-'}
+                              <div className="space-y-2">
+                                <div className={mealCellWrapperClassName}>
+                                  {(
+                                    [
+                                      ['breakfast', '아침', mealFields.breakfast],
+                                      ['lunch', '점심', mealFields.lunch],
+                                      ['dinner', '저녁', mealFields.dinner],
+                                    ] as const
+                                  ).map(([field, label, mealValue]) => (
+                                    <div
+                                      key={field}
+                                      className="grid grid-cols-[40px_minmax(0,1fr)_32px] items-center gap-2 text-sm"
+                                    >
+                                      <span className={mealLabelClassName}>{label}</span>
+                                      <input
+                                        type="text"
+                                        value={mealValue}
+                                        onChange={(event) => {
+                                          if (externalTransferIndex === null) {
+                                            return;
+                                          }
+                                          updateExternalTransferMealCellField(
+                                            externalTransferIndex,
+                                            row.mealCellText,
+                                            field,
+                                            event.target.value,
+                                          );
+                                        }}
+                                        className={mealInputClassName}
+                                        placeholder={`${label} 식사 입력`}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (externalTransferIndex === null) {
+                                            return;
+                                          }
+                                          updateExternalTransferMealCellField(
+                                            externalTransferIndex,
+                                            row.mealCellText,
+                                            field,
+                                            'X',
+                                          );
+                                        }}
+                                        className={mealXButtonClassName}
+                                        aria-label={`${label} 식사를 없음으로 표시`}
+                                      >
+                                        X
+                                      </button>
+                                    </div>
+                                  ))}
                                 </div>
-                                {isMealCellAffected && mealCellValidation ? (
-                                  <p className="px-1 text-xs leading-4 text-amber-900">
-                                    식사 확인 필요: {mealCellValidation.message}
-                                  </p>
-                                ) : null}
+                                <button
+                                  type="button"
+                                  disabled={!hasExternalOverrides || externalTransferIndex === null}
+                                  onClick={() => {
+                                    if (externalTransferIndex !== null) {
+                                      resetExternalTransferCells(externalTransferIndex);
+                                    }
+                                  }}
+                                  className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  자동 문구로 초기화
+                                </button>
                               </div>
                             ) : (
                               <div className="space-y-1">
@@ -7935,7 +8077,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                           </Td>
                         </tr>
                       );
-                    })}
+                    },
+                    )}
                   </tbody>
                 </Table>
               </div>

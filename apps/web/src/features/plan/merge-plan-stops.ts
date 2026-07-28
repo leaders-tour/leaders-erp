@@ -1,6 +1,15 @@
 import type { ExternalTransfer, ExternalTransferTeamLike } from './external-transfer';
 import { isMainPlanStopRow, type PlanStopRowBase } from './plan-stop-row';
 
+export interface ExternalTransferPlanStopRow extends PlanStopRowBase {
+  rowType: 'EXTERNAL_TRANSFER';
+  externalTransferIndex: number;
+}
+
+function resolveCellTextOverride(override: string | null | undefined, fallback: string): string {
+  return typeof override === 'string' ? override : fallback;
+}
+
 function resolveTransferDestinationLabel(place: string): string {
   const trimmed = place.trim();
   if (trimmed === '공항') {
@@ -80,35 +89,51 @@ function buildTransferRows(
   transfers: ExternalTransfer[],
   teams: ExternalTransferTeamLike[],
   direction: 'PICKUP' | 'DROP',
-): PlanStopRowBase[] {
+): ExternalTransferPlanStopRow[] {
   return transfers
-    .filter((transfer) => transfer.direction === direction)
-    .slice()
+    .map((transfer, externalTransferIndex) => ({ transfer, externalTransferIndex }))
+    .filter(({ transfer }) => transfer.direction === direction)
     .sort(
       (left, right) =>
-        left.travelDate.localeCompare(right.travelDate) ||
-        left.departureTime.localeCompare(right.departureTime) ||
-        left.arrivalTime.localeCompare(right.arrivalTime),
+        left.transfer.travelDate.localeCompare(right.transfer.travelDate) ||
+        left.transfer.departureTime.localeCompare(right.transfer.departureTime) ||
+        left.transfer.arrivalTime.localeCompare(right.transfer.arrivalTime),
     )
-    .map((transfer) => ({
-      rowType: 'EXTERNAL_TRANSFER' as const,
-      locationId: null,
-      locationVersionId: null,
-      movementIntensity: null,
-      dateCellText: '기간외',
-      destinationCellText: resolveTransferDestinationLabel(transfer.arrivalPlace),
-      timeCellText: `${transfer.departureTime || '-'}\n${transfer.arrivalTime || '-'}`,
-      scheduleCellText: buildTransferScheduleText(transfer, teams),
-      lodgingCellText: buildTransferLodgingText(resolveTransferDestinationLabel(transfer.arrivalPlace)),
-      mealCellText: 'X',
-    }));
+    .map(({ transfer, externalTransferIndex }) => {
+      const destination = resolveTransferDestinationLabel(transfer.arrivalPlace);
+      return {
+        rowType: 'EXTERNAL_TRANSFER' as const,
+        externalTransferIndex,
+        locationId: null,
+        locationVersionId: null,
+        movementIntensity: null,
+        dateCellText: resolveCellTextOverride(transfer.dateCellTextOverride, '기간외'),
+        destinationCellText: resolveCellTextOverride(
+          transfer.destinationCellTextOverride,
+          destination,
+        ),
+        timeCellText: resolveCellTextOverride(
+          transfer.timeCellTextOverride,
+          `${transfer.departureTime || '-'}\n${transfer.arrivalTime || '-'}`,
+        ),
+        scheduleCellText: resolveCellTextOverride(
+          transfer.scheduleCellTextOverride,
+          buildTransferScheduleText(transfer, teams),
+        ),
+        lodgingCellText: resolveCellTextOverride(
+          transfer.lodgingCellTextOverride,
+          buildTransferLodgingText(destination),
+        ),
+        mealCellText: resolveCellTextOverride(transfer.mealCellTextOverride, 'X'),
+      };
+    });
 }
 
 export function buildMergedPlanStops<T extends PlanStopRowBase>(
   mainRows: T[],
   transfers: ExternalTransfer[] | null | undefined,
   teams: ExternalTransferTeamLike[] | null | undefined,
-): Array<T | PlanStopRowBase> {
+): Array<T | ExternalTransferPlanStopRow> {
   const normalizedTransfers = transfers ?? [];
   const normalizedTeams = teams ?? [];
   const mainOnlyRows = mainRows.filter((row): row is T => isMainPlanStopRow(row));

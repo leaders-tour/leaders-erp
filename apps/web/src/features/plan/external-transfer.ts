@@ -20,6 +20,57 @@ export interface ExternalTransfer extends CustomerDocumentExternalTransfer {
   presetCode: ExternalTransferPresetCode;
 }
 
+export type ExternalTransferCellTextField =
+  | 'dateCellText'
+  | 'destinationCellText'
+  | 'timeCellText'
+  | 'scheduleCellText'
+  | 'lodgingCellText'
+  | 'mealCellText';
+
+const EXTERNAL_TRANSFER_CELL_OVERRIDE_FIELDS = {
+  dateCellText: 'dateCellTextOverride',
+  destinationCellText: 'destinationCellTextOverride',
+  timeCellText: 'timeCellTextOverride',
+  scheduleCellText: 'scheduleCellTextOverride',
+  lodgingCellText: 'lodgingCellTextOverride',
+  mealCellText: 'mealCellTextOverride',
+} as const satisfies Record<
+  ExternalTransferCellTextField,
+  keyof CustomerDocumentExternalTransfer
+>;
+
+export function setExternalTransferCellTextOverride(
+  transfer: ExternalTransfer,
+  field: ExternalTransferCellTextField,
+  value: string,
+): ExternalTransfer {
+  return {
+    ...transfer,
+    [EXTERNAL_TRANSFER_CELL_OVERRIDE_FIELDS[field]]: value,
+  };
+}
+
+export function clearExternalTransferCellTextOverrides(
+  transfer: ExternalTransfer,
+): ExternalTransfer {
+  return {
+    ...transfer,
+    dateCellTextOverride: null,
+    destinationCellTextOverride: null,
+    timeCellTextOverride: null,
+    scheduleCellTextOverride: null,
+    lodgingCellTextOverride: null,
+    mealCellTextOverride: null,
+  };
+}
+
+export function hasExternalTransferCellTextOverrides(transfer: ExternalTransfer): boolean {
+  return Object.values(EXTERNAL_TRANSFER_CELL_OVERRIDE_FIELDS).some(
+    (field) => typeof transfer[field] === 'string',
+  );
+}
+
 export interface ExternalTransferTeamLike {
   orderIndex?: number;
   teamName: string;

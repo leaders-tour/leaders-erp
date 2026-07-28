@@ -228,6 +228,12 @@ type ExternalTransfer {
   departurePlace: String!
   arrivalPlace: String!
   selectedTeamOrderIndexes: [Int!]!
+  dateCellTextOverride: String
+  destinationCellTextOverride: String
+  timeCellTextOverride: String
+  scheduleCellTextOverride: String
+  lodgingCellTextOverride: String
+  mealCellTextOverride: String
 }
 
 type PlanVersionTransportGroup {
@@ -619,6 +625,12 @@ input ExternalTransferInput {
   departurePlace: String!
   arrivalPlace: String!
   selectedTeamOrderIndexes: [Int!]!
+  dateCellTextOverride: String
+  destinationCellTextOverride: String
+  timeCellTextOverride: String
+  scheduleCellTextOverride: String
+  lodgingCellTextOverride: String
+  mealCellTextOverride: String
 }
 
 input PlanVersionTransportGroupInput {

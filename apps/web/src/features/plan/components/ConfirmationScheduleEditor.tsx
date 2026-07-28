@@ -1,11 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Button, Card, Table, Td, Th } from '@tour/ui';
 import type { PlanStopRowType } from '../plan-stop-row';
-import {
-  parseMealCellText,
-  toMealCellText,
-  type MealSlot,
-} from '../special-meals';
+import { parseMealCellText, toMealCellText, type MealSlot } from '../special-meals';
 import type { ConfirmationAppendixPlanStopRow } from '../../confirmation/model/types';
 
 function autoResizeTextarea(element: HTMLTextAreaElement): void {
@@ -84,8 +80,8 @@ function RestoreScheduleConfirmModal({
       <Card className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-xl">
         <h3 className="text-lg font-semibold text-slate-900">일정표 원상복구</h3>
         <p className="mt-2 text-sm text-slate-600">
-          확정서 일정표를 연결 견적의 기존 일정으로 되돌립니다. 지금까지 수정한 일정표 내용은
-          모두 사라집니다.
+          확정서 일정표를 연결 견적의 기존 일정으로 되돌립니다. 지금까지 수정한 일정표 내용은 모두
+          사라집니다.
         </p>
         <p className="mt-1 text-xs text-slate-500">이 작업은 되돌릴 수 없습니다.</p>
         <div className="mt-5 flex justify-end gap-2">
@@ -116,9 +112,7 @@ export function ConfirmationScheduleEditor({
     field: keyof ConfirmationAppendixPlanStopRow,
     value: string,
   ): void => {
-    onChange(
-      rows.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)),
-    );
+    onChange(rows.map((row, index) => (index === rowIndex ? { ...row, [field]: value } : row)));
   };
 
   const updateMealCellField = (rowIndex: number, field: MealSlot, value: string): void => {
@@ -144,9 +138,8 @@ export function ConfirmationScheduleEditor({
           {rows.map((row, rowIndex) => {
             const isExternalRow = rowMeta?.[rowIndex]?.rowType === 'EXTERNAL_TRANSFER';
             const mealFields = parseMealCellText(row.mealCellText);
-            const cellClassName = `confirmation-schedule-editor-cell w-full resize-none overflow-hidden rounded-xl border border-slate-200 px-3 py-2 text-sm leading-5 whitespace-pre-wrap ${
-              isExternalRow ? 'bg-slate-50 text-slate-500' : 'bg-white'
-            }`;
+            const cellClassName =
+              'confirmation-schedule-editor-cell w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap text-slate-900';
             const mealCellWrapperClassName =
               'grid gap-2 rounded-xl border border-slate-200 bg-white p-2';
             const mealLabelClassName = 'text-xs text-slate-500';
@@ -158,13 +151,11 @@ export function ConfirmationScheduleEditor({
             return (
               <tr
                 key={`confirmation-schedule-row-${rowIndex + 1}`}
-                className={`border-t border-slate-200 align-top ${isExternalRow ? 'bg-slate-50/60' : ''}`}
+                className={`border-t border-slate-200 align-top ${isExternalRow ? 'bg-slate-50/40' : ''}`}
               >
                 <Td>
                   <AutoResizeTextarea
                     value={row.dateCellText}
-                    readOnly={isExternalRow}
-                    disabled={isExternalRow}
                     onChange={(value) => updateCell(rowIndex, 'dateCellText', value)}
                     className={cellClassName}
                   />
@@ -172,8 +163,6 @@ export function ConfirmationScheduleEditor({
                 <Td>
                   <AutoResizeTextarea
                     value={row.destinationCellText}
-                    readOnly={isExternalRow}
-                    disabled={isExternalRow}
                     onChange={(value) => updateCell(rowIndex, 'destinationCellText', value)}
                     className={cellClassName}
                   />
@@ -181,8 +170,6 @@ export function ConfirmationScheduleEditor({
                 <Td>
                   <AutoResizeTextarea
                     value={row.timeCellText}
-                    readOnly={isExternalRow}
-                    disabled={isExternalRow}
                     onChange={(value) => updateCell(rowIndex, 'timeCellText', value)}
                     className={cellClassName}
                   />
@@ -190,65 +177,51 @@ export function ConfirmationScheduleEditor({
                 <Td>
                   <AutoResizeTextarea
                     value={row.scheduleCellText}
-                    readOnly={isExternalRow}
-                    disabled={isExternalRow}
                     onChange={(value) => updateCell(rowIndex, 'scheduleCellText', value)}
                     className={cellClassName}
                   />
                 </Td>
                 <Td>
-                  {isExternalRow ? (
-                    <div className="confirmation-schedule-editor-readonly min-h-[72px] rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm leading-5 whitespace-pre-wrap text-slate-500">
-                      {row.lodgingCellText || '-'}
-                    </div>
-                  ) : (
-                    <AutoResizeTextarea
-                      value={row.lodgingCellText}
-                      onChange={(value) => updateCell(rowIndex, 'lodgingCellText', value)}
-                      className={cellClassName}
-                    />
-                  )}
+                  <AutoResizeTextarea
+                    value={row.lodgingCellText}
+                    onChange={(value) => updateCell(rowIndex, 'lodgingCellText', value)}
+                    className={cellClassName}
+                  />
                 </Td>
                 <Td>
-                  {isExternalRow ? (
-                    <div className="confirmation-schedule-editor-readonly min-h-[72px] rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-sm leading-5 whitespace-pre-wrap text-slate-500">
-                      {row.mealCellText || '-'}
-                    </div>
-                  ) : (
-                    <div className={mealCellWrapperClassName}>
-                      {(
-                        [
-                          ['breakfast', '아침', mealFields.breakfast],
-                          ['lunch', '점심', mealFields.lunch],
-                          ['dinner', '저녁', mealFields.dinner],
-                        ] as const
-                      ).map(([field, label, mealValue]) => (
-                        <div
-                          key={field}
-                          className="grid grid-cols-[40px_minmax(0,1fr)_32px] items-center gap-2 text-sm"
+                  <div className={mealCellWrapperClassName}>
+                    {(
+                      [
+                        ['breakfast', '아침', mealFields.breakfast],
+                        ['lunch', '점심', mealFields.lunch],
+                        ['dinner', '저녁', mealFields.dinner],
+                      ] as const
+                    ).map(([field, label, mealValue]) => (
+                      <div
+                        key={field}
+                        className="grid grid-cols-[40px_minmax(0,1fr)_32px] items-center gap-2 text-sm"
+                      >
+                        <span className={mealLabelClassName}>{label}</span>
+                        <input
+                          type="text"
+                          value={mealValue}
+                          onChange={(event) =>
+                            updateMealCellField(rowIndex, field, event.target.value)
+                          }
+                          className={mealInputClassName}
+                          placeholder={`${label} 식사 입력`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateMealCellField(rowIndex, field, 'X')}
+                          className={mealXButtonClassName}
+                          aria-label={`${label} 식사를 없음으로 표시`}
                         >
-                          <span className={mealLabelClassName}>{label}</span>
-                          <input
-                            type="text"
-                            value={mealValue}
-                            onChange={(event) =>
-                              updateMealCellField(rowIndex, field, event.target.value)
-                            }
-                            className={mealInputClassName}
-                            placeholder={`${label} 식사 입력`}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => updateMealCellField(rowIndex, field, 'X')}
-                            className={mealXButtonClassName}
-                            aria-label={`${label} 식사를 없음으로 표시`}
-                          >
-                            X
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                          X
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </Td>
               </tr>
             );

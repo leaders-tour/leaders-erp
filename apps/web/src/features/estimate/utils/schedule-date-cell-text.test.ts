@@ -124,6 +124,22 @@ describe('parseScheduleDateCellDisplay', () => {
       text: '2\n일\n차',
     });
   });
+
+  it('returns single-line horizontal display for external transfer rows', () => {
+    expect(parseScheduleDateCellDisplay('기간외')).toEqual({
+      mode: 'horizontal-single',
+      text: '기간외',
+    });
+  });
+
+  it('keeps custom external transfer text horizontal', () => {
+    expect(
+      parseScheduleDateCellDisplay('기간외 추가', { forceHorizontalSingle: true }),
+    ).toEqual({
+      mode: 'horizontal-single',
+      text: '기간외 추가',
+    });
+  });
 });
 
 describe('enrichAppendixPlanStopRowsWithScheduleDates', () => {
@@ -154,6 +170,15 @@ describe('planStopsUseScheduleDateCellCalendarLayout', () => {
         { dateCellText: '2일차' },
       ]),
     ).toBe(false);
+  });
+
+  it('uses the wider layout for custom external transfer labels', () => {
+    expect(
+      planStopsUseScheduleDateCellCalendarLayout([
+        { rowType: 'MAIN', dateCellText: '1일차' },
+        { rowType: 'EXTERNAL_TRANSFER', dateCellText: '기간외 추가' },
+      ]),
+    ).toBe(true);
   });
 });
 

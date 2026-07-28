@@ -332,6 +332,12 @@ export const externalTransferInputSchema = z
     departurePlace: z.string().min(1).max(100),
     arrivalPlace: z.string().min(1).max(100),
     selectedTeamOrderIndexes: z.array(z.number().int().min(0)).min(1),
+    dateCellTextOverride: z.string().nullable().optional(),
+    destinationCellTextOverride: z.string().nullable().optional(),
+    timeCellTextOverride: z.string().nullable().optional(),
+    scheduleCellTextOverride: z.string().nullable().optional(),
+    lodgingCellTextOverride: z.string().nullable().optional(),
+    mealCellTextOverride: z.string().nullable().optional(),
   })
   .superRefine((value, ctx) => {
     const seen = new Set<number>();
