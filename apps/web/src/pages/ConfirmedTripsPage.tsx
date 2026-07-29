@@ -35,6 +35,7 @@ import {
   type CalendarNoteRow,
   type ConfirmedTripRow,
 } from '../features/confirmed-trip/hooks';
+import { simplifyDestinationCellText } from '../features/plan/simplify-destination-cell-text';
 import { resolveUserDisplayName } from '../features/plan/format-user-display-name';
 import { externalTransferTravelDateIso } from '../features/plan/external-transfer';
 import { isConfirmedTripRecentReturn } from '../features/confirmed-trip/recent-return';
@@ -356,7 +357,7 @@ function getMainStopDestinationForDay(mainStops: PlanStopRow[], day: number): st
     const parsed = parseDayIndexFromDateCellText(row.dateCellText ?? '');
     if (parsed === day) {
       const dest = row.destinationCellText?.trim();
-      return dest && dest.length > 0 ? dest : null;
+      return dest && dest.length > 0 ? simplifyDestinationCellText(dest) : null;
     }
   }
 
@@ -365,14 +366,14 @@ function getMainStopDestinationForDay(mainStops: PlanStopRow[], day: number): st
     const rowAt = mainStops[idx];
     if (rowAt === undefined) return null;
     const dest = rowAt.destinationCellText?.trim();
-    return dest && dest.length > 0 ? dest : null;
+    return dest && dest.length > 0 ? simplifyDestinationCellText(dest) : null;
   }
   return null;
 }
 
 /**
  * 여행중 오늘 일차의 출발지→목적지 라벨. plan 미연결·스탑 없음·매칭 실패 시 null.
- * 일차는 `TripDayBadge`와 동일(출발일 대비 달력 일수). 2일차부터는 전일 목적지 → 당일 목적지.
+ * 출발일 대비 달력 일수로 일차를 계산한다. 2일차부터는 전일 목적지 → 당일 목적지.
  */
 function getOngoingTripCurrentDestinationText(trip: ConfirmedTripRow, startDateStr: string): string | null {
   if (!trip.planId) return null;
@@ -434,13 +435,13 @@ function DepartureBadge({ startDate }: { startDate: string }) {
   );
 }
 
-// #N일차 진행중 뱃지
+// #N일차 뱃지
 function TripDayBadge({ startDate }: { startDate: string }) {
   const elapsed = -getDaysFromToday(startDate);
   const day = elapsed + 1;
   return (
     <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-      #{day}일차 진행중
+      #{day}일차
     </span>
   );
 }
@@ -1040,14 +1041,14 @@ function TripTableRow({
           />
         </td>
       )}
-      {/* #일차 진행중 */}
+      {/* #일차 — 오늘 이동 경로 */}
       {filter === 'ongoing' && (
-        <td className="px-4 py-3 align-top">
+        <td className="max-w-[14rem] px-4 py-3 align-top">
           {startStr ? (
-            <div className="flex max-w-[14rem] flex-col gap-0.5">
+            <div className="flex flex-col gap-0.5">
               <TripDayBadge startDate={startStr} />
               {ongoingDestinationLabel ? (
-                <span className="text-xs leading-snug text-slate-500">현재: {ongoingDestinationLabel}</span>
+                <span className="text-xs leading-snug text-slate-700">{ongoingDestinationLabel}</span>
               ) : null}
             </div>
           ) : (
