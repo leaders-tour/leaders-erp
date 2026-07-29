@@ -28,11 +28,16 @@ const LOCATION_GUIDES_QUERY = gql`
   }
 `;
 
-export function useEstimateLocationGuides(): { guideRows: EstimateLocationGuideRow[]; loading: boolean } {
-  const { data, loading } = useQuery<{ locationGuides: EstimateLocationGuideRow[] }>(LOCATION_GUIDES_QUERY);
+export function useEstimateLocationGuides(options?: {
+  skip?: boolean;
+}): { guideRows: EstimateLocationGuideRow[]; loading: boolean } {
+  const skip = options?.skip ?? false;
+  const { data, loading } = useQuery<{ locationGuides: EstimateLocationGuideRow[] }>(LOCATION_GUIDES_QUERY, {
+    skip,
+  });
 
   return {
-    guideRows: data?.locationGuides ?? [],
-    loading,
+    guideRows: skip ? [] : (data?.locationGuides ?? []),
+    loading: skip ? false : loading,
   };
 }

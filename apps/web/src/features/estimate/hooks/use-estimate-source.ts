@@ -11,6 +11,8 @@ interface EstimateSourceParams {
   mode: EstimateSourceMode;
   versionId: string | null;
   draftKey: string | null;
+  /** false면 locationGuides 조회·적용 생략 (투어리스트 상세 1·2페이지 미리보기 등) */
+  includeLocationGuides?: boolean;
 }
 
 interface EstimateSourceResult {
@@ -20,9 +22,16 @@ interface EstimateSourceResult {
   version: PlanVersionDetail | null;
 }
 
-export function useEstimateSource({ mode, versionId, draftKey }: EstimateSourceParams): EstimateSourceResult {
+export function useEstimateSource({
+  mode,
+  versionId,
+  draftKey,
+  includeLocationGuides = true,
+}: EstimateSourceParams): EstimateSourceResult {
   const { version, loading: versionLoading } = usePlanVersionDetail(mode === 'version' ? versionId ?? undefined : undefined);
-  const { guideRows, loading: guidesLoading } = useEstimateLocationGuides();
+  const { guideRows, loading: guidesLoading } = useEstimateLocationGuides({
+    skip: !includeLocationGuides,
+  });
   const [draftSnapshot, setDraftSnapshot] = useState<EstimateBuilderDraftSnapshot | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
 
@@ -65,11 +74,15 @@ export function useEstimateSource({ mode, versionId, draftKey }: EstimateSourceP
       return null;
     }
 
+    if (!includeLocationGuides) {
+      return baseData;
+    }
+
     return applyLocationGuides(baseData, guideRows);
-  }, [baseData, guideRows]);
+  }, [baseData, guideRows, includeLocationGuides]);
 
   if (mode === 'version') {
-    if (versionLoading || guidesLoading) {
+    if (versionLoading || (includeLocationGuides && guidesLoading)) {
       return { data: null, loading: true, errorMessage: null, version: null };
     }
 
@@ -80,7 +93,7 @@ export function useEstimateSource({ mode, versionId, draftKey }: EstimateSourceP
     return { data, loading: false, errorMessage: null, version };
   }
 
-  const loadingDraft = !draftError && (!draftSnapshot || guidesLoading);
+  const loadingDraft = !draftError && (!draftSnapshot || (includeLocationGuides && guidesLoading));
   return {
     data,
     loading: loadingDraft,

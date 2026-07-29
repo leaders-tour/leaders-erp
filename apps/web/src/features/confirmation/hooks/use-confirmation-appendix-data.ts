@@ -13,6 +13,8 @@ export interface UseConfirmationAppendixDataParams {
   appendixPlanStops?: ConfirmationAppendixPlanStopRow[] | null;
   overallMovementIntensityColorOverride?: string | null;
   enrichScheduleDateCells?: boolean;
+  /** false면 locationGuides 조회·적용 생략 (확정서 1·2페이지 미리보기 등) */
+  includeLocationGuides?: boolean;
 }
 
 export function useConfirmationAppendixData(
@@ -34,9 +36,12 @@ export function useConfirmationAppendixData(
   const appendixPlanStops = params.appendixPlanStops;
   const overallMovementIntensityColorOverride = params.overallMovementIntensityColorOverride;
   const enrichScheduleDateCells = params.enrichScheduleDateCells ?? false;
+  const includeLocationGuides = params.includeLocationGuides ?? true;
 
   const { version, loading: versionLoading } = usePlanVersionDetail(planVersionId ?? undefined);
-  const { guideRows, loading: guidesLoading } = useEstimateLocationGuides();
+  const { guideRows, loading: guidesLoading } = useEstimateLocationGuides({
+    skip: !includeLocationGuides,
+  });
 
   const appendixData = useMemo(() => {
     if (!version) {
@@ -54,17 +59,21 @@ export function useConfirmationAppendixData(
       appendixPlanStops: resolvedAppendixPlanStops,
       overallMovementIntensityColorOverride,
     });
+    if (!includeLocationGuides) {
+      return merged;
+    }
     return applyLocationGuides(merged, guideRows);
   }, [
     appendixPlanStops,
     enrichScheduleDateCells,
     guideRows,
+    includeLocationGuides,
     overallMovementIntensityColorOverride,
     version,
   ]);
 
   return {
     appendixData,
-    loading: !!planVersionId && (versionLoading || guidesLoading),
+    loading: !!planVersionId && (versionLoading || (includeLocationGuides && guidesLoading)),
   };
 }

@@ -34,6 +34,8 @@ interface EstimateDocumentProps {
   /** 미리보기에서 첫 안내 페이지(문서 3페이지) 우측 상단에 띄울 컨트롤 본문 */
   screenPreviewGuideOverlay?: ReactNode;
   includeStaticImagePages?: boolean;
+  /** 여행지 안내 페이지(문서 3페이지 이후) 포함 여부. 기본 true */
+  includeGuidePages?: boolean;
   /** splits 나머지 처리. 저장 견적·PDF 기본(`lump`), 일정 빌더 미리보기만 `chunk-per-page` */
   guideSplitRemainderStrategy?: GuideSplitRemainderStrategy;
   /** 1페이지 fit scale 계산이 끝난 뒤 호출 (PDF 렌더 ready 신호용) */
@@ -75,11 +77,16 @@ export function EstimateDocument({
   validUntilEditor,
   screenPreviewGuideOverlay,
   includeStaticImagePages = true,
+  includeGuidePages = true,
   guideSplitRemainderStrategy = 'lump',
   onPage1LayoutReady,
 }: EstimateDocumentProps): JSX.Element {
   const { colors: movementIntensityColors } = useMovementIntensityColorSettings();
   const guideChunks = useMemo(() => {
+    if (!includeGuidePages) {
+      return [];
+    }
+
     const guideBlocks = data.page3Blocks.filter(hasPrimaryGuideImage);
     if (guideBlocks.length === 0) {
       return [];
@@ -100,6 +107,7 @@ export function EstimateDocument({
     data.estimateGuideImagesPerPage,
     data.page3Blocks,
     guideSplitRemainderStrategy,
+    includeGuidePages,
   ]);
 
   return (
@@ -117,7 +125,8 @@ export function EstimateDocument({
           editor={viewMode === 'screen-preview' ? page2Editor : undefined}
         />
       </div>
-      {guideChunks.map((chunk, index) => {
+      {includeGuidePages
+        ? guideChunks.map((chunk, index) => {
         const isFirstGuidePage = index === 0;
         const showGuideOverlay =
           viewMode === 'screen-preview' &&
@@ -140,7 +149,8 @@ export function EstimateDocument({
             <EstimatePage3 blocks={chunk} />
           </div>
         );
-      })}
+      })
+        : null}
       {includeStaticImagePages
         ? ESTIMATE_IMAGE_PAGE_SRCS.map((imageSrc, index) => (
             <div key={imageSrc} className="estimate-page-break">

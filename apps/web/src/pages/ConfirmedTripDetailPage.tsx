@@ -17,6 +17,8 @@ import { PdfPageViewer } from '../components/pdf/PdfPageViewer';
 import { TooltipHelpIcon } from '../components/TooltipHelpIcon';
 import { useAuth } from '../features/auth/context';
 import { useEstimateSource } from '../features/estimate/hooks/use-estimate-source';
+import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
+import { EstimatePreviewScaler } from '../features/estimate/components/EstimatePreviewScaler';
 import { toSecurityDepositScope } from '../features/estimate/utils/format';
 import {
   buildEffectivePricing,
@@ -71,7 +73,6 @@ import { KoreaTeamStageMultiSelect } from '../features/confirmed-trip/KoreaTeamS
 import { PostTripTaskMultiSelect } from '../features/confirmed-trip/PostTripTaskMultiSelect';
 import { usePlanVersions, useUpdateUser, useUploadUserAttachment } from '../features/plan/hooks';
 import { toVariantLabel } from '../features/plan/variant-label';
-import { API_BASE_URL } from '../lib/api-base-url';
 
 interface AttachmentItem {
   filename: string;
@@ -104,122 +105,44 @@ function getConfirmationStatusLabel(status: ConfirmationDocumentRow['status']): 
   }
 }
 
-type PdfJobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
-
-interface PdfJobResponse {
-  jobId: string;
-  status: PdfJobStatus;
-}
-interface PdfJobStatusResponse extends PdfJobResponse {
-  ready: boolean;
-  errorMessage?: string;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms);
-  });
-}
-
-function PlanPdfPreviewPanel({ planVersionId }: { planVersionId: string }) {
-  const { data: estimateData, loading: estimateLoading } = useEstimateSource({
+function PlanEstimatePreviewPanel({ planVersionId }: { planVersionId: string }) {
+  const { data: estimateData, loading: estimateLoading, errorMessage } = useEstimateSource({
     mode: 'version',
     versionId: planVersionId,
     draftKey: null,
+    includeLocationGuides: false,
   });
-  const { ensureAccessToken } = useAuth();
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState(false);
 
-  const authorizedFetch = useCallback(
-    async (input: string, init?: RequestInit) => {
-      const token = await ensureAccessToken();
-      return fetch(input, {
-        ...init,
-        credentials: 'include',
-        headers: {
-          ...(init?.headers ?? {}),
-          ...(token ? { authorization: `Bearer ${token}` } : {}),
-        },
-      });
-    },
-    [ensureAccessToken],
-  );
-
-  useEffect(() => {
-    if (!estimateData) return;
-    let cancelled = false;
-    setGenerating(true);
-    setError(false);
-
-    void (async () => {
-      try {
-        const jobRes = await authorizedFetch(`${API_BASE_URL}/documents/estimate/pdf-jobs`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ data: estimateData }),
-        });
-        if (!jobRes.ok || cancelled) return;
-        const { jobId } = (await jobRes.json()) as PdfJobResponse;
-
-        while (!cancelled) {
-          const statusRes = await authorizedFetch(
-            `${API_BASE_URL}/documents/estimate/pdf-jobs/${encodeURIComponent(jobId)}`,
-          );
-          const status = (await statusRes.json()) as PdfJobStatusResponse;
-          if (status.status === 'succeeded') break;
-          if (status.status === 'failed') {
-            if (!cancelled) setError(true);
-            return;
-          }
-          await sleep(2_000);
-        }
-        if (cancelled) return;
-
-        const dlRes = await authorizedFetch(
-          `${API_BASE_URL}/documents/estimate/pdf-jobs/${encodeURIComponent(jobId)}/download`,
-        );
-        if (!dlRes.ok || cancelled) return;
-        const blob = await dlRes.blob();
-        if (!cancelled) setBlobUrl(URL.createObjectURL(blob));
-      } catch {
-        if (!cancelled) setError(true);
-      } finally {
-        if (!cancelled) setGenerating(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [estimateData, authorizedFetch]);
-
-  useEffect(() => {
-    return () => {
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
-    };
-  }, [blobUrl]);
-
-  if (estimateLoading || generating) {
+  if (estimateLoading) {
     return (
       <div className="flex items-center justify-center rounded-2xl bg-slate-100 py-16 text-sm text-slate-400">
-        견적서 PDF 생성 중...
+        견적서 미리보기를 불러오는 중...
       </div>
     );
   }
 
-  if (error) {
+  if (errorMessage) {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-        견적서 PDF를 생성할 수 없습니다.
+        {errorMessage}
       </div>
     );
   }
 
-  if (!blobUrl) return null;
+  if (!estimateData) return null;
 
-  return <PdfPageViewer url={blobUrl} filename="견적서.pdf" />;
+  return (
+    <div className="estimate-preview-frame">
+      <EstimatePreviewScaler>
+        <EstimateDocument
+          data={estimateData}
+          viewMode="screen-preview"
+          includeGuidePages={false}
+          includeStaticImagePages={false}
+        />
+      </EstimatePreviewScaler>
+    </div>
+  );
 }
 
 function AttachmentsCard({ attachments }: { attachments: AttachmentItem[] }) {
@@ -2128,7 +2051,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
             {isPlanTrip ? (
               <section ref={estimatePreviewRef}>
                 <h2 className="mb-3 text-sm font-semibold text-slate-700">견적서 미리보기</h2>
-                <PlanPdfPreviewPanel planVersionId={trip.planVersionId!} />
+                <PlanEstimatePreviewPanel planVersionId={trip.planVersionId!} />
               </section>
             ) : null}
 
