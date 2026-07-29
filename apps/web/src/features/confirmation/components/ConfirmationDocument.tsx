@@ -336,7 +336,9 @@ function ConfirmationPage({
                 <th>가이드님</th>
                 <td>{blankIfDash(fallbackText(data.guideName))}</td>
                 <th>미팅장소</th>
-                <td>{blankIfDash(fallbackText(data.meetingPlace))}</td>
+                <td className="confirmation-page1-preline-cell">
+                  <span className="whitespace-pre-wrap">{blankIfDash(fallbackText(data.meetingPlace))}</span>
+                </td>
               </tr>
               <tr className="confirmation-page1-tr--detail-row">
                 <th className="confirmation-page1-detail-label">여행객 명단</th>

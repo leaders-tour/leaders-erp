@@ -28,6 +28,7 @@ export * from './user.schema';
 export * from './confirmed-trip.schema';
 export * from './confirmed-trip-lodging.schema';
 export * from './confirmation-document.schema';
+export * from './confirmation-meeting-place';
 export * from './confirmation-accommodation';
 export * from './contract-traveler-profile';
 export * from './contract-passport-photo';

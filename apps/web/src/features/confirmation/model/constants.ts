@@ -1,6 +1,9 @@
 export const CONFIRMATION_TITLE = '리더스투어 여정확정서';
 export const CONFIRMATION_TAGLINE = 'Walk New Paths, Write Your Own Story';
-export const CONFIRMATION_MEETING_PLACE_DEFAULT = '출국게이트 우측 버거킹 앞';
+export {
+  CONFIRMATION_MEETING_PLACE_AIRPORT,
+  CONFIRMATION_MEETING_PLACE_DEFAULT,
+} from '@tour/validation';
 
 export const CONFIRMATION_COMPANY = {
   businessNumber: '858-09-02356',

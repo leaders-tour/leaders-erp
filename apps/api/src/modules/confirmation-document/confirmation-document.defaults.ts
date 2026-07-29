@@ -14,10 +14,10 @@ import {
   normalizeVehicleAssignments,
   resolveConfirmationAccommodationLevelTag,
   resolveConfirmationAccommodationName,
+  resolveConfirmationMeetingPlaceFromPickupText,
   type ConfirmationDocumentSnapshotInput,
 } from '@tour/validation';
 
-const DEFAULT_MEETING_PLACE = '출국게이트 우측 버거킹 앞';
 const BALANCE_PAYMENT_NOTE = '(가이드 만나서 원화 현금 지불)';
 
 type LodgingLike = {
@@ -318,7 +318,7 @@ export function buildConfirmationDraftDefaults(input: {
   return {
     ...sharedFields,
     guideName: resolveGuideName(input.confirmedTrip.guideAssignments),
-    meetingPlace: DEFAULT_MEETING_PLACE,
+    meetingPlace: resolveConfirmationMeetingPlaceFromPickupText(sharedFields.pickupText),
     travelers,
     accommodationLines: buildAccommodationLines(
       input.confirmedTrip.lodgings,
@@ -327,4 +327,4 @@ export function buildConfirmationDraftDefaults(input: {
   };
 }
 
-export { DEFAULT_MEETING_PLACE, formatConfirmationTravelerLine };
+export { formatConfirmationTravelerLine };

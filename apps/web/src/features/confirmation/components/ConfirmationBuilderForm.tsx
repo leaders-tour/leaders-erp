@@ -5,6 +5,7 @@ import type {
   ConfirmationBuilderState,
   ConfirmationTraveler,
 } from '../model/types';
+import { resolveConfirmationMeetingPlaceFromPickupText } from '@tour/validation';
 import { CONFIRMATION_MEETING_PLACE_DEFAULT } from '../model/constants';
 import {
   ConfirmationScheduleEditor,
@@ -156,7 +157,17 @@ export function ConfirmationBuilderForm({
         <div className="confirmation-builder-field-grid">
           <TextField label="항공권 IN" value={value.flightInText} onChange={(flightInText) => patch({ flightInText })} multiline />
           <TextField label="항공권 OUT" value={value.flightOutText} onChange={(flightOutText) => patch({ flightOutText })} multiline />
-          <TextField label="픽업" value={value.pickupText} onChange={(pickupText) => patch({ pickupText })} multiline />
+          <TextField
+            label="픽업"
+            value={value.pickupText}
+            onChange={(pickupText) =>
+              patch({
+                pickupText,
+                meetingPlace: resolveConfirmationMeetingPlaceFromPickupText(pickupText),
+              })
+            }
+            multiline
+          />
           <TextField label="드랍" value={value.dropText} onChange={(dropText) => patch({ dropText })} multiline />
           <TextField
             label="실투어 외 픽드랍"
@@ -214,6 +225,7 @@ export function ConfirmationBuilderForm({
             label="미팅장소"
             value={value.meetingPlace || CONFIRMATION_MEETING_PLACE_DEFAULT}
             onChange={(meetingPlace) => patch({ meetingPlace })}
+            multiline
           />
         </div>
         <div className="grid gap-3">
