@@ -182,7 +182,15 @@ const EquipmentIcon: NavIcon = ({ className }) => (
 );
 
 const resourceNavItems: NavItem[] = [
-  { path: '/guides', label: '가이드', icon: GuideIcon },
+  {
+    path: '/guides',
+    label: '가이드',
+    icon: GuideIcon,
+    children: [
+      { path: '/guides', label: '가이드 목록' },
+      { path: '/guides/locations', label: '가이드 위치' },
+    ],
+  },
   { path: '/drivers', label: '기사', icon: DriverIcon },
   { path: '/accommodations', label: '숙소', icon: AccommodationIcon },
 ];

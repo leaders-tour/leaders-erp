@@ -37,6 +37,19 @@ export interface LeaderstepsAuthUserRow {
   linkedGuideNameMn: string | null;
 }
 
+export interface GuideLocationRow {
+  guideId: string;
+  guideNameKo: string;
+  guideNameMn: string | null;
+  profileImageUrl: string | null;
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  recordedAt: string;
+  source: string;
+  projectId: string;
+}
+
 const GUIDE_FRAGMENT = gql`
   fragment GuideFields on Guide {
     id
@@ -114,6 +127,23 @@ const LEADERSTEPS_AUTH_USERS_QUERY = gql`
       linkedGuideId
       linkedGuideNameKo
       linkedGuideNameMn
+    }
+  }
+`;
+
+const GUIDE_LOCATIONS_QUERY = gql`
+  query GuideLocations($date: String!, $guideId: ID) {
+    guideLocations(date: $date, guideId: $guideId) {
+      guideId
+      guideNameKo
+      guideNameMn
+      profileImageUrl
+      latitude
+      longitude
+      accuracy
+      recordedAt
+      source
+      projectId
     }
   }
 `;
@@ -235,6 +265,32 @@ export function useLeaderstepsAuthUsers() {
   return {
     authUsers: data?.leaderstepsAuthUsers ?? [],
     loading,
+    errorMessage: error?.message ?? null,
+    refetch,
+  };
+}
+
+export function useGuideLocations(date: string, guideId?: string) {
+  const todayInUlaanbaatar = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ulaanbaatar',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  const { data, loading, error, refetch, networkStatus } = useQuery<{
+    guideLocations: GuideLocationRow[];
+  }>(GUIDE_LOCATIONS_QUERY, {
+    variables: { date, guideId: guideId || null },
+    skip: !date,
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
+    pollInterval: date === todayInUlaanbaatar ? 60_000 : 0,
+  });
+
+  return {
+    locations: data?.guideLocations ?? [],
+    loading: loading && !data,
+    refreshing: networkStatus === 4,
     errorMessage: error?.message ?? null,
     refetch,
   };

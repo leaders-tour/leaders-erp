@@ -4,6 +4,7 @@ import {
   guideCreateSchema,
   guideLeaderstepsAuthLinkSchema,
   guideLeaderstepsAuthUnlinkSchema,
+  guideLocationFilterSchema,
   guideUpdateSchema,
 } from '@tour/validation';
 import { DomainError, createValidationError } from '../../lib/errors';
@@ -16,6 +17,20 @@ const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const MAX_CERT_IMAGE_COUNT = 20;
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const SUPABASE_AUTH_USERS_PAGE_SIZE = 1000;
+const ULAANBAATAR_DAY_MS = 24 * 60 * 60 * 1000;
+
+interface GuideLocationResult {
+  guideId: string;
+  guideNameKo: string;
+  guideNameMn: string | null;
+  profileImageUrl: string | null;
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  recordedAt: string;
+  source: string;
+  projectId: string;
+}
 
 function readMetadataText(metadata: unknown, keys: readonly string[]): string | null {
   if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
@@ -140,6 +155,76 @@ export class GuideService {
           right.email ?? right.displayName ?? right.id,
         ),
       );
+  }
+
+  async listGuideLocations(date: string, guideId?: string | null) {
+    const parsed = guideLocationFilterSchema.safeParse({ date, guideId });
+    if (!parsed.success) {
+      throw createValidationError('Invalid guide location filter', parsed.error);
+    }
+
+    const startMs = Date.parse(`${parsed.data.date}T00:00:00+08:00`);
+    const endMs = startMs + ULAANBAATAR_DAY_MS;
+    const guides = await new GuideRepository(this.prisma).findLinkedLeaderstepsGuides(
+      parsed.data.guideId,
+    );
+    const supabase = getSupabaseAdminClient();
+
+    const locations = await Promise.all(
+      guides.map(async (guide): Promise<GuideLocationResult | null> => {
+        if (!guide.leaderstepsAuthUserId) {
+          return null;
+        }
+
+        const { data, error } = await supabase
+          .from('location_logs')
+          .select('lat,lng,accuracy,timestamp,source,project_id')
+          .eq('user_id', guide.leaderstepsAuthUserId)
+          .gte('timestamp', startMs)
+          .lt('timestamp', endMs)
+          .order('timestamp', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+          throw new DomainError(
+            'EXTERNAL_SERVICE_ERROR',
+            `${guide.nameKo} 가이드의 위치를 불러오지 못했습니다.`,
+          );
+        }
+        if (!data) {
+          return null;
+        }
+
+        const latitude = Number(data.lat);
+        const longitude = Number(data.lng);
+        const accuracy = Number(data.accuracy);
+        const timestamp = Number(data.timestamp);
+        if (
+          !Number.isFinite(latitude) ||
+          !Number.isFinite(longitude) ||
+          !Number.isFinite(accuracy) ||
+          !Number.isFinite(timestamp)
+        ) {
+          return null;
+        }
+
+        return {
+          guideId: guide.id,
+          guideNameKo: guide.nameKo,
+          guideNameMn: guide.nameMn,
+          profileImageUrl: guide.profileImageUrl,
+          latitude,
+          longitude,
+          accuracy,
+          recordedAt: new Date(timestamp).toISOString(),
+          source: String(data.source),
+          projectId: String(data.project_id),
+        };
+      }),
+    );
+
+    return locations.filter((location): location is GuideLocationResult => location !== null);
   }
 
   async linkLeaderstepsAuth(guideId: string, authUserId: string) {

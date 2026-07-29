@@ -34,6 +34,23 @@ export class GuideRepository {
     });
   }
 
+  findLinkedLeaderstepsGuides(guideId?: string | null) {
+    return this.prisma.guide.findMany({
+      where: {
+        leaderstepsAuthUserId: { not: null },
+        ...(guideId ? { id: guideId } : {}),
+      },
+      select: {
+        id: true,
+        nameKo: true,
+        nameMn: true,
+        profileImageUrl: true,
+        leaderstepsAuthUserId: true,
+      },
+      orderBy: { nameKo: 'asc' },
+    });
+  }
+
   create(data: GuideCreateDto) {
     return this.prisma.guide.create({
       data: {

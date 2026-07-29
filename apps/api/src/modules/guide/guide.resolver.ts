@@ -43,6 +43,11 @@ export const guideResolver = {
       requireAdmin(ctx);
       return new GuideService(ctx.prisma).listLeaderstepsAuthUsers();
     },
+    guideLocations: (
+      _parent: unknown,
+      args: { date: string; guideId?: string | null },
+      ctx: AppContext,
+    ) => new GuideService(ctx.prisma).listGuideLocations(args.date, args.guideId),
   },
   Mutation: {
     createGuide: (_parent: unknown, args: GuideCreateArgs, ctx: AppContext) =>

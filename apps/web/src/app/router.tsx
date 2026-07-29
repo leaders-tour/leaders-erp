@@ -1,4 +1,5 @@
 import { EmployeeRole } from '@tour/domain';
+import { lazy, Suspense } from 'react';
 import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { useAuth } from '../features/auth/context';
 import { RedirectAuthenticated, RequireAdmin, RequireAuth, RequireStaffOrAbove } from './auth-guards';
@@ -66,6 +67,12 @@ import {
 import { SpecialMealDestinationRulesPage } from '../pages/SpecialMealDestinationRulesPage';
 import { TodoListPage } from '../pages/TodoListPage';
 
+const GuideLocationMapPage = lazy(() =>
+  import('../pages/GuideLocationMapPage').then((module) => ({
+    default: module.GuideLocationMapPage,
+  })),
+);
+
 /** 역할에 따라 초기 홈 경로를 분기합니다. */
 function HomeRedirect(): JSX.Element {
   const { employee } = useAuth();
@@ -111,6 +118,14 @@ export const router = createBrowserRouter([
       { path: 'confirmed-trips/:tripId/confirmation-builder', element: <ConfirmationBuilderPage /> },
       { path: 'confirmed-trips/:tripId/assign', element: <ConfirmedTripAssignPage /> },
       { path: 'guides', element: <GuidesPage /> },
+      {
+        path: 'guides/locations',
+        element: (
+          <Suspense fallback={<p className="py-8 text-sm text-slate-500">지도를 불러오는 중...</p>}>
+            <GuideLocationMapPage />
+          </Suspense>
+        ),
+      },
       { path: 'guides/:guideId', element: <GuideDetailPage /> },
       { path: 'drivers', element: <DriversPage /> },
       { path: 'drivers/:driverId', element: <DriverDetailPage /> },
