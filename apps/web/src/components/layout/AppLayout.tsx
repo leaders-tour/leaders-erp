@@ -319,6 +319,11 @@ export function AppLayout(): JSX.Element {
         ...baseNavItems,
         { path: '/admin/pricing-policies', label: '가격 정책', icon: PricingIcon },
         ...resourceNavItems,
+        {
+          path: '/admin/guide-leadersteps-matching',
+          label: '가이드 계정 매칭',
+          icon: GuideIcon,
+        },
         { path: '/admin/employees', label: '직원 관리', icon: AdminIcon },
       ];
     }

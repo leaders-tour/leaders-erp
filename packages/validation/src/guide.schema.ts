@@ -37,5 +37,16 @@ export const guideUpdateSchema = z.object({
   note: z.string().max(5000).nullable().optional(),
 });
 
+export const guideLeaderstepsAuthLinkSchema = z.object({
+  guideId: z.string().min(1),
+  authUserId: z.string().uuid(),
+});
+
+export const guideLeaderstepsAuthUnlinkSchema = z.object({
+  guideId: z.string().min(1),
+});
+
 export type GuideCreateInput = z.infer<typeof guideCreateSchema>;
 export type GuideUpdateInput = z.infer<typeof guideUpdateSchema>;
+export type GuideLeaderstepsAuthLinkInput = z.infer<typeof guideLeaderstepsAuthLinkSchema>;
+export type GuideLeaderstepsAuthUnlinkInput = z.infer<typeof guideLeaderstepsAuthUnlinkSchema>;

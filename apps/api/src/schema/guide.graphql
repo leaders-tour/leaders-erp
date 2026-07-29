@@ -32,9 +32,23 @@ type Guide {
   profileImageUrl: String
   certImageUrls: [String!]!
   note: String
+  leaderstepsAuthUserId: ID
+  leaderstepsAuthLinkedAt: DateTime
   createdAt: DateTime!
   updatedAt: DateTime!
   confirmedTrips(includeCancelled: Boolean): [ConfirmedTrip!]!
+}
+
+type LeaderstepsAuthUser {
+  id: ID!
+  email: String
+  phone: String
+  displayName: String
+  createdAt: DateTime!
+  lastSignInAt: DateTime
+  linkedGuideId: ID
+  linkedGuideNameKo: String
+  linkedGuideNameMn: String
 }
 
 input GuideCreateInput {
@@ -69,8 +83,14 @@ input GuideUpdateInput {
   note: String
 }
 
+extend type Query {
+  leaderstepsAuthUsers: [LeaderstepsAuthUser!]!
+}
+
 extend type Mutation {
   uploadGuideProfileImage(id: ID!, image: Upload!): Guide!
   uploadGuideCertImages(id: ID!, images: [Upload!]!): Guide!
   removeGuideCertImage(id: ID!, imageUrl: String!): Guide!
+  linkGuideLeaderstepsAuth(guideId: ID!, authUserId: ID!): Guide!
+  unlinkGuideLeaderstepsAuth(guideId: ID!): Guide!
 }

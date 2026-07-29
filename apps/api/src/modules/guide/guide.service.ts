@@ -1,13 +1,35 @@
 import type { PrismaClient } from '@prisma/client';
-import { guideCreateSchema, guideUpdateSchema } from '@tour/validation';
+import type { User as SupabaseAuthUser } from '@supabase/supabase-js';
+import {
+  guideCreateSchema,
+  guideLeaderstepsAuthLinkSchema,
+  guideLeaderstepsAuthUnlinkSchema,
+  guideUpdateSchema,
+} from '@tour/validation';
 import { DomainError, createValidationError } from '../../lib/errors';
 import { FileStorageClient, type UploadFile } from '../../lib/file-storage/client';
+import { getSupabaseAdminClient } from '../../lib/supabase';
 import { GuideRepository } from './guide.repository';
 import type { GuideCreateDto, GuidesFilterDto, GuideUpdateDto } from './guide.types';
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const MAX_CERT_IMAGE_COUNT = 20;
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const SUPABASE_AUTH_USERS_PAGE_SIZE = 1000;
+
+function readMetadataText(metadata: unknown, keys: readonly string[]): string | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return null;
+  }
+  const record = metadata as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
 
 export class GuideService {
   private fileStorageClient: FileStorageClient | null = null;
@@ -66,6 +88,111 @@ export class GuideService {
     }
     await new GuideRepository(this.prisma).delete(id);
     return true;
+  }
+
+  async listLeaderstepsAuthUsers() {
+    const authUsers: SupabaseAuthUser[] = [];
+    let page = 1;
+
+    while (true) {
+      const { data, error } = await getSupabaseAdminClient().auth.admin.listUsers({
+        page,
+        perPage: SUPABASE_AUTH_USERS_PAGE_SIZE,
+      });
+      if (error) {
+        throw new DomainError('EXTERNAL_SERVICE_ERROR', 'Leadersteps 계정 목록을 불러오지 못했습니다.');
+      }
+      authUsers.push(...data.users);
+      if (data.users.length < SUPABASE_AUTH_USERS_PAGE_SIZE) {
+        break;
+      }
+      page += 1;
+    }
+
+    const linkedGuides = await new GuideRepository(this.prisma).findLinkedLeaderstepsAuthUsers();
+    const linkedGuideByAuthUserId = new Map(
+      linkedGuides.flatMap((guide) =>
+        guide.leaderstepsAuthUserId ? [[guide.leaderstepsAuthUserId, guide] as const] : [],
+      ),
+    );
+
+    return authUsers
+      .map((authUser) => {
+        const linkedGuide = linkedGuideByAuthUserId.get(authUser.id);
+        return {
+          id: authUser.id,
+          email: authUser.email ?? null,
+          phone: authUser.phone || null,
+          displayName: readMetadataText(authUser.user_metadata, [
+            'display_name',
+            'full_name',
+            'name',
+          ]),
+          createdAt: authUser.created_at,
+          lastSignInAt: authUser.last_sign_in_at ?? null,
+          linkedGuideId: linkedGuide?.id ?? null,
+          linkedGuideNameKo: linkedGuide?.nameKo ?? null,
+          linkedGuideNameMn: linkedGuide?.nameMn ?? null,
+        };
+      })
+      .sort((left, right) =>
+        (left.email ?? left.displayName ?? left.id).localeCompare(
+          right.email ?? right.displayName ?? right.id,
+        ),
+      );
+  }
+
+  async linkLeaderstepsAuth(guideId: string, authUserId: string) {
+    const parsed = guideLeaderstepsAuthLinkSchema.safeParse({ guideId, authUserId });
+    if (!parsed.success) {
+      throw createValidationError('Invalid guide account link input', parsed.error);
+    }
+
+    const repository = new GuideRepository(this.prisma);
+    const guide = await repository.findById(parsed.data.guideId);
+    if (!guide) {
+      throw new DomainError('NOT_FOUND', 'Guide not found');
+    }
+    if (guide.leaderstepsAuthUserId === parsed.data.authUserId) {
+      return guide;
+    }
+    if (guide.leaderstepsAuthUserId) {
+      throw new DomainError('VALIDATION_FAILED', '기존 Leadersteps 계정 연결을 먼저 해제해 주세요.');
+    }
+
+    const linkedGuide = await repository.findByLeaderstepsAuthUserId(parsed.data.authUserId);
+    if (linkedGuide) {
+      throw new DomainError(
+        'VALIDATION_FAILED',
+        `이미 ${linkedGuide.nameKo} 가이드에게 연결된 Leadersteps 계정입니다.`,
+      );
+    }
+
+    const { data, error } = await getSupabaseAdminClient().auth.admin.getUserById(
+      parsed.data.authUserId,
+    );
+    if (error || !data.user) {
+      throw new DomainError('NOT_FOUND', 'Leadersteps 계정을 찾을 수 없습니다.');
+    }
+
+    return repository.linkLeaderstepsAuth(parsed.data.guideId, parsed.data.authUserId);
+  }
+
+  async unlinkLeaderstepsAuth(guideId: string) {
+    const parsed = guideLeaderstepsAuthUnlinkSchema.safeParse({ guideId });
+    if (!parsed.success) {
+      throw createValidationError('Invalid guide account unlink input', parsed.error);
+    }
+
+    const repository = new GuideRepository(this.prisma);
+    const guide = await repository.findById(parsed.data.guideId);
+    if (!guide) {
+      throw new DomainError('NOT_FOUND', 'Guide not found');
+    }
+    if (!guide.leaderstepsAuthUserId) {
+      return guide;
+    }
+    return repository.unlinkLeaderstepsAuth(parsed.data.guideId);
   }
 
   async uploadProfileImage(id: string, rawImage: UploadFile | Promise<UploadFile>) {

@@ -18,6 +18,22 @@ export class GuideRepository {
     return this.prisma.guide.findUnique({ where: { id } });
   }
 
+  findByLeaderstepsAuthUserId(leaderstepsAuthUserId: string) {
+    return this.prisma.guide.findUnique({ where: { leaderstepsAuthUserId } });
+  }
+
+  findLinkedLeaderstepsAuthUsers() {
+    return this.prisma.guide.findMany({
+      where: { leaderstepsAuthUserId: { not: null } },
+      select: {
+        id: true,
+        nameKo: true,
+        nameMn: true,
+        leaderstepsAuthUserId: true,
+      },
+    });
+  }
+
   create(data: GuideCreateDto) {
     return this.prisma.guide.create({
       data: {
@@ -55,6 +71,26 @@ export class GuideRepository {
         ...(data.profileImageUrl !== undefined ? { profileImageUrl: data.profileImageUrl } : {}),
         ...(data.certImageUrls !== undefined ? { certImageUrls: data.certImageUrls } : {}),
         ...(data.note !== undefined ? { note: data.note } : {}),
+      },
+    });
+  }
+
+  linkLeaderstepsAuth(id: string, leaderstepsAuthUserId: string) {
+    return this.prisma.guide.update({
+      where: { id },
+      data: {
+        leaderstepsAuthUserId,
+        leaderstepsAuthLinkedAt: new Date(),
+      },
+    });
+  }
+
+  unlinkLeaderstepsAuth(id: string) {
+    return this.prisma.guide.update({
+      where: { id },
+      data: {
+        leaderstepsAuthUserId: null,
+        leaderstepsAuthLinkedAt: null,
       },
     });
   }

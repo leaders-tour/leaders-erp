@@ -2049,20 +2049,22 @@ enum GuideGender {
 }
 
 model Guide {
-  id              String       @id @default(uuid(7))
-  nameKo          String
-  nameMn          String?
-  level           GuideLevel   @default(OTHER)
-  status          GuideStatus  @default(OTHER)
-  gender          GuideGender?
-  birthYear       Int?
-  isSmoker        Boolean      @default(false)
-  experienceYears Int?
-  joinYear        Int?
-  phone           String?
-  profileImageUrl String?
-  certImageUrls   Json         @default("[]")
-  note            String?      @db.Text
+  id                      String       @id @default(uuid(7))
+  nameKo                  String
+  nameMn                  String?
+  level                   GuideLevel   @default(OTHER)
+  status                  GuideStatus  @default(OTHER)
+  gender                  GuideGender?
+  birthYear               Int?
+  isSmoker                Boolean      @default(false)
+  experienceYears         Int?
+  joinYear                Int?
+  phone                   String?
+  profileImageUrl         String?
+  certImageUrls           Json         @default("[]")
+  note                    String?      @db.Text
+  leaderstepsAuthUserId   String?      @unique
+  leaderstepsAuthLinkedAt DateTime?
 
   guideAssignments ConfirmedTripGuideAssignment[]
 

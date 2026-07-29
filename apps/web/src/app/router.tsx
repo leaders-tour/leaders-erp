@@ -13,6 +13,7 @@ import { ConfirmedTripDetailPage } from '../pages/ConfirmedTripDetailPage';
 import { ConfirmedTripAssignPage } from '../pages/ConfirmedTripAssignPage';
 import { GuidesPage } from '../pages/GuidesPage';
 import { GuideDetailPage } from '../pages/GuideDetailPage';
+import { GuideLeaderstepsMatchingPage } from '../pages/GuideLeaderstepsMatchingPage';
 import { DriverDetailPage } from '../pages/DriverDetailPage';
 import { DriversPage } from '../pages/DriversPage';
 import { AccommodationDetailPage } from '../pages/AccommodationDetailPage';
@@ -310,6 +311,14 @@ export const router = createBrowserRouter([
         element: (
           <RequireAdmin>
             <EmployeeAdminPage />
+          </RequireAdmin>
+        ),
+      },
+      {
+        path: 'admin/guide-leadersteps-matching',
+        element: (
+          <RequireAdmin>
+            <GuideLeaderstepsMatchingPage />
           </RequireAdmin>
         ),
       },

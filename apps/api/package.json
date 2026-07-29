@@ -15,6 +15,7 @@
     "@apollo/server": "^4.11.0",
     "@as-integrations/express5": "^1.1.2",
     "@prisma/client": "^5.19.1",
+    "@supabase/supabase-js": "^2.111.0",
     "@tour/domain": "workspace:*",
     "@tour/validation": "workspace:*",
     "cors": "^2.8.5",

@@ -1,6 +1,7 @@
 import type { GuideLevel, GuideStatus } from '@prisma/client';
 import type { AppContext } from '../../context';
 import type { UploadFile } from '../../lib/file-storage/client';
+import { requireAdmin } from '../../lib/auth-guards';
 import { ConfirmedTripRepository } from '../confirmed-trip/confirmed-trip.repository';
 import { GuideService } from './guide.service';
 import type { GuideCreateDto, GuidesFilterDto, GuideUpdateDto } from './guide.types';
@@ -23,6 +24,11 @@ interface GuideUpdateArgs {
   input: GuideUpdateDto;
 }
 
+interface GuideLeaderstepsAuthLinkArgs {
+  guideId: string;
+  authUserId: string;
+}
+
 export const guideResolver = {
   Query: {
     guides: (_parent: unknown, args: GuidesArgs, ctx: AppContext) => {
@@ -33,6 +39,10 @@ export const guideResolver = {
     },
     guide: (_parent: unknown, args: GuideIdArgs, ctx: AppContext) =>
       new GuideService(ctx.prisma).get(args.id),
+    leaderstepsAuthUsers: (_parent: unknown, _args: unknown, ctx: AppContext) => {
+      requireAdmin(ctx);
+      return new GuideService(ctx.prisma).listLeaderstepsAuthUsers();
+    },
   },
   Mutation: {
     createGuide: (_parent: unknown, args: GuideCreateArgs, ctx: AppContext) =>
@@ -47,6 +57,22 @@ export const guideResolver = {
       new GuideService(ctx.prisma).uploadCertImages(args.id, args.images),
     removeGuideCertImage: (_parent: unknown, args: { id: string; imageUrl: string }, ctx: AppContext) =>
       new GuideService(ctx.prisma).removeCertImage(args.id, args.imageUrl),
+    linkGuideLeaderstepsAuth: (
+      _parent: unknown,
+      args: GuideLeaderstepsAuthLinkArgs,
+      ctx: AppContext,
+    ) => {
+      requireAdmin(ctx);
+      return new GuideService(ctx.prisma).linkLeaderstepsAuth(args.guideId, args.authUserId);
+    },
+    unlinkGuideLeaderstepsAuth: (
+      _parent: unknown,
+      args: { guideId: string },
+      ctx: AppContext,
+    ) => {
+      requireAdmin(ctx);
+      return new GuideService(ctx.prisma).unlinkLeaderstepsAuth(args.guideId);
+    },
   },
 
   Guide: {

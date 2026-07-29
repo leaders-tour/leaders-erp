@@ -19,8 +19,22 @@ export interface GuideRow {
   profileImageUrl: string | null;
   certImageUrls: string[];
   note: string | null;
+  leaderstepsAuthUserId: string | null;
+  leaderstepsAuthLinkedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LeaderstepsAuthUserRow {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  displayName: string | null;
+  createdAt: string;
+  lastSignInAt: string | null;
+  linkedGuideId: string | null;
+  linkedGuideNameKo: string | null;
+  linkedGuideNameMn: string | null;
 }
 
 const GUIDE_FRAGMENT = gql`
@@ -39,6 +53,8 @@ const GUIDE_FRAGMENT = gql`
     profileImageUrl
     certImageUrls
     note
+    leaderstepsAuthUserId
+    leaderstepsAuthLinkedAt
     createdAt
     updatedAt
   }
@@ -86,9 +102,44 @@ const DELETE_GUIDE_MUTATION = gql`
   }
 `;
 
+const LEADERSTEPS_AUTH_USERS_QUERY = gql`
+  query LeaderstepsAuthUsers {
+    leaderstepsAuthUsers {
+      id
+      email
+      phone
+      displayName
+      createdAt
+      lastSignInAt
+      linkedGuideId
+      linkedGuideNameKo
+      linkedGuideNameMn
+    }
+  }
+`;
+
+const LINK_GUIDE_LEADERSTEPS_AUTH_MUTATION = gql`
+  ${GUIDE_FRAGMENT}
+  mutation LinkGuideLeaderstepsAuth($guideId: ID!, $authUserId: ID!) {
+    linkGuideLeaderstepsAuth(guideId: $guideId, authUserId: $authUserId) {
+      ...GuideFields
+    }
+  }
+`;
+
+const UNLINK_GUIDE_LEADERSTEPS_AUTH_MUTATION = gql`
+  ${GUIDE_FRAGMENT}
+  mutation UnlinkGuideLeaderstepsAuth($guideId: ID!) {
+    unlinkGuideLeaderstepsAuth(guideId: $guideId) {
+      ...GuideFields
+    }
+  }
+`;
+
 const GUIDE_FIELDS = `
   id nameKo nameMn level status gender birthYear isSmoker
-  experienceYears joinYear phone profileImageUrl certImageUrls note createdAt updatedAt
+  experienceYears joinYear phone profileImageUrl certImageUrls note
+  leaderstepsAuthUserId leaderstepsAuthLinkedAt createdAt updatedAt
 `;
 
 const UPLOAD_GUIDE_PROFILE_IMAGE_MUTATION_STR = `
@@ -171,6 +222,55 @@ export function useDeleteGuide() {
         variables: { id },
         refetchQueries: [{ query: GUIDES_QUERY }],
       });
+    },
+  };
+}
+
+export function useLeaderstepsAuthUsers() {
+  const { data, loading, error, refetch } = useQuery<{
+    leaderstepsAuthUsers: LeaderstepsAuthUserRow[];
+  }>(LEADERSTEPS_AUTH_USERS_QUERY, {
+    fetchPolicy: 'cache-and-network',
+  });
+  return {
+    authUsers: data?.leaderstepsAuthUsers ?? [],
+    loading,
+    errorMessage: error?.message ?? null,
+    refetch,
+  };
+}
+
+export function useGuideLeaderstepsAuthLink() {
+  const [linkMutation, { loading: linking }] = useMutation<{
+    linkGuideLeaderstepsAuth: GuideRow;
+  }>(LINK_GUIDE_LEADERSTEPS_AUTH_MUTATION);
+  const [unlinkMutation, { loading: unlinking }] = useMutation<{
+    unlinkGuideLeaderstepsAuth: GuideRow;
+  }>(UNLINK_GUIDE_LEADERSTEPS_AUTH_MUTATION);
+
+  return {
+    loading: linking || unlinking,
+    link: async (guideId: string, authUserId: string) => {
+      const result = await linkMutation({
+        variables: { guideId, authUserId },
+        refetchQueries: [{ query: GUIDES_QUERY }, { query: LEADERSTEPS_AUTH_USERS_QUERY }],
+        awaitRefetchQueries: true,
+      });
+      if (!result.data?.linkGuideLeaderstepsAuth) {
+        throw new Error('Leadersteps 계정 연결에 실패했습니다.');
+      }
+      return result.data.linkGuideLeaderstepsAuth;
+    },
+    unlink: async (guideId: string) => {
+      const result = await unlinkMutation({
+        variables: { guideId },
+        refetchQueries: [{ query: GUIDES_QUERY }, { query: LEADERSTEPS_AUTH_USERS_QUERY }],
+        awaitRefetchQueries: true,
+      });
+      if (!result.data?.unlinkGuideLeaderstepsAuth) {
+        throw new Error('Leadersteps 계정 연결 해제에 실패했습니다.');
+      }
+      return result.data.unlinkGuideLeaderstepsAuth;
     },
   };
 }
