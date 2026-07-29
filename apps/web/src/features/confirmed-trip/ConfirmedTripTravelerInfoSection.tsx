@@ -489,6 +489,22 @@ export function ConfirmedTripTravelerInfoSection({
     [receipts, submissions],
   );
 
+  const headcountLabel = useMemo(() => {
+    const activeCount = columns.length;
+    const excludedCount = excludedSubmissions.length;
+
+    if (excludedCount > 0) {
+      const totalCount = activeCount + excludedCount;
+      return `${totalCount}명 (완료${activeCount}명/취소${excludedCount}명)`;
+    }
+
+    if (headcountTotal != null) {
+      return `${headcountTotal}명`;
+    }
+
+    return `${activeCount}명`;
+  }, [columns.length, excludedSubmissions.length, headcountTotal]);
+
   const loading = submissionsLoading || receiptsLoading;
 
   const handleSubmissionsUpdated = async () => {
@@ -531,9 +547,7 @@ export function ConfirmedTripTravelerInfoSection({
         <div className="mb-4 flex flex-wrap items-end gap-6 text-sm">
           <div>
             <span className="block text-xs text-slate-500">인원수</span>
-            <p className="mt-1 text-lg font-semibold text-slate-900">
-              {headcountTotal != null ? `${headcountTotal}명` : `${columns.length}명`}
-            </p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{headcountLabel}</p>
           </div>
           <div>
             <span className="block text-xs text-slate-500">모집 상태</span>
