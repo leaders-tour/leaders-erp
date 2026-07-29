@@ -39,6 +39,7 @@ import { simplifyDestinationCellText } from '../features/plan/simplify-destinati
 import { resolveUserDisplayName } from '../features/plan/format-user-display-name';
 import { externalTransferTravelDateIso } from '../features/plan/external-transfer';
 import { isConfirmedTripRecentReturn } from '../features/confirmed-trip/recent-return';
+import { getCurrentTripLodging, getCurrentTripLodgingDayIndex } from '../features/confirmed-trip/trip-current-lodging';
 import { getTripLodgingListSummary } from '../features/confirmed-trip/trip-lodging-list-summary';
 import { useConfirmedTripsScrollRestore } from '../features/confirmed-trip/useConfirmedTripsScrollRestore';
 import {
@@ -523,6 +524,63 @@ function formatLodgingGroupLabel(group: LodgingSummaryGroup): string {
   return group.nights > 1 ? `${group.name} · ${group.nights}박` : group.name;
 }
 
+function LodgingProgressBadge({ trip }: { trip: ConfirmedTripRow }): JSX.Element | null {
+  const { progressLabel, isComplete } = getTripLodgingListSummary(trip);
+  if (!progressLabel) return null;
+
+  return (
+    <span
+      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+        isComplete
+          ? 'bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-500/20'
+          : 'bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-500/25'
+      }`}
+    >
+      {progressLabel}
+    </span>
+  );
+}
+
+function LodgingAllDropdown({
+  groups,
+  progressBadge,
+  currentDayIndex,
+}: {
+  groups: LodgingSummaryGroup[];
+  progressBadge: JSX.Element | null;
+  currentDayIndex?: number | null;
+}): JSX.Element | null {
+  if (groups.length === 0) return null;
+
+  return (
+    <div className="pointer-events-none absolute left-0 top-full z-[100] mt-2 hidden w-72 rounded-2xl border border-slate-200 bg-white p-3 text-left opacity-100 shadow-lg group-hover:block">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-slate-500">전체 숙소</p>
+        {progressBadge}
+      </div>
+      <div className="grid gap-1.5">
+        {groups.map((group) => {
+          const isCurrent = currentDayIndex != null && group.dayIndices.includes(currentDayIndex);
+          return (
+            <div key={group.name} className="flex items-start gap-2 text-xs">
+              <span
+                className={`mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                  isCurrent ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                {group.dayIndices.join(', ')}일차
+              </span>
+              <span className={`min-w-0 break-words font-medium ${isCurrent ? 'text-blue-800' : 'text-slate-700'}`}>
+                {formatLodgingGroupLabel(group)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function getLodgingSummary(trip: ConfirmedTripRow): string {
   const summary = getLodgingSummaryGroups(trip).map((group) => group.name);
   return summary.length > 0 ? summary.join(', ') : '-';
@@ -697,26 +755,74 @@ function GuideCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
   );
 }
 
+function CurrentLodgingCell({
+  trip,
+  startDate,
+}: {
+  trip: ConfirmedTripRow;
+  startDate: string;
+}): JSX.Element {
+  const lodging = getCurrentTripLodging(trip, startDate);
+  const lodgingDayIndex = getCurrentTripLodgingDayIndex(trip, startDate);
+  const groups = getLodgingSummaryGroups(trip);
+  const progressBadge = <LodgingProgressBadge trip={trip} />;
+
+  if (!lodging && groups.length === 0) {
+    return <span className="text-xs text-slate-400">미배정</span>;
+  }
+
+  const name = lodging?.lodgingNameSnapshot.trim() ?? '';
+  const imageUrl = lodging ? getLodgingImageUrl(lodging) : null;
+
+  return (
+    <div className="lodging-summary group relative w-full min-w-0">
+      <div className="flex w-full min-w-0 items-center gap-2 overflow-hidden">
+        {lodging ? (
+          <>
+            {imageUrl ? (
+              <img
+                src={imageUrl}
+                alt={name}
+                className="h-8 w-10 shrink-0 rounded object-cover ring-1 ring-blue-500/25"
+              />
+            ) : (
+              <div className="h-8 w-10 shrink-0 rounded bg-slate-100 ring-1 ring-blue-500/20" />
+            )}
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <span className="block truncate text-xs font-semibold leading-snug text-slate-800" title={name}>
+                {name}
+              </span>
+              {lodgingDayIndex != null ? (
+                <p className="mt-0.5 truncate text-[10px] text-slate-500">{lodgingDayIndex}일차</p>
+              ) : null}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="h-8 w-10 shrink-0 rounded border border-dashed border-slate-200 bg-slate-50" />
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <span className="block truncate text-xs font-medium text-slate-500">현재 숙소 미배정</span>
+              {lodgingDayIndex != null ? (
+                <p className="mt-0.5 truncate text-[10px] text-slate-400">{lodgingDayIndex}일차</p>
+              ) : null}
+            </div>
+          </>
+        )}
+      </div>
+      <LodgingAllDropdown groups={groups} progressBadge={progressBadge} currentDayIndex={lodgingDayIndex} />
+    </div>
+  );
+}
+
 function LodgingSummaryCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
   const groups = getLodgingSummaryGroups(trip);
   const status = getTripLodgingListSummary(trip);
   const firstGroup = groups[0];
+  const progressBadge = <LodgingProgressBadge trip={trip} />;
 
   if (!firstGroup && status.requiredNights == null) {
     return <span className="text-xs text-slate-300">-</span>;
   }
-
-  const progressBadge = status.progressLabel ? (
-    <span
-      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-        status.isComplete
-          ? 'bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-500/20'
-          : 'bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-500/25'
-      }`}
-    >
-      {status.progressLabel}
-    </span>
-  ) : null;
 
   if (!firstGroup) {
     return (
@@ -742,9 +848,9 @@ function LodgingSummaryCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
   const summaryDimClass = status.isComplete ? '' : 'opacity-60';
 
   return (
-    <div className="lodging-summary group relative">
+    <div className="lodging-summary group relative w-full min-w-0">
       <div
-        className={`flex items-center gap-2 ${summaryDimClass}`}
+        className={`flex w-full min-w-0 items-center gap-2 overflow-hidden ${summaryDimClass}`}
         title={status.isComplete ? '숙소 배정 완료' : '숙소 배정 진행 중'}
       >
         {imageUrl ? (
@@ -758,9 +864,12 @@ function LodgingSummaryCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
             className={`h-8 w-10 shrink-0 rounded bg-slate-100 ${status.isComplete ? 'ring-1 ring-emerald-500/20' : ''}`}
           />
         )}
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className={`truncate text-xs leading-snug ${nameWeight} ${textTone}`}>
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+            <span
+              className={`block min-w-0 flex-1 truncate text-xs leading-snug ${nameWeight} ${textTone}`}
+              title={formatLodgingGroupLabel(firstGroup)}
+            >
               {formatLodgingGroupLabel(firstGroup)}
             </span>
             {progressBadge}
@@ -777,24 +886,7 @@ function LodgingSummaryCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
           )}
         </div>
       </div>
-      <div className="pointer-events-none absolute left-0 top-full z-[100] mt-2 hidden w-72 rounded-2xl border border-slate-200 bg-white p-3 text-left opacity-100 shadow-lg group-hover:block">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="text-xs font-semibold text-slate-500">전체 숙소</p>
-          {progressBadge}
-        </div>
-        <div className="grid gap-1.5">
-          {groups.map((group) => (
-            <div key={group.name} className="flex items-start gap-2 text-xs">
-              <span className="mt-0.5 shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-                {group.dayIndices.join(', ')}일차
-              </span>
-              <span className="min-w-0 break-words font-medium text-slate-700">
-                {formatLodgingGroupLabel(group)}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <LodgingAllDropdown groups={groups} progressBadge={progressBadge} />
     </div>
   );
 }
@@ -904,7 +996,11 @@ function TripTableHead({
         {th('가이드')}
         {th('기사')}
         {filter !== 'completed' && th('차량')}
-        {filter !== 'completed' && th('숙소')}
+        {filter !== 'completed' && (
+          <th className="w-48 max-w-48 whitespace-nowrap px-4 py-3 font-medium text-slate-600">
+            {filter === 'ongoing' ? '현재 숙소' : '숙소'}
+          </th>
+        )}
         {filter !== 'reserved' && th('이벤트')}
       </tr>
     </thead>
@@ -1113,15 +1209,21 @@ function TripTableRow({
           <DriverVehiclesCell trip={trip} />
         </td>
       )}
-      {/* 숙소 (여행 완료 제외) */}
+      {/* 숙소 (여행 완료 제외) — ongoing은 현재 숙소 */}
       {filter !== 'completed' && (
-        <td className="max-w-[200px] px-4 py-3 text-slate-700">
-          <LodgingSummaryCell trip={trip} />
+        <td className="w-48 max-w-48 px-4 py-3 text-slate-700">
+          <div className="w-full min-w-0">
+            {filter === 'ongoing' && startStr ? (
+              <CurrentLodgingCell trip={trip} startDate={startStr} />
+            ) : (
+              <LodgingSummaryCell trip={trip} />
+            )}
+          </div>
         </td>
       )}
       {/* 이벤트 (예약표 제외) */}
       {filter !== 'reserved' && (
-        <td className="whitespace-nowrap px-4 py-3">
+        <td className="relative z-[1] whitespace-nowrap px-4 py-3">
           <EventBadges trip={trip} />
         </td>
       )}
