@@ -1091,6 +1091,40 @@ const CREATE_KOREA_TEAM_STAGE_OPTION_MUTATION = gql`
   }
 `;
 
+const UPDATE_KOREA_TEAM_STAGE_OPTION_MUTATION = gql`
+  mutation UpdateConfirmedTripKoreaTeamStageOption($id: ID!, $input: ConfirmedTripKoreaTeamStageOptionUpdateInput!) {
+    updateConfirmedTripKoreaTeamStageOption(id: $id, input: $input) {
+      id
+      label
+      colorTone
+      sortOrder
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+const DELETE_KOREA_TEAM_STAGE_OPTION_MUTATION = gql`
+  mutation DeleteConfirmedTripKoreaTeamStageOption($id: ID!) {
+    deleteConfirmedTripKoreaTeamStageOption(id: $id)
+  }
+`;
+
+const REORDER_KOREA_TEAM_STAGE_OPTIONS_MUTATION = gql`
+  mutation ReorderConfirmedTripKoreaTeamStageOptions($input: [ConfirmedTripKoreaTeamStageOptionReorderInput!]!) {
+    reorderConfirmedTripKoreaTeamStageOptions(input: $input) {
+      id
+      label
+      colorTone
+      sortOrder
+      isActive
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
 const POST_TRIP_TASK_OPTIONS_QUERY = gql`
   query ConfirmedTripPostTripTaskOptions($activeOnly: Boolean = true) {
     confirmedTripPostTripTaskOptions(activeOnly: $activeOnly) {
@@ -1248,10 +1282,157 @@ function appendKoreaTeamStageOptionCache(
         return existing;
       }
       return {
-        confirmedTripKoreaTeamStageOptions: [...existing.confirmedTripKoreaTeamStageOptions, option],
+        confirmedTripKoreaTeamStageOptions: [...existing.confirmedTripKoreaTeamStageOptions, option].sort(
+          (a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label),
+        ),
       };
     },
   );
+}
+
+function writeKoreaTeamStageOptionsListCache(
+  cache: ApolloCache<unknown>,
+  options: ConfirmedTripKoreaTeamStageOptionRow[],
+  activeOnly: boolean,
+): void {
+  cache.writeQuery({
+    query: KOREA_TEAM_STAGE_OPTIONS_QUERY,
+    variables: { activeOnly },
+    data: { confirmedTripKoreaTeamStageOptions: options },
+  });
+}
+
+function patchKoreaTeamStageOptionInTripCaches(
+  cache: ApolloCache<unknown>,
+  option: ConfirmedTripKoreaTeamStageOptionRow,
+): void {
+  const detailTripIds = new Set<string>();
+
+  for (const status of ['ACTIVE', 'CANCELLED'] as const) {
+    cache.updateQuery<{ confirmedTrips: ConfirmedTripRow[] }>(
+      { query: CONFIRMED_TRIPS_QUERY, variables: { status } },
+      (existing) => {
+        if (!existing) {
+          return existing;
+        }
+        return {
+          confirmedTrips: existing.confirmedTrips.map((trip) => {
+            const hasOption = trip.koreaTeamStages.some((stage) => stage.id === option.id);
+            if (hasOption) {
+              detailTripIds.add(trip.id);
+            }
+            return {
+              ...trip,
+              koreaTeamStages: trip.koreaTeamStages.map((stage) =>
+                stage.id === option.id ? { ...stage, ...option } : stage,
+              ),
+            };
+          }),
+        };
+      },
+    );
+  }
+
+  for (const tripId of detailTripIds) {
+    cache.updateQuery<{ confirmedTrip: ConfirmedTripRow }>(
+      { query: CONFIRMED_TRIP_QUERY, variables: { id: tripId } },
+      (existing) => {
+        if (!existing?.confirmedTrip) {
+          return existing;
+        }
+        return {
+          confirmedTrip: {
+            ...existing.confirmedTrip,
+            koreaTeamStages: existing.confirmedTrip.koreaTeamStages.map((stage) =>
+              stage.id === option.id ? { ...stage, ...option } : stage,
+            ),
+          },
+        };
+      },
+    );
+  }
+}
+
+function removeKoreaTeamStageOptionFromTripCaches(cache: ApolloCache<unknown>, optionId: string): void {
+  const detailTripIds = new Set<string>();
+
+  for (const status of ['ACTIVE', 'CANCELLED'] as const) {
+    cache.updateQuery<{ confirmedTrips: ConfirmedTripRow[] }>(
+      { query: CONFIRMED_TRIPS_QUERY, variables: { status } },
+      (existing) => {
+        if (!existing) {
+          return existing;
+        }
+        return {
+          confirmedTrips: existing.confirmedTrips.map((trip) => {
+            const hasOption = trip.koreaTeamStages.some((stage) => stage.id === optionId);
+            if (hasOption) {
+              detailTripIds.add(trip.id);
+            }
+            return {
+              ...trip,
+              koreaTeamStages: trip.koreaTeamStages.filter((stage) => stage.id !== optionId),
+            };
+          }),
+        };
+      },
+    );
+  }
+
+  for (const tripId of detailTripIds) {
+    cache.updateQuery<{ confirmedTrip: ConfirmedTripRow }>(
+      { query: CONFIRMED_TRIP_QUERY, variables: { id: tripId } },
+      (existing) => {
+        if (!existing?.confirmedTrip) {
+          return existing;
+        }
+        return {
+          confirmedTrip: {
+            ...existing.confirmedTrip,
+            koreaTeamStages: existing.confirmedTrip.koreaTeamStages.filter((stage) => stage.id !== optionId),
+          },
+        };
+      },
+    );
+  }
+}
+
+function syncKoreaTeamStageOptionCaches(
+  cache: ApolloCache<unknown>,
+  option: ConfirmedTripKoreaTeamStageOptionRow,
+  activeOnly: boolean,
+): void {
+  cache.updateQuery<{ confirmedTripKoreaTeamStageOptions: ConfirmedTripKoreaTeamStageOptionRow[] }>(
+    { query: KOREA_TEAM_STAGE_OPTIONS_QUERY, variables: { activeOnly } },
+    (existing) => {
+      if (!existing) {
+        return existing;
+      }
+      return {
+        confirmedTripKoreaTeamStageOptions: existing.confirmedTripKoreaTeamStageOptions
+          .map((row) => (row.id === option.id ? { ...row, ...option } : row))
+          .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label)),
+      };
+    },
+  );
+  patchKoreaTeamStageOptionInTripCaches(cache, option);
+}
+
+function removeKoreaTeamStageOptionFromCaches(cache: ApolloCache<unknown>, optionId: string, activeOnly: boolean): void {
+  cache.updateQuery<{ confirmedTripKoreaTeamStageOptions: ConfirmedTripKoreaTeamStageOptionRow[] }>(
+    { query: KOREA_TEAM_STAGE_OPTIONS_QUERY, variables: { activeOnly } },
+    (existing) => {
+      if (!existing) {
+        return existing;
+      }
+      return {
+        confirmedTripKoreaTeamStageOptions: existing.confirmedTripKoreaTeamStageOptions.filter(
+          (row) => row.id !== optionId,
+        ),
+      };
+    },
+  );
+  removeKoreaTeamStageOptionFromTripCaches(cache, optionId);
 }
 
 function appendPostTripTaskOptionCache(
@@ -1376,6 +1557,87 @@ export function useCreateConfirmedTripKoreaTeamStageOption() {
         throw new Error('Failed to create korea team stage option');
       }
       return result.data.createConfirmedTripKoreaTeamStageOption;
+    },
+  };
+}
+
+export function useUpdateConfirmedTripKoreaTeamStageOption() {
+  const [mutate, { loading }] = useMutation<{
+    updateConfirmedTripKoreaTeamStageOption: ConfirmedTripKoreaTeamStageOptionRow;
+  }>(UPDATE_KOREA_TEAM_STAGE_OPTION_MUTATION);
+
+  return {
+    loading,
+    updateOption: async (
+      id: string,
+      input: { label?: string; colorTone?: string },
+    ): Promise<ConfirmedTripKoreaTeamStageOptionRow> => {
+      const result = await mutate({
+        variables: { id, input },
+        update: (cache, mutationResult) => {
+          const updated = mutationResult.data?.updateConfirmedTripKoreaTeamStageOption;
+          if (!updated) {
+            return;
+          }
+          syncKoreaTeamStageOptionCaches(cache, updated, true);
+        },
+      });
+      if (!result.data?.updateConfirmedTripKoreaTeamStageOption) {
+        throw new Error('Failed to update korea team stage option');
+      }
+      return result.data.updateConfirmedTripKoreaTeamStageOption;
+    },
+  };
+}
+
+export function useDeleteConfirmedTripKoreaTeamStageOption() {
+  const [mutate, { loading }] = useMutation<{ deleteConfirmedTripKoreaTeamStageOption: boolean }>(
+    DELETE_KOREA_TEAM_STAGE_OPTION_MUTATION,
+  );
+
+  return {
+    loading,
+    deleteOption: async (id: string): Promise<void> => {
+      const result = await mutate({
+        variables: { id },
+        update: (cache) => {
+          removeKoreaTeamStageOptionFromCaches(cache, id, true);
+        },
+      });
+      if (!result.data?.deleteConfirmedTripKoreaTeamStageOption) {
+        throw new Error('Failed to delete korea team stage option');
+      }
+    },
+  };
+}
+
+export function useReorderConfirmedTripKoreaTeamStageOptions() {
+  const [mutate, { loading }] = useMutation<{
+    reorderConfirmedTripKoreaTeamStageOptions: ConfirmedTripKoreaTeamStageOptionRow[];
+  }>(REORDER_KOREA_TEAM_STAGE_OPTIONS_MUTATION);
+
+  return {
+    loading,
+    reorderOptions: async (
+      input: Array<{ id: string; sortOrder: number }>,
+    ): Promise<ConfirmedTripKoreaTeamStageOptionRow[]> => {
+      const result = await mutate({
+        variables: { input },
+        update: (cache, mutationResult) => {
+          const reordered = mutationResult.data?.reorderConfirmedTripKoreaTeamStageOptions;
+          if (!reordered) {
+            return;
+          }
+          writeKoreaTeamStageOptionsListCache(cache, reordered, true);
+          for (const option of reordered) {
+            patchKoreaTeamStageOptionInTripCaches(cache, option);
+          }
+        },
+      });
+      if (!result.data?.reorderConfirmedTripKoreaTeamStageOptions) {
+        throw new Error('Failed to reorder korea team stage options');
+      }
+      return result.data.reorderConfirmedTripKoreaTeamStageOptions;
     },
   };
 }

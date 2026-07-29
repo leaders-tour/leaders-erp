@@ -180,6 +180,9 @@ type Mutation {
   confirmTrip(input: ConfirmTripInput!): ConfirmedTrip!
   createConfirmedTrip(input: CreateConfirmedTripDirectInput!): ConfirmedTrip!
   createConfirmedTripKoreaTeamStageOption(input: ConfirmedTripKoreaTeamStageOptionCreateInput!): ConfirmedTripKoreaTeamStageOption!
+  updateConfirmedTripKoreaTeamStageOption(id: ID!, input: ConfirmedTripKoreaTeamStageOptionUpdateInput!): ConfirmedTripKoreaTeamStageOption!
+  deleteConfirmedTripKoreaTeamStageOption(id: ID!): Boolean!
+  reorderConfirmedTripKoreaTeamStageOptions(input: [ConfirmedTripKoreaTeamStageOptionReorderInput!]!): [ConfirmedTripKoreaTeamStageOption!]!
   createConfirmedTripPostTripTaskOption(input: ConfirmedTripPostTripTaskOptionCreateInput!): ConfirmedTripPostTripTaskOption!
   updateConfirmedTrip(id: ID!, input: ConfirmedTripUpdateInput!): ConfirmedTrip!
   cancelConfirmedTrip(id: ID!): ConfirmedTrip!

@@ -89,6 +89,59 @@ export const confirmedTripKoreaTeamStageOptionCreateSchema = z.object({
   label: z.string().trim().min(1).max(50),
 });
 
+export const KOREA_TEAM_STAGE_COLOR_TONES = [
+  'slate',
+  'blue',
+  'emerald',
+  'amber',
+  'rose',
+  'violet',
+  'cyan',
+  'orange',
+] as const;
+
+export const confirmedTripKoreaTeamStageOptionColorToneSchema = z.enum(KOREA_TEAM_STAGE_COLOR_TONES);
+
+export const confirmedTripKoreaTeamStageOptionUpdateSchema = z
+  .object({
+    label: z.string().trim().min(1).max(50).optional(),
+    colorTone: confirmedTripKoreaTeamStageOptionColorToneSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.label === undefined && data.colorTone === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'At least one of label or colorTone is required',
+        path: [],
+      });
+    }
+  });
+
+export const confirmedTripKoreaTeamStageOptionReorderItemSchema = z.object({
+  id: z.string().min(1),
+  sortOrder: z.number().int().min(0),
+});
+
+export const confirmedTripKoreaTeamStageOptionsReorderSchema = z
+  .array(confirmedTripKoreaTeamStageOptionReorderItemSchema)
+  .min(1)
+  .superRefine((items, ctx) => {
+    const ids = items.map((item) => item.id);
+    if (new Set(ids).size !== ids.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Duplicate option id in reorder input',
+      });
+    }
+    const orders = items.map((item) => item.sortOrder);
+    if (new Set(orders).size !== orders.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Duplicate sortOrder in reorder input',
+      });
+    }
+  });
+
 export const confirmedTripPostTripTaskOptionCreateSchema = z.object({
   label: z.string().trim().min(1).max(50),
 });
@@ -195,4 +248,6 @@ export type ConfirmedTripUpdateInput = z.infer<typeof confirmedTripUpdateSchema>
 export type ConfirmedTripGuideAssignmentInput = z.infer<typeof confirmedTripGuideAssignmentInputSchema>;
 export type ConfirmedTripDriverAssignmentInput = z.infer<typeof confirmedTripDriverAssignmentInputSchema>;
 export type ConfirmedTripKoreaTeamStageOptionCreateInput = z.infer<typeof confirmedTripKoreaTeamStageOptionCreateSchema>;
+export type ConfirmedTripKoreaTeamStageOptionUpdateInput = z.infer<typeof confirmedTripKoreaTeamStageOptionUpdateSchema>;
+export type ConfirmedTripKoreaTeamStageOptionReorderInput = z.infer<typeof confirmedTripKoreaTeamStageOptionReorderItemSchema>;
 export type ConfirmedTripPostTripTaskOptionCreateInput = z.infer<typeof confirmedTripPostTripTaskOptionCreateSchema>;

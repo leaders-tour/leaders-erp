@@ -13,6 +13,8 @@ import {
   createConfirmedTripDirectSchema,
   confirmedTripLodgingUpsertSchema,
   confirmedTripKoreaTeamStageOptionCreateSchema,
+  confirmedTripKoreaTeamStageOptionUpdateSchema,
+  confirmedTripKoreaTeamStageOptionsReorderSchema,
   confirmedTripPostTripTaskOptionCreateSchema,
   confirmedTripNoteCreateSchema,
   confirmedTripNoteUpdateSchema,
@@ -40,6 +42,8 @@ import type {
   CreateConfirmedTripDirectDto,
   ConfirmedTripLodgingUpsertDto,
   ConfirmedTripKoreaTeamStageOptionCreateDto,
+  ConfirmedTripKoreaTeamStageOptionUpdateDto,
+  ConfirmedTripKoreaTeamStageOptionReorderDto,
   ConfirmedTripPostTripTaskOptionCreateDto,
   ConfirmedTripNoteCreateDto,
   ConfirmedTripNoteUpdateDto,
@@ -355,6 +359,96 @@ export class ConfirmedTripService {
       if (raced) return raced;
       throw new DomainError('VALIDATION_FAILED', 'Failed to create korea team stage option');
     }
+  }
+
+  async updateKoreaTeamStageOption(id: string, input: ConfirmedTripKoreaTeamStageOptionUpdateDto) {
+    const parsed = confirmedTripKoreaTeamStageOptionUpdateSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid korea team stage option update input', parsed.error);
+    }
+
+    const existing = await this.prisma.confirmedTripKoreaTeamStageOption.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'Korea team stage option not found');
+    }
+
+    const nextLabel = parsed.data.label;
+    if (nextLabel !== undefined && nextLabel !== existing.label) {
+      const duplicate = await this.prisma.confirmedTripKoreaTeamStageOption.findUnique({
+        where: { label: nextLabel },
+      });
+      if (duplicate) {
+        throw new DomainError('VALIDATION_FAILED', '동일한 이름의 진행단계가 이미 있습니다.');
+      }
+    }
+
+    try {
+      return await this.prisma.confirmedTripKoreaTeamStageOption.update({
+        where: { id },
+        data: parsed.data,
+      });
+    } catch {
+      throw new DomainError('VALIDATION_FAILED', 'Failed to update korea team stage option');
+    }
+  }
+
+  async deleteKoreaTeamStageOption(id: string) {
+    const existing = await this.prisma.confirmedTripKoreaTeamStageOption.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new DomainError('NOT_FOUND', 'Korea team stage option not found');
+    }
+
+    const usageCount = await this.prisma.confirmedTripKoreaTeamStageSelection.count({
+      where: { optionId: id },
+    });
+    if (usageCount > 0) {
+      throw new DomainError(
+        'VALIDATION_FAILED',
+        '이미 투어에서 사용 중인 진행단계는 삭제할 수 없습니다.',
+      );
+    }
+
+    await this.prisma.confirmedTripKoreaTeamStageOption.delete({ where: { id } });
+    return true;
+  }
+
+  async reorderKoreaTeamStageOptions(input: ConfirmedTripKoreaTeamStageOptionReorderDto[]) {
+    const parsed = confirmedTripKoreaTeamStageOptionsReorderSchema.safeParse(input);
+    if (!parsed.success) {
+      throw createValidationError('Invalid korea team stage option reorder input', parsed.error);
+    }
+
+    const ids = parsed.data.map((item) => item.id);
+    const activeOptions = await this.prisma.confirmedTripKoreaTeamStageOption.findMany({
+      where: { isActive: true },
+      select: { id: true },
+    });
+    if (activeOptions.length !== ids.length) {
+      throw new DomainError(
+        'VALIDATION_FAILED',
+        '모든 활성 진행단계 옵션을 순서와 함께 보내야 합니다.',
+      );
+    }
+    const activeIdSet = new Set(activeOptions.map((option) => option.id));
+    if (!ids.every((optionId) => activeIdSet.has(optionId))) {
+      throw new DomainError('VALIDATION_FAILED', 'One or more korea team stage option IDs are invalid');
+    }
+
+    await this.prisma.$transaction(
+      parsed.data.map((item) =>
+        this.prisma.confirmedTripKoreaTeamStageOption.update({
+          where: { id: item.id },
+          data: { sortOrder: item.sortOrder },
+        }),
+      ),
+    );
+
+    return this.listKoreaTeamStageOptions(true);
   }
 
   async createPostTripTaskOption(input: ConfirmedTripPostTripTaskOptionCreateDto) {

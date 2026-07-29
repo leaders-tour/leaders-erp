@@ -276,6 +276,16 @@ input ConfirmedTripKoreaTeamStageOptionCreateInput {
   label: String!
 }
 
+input ConfirmedTripKoreaTeamStageOptionUpdateInput {
+  label: String
+  colorTone: String
+}
+
+input ConfirmedTripKoreaTeamStageOptionReorderInput {
+  id: ID!
+  sortOrder: Int!
+}
+
 input ConfirmedTripPostTripTaskOptionCreateInput {
   label: String!
 }

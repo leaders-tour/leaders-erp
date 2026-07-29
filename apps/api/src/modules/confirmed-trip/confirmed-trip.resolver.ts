@@ -9,6 +9,8 @@ import type {
   CreateConfirmedTripDirectDto,
   ConfirmedTripLodgingUpsertDto,
   ConfirmedTripKoreaTeamStageOptionCreateDto,
+  ConfirmedTripKoreaTeamStageOptionUpdateDto,
+  ConfirmedTripKoreaTeamStageOptionReorderDto,
   ConfirmedTripPostTripTaskOptionCreateDto,
   ConfirmedTripNoteCreateDto,
   ConfirmedTripNoteUpdateDto,
@@ -86,6 +88,15 @@ interface CreateConfirmedTripDirectArgs {
 
 interface CreateConfirmedTripKoreaTeamStageOptionArgs {
   input: ConfirmedTripKoreaTeamStageOptionCreateDto;
+}
+
+interface UpdateConfirmedTripKoreaTeamStageOptionArgs {
+  id: string;
+  input: ConfirmedTripKoreaTeamStageOptionUpdateDto;
+}
+
+interface ReorderConfirmedTripKoreaTeamStageOptionsArgs {
+  input: ConfirmedTripKoreaTeamStageOptionReorderDto[];
 }
 
 interface CreateConfirmedTripPostTripTaskOptionArgs {
@@ -196,6 +207,18 @@ export const confirmedTripResolver = {
       args: CreateConfirmedTripKoreaTeamStageOptionArgs,
       ctx: AppContext,
     ) => new ConfirmedTripService(ctx.prisma).createKoreaTeamStageOption(args.input),
+    updateConfirmedTripKoreaTeamStageOption: (
+      _parent: unknown,
+      args: UpdateConfirmedTripKoreaTeamStageOptionArgs,
+      ctx: AppContext,
+    ) => new ConfirmedTripService(ctx.prisma).updateKoreaTeamStageOption(args.id, args.input),
+    deleteConfirmedTripKoreaTeamStageOption: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
+      new ConfirmedTripService(ctx.prisma).deleteKoreaTeamStageOption(args.id),
+    reorderConfirmedTripKoreaTeamStageOptions: (
+      _parent: unknown,
+      args: ReorderConfirmedTripKoreaTeamStageOptionsArgs,
+      ctx: AppContext,
+    ) => new ConfirmedTripService(ctx.prisma).reorderKoreaTeamStageOptions(args.input),
     createConfirmedTripPostTripTaskOption: (
       _parent: unknown,
       args: CreateConfirmedTripPostTripTaskOptionArgs,

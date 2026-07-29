@@ -979,7 +979,7 @@ function TripTableRow({
         </td>
       )}
       {filter === 'upcoming' && (
-        <td className="min-w-[13rem] px-4 py-3 text-slate-700" onClick={(e) => e.stopPropagation()}>
+        <td className="min-w-[13rem] max-w-[28rem] px-4 py-3 text-slate-700" onClick={(e) => e.stopPropagation()}>
           <KoreaTeamStageMultiSelect
             tripId={trip.id}
             selected={trip.koreaTeamStages}
