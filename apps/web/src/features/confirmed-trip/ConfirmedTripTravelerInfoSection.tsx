@@ -1,10 +1,13 @@
 import { Button, Card } from '@tour/ui';
 import { useMemo, useRef, useState } from 'react';
 import { ContractSubmissionDetailPanel } from '../contract/components/ContractSubmissionDetailPanel';
+import { ContractSubmissionExclusionModal } from '../contract/components/ContractSubmissionExclusionModal';
 import type { ContractPaymentReceiptRow, ContractSubmissionRow } from '../contract/hooks';
 import {
+  useExcludeContractSubmissionFromCount,
   useRemoveContractSubmissionPassportPhoto,
   useResyncContractSubmissionPassportPhotoFromSheet,
+  useRestoreContractSubmissionToCount,
   useUploadContractSubmissionPassportPhoto,
 } from '../contract/hooks';
 import { RecruitmentStatusToggle } from './RecruitmentStatusToggle';
@@ -12,6 +15,27 @@ import {
   buildTravelerSheetColumns,
   type TravelerSheetColumn,
 } from './contract-traveler-sheet';
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) {
+    return '-';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function submissionPersonLabel(submission: ContractSubmissionRow): string {
+  return submission.travelerName ?? submission.leaderName ?? '이름 없음';
+}
 
 function PassportPhotoThumbnail({
   urls,
@@ -440,6 +464,15 @@ export function ConfirmedTripTravelerInfoSection({
 }) {
   const [detailSubmission, setDetailSubmission] = useState<ContractSubmissionRow | null>(null);
   const [passportSubmissionId, setPassportSubmissionId] = useState<string | null>(null);
+  const [exclusionTarget, setExclusionTarget] = useState<ContractSubmissionRow | null>(null);
+  const [submissionActionError, setSubmissionActionError] = useState<string | null>(null);
+  const { excludeContractSubmissionFromCount, loading: excluding } = useExcludeContractSubmissionFromCount();
+  const { restoreContractSubmissionToCount, loading: restoring } = useRestoreContractSubmissionToCount();
+
+  const excludedSubmissions = useMemo(
+    () => submissions.filter((submission) => submission.excludedFromContractCount),
+    [submissions],
+  );
 
   const passportSubmission = useMemo(
     () => submissions.find((submission) => submission.id === passportSubmissionId) ?? null,
@@ -461,6 +494,29 @@ export function ConfirmedTripTravelerInfoSection({
   const handleSubmissionsUpdated = async () => {
     if (onSubmissionsUpdated) {
       await onSubmissionsUpdated();
+    }
+  };
+
+  const handleExcludeSubmission = async (reason: string | null) => {
+    if (!exclusionTarget) {
+      return;
+    }
+    setSubmissionActionError(null);
+    await excludeContractSubmissionFromCount({
+      submissionId: exclusionTarget.id,
+      reason,
+    });
+    setExclusionTarget(null);
+    await handleSubmissionsUpdated();
+  };
+
+  const handleRestoreSubmission = async (submissionId: string) => {
+    setSubmissionActionError(null);
+    try {
+      await restoreContractSubmissionToCount(submissionId);
+      await handleSubmissionsUpdated();
+    } catch (error) {
+      setSubmissionActionError(error instanceof Error ? error.message : '제외 해제에 실패했습니다.');
     }
   };
 
@@ -527,6 +583,9 @@ export function ConfirmedTripTravelerInfoSection({
                   <th className="whitespace-nowrap px-3 py-2 text-left font-semibold text-slate-500">
                     전체보기
                   </th>
+                  <th className="whitespace-nowrap px-3 py-2 text-left font-semibold text-slate-500">
+                    관리
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -552,13 +611,78 @@ export function ConfirmedTripTravelerInfoSection({
                         전체보기
                       </button>
                     </td>
+                    <td className="align-top px-3 py-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="whitespace-nowrap text-xs"
+                        onClick={() => {
+                          setSubmissionActionError(null);
+                          setExclusionTarget(column.submission);
+                        }}
+                      >
+                        계산에서 제외
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : null}
+
+        {documentNumber && !loading && submissionActionError ? (
+          <p className="mt-3 text-sm text-rose-600">{submissionActionError}</p>
+        ) : null}
+
+        {documentNumber && !loading && excludedSubmissions.length > 0 ? (
+          <div className="mt-4 grid gap-2">
+            <p className="text-sm font-semibold text-slate-900">계산 제외 ({excludedSubmissions.length})</p>
+            <div className="grid gap-2">
+              {excludedSubmissions.map((submission) => (
+                <div
+                  key={submission.id}
+                  className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-slate-300 bg-slate-100/80 px-4 py-3 text-sm"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-slate-600 line-through">
+                        {submissionPersonLabel(submission)}
+                      </p>
+                      <span className="rounded-full border border-slate-400 bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                        계산 제외
+                      </span>
+                    </div>
+                    {submission.exclusionReason ? (
+                      <p className="mt-1 text-xs text-slate-600">제외 사유: {submission.exclusionReason}</p>
+                    ) : null}
+                    {submission.excludedAt ? (
+                      <p className="mt-1 text-xs text-slate-500">제외 시각: {formatDateTime(submission.excludedAt)}</p>
+                    ) : null}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={restoring}
+                    onClick={() => void handleRestoreSubmission(submission.id)}
+                  >
+                    {restoring ? '복원 중...' : '제외 해제'}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </Card>
+
+      {exclusionTarget ? (
+        <ContractSubmissionExclusionModal
+          submission={exclusionTarget}
+          loading={excluding}
+          onClose={() => setExclusionTarget(null)}
+          onConfirm={handleExcludeSubmission}
+        />
+      ) : null}
 
       {passportSubmission ? (
         <PassportPhotoModal

@@ -512,6 +512,9 @@ const CONTRACT_SUBMISSIONS_QUERY = gql`
       travelerNote
       passportPhotoUrls
       passportPhotoSourceMode
+      excludedFromContractCount
+      excludedAt
+      exclusionReason
       importedAt
       updatedAt
       source {
