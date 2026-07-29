@@ -61,6 +61,7 @@ function buildPlanVersionMetaCreateInput(
     headcountFemale: number;
     vehicleType: string;
     vehicleAssignments?: Array<{ vehicleType: string; count: number }>;
+    vehicleDisplayNote?: string | null;
     flightInTime?: string | null;
     flightOutTime?: string | null;
     pickupDate?: string;
@@ -129,6 +130,7 @@ function buildPlanVersionMetaCreateInput(
     headcountFemale: meta.headcountFemale,
     vehicleType: meta.vehicleType,
     vehicleAssignments: normalizeVehicleAssignments(meta.vehicleAssignments, meta.vehicleType) as Prisma.InputJsonValue,
+    vehicleDisplayNote: meta.vehicleDisplayNote?.trim() || null,
     flightInTime: firstTransportGroup?.flightInTime ?? meta.flightInTime ?? null,
     flightOutTime: firstTransportGroup?.flightOutTime ?? meta.flightOutTime ?? null,
     pickupDate: firstTransportGroup?.pickupDate

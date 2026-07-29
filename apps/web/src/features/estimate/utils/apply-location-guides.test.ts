@@ -24,6 +24,7 @@ describe('applyLocationGuides', () => {
     travelStartDate: null,
     travelEndDate: null,
     vehicleType: '',
+    vehicleDisplayNote: null,
     transportGroups: [],
     flightInDate: null,
     flightInTime: null,

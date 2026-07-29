@@ -425,6 +425,7 @@ export const planVersionMetaInputSchema = z
     headcountFemale: z.number().int().min(0).max(100),
     vehicleType: z.enum(vehicleTypes),
     vehicleAssignments: vehicleAssignmentsSchema.optional(),
+    vehicleDisplayNote: z.string().max(200).optional(),
     flightInTime: optionalTimeSchema,
     flightOutTime: optionalTimeSchema,
     pickupDate: dateTimeInputSchema.optional(),

@@ -241,6 +241,7 @@ export interface PlanVersionMetaRow {
   headcountFemale: number;
   vehicleType: string;
   vehicleAssignments?: Array<{ vehicleType: string; count: number }> | null;
+  vehicleDisplayNote: string | null;
   flightInTime: string | null;
   flightOutTime: string | null;
   pickupDate: string | null;
@@ -995,6 +996,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
           vehicleType
           count
         }
+        vehicleDisplayNote
         flightInTime
         flightOutTime
         pickupDate
@@ -1078,6 +1080,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         estimateGuideImagesPerPage
         estimateGuidePageSplits
         movementIntensityColorOverride
+        vehicleDisplayNote
         validUntilDate
         createdAt
         updatedAt

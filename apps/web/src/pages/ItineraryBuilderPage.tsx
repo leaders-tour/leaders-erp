@@ -6,6 +6,8 @@ import {
   normalizeVehicleAssignments,
   PLAN_VEHICLE_TYPES,
   primaryVehicleTypeFromAssignments,
+  resolveVehicleDisplayNote,
+  syncVehicleDisplayNoteForVehicleType,
   validateHiaceHeadcountForAssignments,
   type VehicleAssignment,
 } from '@tour/validation';
@@ -1930,6 +1932,7 @@ function createEstimateDraftSnapshot(input: {
   travelStartDate: string;
   travelEndDate: string;
   vehicleType: string;
+  vehicleDisplayNote: string;
   vehicleAssignments: VehicleAssignment[];
   transportGroups: EstimateTransportGroup[];
   externalTransfers: ExternalTransfer[];
@@ -1995,6 +1998,13 @@ function createEstimateDraftSnapshot(input: {
     travelStartDate: input.travelStartDate,
     travelEndDate: input.travelEndDate,
     vehicleType: input.vehicleType,
+    vehicleDisplayNote:
+      resolveVehicleDisplayNote(
+        input.vehicleAssignments.length > 0
+          ? formatVehicleAssignmentsForDisplay(input.vehicleAssignments)
+          : input.vehicleType,
+        input.vehicleDisplayNote,
+      ) ?? '',
     vehicleAssignments: input.vehicleAssignments,
     transportGroups: input.transportGroups,
     externalTransfers: input.externalTransfers,
@@ -2741,6 +2751,10 @@ export function ItineraryBuilderPage(): JSX.Element {
     () => formatVehicleAssignmentsForDisplay(vehicleAssignments),
     [vehicleAssignments],
   );
+
+  useEffect(() => {
+    setVehicleDisplayNote((current) => syncVehicleDisplayNoteForVehicleType(vehicleDisplayText, current));
+  }, [vehicleDisplayText]);
   const [transportGroups, setTransportGroups] = useState<TransportGroupDraft[]>([
     createTransportGroupDraft({
       index: 0,
@@ -2752,6 +2766,7 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [externalTransfers, setExternalTransfers] = useState<ExternalTransfer[]>([]);
   const [externalTransfersDraft, setExternalTransfersDraft] = useState<ExternalTransfer[]>([]);
   const [specialNote, setSpecialNote] = useState<string>('');
+  const [vehicleDisplayNote, setVehicleDisplayNote] = useState<string>('');
   const [includeRentalItems, setIncludeRentalItems] = useState<boolean>(true);
   const [rentalItemsText, setRentalItemsText] = useState<string>('');
   const [eventIds, setEventIds] = useState<string[]>([]);
@@ -3190,6 +3205,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       normalizeVehicleAssignments(meta.vehicleAssignments, meta.vehicleType),
     );
     setSpecialNote(meta.specialNote ?? '');
+    setVehicleDisplayNote(meta.vehicleDisplayNote ?? '');
     setIncludeRentalItems(meta.includeRentalItems);
     setRentalItemsText(meta.rentalItemsText);
     hasInitializedRentalItemsRef.current = true;
@@ -4971,6 +4987,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         transportGroupCount: normalizedTransportGroups.length,
         transportGroups: normalizedTransportGroups.map(mapTransportGroupToPlanMutationInput),
         vehicleType,
+        vehicleDisplayNote: vehicleDisplayNote.trim(),
         vehicleAssignments,
         includeRentalItems,
         eventIds,
@@ -5396,6 +5413,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                 headcountMale,
                 headcountFemale,
                 vehicleType,
+                vehicleDisplayNote:
+                  resolveVehicleDisplayNote(vehicleDisplayText, vehicleDisplayNote.trim()) || undefined,
                 vehicleAssignments,
                 ...primaryMetaFlightFields(primaryTransportGroup),
                 pickupDate: primaryTransportGroup?.pickupDate
@@ -5544,6 +5563,7 @@ export function ItineraryBuilderPage(): JSX.Element {
         travelStartDate,
         travelEndDate,
         vehicleType,
+        vehicleDisplayNote: vehicleDisplayNote.trim(),
         vehicleAssignments,
         transportGroups: normalizedTransportGroups,
         externalTransfers: normalizedExternalTransfers,
@@ -5577,6 +5597,7 @@ export function ItineraryBuilderPage(): JSX.Element {
       travelStartDate,
       travelEndDate,
       vehicleType,
+      vehicleDisplayNote,
       vehicleAssignments,
       normalizedTransportGroups,
       normalizedExternalTransfers,
@@ -5635,6 +5656,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     travelStartDate,
     travelEndDate,
     vehicleType: vehicleDisplayText,
+    vehicleDisplayNote,
     vehicleAssignments,
     transportGroups: normalizedTransportGroups,
     flightInTimeOptions,
@@ -5659,6 +5681,7 @@ export function ItineraryBuilderPage(): JSX.Element {
     onTravelStartDateChange: setTravelStartDate,
     onTravelEndDateChange: setTravelEndDate,
     onVehicleAssignmentsChange: setVehicleAssignments,
+    onVehicleDisplayNoteChange: setVehicleDisplayNote,
     onTransportGroupFieldChange: handlePreviewTransportGroupFieldChange,
     onAddTransportGroup: addTransportGroup,
     onRemoveTransportGroup: removeTransportGroupAt,
@@ -6215,6 +6238,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 headcountMale,
                                 headcountFemale,
                                 vehicleType,
+                                vehicleDisplayNote:
+                  resolveVehicleDisplayNote(vehicleDisplayText, vehicleDisplayNote.trim()) || undefined,
                                 vehicleAssignments,
                                 ...primaryMetaFlightFields(primaryTransportGroup),
                                 pickupDate: primaryTransportGroup?.pickupDate
@@ -6621,6 +6646,16 @@ export function ItineraryBuilderPage(): JSX.Element {
                           하이에이스는 2인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.
                         </p>
                       ) : null}
+                      <label className="grid gap-1 text-sm">
+                        <span className="text-xs text-slate-600">차량 보조 문구 (견적 1p)</span>
+                        <input
+                          type="text"
+                          value={vehicleDisplayNote}
+                          onChange={(event) => setVehicleDisplayNote(event.target.value)}
+                          placeholder="예: *푸르공 사진촬영 가능"
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                        />
+                      </label>
                     </div>
                   </div>
 
@@ -9145,6 +9180,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 headcountMale,
                                 headcountFemale,
                                 vehicleType,
+                                vehicleDisplayNote:
+                  resolveVehicleDisplayNote(vehicleDisplayText, vehicleDisplayNote.trim()) || undefined,
                                 vehicleAssignments,
                                 ...primaryMetaFlightFields(primaryTransportGroup),
                                 pickupDate: primaryTransportGroup?.pickupDate ?? '',
@@ -9198,6 +9235,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 headcountMale,
                                 headcountFemale,
                                 vehicleType,
+                                vehicleDisplayNote:
+                  resolveVehicleDisplayNote(vehicleDisplayText, vehicleDisplayNote.trim()) || undefined,
                                 vehicleAssignments,
                                 ...primaryMetaFlightFields(primaryTransportGroup),
                                 pickupDate: primaryTransportGroup?.pickupDate ?? '',

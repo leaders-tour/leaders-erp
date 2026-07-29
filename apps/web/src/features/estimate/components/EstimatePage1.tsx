@@ -31,7 +31,7 @@ import {
   formatTransportPickupDropText,
   formatTravelPeriod,
 } from '../utils/format';
-import { APP_SETTINGS_DEFAULT } from '@tour/validation';
+import { APP_SETTINGS_DEFAULT, VEHICLE_DISPLAY_NOTE_PURGONG_PHOTO } from '@tour/validation';
 
 const DEFAULT_FLIGHT_IN_TIME_OPTIONS = APP_SETTINGS_DEFAULT.flightTimeSettings.inTimeShortcuts;
 const DEFAULT_FLIGHT_OUT_TIME_OPTIONS = APP_SETTINGS_DEFAULT.flightTimeSettings.outTimeShortcuts;
@@ -52,11 +52,27 @@ function fallback(value: string | null | undefined): string {
   return text && text.length > 0 ? text : '-';
 }
 
-const VEHICLE_PURGONG_PHOTO_NOTE = '*푸르공 사진촬영 가능';
-
-function vehicleTypeShowsPurgongPhotoNote(vehicleType: string | null | undefined): boolean {
-  const v = vehicleType?.trim() ?? '';
-  return v.includes('스타렉스') || v.includes('하이에이스');
+function VehicleTypeCellDisplay({
+  vehicleType,
+  vehicleDisplayNote,
+}: {
+  vehicleType: string | null | undefined;
+  vehicleDisplayNote?: string | null;
+}): JSX.Element {
+  const main = fallback(vehicleType);
+  const note = vehicleDisplayNote?.trim();
+  if (main === '-' && !note) {
+    return <>-</>;
+  }
+  if (!note) {
+    return <>{main}</>;
+  }
+  return (
+    <span className="inline-flex flex-col items-center gap-0.5 text-center text-inherit">
+      {main !== '-' ? <span className="block leading-tight">{main}</span> : null}
+      <span className="block whitespace-pre-wrap text-[0.875em] leading-snug text-inherit">{note}</span>
+    </span>
+  );
 }
 
 function estimateTeamPricingSummarySignature(row: EstimateTeamPricing): string {
@@ -78,19 +94,6 @@ function estimateSecurityDepositSignature(row: EstimateTeamPricing): string {
     unitPriceKrw: row.securityDepositUnitKrw,
     none: row.securityDepositScope === '-',
   });
-}
-
-function VehicleTypeCellDisplay({ vehicleType }: { vehicleType: string | null | undefined }): JSX.Element {
-  const main = fallback(vehicleType);
-  if (main === '-' || !vehicleTypeShowsPurgongPhotoNote(vehicleType)) {
-    return <>{main}</>;
-  }
-  return (
-    <span className="inline-flex flex-col items-center gap-0.5 text-center text-inherit">
-      <span className="block leading-tight">{main}</span>
-      <span className="block text-[0.875em] leading-snug text-inherit">{VEHICLE_PURGONG_PHOTO_NOTE}</span>
-    </span>
-  );
 }
 
 function CommaBreakText({ value }: { value: string }): JSX.Element {
@@ -726,14 +729,30 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                 field="vehicleType"
                 activeField={activeField}
                 editor={editor}
-                displayValue={<VehicleTypeCellDisplay vehicleType={data.vehicleType} />}
+                displayValue={
+                  <VehicleTypeCellDisplay
+                    vehicleType={data.vehicleType}
+                    vehicleDisplayNote={data.vehicleDisplayNote}
+                  />
+                }
                 input={
                   editor?.onVehicleAssignmentsChange && editor.vehicleAssignments ? (
-                    <VehicleAssignmentsEditor
-                      assignments={editor.vehicleAssignments}
-                      headcountTotal={editor.headcountTotal}
-                      onChange={editor.onVehicleAssignmentsChange}
-                    />
+                    <div className="grid gap-2">
+                      <VehicleAssignmentsEditor
+                        assignments={editor.vehicleAssignments}
+                        headcountTotal={editor.headcountTotal}
+                        onChange={editor.onVehicleAssignmentsChange}
+                      />
+                      {editor.onVehicleDisplayNoteChange ? (
+                        <textarea
+                          value={editor.vehicleDisplayNote ?? ''}
+                          onChange={(event) => editor.onVehicleDisplayNoteChange?.(event.target.value)}
+                          rows={2}
+                          placeholder={VEHICLE_DISPLAY_NOTE_PURGONG_PHOTO}
+                          className="estimate-editable-input min-h-[2.5rem] resize-y"
+                        />
+                      ) : null}
+                    </div>
                   ) : editor?.onVehicleTypeChange ? (
                     <select
                       autoFocus

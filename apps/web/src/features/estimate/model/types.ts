@@ -94,6 +94,7 @@ export interface EstimateBuilderDraftSnapshot {
   travelStartDate: string;
   travelEndDate: string;
   vehicleType: string;
+  vehicleDisplayNote?: string | null;
   vehicleAssignments: VehicleAssignment[];
   transportGroups: EstimateTransportGroup[];
   externalTransfers: ExternalTransfer[];
@@ -149,6 +150,7 @@ export interface EstimateDocumentData {
   travelStartDate: string | null;
   travelEndDate: string | null;
   vehicleType: string;
+  vehicleDisplayNote: string | null;
   transportGroups: EstimateTransportGroup[];
   flightInDate: string | null;
   flightInTime: string | null;
@@ -227,6 +229,7 @@ export interface EstimatePage1Editor {
   travelStartDate: string;
   travelEndDate: string;
   vehicleType: string;
+  vehicleDisplayNote: string;
   vehicleAssignments?: VehicleAssignment[];
   vehicleOptions?: readonly string[];
   transportGroups: EstimateTransportGroup[];
@@ -241,6 +244,7 @@ export interface EstimatePage1Editor {
   onHeadcountMaleChange: (value: number) => void;
   onTravelStartDateChange: (value: string) => void;
   onTravelEndDateChange: (value: string) => void;
+  onVehicleDisplayNoteChange?: (value: string) => void;
   onVehicleTypeChange?: (value: string) => void;
   onVehicleAssignmentsChange?: (assignments: VehicleAssignment[]) => void;
   onTransportGroupFieldChange: <K extends keyof EstimateTransportGroup>(

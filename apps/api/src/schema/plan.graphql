@@ -145,6 +145,8 @@ type PlanVersionMeta {
   headcountMale: Int!
   headcountFemale: Int!
   vehicleType: String!
+  """견적서 1p 차량 칸 하단 보조 문구"""
+  vehicleDisplayNote: String
   flightInTime: String
   flightOutTime: String
   pickupDate: DateTime
@@ -564,6 +566,8 @@ input PlanVersionMetaInput {
   headcountMale: Int!
   headcountFemale: Int!
   vehicleType: String!
+  """견적서 1p 차량 칸 하단 보조 문구"""
+  vehicleDisplayNote: String
   flightInTime: String
   flightOutTime: String
   pickupDate: DateTime
