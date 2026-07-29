@@ -38,6 +38,7 @@ import {
 import { resolveUserDisplayName } from '../features/plan/format-user-display-name';
 import { externalTransferTravelDateIso } from '../features/plan/external-transfer';
 import { isConfirmedTripRecentReturn } from '../features/confirmed-trip/recent-return';
+import { getTripLodgingListSummary } from '../features/confirmed-trip/trip-lodging-list-summary';
 import { useConfirmedTripsScrollRestore } from '../features/confirmed-trip/useConfirmedTripsScrollRestore';
 import {
   tripMatchesAggRegions,
@@ -697,40 +698,89 @@ function GuideCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
 
 function LodgingSummaryCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
   const groups = getLodgingSummaryGroups(trip);
+  const status = getTripLodgingListSummary(trip);
   const firstGroup = groups[0];
-  if (!firstGroup) {
+
+  if (!firstGroup && status.requiredNights == null) {
     return <span className="text-xs text-slate-300">-</span>;
+  }
+
+  const progressBadge = status.progressLabel ? (
+    <span
+      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+        status.isComplete
+          ? 'bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-500/20'
+          : 'bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-500/25'
+      }`}
+    >
+      {status.progressLabel}
+    </span>
+  ) : null;
+
+  if (!firstGroup) {
+    return (
+      <div
+        className={`flex items-center gap-2 ${status.isComplete ? '' : 'opacity-60'}`}
+        title={status.isComplete ? '숙소 배정 완료' : '숙소 배정 진행 중'}
+      >
+        <div className="h-8 w-10 shrink-0 rounded border border-dashed border-slate-200 bg-slate-50" />
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-xs font-medium text-slate-500">숙소 미배정</span>
+            {progressBadge}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const imageUrl = getLodgingImageUrl(firstGroup.firstLodging);
   const remainingCount = groups.length - 1;
+  const textTone = status.isComplete ? 'text-slate-800' : 'text-slate-500';
+  const nameWeight = status.isComplete ? 'font-semibold' : 'font-medium';
+  const summaryDimClass = status.isComplete ? '' : 'opacity-60';
 
   return (
-    <div className="group relative flex items-center gap-2">
-      {imageUrl ? (
-        <img src={imageUrl} alt={firstGroup.name} className="h-8 w-10 shrink-0 rounded object-cover" />
-      ) : (
-        <div className="h-8 w-10 shrink-0 rounded bg-slate-100" />
-      )}
-      <div className="min-w-0">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-xs font-medium leading-snug text-slate-700">
-            {formatLodgingGroupLabel(firstGroup)}
-          </span>
-          {remainingCount > 0 && (
-            <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-              +{remainingCount}곳
+    <div className="lodging-summary group relative">
+      <div
+        className={`flex items-center gap-2 ${summaryDimClass}`}
+        title={status.isComplete ? '숙소 배정 완료' : '숙소 배정 진행 중'}
+      >
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={firstGroup.name}
+            className={`h-8 w-10 shrink-0 rounded object-cover ${status.isComplete ? 'ring-1 ring-emerald-500/30' : 'grayscale-[35%]'}`}
+          />
+        ) : (
+          <div
+            className={`h-8 w-10 shrink-0 rounded bg-slate-100 ${status.isComplete ? 'ring-1 ring-emerald-500/20' : ''}`}
+          />
+        )}
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className={`truncate text-xs leading-snug ${nameWeight} ${textTone}`}>
+              {formatLodgingGroupLabel(firstGroup)}
             </span>
+            {progressBadge}
+            {remainingCount > 0 && (
+              <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                +{remainingCount}곳
+              </span>
+            )}
+          </div>
+          {groups.length > 1 && (
+            <p className={`mt-0.5 truncate text-[10px] ${status.isComplete ? 'text-slate-500' : 'text-slate-400'}`}>
+              {groups.slice(1).map(formatLodgingGroupLabel).join(', ')}
+            </p>
           )}
         </div>
-        {groups.length > 1 && (
-          <p className="mt-0.5 truncate text-[10px] text-slate-400">
-            {groups.slice(1).map(formatLodgingGroupLabel).join(', ')}
-          </p>
-        )}
       </div>
-      <div className="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden w-72 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-lg group-hover:block">
-        <p className="mb-2 text-xs font-semibold text-slate-500">전체 숙소</p>
+      <div className="pointer-events-none absolute left-0 top-full z-[100] mt-2 hidden w-72 rounded-2xl border border-slate-200 bg-white p-3 text-left opacity-100 shadow-lg group-hover:block">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold text-slate-500">전체 숙소</p>
+          {progressBadge}
+        </div>
         <div className="grid gap-1.5">
           {groups.map((group) => (
             <div key={group.name} className="flex items-start gap-2 text-xs">
@@ -916,7 +966,7 @@ function TripTableRow({
 
   return (
     <tr
-      className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50"
+      className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50 [&:has(.lodging-summary:hover)]:relative [&:has(.lodging-summary:hover)]:z-20"
       onClick={onClick}
     >
       {/* 예약일 (예약표 전용) */}
