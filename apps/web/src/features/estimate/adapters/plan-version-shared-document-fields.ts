@@ -50,6 +50,7 @@ export function buildPlanVersionCustomerDocumentMetaInputFromVersion(
       formatVehicleAssignmentsForDisplay(
         normalizeVehicleAssignments(meta?.vehicleAssignments, meta?.vehicleType),
       ) || '-',
+    vehicleDisplayNote: meta?.vehicleDisplayNote,
     includeRentalItems: meta?.includeRentalItems,
     rentalItemsText: meta?.rentalItemsText,
     specialNote: meta?.specialNote,

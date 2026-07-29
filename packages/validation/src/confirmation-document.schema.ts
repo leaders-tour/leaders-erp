@@ -32,6 +32,7 @@ export const confirmationDocumentSnapshotSchema = z.object({
   headcountText: z.string().trim().min(1),
   travelPeriodText: z.string().trim().min(1),
   vehicleType: z.string().trim().min(1),
+  vehicleDisplayNote: z.string().max(200).nullable().optional(),
   flightInText: z.string().trim().min(1),
   flightOutText: z.string().trim().min(1),
   pickupText: z.string().trim().min(1),

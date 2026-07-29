@@ -14,7 +14,6 @@ import {
   resolveStoredValidUntilDate,
   toSecurityDepositScope,
 } from '../utils/format';
-import { resolveVehicleDisplayNote } from '@tour/validation';
 import {
   buildSharedDocumentFieldsFromPlanVersion,
   mapPlanVersionTransportGroupsForCustomerDocument,
@@ -73,7 +72,7 @@ export function fromVersion(version: PlanVersionDetail): EstimateDocumentData {
     travelStartDate: meta?.travelStartDate ?? null,
     travelEndDate: meta?.travelEndDate ?? null,
     vehicleType: shared.vehicleType,
-    vehicleDisplayNote: resolveVehicleDisplayNote(shared.vehicleType, meta?.vehicleDisplayNote),
+    vehicleDisplayNote: shared.vehicleDisplayNote,
     transportGroups,
     flightInDate: meta?.transportGroups[0]?.flightInDate ?? meta?.travelStartDate ?? null,
     flightInTime: meta?.transportGroups[0]?.flightInTime ?? meta?.flightInTime ?? null,

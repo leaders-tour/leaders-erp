@@ -45,4 +45,15 @@ describe('resolveVehicleAssignmentsForHeadcount', () => {
       ),
     ).toEqual([{ vehicleType: '스타렉스', count: 1 }]);
   });
+
+  it('직접입력 차종은 인원 변경 시 유지한다', () => {
+    expect(
+      resolveVehicleAssignmentsForHeadcount(
+        8,
+        [{ vehicleType: 'CUSTOM', vehicleTypeCustomText: '45인승 버스', count: 1 }],
+        VEHICLES,
+        6,
+      ),
+    ).toEqual([{ vehicleType: 'CUSTOM', vehicleTypeCustomText: '45인승 버스', count: 1 }]);
+  });
 });

@@ -28,6 +28,7 @@ type ConfirmationDocumentSnapshot {
   headcountText: String!
   travelPeriodText: String!
   vehicleType: String!
+  vehicleDisplayNote: String
   flightInText: String!
   flightOutText: String!
   pickupText: String!
@@ -71,6 +72,7 @@ input ConfirmationDocumentSnapshotInput {
   headcountText: String!
   travelPeriodText: String!
   vehicleType: String!
+  vehicleDisplayNote: String
   flightInText: String!
   flightOutText: String!
   pickupText: String!

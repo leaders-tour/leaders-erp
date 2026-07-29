@@ -6,10 +6,12 @@ import {
   normalizeVehicleAssignments,
   primaryVehicleTypeFromAssignments,
   validateHiaceHeadcountForAssignments,
+  validateVehicleAssignmentCustomTexts,
   vehicleAssignmentsSchema,
 } from './vehicle-assignments';
 
 const vehicleTypes = PLAN_VEHICLE_TYPES;
+const metaVehicleTypes = [...PLAN_VEHICLE_TYPES, 'CUSTOM'] as const;
 const placeTypes = ['AIRPORT', 'OZ_HOUSE', 'ULAANBAATAR', 'CUSTOM'] as const;
 const lodgingSelectionLevels = ['LV1', 'LV2', 'LV3', 'LV4', 'CUSTOM'] as const;
 const planStopRowTypes = ['MAIN', 'EXTERNAL_TRANSFER'] as const;
@@ -423,7 +425,7 @@ export const planVersionMetaInputSchema = z
     headcountTotal: z.number().int().min(1).max(100),
     headcountMale: z.number().int().min(0).max(100),
     headcountFemale: z.number().int().min(0).max(100),
-    vehicleType: z.enum(vehicleTypes),
+    vehicleType: z.enum(metaVehicleTypes),
     vehicleAssignments: vehicleAssignmentsSchema.optional(),
     vehicleDisplayNote: z.string().max(200).optional(),
     flightInTime: optionalTimeSchema,
@@ -576,6 +578,14 @@ export const planVersionMetaInputSchema = z
     });
 
     const assignments = normalizeVehicleAssignments(value.vehicleAssignments, value.vehicleType);
+    const customVehicleError = validateVehicleAssignmentCustomTexts(assignments);
+    if (customVehicleError) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: customVehicleError,
+        path: ['vehicleAssignments'],
+      });
+    }
     const hiaceError = validateHiaceHeadcountForAssignments(assignments, value.headcountTotal);
     if (hiaceError) {
       ctx.addIssue({
@@ -721,7 +731,7 @@ export const planPricingPreviewSchema = z
     headcountTotal: z.number().int().min(1).max(100),
     transportGroupCount: z.number().int().min(1).max(100),
     transportGroups: z.array(planVersionTransportGroupInputSchema).default([]),
-    vehicleType: z.enum(vehicleTypes),
+    vehicleType: z.enum(metaVehicleTypes),
     vehicleAssignments: vehicleAssignmentsSchema.optional(),
     includeRentalItems: z.boolean().default(true),
     eventIds: z.array(z.string().min(1)).default([]),
@@ -788,6 +798,14 @@ export const planPricingPreviewSchema = z
     });
 
     const previewAssignments = normalizeVehicleAssignments(value.vehicleAssignments, value.vehicleType);
+    const previewCustomVehicleError = validateVehicleAssignmentCustomTexts(previewAssignments);
+    if (previewCustomVehicleError) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: previewCustomVehicleError,
+        path: ['vehicleAssignments'],
+      });
+    }
     const previewHiaceError = validateHiaceHeadcountForAssignments(previewAssignments, value.headcountTotal);
     if (previewHiaceError) {
       ctx.addIssue({

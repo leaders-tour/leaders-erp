@@ -9,6 +9,7 @@ import {
   type CustomerDocumentTransportGroup,
 } from './customer-document-transport-format';
 import type { PlanVersionPricingPublishedSource } from './resolve-published-pricing-totals';
+import { resolveVehicleDisplayNote } from './vehicle-display-note';
 
 export type PlanVersionCustomerDocumentMetaInput = {
   leaderName: string | null | undefined;
@@ -20,6 +21,7 @@ export type PlanVersionCustomerDocumentMetaInput = {
   travelStartDate: string | Date | null | undefined;
   travelEndDate: string | Date | null | undefined;
   vehicleTypeDisplay: string;
+  vehicleDisplayNote?: string | null;
   includeRentalItems: boolean | null | undefined;
   rentalItemsText: string | null | undefined;
   specialNote: string | null | undefined;
@@ -47,6 +49,7 @@ export type PlanVersionCustomerDocumentSharedFields = {
   headcountText: string;
   travelPeriodText: string;
   vehicleType: string;
+  vehicleDisplayNote: string | null;
   flightInText: string;
   flightOutText: string;
   pickupText: string;
@@ -221,6 +224,7 @@ export function buildPlanVersionCustomerDocumentSharedFields(
 ): PlanVersionCustomerDocumentSharedFields {
   const transportGroups = input.transportGroups;
   const destination = input.regionSetName?.trim() || '-';
+  const vehicleType = input.vehicleTypeDisplay.trim() || '-';
 
   return {
     leaderName: normalizeMultilineText(input.leaderName),
@@ -232,7 +236,8 @@ export function buildPlanVersionCustomerDocumentSharedFields(
       input.headcountFemale,
     ),
     travelPeriodText: formatCustomerDocumentTravelPeriod(input.travelStartDate, input.travelEndDate),
-    vehicleType: input.vehicleTypeDisplay.trim() || '-',
+    vehicleType,
+    vehicleDisplayNote: resolveVehicleDisplayNote(vehicleType, input.vehicleDisplayNote),
     flightInText: formatTransportFlightLines(transportGroups, 'IN'),
     flightOutText: formatTransportFlightLines(transportGroups, 'OUT'),
     pickupText: formatTransportPickupDropLines(transportGroups, 'pickup'),

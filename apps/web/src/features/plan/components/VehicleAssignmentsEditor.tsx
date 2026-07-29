@@ -1,7 +1,8 @@
 import {
-  HIACE_VEHICLE_HEADCOUNT_MIN,
+  CUSTOM_VEHICLE_TYPE,
+  CUSTOM_VEHICLE_TYPE_LABEL,
   PLAN_VEHICLE_TYPES,
-  type PlanVehicleType,
+  type AssignmentVehicleType,
   type VehicleAssignment,
 } from '@tour/validation';
 import { Button } from '@tour/ui';
@@ -42,17 +43,27 @@ export function VehicleAssignmentsEditor({
   return (
     <div className="grid gap-2">
       {assignments.map((row, index) => {
-        const hiaceDisabled = headcountTotal < HIACE_VEHICLE_HEADCOUNT_MIN;
+        const hiaceDisabled = headcountTotal < 2;
         return (
           <div key={`vehicle-row-${index}`} className="flex flex-wrap items-center gap-2">
             <select
               value={row.vehicleType}
               onChange={(event) => {
-                const nextType = event.target.value as PlanVehicleType;
+                const nextType = event.target.value as AssignmentVehicleType;
                 if (nextType === '하이에이스' && hiaceDisabled) {
                   return;
                 }
-                updateRow(index, { vehicleType: nextType });
+                if (nextType === CUSTOM_VEHICLE_TYPE) {
+                  updateRow(index, {
+                    vehicleType: CUSTOM_VEHICLE_TYPE,
+                    vehicleTypeCustomText: row.vehicleTypeCustomText ?? '',
+                  });
+                  return;
+                }
+                updateRow(index, {
+                  vehicleType: nextType,
+                  vehicleTypeCustomText: undefined,
+                });
               }}
               className="min-w-[7.5rem] rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700"
             >
@@ -65,7 +76,18 @@ export function VehicleAssignmentsEditor({
                   {vehicleType}
                 </option>
               ))}
+              <option value={CUSTOM_VEHICLE_TYPE}>{CUSTOM_VEHICLE_TYPE_LABEL}</option>
             </select>
+            {row.vehicleType === CUSTOM_VEHICLE_TYPE ? (
+              <input
+                type="text"
+                value={row.vehicleTypeCustomText ?? ''}
+                onChange={(event) => updateRow(index, { vehicleTypeCustomText: event.target.value })}
+                placeholder="차종명 입력"
+                className="min-w-[8rem] flex-1 rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700"
+                aria-label="직접입력 차종명"
+              />
+            ) : null}
             <input
               type="number"
               min={1}

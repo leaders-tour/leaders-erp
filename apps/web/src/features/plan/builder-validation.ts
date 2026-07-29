@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { validateHiaceHeadcountForAssignments, type VehicleAssignment } from '@tour/validation';
+import { validateHiaceHeadcountForAssignments, validateVehicleAssignmentCustomTexts, type VehicleAssignment } from '@tour/validation';
 import type { ExternalTransfer } from './external-transfer';
 import { isExternalTransferComplete } from './external-transfer';
 import { getRequiredXMealsForLastDay } from './last-day-plan';
@@ -237,6 +237,16 @@ export function computeBuilderValidationResults(input: BuilderValidationInput): 
         id: 'hiace-headcount',
         severity: 'error',
         message: '하이에이스는 2인 이상부터 선택 가능하며, 7인 이상은 추가금이 없습니다.',
+      });
+    }
+
+    // missing-custom-vehicle-text (error)
+    const customVehicleError = validateVehicleAssignmentCustomTexts(vehicleAssignments);
+    if (customVehicleError) {
+      results.push({
+        id: 'missing-custom-vehicle-text',
+        severity: 'error',
+        message: customVehicleError,
       });
     }
 

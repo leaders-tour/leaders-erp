@@ -593,6 +593,7 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
         vehicleType
         vehicleAssignments {
           vehicleType
+          vehicleTypeCustomText
           count
         }
         specialNote
@@ -838,6 +839,7 @@ export const CONFIRMED_TRIP_LIST_FRAGMENT = gql`
         vehicleType
         vehicleAssignments {
           vehicleType
+          vehicleTypeCustomText
           count
         }
         specialNote

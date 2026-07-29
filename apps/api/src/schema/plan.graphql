@@ -606,11 +606,13 @@ input PlanVersionMetaInput {
 
 type VehicleAssignment {
   vehicleType: String!
+  vehicleTypeCustomText: String
   count: Int!
 }
 
 input VehicleAssignmentInput {
   vehicleType: String!
+  vehicleTypeCustomText: String
   count: Int!
 }
 

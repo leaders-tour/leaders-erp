@@ -994,6 +994,7 @@ const PLAN_VERSION_DETAIL_QUERY = gql`
         vehicleType
         vehicleAssignments {
           vehicleType
+          vehicleTypeCustomText
           count
         }
         vehicleDisplayNote

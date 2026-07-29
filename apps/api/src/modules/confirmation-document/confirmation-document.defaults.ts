@@ -223,6 +223,7 @@ export function buildConfirmationDraftDefaults(input: {
         headcountFemale: number;
         vehicleType: string;
         vehicleAssignments?: unknown;
+        vehicleDisplayNote?: string | null;
         includeRentalItems: boolean;
         rentalItemsText: string;
         remark: string | null;
@@ -267,6 +268,10 @@ export function buildConfirmationDraftDefaults(input: {
     input.confirmedTrip.planVersion?.regionSet?.name
     ?? input.confirmedTrip.plan?.regionSet?.name
     ?? null;
+  const vehicleTypeDisplay =
+    formatVehicleAssignmentsForDisplay(
+      normalizeVehicleAssignments(meta?.vehicleAssignments, meta?.vehicleType ?? ''),
+    ) || '-';
   const sharedFields = buildPlanVersionCustomerDocumentSharedFields({
     leaderName: meta?.leaderName,
     documentNumber: meta?.documentNumber,
@@ -276,10 +281,8 @@ export function buildConfirmationDraftDefaults(input: {
     headcountFemale: meta?.headcountFemale,
     travelStartDate: meta?.travelStartDate,
     travelEndDate: meta?.travelEndDate,
-    vehicleTypeDisplay:
-      formatVehicleAssignmentsForDisplay(
-        normalizeVehicleAssignments(meta?.vehicleAssignments, meta?.vehicleType ?? ''),
-      ) || '-',
+    vehicleTypeDisplay,
+    vehicleDisplayNote: meta?.vehicleDisplayNote,
     includeRentalItems: meta?.includeRentalItems,
     rentalItemsText: meta?.rentalItemsText,
     specialNote: meta?.specialNote,

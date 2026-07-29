@@ -14,7 +14,7 @@ import {
 import type { ConfirmationTraveler } from '../model/types';
 import type { ConfirmationDocumentData } from '../utils/format';
 import { fallbackText } from '../utils/format';
-import { confirmationTravelerDisplayParts, splitConfirmationAccommodationDisplay } from '@tour/validation';
+import { confirmationTravelerDisplayParts, resolveVehicleDisplayNote, splitConfirmationAccommodationDisplay } from '@tour/validation';
 import { ConfirmationAppendixPages } from './ConfirmationAppendixPages';
 
 interface ConfirmationDocumentProps {
@@ -33,26 +33,30 @@ interface ConfirmationDocumentProps {
   previewAllowUpscale?: boolean;
 }
 
-const VEHICLE_PURGONG_PHOTO_NOTE = '*푸르공 사진촬영 가능';
-
 function blankIfDash(value: string): string {
   return value === '-' ? '' : value;
 }
 
-function vehicleTypeShowsPurgongPhotoNote(vehicleType: string | null | undefined): boolean {
-  const v = vehicleType?.trim();
-  return v === '스타렉스' || v === '하이에이스';
-}
-
-function VehicleTypeCellDisplay({ vehicleType }: { vehicleType: string | null | undefined }): JSX.Element {
+function VehicleTypeCellDisplay({
+  vehicleType,
+  vehicleDisplayNote,
+}: {
+  vehicleType: string | null | undefined;
+  vehicleDisplayNote?: string | null;
+}): JSX.Element {
   const main = fallbackText(vehicleType);
-  if (main === '-' || !vehicleTypeShowsPurgongPhotoNote(vehicleType)) {
+  const note =
+    vehicleDisplayNote?.trim() || resolveVehicleDisplayNote(vehicleType, null)?.trim() || '';
+  if (main === '-' && !note) {
+    return <>-</>;
+  }
+  if (!note) {
     return <>{main}</>;
   }
   return (
     <span className="confirmation-vehicle-note">
-      <span className="confirmation-vehicle-note__main">{main}</span>
-      <span className="confirmation-vehicle-note__sub">{VEHICLE_PURGONG_PHOTO_NOTE}</span>
+      {main !== '-' ? <span className="confirmation-vehicle-note__main">{main}</span> : null}
+      <span className="confirmation-vehicle-note__sub">{note}</span>
     </span>
   );
 }
@@ -264,7 +268,10 @@ function ConfirmationPage({
                 </td>
                 <th>차량</th>
                 <td>
-                  <VehicleTypeCellDisplay vehicleType={data.vehicleType} />
+                  <VehicleTypeCellDisplay
+                    vehicleType={data.vehicleType}
+                    vehicleDisplayNote={data.vehicleDisplayNote}
+                  />
                 </td>
               </tr>
             </tbody>

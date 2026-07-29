@@ -1,13 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CUSTOM_VEHICLE_TYPE,
   formatVehicleAssignmentsForDisplay,
   normalizeVehicleAssignments,
   validateHiaceHeadcountForAssignments,
+  validateVehicleAssignmentCustomTexts,
 } from './vehicle-assignments';
 
 describe('normalizeVehicleAssignments', () => {
   it('falls back to single vehicleType', () => {
     expect(normalizeVehicleAssignments(null, '카운티')).toEqual([{ vehicleType: '카운티', count: 1 }]);
+  });
+
+  it('falls back to CUSTOM when vehicleType is not a preset', () => {
+    expect(normalizeVehicleAssignments(null, '45인승 버스')).toEqual([
+      { vehicleType: CUSTOM_VEHICLE_TYPE, vehicleTypeCustomText: '45인승 버스', count: 1 },
+    ]);
   });
 
   it('parses valid array', () => {
@@ -24,6 +32,15 @@ describe('normalizeVehicleAssignments', () => {
       { vehicleType: '스타렉스', count: 1 },
     ]);
   });
+
+  it('parses CUSTOM rows', () => {
+    expect(
+      normalizeVehicleAssignments(
+        [{ vehicleType: CUSTOM_VEHICLE_TYPE, vehicleTypeCustomText: '45인승 버스', count: 2 }],
+        '스타렉스',
+      ),
+    ).toEqual([{ vehicleType: CUSTOM_VEHICLE_TYPE, vehicleTypeCustomText: '45인승 버스', count: 2 }]);
+  });
 });
 
 describe('formatVehicleAssignmentsForDisplay', () => {
@@ -36,6 +53,14 @@ describe('formatVehicleAssignmentsForDisplay', () => {
       ]),
     ).toBe('하이에이스 1대, 스타렉스 1대');
   });
+
+  it('formats CUSTOM rows with custom text', () => {
+    expect(
+      formatVehicleAssignmentsForDisplay([
+        { vehicleType: CUSTOM_VEHICLE_TYPE, vehicleTypeCustomText: '45인승 버스', count: 1 },
+      ]),
+    ).toBe('45인승 버스 1대');
+  });
 });
 
 describe('validateHiaceHeadcountForAssignments', () => {
@@ -45,6 +70,19 @@ describe('validateHiaceHeadcountForAssignments', () => {
     ).toMatch(/2인 이상/);
     expect(
       validateHiaceHeadcountForAssignments([{ vehicleType: '하이에이스', count: 2 }], 4),
+    ).toBeNull();
+  });
+});
+
+describe('validateVehicleAssignmentCustomTexts', () => {
+  it('requires custom text for CUSTOM vehicle type', () => {
+    expect(
+      validateVehicleAssignmentCustomTexts([{ vehicleType: CUSTOM_VEHICLE_TYPE, count: 1 }]),
+    ).toMatch(/차종명/);
+    expect(
+      validateVehicleAssignmentCustomTexts([
+        { vehicleType: CUSTOM_VEHICLE_TYPE, vehicleTypeCustomText: '45인승 버스', count: 1 },
+      ]),
     ).toBeNull();
   });
 });

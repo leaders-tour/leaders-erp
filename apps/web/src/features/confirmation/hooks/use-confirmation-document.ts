@@ -15,6 +15,7 @@ const CONFIRMATION_DOCUMENT_SNAPSHOT_FRAGMENT = gql`
     headcountText
     travelPeriodText
     vehicleType
+    vehicleDisplayNote
     flightInText
     flightOutText
     pickupText
@@ -174,6 +175,7 @@ function toConfirmationSnapshotInput(snapshot: ConfirmationBuilderState): Confir
     headcountText: snapshot.headcountText,
     travelPeriodText: snapshot.travelPeriodText,
     vehicleType: snapshot.vehicleType,
+    vehicleDisplayNote: snapshot.vehicleDisplayNote ?? null,
     flightInText: snapshot.flightInText,
     flightOutText: snapshot.flightOutText,
     pickupText: snapshot.pickupText,

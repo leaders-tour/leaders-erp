@@ -1,4 +1,5 @@
 import type { PlanVehicleType, VehicleAssignment } from '@tour/validation';
+import { CUSTOM_VEHICLE_TYPE } from '@tour/validation';
 
 export const HIACE_AUTO_VEHICLE_HEADCOUNT_MIN = 7;
 export const STAREX_AUTO_VEHICLE_HEADCOUNT_MAX = 6;
@@ -46,6 +47,9 @@ export function resolveVehicleAssignmentsForHeadcount(
     return [{ vehicleType: fallbackType as PlanVehicleType, count: 1 }];
   }
   const first = assignments[0]!;
+  if (first.vehicleType === CUSTOM_VEHICLE_TYPE) {
+    return assignments;
+  }
   const rest = assignments.slice(1);
   const nextType = resolveVehicleTypeForHeadcount(
     headcountTotal,

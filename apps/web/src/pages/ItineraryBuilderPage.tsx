@@ -4987,7 +4987,6 @@ export function ItineraryBuilderPage(): JSX.Element {
         transportGroupCount: normalizedTransportGroups.length,
         transportGroups: normalizedTransportGroups.map(mapTransportGroupToPlanMutationInput),
         vehicleType,
-        vehicleDisplayNote: vehicleDisplayNote.trim(),
         vehicleAssignments,
         includeRentalItems,
         eventIds,

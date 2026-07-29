@@ -157,4 +157,68 @@ describe('buildPlanVersionCustomerDocumentSharedFields', () => {
     expect(fields.eventNames).toBe('카라반 / 별빛');
     expect(fields.headcountText).toBe('8인 (남4/여4)');
   });
+
+  it('resolves vehicleDisplayNote from stored note and vehicle type', () => {
+    const custom = buildPlanVersionCustomerDocumentSharedFields({
+      leaderName: '홍길동',
+      documentNumber: null,
+      regionSetName: '고비',
+      headcountTotal: 4,
+      headcountMale: 2,
+      headcountFemale: 2,
+      travelStartDate: '2026-07-12',
+      travelEndDate: '2026-07-18',
+      vehicleTypeDisplay: '헬로우 1대',
+      vehicleDisplayNote: '*푸르공 가능',
+      includeRentalItems: false,
+      rentalItemsText: '',
+      specialNote: '',
+      remark: '',
+      eventNames: [],
+      transportGroups: [],
+      externalTransfers: [],
+      externalPickupDate: null,
+      externalPickupTime: null,
+      externalPickupPlaceType: null,
+      externalPickupPlaceCustomText: null,
+      externalDropDate: null,
+      externalDropTime: null,
+      externalDropPlaceType: null,
+      externalDropPlaceCustomText: null,
+      externalPickupDropNote: null,
+      pricing: null,
+    });
+    expect(custom.vehicleDisplayNote).toBe('*푸르공 가능');
+
+    const auto = buildPlanVersionCustomerDocumentSharedFields({
+      leaderName: '홍길동',
+      documentNumber: null,
+      regionSetName: '고비',
+      headcountTotal: 4,
+      headcountMale: 2,
+      headcountFemale: 2,
+      travelStartDate: '2026-07-12',
+      travelEndDate: '2026-07-18',
+      vehicleTypeDisplay: '스타렉스 1대',
+      vehicleDisplayNote: null,
+      includeRentalItems: false,
+      rentalItemsText: '',
+      specialNote: '',
+      remark: '',
+      eventNames: [],
+      transportGroups: [],
+      externalTransfers: [],
+      externalPickupDate: null,
+      externalPickupTime: null,
+      externalPickupPlaceType: null,
+      externalPickupPlaceCustomText: null,
+      externalDropDate: null,
+      externalDropTime: null,
+      externalDropPlaceType: null,
+      externalDropPlaceCustomText: null,
+      externalPickupDropNote: null,
+      pricing: null,
+    });
+    expect(auto.vehicleDisplayNote).toBe('*푸르공 사진촬영 가능');
+  });
 });

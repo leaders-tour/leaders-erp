@@ -22,6 +22,7 @@ export interface ConfirmationDocumentSnapshot {
   headcountText: string;
   travelPeriodText: string;
   vehicleType: string;
+  vehicleDisplayNote?: string | null;
   flightInText: string;
   flightOutText: string;
   pickupText: string;
