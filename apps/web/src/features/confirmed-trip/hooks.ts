@@ -1,9 +1,16 @@
-import { gql, useMutation, useQuery } from '@apollo/client';
+import { gql, useMutation, useQuery, type ApolloCache } from '@apollo/client';
+import { useCallback, useEffect } from 'react';
 
+import { useAuth } from '../auth/context';
 import type { ExternalTransfer, ExternalTransferTeamLike } from '../plan/external-transfer';
 import type { PlanVersionPricingRow } from '../plan/hooks';
 import type { ConfirmationDocumentSnapshot } from '../confirmation/model/types';
 import { PLAN_VERSION_PRICING_EFFECTIVE_FIELDS_FRAGMENT } from '../plan/plan-version-pricing-fragment';
+import {
+  clearConfirmedTripSelectionPendingIfMatches,
+  registerConfirmedTripSelectionSaveAccess,
+  trackConfirmedTripSelectionPending,
+} from './confirmed-trip-selection-persistence';
 
 // ── CalendarNote ──────────────────────────────────────────────────────────────
 
@@ -1112,6 +1119,40 @@ const CREATE_POST_TRIP_TASK_OPTION_MUTATION = gql`
   }
 `;
 
+const SET_KOREA_TEAM_STAGES_MUTATION = gql`
+  mutation SetConfirmedTripKoreaTeamStages($id: ID!, $optionIds: [ID!]!) {
+    updateConfirmedTrip(id: $id, input: { koreaTeamStageOptionIds: $optionIds }) {
+      id
+      koreaTeamStages {
+        id
+        label
+        colorTone
+        sortOrder
+        isActive
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
+const SET_POST_TRIP_TASKS_MUTATION = gql`
+  mutation SetConfirmedTripPostTripTasks($id: ID!, $optionIds: [ID!]!) {
+    updateConfirmedTrip(id: $id, input: { postTripTaskOptionIds: $optionIds }) {
+      id
+      postTripTasks {
+        id
+        label
+        colorTone
+        sortOrder
+        isActive
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
 export function useConfirmedTrips(status?: 'ACTIVE' | 'CANCELLED') {
   const { data, loading, refetch } = useQuery<{ confirmedTrips: ConfirmedTripRow[] }>(
     CONFIRMED_TRIPS_QUERY,
@@ -1122,6 +1163,116 @@ export function useConfirmedTrips(status?: 'ACTIVE' | 'CANCELLED') {
     },
   );
   return { trips: data?.confirmedTrips ?? [], loading, refetch };
+}
+
+function patchConfirmedTripListField<K extends keyof ConfirmedTripRow>(
+  cache: ApolloCache<unknown>,
+  tripId: string,
+  patch: Pick<ConfirmedTripRow, K>,
+): void {
+  for (const status of ['ACTIVE', 'CANCELLED'] as const) {
+    cache.updateQuery<{ confirmedTrips: ConfirmedTripRow[] }>(
+      { query: CONFIRMED_TRIPS_QUERY, variables: { status } },
+      (existing) => {
+        if (!existing) {
+          return existing;
+        }
+        const index = existing.confirmedTrips.findIndex((trip) => trip.id === tripId);
+        if (index < 0) {
+          return existing;
+        }
+        const nextTrips = [...existing.confirmedTrips];
+        nextTrips[index] = { ...nextTrips[index], ...patch } as ConfirmedTripRow;
+        return { confirmedTrips: nextTrips };
+      },
+    );
+  }
+}
+
+function patchConfirmedTripDetailField<K extends keyof ConfirmedTripRow>(
+  cache: ApolloCache<unknown>,
+  tripId: string,
+  patch: Pick<ConfirmedTripRow, K>,
+): void {
+  cache.updateQuery<{ confirmedTrip: ConfirmedTripRow }>(
+    { query: CONFIRMED_TRIP_QUERY, variables: { id: tripId } },
+    (existing) => {
+      if (!existing?.confirmedTrip) {
+        return existing;
+      }
+      return { confirmedTrip: { ...existing.confirmedTrip, ...patch } as ConfirmedTripRow };
+    },
+  );
+}
+
+function writeConfirmedTripListCache(cache: ApolloCache<unknown>, updatedTrip: ConfirmedTripRow): void {
+  for (const status of ['ACTIVE', 'CANCELLED'] as const) {
+    cache.updateQuery<{ confirmedTrips: ConfirmedTripRow[] }>(
+      { query: CONFIRMED_TRIPS_QUERY, variables: { status } },
+      (existing) => {
+        if (!existing) {
+          return existing;
+        }
+        const index = existing.confirmedTrips.findIndex((trip) => trip.id === updatedTrip.id);
+        if (index < 0) {
+          return existing;
+        }
+        const nextTrips = [...existing.confirmedTrips];
+        nextTrips[index] = updatedTrip;
+        return { confirmedTrips: nextTrips };
+      },
+    );
+  }
+}
+
+function writeConfirmedTripDetailCache(cache: ApolloCache<unknown>, updatedTrip: ConfirmedTripRow): void {
+  cache.writeQuery({
+    query: CONFIRMED_TRIP_QUERY,
+    variables: { id: updatedTrip.id },
+    data: { confirmedTrip: updatedTrip },
+  });
+}
+
+function appendKoreaTeamStageOptionCache(
+  cache: ApolloCache<unknown>,
+  option: ConfirmedTripKoreaTeamStageOptionRow,
+  activeOnly: boolean,
+): void {
+  cache.updateQuery<{ confirmedTripKoreaTeamStageOptions: ConfirmedTripKoreaTeamStageOptionRow[] }>(
+    { query: KOREA_TEAM_STAGE_OPTIONS_QUERY, variables: { activeOnly } },
+    (existing) => {
+      if (!existing) {
+        return existing;
+      }
+      if (existing.confirmedTripKoreaTeamStageOptions.some((row) => row.id === option.id)) {
+        return existing;
+      }
+      return {
+        confirmedTripKoreaTeamStageOptions: [...existing.confirmedTripKoreaTeamStageOptions, option],
+      };
+    },
+  );
+}
+
+function appendPostTripTaskOptionCache(
+  cache: ApolloCache<unknown>,
+  option: ConfirmedTripPostTripTaskOptionRow,
+  activeOnly: boolean,
+): void {
+  cache.updateQuery<{ confirmedTripPostTripTaskOptions: ConfirmedTripPostTripTaskOptionRow[] }>(
+    { query: POST_TRIP_TASK_OPTIONS_QUERY, variables: { activeOnly } },
+    (existing) => {
+      if (!existing) {
+        return existing;
+      }
+      if (existing.confirmedTripPostTripTaskOptions.some((row) => row.id === option.id)) {
+        return existing;
+      }
+      return {
+        confirmedTripPostTripTaskOptions: [...existing.confirmedTripPostTripTaskOptions, option],
+      };
+    },
+  );
 }
 
 export function useRentalItemAvailability(input: {
@@ -1213,7 +1364,13 @@ export function useCreateConfirmedTripKoreaTeamStageOption() {
     createOption: async (label: string): Promise<ConfirmedTripKoreaTeamStageOptionRow> => {
       const result = await mutate({
         variables: { input: { label } },
-        refetchQueries: [{ query: KOREA_TEAM_STAGE_OPTIONS_QUERY, variables: { activeOnly: true } }],
+        update: (cache, mutationResult) => {
+          const created = mutationResult.data?.createConfirmedTripKoreaTeamStageOption;
+          if (!created) {
+            return;
+          }
+          appendKoreaTeamStageOptionCache(cache, created, true);
+        },
       });
       if (!result.data?.createConfirmedTripKoreaTeamStageOption) {
         throw new Error('Failed to create korea team stage option');
@@ -1243,7 +1400,13 @@ export function useCreateConfirmedTripPostTripTaskOption() {
     createOption: async (label: string): Promise<ConfirmedTripPostTripTaskOptionRow> => {
       const result = await mutate({
         variables: { input: { label } },
-        refetchQueries: [{ query: POST_TRIP_TASK_OPTIONS_QUERY, variables: { activeOnly: true } }],
+        update: (cache, mutationResult) => {
+          const created = mutationResult.data?.createConfirmedTripPostTripTaskOption;
+          if (!created) {
+            return;
+          }
+          appendPostTripTaskOptionCache(cache, created, true);
+        },
       });
       if (!result.data?.createConfirmedTripPostTripTaskOption) {
         throw new Error('Failed to create post-trip task option');
@@ -1336,13 +1499,98 @@ export function useUpdateConfirmedTrip() {
     updateConfirmedTrip: async (id: string, input: UpdateConfirmedTripInput): Promise<ConfirmedTripRow> => {
       const result = await mutate({
         variables: { id, input },
-        refetchQueries: [CONFIRMED_TRIPS_ACTIVE_REFETCH, { query: CONFIRMED_TRIP_QUERY, variables: { id } }],
+        update: (cache, mutationResult) => {
+          const updated = mutationResult.data?.updateConfirmedTrip;
+          if (!updated) {
+            return;
+          }
+          writeConfirmedTripListCache(cache, updated);
+          writeConfirmedTripDetailCache(cache, updated);
+        },
       });
       if (!result.data?.updateConfirmedTrip) {
         throw new Error('Failed to update confirmed trip');
       }
       return result.data.updateConfirmedTrip;
     },
+  };
+}
+
+export function useSetConfirmedTripKoreaTeamStages() {
+  const [mutate, { loading }] = useMutation<{
+    updateConfirmedTrip: Pick<ConfirmedTripRow, 'id' | 'koreaTeamStages'>;
+  }>(SET_KOREA_TEAM_STAGES_MUTATION);
+  const { getAccessToken } = useAuth();
+
+  useEffect(() => {
+    registerConfirmedTripSelectionSaveAccess(getAccessToken);
+  }, [getAccessToken]);
+
+  const setKoreaTeamStages = useCallback(
+    (id: string, optionIds: string[]): Promise<void> => {
+      trackConfirmedTripSelectionPending('koreaTeamStages', id, optionIds);
+      return mutate({
+        variables: { id, optionIds },
+        update: (cache, mutationResult) => {
+          const updated = mutationResult.data?.updateConfirmedTrip;
+          if (!updated) {
+            return;
+          }
+          patchConfirmedTripListField(cache, id, { koreaTeamStages: updated.koreaTeamStages });
+          patchConfirmedTripDetailField(cache, id, { koreaTeamStages: updated.koreaTeamStages });
+        },
+      }).then((result) => {
+        if (!result.data?.updateConfirmedTrip) {
+          throw new Error('Failed to update korea team stages');
+        }
+        clearConfirmedTripSelectionPendingIfMatches('koreaTeamStages', id, optionIds);
+      });
+    },
+    [mutate],
+  );
+
+  return {
+    loading,
+    setKoreaTeamStages,
+  };
+}
+
+export function useSetConfirmedTripPostTripTasks() {
+  const [mutate, { loading }] = useMutation<{
+    updateConfirmedTrip: Pick<ConfirmedTripRow, 'id' | 'postTripTasks'>;
+  }>(SET_POST_TRIP_TASKS_MUTATION);
+  const { getAccessToken } = useAuth();
+
+  useEffect(() => {
+    registerConfirmedTripSelectionSaveAccess(getAccessToken);
+  }, [getAccessToken]);
+
+  const setPostTripTasks = useCallback(
+    (id: string, optionIds: string[]): Promise<void> => {
+      trackConfirmedTripSelectionPending('postTripTasks', id, optionIds);
+      return mutate({
+        variables: { id, optionIds },
+        update: (cache, mutationResult) => {
+          const updated = mutationResult.data?.updateConfirmedTrip;
+          if (!updated) {
+            return;
+          }
+          patchConfirmedTripListField(cache, id, { postTripTasks: updated.postTripTasks });
+          patchConfirmedTripDetailField(cache, id, { postTripTasks: updated.postTripTasks });
+        },
+      }).then((result) => {
+        if (!result.data?.updateConfirmedTrip) {
+          throw new Error('Failed to update post-trip tasks');
+        }
+        clearConfirmedTripSelectionPendingIfMatches('postTripTasks', id, optionIds);
+      });
+    },
+    [mutate],
+  );
+
+  return {
+    loading,
+    setPostTripTasks,
   };
 }
 

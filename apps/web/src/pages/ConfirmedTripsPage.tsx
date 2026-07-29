@@ -23,6 +23,8 @@ import {
   useUpdateCalendarNote,
   useDeleteCalendarNote,
   useUpdateConfirmedTrip,
+  useSetConfirmedTripKoreaTeamStages,
+  useSetConfirmedTripPostTripTasks,
   getTripStartDate,
   getTripEndDate,
   getTripLeaderName,
@@ -872,8 +874,8 @@ function TripTableRow({
   filter: DateFilter;
   onClick: () => void;
   onSaveReservationDate?: (tripId: string, dateYmd: string) => Promise<void>;
-  onSaveKoreaTeamStages?: (tripId: string, optionIds: string[]) => Promise<void>;
-  onSavePostTripTasks?: (tripId: string, optionIds: string[]) => Promise<void>;
+  onSaveKoreaTeamStages?: (tripId: string, optionIds: string[]) => void | Promise<void>;
+  onSavePostTripTasks?: (tripId: string, optionIds: string[]) => void | Promise<void>;
   onToggleRecruitment?: (tripId: string, nextOpen: boolean) => Promise<void>;
 }) {
   const [reservationEditing, setReservationEditing] = useState(false);
@@ -979,12 +981,11 @@ function TripTableRow({
       {filter === 'upcoming' && (
         <td className="min-w-[13rem] px-4 py-3 text-slate-700" onClick={(e) => e.stopPropagation()}>
           <KoreaTeamStageMultiSelect
+            tripId={trip.id}
             selected={trip.koreaTeamStages}
             compact
-            onChange={async (optionIds) => {
-              if (onSaveKoreaTeamStages) {
-                await onSaveKoreaTeamStages(trip.id, optionIds);
-              }
+            onChange={(optionIds) => {
+              onSaveKoreaTeamStages?.(trip.id, optionIds);
             }}
           />
         </td>
@@ -1013,12 +1014,11 @@ function TripTableRow({
       {filter === 'completed' && (
         <td className="min-w-[13rem] px-4 py-3 text-slate-700" onClick={(e) => e.stopPropagation()}>
           <PostTripTaskMultiSelect
+            tripId={trip.id}
             selected={trip.postTripTasks}
             compact
-            onChange={async (optionIds) => {
-              if (onSavePostTripTasks) {
-                await onSavePostTripTasks(trip.id, optionIds);
-              }
+            onChange={(optionIds) => {
+              onSavePostTripTasks?.(trip.id, optionIds);
             }}
           />
         </td>
@@ -1082,6 +1082,8 @@ export function ConfirmedTripsPage(): JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();
   const { trips: allTrips, loading } = useConfirmedTrips('ACTIVE');
   const { updateConfirmedTrip } = useUpdateConfirmedTrip();
+  const { setKoreaTeamStages } = useSetConfirmedTripKoreaTeamStages();
+  const { setPostTripTasks } = useSetConfirmedTripPostTripTasks();
   const navigate = useNavigate();
   const [, bumpRecentReturnUi] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
@@ -1676,15 +1678,11 @@ export function ConfirmedTripsPage(): JSX.Element {
                             }
                           : undefined
                       }
-                      onSaveKoreaTeamStages={async (tripId, optionIds) => {
-                        await updateConfirmedTrip(tripId, {
-                          koreaTeamStageOptionIds: optionIds,
-                        });
+                      onSaveKoreaTeamStages={(tripId, optionIds) => {
+                        void setKoreaTeamStages(tripId, optionIds);
                       }}
-                      onSavePostTripTasks={async (tripId, optionIds) => {
-                        await updateConfirmedTrip(tripId, {
-                          postTripTaskOptionIds: optionIds,
-                        });
+                      onSavePostTripTasks={(tripId, optionIds) => {
+                        void setPostTripTasks(tripId, optionIds);
                       }}
                       onToggleRecruitment={async (tripId, nextOpen) => {
                         await updateConfirmedTrip(tripId, {

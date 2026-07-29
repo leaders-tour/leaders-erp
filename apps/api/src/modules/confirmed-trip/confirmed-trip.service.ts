@@ -30,6 +30,7 @@ import {
   calendarNoteConfirmedTripInclude,
   confirmedTripInclude,
   confirmedTripLodgingInclude,
+  confirmedTripSelectionOnlyInclude,
 } from './confirmed-trip.repository';
 import { AppSettingsService } from '../app-settings/app-settings.service';
 import type {
@@ -657,9 +658,15 @@ export class ConfirmedTripService {
         }
       }
 
+      const isSelectionOnlyUpdate =
+        !hasScalarUpdates &&
+        guideAssignments === undefined &&
+        driverAssignments === undefined &&
+        (koreaTeamStageOptionIds !== undefined || postTripTaskOptionIds !== undefined);
+
       const refreshed = await tx.confirmedTrip.findUnique({
         where: { id },
-        include: confirmedTripInclude,
+        include: isSelectionOnlyUpdate ? confirmedTripSelectionOnlyInclude : confirmedTripInclude,
       });
       if (!refreshed) {
         throw new DomainError('NOT_FOUND', 'Confirmed trip not found');

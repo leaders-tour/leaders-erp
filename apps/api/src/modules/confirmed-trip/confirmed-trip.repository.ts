@@ -107,6 +107,18 @@ export const confirmedTripListInclude = {
   },
 } satisfies Prisma.ConfirmedTripInclude;
 
+/** 진행단계·종료 후 안내 선택만 갱신할 때 — planVersion·lodgings 등 생략 */
+export const confirmedTripSelectionOnlyInclude = {
+  koreaTeamStageSelections: {
+    include: { option: true },
+    orderBy: { option: { sortOrder: 'asc' as const } },
+  },
+  postTripTaskSelections: {
+    include: { option: true },
+    orderBy: { option: { sortOrder: 'asc' as const } },
+  },
+} satisfies Prisma.ConfirmedTripInclude;
+
 /** CalendarNote → confirmedTrip 서브셋 (GraphQL `ConfirmedTrip.user` 필수 등) */
 export const calendarNoteConfirmedTripInclude = {
   user: true,

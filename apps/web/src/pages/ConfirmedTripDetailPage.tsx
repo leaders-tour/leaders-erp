@@ -34,6 +34,8 @@ import {
   useUpdateConfirmedTripNote,
   useDeleteConfirmedTripNote,
   useUpdateConfirmedTrip,
+  useSetConfirmedTripKoreaTeamStages,
+  useSetConfirmedTripPostTripTasks,
   useCancelConfirmedTrip,
   type ConfirmedTripNoteRow,
   getTripStartDate,
@@ -666,6 +668,8 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     [planVersions],
   );
   const { updateConfirmedTrip } = useUpdateConfirmedTrip();
+  const { setKoreaTeamStages } = useSetConfirmedTripKoreaTeamStages();
+  const { setPostTripTasks } = useSetConfirmedTripPostTripTasks();
   const { cancelConfirmedTrip, loading: cancelling } = useCancelConfirmedTrip();
   const estimatePreviewRef = useRef<HTMLElement>(null);
   const confirmationPreviewRef = useRef<HTMLElement>(null);
@@ -1347,23 +1351,21 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                 <span className="block text-xs text-slate-500">확정 단계</span>
                 <div className="mt-1 grid gap-3">
                   <KoreaTeamStageMultiSelect
+                    tripId={trip.id}
                     selected={trip.koreaTeamStages}
                     disabled={trip.status !== 'ACTIVE'}
-                    onChange={async (optionIds) => {
-                      await updateConfirmedTrip(trip.id, {
-                        koreaTeamStageOptionIds: optionIds,
-                      });
+                    onChange={(optionIds) => {
+                      void setKoreaTeamStages(trip.id, optionIds);
                     }}
                   />
                   <div>
                     <span className="mb-1 block text-xs text-slate-400">종료 후 안내</span>
                     <PostTripTaskMultiSelect
+                      tripId={trip.id}
                       selected={trip.postTripTasks}
                       disabled={trip.status !== 'ACTIVE'}
-                      onChange={async (optionIds) => {
-                        await updateConfirmedTrip(trip.id, {
-                          postTripTaskOptionIds: optionIds,
-                        });
+                      onChange={(optionIds) => {
+                        void setPostTripTasks(trip.id, optionIds);
                       }}
                     />
                   </div>
