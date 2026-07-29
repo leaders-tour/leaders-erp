@@ -20,11 +20,18 @@ import {
 } from '../components/date-picker/date-picker-utils';
 import { TimePickerModal } from '../components/date-picker/TimePickerModal';
 import { formatTimeTriggerLabel } from '../components/date-picker/time-picker-utils';
-import { EstimateDocument } from '../features/estimate/components/EstimateDocument';
+import { BuilderEstimatePreviewPanel } from '../features/estimate/components/BuilderEstimatePreviewPanel';
+import { resolveBuilderEditorLayout } from '../features/plan/builder-editor-layout';
+import {
+  BUILDER_SECTION_NAV_ITEMS,
+  BuilderSectionNav,
+  scrollToBuilderSection,
+  useBuilderSectionSpy,
+} from '../features/plan/components/BuilderSectionNav';
 import { EstimateGuideLayoutControls } from '../features/estimate/components/EstimateGuideLayoutControls';
 import { EstimateValidUntilControls } from '../features/estimate/components/EstimateValidUntilControls';
-import { EstimatePreviewScaler } from '../features/estimate/components/EstimatePreviewScaler';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
+import { usePreviousVersionEstimatePreview } from '../features/estimate/hooks/use-previous-version-estimate-preview';
 import {
   averageMovementIntensity,
   isMovementIntensityPaletteColor,
@@ -2805,6 +2812,9 @@ export function ItineraryBuilderPage(): JSX.Element {
   const [isPayloadPreviewOpen, setIsPayloadPreviewOpen] = useState<boolean>(false);
   const [isPreviewEnabled, setIsPreviewEnabled] = useState<boolean>(true);
   const [activePane, setActivePane] = useState<'builder' | 'preview'>('builder');
+  const [activeComparePane, setActiveComparePane] = useState<'editor' | 'previous' | 'next'>('editor');
+  const [isPreviousVersionPreviewEnabled, setIsPreviousVersionPreviewEnabled] = useState<boolean>(true);
+  const [editorScrollRoot, setEditorScrollRoot] = useState<HTMLElement | null>(null);
   const [hasAppliedInitialTemplate, setHasAppliedInitialTemplate] = useState<boolean>(false);
   const [skipNextAutoRowsSync, setSkipNextAutoRowsSync] = useState<boolean>(false);
   const [routePresetTemplateId, setRoutePresetTemplateId] = useState<string>('');
@@ -2911,6 +2921,36 @@ export function ItineraryBuilderPage(): JSX.Element {
   const { version: parentVersion, loading: parentVersionLoading } = usePlanVersionDetail(
     parentVersionId || undefined,
   );
+  const isVersionCompareMode = isVersionMode && Boolean(parentVersionId);
+  const showPreviousVersionPreview = isVersionCompareMode && isPreviousVersionPreviewEnabled;
+  const editorLayout = useMemo(
+    () =>
+      resolveBuilderEditorLayout({
+        isVersionCompareMode,
+        isPreviousVersionPreviewEnabled,
+      }),
+    [isPreviousVersionPreviewEnabled, isVersionCompareMode],
+  );
+  const {
+    formSectionGridClass,
+    formSplitGridClass,
+    formSplitGridClassSm,
+    formSplitGridClassMd3,
+    showSectionNav,
+    headcountFieldMaxWidthClass,
+  } = editorLayout;
+  const activeBuilderSectionId = useBuilderSectionSpy(
+    showSectionNav ? BUILDER_SECTION_NAV_ITEMS : [],
+    editorScrollRoot,
+  );
+
+  useEffect(() => {
+    if (!isPreviousVersionPreviewEnabled && activeComparePane === 'previous') {
+      setActiveComparePane('editor');
+    }
+  }, [activeComparePane, isPreviousVersionPreviewEnabled]);
+  const { data: previousEstimateData, guidesLoading: previousGuidesLoading } =
+    usePreviousVersionEstimatePreview(showPreviousVersionPreview ? parentVersion : null);
   const { data: userData } = useQuery<{ user: UserRow | null }>(USER_QUERY, {
     variables: { id: userId },
     skip: !userId,
@@ -5564,6 +5604,22 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
   const { data: previewEstimateData, guidesLoading: previewGuidesLoading } =
     useBuilderEstimatePreview(estimateDraftSnapshot);
+  const previousVersionBadge = parentVersion
+    ? `v${parentVersion.versionNumber} · 저장본`
+    : previousGuidesLoading
+      ? '불러오는 중'
+      : '저장본';
+  const nextVersionBadge = previewGuidesLoading ? '여행지 안내 동기화 중' : '새 버전 · 실시간 반영';
+  const previewGuideOverlay = (
+    <EstimateGuideLayoutControls
+      density="compact"
+      estimateGuideImagesPerPage={estimateGuideImagesPerPage}
+      onEstimateGuideImagesPerPage={setEstimateGuideImagesPerPage}
+      estimateGuidePageSplitsText={estimateGuidePageSplitsText}
+      onEstimateGuidePageSplitsText={setEstimateGuidePageSplitsText}
+      splitsInputId="estimate-guide-page-splits-preview"
+    />
+  );
 
   const handlePreviewTransportGroupFieldChange: EstimatePage1Editor['onTransportGroupFieldChange'] =
     (index, field, value) => {
@@ -5969,11 +6025,49 @@ export function ItineraryBuilderPage(): JSX.Element {
 
   return (
     <div
-      className={`min-h-screen text-slate-900 ${isPreviewEnabled ? 'lg:h-screen lg:min-h-0' : ''}`}
+      className={`min-h-screen text-slate-900 ${
+        isPreviewEnabled || isVersionCompareMode ? 'lg:h-screen lg:min-h-0' : ''
+      }`}
     >
       <div className="border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
         <div className="flex items-center gap-2">
-          {isPreviewEnabled ? (
+          {isVersionCompareMode ? (
+            <div
+              className={`grid flex-1 gap-2 rounded-2xl bg-slate-100 p-1 ${
+                isPreviousVersionPreviewEnabled ? 'grid-cols-3' : 'grid-cols-2'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => setActiveComparePane('editor')}
+                className={`rounded-xl px-2 py-2 text-sm font-medium transition ${
+                  activeComparePane === 'editor' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600'
+                }`}
+              >
+                편집
+              </button>
+              {isPreviousVersionPreviewEnabled ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveComparePane('previous')}
+                  className={`rounded-xl px-2 py-2 text-sm font-medium transition ${
+                    activeComparePane === 'previous' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600'
+                  }`}
+                >
+                  이전버전
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setActiveComparePane('next')}
+                className={`rounded-xl px-2 py-2 text-sm font-medium transition ${
+                  activeComparePane === 'next' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600'
+                }`}
+              >
+                새버전
+              </button>
+            </div>
+          ) : isPreviewEnabled ? (
             <div className="grid flex-1 grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1">
               <button
                 type="button"
@@ -5997,40 +6091,81 @@ export function ItineraryBuilderPage(): JSX.Element {
           ) : (
             <div className="flex-1 text-sm font-medium text-slate-700">빌더 전용 보기</div>
           )}
-          <Button
-            variant="outline"
-            className="shrink-0"
-            onClick={() => setIsPreviewEnabled((prev) => !prev)}
-          >
-            {isPreviewEnabled ? '미리보기 끄기' : '미리보기 켜기'}
-          </Button>
+          {isVersionCompareMode ? (
+            <Button
+              variant="outline"
+              className="shrink-0"
+              onClick={() => setIsPreviousVersionPreviewEnabled((prev) => !prev)}
+            >
+              {isPreviousVersionPreviewEnabled ? '이전버전 끄기' : '이전버전 켜기'}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              className="shrink-0"
+              onClick={() => setIsPreviewEnabled((prev) => !prev)}
+            >
+              {isPreviewEnabled ? '미리보기 끄기' : '미리보기 켜기'}
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className={isPreviewEnabled ? 'lg:grid lg:h-full lg:grid-cols-2' : ''}>
+      <div
+        className={
+          isVersionCompareMode
+            ? editorLayout.compareColumnCount === 3
+              ? 'lg:grid lg:h-full lg:min-h-0 lg:grid-cols-3'
+              : 'lg:grid lg:h-full lg:min-h-0 lg:grid-cols-2'
+            : isPreviewEnabled
+              ? 'lg:grid lg:h-full lg:grid-cols-2'
+              : ''
+        }
+      >
         <div
+          ref={setEditorScrollRoot}
           className={`${
-            !isPreviewEnabled || activePane === 'builder' ? 'block' : 'hidden'
+            isVersionCompareMode
+              ? activeComparePane === 'editor'
+                ? 'block'
+                : 'hidden'
+              : !isPreviewEnabled || activePane === 'builder'
+                ? 'block'
+                : 'hidden'
           } bg-slate-50 ${
-            isPreviewEnabled
+            isPreviewEnabled || isVersionCompareMode
               ? 'border-b border-slate-200 lg:block lg:h-full lg:overflow-y-auto lg:border-b-0 lg:border-r'
               : ''
           }`}
         >
           <div
             className={`space-y-6 px-4 py-4 sm:px-6 lg:py-6 ${
-              isPreviewEnabled ? 'lg:px-8' : 'mx-auto max-w-7xl lg:px-6'
+              isPreviewEnabled || isVersionCompareMode ? 'lg:px-8' : 'mx-auto max-w-7xl lg:px-6'
             }`}
           >
             <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
                 <h1 className="text-2xl font-semibold tracking-tight">여행 일정 빌더</h1>
+                {isVersionCompareMode ? (
+                  <p className="mt-1 text-xs text-slate-500">
+                    기존 견적 v{parentVersion?.versionNumber ?? '?'}을 기준으로 새 버전을 작성합니다.
+                  </p>
+                ) : null}
               </div>
               <div className="flex max-w-xl flex-col items-stretch gap-2 md:items-end">
                 <div className="relative flex flex-wrap justify-end gap-2 no-print">
-                <Button variant="outline" onClick={() => setIsPreviewEnabled((prev) => !prev)}>
-                  {isPreviewEnabled ? '미리보기 끄기' : '미리보기 켜기'}
-                </Button>
+                {!isVersionCompareMode ? (
+                  <Button variant="outline" onClick={() => setIsPreviewEnabled((prev) => !prev)}>
+                    {isPreviewEnabled ? '미리보기 끄기' : '미리보기 켜기'}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsPreviousVersionPreviewEnabled((prev) => !prev)}
+                  >
+                    {isPreviousVersionPreviewEnabled ? '이전버전 미리보기 끄기' : '이전버전 미리보기 켜기'}
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   onClick={() => setIsConsultationPasteModalOpen(true)}
@@ -6234,8 +6369,17 @@ export function ItineraryBuilderPage(): JSX.Element {
               </Card>
             ) : null}
 
-            <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-              <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+            <div className={showSectionNav ? 'flex items-start gap-3' : ''}>
+              {showSectionNav ? (
+                <BuilderSectionNav
+                  items={BUILDER_SECTION_NAV_ITEMS}
+                  activeId={activeBuilderSectionId}
+                  onSelect={(sectionId) => scrollToBuilderSection(editorScrollRoot, sectionId)}
+                />
+              ) : null}
+              <div className={showSectionNav ? 'min-w-0 flex-1 space-y-6' : 'space-y-6'}>
+            <section className={formSectionGridClass}>
+              <Card id="builder-section-basic" className="scroll-mt-4 rounded-3xl border border-slate-200 p-4 shadow-sm">
                 <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
                     1
@@ -6330,7 +6474,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                     </div>
                   </div>
 
-                  <div className="grid w-full max-w-full gap-2 text-sm sm:max-w-[50%]">
+                  <div className={`grid w-full max-w-full gap-2 text-sm ${headcountFieldMaxWidthClass}`}>
                     <span className="text-xs text-slate-600">인원</span>
                     <div className="grid min-w-0 gap-3">
                       <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
@@ -6438,7 +6582,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                     </div>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className={formSplitGridClass}>
                     <div className="grid gap-2 text-sm">
                       <span className="text-xs text-slate-600">여행 기간</span>
                       <div className="grid gap-2">
@@ -6480,7 +6624,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                     </div>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className={formSplitGridClass}>
                     <div className="grid gap-2 text-sm">
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-slate-600">기본 대여물품</span>
@@ -6628,7 +6772,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </div>
               </Card>
 
-              <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+              <Card id="builder-section-transport" className="scroll-mt-4 rounded-3xl border border-slate-200 p-4 shadow-sm">
                 <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
                     2
@@ -6704,7 +6848,7 @@ export function ItineraryBuilderPage(): JSX.Element {
 
                           <div className="grid gap-3">
                             {transportGroups.length > 1 ? (
-                              <div className="grid gap-2 md:grid-cols-2">
+                              <div className={formSplitGridClassSm}>
                                 <label className="grid gap-1">
                                   <span className="text-xs text-slate-600">팀명</span>
                                   <input
@@ -6768,7 +6912,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                 <span className="h-2.5 w-2.5 rounded-full bg-blue-600" />
                                 <span className="text-xs font-semibold text-blue-900">항공권</span>
                               </div>
-                              <div className="grid gap-3 md:grid-cols-2">
+                              <div className={formSplitGridClassMd3}>
                                 <div className="grid gap-2">
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="text-xs font-medium text-blue-800">항공권 IN</span>
@@ -6916,7 +7060,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                                   픽업 / 드랍
                                 </span>
                               </div>
-                              <div className="grid gap-3 md:grid-cols-2">
+                              <div className={formSplitGridClassMd3}>
                                 <div className="grid gap-2">
                                 <span className="text-xs font-medium text-emerald-800">픽업</span>
                                 <div className="grid gap-2">
@@ -7095,7 +7239,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </div>
               </Card>
 
-              <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+              <Card id="builder-section-route" className="scroll-mt-4 rounded-3xl border border-slate-200 p-4 shadow-sm">
                 <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
                     3
@@ -7675,7 +7819,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                 </div>
               </Card>
 
-              <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
+              <Card id="builder-section-extras" className="scroll-mt-4 rounded-3xl border border-slate-200 p-4 shadow-sm">
                 <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
                     4
@@ -7799,7 +7943,7 @@ export function ItineraryBuilderPage(): JSX.Element {
               </Card>
             </section>
 
-            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <section id="builder-section-schedule" className="scroll-mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
               <div className="border-b border-slate-200 p-4">
                 <h2 className="text-lg font-bold text-slate-900">일정표 편집기</h2>
                 <p className="mt-1 text-xs text-slate-600">
@@ -8153,7 +8297,7 @@ export function ItineraryBuilderPage(): JSX.Element {
               </div>
             </section>
 
-            <section className="space-y-5">
+            <section id="builder-section-pricing" className="scroll-mt-4 space-y-5">
               <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-lg font-bold text-slate-900">금액</h2>
@@ -9101,63 +9245,73 @@ export function ItineraryBuilderPage(): JSX.Element {
                 ) : null}
               </Card>
             </section>
+              </div>
+            </div>
           </div>
         </div>
 
-        {isPreviewEnabled ? (
+        {isVersionCompareMode ? (
+          <>
+            {showPreviousVersionPreview ? (
+              <aside
+                className={`${
+                  activeComparePane === 'previous' ? 'block' : 'hidden'
+                } bg-slate-100/80 lg:block lg:h-full lg:overflow-y-auto lg:border-r lg:border-slate-200`}
+              >
+                <div className="p-4 sm:p-6 lg:sticky lg:top-0 lg:p-6">
+                  <BuilderEstimatePreviewPanel
+                    title="이전버전 견적서"
+                    description="기존 저장본입니다. 편집 내용은 반영되지 않습니다."
+                    badge={previousVersionBadge}
+                    data={previousEstimateData}
+                    loading={parentVersionLoading || previousGuidesLoading}
+                    loadingMessage="이전버전 견적서를 불러오는 중..."
+                  />
+                </div>
+              </aside>
+            ) : null}
+            <aside
+              className={`${
+                activeComparePane === 'next' ? 'block' : 'hidden'
+              } bg-slate-100/80 lg:block lg:h-full lg:overflow-y-auto`}
+            >
+              <div className="p-4 sm:p-6 lg:sticky lg:top-0 lg:p-6">
+                <BuilderEstimatePreviewPanel
+                  title="새버전 견적서"
+                  description="편집 내용이 실시간으로 반영됩니다."
+                  badge={nextVersionBadge}
+                  data={previewEstimateData}
+                  loading={previewGuidesLoading}
+                  page1Editor={previewPage1Editor}
+                  page2Editor={previewPage2Editor}
+                  validUntilEditor={{
+                    value: validUntilDate,
+                    onChange: setValidUntilDate,
+                  }}
+                  screenPreviewGuideOverlay={previewGuideOverlay}
+                />
+              </div>
+            </aside>
+          </>
+        ) : isPreviewEnabled ? (
           <aside
             className={`${activePane === 'preview' ? 'block' : 'hidden'} bg-slate-100/80 lg:block lg:h-full lg:overflow-y-auto`}
           >
             <div className="p-4 sm:p-6 lg:sticky lg:top-0 lg:p-6">
-              <div className="estimate-preview-panel rounded-[28px] border border-slate-200 bg-white/90 p-4 shadow-xl backdrop-blur sm:p-5">
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1 pr-2 sm:max-w-[min(100%,calc(100%-11rem))]">
-                    <h2 className="text-base font-semibold text-slate-900">
-                      실시간 견적서 미리보기
-                    </h2>
-                    <p className="mt-1 text-xs text-slate-600">
-                      좌측 입력값이 우측 문서에 바로 반영됩니다.
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                    <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600">
-                      {previewGuidesLoading ? '여행지 안내 동기화 중' : '실시간 반영'}
-                    </div>
-                  </div>
-                </div>
-
-                {previewEstimateData ? (
-                  <div className="estimate-preview-frame">
-                    <EstimatePreviewScaler>
-                      <EstimateDocument
-                        data={previewEstimateData}
-                        viewMode="screen-preview"
-                        guideSplitRemainderStrategy="chunk-per-page"
-                        page1Editor={previewPage1Editor}
-                        page2Editor={previewPage2Editor}
-                        validUntilEditor={{
-                          value: validUntilDate,
-                          onChange: setValidUntilDate,
-                        }}
-                        screenPreviewGuideOverlay={
-                          <EstimateGuideLayoutControls
-                            density="compact"
-                            estimateGuideImagesPerPage={estimateGuideImagesPerPage}
-                            onEstimateGuideImagesPerPage={setEstimateGuideImagesPerPage}
-                            estimateGuidePageSplitsText={estimateGuidePageSplitsText}
-                            onEstimateGuidePageSplitsText={setEstimateGuidePageSplitsText}
-                            splitsInputId="estimate-guide-page-splits-preview"
-                          />
-                        }
-                      />
-                    </EstimatePreviewScaler>
-                  </div>
-                ) : (
-                  <Card className="rounded-3xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
-                    미리보기 데이터를 준비 중입니다...
-                  </Card>
-                )}
-              </div>
+              <BuilderEstimatePreviewPanel
+                title="실시간 견적서 미리보기"
+                description="좌측 입력값이 우측 문서에 바로 반영됩니다."
+                badge={previewGuidesLoading ? '여행지 안내 동기화 중' : '실시간 반영'}
+                data={previewEstimateData}
+                loading={previewGuidesLoading}
+                page1Editor={previewPage1Editor}
+                page2Editor={previewPage2Editor}
+                validUntilEditor={{
+                  value: validUntilDate,
+                  onChange: setValidUntilDate,
+                }}
+                screenPreviewGuideOverlay={previewGuideOverlay}
+              />
             </div>
           </aside>
         ) : null}
