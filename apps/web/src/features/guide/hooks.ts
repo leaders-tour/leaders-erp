@@ -37,17 +37,34 @@ export interface LeaderstepsAuthUserRow {
   linkedGuideNameMn: string | null;
 }
 
-export interface GuideLocationRow {
-  guideId: string;
-  guideNameKo: string;
-  guideNameMn: string | null;
-  profileImageUrl: string | null;
+export interface GuideLocationPointRow {
   latitude: number;
   longitude: number;
   accuracy: number;
   recordedAt: string;
-  source: string;
   projectId: string;
+}
+
+export interface GuideLiveLocationRow {
+  guideId: string;
+  guideNameKo: string;
+  guideNameMn: string | null;
+  profileImageUrl: string | null;
+  latestLatitude: number;
+  latestLongitude: number;
+  latestAccuracy: number;
+  latestRecordedAt: string;
+  path: GuideLocationPointRow[];
+  projectIds: string[];
+}
+
+export interface LeaderstepsActiveProjectRow {
+  id: string;
+  name: string;
+  startedAt: string;
+  scheduledEndedAt: string;
+  endedAt: string | null;
+  isActive: boolean;
 }
 
 const GUIDE_FRAGMENT = gql`
@@ -131,19 +148,38 @@ const LEADERSTEPS_AUTH_USERS_QUERY = gql`
   }
 `;
 
-const GUIDE_LOCATIONS_QUERY = gql`
-  query GuideLocations($date: String!, $guideId: ID) {
-    guideLocations(date: $date, guideId: $guideId) {
+const LEADERSTEPS_ACTIVE_PROJECTS_QUERY = gql`
+  query LeaderstepsActiveProjects {
+    leaderstepsActiveProjects {
+      id
+      name
+      startedAt
+      scheduledEndedAt
+      endedAt
+      isActive
+    }
+  }
+`;
+
+const GUIDE_LIVE_LOCATIONS_QUERY = gql`
+  query GuideLiveLocations($projectId: ID) {
+    guideLiveLocations(projectId: $projectId) {
       guideId
       guideNameKo
       guideNameMn
       profileImageUrl
-      latitude
-      longitude
-      accuracy
-      recordedAt
-      source
-      projectId
+      latestLatitude
+      latestLongitude
+      latestAccuracy
+      latestRecordedAt
+      projectIds
+      path {
+        latitude
+        longitude
+        accuracy
+        recordedAt
+        projectId
+      }
     }
   }
 `;
@@ -270,25 +306,33 @@ export function useLeaderstepsAuthUsers() {
   };
 }
 
-export function useGuideLocations(date: string, guideId?: string) {
-  const todayInUlaanbaatar = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Ulaanbaatar',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-  const { data, loading, error, refetch, networkStatus } = useQuery<{
-    guideLocations: GuideLocationRow[];
-  }>(GUIDE_LOCATIONS_QUERY, {
-    variables: { date, guideId: guideId || null },
-    skip: !date,
+export function useLeaderstepsActiveProjects() {
+  const { data, loading, error, refetch } = useQuery<{
+    leaderstepsActiveProjects: LeaderstepsActiveProjectRow[];
+  }>(LEADERSTEPS_ACTIVE_PROJECTS_QUERY, {
     fetchPolicy: 'cache-and-network',
-    notifyOnNetworkStatusChange: true,
-    pollInterval: date === todayInUlaanbaatar ? 60_000 : 0,
   });
 
   return {
-    locations: data?.guideLocations ?? [],
+    projects: data?.leaderstepsActiveProjects ?? [],
+    loading,
+    errorMessage: error?.message ?? null,
+    refetch,
+  };
+}
+
+export function useGuideLiveLocations(projectId?: string) {
+  const { data, loading, error, refetch, networkStatus } = useQuery<{
+    guideLiveLocations: GuideLiveLocationRow[];
+  }>(GUIDE_LIVE_LOCATIONS_QUERY, {
+    variables: { projectId: projectId || null },
+    fetchPolicy: 'cache-and-network',
+    notifyOnNetworkStatusChange: true,
+    pollInterval: 60_000,
+  });
+
+  return {
+    locations: data?.guideLiveLocations ?? [],
     loading: loading && !data,
     refreshing: networkStatus === 4,
     errorMessage: error?.message ?? null,

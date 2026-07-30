@@ -51,17 +51,34 @@ type LeaderstepsAuthUser {
   linkedGuideNameMn: String
 }
 
-type GuideLocation {
-  guideId: ID!
-  guideNameKo: String!
-  guideNameMn: String
-  profileImageUrl: String
+type GuideLocationPoint {
   latitude: Float!
   longitude: Float!
   accuracy: Float!
   recordedAt: DateTime!
-  source: String!
   projectId: ID!
+}
+
+type GuideLiveLocation {
+  guideId: ID!
+  guideNameKo: String!
+  guideNameMn: String
+  profileImageUrl: String
+  latestLatitude: Float!
+  latestLongitude: Float!
+  latestAccuracy: Float!
+  latestRecordedAt: DateTime!
+  path: [GuideLocationPoint!]!
+  projectIds: [ID!]!
+}
+
+type LeaderstepsActiveProject {
+  id: ID!
+  name: String!
+  startedAt: DateTime!
+  scheduledEndedAt: DateTime!
+  endedAt: DateTime
+  isActive: Boolean!
 }
 
 input GuideCreateInput {
@@ -98,7 +115,8 @@ input GuideUpdateInput {
 
 extend type Query {
   leaderstepsAuthUsers: [LeaderstepsAuthUser!]!
-  guideLocations(date: String!, guideId: ID): [GuideLocation!]!
+  leaderstepsActiveProjects: [LeaderstepsActiveProject!]!
+  guideLiveLocations(projectId: ID): [GuideLiveLocation!]!
 }
 
 extend type Mutation {

@@ -1,21 +1,20 @@
-import { Button, Card, Input } from '@tour/ui';
-import { GoogleMap, InfoWindowF, MarkerF, useJsApiLoader } from '@react-google-maps/api';
+import { Button, Card } from '@tour/ui';
+import { GoogleMap, InfoWindowF, MarkerF, PolylineF, useJsApiLoader } from '@react-google-maps/api';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  useGuideLocations,
-  useGuides,
-  type GuideLocationRow,
+  buildGuideMarkerIcon,
+  collectMapBounds,
+  getGuidePathColor,
+} from '../features/guide/guide-location-map-utils';
+import {
+  useGuideLiveLocations,
+  useLeaderstepsActiveProjects,
+  type GuideLiveLocationRow,
 } from '../features/guide/hooks';
 import { GOOGLE_MAPS_API_KEY } from '../lib/google-maps-api-key';
 
 const DEFAULT_MAP_CENTER = { lat: 47.9189, lng: 106.9176 };
 const MAP_CONTAINER_STYLE = { width: '100%', height: '680px' };
-const ULAANBAATAR_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'Asia/Ulaanbaatar',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
 const ULAANBAATAR_TIME_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
   timeZone: 'Asia/Ulaanbaatar',
   month: '2-digit',
@@ -25,42 +24,16 @@ const ULAANBAATAR_TIME_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
   second: '2-digit',
 });
 
-function getTodayInUlaanbaatar(): string {
-  return ULAANBAATAR_DATE_FORMATTER.format(new Date());
-}
-
 function formatRecordedAt(value: string): string {
   return ULAANBAATAR_TIME_FORMATTER.format(new Date(value));
 }
 
-function createMarkerIcon(focused: boolean): google.maps.Symbol {
-  return {
-    path: google.maps.SymbolPath.CIRCLE,
-    fillColor: focused ? '#4f46e5' : '#6366f1',
-    fillOpacity: 0.88,
-    strokeColor: focused ? '#312e81' : '#4338ca',
-    strokeWeight: 3,
-    scale: focused ? 13 : 10,
-  };
-}
-
-function fitMapToLocations(map: google.maps.Map, locations: GuideLocationRow[]): void {
-  if (locations.length === 0) {
+function fitMapToLocations(map: google.maps.Map, locations: GuideLiveLocationRow[]): void {
+  const bounds = collectMapBounds(locations);
+  if (!bounds) {
     map.setCenter(DEFAULT_MAP_CENTER);
     map.setZoom(11);
     return;
-  }
-  if (locations.length === 1) {
-    const location = locations[0];
-    if (location) {
-      map.setCenter({ lat: location.latitude, lng: location.longitude });
-      map.setZoom(14);
-    }
-    return;
-  }
-  const bounds = new google.maps.LatLngBounds();
-  for (const location of locations) {
-    bounds.extend({ lat: location.latitude, lng: location.longitude });
   }
   map.fitBounds(bounds, 48);
 }
@@ -70,24 +43,27 @@ function GuideGoogleMap({
   focusedGuideId,
   onFocusGuide,
 }: {
-  locations: GuideLocationRow[];
+  locations: GuideLiveLocationRow[];
   focusedGuideId: string | null;
   onFocusGuide: (guideId: string) => void;
 }): JSX.Element {
   const mapRef = useRef<google.maps.Map | null>(null);
   const [infoWindowGuideId, setInfoWindowGuideId] = useState<string | null>(null);
+  const locationColorByGuideId = useMemo(
+    () =>
+      new Map(
+        locations.map((location, index) => [location.guideId, getGuidePathColor(index)] as const),
+      ),
+    [locations],
+  );
   const focusedLocation =
     locations.find((location) => location.guideId === focusedGuideId) ?? null;
   const infoWindowLocation =
     locations.find((location) => location.guideId === infoWindowGuideId) ?? null;
 
-  const handleMapLoad = useCallback(
-    (map: google.maps.Map) => {
-      mapRef.current = map;
-      fitMapToLocations(map, locations);
-    },
-    [locations],
-  );
+  const handleMapLoad = useCallback((map: google.maps.Map) => {
+    mapRef.current = map;
+  }, []);
 
   useEffect(() => {
     if (!mapRef.current) {
@@ -101,8 +77,8 @@ function GuideGoogleMap({
       return;
     }
     mapRef.current.panTo({
-      lat: focusedLocation.latitude,
-      lng: focusedLocation.longitude,
+      lat: focusedLocation.latestLatitude,
+      lng: focusedLocation.latestLongitude,
     });
     const zoom = mapRef.current.getZoom() ?? 11;
     if (zoom < 15) {
@@ -125,12 +101,33 @@ function GuideGoogleMap({
       onLoad={handleMapLoad}
     >
       {locations.map((location) => {
+        const color = locationColorByGuideId.get(location.guideId) ?? '#4f46e5';
+        const focused = focusedGuideId === location.guideId;
+        return (
+          <PolylineF
+            key={`path-${location.guideId}`}
+            path={location.path.map((point) => ({
+              lat: point.latitude,
+              lng: point.longitude,
+            }))}
+            options={{
+              strokeColor: color,
+              strokeOpacity: focused ? 0.95 : 0.72,
+              strokeWeight: focused ? 5 : 4,
+              zIndex: focused ? 2 : 1,
+            }}
+          />
+        );
+      })}
+      {locations.map((location) => {
+        const color = locationColorByGuideId.get(location.guideId) ?? '#4f46e5';
         const focused = focusedGuideId === location.guideId;
         return (
           <MarkerF
-            key={location.guideId}
-            position={{ lat: location.latitude, lng: location.longitude }}
-            icon={createMarkerIcon(focused)}
+            key={`marker-${location.guideId}`}
+            position={{ lat: location.latestLatitude, lng: location.latestLongitude }}
+            icon={buildGuideMarkerIcon(location.profileImageUrl, location.guideNameKo, color, focused)}
+            zIndex={focused ? 1000 : 100}
             onClick={() => {
               onFocusGuide(location.guideId);
               setInfoWindowGuideId(location.guideId);
@@ -141,8 +138,8 @@ function GuideGoogleMap({
       {infoWindowLocation ? (
         <InfoWindowF
           position={{
-            lat: infoWindowLocation.latitude,
-            lng: infoWindowLocation.longitude,
+            lat: infoWindowLocation.latestLatitude,
+            lng: infoWindowLocation.latestLongitude,
           }}
           onCloseClick={() => setInfoWindowGuideId(null)}
         >
@@ -150,9 +147,11 @@ function GuideGoogleMap({
             <strong>{infoWindowLocation.guideNameKo}</strong>
             {infoWindowLocation.guideNameMn ? ` · ${infoWindowLocation.guideNameMn}` : ''}
             <br />
-            기록: {formatRecordedAt(infoWindowLocation.recordedAt)}
+            최근 기록: {formatRecordedAt(infoWindowLocation.latestRecordedAt)}
             <br />
-            정확도: 약 {Math.round(infoWindowLocation.accuracy)}m
+            정확도: 약 {Math.round(infoWindowLocation.latestAccuracy)}m
+            <br />
+            경로 포인트: {infoWindowLocation.path.length}개
           </div>
         </InfoWindowF>
       ) : null}
@@ -161,28 +160,41 @@ function GuideGoogleMap({
 }
 
 export function GuideLocationMapPage(): JSX.Element {
-  const [date, setDate] = useState(getTodayInUlaanbaatar);
-  const [guideId, setGuideId] = useState('');
+  const [projectId, setProjectId] = useState('');
+  const [personId, setPersonId] = useState('');
   const [focusedGuideId, setFocusedGuideId] = useState<string | null>(null);
-  const { guides, loading: guidesLoading } = useGuides();
+  const { projects, loading: projectsLoading } = useLeaderstepsActiveProjects();
   const {
-    locations,
+    locations: allLocations,
     loading: locationsLoading,
     refreshing,
     errorMessage,
     refetch,
-  } = useGuideLocations(date, guideId || undefined);
+  } = useGuideLiveLocations(projectId || undefined);
+  const locations = useMemo(
+    () =>
+      personId ? allLocations.filter((location) => location.guideId === personId) : allLocations,
+    [allLocations, personId],
+  );
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'guide-location-map-ko',
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
     language: 'ko',
     region: 'KR',
   });
-  const linkedGuides = useMemo(
-    () => guides.filter((guide) => guide.leaderstepsAuthUserId),
-    [guides],
+  const personFilterOptions = useMemo(
+    () =>
+      [...allLocations].sort((left, right) =>
+        left.guideNameKo.localeCompare(right.guideNameKo, 'ko'),
+      ),
+    [allLocations],
   );
-  const isToday = date === getTodayInUlaanbaatar();
+
+  useEffect(() => {
+    if (personId && !allLocations.some((location) => location.guideId === personId)) {
+      setPersonId('');
+    }
+  }, [personId, allLocations]);
 
   useEffect(() => {
     if (focusedGuideId && !locations.some((location) => location.guideId === focusedGuideId)) {
@@ -196,59 +208,64 @@ export function GuideLocationMapPage(): JSX.Element {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">가이드 위치</h1>
           <p className="mt-1 text-sm text-slate-600">
-            선택한 날짜에 기록된 각 가이드의 마지막 GPS 위치를 Google Maps에 표시합니다.
+            오늘 진행 중인 Leadersteps 프로젝트의 GPS 경로와 참여자의 최근 위치를 표시합니다.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
           <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">
-            연결 가이드 {linkedGuides.length}명
+            오늘 프로젝트 {projects.length}개
           </span>
           <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">
-            위치 확인 {locations.length}명
+            위치 확인 {allLocations.length}명
           </span>
-          {isToday ? (
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-700">
-              1분마다 자동 갱신
-            </span>
-          ) : null}
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-700">
+            1분마다 자동 갱신
+          </span>
         </div>
       </header>
 
-      <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[minmax(0,220px)_minmax(240px,1fr)_auto] md:items-end">
+      <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[minmax(240px,1fr)_minmax(240px,1fr)_auto] md:items-end">
         <div>
-          <label htmlFor="guide-location-date" className="mb-2 block text-sm font-medium text-slate-700">
-            날짜
-          </label>
-          <Input
-            id="guide-location-date"
-            type="date"
-            value={date}
-            max={getTodayInUlaanbaatar()}
-            onChange={(event) => {
-              setDate(event.target.value);
-              setFocusedGuideId(null);
-            }}
-          />
-        </div>
-        <div>
-          <label htmlFor="guide-location-guide" className="mb-2 block text-sm font-medium text-slate-700">
-            가이드
+          <label htmlFor="guide-location-project" className="mb-2 block text-sm font-medium text-slate-700">
+            프로젝트
           </label>
           <select
-            id="guide-location-guide"
+            id="guide-location-project"
             className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-800"
-            value={guideId}
-            disabled={guidesLoading}
+            value={projectId}
+            disabled={projectsLoading}
             onChange={(event) => {
-              setGuideId(event.target.value);
+              setProjectId(event.target.value);
               setFocusedGuideId(null);
             }}
           >
-            <option value="">연결된 가이드 전체</option>
-            {linkedGuides.map((guide) => (
-              <option key={guide.id} value={guide.id}>
-                {guide.nameKo}
-                {guide.nameMn ? ` · ${guide.nameMn}` : ''}
+            <option value="">오늘 활성 프로젝트 전체</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="guide-location-person" className="mb-2 block text-sm font-medium text-slate-700">
+            참여자
+          </label>
+          <select
+            id="guide-location-person"
+            className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-800"
+            value={personId}
+            disabled={locationsLoading}
+            onChange={(event) => {
+              setPersonId(event.target.value);
+              setFocusedGuideId(null);
+            }}
+          >
+            <option value="">전체 참여자</option>
+            {personFilterOptions.map((location) => (
+              <option key={location.guideId} value={location.guideId}>
+                {location.guideNameKo}
+                {location.guideNameMn ? ` · ${location.guideNameMn}` : ''}
               </option>
             ))}
           </select>
@@ -256,7 +273,7 @@ export function GuideLocationMapPage(): JSX.Element {
         <Button
           type="button"
           variant="outline"
-          disabled={locationsLoading || refreshing || !date}
+          disabled={locationsLoading || refreshing}
           onClick={() => void refetch()}
         >
           {refreshing ? '갱신 중...' : '새로고침'}
@@ -271,9 +288,8 @@ export function GuideLocationMapPage(): JSX.Element {
 
       {!GOOGLE_MAPS_API_KEY ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Google Maps API 키가 필요합니다. 루트 <code className="font-mono">.env</code>에{' '}
-          <code className="font-mono">VITE_GOOGLE_MAPS_API_KEY</code>를 추가하고 Maps JavaScript API를
-          활성화해 주세요.
+          Google Maps API 키가 필요합니다. <code className="font-mono">apps/web/.env</code>에{' '}
+          <code className="font-mono">VITE_GOOGLE_MAPS_API_KEY</code>를 추가해 주세요.
         </div>
       ) : null}
 
@@ -309,18 +325,19 @@ export function GuideLocationMapPage(): JSX.Element {
           <div className="flex items-center justify-between gap-2">
             <div>
               <h2 className="font-semibold text-slate-900">위치 목록</h2>
-              <p className="mt-1 text-xs text-slate-500">울란바토르 시간 기준</p>
+              <p className="mt-1 text-xs text-slate-500">프로젝트 전체 기간 경로 · 울란바토르 시간</p>
             </div>
             <span className="text-xs text-slate-500">{locations.length}명</span>
           </div>
           <div className="mt-4 grid max-h-[600px] gap-2 overflow-y-auto pr-1">
             {!locationsLoading && locations.length === 0 ? (
               <div className="rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                선택한 조건에 기록된 위치가 없습니다.
+                오늘 활성 프로젝트에 기록된 위치가 없습니다.
               </div>
             ) : (
-              locations.map((location) => {
+              locations.map((location, index) => {
                 const focused = focusedGuideId === location.guideId;
+                const color = getGuidePathColor(index);
                 return (
                   <button
                     key={location.guideId}
@@ -333,13 +350,19 @@ export function GuideLocationMapPage(): JSX.Element {
                     }`}
                     onClick={() => setFocusedGuideId(location.guideId)}
                   >
-                    <span className="block font-semibold text-slate-900">
-                      {location.guideNameKo}
-                      {location.guideNameMn ? ` · ${location.guideNameMn}` : ''}
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="inline-block h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: color }}
+                      />
+                      <span className="font-semibold text-slate-900">
+                        {location.guideNameKo}
+                        {location.guideNameMn ? ` · ${location.guideNameMn}` : ''}
+                      </span>
                     </span>
                     <span className="mt-1 block text-xs text-slate-500">
-                      {formatRecordedAt(location.recordedAt)} · 정확도 약{' '}
-                      {Math.round(location.accuracy)}m
+                      {formatRecordedAt(location.latestRecordedAt)} · 정확도 약{' '}
+                      {Math.round(location.latestAccuracy)}m · 경로 {location.path.length}포인트
                     </span>
                   </button>
                 );

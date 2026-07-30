@@ -4,12 +4,20 @@ import {
   guideCreateSchema,
   guideLeaderstepsAuthLinkSchema,
   guideLeaderstepsAuthUnlinkSchema,
-  guideLocationFilterSchema,
+  guideLiveLocationFilterSchema,
   guideUpdateSchema,
 } from '@tour/validation';
 import { DomainError, createValidationError } from '../../lib/errors';
 import { FileStorageClient, type UploadFile } from '../../lib/file-storage/client';
 import { getSupabaseAdminClient } from '../../lib/supabase';
+import {
+  getTodayInUlaanbaatar,
+  getUlaanbaatarDayRange,
+  isLogWithinProject,
+  isProjectActiveOnDate,
+  type LeaderstepsLocationLogRow,
+  type LeaderstepsProjectRow,
+} from './leadersteps-location.utils';
 import { GuideRepository } from './guide.repository';
 import type { GuideCreateDto, GuidesFilterDto, GuideUpdateDto } from './guide.types';
 
@@ -17,19 +25,36 @@ const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const MAX_CERT_IMAGE_COUNT = 20;
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const SUPABASE_AUTH_USERS_PAGE_SIZE = 1000;
-const ULAANBAATAR_DAY_MS = 24 * 60 * 60 * 1000;
+const LOCATION_LOGS_PAGE_SIZE = 1000;
 
-interface GuideLocationResult {
-  guideId: string;
-  guideNameKo: string;
-  guideNameMn: string | null;
-  profileImageUrl: string | null;
+interface GuideLocationPointResult {
   latitude: number;
   longitude: number;
   accuracy: number;
   recordedAt: string;
-  source: string;
   projectId: string;
+}
+
+interface GuideLiveLocationResult {
+  guideId: string;
+  guideNameKo: string;
+  guideNameMn: string | null;
+  profileImageUrl: string | null;
+  latestLatitude: number;
+  latestLongitude: number;
+  latestAccuracy: number;
+  latestRecordedAt: string;
+  path: GuideLocationPointResult[];
+  projectIds: string[];
+}
+
+interface LeaderstepsActiveProjectResult {
+  id: string;
+  name: string;
+  startedAt: string;
+  scheduledEndedAt: string;
+  endedAt: string | null;
+  isActive: boolean;
 }
 
 function readMetadataText(metadata: unknown, keys: readonly string[]): string | null {
@@ -157,74 +182,190 @@ export class GuideService {
       );
   }
 
-  async listGuideLocations(date: string, guideId?: string | null) {
-    const parsed = guideLocationFilterSchema.safeParse({ date, guideId });
-    if (!parsed.success) {
-      throw createValidationError('Invalid guide location filter', parsed.error);
+  async listLeaderstepsActiveProjects() {
+    const { startMs, endMs } = getUlaanbaatarDayRange(getTodayInUlaanbaatar());
+    const { data, error } = await getSupabaseAdminClient()
+      .from('projects')
+      .select('id,name,started_at,scheduled_ended_at,ended_at,is_active')
+      .order('started_at', { ascending: false });
+
+    if (error) {
+      throw new DomainError('EXTERNAL_SERVICE_ERROR', 'Leadersteps 프로젝트 목록을 불러오지 못했습니다.');
     }
 
-    const startMs = Date.parse(`${parsed.data.date}T00:00:00+08:00`);
-    const endMs = startMs + ULAANBAATAR_DAY_MS;
-    const guides = await new GuideRepository(this.prisma).findLinkedLeaderstepsGuides(
-      parsed.data.guideId,
+    return (data as LeaderstepsProjectRow[])
+      .filter((project) => isProjectActiveOnDate(project, startMs, endMs))
+      .map(
+        (project): LeaderstepsActiveProjectResult => ({
+          id: project.id,
+          name: project.name,
+          startedAt: new Date(Number(project.started_at)).toISOString(),
+          scheduledEndedAt: new Date(Number(project.scheduled_ended_at)).toISOString(),
+          endedAt:
+            project.ended_at != null ? new Date(Number(project.ended_at)).toISOString() : null,
+          isActive: Boolean(project.is_active),
+        }),
+      )
+      .sort((left, right) => left.name.localeCompare(right.name, 'ko'));
+  }
+
+  async listGuideLiveLocations(projectId?: string | null) {
+    const parsed = guideLiveLocationFilterSchema.safeParse({ projectId });
+    if (!parsed.success) {
+      throw createValidationError('Invalid guide live location filter', parsed.error);
+    }
+
+    const activeProjects = await this.listLeaderstepsActiveProjects();
+    const filteredProjects =
+      parsed.data.projectId != null
+        ? activeProjects.filter((project) => project.id === parsed.data.projectId)
+        : activeProjects;
+
+    if (filteredProjects.length === 0) {
+      return [];
+    }
+
+    const projectById = new Map(
+      filteredProjects.map((project) => [
+        project.id,
+        {
+          id: project.id,
+          name: project.name,
+          started_at: new Date(project.startedAt).getTime(),
+          scheduled_ended_at: new Date(project.scheduledEndedAt).getTime(),
+          ended_at: project.endedAt ? new Date(project.endedAt).getTime() : null,
+          is_active: project.isActive,
+        } satisfies LeaderstepsProjectRow,
+      ]),
     );
-    const supabase = getSupabaseAdminClient();
+    const projectIds = [...projectById.keys()];
+    const logs = await this.fetchLeaderstepsLocationLogs(projectIds);
+    const logsByUserId = new Map<string, GuideLocationPointResult[]>();
 
-    const locations = await Promise.all(
-      guides.map(async (guide): Promise<GuideLocationResult | null> => {
-        if (!guide.leaderstepsAuthUserId) {
-          return null;
+    for (const log of logs) {
+      const project = projectById.get(log.project_id);
+      if (!project) {
+        continue;
+      }
+
+      const timestamp = Number(log.timestamp);
+      if (!isLogWithinProject(timestamp, project)) {
+        continue;
+      }
+
+      const latitude = Number(log.lat);
+      const longitude = Number(log.lng);
+      const accuracy = Number(log.accuracy);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || !Number.isFinite(accuracy)) {
+        continue;
+      }
+
+      const point: GuideLocationPointResult = {
+        latitude,
+        longitude,
+        accuracy,
+        recordedAt: new Date(timestamp).toISOString(),
+        projectId: log.project_id,
+      };
+      const existing = logsByUserId.get(log.user_id) ?? [];
+      existing.push(point);
+      logsByUserId.set(log.user_id, existing);
+    }
+
+    if (logsByUserId.size === 0) {
+      return [];
+    }
+
+    const linkedGuides = await new GuideRepository(this.prisma).findLinkedLeaderstepsAuthUsers();
+    const guideByAuthUserId = new Map(
+      linkedGuides.flatMap((guide) =>
+        guide.leaderstepsAuthUserId ? [[guide.leaderstepsAuthUserId, guide] as const] : [],
+      ),
+    );
+    const unmatchedAuthUserIds = [...logsByUserId.keys()].filter(
+      (authUserId) => !guideByAuthUserId.has(authUserId),
+    );
+    const authDisplayNameByUserId = await this.resolveAuthUserDisplayNames(unmatchedAuthUserIds);
+    const results: GuideLiveLocationResult[] = [];
+
+    for (const [authUserId, rawPath] of logsByUserId) {
+      const path = rawPath.sort((left, right) => left.recordedAt.localeCompare(right.recordedAt));
+      const latest = path[path.length - 1];
+      if (!latest) {
+        continue;
+      }
+
+      const guide = guideByAuthUserId.get(authUserId);
+      results.push({
+        guideId: guide?.id ?? authUserId,
+        guideNameKo:
+          guide?.nameKo ?? authDisplayNameByUserId.get(authUserId) ?? 'Leadersteps 사용자',
+        guideNameMn: guide?.nameMn ?? null,
+        profileImageUrl: guide?.profileImageUrl ?? null,
+        latestLatitude: latest.latitude,
+        latestLongitude: latest.longitude,
+        latestAccuracy: latest.accuracy,
+        latestRecordedAt: latest.recordedAt,
+        path,
+        projectIds: [...new Set(path.map((point) => point.projectId))],
+      });
+    }
+
+    return results.sort((left, right) => left.guideNameKo.localeCompare(right.guideNameKo, 'ko'));
+  }
+
+  private async resolveAuthUserDisplayNames(userIds: string[]) {
+    const displayNameByUserId = new Map<string, string>();
+    if (userIds.length === 0) {
+      return displayNameByUserId;
+    }
+
+    await Promise.all(
+      userIds.map(async (userId) => {
+        const { data, error } = await getSupabaseAdminClient().auth.admin.getUserById(userId);
+        if (error || !data.user) {
+          displayNameByUserId.set(userId, userId.slice(0, 8));
+          return;
         }
 
-        const { data, error } = await supabase
-          .from('location_logs')
-          .select('lat,lng,accuracy,timestamp,source,project_id')
-          .eq('user_id', guide.leaderstepsAuthUserId)
-          .gte('timestamp', startMs)
-          .lt('timestamp', endMs)
-          .order('timestamp', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (error) {
-          throw new DomainError(
-            'EXTERNAL_SERVICE_ERROR',
-            `${guide.nameKo} 가이드의 위치를 불러오지 못했습니다.`,
-          );
-        }
-        if (!data) {
-          return null;
-        }
-
-        const latitude = Number(data.lat);
-        const longitude = Number(data.lng);
-        const accuracy = Number(data.accuracy);
-        const timestamp = Number(data.timestamp);
-        if (
-          !Number.isFinite(latitude) ||
-          !Number.isFinite(longitude) ||
-          !Number.isFinite(accuracy) ||
-          !Number.isFinite(timestamp)
-        ) {
-          return null;
-        }
-
-        return {
-          guideId: guide.id,
-          guideNameKo: guide.nameKo,
-          guideNameMn: guide.nameMn,
-          profileImageUrl: guide.profileImageUrl,
-          latitude,
-          longitude,
-          accuracy,
-          recordedAt: new Date(timestamp).toISOString(),
-          source: String(data.source),
-          projectId: String(data.project_id),
-        };
+        displayNameByUserId.set(
+          userId,
+          readMetadataText(data.user.user_metadata, ['display_name', 'full_name', 'name']) ??
+            data.user.email ??
+            userId.slice(0, 8),
+        );
       }),
     );
 
-    return locations.filter((location): location is GuideLocationResult => location !== null);
+    return displayNameByUserId;
+  }
+
+  private async fetchLeaderstepsLocationLogs(projectIds: string[]) {
+    const supabase = getSupabaseAdminClient();
+    const allLogs: LeaderstepsLocationLogRow[] = [];
+    let offset = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('location_logs')
+        .select('user_id,project_id,lat,lng,accuracy,timestamp')
+        .in('project_id', projectIds)
+        .order('timestamp', { ascending: true })
+        .range(offset, offset + LOCATION_LOGS_PAGE_SIZE - 1);
+
+      if (error) {
+        throw new DomainError('EXTERNAL_SERVICE_ERROR', '가이드 위치 기록을 불러오지 못했습니다.');
+      }
+
+      const page = (data ?? []) as LeaderstepsLocationLogRow[];
+      allLogs.push(...page);
+      if (page.length < LOCATION_LOGS_PAGE_SIZE) {
+        break;
+      }
+      offset += LOCATION_LOGS_PAGE_SIZE;
+    }
+
+    return allLogs;
   }
 
   async linkLeaderstepsAuth(guideId: string, authUserId: string) {

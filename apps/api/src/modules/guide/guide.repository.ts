@@ -29,6 +29,7 @@ export class GuideRepository {
         id: true,
         nameKo: true,
         nameMn: true,
+        profileImageUrl: true,
         leaderstepsAuthUserId: true,
       },
     });

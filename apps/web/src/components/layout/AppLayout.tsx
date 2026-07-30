@@ -181,19 +181,24 @@ const EquipmentIcon: NavIcon = ({ className }) => (
   </svg>
 );
 
-const resourceNavItems: NavItem[] = [
-  {
-    path: '/guides',
-    label: '가이드',
-    icon: GuideIcon,
-    children: [
-      { path: '/guides', label: '가이드 목록' },
-      { path: '/guides/locations', label: '가이드 위치' },
-    ],
-  },
-  { path: '/drivers', label: '기사', icon: DriverIcon },
-  { path: '/accommodations', label: '숙소', icon: AccommodationIcon },
-];
+function buildResourceNavItems(includeGuideMatching: boolean): NavItem[] {
+  return [
+    {
+      path: '/guides',
+      label: '가이드',
+      icon: GuideIcon,
+      children: [
+        { path: '/guides', label: '가이드 목록' },
+        { path: '/guides/locations', label: '가이드 위치' },
+        ...(includeGuideMatching
+          ? [{ path: '/guides/leadersteps-matching', label: '가이드 계정 매칭' }]
+          : []),
+      ],
+    },
+    { path: '/drivers', label: '기사', icon: DriverIcon },
+    { path: '/accommodations', label: '숙소', icon: AccommodationIcon },
+  ];
+}
 
 const baseNavItems: NavItem[] = [
   { path: '/itinerary-builder', label: '일정 빌더', icon: ItineraryIcon },
@@ -322,16 +327,14 @@ export function AppLayout(): JSX.Element {
     return savedValue === 'true';
   });
   const navItems = ((): NavItem[] => {
-    if (employee?.role === EmployeeRole.ADMIN) {
+    const isAdmin = employee?.role === EmployeeRole.ADMIN;
+    const resourceNavItems = buildResourceNavItems(isAdmin);
+
+    if (isAdmin) {
       return [
         ...baseNavItems,
         { path: '/admin/pricing-policies', label: '가격 정책', icon: PricingIcon },
         ...resourceNavItems,
-        {
-          path: '/admin/guide-leadersteps-matching',
-          label: '가이드 계정 매칭',
-          icon: GuideIcon,
-        },
         { path: '/admin/employees', label: '직원 관리', icon: AdminIcon },
       ];
     }

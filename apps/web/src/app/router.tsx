@@ -126,6 +126,14 @@ export const router = createBrowserRouter([
           </Suspense>
         ),
       },
+      {
+        path: 'guides/leadersteps-matching',
+        element: (
+          <RequireAdmin>
+            <GuideLeaderstepsMatchingPage />
+          </RequireAdmin>
+        ),
+      },
       { path: 'guides/:guideId', element: <GuideDetailPage /> },
       { path: 'drivers', element: <DriversPage /> },
       { path: 'drivers/:driverId', element: <DriverDetailPage /> },
@@ -331,11 +339,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'admin/guide-leadersteps-matching',
-        element: (
-          <RequireAdmin>
-            <GuideLeaderstepsMatchingPage />
-          </RequireAdmin>
-        ),
+        element: <Navigate to="/guides/leadersteps-matching" replace />,
       },
       {
         path: 'admin/pricing-policies',
