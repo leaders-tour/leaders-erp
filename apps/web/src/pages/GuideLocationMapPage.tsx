@@ -8,6 +8,7 @@ import {
   buildPlaceVisitMarkerIcon,
   collectMapBounds,
   formatGuideLocationMapDateLabel,
+  formatPlaceVisitPinTypeLabel,
   formatVisitDuration,
   getGuidePathColor,
   getTodayInUlaanbaatarDateInputValue,
@@ -107,6 +108,9 @@ function GuideGoogleMap({
     locations.find((location) => location.guideId === infoWindowGuideId) ?? null;
   const selectedPlaceVisit =
     placeVisits.find((visit) => visit.id === selectedPlaceVisitId) ?? null;
+  const selectedPlaceVisitPinTypeLabel = selectedPlaceVisit
+    ? formatPlaceVisitPinTypeLabel(selectedPlaceVisit.pinType)
+    : null;
   const visiblePlaceVisits = focusedGuideId ? placeVisits : [];
 
   const handleMapLoad = useCallback((loadedMap: google.maps.Map) => {
@@ -205,23 +209,57 @@ function GuideGoogleMap({
           }}
           onCloseClick={() => setSelectedPlaceVisitId(null)}
         >
-          <div className="min-w-52 text-sm text-slate-800">
+          <div className="min-w-52 max-w-72 text-sm text-slate-800">
             <strong>장소 방문</strong>
-            <br />
-            프로젝트: {projectNameById.get(selectedPlaceVisit.projectId) ?? '알 수 없음'}
-            <br />
-            체류: {formatRecordedAt(selectedPlaceVisit.startedAt)} ~{' '}
-            {formatRecordedAt(selectedPlaceVisit.endedAt)}
-            <br />
-            시간: {formatVisitDuration(selectedPlaceVisit.durationMs)}
-            <br />
-            반경: 약 {Math.round(selectedPlaceVisit.radiusMeters)}m · GPS{' '}
-            {selectedPlaceVisit.pointCount}포인트
-            {selectedPlaceVisit.description ? (
-              <>
-                <br />
-                메모: {selectedPlaceVisit.description}
-              </>
+            <div className="mt-1">
+              프로젝트: {projectNameById.get(selectedPlaceVisit.projectId) ?? '알 수 없음'}
+            </div>
+            <div>
+              체류: {formatRecordedAt(selectedPlaceVisit.startedAt)} ~{' '}
+              {formatRecordedAt(selectedPlaceVisit.endedAt)}
+            </div>
+            <div>시간: {formatVisitDuration(selectedPlaceVisit.durationMs)}</div>
+            <div>
+              반경: 약 {Math.round(selectedPlaceVisit.radiusMeters)}m · GPS{' '}
+              {selectedPlaceVisit.pointCount}포인트
+            </div>
+            {selectedPlaceVisitPinTypeLabel ||
+            selectedPlaceVisit.description ||
+            selectedPlaceVisit.photoUrls.length > 0 ? (
+              <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+                {selectedPlaceVisitPinTypeLabel || selectedPlaceVisit.description ? (
+                  <div className="flex flex-wrap items-center gap-2 text-slate-600">
+                    {selectedPlaceVisit.description ? (
+                      <span className="whitespace-pre-wrap">{selectedPlaceVisit.description}</span>
+                    ) : null}
+                    {selectedPlaceVisitPinTypeLabel ? (
+                      <span className="inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">
+                        {selectedPlaceVisitPinTypeLabel}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+                {selectedPlaceVisit.photoUrls.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedPlaceVisit.photoUrls.map((photoUrl, index) => (
+                      <a
+                        key={`${photoUrl}-${index}`}
+                        href={photoUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block overflow-hidden rounded border border-slate-200"
+                      >
+                        <img
+                          src={photoUrl}
+                          alt={`장소 사진 ${index + 1}`}
+                          className="h-16 w-16 object-cover"
+                          loading="lazy"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             ) : null}
           </div>
         </InfoWindowF>

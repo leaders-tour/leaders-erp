@@ -79,6 +79,7 @@ export interface GuidePlaceVisitRow {
   pointCount: number;
   pinType: string | null;
   description: string | null;
+  photoUrls: string[];
 }
 
 const GUIDE_FRAGMENT = gql`
@@ -212,6 +213,7 @@ const GUIDE_PLACE_VISITS_QUERY = gql`
       pointCount
       pinType
       description
+      photoUrls
     }
   }
 `;

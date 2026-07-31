@@ -71,6 +71,7 @@ type GuidePlaceVisit {
   pointCount: Int!
   pinType: String
   description: String
+  photoUrls: [String!]!
 }
 
 type GuideLiveLocation {

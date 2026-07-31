@@ -242,6 +242,24 @@ export function formatVisitDuration(durationMs: number): string {
   return minutes > 0 ? `${hours}시간 ${minutes}분` : `${hours}시간`;
 }
 
+const PLACE_VISIT_PIN_TYPE_LABELS: Record<string, string> = {
+  meal: '식사',
+  attraction: '관광',
+  lodging: '숙소',
+  transport: '이동',
+  shopping: '쇼핑',
+  other: '기타',
+};
+
+export function formatPlaceVisitPinTypeLabel(pinType: string | null): string | null {
+  if (!pinType?.trim()) {
+    return null;
+  }
+
+  const normalized = pinType.trim().toLowerCase();
+  return PLACE_VISIT_PIN_TYPE_LABELS[normalized] ?? pinType.trim();
+}
+
 export function collectMapBounds(locations: Array<{ path: Array<{ latitude: number; longitude: number }> }>) {
   const bounds = new google.maps.LatLngBounds();
   let hasPoint = false;

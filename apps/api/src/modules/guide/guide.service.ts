@@ -17,7 +17,10 @@ import {
   getUlaanbaatarDayRange,
   isLogWithinProject,
   isProjectActiveOnDate,
+  groupPinImageUrlsByPlaceVisit,
+  resolvePlaceVisitPhotoUrls,
   type LeaderstepsLocationLogRow,
+  type LeaderstepsPinImageRow,
   type LeaderstepsPlaceVisitRow,
   type LeaderstepsProjectRow,
 } from './leadersteps-location.utils';
@@ -30,6 +33,9 @@ const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const SUPABASE_AUTH_USERS_PAGE_SIZE = 1000;
 const LOCATION_LOGS_PAGE_SIZE = 1000;
 const PLACE_VISITS_PAGE_SIZE = 1000;
+const PIN_IMAGES_PAGE_SIZE = 1000;
+const PIN_IMAGES_BUCKET = 'pin-images';
+const PIN_IMAGE_SIGNED_URL_TTL_SECONDS = 86_400;
 
 interface GuideLocationPointResult {
   latitude: number;
@@ -73,6 +79,7 @@ interface GuidePlaceVisitResult {
   pointCount: number;
   pinType: string | null;
   description: string | null;
+  photoUrls: string[];
 }
 
 function readMetadataText(metadata: unknown, keys: readonly string[]): string | null {
@@ -368,7 +375,15 @@ export class GuideService {
         } satisfies LeaderstepsProjectRow,
       ]),
     );
-    const visits = await this.fetchLeaderstepsPlaceVisits(authUserId, [...projectById.keys()]);
+    const projectIds = [...projectById.keys()];
+    const [visits, pinImages] = await Promise.all([
+      this.fetchLeaderstepsPlaceVisits(authUserId, projectIds),
+      this.fetchLeaderstepsPinImages(authUserId, projectIds),
+    ]);
+    const signedUrlByPath = await this.createPinImageSignedUrls(
+      [...new Set(pinImages.map((image) => image.storage_path))],
+    );
+    const { byVisitId, byLocationLogId } = groupPinImageUrlsByPlaceVisit(pinImages, signedUrlByPath);
     const results: GuidePlaceVisitResult[] = [];
 
     for (const visit of visits) {
@@ -409,6 +424,12 @@ export class GuideService {
         pointCount: Math.round(pointCount),
         pinType: visit.pin_type,
         description: visit.description,
+        photoUrls: resolvePlaceVisitPhotoUrls(
+          visit.id,
+          visit.representative_location_log_client_id,
+          byVisitId,
+          byLocationLogId,
+        ),
       });
     }
 
@@ -499,7 +520,7 @@ export class GuideService {
       const { data, error } = await supabase
         .from('place_visits')
         .select(
-          'id,user_id,project_id,center_lat,center_lng,started_at,ended_at,duration_ms,radius_meters,point_count,pin_type,description',
+          'id,user_id,project_id,center_lat,center_lng,started_at,ended_at,duration_ms,radius_meters,point_count,pin_type,description,representative_location_log_client_id',
         )
         .eq('user_id', authUserId)
         .in('project_id', projectIds)
@@ -519,6 +540,69 @@ export class GuideService {
     }
 
     return allVisits;
+  }
+
+  private async fetchLeaderstepsPinImages(authUserId: string, projectIds: string[]) {
+    if (projectIds.length === 0) {
+      return [];
+    }
+
+    const supabase = getSupabaseAdminClient();
+    const allImages: LeaderstepsPinImageRow[] = [];
+    let offset = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('pin_images')
+        .select('id,place_visit_id,location_log_client_id,storage_path,created_at')
+        .eq('user_id', authUserId)
+        .in('project_id', projectIds)
+        .order('created_at', { ascending: true })
+        .range(offset, offset + PIN_IMAGES_PAGE_SIZE - 1);
+
+      if (error) {
+        throw new DomainError('EXTERNAL_SERVICE_ERROR', '장소 방문 사진을 불러오지 못했습니다.');
+      }
+
+      const page = (data ?? []) as LeaderstepsPinImageRow[];
+      allImages.push(...page);
+      if (page.length < PIN_IMAGES_PAGE_SIZE) {
+        break;
+      }
+      offset += PIN_IMAGES_PAGE_SIZE;
+    }
+
+    return allImages;
+  }
+
+  private async createPinImageSignedUrls(storagePaths: string[]) {
+    const signedUrlByPath = new Map<string, string>();
+    if (storagePaths.length === 0) {
+      return signedUrlByPath;
+    }
+
+    const supabase = getSupabaseAdminClient();
+    const chunkSize = 100;
+
+    for (let index = 0; index < storagePaths.length; index += chunkSize) {
+      const chunk = storagePaths.slice(index, index + chunkSize);
+      const { data, error } = await supabase.storage
+        .from(PIN_IMAGES_BUCKET)
+        .createSignedUrls(chunk, PIN_IMAGE_SIGNED_URL_TTL_SECONDS);
+
+      if (error) {
+        throw new DomainError('EXTERNAL_SERVICE_ERROR', '장소 방문 사진 URL을 생성하지 못했습니다.');
+      }
+
+      for (const item of data ?? []) {
+        if (item.error || !item.signedUrl || !item.path) {
+          continue;
+        }
+        signedUrlByPath.set(item.path, item.signedUrl);
+      }
+    }
+
+    return signedUrlByPath;
   }
 
   async linkLeaderstepsAuth(guideId: string, authUserId: string) {
