@@ -127,6 +127,57 @@ export function buildGuideMapPathLayerKey(
     .join('|');
 }
 
+export function buildGuidePathPolylineOptions(layer: {
+  color: string;
+  focused: boolean;
+  dimmed: boolean;
+}): google.maps.PolylineOptions {
+  const strokeColor = layer.dimmed ? '#94a3b8' : layer.color;
+  const arrowColor = layer.dimmed ? '#94a3b8' : darkenGuidePathColor(layer.color, 0.22);
+  const strokeOpacity = layer.focused ? 0.95 : layer.dimmed ? 0.18 : 0.72;
+  const arrowOpacity = layer.focused ? 0.88 : layer.dimmed ? 0.18 : 0.82;
+  const strokeWeight = layer.focused ? 5 : layer.dimmed ? 3 : 4;
+
+  return {
+    strokeColor,
+    strokeOpacity,
+    strokeWeight,
+    zIndex: layer.focused ? 2 : layer.dimmed ? 0 : 1,
+    icons: [
+      {
+        icon: {
+          path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+          scale: layer.focused ? 2.8 : layer.dimmed ? 2 : 2.4,
+          strokeColor: arrowColor,
+          strokeOpacity: arrowOpacity,
+          fillColor: arrowColor,
+          fillOpacity: arrowOpacity,
+        },
+        offset: '24px',
+        repeat: layer.focused ? '72px' : layer.dimmed ? '120px' : '96px',
+      },
+    ],
+  };
+}
+
+function darkenGuidePathColor(hex: string, amount: number): string {
+  const normalized = hex.replace('#', '');
+  if (normalized.length !== 6) {
+    return hex;
+  }
+
+  const channels = [
+    Number.parseInt(normalized.slice(0, 2), 16),
+    Number.parseInt(normalized.slice(2, 4), 16),
+    Number.parseInt(normalized.slice(4, 6), 16),
+  ];
+  const factor = 1 - amount;
+
+  return `#${channels
+    .map((channel) => Math.max(0, Math.round(channel * factor)).toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
 export function buildGuideMarkerIcon(
   profileImageUrl: string | null,
   nameKo: string,

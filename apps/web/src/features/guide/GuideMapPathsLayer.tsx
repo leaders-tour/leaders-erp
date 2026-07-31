@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import {
   buildGuideMapPathLayerKey,
+  buildGuidePathPolylineOptions,
   canDrawGuidePath,
   simplifyGuideMapPath,
   type GuideMapLatLng,
@@ -51,12 +52,9 @@ export function GuideMapPathsLayer({
 
       polylinesRef.current.set(layer.guideId, {
         polyline: new google.maps.Polyline({
+          ...buildGuidePathPolylineOptions(layer),
           path: simplifyGuideMapPath(layer.path),
           map,
-          strokeColor: layer.dimmed ? '#94a3b8' : layer.color,
-          strokeOpacity: layer.focused ? 0.95 : layer.dimmed ? 0.18 : 0.72,
-          strokeWeight: layer.focused ? 5 : layer.dimmed ? 3 : 4,
-          zIndex: layer.focused ? 2 : layer.dimmed ? 0 : 1,
         }),
       });
     }
