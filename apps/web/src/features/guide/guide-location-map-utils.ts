@@ -33,6 +33,39 @@ export function formatGuideLocationMapDateLabel(date: string): string {
   }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
+const ULAANBAATAR_PROJECT_DATE_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: 'Asia/Ulaanbaatar',
+  month: 'numeric',
+  day: 'numeric',
+});
+
+export function formatUlaanbaatarProjectDate(iso: string): string {
+  return ULAANBAATAR_PROJECT_DATE_FORMATTER.format(new Date(iso));
+}
+
+export function buildLocationProjectLabels(
+  projectIds: string[],
+  projects: Array<{
+    id: string;
+    name: string;
+    startedAt: string;
+    scheduledEndedAt: string;
+    endedAt: string | null;
+  }>,
+): Array<{ projectId: string; label: string }> {
+  return projects
+    .filter((project) => projectIds.includes(project.id))
+    .sort((left, right) => left.name.localeCompare(right.name, 'ko'))
+    .map((project) => {
+      const start = formatUlaanbaatarProjectDate(project.startedAt);
+      const end = formatUlaanbaatarProjectDate(project.endedAt ?? project.scheduledEndedAt);
+      return {
+        projectId: project.id,
+        label: `${project.name} · ${start} ~ ${end}`,
+      };
+    });
+}
+
 export function getGuidePathColor(index: number): string {
   return GUIDE_PATH_COLORS[index % GUIDE_PATH_COLORS.length] ?? '#4f46e5';
 }
@@ -123,6 +156,33 @@ export function buildGuideMarkerIcon(
     scaledSize: new google.maps.Size(size, size),
     anchor: new google.maps.Point(size / 2, size / 2),
   };
+}
+
+export function buildPlaceVisitMarkerIcon(selected: boolean): google.maps.Icon {
+  const size = selected ? 38 : 34;
+  const fill = selected ? '#c2410c' : '#ea580c';
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 40 40">
+      <rect x="4" y="4" width="32" height="32" rx="8" fill="${fill}" stroke="#ffffff" stroke-width="3"/>
+      <path d="M20 11c-3.1 0-5.5 2.4-5.5 5.4 0 4.1 5.5 10.6 5.5 10.6s5.5-6.5 5.5-10.6C25.5 13.4 23.1 11 20 11zm0 7.3a2 2 0 1 1 0-4 2 2 0 0 1 0 4z" fill="#ffffff"/>
+    </svg>
+  `.trim();
+
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: new google.maps.Size(size, size),
+    anchor: new google.maps.Point(size / 2, size / 2),
+  };
+}
+
+export function formatVisitDuration(durationMs: number): string {
+  const totalMinutes = Math.max(1, Math.round(durationMs / 60_000));
+  if (totalMinutes < 60) {
+    return `${totalMinutes}분`;
+  }
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes > 0 ? `${hours}시간 ${minutes}분` : `${hours}시간`;
 }
 
 export function collectMapBounds(locations: Array<{ path: Array<{ latitude: number; longitude: number }> }>) {

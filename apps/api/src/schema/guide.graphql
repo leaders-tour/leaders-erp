@@ -59,6 +59,20 @@ type GuideLocationPoint {
   projectId: ID!
 }
 
+type GuidePlaceVisit {
+  id: ID!
+  projectId: ID!
+  centerLatitude: Float!
+  centerLongitude: Float!
+  startedAt: DateTime!
+  endedAt: DateTime!
+  durationMs: Int!
+  radiusMeters: Float!
+  pointCount: Int!
+  pinType: String
+  description: String
+}
+
 type GuideLiveLocation {
   guideId: ID!
   guideNameKo: String!
@@ -117,6 +131,7 @@ extend type Query {
   leaderstepsAuthUsers: [LeaderstepsAuthUser!]!
   leaderstepsActiveProjects(date: String): [LeaderstepsActiveProject!]!
   guideLiveLocations(projectId: ID, date: String): [GuideLiveLocation!]!
+  guidePlaceVisits(guideId: ID!, projectId: ID, date: String): [GuidePlaceVisit!]!
 }
 
 extend type Mutation {

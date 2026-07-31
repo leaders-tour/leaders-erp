@@ -83,6 +83,12 @@ export const guideLiveLocationFilterSchema = z.object({
   date: guideLocationMapDateSchema,
 });
 
+export const guidePlaceVisitsFilterSchema = z.object({
+  guideId: z.string().min(1),
+  projectId: z.string().uuid().nullable().optional(),
+  date: guideLocationMapDateSchema,
+});
+
 export type GuideCreateInput = z.infer<typeof guideCreateSchema>;
 export type GuideUpdateInput = z.infer<typeof guideUpdateSchema>;
 export type GuideLeaderstepsAuthLinkInput = z.infer<typeof guideLeaderstepsAuthLinkSchema>;
@@ -90,3 +96,4 @@ export type GuideLeaderstepsAuthUnlinkInput = z.infer<typeof guideLeaderstepsAut
 export type GuideLocationFilterInput = z.infer<typeof guideLocationFilterSchema>;
 export type LeaderstepsActiveProjectsFilterInput = z.infer<typeof leaderstepsActiveProjectsFilterSchema>;
 export type GuideLiveLocationFilterInput = z.infer<typeof guideLiveLocationFilterSchema>;
+export type GuidePlaceVisitsFilterInput = z.infer<typeof guidePlaceVisitsFilterSchema>;

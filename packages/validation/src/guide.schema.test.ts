@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   guideLiveLocationFilterSchema,
   guideLocationFilterSchema,
+  guidePlaceVisitsFilterSchema,
 } from './guide.schema';
 
 describe('guideLocationFilterSchema', () => {
@@ -37,5 +38,21 @@ describe('guideLiveLocationFilterSchema', () => {
         date: '2026-02-30',
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('guidePlaceVisitsFilterSchema', () => {
+  it('accepts guide id with optional filters', () => {
+    expect(
+      guidePlaceVisitsFilterSchema.safeParse({
+        guideId: '019f-guide-id',
+        projectId: '5bd109e7-7bd3-4932-9fde-ee5b18942005',
+        date: '2026-07-29',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('requires guide id', () => {
+    expect(guidePlaceVisitsFilterSchema.safeParse({}).success).toBe(false);
   });
 });

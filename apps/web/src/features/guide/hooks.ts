@@ -67,6 +67,20 @@ export interface LeaderstepsActiveProjectRow {
   isActive: boolean;
 }
 
+export interface GuidePlaceVisitRow {
+  id: string;
+  projectId: string;
+  centerLatitude: number;
+  centerLongitude: number;
+  startedAt: string;
+  endedAt: string;
+  durationMs: number;
+  radiusMeters: number;
+  pointCount: number;
+  pinType: string | null;
+  description: string | null;
+}
+
 const GUIDE_FRAGMENT = gql`
   fragment GuideFields on Guide {
     id
@@ -180,6 +194,24 @@ const GUIDE_LIVE_LOCATIONS_QUERY = gql`
         recordedAt
         projectId
       }
+    }
+  }
+`;
+
+const GUIDE_PLACE_VISITS_QUERY = gql`
+  query GuidePlaceVisits($guideId: ID!, $projectId: ID, $date: String) {
+    guidePlaceVisits(guideId: $guideId, projectId: $projectId, date: $date) {
+      id
+      projectId
+      centerLatitude
+      centerLongitude
+      startedAt
+      endedAt
+      durationMs
+      radiusMeters
+      pointCount
+      pinType
+      description
     }
   }
 `;
@@ -341,6 +373,31 @@ export function useGuideLiveLocations(options?: { projectId?: string; date?: str
     refreshing: networkStatus === 4,
     errorMessage: error?.message ?? null,
     refetch,
+  };
+}
+
+export function useGuidePlaceVisits(options?: {
+  guideId?: string;
+  projectId?: string;
+  date?: string;
+}) {
+  const { data, loading, error } = useQuery<{ guidePlaceVisits: GuidePlaceVisitRow[] }>(
+    GUIDE_PLACE_VISITS_QUERY,
+    {
+      variables: {
+        guideId: options?.guideId ?? '',
+        projectId: options?.projectId || null,
+        date: options?.date || null,
+      },
+      skip: !options?.guideId,
+      fetchPolicy: 'cache-and-network',
+    },
+  );
+
+  return {
+    placeVisits: data?.guidePlaceVisits ?? [],
+    loading,
+    errorMessage: error?.message ?? null,
   };
 }
 

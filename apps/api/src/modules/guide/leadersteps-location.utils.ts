@@ -25,6 +25,21 @@ export interface LeaderstepsLocationLogRow {
   timestamp: number | string;
 }
 
+export interface LeaderstepsPlaceVisitRow {
+  id: string;
+  user_id: string;
+  project_id: string;
+  center_lat: number | string;
+  center_lng: number | string;
+  started_at: number | string;
+  ended_at: number | string;
+  duration_ms: number | string;
+  radius_meters: number | string;
+  point_count: number | string;
+  pin_type: string | null;
+  description: string | null;
+}
+
 export function getTodayInUlaanbaatar(): string {
   return ULAANBAATAR_DATE_FORMATTER.format(new Date());
 }

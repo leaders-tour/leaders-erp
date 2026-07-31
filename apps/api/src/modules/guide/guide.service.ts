@@ -5,6 +5,7 @@ import {
   guideLeaderstepsAuthLinkSchema,
   guideLeaderstepsAuthUnlinkSchema,
   guideLiveLocationFilterSchema,
+  guidePlaceVisitsFilterSchema,
   leaderstepsActiveProjectsFilterSchema,
   guideUpdateSchema,
 } from '@tour/validation';
@@ -17,6 +18,7 @@ import {
   isLogWithinProject,
   isProjectActiveOnDate,
   type LeaderstepsLocationLogRow,
+  type LeaderstepsPlaceVisitRow,
   type LeaderstepsProjectRow,
 } from './leadersteps-location.utils';
 import { GuideRepository } from './guide.repository';
@@ -27,6 +29,7 @@ const MAX_CERT_IMAGE_COUNT = 20;
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const SUPABASE_AUTH_USERS_PAGE_SIZE = 1000;
 const LOCATION_LOGS_PAGE_SIZE = 1000;
+const PLACE_VISITS_PAGE_SIZE = 1000;
 
 interface GuideLocationPointResult {
   latitude: number;
@@ -56,6 +59,20 @@ interface LeaderstepsActiveProjectResult {
   scheduledEndedAt: string;
   endedAt: string | null;
   isActive: boolean;
+}
+
+interface GuidePlaceVisitResult {
+  id: string;
+  projectId: string;
+  centerLatitude: number;
+  centerLongitude: number;
+  startedAt: string;
+  endedAt: string;
+  durationMs: number;
+  radiusMeters: number;
+  pointCount: number;
+  pinType: string | null;
+  description: string | null;
 }
 
 function readMetadataText(metadata: unknown, keys: readonly string[]): string | null {
@@ -321,6 +338,100 @@ export class GuideService {
     return results.sort((left, right) => left.guideNameKo.localeCompare(right.guideNameKo, 'ko'));
   }
 
+  async listGuidePlaceVisits(guideId: string, projectId?: string | null, date?: string | null) {
+    const parsed = guidePlaceVisitsFilterSchema.safeParse({ guideId, projectId, date });
+    if (!parsed.success) {
+      throw createValidationError('Invalid guide place visits filter', parsed.error);
+    }
+
+    const authUserId = await this.resolveLeaderstepsAuthUserId(parsed.data.guideId);
+    const activeProjects = await this.listLeaderstepsActiveProjects(parsed.data.date);
+    const filteredProjects =
+      parsed.data.projectId != null
+        ? activeProjects.filter((project) => project.id === parsed.data.projectId)
+        : activeProjects;
+
+    if (filteredProjects.length === 0) {
+      return [];
+    }
+
+    const projectById = new Map(
+      filteredProjects.map((project) => [
+        project.id,
+        {
+          id: project.id,
+          name: project.name,
+          started_at: new Date(project.startedAt).getTime(),
+          scheduled_ended_at: new Date(project.scheduledEndedAt).getTime(),
+          ended_at: project.endedAt ? new Date(project.endedAt).getTime() : null,
+          is_active: project.isActive,
+        } satisfies LeaderstepsProjectRow,
+      ]),
+    );
+    const visits = await this.fetchLeaderstepsPlaceVisits(authUserId, [...projectById.keys()]);
+    const results: GuidePlaceVisitResult[] = [];
+
+    for (const visit of visits) {
+      const project = projectById.get(visit.project_id);
+      if (!project) {
+        continue;
+      }
+
+      const startedAtMs = Number(visit.started_at);
+      const endedAtMs = Number(visit.ended_at);
+      const centerLatitude = Number(visit.center_lat);
+      const centerLongitude = Number(visit.center_lng);
+      const durationMs = Number(visit.duration_ms);
+      const radiusMeters = Number(visit.radius_meters);
+      const pointCount = Number(visit.point_count);
+
+      if (
+        !isLogWithinProject(startedAtMs, project) ||
+        !Number.isFinite(centerLatitude) ||
+        !Number.isFinite(centerLongitude) ||
+        !Number.isFinite(durationMs) ||
+        !Number.isFinite(radiusMeters) ||
+        !Number.isFinite(pointCount) ||
+        !Number.isFinite(endedAtMs)
+      ) {
+        continue;
+      }
+
+      results.push({
+        id: visit.id,
+        projectId: visit.project_id,
+        centerLatitude,
+        centerLongitude,
+        startedAt: new Date(startedAtMs).toISOString(),
+        endedAt: new Date(endedAtMs).toISOString(),
+        durationMs: Math.round(durationMs),
+        radiusMeters,
+        pointCount: Math.round(pointCount),
+        pinType: visit.pin_type,
+        description: visit.description,
+      });
+    }
+
+    return results.sort((left, right) => left.startedAt.localeCompare(right.startedAt));
+  }
+
+  private async resolveLeaderstepsAuthUserId(guideId: string): Promise<string> {
+    const guide = await new GuideRepository(this.prisma).findById(guideId);
+    if (guide?.leaderstepsAuthUserId) {
+      return guide.leaderstepsAuthUserId;
+    }
+    if (guide) {
+      throw new DomainError('VALIDATION_FAILED', 'Leadersteps 계정이 연결되지 않은 가이드입니다.');
+    }
+
+    const { data, error } = await getSupabaseAdminClient().auth.admin.getUserById(guideId);
+    if (error || !data.user) {
+      throw new DomainError('NOT_FOUND', 'Leadersteps 사용자를 찾을 수 없습니다.');
+    }
+
+    return guideId;
+  }
+
   private async resolveAuthUserDisplayNames(userIds: string[]) {
     const displayNameByUserId = new Map<string, string>();
     if (userIds.length === 0) {
@@ -373,6 +484,41 @@ export class GuideService {
     }
 
     return allLogs;
+  }
+
+  private async fetchLeaderstepsPlaceVisits(authUserId: string, projectIds: string[]) {
+    if (projectIds.length === 0) {
+      return [];
+    }
+
+    const supabase = getSupabaseAdminClient();
+    const allVisits: LeaderstepsPlaceVisitRow[] = [];
+    let offset = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('place_visits')
+        .select(
+          'id,user_id,project_id,center_lat,center_lng,started_at,ended_at,duration_ms,radius_meters,point_count,pin_type,description',
+        )
+        .eq('user_id', authUserId)
+        .in('project_id', projectIds)
+        .order('started_at', { ascending: true })
+        .range(offset, offset + PLACE_VISITS_PAGE_SIZE - 1);
+
+      if (error) {
+        throw new DomainError('EXTERNAL_SERVICE_ERROR', '장소 방문 기록을 불러오지 못했습니다.');
+      }
+
+      const page = (data ?? []) as LeaderstepsPlaceVisitRow[];
+      allVisits.push(...page);
+      if (page.length < PLACE_VISITS_PAGE_SIZE) {
+        break;
+      }
+      offset += PLACE_VISITS_PAGE_SIZE;
+    }
+
+    return allVisits;
   }
 
   async linkLeaderstepsAuth(guideId: string, authUserId: string) {

@@ -4,16 +4,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GuideMapPathsLayer } from '../features/guide/GuideMapPathsLayer';
 import {
   buildGuideMarkerIcon,
+  buildLocationProjectLabels,
+  buildPlaceVisitMarkerIcon,
   collectMapBounds,
   formatGuideLocationMapDateLabel,
+  formatVisitDuration,
   getGuidePathColor,
   getTodayInUlaanbaatarDateInputValue,
   normalizeGuideMapPath,
 } from '../features/guide/guide-location-map-utils';
 import {
   useGuideLiveLocations,
+  useGuidePlaceVisits,
   useLeaderstepsActiveProjects,
   type GuideLiveLocationRow,
+  type GuidePlaceVisitRow,
+  type LeaderstepsActiveProjectRow,
 } from '../features/guide/hooks';
 import { GOOGLE_MAPS_API_KEY } from '../lib/google-maps-api-key';
 
@@ -45,15 +51,24 @@ function fitMapToLocations(map: google.maps.Map, locations: GuideLiveLocationRow
 function GuideGoogleMap({
   locations,
   focusedGuideId,
+  placeVisits,
+  projects,
   onFocusGuide,
 }: {
   locations: GuideLiveLocationRow[];
   focusedGuideId: string | null;
+  placeVisits: GuidePlaceVisitRow[];
+  projects: LeaderstepsActiveProjectRow[];
   onFocusGuide: (guideId: string) => void;
 }): JSX.Element {
   const mapRef = useRef<google.maps.Map | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [infoWindowGuideId, setInfoWindowGuideId] = useState<string | null>(null);
+  const [selectedPlaceVisitId, setSelectedPlaceVisitId] = useState<string | null>(null);
+  const projectNameById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project.name] as const)),
+    [projects],
+  );
   const locationColorByGuideId = useMemo(
     () =>
       new Map(
@@ -85,11 +100,18 @@ function GuideGoogleMap({
     locations.find((location) => location.guideId === focusedGuideId) ?? null;
   const infoWindowLocation =
     locations.find((location) => location.guideId === infoWindowGuideId) ?? null;
+  const selectedPlaceVisit =
+    placeVisits.find((visit) => visit.id === selectedPlaceVisitId) ?? null;
+  const visiblePlaceVisits = focusedGuideId ? placeVisits : [];
 
   const handleMapLoad = useCallback((loadedMap: google.maps.Map) => {
     mapRef.current = loadedMap;
     setMap(loadedMap);
   }, []);
+
+  useEffect(() => {
+    setSelectedPlaceVisitId(null);
+  }, [focusedGuideId]);
 
   useEffect(() => {
     if (!mapRef.current) {
@@ -127,6 +149,21 @@ function GuideGoogleMap({
       onLoad={handleMapLoad}
     >
       <GuideMapPathsLayer map={map} layers={pathLayers} />
+      {visiblePlaceVisits.map((visit) => {
+        const selected = selectedPlaceVisitId === visit.id;
+        return (
+          <MarkerF
+            key={`place-visit-${visit.id}`}
+            position={{ lat: visit.centerLatitude, lng: visit.centerLongitude }}
+            icon={buildPlaceVisitMarkerIcon(selected)}
+            zIndex={selected ? 900 : 50}
+            onClick={() => {
+              setSelectedPlaceVisitId(visit.id);
+              setInfoWindowGuideId(null);
+            }}
+          />
+        );
+      })}
       {locations.map((location) => {
         const color = locationColorByGuideId.get(location.guideId) ?? '#4f46e5';
         const focused = focusedGuideId === location.guideId;
@@ -139,11 +176,41 @@ function GuideGoogleMap({
             onClick={() => {
               onFocusGuide(location.guideId);
               setInfoWindowGuideId(location.guideId);
+              setSelectedPlaceVisitId(null);
             }}
           />
         );
       })}
-      {infoWindowLocation ? (
+      {selectedPlaceVisit ? (
+        <InfoWindowF
+          position={{
+            lat: selectedPlaceVisit.centerLatitude,
+            lng: selectedPlaceVisit.centerLongitude,
+          }}
+          onCloseClick={() => setSelectedPlaceVisitId(null)}
+        >
+          <div className="min-w-52 text-sm text-slate-800">
+            <strong>장소 방문</strong>
+            <br />
+            프로젝트: {projectNameById.get(selectedPlaceVisit.projectId) ?? '알 수 없음'}
+            <br />
+            체류: {formatRecordedAt(selectedPlaceVisit.startedAt)} ~{' '}
+            {formatRecordedAt(selectedPlaceVisit.endedAt)}
+            <br />
+            시간: {formatVisitDuration(selectedPlaceVisit.durationMs)}
+            <br />
+            반경: 약 {Math.round(selectedPlaceVisit.radiusMeters)}m · GPS{' '}
+            {selectedPlaceVisit.pointCount}포인트
+            {selectedPlaceVisit.description ? (
+              <>
+                <br />
+                메모: {selectedPlaceVisit.description}
+              </>
+            ) : null}
+          </div>
+        </InfoWindowF>
+      ) : null}
+      {infoWindowLocation && !selectedPlaceVisit ? (
         <InfoWindowF
           position={{
             lat: infoWindowLocation.latestLatitude,
@@ -193,6 +260,11 @@ export function GuideLocationMapPage(): JSX.Element {
       personId ? allLocations.filter((location) => location.guideId === personId) : allLocations,
     [allLocations, personId],
   );
+  const { placeVisits } = useGuidePlaceVisits({
+    guideId: focusedGuideId || undefined,
+    projectId: projectId || undefined,
+    date: selectedDate,
+  });
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'guide-location-map-ko',
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
@@ -240,7 +312,8 @@ export function GuideLocationMapPage(): JSX.Element {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">가이드 위치</h1>
           <p className="mt-1 text-sm text-slate-600">
             선택한 날짜(울란바토르)에 진행 중인 Leadersteps 프로젝트의 GPS 경로와 참여자의 최근
-            위치를 표시합니다.
+            위치를 표시합니다. 참여자를 선택하면 장소 방문(place_visits)이 주황색 사각 핀으로
+            표시됩니다.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
@@ -372,6 +445,8 @@ export function GuideLocationMapPage(): JSX.Element {
             <GuideGoogleMap
               locations={locations}
               focusedGuideId={focusedGuideId}
+              placeVisits={placeVisits}
+              projects={projects}
               onFocusGuide={setFocusedGuideId}
             />
           ) : (
@@ -396,6 +471,7 @@ export function GuideLocationMapPage(): JSX.Element {
               locations.map((location, index) => {
                 const focused = focusedGuideId === location.guideId;
                 const color = getGuidePathColor(index);
+                const projectLabels = buildLocationProjectLabels(location.projectIds, projects);
                 return (
                   <button
                     key={location.guideId}
@@ -418,9 +494,15 @@ export function GuideLocationMapPage(): JSX.Element {
                         {location.guideNameMn ? ` · ${location.guideNameMn}` : ''}
                       </span>
                     </span>
+                    {projectLabels.map((project) => (
+                      <span key={project.projectId} className="mt-1 block text-xs text-slate-500">
+                        {project.label}
+                      </span>
+                    ))}
                     <span className="mt-1 block text-xs text-slate-500">
                       {formatRecordedAt(location.latestRecordedAt)} · 정확도 약{' '}
                       {Math.round(location.latestAccuracy)}m · 경로 {location.path.length}포인트
+                      {focused ? ` · 장소 방문 ${placeVisits.length}곳` : ''}
                     </span>
                   </button>
                 );
