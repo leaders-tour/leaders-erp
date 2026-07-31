@@ -3,16 +3,21 @@ import { GoogleMap, InfoWindowF, MarkerF, useJsApiLoader } from '@react-google-m
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GuideMapPathsLayer } from '../features/guide/GuideMapPathsLayer';
 import {
+  applyGuidePathTimeFilter,
   buildGuideMarkerIcon,
+  buildGuidePathDayOptions,
   buildLocationProjectLabels,
   buildPlaceVisitMarkerIcon,
   collectMapBounds,
+  filterPlaceVisitsByTimeRange,
   formatGuideLocationMapDateLabel,
+  formatGuidePathTimeRangeLabel,
   formatPlaceVisitPinTypeLabel,
   formatVisitDuration,
   getGuidePathColor,
   getTodayInUlaanbaatarDateInputValue,
   normalizeGuideMapPath,
+  type GuideProjectDayOption,
 } from '../features/guide/guide-location-map-utils';
 import {
   useGuideLiveLocations,
@@ -39,25 +44,134 @@ function formatRecordedAt(value: string): string {
   return ULAANBAATAR_TIME_FORMATTER.format(new Date(value));
 }
 
-function fitMapToLocations(map: google.maps.Map, locations: GuideLiveLocationRow[]): void {
+function fitMapToLocations(map: google.maps.Map, locations: GuideLiveLocationRow[]): boolean {
   const bounds = collectMapBounds(locations);
   if (!bounds) {
-    map.setCenter(DEFAULT_MAP_CENTER);
-    map.setZoom(11);
-    return;
+    return false;
   }
   map.fitBounds(bounds, 48);
+  return true;
+}
+
+function GuideFocusedPathFilters({
+  dayOptions,
+  focusedDayDate,
+  filteredPathPointCount,
+  filteredPlaceVisitCount,
+  timeRangeMinutes,
+  onDayChange,
+  onTimeRangeChange,
+}: {
+  dayOptions: GuideProjectDayOption[];
+  focusedDayDate: string | null;
+  filteredPathPointCount: number;
+  filteredPlaceVisitCount: number;
+  timeRangeMinutes: [number, number];
+  onDayChange: (dayDate: string | null) => void;
+  onTimeRangeChange: (timeRangeMinutes: [number, number]) => void;
+}): JSX.Element {
+  const [startMinutes, endMinutes] = timeRangeMinutes;
+  const selectedDay = dayOptions.find((day) => day.date === focusedDayDate) ?? null;
+
+  return (
+    <div className="mt-3 space-y-3 border-t border-indigo-200 pt-3">
+      <div>
+        <p className="text-xs font-medium text-indigo-900">일차</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+              focusedDayDate == null
+                ? 'bg-indigo-600 text-white'
+                : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-indigo-50'
+            }`}
+            onClick={() => onDayChange(null)}
+          >
+            전체
+          </button>
+          {dayOptions.map((day) => {
+            const selected = focusedDayDate === day.date;
+            return (
+              <button
+                key={day.date}
+                type="button"
+                title={`${day.fullLabel} · GPS ${day.pointCount}포인트`}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                  selected
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-indigo-50'
+                }`}
+                onClick={() => onDayChange(day.date)}
+              >
+                {day.dayLabel}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          {focusedDayDate == null ? (
+            <>전체 · 경로 {filteredPathPointCount}포인트 · 방문 {filteredPlaceVisitCount}곳</>
+          ) : selectedDay ? (
+            <>
+              {selectedDay.fullLabel} · 경로 {filteredPathPointCount}포인트 · 방문{' '}
+              {filteredPlaceVisitCount}곳
+            </>
+          ) : null}
+        </p>
+      </div>
+      {focusedDayDate ? (
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-indigo-900">시간 범위</p>
+            <span className="text-xs text-slate-500">
+              {formatGuidePathTimeRangeLabel(timeRangeMinutes)}
+            </span>
+          </div>
+          <div className="mt-2 space-y-2">
+            <input
+              type="range"
+              min={0}
+              max={24 * 60}
+              step={5}
+              value={startMinutes}
+              className="h-2 w-full cursor-pointer accent-indigo-600"
+              onChange={(event) => {
+                const nextStart = Number(event.target.value);
+                onTimeRangeChange([Math.min(nextStart, endMinutes), endMinutes]);
+              }}
+            />
+            <input
+              type="range"
+              min={0}
+              max={24 * 60}
+              step={5}
+              value={endMinutes}
+              className="h-2 w-full cursor-pointer accent-indigo-600"
+              onChange={(event) => {
+                const nextEnd = Number(event.target.value);
+                onTimeRangeChange([startMinutes, Math.max(nextEnd, startMinutes)]);
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function GuideGoogleMap({
   locations,
   focusedGuideId,
+  focusedDayDate,
+  mapFitSource,
   placeVisits,
   projects,
   onFocusGuide,
 }: {
   locations: GuideLiveLocationRow[];
   focusedGuideId: string | null;
+  focusedDayDate: string | null;
+  mapFitSource: GuideLiveLocationRow | null;
   placeVisits: GuidePlaceVisitRow[];
   projects: LeaderstepsActiveProjectRow[];
   onFocusGuide: (guideId: string | null) => void;
@@ -132,13 +246,22 @@ function GuideGoogleMap({
     if (!mapRef.current) {
       return;
     }
-    if (focusedLocation) {
-      fitMapToLocations(mapRef.current, [focusedLocation]);
-      setInfoWindowGuideId(focusedLocation.guideId);
+    if (!focusedGuideId) {
+      fitMapToLocations(mapRef.current, locations);
+      return;
+    }
+    if (mapFitSource) {
+      fitMapToLocations(mapRef.current, [mapFitSource]);
+      setInfoWindowGuideId(mapFitSource.guideId);
+    }
+  }, [focusedGuideId, mapFitSource]);
+
+  useEffect(() => {
+    if (!mapRef.current || focusedGuideId) {
       return;
     }
     fitMapToLocations(mapRef.current, locations);
-  }, [locations, focusedLocation]);
+  }, [locations, focusedGuideId]);
 
   const handleToggleFocus = useCallback(
     (guideId: string) => {
@@ -184,6 +307,9 @@ function GuideGoogleMap({
         const color = locationColorByGuideId.get(location.guideId) ?? '#4f46e5';
         const focused = focusedGuideId === location.guideId;
         const dimmed = focusedGuideId != null && !focused;
+        if (focused && focusedDayDate && location.path.length === 0) {
+          return null;
+        }
         return (
           <MarkerF
             key={`marker-${location.guideId}`}
@@ -303,6 +429,11 @@ export function GuideLocationMapPage(): JSX.Element {
   const [projectId, setProjectId] = useState('');
   const [personId, setPersonId] = useState('');
   const [focusedGuideId, setFocusedGuideId] = useState<string | null>(null);
+  const [focusedDayDate, setFocusedDayDate] = useState<string | null>(null);
+  const [focusedTimeRangeMinutes, setFocusedTimeRangeMinutes] = useState<[number, number]>([
+    0,
+    24 * 60,
+  ]);
   const [mapsAuthFailure, setMapsAuthFailure] = useState(false);
   const selectedDateLabel = useMemo(
     () => formatGuideLocationMapDateLabel(selectedDate),
@@ -324,11 +455,50 @@ export function GuideLocationMapPage(): JSX.Element {
       personId ? allLocations.filter((location) => location.guideId === personId) : allLocations,
     [allLocations, personId],
   );
+  const focusedLocationSource =
+    locations.find((location) => location.guideId === focusedGuideId) ?? null;
+  const focusedProjectIds = useMemo(() => {
+    if (!focusedLocationSource) {
+      return [];
+    }
+    return projectId ? [projectId] : focusedLocationSource.projectIds;
+  }, [focusedLocationSource, projectId]);
+  const focusedDayOptions = useMemo(() => {
+    if (!focusedLocationSource) {
+      return [];
+    }
+    return buildGuidePathDayOptions(focusedLocationSource.path, focusedProjectIds);
+  }, [focusedLocationSource, focusedProjectIds]);
+  const displayLocations = useMemo(() => {
+    if (!focusedGuideId || !focusedLocationSource) {
+      return locations;
+    }
+
+    return locations.map((location) => {
+      if (location.guideId !== focusedGuideId) {
+        return location;
+      }
+      return applyGuidePathTimeFilter(location, focusedDayDate, focusedTimeRangeMinutes);
+    });
+  }, [locations, focusedGuideId, focusedLocationSource, focusedDayDate, focusedTimeRangeMinutes]);
   const { placeVisits } = useGuidePlaceVisits({
     guideId: focusedGuideId || undefined,
     projectId: projectId || undefined,
     date: selectedDate,
   });
+  const displayPlaceVisits = useMemo(
+    () => filterPlaceVisitsByTimeRange(placeVisits, focusedDayDate, focusedTimeRangeMinutes),
+    [placeVisits, focusedDayDate, focusedTimeRangeMinutes],
+  );
+  const focusedDisplayLocation =
+    displayLocations.find((location) => location.guideId === focusedGuideId) ?? null;
+  const filteredPathPointCount = focusedDisplayLocation?.path.length ?? 0;
+
+  useEffect(() => {
+    if (focusedDayDate && !focusedDayOptions.some((day) => day.date === focusedDayDate)) {
+      setFocusedDayDate(null);
+    }
+  }, [focusedDayDate, focusedDayOptions]);
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'guide-location-map-ko',
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
@@ -368,6 +538,21 @@ export function GuideLocationMapPage(): JSX.Element {
       setFocusedGuideId(null);
     }
   }, [focusedGuideId, locations]);
+
+  useEffect(() => {
+    if (!focusedGuideId) {
+      setFocusedDayDate(null);
+      setFocusedTimeRangeMinutes([0, 24 * 60]);
+      return;
+    }
+
+    setFocusedDayDate(null);
+    setFocusedTimeRangeMinutes([0, 24 * 60]);
+  }, [focusedGuideId, projectId]);
+
+  useEffect(() => {
+    setFocusedTimeRangeMinutes([0, 24 * 60]);
+  }, [focusedDayDate]);
 
   return (
     <section className="grid gap-5">
@@ -517,9 +702,11 @@ export function GuideLocationMapPage(): JSX.Element {
           ) : null}
           {GOOGLE_MAPS_API_KEY && isLoaded && !mapsAuthFailure ? (
             <GuideGoogleMap
-              locations={locations}
+              locations={displayLocations}
               focusedGuideId={focusedGuideId}
-              placeVisits={placeVisits}
+              focusedDayDate={focusedDayDate}
+              mapFitSource={focusedLocationSource}
+              placeVisits={displayPlaceVisits}
               projects={projects}
               onFocusGuide={setFocusedGuideId}
             />
@@ -547,39 +734,61 @@ export function GuideLocationMapPage(): JSX.Element {
                 const dimmed = focusedGuideId != null && !focused;
                 const color = getGuidePathColor(index);
                 const projectLabels = buildLocationProjectLabels(location.projectIds, projects);
+                const displayLocation =
+                  displayLocations.find((row) => row.guideId === location.guideId) ?? location;
                 return (
-                  <button
+                  <div
                     key={location.guideId}
-                    type="button"
-                    aria-pressed={focused}
-                    className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                    className={`rounded-2xl border transition ${
                       focused
                         ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600'
-                        : 'border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40'
-                    } ${dimmed ? 'opacity-40 saturate-50 hover:opacity-70' : ''}`}
-                    onClick={() => setFocusedGuideId(focused ? null : location.guideId)}
+                        : 'border-slate-200'
+                    } ${dimmed ? 'opacity-40 saturate-50' : ''}`}
                   >
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="inline-block h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: color }}
-                      />
-                      <span className="font-semibold text-slate-900">
-                        {location.guideNameKo}
-                        {location.guideNameMn ? ` · ${location.guideNameMn}` : ''}
+                    <button
+                      type="button"
+                      aria-pressed={focused}
+                      className={`w-full rounded-2xl px-4 py-3 text-left transition ${
+                        focused ? '' : 'hover:border-indigo-300 hover:bg-indigo-50/40'
+                      } ${dimmed ? 'hover:opacity-70' : ''}`}
+                      onClick={() => setFocusedGuideId(focused ? null : location.guideId)}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="inline-block h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="font-semibold text-slate-900">
+                          {location.guideNameKo}
+                          {location.guideNameMn ? ` · ${location.guideNameMn}` : ''}
+                        </span>
                       </span>
-                    </span>
-                    {projectLabels.map((project) => (
-                      <span key={project.projectId} className="mt-1 block text-xs text-slate-500">
-                        {project.label}
+                      {projectLabels.map((project) => (
+                        <span key={project.projectId} className="mt-1 block text-xs text-slate-500">
+                          {project.label}
+                        </span>
+                      ))}
+                      <span className="mt-1 block text-xs text-slate-500">
+                        {formatRecordedAt(displayLocation.latestRecordedAt)} · 정확도 약{' '}
+                        {Math.round(displayLocation.latestAccuracy)}m · 경로{' '}
+                        {displayLocation.path.length}포인트
+                        {focused ? ` · 장소 방문 ${displayPlaceVisits.length}곳` : ''}
                       </span>
-                    ))}
-                    <span className="mt-1 block text-xs text-slate-500">
-                      {formatRecordedAt(location.latestRecordedAt)} · 정확도 약{' '}
-                      {Math.round(location.latestAccuracy)}m · 경로 {location.path.length}포인트
-                      {focused ? ` · 장소 방문 ${placeVisits.length}곳` : ''}
-                    </span>
-                  </button>
+                    </button>
+                    {focused && focusedDayOptions.length > 0 ? (
+                      <div className="px-4 pb-3">
+                        <GuideFocusedPathFilters
+                          dayOptions={focusedDayOptions}
+                          focusedDayDate={focusedDayDate}
+                          filteredPathPointCount={filteredPathPointCount}
+                          filteredPlaceVisitCount={displayPlaceVisits.length}
+                          timeRangeMinutes={focusedTimeRangeMinutes}
+                          onDayChange={setFocusedDayDate}
+                          onTimeRangeChange={setFocusedTimeRangeMinutes}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })
             )}

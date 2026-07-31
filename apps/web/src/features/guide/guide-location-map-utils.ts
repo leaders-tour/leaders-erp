@@ -260,6 +260,165 @@ export function formatPlaceVisitPinTypeLabel(pinType: string | null): string | n
   return PLACE_VISIT_PIN_TYPE_LABELS[normalized] ?? pinType.trim();
 }
 
+const ULAANBAATAR_DAY_MS = 24 * 60 * 60 * 1000;
+
+export interface GuideProjectDayOption {
+  date: string;
+  dayLabel: string;
+  fullLabel: string;
+  pointCount: number;
+}
+
+export function toUlaanbaatarDateInputValue(iso: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ulaanbaatar',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(iso));
+}
+
+export function addDaysToDateInputValue(date: string, days: number): string {
+  const startMs = Date.parse(`${date}T00:00:00+08:00`);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ulaanbaatar',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(startMs + days * ULAANBAATAR_DAY_MS));
+}
+
+export function getUlaanbaatarDayBoundsMs(date: string): { startMs: number; endMs: number } {
+  const startMs = Date.parse(`${date}T00:00:00+08:00`);
+  return { startMs, endMs: startMs + ULAANBAATAR_DAY_MS - 1 };
+}
+
+export function buildGuidePathDayOptions<
+  T extends { recordedAt: string; projectId?: string },
+>(path: T[], projectIds?: string[]): GuideProjectDayOption[] {
+  const counts = new Map<string, number>();
+
+  for (const point of path) {
+    if (projectIds?.length && point.projectId && !projectIds.includes(point.projectId)) {
+      continue;
+    }
+    const date = toUlaanbaatarDateInputValue(point.recordedAt);
+    counts.set(date, (counts.get(date) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([date, pointCount]) => ({
+      date,
+      dayLabel: String(Number(date.split('-')[2])),
+      fullLabel: formatUlaanbaatarProjectDate(new Date(`${date}T12:00:00+08:00`).toISOString()),
+      pointCount,
+    }));
+}
+
+export function formatGuidePathTimeRangeLabel(timeRangeMinutes: [number, number]): string {
+  return `${formatMinutesAsUlaanbaatarTime(timeRangeMinutes[0])} ~ ${formatMinutesAsUlaanbaatarTime(timeRangeMinutes[1])}`;
+}
+
+export function formatMinutesAsUlaanbaatarTime(totalMinutes: number): string {
+  const clamped = Math.max(0, Math.min(24 * 60, totalMinutes));
+  if (clamped >= 24 * 60) {
+    return '24:00';
+  }
+  const hours = Math.floor(clamped / 60);
+  const minutes = clamped % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+export function resolveGuidePathTimeRangeMs(
+  dayDate: string | null,
+  timeRangeMinutes: [number, number],
+): { startMs: number; endMs: number } | null {
+  if (!dayDate) {
+    return null;
+  }
+
+  const { startMs: dayStartMs } = getUlaanbaatarDayBoundsMs(dayDate);
+  const [startMinutes, endMinutes] = timeRangeMinutes;
+  const startMs = dayStartMs + startMinutes * 60_000;
+  const endMs =
+    endMinutes >= 24 * 60
+      ? dayStartMs + ULAANBAATAR_DAY_MS - 1
+      : dayStartMs + endMinutes * 60_000;
+
+  return { startMs, endMs: Math.max(startMs, endMs) };
+}
+
+export function filterGuidePathByTimeRange<
+  T extends { recordedAt: string; latitude: number; longitude: number; accuracy: number },
+>(
+  path: T[],
+  dayDate: string | null,
+  timeRangeMinutes: [number, number],
+): T[] {
+  const range = resolveGuidePathTimeRangeMs(dayDate, timeRangeMinutes);
+  if (!range) {
+    return path;
+  }
+
+  return path.filter((point) => {
+    const recordedAtMs = new Date(point.recordedAt).getTime();
+    return recordedAtMs >= range.startMs && recordedAtMs <= range.endMs;
+  });
+}
+
+export function filterPlaceVisitsByTimeRange<
+  T extends { startedAt: string; endedAt: string },
+>(visits: T[], dayDate: string | null, timeRangeMinutes: [number, number]): T[] {
+  const range = resolveGuidePathTimeRangeMs(dayDate, timeRangeMinutes);
+  if (!range) {
+    return visits;
+  }
+
+  return visits.filter((visit) => {
+    const startedAtMs = new Date(visit.startedAt).getTime();
+    const endedAtMs = new Date(visit.endedAt).getTime();
+    return startedAtMs <= range.endMs && endedAtMs >= range.startMs;
+  });
+}
+
+export function applyGuidePathTimeFilter<T extends {
+  latestLatitude: number;
+  latestLongitude: number;
+  latestAccuracy: number;
+  latestRecordedAt: string;
+  path: Array<{
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+    recordedAt: string;
+    projectId: string;
+  }>;
+}>(
+  location: T,
+  dayDate: string | null,
+  timeRangeMinutes: [number, number],
+): T {
+  const filteredPath = filterGuidePathByTimeRange(location.path, dayDate, timeRangeMinutes);
+  const latestPoint = filteredPath[filteredPath.length - 1];
+
+  if (!latestPoint) {
+    return {
+      ...location,
+      path: filteredPath,
+    };
+  }
+
+  return {
+    ...location,
+    path: filteredPath,
+    latestLatitude: latestPoint.latitude,
+    latestLongitude: latestPoint.longitude,
+    latestAccuracy: latestPoint.accuracy,
+    latestRecordedAt: latestPoint.recordedAt,
+  };
+}
+
 export function collectMapBounds(locations: Array<{ path: Array<{ latitude: number; longitude: number }> }>) {
   const bounds = new google.maps.LatLngBounds();
   let hasPoint = false;
