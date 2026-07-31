@@ -59,7 +59,7 @@ function GuideGoogleMap({
   focusedGuideId: string | null;
   placeVisits: GuidePlaceVisitRow[];
   projects: LeaderstepsActiveProjectRow[];
-  onFocusGuide: (guideId: string) => void;
+  onFocusGuide: (guideId: string | null) => void;
 }): JSX.Element {
   const mapRef = useRef<google.maps.Map | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -88,12 +88,17 @@ function GuideGoogleMap({
   );
   const pathLayers = useMemo(
     () =>
-      locations.map((location) => ({
-        guideId: location.guideId,
-        path: pathsByGuideId.get(location.guideId) ?? [],
-        color: locationColorByGuideId.get(location.guideId) ?? '#4f46e5',
-        focused: focusedGuideId === location.guideId,
-      })),
+      locations.map((location) => {
+        const focused = focusedGuideId === location.guideId;
+        const dimmed = focusedGuideId != null && !focused;
+        return {
+          guideId: location.guideId,
+          path: pathsByGuideId.get(location.guideId) ?? [],
+          color: locationColorByGuideId.get(location.guideId) ?? '#4f46e5',
+          focused,
+          dimmed,
+        };
+      }),
     [locations, pathsByGuideId, locationColorByGuideId, focusedGuideId],
   );
   const focusedLocation =
@@ -117,23 +122,24 @@ function GuideGoogleMap({
     if (!mapRef.current) {
       return;
     }
-    fitMapToLocations(mapRef.current, locations);
-  }, [locations]);
-
-  useEffect(() => {
-    if (!mapRef.current || !focusedLocation) {
+    if (focusedLocation) {
+      fitMapToLocations(mapRef.current, [focusedLocation]);
+      setInfoWindowGuideId(focusedLocation.guideId);
       return;
     }
-    mapRef.current.panTo({
-      lat: focusedLocation.latestLatitude,
-      lng: focusedLocation.latestLongitude,
-    });
-    const zoom = mapRef.current.getZoom() ?? 11;
-    if (zoom < 15) {
-      mapRef.current.setZoom(15);
-    }
-    setInfoWindowGuideId(focusedLocation.guideId);
-  }, [focusedLocation]);
+    fitMapToLocations(mapRef.current, locations);
+  }, [locations, focusedLocation]);
+
+  const handleToggleFocus = useCallback(
+    (guideId: string) => {
+      onFocusGuide(focusedGuideId === guideId ? null : guideId);
+      if (focusedGuideId === guideId) {
+        setInfoWindowGuideId(null);
+        setSelectedPlaceVisitId(null);
+      }
+    },
+    [focusedGuideId, onFocusGuide],
+  );
 
   return (
     <GoogleMap
@@ -167,15 +173,25 @@ function GuideGoogleMap({
       {locations.map((location) => {
         const color = locationColorByGuideId.get(location.guideId) ?? '#4f46e5';
         const focused = focusedGuideId === location.guideId;
+        const dimmed = focusedGuideId != null && !focused;
         return (
           <MarkerF
             key={`marker-${location.guideId}`}
             position={{ lat: location.latestLatitude, lng: location.latestLongitude }}
-            icon={buildGuideMarkerIcon(location.profileImageUrl, location.guideNameKo, color, focused)}
-            zIndex={focused ? 1000 : 100}
+            icon={buildGuideMarkerIcon(
+              location.profileImageUrl,
+              location.guideNameKo,
+              color,
+              focused,
+              dimmed,
+            )}
+            opacity={dimmed ? 0.35 : 1}
+            zIndex={focused ? 1000 : dimmed ? 10 : 100}
             onClick={() => {
-              onFocusGuide(location.guideId);
-              setInfoWindowGuideId(location.guideId);
+              handleToggleFocus(location.guideId);
+              if (focusedGuideId !== location.guideId) {
+                setInfoWindowGuideId(location.guideId);
+              }
               setSelectedPlaceVisitId(null);
             }}
           />
@@ -315,6 +331,16 @@ export function GuideLocationMapPage(): JSX.Element {
             위치를 표시합니다. 참여자를 선택하면 장소 방문(place_visits)이 주황색 사각 핀으로
             표시됩니다.
           </p>
+          {focusedGuideId ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-3 h-8 px-3 text-xs"
+              onClick={() => setFocusedGuideId(null)}
+            >
+              전체 보기
+            </Button>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
           <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">
@@ -470,6 +496,7 @@ export function GuideLocationMapPage(): JSX.Element {
             ) : (
               locations.map((location, index) => {
                 const focused = focusedGuideId === location.guideId;
+                const dimmed = focusedGuideId != null && !focused;
                 const color = getGuidePathColor(index);
                 const projectLabels = buildLocationProjectLabels(location.projectIds, projects);
                 return (
@@ -481,8 +508,8 @@ export function GuideLocationMapPage(): JSX.Element {
                       focused
                         ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600'
                         : 'border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40'
-                    }`}
-                    onClick={() => setFocusedGuideId(location.guideId)}
+                    } ${dimmed ? 'opacity-40 saturate-50 hover:opacity-70' : ''}`}
+                    onClick={() => setFocusedGuideId(focused ? null : location.guideId)}
                   >
                     <span className="flex items-center gap-2">
                       <span

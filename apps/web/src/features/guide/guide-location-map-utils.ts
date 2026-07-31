@@ -114,6 +114,7 @@ export function buildGuideMapPathLayerKey(
     path: GuideMapLatLng[];
     color: string;
     focused: boolean;
+    dimmed: boolean;
   }>,
 ): string {
   return layers
@@ -121,7 +122,7 @@ export function buildGuideMapPathLayerKey(
       const path = simplifyGuideMapPath(layer.path)
         .map((point) => `${point.lat.toFixed(6)},${point.lng.toFixed(6)}`)
         .join(';');
-      return `${layer.guideId}:${layer.color}:${layer.focused ? 1 : 0}:${path}`;
+      return `${layer.guideId}:${layer.color}:${layer.focused ? 1 : 0}:${layer.dimmed ? 1 : 0}:${path}`;
     })
     .join('|');
 }
@@ -131,10 +132,13 @@ export function buildGuideMarkerIcon(
   nameKo: string,
   accentColor: string,
   focused: boolean,
+  dimmed = false,
 ): google.maps.Icon {
-  const size = focused ? 48 : 42;
+  const size = focused ? 48 : dimmed ? 34 : 42;
+  const fill = dimmed ? '#94a3b8' : accentColor;
+  const opacity = dimmed ? 0.45 : 1;
 
-  if (profileImageUrl) {
+  if (profileImageUrl && !dimmed) {
     return {
       url: profileImageUrl,
       scaledSize: new google.maps.Size(size, size),
@@ -145,9 +149,11 @@ export function buildGuideMarkerIcon(
   const initial = nameKo.trim().slice(0, 1) || '?';
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 48 48">
-      <circle cx="24" cy="24" r="22" fill="${accentColor}" stroke="#ffffff" stroke-width="3"/>
-      <text x="24" y="24" text-anchor="middle" dominant-baseline="central"
-        fill="#ffffff" font-size="18" font-family="Pretendard, sans-serif" font-weight="700">${initial}</text>
+      <g opacity="${opacity}">
+        <circle cx="24" cy="24" r="22" fill="${fill}" stroke="#ffffff" stroke-width="3"/>
+        <text x="24" y="24" text-anchor="middle" dominant-baseline="central"
+          fill="#ffffff" font-size="18" font-family="Pretendard, sans-serif" font-weight="700">${initial}</text>
+      </g>
     </svg>
   `.trim();
 

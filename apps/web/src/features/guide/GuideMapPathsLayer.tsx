@@ -11,6 +11,7 @@ export interface GuideMapPathLayer {
   path: GuideMapLatLng[];
   color: string;
   focused: boolean;
+  dimmed: boolean;
 }
 
 interface StoredPolyline {
@@ -52,10 +53,10 @@ export function GuideMapPathsLayer({
         polyline: new google.maps.Polyline({
           path: simplifyGuideMapPath(layer.path),
           map,
-          strokeColor: layer.color,
-          strokeOpacity: layer.focused ? 0.95 : 0.72,
-          strokeWeight: layer.focused ? 5 : 4,
-          zIndex: layer.focused ? 2 : 1,
+          strokeColor: layer.dimmed ? '#94a3b8' : layer.color,
+          strokeOpacity: layer.focused ? 0.95 : layer.dimmed ? 0.18 : 0.72,
+          strokeWeight: layer.focused ? 5 : layer.dimmed ? 3 : 4,
+          zIndex: layer.focused ? 2 : layer.dimmed ? 0 : 1,
         }),
       });
     }
