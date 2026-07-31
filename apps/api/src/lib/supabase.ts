@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import ws from 'ws';
 import { loadWorkspaceEnv } from './load-workspace-env';
 
 let supabaseAdminClient: SupabaseClient | null = null;
@@ -37,6 +38,10 @@ export function getSupabaseAdminClient(): SupabaseClient {
       autoRefreshToken: false,
       detectSessionInUrl: false,
       persistSession: false,
+    },
+    realtime: {
+      // `ws` constructor types differ from DOM WebSocket but are runtime-compatible in Node.
+      transport: ws as never,
     },
   });
 

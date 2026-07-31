@@ -26,12 +26,14 @@
     "pdf-lib": "^1.17.1",
     "puppeteer": "^24.40.0",
     "sharp": "^0.34.5",
+    "ws": "^8.21.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^22.7.5",
+    "@types/ws": "^8.18.1",
     "eslint": "^9.11.1",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2",
