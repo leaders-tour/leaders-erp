@@ -9,8 +9,28 @@ const GUIDE_PATH_COLORS = [
   '#65a30d',
 ] as const;
 
+export type GuideMapLatLng = { lat: number; lng: number };
+
 export function getGuidePathColor(index: number): string {
   return GUIDE_PATH_COLORS[index % GUIDE_PATH_COLORS.length] ?? '#4f46e5';
+}
+
+export function normalizeGuideMapPath(
+  path: Array<{ latitude: number; longitude: number }> | null | undefined,
+): GuideMapLatLng[] {
+  if (!path?.length) {
+    return [];
+  }
+
+  return path
+    .filter(
+      (point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude),
+    )
+    .map((point) => ({ lat: point.latitude, lng: point.longitude }));
+}
+
+export function canDrawGuidePath(path: GuideMapLatLng[]): boolean {
+  return path.length >= 2;
 }
 
 export function buildGuideMarkerIcon(

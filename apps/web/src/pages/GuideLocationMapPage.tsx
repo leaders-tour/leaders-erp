@@ -1,10 +1,13 @@
 import { Button, Card } from '@tour/ui';
 import { GoogleMap, InfoWindowF, MarkerF, PolylineF, useJsApiLoader } from '@react-google-maps/api';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   buildGuideMarkerIcon,
+  canDrawGuidePath,
   collectMapBounds,
   getGuidePathColor,
+  normalizeGuideMapPath,
+  type GuideMapLatLng,
 } from '../features/guide/guide-location-map-utils';
 import {
   useGuideLiveLocations,
@@ -38,6 +41,32 @@ function fitMapToLocations(map: google.maps.Map, locations: GuideLiveLocationRow
   map.fitBounds(bounds, 48);
 }
 
+const GuidePathPolyline = memo(function GuidePathPolyline({
+  path,
+  color,
+  focused,
+}: {
+  path: GuideMapLatLng[];
+  color: string;
+  focused: boolean;
+}) {
+  const options = useMemo(
+    () => ({
+      strokeColor: color,
+      strokeOpacity: focused ? 0.95 : 0.72,
+      strokeWeight: focused ? 5 : 4,
+      zIndex: focused ? 2 : 1,
+    }),
+    [color, focused],
+  );
+
+  if (!canDrawGuidePath(path)) {
+    return null;
+  }
+
+  return <PolylineF path={path} options={options} />;
+});
+
 function GuideGoogleMap({
   locations,
   focusedGuideId,
@@ -53,6 +82,16 @@ function GuideGoogleMap({
     () =>
       new Map(
         locations.map((location, index) => [location.guideId, getGuidePathColor(index)] as const),
+      ),
+    [locations],
+  );
+  const pathsByGuideId = useMemo(
+    () =>
+      new Map(
+        locations.map((location) => [
+          location.guideId,
+          normalizeGuideMapPath(location.path),
+        ] as const),
       ),
     [locations],
   );
@@ -102,20 +141,13 @@ function GuideGoogleMap({
     >
       {locations.map((location) => {
         const color = locationColorByGuideId.get(location.guideId) ?? '#4f46e5';
-        const focused = focusedGuideId === location.guideId;
+        const path = pathsByGuideId.get(location.guideId) ?? [];
         return (
-          <PolylineF
+          <GuidePathPolyline
             key={`path-${location.guideId}`}
-            path={location.path.map((point) => ({
-              lat: point.latitude,
-              lng: point.longitude,
-            }))}
-            options={{
-              strokeColor: color,
-              strokeOpacity: focused ? 0.95 : 0.72,
-              strokeWeight: focused ? 5 : 4,
-              zIndex: focused ? 2 : 1,
-            }}
+            path={path}
+            color={color}
+            focused={focusedGuideId === location.guideId}
           />
         );
       })}
