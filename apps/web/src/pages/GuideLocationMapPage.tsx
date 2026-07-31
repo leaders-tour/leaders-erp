@@ -621,9 +621,12 @@ export function GuideLocationMapPage(): JSX.Element {
 
       <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[minmax(180px,0.8fr)_minmax(240px,1fr)_minmax(240px,1fr)_auto] md:items-end">
         <div>
-          <label htmlFor="guide-location-date" className="mb-2 block text-sm font-medium text-slate-700">
-            기준일
-          </label>
+          <div className="mb-2 flex flex-wrap items-baseline gap-x-2">
+            <label htmlFor="guide-location-date" className="text-sm font-medium text-slate-700">
+              기준일
+            </label>
+            <span className="text-xs text-slate-500">울란바토르 시간 기준</span>
+          </div>
           <input
             id="guide-location-date"
             type="date"
@@ -636,7 +639,6 @@ export function GuideLocationMapPage(): JSX.Element {
               setFocusedGuideId(null);
             }}
           />
-          <p className="mt-1 text-xs text-slate-500">울란바토르 시간 기준</p>
         </div>
         <div>
           <label htmlFor="guide-location-project" className="mb-2 block text-sm font-medium text-slate-700">
