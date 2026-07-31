@@ -30,7 +30,8 @@ import {
 import { GOOGLE_MAPS_API_KEY } from '../lib/google-maps-api-key';
 
 const DEFAULT_MAP_CENTER = { lat: 47.9189, lng: 106.9176 };
-const MAP_CONTAINER_STYLE = { width: '100%', height: '680px' };
+const MAP_HEIGHT_CLASS = 'h-[680px]';
+const MAP_CONTAINER_STYLE = { width: '100%', height: '100%' };
 const ULAANBAATAR_TIME_FORMATTER = new Intl.DateTimeFormat('ko-KR', {
   timeZone: 'Asia/Ulaanbaatar',
   month: '2-digit',
@@ -177,6 +178,7 @@ function GuideGoogleMap({
   onFocusGuide: (guideId: string | null) => void;
 }): JSX.Element {
   const mapRef = useRef<google.maps.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [infoWindowGuideId, setInfoWindowGuideId] = useState<string | null>(null);
   const [selectedPlaceVisitId, setSelectedPlaceVisitId] = useState<string | null>(null);
@@ -263,6 +265,33 @@ function GuideGoogleMap({
     fitMapToLocations(mapRef.current, locations);
   }, [locations, focusedGuideId]);
 
+  useEffect(() => {
+    const mapInstance = mapRef.current;
+    const container = mapContainerRef.current;
+    if (!mapInstance || !container) {
+      return;
+    }
+
+    const triggerResize = () => {
+      google.maps.event.trigger(mapInstance, 'resize');
+      if (!focusedGuideId) {
+        fitMapToLocations(mapInstance, locations);
+        return;
+      }
+      if (mapFitSource) {
+        fitMapToLocations(mapInstance, [mapFitSource]);
+      }
+    };
+
+    triggerResize();
+    const observer = new ResizeObserver(() => {
+      triggerResize();
+    });
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, [map, locations, focusedGuideId, mapFitSource]);
+
   const handleToggleFocus = useCallback(
     (guideId: string) => {
       onFocusGuide(focusedGuideId === guideId ? null : guideId);
@@ -275,18 +304,19 @@ function GuideGoogleMap({
   );
 
   return (
-    <GoogleMap
-      mapContainerStyle={MAP_CONTAINER_STYLE}
-      center={DEFAULT_MAP_CENTER}
-      zoom={11}
-      options={{
-        zoomControl: true,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: true,
-      }}
-      onLoad={handleMapLoad}
-    >
+    <div ref={mapContainerRef} className={`${MAP_HEIGHT_CLASS} w-full`}>
+      <GoogleMap
+        mapContainerStyle={MAP_CONTAINER_STYLE}
+        center={DEFAULT_MAP_CENTER}
+        zoom={11}
+        options={{
+          zoomControl: true,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
+        }}
+        onLoad={handleMapLoad}
+      >
       <GuideMapPathsLayer map={map} layers={pathLayers} />
       {visiblePlaceVisits.map((visit) => {
         const selected = selectedPlaceVisitId === visit.id;
@@ -420,7 +450,8 @@ function GuideGoogleMap({
           </div>
         </InfoWindowF>
       ) : null}
-    </GoogleMap>
+      </GoogleMap>
+    </div>
   );
 }
 
@@ -689,8 +720,8 @@ export function GuideLocationMapPage(): JSX.Element {
         </div>
       ) : null}
 
-      <div className="grid min-h-[680px] gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
-        <Card className="relative min-h-[520px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-0 shadow-sm">
+      <div className={`grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] xl:items-start`}>
+        <Card className={`relative ${MAP_HEIGHT_CLASS} overflow-hidden rounded-3xl border border-slate-200 bg-white p-0 shadow-sm`}>
           {locationsLoading || !GOOGLE_MAPS_API_KEY || !isLoaded || mapsAuthFailure ? (
             <div className="absolute inset-0 z-[500] flex items-center justify-center bg-white/75 text-sm text-slate-500 backdrop-blur-sm">
               {!GOOGLE_MAPS_API_KEY
@@ -711,11 +742,11 @@ export function GuideLocationMapPage(): JSX.Element {
               onFocusGuide={setFocusedGuideId}
             />
           ) : (
-            <div className="min-h-[680px] w-full bg-slate-100" />
+            <div className={`${MAP_HEIGHT_CLASS} w-full bg-slate-100`} />
           )}
         </Card>
 
-        <Card className="flex min-h-[680px] min-w-0 flex-col rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+        <Card className={`flex ${MAP_HEIGHT_CLASS} min-w-0 flex-col rounded-3xl border border-slate-200 bg-white p-4 shadow-sm`}>
           <div className="flex shrink-0 items-start justify-between gap-2">
             <div className="min-w-0">
               <h2 className="font-semibold text-slate-900">위치 목록</h2>
