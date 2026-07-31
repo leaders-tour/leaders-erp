@@ -149,8 +149,8 @@ const LEADERSTEPS_AUTH_USERS_QUERY = gql`
 `;
 
 const LEADERSTEPS_ACTIVE_PROJECTS_QUERY = gql`
-  query LeaderstepsActiveProjects {
-    leaderstepsActiveProjects {
+  query LeaderstepsActiveProjects($date: String) {
+    leaderstepsActiveProjects(date: $date) {
       id
       name
       startedAt
@@ -162,8 +162,8 @@ const LEADERSTEPS_ACTIVE_PROJECTS_QUERY = gql`
 `;
 
 const GUIDE_LIVE_LOCATIONS_QUERY = gql`
-  query GuideLiveLocations($projectId: ID) {
-    guideLiveLocations(projectId: $projectId) {
+  query GuideLiveLocations($projectId: ID, $date: String) {
+    guideLiveLocations(projectId: $projectId, date: $date) {
       guideId
       guideNameKo
       guideNameMn
@@ -306,10 +306,11 @@ export function useLeaderstepsAuthUsers() {
   };
 }
 
-export function useLeaderstepsActiveProjects() {
+export function useLeaderstepsActiveProjects(date?: string) {
   const { data, loading, error, refetch } = useQuery<{
     leaderstepsActiveProjects: LeaderstepsActiveProjectRow[];
   }>(LEADERSTEPS_ACTIVE_PROJECTS_QUERY, {
+    variables: { date: date || null },
     fetchPolicy: 'cache-and-network',
   });
 
@@ -321,11 +322,14 @@ export function useLeaderstepsActiveProjects() {
   };
 }
 
-export function useGuideLiveLocations(projectId?: string) {
+export function useGuideLiveLocations(options?: { projectId?: string; date?: string }) {
   const { data, loading, error, refetch, networkStatus } = useQuery<{
     guideLiveLocations: GuideLiveLocationRow[];
   }>(GUIDE_LIVE_LOCATIONS_QUERY, {
-    variables: { projectId: projectId || null },
+    variables: {
+      projectId: options?.projectId || null,
+      date: options?.date || null,
+    },
     fetchPolicy: 'cache-and-network',
     notifyOnNetworkStatusChange: true,
     pollInterval: 60_000,

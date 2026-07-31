@@ -5,7 +5,9 @@ import { GuideMapPathsLayer } from '../features/guide/GuideMapPathsLayer';
 import {
   buildGuideMarkerIcon,
   collectMapBounds,
+  formatGuideLocationMapDateLabel,
   getGuidePathColor,
+  getTodayInUlaanbaatarDateInputValue,
   normalizeGuideMapPath,
 } from '../features/guide/guide-location-map-utils';
 import {
@@ -166,18 +168,26 @@ function GuideGoogleMap({
 }
 
 export function GuideLocationMapPage(): JSX.Element {
+  const [selectedDate, setSelectedDate] = useState(getTodayInUlaanbaatarDateInputValue);
   const [projectId, setProjectId] = useState('');
   const [personId, setPersonId] = useState('');
   const [focusedGuideId, setFocusedGuideId] = useState<string | null>(null);
   const [mapsAuthFailure, setMapsAuthFailure] = useState(false);
-  const { projects, loading: projectsLoading } = useLeaderstepsActiveProjects();
+  const selectedDateLabel = useMemo(
+    () => formatGuideLocationMapDateLabel(selectedDate),
+    [selectedDate],
+  );
+  const { projects, loading: projectsLoading } = useLeaderstepsActiveProjects(selectedDate);
   const {
     locations: allLocations,
     loading: locationsLoading,
     refreshing,
     errorMessage,
     refetch,
-  } = useGuideLiveLocations(projectId || undefined);
+  } = useGuideLiveLocations({
+    projectId: projectId || undefined,
+    date: selectedDate,
+  });
   const locations = useMemo(
     () =>
       personId ? allLocations.filter((location) => location.guideId === personId) : allLocations,
@@ -229,12 +239,13 @@ export function GuideLocationMapPage(): JSX.Element {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">가이드 위치</h1>
           <p className="mt-1 text-sm text-slate-600">
-            오늘 진행 중인 Leadersteps 프로젝트의 GPS 경로와 참여자의 최근 위치를 표시합니다.
+            선택한 날짜(울란바토르)에 진행 중인 Leadersteps 프로젝트의 GPS 경로와 참여자의 최근
+            위치를 표시합니다.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
           <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">
-            오늘 프로젝트 {projects.length}개
+            {selectedDateLabel} 프로젝트 {projects.length}개
           </span>
           <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5">
             위치 확인 {allLocations.length}명
@@ -245,7 +256,25 @@ export function GuideLocationMapPage(): JSX.Element {
         </div>
       </header>
 
-      <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[minmax(240px,1fr)_minmax(240px,1fr)_auto] md:items-end">
+      <Card className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[minmax(180px,0.8fr)_minmax(240px,1fr)_minmax(240px,1fr)_auto] md:items-end">
+        <div>
+          <label htmlFor="guide-location-date" className="mb-2 block text-sm font-medium text-slate-700">
+            기준일
+          </label>
+          <input
+            id="guide-location-date"
+            type="date"
+            className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-800"
+            value={selectedDate}
+            onChange={(event) => {
+              setSelectedDate(event.target.value);
+              setProjectId('');
+              setPersonId('');
+              setFocusedGuideId(null);
+            }}
+          />
+          <p className="mt-1 text-xs text-slate-500">울란바토르 시간 기준</p>
+        </div>
         <div>
           <label htmlFor="guide-location-project" className="mb-2 block text-sm font-medium text-slate-700">
             프로젝트
@@ -260,7 +289,7 @@ export function GuideLocationMapPage(): JSX.Element {
               setFocusedGuideId(null);
             }}
           >
-            <option value="">오늘 활성 프로젝트 전체</option>
+            <option value="">해당일 활성 프로젝트 전체</option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.name}
@@ -361,7 +390,7 @@ export function GuideLocationMapPage(): JSX.Element {
           <div className="mt-4 grid max-h-[600px] gap-2 overflow-y-auto pr-1">
             {!locationsLoading && locations.length === 0 ? (
               <div className="rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                오늘 활성 프로젝트에 기록된 위치가 없습니다.
+                {selectedDateLabel} 활성 프로젝트에 기록된 위치가 없습니다.
               </div>
             ) : (
               locations.map((location, index) => {

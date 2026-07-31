@@ -5,6 +5,7 @@ import {
   guideLeaderstepsAuthLinkSchema,
   guideLeaderstepsAuthUnlinkSchema,
   guideLiveLocationFilterSchema,
+  leaderstepsActiveProjectsFilterSchema,
   guideUpdateSchema,
 } from '@tour/validation';
 import { DomainError, createValidationError } from '../../lib/errors';
@@ -182,8 +183,14 @@ export class GuideService {
       );
   }
 
-  async listLeaderstepsActiveProjects() {
-    const { startMs, endMs } = getUlaanbaatarDayRange(getTodayInUlaanbaatar());
+  async listLeaderstepsActiveProjects(date?: string | null) {
+    const parsed = leaderstepsActiveProjectsFilterSchema.safeParse({ date });
+    if (!parsed.success) {
+      throw createValidationError('Invalid active projects filter', parsed.error);
+    }
+
+    const targetDate = parsed.data.date ?? getTodayInUlaanbaatar();
+    const { startMs, endMs } = getUlaanbaatarDayRange(targetDate);
     const { data, error } = await getSupabaseAdminClient()
       .from('projects')
       .select('id,name,started_at,scheduled_ended_at,ended_at,is_active')
@@ -209,13 +216,13 @@ export class GuideService {
       .sort((left, right) => left.name.localeCompare(right.name, 'ko'));
   }
 
-  async listGuideLiveLocations(projectId?: string | null) {
-    const parsed = guideLiveLocationFilterSchema.safeParse({ projectId });
+  async listGuideLiveLocations(projectId?: string | null, date?: string | null) {
+    const parsed = guideLiveLocationFilterSchema.safeParse({ projectId, date });
     if (!parsed.success) {
       throw createValidationError('Invalid guide live location filter', parsed.error);
     }
 
-    const activeProjects = await this.listLeaderstepsActiveProjects();
+    const activeProjects = await this.listLeaderstepsActiveProjects(parsed.data.date);
     const filteredProjects =
       parsed.data.projectId != null
         ? activeProjects.filter((project) => project.id === parsed.data.projectId)

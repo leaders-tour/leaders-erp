@@ -68,8 +68,19 @@ export const guideLocationFilterSchema = z.object({
   guideId: z.string().min(1).nullable().optional(),
 });
 
+export const guideLocationMapDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, '날짜는 YYYY-MM-DD 형식이어야 합니다.')
+  .refine(isValidCalendarDate, '유효한 날짜를 입력해 주세요.')
+  .optional();
+
+export const leaderstepsActiveProjectsFilterSchema = z.object({
+  date: guideLocationMapDateSchema,
+});
+
 export const guideLiveLocationFilterSchema = z.object({
   projectId: z.string().uuid().nullable().optional(),
+  date: guideLocationMapDateSchema,
 });
 
 export type GuideCreateInput = z.infer<typeof guideCreateSchema>;
@@ -77,4 +88,5 @@ export type GuideUpdateInput = z.infer<typeof guideUpdateSchema>;
 export type GuideLeaderstepsAuthLinkInput = z.infer<typeof guideLeaderstepsAuthLinkSchema>;
 export type GuideLeaderstepsAuthUnlinkInput = z.infer<typeof guideLeaderstepsAuthUnlinkSchema>;
 export type GuideLocationFilterInput = z.infer<typeof guideLocationFilterSchema>;
+export type LeaderstepsActiveProjectsFilterInput = z.infer<typeof leaderstepsActiveProjectsFilterSchema>;
 export type GuideLiveLocationFilterInput = z.infer<typeof guideLiveLocationFilterSchema>;

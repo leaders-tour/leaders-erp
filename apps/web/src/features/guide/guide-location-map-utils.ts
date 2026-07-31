@@ -11,6 +11,28 @@ const GUIDE_PATH_COLORS = [
 
 export type GuideMapLatLng = { lat: number; lng: number };
 
+export function getTodayInUlaanbaatarDateInputValue(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ulaanbaatar',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+export function formatGuideLocationMapDateLabel(date: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  if (!year || !month || !day) {
+    return date;
+  }
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Ulaanbaatar',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
 export function getGuidePathColor(index: number): string {
   return GUIDE_PATH_COLORS[index % GUIDE_PATH_COLORS.length] ?? '#4f46e5';
 }
