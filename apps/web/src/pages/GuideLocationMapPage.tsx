@@ -1,13 +1,12 @@
 import { Button, Card } from '@tour/ui';
-import { GoogleMap, InfoWindowF, MarkerF, PolylineF, useJsApiLoader } from '@react-google-maps/api';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { GoogleMap, InfoWindowF, MarkerF, useJsApiLoader } from '@react-google-maps/api';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { GuideMapPathsLayer } from '../features/guide/GuideMapPathsLayer';
 import {
   buildGuideMarkerIcon,
-  canDrawGuidePath,
   collectMapBounds,
   getGuidePathColor,
   normalizeGuideMapPath,
-  type GuideMapLatLng,
 } from '../features/guide/guide-location-map-utils';
 import {
   useGuideLiveLocations,
@@ -41,32 +40,6 @@ function fitMapToLocations(map: google.maps.Map, locations: GuideLiveLocationRow
   map.fitBounds(bounds, 48);
 }
 
-const GuidePathPolyline = memo(function GuidePathPolyline({
-  path,
-  color,
-  focused,
-}: {
-  path: GuideMapLatLng[];
-  color: string;
-  focused: boolean;
-}) {
-  const options = useMemo(
-    () => ({
-      strokeColor: color,
-      strokeOpacity: focused ? 0.95 : 0.72,
-      strokeWeight: focused ? 5 : 4,
-      zIndex: focused ? 2 : 1,
-    }),
-    [color, focused],
-  );
-
-  if (!canDrawGuidePath(path)) {
-    return null;
-  }
-
-  return <PolylineF path={path} options={options} />;
-});
-
 function GuideGoogleMap({
   locations,
   focusedGuideId,
@@ -77,6 +50,7 @@ function GuideGoogleMap({
   onFocusGuide: (guideId: string) => void;
 }): JSX.Element {
   const mapRef = useRef<google.maps.Map | null>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
   const [infoWindowGuideId, setInfoWindowGuideId] = useState<string | null>(null);
   const locationColorByGuideId = useMemo(
     () =>
@@ -95,13 +69,24 @@ function GuideGoogleMap({
       ),
     [locations],
   );
+  const pathLayers = useMemo(
+    () =>
+      locations.map((location) => ({
+        guideId: location.guideId,
+        path: pathsByGuideId.get(location.guideId) ?? [],
+        color: locationColorByGuideId.get(location.guideId) ?? '#4f46e5',
+        focused: focusedGuideId === location.guideId,
+      })),
+    [locations, pathsByGuideId, locationColorByGuideId, focusedGuideId],
+  );
   const focusedLocation =
     locations.find((location) => location.guideId === focusedGuideId) ?? null;
   const infoWindowLocation =
     locations.find((location) => location.guideId === infoWindowGuideId) ?? null;
 
-  const handleMapLoad = useCallback((map: google.maps.Map) => {
-    mapRef.current = map;
+  const handleMapLoad = useCallback((loadedMap: google.maps.Map) => {
+    mapRef.current = loadedMap;
+    setMap(loadedMap);
   }, []);
 
   useEffect(() => {
@@ -139,18 +124,7 @@ function GuideGoogleMap({
       }}
       onLoad={handleMapLoad}
     >
-      {locations.map((location) => {
-        const color = locationColorByGuideId.get(location.guideId) ?? '#4f46e5';
-        const path = pathsByGuideId.get(location.guideId) ?? [];
-        return (
-          <GuidePathPolyline
-            key={`path-${location.guideId}`}
-            path={path}
-            color={color}
-            focused={focusedGuideId === location.guideId}
-          />
-        );
-      })}
+      <GuideMapPathsLayer map={map} layers={pathLayers} />
       {locations.map((location) => {
         const color = locationColorByGuideId.get(location.guideId) ?? '#4f46e5';
         const focused = focusedGuideId === location.guideId;
@@ -195,6 +169,7 @@ export function GuideLocationMapPage(): JSX.Element {
   const [projectId, setProjectId] = useState('');
   const [personId, setPersonId] = useState('');
   const [focusedGuideId, setFocusedGuideId] = useState<string | null>(null);
+  const [mapsAuthFailure, setMapsAuthFailure] = useState(false);
   const { projects, loading: projectsLoading } = useLeaderstepsActiveProjects();
   const {
     locations: allLocations,
@@ -221,6 +196,20 @@ export function GuideLocationMapPage(): JSX.Element {
       ),
     [allLocations],
   );
+
+  useEffect(() => {
+    if (!GOOGLE_MAPS_API_KEY) {
+      return;
+    }
+
+    window.gm_authFailure = () => {
+      setMapsAuthFailure(true);
+    };
+
+    return () => {
+      delete window.gm_authFailure;
+    };
+  }, []);
 
   useEffect(() => {
     if (personId && !allLocations.some((location) => location.guideId === personId)) {
@@ -325,24 +314,32 @@ export function GuideLocationMapPage(): JSX.Element {
         </div>
       ) : null}
 
-      {loadError ? (
+      {loadError || mapsAuthFailure ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           Google Maps를 불러오지 못했습니다. API 키와 Maps JavaScript API 설정을 확인해 주세요.
+          {mapsAuthFailure ? (
+            <>
+              <br />
+              Google Cloud Console에서 이 사이트 도메인(
+              <code className="font-mono">{window.location.origin}</code>)을 Maps API 키 HTTP referrer
+              허용 목록에 추가해야 합니다.
+            </>
+          ) : null}
         </div>
       ) : null}
 
       <div className="grid min-h-[680px] gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <Card className="relative min-h-[520px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-0 shadow-sm">
-          {locationsLoading || !GOOGLE_MAPS_API_KEY || !isLoaded ? (
+          {locationsLoading || !GOOGLE_MAPS_API_KEY || !isLoaded || mapsAuthFailure ? (
             <div className="absolute inset-0 z-[500] flex items-center justify-center bg-white/75 text-sm text-slate-500 backdrop-blur-sm">
               {!GOOGLE_MAPS_API_KEY
                 ? 'Google Maps API 키를 설정해 주세요.'
-                : loadError
+                : loadError || mapsAuthFailure
                   ? 'Google Maps를 불러오지 못했습니다.'
                   : '지도를 불러오는 중...'}
             </div>
           ) : null}
-          {GOOGLE_MAPS_API_KEY && isLoaded ? (
+          {GOOGLE_MAPS_API_KEY && isLoaded && !mapsAuthFailure ? (
             <GuideGoogleMap
               locations={locations}
               focusedGuideId={focusedGuideId}

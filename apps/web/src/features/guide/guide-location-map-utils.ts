@@ -33,6 +33,44 @@ export function canDrawGuidePath(path: GuideMapLatLng[]): boolean {
   return path.length >= 2;
 }
 
+export function simplifyGuideMapPath(path: GuideMapLatLng[], maxPoints = 500): GuideMapLatLng[] {
+  if (path.length <= maxPoints) {
+    return path;
+  }
+
+  const step = Math.ceil(path.length / maxPoints);
+  const simplified: GuideMapLatLng[] = [];
+  for (let index = 0; index < path.length; index += step) {
+    simplified.push(path[index]!);
+  }
+
+  const lastPoint = path[path.length - 1];
+  const tail = simplified[simplified.length - 1];
+  if (lastPoint && (tail?.lat !== lastPoint.lat || tail?.lng !== lastPoint.lng)) {
+    simplified.push(lastPoint);
+  }
+
+  return simplified;
+}
+
+export function buildGuideMapPathLayerKey(
+  layers: Array<{
+    guideId: string;
+    path: GuideMapLatLng[];
+    color: string;
+    focused: boolean;
+  }>,
+): string {
+  return layers
+    .map((layer) => {
+      const path = simplifyGuideMapPath(layer.path)
+        .map((point) => `${point.lat.toFixed(6)},${point.lng.toFixed(6)}`)
+        .join(';');
+      return `${layer.guideId}:${layer.color}:${layer.focused ? 1 : 0}:${path}`;
+    })
+    .join('|');
+}
+
 export function buildGuideMarkerIcon(
   profileImageUrl: string | null,
   nameKo: string,
