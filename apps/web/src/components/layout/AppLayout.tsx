@@ -365,6 +365,7 @@ export function AppLayout(): JSX.Element {
   const isTodoListPage = matchesPath('/todos/list');
   const isPlanVersionDetailPage = /^\/plans\/[^/]+\/versions\/[^/]+$/.test(location.pathname);
   const isLocationGuidePage = location.pathname === '/location-guides';
+  const isGuideLocationMapPage = location.pathname === '/guides/locations';
   const pageShellClassName = isFullBleedPage
     ? 'max-w-none px-0 py-0'
     : isWideConnectionListPage ||
@@ -373,7 +374,8 @@ export function AppLayout(): JSX.Element {
         isConfirmationBuilderHomePage ||
         isTodoListPage ||
         isPlanVersionDetailPage ||
-        isLocationGuidePage
+        isLocationGuidePage ||
+        isGuideLocationMapPage
       ? 'max-w-none'
       : isWideLocationProfilePage || isWideMultiDayBlockCreatePage
         ? 'max-w-[1800px]'

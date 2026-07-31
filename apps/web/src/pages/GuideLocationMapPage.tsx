@@ -108,7 +108,7 @@ function GuideFocusedPathFilters({
             );
           })}
         </div>
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 break-words text-xs leading-relaxed text-slate-500">
           {focusedDayDate == null ? (
             <>전체 · 경로 {filteredPathPointCount}포인트 · 방문 {filteredPlaceVisitCount}곳</>
           ) : selectedDay ? (
@@ -555,7 +555,7 @@ export function GuideLocationMapPage(): JSX.Element {
   }, [focusedDayDate]);
 
   return (
-    <section className="grid gap-5">
+    <section className="grid w-full max-w-none gap-5">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">가이드 위치</h1>
@@ -689,7 +689,7 @@ export function GuideLocationMapPage(): JSX.Element {
         </div>
       ) : null}
 
-      <div className="grid min-h-[680px] gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid min-h-[680px] gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
         <Card className="relative min-h-[520px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-0 shadow-sm">
           {locationsLoading || !GOOGLE_MAPS_API_KEY || !isLoaded || mapsAuthFailure ? (
             <div className="absolute inset-0 z-[500] flex items-center justify-center bg-white/75 text-sm text-slate-500 backdrop-blur-sm">
@@ -715,15 +715,16 @@ export function GuideLocationMapPage(): JSX.Element {
           )}
         </Card>
 
-        <Card className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-2">
-            <div>
+        <Card className="flex min-h-[680px] min-w-0 flex-col rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex shrink-0 items-start justify-between gap-2">
+            <div className="min-w-0">
               <h2 className="font-semibold text-slate-900">위치 목록</h2>
               <p className="mt-1 text-xs text-slate-500">프로젝트 전체 기간 경로 · 울란바토르 시간</p>
             </div>
-            <span className="text-xs text-slate-500">{locations.length}명</span>
+            <span className="shrink-0 text-xs text-slate-500">{locations.length}명</span>
           </div>
-          <div className="mt-4 grid max-h-[600px] gap-2 overflow-y-auto pr-1">
+          <div className="mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-1">
+            <div className="grid gap-2">
             {!locationsLoading && locations.length === 0 ? (
               <div className="rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
                 {selectedDateLabel} 활성 프로젝트에 기록된 위치가 없습니다.
@@ -739,9 +740,9 @@ export function GuideLocationMapPage(): JSX.Element {
                 return (
                   <div
                     key={location.guideId}
-                    className={`rounded-2xl border transition ${
+                    className={`min-w-0 overflow-visible rounded-2xl border transition ${
                       focused
-                        ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600'
+                        ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600 ring-inset'
                         : 'border-slate-200'
                     } ${dimmed ? 'opacity-40 saturate-50' : ''}`}
                   >
@@ -753,22 +754,25 @@ export function GuideLocationMapPage(): JSX.Element {
                       } ${dimmed ? 'hover:opacity-70' : ''}`}
                       onClick={() => setFocusedGuideId(focused ? null : location.guideId)}
                     >
-                      <span className="flex items-center gap-2">
+                      <span className="flex min-w-0 items-start gap-2">
                         <span
-                          className="inline-block h-2.5 w-2.5 rounded-full"
+                          className="mt-1 inline-block h-2.5 w-2.5 shrink-0 rounded-full"
                           style={{ backgroundColor: color }}
                         />
-                        <span className="font-semibold text-slate-900">
+                        <span className="min-w-0 break-words font-semibold text-slate-900">
                           {location.guideNameKo}
                           {location.guideNameMn ? ` · ${location.guideNameMn}` : ''}
                         </span>
                       </span>
                       {projectLabels.map((project) => (
-                        <span key={project.projectId} className="mt-1 block text-xs text-slate-500">
+                        <span
+                          key={project.projectId}
+                          className="mt-1 block break-words pl-4 text-xs leading-relaxed text-slate-500"
+                        >
                           {project.label}
                         </span>
                       ))}
-                      <span className="mt-1 block text-xs text-slate-500">
+                      <span className="mt-1 block break-words pl-4 text-xs leading-relaxed text-slate-500">
                         {formatRecordedAt(displayLocation.latestRecordedAt)} · 정확도 약{' '}
                         {Math.round(displayLocation.latestAccuracy)}m · 경로{' '}
                         {displayLocation.path.length}포인트
@@ -792,6 +796,7 @@ export function GuideLocationMapPage(): JSX.Element {
                 );
               })
             )}
+            </div>
           </div>
         </Card>
       </div>
