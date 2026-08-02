@@ -15,6 +15,7 @@ import { confirmedTripInclude } from '../confirmed-trip/confirmed-trip.repositor
 import { buildConfirmationDraftDefaults } from './confirmation-document.defaults';
 import { ConfirmationDocumentRepository } from './confirmation-document.repository';
 import { GuideConfirmationDeliveryService } from '../guide-confirmation-delivery/guide-confirmation-delivery.service';
+import { GuideTripNoteDeliveryService } from '../guide-trip-note-delivery/guide-trip-note-delivery.service';
 
 export class ConfirmationDocumentService {
   private readonly repository: ConfirmationDocumentRepository;
@@ -154,10 +155,12 @@ export class ConfirmationDocumentService {
     if (publish) {
       await this.repository.archivePublished(trip.id, created.id);
       const deliveryService = new GuideConfirmationDeliveryService(this.prisma);
+      const tripNoteDeliveryService = new GuideTripNoteDeliveryService(this.prisma);
       for (const archivedDocumentId of archivedDocumentIds) {
         await deliveryService.enqueueRevokeForDocument(archivedDocumentId);
       }
       await deliveryService.enqueuePublishForDocument(created.id);
+      await tripNoteDeliveryService.enqueueBackfillForConfirmedTrip(trip.id);
     }
 
     return this.toGraphql(created);

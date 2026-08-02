@@ -35,6 +35,7 @@ import {
   confirmedTripSelectionOnlyInclude,
 } from './confirmed-trip.repository';
 import { GuideConfirmationDeliveryService } from '../guide-confirmation-delivery/guide-confirmation-delivery.service';
+import { GuideTripNoteDeliveryService } from '../guide-trip-note-delivery/guide-trip-note-delivery.service';
 import { AppSettingsService } from '../app-settings/app-settings.service';
 import type {
   CalendarNoteCreateDto,
@@ -771,6 +772,7 @@ export class ConfirmedTripService {
 
     if (guideAssignments !== undefined || status !== undefined) {
       await new GuideConfirmationDeliveryService(this.prisma).reconcileConfirmedTrip(id);
+      await new GuideTripNoteDeliveryService(this.prisma).reconcileConfirmedTrip(id);
     }
 
     return updatedTrip;
@@ -790,6 +792,7 @@ export class ConfirmedTripService {
 
     const cancelled = await new ConfirmedTripRepository(this.prisma).update(id, { status: 'CANCELLED' });
     await new GuideConfirmationDeliveryService(this.prisma).reconcileConfirmedTrip(id);
+    await new GuideTripNoteDeliveryService(this.prisma).reconcileConfirmedTrip(id);
     return cancelled;
   }
 
@@ -1054,7 +1057,7 @@ export class ConfirmedTripService {
       throw new DomainError('NOT_FOUND', 'Confirmed trip not found');
     }
 
-    return this.prisma.confirmedTripNote.create({
+    const note = await this.prisma.confirmedTripNote.create({
       data: {
         confirmedTripId: parsed.data.confirmedTripId,
         content: parsed.data.content,
@@ -1062,6 +1065,8 @@ export class ConfirmedTripService {
         createdByName: employee.name,
       },
     });
+    await new GuideTripNoteDeliveryService(this.prisma).enqueueUpsertForNote(note.id);
+    return note;
   }
 
   async updateConfirmedTripNote(id: string, input: ConfirmedTripNoteUpdateDto, employee: CurrentEmployee) {
@@ -1078,10 +1083,12 @@ export class ConfirmedTripService {
       throw new DomainError('FORBIDDEN', 'Only the note author can update this note');
     }
 
-    return this.prisma.confirmedTripNote.update({
+    const note = await this.prisma.confirmedTripNote.update({
       where: { id },
       data: { content: parsed.data.content },
     });
+    await new GuideTripNoteDeliveryService(this.prisma).enqueueUpsertForNote(note.id);
+    return note;
   }
 
   async deleteConfirmedTripNote(id: string, employee: CurrentEmployee) {
@@ -1093,6 +1100,10 @@ export class ConfirmedTripService {
       throw new DomainError('FORBIDDEN', 'Only the note author can delete this note');
     }
 
+    await new GuideTripNoteDeliveryService(this.prisma).enqueueRevokeForNote({
+      noteId: existing.id,
+      confirmedTripId: existing.confirmedTripId,
+    });
     await this.prisma.confirmedTripNote.delete({ where: { id } });
     return true;
   }

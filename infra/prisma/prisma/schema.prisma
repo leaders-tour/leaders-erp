@@ -1052,6 +1052,18 @@ enum GuideConfirmationDeliveryStatus {
   FAILED
 }
 
+enum GuideTripNoteDeliveryAction {
+  UPSERT
+  REVOKE
+}
+
+enum GuideTripNoteDeliveryStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
 model ConfirmationDocument {
   id                    String                       @id @default(uuid(7))
   confirmedTripId       String
@@ -1134,6 +1146,27 @@ model ConfirmedTripNote {
 
   @@index([confirmedTripId, createdAt])
   @@index([createdByEmployeeId])
+}
+
+model GuideTripNoteDeliveryOutbox {
+  id              String                      @id @default(uuid(7))
+  noteId          String
+  confirmedTripId String
+  authUserId      String
+  action          GuideTripNoteDeliveryAction
+  status          GuideTripNoteDeliveryStatus @default(PENDING)
+  idempotencyKey  String                      @unique
+  attempts        Int                         @default(0)
+  lastError       String?                     @db.Text
+  nextAttemptAt   DateTime                    @default(now())
+  processedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, nextAttemptAt], map: "GTNDO_status_nextAttempt_idx")
+  @@index([confirmedTripId, authUserId], map: "GTNDO_trip_auth_idx")
+  @@index([noteId, authUserId], map: "GTNDO_note_auth_idx")
 }
 
 model ContractSubmissionSource {

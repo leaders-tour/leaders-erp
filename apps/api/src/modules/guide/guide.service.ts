@@ -26,6 +26,7 @@ import {
 } from './leadersteps-location.utils';
 import { GuideRepository } from './guide.repository';
 import { GuideConfirmationDeliveryService } from '../guide-confirmation-delivery/guide-confirmation-delivery.service';
+import { GuideTripNoteDeliveryService } from '../guide-trip-note-delivery/guide-trip-note-delivery.service';
 import type { GuideCreateDto, GuidesFilterDto, GuideUpdateDto } from './guide.types';
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
@@ -659,6 +660,7 @@ export class GuideService {
 
     const authUserId = guide.leaderstepsAuthUserId;
     await new GuideConfirmationDeliveryService(this.prisma).revokeAllForAuthUser(authUserId);
+    await new GuideTripNoteDeliveryService(this.prisma).revokeAllForAuthUser(authUserId);
     return repository.unlinkLeaderstepsAuth(parsed.data.guideId);
   }
 
