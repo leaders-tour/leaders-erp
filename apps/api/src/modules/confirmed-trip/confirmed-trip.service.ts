@@ -34,6 +34,7 @@ import {
   confirmedTripLodgingInclude,
   confirmedTripSelectionOnlyInclude,
 } from './confirmed-trip.repository';
+import { GuideConfirmationDeliveryService } from '../guide-confirmation-delivery/guide-confirmation-delivery.service';
 import { AppSettingsService } from '../app-settings/app-settings.service';
 import type {
   CalendarNoteCreateDto,
@@ -645,7 +646,7 @@ export class ConfirmedTripService {
       updateData.confirmedAt = nextConfirmedAt;
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const updatedTrip = await this.prisma.$transaction(async (tx) => {
       const hasScalarUpdates = Object.keys(updateData).length > 0;
       if (hasScalarUpdates) {
         await tx.confirmedTrip.update({
@@ -767,6 +768,12 @@ export class ConfirmedTripService {
       }
       return refreshed;
     });
+
+    if (guideAssignments !== undefined || status !== undefined) {
+      await new GuideConfirmationDeliveryService(this.prisma).reconcileConfirmedTrip(id);
+    }
+
+    return updatedTrip;
   }
 
   async cancel(id: string) {
@@ -781,7 +788,9 @@ export class ConfirmedTripService {
       throw new DomainError('VALIDATION_FAILED', 'Trip is already cancelled');
     }
 
-    return new ConfirmedTripRepository(this.prisma).update(id, { status: 'CANCELLED' });
+    const cancelled = await new ConfirmedTripRepository(this.prisma).update(id, { status: 'CANCELLED' });
+    await new GuideConfirmationDeliveryService(this.prisma).reconcileConfirmedTrip(id);
+    return cancelled;
   }
 
   async upsertLodging(input: ConfirmedTripLodgingUpsertDto) {

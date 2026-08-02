@@ -12,6 +12,7 @@ interface ConfirmationRenderSessionData {
   snapshot: ConfirmationDocumentSnapshot;
   appendixData: EstimateDocumentData | null;
   movementIntensityColors?: MovementIntensityColorSetting[] | null;
+  appendixIncludeImagePages?: boolean;
 }
 
 interface RenderSessionResponse {
@@ -187,6 +188,7 @@ export function ConfirmationPdfRenderPage(): JSX.Element {
           data={previewData}
           appendixData={sessionData?.appendixData ?? null}
           appendixMovementIntensityColors={sessionData?.movementIntensityColors ?? null}
+          appendixIncludeImagePages={sessionData?.appendixIncludeImagePages}
           viewMode="output"
           onPage1LayoutReady={handlePage1LayoutReady}
         />

@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import {
   confirmationDocumentSnapshotSchema,
   saveConfirmationDocumentSchema,
@@ -13,6 +14,7 @@ import { ContractSyncService } from '../contract/contract-sync.service';
 import { confirmedTripInclude } from '../confirmed-trip/confirmed-trip.repository';
 import { buildConfirmationDraftDefaults } from './confirmation-document.defaults';
 import { ConfirmationDocumentRepository } from './confirmation-document.repository';
+import { GuideConfirmationDeliveryService } from '../guide-confirmation-delivery/guide-confirmation-delivery.service';
 
 export class ConfirmationDocumentService {
   private readonly repository: ConfirmationDocumentRepository;
@@ -107,6 +109,7 @@ export class ConfirmationDocumentService {
 
     const snapshot = snapshotParsed.data;
     const publish = parsed.data.publish === true;
+    const renderAppendixData = publish ? (parsed.data.renderAppendixData ?? null) : undefined;
     const existingDraft = publish ? null : await this.repository.findLatestDraftByConfirmedTripId(trip.id);
 
     if (existingDraft && !publish) {
@@ -123,6 +126,13 @@ export class ConfirmationDocumentService {
       return this.toGraphql(updated);
     }
 
+    const archivedDocumentIds =
+      publish
+        ? (
+            await this.repository.listPublishedExceptTrip(trip.id)
+          ).map((document) => document.id)
+        : [];
+
     const versionNumber = await this.repository.getNextVersionNumber(trip.id);
     const planVersionIdToConnect = snapshot.sourcePlanVersionId ?? trip.planVersionId;
     const created = await this.repository.create({
@@ -132,6 +142,9 @@ export class ConfirmationDocumentService {
       versionNumber,
       status: publish ? 'PUBLISHED' : 'DRAFT',
       snapshot,
+      ...(publish
+        ? { renderAppendixData: (renderAppendixData ?? null) as Prisma.InputJsonValue }
+        : {}),
       publishedAt: publish ? new Date() : null,
       ...(publish ? { publishedByEmployee: { connect: { id: employee.id } } } : {}),
       createdByEmployee: { connect: { id: employee.id } },
@@ -140,6 +153,11 @@ export class ConfirmationDocumentService {
 
     if (publish) {
       await this.repository.archivePublished(trip.id, created.id);
+      const deliveryService = new GuideConfirmationDeliveryService(this.prisma);
+      for (const archivedDocumentId of archivedDocumentIds) {
+        await deliveryService.enqueueRevokeForDocument(archivedDocumentId);
+      }
+      await deliveryService.enqueuePublishForDocument(created.id);
     }
 
     return this.toGraphql(created);

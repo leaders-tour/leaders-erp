@@ -55,6 +55,7 @@ export const confirmationDocumentSnapshotSchema = z.object({
 export const saveConfirmationDocumentSchema = z.object({
   confirmedTripId: z.string().min(1),
   snapshot: confirmationDocumentSnapshotSchema,
+  renderAppendixData: z.record(z.string(), z.unknown()).nullable().optional(),
   publish: z.boolean().optional().default(false),
 });
 

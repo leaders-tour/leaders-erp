@@ -113,6 +113,16 @@ export class ConfirmationDocumentRepository {
     });
   }
 
+  listPublishedExceptTrip(confirmedTripId: string) {
+    return this.prisma.confirmationDocument.findMany({
+      where: {
+        confirmedTripId,
+        status: 'PUBLISHED',
+      },
+      select: { id: true },
+    });
+  }
+
   delete(id: string) {
     return this.prisma.confirmationDocument.delete({
       where: { id },

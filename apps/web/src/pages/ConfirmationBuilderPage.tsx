@@ -434,7 +434,12 @@ export function ConfirmationBuilderPage(): JSX.Element {
           ? enrichAppendixPlanStopRowsWithScheduleDates(state.appendixPlanStops, travelStartDate)
           : state.appendixPlanStops,
       };
-      const saved = await save(tripId, payload, true);
+      const saved = await save(
+        tripId,
+        payload,
+        true,
+        confirmationAppendixData as Record<string, unknown> | null,
+      );
       if (!saved) {
         throw new Error('저장 결과가 없습니다.');
       }

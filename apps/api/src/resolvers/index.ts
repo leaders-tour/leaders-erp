@@ -89,9 +89,33 @@ const uploadScalar = new GraphQLScalarType({
   },
 });
 
+const jsonScalar = new GraphQLScalarType({
+  name: 'JSON',
+  serialize(value: unknown): unknown {
+    return value;
+  },
+  parseValue(value: unknown): unknown {
+    return value;
+  },
+  parseLiteral(ast): unknown {
+    if (ast.kind === Kind.STRING) {
+      try {
+        return JSON.parse(ast.value) as unknown;
+      } catch {
+        return ast.value;
+      }
+    }
+    if (ast.kind === Kind.OBJECT) {
+      return null;
+    }
+    return null;
+  },
+});
+
 export const resolvers = {
   DateTime: dateTimeScalar,
   Upload: uploadScalar,
+  JSON: jsonScalar,
   Query: protectSection(
     mergeSection(
       authResolver.Query,

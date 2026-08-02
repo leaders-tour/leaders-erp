@@ -319,13 +319,19 @@ export function useSaveConfirmationDocument() {
     SAVE_CONFIRMATION_DOCUMENT_MUTATION,
   );
 
-  const save = async (confirmedTripId: string, snapshot: ConfirmationBuilderState, publish: boolean) => {
+  const save = async (
+    confirmedTripId: string,
+    snapshot: ConfirmationBuilderState,
+    publish: boolean,
+    renderAppendixData?: Record<string, unknown> | null,
+  ) => {
     const result = await mutate({
       variables: {
         input: {
           confirmedTripId,
           snapshot: toConfirmationSnapshotInput(snapshot),
           publish,
+          ...(publish ? { renderAppendixData: renderAppendixData ?? null } : {}),
         },
       },
     });

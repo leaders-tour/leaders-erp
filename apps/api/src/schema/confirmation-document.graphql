@@ -130,6 +130,7 @@ type ConfirmationDraftDefaults {
 input SaveConfirmationDocumentInput {
   confirmedTripId: ID!
   snapshot: ConfirmationDocumentSnapshotInput!
+  renderAppendixData: JSON
   publish: Boolean
 }
 

@@ -1040,6 +1040,18 @@ enum ConfirmationDocumentStatus {
   ARCHIVED
 }
 
+enum GuideConfirmationDeliveryAction {
+  PUBLISH
+  REVOKE
+}
+
+enum GuideConfirmationDeliveryStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
 model ConfirmationDocument {
   id                    String                       @id @default(uuid(7))
   confirmedTripId       String
@@ -1048,6 +1060,7 @@ model ConfirmationDocument {
   versionNumber         Int
   status                ConfirmationDocumentStatus   @default(DRAFT)
   snapshot              Json
+  renderAppendixData    Json?
   publishedAt           DateTime?
   publishedByEmployeeId String?
   createdByEmployeeId   String?
@@ -1059,6 +1072,7 @@ model ConfirmationDocument {
   createdByEmployee   Employee?     @relation("ConfirmationDocumentCreator", fields: [createdByEmployeeId], references: [id], onDelete: SetNull)
   updatedByEmployee   Employee?     @relation("ConfirmationDocumentUpdater", fields: [updatedByEmployeeId], references: [id], onDelete: SetNull)
   memo                ConfirmationDocumentMemo?
+  guideConfirmationDeliveries GuideConfirmationDeliveryOutbox[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1066,6 +1080,28 @@ model ConfirmationDocument {
   @@unique([confirmedTripId, versionNumber])
   @@index([confirmedTripId, status])
   @@index([confirmedTripId, publishedAt])
+}
+
+model GuideConfirmationDeliveryOutbox {
+  id                     String                          @id @default(uuid(7))
+  confirmationDocumentId String
+  authUserId             String
+  action                 GuideConfirmationDeliveryAction
+  status                 GuideConfirmationDeliveryStatus @default(PENDING)
+  versionNumber          Int
+  idempotencyKey         String                          @unique
+  attempts               Int                             @default(0)
+  lastError              String?                         @db.Text
+  nextAttemptAt          DateTime                        @default(now())
+  processedAt            DateTime?
+
+  confirmationDocument ConfirmationDocument @relation(fields: [confirmationDocumentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, nextAttemptAt], map: "GCDO_status_nextAttempt_idx")
+  @@index([confirmationDocumentId, authUserId], map: "GCDO_doc_auth_idx")
 }
 
 model ConfirmationDocumentMemo {

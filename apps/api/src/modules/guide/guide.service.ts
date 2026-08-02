@@ -25,6 +25,7 @@ import {
   type LeaderstepsProjectRow,
 } from './leadersteps-location.utils';
 import { GuideRepository } from './guide.repository';
+import { GuideConfirmationDeliveryService } from '../guide-confirmation-delivery/guide-confirmation-delivery.service';
 import type { GuideCreateDto, GuidesFilterDto, GuideUpdateDto } from './guide.types';
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
@@ -655,6 +656,9 @@ export class GuideService {
     if (!guide.leaderstepsAuthUserId) {
       return guide;
     }
+
+    const authUserId = guide.leaderstepsAuthUserId;
+    await new GuideConfirmationDeliveryService(this.prisma).revokeAllForAuthUser(authUserId);
     return repository.unlinkLeaderstepsAuth(parsed.data.guideId);
   }
 
