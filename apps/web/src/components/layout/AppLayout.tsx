@@ -368,18 +368,19 @@ export function AppLayout(): JSX.Element {
   const isGuideLocationMapPage = location.pathname === '/guides/locations';
   const pageShellClassName = isFullBleedPage
     ? 'max-w-none px-0 py-0'
-    : isWideConnectionListPage ||
-        isPricingAdminPage ||
-        isConfirmedTripsPage ||
-        isConfirmationBuilderHomePage ||
-        isTodoListPage ||
-        isPlanVersionDetailPage ||
-        isLocationGuidePage ||
-        isGuideLocationMapPage
-      ? 'max-w-none'
-      : isWideLocationProfilePage || isWideMultiDayBlockCreatePage
-        ? 'max-w-[1800px]'
-        : undefined;
+    : isConfirmedTripsPage
+      ? 'max-w-none px-2 py-3 md:px-6 md:py-6'
+      : isWideConnectionListPage ||
+          isPricingAdminPage ||
+          isConfirmationBuilderHomePage ||
+          isTodoListPage ||
+          isPlanVersionDetailPage ||
+          isLocationGuidePage ||
+          isGuideLocationMapPage
+        ? 'max-w-none'
+        : isWideLocationProfilePage || isWideMultiDayBlockCreatePage
+          ? 'max-w-[1800px]'
+          : undefined;
   const isCompactSidebar = isSidebarCollapsed;
 
   const isNavItemActive = (item: NavItem): boolean => {

@@ -610,8 +610,8 @@ function DriverCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
   const tooltipLines = sorted.map((a) => driverAssignmentDisplayName(a) || '(이름 없음)');
 
   return (
-    <div className="group relative flex min-w-0 items-center gap-2">
-      <div className="flex shrink-0 -space-x-2">
+    <div className="group relative flex min-w-0 items-center gap-1.5 md:gap-2">
+      <div className="flex shrink-0 -space-x-1.5 md:-space-x-2">
         {sorted.slice(0, 3).map((a) => {
           const d = a.driver;
           const label = driverAssignmentDisplayName(a) || '?';
@@ -619,7 +619,7 @@ function DriverCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
             <div
               key={a.id}
               title={label}
-              className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 ring-1 ring-slate-100"
+              className="relative h-5 w-5 shrink-0 overflow-hidden rounded-full border border-white bg-slate-100 ring-1 ring-slate-100 md:h-7 md:w-7 md:border-2"
             >
               {d.profileImageUrl ? (
                 <img src={d.profileImageUrl} alt={label} className="h-full w-full object-cover" />
@@ -711,8 +711,8 @@ function GuideCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
   const tooltipLines = sorted.map((a) => guideAssignmentDisplayName(a) || '(이름 없음)');
 
   return (
-    <div className="group relative flex min-w-0 items-center gap-2">
-      <div className="flex shrink-0 -space-x-2">
+    <div className="group relative flex min-w-0 items-center gap-1.5 md:gap-2">
+      <div className="flex shrink-0 -space-x-1.5 md:-space-x-2">
         {sorted.slice(0, 3).map((a) => {
           const g = a.guide;
           const label = guideAssignmentDisplayName(a) || '?';
@@ -720,7 +720,7 @@ function GuideCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
             <div
               key={a.id}
               title={label}
-              className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 ring-1 ring-slate-100"
+              className="relative h-5 w-5 shrink-0 overflow-hidden rounded-full border border-white bg-slate-100 ring-1 ring-slate-100 md:h-7 md:w-7 md:border-2"
             >
               {g.profileImageUrl ? (
                 <img src={g.profileImageUrl} alt={label} className="h-full w-full object-cover" />
@@ -783,13 +783,13 @@ function CurrentLodgingCell({
               <img
                 src={imageUrl}
                 alt={name}
-                className="h-8 w-10 shrink-0 rounded object-cover ring-1 ring-blue-500/25"
+                className="h-6 w-8 shrink-0 rounded object-cover ring-1 ring-blue-500/25 md:h-8 md:w-10"
               />
             ) : (
-              <div className="h-8 w-10 shrink-0 rounded bg-slate-100 ring-1 ring-blue-500/20" />
+              <div className="h-6 w-8 shrink-0 rounded bg-slate-100 ring-1 ring-blue-500/20 md:h-8 md:w-10" />
             )}
             <div className="min-w-0 flex-1 overflow-hidden">
-              <span className="block truncate text-xs font-semibold leading-snug text-slate-800" title={name}>
+              <span className="block truncate text-[11px] font-semibold leading-snug text-slate-800 md:text-xs" title={name}>
                 {name}
               </span>
               {lodgingDayIndex != null ? (
@@ -799,9 +799,9 @@ function CurrentLodgingCell({
           </>
         ) : (
           <>
-            <div className="h-8 w-10 shrink-0 rounded border border-dashed border-slate-200 bg-slate-50" />
+            <div className="h-6 w-8 shrink-0 rounded border border-dashed border-slate-200 bg-slate-50 md:h-8 md:w-10" />
             <div className="min-w-0 flex-1 overflow-hidden">
-              <span className="block truncate text-xs font-medium text-slate-500">현재 숙소 미배정</span>
+              <span className="block truncate text-[11px] font-medium text-slate-500 md:text-xs">현재 숙소 미배정</span>
               {lodgingDayIndex != null ? (
                 <p className="mt-0.5 truncate text-[10px] text-slate-400">{lodgingDayIndex}일차</p>
               ) : null}
@@ -830,10 +830,10 @@ function LodgingSummaryCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
         className={`flex items-center gap-2 ${status.isComplete ? '' : 'opacity-60'}`}
         title={status.isComplete ? '숙소 배정 완료' : '숙소 배정 진행 중'}
       >
-        <div className="h-8 w-10 shrink-0 rounded border border-dashed border-slate-200 bg-slate-50" />
+        <div className="h-6 w-8 shrink-0 rounded border border-dashed border-slate-200 bg-slate-50 md:h-8 md:w-10" />
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate text-xs font-medium text-slate-500">숙소 미배정</span>
+            <span className="truncate text-[11px] font-medium text-slate-500 md:text-xs">숙소 미배정</span>
             {progressBadge}
           </div>
         </div>
@@ -857,17 +857,17 @@ function LodgingSummaryCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
           <img
             src={imageUrl}
             alt={firstGroup.name}
-            className={`h-8 w-10 shrink-0 rounded object-cover ${status.isComplete ? 'ring-1 ring-emerald-500/30' : 'grayscale-[35%]'}`}
+            className={`h-6 w-8 shrink-0 rounded object-cover md:h-8 md:w-10 ${status.isComplete ? 'ring-1 ring-emerald-500/30' : 'grayscale-[35%]'}`}
           />
         ) : (
           <div
-            className={`h-8 w-10 shrink-0 rounded bg-slate-100 ${status.isComplete ? 'ring-1 ring-emerald-500/20' : ''}`}
+            className={`h-6 w-8 shrink-0 rounded bg-slate-100 md:h-8 md:w-10 ${status.isComplete ? 'ring-1 ring-emerald-500/20' : ''}`}
           />
         )}
         <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
             <span
-              className={`block min-w-0 flex-1 truncate text-xs leading-snug ${nameWeight} ${textTone}`}
+              className={`block min-w-0 flex-1 truncate text-[11px] leading-snug md:text-xs ${nameWeight} ${textTone}`}
               title={formatLodgingGroupLabel(firstGroup)}
             >
               {formatLodgingGroupLabel(firstGroup)}
@@ -880,7 +880,7 @@ function LodgingSummaryCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
             )}
           </div>
           {groups.length > 1 && (
-            <p className={`mt-0.5 truncate text-[10px] ${status.isComplete ? 'text-slate-500' : 'text-slate-400'}`}>
+            <p className={`mt-0.5 hidden truncate text-[10px] md:block ${status.isComplete ? 'text-slate-500' : 'text-slate-400'}`}>
               {groups.slice(1).map(formatLodgingGroupLabel).join(', ')}
             </p>
           )}
@@ -928,15 +928,15 @@ function TripTableListSummaryBar({
   title?: string;
 }): JSX.Element {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2.5 text-sm">
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-2.5 py-1.5 text-xs md:px-4 md:py-2.5 md:text-sm">
       <span className="text-slate-500">{title}</span>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 tabular-nums text-slate-800">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 tabular-nums text-slate-800 md:gap-x-4">
         <span>
-          팀 <strong className="text-base font-semibold text-slate-900">{teams}</strong>
+          팀 <strong className="text-sm font-semibold text-slate-900 md:text-base">{teams}</strong>
         </span>
         <span className="text-slate-300">·</span>
         <span>
-          인원 합 <strong className="text-base font-semibold text-slate-900">{paxSum}</strong>명
+          인원 합 <strong className="text-sm font-semibold text-slate-900 md:text-base">{paxSum}</strong>명
         </span>
         {missingPax > 0 ? (
           <span className="text-xs font-normal text-amber-800">
@@ -947,6 +947,17 @@ function TripTableListSummaryBar({
     </div>
   );
 }
+
+/** 모바일 밀도↑ / md+ 기존 여유 — 셀 공통 */
+const TH_CELL_CLASS =
+  'whitespace-nowrap px-2 py-1.5 text-[11px] font-medium text-slate-600 md:px-4 md:py-3 md:text-sm';
+const TD_CELL_CLASS =
+  'whitespace-nowrap px-2 py-1.5 text-[11px] text-slate-700 md:px-4 md:py-3 md:text-sm';
+/** 가로 스크롤 시 대표자명 열 고정 */
+const STICKY_NAME_TH_CLASS =
+  'sticky left-0 z-20 whitespace-nowrap border-r border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] font-medium text-slate-600 shadow-[2px_0_6px_-2px_rgba(15,23,42,0.14)] md:px-4 md:py-3 md:text-sm';
+const STICKY_NAME_TD_CLASS =
+  'sticky left-0 z-10 whitespace-nowrap border-r border-slate-200 bg-white px-2 py-1.5 text-[11px] font-medium text-slate-900 shadow-[2px_0_6px_-2px_rgba(15,23,42,0.14)] group-hover:bg-slate-50 md:px-4 md:py-3 md:text-sm';
 
 // 필터별 테이블 헤더 정의
 function TripTableHead({
@@ -965,12 +976,10 @@ function TripTableHead({
     return <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>;
   }
 
-  const th = (label: string) => (
-    <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-600">{label}</th>
-  );
+  const th = (label: string) => <th className={TH_CELL_CLASS}>{label}</th>;
   const thSort = (label: string, col: SortKey) => (
     <th
-      className="cursor-pointer whitespace-nowrap px-4 py-3 font-medium text-slate-600 hover:text-slate-900 select-none"
+      className={`${TH_CELL_CLASS} cursor-pointer hover:text-slate-900 select-none`}
       onClick={() => onSort(col)}
     >
       {label}
@@ -982,7 +991,7 @@ function TripTableHead({
     <thead>
       <tr className="border-b border-slate-100 bg-slate-50">
         {filter === 'reserved' && thSort('예약일', 'confirmedAt')}
-        {th('대표자명')}
+        <th className={STICKY_NAME_TH_CLASS}>대표자명</th>
         {thSort('여행기간', 'travelStart')}
         {/* 상태 컬럼: D-day / #일차 / D+day */}
         {(filter === 'reserved' || filter === 'upcoming') && th('D-Day')}
@@ -997,7 +1006,7 @@ function TripTableHead({
         {th('기사')}
         {filter !== 'completed' && th('차량')}
         {filter !== 'completed' && (
-          <th className="w-48 max-w-48 whitespace-nowrap px-4 py-3 font-medium text-slate-600">
+          <th className={`w-40 max-w-40 md:w-48 md:max-w-48 ${TH_CELL_CLASS}`}>
             {filter === 'ongoing' ? '현재 숙소' : '숙소'}
           </th>
         )}
@@ -1063,13 +1072,13 @@ function TripTableRow({
 
   return (
     <tr
-      className="cursor-pointer border-b border-slate-50 transition hover:bg-slate-50 [&:has(.lodging-summary:hover)]:relative [&:has(.lodging-summary:hover)]:z-20"
+      className="group cursor-pointer border-b border-slate-50 transition hover:bg-slate-50 [&:has(.lodging-summary:hover)]:relative [&:has(.lodging-summary:hover)]:z-20"
       onClick={onClick}
     >
       {/* 예약일 (예약표 전용) */}
       {filter === 'reserved' && (
         <td
-          className="whitespace-nowrap px-4 py-3 text-xs text-slate-500"
+          className={`${TD_CELL_CLASS} text-slate-500`}
           onClick={(e) => e.stopPropagation()}
         >
           {reservationEditing ? (
@@ -1106,8 +1115,8 @@ function TripTableRow({
           )}
         </td>
       )}
-      {/* 대표자명 */}
-      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
+      {/* 대표자명 — 가로 스크롤 시 고정 */}
+      <td className={STICKY_NAME_TD_CLASS}>
         <span className="inline-flex items-center gap-1.5">
           <ConfirmedTripLeaderName trip={trip} />
           {isConfirmedTripRecentReturn(trip.id) ? (
@@ -1116,17 +1125,20 @@ function TripTableRow({
         </span>
       </td>
       {/* 여행기간 */}
-      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+      <td className={TD_CELL_CLASS}>
         {startStr && endStr ? formatDateRange(startStr, endStr) : '-'}
       </td>
       {/* D-Day */}
       {(filter === 'reserved' || filter === 'upcoming') && (
-        <td className="whitespace-nowrap px-4 py-3">
+        <td className={TD_CELL_CLASS}>
           {startStr ? <DepartureBadge startDate={startStr} /> : '-'}
         </td>
       )}
       {filter === 'upcoming' && (
-        <td className="min-w-[13rem] max-w-[28rem] px-4 py-3 text-slate-700" onClick={(e) => e.stopPropagation()}>
+        <td
+          className={`min-w-[11rem] max-w-[28rem] md:min-w-[13rem] ${TD_CELL_CLASS}`}
+          onClick={(e) => e.stopPropagation()}
+        >
           <KoreaTeamStageMultiSelect
             tripId={trip.id}
             selected={trip.koreaTeamStages}
@@ -1139,12 +1151,12 @@ function TripTableRow({
       )}
       {/* #일차 — 오늘 이동 경로 */}
       {filter === 'ongoing' && (
-        <td className="max-w-[14rem] px-4 py-3 align-top">
+        <td className={`max-w-[14rem] align-top ${TD_CELL_CLASS}`}>
           {startStr ? (
             <div className="flex flex-col gap-0.5">
               <TripDayBadge startDate={startStr} />
               {ongoingDestinationLabel ? (
-                <span className="text-xs leading-snug text-slate-700">{ongoingDestinationLabel}</span>
+                <span className="text-[10px] leading-snug text-slate-700 md:text-xs">{ongoingDestinationLabel}</span>
               ) : null}
             </div>
           ) : (
@@ -1154,12 +1166,15 @@ function TripTableRow({
       )}
       {/* D+day */}
       {filter === 'completed' && (
-        <td className="whitespace-nowrap px-4 py-3">
+        <td className={TD_CELL_CLASS}>
           {endStr ? <DPlusBadge endDate={endStr} /> : '-'}
         </td>
       )}
       {filter === 'completed' && (
-        <td className="min-w-[13rem] px-4 py-3 text-slate-700" onClick={(e) => e.stopPropagation()}>
+        <td
+          className={`min-w-[11rem] md:min-w-[13rem] ${TD_CELL_CLASS}`}
+          onClick={(e) => e.stopPropagation()}
+        >
           <PostTripTaskMultiSelect
             tripId={trip.id}
             selected={trip.postTripTasks}
@@ -1171,10 +1186,10 @@ function TripTableRow({
         </td>
       )}
       {/* 인원 */}
-      <td className="whitespace-nowrap px-4 py-3 text-slate-700">{headcount ?? '-'}</td>
+      <td className={TD_CELL_CLASS}>{headcount ?? '-'}</td>
       {/* 모집유무 */}
       {(filter === 'reserved' || filter === 'upcoming') && (
-        <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
+        <td className={TD_CELL_CLASS} onClick={(e) => e.stopPropagation()}>
           <RecruitmentStatusToggle
             open={trip.isRecruitingOpen}
             saving={recruitmentSaving}
@@ -1194,24 +1209,24 @@ function TripTableRow({
         </td>
       )}
       {/* 여행지 */}
-      <td className="whitespace-nowrap px-4 py-3 text-slate-700">{getTripDestination(trip)}</td>
+      <td className={TD_CELL_CLASS}>{getTripDestination(trip)}</td>
       {/* 가이드 */}
-      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+      <td className={TD_CELL_CLASS}>
         <GuideCell trip={trip} />
       </td>
       {/* 기사 */}
-      <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+      <td className={TD_CELL_CLASS}>
         <DriverCell trip={trip} />
       </td>
       {/* 차량 (여행 완료 제외) — 배정 기사 마스터 차종 */}
       {filter !== 'completed' && (
-        <td className="max-w-[12rem] px-4 py-3 text-slate-700">
+        <td className={`max-w-[12rem] ${TD_CELL_CLASS}`}>
           <DriverVehiclesCell trip={trip} />
         </td>
       )}
       {/* 숙소 (여행 완료 제외) — ongoing은 현재 숙소 */}
       {filter !== 'completed' && (
-        <td className="w-48 max-w-48 px-4 py-3 text-slate-700">
+        <td className={`w-40 max-w-40 md:w-48 md:max-w-48 ${TD_CELL_CLASS}`}>
           <div className="w-full min-w-0">
             {filter === 'ongoing' && startStr ? (
               <CurrentLodgingCell trip={trip} startDate={startStr} />
@@ -1223,7 +1238,7 @@ function TripTableRow({
       )}
       {/* 이벤트 (예약표 제외) */}
       {filter !== 'reserved' && (
-        <td className="relative z-[1] whitespace-nowrap px-4 py-3">
+        <td className={`relative z-[1] ${TD_CELL_CLASS}`}>
           <EventBadges trip={trip} />
         </td>
       )}
@@ -1524,29 +1539,29 @@ export function ConfirmedTripsPage(): JSX.Element {
       : baseEmptyByDate[dateFilter];
 
   return (
-    <section className="grid gap-6">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">투어 리스트</h1>
-          <p className="mt-1 text-sm text-slate-600">확정된 여행 건의 운영 현황을 확인합니다.</p>
+    <section className="grid gap-4 md:gap-6">
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">투어 리스트</h1>
+          <p className="mt-1 hidden text-sm text-slate-600 md:block">확정된 여행 건의 운영 현황을 확인합니다.</p>
         </div>
         <button
           type="button"
           onClick={() => setCreateModalOpen(true)}
-          className="shrink-0 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+          className="shrink-0 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 md:px-4"
         >
           + 직접 추가
         </button>
       </header>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         {/* 날짜 기준 필터 */}
-        <div className="flex gap-2">
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {DATE_FILTER_OPTIONS.map(({ value, label }) => (
             <button
               key={value}
               type="button"
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+              className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium transition ${
                 dateFilter === value
                   ? 'bg-slate-800 text-white'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -1567,11 +1582,11 @@ export function ConfirmedTripsPage(): JSX.Element {
         </div>
 
         {/* 뷰 전환 토글 */}
-        <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1">
+        <div className="flex w-full items-center rounded-xl border border-slate-200 bg-slate-50 p-1 sm:w-auto">
           <button
             type="button"
             onClick={() => setViewMode('list')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition sm:flex-none ${
               viewMode === 'list'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-500 hover:text-slate-700'
@@ -1591,7 +1606,7 @@ export function ConfirmedTripsPage(): JSX.Element {
           <button
             type="button"
             onClick={() => setViewMode('calendar')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition sm:flex-none ${
               viewMode === 'calendar'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-500 hover:text-slate-700'
@@ -1613,8 +1628,8 @@ export function ConfirmedTripsPage(): JSX.Element {
       </div>
 
       <div className="flex flex-col gap-3">
-        <div className="grid grid-cols-[5rem_1fr] items-start gap-x-3 gap-y-2">
-          <div className={`${FILTER_TITLE_COL_CLASS} pt-1.5`}>출발 구간</div>
+        <div className="grid grid-cols-1 items-start gap-x-3 gap-y-1.5 md:grid-cols-[5rem_1fr] md:gap-y-2">
+          <div className={`${FILTER_TITLE_COL_CLASS} border-r-0 md:border-r md:pt-1.5`}>출발 구간</div>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <button
               type="button"
@@ -1639,9 +1654,9 @@ export function ConfirmedTripsPage(): JSX.Element {
           </div>
         </div>
 
-        <div className="grid grid-cols-[5rem_1fr] items-start gap-x-3 gap-y-2">
-          <div className={`${FILTER_TITLE_COL_CLASS} pt-1.5`}>지역</div>
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <div className="grid grid-cols-1 items-start gap-x-3 gap-y-1.5 md:grid-cols-[5rem_1fr] md:gap-y-2">
+          <div className={`${FILTER_TITLE_COL_CLASS} border-r-0 md:border-r md:pt-1.5`}>지역</div>
+          <div className="-mx-1 flex min-w-0 gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] md:flex-wrap md:overflow-visible [&::-webkit-scrollbar]:hidden">
             {TRIP_REGION_FILTER_OPTIONS.map(({ value, label }) => {
               if (value === 'ALL') {
                 const active = aggRegions.length === 0;
@@ -1651,7 +1666,7 @@ export function ConfirmedTripsPage(): JSX.Element {
                     type="button"
                     aria-pressed={active}
                     onClick={() => clearAggRegionOnly()}
-                    className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                    className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium transition ${
                       active
                         ? 'bg-slate-800 text-white'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -1668,7 +1683,7 @@ export function ConfirmedTripsPage(): JSX.Element {
                   type="button"
                   aria-pressed={active}
                   onClick={() => toggleAggRegion(value)}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium transition ${
                     active
                       ? 'bg-slate-800 text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -1682,7 +1697,7 @@ export function ConfirmedTripsPage(): JSX.Element {
               <button
                 type="button"
                 onClick={clearAggRegionOnly}
-                className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700"
+                className="shrink-0 rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700"
               >
                 지역 초기화
               </button>
@@ -1690,9 +1705,9 @@ export function ConfirmedTripsPage(): JSX.Element {
           </div>
         </div>
 
-        <div className="grid grid-cols-[5rem_1fr] items-start gap-x-3 gap-y-2">
-          <div className={`${FILTER_TITLE_COL_CLASS} pt-1.5`}>장비 필터</div>
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <div className="grid grid-cols-1 items-start gap-x-3 gap-y-1.5 md:grid-cols-[5rem_1fr] md:gap-y-2">
+          <div className={`${FILTER_TITLE_COL_CLASS} border-r-0 md:border-r md:pt-1.5`}>장비 필터</div>
+          <div className="-mx-1 flex min-w-0 gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] md:flex-wrap md:overflow-visible [&::-webkit-scrollbar]:hidden">
             {RENTAL_ITEM_FILTER_OPTIONS.map(({ value, label }) => {
               const active = rentalItemFilters.includes(value);
               return (
@@ -1701,7 +1716,7 @@ export function ConfirmedTripsPage(): JSX.Element {
                   type="button"
                   aria-pressed={active}
                   onClick={() => toggleRentalItemFilter(value)}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium transition ${
                     active
                       ? 'bg-slate-800 text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -1715,7 +1730,7 @@ export function ConfirmedTripsPage(): JSX.Element {
               <button
                 type="button"
                 onClick={clearRentalItemFilters}
-                className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700"
+                className="shrink-0 rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-700"
               >
                 장비 초기화
               </button>
@@ -1724,8 +1739,8 @@ export function ConfirmedTripsPage(): JSX.Element {
         </div>
 
         {departureRangeHint ? (
-          <div className="grid grid-cols-[5rem_1fr] gap-x-3">
-            <div aria-hidden className="min-h-0" />
+          <div className="grid grid-cols-1 gap-x-3 md:grid-cols-[5rem_1fr]">
+            <div aria-hidden className="hidden min-h-0 md:block" />
             <p className="text-xs text-slate-500">{departureRangeHint}</p>
           </div>
         ) : null}
@@ -1746,22 +1761,26 @@ export function ConfirmedTripsPage(): JSX.Element {
             paxSum={calendarViewStats.paxSum}
             missingPax={calendarViewStats.missingPax}
           />
-          <ConfirmedTripCalendar
-            trips={calendarTrips}
-            notes={notes}
-            year={calYear}
-            month={calMonth}
-            onChangeMonth={setCalendarMonth}
-            onRequestAddNote={openAddNote}
-            onRequestEditNote={openEditNote}
-            dailyRentalOccupancy={dailyRentalOccupancy}
-            onBeforeNavigateToTrip={saveBeforeNavigateToDetail}
-          />
+          <div className="overflow-x-auto">
+            <div className="min-w-[44rem]">
+              <ConfirmedTripCalendar
+                trips={calendarTrips}
+                notes={notes}
+                year={calYear}
+                month={calMonth}
+                onChangeMonth={setCalendarMonth}
+                onRequestAddNote={openAddNote}
+                onRequestEditNote={openEditNote}
+                dailyRentalOccupancy={dailyRentalOccupancy}
+                onBeforeNavigateToTrip={saveBeforeNavigateToDetail}
+              />
+            </div>
+          </div>
         </Card>
       ) : (
-        <Card className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-wrap items-center justify-start gap-2 border-b border-slate-100 bg-white px-4 py-3">
-            <label className="w-full min-w-[16rem] md:w-[28rem]">
+        <Card className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:rounded-3xl">
+          <div className="flex flex-wrap items-center justify-start gap-2 border-b border-slate-100 bg-white px-2.5 py-2 md:px-4 md:py-3">
+            <label className="w-full md:w-[28rem]">
               <span className="sr-only">투어 리스트 검색</span>
               <input
                 type="search"
@@ -1778,7 +1797,7 @@ export function ConfirmedTripsPage(): JSX.Element {
                   );
                 }}
                 placeholder="대표자, 여행지, 가이드, 기사, 차량, 숙소 검색"
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900"
+                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-900 md:rounded-xl md:px-3 md:py-2 md:text-sm"
               />
             </label>
             {normalizedListSearchQuery ? (
@@ -1807,8 +1826,8 @@ export function ConfirmedTripsPage(): JSX.Element {
           {trips.length === 0 ? (
             <div className="p-6 text-sm text-slate-600">{emptyMessage}</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto overscroll-x-contain">
+              <table className="w-max min-w-full border-separate border-spacing-0 text-left text-[11px] md:text-sm">
                 <TripTableHead
                   filter={dateFilter}
                   sortKey={sortKey}
