@@ -51,12 +51,14 @@ function VehicleTypeCellDisplay({
     return <>-</>;
   }
   if (!note) {
-    return <>{main}</>;
+    return <span className="whitespace-pre-wrap">{main}</span>;
   }
   return (
     <span className="confirmation-vehicle-note">
-      {main !== '-' ? <span className="confirmation-vehicle-note__main">{main}</span> : null}
-      <span className="confirmation-vehicle-note__sub">{note}</span>
+      {main !== '-' ? (
+        <span className="confirmation-vehicle-note__main whitespace-pre-wrap">{main}</span>
+      ) : null}
+      <span className="confirmation-vehicle-note__sub whitespace-pre-wrap">{note}</span>
     </span>
   );
 }
@@ -149,7 +151,7 @@ function ConfirmationTravelerList({ travelers }: { travelers: ConfirmationTravel
     <ul className="confirmation-page1-detail-list">
       {entries.map((entry, index) => (
         <li key={`traveler-${index}`} className="confirmation-page1-detail-entry">
-          <span className="confirmation-page1-traveler-core">{entry.core}</span>
+          <span className="confirmation-page1-traveler-core whitespace-pre-wrap">{entry.core}</span>
         </li>
       ))}
     </ul>
@@ -170,13 +172,15 @@ function ConfirmationAccommodationList({ lines }: { lines: string[] }): JSX.Elem
       {entries.map((entry, index) => (
         <li key={`accommodation-${index}`} className="confirmation-page1-detail-entry">
           <span className="confirmation-page1-accommodation-line">
-            <span className="confirmation-page1-accommodation-lead">
+            <span className="confirmation-page1-accommodation-lead whitespace-pre-wrap">
               {index + 1}. {entry.name}
             </span>
             {entry.spec ? (
               <>
                 {' '}
-                <span className="confirmation-page1-accommodation-spec-inline">{entry.spec}</span>
+                <span className="confirmation-page1-accommodation-spec-inline whitespace-pre-wrap">
+                  {entry.spec}
+                </span>
               </>
             ) : null}
           </span>
@@ -251,23 +255,31 @@ function ConfirmationPage({
             <tbody className="confirmation-page1-tbody--basic">
               <tr className="confirmation-page1-tr--even-height">
                 <th>대표자명</th>
-                <td>{blankIfDash(fallbackText(data.leaderName))}</td>
+                <td className="confirmation-page1-preline-cell">
+                  <span className="whitespace-pre-wrap">{blankIfDash(fallbackText(data.leaderName))}</span>
+                </td>
                 <th>문서번호</th>
-                <td>{blankIfDash(fallbackText(data.documentNumber))}</td>
+                <td className="confirmation-page1-preline-cell">
+                  <span className="whitespace-pre-wrap">{blankIfDash(fallbackText(data.documentNumber))}</span>
+                </td>
               </tr>
               <tr className="confirmation-page1-tr--even-height">
                 <th>여행지</th>
-                <td>{blankIfDash(fallbackText(data.destination))}</td>
+                <td className="confirmation-page1-preline-cell">
+                  <span className="whitespace-pre-wrap">{blankIfDash(fallbackText(data.destination))}</span>
+                </td>
                 <th>인원</th>
-                <td>{blankIfDash(fallbackText(data.headcountText))}</td>
+                <td className="confirmation-page1-preline-cell">
+                  <span className="whitespace-pre-wrap">{blankIfDash(fallbackText(data.headcountText))}</span>
+                </td>
               </tr>
               <tr className="confirmation-page1-tr--even-height">
                 <th>여행 기간</th>
                 <td className="confirmation-page1-preline-cell">
-                  <span className="whitespace-pre-line">{travelPeriodCompact}</span>
+                  <span className="whitespace-pre-wrap">{travelPeriodCompact}</span>
                 </td>
                 <th>차량</th>
-                <td>
+                <td className="confirmation-page1-preline-cell">
                   <VehicleTypeCellDisplay
                     vehicleType={data.vehicleType}
                     vehicleDisplayNote={data.vehicleDisplayNote}
@@ -341,7 +353,9 @@ function ConfirmationPage({
               </tr>
               <tr className="confirmation-page1-tr--even-height">
                 <th>가이드님</th>
-                <td>{blankIfDash(fallbackText(data.guideName))}</td>
+                <td className="confirmation-page1-preline-cell">
+                  <span className="whitespace-pre-wrap">{blankIfDash(fallbackText(data.guideName))}</span>
+                </td>
                 <th>미팅장소</th>
                 <td className="confirmation-page1-preline-cell">
                   <span className="whitespace-pre-wrap">{blankIfDash(fallbackText(data.meetingPlace))}</span>

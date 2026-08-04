@@ -139,17 +139,43 @@ export function ConfirmationBuilderForm({
     <div className="confirmation-builder-form">
       <FormSection number={1} title="기본정보" description="대표자, 문서번호, 여행 기본값을 확인합니다.">
         <div className="confirmation-builder-field-grid">
-          <TextField label="대표자명" value={value.leaderName} onChange={(leaderName) => patch({ leaderName })} />
-          <TextField label="문서번호" value={value.documentNumber ?? ''} onChange={(documentNumber) => patch({ documentNumber })} />
-          <TextField label="여행지" value={value.destination} onChange={(destination) => patch({ destination })} />
-          <TextField label="인원" value={value.headcountText} onChange={(headcountText) => patch({ headcountText })} />
+          <TextField
+            label="대표자명"
+            value={value.leaderName}
+            onChange={(leaderName) => patch({ leaderName })}
+            multiline
+          />
+          <TextField
+            label="문서번호"
+            value={value.documentNumber ?? ''}
+            onChange={(documentNumber) => patch({ documentNumber })}
+            multiline
+          />
+          <TextField
+            label="여행지"
+            value={value.destination}
+            onChange={(destination) => patch({ destination })}
+            multiline
+          />
+          <TextField
+            label="인원"
+            value={value.headcountText}
+            onChange={(headcountText) => patch({ headcountText })}
+            multiline
+          />
           <TextField
             label="여행 기간"
             value={value.travelPeriodText}
             onChange={(travelPeriodText) => patch({ travelPeriodText })}
+            multiline
             className="confirmation-builder-field--wide"
           />
-          <TextField label="차량" value={value.vehicleType} onChange={(vehicleType) => patch({ vehicleType })} />
+          <TextField
+            label="차량"
+            value={value.vehicleType}
+            onChange={(vehicleType) => patch({ vehicleType })}
+            multiline
+          />
         </div>
       </FormSection>
 
@@ -220,7 +246,12 @@ export function ConfirmationBuilderForm({
         }
       >
         <div className="confirmation-builder-field-grid">
-          <TextField label="가이드님" value={value.guideName} onChange={(guideName) => patch({ guideName })} />
+          <TextField
+            label="가이드님"
+            value={value.guideName}
+            onChange={(guideName) => patch({ guideName })}
+            multiline
+          />
           <TextField
             label="미팅장소"
             value={value.meetingPlace || CONFIRMATION_MEETING_PLACE_DEFAULT}
@@ -250,16 +281,19 @@ export function ConfirmationBuilderForm({
                 label="이름"
                 value={traveler.name}
                 onChange={(name) => patch({ travelers: updateTraveler(value.travelers, index, { name }) })}
+                multiline
               />
               <TextField
                 label="성별"
                 value={traveler.gender ?? ''}
                 onChange={(gender) => patch({ travelers: updateTraveler(value.travelers, index, { gender }) })}
+                multiline
               />
               <TextField
                 label="생년(7자리)"
                 value={traveler.birthCode ?? ''}
                 onChange={(birthCode) => patch({ travelers: updateTraveler(value.travelers, index, { birthCode }) })}
+                multiline
               />
             </div>
           </div>
@@ -292,6 +326,7 @@ export function ConfirmationBuilderForm({
                   ),
                 })
               }
+              multiline
             />
             <Button
               type="button"
