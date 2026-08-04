@@ -1,5 +1,5 @@
 import { Card } from '@tour/ui';
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarNoteModal } from '../features/confirmed-trip/CalendarNoteModal';
 import { ConfirmedTripCalendar } from '../features/confirmed-trip/ConfirmedTripCalendar';
@@ -542,10 +542,12 @@ function LodgingProgressBadge({ trip }: { trip: ConfirmedTripRow }): JSX.Element
 }
 
 function LodgingAllDropdown({
+  open,
   groups,
   progressBadge,
   currentDayIndex,
 }: {
+  open?: boolean;
   groups: LodgingSummaryGroup[];
   progressBadge: JSX.Element | null;
   currentDayIndex?: number | null;
@@ -553,12 +555,16 @@ function LodgingAllDropdown({
   if (groups.length === 0) return null;
 
   return (
-    <div className="pointer-events-none absolute left-0 top-full z-[100] mt-2 hidden w-72 rounded-2xl border border-slate-200 bg-white p-3 text-left opacity-100 shadow-lg group-hover:block">
+    <div
+      className={`absolute left-0 top-full z-[100] mt-2 w-72 rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-lg ${
+        open ? 'pointer-events-auto block' : 'pointer-events-none hidden md:group-hover:block'
+      }`}
+    >
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-xs font-semibold text-slate-500">전체 숙소</p>
         {progressBadge}
       </div>
-      <div className="grid gap-1.5">
+      <div className="grid max-h-64 gap-1.5 overflow-y-auto">
         {groups.map((group) => {
           const isCurrent = currentDayIndex != null && group.dayIndices.includes(currentDayIndex);
           return (
@@ -577,6 +583,63 @@ function LodgingAllDropdown({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/** 데스크톱: hover / 모바일: 탭 — 전체 숙소 목록 표시 */
+function LodgingCellPopover({
+  groups,
+  progressBadge,
+  currentDayIndex,
+  children,
+  className = '',
+}: {
+  groups: LodgingSummaryGroup[];
+  progressBadge: JSX.Element | null;
+  currentDayIndex?: number | null;
+  children: ReactNode;
+  className?: string;
+}): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const canOpen = groups.length > 0;
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: PointerEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div
+      ref={rootRef}
+      className={`lodging-summary group relative w-full min-w-0 ${open ? 'z-30' : ''} ${className}`}
+      onClick={(event) => {
+        if (!canOpen) return;
+        event.stopPropagation();
+        setOpen((prev) => !prev);
+      }}
+    >
+      {children}
+      <LodgingAllDropdown
+        open={open}
+        groups={groups}
+        progressBadge={progressBadge}
+        currentDayIndex={currentDayIndex}
+      />
     </div>
   );
 }
@@ -775,7 +838,11 @@ function CurrentLodgingCell({
   const imageUrl = lodging ? getLodgingImageUrl(lodging) : null;
 
   return (
-    <div className="lodging-summary group relative w-full min-w-0">
+    <LodgingCellPopover
+      groups={groups}
+      progressBadge={progressBadge}
+      currentDayIndex={lodgingDayIndex}
+    >
       <div className="flex w-full min-w-0 items-center gap-2 overflow-hidden">
         {lodging ? (
           <>
@@ -809,8 +876,7 @@ function CurrentLodgingCell({
           </>
         )}
       </div>
-      <LodgingAllDropdown groups={groups} progressBadge={progressBadge} currentDayIndex={lodgingDayIndex} />
-    </div>
+    </LodgingCellPopover>
   );
 }
 
@@ -848,7 +914,7 @@ function LodgingSummaryCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
   const summaryDimClass = status.isComplete ? '' : 'opacity-60';
 
   return (
-    <div className="lodging-summary group relative w-full min-w-0">
+    <LodgingCellPopover groups={groups} progressBadge={progressBadge}>
       <div
         className={`flex w-full min-w-0 items-center gap-2 overflow-hidden ${summaryDimClass}`}
         title={status.isComplete ? '숙소 배정 완료' : '숙소 배정 진행 중'}
@@ -886,8 +952,7 @@ function LodgingSummaryCell({ trip }: { trip: ConfirmedTripRow }): JSX.Element {
           )}
         </div>
       </div>
-      <LodgingAllDropdown groups={groups} progressBadge={progressBadge} />
-    </div>
+    </LodgingCellPopover>
   );
 }
 
