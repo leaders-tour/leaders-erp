@@ -8008,360 +8008,6 @@ export function ItineraryBuilderPage(): JSX.Element {
               </Card>
             </section>
 
-            <section id="builder-section-schedule" className="scroll-mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-200 p-4">
-                <h2 className="text-lg font-bold text-slate-900">일정표 편집기</h2>
-                <p className="mt-1 text-xs text-slate-600">
-                  숙소 칸을 클릭하면 등급·표시명을 설정할 수 있습니다. 식사 칸은 아침/점심/저녁 3칸
-                  입력으로 편집됩니다. 기간외 픽드랍 행은 견적서 출력 문구만 직접 수정할 수 있으며,
-                  픽드랍 원본 정보는 위 설정에서 관리됩니다.
-                </p>
-              </div>
-
-              <div className="overflow-auto">
-                <Table className="min-w-[1280px] w-full text-sm">
-                  <thead className="bg-slate-50 text-slate-700">
-                    <tr>
-                      <Th className="w-[110px]">날짜</Th>
-                      <Th className="w-[240px]">목적지</Th>
-                      <Th className="w-[180px]">시간</Th>
-                      <Th className="w-[280px]">일정</Th>
-                      <Th className="w-[220px]">숙소</Th>
-                      <Th className="w-[220px]">식사</Th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {displayPlanRows.map(
-                      ({ row, mainRowIndex, planRowIndex, externalTransferIndex }, rowIndex) => {
-                      const isExternalRow = mainRowIndex === null;
-                      const externalTransfer =
-                        externalTransferIndex === null
-                          ? null
-                          : normalizedExternalTransfers[externalTransferIndex] ?? null;
-                      const hasExternalOverrides =
-                        externalTransfer != null &&
-                        hasExternalTransferCellTextOverrides(externalTransfer);
-                      const mealFields = parseMealCellText(row.mealCellText);
-                      const timeCellValidation =
-                        mainRowIndex !== null &&
-                        validationResults.find((r) =>
-                          r.affectedCells?.some(
-                            (c) => c.rowIndex === mainRowIndex && c.field === 'timeCellText',
-                          ),
-                        );
-                      const mealCellValidation =
-                        mainRowIndex !== null &&
-                        validationResults.find((r) =>
-                          r.affectedCells?.some(
-                            (c) => c.rowIndex === mainRowIndex && c.field === 'mealCellText',
-                          ),
-                        );
-                      const isTimeCellAffected = Boolean(timeCellValidation);
-                      const isMealCellAffected = Boolean(mealCellValidation);
-                      const cellClassName =
-                        'w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap text-slate-900';
-                      const timeCellClassName = isTimeCellAffected
-                        ? `${cellClassName} border-rose-400 bg-rose-50`
-                        : cellClassName;
-                      const mealCellWrapperClassName = `grid gap-2 rounded-xl border p-2 ${
-                        isMealCellAffected
-                          ? 'border-amber-400 bg-amber-50'
-                          : 'border-slate-200 bg-white'
-                      }`;
-                      const mealLabelClassName = `text-xs ${isMealCellAffected ? 'text-amber-900' : 'text-slate-500'}`;
-                      const mealInputClassName = `min-w-0 rounded-lg border px-2 py-1.5 text-sm outline-none transition ${
-                        isMealCellAffected
-                          ? 'border-amber-300 bg-amber-50 text-amber-950 focus:border-amber-500'
-                          : 'border-slate-200 text-slate-900 focus:border-slate-400'
-                      }`;
-                      const mealXButtonClassName = `rounded-lg border px-2 py-1.5 text-xs font-medium transition ${
-                        isMealCellAffected
-                          ? 'border-amber-300 bg-amber-100 text-amber-950 hover:bg-amber-200'
-                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`;
-                      const travelDayIndex =
-                        mainRowIndex !== null ? mainRowIndex + 1 : null;
-                      const isLodgingSettingDisabled =
-                        travelDayIndex !== null &&
-                        !isLodgingSettingDay(travelDayIndex, totalDays);
-                      return (
-                        <tr
-                          key={`day-row-${rowIndex + 1}`}
-                          className={`border-t border-slate-200 align-top ${isExternalRow ? 'bg-slate-50/60' : ''}`}
-                        >
-                          <Td>
-                            <textarea
-                              value={row.dateCellText}
-                              onChange={(event) => {
-                                if (externalTransferIndex !== null) {
-                                  updateExternalTransferCell(
-                                    externalTransferIndex,
-                                    'dateCellText',
-                                    event.target.value,
-                                  );
-                                } else if (planRowIndex !== null) {
-                                  updateCell(planRowIndex, 'dateCellText', event.target.value);
-                                } else {
-                                  return;
-                                }
-                                autoResizeTextarea(event.currentTarget);
-                              }}
-                              onInput={(event) => autoResizeTextarea(event.currentTarget)}
-                              rows={1}
-                              data-plan-cell="true"
-                              className={cellClassName}
-                            />
-                          </Td>
-                          <Td>
-                            <textarea
-                              value={row.destinationCellText}
-                              onChange={(event) => {
-                                if (externalTransferIndex !== null) {
-                                  updateExternalTransferCell(
-                                    externalTransferIndex,
-                                    'destinationCellText',
-                                    event.target.value,
-                                  );
-                                } else if (planRowIndex !== null) {
-                                  updateCell(planRowIndex, 'destinationCellText', event.target.value);
-                                } else {
-                                  return;
-                                }
-                                autoResizeTextarea(event.currentTarget);
-                              }}
-                              onInput={(event) => autoResizeTextarea(event.currentTarget)}
-                              rows={1}
-                              data-plan-cell="true"
-                              className={cellClassName}
-                            />
-                          </Td>
-                          <Td>
-                            <div className="space-y-1">
-                              <textarea
-                                value={row.timeCellText}
-                                onChange={(event) => {
-                                  if (externalTransferIndex !== null) {
-                                    updateExternalTransferCell(
-                                      externalTransferIndex,
-                                      'timeCellText',
-                                      event.target.value,
-                                    );
-                                  } else if (planRowIndex !== null) {
-                                    updateCell(planRowIndex, 'timeCellText', event.target.value);
-                                  } else {
-                                    return;
-                                  }
-                                  autoResizeTextarea(event.currentTarget);
-                                }}
-                                onInput={(event) => autoResizeTextarea(event.currentTarget)}
-                                rows={1}
-                                data-plan-cell="true"
-                                className={timeCellClassName}
-                              />
-                              {isTimeCellAffected && timeCellValidation ? (
-                                <p className="px-1 text-xs leading-4 text-rose-700">
-                                  시간 확인 필요: {timeCellValidation.message}
-                                </p>
-                              ) : null}
-                            </div>
-                          </Td>
-                          <Td>
-                            <textarea
-                              value={row.scheduleCellText}
-                              onChange={(event) => {
-                                if (externalTransferIndex !== null) {
-                                  updateExternalTransferCell(
-                                    externalTransferIndex,
-                                    'scheduleCellText',
-                                    event.target.value,
-                                  );
-                                } else if (planRowIndex !== null) {
-                                  updateCell(planRowIndex, 'scheduleCellText', event.target.value);
-                                } else {
-                                  return;
-                                }
-                                autoResizeTextarea(event.currentTarget);
-                              }}
-                              onInput={(event) => autoResizeTextarea(event.currentTarget)}
-                              rows={1}
-                              data-plan-cell="true"
-                              className={cellClassName}
-                            />
-                          </Td>
-                          <Td>
-                            {isExternalRow ? (
-                              <textarea
-                                value={row.lodgingCellText}
-                                onChange={(event) => {
-                                  if (externalTransferIndex === null) {
-                                    return;
-                                  }
-                                  updateExternalTransferCell(
-                                    externalTransferIndex,
-                                    'lodgingCellText',
-                                    event.target.value,
-                                  );
-                                  autoResizeTextarea(event.currentTarget);
-                                }}
-                                onInput={(event) => autoResizeTextarea(event.currentTarget)}
-                                rows={1}
-                                data-plan-cell="true"
-                                className={cellClassName}
-                              />
-                            ) : isLodgingSettingDisabled ? (
-                              <div
-                                className="min-h-[44px] w-full rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm leading-5 text-slate-400"
-                                title="마지막 일차는 숙박하지 않습니다"
-                              >
-                                {row.lodgingCellText?.trim() || '숙박 없음'}
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (planRowIndex === null) {
-                                    return;
-                                  }
-                                  openLodgingUpgradeModal(planRowIndex);
-                                }}
-                                className="min-h-[44px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm leading-5 whitespace-pre-wrap text-slate-900 transition hover:border-slate-400 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20"
-                                aria-label={`${row.destinationCellText.trim() || '해당 일차'} 숙소 설정`}
-                              >
-                                {row.lodgingCellText || '-'}
-                              </button>
-                            )}
-                          </Td>
-                          <Td>
-                            {isExternalRow ? (
-                              <div className="space-y-2">
-                                <div className={mealCellWrapperClassName}>
-                                  {(
-                                    [
-                                      ['breakfast', '아침', mealFields.breakfast],
-                                      ['lunch', '점심', mealFields.lunch],
-                                      ['dinner', '저녁', mealFields.dinner],
-                                    ] as const
-                                  ).map(([field, label, mealValue]) => (
-                                    <div
-                                      key={field}
-                                      className="grid grid-cols-[40px_minmax(0,1fr)_32px] items-center gap-2 text-sm"
-                                    >
-                                      <span className={mealLabelClassName}>{label}</span>
-                                      <input
-                                        type="text"
-                                        value={mealValue}
-                                        onChange={(event) => {
-                                          if (externalTransferIndex === null) {
-                                            return;
-                                          }
-                                          updateExternalTransferMealCellField(
-                                            externalTransferIndex,
-                                            row.mealCellText,
-                                            field,
-                                            event.target.value,
-                                          );
-                                        }}
-                                        className={mealInputClassName}
-                                        placeholder={`${label} 식사 입력`}
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          if (externalTransferIndex === null) {
-                                            return;
-                                          }
-                                          updateExternalTransferMealCellField(
-                                            externalTransferIndex,
-                                            row.mealCellText,
-                                            field,
-                                            'X',
-                                          );
-                                        }}
-                                        className={mealXButtonClassName}
-                                        aria-label={`${label} 식사를 없음으로 표시`}
-                                      >
-                                        X
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                                <button
-                                  type="button"
-                                  disabled={!hasExternalOverrides || externalTransferIndex === null}
-                                  onClick={() => {
-                                    if (externalTransferIndex !== null) {
-                                      resetExternalTransferCells(externalTransferIndex);
-                                    }
-                                  }}
-                                  className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                >
-                                  자동 문구로 초기화
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="space-y-1">
-                                <div className={mealCellWrapperClassName}>
-                                  {(
-                                    [
-                                      ['breakfast', '아침', mealFields.breakfast],
-                                      ['lunch', '점심', mealFields.lunch],
-                                      ['dinner', '저녁', mealFields.dinner],
-                                    ] as const
-                                  ).map(([field, label, mealValue]) => (
-                                    <div
-                                      key={field}
-                                      className="grid grid-cols-[40px_minmax(0,1fr)_32px] items-center gap-2 text-sm"
-                                    >
-                                      <span className={mealLabelClassName}>{label}</span>
-                                      <input
-                                        type="text"
-                                        value={mealValue}
-                                        onChange={(event) => {
-                                          if (planRowIndex === null) {
-                                            return;
-                                          }
-                                          updateMealCellField(
-                                            planRowIndex,
-                                            field,
-                                            event.target.value,
-                                          );
-                                        }}
-                                        className={mealInputClassName}
-                                        placeholder={`${label} 식사 입력`}
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          if (planRowIndex === null) {
-                                            return;
-                                          }
-                                          updateMealCellField(planRowIndex, field, 'X');
-                                        }}
-                                        className={mealXButtonClassName}
-                                        aria-label={`${label} 식사를 없음으로 표시`}
-                                      >
-                                        X
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                                {isMealCellAffected && mealCellValidation ? (
-                                  <p className="px-1 text-xs leading-4 text-amber-900">
-                                    식사 확인 필요: {mealCellValidation.message}
-                                  </p>
-                                ) : null}
-                              </div>
-                            )}
-                          </Td>
-                        </tr>
-                      );
-                    },
-                    )}
-                  </tbody>
-                </Table>
-              </div>
-            </section>
-
             <section id="builder-section-pricing" className="scroll-mt-4 space-y-5">
               <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -9101,7 +8747,363 @@ export function ItineraryBuilderPage(): JSX.Element {
                   </div>
                 )}
               </Card>
+            </section>
 
+            <section id="builder-section-schedule" className="scroll-mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 p-4">
+                <h2 className="text-lg font-bold text-slate-900">일정표 편집기</h2>
+                <p className="mt-1 text-xs text-slate-600">
+                  숙소 칸을 클릭하면 등급·표시명을 설정할 수 있습니다. 식사 칸은 아침/점심/저녁 3칸
+                  입력으로 편집됩니다. 기간외 픽드랍 행은 견적서 출력 문구만 직접 수정할 수 있으며,
+                  픽드랍 원본 정보는 위 설정에서 관리됩니다.
+                </p>
+              </div>
+
+              <div className="overflow-auto">
+                <Table className="min-w-[1280px] w-full text-sm">
+                  <thead className="bg-slate-50 text-slate-700">
+                    <tr>
+                      <Th className="w-[110px]">날짜</Th>
+                      <Th className="w-[240px]">목적지</Th>
+                      <Th className="w-[180px]">시간</Th>
+                      <Th className="w-[280px]">일정</Th>
+                      <Th className="w-[220px]">숙소</Th>
+                      <Th className="w-[220px]">식사</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayPlanRows.map(
+                      ({ row, mainRowIndex, planRowIndex, externalTransferIndex }, rowIndex) => {
+                      const isExternalRow = mainRowIndex === null;
+                      const externalTransfer =
+                        externalTransferIndex === null
+                          ? null
+                          : normalizedExternalTransfers[externalTransferIndex] ?? null;
+                      const hasExternalOverrides =
+                        externalTransfer != null &&
+                        hasExternalTransferCellTextOverrides(externalTransfer);
+                      const mealFields = parseMealCellText(row.mealCellText);
+                      const timeCellValidation =
+                        mainRowIndex !== null &&
+                        validationResults.find((r) =>
+                          r.affectedCells?.some(
+                            (c) => c.rowIndex === mainRowIndex && c.field === 'timeCellText',
+                          ),
+                        );
+                      const mealCellValidation =
+                        mainRowIndex !== null &&
+                        validationResults.find((r) =>
+                          r.affectedCells?.some(
+                            (c) => c.rowIndex === mainRowIndex && c.field === 'mealCellText',
+                          ),
+                        );
+                      const isTimeCellAffected = Boolean(timeCellValidation);
+                      const isMealCellAffected = Boolean(mealCellValidation);
+                      const cellClassName =
+                        'w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm leading-5 whitespace-pre-wrap text-slate-900';
+                      const timeCellClassName = isTimeCellAffected
+                        ? `${cellClassName} border-rose-400 bg-rose-50`
+                        : cellClassName;
+                      const mealCellWrapperClassName = `grid gap-2 rounded-xl border p-2 ${
+                        isMealCellAffected
+                          ? 'border-amber-400 bg-amber-50'
+                          : 'border-slate-200 bg-white'
+                      }`;
+                      const mealLabelClassName = `text-xs ${isMealCellAffected ? 'text-amber-900' : 'text-slate-500'}`;
+                      const mealInputClassName = `min-w-0 rounded-lg border px-2 py-1.5 text-sm outline-none transition ${
+                        isMealCellAffected
+                          ? 'border-amber-300 bg-amber-50 text-amber-950 focus:border-amber-500'
+                          : 'border-slate-200 text-slate-900 focus:border-slate-400'
+                      }`;
+                      const mealXButtonClassName = `rounded-lg border px-2 py-1.5 text-xs font-medium transition ${
+                        isMealCellAffected
+                          ? 'border-amber-300 bg-amber-100 text-amber-950 hover:bg-amber-200'
+                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`;
+                      const travelDayIndex =
+                        mainRowIndex !== null ? mainRowIndex + 1 : null;
+                      const isLodgingSettingDisabled =
+                        travelDayIndex !== null &&
+                        !isLodgingSettingDay(travelDayIndex, totalDays);
+                      return (
+                        <tr
+                          key={`day-row-${rowIndex + 1}`}
+                          className={`border-t border-slate-200 align-top ${isExternalRow ? 'bg-slate-50/60' : ''}`}
+                        >
+                          <Td>
+                            <textarea
+                              value={row.dateCellText}
+                              onChange={(event) => {
+                                if (externalTransferIndex !== null) {
+                                  updateExternalTransferCell(
+                                    externalTransferIndex,
+                                    'dateCellText',
+                                    event.target.value,
+                                  );
+                                } else if (planRowIndex !== null) {
+                                  updateCell(planRowIndex, 'dateCellText', event.target.value);
+                                } else {
+                                  return;
+                                }
+                                autoResizeTextarea(event.currentTarget);
+                              }}
+                              onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                              rows={1}
+                              data-plan-cell="true"
+                              className={cellClassName}
+                            />
+                          </Td>
+                          <Td>
+                            <textarea
+                              value={row.destinationCellText}
+                              onChange={(event) => {
+                                if (externalTransferIndex !== null) {
+                                  updateExternalTransferCell(
+                                    externalTransferIndex,
+                                    'destinationCellText',
+                                    event.target.value,
+                                  );
+                                } else if (planRowIndex !== null) {
+                                  updateCell(planRowIndex, 'destinationCellText', event.target.value);
+                                } else {
+                                  return;
+                                }
+                                autoResizeTextarea(event.currentTarget);
+                              }}
+                              onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                              rows={1}
+                              data-plan-cell="true"
+                              className={cellClassName}
+                            />
+                          </Td>
+                          <Td>
+                            <div className="space-y-1">
+                              <textarea
+                                value={row.timeCellText}
+                                onChange={(event) => {
+                                  if (externalTransferIndex !== null) {
+                                    updateExternalTransferCell(
+                                      externalTransferIndex,
+                                      'timeCellText',
+                                      event.target.value,
+                                    );
+                                  } else if (planRowIndex !== null) {
+                                    updateCell(planRowIndex, 'timeCellText', event.target.value);
+                                  } else {
+                                    return;
+                                  }
+                                  autoResizeTextarea(event.currentTarget);
+                                }}
+                                onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                                rows={1}
+                                data-plan-cell="true"
+                                className={timeCellClassName}
+                              />
+                              {isTimeCellAffected && timeCellValidation ? (
+                                <p className="px-1 text-xs leading-4 text-rose-700">
+                                  시간 확인 필요: {timeCellValidation.message}
+                                </p>
+                              ) : null}
+                            </div>
+                          </Td>
+                          <Td>
+                            <textarea
+                              value={row.scheduleCellText}
+                              onChange={(event) => {
+                                if (externalTransferIndex !== null) {
+                                  updateExternalTransferCell(
+                                    externalTransferIndex,
+                                    'scheduleCellText',
+                                    event.target.value,
+                                  );
+                                } else if (planRowIndex !== null) {
+                                  updateCell(planRowIndex, 'scheduleCellText', event.target.value);
+                                } else {
+                                  return;
+                                }
+                                autoResizeTextarea(event.currentTarget);
+                              }}
+                              onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                              rows={1}
+                              data-plan-cell="true"
+                              className={cellClassName}
+                            />
+                          </Td>
+                          <Td>
+                            {isExternalRow ? (
+                              <textarea
+                                value={row.lodgingCellText}
+                                onChange={(event) => {
+                                  if (externalTransferIndex === null) {
+                                    return;
+                                  }
+                                  updateExternalTransferCell(
+                                    externalTransferIndex,
+                                    'lodgingCellText',
+                                    event.target.value,
+                                  );
+                                  autoResizeTextarea(event.currentTarget);
+                                }}
+                                onInput={(event) => autoResizeTextarea(event.currentTarget)}
+                                rows={1}
+                                data-plan-cell="true"
+                                className={cellClassName}
+                              />
+                            ) : isLodgingSettingDisabled ? (
+                              <div
+                                className="min-h-[44px] w-full rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm leading-5 text-slate-400"
+                                title="마지막 일차는 숙박하지 않습니다"
+                              >
+                                {row.lodgingCellText?.trim() || '숙박 없음'}
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (planRowIndex === null) {
+                                    return;
+                                  }
+                                  openLodgingUpgradeModal(planRowIndex);
+                                }}
+                                className="min-h-[44px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm leading-5 whitespace-pre-wrap text-slate-900 transition hover:border-slate-400 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/20"
+                                aria-label={`${row.destinationCellText.trim() || '해당 일차'} 숙소 설정`}
+                              >
+                                {row.lodgingCellText || '-'}
+                              </button>
+                            )}
+                          </Td>
+                          <Td>
+                            {isExternalRow ? (
+                              <div className="space-y-2">
+                                <div className={mealCellWrapperClassName}>
+                                  {(
+                                    [
+                                      ['breakfast', '아침', mealFields.breakfast],
+                                      ['lunch', '점심', mealFields.lunch],
+                                      ['dinner', '저녁', mealFields.dinner],
+                                    ] as const
+                                  ).map(([field, label, mealValue]) => (
+                                    <div
+                                      key={field}
+                                      className="grid grid-cols-[40px_minmax(0,1fr)_32px] items-center gap-2 text-sm"
+                                    >
+                                      <span className={mealLabelClassName}>{label}</span>
+                                      <input
+                                        type="text"
+                                        value={mealValue}
+                                        onChange={(event) => {
+                                          if (externalTransferIndex === null) {
+                                            return;
+                                          }
+                                          updateExternalTransferMealCellField(
+                                            externalTransferIndex,
+                                            row.mealCellText,
+                                            field,
+                                            event.target.value,
+                                          );
+                                        }}
+                                        className={mealInputClassName}
+                                        placeholder={`${label} 식사 입력`}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (externalTransferIndex === null) {
+                                            return;
+                                          }
+                                          updateExternalTransferMealCellField(
+                                            externalTransferIndex,
+                                            row.mealCellText,
+                                            field,
+                                            'X',
+                                          );
+                                        }}
+                                        className={mealXButtonClassName}
+                                        aria-label={`${label} 식사를 없음으로 표시`}
+                                      >
+                                        X
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                                <button
+                                  type="button"
+                                  disabled={!hasExternalOverrides || externalTransferIndex === null}
+                                  onClick={() => {
+                                    if (externalTransferIndex !== null) {
+                                      resetExternalTransferCells(externalTransferIndex);
+                                    }
+                                  }}
+                                  className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  자동 문구로 초기화
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="space-y-1">
+                                <div className={mealCellWrapperClassName}>
+                                  {(
+                                    [
+                                      ['breakfast', '아침', mealFields.breakfast],
+                                      ['lunch', '점심', mealFields.lunch],
+                                      ['dinner', '저녁', mealFields.dinner],
+                                    ] as const
+                                  ).map(([field, label, mealValue]) => (
+                                    <div
+                                      key={field}
+                                      className="grid grid-cols-[40px_minmax(0,1fr)_32px] items-center gap-2 text-sm"
+                                    >
+                                      <span className={mealLabelClassName}>{label}</span>
+                                      <input
+                                        type="text"
+                                        value={mealValue}
+                                        onChange={(event) => {
+                                          if (planRowIndex === null) {
+                                            return;
+                                          }
+                                          updateMealCellField(
+                                            planRowIndex,
+                                            field,
+                                            event.target.value,
+                                          );
+                                        }}
+                                        className={mealInputClassName}
+                                        placeholder={`${label} 식사 입력`}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (planRowIndex === null) {
+                                            return;
+                                          }
+                                          updateMealCellField(planRowIndex, field, 'X');
+                                        }}
+                                        className={mealXButtonClassName}
+                                        aria-label={`${label} 식사를 없음으로 표시`}
+                                      >
+                                        X
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                                {isMealCellAffected && mealCellValidation ? (
+                                  <p className="px-1 text-xs leading-4 text-amber-900">
+                                    식사 확인 필요: {mealCellValidation.message}
+                                  </p>
+                                ) : null}
+                              </div>
+                            )}
+                          </Td>
+                        </tr>
+                      );
+                    },
+                    )}
+                  </tbody>
+                </Table>
+              </div>
+            </section>
+
+            <div className="space-y-5">
               <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
                 <h2 className="text-lg font-bold text-slate-900">안내 이미지</h2>
                 <p className="mt-2 text-xs text-slate-500">
@@ -9313,7 +9315,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                   </>
                 ) : null}
               </Card>
-            </section>
+            </div>
               </div>
             </div>
           </div>

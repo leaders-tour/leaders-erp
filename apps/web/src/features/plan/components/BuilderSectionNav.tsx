@@ -11,8 +11,8 @@ export const BUILDER_SECTION_NAV_ITEMS: BuilderSectionNavItem[] = [
   { id: 'transport', label: '항공 및 이동', number: 2 },
   { id: 'route', label: '일정 선택', number: 3 },
   { id: 'extras', label: '추가 설정', number: 4 },
-  { id: 'schedule', label: '일정표 편집기', number: 5 },
-  { id: 'pricing', label: '금액', number: 6 },
+  { id: 'pricing', label: '금액', number: 5 },
+  { id: 'schedule', label: '일정표 편집기', number: 6 },
 ];
 
 export function useBuilderSectionSpy(
