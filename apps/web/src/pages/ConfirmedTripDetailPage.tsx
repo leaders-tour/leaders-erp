@@ -1235,39 +1235,39 @@ export function ConfirmedTripDetailPage(): JSX.Element {
         </div>
       </header>
 
-      <div className="grid gap-4 md:gap-6">
-        <ConfirmedTripSectionCard
-          title="메모"
-          description="비고는 견적서에 노출되며, 댓글은 손님에게 노출되지 않습니다."
-        >
-          <div className="grid gap-4">
-            <div>
-              <span className="block text-xs text-slate-500">비고 (견적서 노출)</span>
-              <p className="mt-1 whitespace-pre-wrap text-sm font-medium text-slate-800">
-                {meta?.remark?.trim() ? meta.remark : '-'}
-              </p>
-            </div>
-            <ConfirmedTripNotesCard tripId={trip.id} />
-          </div>
-        </ConfirmedTripSectionCard>
-
-        <div
-          className={
-            showRightPanel
-              ? 'grid grid-cols-1 items-start gap-4 lg:grid-cols-2 lg:gap-6'
-              : 'grid gap-4 md:gap-6'
-          }
-        >
+      <div
+        className={
+          showRightPanel
+            ? 'grid grid-cols-1 items-start gap-4 lg:grid-cols-2 lg:gap-6'
+            : 'grid gap-4 md:gap-6'
+        }
+      >
         {showRightPanel ? (
-          <div className="order-1 flex min-w-0 max-w-full flex-col gap-3 self-start overflow-hidden lg:order-2 lg:sticky lg:top-6 lg:max-h-[calc(100vh-2rem)]">
+          <div className="order-2 flex min-w-0 max-w-full flex-col gap-3 self-start overflow-hidden lg:order-none lg:col-start-2 lg:row-start-1 lg:sticky lg:top-6 lg:max-h-[calc(100vh-2rem)]">
             {showPreviewRemote ? (
               <TripDocumentPreviewRemote onJump={jumpToPreviewSection} />
             ) : null}
 
             <div ref={previewScrollRef} className="min-h-0 lg:flex-1 lg:overflow-y-auto">
               <div className="grid min-w-0 max-w-full gap-5 pr-0 md:gap-8 lg:pr-1">
+                {isPlanTrip ? (
+                  <section ref={estimatePreviewRef} className="order-2 lg:order-1">
+                    <div className="mb-2 flex items-center justify-between gap-2 md:mb-3">
+                      <h2 className="text-xs font-semibold text-slate-700 md:text-sm">견적서 미리보기</h2>
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 md:text-xs"
+                        onClick={() => setEstimateFullscreenOpen(true)}
+                      >
+                        전체보기
+                      </button>
+                    </div>
+                    <PlanEstimatePreviewPanel planVersionId={trip.planVersionId!} />
+                  </section>
+                ) : null}
+
                 {publishedConfirmation ? (
-                  <section ref={confirmationPreviewRef}>
+                  <section ref={confirmationPreviewRef} className="order-1 lg:order-2">
                     <div className="mb-2 flex items-center justify-between gap-2 md:mb-3">
                       <h2 className="text-xs font-semibold text-slate-700 md:text-sm">확정서 미리보기</h2>
                       <button
@@ -1286,24 +1286,8 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                   </section>
                 ) : null}
 
-                {isPlanTrip ? (
-                  <section ref={estimatePreviewRef}>
-                    <div className="mb-2 flex items-center justify-between gap-2 md:mb-3">
-                      <h2 className="text-xs font-semibold text-slate-700 md:text-sm">견적서 미리보기</h2>
-                      <button
-                        type="button"
-                        className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 md:text-xs"
-                        onClick={() => setEstimateFullscreenOpen(true)}
-                      >
-                        전체보기
-                      </button>
-                    </div>
-                    <PlanEstimatePreviewPanel planVersionId={trip.planVersionId!} />
-                  </section>
-                ) : null}
-
                 {!isPlanTrip && hasPdf ? (
-                  <section>
+                  <section className="order-3">
                     <h2 className="mb-2 text-xs font-semibold text-slate-700 md:mb-3 md:text-sm">
                       PDF 미리보기
                     </h2>
@@ -1320,35 +1304,61 @@ export function ConfirmedTripDetailPage(): JSX.Element {
         ) : null}
 
         <div
-          className={`grid min-w-0 max-w-full gap-4 overflow-hidden md:gap-6 ${
-            showRightPanel ? 'order-2 lg:order-1' : ''
-          }`}
+          className={
+            showRightPanel
+              ? 'contents lg:col-start-1 lg:flex lg:flex-col lg:gap-6'
+              : 'grid min-w-0 max-w-full gap-4 overflow-hidden md:gap-6'
+          }
         >
-          <ConfirmedTripTravelerInfoSection
-            documentNumber={contractDocumentNumber}
-            headcountTotal={meta?.headcountTotal ?? getTripHeadcount(trip)}
-            isRecruitingOpen={trip.isRecruitingOpen}
-            recruitmentDisabled={trip.status !== 'ACTIVE'}
-            recruitmentSaving={recruitmentSaving}
-            onRecruitmentToggle={async (nextOpen) => {
-              setRecruitmentSaving(true);
-              try {
-                await updateConfirmedTrip(trip.id, { isRecruitingOpen: nextOpen });
-              } catch (error) {
-                window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
-              } finally {
-                setRecruitmentSaving(false);
-              }
-            }}
-            submissions={contractSubmissions}
-            receipts={contractReceipts}
-            submissionsLoading={contractSubmissionsLoading}
-            receiptsLoading={contractReceiptsLoading}
-            onSubmissionsUpdated={async () => {
-              await refetchContractSubmissions();
-            }}
-          />
+          <div className={showRightPanel ? 'order-3 min-w-0 lg:order-none' : 'min-w-0'}>
+            <ConfirmedTripTravelerInfoSection
+              documentNumber={contractDocumentNumber}
+              headcountTotal={meta?.headcountTotal ?? getTripHeadcount(trip)}
+              isRecruitingOpen={trip.isRecruitingOpen}
+              recruitmentDisabled={trip.status !== 'ACTIVE'}
+              recruitmentSaving={recruitmentSaving}
+              onRecruitmentToggle={async (nextOpen) => {
+                setRecruitmentSaving(true);
+                try {
+                  await updateConfirmedTrip(trip.id, { isRecruitingOpen: nextOpen });
+                } catch (error) {
+                  window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
+                } finally {
+                  setRecruitmentSaving(false);
+                }
+              }}
+              submissions={contractSubmissions}
+              receipts={contractReceipts}
+              submissionsLoading={contractSubmissionsLoading}
+              receiptsLoading={contractReceiptsLoading}
+              onSubmissionsUpdated={async () => {
+                await refetchContractSubmissions();
+              }}
+            />
+          </div>
 
+          <div className={showRightPanel ? 'order-1 min-w-0 lg:order-none' : 'min-w-0'}>
+            <ConfirmedTripSectionCard
+              title="메모"
+              description="비고는 견적서에 노출되며, 댓글은 손님에게 노출되지 않습니다."
+            >
+              <div className="grid gap-4">
+                <div>
+                  <span className="block text-xs text-slate-500">비고 (견적서 노출)</span>
+                  <p className="mt-1 whitespace-pre-wrap text-sm font-medium text-slate-800">
+                    {meta?.remark?.trim() ? meta.remark : '-'}
+                  </p>
+                </div>
+                <ConfirmedTripNotesCard tripId={trip.id} />
+              </div>
+            </ConfirmedTripSectionCard>
+          </div>
+
+          <div
+            className={`grid min-w-0 max-w-full gap-4 overflow-hidden md:gap-6 ${
+              showRightPanel ? 'order-4 lg:order-none' : ''
+            }`}
+          >
           <ConfirmedTripSectionCard title="확정절차 3단계">
             <div className="grid gap-4 text-sm text-slate-700">
               <div>
@@ -2118,10 +2128,10 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           {(trip.user.attachments ?? []).length > 0 ? (
             <AttachmentsCard attachments={trip.user.attachments ?? []} />
           ) : null}
-        </div>
+          </div>
         </div>
       </div>
-      {/* end content stack */}
+      {/* end detail layout */}
 
       {publishedConfirmation ? (
         <ConfirmationFullscreenPreview
