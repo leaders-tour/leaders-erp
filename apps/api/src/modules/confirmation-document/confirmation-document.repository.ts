@@ -74,7 +74,7 @@ export class ConfirmationDocumentRepository {
         },
       },
       include: confirmationDocumentInclude,
-      orderBy: [{ updatedAt: 'desc' }],
+      orderBy: [{ versionNumber: 'desc' }, { updatedAt: 'desc' }],
     });
   }
 
