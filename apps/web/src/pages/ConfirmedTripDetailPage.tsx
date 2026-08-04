@@ -2,7 +2,9 @@ import { Button, Card } from '@tour/ui';
 import { formatVehicleAssignmentsForDisplay, normalizeVehicleAssignments } from '@tour/validation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ConfirmationFullscreenPreview } from '../features/confirmation/components/ConfirmationFullscreenPreview';
 import { ConfirmationPdfPreviewPanel } from '../features/confirmation/components/ConfirmationPdfPreviewPanel';
+import { EstimateFullscreenPreview } from '../features/estimate/components/EstimateFullscreenPreview';
 import { useConfirmationDocuments, useSaveConfirmationDocumentMemo } from '../features/confirmation/hooks/use-confirmation-document';
 import { ConfirmationDocumentMemoCell } from '../features/confirmation/components/ConfirmationDocumentMemoCell';
 import type { ConfirmationDocumentRow } from '../features/confirmation/model/types';
@@ -585,6 +587,8 @@ export function ConfirmedTripDetailPage(): JSX.Element {
   } = useConfirmationDocuments(tripId);
   const { saveMemo, loading: memoSaving } = useSaveConfirmationDocumentMemo({ confirmedTripId: tripId });
   const [savingMemoDocumentId, setSavingMemoDocumentId] = useState<string | null>(null);
+  const [confirmationFullscreenOpen, setConfirmationFullscreenOpen] = useState(false);
+  const [estimateFullscreenOpen, setEstimateFullscreenOpen] = useState(false);
   const { versions: planVersions, loading: planVersionsLoading } = usePlanVersions(trip?.planId ?? undefined);
   const sortedPlanVersions = useMemo(
     () => [...planVersions].sort((a, b) => b.versionNumber - a.versionNumber),
@@ -1264,9 +1268,16 @@ export function ConfirmedTripDetailPage(): JSX.Element {
               <div className="grid min-w-0 max-w-full gap-5 pr-0 md:gap-8 lg:pr-1">
                 {publishedConfirmation ? (
                   <section ref={confirmationPreviewRef}>
-                    <h2 className="mb-2 text-xs font-semibold text-slate-700 md:mb-3 md:text-sm">
-                      확정서 미리보기
-                    </h2>
+                    <div className="mb-2 flex items-center justify-between gap-2 md:mb-3">
+                      <h2 className="text-xs font-semibold text-slate-700 md:text-sm">확정서 미리보기</h2>
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 md:text-xs"
+                        onClick={() => setConfirmationFullscreenOpen(true)}
+                      >
+                        전체보기
+                      </button>
+                    </div>
                     <ConfirmationPdfPreviewPanel
                       confirmationDocumentId={publishedConfirmation.id}
                       snapshot={publishedConfirmation.snapshot}
@@ -1277,9 +1288,16 @@ export function ConfirmedTripDetailPage(): JSX.Element {
 
                 {isPlanTrip ? (
                   <section ref={estimatePreviewRef}>
-                    <h2 className="mb-2 text-xs font-semibold text-slate-700 md:mb-3 md:text-sm">
-                      견적서 미리보기
-                    </h2>
+                    <div className="mb-2 flex items-center justify-between gap-2 md:mb-3">
+                      <h2 className="text-xs font-semibold text-slate-700 md:text-sm">견적서 미리보기</h2>
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 md:text-xs"
+                        onClick={() => setEstimateFullscreenOpen(true)}
+                      >
+                        전체보기
+                      </button>
+                    </div>
                     <PlanEstimatePreviewPanel planVersionId={trip.planVersionId!} />
                   </section>
                 ) : null}
@@ -2104,6 +2122,24 @@ export function ConfirmedTripDetailPage(): JSX.Element {
         </div>
       </div>
       {/* end content stack */}
+
+      {publishedConfirmation ? (
+        <ConfirmationFullscreenPreview
+          open={confirmationFullscreenOpen}
+          onClose={() => setConfirmationFullscreenOpen(false)}
+          confirmationDocumentId={publishedConfirmation.id}
+          snapshot={publishedConfirmation.snapshot}
+          planVersionId={trip.planVersionId}
+        />
+      ) : null}
+
+      {isPlanTrip && trip.planVersionId ? (
+        <EstimateFullscreenPreview
+          open={estimateFullscreenOpen}
+          onClose={() => setEstimateFullscreenOpen(false)}
+          planVersionId={trip.planVersionId}
+        />
+      ) : null}
 
       {planTripEditChoiceOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">

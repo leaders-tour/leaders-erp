@@ -6,11 +6,15 @@ import { snapshotToDocumentData } from '../utils/format';
 export function ConfirmationPdfPreviewPanel({
   snapshot,
   planVersionId,
+  previewBaseWidth,
+  previewAllowUpscale,
 }: {
   confirmationDocumentId: string;
   snapshot: ConfirmationDocumentSnapshot;
   planVersionId?: string | null;
   isDraft?: boolean;
+  previewBaseWidth?: number;
+  previewAllowUpscale?: boolean;
 }) {
   const { appendixData, loading: appendixLoading } = useConfirmationAppendixData({
     planVersionId: planVersionId ?? snapshot.sourcePlanVersionId,
@@ -34,6 +38,8 @@ export function ConfirmationPdfPreviewPanel({
         appendixData={appendixData}
         appendixIncludeImagePages={false}
         viewMode="screen-preview"
+        previewBaseWidth={previewBaseWidth}
+        previewAllowUpscale={previewAllowUpscale}
       />
     </div>
   );
