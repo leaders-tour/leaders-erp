@@ -14,27 +14,37 @@ import {
 import { isExternalTransferPlanStopRow } from '../../plan/plan-stop-row';
 import { isLodgingSettingDay } from '../../plan/lodging-night';
 import { parseScheduleDateCellDisplay, planStopsUseScheduleDateCellCalendarLayout } from '../utils/schedule-date-cell-text';
+import {
+  mergeEstimateDiffClassName,
+  page2DiffKind,
+  type EstimateDiffHints,
+  type EstimateDiffSide,
+} from '../../estimate-diff';
 
 interface EstimatePage2Props {
   data: EstimateDocumentData;
   movementIntensityColors?: readonly MovementIntensityColorSetting[] | null;
   editor?: EstimatePage2Editor;
+  /** 옵셔널 셀 diff 하이라이트. 없으면 기존과 동일 렌더 */
+  diffHints?: EstimateDiffHints | null;
+  diffSide?: EstimateDiffSide;
 }
 
 interface PlanStopRowContext {
   row: EstimatePlanStopRow;
   mainRowIndex: number | null;
+  planStopIndex: number;
 }
 
 function buildPlanStopRowContexts(rows: EstimatePlanStopRow[]): PlanStopRowContext[] {
   let mainRowIndex = 0;
-  return rows.map((row) => {
+  return rows.map((row, planStopIndex) => {
     if (isExternalTransferPlanStopRow(row)) {
-      return { row, mainRowIndex: null };
+      return { row, mainRowIndex: null, planStopIndex };
     }
     const currentMainRowIndex = mainRowIndex;
     mainRowIndex += 1;
-    return { row, mainRowIndex: currentMainRowIndex };
+    return { row, mainRowIndex: currentMainRowIndex, planStopIndex };
   });
 }
 
@@ -436,7 +446,13 @@ function EditableItineraryLodgingCell({
   );
 }
 
-export function EstimatePage2({ data, movementIntensityColors, editor }: EstimatePage2Props): JSX.Element {
+export function EstimatePage2({
+  data,
+  movementIntensityColors,
+  editor,
+  diffHints = null,
+  diffSide = 'next',
+}: EstimatePage2Props): JSX.Element {
   const [activeEditor, setActiveEditor] = useState<Page2ActiveEditorState>(null);
   const [colorModalState, setColorModalState] = useState<
     | {
@@ -617,7 +633,7 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
                 <div className="estimate-itinerary-table-header-cell" role="columnheader">
                   식사
                 </div>
-                {chunk.map(({ row, mainRowIndex }, index) => {
+                {chunk.map(({ row, mainRowIndex, planStopIndex }, index) => {
                   const rowMovementIntensity = isExternalTransferPlanStopRow(row)
                     ? null
                     : resolveMovementIntensityForEstimateStop(
@@ -646,16 +662,40 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
                   } as CSSProperties;
                   const paddedTimeLines = padDisplayLines(timeLines, pairedLineCount);
                   const paddedScheduleLines = padDisplayLines(scheduleLines, pairedLineCount);
+                  const dateDiffClass = mergeEstimateDiffClassName(
+                    'estimate-itinerary-table-cell estimate-itinerary-table-date-col',
+                    page2DiffKind(diffHints, diffSide, planStopIndex, 'date'),
+                  );
+                  const destinationDiffClass = mergeEstimateDiffClassName(
+                    'estimate-itinerary-table-cell',
+                    page2DiffKind(diffHints, diffSide, planStopIndex, 'destination'),
+                  );
+                  const timeDiffClass = mergeEstimateDiffClassName(
+                    'estimate-itinerary-table-cell',
+                    page2DiffKind(diffHints, diffSide, planStopIndex, 'time'),
+                  );
+                  const scheduleDiffClass = mergeEstimateDiffClassName(
+                    'estimate-itinerary-table-cell',
+                    page2DiffKind(diffHints, diffSide, planStopIndex, 'schedule'),
+                  );
+                  const lodgingDiffClass = mergeEstimateDiffClassName(
+                    'estimate-itinerary-table-cell',
+                    page2DiffKind(diffHints, diffSide, planStopIndex, 'lodging'),
+                  );
+                  const mealDiffClass = mergeEstimateDiffClassName(
+                    'estimate-itinerary-table-cell',
+                    page2DiffKind(diffHints, diffSide, planStopIndex, 'meal'),
+                  );
 
                   return (
                     <div className="estimate-itinerary-table-row" role="row" key={`itinerary-row-${pageIndex + 1}-${index + 1}`}>
-                      <div className="estimate-itinerary-table-cell estimate-itinerary-table-date-col" role="cell">
+                      <div className={dateDiffClass} role="cell">
                         <ScheduleDateCell
                           value={fallback(row.dateCellText)}
                           forceHorizontalSingle={isExternalTransferPlanStopRow(row)}
                         />
                       </div>
-                      <div className="estimate-itinerary-table-cell" role="cell">
+                      <div className={destinationDiffClass} role="cell">
                         <div className="estimate-itinerary-cell">
                           {!isExternalTransferPlanStopRow(row) ? (
                             isChipEditable ? (
@@ -694,7 +734,7 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
                           <span className="estimate-itinerary-cell-text">{fallback(row.destinationCellText)}</span>
                         </div>
                       </div>
-                      <div className="estimate-itinerary-table-cell" role="cell">
+                      <div className={timeDiffClass} role="cell">
                         {mainRowIndex != null && editor != null ? (
                           <EditableItineraryTextCell
                             field="time"
@@ -718,7 +758,7 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
                           </div>
                         )}
                       </div>
-                      <div className="estimate-itinerary-table-cell" role="cell">
+                      <div className={scheduleDiffClass} role="cell">
                         {mainRowIndex != null && editor != null ? (
                           <EditableItineraryTextCell
                             field="schedule"
@@ -742,7 +782,7 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
                           </div>
                         )}
                       </div>
-                      <div className="estimate-itinerary-table-cell" role="cell">
+                      <div className={lodgingDiffClass} role="cell">
                         {mainRowIndex != null && editor != null ? (
                           <EditableItineraryLodgingCell
                             lodgingCellText={row.lodgingCellText}
@@ -754,7 +794,7 @@ export function EstimatePage2({ data, movementIntensityColors, editor }: Estimat
                           <div className="estimate-itinerary-cell">{fallback(row.lodgingCellText)}</div>
                         )}
                       </div>
-                      <div className="estimate-itinerary-table-cell" role="cell">
+                      <div className={mealDiffClass} role="cell">
                         {mainRowIndex != null && editor != null ? (
                           <EditableItineraryMealCell
                             pageIndex={pageIndex}

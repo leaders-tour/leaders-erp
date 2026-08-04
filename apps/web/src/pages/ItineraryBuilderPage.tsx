@@ -34,6 +34,7 @@ import { EstimateGuideLayoutControls } from '../features/estimate/components/Est
 import { EstimateValidUntilControls } from '../features/estimate/components/EstimateValidUntilControls';
 import { useBuilderEstimatePreview } from '../features/estimate/hooks/use-builder-estimate-preview';
 import { usePreviousVersionEstimatePreview } from '../features/estimate/hooks/use-previous-version-estimate-preview';
+import { useEstimateDiffHighlights } from '../features/estimate-diff';
 import {
   averageMovementIntensity,
   isMovementIntensityPaletteColor,
@@ -5624,6 +5625,15 @@ export function ItineraryBuilderPage(): JSX.Element {
   );
   const { data: previewEstimateData, guidesLoading: previewGuidesLoading } =
     useBuilderEstimatePreview(estimateDraftSnapshot);
+  const {
+    highlightEnabled: isEstimateDiffHighlightEnabled,
+    setHighlightEnabled: setIsEstimateDiffHighlightEnabled,
+    hints: estimateDiffHints,
+  } = useEstimateDiffHighlights({
+    active: showPreviousVersionPreview,
+    previous: previousEstimateData,
+    next: previewEstimateData,
+  });
   const previousVersionBadge = parentVersion
     ? `v${parentVersion.versionNumber} · 저장본`
     : previousGuidesLoading
@@ -6114,13 +6124,24 @@ export function ItineraryBuilderPage(): JSX.Element {
             <div className="flex-1 text-sm font-medium text-slate-700">빌더 전용 보기</div>
           )}
           {isVersionCompareMode ? (
-            <Button
-              variant="outline"
-              className="shrink-0"
-              onClick={() => setIsPreviousVersionPreviewEnabled((prev) => !prev)}
-            >
-              {isPreviousVersionPreviewEnabled ? '이전버전 끄기' : '이전버전 켜기'}
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                className="shrink-0"
+                onClick={() => setIsPreviousVersionPreviewEnabled((prev) => !prev)}
+              >
+                {isPreviousVersionPreviewEnabled ? '이전버전 끄기' : '이전버전 켜기'}
+              </Button>
+              {isPreviousVersionPreviewEnabled ? (
+                <Button
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={() => setIsEstimateDiffHighlightEnabled((prev) => !prev)}
+                >
+                  {isEstimateDiffHighlightEnabled ? '변경 강조 끄기' : '변경 강조 켜기'}
+                </Button>
+              ) : null}
+            </>
           ) : (
             <Button
               variant="outline"
@@ -6181,12 +6202,22 @@ export function ItineraryBuilderPage(): JSX.Element {
                     {isPreviewEnabled ? '미리보기 끄기' : '미리보기 켜기'}
                   </Button>
                 ) : (
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsPreviousVersionPreviewEnabled((prev) => !prev)}
-                  >
-                    {isPreviousVersionPreviewEnabled ? '이전버전 미리보기 끄기' : '이전버전 미리보기 켜기'}
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsPreviousVersionPreviewEnabled((prev) => !prev)}
+                    >
+                      {isPreviousVersionPreviewEnabled ? '이전버전 미리보기 끄기' : '이전버전 미리보기 켜기'}
+                    </Button>
+                    {isPreviousVersionPreviewEnabled ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsEstimateDiffHighlightEnabled((prev) => !prev)}
+                      >
+                        {isEstimateDiffHighlightEnabled ? '변경 강조 끄기' : '변경 강조 켜기'}
+                      </Button>
+                    ) : null}
+                  </>
                 )}
                 <Button
                   variant="outline"
@@ -9304,6 +9335,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                     data={previousEstimateData}
                     loading={parentVersionLoading || previousGuidesLoading}
                     loadingMessage="이전버전 견적서를 불러오는 중..."
+                    diffHints={estimateDiffHints}
+                    diffSide="previous"
                   />
                 </div>
               </aside>
@@ -9327,6 +9360,8 @@ export function ItineraryBuilderPage(): JSX.Element {
                     onChange: setValidUntilDate,
                   }}
                   screenPreviewGuideOverlay={previewGuideOverlay}
+                  diffHints={estimateDiffHints}
+                  diffSide="next"
                 />
               </div>
             </aside>

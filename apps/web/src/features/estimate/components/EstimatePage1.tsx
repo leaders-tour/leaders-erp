@@ -32,6 +32,7 @@ import {
   formatTravelPeriod,
 } from '../utils/format';
 import { APP_SETTINGS_DEFAULT, VEHICLE_DISPLAY_NOTE_PURGONG_PHOTO } from '@tour/validation';
+import { mergeEstimateDiffClassName, page1DiffKind, type EstimateDiffHints } from '../../estimate-diff';
 
 const DEFAULT_FLIGHT_IN_TIME_OPTIONS = APP_SETTINGS_DEFAULT.flightTimeSettings.inTimeShortcuts;
 const DEFAULT_FLIGHT_OUT_TIME_OPTIONS = APP_SETTINGS_DEFAULT.flightTimeSettings.outTimeShortcuts;
@@ -45,6 +46,8 @@ interface EstimatePage1Props {
     onChange: (value: string) => void | Promise<void>;
   };
   onLayoutReady?: () => void;
+  /** 옵셔널 셀 diff 하이라이트. 없으면 기존과 동일 렌더 */
+  diffHints?: EstimateDiffHints | null;
 }
 
 function fallback(value: string | null | undefined): string {
@@ -514,7 +517,13 @@ function EstimatePage1LogoMark(): JSX.Element {
   );
 }
 
-export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }: EstimatePage1Props): JSX.Element {
+export function EstimatePage1({
+  data,
+  editor,
+  validUntilEditor,
+  onLayoutReady,
+  diffHints = null,
+}: EstimatePage1Props): JSX.Element {
   const [validUntilPickerAnchor, setValidUntilPickerAnchor] = useState<HTMLElement | null>(null);
   const displayedValidUntilDate = validUntilEditor?.value ?? data.validUntilDate;
   const adjustmentLines = data.adjustmentLines;
@@ -648,19 +657,26 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
           <tbody className="estimate-page1-tbody--basic">
             <tr className="estimate-page1-tr--even-height">
               <th>대표자명</th>
-              <td>{blankIfDash(fallback(data.leaderName))}</td>
+              <td className={mergeEstimateDiffClassName(undefined, page1DiffKind(diffHints, 'leaderName'))}>
+                {blankIfDash(fallback(data.leaderName))}
+              </td>
               <th>문서번호</th>
-              <td>{documentNumberText}</td>
+              <td className={mergeEstimateDiffClassName(undefined, page1DiffKind(diffHints, 'documentNumber'))}>
+                {documentNumberText}
+              </td>
             </tr>
             <tr className="estimate-page1-tr--even-height">
               <th>여행지</th>
-              <td>{blankIfDash(fallback(data.destinationName))}</td>
+              <td className={mergeEstimateDiffClassName(undefined, page1DiffKind(diffHints, 'destinationName'))}>
+                {blankIfDash(fallback(data.destinationName))}
+              </td>
               <th>인원</th>
               <EditableCell
                 field="headcount"
                 activeField={activeField}
                 editor={editor}
                 displayValue={headcountDisplay}
+                className={mergeEstimateDiffClassName(undefined, page1DiffKind(diffHints, 'headcount'))}
                 input={
                   <div className="estimate-editable-grid">
                     <label className="estimate-editable-meta">
@@ -719,7 +735,7 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                     />
                   </div>
                 }
-                className="estimate-page1-preline-cell"
+                className={mergeEstimateDiffClassName('estimate-page1-preline-cell', page1DiffKind(diffHints, 'travelPeriod'))}
                 multiline
                 onActivate={setActiveField}
                 onDeactivate={() => setActiveField(null)}
@@ -735,6 +751,7 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                     vehicleDisplayNote={data.vehicleDisplayNote}
                   />
                 }
+                className={mergeEstimateDiffClassName(undefined, page1DiffKind(diffHints, 'vehicleType'))}
                 input={
                   editor?.onVehicleAssignmentsChange && editor.vehicleAssignments ? (
                     <div className="grid gap-2">
@@ -797,7 +814,7 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                     onRemove={(index) => editor?.onRemoveTransportGroup(index)}
                   />
                 }
-                className="estimate-page1-preline-cell"
+                className={mergeEstimateDiffClassName('estimate-page1-preline-cell', page1DiffKind(diffHints, 'flightIn'))}
                 onActivate={setActiveField}
                 onDeactivate={() => setActiveField(null)}
               />
@@ -820,7 +837,7 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                     onRemove={(index) => editor?.onRemoveTransportGroup(index)}
                   />
                 }
-                className="estimate-page1-preline-cell"
+                className={mergeEstimateDiffClassName('estimate-page1-preline-cell', page1DiffKind(diffHints, 'flightOut'))}
                 onActivate={setActiveField}
                 onDeactivate={() => setActiveField(null)}
               />
@@ -845,7 +862,7 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                     onRemove={(index) => editor?.onRemoveTransportGroup(index)}
                   />
                 }
-                className="estimate-page1-preline-cell"
+                className={mergeEstimateDiffClassName('estimate-page1-preline-cell', page1DiffKind(diffHints, 'pickup'))}
                 onActivate={setActiveField}
                 onDeactivate={() => setActiveField(null)}
               />
@@ -868,14 +885,19 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                     onRemove={(index) => editor?.onRemoveTransportGroup(index)}
                   />
                 }
-                className="estimate-page1-preline-cell"
+                className={mergeEstimateDiffClassName('estimate-page1-preline-cell', page1DiffKind(diffHints, 'drop'))}
                 onActivate={setActiveField}
                 onDeactivate={() => setActiveField(null)}
               />
             </tr>
             <tr>
               <th>실투어 외 픽드랍</th>
-              <td className="estimate-page1-preline-cell">
+              <td
+                className={mergeEstimateDiffClassName(
+                  'estimate-page1-preline-cell',
+                  page1DiffKind(diffHints, 'externalPickupDrop'),
+                )}
+              >
                 <ExternalTransferLineText value={fallback(data.externalPickupDropText)} />
               </td>
               <th>특이사항</th>
@@ -885,7 +907,10 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                 editor={editor}
                 displayValue={fallback(data.specialNoteText)}
                 multiline
-                className="estimate-page1-preline-cell"
+                className={mergeEstimateDiffClassName(
+                  'estimate-page1-preline-cell',
+                  page1DiffKind(diffHints, 'specialNote'),
+                )}
                 input={
                   <textarea
                     autoFocus
@@ -912,7 +937,10 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                 editor={editor}
                 displayValue={<CommaBreakText value={fallback(data.rentalItemsText)} />}
                 multiline
-                className="estimate-page1-preline-cell"
+                className={mergeEstimateDiffClassName(
+                  'estimate-page1-preline-cell',
+                  page1DiffKind(diffHints, 'rentalItems'),
+                )}
                 input={
                   <textarea
                     autoFocus
@@ -932,7 +960,10 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                 editor={editor}
                 displayValue={fallback(data.eventText)}
                 multiline
-                className="estimate-page1-preline-cell"
+                className={mergeEstimateDiffClassName(
+                  'estimate-page1-preline-cell',
+                  page1DiffKind(diffHints, 'events'),
+                )}
                 input={
                   <div className="estimate-editable-grid">
                     <div className="estimate-editable-chip-list">
@@ -965,7 +996,10 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                 editor={editor}
                 displayValue={fallback(data.remarkText)}
                 multiline
-                className="estimate-page1-preline-cell"
+                className={mergeEstimateDiffClassName(
+                  'estimate-page1-preline-cell',
+                  page1DiffKind(diffHints, 'remark'),
+                )}
                 colSpan={3}
                 input={
                   <textarea
@@ -996,7 +1030,12 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
           </thead>
           <tbody>
             <tr>
-              <td className="estimate-page1-price-cell estimate-page1-price-cell--base">
+              <td
+                className={mergeEstimateDiffClassName(
+                  'estimate-page1-price-cell estimate-page1-price-cell--base',
+                  page1DiffKind(diffHints, 'basePrice'),
+                )}
+              >
                 {baseTeamPricingsForDisplay.length > 0 ? (
                   <div className="estimate-page1-summary-team-list">
                     {baseTeamPricingsForDisplay.map((teamPricing) => (
@@ -1009,7 +1048,12 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                   blankIfDash(formatCurrency(data.basePricePerPersonKrw))
                 )}
               </td>
-              <td className="estimate-page1-price-cell estimate-page1-price-cell--details">
+              <td
+                className={mergeEstimateDiffClassName(
+                  'estimate-page1-price-cell estimate-page1-price-cell--details',
+                  page1DiffKind(diffHints, 'adjustments'),
+                )}
+              >
                 {adjustmentLines.length === 0 ? (
                   <div className="estimate-page1-price-placeholder" />
                 ) : (
@@ -1051,7 +1095,7 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
             </thead>
             <tbody>
               <tr>
-                <td className="emphasis">
+                <td className={mergeEstimateDiffClassName('emphasis', page1DiffKind(diffHints, 'totalPrice'))}>
                   {data.teamPricings.length > 0 ? (
                     <div className="estimate-page1-summary-team-list">
                       {summaryTeamPricingsForDisplay.map((teamPricing) => (
@@ -1064,7 +1108,7 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                     blankIfDash(formatCurrency(data.totalPricePerPersonKrw))
                   )}
                 </td>
-                <td className="emphasis">
+                <td className={mergeEstimateDiffClassName('emphasis', page1DiffKind(diffHints, 'depositPrice'))}>
                   {data.teamPricings.length > 0 ? (
                     <div className="estimate-page1-summary-team-list">
                       {summaryTeamPricingsForDisplay.map((teamPricing) => (
@@ -1077,7 +1121,7 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                     blankIfDash(formatCurrency(data.depositPricePerPersonKrw))
                   )}
                 </td>
-                <td className="emphasis">
+                <td className={mergeEstimateDiffClassName('emphasis', page1DiffKind(diffHints, 'balancePrice'))}>
                   {data.teamPricings.length > 0 ? (
                     <div className="estimate-page1-summary-team-list">
                       {summaryTeamPricingsForDisplay.map((teamPricing) => (
@@ -1090,7 +1134,7 @@ export function EstimatePage1({ data, editor, validUntilEditor, onLayoutReady }:
                     blankIfDash(formatCurrency(data.balancePricePerPersonKrw))
                   )}
                 </td>
-                <td className="emphasis">
+                <td className={mergeEstimateDiffClassName('emphasis', page1DiffKind(diffHints, 'securityDeposit'))}>
                   {data.teamPricings.length > 0 ? (
                     <div className="estimate-page1-summary-team-list">
                       {securityDepositTeamPricingsForDisplay.map((teamPricing) => (

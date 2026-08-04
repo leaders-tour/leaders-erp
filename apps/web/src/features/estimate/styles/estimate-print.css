@@ -1596,3 +1596,19 @@
     page-break-before: always;
   }
 }
+
+/* estimate-diff highlight layer — only applied when DiffHints classNames are present */
+.estimate-diff-cell--changed {
+  background-color: rgba(250, 204, 21, 0.35) !important;
+  box-shadow: inset 0 0 0 1px rgba(202, 138, 4, 0.45);
+}
+
+.estimate-diff-cell--added {
+  background-color: rgba(74, 222, 128, 0.28) !important;
+  box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.4);
+}
+
+.estimate-diff-cell--removed {
+  background-color: rgba(248, 113, 113, 0.28) !important;
+  box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.4);
+}

@@ -1,5 +1,6 @@
 import { Card } from '@tour/ui';
 import type { ReactNode } from 'react';
+import type { EstimateDiffHints, EstimateDiffSide } from '../../estimate-diff';
 import type { EstimateDocumentData, EstimatePage1Editor, EstimatePage2Editor } from '../model/types';
 import { EstimateDocument } from './EstimateDocument';
 import { EstimatePreviewScaler } from './EstimatePreviewScaler';
@@ -18,6 +19,8 @@ interface BuilderEstimatePreviewPanelProps {
     onChange: (value: string) => void;
   };
   screenPreviewGuideOverlay?: ReactNode;
+  diffHints?: EstimateDiffHints | null;
+  diffSide?: EstimateDiffSide;
 }
 
 export function BuilderEstimatePreviewPanel({
@@ -31,6 +34,8 @@ export function BuilderEstimatePreviewPanel({
   page2Editor,
   validUntilEditor,
   screenPreviewGuideOverlay,
+  diffHints = null,
+  diffSide = 'next',
 }: BuilderEstimatePreviewPanelProps): JSX.Element {
   return (
     <div className="estimate-preview-panel rounded-[28px] border border-slate-200 bg-white/90 p-4 shadow-xl backdrop-blur sm:p-5">
@@ -57,6 +62,8 @@ export function BuilderEstimatePreviewPanel({
               page2Editor={page2Editor}
               validUntilEditor={validUntilEditor}
               screenPreviewGuideOverlay={screenPreviewGuideOverlay}
+              diffHints={diffHints}
+              diffSide={diffSide}
             />
           </EstimatePreviewScaler>
         </div>

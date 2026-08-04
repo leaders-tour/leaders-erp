@@ -20,6 +20,7 @@ import { EstimateImagePage } from './EstimateImagePage';
 import { EstimatePage2 } from './EstimatePage2';
 import { EstimatePage3 } from './EstimatePage3';
 import { useMovementIntensityColorSettings } from '../../app-settings/hooks';
+import type { EstimateDiffHints, EstimateDiffSide } from '../../estimate-diff';
 
 interface EstimateDocumentProps {
   data: EstimateDocumentData;
@@ -40,6 +41,9 @@ interface EstimateDocumentProps {
   guideSplitRemainderStrategy?: GuideSplitRemainderStrategy;
   /** 1페이지 fit scale 계산이 끝난 뒤 호출 (PDF 렌더 ready 신호용) */
   onPage1LayoutReady?: () => void;
+  /** 옵셔널 셀 diff 하이라이트. 미전달 시 기존과 동일 */
+  diffHints?: EstimateDiffHints | null;
+  diffSide?: EstimateDiffSide;
 }
 
 function appendGuideFillersToLastChunk(chunks: EstimateGuideBlock[][]): EstimateGuideBlock[][] {
@@ -80,6 +84,8 @@ export function EstimateDocument({
   includeGuidePages = true,
   guideSplitRemainderStrategy = 'lump',
   onPage1LayoutReady,
+  diffHints = null,
+  diffSide = 'next',
 }: EstimateDocumentProps): JSX.Element {
   const { colors: movementIntensityColors } = useMovementIntensityColorSettings();
   const guideChunks = useMemo(() => {
@@ -117,12 +123,15 @@ export function EstimateDocument({
         editor={viewMode === 'screen-preview' ? page1Editor : undefined}
         validUntilEditor={viewMode === 'screen-preview' ? validUntilEditor : undefined}
         onLayoutReady={onPage1LayoutReady}
+        diffHints={diffHints}
       />
       <div className="estimate-page-break">
         <EstimatePage2
           data={data}
           movementIntensityColors={movementIntensityColors}
           editor={viewMode === 'screen-preview' ? page2Editor : undefined}
+          diffHints={diffHints}
+          diffSide={diffSide}
         />
       </div>
       {includeGuidePages
