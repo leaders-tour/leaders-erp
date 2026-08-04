@@ -538,16 +538,18 @@ export function ConfirmedTripTravelerInfoSection({
 
   return (
     <>
-      <Card className="min-w-0 max-w-full overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-4">
+      <Card className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm md:rounded-3xl md:p-5">
+        <div className="mb-3 md:mb-4">
           <h2 className="text-sm font-semibold text-slate-900">여행객 정보</h2>
-          <p className="mt-1 text-xs text-slate-500">계약서 시트를 기반으로 매칭한 결과 입니다.</p>
+          <p className="mt-1 hidden text-xs text-slate-500 md:block">
+            계약서 시트를 기반으로 매칭한 결과 입니다.
+          </p>
         </div>
 
-        <div className="mb-4 flex flex-wrap items-end gap-6 text-sm">
+        <div className="mb-3 flex flex-wrap items-end gap-4 text-sm md:mb-4 md:gap-6">
           <div>
             <span className="block text-xs text-slate-500">인원수</span>
-            <p className="mt-1 text-lg font-semibold text-slate-900">{headcountLabel}</p>
+            <p className="mt-1 text-base font-semibold text-slate-900 md:text-lg">{headcountLabel}</p>
           </div>
           <div>
             <span className="block text-xs text-slate-500">모집 상태</span>
@@ -579,44 +581,44 @@ export function ConfirmedTripTravelerInfoSection({
         ) : null}
 
         {documentNumber && !loading && columns.length > 0 ? (
-          <div className="max-w-full overflow-x-auto rounded-2xl border border-slate-200">
-            <table className="w-full min-w-[640px] border-collapse text-xs text-slate-700">
+          <div className="max-w-full overflow-x-auto overscroll-x-contain rounded-xl border border-slate-200 md:rounded-2xl">
+            <table className="w-max min-w-full border-separate border-spacing-0 text-[11px] text-slate-700 md:text-xs">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="sticky left-0 z-10 min-w-[72px] border-r border-slate-200 bg-slate-50 px-3 py-2 text-left font-semibold text-slate-500">
+                  <th className="sticky left-0 z-20 min-w-[64px] border-r border-slate-200 bg-slate-50 px-2 py-1.5 text-left font-semibold text-slate-500 shadow-[2px_0_6px_-2px_rgba(15,23,42,0.14)] md:min-w-[72px] md:px-3 md:py-2">
                     성함
                   </th>
                   {sheetColumns.map((column) => (
                     <th
                       key={column.key}
-                      className="whitespace-nowrap border-r border-slate-100 px-3 py-2 text-left font-semibold text-slate-500 last:border-r-0"
+                      className="whitespace-nowrap border-b border-r border-slate-100 px-2 py-1.5 text-left font-semibold text-slate-500 last:border-r-0 md:px-3 md:py-2"
                     >
                       {column.label}
                     </th>
                   ))}
-                  <th className="whitespace-nowrap px-3 py-2 text-left font-semibold text-slate-500">
+                  <th className="whitespace-nowrap border-b border-slate-100 px-2 py-1.5 text-left font-semibold text-slate-500 md:px-3 md:py-2">
                     전체보기
                   </th>
-                  <th className="whitespace-nowrap px-3 py-2 text-left font-semibold text-slate-500">
+                  <th className="whitespace-nowrap border-b border-slate-100 px-2 py-1.5 text-left font-semibold text-slate-500 md:px-3 md:py-2">
                     관리
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {columns.map((column) => (
-                  <tr key={column.submission.id} className="border-b border-slate-100 last:border-b-0">
-                    <th className="sticky left-0 z-10 border-r border-slate-200 bg-white px-3 py-2 text-left font-semibold text-slate-900">
+                  <tr key={column.submission.id} className="last:[&>td]:border-b-0 last:[&>th]:border-b-0">
+                    <th className="sticky left-0 z-10 border-b border-r border-slate-100 bg-white px-2 py-1.5 text-left font-semibold text-slate-900 shadow-[2px_0_6px_-2px_rgba(15,23,42,0.14)] md:px-3 md:py-2">
                       {column.name}
                     </th>
                     {sheetColumns.map((field) => (
                       <td
                         key={`${column.submission.id}-${field.key}`}
-                        className="align-top border-r border-slate-100 px-3 py-2 last:border-r-0"
+                        className="align-top border-b border-r border-slate-100 px-2 py-1.5 last:border-r-0 md:px-3 md:py-2"
                       >
                         {field.render(column)}
                       </td>
                     ))}
-                    <td className="align-top px-3 py-2">
+                    <td className="align-top border-b border-slate-100 px-2 py-1.5 md:px-3 md:py-2">
                       <button
                         type="button"
                         className="whitespace-nowrap font-medium text-emerald-700 underline-offset-2 hover:underline"
@@ -625,11 +627,11 @@ export function ConfirmedTripTravelerInfoSection({
                         전체보기
                       </button>
                     </td>
-                    <td className="align-top px-3 py-2">
+                    <td className="align-top border-b border-slate-100 px-2 py-1.5 md:px-3 md:py-2">
                       <Button
                         type="button"
                         variant="outline"
-                        className="whitespace-nowrap text-xs"
+                        className="h-7 whitespace-nowrap px-2 text-[11px] md:h-10 md:px-4 md:text-xs"
                         onClick={() => {
                           setSubmissionActionError(null);
                           setExclusionTarget(column.submission);

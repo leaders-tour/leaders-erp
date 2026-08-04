@@ -152,8 +152,8 @@ function AttachmentsCard({ attachments }: { attachments: AttachmentItem[] }) {
   const pdfs = attachments.filter((a) => a.type === 'pdf');
 
   return (
-    <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-sm font-semibold text-slate-900">첨부파일</h2>
+    <Card className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm md:rounded-3xl md:p-5">
+      <h2 className="mb-3 text-sm font-semibold text-slate-900 md:mb-4">첨부파일</h2>
 
       {/* 이미지 그리드 */}
       {images.length > 0 && (
@@ -1139,29 +1139,37 @@ export function ConfirmedTripDetailPage(): JSX.Element {
     }
   };
 
+  const headerActionClassName = 'h-8 px-2.5 text-xs md:h-10 md:px-4 md:text-sm';
+
   return (
-    <section className="grid gap-6">
+    <section className="grid gap-4 md:gap-6">
       <div>
-        <Button variant="outline" type="button" className="w-fit" onClick={handleGoBack}>
+        <Button
+          variant="outline"
+          type="button"
+          className={`w-fit ${headerActionClassName}`}
+          onClick={handleGoBack}
+        >
           ← 뒤로가기
         </Button>
       </div>
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">
             <ConfirmedTripLeaderName trip={trip} />
           </h1>
           {trip.plan && trip.planVersion ? (
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-xs text-slate-600 md:text-sm">
               {trip.plan.title} · v{trip.planVersion.versionNumber} · {trip.plan.regionSet.name}
             </p>
           ) : (
-            <p className="mt-1 text-sm text-slate-600">노션 마이그레이션 데이터</p>
+            <p className="mt-1 text-xs text-slate-600 md:text-sm">노션 마이그레이션 데이터</p>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-1.5 md:gap-2">
           <Button
             variant="outline"
+            className={headerActionClassName}
             onClick={() => {
               markConfirmedTripRecentlyReturned(trip.id);
               navigate('/confirmed-trips');
@@ -1172,6 +1180,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           {trip.status === 'ACTIVE' ? (
             <Button
               variant="outline"
+              className={headerActionClassName}
               onClick={() =>
                 navigate(
                   publishedConfirmation
@@ -1188,6 +1197,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           {trip.planId && trip.planVersionId ? (
             <Button
               variant="outline"
+              className={headerActionClassName}
               onClick={() => navigate(`/plans/${trip.planId}/versions/${trip.planVersionId}`)}
             >
               견적서 상세
@@ -1196,6 +1206,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           {trip.status === 'ACTIVE' ? (
             <Button
               variant="outline"
+              className={headerActionClassName}
               onClick={() => {
                 if (isPlanTrip) {
                   openPlanTripEditChoice();
@@ -1210,7 +1221,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           {trip.status === 'ACTIVE' ? (
             <Button
               variant="outline"
-              className="border-red-300 text-red-600 hover:bg-red-50"
+              className={`${headerActionClassName} border-red-300 text-red-600 hover:bg-red-50`}
               disabled={cancelling}
               onClick={handleCancel}
             >
@@ -1220,14 +1231,81 @@ export function ConfirmedTripDetailPage(): JSX.Element {
         </div>
       </header>
 
-      <div
-        className={
-          showRightPanel
-            ? 'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6 items-start'
-            : 'grid gap-6'
-        }
-      >
-        <div className="grid min-w-0 max-w-full gap-6 overflow-hidden">
+      <div className="grid gap-4 md:gap-6">
+        <ConfirmedTripSectionCard
+          title="메모"
+          description="비고는 견적서에 노출되며, 댓글은 손님에게 노출되지 않습니다."
+        >
+          <div className="grid gap-4">
+            <div>
+              <span className="block text-xs text-slate-500">비고 (견적서 노출)</span>
+              <p className="mt-1 whitespace-pre-wrap text-sm font-medium text-slate-800">
+                {meta?.remark?.trim() ? meta.remark : '-'}
+              </p>
+            </div>
+            <ConfirmedTripNotesCard tripId={trip.id} />
+          </div>
+        </ConfirmedTripSectionCard>
+
+        <div
+          className={
+            showRightPanel
+              ? 'grid grid-cols-1 items-start gap-4 lg:grid-cols-2 lg:gap-6'
+              : 'grid gap-4 md:gap-6'
+          }
+        >
+        {showRightPanel ? (
+          <div className="order-1 flex min-w-0 max-w-full flex-col gap-3 self-start overflow-hidden lg:order-2 lg:sticky lg:top-6 lg:max-h-[calc(100vh-2rem)]">
+            {showPreviewRemote ? (
+              <TripDocumentPreviewRemote onJump={jumpToPreviewSection} />
+            ) : null}
+
+            <div ref={previewScrollRef} className="min-h-0 lg:flex-1 lg:overflow-y-auto">
+              <div className="grid min-w-0 max-w-full gap-5 pr-0 md:gap-8 lg:pr-1">
+                {publishedConfirmation ? (
+                  <section ref={confirmationPreviewRef}>
+                    <h2 className="mb-2 text-xs font-semibold text-slate-700 md:mb-3 md:text-sm">
+                      확정서 미리보기
+                    </h2>
+                    <ConfirmationPdfPreviewPanel
+                      confirmationDocumentId={publishedConfirmation.id}
+                      snapshot={publishedConfirmation.snapshot}
+                      planVersionId={trip.planVersionId}
+                    />
+                  </section>
+                ) : null}
+
+                {isPlanTrip ? (
+                  <section ref={estimatePreviewRef}>
+                    <h2 className="mb-2 text-xs font-semibold text-slate-700 md:mb-3 md:text-sm">
+                      견적서 미리보기
+                    </h2>
+                    <PlanEstimatePreviewPanel planVersionId={trip.planVersionId!} />
+                  </section>
+                ) : null}
+
+                {!isPlanTrip && hasPdf ? (
+                  <section>
+                    <h2 className="mb-2 text-xs font-semibold text-slate-700 md:mb-3 md:text-sm">
+                      PDF 미리보기
+                    </h2>
+                    <div className="grid gap-5 md:gap-8">
+                      {pdfAttachments.map((att) => (
+                        <PdfPageViewer key={att.url} url={att.url} filename={att.filename} />
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <div
+          className={`grid min-w-0 max-w-full gap-4 overflow-hidden md:gap-6 ${
+            showRightPanel ? 'order-2 lg:order-1' : ''
+          }`}
+        >
           <ConfirmedTripTravelerInfoSection
             documentNumber={contractDocumentNumber}
             headcountTotal={meta?.headcountTotal ?? getTripHeadcount(trip)}
@@ -1252,21 +1330,6 @@ export function ConfirmedTripDetailPage(): JSX.Element {
               await refetchContractSubmissions();
             }}
           />
-
-          <ConfirmedTripSectionCard
-            title="메모"
-            description="비고는 견적서에 노출되며, 댓글은 손님에게 노출되지 않습니다."
-          >
-            <div className="grid gap-4">
-              <div>
-                <span className="block text-xs text-slate-500">비고 (견적서 노출)</span>
-                <p className="mt-1 whitespace-pre-wrap text-sm font-medium text-slate-800">
-                  {meta?.remark?.trim() ? meta.remark : '-'}
-                </p>
-              </div>
-              <ConfirmedTripNotesCard tripId={trip.id} />
-            </div>
-          </ConfirmedTripSectionCard>
 
           <ConfirmedTripSectionCard title="확정절차 3단계">
             <div className="grid gap-4 text-sm text-slate-700">
@@ -1931,11 +1994,11 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           </ConfirmedTripSectionCard>
 
 
-          <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
+          <Card className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm md:rounded-3xl md:p-5">
+            <div className="mb-3 flex flex-col gap-3 sm:mb-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
                 <h2 className="text-sm font-semibold text-slate-900">확정서 저장 이력</h2>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 hidden text-xs text-slate-500 md:block">
                   임시저장·발행·보관된 확정서를 버전별로 확인합니다.
                 </p>
               </div>
@@ -2010,8 +2073,8 @@ export function ConfirmedTripDetailPage(): JSX.Element {
             ) : null}
           </Card>
 
-          <Card className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-sm font-semibold text-slate-900">관리 정보</h2>
+          <Card className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm md:rounded-3xl md:p-5">
+            <h2 className="mb-3 text-sm font-semibold text-slate-900 md:mb-4">관리 정보</h2>
             <div className="grid gap-3 text-sm text-slate-700 md:grid-cols-2">
               <div>
                 <span className="text-slate-500">고객</span>
@@ -2038,50 +2101,9 @@ export function ConfirmedTripDetailPage(): JSX.Element {
             <AttachmentsCard attachments={trip.user.attachments ?? []} />
           ) : null}
         </div>
-        {/* end left column */}
-
-        {showRightPanel && (
-          <div className="sticky top-6 flex max-h-[calc(100vh-2rem)] min-w-0 max-w-full flex-col gap-3 self-start overflow-hidden">
-            {showPreviewRemote ? (
-              <TripDocumentPreviewRemote onJump={jumpToPreviewSection} />
-            ) : null}
-
-            <div ref={previewScrollRef} className="min-h-0 flex-1 overflow-y-auto">
-              <div className="grid min-w-0 max-w-full gap-8 pr-1">
-            {isPlanTrip ? (
-              <section ref={estimatePreviewRef}>
-                <h2 className="mb-3 text-sm font-semibold text-slate-700">견적서 미리보기</h2>
-                <PlanEstimatePreviewPanel planVersionId={trip.planVersionId!} />
-              </section>
-            ) : null}
-
-            {publishedConfirmation ? (
-              <section ref={confirmationPreviewRef}>
-                <h2 className="mb-3 text-sm font-semibold text-slate-700">확정서 미리보기</h2>
-                <ConfirmationPdfPreviewPanel
-                  confirmationDocumentId={publishedConfirmation.id}
-                  snapshot={publishedConfirmation.snapshot}
-                  planVersionId={trip.planVersionId}
-                />
-              </section>
-            ) : null}
-
-            {!isPlanTrip && hasPdf ? (
-              <section>
-                <h2 className="mb-3 text-sm font-semibold text-slate-700">PDF 미리보기</h2>
-                <div className="grid gap-8">
-                  {pdfAttachments.map((att) => (
-                    <PdfPageViewer key={att.url} url={att.url} filename={att.filename} />
-                  ))}
-                </div>
-              </section>
-            ) : null}
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
-      {/* end outer grid */}
+      {/* end content stack */}
 
       {planTripEditChoiceOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">

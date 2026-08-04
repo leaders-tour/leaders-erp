@@ -13,9 +13,9 @@ export function ConfirmedTripSectionCard({
   actions?: ReactNode;
 }) {
   return (
-    <Card className="min-w-0 max-w-full overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
+    <Card className="min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm md:rounded-3xl md:p-5">
+      <div className="mb-3 flex items-start justify-between gap-3 md:mb-4">
+        <div className="min-w-0">
           <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
           {description ? <p className="mt-1 text-xs text-slate-500">{description}</p> : null}
         </div>
