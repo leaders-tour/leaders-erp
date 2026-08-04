@@ -1274,15 +1274,18 @@ export function useUser(id: string | undefined) {
 }
 
 export function usePlansByUser(userId: string | undefined) {
-  const { data, previousData, loading, refetch } = useQuery<{ plans: PlanRow[] }>(PLANS_BY_USER_QUERY, {
+  const { data, loading, refetch } = useQuery<{ plans: PlanRow[] }>(PLANS_BY_USER_QUERY, {
     variables: { userId },
     skip: !userId,
     fetchPolicy: 'cache-first',
     nextFetchPolicy: 'cache-first',
     notifyOnNetworkStatusChange: true,
   });
+  // 이전 고객 previousData는 쓰지 않는다. A→B 전환 시 A 목록이 남는 문제를 막는다.
   const sessionPlans = userId ? getSessionPlans(userId) : null;
-  const plans = data?.plans ?? previousData?.plans ?? sessionPlans ?? [];
+  const hasQueryPlans = data?.plans != null;
+  const plans = data?.plans ?? sessionPlans ?? [];
+  const hasPlansForUser = hasQueryPlans || sessionPlans != null;
 
   useEffect(() => {
     if (userId && data?.plans) {
@@ -1292,10 +1295,11 @@ export function usePlansByUser(userId: string | undefined) {
 
   return {
     plans,
-    loading: loading && plans.length === 0,
+    /** 현재 userId 기준 데이터가 아직 없을 때만 true (타 고객 previousData 미사용) */
+    loading: Boolean(userId) && loading && !hasPlansForUser,
     refetch,
-    hasCachedPlans: plans.length > 0,
-    isRestoring: plans.length === 0 && (sessionPlans?.length ?? 0) > 0,
+    hasCachedPlans: hasPlansForUser,
+    isRestoring: !hasQueryPlans && sessionPlans != null,
   };
 }
 

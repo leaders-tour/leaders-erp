@@ -249,14 +249,11 @@ export function CustomerPage(): JSX.Element {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [safeCurrentPage, totalPages]);
 
-  const { plans, loading: planLoading, hasCachedPlans, isRestoring: isRestoringPlans } = usePlansByUser(
-    selectedUserId || undefined,
-  );
+  const { plans, loading: planLoading } = usePlansByUser(selectedUserId || undefined);
   const selectedUser = users.find((user) => user.id === selectedUserId) ?? null;
   const selectedTripStatus = selectedUser ? getCustomerTripStatus(selectedUser) : null;
-  const showInitialLoading =
-    (loading && !hasCachedUsers && !isRestoringUsers) ||
-    (Boolean(selectedUserId) && planLoading && !hasCachedPlans && !isRestoringPlans);
+  const showUsersInitialLoading = loading && !hasCachedUsers && !isRestoringUsers;
+  const showPlansLoading = Boolean(selectedUserId) && planLoading;
 
   return (
     <section className="grid gap-6">
@@ -296,7 +293,7 @@ export function CustomerPage(): JSX.Element {
         </div>
 
         <div className="flex min-h-0 flex-col gap-4 self-start">
-          {showInitialLoading ? <div className="text-sm text-slate-600">불러오는 중...</div> : null}
+          {showUsersInitialLoading ? <div className="text-sm text-slate-600">고객 목록을 불러오는 중...</div> : null}
 
           {selectedUser ? (
             <>
@@ -318,7 +315,7 @@ export function CustomerPage(): JSX.Element {
                       <span>
                         여행 상태: {selectedTripStatus ? CUSTOMER_TRIP_STATUS_LABELS[selectedTripStatus] : '-'}
                       </span>
-                      <span>일정 수: {plans.length}개</span>
+                      <span>일정 수: {showPlansLoading ? '…' : `${plans.length}개`}</span>
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
@@ -353,7 +350,8 @@ export function CustomerPage(): JSX.Element {
               ) : null}
 
               <PlanListPanel
-                plans={plans}
+                plans={showPlansLoading ? [] : plans}
+                loading={showPlansLoading}
                 onOpenPlan={(planId) =>
                   navigate(`/plans/${planId}`, { state: { returnTo: customersListPath } })
                 }
