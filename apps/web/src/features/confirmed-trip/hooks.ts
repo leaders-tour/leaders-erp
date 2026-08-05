@@ -507,6 +507,7 @@ export interface ConfirmedTripRow {
   }>;
   latestPublishedConfirmationDocument?: {
     id: string;
+    planVersionId?: string | null;
     versionNumber: number;
     status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
     publishedAt: string | null;
@@ -731,6 +732,7 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
     }
     latestPublishedConfirmationDocument {
       id
+      planVersionId
       versionNumber
       status
       publishedAt
@@ -741,6 +743,7 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
         headcountText
         travelPeriodText
         vehicleType
+        vehicleDisplayNote
         flightInText
         flightOutText
         pickupText
@@ -760,6 +763,17 @@ export const CONFIRMED_TRIP_FRAGMENT = gql`
           note
         }
         accommodationLines
+        appendixPlanStops {
+          dateCellText
+          destinationCellText
+          timeCellText
+          scheduleCellText
+          lodgingCellText
+          mealCellText
+          movementIntensityColorOverride
+        }
+        sourcePlanVersionId
+        overallMovementIntensityColorOverride
       }
     }
     createdAt

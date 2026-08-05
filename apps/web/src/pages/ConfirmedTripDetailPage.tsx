@@ -16,6 +16,7 @@ import {
   CONFIRMATION_FRESH_SOURCE_TOOLTIP,
   resolveConfirmationBuilderRowActionLabel,
 } from '../features/confirmation/utils/confirmation-builder-source';
+import { resolveConfirmationPreviewPlanVersionId } from '../features/confirmation/utils/select-latest-confirmation-document';
 import { LinkifiedText } from '../components/LinkifiedText';
 import { PdfPageViewer } from '../components/pdf/PdfPageViewer';
 import { TooltipHelpIcon } from '../components/TooltipHelpIcon';
@@ -1025,6 +1026,10 @@ export function ConfirmedTripDetailPage(): JSX.Element {
 
   const pdfAttachments = (trip.user.attachments ?? []).filter((a) => a.type === 'pdf');
   const publishedConfirmation = trip.latestPublishedConfirmationDocument ?? null;
+  const confirmationPreviewPlanVersionId = resolveConfirmationPreviewPlanVersionId(
+    publishedConfirmation,
+    trip.planVersionId,
+  );
   const isPlanTrip = !!(trip.planId && trip.planVersionId);
   const hasPdf = pdfAttachments.length > 0;
   const showRightPanel = isPlanTrip || hasPdf || !!publishedConfirmation;
@@ -1279,7 +1284,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                         <ConfirmationPdfShareButton
                           confirmationDocumentId={publishedConfirmation.id}
                           snapshot={publishedConfirmation.snapshot}
-                          planVersionId={trip.planVersionId}
+                          planVersionId={confirmationPreviewPlanVersionId}
                         />
                         <button
                           type="button"
@@ -1293,7 +1298,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                     <ConfirmationPdfPreviewPanel
                       confirmationDocumentId={publishedConfirmation.id}
                       snapshot={publishedConfirmation.snapshot}
-                      planVersionId={trip.planVersionId}
+                      planVersionId={confirmationPreviewPlanVersionId}
                     />
                   </section>
                 ) : null}
@@ -2151,7 +2156,7 @@ export function ConfirmedTripDetailPage(): JSX.Element {
           onClose={() => setConfirmationFullscreenOpen(false)}
           confirmationDocumentId={publishedConfirmation.id}
           snapshot={publishedConfirmation.snapshot}
-          planVersionId={trip.planVersionId}
+          planVersionId={confirmationPreviewPlanVersionId}
         />
       ) : null}
 

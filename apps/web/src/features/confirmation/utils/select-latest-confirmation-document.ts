@@ -30,11 +30,20 @@ export function resolvePreviewConfirmationDocument(
 }
 
 export function resolveConfirmationPreviewPlanVersionId(
-  document: ConfirmationDocumentRow | null | undefined,
+  document:
+    | Pick<ConfirmationDocumentRow, 'planVersionId' | 'snapshot'>
+    | null
+    | undefined,
+  fallbackPlanVersionId?: string | null,
 ): string | null {
   if (!document) {
-    return null;
+    return fallbackPlanVersionId ?? null;
   }
 
-  return document.planVersionId ?? document.snapshot.sourcePlanVersionId ?? null;
+  return (
+    document.planVersionId ??
+    document.snapshot.sourcePlanVersionId ??
+    fallbackPlanVersionId ??
+    null
+  );
 }

@@ -142,4 +142,25 @@ describe('resolveConfirmationPreviewPlanVersionId', () => {
   it('returns null when document is missing', () => {
     expect(resolveConfirmationPreviewPlanVersionId(null)).toBeNull();
   });
+
+  it('falls back to explicit planVersionId when document sources are empty', () => {
+    const base = makeDocument({
+      id: 'doc-1',
+      updatedAt: '2026-07-01T09:00:00.000Z',
+      planVersionId: null,
+    });
+    const document = makeDocument({
+      id: 'doc-1',
+      updatedAt: '2026-07-01T09:00:00.000Z',
+      planVersionId: null,
+      snapshot: {
+        ...base.snapshot,
+        sourcePlanVersionId: null,
+      },
+    });
+
+    expect(resolveConfirmationPreviewPlanVersionId(document, 'trip-plan-version')).toBe(
+      'trip-plan-version',
+    );
+  });
 });
