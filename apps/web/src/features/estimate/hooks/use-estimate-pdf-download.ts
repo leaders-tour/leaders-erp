@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useAuth } from '../../auth/context';
 import { API_BASE_URL } from '../../../lib/api-base-url';
+import { preparePdfShare, type PreparedPdfShare } from '../../../lib/share-pdf';
 import type { EstimateDocumentData } from '../model/types';
 
 const PDF_JOB_POLL_INTERVAL_MS = 2_000;
@@ -80,10 +81,26 @@ export function getEstimatePdfDownloadLabel(phase: EstimatePdfDownloadPhase): st
   }
 }
 
+export function getEstimatePdfShareLabel(phase: EstimatePdfDownloadPhase): string {
+  switch (phase) {
+    case 'queued':
+      return '공유 요청 중...';
+    case 'rendering':
+      return 'PDF 생성 중...';
+    case 'downloading':
+      return '공유 준비 중...';
+    case 'idle':
+    default:
+      return '공유';
+  }
+}
+
 export function useEstimatePdfDownload(): {
   downloading: boolean;
   phase: EstimatePdfDownloadPhase;
+  createEstimatePdf: (input: { data: EstimateDocumentData }) => Promise<{ blob: Blob; filename: string }>;
   downloadEstimatePdf: (input: { data: EstimateDocumentData }) => Promise<void>;
+  prepareEstimatePdfShare: (input: { data: EstimateDocumentData }) => Promise<PreparedPdfShare>;
 } {
   const { ensureAccessToken } = useAuth();
   const [downloading, setDownloading] = useState(false);
@@ -135,8 +152,8 @@ export function useEstimatePdfDownload(): {
     [authorizedFetch],
   );
 
-  const downloadEstimatePdf = useCallback(
-    async (input: { data: EstimateDocumentData }): Promise<void> => {
+  const createEstimatePdf = useCallback(
+    async (input: { data: EstimateDocumentData }): Promise<{ blob: Blob; filename: string }> => {
       setDownloading(true);
       setPhase('queued');
       try {
@@ -155,19 +172,19 @@ export function useEstimatePdfDownload(): {
         const job = await pollEstimatePdfJob(payload.jobId);
 
         setPhase('downloading');
-        const downloadResponse = await authorizedFetch(`${API_BASE_URL}/documents/estimate/pdf-jobs/${encodeURIComponent(job.jobId)}/download`);
+        const downloadResponse = await authorizedFetch(
+          `${API_BASE_URL}/documents/estimate/pdf-jobs/${encodeURIComponent(job.jobId)}/download`,
+        );
         if (!downloadResponse.ok) {
           throw new Error(await getErrorMessage(downloadResponse));
         }
 
         const blob = await downloadResponse.blob();
-        triggerBlobDownload(
-          blob,
-          getFilenameFromDisposition(
-            downloadResponse.headers.get('content-disposition'),
-            job.filename || `${input.data.planTitle || 'estimate'}.pdf`,
-          ),
+        const filename = getFilenameFromDisposition(
+          downloadResponse.headers.get('content-disposition'),
+          job.filename || `${input.data.planTitle || 'estimate'}.pdf`,
         );
+        return { blob, filename };
       } finally {
         setDownloading(false);
         setPhase('idle');
@@ -176,9 +193,32 @@ export function useEstimatePdfDownload(): {
     [authorizedFetch, pollEstimatePdfJob],
   );
 
+  const downloadEstimatePdf = useCallback(
+    async (input: { data: EstimateDocumentData }): Promise<void> => {
+      const { blob, filename } = await createEstimatePdf(input);
+      triggerBlobDownload(blob, filename);
+    },
+    [createEstimatePdf],
+  );
+
+  const prepareEstimatePdfShare = useCallback(
+    async (input: { data: EstimateDocumentData }): Promise<PreparedPdfShare> => {
+      const { blob, filename } = await createEstimatePdf(input);
+      return preparePdfShare({
+        blob,
+        filename,
+        title: '견적서',
+        text: input.data.planTitle?.trim() || '견적서',
+      });
+    },
+    [createEstimatePdf],
+  );
+
   return {
     downloading,
     phase,
+    createEstimatePdf,
     downloadEstimatePdf,
+    prepareEstimatePdfShare,
   };
 }

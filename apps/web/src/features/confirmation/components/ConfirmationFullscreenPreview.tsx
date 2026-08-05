@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ConfirmationDocumentSnapshot } from '../model/types';
 import { ConfirmationPdfPreviewPanel } from './ConfirmationPdfPreviewPanel';
+import { ConfirmationPdfShareButton } from './ConfirmationPdfShareButton';
 
 const ZOOM_MIN = 0.75;
 const ZOOM_MAX = 2.5;
@@ -75,6 +76,12 @@ export function ConfirmationFullscreenPreview({
           >
             맞춤
           </button>
+          <ConfirmationPdfShareButton
+            confirmationDocumentId={confirmationDocumentId}
+            snapshot={snapshot}
+            planVersionId={planVersionId}
+            variant="dark"
+          />
           <button
             type="button"
             className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-slate-100"

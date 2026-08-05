@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useAuth } from '../../auth/context';
 import { API_BASE_URL } from '../../../lib/api-base-url';
+import { preparePdfShare, type PreparedPdfShare } from '../../../lib/share-pdf';
 import type { EstimateDocumentData } from '../../estimate/model/types';
 import type { ConfirmationDocumentSnapshot } from '../model/types';
 
@@ -87,10 +88,28 @@ export function getConfirmationPdfDownloadLabel(phase: ConfirmationPdfDownloadPh
   }
 }
 
+export function getConfirmationPdfShareLabel(phase: ConfirmationPdfDownloadPhase): string {
+  switch (phase) {
+    case 'queued':
+      return '공유 요청 중...';
+    case 'rendering':
+      return 'PDF 생성 중...';
+    case 'downloading':
+      return '공유 준비 중...';
+    case 'idle':
+    default:
+      return '공유';
+  }
+}
+
 export function useConfirmationPdfDownload(): {
   downloading: boolean;
   phase: ConfirmationPdfDownloadPhase;
+  createConfirmationPdf: (
+    input: ConfirmationPdfDownloadInput,
+  ) => Promise<{ blob: Blob; filename: string }>;
   downloadConfirmationPdf: (input: ConfirmationPdfDownloadInput) => Promise<void>;
+  prepareConfirmationPdfShare: (input: ConfirmationPdfDownloadInput) => Promise<PreparedPdfShare>;
 } {
   const { ensureAccessToken } = useAuth();
   const [downloading, setDownloading] = useState(false);
@@ -144,8 +163,8 @@ export function useConfirmationPdfDownload(): {
     [authorizedFetch],
   );
 
-  const downloadConfirmationPdf = useCallback(
-    async (input: ConfirmationPdfDownloadInput): Promise<void> => {
+  const createConfirmationPdf = useCallback(
+    async (input: ConfirmationPdfDownloadInput): Promise<{ blob: Blob; filename: string }> => {
       setDownloading(true);
       setPhase('queued');
       try {
@@ -172,13 +191,11 @@ export function useConfirmationPdfDownload(): {
         }
 
         const blob = await downloadResponse.blob();
-        triggerBlobDownload(
-          blob,
-          getFilenameFromDisposition(
-            downloadResponse.headers.get('content-disposition'),
-            job.filename || `리더스_${input.snapshot.leaderName}님_여정확정서.pdf`,
-          ),
+        const filename = getFilenameFromDisposition(
+          downloadResponse.headers.get('content-disposition'),
+          job.filename || `리더스_${input.snapshot.leaderName}님_여정확정서.pdf`,
         );
+        return { blob, filename };
       } finally {
         setDownloading(false);
         setPhase('idle');
@@ -187,9 +204,34 @@ export function useConfirmationPdfDownload(): {
     [authorizedFetch, pollConfirmationPdfJob],
   );
 
+  const downloadConfirmationPdf = useCallback(
+    async (input: ConfirmationPdfDownloadInput): Promise<void> => {
+      const { blob, filename } = await createConfirmationPdf(input);
+      triggerBlobDownload(blob, filename);
+    },
+    [createConfirmationPdf],
+  );
+
+  const prepareConfirmationPdfShare = useCallback(
+    async (input: ConfirmationPdfDownloadInput): Promise<PreparedPdfShare> => {
+      const { blob, filename } = await createConfirmationPdf(input);
+      return preparePdfShare({
+        blob,
+        filename,
+        title: '여정확정서',
+        text: input.snapshot.leaderName
+          ? `${input.snapshot.leaderName}님 여정확정서`
+          : '여정확정서',
+      });
+    },
+    [createConfirmationPdf],
+  );
+
   return {
     downloading,
     phase,
+    createConfirmationPdf,
     downloadConfirmationPdf,
+    prepareConfirmationPdfShare,
   };
 }

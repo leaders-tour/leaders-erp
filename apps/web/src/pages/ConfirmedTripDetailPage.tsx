@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ConfirmationFullscreenPreview } from '../features/confirmation/components/ConfirmationFullscreenPreview';
 import { ConfirmationPdfPreviewPanel } from '../features/confirmation/components/ConfirmationPdfPreviewPanel';
+import { ConfirmationPdfShareButton } from '../features/confirmation/components/ConfirmationPdfShareButton';
 import { EstimateFullscreenPreview } from '../features/estimate/components/EstimateFullscreenPreview';
+import { EstimatePdfShareButton } from '../features/estimate/components/EstimatePdfShareButton';
 import { useConfirmationDocuments, useSaveConfirmationDocumentMemo } from '../features/confirmation/hooks/use-confirmation-document';
 import { ConfirmationDocumentMemoCell } from '../features/confirmation/components/ConfirmationDocumentMemoCell';
 import type { ConfirmationDocumentRow } from '../features/confirmation/model/types';
@@ -1254,13 +1256,16 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                   <section ref={estimatePreviewRef} className="order-2 lg:order-1">
                     <div className="mb-2 flex items-center justify-between gap-2 md:mb-3">
                       <h2 className="text-xs font-semibold text-slate-700 md:text-sm">견적서 미리보기</h2>
-                      <button
-                        type="button"
-                        className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 md:text-xs"
-                        onClick={() => setEstimateFullscreenOpen(true)}
-                      >
-                        전체보기
-                      </button>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <EstimatePdfShareButton planVersionId={trip.planVersionId!} />
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 md:text-xs"
+                          onClick={() => setEstimateFullscreenOpen(true)}
+                        >
+                          전체보기
+                        </button>
+                      </div>
                     </div>
                     <PlanEstimatePreviewPanel planVersionId={trip.planVersionId!} />
                   </section>
@@ -1270,13 +1275,20 @@ export function ConfirmedTripDetailPage(): JSX.Element {
                   <section ref={confirmationPreviewRef} className="order-1 lg:order-2">
                     <div className="mb-2 flex items-center justify-between gap-2 md:mb-3">
                       <h2 className="text-xs font-semibold text-slate-700 md:text-sm">확정서 미리보기</h2>
-                      <button
-                        type="button"
-                        className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 md:text-xs"
-                        onClick={() => setConfirmationFullscreenOpen(true)}
-                      >
-                        전체보기
-                      </button>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <ConfirmationPdfShareButton
+                          confirmationDocumentId={publishedConfirmation.id}
+                          snapshot={publishedConfirmation.snapshot}
+                          planVersionId={trip.planVersionId}
+                        />
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 md:text-xs"
+                          onClick={() => setConfirmationFullscreenOpen(true)}
+                        >
+                          전체보기
+                        </button>
+                      </div>
                     </div>
                     <ConfirmationPdfPreviewPanel
                       confirmationDocumentId={publishedConfirmation.id}

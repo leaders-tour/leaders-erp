@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useEstimateSource } from '../hooks/use-estimate-source';
 import { EstimateDocument } from './EstimateDocument';
+import { EstimatePdfShareButton } from './EstimatePdfShareButton';
 import { EstimatePreviewScaler } from './EstimatePreviewScaler';
 
 const ZOOM_MIN = 0.75;
@@ -118,6 +119,7 @@ export function EstimateFullscreenPreview({
           >
             맞춤
           </button>
+          <EstimatePdfShareButton planVersionId={planVersionId} variant="dark" />
           <button
             type="button"
             className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-slate-100"
