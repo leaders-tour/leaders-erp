@@ -203,6 +203,7 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
             onChangeSearch={setCustomerSearch}
             onSelect={setSelectedUserId}
             hideStatusFilter
+            showConfirmationMeta
           />
         </div>
 

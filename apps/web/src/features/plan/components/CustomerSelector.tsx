@@ -10,6 +10,7 @@ import {
 import type { CustomerMinTeamsFilter } from '../customerTeamFilter';
 import { buildCustomerPaginationItems, CUSTOMER_PAGINATION_SHORTCUT_HELP } from '../customerPagination';
 import { getColorByDestination } from '../../guide/trip-color';
+import { getCustomerConfirmationCardMeta } from '../customerConfirmationCardMeta';
 import { getCustomerTravelSummary } from '../customerTravelSummary';
 import { UserDisplayName } from './UserDisplayName';
 import type { UserRow } from '../hooks';
@@ -37,6 +38,8 @@ interface CustomerSelectorProps {
   minTeamCounts?: Record<CustomerMinTeamsFilter, number>;
   hideStatusFilter?: boolean;
   showTravelSummary?: boolean;
+  /** 확정서 빌더용: 발행 확정서 유무 + 출발 D-day */
+  showConfirmationMeta?: boolean;
   isRestoringList?: boolean;
   currentPage?: number;
   totalPages?: number;
@@ -57,6 +60,7 @@ export function CustomerSelector({
   minTeamCounts,
   hideStatusFilter = false,
   showTravelSummary = false,
+  showConfirmationMeta = false,
   isRestoringList = false,
   currentPage,
   totalPages,
@@ -219,8 +223,26 @@ export function CustomerSelector({
             ? CUSTOMER_TRIP_STATUS_CHIP_SELECTED_CLASS[tripStatus]
             : CUSTOMER_TRIP_STATUS_CHIP_CLASS[tripStatus];
           const travelSummary = showTravelSummary ? getCustomerTravelSummary(user) : null;
+          const confirmationMeta = showConfirmationMeta
+            ? getCustomerConfirmationCardMeta(user)
+            : null;
           const destinationColor = travelSummary ? getColorByDestination(travelSummary.destination) : null;
           const secondaryTextClass = isSelected ? 'text-slate-200' : 'text-slate-500';
+          const confirmationChipClass = confirmationMeta?.hasConfirmationDocument
+            ? isSelected
+              ? 'bg-emerald-400/30 text-emerald-100'
+              : 'bg-emerald-100 text-emerald-700'
+            : isSelected
+              ? 'bg-white/10 text-slate-300'
+              : 'bg-slate-100 text-slate-500';
+          const isPastDday = confirmationMeta?.ddayLabel?.startsWith('D+') ?? false;
+          const ddayChipClass = isPastDday
+            ? isSelected
+              ? 'bg-rose-400/25 text-rose-100'
+              : 'bg-rose-50 text-rose-700'
+            : isSelected
+              ? 'bg-amber-400/25 text-amber-100'
+              : 'bg-amber-50 text-amber-700';
           return (
             <button
               key={user.id}
@@ -233,7 +255,7 @@ export function CustomerSelector({
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <div className="grid gap-0.5">
+                <div className="grid min-w-0 gap-0.5">
                   <UserDisplayName
                     user={user}
                     className="font-medium"
@@ -254,11 +276,25 @@ export function CustomerSelector({
                       </span>
                       <span className={`text-xs ${secondaryTextClass}`}>{travelSummary.travelPeriod}</span>
                     </>
-                  ) : (
+                  ) : showConfirmationMeta ? null : (
                     <span className={`text-xs ${secondaryTextClass}`}>
                       담당자: {user.ownerEmployee?.name ?? '미지정'}
                     </span>
                   )}
+                  {confirmationMeta ? (
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${confirmationChipClass}`}
+                      >
+                        {confirmationMeta.hasConfirmationDocument ? '확정서 있음' : '확정서 없음'}
+                      </span>
+                      {confirmationMeta.ddayLabel ? (
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${ddayChipClass}`}>
+                          {confirmationMeta.ddayLabel}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${chipClass}`}>
                   {CUSTOMER_TRIP_STATUS_LABELS[tripStatus]}
