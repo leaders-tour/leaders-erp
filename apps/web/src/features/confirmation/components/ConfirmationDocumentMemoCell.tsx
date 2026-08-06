@@ -19,7 +19,7 @@ function ConfirmationMemoBubble({
 
   return (
     <div
-      className={`confirmation-memo-bubble relative max-w-[280px] px-3 py-2.5 ${
+      className={`confirmation-memo-bubble relative w-full min-w-0 max-w-full px-3 py-2.5 ${
         isFilled
           ? 'rounded-2xl rounded-tl-sm border border-sky-200 bg-sky-50 text-slate-800 shadow-sm'
           : 'rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 text-slate-400'
@@ -103,7 +103,7 @@ export function ConfirmationDocumentMemoCell({
   if (isEditing) {
     return (
       <div
-        className="grid min-w-[220px] max-w-[320px] gap-2"
+        className="grid w-full min-w-0 max-w-full gap-2"
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.stopPropagation()}
       >
@@ -145,11 +145,13 @@ export function ConfirmationDocumentMemoCell({
   }
 
   return (
-    <div className="flex min-w-[180px] max-w-[320px] flex-col gap-2">
+    <div className="flex w-full min-w-0 max-w-full flex-col gap-2">
       <ConfirmationMemoBubble variant={hasMemo ? 'filled' : 'empty'}>
         {hasMemo ? (
           <>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{memoContent}</p>
+            <p className="break-words whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+              {memoContent}
+            </p>
             {document.memo?.updatedByEmployee?.name ? (
               <p className="mt-1.5 text-[10px] font-medium text-sky-700/70">
                 {document.memo.updatedByEmployee.name}

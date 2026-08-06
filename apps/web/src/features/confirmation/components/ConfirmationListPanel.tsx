@@ -45,6 +45,14 @@ function getStatusLabel(status: ConfirmationDocumentRow['status']): string {
   }
 }
 
+function formatCreatedAtLines(value: string): { date: string; time: string } {
+  const date = new Date(value);
+  return {
+    date: date.toLocaleDateString('ko-KR'),
+    time: date.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' }),
+  };
+}
+
 export function ConfirmationListPanel({
   documents,
   loading = false,
@@ -62,7 +70,7 @@ export function ConfirmationListPanel({
   savingMemoDocumentId = null,
 }: ConfirmationListPanelProps): JSX.Element {
   return (
-    <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <Card className="min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">확정서 목록</h2>
@@ -81,26 +89,27 @@ export function ConfirmationListPanel({
           />
         </div>
       </div>
-      <div className="overflow-auto">
+      <div className="overflow-x-auto">
         {loading ? <p className="p-4 text-sm text-slate-500">확정서를 불러오는 중...</p> : null}
         {!loading && documents.length === 0 ? (
           <p className="p-4 text-sm text-slate-500">저장된 확정서가 없습니다.</p>
         ) : null}
         {!loading && documents.length > 0 ? (
-          <Table>
+          <Table className="table-fixed">
             <thead>
               <tr>
-                <Th>제목</Th>
-                <Th>대표자명</Th>
-                <Th>현재 버전</Th>
-                <Th>수정일</Th>
-                <Th>메모</Th>
-                <Th>관리</Th>
+                <Th className="w-[18%]">제목</Th>
+                <Th className="w-[12%]">대표자명</Th>
+                <Th className="w-[10%]">현재 버전</Th>
+                <Th className="w-[16%]">생성일</Th>
+                <Th className="w-[16%]">메모</Th>
+                <Th className="w-[28%]">관리</Th>
               </tr>
             </thead>
             <tbody>
               {documents.map((document) => {
                 const isSelected = selectedDocumentId === document.id;
+                const createdAt = formatCreatedAtLines(document.createdAt);
 
                 return (
                 <tr
@@ -120,7 +129,7 @@ export function ConfirmationListPanel({
                     }
                   }}
                 >
-                  <Td>
+                  <Td className="align-top break-keep">
                     <div className="grid gap-1">
                       <span className={isSelected ? 'font-semibold text-slate-900' : undefined}>
                         {getDocumentTitle(document)}
@@ -130,10 +139,15 @@ export function ConfirmationListPanel({
                       </span>
                     </div>
                   </Td>
-                  <Td>{document.snapshot.leaderName?.trim() || '-'}</Td>
-                  <Td>{`v${document.versionNumber}`}</Td>
-                  <Td>{new Date(document.updatedAt).toLocaleString('ko-KR')}</Td>
-                  <Td>
+                  <Td className="align-top break-keep">{document.snapshot.leaderName?.trim() || '-'}</Td>
+                  <Td className="align-top">{`v${document.versionNumber}`}</Td>
+                  <Td className="align-top">
+                    <div className="grid gap-0.5 text-xs leading-snug text-slate-700">
+                      <span>{createdAt.date}</span>
+                      <span className="text-slate-500">{createdAt.time}</span>
+                    </div>
+                  </Td>
+                  <Td className="min-w-0 overflow-hidden align-top">
                     {onSaveMemo ? (
                       <ConfirmationDocumentMemoCell
                         document={document}
@@ -144,10 +158,11 @@ export function ConfirmationListPanel({
                       <span className="text-xs text-slate-500">-</span>
                     )}
                   </Td>
-                  <Td>
-                    <div className="flex flex-wrap gap-2">
+                  <Td className="min-w-0 align-top">
+                    <div className="flex flex-col items-start gap-2">
                       <Button
                         variant="outline"
+                        className="h-8 w-fit px-3 text-xs"
                         onClick={(event) => {
                           event.stopPropagation();
                           onOpenDocument(document);
@@ -157,6 +172,7 @@ export function ConfirmationListPanel({
                       </Button>
                       <Button
                         variant="primary"
+                        className="h-8 w-fit whitespace-normal break-keep px-3 text-xs leading-snug"
                         disabled={!canCreate}
                         onClick={(event) => {
                           event.stopPropagation();
@@ -167,6 +183,7 @@ export function ConfirmationListPanel({
                       </Button>
                       <Button
                         variant="destructive"
+                        className="h-8 w-fit px-3 text-xs"
                         disabled={deleteLoading && deletingDocumentId === document.id}
                         onClick={(event) => {
                           event.stopPropagation();

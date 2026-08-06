@@ -207,7 +207,7 @@ export function ConfirmationBuilderHomePage(): JSX.Element {
           />
         </div>
 
-        <div className="flex min-h-0 flex-col gap-4 self-start">
+        <div className="flex min-h-0 min-w-0 flex-col gap-4 self-start">
           {usersLoading ? <div className="text-sm text-slate-600">불러오는 중...</div> : null}
 
           {selectedUser ? (
