@@ -43,6 +43,16 @@ export const PRESERVED_PLAN_ROW_FIELDS = [
 
 export type PreservedPlanRowField = (typeof PRESERVED_PLAN_ROW_FIELDS)[number];
 
+/** Auto-fill never owns lodging upgrades — keep current values whenever the route source is unchanged. */
+export const ALWAYS_PRESERVED_PLAN_ROW_FIELDS = [
+  'lodgingSelectionLevel',
+  'customLodgingId',
+  'customLodgingNameSnapshot',
+  'lodgingCellText',
+] as const satisfies ReadonlyArray<PreservedPlanRowField>;
+
+const ALWAYS_PRESERVED_PLAN_ROW_FIELD_SET = new Set<string>(ALWAYS_PRESERVED_PLAN_ROW_FIELDS);
+
 export function getPlanRowSourceKey(row: PlanRowSourceFields): string {
   return JSON.stringify({
     segmentId: row.segmentId ?? null,
@@ -114,7 +124,10 @@ export function mergeAutoRowsWithDirtyValues<T extends PlanRowMergeFields>(
     const mergedRow = { ...autoRow };
     const sourceKey = getPlanRowSourceKey(currentRow);
     for (const field of PRESERVED_PLAN_ROW_FIELDS) {
-      if (dirtyFieldKeys.has(getDirtyPlanRowFieldKey(sourceKey, field))) {
+      if (
+        ALWAYS_PRESERVED_PLAN_ROW_FIELD_SET.has(field) ||
+        dirtyFieldKeys.has(getDirtyPlanRowFieldKey(sourceKey, field))
+      ) {
         (mergedRow as Record<string, unknown>)[field] = currentRow[field];
       }
     }

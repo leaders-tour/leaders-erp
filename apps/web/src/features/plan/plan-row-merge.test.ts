@@ -113,4 +113,27 @@ describe('plan-row-merge', () => {
     expect(merged[0]?.scheduleCellText).toBe('');
     expect(merged[0]?.destinationCellText).toBe('');
   });
+
+  it('preserves lodging upgrades without dirty keys when route source is unchanged', () => {
+    const current = [
+      makeRow({
+        lodgingSelectionLevel: 'LV5',
+        lodgingCellText: '업그레이드 숙소',
+        timeCellText: '04:00',
+      }),
+    ];
+    const autoRows = [
+      makeRow({
+        lodgingSelectionLevel: 'LV3',
+        lodgingCellText: '기본 숙소',
+        timeCellText: '09:00',
+      }),
+    ];
+
+    const merged = mergeAutoRowsWithDirtyValues(current, autoRows, new Set());
+
+    expect(merged[0]?.lodgingSelectionLevel).toBe('LV5');
+    expect(merged[0]?.lodgingCellText).toBe('업그레이드 숙소');
+    expect(merged[0]?.timeCellText).toBe('09:00');
+  });
 });

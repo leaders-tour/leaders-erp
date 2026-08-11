@@ -3,6 +3,9 @@ import { pickDefaultLocationMealSet, type PricingManualSnapshot } from '@tour/do
 import { renderRentalItemPresetText, type RentalItemPreset } from '@tour/validation';
 import {
   formatVehicleAssignmentsForDisplay,
+  hasHiaceAssignment,
+  HIACE_VEHICLE_HEADCOUNT_MIN,
+  HIACE_VEHICLE_TYPE,
   normalizeVehicleAssignments,
   PLAN_VEHICLE_TYPES,
   primaryVehicleTypeFromAssignments,
@@ -1707,6 +1710,44 @@ const VARIANTS = [
   { id: VariantType.EarlyExtend, label: '얼리+연장' },
 ];
 
+function isEarlyVariant(variantType: VariantType): boolean {
+  return variantType === VariantType.Early || variantType === VariantType.EarlyExtend;
+}
+
+function isExtendVariant(variantType: VariantType): boolean {
+  return variantType === VariantType.Extend || variantType === VariantType.EarlyExtend;
+}
+
+function toggleEarlyVariant(variantType: VariantType): VariantType {
+  const nextEarly = !isEarlyVariant(variantType);
+  const extend = isExtendVariant(variantType);
+  if (nextEarly && extend) {
+    return VariantType.EarlyExtend;
+  }
+  if (nextEarly) {
+    return VariantType.Early;
+  }
+  if (extend) {
+    return VariantType.Extend;
+  }
+  return VariantType.Basic;
+}
+
+function toggleExtendVariant(variantType: VariantType): VariantType {
+  const early = isEarlyVariant(variantType);
+  const nextExtend = !isExtendVariant(variantType);
+  if (early && nextExtend) {
+    return VariantType.EarlyExtend;
+  }
+  if (nextExtend) {
+    return VariantType.Extend;
+  }
+  if (early) {
+    return VariantType.Early;
+  }
+  return VariantType.Basic;
+}
+
 const PLAN_VEHICLES = PLAN_VEHICLE_TYPES;
 /** 여행 기간 선택(또는 새 팀 추가) 시 IN/OUT 자동 맞춤에만 사용하는 추천 시각 — 「미정」또는 직접 수정 후에는 재적용되지 않음 */
 const PICKUP_DROP_TIME_OPTIONS = [
@@ -3325,43 +3366,54 @@ export function ItineraryBuilderPage(): JSX.Element {
       meta.lodgingSelections.map((selection) => [selection.dayIndex, selection] as const),
     );
     let mainDayIndex = 0;
-    setPlanRows(
-      parentVersion.planStops.map((stop) => {
-        const nextRow = buildDefaultLodgingRow({
-          rowType: stop.rowType ?? 'MAIN',
-          segmentId: stop.segmentId ?? undefined,
-          segmentVersionId: stop.segmentVersionId ?? undefined,
-          overnightStayId: stop.multiDayBlockId ?? undefined,
-          overnightStayDayOrder: stop.multiDayBlockDayOrder ?? undefined,
-          multiDayBlockId: stop.multiDayBlockId ?? undefined,
-          multiDayBlockDayOrder: stop.multiDayBlockDayOrder ?? undefined,
-          multiDayBlockConnectionId: stop.multiDayBlockConnectionId ?? undefined,
-          multiDayBlockConnectionVersionId: stop.multiDayBlockConnectionVersionId ?? undefined,
-          locationId: stop.locationId ?? undefined,
-          locationVersionId: stop.locationVersionId ?? undefined,
-          movementIntensity: stop.movementIntensity ?? null,
-          movementIntensityColorOverride: stop.movementIntensityColorOverride ?? null,
-          dateCellText: stop.dateCellText,
-          destinationCellText: stop.destinationCellText,
-          timeCellText: stop.timeCellText,
-          scheduleCellText: stop.scheduleCellText,
-          mealCellText: stop.mealCellText,
-          baseLodgingName: '',
-          lodgingCellText: stop.lodgingCellText,
-        });
-        if (nextRow.rowType === 'EXTERNAL_TRANSFER') {
-          return nextRow;
-        }
-        mainDayIndex += 1;
-        const selection = lodgingSelectionByDayIndex.get(mainDayIndex);
-        return {
-          ...nextRow,
-          lodgingSelectionLevel: selection?.level ?? 'LV3',
-          customLodgingId: selection?.customLodgingId ?? undefined,
-          customLodgingNameSnapshot: selection?.customLodgingNameSnapshot ?? null,
-        };
-      }),
-    );
+    const hydratedPlanRows = parentVersion.planStops.map((stop) => {
+      const nextRow = buildDefaultLodgingRow({
+        rowType: stop.rowType ?? 'MAIN',
+        segmentId: stop.segmentId ?? undefined,
+        segmentVersionId: stop.segmentVersionId ?? undefined,
+        overnightStayId: stop.multiDayBlockId ?? undefined,
+        overnightStayDayOrder: stop.multiDayBlockDayOrder ?? undefined,
+        multiDayBlockId: stop.multiDayBlockId ?? undefined,
+        multiDayBlockDayOrder: stop.multiDayBlockDayOrder ?? undefined,
+        multiDayBlockConnectionId: stop.multiDayBlockConnectionId ?? undefined,
+        multiDayBlockConnectionVersionId: stop.multiDayBlockConnectionVersionId ?? undefined,
+        locationId: stop.locationId ?? undefined,
+        locationVersionId: stop.locationVersionId ?? undefined,
+        movementIntensity: stop.movementIntensity ?? null,
+        movementIntensityColorOverride: stop.movementIntensityColorOverride ?? null,
+        dateCellText: stop.dateCellText,
+        destinationCellText: stop.destinationCellText,
+        timeCellText: stop.timeCellText,
+        scheduleCellText: stop.scheduleCellText,
+        mealCellText: stop.mealCellText,
+        baseLodgingName: '',
+        lodgingCellText: stop.lodgingCellText,
+      });
+      if (nextRow.rowType === 'EXTERNAL_TRANSFER') {
+        return nextRow;
+      }
+      mainDayIndex += 1;
+      const selection = lodgingSelectionByDayIndex.get(mainDayIndex);
+      return {
+        ...nextRow,
+        lodgingSelectionLevel: selection?.level ?? 'LV3',
+        customLodgingId: selection?.customLodgingId ?? undefined,
+        customLodgingNameSnapshot: selection?.customLodgingNameSnapshot ?? null,
+      };
+    });
+    for (const row of hydratedPlanRows) {
+      if (row.rowType === 'EXTERNAL_TRANSFER') {
+        continue;
+      }
+      if (row.lodgingSelectionLevel === 'LV3' && !row.customLodgingId) {
+        continue;
+      }
+      markPlanRowFieldDirty(dirtyPlanRowFieldKeysRef.current, row, 'lodgingSelectionLevel');
+      markPlanRowFieldDirty(dirtyPlanRowFieldKeysRef.current, row, 'customLodgingId');
+      markPlanRowFieldDirty(dirtyPlanRowFieldKeysRef.current, row, 'customLodgingNameSnapshot');
+      markPlanRowFieldDirty(dirtyPlanRowFieldKeysRef.current, row, 'lodgingCellText');
+    }
+    setPlanRows(hydratedPlanRows);
 
     setManualAdjustments(
       (pricing?.savedManualAdjustments ?? []).map((row) => ({
@@ -8010,8 +8062,90 @@ export function ItineraryBuilderPage(): JSX.Element {
 
             <section id="builder-section-pricing" className="scroll-mt-4 space-y-5">
               <Card className="rounded-3xl border border-slate-200 p-4 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="text-lg font-bold text-slate-900">금액</h2>
+                <h2 className="text-lg font-bold text-slate-900">금액</h2>
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVariantTypeManualLocked(true);
+                        setVariantType(toggleEarlyVariant(variantType));
+                      }}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        isEarlyVariant(variantType)
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      얼리
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVariantTypeManualLocked(true);
+                        setVariantType(toggleExtendVariant(variantType));
+                      }}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        isExtendVariant(variantType)
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      연장
+                    </button>
+                    <button
+                      type="button"
+                      disabled={headcountTotal < HIACE_VEHICLE_HEADCOUNT_MIN}
+                      onClick={() => {
+                        const nextIsHiace = !hasHiaceAssignment(vehicleAssignments);
+                        setVehicleAssignments((current) =>
+                          current.map((row) => ({
+                            vehicleType: nextIsHiace ? HIACE_VEHICLE_TYPE : '스타렉스',
+                            count: row.count,
+                          })),
+                        );
+                      }}
+                      className={`rounded-xl border px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50 ${
+                        hasHiaceAssignment(vehicleAssignments)
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      차량 업그레이드
+                    </button>
+                  </div>
+                  <span className="hidden h-5 w-px bg-slate-200 sm:block" aria-hidden />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      className="shrink-0 whitespace-nowrap"
+                      onClick={() => openLodgingUpgradeModal()}
+                      disabled={planRows.length === 0}
+                    >
+                      숙소 업그레이드
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="shrink-0 whitespace-nowrap"
+                      onClick={() => setExtraLodgingsModalState({ open: true })}
+                      disabled={planRows.length === 0}
+                    >
+                      숙소 추가
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="shrink-0 whitespace-nowrap"
+                      onClick={() => {
+                        setExternalTransfersDraft(
+                          normalizeExternalTransfers(externalTransfers.map(cloneExternalTransfer)),
+                        );
+                        setExternalTransfersManagerModalState({ open: true });
+                      }}
+                    >
+                      실투어 외
+                    </Button>
+                  </div>
+                  <span className="hidden h-5 w-px bg-slate-200 sm:block" aria-hidden />
                   <div className="flex flex-wrap items-center gap-2">
                     <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700">
                       <input
