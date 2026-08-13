@@ -362,6 +362,7 @@ export function AppLayout(): JSX.Element {
   const isWideMultiDayBlockCreatePage = location.pathname === '/multi-day-blocks/create';
   const isWideConnectionListPage = location.pathname === '/connections/list';
   const isConfirmedTripsPage = matchesPath('/confirmed-trips');
+  const isCustomersPage = matchesPath('/customers');
   const isTodoListPage = matchesPath('/todos/list');
   const isPlanVersionDetailPage = /^\/plans\/[^/]+\/versions\/[^/]+$/.test(location.pathname);
   const isLocationGuidePage = location.pathname === '/location-guides';
@@ -373,6 +374,7 @@ export function AppLayout(): JSX.Element {
       : isWideConnectionListPage ||
           isPricingAdminPage ||
           isConfirmationBuilderHomePage ||
+          isCustomersPage ||
           isTodoListPage ||
           isPlanVersionDetailPage ||
           isLocationGuidePage ||

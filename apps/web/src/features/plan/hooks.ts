@@ -500,6 +500,18 @@ export interface PlanVersionPricingRow {
   updatedAt: string;
 }
 
+/** 고객 워크스페이스 버전 목록용 라이트 행 (PlansByUser.versions) */
+export interface PlanVersionListItem {
+  id: string;
+  planId: string;
+  versionNumber: number;
+  variantType: string;
+  totalDays: number;
+  meta?: {
+    leaderName?: string | null;
+  } | null;
+}
+
 export interface PlanRow {
   id: string;
   userId: string;
@@ -510,6 +522,8 @@ export interface PlanRow {
   createdAt: string;
   updatedAt: string;
   currentVersion: PlanVersionRow | null;
+  /** PlansByUser에 포함. 별도 planVersions 왕복 없이 목록·견적 선택에 사용 */
+  versions?: PlanVersionListItem[];
 }
 
 export interface PlanDetail extends PlanRow {
@@ -790,6 +804,16 @@ const PLANS_BY_USER_QUERY = gql`
         meta {
           id
           planVersionId
+          leaderName
+        }
+      }
+      versions {
+        id
+        planId
+        versionNumber
+        variantType
+        totalDays
+        meta {
           leaderName
         }
       }

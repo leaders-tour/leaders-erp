@@ -2,7 +2,13 @@ import { Card } from '@tour/ui';
 import { useApolloClient } from '@apollo/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { CustomerDeletePanel, CustomerSelector, PlanListPanel } from '../features/plan/components';
+import {
+  CustomerDeletePanel,
+  CustomerEstimatePreviewPanel,
+  CustomerSelector,
+  CustomerVersionListPanel,
+  PlanListPanel,
+} from '../features/plan/components';
 import { UserDisplayName } from '../features/plan/components/UserDisplayName';
 import {
   getCustomerPaginationShortcutAction,
@@ -27,8 +33,17 @@ import {
   getCustomerTripStatus,
   type CustomerTripStatus,
 } from '../features/plan/customerTripStatus';
+import {
+  resolveSelectedPlanId,
+  resolveVersionIdFromPlanSummary,
+} from '../features/plan/customerWorkspaceSelection';
 import type { DealStageValue } from '../features/plan/hooks';
-import { useDeleteUser, usePlansByUser, useUsers, fetchUserListSnapshot } from '../features/plan/hooks';
+import {
+  useDeleteUser,
+  usePlansByUser,
+  useUsers,
+  fetchUserListSnapshot,
+} from '../features/plan/hooks';
 import {
   getQueryParam,
   patchSearchParams,
@@ -75,10 +90,13 @@ export function CustomerPage(): JSX.Element {
   );
   const currentPage = parseCustomerPageParam(searchParams.get('page'));
   const [deletePanelOpen, setDeletePanelOpen] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const filterResetKeyRef = useRef(`${customerSearch}|${statusFilter}|${minTeamsFilter ?? ''}`);
   const snapshotCheckInFlightRef = useRef(false);
   const usersLoadingRef = useRef(loading);
   const usersRef = useRef(users);
+  const previousUserIdRef = useRef(selectedUserId);
 
   useEffect(() => {
     usersLoadingRef.current = loading;
@@ -142,6 +160,14 @@ export function CustomerPage(): JSX.Element {
   }
 
   function setSelectedUserId(userId: string) {
+    if (userId !== selectedUserId) {
+      // Clear synchronously so the previous customer's plan/version/estimate
+      // cannot flash under the newly selected customer for one paint.
+      setSelectedPlanId(null);
+      setSelectedVersionId(null);
+      setDeletePanelOpen(false);
+      previousUserIdRef.current = userId;
+    }
     patchSearchParams(setSearchParams, (prev) => setOptionalQueryParam(prev, 'userId', userId || undefined));
   }
 
@@ -249,18 +275,94 @@ export function CustomerPage(): JSX.Element {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [safeCurrentPage, totalPages]);
 
+  useEffect(() => {
+    if (previousUserIdRef.current === selectedUserId) {
+      return;
+    }
+    previousUserIdRef.current = selectedUserId;
+    setSelectedPlanId(null);
+    setSelectedVersionId(null);
+    setDeletePanelOpen(false);
+  }, [selectedUserId]);
+
   const { plans, loading: planLoading } = usePlansByUser(selectedUserId || undefined);
+  const showPlansLoading = Boolean(selectedUserId) && planLoading;
+
+  useEffect(() => {
+    if (!selectedUserId || showPlansLoading) {
+      return;
+    }
+    const nextPlanId = resolveSelectedPlanId(
+      plans.map((plan) => plan.id),
+      selectedPlanId,
+    );
+    if (nextPlanId !== selectedPlanId) {
+      const nextPlan = plans.find((plan) => plan.id === nextPlanId) ?? null;
+      setSelectedPlanId(nextPlanId);
+      // Start estimate immediately from plans payload — do not wait for planVersions.
+      setSelectedVersionId(resolveVersionIdFromPlanSummary(nextPlan, null));
+      return;
+    }
+
+    if (selectedPlanId && !selectedVersionId) {
+      const selectedPlan = plans.find((plan) => plan.id === selectedPlanId) ?? null;
+      const nextVersionId = resolveVersionIdFromPlanSummary(selectedPlan, null);
+      if (nextVersionId) {
+        setSelectedVersionId(nextVersionId);
+      }
+    }
+  }, [plans, selectedPlanId, selectedUserId, selectedVersionId, showPlansLoading]);
+
   const selectedUser = users.find((user) => user.id === selectedUserId) ?? null;
   const selectedTripStatus = selectedUser ? getCustomerTripStatus(selectedUser) : null;
   const showUsersInitialLoading = loading && !hasCachedUsers && !isRestoringUsers;
-  const showPlansLoading = Boolean(selectedUserId) && planLoading;
+  const selectedPlan = plans.find((plan) => plan.id === selectedPlanId) ?? null;
+  // Session/Apollo cache from older clients may omit `versions`; fall back to currentVersion.
+  const planVersions = useMemo(() => {
+    if (!selectedPlan) {
+      return [];
+    }
+    if (selectedPlan.versions && selectedPlan.versions.length > 0) {
+      return selectedPlan.versions;
+    }
+    if (selectedPlan.currentVersion) {
+      return [
+        {
+          id: selectedPlan.currentVersion.id,
+          planId: selectedPlan.currentVersion.planId,
+          versionNumber: selectedPlan.currentVersion.versionNumber,
+          variantType: selectedPlan.currentVersion.variantType,
+          totalDays: selectedPlan.currentVersion.totalDays,
+          meta: selectedPlan.currentVersion.meta
+            ? { leaderName: selectedPlan.currentVersion.meta.leaderName }
+            : null,
+        },
+      ];
+    }
+    return [];
+  }, [selectedPlan]);
+  const selectedVersion =
+    planVersions.find((version) => version.id === selectedVersionId) ?? null;
+  const estimateVersionId =
+    selectedUser && selectedPlan && selectedVersionId && selectedVersion
+      ? selectedVersionId
+      : null;
+
+  function handleSelectPlan(planId: string) {
+    if (planId === selectedPlanId) {
+      return;
+    }
+    const nextPlan = plans.find((plan) => plan.id === planId) ?? null;
+    setSelectedPlanId(planId);
+    setSelectedVersionId(resolveVersionIdFromPlanSummary(nextPlan, null));
+  }
 
   return (
     <section className="grid gap-6">
       <header className="flex items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">고객</h1>
-          <p className="mt-1 text-sm text-slate-600">고객별 일정과 버전 이력을 탐색합니다.</p>
+          <p className="mt-1 text-sm text-slate-600">고객별 일정·버전·견적을 한 화면에서 탐색합니다.</p>
         </div>
         <Link
           to="/customers/create"
@@ -270,8 +372,8 @@ export function CustomerPage(): JSX.Element {
         </Link>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <div className="grid gap-4">
+      <div className="grid gap-8 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(240px,0.55fr)_minmax(420px,1.45fr)]">
+        <div className="min-w-0">
           <CustomerSelector
             users={paginatedUsers}
             selectedUserId={selectedUserId}
@@ -292,12 +394,12 @@ export function CustomerPage(): JSX.Element {
           />
         </div>
 
-        <div className="flex min-h-0 flex-col gap-4 self-start">
+        <div className="flex min-w-0 flex-col gap-4">
           {showUsersInitialLoading ? <div className="text-sm text-slate-600">고객 목록을 불러오는 중...</div> : null}
 
           {selectedUser ? (
             <>
-              <Card className="h-fit self-start rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+              <Card className="w-full min-w-0 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -352,17 +454,49 @@ export function CustomerPage(): JSX.Element {
               <PlanListPanel
                 plans={showPlansLoading ? [] : plans}
                 loading={showPlansLoading}
+                selectedPlanId={selectedPlanId}
+                onSelectPlan={handleSelectPlan}
                 onOpenPlan={(planId) =>
                   navigate(`/plans/${planId}`, { state: { returnTo: customersListPath } })
                 }
                 onCreatePlan={() => navigate(`/itinerary-builder?userId=${selectedUserId}`)}
               />
+
+              <CustomerVersionListPanel
+                versions={showPlansLoading ? [] : planVersions}
+                currentVersionId={selectedPlan?.currentVersionId ?? null}
+                customerName={selectedUser.name}
+                selectedVersionId={selectedVersionId}
+                planTitle={selectedPlan?.title}
+                loading={showPlansLoading}
+                emptyMessage={
+                  showPlansLoading
+                    ? '일정을 불러오면 버전이 표시됩니다.'
+                    : selectedPlanId
+                      ? '버전이 없습니다.'
+                      : '일정을 불러오면 버전이 표시됩니다.'
+                }
+                onSelectVersion={setSelectedVersionId}
+                onOpenVersion={(versionId) => {
+                  if (!selectedPlanId) return;
+                  navigate(`/plans/${selectedPlanId}/versions/${versionId}`, {
+                    state: { returnTo: customersListPath },
+                  });
+                }}
+              />
             </>
           ) : (
             <Card className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
-              고객을 선택하면 일정 요약이 표시됩니다.
+              고객을 선택하면 일정·버전·견적이 표시됩니다.
             </Card>
           )}
+        </div>
+
+        <div className="min-w-0 overflow-hidden lg:col-span-2 xl:col-span-1">
+          <CustomerEstimatePreviewPanel
+            versionId={estimateVersionId}
+            versionNumber={selectedVersion?.versionNumber ?? null}
+          />
         </div>
       </div>
     </section>
