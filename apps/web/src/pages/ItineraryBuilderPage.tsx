@@ -5534,7 +5534,7 @@ export function ItineraryBuilderPage(): JSX.Element {
             return;
           }
           setPlanSaveErrorMessages([]);
-          navigate(`/confirmed-trips/${confirmedTripId}`);
+          navigate(`/confirmed-trips/${confirmedTripId}`, { replace: true });
           return;
         }
 
@@ -5548,16 +5548,16 @@ export function ItineraryBuilderPage(): JSX.Element {
               ...mutationErrorMessages(error),
               '새 버전은 생성되었습니다. 견적 버전 상세에서 확정 갱신을 수동으로 진행해 주세요.',
             ]);
-            navigate(`/plans/${planId}/versions/${createdVersionId}`);
+            navigate(`/plans/${planId}/versions/${createdVersionId}`, { replace: true });
             return;
           }
           setPlanSaveErrorMessages([]);
-          navigate(`/confirmed-trips/${activeConfirmedTripForPlan.id}`);
+          navigate(`/confirmed-trips/${activeConfirmedTripForPlan.id}`, { replace: true });
           return;
         }
 
         setPlanSaveErrorMessages([]);
-        navigate(`/plans/${planId}/versions/${createdVersionId}`);
+        navigate(`/plans/${planId}/versions/${createdVersionId}`, { replace: true });
       } catch (error) {
         setPlanSaveErrorMessages(mutationErrorMessages(error));
       }
@@ -6388,7 +6388,7 @@ export function ItineraryBuilderPage(): JSX.Element {
                             setPlanSaveErrorMessages([
                               '생성된 견적 초기 버전 ID를 받지 못했습니다. 플랜 상세에서 수동으로 이 확정 건과 연결해 주세요.',
                             ]);
-                            navigate(`/plans/${createdPlanId}`);
+                            navigate(`/plans/${createdPlanId}`, { replace: true });
                             return;
                           }
                           try {
@@ -6397,15 +6397,15 @@ export function ItineraryBuilderPage(): JSX.Element {
                             });
                           } catch (error) {
                             setPlanSaveErrorMessages(mutationErrorMessages(error));
-                            navigate(`/plans/${createdPlanId}`);
+                            navigate(`/plans/${createdPlanId}`, { replace: true });
                             return;
                           }
                           setPlanSaveErrorMessages([]);
-                          navigate(`/confirmed-trips/${confirmedTripId}`);
+                          navigate(`/confirmed-trips/${confirmedTripId}`, { replace: true });
                           return;
                         }
                         setPlanSaveErrorMessages([]);
-                        navigate(`/plans/${createdPlanId}`);
+                        navigate(`/plans/${createdPlanId}`, { replace: true });
                       }
                     } catch (error) {
                       setPlanSaveErrorMessages(mutationErrorMessages(error));

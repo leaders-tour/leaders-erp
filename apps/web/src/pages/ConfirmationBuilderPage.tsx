@@ -447,7 +447,7 @@ export function ConfirmationBuilderPage(): JSX.Element {
         await saveMemo(saved.id, builderMemo);
       }
       await Promise.all([refetchLatest(), refetchPublished()]);
-      navigate(`/confirmation-documents/${saved.id}`);
+      navigate(`/confirmation-documents/${saved.id}`, { replace: true });
     } catch (error) {
       window.alert(error instanceof Error ? error.message : '저장에 실패했습니다.');
     }
