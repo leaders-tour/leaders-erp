@@ -143,12 +143,29 @@ type CatalogBlock {
   updatedAt: DateTime!
 }
 
+input CatalogRegionCreateInput {
+  name: String!
+  country: String
+  description: String
+  status: CatalogUsageStatus
+}
+
 input CatalogPlaceCreateInput {
   name: String!
   placeType: CatalogPlaceType!
   country: String
   regionId: ID
   parentPlaceId: ID
+  status: CatalogUsageStatus
+}
+
+input CatalogRouteCreateInput {
+  name: String!
+  fromPlaceId: ID!
+  toPlaceId: ID!
+  regionId: ID
+  averageDistanceKm: Float
+  averageTravelHours: Float
   status: CatalogUsageStatus
 }
 
@@ -177,7 +194,9 @@ extend type Query {
 }
 
 extend type Mutation {
+  createCatalogRegion(input: CatalogRegionCreateInput!): CatalogRegion!
   createCatalogPlace(input: CatalogPlaceCreateInput!): CatalogPlace!
+  createCatalogRoute(input: CatalogRouteCreateInput!): CatalogRoute!
   createCatalogElement(input: CatalogElementCreateInput!): CatalogElement!
   createCatalogBlock(input: CatalogBlockCreateInput!): CatalogBlock!
 }

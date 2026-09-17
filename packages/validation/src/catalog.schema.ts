@@ -6,12 +6,29 @@ const catalogElementCompositionSchema = z.enum(['SINGLE', 'SET']);
 const catalogElementKindSchema = z.enum(['MEETING', 'TRANSFER', 'MEAL', 'EXPERIENCE', 'MIXED']);
 const catalogBlockShapeSchema = z.enum(['DAY', 'SET']);
 
+export const catalogRegionCreateSchema = z.object({
+  name: z.string().min(1).max(120),
+  country: z.string().min(1).max(60).optional(),
+  description: z.string().max(500).nullable().optional(),
+  status: catalogUsageStatusSchema.optional(),
+});
+
 export const catalogPlaceCreateSchema = z.object({
   name: z.string().min(1).max(120),
   placeType: catalogPlaceTypeSchema,
   country: z.string().min(1).max(60).optional(),
   regionId: z.string().min(1).nullable().optional(),
   parentPlaceId: z.string().min(1).nullable().optional(),
+  status: catalogUsageStatusSchema.optional(),
+});
+
+export const catalogRouteCreateSchema = z.object({
+  name: z.string().min(1).max(120),
+  fromPlaceId: z.string().min(1),
+  toPlaceId: z.string().min(1),
+  regionId: z.string().min(1).nullable().optional(),
+  averageDistanceKm: z.number().nonnegative().nullable().optional(),
+  averageTravelHours: z.number().nonnegative().nullable().optional(),
   status: catalogUsageStatusSchema.optional(),
 });
 
@@ -31,6 +48,8 @@ export const catalogBlockCreateSchema = z.object({
   status: catalogUsageStatusSchema.optional(),
 });
 
+export type CatalogRegionCreateInput = z.infer<typeof catalogRegionCreateSchema>;
 export type CatalogPlaceCreateInput = z.infer<typeof catalogPlaceCreateSchema>;
+export type CatalogRouteCreateInput = z.infer<typeof catalogRouteCreateSchema>;
 export type CatalogElementCreateInput = z.infer<typeof catalogElementCreateSchema>;
 export type CatalogBlockCreateInput = z.infer<typeof catalogBlockCreateSchema>;

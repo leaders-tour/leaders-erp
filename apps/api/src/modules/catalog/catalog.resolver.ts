@@ -15,6 +15,15 @@ interface PlacesArgs extends StatusArgs {
   placeType?: CatalogPlaceType;
 }
 
+interface CreateRegionArgs {
+  input: {
+    name: string;
+    country?: string;
+    description?: string | null;
+    status?: CatalogUsageStatus;
+  };
+}
+
 interface CreatePlaceArgs {
   input: {
     name: string;
@@ -22,6 +31,18 @@ interface CreatePlaceArgs {
     country?: string;
     regionId?: string | null;
     parentPlaceId?: string | null;
+    status?: CatalogUsageStatus;
+  };
+}
+
+interface CreateRouteArgs {
+  input: {
+    name: string;
+    fromPlaceId: string;
+    toPlaceId: string;
+    regionId?: string | null;
+    averageDistanceKm?: number | null;
+    averageTravelHours?: number | null;
     status?: CatalogUsageStatus;
   };
 }
@@ -60,8 +81,12 @@ export const catalogResolver = {
       new CatalogService(ctx.prisma).listBlocks(args.status),
   },
   Mutation: {
+    createCatalogRegion: (_parent: unknown, args: CreateRegionArgs, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).createRegion(args.input),
     createCatalogPlace: (_parent: unknown, args: CreatePlaceArgs, ctx: AppContext) =>
       new CatalogService(ctx.prisma).createPlace(args.input),
+    createCatalogRoute: (_parent: unknown, args: CreateRouteArgs, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).createRoute(args.input),
     createCatalogElement: (_parent: unknown, args: CreateElementArgs, ctx: AppContext) =>
       new CatalogService(ctx.prisma).createElement(args.input),
     createCatalogBlock: (_parent: unknown, args: CreateBlockArgs, ctx: AppContext) =>

@@ -242,9 +242,25 @@ const BLOCKS_QUERY = gql`
   }
 `;
 
+const CREATE_REGION = gql`
+  mutation CreateCatalogRegion($input: CatalogRegionCreateInput!) {
+    createCatalogRegion(input: $input) {
+      id
+    }
+  }
+`;
+
 const CREATE_PLACE = gql`
   mutation CreateCatalogPlace($input: CatalogPlaceCreateInput!) {
     createCatalogPlace(input: $input) {
+      id
+    }
+  }
+`;
+
+const CREATE_ROUTE = gql`
+  mutation CreateCatalogRoute($input: CatalogRouteCreateInput!) {
+    createCatalogRoute(input: $input) {
       id
     }
   }
@@ -286,8 +302,16 @@ export function useCatalogBlocks() {
   return useQuery<{ catalogBlocks: CatalogBlockRow[] }>(BLOCKS_QUERY);
 }
 
+export function useCreateCatalogRegion() {
+  return useMutation(CREATE_REGION, { refetchQueries: [{ query: REGIONS_QUERY }] });
+}
+
 export function useCreateCatalogPlace() {
   return useMutation(CREATE_PLACE, { refetchQueries: [{ query: PLACES_QUERY }] });
+}
+
+export function useCreateCatalogRoute() {
+  return useMutation(CREATE_ROUTE, { refetchQueries: [{ query: ROUTES_QUERY }] });
 }
 
 export function useCreateCatalogElement() {

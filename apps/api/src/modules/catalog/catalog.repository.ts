@@ -3,6 +3,8 @@ import type {
   CatalogBlockCreateInput,
   CatalogElementCreateInput,
   CatalogPlaceCreateInput,
+  CatalogRegionCreateInput,
+  CatalogRouteCreateInput,
 } from '@tour/validation';
 
 type PrismaLike = PrismaClient;
@@ -77,6 +79,20 @@ export class CatalogRepository {
     });
   }
 
+  async createRegion(data: CatalogRegionCreateInput) {
+    const count = await this.prisma.catalogRegion.count();
+    return this.prisma.catalogRegion.create({
+      data: {
+        code: nextCode('RG', count),
+        name: data.name,
+        country: data.country ?? '몽골',
+        description: data.description ?? null,
+        status: data.status ?? 'ACTIVE',
+        sortOrder: count + 100,
+      },
+    });
+  }
+
   async createPlace(data: CatalogPlaceCreateInput) {
     const count = await this.prisma.catalogPlace.count();
     return this.prisma.catalogPlace.create({
@@ -93,6 +109,28 @@ export class CatalogRepository {
       include: {
         region: true,
         parentPlace: true,
+      },
+    });
+  }
+
+  async createRoute(data: CatalogRouteCreateInput) {
+    const count = await this.prisma.catalogRoute.count();
+    return this.prisma.catalogRoute.create({
+      data: {
+        code: nextCode('RT', count),
+        name: data.name,
+        fromPlaceId: data.fromPlaceId,
+        toPlaceId: data.toPlaceId,
+        regionId: data.regionId ?? null,
+        averageDistanceKm: data.averageDistanceKm ?? null,
+        averageTravelHours: data.averageTravelHours ?? null,
+        status: data.status ?? 'ACTIVE',
+        sortOrder: count + 100,
+      },
+      include: {
+        region: true,
+        fromPlace: true,
+        toPlace: true,
       },
     });
   }
