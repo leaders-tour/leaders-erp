@@ -23,6 +23,7 @@ import {
   StubButton,
   datasetControlClass,
 } from '../../features/dataset/ui';
+import { DatasetPlaceDetailPanel } from './DatasetPlaceDetailPanel';
 
 type InnerTab = 'regions' | 'places' | 'routes';
 
@@ -40,6 +41,7 @@ export function DatasetPlacesPage(): JSX.Element {
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createType, setCreateType] = useState<CatalogPlaceType>('LODGING');
+  const [detailPlaceId, setDetailPlaceId] = useState<string | null>(null);
 
   const regionsQuery = useCatalogRegions();
   const placesQuery = useCatalogPlaces();
@@ -49,6 +51,10 @@ export function DatasetPlacesPage(): JSX.Element {
   const places = placesQuery.data?.catalogPlaces ?? [];
   const regions = regionsQuery.data?.catalogRegions ?? [];
   const routes = routesQuery.data?.catalogRoutes ?? [];
+  const detailPlace = useMemo(
+    () => (detailPlaceId ? places.find((row) => row.id === detailPlaceId) ?? null : null),
+    [detailPlaceId, places],
+  );
 
   const listPlaces = useMemo(
     () => places.filter((row) => LIST_PLACE_TYPES.includes(row.placeType)),
@@ -272,18 +278,32 @@ export function DatasetPlacesPage(): JSX.Element {
                       {filteredPlaces.map((row) => {
                         const hasCoords = row.latitude != null && row.longitude != null;
                         return (
-                          <tr key={row.id} className="border-t border-slate-100 hover:bg-slate-50">
+                          <tr
+                            key={row.id}
+                            className="cursor-pointer border-t border-slate-100 hover:bg-[#F8F6FF]"
+                            onClick={() => setDetailPlaceId(row.id)}
+                          >
                             <Td>
                               <input
                                 type="checkbox"
                                 className={datasetTheme.checkbox}
                                 checked={selectedIds.has(row.id)}
                                 onChange={() => toggleSelected(row.id)}
+                                onClick={(event) => event.stopPropagation()}
                                 aria-label={`${row.name} 선택`}
                               />
                             </Td>
                             <Td>
-                              <div className="font-medium text-slate-900">{row.name}</div>
+                              <button
+                                type="button"
+                                className={`text-left font-medium ${datasetTheme.link}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setDetailPlaceId(row.id);
+                                }}
+                              >
+                                {row.name}
+                              </button>
                               <div className="text-xs text-[#9A93C2]">{row.code}</div>
                             </Td>
                             <Td>
@@ -293,7 +313,7 @@ export function DatasetPlacesPage(): JSX.Element {
                               {row.country} / {row.region?.name ?? '-'}
                             </Td>
                             <Td>{row.parentPlace?.name ?? '-'}</Td>
-                            <Td>
+                            <Td onClick={(event) => event.stopPropagation()}>
                               {hasCoords ? (
                                 <MapLink href={`https://www.google.com/maps?q=${row.latitude},${row.longitude}`} />
                               ) : (
@@ -439,6 +459,15 @@ export function DatasetPlacesPage(): JSX.Element {
               </div>
             </div>
           </>
+        ) : null}
+
+        {detailPlace ? (
+          <DatasetPlaceDetailPanel
+            place={detailPlace}
+            places={places}
+            onClose={() => setDetailPlaceId(null)}
+            onStub={showStub}
+          />
         ) : null}
 
         <DatasetPageFooter screenId="T01-01 · 장소 목록" />
