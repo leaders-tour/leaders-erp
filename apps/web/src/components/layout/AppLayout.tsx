@@ -17,7 +17,18 @@ interface NavItem {
   label: string;
   icon: NavIcon;
   children?: NavChild[];
+  /** 사이드바 섹션 헤더 (직전 항목과 다를 때 렌더) */
+  section?: string;
+  sectionBadge?: string;
 }
+
+const DatasetIcon: NavIcon = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+    <ellipse cx="12" cy="6" rx="8" ry="3" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
+  </svg>
+);
 
 const ItineraryIcon: NavIcon = ({ className }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
@@ -228,9 +239,38 @@ const baseNavItems: NavItem[] = [
     ],
   },
   {
+    path: '/dataset/places',
+    label: '장소 · 지역 · 경로',
+    icon: DatasetIcon,
+    section: '일정 데이터 관리',
+    sectionBadge: '신규',
+  },
+  {
+    path: '/dataset/elements',
+    label: '일정요소',
+    icon: TemplateIcon,
+    section: '일정 데이터 관리',
+    sectionBadge: '신규',
+  },
+  {
+    path: '/dataset/blocks',
+    label: '일정 블록',
+    icon: MultiDayBlockIcon,
+    section: '일정 데이터 관리',
+    sectionBadge: '신규',
+  },
+  {
+    path: '/dataset/templates',
+    label: '여행 템플릿 (준비중)',
+    icon: ItineraryIcon,
+    section: '일정 데이터 관리',
+    sectionBadge: '신규',
+  },
+  {
     path: '/itinerary-templates',
     label: '일정 템플릿',
     icon: TemplateIcon,
+    section: '기존 운영 메뉴',
     children: [
       { path: '/itinerary-templates', label: '템플릿 목록' },
       { path: '/itinerary-templates/new', label: '템플릿 생성' },
@@ -240,6 +280,7 @@ const baseNavItems: NavItem[] = [
     path: '/regions',
     label: '지역',
     icon: RegionIcon,
+    section: '기존 운영 메뉴',
     children: [
       { path: '/regions/list', label: '지역 목록' },
       { path: '/regions/create', label: '지역 생성' },
@@ -252,6 +293,7 @@ const baseNavItems: NavItem[] = [
     path: '/locations',
     label: '목적지',
     icon: LocationIcon,
+    section: '기존 운영 메뉴',
     children: [
       { path: '/locations/list', label: '목적지 목록' },
       { path: '/locations/create', label: '목적지 생성' },
@@ -262,6 +304,7 @@ const baseNavItems: NavItem[] = [
     path: '/connections',
     label: '연결',
     icon: ConnectionIcon,
+    section: '기존 운영 메뉴',
     children: [
       { path: '/connections/list', label: '연결 목록' },
       { path: '/connections/create', label: '연결 생성' },
@@ -271,6 +314,7 @@ const baseNavItems: NavItem[] = [
     path: '/multi-day-blocks',
     label: '연속 일정 블록',
     icon: MultiDayBlockIcon,
+    section: '기존 운영 메뉴',
     children: [
       { path: '/multi-day-blocks/list', label: '블록 목록' },
       { path: '/multi-day-blocks/create', label: '블록 생성' },
@@ -280,6 +324,7 @@ const baseNavItems: NavItem[] = [
     path: '/events',
     label: '이벤트',
     icon: EventIcon,
+    section: '기존 운영 메뉴',
     children: [
       { path: '/events/list', label: '이벤트 목록' },
       { path: '/events/create', label: '이벤트 생성' },
@@ -289,6 +334,7 @@ const baseNavItems: NavItem[] = [
     path: '/settings',
     label: '설정',
     icon: SettingsIcon,
+    section: '기존 운영 메뉴',
     children: [
       { path: '/settings', label: '설정 메뉴' },
       { path: '/settings/movement-intensity', label: '이동강도' },
@@ -367,6 +413,7 @@ export function AppLayout(): JSX.Element {
   const isPlanVersionDetailPage = /^\/plans\/[^/]+\/versions\/[^/]+$/.test(location.pathname);
   const isLocationGuidePage = location.pathname === '/location-guides';
   const isGuideLocationMapPage = location.pathname === '/guides/locations';
+  const isDatasetPage = matchesPath('/dataset');
   const pageShellClassName = isFullBleedPage
     ? 'max-w-none px-0 py-0'
     : isConfirmedTripsPage
@@ -378,7 +425,8 @@ export function AppLayout(): JSX.Element {
           isTodoListPage ||
           isPlanVersionDetailPage ||
           isLocationGuidePage ||
-          isGuideLocationMapPage
+          isGuideLocationMapPage ||
+          isDatasetPage
         ? 'max-w-none'
         : isWideLocationProfilePage || isWideMultiDayBlockCreatePage
           ? 'max-w-[1800px]'
@@ -563,20 +611,49 @@ export function AppLayout(): JSX.Element {
 
           <nav className={`flex-1 overflow-y-auto ${isCompactSidebar ? 'px-2 py-4' : 'px-4 py-5'}`}>
             <ul className="space-y-2">
-              {navItems.map((item) => {
+              {navItems.map((item, index) => {
                 const itemActive = isNavItemActive(item);
                 const activeChildPath = item.children ? getActiveChildPath(item.children) : null;
-                const showDividerAbove = item.path === '/customers' || item.path === '/guides' || item.path === '/admin/employees';
+                const previousSection = index > 0 ? navItems[index - 1]?.section : undefined;
+                const showSectionHeader = Boolean(item.section && item.section !== previousSection);
+                const showDividerAbove =
+                  (!item.section && (item.path === '/customers' || item.path === '/guides' || item.path === '/admin/employees')) ||
+                  showSectionHeader;
+                const isDatasetSection = item.section === '일정 데이터 관리';
                 const ItemIcon = item.icon;
                 const linkTarget = item.search ? `${item.path}?${item.search}` : item.path;
+                const activeClass = isDatasetSection
+                  ? 'bg-[#5B4BD6] text-white'
+                  : 'bg-slate-900 text-white';
+                const inactiveClass = isDatasetSection
+                  ? 'text-slate-700 hover:bg-[#F3F0FF] hover:text-[#5B4BD6]'
+                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900';
                 const compactItemClassName = `flex items-center justify-center rounded-2xl px-3 py-3 transition-colors ${
-                  itemActive
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                  itemActive ? activeClass : inactiveClass
                 }`;
 
                 return (
                   <li key={`${item.path}${item.search ?? ''}`} className={`space-y-1 ${showDividerAbove ? 'mt-3 border-t border-slate-200 pt-3' : ''}`}>
+                    {showSectionHeader && !isCompactSidebar ? (
+                      <div className="mb-2 flex items-center gap-2 px-1">
+                        <p
+                          className={`text-[11px] font-semibold tracking-[0.04em] ${
+                            isDatasetSection ? 'text-[#5B4BD6]' : 'uppercase tracking-[0.14em] text-slate-400'
+                          }`}
+                        >
+                          {item.section}
+                        </p>
+                        {item.sectionBadge ? (
+                          <span
+                            className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                              isDatasetSection ? 'bg-[#5B4BD6] text-white' : 'bg-violet-100 text-violet-700'
+                            }`}
+                          >
+                            {item.sectionBadge}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
                     {isCompactSidebar ? (
                       <Link to={linkTarget} title={item.label} aria-label={item.label} className={compactItemClassName}>
                         <ItemIcon className="h-5 w-5 flex-none" />
@@ -586,9 +663,7 @@ export function AppLayout(): JSX.Element {
                         type="button"
                         onClick={() => setOpenNavPath((currentPath) => (currentPath === item.path ? null : item.path))}
                         className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                          itemActive
-                            ? 'bg-slate-900 text-white'
-                            : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                          itemActive ? activeClass : inactiveClass
                         }`}
                       >
                         <span className="flex items-center gap-2">
@@ -601,9 +676,7 @@ export function AppLayout(): JSX.Element {
                       <Link
                         to={linkTarget}
                         className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                          itemActive
-                            ? 'bg-slate-900 text-white'
-                            : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                          itemActive ? activeClass : inactiveClass
                         }`}
                       >
                         <ItemIcon className="h-4 w-4 flex-none" />

@@ -2264,3 +2264,198 @@ model AccommodationOption {
   @@index([accommodationId])
   @@index([level])
 }
+
+// ── Catalog dataset (실험 탭 전용, 기존 Location/Segment/Plan과 무관) ──────────
+
+enum CatalogPlaceType {
+  LODGING
+  EXPERIENCE
+  MEETING
+  GATE
+  AREA
+}
+
+enum CatalogUsageStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CatalogElementComposition {
+  SINGLE
+  SET
+}
+
+enum CatalogElementKind {
+  MEETING
+  TRANSFER
+  MEAL
+  EXPERIENCE
+  MIXED
+}
+
+enum CatalogBlockShape {
+  DAY
+  SET
+}
+
+model CatalogRegion {
+  id          String             @id @default(uuid(7))
+  code        String             @unique
+  name        String
+  country     String             @default("몽골")
+  description String?
+  status      CatalogUsageStatus @default(ACTIVE)
+  sortOrder   Int                @default(0)
+
+  places CatalogPlace[]
+  routes CatalogRoute[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, sortOrder])
+}
+
+model CatalogPlace {
+  id               String             @id @default(uuid(7))
+  code             String             @unique
+  name             String
+  placeType        CatalogPlaceType
+  country          String             @default("몽골")
+  regionId         String?
+  parentPlaceId    String?
+  latitude         Float?
+  longitude        Float?
+  lodgingLevel     String?
+  rateSummary      String?
+  linkLabel        String?
+  status           CatalogUsageStatus @default(ACTIVE)
+  sortOrder        Int                @default(0)
+
+  region       CatalogRegion?  @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  parentPlace  CatalogPlace?   @relation("CatalogPlaceParent", fields: [parentPlaceId], references: [id], onDelete: SetNull)
+  childPlaces  CatalogPlace[]  @relation("CatalogPlaceParent")
+  fromRoutes   CatalogRoute[]  @relation("CatalogRouteFrom")
+  toRoutes     CatalogRoute[]  @relation("CatalogRouteTo")
+  elements     CatalogElement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([placeType, status, sortOrder])
+  @@index([regionId])
+  @@index([parentPlaceId])
+}
+
+model CatalogRoute {
+  id                 String             @id @default(uuid(7))
+  code               String             @unique
+  name               String
+  regionId           String?
+  fromPlaceId        String
+  toPlaceId          String
+  averageDistanceKm  Float?
+  averageTravelHours Float?
+  status             CatalogUsageStatus @default(ACTIVE)
+  sortOrder          Int                @default(0)
+
+  region    CatalogRegion? @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  fromPlace CatalogPlace   @relation("CatalogRouteFrom", fields: [fromPlaceId], references: [id], onDelete: Cascade)
+  toPlace   CatalogPlace   @relation("CatalogRouteTo", fields: [toPlaceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, sortOrder])
+  @@index([fromPlaceId, toPlaceId])
+}
+
+model CatalogElement {
+  id               String                     @id @default(uuid(7))
+  code             String                     @unique
+  name             String
+  version          Int                        @default(0)
+  composition      CatalogElementComposition  @default(SINGLE)
+  kind             CatalogElementKind
+  defaultPlaceId   String?
+  defaultPlaceMode String?
+  durationText     String?
+  costRuleText     String?
+  customerText     String?
+  valueStatusText  String                     @default("설정 중")
+  usageCount       Int                        @default(0)
+  status           CatalogUsageStatus         @default(ACTIVE)
+  sortOrder        Int                        @default(0)
+
+  defaultPlace CatalogPlace?        @relation(fields: [defaultPlaceId], references: [id], onDelete: SetNull)
+  setItems     CatalogElementItem[] @relation("CatalogElementSet")
+  memberOf     CatalogElementItem[] @relation("CatalogElementMember")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([composition, kind, status, sortOrder])
+  @@index([defaultPlaceId])
+}
+
+model CatalogElementItem {
+  id            String @id @default(uuid(7))
+  setElementId  String
+  memberElementId String
+  orderIndex    Int
+
+  setElement    CatalogElement @relation("CatalogElementSet", fields: [setElementId], references: [id], onDelete: Cascade)
+  memberElement CatalogElement @relation("CatalogElementMember", fields: [memberElementId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([setElementId, orderIndex])
+  @@index([memberElementId])
+}
+
+model CatalogBlock {
+  id                   String             @id @default(uuid(7))
+  code                 String             @unique
+  name                 String
+  version              Int                @default(0)
+  shape                CatalogBlockShape  @default(DAY)
+  dayCount             Int                @default(1)
+  fromLabel            String?
+  toLabel              String?
+  compositionText      String?
+  distanceKm           Float?
+  travelHours          Float?
+  timeSaturationPct    Int?
+  timeSaturationText   String?
+  fatigueScore         Float?
+  estimatedCostText    String?
+  calcStatusText       String             @default("계산됨")
+  usageCount           Int                @default(0)
+  status               CatalogUsageStatus @default(ACTIVE)
+  sortOrder            Int                @default(0)
+
+  setItems  CatalogBlockItem[] @relation("CatalogBlockSet")
+  memberOf  CatalogBlockItem[] @relation("CatalogBlockMember")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shape, status, sortOrder])
+}
+
+model CatalogBlockItem {
+  id           String @id @default(uuid(7))
+  setBlockId   String
+  memberBlockId String
+  orderIndex   Int
+
+  setBlock    CatalogBlock @relation("CatalogBlockSet", fields: [setBlockId], references: [id], onDelete: Cascade)
+  memberBlock CatalogBlock @relation("CatalogBlockMember", fields: [memberBlockId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([setBlockId, orderIndex])
+  @@index([memberBlockId])
+}

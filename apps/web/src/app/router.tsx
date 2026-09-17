@@ -66,6 +66,10 @@ import {
 } from '../pages/SettingsPage';
 import { SpecialMealDestinationRulesPage } from '../pages/SpecialMealDestinationRulesPage';
 import { TodoListPage } from '../pages/TodoListPage';
+import { DatasetPlacesPage } from '../pages/dataset/DatasetPlacesPage';
+import { DatasetElementsPage } from '../pages/dataset/DatasetElementsPage';
+import { DatasetBlocksPage } from '../pages/dataset/DatasetBlocksPage';
+import { DatasetTemplatesPage } from '../pages/dataset/DatasetTemplatesPage';
 
 const GuideLocationMapPage = lazy(() =>
   import('../pages/GuideLocationMapPage').then((module) => ({
@@ -163,6 +167,26 @@ export const router = createBrowserRouter([
       {
         path: 'itinerary-templates/:templateId',
         element: <RequireStaffOrAbove><ItineraryTemplateDetailPage /></RequireStaffOrAbove>,
+      },
+      {
+        path: 'dataset',
+        element: <Navigate to="/dataset/places" replace />,
+      },
+      {
+        path: 'dataset/places',
+        element: <RequireStaffOrAbove><DatasetPlacesPage /></RequireStaffOrAbove>,
+      },
+      {
+        path: 'dataset/elements',
+        element: <RequireStaffOrAbove><DatasetElementsPage /></RequireStaffOrAbove>,
+      },
+      {
+        path: 'dataset/blocks',
+        element: <RequireStaffOrAbove><DatasetBlocksPage /></RequireStaffOrAbove>,
+      },
+      {
+        path: 'dataset/templates',
+        element: <RequireStaffOrAbove><DatasetTemplatesPage /></RequireStaffOrAbove>,
       },
       {
         path: 'documents/estimate',

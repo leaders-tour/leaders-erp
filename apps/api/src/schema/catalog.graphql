@@ -1,0 +1,183 @@
+enum CatalogPlaceType {
+  LODGING
+  EXPERIENCE
+  MEETING
+  GATE
+  AREA
+}
+
+enum CatalogUsageStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CatalogElementComposition {
+  SINGLE
+  SET
+}
+
+enum CatalogElementKind {
+  MEETING
+  TRANSFER
+  MEAL
+  EXPERIENCE
+  MIXED
+}
+
+enum CatalogBlockShape {
+  DAY
+  SET
+}
+
+type CatalogRegion {
+  id: ID!
+  code: String!
+  name: String!
+  country: String!
+  description: String
+  status: CatalogUsageStatus!
+  sortOrder: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type CatalogPlace {
+  id: ID!
+  code: String!
+  name: String!
+  placeType: CatalogPlaceType!
+  country: String!
+  regionId: ID
+  region: CatalogRegion
+  parentPlaceId: ID
+  parentPlace: CatalogPlace
+  latitude: Float
+  longitude: Float
+  lodgingLevel: String
+  rateSummary: String
+  linkLabel: String
+  status: CatalogUsageStatus!
+  sortOrder: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type CatalogRoute {
+  id: ID!
+  code: String!
+  name: String!
+  regionId: ID
+  region: CatalogRegion
+  fromPlaceId: ID!
+  fromPlace: CatalogPlace!
+  toPlaceId: ID!
+  toPlace: CatalogPlace!
+  averageDistanceKm: Float
+  averageTravelHours: Float
+  status: CatalogUsageStatus!
+  sortOrder: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type CatalogElementItem {
+  id: ID!
+  setElementId: ID!
+  memberElementId: ID!
+  memberElement: CatalogElement!
+  orderIndex: Int!
+}
+
+type CatalogElement {
+  id: ID!
+  code: String!
+  name: String!
+  version: Int!
+  composition: CatalogElementComposition!
+  kind: CatalogElementKind!
+  defaultPlaceId: ID
+  defaultPlace: CatalogPlace
+  defaultPlaceMode: String
+  durationText: String
+  costRuleText: String
+  customerText: String
+  valueStatusText: String!
+  usageCount: Int!
+  status: CatalogUsageStatus!
+  sortOrder: Int!
+  setItems: [CatalogElementItem!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type CatalogBlockItem {
+  id: ID!
+  setBlockId: ID!
+  memberBlockId: ID!
+  memberBlock: CatalogBlock!
+  orderIndex: Int!
+}
+
+type CatalogBlock {
+  id: ID!
+  code: String!
+  name: String!
+  version: Int!
+  shape: CatalogBlockShape!
+  dayCount: Int!
+  fromLabel: String
+  toLabel: String
+  compositionText: String
+  distanceKm: Float
+  travelHours: Float
+  timeSaturationPct: Int
+  timeSaturationText: String
+  fatigueScore: Float
+  estimatedCostText: String
+  calcStatusText: String!
+  usageCount: Int!
+  status: CatalogUsageStatus!
+  sortOrder: Int!
+  setItems: [CatalogBlockItem!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input CatalogPlaceCreateInput {
+  name: String!
+  placeType: CatalogPlaceType!
+  country: String
+  regionId: ID
+  parentPlaceId: ID
+  status: CatalogUsageStatus
+}
+
+input CatalogElementCreateInput {
+  name: String!
+  kind: CatalogElementKind!
+  composition: CatalogElementComposition
+  customerText: String
+  status: CatalogUsageStatus
+}
+
+input CatalogBlockCreateInput {
+  name: String!
+  shape: CatalogBlockShape
+  fromLabel: String
+  toLabel: String
+  status: CatalogUsageStatus
+}
+
+extend type Query {
+  catalogRegions(status: CatalogUsageStatus): [CatalogRegion!]!
+  catalogPlaces(status: CatalogUsageStatus, placeType: CatalogPlaceType): [CatalogPlace!]!
+  catalogRoutes(status: CatalogUsageStatus): [CatalogRoute!]!
+  catalogElements(status: CatalogUsageStatus): [CatalogElement!]!
+  catalogBlocks(status: CatalogUsageStatus): [CatalogBlock!]!
+}
+
+extend type Mutation {
+  createCatalogPlace(input: CatalogPlaceCreateInput!): CatalogPlace!
+  createCatalogElement(input: CatalogElementCreateInput!): CatalogElement!
+  createCatalogBlock(input: CatalogBlockCreateInput!): CatalogBlock!
+}

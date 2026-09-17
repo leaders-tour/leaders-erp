@@ -26,8 +26,8 @@ import { confirmationDocumentResolver } from '../modules/confirmation-document/c
 import { guideResolver } from '../modules/guide/guide.resolver';
 import { driverResolver } from '../modules/driver/driver.resolver';
 import { accommodationResolver } from '../modules/accommodation/accommodation.resolver';
+import { catalogResolver } from '../modules/catalog/catalog.resolver';
 import { requireEmployee } from '../lib/auth-guards';
-
 function mergeSection(...items: Array<Record<string, unknown>>): Record<string, unknown> {
   return items.reduce<Record<string, unknown>>((acc, current) => ({ ...acc, ...current }), {});
 }
@@ -144,6 +144,7 @@ export const resolvers = {
       guideResolver.Query,
       driverResolver.Query,
       accommodationResolver.Query,
+      catalogResolver.Query,
       {
         health: () => 'ok',
       },
@@ -179,6 +180,7 @@ export const resolvers = {
       guideResolver.Mutation,
       driverResolver.Mutation,
       accommodationResolver.Mutation,
+      catalogResolver.Mutation,
     ),
     ['login', 'registerEmployee', 'refreshAccessToken', 'logout'],
   ),
@@ -220,4 +222,6 @@ export const resolvers = {
   ContractSubmission: contractResolver.ContractSubmission,
   PlanTemplate: mergeSection(planTemplateResolver.PlanTemplate ?? {}),
   PlanTemplateStop: mergeSection(planTemplateResolver.PlanTemplateStop ?? {}),
+  CatalogElement: catalogResolver.CatalogElement,
+  CatalogBlock: catalogResolver.CatalogBlock,
 };

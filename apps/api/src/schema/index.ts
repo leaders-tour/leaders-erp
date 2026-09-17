@@ -35,6 +35,7 @@ const files = [
   'guide.graphql',
   'driver.graphql',
   'accommodation.graphql',
+  'catalog.graphql',
 ];
 
 export const typeDefs = files.map((fileName) => readFileSync(path.join(__dirname, fileName), 'utf8'));

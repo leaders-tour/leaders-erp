@@ -38,3 +38,4 @@ export * from './driver.schema';
 export * from './vehicle-assignments';
 export * from './vehicle-display-note';
 export * from './accommodation.schema';
+export * from './catalog.schema';

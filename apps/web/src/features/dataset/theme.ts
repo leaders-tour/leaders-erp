@@ -1,0 +1,20 @@
+/** 일정 데이터 관리 목업 톤 (딥 퍼플) */
+export const datasetTheme = {
+  primary: 'bg-[#5B4BD6] text-white hover:bg-[#4A3CC0] border border-[#5B4BD6]',
+  primarySoft: 'bg-[#5B4BD6]/10 text-[#5B4BD6]',
+  outline: 'border border-[#5B4BD6]/40 bg-white text-[#5B4BD6] hover:bg-[#F3F0FF]',
+  outlineMuted: 'border border-slate-200 bg-white text-slate-700 hover:border-[#5B4BD6]/30 hover:bg-[#F8F6FF]',
+  tabActive: 'border border-[#5B4BD6] bg-[#5B4BD6] text-white shadow-sm',
+  tabInactive: 'border border-slate-200 bg-white text-slate-600 hover:border-[#5B4BD6]/30 hover:bg-[#F8F6FF] hover:text-[#5B4BD6]',
+  navActive: 'bg-[#5B4BD6] text-white',
+  navInactive: 'text-slate-700 hover:bg-[#F3F0FF] hover:text-[#5B4BD6]',
+  selectionBar: 'border border-[#D9D2F8] bg-[#F3F0FF]',
+  selectionText: 'text-[#4A3CC0]',
+  badge: 'bg-[#5B4BD6] text-white',
+  badgeSoft: 'bg-[#EDE9FE] text-[#5B4BD6]',
+  pageBg: 'bg-slate-50',
+  card: 'rounded-2xl border border-slate-200 bg-white shadow-sm',
+  focusRing: 'focus:border-[#5B4BD6] focus:outline-none focus:ring-2 focus:ring-[#5B4BD6]/20',
+  link: 'text-[#5B4BD6] hover:text-[#4A3CC0] hover:underline',
+  checkbox: 'accent-[#5B4BD6]',
+} as const;
