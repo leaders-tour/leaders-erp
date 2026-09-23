@@ -20,6 +20,7 @@ import {
   StubButton,
   datasetControlClass,
 } from '../../features/dataset/ui';
+import { DatasetBlockDetailPanel } from './DatasetBlockDetailPanel';
 
 type ModeTab = 'source' | 'usage';
 type ShapeFilter = 'ALL' | CatalogBlockShape;
@@ -46,7 +47,8 @@ export function DatasetBlocksPage(): JSX.Element {
   const [stubMessage, setStubMessage] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState('');
-  const [createShape, setCreateShape] = useState<CatalogBlockShape>('DAY');
+  const [createDayCount, setCreateDayCount] = useState(1);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const { data, loading, error } = useCatalogBlocks();
   const [createBlock, createState] = useCreateCatalogBlock();
@@ -86,7 +88,7 @@ export function DatasetBlocksPage(): JSX.Element {
       variables: {
         input: {
           name,
-          shape: createShape,
+          dayCount: createDayCount,
         },
       },
     });
@@ -100,13 +102,12 @@ export function DatasetBlocksPage(): JSX.Element {
       <DatasetPageHeader
         breadcrumb="일정 데이터 관리 / 일정 블록"
         title="일정 블록"
-        description="하루 일정과 여러 날짜를 묶는 블록 세트를 관리합니다."
+        description="요소를 시간순으로 배치한 1~n일 블록입니다. 야간열차도 같은 블록 ID로 일차만 늘립니다."
         actions={
           <>
             <StubButton label="대량 관리" onStub={() => showStub('대량 관리는 다음 단계에서 구현합니다.')} />
-            <StubButton label="+ 블록 세트" onStub={() => showStub('블록 세트 만들기는 다음 단계에서 구현합니다.')} />
             <DatasetButton type="button" variant="primary" onClick={() => setCreateOpen(true)}>
-              + 하루 블록 등록
+              + 블록 등록
             </DatasetButton>
           </>
         }
@@ -219,8 +220,8 @@ export function DatasetBlocksPage(): JSX.Element {
                   </thead>
                   <tbody>
                     {filtered.map((row) => {
-                      const isSet = row.shape === 'SET';
                       const expanded = expandedIds.has(row.id);
+                      const canExpand = row.dayCount > 1 || row.placements.length > 0;
                       return (
                         <Fragment key={row.id}>
                           <tr className="border-t border-slate-100 hover:bg-slate-50">
@@ -241,7 +242,7 @@ export function DatasetBlocksPage(): JSX.Element {
                             </Td>
                             <Td>
                               <div className="flex items-start gap-2">
-                                {isSet ? (
+                                {canExpand ? (
                                   <button
                                     type="button"
                                     className="mt-0.5 text-slate-500"
@@ -260,7 +261,9 @@ export function DatasetBlocksPage(): JSX.Element {
                                   <span className="w-3" />
                                 )}
                                 <div>
-                                  <div className="font-medium text-slate-900">{row.name}</div>
+                                  <button type="button" className={`text-left font-medium ${datasetTheme.link}`} onClick={() => setDetailId(row.id)}>
+                                    {row.name}
+                                  </button>
                                   <div className="text-xs text-slate-400">
                                     {row.code} · v{row.version}
                                   </div>
@@ -268,7 +271,7 @@ export function DatasetBlocksPage(): JSX.Element {
                               </div>
                             </Td>
                             <Td>
-                              <TypePill label={isSet ? `세트 · ${row.dayCount}일` : `하루 · ${row.dayCount}일`} tone={isSet ? 'violet' : 'slate'} />
+                              <TypePill label={`${row.dayCount}일 블록`} tone={row.dayCount > 1 ? 'violet' : 'slate'} />
                             </Td>
                             <Td>
                               {row.fromLabel ?? '-'} → {row.toLabel ?? '-'}
@@ -287,36 +290,16 @@ export function DatasetBlocksPage(): JSX.Element {
                             </Td>
                           </tr>
                           {expanded
-                            ? row.setItems.map((item) => {
-                                const child = item.memberBlock;
+                            ? Array.from({ length: row.dayCount }, (_, index) => index + 1).map((day) => {
+                                const items = row.placements.filter((item) => item.dayIndex === day);
                                 return (
-                                  <tr key={item.id} className="border-t border-slate-100 bg-slate-50/80">
+                                  <tr key={`${row.id}-day-${day}`} className="border-t border-slate-100 bg-slate-50/80">
                                     <Td />
-                                    <Td>
-                                      <div className="pl-8">
-                                        <div className="text-sm text-slate-800">{child.name}</div>
-                                        <div className="text-xs text-slate-400">
-                                          {child.code} · v{child.version}
-                                        </div>
+                                    <Td colSpan={10}>
+                                      <div className="pl-8 text-sm text-slate-700">
+                                        {day}일차 · 같은 블록 ID · {items.length}개 배치
+                                        {items.length === 0 ? ' · 빈 날짜' : ` · ${items.map((item) => item.element.name).join(', ')}`}
                                       </div>
-                                    </Td>
-                                    <Td>
-                                      <TypePill label={`하루 · ${child.dayCount}일`} />
-                                    </Td>
-                                    <Td>
-                                      {child.fromLabel ?? '-'} → {child.toLabel ?? '-'}
-                                    </Td>
-                                    <Td>{child.compositionText ?? '-'}</Td>
-                                    <Td>{formatDistanceTime(child)}</Td>
-                                    <Td>
-                                      {child.timeSaturationPct != null ? `${child.timeSaturationPct}%` : '-'}
-                                      {child.timeSaturationText ? ` · ${child.timeSaturationText}` : ''}
-                                    </Td>
-                                    <Td>{child.fatigueScore != null ? child.fatigueScore.toFixed(2) : '-'}</Td>
-                                    <Td>{child.estimatedCostText ?? '-'}</Td>
-                                    <Td>{child.usageCount}곳</Td>
-                                    <Td>
-                                      <TypePill label={child.calcStatusText} tone={calcTone(child.calcStatusText)} />
                                     </Td>
                                   </tr>
                                 );
@@ -338,23 +321,22 @@ export function DatasetBlocksPage(): JSX.Element {
           <div className="fixed inset-0 z-50 bg-[#2A2155]/30 backdrop-blur-[1px]" onClick={() => setCreateOpen(false)} aria-hidden="true" />
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
             <div className={`w-full max-w-md p-6 shadow-2xl ${datasetTheme.card}`} role="dialog">
-              <h2 className="text-lg font-semibold text-slate-900">하루 블록 등록</h2>
-              <p className="mt-1 text-sm text-slate-500">1차는 이름과 형태만 저장합니다.</p>
+              <h2 className="text-lg font-semibold text-slate-900">블록 등록</h2>
+              <p className="mt-1 text-sm text-slate-500">세트 원본을 따로 만들지 않습니다. 일수만 지정합니다.</p>
               <div className="mt-4 grid gap-3">
                 <label className="grid gap-1 text-xs text-[#8B83B8]">
                   이름
                   <Input className={datasetControlClass} value={createName} onChange={(event) => setCreateName(event.target.value)} />
                 </label>
                 <label className="grid gap-1 text-xs text-[#8B83B8]">
-                  형태
-                  <select
+                  일수
+                  <Input
                     className={datasetControlClass}
-                    value={createShape}
-                    onChange={(event) => setCreateShape(event.target.value as CatalogBlockShape)}
-                  >
-                    <option value="DAY">하루</option>
-                    <option value="SET">세트</option>
-                  </select>
+                    type="number"
+                    min={1}
+                    value={createDayCount}
+                    onChange={(event) => setCreateDayCount(Number(event.target.value) || 1)}
+                  />
                 </label>
               </div>
               <div className="mt-6 flex justify-end gap-2">
@@ -369,6 +351,13 @@ export function DatasetBlocksPage(): JSX.Element {
           </div>
         </>
       ) : null}
+
+      {detailId
+        ? (() => {
+            const selected = rows.find((row) => row.id === detailId);
+            return selected ? <DatasetBlockDetailPanel block={selected} onClose={() => setDetailId(null)} /> : null;
+          })()
+        : null}
 
       <DatasetPageFooter screenId="T03-01 · 일정 블록 목록" />
     </section>

@@ -10,13 +10,17 @@ import {
   type CatalogPlaceType,
 } from '../../features/dataset/labels';
 import {
+  useBatchUpdateCatalogPlaces,
+  useCatalogChangeLogs,
   useCatalogPlaces,
   useCatalogRegions,
   useCatalogRoutes,
   useCreateCatalogPlace,
   useCreateCatalogRegion,
   useCreateCatalogRoute,
+  useUpdateCatalogPlace,
 } from '../../features/dataset/hooks';
+import { useAccommodations } from '../../features/accommodation/hooks';
 import { datasetTheme } from '../../features/dataset/theme';
 import {
   DatasetButton,
@@ -31,6 +35,7 @@ import {
   datasetControlClass,
 } from '../../features/dataset/ui';
 import { DatasetPlaceDetailPanel } from './DatasetPlaceDetailPanel';
+import { DatasetPlaceMap } from './DatasetPlaceMap';
 
 type InnerTab = 'regions' | 'places' | 'routes';
 type CreateKind = 'region' | 'place' | 'route';
@@ -60,7 +65,9 @@ export function DatasetPlacesPage(): JSX.Element {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [stubMessage, setStubMessage] = useState<string | null>(null);
   const [createKind, setCreateKind] = useState<CreateKind | null>(null);
+  const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null);
   const [detailPlaceId, setDetailPlaceId] = useState<string | null>(null);
+  const [viewPlaceId, setViewPlaceId] = useState<string | null>(null);
 
   const [regionNameInput, setRegionNameInput] = useState('');
   const [regionCountryInput, setRegionCountryInput] = useState('몽골');
@@ -70,6 +77,13 @@ export function DatasetPlacesPage(): JSX.Element {
   const [placeTypeInput, setPlaceTypeInput] = useState<CatalogPlaceType>('LODGING');
   const [placeCountryInput, setPlaceCountryInput] = useState('몽골');
   const [placeRegionIdInput, setPlaceRegionIdInput] = useState('');
+  const [placeParentIdInput, setPlaceParentIdInput] = useState('');
+  const [placeLatInput, setPlaceLatInput] = useState('');
+  const [placeLngInput, setPlaceLngInput] = useState('');
+  const [placeAccommodationId, setPlaceAccommodationId] = useState('');
+  const [placeDisplayName, setPlaceDisplayName] = useState('');
+  const [batchStatus, setBatchStatus] = useState<'ACTIVE' | 'INACTIVE'>('INACTIVE');
+  const [batchMessage, setBatchMessage] = useState<string | null>(null);
 
   const [routeNameInput, setRouteNameInput] = useState('');
   const [routeFromPlaceId, setRouteFromPlaceId] = useState('');
@@ -83,7 +97,11 @@ export function DatasetPlacesPage(): JSX.Element {
   const routesQuery = useCatalogRoutes();
   const [createRegion, createRegionState] = useCreateCatalogRegion();
   const [createPlace, createPlaceState] = useCreateCatalogPlace();
+  const [updatePlace, updatePlaceState] = useUpdateCatalogPlace();
   const [createRoute, createRouteState] = useCreateCatalogRoute();
+  const [batchUpdatePlaces, batchState] = useBatchUpdateCatalogPlaces();
+  const { accommodations } = useAccommodations({});
+  const logsQuery = useCatalogChangeLogs('PLACE');
 
   const places = placesQuery.data?.catalogPlaces ?? [];
   const regions = regionsQuery.data?.catalogRegions ?? [];
@@ -91,6 +109,10 @@ export function DatasetPlacesPage(): JSX.Element {
   const detailPlace = useMemo(
     () => (detailPlaceId ? places.find((row) => row.id === detailPlaceId) ?? null : null),
     [detailPlaceId, places],
+  );
+  const viewPlace = useMemo(
+    () => (viewPlaceId ? places.find((row) => row.id === viewPlaceId) ?? null : null),
+    [places, viewPlaceId],
   );
 
   const listPlaces = useMemo(
@@ -155,11 +177,31 @@ export function DatasetPlacesPage(): JSX.Element {
   const showStub = (message: string) => setStubMessage(message);
 
   const openCreate = (kind: CreateKind) => {
+    setEditingPlaceId(null);
     setCreateKind(kind);
     setStubMessage(null);
   };
 
-  const closeCreate = () => setCreateKind(null);
+  const openEditPlace = (placeId: string) => {
+    const row = places.find((item) => item.id === placeId);
+    if (!row) return;
+    setEditingPlaceId(row.id);
+    setCreateKind('place');
+    setPlaceNameInput(row.name);
+    setPlaceTypeInput(row.placeType);
+    setPlaceCountryInput(row.country);
+    setPlaceRegionIdInput(row.regionId ?? '');
+    setPlaceParentIdInput(row.parentPlaceId ?? '');
+    setPlaceLatInput(row.latitude != null ? String(row.latitude) : '');
+    setPlaceLngInput(row.longitude != null ? String(row.longitude) : '');
+    setPlaceAccommodationId(row.accommodationId ?? '');
+    setPlaceDisplayName(row.displayName ?? '');
+  };
+
+  const closeCreate = () => {
+    setCreateKind(null);
+    setEditingPlaceId(null);
+  };
 
   const resetCreateForms = () => {
     setRegionNameInput('');
@@ -169,6 +211,11 @@ export function DatasetPlacesPage(): JSX.Element {
     setPlaceTypeInput('LODGING');
     setPlaceCountryInput('몽골');
     setPlaceRegionIdInput('');
+    setPlaceParentIdInput('');
+    setPlaceLatInput('');
+    setPlaceLngInput('');
+    setPlaceAccommodationId('');
+    setPlaceDisplayName('');
     setRouteNameInput('');
     setRouteFromPlaceId('');
     setRouteToPlaceId('');
@@ -193,21 +240,38 @@ export function DatasetPlacesPage(): JSX.Element {
     closeCreate();
   };
 
+  const placePayload = () => ({
+    name: placeNameInput.trim(),
+    placeType: placeTypeInput,
+    country: placeCountryInput.trim() || '몽골',
+    regionId: placeRegionIdInput || null,
+    parentPlaceId: placeParentIdInput || null,
+    latitude: parseOptionalNumber(placeLatInput),
+    longitude: parseOptionalNumber(placeLngInput),
+    displayName: placeDisplayName.trim() || null,
+    accommodationId: placeTypeInput === 'LODGING' ? placeAccommodationId || null : null,
+  });
+
   const handleCreatePlace = async () => {
-    const name = placeNameInput.trim();
-    if (!name) return;
-    await createPlace({
-      variables: {
-        input: {
-          name,
-          placeType: placeTypeInput,
-          country: placeCountryInput.trim() || '몽골',
-          regionId: placeRegionIdInput || null,
-        },
-      },
-    });
+    const input = placePayload();
+    if (!input.name) return;
+    if (editingPlaceId) {
+      await updatePlace({ variables: { id: editingPlaceId, input } });
+    } else {
+      await createPlace({ variables: { input } });
+    }
     resetCreateForms();
     closeCreate();
+  };
+
+  const handleBatchStatus = async () => {
+    if (selectedIds.size === 0) return;
+    const result = await batchUpdatePlaces({
+      variables: { input: { ids: Array.from(selectedIds), status: batchStatus } },
+    });
+    const rows = result.data?.batchUpdateCatalogPlaces ?? [];
+    const failed = rows.filter((row: { ok: boolean }) => !row.ok).length;
+    setBatchMessage(`일괄 수정 ${rows.length}건 · 실패 ${failed} · 전체 롤백 없음`);
   };
 
   const handleCreateRoute = async () => {
@@ -233,7 +297,7 @@ export function DatasetPlacesPage(): JSX.Element {
     createKind === 'region'
       ? createRegionState.loading
       : createKind === 'place'
-        ? createPlaceState.loading
+        ? createPlaceState.loading || updatePlaceState.loading
         : createKind === 'route'
           ? createRouteState.loading
           : false;
@@ -359,12 +423,33 @@ export function DatasetPlacesPage(): JSX.Element {
               onClear={() => setSelectedIds(new Set())}
               actions={
                 <>
-                  <StubButton label="일괄 수정" variant="soft" onStub={() => showStub('일괄 수정은 다음 단계에서 구현합니다.')} />
-                  <StubButton label="선택 삭제" variant="soft" onStub={() => showStub('선택 삭제는 다음 단계에서 구현합니다.')} />
-                  <StubButton label="선택 내보내기" variant="soft" onStub={() => showStub('내보내기는 다음 단계에서 구현합니다.')} />
+                  <select
+                    className={datasetControlClass}
+                    value={batchStatus}
+                    onChange={(event) => setBatchStatus(event.target.value as 'ACTIVE' | 'INACTIVE')}
+                  >
+                    <option value="INACTIVE">사용 안 함</option>
+                    <option value="ACTIVE">사용 중</option>
+                  </select>
+                  <DatasetButton type="button" variant="soft" disabled={batchState.loading} onClick={() => void handleBatchStatus()}>
+                    일괄 상태 변경
+                  </DatasetButton>
+                  <StubButton label="엑셀 일괄" variant="soft" onStub={() => showStub('엑셀 일괄은 양식 확정 후 연결합니다. (D05)')} />
                 </>
               }
             />
+            {batchMessage ? <DatasetStubNotice message={batchMessage} /> : null}
+
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+              <DatasetCard className="min-h-[360px]">
+                <div className="border-b border-slate-100 px-4 py-3">
+                  <h2 className="text-sm font-semibold text-slate-900">지도</h2>
+                  <p className="mt-1 text-xs text-[#8B83B8]">핀 클릭은 조회 선택입니다. 체크와 분리됩니다.</p>
+                </div>
+                <div className="h-[360px] xl:h-[520px]">
+                  <DatasetPlaceMap places={filteredPlaces} selectedId={viewPlaceId} onSelect={setViewPlaceId} />
+                </div>
+              </DatasetCard>
 
             <DatasetCard>
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
@@ -418,8 +503,8 @@ export function DatasetPlacesPage(): JSX.Element {
                         return (
                           <tr
                             key={row.id}
-                            className="cursor-pointer border-t border-slate-100 hover:bg-[#F8F6FF]"
-                            onClick={() => setDetailPlaceId(row.id)}
+                            className={`cursor-pointer border-t border-slate-100 hover:bg-[#F8F6FF] ${viewPlaceId === row.id ? 'bg-[#F8F6FF]' : ''}`}
+                            onClick={() => setViewPlaceId(row.id)}
                           >
                             <Td>
                               <input
@@ -443,6 +528,16 @@ export function DatasetPlacesPage(): JSX.Element {
                                 {row.name}
                               </button>
                               <div className="text-xs text-[#9A93C2]">{row.code}</div>
+                              <button
+                                type="button"
+                                className="mt-1 text-xs text-[#8B83B8] underline-offset-2 hover:underline"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openEditPlace(row.id);
+                                }}
+                              >
+                                편집
+                              </button>
                             </Td>
                             <Td>
                               <TypePill label={PLACE_TYPE_LABEL[row.placeType]} tone="violet" />
@@ -472,11 +567,38 @@ export function DatasetPlacesPage(): JSX.Element {
                 </div>
               )}
             </DatasetCard>
+            </div>
+
+            {viewPlace ? (
+              <DatasetCard>
+                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                  <div>
+                    <p className="text-xs text-[#8B83B8]">선택 장소 · 지도/목록 동기화</p>
+                    <h3 className="text-sm font-semibold text-slate-900">{viewPlace.name}</h3>
+                    <p className="text-xs text-[#9A93C2]">
+                      {viewPlace.code} · {viewPlace.country} / {viewPlace.region?.name ?? '-'} · 좌표{' '}
+                      {viewPlace.latitude != null ? '등록됨' : '미등록'}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <DatasetButton type="button" variant="outline" onClick={() => openEditPlace(viewPlace.id)}>
+                      정보 수정
+                    </DatasetButton>
+                    <DatasetButton type="button" variant="primary" onClick={() => setDetailPlaceId(viewPlace.id)}>
+                      상세 보기
+                    </DatasetButton>
+                  </div>
+                </div>
+              </DatasetCard>
+            ) : null}
           </>
         ) : null}
 
         {innerTab === 'regions' ? (
           <DatasetCard>
+            <div className="h-[280px] border-b border-slate-100">
+              <DatasetPlaceMap places={listPlaces} selectedId={viewPlaceId} onSelect={setViewPlaceId} />
+            </div>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">지역 목록</h2>
@@ -517,6 +639,9 @@ export function DatasetPlacesPage(): JSX.Element {
 
         {innerTab === 'routes' ? (
           <DatasetCard>
+            <div className="h-[280px] border-b border-slate-100">
+              <DatasetPlaceMap places={listPlaces} selectedId={viewPlaceId} onSelect={setViewPlaceId} />
+            </div>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">경로 목록</h2>
@@ -566,12 +691,14 @@ export function DatasetPlacesPage(): JSX.Element {
             <div className="fixed inset-0 z-50 bg-[#2A2155]/30 backdrop-blur-[1px]" onClick={closeCreate} aria-hidden="true" />
             <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
               <div className={`w-full max-w-md p-6 shadow-2xl ${datasetTheme.card}`} role="dialog">
-                <h2 className="text-lg font-semibold text-slate-900">{CREATE_LABEL[createKind]}</h2>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {createKind === 'place' && editingPlaceId ? '장소 편집' : CREATE_LABEL[createKind]}
+                </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   {createKind === 'region'
                     ? '지역명과 국가를 저장합니다.'
                     : createKind === 'place'
-                      ? '장소명·유형·권역을 저장합니다.'
+                      ? '좌표는 비워 둘 수 있습니다. 부모 좌표는 복사하지 않습니다.'
                       : '경로명과 출발/도착 장소를 저장합니다.'}
                 </p>
 
@@ -650,6 +777,64 @@ export function DatasetPlacesPage(): JSX.Element {
                           ))}
                         </select>
                       </DatasetField>
+                      <DatasetField label="상위 장소">
+                        <select
+                          className={datasetControlClass}
+                          value={placeParentIdInput}
+                          onChange={(event) => setPlaceParentIdInput(event.target.value)}
+                        >
+                          <option value="">선택 안 함</option>
+                          {places
+                            .filter((row) => row.id !== editingPlaceId)
+                            .map((row) => (
+                              <option key={row.id} value={row.id}>
+                                {row.name}
+                              </option>
+                            ))}
+                        </select>
+                      </DatasetField>
+                      <DatasetField label="고객 표시명">
+                        <Input
+                          className={datasetControlClass}
+                          value={placeDisplayName}
+                          onChange={(event) => setPlaceDisplayName(event.target.value)}
+                          placeholder="선택 입력"
+                        />
+                      </DatasetField>
+                      <div className="grid grid-cols-2 gap-3">
+                        <DatasetField label="위도">
+                          <Input
+                            className={datasetControlClass}
+                            value={placeLatInput}
+                            onChange={(event) => setPlaceLatInput(event.target.value)}
+                            placeholder="비우면 미등록"
+                          />
+                        </DatasetField>
+                        <DatasetField label="경도">
+                          <Input
+                            className={datasetControlClass}
+                            value={placeLngInput}
+                            onChange={(event) => setPlaceLngInput(event.target.value)}
+                            placeholder="비우면 미등록"
+                          />
+                        </DatasetField>
+                      </div>
+                      {placeTypeInput === 'LODGING' ? (
+                        <DatasetField label="기존 숙소 연결">
+                          <select
+                            className={datasetControlClass}
+                            value={placeAccommodationId}
+                            onChange={(event) => setPlaceAccommodationId(event.target.value)}
+                          >
+                            <option value="">연결 안 함 · 연동 예정</option>
+                            {accommodations.map((row) => (
+                              <option key={row.id} value={row.id}>
+                                {row.name} ({row.region})
+                              </option>
+                            ))}
+                          </select>
+                        </DatasetField>
+                      ) : null}
                     </>
                   ) : null}
 
@@ -757,6 +942,23 @@ export function DatasetPlacesPage(): JSX.Element {
             onStub={showStub}
           />
         ) : null}
+
+        <DatasetCard>
+          <div className="border-b border-slate-100 px-4 py-3">
+            <h2 className="text-sm font-semibold">변경 이력</h2>
+            <p className="mt-1 text-xs text-[#8B83B8]">최근 장소 작업 · 영구삭제는 D06 이후</p>
+          </div>
+          <ul className="grid gap-2 px-4 py-3 text-sm">
+            {(logsQuery.data?.catalogChangeLogs ?? []).slice(0, 8).map((row) => (
+              <li key={row.id} className="text-slate-600">
+                {row.action} · {row.summary}
+              </li>
+            ))}
+            {(logsQuery.data?.catalogChangeLogs ?? []).length === 0 ? (
+              <li className="text-slate-400">아직 기록이 없습니다.</li>
+            ) : null}
+          </ul>
+        </DatasetCard>
 
         <DatasetPageFooter screenId="T01-01 · 장소 목록" />
       </section>

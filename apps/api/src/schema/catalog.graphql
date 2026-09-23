@@ -41,6 +41,13 @@ type CatalogRegion {
   updatedAt: DateTime!
 }
 
+type CatalogAccommodationSummary {
+  id: ID!
+  name: String!
+  region: String
+  destination: String
+}
+
 type CatalogPlace {
   id: ID!
   code: String!
@@ -56,6 +63,11 @@ type CatalogPlace {
   lodgingLevel: String
   rateSummary: String
   linkLabel: String
+  displayName: String
+  internalNote: String
+  accommodationId: ID
+  accommodation: CatalogAccommodationSummary
+  visitRadiusM: Int
   status: CatalogUsageStatus!
   sortOrder: Int!
   createdAt: DateTime!
@@ -102,6 +114,7 @@ type CatalogElement {
   costRuleText: String
   customerText: String
   valueStatusText: String!
+  lifecycleStatus: String!
   usageCount: Int!
   status: CatalogUsageStatus!
   sortOrder: Int!
@@ -116,6 +129,16 @@ type CatalogBlockItem {
   memberBlockId: ID!
   memberBlock: CatalogBlock!
   orderIndex: Int!
+}
+
+type CatalogBlockPlacement {
+  id: ID!
+  blockId: ID!
+  elementId: ID!
+  element: CatalogElement!
+  dayIndex: Int!
+  orderIndex: Int!
+  startLabel: String
 }
 
 type CatalogBlock {
@@ -139,12 +162,67 @@ type CatalogBlock {
   status: CatalogUsageStatus!
   sortOrder: Int!
   setItems: [CatalogBlockItem!]!
+  placements: [CatalogBlockPlacement!]!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
 
+type CatalogJourneyPlacement {
+  id: ID!
+  journeyId: ID!
+  blockId: ID!
+  block: CatalogBlock!
+  orderIndex: Int!
+  dayOffset: Int!
+}
+
+type CatalogJourney {
+  id: ID!
+  code: String!
+  name: String!
+  version: Int!
+  nightCount: Int!
+  dayCount: Int!
+  calcStatusText: String!
+  status: CatalogUsageStatus!
+  sortOrder: Int!
+  placements: [CatalogJourneyPlacement!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type CatalogChangeLog {
+  id: ID!
+  actorLabel: String!
+  targetType: String!
+  targetId: ID!
+  action: String!
+  summary: String!
+  createdAt: DateTime!
+}
+
+type CatalogUsageRef {
+  id: ID!
+  kind: String!
+  name: String!
+  code: String!
+}
+
+type CatalogBatchResult {
+  id: ID
+  ok: Boolean!
+  message: String
+}
+
 input CatalogRegionCreateInput {
   name: String!
+  country: String
+  description: String
+  status: CatalogUsageStatus
+}
+
+input CatalogRegionUpdateInput {
+  name: String
   country: String
   description: String
   status: CatalogUsageStatus
@@ -156,6 +234,27 @@ input CatalogPlaceCreateInput {
   country: String
   regionId: ID
   parentPlaceId: ID
+  latitude: Float
+  longitude: Float
+  displayName: String
+  internalNote: String
+  accommodationId: ID
+  visitRadiusM: Int
+  status: CatalogUsageStatus
+}
+
+input CatalogPlaceUpdateInput {
+  name: String
+  placeType: CatalogPlaceType
+  country: String
+  regionId: ID
+  parentPlaceId: ID
+  latitude: Float
+  longitude: Float
+  displayName: String
+  internalNote: String
+  accommodationId: ID
+  visitRadiusM: Int
   status: CatalogUsageStatus
 }
 
@@ -169,20 +268,93 @@ input CatalogRouteCreateInput {
   status: CatalogUsageStatus
 }
 
+input CatalogRouteUpdateInput {
+  name: String
+  fromPlaceId: ID
+  toPlaceId: ID
+  regionId: ID
+  averageDistanceKm: Float
+  averageTravelHours: Float
+  status: CatalogUsageStatus
+}
+
 input CatalogElementCreateInput {
   name: String!
   kind: CatalogElementKind!
   composition: CatalogElementComposition
   customerText: String
+  durationText: String
+  costRuleText: String
+  defaultPlaceId: ID
+  lifecycleStatus: String
   status: CatalogUsageStatus
+}
+
+input CatalogElementUpdateInput {
+  name: String
+  kind: CatalogElementKind
+  composition: CatalogElementComposition
+  customerText: String
+  durationText: String
+  costRuleText: String
+  defaultPlaceId: ID
+  lifecycleStatus: String
+  status: CatalogUsageStatus
+}
+
+input CatalogElementSetItemInput {
+  setElementId: ID!
+  memberElementId: ID!
 }
 
 input CatalogBlockCreateInput {
   name: String!
   shape: CatalogBlockShape
+  dayCount: Int
   fromLabel: String
   toLabel: String
   status: CatalogUsageStatus
+}
+
+input CatalogBlockUpdateInput {
+  name: String
+  dayCount: Int
+  fromLabel: String
+  toLabel: String
+  status: CatalogUsageStatus
+}
+
+input CatalogBlockPlacementInput {
+  blockId: ID!
+  elementId: ID!
+  dayIndex: Int
+  startLabel: String
+}
+
+input CatalogJourneyCreateInput {
+  name: String!
+  nightCount: Int
+  dayCount: Int
+  status: CatalogUsageStatus
+}
+
+input CatalogJourneyUpdateInput {
+  name: String
+  nightCount: Int
+  dayCount: Int
+  status: CatalogUsageStatus
+}
+
+input CatalogJourneyPlacementInput {
+  journeyId: ID!
+  blockId: ID!
+  dayOffset: Int
+}
+
+input CatalogPlaceBatchUpdateInput {
+  ids: [ID!]!
+  status: CatalogUsageStatus
+  regionId: ID
 }
 
 extend type Query {
@@ -191,12 +363,30 @@ extend type Query {
   catalogRoutes(status: CatalogUsageStatus): [CatalogRoute!]!
   catalogElements(status: CatalogUsageStatus): [CatalogElement!]!
   catalogBlocks(status: CatalogUsageStatus): [CatalogBlock!]!
+  catalogJourneys(status: CatalogUsageStatus): [CatalogJourney!]!
+  catalogElementUsages(elementId: ID!): [CatalogUsageRef!]!
+  catalogChangeLogs(targetType: String, targetId: ID): [CatalogChangeLog!]!
 }
 
 extend type Mutation {
   createCatalogRegion(input: CatalogRegionCreateInput!): CatalogRegion!
+  updateCatalogRegion(id: ID!, input: CatalogRegionUpdateInput!): CatalogRegion!
   createCatalogPlace(input: CatalogPlaceCreateInput!): CatalogPlace!
+  updateCatalogPlace(id: ID!, input: CatalogPlaceUpdateInput!): CatalogPlace!
   createCatalogRoute(input: CatalogRouteCreateInput!): CatalogRoute!
+  updateCatalogRoute(id: ID!, input: CatalogRouteUpdateInput!): CatalogRoute!
   createCatalogElement(input: CatalogElementCreateInput!): CatalogElement!
+  updateCatalogElement(id: ID!, input: CatalogElementUpdateInput!): CatalogElement!
+  addCatalogElementSetItem(input: CatalogElementSetItemInput!): CatalogElement!
+  removeCatalogElementSetItem(id: ID!): CatalogElement!
   createCatalogBlock(input: CatalogBlockCreateInput!): CatalogBlock!
+  updateCatalogBlock(id: ID!, input: CatalogBlockUpdateInput!): CatalogBlock!
+  addCatalogBlockDay(id: ID!): CatalogBlock!
+  addCatalogBlockPlacement(input: CatalogBlockPlacementInput!): CatalogBlock!
+  removeCatalogBlockPlacement(id: ID!): CatalogBlock!
+  createCatalogJourney(input: CatalogJourneyCreateInput!): CatalogJourney!
+  updateCatalogJourney(id: ID!, input: CatalogJourneyUpdateInput!): CatalogJourney!
+  addCatalogJourneyPlacement(input: CatalogJourneyPlacementInput!): CatalogJourney!
+  removeCatalogJourneyPlacement(id: ID!): CatalogJourney!
+  batchUpdateCatalogPlaces(input: CatalogPlaceBatchUpdateInput!): [CatalogBatchResult!]!
 }

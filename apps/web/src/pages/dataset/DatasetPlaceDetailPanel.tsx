@@ -1,5 +1,6 @@
 import { Table, Td, Th } from '@tour/ui';
 import { useMemo, useState, type ReactNode } from 'react';
+import { useAccommodation } from '../../features/accommodation/hooks';
 import type { CatalogPlaceRow } from '../../features/dataset/hooks';
 import {
   DatasetPageFooter,
@@ -19,28 +20,6 @@ interface DatasetPlaceDetailPanelProps {
   onClose: () => void;
   onStub: (message: string) => void;
 }
-
-/** 목업 T01-02용 객실·요금 샘플 (저장 없음) */
-const MOCK_ROOM_RATES = [
-  {
-    id: 'room-basic',
-    name: '기본 게르',
-    tag: '기본 객실',
-    capacity: '4명 / 4명',
-    price: '180,000 MNT',
-    unit: '객실 · 1박',
-    period: '2026.09.01~09.30',
-  },
-  {
-    id: 'room-twin',
-    name: '2인 게르',
-    tag: null as string | null,
-    capacity: '2명 / 2명',
-    price: '140,000 MNT',
-    unit: '객실 · 1박',
-    period: '2026.09.01~09.30',
-  },
-];
 
 const LODGING_TYPE_UI: Partial<Record<string, string>> = {
   '미니사막 A캠프': '여행자캠프',
@@ -127,6 +106,7 @@ export function DatasetPlaceDetailPanel({
 }: DatasetPlaceDetailPanelProps): JSX.Element {
   const [tab, setTab] = useState<DetailTab>('overview');
   const [stubMessage, setStubMessage] = useState<string | null>(null);
+  const { accommodation, loading: accommodationLoading } = useAccommodation(place.accommodationId ?? undefined);
   const isLodging = place.placeType === 'LODGING';
   const hasCoords = place.latitude != null && place.longitude != null;
 
@@ -361,23 +341,29 @@ export function DatasetPlaceDetailPanel({
                             </tr>
                           </thead>
                           <tbody>
-                            {MOCK_ROOM_RATES.map((row) => (
+                            {accommodation?.options.map((row) => (
                               <tr key={row.id} className="border-t border-slate-100">
                                 <Td>
-                                  <div className="font-medium text-slate-900">{row.name}</div>
-                                  {row.tag ? <div className="text-xs text-[#9A93C2]">{row.tag}</div> : null}
+                                  <div className="font-medium text-slate-900">{row.roomType}</div>
+                                  <div className="text-xs text-[#9A93C2]">{row.level}</div>
                                 </Td>
-                                <Td>{row.capacity}</Td>
-                                <Td className="font-medium text-slate-900">{row.price}</Td>
-                                <Td>{row.unit}</Td>
-                                <Td>{row.period}</Td>
+                                <Td>{row.capacity ?? '—'}</Td>
+                                <Td className="font-medium text-slate-900">
+                                  {row.pricePeakSeason != null ? `${row.pricePeakSeason.toLocaleString()} ${row.priceCurrencyCode}` : '미정'}
+                                </Td>
+                                <Td>{row.paymentMethod === 'PER_PERSON' ? '인당' : row.paymentMethod === 'PER_ROOM' ? '객실' : '—'}</Td>
+                                <Td>{accommodation.openingDate ?? '기간 미정'}</Td>
                               </tr>
                             ))}
                           </tbody>
                         </Table>
                       </div>
                       <p className="text-xs text-[#9A93C2]">
-                        요약 표시용 UI · 실제 객실/요금 테이블 연동 전 · 목록 요금 요약: {place.rateSummary ?? '요금 미등록'}
+                        {place.accommodation
+                          ? `숙소 원본 조회 · ${place.accommodation.name}`
+                          : accommodationLoading
+                            ? '숙소 정보를 불러오는 중…'
+                            : '숙소 미연결 · 연동 예정. 객실·요금은 Catalog에 복사하지 않습니다.'}
                       </p>
                     </div>
                   </DatasetCard>

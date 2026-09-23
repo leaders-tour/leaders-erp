@@ -1,20 +1,62 @@
 import type { PrismaClient } from '@prisma/client';
 import type {
   CatalogBlockCreateInput,
+  CatalogBlockPlacementInput,
+  CatalogBlockUpdateInput,
   CatalogElementCreateInput,
+  CatalogElementSetItemInput,
+  CatalogElementUpdateInput,
+  CatalogJourneyCreateInput,
+  CatalogJourneyPlacementInput,
+  CatalogJourneyUpdateInput,
+  CatalogPlaceBatchUpdateInput,
   CatalogPlaceCreateInput,
+  CatalogPlaceUpdateInput,
   CatalogRegionCreateInput,
+  CatalogRegionUpdateInput,
   CatalogRouteCreateInput,
+  CatalogRouteUpdateInput,
 } from '@tour/validation';
 
 type PrismaLike = PrismaClient;
-
 type CatalogUsageStatus = 'ACTIVE' | 'INACTIVE';
 type CatalogPlaceType = 'LODGING' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
 
 function nextCode(prefix: string, count: number): string {
   return `${prefix}-${String(count + 1).padStart(3, '0')}`;
 }
+
+const placeInclude = {
+  region: true,
+  parentPlace: true,
+  accommodation: { select: { id: true, name: true, region: true, destination: true } },
+} as const;
+
+const elementInclude = {
+  defaultPlace: true,
+  setItems: {
+    include: { memberElement: true },
+    orderBy: { orderIndex: 'asc' as const },
+  },
+};
+
+const blockInclude = {
+  setItems: {
+    include: { memberBlock: true },
+    orderBy: { orderIndex: 'asc' as const },
+  },
+  placements: {
+    include: { element: true },
+    orderBy: [{ dayIndex: 'asc' as const }, { orderIndex: 'asc' as const }],
+  },
+};
+
+const journeyInclude = {
+  placements: {
+    include: { block: true },
+    orderBy: { orderIndex: 'asc' as const },
+  },
+};
 
 export class CatalogRepository {
   constructor(private readonly prisma: PrismaLike) {}
@@ -32,10 +74,7 @@ export class CatalogRepository {
         ...(status ? { status } : {}),
         ...(placeType ? { placeType } : {}),
       },
-      include: {
-        region: true,
-        parentPlace: true,
-      },
+      include: placeInclude,
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
   }
@@ -43,11 +82,7 @@ export class CatalogRepository {
   listRoutes(status?: CatalogUsageStatus) {
     return this.prisma.catalogRoute.findMany({
       where: status ? { status } : undefined,
-      include: {
-        region: true,
-        fromPlace: true,
-        toPlace: true,
-      },
+      include: { region: true, fromPlace: true, toPlace: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
   }
@@ -55,13 +90,7 @@ export class CatalogRepository {
   listElements(status?: CatalogUsageStatus) {
     return this.prisma.catalogElement.findMany({
       where: status ? { status } : undefined,
-      include: {
-        defaultPlace: true,
-        setItems: {
-          include: { memberElement: true },
-          orderBy: { orderIndex: 'asc' },
-        },
-      },
+      include: elementInclude,
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
   }
@@ -69,13 +98,27 @@ export class CatalogRepository {
   listBlocks(status?: CatalogUsageStatus) {
     return this.prisma.catalogBlock.findMany({
       where: status ? { status } : undefined,
-      include: {
-        setItems: {
-          include: { memberBlock: true },
-          orderBy: { orderIndex: 'asc' },
-        },
-      },
+      include: blockInclude,
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+  }
+
+  listJourneys(status?: CatalogUsageStatus) {
+    return this.prisma.catalogJourney.findMany({
+      where: status ? { status } : undefined,
+      include: journeyInclude,
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+  }
+
+  listChangeLogs(targetType?: string, targetId?: string) {
+    return this.prisma.catalogChangeLog.findMany({
+      where: {
+        ...(targetType ? { targetType } : {}),
+        ...(targetId ? { targetId } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
     });
   }
 
@@ -93,6 +136,18 @@ export class CatalogRepository {
     });
   }
 
+  updateRegion(id: string, data: CatalogRegionUpdateInput) {
+    return this.prisma.catalogRegion.update({
+      where: { id },
+      data: {
+        ...(data.name != null ? { name: data.name } : {}),
+        ...(data.country != null ? { country: data.country } : {}),
+        ...(data.description !== undefined ? { description: data.description } : {}),
+        ...(data.status != null ? { status: data.status } : {}),
+      },
+    });
+  }
+
   async createPlace(data: CatalogPlaceCreateInput) {
     const count = await this.prisma.catalogPlace.count();
     return this.prisma.catalogPlace.create({
@@ -103,13 +158,37 @@ export class CatalogRepository {
         country: data.country ?? '몽골',
         regionId: data.regionId ?? null,
         parentPlaceId: data.parentPlaceId ?? null,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+        displayName: data.displayName ?? null,
+        internalNote: data.internalNote ?? null,
+        accommodationId: data.accommodationId ?? null,
+        visitRadiusM: data.visitRadiusM ?? null,
         status: data.status ?? 'ACTIVE',
         sortOrder: count + 100,
       },
-      include: {
-        region: true,
-        parentPlace: true,
+      include: placeInclude,
+    });
+  }
+
+  updatePlace(id: string, data: CatalogPlaceUpdateInput) {
+    return this.prisma.catalogPlace.update({
+      where: { id },
+      data: {
+        ...(data.name != null ? { name: data.name } : {}),
+        ...(data.placeType != null ? { placeType: data.placeType } : {}),
+        ...(data.country != null ? { country: data.country } : {}),
+        ...(data.regionId !== undefined ? { regionId: data.regionId } : {}),
+        ...(data.parentPlaceId !== undefined ? { parentPlaceId: data.parentPlaceId } : {}),
+        ...(data.latitude !== undefined ? { latitude: data.latitude } : {}),
+        ...(data.longitude !== undefined ? { longitude: data.longitude } : {}),
+        ...(data.displayName !== undefined ? { displayName: data.displayName } : {}),
+        ...(data.internalNote !== undefined ? { internalNote: data.internalNote } : {}),
+        ...(data.accommodationId !== undefined ? { accommodationId: data.accommodationId } : {}),
+        ...(data.visitRadiusM !== undefined ? { visitRadiusM: data.visitRadiusM } : {}),
+        ...(data.status != null ? { status: data.status } : {}),
       },
+      include: placeInclude,
     });
   }
 
@@ -127,11 +206,23 @@ export class CatalogRepository {
         status: data.status ?? 'ACTIVE',
         sortOrder: count + 100,
       },
-      include: {
-        region: true,
-        fromPlace: true,
-        toPlace: true,
+      include: { region: true, fromPlace: true, toPlace: true },
+    });
+  }
+
+  updateRoute(id: string, data: CatalogRouteUpdateInput) {
+    return this.prisma.catalogRoute.update({
+      where: { id },
+      data: {
+        ...(data.name != null ? { name: data.name } : {}),
+        ...(data.fromPlaceId != null ? { fromPlaceId: data.fromPlaceId } : {}),
+        ...(data.toPlaceId != null ? { toPlaceId: data.toPlaceId } : {}),
+        ...(data.regionId !== undefined ? { regionId: data.regionId } : {}),
+        ...(data.averageDistanceKm !== undefined ? { averageDistanceKm: data.averageDistanceKm } : {}),
+        ...(data.averageTravelHours !== undefined ? { averageTravelHours: data.averageTravelHours } : {}),
+        ...(data.status != null ? { status: data.status } : {}),
       },
+      include: { region: true, fromPlace: true, toPlace: true },
     });
   }
 
@@ -145,41 +236,270 @@ export class CatalogRepository {
         kind: data.kind,
         composition,
         customerText: data.customerText ?? null,
+        durationText: data.durationText ?? null,
+        costRuleText: data.costRuleText ?? null,
+        defaultPlaceId: data.defaultPlaceId ?? null,
+        lifecycleStatus: data.lifecycleStatus ?? 'ACTIVE',
         status: data.status ?? 'ACTIVE',
         valueStatusText: '설정 중',
         sortOrder: count + 100,
       },
-      include: {
-        defaultPlace: true,
-        setItems: {
-          include: { memberElement: true },
-          orderBy: { orderIndex: 'asc' },
-        },
+      include: elementInclude,
+    });
+  }
+
+  getElement(id: string) {
+    return this.prisma.catalogElement.findUnique({ where: { id }, include: elementInclude });
+  }
+
+  listElementSetItems() {
+    return this.prisma.catalogElementItem.findMany({
+      select: { setElementId: true, memberElementId: true },
+    });
+  }
+
+  updateElement(id: string, data: CatalogElementUpdateInput) {
+    return this.prisma.catalogElement.update({
+      where: { id },
+      data: {
+        ...(data.name != null ? { name: data.name } : {}),
+        ...(data.kind != null ? { kind: data.kind } : {}),
+        ...(data.composition != null ? { composition: data.composition } : {}),
+        ...(data.customerText !== undefined ? { customerText: data.customerText } : {}),
+        ...(data.durationText !== undefined ? { durationText: data.durationText } : {}),
+        ...(data.costRuleText !== undefined ? { costRuleText: data.costRuleText } : {}),
+        ...(data.defaultPlaceId !== undefined ? { defaultPlaceId: data.defaultPlaceId } : {}),
+        ...(data.lifecycleStatus != null ? { lifecycleStatus: data.lifecycleStatus } : {}),
+        ...(data.status != null ? { status: data.status } : {}),
+        version: { increment: 1 },
+      },
+      include: elementInclude,
+    });
+  }
+
+  async addElementSetItem(data: CatalogElementSetItemInput) {
+    const last = await this.prisma.catalogElementItem.findFirst({
+      where: { setElementId: data.setElementId },
+      orderBy: { orderIndex: 'desc' },
+    });
+    await this.prisma.catalogElement.update({
+      where: { id: data.setElementId },
+      data: { composition: 'SET', version: { increment: 1 } },
+    });
+    await this.prisma.catalogElementItem.create({
+      data: {
+        setElementId: data.setElementId,
+        memberElementId: data.memberElementId,
+        orderIndex: (last?.orderIndex ?? -1) + 1,
       },
     });
+    return this.getElement(data.setElementId);
+  }
+
+  async removeElementSetItem(id: string) {
+    const item = await this.prisma.catalogElementItem.findUnique({ where: { id } });
+    if (!item) return null;
+    await this.prisma.catalogElementItem.delete({ where: { id } });
+    await this.prisma.catalogElement.update({
+      where: { id: item.setElementId },
+      data: { version: { increment: 1 } },
+    });
+    return this.getElement(item.setElementId);
   }
 
   async createBlock(data: CatalogBlockCreateInput) {
     const count = await this.prisma.catalogBlock.count();
-    const shape = data.shape ?? 'DAY';
+    const dayCount = data.dayCount ?? 1;
     return this.prisma.catalogBlock.create({
       data: {
-        code: nextCode(shape === 'SET' ? 'BS' : 'BL', count),
+        code: nextCode('BL', count),
         name: data.name,
-        shape,
-        dayCount: shape === 'SET' ? 2 : 1,
+        shape: 'DAY',
+        dayCount,
         fromLabel: data.fromLabel ?? null,
         toLabel: data.toLabel ?? null,
         status: data.status ?? 'ACTIVE',
-        calcStatusText: '계산됨',
+        calcStatusText: '계산 대기',
         sortOrder: count + 100,
       },
-      include: {
-        setItems: {
-          include: { memberBlock: true },
-          orderBy: { orderIndex: 'asc' },
-        },
+      include: blockInclude,
+    });
+  }
+
+  getBlock(id: string) {
+    return this.prisma.catalogBlock.findUnique({ where: { id }, include: blockInclude });
+  }
+
+  updateBlock(id: string, data: CatalogBlockUpdateInput) {
+    return this.prisma.catalogBlock.update({
+      where: { id },
+      data: {
+        ...(data.name != null ? { name: data.name } : {}),
+        ...(data.dayCount != null ? { dayCount: data.dayCount } : {}),
+        ...(data.fromLabel !== undefined ? { fromLabel: data.fromLabel } : {}),
+        ...(data.toLabel !== undefined ? { toLabel: data.toLabel } : {}),
+        ...(data.status != null ? { status: data.status } : {}),
+        version: { increment: 1 },
       },
+      include: blockInclude,
+    });
+  }
+
+  async addBlockDay(id: string) {
+    const block = await this.prisma.catalogBlock.findUnique({ where: { id } });
+    if (!block) return null;
+    return this.prisma.catalogBlock.update({
+      where: { id },
+      data: { dayCount: block.dayCount + 1, version: { increment: 1 } },
+      include: blockInclude,
+    });
+  }
+
+  async addBlockPlacement(data: CatalogBlockPlacementInput) {
+    const dayIndex = data.dayIndex ?? 1;
+    const last = await this.prisma.catalogBlockPlacement.findFirst({
+      where: { blockId: data.blockId, dayIndex },
+      orderBy: { orderIndex: 'desc' },
+    });
+    await this.prisma.catalogBlockPlacement.create({
+      data: {
+        blockId: data.blockId,
+        elementId: data.elementId,
+        dayIndex,
+        orderIndex: (last?.orderIndex ?? -1) + 1,
+        startLabel: data.startLabel ?? null,
+      },
+    });
+    await this.prisma.catalogBlock.update({
+      where: { id: data.blockId },
+      data: { version: { increment: 1 } },
+    });
+    return this.getBlock(data.blockId);
+  }
+
+  async removeBlockPlacement(id: string) {
+    const row = await this.prisma.catalogBlockPlacement.findUnique({ where: { id } });
+    if (!row) return null;
+    await this.prisma.catalogBlockPlacement.delete({ where: { id } });
+    await this.prisma.catalogBlock.update({
+      where: { id: row.blockId },
+      data: { version: { increment: 1 } },
+    });
+    return this.getBlock(row.blockId);
+  }
+
+  async createJourney(data: CatalogJourneyCreateInput) {
+    const count = await this.prisma.catalogJourney.count();
+    return this.prisma.catalogJourney.create({
+      data: {
+        code: nextCode('JT', count),
+        name: data.name,
+        nightCount: data.nightCount ?? 0,
+        dayCount: data.dayCount ?? 1,
+        status: data.status ?? 'ACTIVE',
+        calcStatusText: '미정',
+        sortOrder: count + 100,
+      },
+      include: journeyInclude,
+    });
+  }
+
+  getJourney(id: string) {
+    return this.prisma.catalogJourney.findUnique({ where: { id }, include: journeyInclude });
+  }
+
+  updateJourney(id: string, data: CatalogJourneyUpdateInput) {
+    return this.prisma.catalogJourney.update({
+      where: { id },
+      data: {
+        ...(data.name != null ? { name: data.name } : {}),
+        ...(data.nightCount != null ? { nightCount: data.nightCount } : {}),
+        ...(data.dayCount != null ? { dayCount: data.dayCount } : {}),
+        ...(data.status != null ? { status: data.status } : {}),
+        version: { increment: 1 },
+      },
+      include: journeyInclude,
+    });
+  }
+
+  async addJourneyPlacement(data: CatalogJourneyPlacementInput) {
+    const last = await this.prisma.catalogJourneyPlacement.findFirst({
+      where: { journeyId: data.journeyId },
+      orderBy: { orderIndex: 'desc' },
+    });
+    await this.prisma.catalogJourneyPlacement.create({
+      data: {
+        journeyId: data.journeyId,
+        blockId: data.blockId,
+        orderIndex: (last?.orderIndex ?? -1) + 1,
+        dayOffset: data.dayOffset ?? 0,
+      },
+    });
+    await this.prisma.catalogJourney.update({
+      where: { id: data.journeyId },
+      data: { version: { increment: 1 } },
+    });
+    return this.getJourney(data.journeyId);
+  }
+
+  async removeJourneyPlacement(id: string) {
+    const row = await this.prisma.catalogJourneyPlacement.findUnique({ where: { id } });
+    if (!row) return null;
+    await this.prisma.catalogJourneyPlacement.delete({ where: { id } });
+    await this.prisma.catalogJourney.update({
+      where: { id: row.journeyId },
+      data: { version: { increment: 1 } },
+    });
+    return this.getJourney(row.journeyId);
+  }
+
+  async elementUsages(elementId: string) {
+    const setParents = await this.prisma.catalogElementItem.findMany({
+      where: { memberElementId: elementId },
+      include: { setElement: true },
+    });
+    const blockParents = await this.prisma.catalogBlockPlacement.findMany({
+      where: { elementId },
+      include: { block: true },
+    });
+    return [
+      ...setParents.map((row) => ({
+        id: row.setElement.id,
+        kind: 'ELEMENT_SET',
+        name: row.setElement.name,
+        code: row.setElement.code,
+      })),
+      ...blockParents.map((row) => ({
+        id: row.block.id,
+        kind: 'BLOCK',
+        name: row.block.name,
+        code: row.block.code,
+      })),
+    ];
+  }
+
+  async batchUpdatePlaces(input: CatalogPlaceBatchUpdateInput) {
+    const results: Array<{ id: string | null; ok: boolean; message: string }> = [];
+    for (const id of input.ids) {
+      try {
+        await this.prisma.catalogPlace.update({
+          where: { id },
+          data: {
+            ...(input.status != null ? { status: input.status } : {}),
+            ...(input.regionId !== undefined ? { regionId: input.regionId } : {}),
+          },
+        });
+        results.push({ id, ok: true, message: '성공' });
+      } catch (error) {
+        results.push({ id, ok: false, message: error instanceof Error ? error.message : '실패' });
+      }
+    }
+    return results;
+  }
+
+  writeLog(entry: { targetType: string; targetId: string; action: string; summary: string }) {
+    return this.prisma.catalogChangeLog.create({
+      data: { actorLabel: 'staff', ...entry },
     });
   }
 }

@@ -3,9 +3,6 @@ import { CatalogService } from './catalog.service';
 
 type CatalogUsageStatus = 'ACTIVE' | 'INACTIVE';
 type CatalogPlaceType = 'LODGING' | 'EXPERIENCE' | 'MEETING' | 'GATE' | 'AREA';
-type CatalogElementComposition = 'SINGLE' | 'SET';
-type CatalogElementKind = 'MEETING' | 'TRANSFER' | 'MEAL' | 'EXPERIENCE' | 'MIXED';
-type CatalogBlockShape = 'DAY' | 'SET';
 
 interface StatusArgs {
   status?: CatalogUsageStatus;
@@ -15,56 +12,17 @@ interface PlacesArgs extends StatusArgs {
   placeType?: CatalogPlaceType;
 }
 
-interface CreateRegionArgs {
-  input: {
-    name: string;
-    country?: string;
-    description?: string | null;
-    status?: CatalogUsageStatus;
-  };
+interface IdArgs {
+  id: string;
 }
 
-interface CreatePlaceArgs {
-  input: {
-    name: string;
-    placeType: CatalogPlaceType;
-    country?: string;
-    regionId?: string | null;
-    parentPlaceId?: string | null;
-    status?: CatalogUsageStatus;
-  };
+interface ElementUsageArgs {
+  elementId: string;
 }
 
-interface CreateRouteArgs {
-  input: {
-    name: string;
-    fromPlaceId: string;
-    toPlaceId: string;
-    regionId?: string | null;
-    averageDistanceKm?: number | null;
-    averageTravelHours?: number | null;
-    status?: CatalogUsageStatus;
-  };
-}
-
-interface CreateElementArgs {
-  input: {
-    name: string;
-    kind: CatalogElementKind;
-    composition?: CatalogElementComposition;
-    customerText?: string | null;
-    status?: CatalogUsageStatus;
-  };
-}
-
-interface CreateBlockArgs {
-  input: {
-    name: string;
-    shape?: CatalogBlockShape;
-    fromLabel?: string | null;
-    toLabel?: string | null;
-    status?: CatalogUsageStatus;
-  };
+interface ChangeLogArgs {
+  targetType?: string;
+  targetId?: string;
 }
 
 export const catalogResolver = {
@@ -79,23 +37,67 @@ export const catalogResolver = {
       new CatalogService(ctx.prisma).listElements(args.status),
     catalogBlocks: (_parent: unknown, args: StatusArgs, ctx: AppContext) =>
       new CatalogService(ctx.prisma).listBlocks(args.status),
+    catalogJourneys: (_parent: unknown, args: StatusArgs, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).listJourneys(args.status),
+    catalogElementUsages: (_parent: unknown, args: ElementUsageArgs, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).elementUsages(args.elementId),
+    catalogChangeLogs: (_parent: unknown, args: ChangeLogArgs, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).listChangeLogs(args.targetType, args.targetId),
   },
   Mutation: {
-    createCatalogRegion: (_parent: unknown, args: CreateRegionArgs, ctx: AppContext) =>
+    createCatalogRegion: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
       new CatalogService(ctx.prisma).createRegion(args.input),
-    createCatalogPlace: (_parent: unknown, args: CreatePlaceArgs, ctx: AppContext) =>
+    updateCatalogRegion: (_parent: unknown, args: IdArgs & { input: never }, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).updateRegion(args.id, args.input),
+    createCatalogPlace: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
       new CatalogService(ctx.prisma).createPlace(args.input),
-    createCatalogRoute: (_parent: unknown, args: CreateRouteArgs, ctx: AppContext) =>
+    updateCatalogPlace: (_parent: unknown, args: IdArgs & { input: never }, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).updatePlace(args.id, args.input),
+    createCatalogRoute: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
       new CatalogService(ctx.prisma).createRoute(args.input),
-    createCatalogElement: (_parent: unknown, args: CreateElementArgs, ctx: AppContext) =>
+    updateCatalogRoute: (_parent: unknown, args: IdArgs & { input: never }, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).updateRoute(args.id, args.input),
+    createCatalogElement: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
       new CatalogService(ctx.prisma).createElement(args.input),
-    createCatalogBlock: (_parent: unknown, args: CreateBlockArgs, ctx: AppContext) =>
+    updateCatalogElement: (_parent: unknown, args: IdArgs & { input: never }, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).updateElement(args.id, args.input),
+    addCatalogElementSetItem: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).addElementSetItem(args.input),
+    removeCatalogElementSetItem: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).removeElementSetItem(args.id),
+    createCatalogBlock: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
       new CatalogService(ctx.prisma).createBlock(args.input),
+    updateCatalogBlock: (_parent: unknown, args: IdArgs & { input: never }, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).updateBlock(args.id, args.input),
+    addCatalogBlockDay: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).addBlockDay(args.id),
+    addCatalogBlockPlacement: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).addBlockPlacement(args.input),
+    removeCatalogBlockPlacement: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).removeBlockPlacement(args.id),
+    createCatalogJourney: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).createJourney(args.input),
+    updateCatalogJourney: (_parent: unknown, args: IdArgs & { input: never }, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).updateJourney(args.id, args.input),
+    addCatalogJourneyPlacement: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).addJourneyPlacement(args.input),
+    removeCatalogJourneyPlacement: (_parent: unknown, args: IdArgs, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).removeJourneyPlacement(args.id),
+    batchUpdateCatalogPlaces: (_parent: unknown, args: { input: never }, ctx: AppContext) =>
+      new CatalogService(ctx.prisma).batchUpdatePlaces(args.input),
   },
   CatalogElement: {
     setItems: (parent: { setItems?: unknown[] }) => parent.setItems ?? [],
+    lifecycleStatus: (parent: { lifecycleStatus?: string }) => parent.lifecycleStatus ?? 'ACTIVE',
   },
   CatalogBlock: {
     setItems: (parent: { setItems?: unknown[] }) => parent.setItems ?? [],
+    placements: (parent: { placements?: unknown[] }) => parent.placements ?? [],
+  },
+  CatalogJourney: {
+    placements: (parent: { placements?: unknown[] }) => parent.placements ?? [],
+  },
+  CatalogPlace: {
+    accommodation: (parent: { accommodation?: unknown }) => parent.accommodation ?? null,
   },
 };

@@ -32,6 +32,16 @@ export interface CatalogPlaceRow {
   lodgingLevel: string | null;
   rateSummary: string | null;
   linkLabel: string | null;
+  displayName: string | null;
+  internalNote: string | null;
+  accommodationId: string | null;
+  accommodation: {
+    id: string;
+    name: string;
+    region: string | null;
+    destination: string | null;
+  } | null;
+  visitRadiusM: number | null;
   status: CatalogUsageStatus;
   sortOrder: number;
 }
@@ -61,9 +71,23 @@ export interface CatalogElementRow {
   costRuleText: string | null;
   customerText: string | null;
   valueStatusText: string;
+  lifecycleStatus: string;
   usageCount: number;
   status: CatalogUsageStatus;
-  setItems: Array<{ id: string; orderIndex: number; memberElement: { id: string; name: string; code: string } }>;
+  setItems: Array<{
+    id: string;
+    orderIndex: number;
+    memberElement: { id: string; name: string; code: string };
+  }>;
+}
+
+export interface CatalogBlockPlacementRow {
+  id: string;
+  elementId: string;
+  element: { id: string; name: string; code: string };
+  dayIndex: number;
+  orderIndex: number;
+  startLabel: string | null;
 }
 
 export interface CatalogBlockRow {
@@ -88,8 +112,44 @@ export interface CatalogBlockRow {
   setItems: Array<{
     id: string;
     orderIndex: number;
-    memberBlock: Omit<CatalogBlockRow, 'setItems'>;
+    memberBlock: Omit<CatalogBlockRow, 'setItems' | 'placements'>;
   }>;
+  placements: CatalogBlockPlacementRow[];
+}
+
+export interface CatalogJourneyRow {
+  id: string;
+  code: string;
+  name: string;
+  version: number;
+  nightCount: number;
+  dayCount: number;
+  calcStatusText: string;
+  status: CatalogUsageStatus;
+  placements: Array<{
+    id: string;
+    blockId: string;
+    block: { id: string; name: string; code: string; dayCount: number };
+    orderIndex: number;
+    dayOffset: number;
+  }>;
+}
+
+export interface CatalogUsageRef {
+  id: string;
+  kind: string;
+  name: string;
+  code: string;
+}
+
+export interface CatalogChangeLogRow {
+  id: string;
+  actorLabel: string;
+  targetType: string;
+  targetId: string;
+  action: string;
+  summary: string;
+  createdAt: string;
 }
 
 const REGIONS_QUERY = gql`
@@ -129,6 +189,16 @@ const PLACES_QUERY = gql`
       lodgingLevel
       rateSummary
       linkLabel
+      displayName
+      internalNote
+      accommodationId
+      accommodation {
+        id
+        name
+        region
+        destination
+      }
+      visitRadiusM
       status
       sortOrder
     }
@@ -178,6 +248,7 @@ const ELEMENTS_QUERY = gql`
       costRuleText
       customerText
       valueStatusText
+      lifecycleStatus
       usageCount
       status
       setItems {
@@ -238,6 +309,70 @@ const BLOCKS_QUERY = gql`
           status
         }
       }
+      placements {
+        id
+        elementId
+        element {
+          id
+          name
+          code
+        }
+        dayIndex
+        orderIndex
+        startLabel
+      }
+    }
+  }
+`;
+
+const JOURNEYS_QUERY = gql`
+  query CatalogJourneys {
+    catalogJourneys {
+      id
+      code
+      name
+      version
+      nightCount
+      dayCount
+      calcStatusText
+      status
+      placements {
+        id
+        blockId
+        block {
+          id
+          name
+          code
+          dayCount
+        }
+        orderIndex
+        dayOffset
+      }
+    }
+  }
+`;
+
+const USAGES_QUERY = gql`
+  query CatalogElementUsages($elementId: ID!) {
+    catalogElementUsages(elementId: $elementId) {
+      id
+      kind
+      name
+      code
+    }
+  }
+`;
+
+const LOGS_QUERY = gql`
+  query CatalogChangeLogs($targetType: String, $targetId: ID) {
+    catalogChangeLogs(targetType: $targetType, targetId: $targetId) {
+      id
+      actorLabel
+      targetType
+      targetId
+      action
+      summary
+      createdAt
     }
   }
 `;
@@ -245,6 +380,14 @@ const BLOCKS_QUERY = gql`
 const CREATE_REGION = gql`
   mutation CreateCatalogRegion($input: CatalogRegionCreateInput!) {
     createCatalogRegion(input: $input) {
+      id
+    }
+  }
+`;
+
+const UPDATE_REGION = gql`
+  mutation UpdateCatalogRegion($id: ID!, $input: CatalogRegionUpdateInput!) {
+    updateCatalogRegion(id: $id, input: $input) {
       id
     }
   }
@@ -258,9 +401,25 @@ const CREATE_PLACE = gql`
   }
 `;
 
+const UPDATE_PLACE = gql`
+  mutation UpdateCatalogPlace($id: ID!, $input: CatalogPlaceUpdateInput!) {
+    updateCatalogPlace(id: $id, input: $input) {
+      id
+    }
+  }
+`;
+
 const CREATE_ROUTE = gql`
   mutation CreateCatalogRoute($input: CatalogRouteCreateInput!) {
     createCatalogRoute(input: $input) {
+      id
+    }
+  }
+`;
+
+const UPDATE_ROUTE = gql`
+  mutation UpdateCatalogRoute($id: ID!, $input: CatalogRouteUpdateInput!) {
+    updateCatalogRoute(id: $id, input: $input) {
       id
     }
   }
@@ -274,10 +433,100 @@ const CREATE_ELEMENT = gql`
   }
 `;
 
+const UPDATE_ELEMENT = gql`
+  mutation UpdateCatalogElement($id: ID!, $input: CatalogElementUpdateInput!) {
+    updateCatalogElement(id: $id, input: $input) {
+      id
+    }
+  }
+`;
+
+const ADD_SET_ITEM = gql`
+  mutation AddCatalogElementSetItem($input: CatalogElementSetItemInput!) {
+    addCatalogElementSetItem(input: $input) {
+      id
+    }
+  }
+`;
+
+const REMOVE_SET_ITEM = gql`
+  mutation RemoveCatalogElementSetItem($id: ID!) {
+    removeCatalogElementSetItem(id: $id) {
+      id
+    }
+  }
+`;
+
 const CREATE_BLOCK = gql`
   mutation CreateCatalogBlock($input: CatalogBlockCreateInput!) {
     createCatalogBlock(input: $input) {
       id
+    }
+  }
+`;
+
+const UPDATE_BLOCK = gql`
+  mutation UpdateCatalogBlock($id: ID!, $input: CatalogBlockUpdateInput!) {
+    updateCatalogBlock(id: $id, input: $input) {
+      id
+    }
+  }
+`;
+
+const ADD_BLOCK_DAY = gql`
+  mutation AddCatalogBlockDay($id: ID!) {
+    addCatalogBlockDay(id: $id) {
+      id
+    }
+  }
+`;
+
+const ADD_BLOCK_PLACEMENT = gql`
+  mutation AddCatalogBlockPlacement($input: CatalogBlockPlacementInput!) {
+    addCatalogBlockPlacement(input: $input) {
+      id
+    }
+  }
+`;
+
+const REMOVE_BLOCK_PLACEMENT = gql`
+  mutation RemoveCatalogBlockPlacement($id: ID!) {
+    removeCatalogBlockPlacement(id: $id) {
+      id
+    }
+  }
+`;
+
+const CREATE_JOURNEY = gql`
+  mutation CreateCatalogJourney($input: CatalogJourneyCreateInput!) {
+    createCatalogJourney(input: $input) {
+      id
+    }
+  }
+`;
+
+const ADD_JOURNEY_PLACEMENT = gql`
+  mutation AddCatalogJourneyPlacement($input: CatalogJourneyPlacementInput!) {
+    addCatalogJourneyPlacement(input: $input) {
+      id
+    }
+  }
+`;
+
+const REMOVE_JOURNEY_PLACEMENT = gql`
+  mutation RemoveCatalogJourneyPlacement($id: ID!) {
+    removeCatalogJourneyPlacement(id: $id) {
+      id
+    }
+  }
+`;
+
+const BATCH_PLACES = gql`
+  mutation BatchUpdateCatalogPlaces($input: CatalogPlaceBatchUpdateInput!) {
+    batchUpdateCatalogPlaces(input: $input) {
+      id
+      ok
+      message
     }
   }
 `;
@@ -302,22 +551,97 @@ export function useCatalogBlocks() {
   return useQuery<{ catalogBlocks: CatalogBlockRow[] }>(BLOCKS_QUERY);
 }
 
+export function useCatalogJourneys() {
+  return useQuery<{ catalogJourneys: CatalogJourneyRow[] }>(JOURNEYS_QUERY);
+}
+
+export function useCatalogElementUsages(elementId: string | null) {
+  return useQuery<{ catalogElementUsages: CatalogUsageRef[] }>(USAGES_QUERY, {
+    variables: { elementId },
+    skip: !elementId,
+  });
+}
+
+export function useCatalogChangeLogs(targetType?: string, targetId?: string) {
+  return useQuery<{ catalogChangeLogs: CatalogChangeLogRow[] }>(LOGS_QUERY, {
+    variables: { targetType, targetId },
+  });
+}
+
 export function useCreateCatalogRegion() {
   return useMutation(CREATE_REGION, { refetchQueries: [{ query: REGIONS_QUERY }] });
+}
+
+export function useUpdateCatalogRegion() {
+  return useMutation(UPDATE_REGION, { refetchQueries: [{ query: REGIONS_QUERY }] });
 }
 
 export function useCreateCatalogPlace() {
   return useMutation(CREATE_PLACE, { refetchQueries: [{ query: PLACES_QUERY }] });
 }
 
+export function useUpdateCatalogPlace() {
+  return useMutation(UPDATE_PLACE, { refetchQueries: [{ query: PLACES_QUERY }] });
+}
+
 export function useCreateCatalogRoute() {
   return useMutation(CREATE_ROUTE, { refetchQueries: [{ query: ROUTES_QUERY }] });
+}
+
+export function useUpdateCatalogRoute() {
+  return useMutation(UPDATE_ROUTE, { refetchQueries: [{ query: ROUTES_QUERY }] });
 }
 
 export function useCreateCatalogElement() {
   return useMutation(CREATE_ELEMENT, { refetchQueries: [{ query: ELEMENTS_QUERY }] });
 }
 
+export function useUpdateCatalogElement() {
+  return useMutation(UPDATE_ELEMENT, { refetchQueries: [{ query: ELEMENTS_QUERY }] });
+}
+
+export function useAddCatalogElementSetItem() {
+  return useMutation(ADD_SET_ITEM, { refetchQueries: [{ query: ELEMENTS_QUERY }] });
+}
+
+export function useRemoveCatalogElementSetItem() {
+  return useMutation(REMOVE_SET_ITEM, { refetchQueries: [{ query: ELEMENTS_QUERY }] });
+}
+
 export function useCreateCatalogBlock() {
   return useMutation(CREATE_BLOCK, { refetchQueries: [{ query: BLOCKS_QUERY }] });
+}
+
+export function useUpdateCatalogBlock() {
+  return useMutation(UPDATE_BLOCK, { refetchQueries: [{ query: BLOCKS_QUERY }] });
+}
+
+export function useAddCatalogBlockDay() {
+  return useMutation(ADD_BLOCK_DAY, { refetchQueries: [{ query: BLOCKS_QUERY }] });
+}
+
+export function useAddCatalogBlockPlacement() {
+  return useMutation(ADD_BLOCK_PLACEMENT, { refetchQueries: [{ query: BLOCKS_QUERY }] });
+}
+
+export function useRemoveCatalogBlockPlacement() {
+  return useMutation(REMOVE_BLOCK_PLACEMENT, { refetchQueries: [{ query: BLOCKS_QUERY }] });
+}
+
+export function useCreateCatalogJourney() {
+  return useMutation(CREATE_JOURNEY, { refetchQueries: [{ query: JOURNEYS_QUERY }] });
+}
+
+export function useAddCatalogJourneyPlacement() {
+  return useMutation(ADD_JOURNEY_PLACEMENT, { refetchQueries: [{ query: JOURNEYS_QUERY }] });
+}
+
+export function useRemoveCatalogJourneyPlacement() {
+  return useMutation(REMOVE_JOURNEY_PLACEMENT, { refetchQueries: [{ query: JOURNEYS_QUERY }] });
+}
+
+export function useBatchUpdateCatalogPlaces() {
+  return useMutation(BATCH_PLACES, {
+    refetchQueries: [{ query: PLACES_QUERY }, { query: LOGS_QUERY }],
+  });
 }

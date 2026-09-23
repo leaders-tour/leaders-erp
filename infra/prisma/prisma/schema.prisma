@@ -2232,8 +2232,9 @@ model Accommodation {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  options  AccommodationOption[]
-  lodgings ConfirmedTripLodging[]
+  options       AccommodationOption[]
+  lodgings      ConfirmedTripLodging[]
+  catalogPlaces CatalogPlace[]
 
   @@index([region])
   @@index([destination])
@@ -2329,15 +2330,20 @@ model CatalogPlace {
   lodgingLevel     String?
   rateSummary      String?
   linkLabel        String?
+  displayName      String?
+  internalNote     String?
+  accommodationId  String?
+  visitRadiusM     Int?
   status           CatalogUsageStatus @default(ACTIVE)
   sortOrder        Int                @default(0)
 
-  region       CatalogRegion?  @relation(fields: [regionId], references: [id], onDelete: SetNull)
-  parentPlace  CatalogPlace?   @relation("CatalogPlaceParent", fields: [parentPlaceId], references: [id], onDelete: SetNull)
-  childPlaces  CatalogPlace[]  @relation("CatalogPlaceParent")
-  fromRoutes   CatalogRoute[]  @relation("CatalogRouteFrom")
-  toRoutes     CatalogRoute[]  @relation("CatalogRouteTo")
-  elements     CatalogElement[]
+  region        CatalogRegion?  @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  parentPlace   CatalogPlace?   @relation("CatalogPlaceParent", fields: [parentPlaceId], references: [id], onDelete: SetNull)
+  childPlaces   CatalogPlace[]  @relation("CatalogPlaceParent")
+  fromRoutes    CatalogRoute[]  @relation("CatalogRouteFrom")
+  toRoutes      CatalogRoute[]  @relation("CatalogRouteTo")
+  elements      CatalogElement[]
+  accommodation Accommodation?  @relation(fields: [accommodationId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2345,6 +2351,7 @@ model CatalogPlace {
   @@index([placeType, status, sortOrder])
   @@index([regionId])
   @@index([parentPlaceId])
+  @@index([accommodationId])
 }
 
 model CatalogRoute {
@@ -2387,9 +2394,12 @@ model CatalogElement {
   status           CatalogUsageStatus         @default(ACTIVE)
   sortOrder        Int                        @default(0)
 
-  defaultPlace CatalogPlace?        @relation(fields: [defaultPlaceId], references: [id], onDelete: SetNull)
-  setItems     CatalogElementItem[] @relation("CatalogElementSet")
-  memberOf     CatalogElementItem[] @relation("CatalogElementMember")
+  lifecycleStatus  String                     @default("ACTIVE")
+
+  defaultPlace CatalogPlace?          @relation(fields: [defaultPlaceId], references: [id], onDelete: SetNull)
+  setItems     CatalogElementItem[]   @relation("CatalogElementSet")
+  memberOf     CatalogElementItem[]   @relation("CatalogElementMember")
+  blockPlacements CatalogBlockPlacement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2435,8 +2445,10 @@ model CatalogBlock {
   status               CatalogUsageStatus @default(ACTIVE)
   sortOrder            Int                @default(0)
 
-  setItems  CatalogBlockItem[] @relation("CatalogBlockSet")
-  memberOf  CatalogBlockItem[] @relation("CatalogBlockMember")
+  setItems    CatalogBlockItem[]        @relation("CatalogBlockSet")
+  memberOf    CatalogBlockItem[]        @relation("CatalogBlockMember")
+  placements  CatalogBlockPlacement[]
+  journeyUses CatalogJourneyPlacement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2458,4 +2470,70 @@ model CatalogBlockItem {
 
   @@unique([setBlockId, orderIndex])
   @@index([memberBlockId])
+}
+
+model CatalogBlockPlacement {
+  id         String @id @default(uuid(7))
+  blockId    String
+  elementId  String
+  dayIndex   Int    @default(1)
+  orderIndex Int
+  startLabel String?
+
+  block   CatalogBlock   @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  element CatalogElement @relation(fields: [elementId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([blockId, dayIndex, orderIndex])
+  @@index([elementId])
+}
+
+model CatalogJourney {
+  id             String             @id @default(uuid(7))
+  code           String             @unique
+  name           String
+  version        Int                @default(0)
+  nightCount     Int                @default(0)
+  dayCount       Int                @default(1)
+  calcStatusText String             @default("미정")
+  status         CatalogUsageStatus @default(ACTIVE)
+  sortOrder      Int                @default(0)
+
+  placements CatalogJourneyPlacement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, sortOrder])
+}
+
+model CatalogJourneyPlacement {
+  id         String @id @default(uuid(7))
+  journeyId  String
+  blockId    String
+  orderIndex Int
+  dayOffset  Int    @default(0)
+
+  journey CatalogJourney @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  block   CatalogBlock   @relation(fields: [blockId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([journeyId, orderIndex])
+  @@index([blockId])
+}
+
+model CatalogChangeLog {
+  id          String   @id @default(uuid(7))
+  actorLabel  String   @default("staff")
+  targetType  String
+  targetId    String
+  action      String
+  summary     String
+  createdAt   DateTime @default(now())
+
+  @@index([targetType, targetId, createdAt])
 }

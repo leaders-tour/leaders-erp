@@ -21,6 +21,7 @@ import {
   StubButton,
   datasetControlClass,
 } from '../../features/dataset/ui';
+import { DatasetElementDetailPanel } from './DatasetElementDetailPanel';
 
 type ModeTab = 'source' | 'usage';
 
@@ -35,6 +36,7 @@ export function DatasetElementsPage(): JSX.Element {
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createKind, setCreateKind] = useState<CatalogElementKind>('EXPERIENCE');
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const { data, loading, error } = useCatalogElements();
   const [createElement, createState] = useCreateCatalogElement();
@@ -241,7 +243,9 @@ export function DatasetElementsPage(): JSX.Element {
                                   <span className="w-3" />
                                 )}
                                 <div>
-                                  <div className="font-medium text-slate-900">{row.name}</div>
+                                  <button type="button" className={`text-left font-medium ${datasetTheme.link}`} onClick={() => setDetailId(row.id)}>
+                                    {row.name}
+                                  </button>
                                   <div className="text-xs text-slate-400">
                                     {row.code} · v{row.version}
                                     {isSet ? ` · ${row.setItems.length}개` : ''}
@@ -334,6 +338,15 @@ export function DatasetElementsPage(): JSX.Element {
           </div>
         </>
       ) : null}
+
+      {detailId
+        ? (() => {
+            const selected = rows.find((row) => row.id === detailId);
+            return selected ? (
+              <DatasetElementDetailPanel element={selected} elements={rows} onClose={() => setDetailId(null)} />
+            ) : null;
+          })()
+        : null}
 
       <DatasetPageFooter screenId="T02-01 · 일정요소 원본 목록" />
     </section>
